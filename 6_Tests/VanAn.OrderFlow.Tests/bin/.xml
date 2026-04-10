@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>VanAn.OrderFlow.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:VanAn.OrderFlow.Tests.OrderApiTests">
+            <summary>
+            Order API Tests - TDD Phase 1 (RED)
+            Tests must FAIL before implementation
+            </summary>
+        </member>
+    </members>
+</doc>

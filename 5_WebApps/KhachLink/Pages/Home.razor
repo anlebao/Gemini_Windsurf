@@ -1,0 +1,245 @@
+@page "/home"
+@inject VanAn.KhachLink.Services.CartService CartService
+@inject Microsoft.AspNetCore.Components.NavigationManager NavigationManager
+@implements IDisposable
+
+<PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
+
+<!-- Floating Cart Widget -->
+<div class="position-fixed top-50 end-0 translate-middle-y" style="z-index: 1000; margin-right: 20px;">
+    <div class="card shadow-lg" style="min-width: 280px;">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                <i class="bi bi-cart3"></i> Giỏ hàng
+            </h6>
+            <span class="badge bg-light text-primary">@cartState.GetTotalItems()</span>
+        </div>
+        <div class="card-body p-2">
+            @if (cartState.GetTotalItems() == 0)
+            {
+                <small class="text-muted">Giỏ hàng trống</small>
+            }
+            else
+            {
+                <div class="small">
+                    @foreach (var item in cartState.Items.Take(3))
+                    {
+                        <div class="d-flex justify-content-between">
+                            <span>@item.ProductName x @item.Quantity</span>
+                            <strong>@item.TotalAmount.ToString("N0")đ</strong>
+                        </div>
+                    }
+                    @if (cartState.Items.Count > 3)
+                    {
+                        <div class="text-muted">... và @(cartState.Items.Count - 3) sản phẩm khác</div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <strong>Tổng:</strong>
+                        <strong class="text-danger">@cartState.TotalAmount.ToString("N0")đ</strong>
+                    </div>
+                </div>
+                <div class="d-grid gap-2 mt-2">
+                    <button class="btn btn-success btn-sm" @onclick="GoToCart">
+                        <i class="bi bi-cart"></i> Xem giỏ hàng
+                    </button>
+                    <button class="btn btn-primary btn-sm" @onclick="GoToCheckout">
+                        <i class="bi bi-qr-code"></i> Thanh toán
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid vh-100 d-flex flex-column">
+    <!-- Header -->
+    <header class="bg-primary text-white py-3">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-link-45deg"></i> KhachLink
+                    </h1>
+                    <small class="opacity-75">Cỗ máy O2O Flywheel</small>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="bi bi-coin text-warning"></i>
+                            <strong>0</strong> điểm
+                        </div>
+                        <button class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-clock-history"></i> Lịch sử
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+        <div class="container h-100">
+            <div class="row h-100 align-items-center justify-content-center">
+                <div class="col-lg-8">
+                    <!-- Hero Section -->
+                    <div class="text-center mb-5">
+                        <h1 class="display-4 fw-bold text-primary mb-3">
+                            🍵 Trà Sữa Vạn An
+                        </h1>
+                        <p class="lead text-muted">
+                            Trải nghiệm trà sữa đậm đà nguyên bản với công phức chế độc quyền
+                        </p>
+                    </div>
+
+                    <!-- Product Showcase -->
+                    <div class="row mb-5">
+                        @if (products != null && products.Any())
+                        {
+                            @foreach (var item in products)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 border-0 shadow-sm">
+                                        <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                             class="card-img-top" 
+                                             alt="@item.Name" 
+                                             style="height: 200px; object-fit: cover;" />
+                                        <div class="card-body">
+                                            <h5 class="card-title">@item.Name</h5>
+                                            <p class="card-text text-muted">@item.Description</p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="h5 text-primary mb-0">@item.Price.ToString("N0")đ</span>
+                                                    <br />
+                                                    <small class="text-muted">VAT: @(item.VatRate * 100)%</small>
+                                                </div>
+                                                <button class="btn btn-primary btn-sm" @onclick="() => AddToCart(item)">
+                                                    <i class="bi bi-cart-plus"></i> Đặt ngay
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="col-12 text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Đang tải...</span>
+                                </div>
+                                <p class="mt-2">Đang tải sản phẩm...</p>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Social Proof Section -->
+                    <div class="text-center">
+                        <h4 class="mb-4">🔥 Khách hàng đang yêu thích</h4>
+                        <div class="row" id="socialProofContainer">
+                            <!-- Social proof items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light py-3">
+        <div class="container text-center">
+            <p class="mb-0 text-muted">© 2024 Vạn An Group - Trà Sữa Cao Cấp</p>
+        </div>
+    </footer>
+</div>
+
+@code {
+    private VanAn.KhachLink.Services.CartState cartState = new();
+    private List<Product> products = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        cartState = CartService.GetCartState();
+        CartService.OnCartChanged += StateHasChanged;
+        await CartService.LoadCartFromStorageAsync();
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        try
+        {
+            // TODO: Replace with actual API call
+            products = new List<Product>
+            {
+                new Product 
+                { 
+                    Id = Guid.NewGuid(), 
+                    Name = "Trà Sữa Matcha", 
+                    Description = "Trà sữa matcha đậm đà nguyên bản từ Nhật Bản",
+                    Price = 45000m,
+                    VatRate = 0.10m,
+                    ImageUrl = "",
+                    IsActive = true,
+                    Category = "Matcha"
+                },
+                new Product 
+                { 
+                    Id = Guid.NewGuid(), 
+                    Name = "Trà Sữa Đậu Đỏ", 
+                    Description = "Trà sữa đậu đỏ ngọt ngào, béo ngậy",
+                    Price = 40000m,
+                    VatRate = 0.08m,
+                    ImageUrl = "",
+                    IsActive = true,
+                    Category = "Traditional"
+                },
+                new Product 
+                { 
+                    Id = Guid.NewGuid(), 
+                    Name = "Trà Sữa Truyền Thống", 
+                    Description = "Hương vị trà sữa truyền thống không thể thiếu",
+                    Price = 35000m,
+                    VatRate = 0.10m,
+                    ImageUrl = "",
+                    IsActive = true,
+                    Category = "Traditional"
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+    }
+
+    private async Task AddToCart(Product product)
+    {
+        await CartService.AddItemAsync(product, 1);
+        
+        // Show notification
+        await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng!", "success");
+    }
+
+    private async Task ShowNotification(string message, string type)
+    {
+        // Simple notification - could be enhanced with a proper toast library
+        await Task.Delay(100);
+    }
+
+    private void GoToCart()
+    {
+        NavigationManager.NavigateTo("/cart");
+    }
+
+    private void GoToCheckout()
+    {
+        NavigationManager.NavigateTo("/checkout");
+    }
+
+    public void Dispose()
+    {
+        CartService.OnCartChanged -= StateHasChanged;
+    }
+}

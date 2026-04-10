@@ -1,0 +1,6 @@
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\bin\Debug\net8.0\.msCoverageSourceRootsMapping_VanAn.Integration.Tests
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\bin\Debug\net8.0\CoverletSourceRootsMapping_VanAn.Integration.Tests
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\obj\Debug\net8.0\VanAn.Integration.Tests.csproj.AssemblyReference.cache
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\obj\Debug\net8.0\MvcTestingAppManifest.json
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\obj\Debug\net8.0\VanAn.Integration.Tests.GeneratedMSBuildEditorConfig.editorconfig
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\obj\Debug\net8.0\VanAn.Integration.Tests.csproj.CoreCompileInputs.cache

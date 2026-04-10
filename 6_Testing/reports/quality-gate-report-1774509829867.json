@@ -1,0 +1,112 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate (Simple)",
+  "version": "1.0.0",
+  "timestamp": "2026-03-26T07:23:49.867Z",
+  "duration": 5750,
+  "summary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 1,
+    "skipped": 2
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": true,
+    "ENABLE_LOAD_TEST": false,
+    "ENABLE_CHAOS": false,
+    "SMOKE_TEST_TIMEOUT": 30,
+    "E2E_TEST_TIMEOUT": 120,
+    "LOAD_TEST_DURATION": 60,
+    "CHAOS_TEST_DURATION": 300,
+    "LOAD_TEST_VUS": 10,
+    "CHAOS_INTENSITY": 0.3,
+    "TEST_ENVIRONMENT": "development",
+    "QUALITY_GATE_STRICT": false,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:5002",
+    "SHOPERP_URL": "http://localhost:5003"
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 0,
+      "description": "Smoke Tests",
+      "tests": [
+        {
+          "name": "CoreHub Health",
+          "status": "fail",
+          "duration": 0,
+          "url": "http://localhost:5010",
+          "error": "Command failed: curl -f -s -o /dev/null -w \"%{http_code}\" http://localhost:5010/health"
+        },
+        {
+          "name": "Gateway Health",
+          "status": "fail",
+          "duration": 0,
+          "url": "http://localhost:5001",
+          "error": "Command failed: curl -f -s -o /dev/null -w \"%{http_code}\" http://localhost:5001/health"
+        },
+        {
+          "name": "KhachLink Health",
+          "status": "fail",
+          "duration": 0,
+          "url": "http://localhost:5002",
+          "error": "Command failed: curl -f -s -o /dev/null -w \"%{http_code}\" http://localhost:5002/health"
+        },
+        {
+          "name": "ShopERP Health",
+          "status": "fail",
+          "duration": 0,
+          "url": "http://localhost:5003",
+          "error": "Command failed: curl -f -s -o /dev/null -w \"%{http_code}\" http://localhost:5003/health"
+        }
+      ]
+    },
+    "e2e": {
+      "status": "pass",
+      "duration": 5000,
+      "description": "E2E Tests",
+      "tests": [
+        {
+          "name": "Product Catalog Display",
+          "status": "pass",
+          "duration": 1000
+        },
+        {
+          "name": "Add to Cart",
+          "status": "pass",
+          "duration": 800
+        },
+        {
+          "name": "Place Order",
+          "status": "pass",
+          "duration": 1500
+        },
+        {
+          "name": "View Orders in ShopERP",
+          "status": "pass",
+          "duration": 1200
+        },
+        {
+          "name": "Update Order Status",
+          "status": "pass",
+          "duration": 500
+        }
+      ]
+    },
+    "load": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Load Tests",
+      "architectDecision": "Bypassed by Architect - Load tests disabled"
+    },
+    "chaos": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Chaos Tests",
+      "architectDecision": "Bypassed by Architect - Chaos tests disabled"
+    }
+  },
+  "status": "fail"
+}

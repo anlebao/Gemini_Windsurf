@@ -1,0 +1,77 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\obj\\Development\\net8.0\\scopedcss\\projectbundle\\VanAn.KhachLink.bundle.scp.css",
+      "PackagePath": "staticwebassets\\VanAn.KhachLink.bundle.scp.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\bootstrap\\bootstrap.min.css",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\bootstrap\\bootstrap.min.css.map",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css.map"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\pwa.css",
+      "PackagePath": "staticwebassets\\css\\pwa.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\themes\\classic.css",
+      "PackagePath": "staticwebassets\\css\\themes\\classic.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\themes\\lady.css",
+      "PackagePath": "staticwebassets\\css\\themes\\lady.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\themes\\premium.css",
+      "PackagePath": "staticwebassets\\css\\themes\\premium.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\themes\\teen.css",
+      "PackagePath": "staticwebassets\\css\\themes\\teen.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\favicon.ico",
+      "PackagePath": "staticwebassets\\favicon.ico"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\favicon.png",
+      "PackagePath": "staticwebassets\\favicon.png"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\manifest.json",
+      "PackagePath": "staticwebassets\\manifest.json"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\KhachLink\\wwwroot\\service-worker.js",
+      "PackagePath": "staticwebassets\\service-worker.js"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.VanAn.KhachLink.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.build.VanAn.KhachLink.props",
+      "PackagePath": "build\\VanAn.KhachLink.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.VanAn.KhachLink.props",
+      "PackagePath": "buildMultiTargeting\\VanAn.KhachLink.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.buildTransitive.VanAn.KhachLink.props",
+      "PackagePath": "buildTransitive\\VanAn.KhachLink.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

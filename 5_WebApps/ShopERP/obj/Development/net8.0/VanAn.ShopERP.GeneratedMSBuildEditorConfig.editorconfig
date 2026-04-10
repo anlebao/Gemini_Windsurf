@@ -1,0 +1,119 @@
+is_global = true
+build_property.TargetFramework = net8.0
+build_property.TargetFramework = net8.0
+build_property.TargetFramework = net8.0
+build_property.TargetPlatformMinVersion = 
+build_property.TargetPlatformMinVersion = 
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.ProjectTypeGuids = 
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.InvariantGlobalization = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.PlatformNeutralAssembly = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = VanAn.ShopERP
+build_property.RootNamespace = VanAn.ShopERP
+build_property.ProjectDir = C:\vibecoding\gemini_windsurf\5_WebApps\ShopERP\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 8.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = C:\vibecoding\gemini_windsurf\5_WebApps\ShopERP
+build_property._RazorSourceGeneratorDebug = 
+
+[C:/vibecoding/gemini_windsurf/BannedSymbols.txt]
+build_metadata.AdditionalFiles.TargetPath = 
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/App.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/Pages/Counter.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/Pages/Error.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFcnJvci5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/Pages/Home.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xIb21lLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/Routes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/QuickSetup.razor]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcUXVpY2tTZXR1cC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = X0ltcG9ydHMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/Layout/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-8iz0k6al7h
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Components/Layout/NavMenu.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = b-3uqf8vd9o4
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/GuardRedirect.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcR3VhcmRSZWRpcmVjdC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/Guard/Scan.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcR3VhcmRcU2Nhbi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/Index_SignalR.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXhfU2lnbmFsUi5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/Kitchen/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcS2l0Y2hlblxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/Login.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTG9naW4uY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/Logout.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcTG9nb3V0LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/SocialCampaignManager.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcU29jaWFsQ2FtcGFpZ25NYW5hZ2VyLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/WorkflowConfig.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcV29ya2Zsb3dDb25maWcuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/vibecoding/gemini_windsurf/5_WebApps/ShopERP/Pages/_ViewImports.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcX1ZpZXdJbXBvcnRzLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 

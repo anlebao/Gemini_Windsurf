@@ -1,0 +1,50 @@
+# Use Node.js 18 for Playwright compatibility
+FROM node:18-alpine
+
+# Install required system dependencies
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    curl \
+    bash \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Set working directory
+WORKDIR /app
+
+# Copy test files directly (no npm dependencies needed)
+COPY 6_Testing/utils ./utils/
+COPY 6_Testing/scripts ./scripts/
+COPY 6_Testing/dashboard ./dashboard/
+COPY 6_Testing/smoke-tests ./smoke-tests/
+COPY 6_Testing/e2e-tests ./e2e-tests/
+COPY 6_Testing/load-tests ./load-tests/
+COPY 6_Testing/chaos-tests ./chaos-tests/
+COPY .env.test ./
+
+# Create reports directory
+RUN mkdir -p reports
+
+# Install Python dependencies for chaos testing
+RUN pip3 install --break-system-packages requests
+
+# Install Playwright browsers
+RUN npx playwright install chromium
+RUN npx playwright install firefox
+RUN npx playwright install webkit
+
+# Set permissions
+RUN chmod +x scripts/quality-gate.js
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "console.log('Quality Gate Service Healthy')" || exit 1
+
+# Default command
+CMD ["node", "scripts/quality-gate-simple.js"]

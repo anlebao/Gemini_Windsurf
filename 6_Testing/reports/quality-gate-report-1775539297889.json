@@ -1,0 +1,53 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate",
+  "version": "1.0.0",
+  "timestamp": "2026-04-07T05:21:37.889Z",
+  "duration": 1178,
+  "summary": {
+    "total": 4,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 3
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": false,
+    "ENABLE_LOAD_TEST": false,
+    "ENABLE_CHAOS": false,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:3000",
+    "SHOPERP_URL": "http://localhost:3001",
+    "SMOKE_TEST_TIMEOUT": 300,
+    "E2E_TEST_TIMEOUT": 600,
+    "LOAD_TEST_DURATION": 120,
+    "CHAOS_TEST_DURATION": 180
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 1162,
+      "error": "Command failed: dotnet test ../VanAn.Core.Tests/VanAn.Core.Tests.csproj --logger \"console;verbosity=normal\"",
+      "description": "Smoke Tests (.NET Unit Tests)"
+    },
+    "e2e": {
+      "status": "skip",
+      "duration": 0,
+      "description": "E2E Tests",
+      "architectDecision": "Bypassed by Architect - E2E tests disabled"
+    },
+    "load": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Load Tests",
+      "architectDecision": "Bypassed by Architect - Load tests disabled"
+    },
+    "chaos": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Chaos Tests",
+      "architectDecision": "Bypassed by Architect - Chaos tests disabled"
+    }
+  },
+  "status": "fail"
+}

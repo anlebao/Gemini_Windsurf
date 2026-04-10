@@ -1,0 +1,173 @@
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject ILocalizationService LocalizationService
+
+<div class="voice-command-container">
+    @if (isRecording)
+    {
+        <div class="recording-indicator">
+            <div class="recording-dot"></div>
+            <span>@LocalizationService.GetString("Voice.Recording")</span>
+            <button class="btn btn-danger btn-sm ms-2" @onclick="StopRecording">
+                ⏹️ @LocalizationService.GetString("Voice.StopRecording")
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-primary" @onclick="StartRecording" disabled="@(string.IsNullOrEmpty(currentOrderId))">
+                🎤 @LocalizationService.GetString("Voice.StartRecording")
+            </button>
+            <select class="form-select form-select-sm" style="width: auto;" @bind="selectedLanguage" @bind:after="OnLanguageChanged">
+                <option value="vi">@LocalizationService.GetString("Voice.Vietnamese")</option>
+                <option value="en">@LocalizationService.GetString("Voice.English")</option>
+            </select>
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(transcript))
+    {
+        <div class="mt-2">
+            <small class="text-muted">@LocalizationService.GetString("Voice.Transcript"):</small>
+            <p class="transcript-text">@transcript</p>
+        </div>
+    }
+</div>
+
+<style>
+    .voice-command-container {
+        margin: 1rem 0;
+    }
+    
+    .recording-indicator {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+    }
+    
+    .recording-dot {
+        width: 12px;
+        height: 12px;
+        background-color: #dc3545;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+        animation: pulse 1.5s infinite;
+    }
+    
+    @@keyframes pulse {
+        0% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+        }
+        
+        70% {
+            transform: scale(1);
+            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+        }
+        
+        100% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
+    
+    .transcript-text {
+        background-color: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        border-left: 4px solid var(--primary-color, #007bff);
+        margin: 0.25rem 0;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string OrderId { get; set; } = string.Empty;
+    
+    [Parameter]
+    public EventCallback<string> OnTranscriptChanged { get; set; }
+
+    private bool isRecording = false;
+    private string transcript = "";
+    private string currentOrderId = "";
+    private string selectedLanguage = "vi";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        currentOrderId = OrderId;
+        await Task.CompletedTask;
+    }
+
+    private void OnLanguageChanged()
+    {
+        LocalizationService.SetCulture(selectedLanguage);
+        StateHasChanged();
+    }
+
+    private async Task StartRecording()
+    {
+        try
+        {
+            isRecording = true;
+            StateHasChanged();
+
+            // Start recording using Web Speech API with selected language
+            await JSRuntime.InvokeVoidAsync("startVoiceRecording", DotNetObjectReference.Create(this), selectedLanguage);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting recording: {ex.Message}");
+            isRecording = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopRecording()
+    {
+        try
+        {
+            isRecording = false;
+            StateHasChanged();
+
+            // Stop recording
+            await JSRuntime.InvokeVoidAsync("stopVoiceRecording");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error stopping recording: {ex.Message}");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnRecordingComplete(string transcriptText)
+    {
+        transcript = transcriptText;
+        isRecording = false;
+        
+        // Update order note with transcript
+        await UpdateOrderNote(transcriptText);
+        
+        // Notify parent component
+        await OnTranscriptChanged.InvokeAsync(transcriptText);
+        
+        StateHasChanged();
+    }
+
+    private async Task UpdateOrderNote(string note)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(currentOrderId))
+            {
+                // Update order note via API
+                var updateData = new { OrderNote = note };
+                await Http.PutAsJsonAsync($"/api/v1/orders/{currentOrderId}/note", updateData);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating order note: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # Core Services
+  postgres:
+    image: postgres:15
+    container_name: vanan-postgres
+    environment:
+      POSTGRES_DB: VanAn
+      POSTGRES_USER: vanan
+      POSTGRES_PASSWORD: VanAn123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vanan"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: vanan-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["--jetstream", "--store", "memory", "--http_port", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/jsz?acc=SERVER&subs=1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Application Services
+  corehub:
+    build:
+      context: .
+      dockerfile: 3_CoreHub/Dockerfile
+    container_name: vanan-corehub
+    ports:
+      - "5010:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=VanAn;Username=vanan;Password=VanAn123!
+      - NATS__Url=nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gateway:
+    build:
+      context: .
+      dockerfile: 2_Gateway/Dockerfile
+    container_name: vanan-gateway
+    ports:
+      - "5001:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - COREHUB_URL=http://corehub:5010
+      - NATS__Url=nats://nats:4222
+    depends_on:
+      corehub:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  khachlink:
+    build:
+      context: .
+      dockerfile: 5_WebApps/KhachLink/Dockerfile
+    container_name: vanan-khachlink
+    ports:
+      - "5002:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - GATEWAY_URL=http://gateway:5001
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  shoperp:
+    build:
+      context: .
+      dockerfile: 5_WebApps/ShopERP/Dockerfile
+    container_name: vanan-shoperp
+    ports:
+      - "5003:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - GATEWAY_URL=http://gateway:5001
+      - COREHUB_URL=http://corehub:5010
+    depends_on:
+      gateway:
+        condition: service_healthy
+      corehub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Quality Gate Service
+  quality-gate:
+    build:
+      context: .
+      dockerfile: 6_Testing/Dockerfile.simple
+    container_name: vanan-quality-gate
+    environment:
+      # Test Configuration
+      - SMOKE_TEST_ENABLED=${SMOKE_TEST_ENABLED:-true}
+      - ENABLE_E2E=${ENABLE_E2E:-true}
+      - ENABLE_LOAD_TEST=${ENABLE_LOAD_TEST:-false}
+      - ENABLE_CHAOS=${ENABLE_CHAOS:-false}
+      
+      # Service Endpoints (using Docker service names)
+      - COREHUB_URL=http://vanan-corehub:5010
+      - GATEWAY_URL=http://vanan-gateway:5001
+      - KHACHLINK_URL=http://vanan-khachlink:5002
+      - SHOPERP_URL=http://vanan-shoperp:5003
+      
+      # Test Timeouts
+      - SMOKE_TEST_TIMEOUT=${SMOKE_TEST_TIMEOUT:-30}
+      - E2E_TEST_TIMEOUT=${E2E_TEST_TIMEOUT:-120}
+      - LOAD_TEST_DURATION=${LOAD_TEST_DURATION:-60}
+      - CHAOS_TEST_DURATION=${CHAOS_TEST_DURATION:-300}
+      
+      # Test Intensity
+      - LOAD_TEST_VUS=${LOAD_TEST_VUS:-10}
+      - CHAOS_INTENSITY=${CHAOS_INTENSITY:-0.3}
+      
+      # Environment
+      - TEST_ENVIRONMENT=${TEST_ENVIRONMENT:-development}
+      - QUALITY_GATE_STRICT=${QUALITY_GATE_STRICT:-false}
+    volumes:
+      - ./6_Testing/reports:/app/reports
+    ports:
+      - "8080:8080"  # Dashboard port
+    depends_on:
+      corehub:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      khachlink:
+        condition: service_healthy
+      shoperp:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: vanan-network

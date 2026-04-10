@@ -1,0 +1,309 @@
+@page "/c/{trackingCode}"
+@model VanAn.KhachLink.Pages.CampaignModel
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Models
+
+@{
+    Layout = null; // Full page layout for tracking pages
+    string keyframes = "fade-in";
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@Model.Campaign.CampaignName - KhachLink</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 0;
+        }
+        .campaign-badge {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .product-card {
+            transition: transform 0.3s ease;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+        }
+        .pulse-animation {
+            animation: keyframes 2s infinite;
+        }
+        @keyframes keyframes {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    @if (Model.Campaign != null)
+    {
+        <!-- Campaign Header -->
+        <div class="hero-section">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-6">
+                        <div class="campaign-badge rounded p-3 mb-4">
+                            <h1 class="h2 mb-2">
+                                <i class="fas fa-bolt"></i> @Model.Campaign.CampaignName
+                            </h1>
+                            <p class="mb-0">Khuyến mãi đặc biệt từ Vạn An Group</p>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <div class="text-center">
+                                    <div class="h3 mb-0 pulse-animation">@Model.Campaign.TotalClicks</div>
+                                    <small>Lượt truy cập</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-center">
+                                    <div class="h3 mb-0">@Model.Campaign.ConvertedOrders</div>
+                                    <small>Đơn hàng thành công</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="text-center">
+                            <img src="/images/campaign-hero.jpg" class="img-fluid rounded" alt="Campaign">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products Section -->
+        <div class="container py-5">
+            <div class="text-center mb-5">
+                <h2 class="h3">🍵 Sản Phẩm Khuyến Mãi</h2>
+                <p class="text-muted">Chọn sản phẩm bạn yêu thích và nhận ưu đãi đặc biệt!</p>
+            </div>
+
+            <div class="row">
+                @foreach (var item in Model.Products)
+                {
+                    var originalPrice = item.Price * 1.25m; // Simulate original price
+                    <div class="col-md-4 mb-4">
+                        <div class="card product-card h-100 shadow">
+                            <div class="position-relative">
+                                <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                     class="card-img-top" 
+                                     alt="@item.Name" 
+                                     onerror="this.onerror=null; this.src='https://placehold.co/400x300?text=' + encodeURIComponent('@item.Name');">
+                                <span class="position-absolute top-0 end-0 m-2 badge bg-danger">
+                                    -@Math.Round((1 - (item.Price / originalPrice)) * 100)%
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title">@item.Name</h5>
+                                <p class="card-text">@item.Description</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="text-decoration-line-through text-muted">@originalPrice.ToString("N0")đ</span>
+                                        <span class="h5 text-danger ms-2">@item.Price.ToString("N0")đ</span>
+                                    </div>
+                                    <button class="btn btn-primary" onclick="orderProduct('@item.Name.Replace(" ", "-").ToLower()')">
+                                        <i class="fas fa-shopping-cart"></i> Đặt ngay
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Social Proof Section -->
+        <div class="bg-light py-5">
+            <div class="container">
+                <div class="text-center mb-4">
+                    <h3 class="h4">🔥 Khách hàng đang yêu thích chiến dịch này</h3>
+                </div>
+                <div class="row" id="socialProofContainer">
+                    <!-- Social proof will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-dark text-white py-4">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>🍵 Vạn An Group</h5>
+                        <p class="text-muted">Trà sữa cao cấp - Trải nghiệm đẳng cấp</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Liên hệ</h5>
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-phone"></i> 1900-1234<br>
+                            <i class="fas fa-envelope"></i> info@vanan.vn
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    }
+    else
+    {
+        <!-- Campaign Not Found -->
+        <div class="container vh-100 d-flex align-items-center justify-content-center">
+            <div class="text-center">
+                <i class="fas fa-exclamation-triangle fa-4x text-warning mb-3"></i>
+                <h2>Chiến dịch không tồn tại</h2>
+                <p class="text-muted">Chiến dịch bạn tìm kiếm không có hoặc đã kết thúc.</p>
+                <a href="/" class="btn btn-primary">
+                    <i class="fas fa-home"></i> Về trang chủ
+                </a>
+            </div>
+        </div>
+    }
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let trackingCode = '@Model.TrackingCode';
+        let customerId = getCustomerId();
+        let socialProofInterval;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            recordClick();
+            startSocialProof();
+        });
+
+        function getCustomerId() {
+            let customerId = localStorage.getItem('customer_device_id');
+            if (!customerId) {
+                customerId = 'device_' + Math.random().toString(36).substring(2, 15);
+                localStorage.setItem('customer_device_id', customerId);
+            }
+            return customerId;
+        }
+
+        async function recordClick() {
+            try {
+                const response = await fetch(`/api/campaigns/click/${trackingCode}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    console.log('Click recorded for tracking code:', trackingCode);
+                    // Store tracking code for later use in orders
+                    sessionStorage.setItem('tracking_code', trackingCode);
+                    
+                    // Update click count on page (optional)
+                    updateClickCount();
+                }
+            } catch (error) {
+                console.error('Error recording click:', error);
+            }
+        }
+
+        function updateClickCount() {
+            const clickElement = document.querySelector('.pulse-animation');
+            if (clickElement) {
+                const currentCount = parseInt(clickElement.textContent);
+                clickElement.textContent = currentCount + 1;
+            }
+        }
+
+        function startSocialProof() {
+            // Show social proof notifications every 6-12 seconds
+            socialProofInterval = setInterval(() => {
+                showSocialProof();
+            }, Math.random() * 6000 + 6000);
+        }
+
+        function showSocialProof() {
+            const messages = [
+                { customer: "Minh Anh", product: "Trà Sữa Đậu Đỏ", location: "Quận 1", time: "vài phút trước" },
+                { customer: "Hoàng Nam", product: "Trà Sữa Matcha", location: "Quận 3", time: "5 phút trước" },
+                { customer: "Thu Trang", product: "Trà Sữa Truyền Thống", location: "Quận 7", time: "10 phút trước" },
+                { customer: "Quốc Bảo", product: "Trà Sữa Đậu Đỏ", location: "Thủ Đức", time: "15 phút trước" },
+                { customer: "Lan Chi", product: "Trà Sữa Matcha", location: "Bình Thạnh", time: "20 phút trước" }
+            ];
+
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            
+            const container = document.getElementById('socialProofContainer');
+            const proofElement = document.createElement('div');
+            proofElement.className = 'col-md-4 mb-3';
+            proofElement.innerHTML = `
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <div class="mb-2">
+                            <i class="fas fa-user-circle fa-2x text-primary"></i>
+                        </div>
+                        <strong>${message.customer}</strong><br>
+                        <small class="text-muted">vừa đặt ${message.product}</small><br>
+                        <small class="text-muted">📍 ${message.location} • ${message.time}</small>
+                    </div>
+                </div>
+            `;
+            
+            container.insertBefore(proofElement, container.firstChild);
+            
+            // Keep only last 3 proofs
+            while (container.children.length > 3) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function orderProduct(productId) {
+            const trackingCode = sessionStorage.getItem('tracking_code');
+            
+            const orderData = {
+                productId: productId,
+                customerDeviceId: customerId,
+                trackingCode: trackingCode,
+                quantity: 1
+            };
+
+            console.log('Order data:', orderData);
+            showNotification('Đang xử lý đơn hàng...', 'info');
+            
+            // Simulate order processing
+            setTimeout(() => {
+                showNotification('Đơn hàng đã được ghi nhận! Cảm ơn bạn đã đặt hàng.', 'success');
+            }, 2000);
+        }
+
+        function showNotification(message, type) {
+            const alertClass = type === 'success' ? 'alert-success' : 
+                             type === 'error' ? 'alert-danger' : 'alert-info';
+            
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; max-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (socialProofInterval) {
+                clearInterval(socialProofInterval);
+            }
+        });
+    </script>
+</body>
+</html>

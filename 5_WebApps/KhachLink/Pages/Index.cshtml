@@ -1,0 +1,345 @@
+@page "/"
+@model VanAn.KhachLink.Pages.IndexModel
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Extensions
+@using VanAn.Shared.Models
+
+<html lang="vi" class="notranslate" translate="no">
+@using System.Globalization
+
+<PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
+
+
+<div class="container-fluid vh-100 d-flex flex-column">
+    <!-- Header -->
+    <header class="bg-primary text-white py-3">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-link"></i> KhachLink
+                    </h1>
+                    <small class="opacity-75">Cỗ máy O2O Flywheel</small>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-coins text-warning"></i>
+                            <strong>@(Model.CustomerRewards?.PointBalance ?? 0)</strong> điểm
+                        </div>
+                        <button class="btn btn-outline-light btn-sm" onclick="showLoyaltyHistory()">
+                            <i class="fas fa-history"></i> Lịch sử
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+        <div class="container h-100">
+            <div class="row h-100 align-items-center justify-content-center">
+                <div class="col-lg-8">
+                    <!-- Hero Section -->
+                    <div class="text-center mb-5">
+                        <h1 class="display-4 fw-bold text-primary mb-3">
+                            🍵 Trà Sữa Vạn An
+                        </h1>
+                        <p class="lead text-muted">
+                            Trải nghiệm trà sữa đậm đà nguyên bản với công phức chế độc quyền
+                        </p>
+                    </div>
+
+                    <!-- Product Showcase -->
+                    <div class="row mb-5">
+                        @foreach (var item in Model.Products)
+                        {
+                            <div class="col-md-4">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                         class="card-img-top" 
+                                         alt="@item.Name" 
+                                         onerror="this.onerror=null; this.src='https://placehold.co/400x300?text=' + encodeURIComponent('@item.Name');">
+                                    <div class="card-body">
+                                        <h5 class="card-title">@item.Name</h5>
+                                        <p class="card-text text-muted">@item.Description</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="h5 text-primary mb-0">@item.Price.ToString("N0")đ</span>
+                                            <button class="btn btn-primary btn-sm order-product-btn" data-product="@item.Name.Replace(" ", "-").ToLower()">
+                                                <i class="fas fa-shopping-cart"></i> Đặt ngay
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Social Proof Section -->
+                    <div class="text-center">
+                        <h4 class="mb-4">🔥 Khách hàng đang yêu thích</h4>
+                        <div class="row" id="socialProofContainer">
+                            <!-- Social proof items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light py-3">
+        <div class="container text-center">
+            <p class="mb-0 text-muted">© 2024 Vạn An Group - Trà Sữa Cao Cấp</p>
+        </div>
+    </footer>
+</div>
+
+<!-- Loyalty History Modal -->
+<div class="modal fade" id="loyaltyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-coins text-warning"></i> Lịch sử điểm thưởng
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                @if (Model.CustomerRewards != null)
+                {
+                    <div class="text-center mb-3">
+                        <h3 class="text-primary">@Model.CustomerRewards.PointBalance điểm</h3>
+                        <p class="text-muted">Điểm thưởng hiện tại</p>
+                    </div>
+                    
+                    <div class="list-group">
+                        @if (!string.IsNullOrEmpty(Model.CustomerRewards.History))
+                        {
+                            var history = System.Text.Json.JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(Model.CustomerRewards.History) ?? new List<LoyaltyHistoryEntry>();
+                            @foreach (var entry in history.Take(10))
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="badge @(entry.Type == "EARN" ? "bg-success" : "bg-danger")">
+                                                @(entry.Type == "EARN" ? "+" : "-")@entry.Points
+                                            </span>
+                                            <small class="text-muted ms-2">@entry.Reason</small>
+                                        </div>
+                                        <small class="text-muted">@entry.Timestamp.ToString("dd/MM HH:mm")</small>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted">
+                                <i class="fas fa-history fa-2x mb-2"></i>
+                                <p>Chưa có lịch sử giao dịch</p>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted">
+                        <i class="fas fa-user-plus fa-2x mb-2"></i>
+                        <p>Bắt đầu đặt hàng để tích lũy điểm thưởng!</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let customerId = getCustomerId();
+        let socialProofInterval;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkTrackingCode();
+            startSocialProof();
+            setupOrderButtons();
+        });
+
+        function setupOrderButtons() {
+            const orderButtons = document.querySelectorAll('.order-product-btn');
+            orderButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const productId = this.getAttribute('data-product');
+                    orderProduct(productId);
+                });
+            });
+        }
+
+        function getCustomerId() {
+            // Zero-friction identity: Use device ID or generate new one
+            let customerId = localStorage.getItem('customer_device_id');
+            if (!customerId) {
+                customerId = 'device_' + Math.random().toString(36).substring(2, 15);
+                localStorage.setItem('customer_device_id', customerId);
+            }
+            return customerId;
+        }
+
+        function checkTrackingCode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const trackingCode = urlParams.get('utm_campaign') || 
+                               window.location.pathname.split('/').pop();
+            
+            if (trackingCode && trackingCode !== 'c') {
+                recordClick(trackingCode);
+            }
+        }
+
+        async function recordClick(trackingCode) {
+            try {
+                const response = await fetch(`/api/campaigns/click/${trackingCode}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    console.log('Click recorded for tracking code:', trackingCode);
+                    // Store tracking code for later use in orders
+                    sessionStorage.setItem('tracking_code', trackingCode);
+                }
+            } catch (error) {
+                console.error('Error recording click:', error);
+            }
+        }
+
+        function startSocialProof() {
+            // Show social proof notifications every 8-15 seconds
+            socialProofInterval = setInterval(() => {
+                showSocialProof();
+            }, Math.random() * 7000 + 8000);
+        }
+
+        function showSocialProof() {
+            const messages = [
+                { customer: "Minh Anh", product: "Trà Sữa Đậu Đỏ", location: "Quận 1", time: "vài phút trước" },
+                { customer: "Hoàng Nam", product: "Trà Sữa Matcha", location: "Quận 3", time: "5 phút trước" },
+                { customer: "Thu Trang", product: "Trà Sữa Truyền Thống", location: "Quận 7", time: "10 phút trước" },
+                { customer: "Quốc Bảo", product: "Trà Sữa Đậu Đỏ", location: "Thủ Đức", time: "15 phút trước" },
+                { customer: "Lan Chi", product: "Trà Sữa Matcha", location: "Bình Thạnh", time: "20 phút trước" }
+            ];
+
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-success alert-dismissible fade show position-fixed';
+            notification.style.cssText = 'bottom: 20px; right: 20px; max-width: 300px; z-index: 1050;';
+            notification.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-user-circle fa-2x text-primary"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <strong>${message.customer}</strong> vừa đặt <strong>${message.product}</strong>
+                        <div class="small text-muted">📍 ${message.location} • ${message.time}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        // Expose orderProduct to global scope to fix ReferenceError
+        window.orderProduct = async function(productId) {
+            // Store tracking code if available
+            const trackingCode = sessionStorage.getItem('tracking_code');
+            
+            // Create order data matching Gateway API expectations
+            const orderData = {
+                customerDeviceId: customerId,
+                orderType: "InStore",
+                customerNotes: `Order from KhachLink - Product: ${productId}`,
+                trackingCode: trackingCode,
+                items: [
+                    {
+                        productId: productId,
+                        quantity: 1,
+                        unitPrice: 0, // Will be calculated by Gateway based on productId
+                        vatRate: 0.1, // 10% VAT
+                        notes: "Ordered via KhachLink"
+                    }
+                ]
+            };
+
+            // Show processing notification
+            showNotification('Đang xử lý đơn hàng...', 'info');
+            
+            try {
+                // Send order to Gateway API
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(orderData)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Order created successfully:', result);
+                    showNotification('Đơn hàng đã được gửi đến ShopERP!', 'success');
+                } else {
+                    const errorText = await response.text();
+                    console.error('Order creation failed:', errorText);
+                    showNotification('Lỗi khi gửi đơn hàng: ' + errorText, 'error');
+                }
+            } catch (error) {
+                console.error('Error sending order:', error);
+                showNotification('Lỗi kết nối đến server', 'error');
+            }
+        };
+
+        function showLoyaltyHistory() {
+            const modal = new bootstrap.Modal(document.getElementById('loyaltyModal'));
+            modal.show();
+        }
+
+        function showNotification(message, type) {
+            const alertClass = type === 'success' ? 'alert-success' : 
+                             type === 'error' ? 'alert-danger' : 'alert-info';
+            
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (socialProofInterval) {
+                clearInterval(socialProofInterval);
+            }
+        });
+    </script>
+}
+
+@functions {
+    // Remove this block - using PageModel now
+}

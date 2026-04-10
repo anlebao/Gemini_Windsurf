@@ -1,0 +1,5 @@
+2026-04-06 15:35:43.667 +07:00 [INF] User profile is available. Using 'C:\Users\lebao\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-04-06 15:35:44.128 +07:00 [INF] Now listening on: http://localhost:5010
+2026-04-06 15:35:44.148 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-04-06 15:35:44.170 +07:00 [INF] Hosting environment: Development
+2026-04-06 15:35:44.240 +07:00 [INF] Content root path: C:\vibecoding\gemini_windsurf\3_CoreHub

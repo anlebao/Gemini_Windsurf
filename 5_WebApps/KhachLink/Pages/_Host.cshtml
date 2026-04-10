@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KhachLink</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            font-size: 1.2rem;
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .feature-card {
+            border: none;
+            border-radius: 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        .cta-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .cta-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+        .demo-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <div class="logo">KHACHLINK</div>
+            <div class="tagline">🍹 Đặt hàng nhanh - Theo dõi thông minh</div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h4>Mobile First</h4>
+                        <p>Giao diện tối ưu cho di động, đặt hàng chỉ với 3 thao tác</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <h4>Real-time Tracking</h4>
+                        <p>Theo dõi đơn hàng real-time với thanh tiến độ động</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <h4>Zero-Friction</h4>
+                        <p>Không cần đăng nhập, nhận diện tự động qua Device ID</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section text-center">
+            <h3>🚀 Trải nghiệm ngay</h3>
+            <p>Hệ thống đã sẵn sàng cho bạn trải nghiệm</p>
+            <a href="/order-tracking/demo" class="cta-button">
+                <i class="fas fa-play me-2"></i> Bắt đầu đặt hàng
+            </a>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle me-2"></i>Khách hàng</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Đặt hàng không cần đăng nhập</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Theo dõi đơn hàng real-time</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Giao diện mobile-friendly</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Tự động nhận diện thiết bị</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cog me-2"></i>Quán quán</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-primary me-2"></i>Quản lý đơn hàng linh hoạt</li>
+                            <li><i class="fas fa-check text-primary me-2"></i>Tự động trừ kho nguyên liệu</li>
+                            <li><i class="fas fa-check text-primary me-2"></i>Workflow tùy chỉnh</li>
+                            <li><i class="fas fa-check text-primary me-2"></i>Báo cáo và thống kê</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

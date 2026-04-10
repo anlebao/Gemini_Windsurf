@@ -1,0 +1,86 @@
+@using VanAn.Shared.Domain
+@using VanAn.KhachLink.Models
+@inject IJSRuntime JSRuntime
+
+<link rel="stylesheet" href="/css/pwa.css" />
+
+@if (showInstallPrompt && !deferredPrompt)
+{
+    <div class="install-prompt-container">
+        <div class="install-prompt-card">
+            <div class="install-prompt-content">
+                <div class="install-prompt-icon">
+                    📱
+                </div>
+                <div class="install-prompt-text">
+                    <h4>Cài đặt Vạn An App</h4>
+                    <p>Nhận thông báo và trải nghiệm tốt hơn</p>
+                </div>
+                <div class="install-prompt-actions">
+                    <button class="btn-install" @onclick="InstallApp">
+                        Cài đặt
+                    </button>
+                    <button class="btn-dismiss" @onclick="DismissPrompt">
+                        Để sau
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (isInstalled)
+{
+    <div class="installed-notice">
+        <div class="installed-content">
+            <span class="installed-icon">✅</span>
+            <span>Đã cài đặt Vạn An App</span>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showInstallPrompt = false;
+    private bool deferredPrompt = false;
+    private bool isInstalled = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CheckInstallStatus();
+        }
+    }
+
+    private async Task CheckInstallStatus()
+    {
+        isInstalled = await JSRuntime.InvokeAsync<bool>("isAppInstalled");
+        
+        if (!isInstalled)
+        {
+            showInstallPrompt = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task InstallApp()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("installPWA");
+            isInstalled = true;
+            showInstallPrompt = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Install error: {ex.Message}");
+        }
+    }
+
+    private void DismissPrompt()
+    {
+        showInstallPrompt = false;
+        StateHasChanged();
+    }
+}

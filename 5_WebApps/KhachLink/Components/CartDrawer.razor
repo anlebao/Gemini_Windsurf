@@ -1,0 +1,243 @@
+@using VanAn.Shared.Domain
+@using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Components.Shared
+@using System.Globalization
+
+@if (CartItems.Any())
+{
+    <section class="cart-drawer-section">
+        <div class="container">
+            <div class="cart-drawer">
+                <div class="cart-header">
+                    <h3>🛒 Giỏ hàng của bạn</h3>
+                    <button class="cart-toggle" @onclick="ToggleCart">
+                        <span class="@GetCartIconClass()"></span>
+                    </button>
+                </div>
+                
+                @if (isCartOpen)
+                {
+                    <div class="cart-body">
+                        @foreach (var item in CartItems ?? new List<CartItem>())
+                        {
+                            <div class="cart-item" key="@item.Id">
+                                <div class="cart-item-info">
+                                    <span class="cart-item-name">@(item?.Name ?? "Sản phẩm")</span>
+                                    <span class="cart-item-quantity">x @(item?.Quantity ?? 0)</span>
+                                </div>
+                                <div class="cart-item-actions">
+                                    <span class="cart-item-price">@CurrencyHelper.FormatVND((item?.Quantity ?? 0) * (item?.UnitPrice ?? 0m))</span>
+                                    <button class="btn-remove" @onclick="() => RemoveFromCart?.Invoke(item?.Id ?? Guid.Empty)">✕</button>
+                                </div>
+                            </div>
+                        }
+                        
+                        <div class="cart-total">
+                            <div class="total-row">
+                                <span>Tổng cộng:</span>
+                                <strong>@CurrencyHelper.FormatVND(TotalAmount)</strong>
+                            </div>
+                            <button class="btn-checkout" @onclick="Checkout">
+                                Thanh toán
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<style>
+    .cart-drawer-section {
+        position: fixed;
+        right: 20px;
+        top: 100px;
+        width: 350px;
+        max-height: 70vh;
+        z-index: 1000;
+    }
+    
+    .cart-drawer {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border: 1px solid rgba(0,0,0,0.05);
+        overflow: hidden;
+    }
+    
+    .cart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .cart-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    
+    .cart-toggle {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .cart-toggle:hover {
+        background: rgba(255,255,255,0.3);
+    }
+    
+    .cart-body {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s ease;
+    }
+    
+    .cart-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .cart-item-info {
+        flex: 1;
+    }
+    
+    .cart-item-name {
+        font-weight: 500;
+        display: block;
+        color: #333;
+    }
+    
+    .cart-item-quantity {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .cart-item-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .cart-item-price {
+        font-weight: bold;
+        color: #28a745;
+        font-size: 1.1rem;
+    }
+    
+    .btn-remove {
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-remove:hover {
+        background: #c82333;
+        transform: scale(1.1);
+    }
+    
+    .cart-total {
+        padding: 20px;
+        border-top: 2px solid #eee;
+        background: #f8f9fa;
+    }
+    
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+    }
+    
+    .total-row strong {
+        color: #28a745;
+    }
+    
+    .btn-checkout {
+        width: 100%;
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 25px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-checkout:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+    }
+    
+    .cart-icon-open {
+        transform: rotate(180deg);
+    }
+    
+    @@media (max-width: 768px) {
+        .cart-drawer-section {
+            position: static;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        .cart-drawer {
+            margin: 0 15px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public List<CartItem> CartItems { get; set; } = new();
+    
+    [Parameter]
+    public decimal TotalAmount { get; set; }
+    
+    [Parameter]
+    public Action<Guid>? RemoveFromCart { get; set; }
+    
+    [Parameter]
+    public Func<Task> Checkout { get; set; }
+    
+    private bool isCartOpen = true;
+
+    private void ToggleCart()
+    {
+        isCartOpen = !isCartOpen;
+    }
+
+    private string GetCartIconClass()
+    {
+        return isCartOpen ? "cart-icon-open" : "";
+    }
+}

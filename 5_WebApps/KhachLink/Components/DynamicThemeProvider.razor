@@ -1,0 +1,179 @@
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Extensions
+
+@if (IsLoading)
+{
+    <div class="text-center p-3">
+        <div class="spinner-border spinner-border-sm" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <span class="ms-2">Đang tải giao diện...</span>
+    </div>
+}
+else if (ShopConfig != null)
+{
+    @* Load theme-specific CSS based on ActiveTheme *@
+    @switch (ShopConfig.ActiveTheme)
+    {
+        case ThemeType.Teen:
+            <link rel="stylesheet" href="/css/themes/@(ThemeType.Teen.ToCssClass()).css" />
+            break;
+        case ThemeType.Lady:
+            <link rel="stylesheet" href="/css/themes/@(ThemeType.Lady.ToCssClass()).css" />
+            break;
+        case ThemeType.Classic:
+            <link rel="stylesheet" href="/css/themes/@(ThemeType.Classic.ToCssClass()).css" />
+            break;
+        case ThemeType.Premium:
+            <link rel="stylesheet" href="/css/themes/@(ThemeType.Premium.ToCssClass()).css" />
+            break;
+        default:
+            <link rel="stylesheet" href="/css/themes/default.css" />
+            break;
+    }
+    
+    <style>
+        :root {
+            --primary-color: @(ShopConfig?.PrimaryColor ?? "#8B4513");
+            --secondary-color: @(ShopConfig?.SecondaryColor ?? "#D2691E");
+            --primary-color-rgb: @GetRgbValues(ShopConfig?.PrimaryColor ?? "#8B4513");
+            --secondary-color-rgb: @GetRgbValues(ShopConfig?.SecondaryColor ?? "#D2691E");
+        }
+        
+        /* Apply theme colors to Bootstrap components */
+        .btn-primary {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-color) !important;
+            filter: brightness(90%);
+        }
+        
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+        
+        .bg-primary {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .card-header {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+        
+        .progress-bar {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .feature-card:hover {
+            box-shadow: 0 12px 24px rgba(var(--primary-color-rgb), 0.3) !important;
+        }
+        
+        .price {
+            color: var(--primary-color) !important;
+        }
+        
+        /* Theme-specific styles */
+        .theme-cafe {
+            --theme-bg-gradient: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        .theme-beauty {
+            --theme-bg-gradient: linear-gradient(135deg, var(--primary-color), #FFE4E1);
+        }
+        
+        .theme-retail {
+            --theme-bg-gradient: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        }
+    </style>
+}
+
+@code {
+    [Parameter]
+    public Guid ShopId { get; set; } = Guid.NewGuid(); // Generate unique shop ID
+    
+    [Parameter]
+    public EventCallback<ShopConfig> OnConfigLoaded { get; set; }
+
+    private bool IsLoading { get; set; } = true;
+    private ShopConfig? ShopConfig { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadShopConfig();
+    }
+
+    private async Task LoadShopConfig()
+    {
+        try
+        {
+            IsLoading = true;
+            
+            var response = await Http.GetFromJsonAsync<ShopConfig>($"/api/v1/shopconfig/shops/{ShopId}/config");
+            
+            if (response != null)
+            {
+                ShopConfig = response;
+                await OnConfigLoaded.InvokeAsync(ShopConfig);
+                
+                // Update page title with null-coalescing
+                var displayTitle = ShopConfig?.ShopName ?? "Vạn An Group";
+                await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
+                
+                // Apply theme class to body
+                await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");
+            }
+        }
+        catch (Exception)
+        {
+            // Use default config on error
+            ShopConfig = new ShopConfig
+            {
+                ShopId = ShopId,
+                ShopName = "Vạn An Group",
+                PrimaryColor = "#8B4513",
+                SecondaryColor = "#FFA500",
+                LogoUrl = new Uri("/images/vanan-default-logo.png", UriKind.Relative),
+                Theme = ThemeType.Classic
+            };
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadShopConfig();
+        }
+    }
+
+    private string GetRgbValues(string hexColor)
+    {
+        try
+        {
+            // Remove # if present
+            hexColor = hexColor.TrimStart('#');
+            
+            // Convert hex to RGB
+            int r = Convert.ToInt32(hexColor.Substring(0, 2), 16);
+            int g = Convert.ToInt32(hexColor.Substring(2, 2), 16);
+            int b = Convert.ToInt32(hexColor.Substring(4, 2), 16);
+            
+            return $"{r}, {g}, {b}";
+        }
+        catch
+        {
+            return "139, 69, 19"; // Default brown RGB
+        }
+    }
+}

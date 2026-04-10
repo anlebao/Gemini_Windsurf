@@ -1,0 +1,53 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate",
+  "version": "1.0.0",
+  "timestamp": "2026-04-09T15:38:51.337Z",
+  "duration": 29686,
+  "summary": {
+    "total": 4,
+    "passed": 0,
+    "failed": 4,
+    "skipped": 0
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": true,
+    "ENABLE_LOAD_TEST": true,
+    "ENABLE_CHAOS": true,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:3000",
+    "SHOPERP_URL": "http://localhost:3001",
+    "SMOKE_TEST_TIMEOUT": 300,
+    "E2E_TEST_TIMEOUT": 600,
+    "LOAD_TEST_DURATION": 120,
+    "CHAOS_TEST_DURATION": 180
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 15520,
+      "error": "Command failed: dotnet test ../6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj --logger \"console;verbosity=normal\"\n[xUnit.net 00:00:00.54]     Kitchen: ProcessVoiceNote - Should Reject Oversized Text Gracefully [FAIL]\r\n[xUnit.net 00:00:00.55]     Kitchen: GetGroupedItems - Should Group Identical Products From Different Orders [FAIL]\r\n[xUnit.net 00:00:00.55]     Kitchen: GetGroupedItems - Should Include Voice Notes In Grouped Items [FAIL]\r\n[xUnit.net 00:00:00.55]     Kitchen: UpdateItemStatus - Should Update Underlying Order When All Items Completed [FAIL]\r\n[xUnit.net 00:00:00.55]     Kitchen: ProcessVoiceNote - Should Reject Oversized AudioBlob Gracefully [FAIL]\r\n[xUnit.net 00:00:00.55]     Kitchen: GetGroupedItems - Should Order Groups By Oldest Order Time FIFO [FAIL]\r\n[xUnit.net 00:00:02.05]     GetSystemHealthAsync_Should_Handle_Database_Connection_Failure [FAIL]\r\n[xUnit.net 00:00:02.26]     GetPostgreSQLMetricsAsync_Should_Handle_Empty_Database [FAIL]\r\n[xUnit.net 00:00:02.48]     GetPostgreSQLMetricsAsync_Should_Perform_With_Large_Dataset [FAIL]\r\n[xUnit.net 00:00:02.66]     GetPostgreSQLMetricsAsync_Should_Return_Correct_Total_Revenue [FAIL]\r\n[xUnit.net 00:00:02.79]     GetSQLiteMetricsAsync_Should_Throw_For_Unknown_Node_Type [FAIL]\r\n[xUnit.net 00:00:02.90]     GetPostgreSQLMetricsAsync_Should_Handle_Zero_Division [FAIL]\r\n[xUnit.net 00:00:03.01]     GetSyncStatusAsync_Should_Calculate_Overall_Metrics [FAIL]\r\n[xUnit.net 00:00:03.22]     GetSQLiteMetricsAsync_Should_Handle_Missing_Database_File [FAIL]\r\n[xUnit.net 00:00:03.39]     GetSystemHealthAsync_Should_Check_Database_Connectivity [FAIL]\r\n[xUnit.net 00:00:03.52]     GetPostgreSQLMetricsAsync_Should_Calculate_Tenant_Growth [FAIL]\r\n[xUnit.net 00:00:03.68]     GetPostgreSQLMetricsAsync_Should_Return_Correct_Order_Count [FAIL]\r\n[xUnit.net 00:00:03.81]     GetPostgreSQLMetricsAsync_Should_Calculate_Revenue_Growth [FAIL]\r\n[xUnit.net 00:00:03.95]     GetPostgreSQLMetricsAsync_Should_Handle_Null_TenantId [FAIL]\r\n[xUnit.net 00:00:04.09]     GetPostgreSQLMetricsAsync_Should_Calculate_Sync_Rate_Correctly [FAIL]\r\n[xUnit.net 00:00:04.24]     GetPostgreSQLMetricsAsync_Should_Return_Correct_Tenant_Count [FAIL]\r\nTest Run Failed.\r\n",
+      "description": "Smoke Tests (.NET Unit Tests)"
+    },
+    "e2e": {
+      "status": "fail",
+      "duration": 11877,
+      "error": "Command failed: dotnet test ../6_Tests/VanAn.Integration.Tests/VanAn.Integration.Tests.csproj --logger \"console;verbosity=normal\"",
+      "description": "Integration Tests (.NET Integration Tests)"
+    },
+    "load": {
+      "status": "fail",
+      "duration": 1992,
+      "error": "spawnSync C:\\Windows\\system32\\cmd.exe ENOBUFS",
+      "description": "Load Tests"
+    },
+    "chaos": {
+      "status": "fail",
+      "duration": 283,
+      "error": "Command failed: python chaos-tests/chaos-engine.py\nTraceback (most recent call last):\r\n  File \"C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\chaos-tests\\chaos-engine.py\", line 10, in <module>\r\n    import requests\r\nModuleNotFoundError: No module named 'requests'\r\n",
+      "description": "Chaos Tests"
+    }
+  },
+  "status": "fail"
+}

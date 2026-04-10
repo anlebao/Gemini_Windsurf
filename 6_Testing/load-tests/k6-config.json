@@ -1,0 +1,23 @@
+{
+  "vus": 10,
+  "duration": "60s",
+  "iterations": 100,
+  "stages": [
+    { "duration": "10s", "target": 10 },
+    { "duration": "40s", "target": 10 },
+    { "duration": "10s", "target": 0 }
+  ],
+  "thresholds": {
+    "http_req_duration": ["p(95)<500"],
+    "http_req_failed": ["rate<0.1"],
+    "order_creation_rate": ["rate>0.9"]
+  },
+  "environment": {
+    "BASE_URL": "http://localhost:5001"
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "output": "logs/performance-test.log"
+  }
+}

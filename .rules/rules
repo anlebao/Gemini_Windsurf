@@ -1,0 +1,123 @@
+========================================
+TDD RULES - MANDATORY COMPLIANCE
+========================================
+
+## CORE TDD PRINCIPLES
+
+1. Tests MUST compile successfully
+   - dotnet build MUST pass
+   - Compilation errors are NOT acceptable
+   - Failing tests must be runtime failures, not build errors
+
+2. RED phase definition
+   - Tests FAIL due to missing logic only
+   - NOT due to missing types, compile errors, or broken references
+
+3. STRICT TDD FLOW (MANDATORY)
+   Step 1: Write test (must compile)
+   Step 2: Run test -> FAIL (logic only)
+   Step 3: Implement minimal code to PASS
+   Step 4: Refactor
+   DO NOT skip any step
+   DO NOT implement before test runs
+
+## FORBIDDEN (CRITICAL VIOLATIONS)
+
+- DO NOT use Entity Framework in unit tests
+- DO NOT use DbContext or DbSet
+- DO NOT connect to database
+- DO NOT call external APIs or services
+- DO NOT access file system or network
+- DO NOT redefine framework classes (DbSet, DbContext, etc.)
+- DO NOT create tests that do not compile
+- DO NOT tightly couple tests to infrastructure
+- DO NOT depend on VanAn.Shared.Domain in unit tests
+- DO NOT depend on VanAn.CoreHub.Services in unit tests
+
+If any violation occurs -> STOP immediately and report
+
+## REQUIRED ARCHITECTURE (MANDATORY)
+
+1. Use PURE DOMAIN MODELS (test-friendly)
+   - Create minimal versions of entities:
+     - Lead
+     - FacebookLead
+     - CustomerOnboarding
+   - Only include properties required by tests
+   - DO NOT wait for full implementation
+
+2. Use INTERFACE-FIRST DESIGN
+   - Define interfaces BEFORE implementation
+   - Example:
+     public interface ILeadRepository
+     {
+         Task AddAsync(Lead lead);
+         Task<Lead?> GetByIdAsync(Guid id);
+     }
+
+3. Use TEST DOUBLES (IN-MEMORY)
+   - Replace all infrastructure with fake implementations
+   - Example:
+     public class InMemoryLeadRepository : ILeadRepository
+     {
+         private readonly List<Lead> _data = new();
+         public Task AddAsync(Lead lead)
+         {
+             _data.Add(lead);
+             return Task.CompletedTask;
+         }
+         public Task<Lead?> GetByIdAsync(Guid id)
+         {
+             return Task.FromResult(_data.FirstOrDefault(x => x.Id == id));
+         }
+     }
+
+4. TEST ISOLATION
+   - Each test must be independent
+   - No shared state
+   - Always use fresh in-memory instances
+
+5. TEST PROJECT INDEPENDENCE
+   - Test project MUST build without full implementation
+   - MUST NOT depend on Infrastructure layer
+   - MUST NOT require real database or services
+
+## ARCHITECTURE BOUNDARY
+
+- Unit Tests -> Domain + Application ONLY
+- Integration Tests -> Infrastructure (separate project)
+- DO NOT mix layers
+
+## EXECUTION POLICY
+
+- On any violation:
+  -> STOP immediately
+  -> Explain root cause
+  -> Fix using TDD principles
+- Priority:
+  1. TDD correctness
+  2. Clean architecture
+  3. THEN speed
+
+## SUCCESS CRITERIA
+
+- Test project builds successfully
+- No compilation errors
+- Tests execute normally
+- Tests FAIL only due to missing logic
+- No infrastructure dependency in unit tests
+
+## CURRENT STATUS
+
+- Phase 1: Design Complete
+- Phase 2: Test Cases Complete (TDD-compliant)
+- Phase 3: Test Execution (RED phase working)
+- Phase 4: Implementation (GREEN phase pending)
+
+## NEXT STEPS
+
+1. Implement GREEN phase for FacebookLeadService
+2. Continue with other services
+3. Maintain TDD compliance throughout
+
+========================================

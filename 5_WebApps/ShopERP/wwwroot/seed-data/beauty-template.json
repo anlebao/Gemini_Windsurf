@@ -1,0 +1,140 @@
+{
+  "templateType": "beauty",
+  "templateName": "Spa & Beauty Mẫu",
+  "description": "Template cho spa và salon làm đẹp",
+  "shopInfo": {
+    "name": "VanAn Spa",
+    "category": "Beauty & Wellness",
+    "address": "456 Lê Lợi, Q.3, TP.HCM",
+    "phone": "0909876543",
+    "email": "info@vananspa.vn"
+  },
+  "products": [
+    {
+      "name": "Chăm sóc da mặt cơ bản",
+      "description": "Làm sạch, tẩy tế bào chết, massage, mặt nạ",
+      "price": 280000,
+      "category": "Chăm sóc da",
+      "duration": 60,
+      "ingredients": [
+        { "name": "Sữa rửa mặt", "quantity": 20, "unit": "ml" },
+        { "name": "Tẩy tế bào chết", "quantity": 15, "unit": "g" },
+        { "name": "Mặt nạ dưỡng da", "quantity": 25, "unit": "ml" },
+        { "name": "Kem dưỡng ẩm", "quantity": 10, "unit": "ml" }
+      ]
+    },
+    {
+      "name": "Massage body thư giãn",
+      "description": "Massage toàn thân với tinh dầu thiên nhiên",
+      "price": 320000,
+      "category": "Massage",
+      "duration": 90,
+      "ingredients": [
+        { "name": "Dầu massage hoa hồng", "quantity": 30, "unit": "ml" },
+        { "name": "Dầu massage oải hương", "quantity": 30, "unit": "ml" },
+        { "name": "Muối tắm", "quantity": 100, "unit": "g" },
+        { "name": "Kem body", "quantity": 50, "unit": "ml" }
+      ]
+    },
+    {
+      "name": "Gội đầu dưỡng sinh",
+      "description": "Gội đầu, massage da đầu, ủ tóc dưỡng chất",
+      "price": 180000,
+      "category": "Chăm sóc tóc",
+      "duration": 45,
+      "ingredients": [
+        { "name": "Dầu gội thảo dược", "quantity": 30, "unit": "ml" },
+        { "name": "Dầu xả", "quantity": 10, "unit": "ml" },
+        { "name": "Mặt nạ tóc", "quantity": 50, "unit": "g" },
+        { "name": "Tinh dầu bưởi", "quantity": 5, "unit": "ml" }
+      ]
+    },
+    {
+      "name": "Trẻ hóa da chuyên sâu",
+      "description": "Công nghệ trẻ hóa, nâng cơ, căng da không xâm lấn",
+      "price": 580000,
+      "category": "Công nghệ cao",
+      "duration": 120,
+      "ingredients": [
+        { "name": "Tinh chất C-vitamin", "quantity": 5, "unit": "ml" },
+        { "name": "Serum HA", "quantity": 3, "unit": "ml" },
+        { "name": "Mặt nạ vàng 24K", "quantity": 1, "unit": "mảnh" },
+        { "name": "Kem chống nắng", "quantity": 5, "unit": "ml" }
+      ]
+    }
+  ],
+  "ingredients": [
+    {
+      "name": "Sữa rửa mặt",
+      "unit": "chai",
+      "costPerUnit": 250000,
+      "minStock": 2,
+      "currentStock": 8
+    },
+    {
+      "name": "Tẩy tế bào chết",
+      "unit": "hũ",
+      "costPerUnit": 180000,
+      "minStock": 3,
+      "currentStock": 10
+    },
+    {
+      "name": "Mặt nạ dưỡng da",
+      "unit": "hũ",
+      "costPerUnit": 320000,
+      "minStock": 2,
+      "currentStock": 6
+    },
+    {
+      "name": "Dầu massage",
+      "unit": "chai",
+      "costPerUnit": 450000,
+      "minStock": 3,
+      "currentStock": 12
+    },
+    {
+      "name": "Dầu gội",
+      "unit": "chai",
+      "costPerUnit": 280000,
+      "minStock": 4,
+      "currentStock": 15
+    },
+    {
+      "name": "Tinh chất C-vitamin",
+      "unit": "chai",
+      "costPerUnit": 850000,
+      "minStock": 1,
+      "currentStock": 3
+    }
+  ],
+  "workflowSteps": [
+    {
+      "id": "booked",
+      "name": "Đã đặt lịch",
+      "description": "Khách hàng đã đặt lịch hẹn",
+      "estimatedMinutes": 0,
+      "color": "#6c757d"
+    },
+    {
+      "id": "checked_in",
+      "name": "Đã check-in",
+      "description": "Khách hàng đã đến spa",
+      "estimatedMinutes": 5,
+      "color": "#007bff"
+    },
+    {
+      "id": "in_progress",
+      "name": "Đang phục vụ",
+      "description": "Đang thực hiện dịch vụ",
+      "estimatedMinutes": 60,
+      "color": "#ffc107"
+    },
+    {
+      "id": "completed",
+      "name": "Hoàn thành",
+      "description": "Dịch vụ đã hoàn thành",
+      "estimatedMinutes": 0,
+      "color": "#28a745"
+    }
+  ]
+}

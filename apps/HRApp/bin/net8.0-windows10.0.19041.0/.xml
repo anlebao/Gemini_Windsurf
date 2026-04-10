@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>VanAn.HRApp</name>
+    </assembly>
+    <members>
+        <member name="T:VanAn.HRApp.WinUI.App">
+            <summary>
+            Provides application-specific behavior to supplement the default Application class.
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.WinUI.App.#ctor">
+            <summary>
+            Initializes the singleton application object.  This is the first line of authored code
+            executed, and as such is the logical equivalent of main() or WinMain().
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.WinUI.App.InitializeComponent">
+            <summary>
+            InitializeComponent()
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.WinUI.App.GetXamlType(System.Type)">
+            <summary>
+            GetXamlType(Type)
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.WinUI.App.GetXamlType(System.String)">
+            <summary>
+            GetXamlType(String)
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.WinUI.App.GetXmlnsDefinitions">
+            <summary>
+            GetXmlnsDefinitions()
+            </summary>
+        </member>
+        <member name="T:VanAn.HRApp.WinUI.Program">
+            <summary>
+            Program class
+            </summary>
+        </member>
+        <member name="T:VanAn.HRApp.VanAn_HRApp_XamlTypeInfo.XamlMetaDataProvider">
+            <summary>
+            Main class for providing metadata for the app or library
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.VanAn_HRApp_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.Type)">
+            <summary>
+            GetXamlType(Type)
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.VanAn_HRApp_XamlTypeInfo.XamlMetaDataProvider.GetXamlType(System.String)">
+            <summary>
+            GetXamlType(String)
+            </summary>
+        </member>
+        <member name="M:VanAn.HRApp.VanAn_HRApp_XamlTypeInfo.XamlMetaDataProvider.GetXmlnsDefinitions">
+            <summary>
+            GetXmlnsDefinitions()
+            </summary>
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.Major">
+            The major version of the Windows App SDK release.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.Minor">
+            The minor version of the Windows App SDK release.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.Patch">
+            The patch version of the Windows App SDK release.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.MajorMinor">
+            The major and minor version of the Windows App SDK release, encoded as a uint32_t (0xMMMMNNNN where M=major, N=minor).
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.Channel">
+            The Windows App SDK release's channel; for example, "preview", or empty string for stable.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.VersionTag">
+            The Windows App SDK release's version tag; for example, "preview2", or empty string for stable.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.VersionShortTag">
+            The Windows App SDK release's short-form version tag; for example, "p2", or empty string for stable.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.FormattedVersionTag">
+            The Windows App SDK release's version tag, formatted for concatenation when constructing identifiers; for example, "-preview2", or empty string for stable.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Release.FormattedVersionShortTag">
+            The Windows App SDK release's short-form version tag, formatted for concatenation when constructing identifiers; for example, "-p2", or empty string for stable.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Identity.Publisher">
+            The Windows App SDK runtime's package identity's Publisher.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Identity.PublisherId">
+            The Windows App SDK runtime's package identity's PublisherId.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Version.Major">
+            The major version of the Windows App SDK runtime; for example, 1000.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Version.Minor">
+            The minor version of the Windows App SDK runtime; for example, 446.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Version.Build">
+            The build version of the Windows App SDK runtime; for example, 804.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Version.Revision">
+            The revision version of the Windows App SDK runtime; for example, 0.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Version.UInt64">
+            The version of the Windows App SDK runtime, as a uint64l for example, 0x03E801BE03240000.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Version.DotQuadString">
+            The version of the Windows App SDK runtime, as a string (const wchar_t*); for example, "1000.446.804.0".
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Packages.Framework.PackageFamilyName">
+            The Windows App SDK runtime's Framework package's family name.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Packages.Main.PackageFamilyName">
+            The Windows App SDK runtime's Main package's family name.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Packages.Singleton.PackageFamilyName">
+            The Windows App SDK runtime's Singleton package's family name.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Packages.DDLM.X86.PackageFamilyName">
+            The Windows App SDK runtime's Dynamic Dependency Lifetime Manager (DDLM) package's family name, for x86.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Packages.DDLM.X64.PackageFamilyName">
+            The Windows App SDK runtime's Dynamic Dependency Lifetime Manager (DDLM) package's family name, for x64.
+        </member>
+        <member name="F:Microsoft.WindowsAppSDK.Runtime.Packages.DDLM.Arm64.PackageFamilyName">
+            The Windows App SDK runtime's Dynamic Dependency Lifetime Manager (DDLM) package's family name, for arm64.
+        </member>
+    </members>
+</doc>

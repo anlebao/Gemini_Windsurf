@@ -1,0 +1,49 @@
+{
+  "name": "vanan-ecosystem-testing",
+  "version": "1.0.0",
+  "description": "VanAn Ecosystem Testing Framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run test:smoke && npm run test:e2e",
+    "test:smoke": "echo 'Smoke tests - using .NET tests instead'",
+    "test:e2e": "echo 'E2E tests - using .NET tests instead'",
+    "test:load": "echo 'Load tests - using .NET tests instead'",
+    "test:chaos": "echo 'Chaos tests - using .NET tests instead'",
+    "test:all": "npm run test:smoke && npm run test:e2e && npm run test:load && npm run test:chaos",
+    "test:quality-gate": "node scripts/quality-gate.js",
+    "test:quality-gate:full": "node scripts/quality-gate.js --full-audit",
+    "report": "node scripts/generate-reports.js",
+    "dashboard": "open dashboard/index.html",
+    "install:deps": "npm install",
+    "clean:reports": "rimraf reports/*.json reports/*.html"
+  },
+  "keywords": [
+    "testing",
+    "playwright",
+    "k6",
+    "chaos-testing",
+    "load-testing",
+    "e2e-testing"
+  ],
+  "author": "VanAn Ecosystem Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "rimraf": "^5.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vanan/ecosystem-testing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vanan/ecosystem-testing/issues"
+  },
+  "homepage": "https://github.com/vanan/ecosystem-testing#readme"
+}

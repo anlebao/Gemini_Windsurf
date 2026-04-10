@@ -1,0 +1,53 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate",
+  "version": "1.0.0",
+  "timestamp": "2026-04-07T05:06:49.775Z",
+  "duration": 4946,
+  "summary": {
+    "total": 4,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 3
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": false,
+    "ENABLE_LOAD_TEST": false,
+    "ENABLE_CHAOS": false,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:3000",
+    "SHOPERP_URL": "http://localhost:3001",
+    "SMOKE_TEST_TIMEOUT": 300,
+    "E2E_TEST_TIMEOUT": 600,
+    "LOAD_TEST_DURATION": 120,
+    "CHAOS_TEST_DURATION": 180
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 4935,
+      "error": "Command failed: npx playwright test smoke-tests/smoke.spec.ts --config=playwright.config.ts\nError: Cannot find module '@playwright/test'\nRequire stack:\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\playwright.config.ts\n- C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\transform\\transform.js\n- C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\common\\configLoader.js\n- C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\testActions.js\n- C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\program.js\n- C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\cli.js\n    at Module.<anonymous> (node:internal/modules/cjs/loader:1456:15)\n    at Module.resolveFilename [as _resolveFilename] (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\transform\\transform.js:240:36)\n    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)\n    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)\n    at Module._load (node:internal/modules/cjs/loader:1242:25)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.require (node:internal/modules/cjs/loader:1556:12)\n    at require (node:internal/modules/helpers:152:16)\n    at Object.<anonymous> (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\playwright.config.ts:1:1)\n    at Module._compile (node:internal/modules/cjs/loader:1812:14)\n    at Module.newCompile2 (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\third_party\\pirates.js:46:29)\n    at Object.<anonymous> (node:internal/modules/cjs/loader:1943:10)\n    at Object.newLoader2 [as .ts] (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\third_party\\pirates.js:52:22)\n    at Module.load (node:internal/modules/cjs/loader:1533:32)\n    at Module._load (node:internal/modules/cjs/loader:1335:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.require (node:internal/modules/cjs/loader:1556:12)\n    at require (node:internal/modules/helpers:152:16)\n    at requireOrImport (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\transform\\transform.js:218:18)\n    at loadUserConfig (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\common\\configLoader.js:107:89)\n    at loadConfig (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\common\\configLoader.js:119:28)\n    at loadConfigFromFile (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\common\\configLoader.js:331:10)\n    at runTests (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\testActions.js:51:18)\n    at i.<anonymous> (C:\\Users\\lebao\\AppData\\Local\\npm-cache\\_npx\\e41f203b7505f1fb\\node_modules\\playwright\\lib\\program.js:56:7) {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: [\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\playwright.config.ts',\n    'C:\\\\Users\\\\lebao\\\\AppData\\\\Local\\\\npm-cache\\\\_npx\\\\e41f203b7505f1fb\\\\node_modules\\\\playwright\\\\lib\\\\transform\\\\transform.js',\n    'C:\\\\Users\\\\lebao\\\\AppData\\\\Local\\\\npm-cache\\\\_npx\\\\e41f203b7505f1fb\\\\node_modules\\\\playwright\\\\lib\\\\common\\\\configLoader.js',\n    'C:\\\\Users\\\\lebao\\\\AppData\\\\Local\\\\npm-cache\\\\_npx\\\\e41f203b7505f1fb\\\\node_modules\\\\playwright\\\\lib\\\\testActions.js',\n    'C:\\\\Users\\\\lebao\\\\AppData\\\\Local\\\\npm-cache\\\\_npx\\\\e41f203b7505f1fb\\\\node_modules\\\\playwright\\\\lib\\\\program.js',\n    'C:\\\\Users\\\\lebao\\\\AppData\\\\Local\\\\npm-cache\\\\_npx\\\\e41f203b7505f1fb\\\\node_modules\\\\playwright\\\\cli.js'\n  ]\n}\n",
+      "description": "Smoke Tests"
+    },
+    "e2e": {
+      "status": "skip",
+      "duration": 0,
+      "description": "E2E Tests",
+      "architectDecision": "Bypassed by Architect - E2E tests disabled"
+    },
+    "load": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Load Tests",
+      "architectDecision": "Bypassed by Architect - Load tests disabled"
+    },
+    "chaos": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Chaos Tests",
+      "architectDecision": "Bypassed by Architect - Chaos tests disabled"
+    }
+  },
+  "status": "fail"
+}

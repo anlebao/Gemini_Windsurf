@@ -1,0 +1,3 @@
+M:System.Guid.Parse(System.String);Use Guid.TryParse instead to prevent FormatException.
+M:System.Int32.Parse(System.String);Use int.TryParse instead.
+M:System.DateTime.Parse(System.String);Use DateTime.TryParse instead.

@@ -1,0 +1,39 @@
+{
+  "Version": 1,
+  "Hash": "eytgAiYrj3ABPzPjZ55IIzPhOvkVZ0RP7QJUKgQ27Sw=",
+  "Source": "VanAn.Gateway",
+  "BasePath": "_content/VanAn.Gateway",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "VanAn.Gateway\\wwwroot",
+      "Source": "VanAn.Gateway",
+      "ContentRoot": "C:\\vibecoding\\gemini_windsurf\\2_Gateway\\wwwroot\\",
+      "BasePath": "_content/VanAn.Gateway",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\vibecoding\\gemini_windsurf\\2_Gateway\\wwwroot\\favicon.ico",
+      "SourceId": "VanAn.Gateway",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\vibecoding\\gemini_windsurf\\2_Gateway\\wwwroot\\",
+      "BasePath": "_content/VanAn.Gateway",
+      "RelativePath": "favicon.ico",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\favicon.ico"
+    }
+  ]
+}

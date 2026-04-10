@@ -1,0 +1,33 @@
+# .NET Specific - Cực kỳ quan trọng
+[Bb]in/
+[Oo]bj/
+out/
+.library/
+
+# User-specific files (Tránh ghi đè cấu hình cá nhân của bạn vào Container)
+*.user
+*.userosscache
+*.sln.doccache
+
+# Docker/System files
+.dockerignore
+Dockerfile*
+docker-compose*
+node_modules/
+
+# Temporary files (Tránh kẹt do các ứng dụng đang mở)
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Legacy rules (để tương thích)
+**/.bin
+**/.obj
+**/.vs
+**/.git
+**/.vscode
+**/dist
+**/publish
+docker-compose.override.yml
+.env

@@ -1,0 +1,53 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate",
+  "version": "1.0.0",
+  "timestamp": "2026-04-07T05:30:56.059Z",
+  "duration": 44584,
+  "summary": {
+    "total": 4,
+    "passed": 0,
+    "failed": 2,
+    "skipped": 2
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": true,
+    "ENABLE_LOAD_TEST": false,
+    "ENABLE_CHAOS": false,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:3000",
+    "SHOPERP_URL": "http://localhost:3001",
+    "SMOKE_TEST_TIMEOUT": 300,
+    "E2E_TEST_TIMEOUT": 600,
+    "LOAD_TEST_DURATION": 120,
+    "CHAOS_TEST_DURATION": 180
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 14452,
+      "error": "Command failed: dotnet test ../6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj --logger \"console;verbosity=normal\"\n[xUnit.net 00:00:02.75]     GetSystemHealthAsync_Should_Handle_Database_Connection_Failure [FAIL]\r\n[xUnit.net 00:00:03.88]     GetSQLiteMetricsAsync_Should_Handle_Missing_Database_File [FAIL]\r\n[xUnit.net 00:00:03.90]     GetPostgreSQLMetricsAsync_Should_Calculate_Tenant_Growth [FAIL]\r\n[xUnit.net 00:00:03.94]     GetPostgreSQLMetricsAsync_Should_Handle_Null_TenantId [FAIL]\r\nTest Run Failed.\r\n",
+      "description": "Smoke Tests (.NET Unit Tests)"
+    },
+    "e2e": {
+      "status": "fail",
+      "duration": 30118,
+      "error": "Command failed: dotnet test ../6_Tests/VanAn.Integration.Tests/VanAn.Integration.Tests.csproj --logger \"console;verbosity=normal\"\n[xUnit.net 00:00:05.33]     API_Should_Handle_Dashboard_Metrics_Request [FAIL]\r\n[xUnit.net 00:00:05.75]     DashboardService_Integration_Should_Handle_Database_Connection [FAIL]\r\n[xUnit.net 00:00:06.01]     Integration_Should_Handle_Service_Failure_Gracefully [FAIL]\r\n[xUnit.net 00:00:06.27]     API_Should_Return_Dashboard_Endpoint [FAIL]\r\n[xUnit.net 00:00:06.50]     DashboardService_Integration_Should_Provide_Real_Metrics [FAIL]\r\n[xUnit.net 00:00:06.68]     Database_Integration_Should_Handle_Concurrent_Requests [FAIL]\r\n[xUnit.net 00:00:06.88]     Database_Integration_Should_Maintain_Data_Consistency [FAIL]\r\n[xUnit.net 00:00:07.06]     Integration_Performance_Should_Complete_Within_Timeout [FAIL]\r\nTest Run Failed.\r\n",
+      "description": "Integration Tests (.NET Integration Tests)"
+    },
+    "load": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Load Tests",
+      "architectDecision": "Bypassed by Architect - Load tests disabled"
+    },
+    "chaos": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Chaos Tests",
+      "architectDecision": "Bypassed by Architect - Chaos tests disabled"
+    }
+  },
+  "status": "fail"
+}

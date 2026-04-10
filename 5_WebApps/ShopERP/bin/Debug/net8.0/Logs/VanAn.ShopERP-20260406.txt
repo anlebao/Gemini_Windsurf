@@ -1,0 +1,245 @@
+2026-04-06 15:36:26.340 +07:00 [INF] Executed DbCommand (22ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+PRAGMA journal_mode = 'wal';
+2026-04-06 15:36:26.667 +07:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Customers" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Customers" PRIMARY KEY,
+    "CustomerId" TEXT NOT NULL,
+    "FullName" TEXT NOT NULL,
+    "PhoneNumber" TEXT NOT NULL,
+    "Email" TEXT NULL,
+    "LoyaltyPoints" INTEGER NOT NULL,
+    "CustomerTier" TEXT NOT NULL,
+    "LastOrderDate" TEXT NULL,
+    "TotalSpent" TEXT NOT NULL,
+    "IsActive" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL
+);
+2026-04-06 15:36:26.676 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Ingredients" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Ingredients" PRIMARY KEY,
+    "IngredientId" TEXT NOT NULL,
+    "Name" TEXT NOT NULL,
+    "Unit" TEXT NOT NULL,
+    "CurrentStock" TEXT NOT NULL,
+    "MinStockThreshold" TEXT NOT NULL,
+    "PricePerUnit" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL
+);
+2026-04-06 15:36:26.684 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Products" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Products" PRIMARY KEY,
+    "ProductId" TEXT NOT NULL,
+    "Name" TEXT NOT NULL,
+    "Description" TEXT NOT NULL,
+    "Price" TEXT NOT NULL,
+    "Category" TEXT NOT NULL,
+    "IsActive" INTEGER NOT NULL,
+    "ImageUrl" TEXT NULL,
+    "VatRate" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL
+);
+2026-04-06 15:36:26.696 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Shops" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Shops" PRIMARY KEY,
+    "Name" TEXT NOT NULL,
+    "Address" TEXT NOT NULL,
+    "Phone" TEXT NOT NULL,
+    "Email" TEXT NOT NULL,
+    "IsActive" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL
+);
+2026-04-06 15:36:26.702 +07:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Users" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Users" PRIMARY KEY,
+    "Username" TEXT NOT NULL,
+    "PasswordHash" TEXT NOT NULL,
+    "DisplayName" TEXT NOT NULL,
+    "Role" INTEGER NOT NULL,
+    "IsActive" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL
+);
+2026-04-06 15:36:26.710 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Orders" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Orders" PRIMARY KEY,
+    "OrderId" TEXT NOT NULL,
+    "CustomerId" TEXT NULL,
+    "CustomerDeviceId" TEXT NULL,
+    "OrderType" TEXT NOT NULL,
+    "Status" TEXT NOT NULL,
+    "TextCommand" TEXT NULL,
+    "VoiceCommandUrl" TEXT NULL,
+    "VoiceNoteText" TEXT NULL,
+    "VoiceNoteAudioBlob" TEXT NULL,
+    "KitchenStatus" INTEGER NOT NULL,
+    "SubTotal" TEXT NOT NULL,
+    "TotalVatAmount" TEXT NOT NULL,
+    "ShippingFee" TEXT NOT NULL,
+    "DiscountAmount" TEXT NOT NULL,
+    "TotalAmount" TEXT NOT NULL,
+    "PaymentMethod" TEXT NULL,
+    "PaymentStatus" TEXT NULL,
+    "VietQR_TransactionId" TEXT NULL,
+    "VietQR_Payload" TEXT NULL,
+    "OrderDate" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "CompletedAt" TEXT NULL,
+    "CustomerNotes" TEXT NULL,
+    "StaffNotes" TEXT NULL,
+    "TrackingCode" TEXT NULL,
+    "IsSyncedToCoreHub" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL,
+    CONSTRAINT "FK_Orders_Customers_CustomerId" FOREIGN KEY ("CustomerId") REFERENCES "Customers" ("Id") ON DELETE SET NULL
+);
+2026-04-06 15:36:26.714 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Inventories" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Inventories" PRIMARY KEY,
+    "InventoryId" TEXT NOT NULL,
+    "IngredientId" TEXT NOT NULL,
+    "Quantity" TEXT NOT NULL,
+    "LastUpdated" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL,
+    CONSTRAINT "FK_Inventories_Ingredients_IngredientId" FOREIGN KEY ("IngredientId") REFERENCES "Ingredients" ("Id") ON DELETE CASCADE
+);
+2026-04-06 15:36:26.720 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "Recipes" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Recipes" PRIMARY KEY,
+    "RecipeId" TEXT NOT NULL,
+    "ProductId" TEXT NOT NULL,
+    "IngredientId" TEXT NOT NULL,
+    "QuantityNeeded" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL,
+    CONSTRAINT "FK_Recipes_Ingredients_IngredientId" FOREIGN KEY ("IngredientId") REFERENCES "Ingredients" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_Recipes_Products_ProductId" FOREIGN KEY ("ProductId") REFERENCES "Products" ("Id") ON DELETE CASCADE
+);
+2026-04-06 15:36:26.731 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "SocialCampaigns" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_SocialCampaigns" PRIMARY KEY,
+    "ShopId" TEXT NOT NULL,
+    "UtmSource" TEXT NOT NULL,
+    "CampaignName" TEXT NOT NULL,
+    "TrackingCode" TEXT NOT NULL,
+    "TotalClicks" INTEGER NOT NULL,
+    "ConvertedOrders" INTEGER NOT NULL,
+    "IsActive" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL,
+    CONSTRAINT "FK_SocialCampaigns_Shops_ShopId" FOREIGN KEY ("ShopId") REFERENCES "Shops" ("Id") ON DELETE CASCADE
+);
+2026-04-06 15:36:26.741 +07:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "LoyaltyRewards" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_LoyaltyRewards" PRIMARY KEY,
+    "CustomerId" TEXT NOT NULL,
+    "PointBalance" INTEGER NOT NULL,
+    "History" TEXT NOT NULL,
+    "IsActive" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL,
+    CONSTRAINT "FK_LoyaltyRewards_Users_CustomerId" FOREIGN KEY ("CustomerId") REFERENCES "Users" ("Id") ON DELETE CASCADE
+);
+2026-04-06 15:36:26.746 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "OrderItems" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_OrderItems" PRIMARY KEY,
+    "OrderItemId" TEXT NOT NULL,
+    "OrderId" TEXT NOT NULL,
+    "ProductId" TEXT NOT NULL,
+    "Quantity" INTEGER NOT NULL,
+    "UnitPrice" TEXT NOT NULL,
+    "VatRate" TEXT NOT NULL,
+    "Notes" TEXT NULL,
+    "KitchenStatus" INTEGER NOT NULL,
+    "ItemNoteText" TEXT NULL,
+    "ItemNoteAudioBlob" TEXT NULL,
+    "CreatedAt" TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    "UpdatedAt" TEXT NULL,
+    "TenantId" TEXT NOT NULL,
+    CONSTRAINT "FK_OrderItems_Orders_OrderId" FOREIGN KEY ("OrderId") REFERENCES "Orders" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_OrderItems_Products_ProductId" FOREIGN KEY ("ProductId") REFERENCES "Products" ("Id") ON DELETE RESTRICT
+);
+2026-04-06 15:36:26.757 +07:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_Inventories_IngredientId" ON "Inventories" ("IngredientId");
+2026-04-06 15:36:26.770 +07:00 [INF] Executed DbCommand (1ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_LoyaltyRewards_CustomerId" ON "LoyaltyRewards" ("CustomerId");
+2026-04-06 15:36:26.779 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_OrderItems_OrderId" ON "OrderItems" ("OrderId");
+2026-04-06 15:36:26.789 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_OrderItems_ProductId" ON "OrderItems" ("ProductId");
+2026-04-06 15:36:26.801 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_Orders_CustomerId" ON "Orders" ("CustomerId");
+2026-04-06 15:36:26.812 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_Recipes_IngredientId" ON "Recipes" ("IngredientId");
+2026-04-06 15:36:26.817 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_Recipes_ProductId" ON "Recipes" ("ProductId");
+2026-04-06 15:36:26.828 +07:00 [INF] Executed DbCommand (0ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_SocialCampaigns_ShopId" ON "SocialCampaigns" ("ShopId");
+2026-04-06 15:36:26.945 +07:00 [INF] User profile is available. Using 'C:\Users\lebao\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-04-06 15:36:27.167 +07:00 [INF] Now listening on: http://localhost:5003
+2026-04-06 15:36:27.184 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-04-06 15:36:27.191 +07:00 [INF] Hosting environment: Development
+2026-04-06 15:36:27.196 +07:00 [INF] Content root path: C:\vibecoding\gemini_windsurf\5_WebApps\ShopERP
+2026-04-06 15:37:33.901 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5003/ - null null
+2026-04-06 15:37:34.055 +07:00 [INF] Authorization failed. These requirements were not met:
+DenyAnonymousAuthorizationRequirement: Requires an authenticated user.
+2026-04-06 15:37:34.076 +07:00 [INF] AuthenticationScheme: Cookies was challenged.
+2026-04-06 15:37:34.083 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5003/ - 302 0 null 185.5168ms
+2026-04-06 15:37:34.108 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5003/Login?ReturnUrl=%2F - null null
+2026-04-06 15:37:34.133 +07:00 [INF] Executing endpoint '/Login'
+2026-04-06 15:37:34.257 +07:00 [INF] Route matched with {page = "/Login", action = "", controller = ""}. Executing page /Login
+2026-04-06 15:37:34.295 +07:00 [INF] Executing an implicit handler method - ModelState is "Valid"
+2026-04-06 15:37:34.299 +07:00 [INF] Executed an implicit handler method, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2026-04-06 15:37:34.350 +07:00 [INF] Executed page /Login in 84.6388ms
+2026-04-06 15:37:34.366 +07:00 [INF] Executed endpoint '/Login'
+2026-04-06 15:37:34.378 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5003/Login?ReturnUrl=%2F - 200 null text/html; charset=utf-8 270.2439ms
+2026-04-06 15:37:34.454 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5003/favicon.ico - null null
+2026-04-06 15:37:34.485 +07:00 [INF] Sending file. Request path: '/favicon.ico'. Physical path: 'C:\vibecoding\gemini_windsurf\5_WebApps\ShopERP\wwwroot\favicon.ico'
+2026-04-06 15:37:34.494 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5003/favicon.ico - 200 0 image/x-icon 39.9149ms
+2026-04-06 15:37:36.624 +07:00 [INF] Request starting HTTP/1.1 POST http://localhost:5003/Login?ReturnUrl=%2F - application/x-www-form-urlencoded 230
+2026-04-06 15:37:36.680 +07:00 [INF] Executing endpoint '/Login'
+2026-04-06 15:37:36.694 +07:00 [INF] Route matched with {page = "/Login", action = "", controller = ""}. Executing page /Login
+2026-04-06 15:37:36.733 +07:00 [INF] Executing handler method VanAn.ShopERP.Pages.LoginModel.OnPostAsync - ModelState is "Valid"
+2026-04-06 15:37:36.747 +07:00 [INF] AuthenticationScheme: Cookies signed in.
+2026-04-06 15:37:36.750 +07:00 [INF] Executed handler method OnPostAsync, returned result Microsoft.AspNetCore.Mvc.RedirectToPageResult.
+2026-04-06 15:37:36.789 +07:00 [INF] Executing RedirectToPageResult, redirecting to /Index.
+2026-04-06 15:37:36.792 +07:00 [INF] Executed page /Login in 94.0321ms
+2026-04-06 15:37:36.797 +07:00 [INF] Executed endpoint '/Login'
+2026-04-06 15:37:36.799 +07:00 [INF] Request finished HTTP/1.1 POST http://localhost:5003/Login?ReturnUrl=%2F - 302 0 null 175.334ms
+2026-04-06 15:37:36.813 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5003/ - null null
+2026-04-06 15:37:36.828 +07:00 [INF] Executing endpoint '/Index'
+2026-04-06 15:37:36.832 +07:00 [INF] Route matched with {page = "/Index", action = "", controller = ""}. Executing page /Index
+2026-04-06 15:37:36.844 +07:00 [INF] Executing an implicit handler method - ModelState is "Valid"
+2026-04-06 15:37:36.846 +07:00 [INF] Executed an implicit handler method, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2026-04-06 15:37:36.879 +07:00 [INF] Executed page /Index in 44.4629ms
+2026-04-06 15:37:36.891 +07:00 [INF] Executed endpoint '/Index'
+2026-04-06 15:37:36.906 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5003/ - 200 null text/html; charset=utf-8 91.4072ms
+2026-04-06 15:37:58.977 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5003/shoperp - null null
+2026-04-06 15:37:58.991 +07:00 [INF] Executing endpoint '/Index'
+2026-04-06 15:37:58.997 +07:00 [INF] Route matched with {page = "/Index", action = "", controller = ""}. Executing page /Index
+2026-04-06 15:37:59.000 +07:00 [INF] Executing an implicit handler method - ModelState is "Valid"
+2026-04-06 15:37:59.003 +07:00 [INF] Executed an implicit handler method, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2026-04-06 15:37:59.015 +07:00 [INF] Executed page /Index in 16.0613ms
+2026-04-06 15:37:59.018 +07:00 [INF] Executed endpoint '/Index'
+2026-04-06 15:37:59.030 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5003/shoperp - 200 null text/html; charset=utf-8 53.0912ms
+2026-04-06 15:38:31.209 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5003/ - null null
+2026-04-06 15:38:31.234 +07:00 [INF] Executing endpoint '/Index'
+2026-04-06 15:38:31.251 +07:00 [INF] Route matched with {page = "/Index", action = "", controller = ""}. Executing page /Index
+2026-04-06 15:38:31.260 +07:00 [INF] Executing an implicit handler method - ModelState is "Valid"
+2026-04-06 15:38:31.263 +07:00 [INF] Executed an implicit handler method, returned result Microsoft.AspNetCore.Mvc.RazorPages.PageResult.
+2026-04-06 15:38:31.268 +07:00 [INF] Executed page /Index in 10.4762ms
+2026-04-06 15:38:31.303 +07:00 [INF] Executed endpoint '/Index'
+2026-04-06 15:38:31.312 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5003/ - 200 null text/html; charset=utf-8 102.8783ms

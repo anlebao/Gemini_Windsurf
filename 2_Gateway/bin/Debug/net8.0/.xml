@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>VanAn.Gateway</name>
+    </assembly>
+    <members>
+        <member name="M:VanAn.Gateway.Controllers.KitchenController.GetGroupedItems(System.Guid)">
+            <summary>
+            Get grouped kitchen items for display
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Controllers.KitchenController.UpdateItemStatus(VanAn.Shared.DTOs.KitchenStatusUpdateDto)">
+            <summary>
+            Update kitchen item status
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Controllers.KitchenController.ProcessVoiceNote(System.Guid,VanAn.Shared.DTOs.VoiceNoteDto)">
+            <summary>
+            Process voice note for order
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Controllers.KitchenController.GetAnalytics(System.Guid,System.DateTime)">
+            <summary>
+            Get kitchen analytics
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Controllers.KitchenController.GetOrderStatus(System.Guid)">
+            <summary>
+            Get order kitchen status
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Hubs.KitchenHub.JoinKitchen(System.String)">
+            <summary>
+            Join kitchen display for specific shop
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Hubs.KitchenHub.LeaveKitchen(System.String)">
+            <summary>
+            Leave kitchen display
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Hubs.KitchenHub.JoinOrder(System.String)">
+            <summary>
+            Join order-specific updates
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Hubs.KitchenHub.LeaveOrder(System.String)">
+            <summary>
+            Leave order updates
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Hubs.KitchenHub.BroadcastStatusChange(VanAn.Shared.DTOs.KitchenStatusUpdateDto)">
+            <summary>
+            Broadcast kitchen item status change
+            </summary>
+        </member>
+        <member name="M:VanAn.Gateway.Hubs.KitchenHub.BroadcastOrderConfirmation(VanAn.Shared.DTOs.OrderConfirmedEvent)">
+            <summary>
+            Broadcast new order confirmation
+            </summary>
+        </member>
+    </members>
+</doc>

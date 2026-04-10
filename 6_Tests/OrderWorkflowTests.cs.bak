@@ -1,0 +1,280 @@
+using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
+using VanAn.Shared.Infrastructure;
+using Xunit;
+
+namespace VanAn.Tests;
+
+public class OrderWorkflowTests
+{
+    private readonly VanAnSqliteDbContext _context;
+    private readonly OrderWorkflowService _workflowService;
+    private readonly InventoryService _inventoryService;
+    
+    public OrderWorkflowTests()
+    {
+        // Setup in-memory SQLite database for testing
+        var options = new DbContextOptionsBuilder<VanAnSqliteDbContext>()
+            .UseSqlite("DataSource=:memory:")
+            .Options;
+            
+        _context = new VanAnSqliteDbContext(options);
+        _context.Database.OpenConnection();
+        _context.Database.EnsureCreated();
+        
+        _workflowService = new OrderWorkflowService(_context);
+        _inventoryService = new InventoryService();
+        
+        // Seed test data
+        SeedTestData();
+    }
+    
+    [Fact]
+    public async Task Should_Allow_Forward_Status_Transition()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        var fromStatus = new OrderStatusId("pending");
+        var toStatus = new OrderStatusId("confirmed");
+        
+        // Act
+        var canTransition = await _workflowService.CanTransitionStatusAsync(order.Id, fromStatus, toStatus);
+        
+        // Assert
+        Assert.True(canTransition);
+    }
+    
+    [Fact]
+    public async Task Should_Prevent_Backward_Status_Transition()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        order.CurrentStatusId = new OrderStatusId("confirmed");
+        _context.Orders.Update(order);
+        await _context.SaveChangesAsync();
+        
+        var fromStatus = new OrderStatusId("confirmed");
+        var toStatus = new OrderStatusId("pending");
+        
+        // Act
+        var canTransition = await _workflowService.CanTransitionStatusAsync(order.Id, fromStatus, toStatus);
+        
+        // Assert
+        Assert.False(canTransition);
+    }
+    
+    [Fact]
+    public async Task Should_Prevent_Same_Status_Transition()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        var status = new OrderStatusId("pending");
+        
+        // Act
+        var canTransition = await _workflowService.CanTransitionStatusAsync(order.Id, status, status);
+        
+        // Assert
+        Assert.False(canTransition);
+    }
+    
+    [Fact]
+    public async Task Should_Prevent_Inactive_Status_Transition()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        var fromStatus = new OrderStatusId("pending");
+        var toStatus = new OrderStatusId("shipping"); // Assume shipping is inactive
+        
+        // Act
+        var canTransition = await _workflowService.CanTransitionStatusAsync(order.Id, fromStatus, toStatus);
+        
+        // Assert
+        Assert.False(canTransition);
+    }
+    
+    [Fact]
+    public async Task Should_Transition_Status_Successfully()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        var newStatus = new OrderStatusId("confirmed");
+        
+        // Act
+        var result = await _workflowService.TransitionStatusAsync(order.Id, newStatus);
+        
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(newStatus.Value, result.CurrentStatusId.Value);
+        Assert.NotNull(result.StatusStartedAt);
+    }
+    
+    [Fact]
+    public async Task Should_Trigger_Inventory_Deduction_Only_Once()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        var confirmedStatus = new OrderStatusId("confirmed");
+        var processingStatus = new OrderStatusId("processing");
+        
+        // Get initial inventory
+        var initialInventories = await _context.Inventories.ToDictionaryAsync(i => i.IngredientId, i => i.CurrentStock);
+        
+        // Act - Transition to confirmed (should trigger inventory deduction)
+        var result1 = await _workflowService.TransitionStatusAsync(order.Id, confirmedStatus);
+        Assert.NotNull(result1);
+        
+        // Get inventory after first deduction
+        var inventoriesAfterFirst = await _context.Inventories.ToDictionaryAsync(i => i.IngredientId, i => i.CurrentStock);
+        
+        // Act - Transition to processing (should NOT trigger inventory deduction)
+        var result2 = await _workflowService.TransitionStatusAsync(order.Id, processingStatus);
+        Assert.NotNull(result2);
+        
+        // Get inventory after second transition
+        var inventoriesAfterSecond = await _context.Inventories.ToDictionaryAsync(i => i.IngredientId, i => i.CurrentStock);
+        
+        // Assert - Inventory should only be deducted once
+        foreach (var ingredientId in initialInventories.Keys)
+        {
+            var initial = initialInventories[ingredientId];
+            var afterFirst = inventoriesAfterFirst[ingredientId];
+            var afterSecond = inventoriesAfterSecond[ingredientId];
+            
+            // Should be deducted once
+            Assert.True(afterFirst < initial, $"Inventory for {ingredientId} should be deducted after confirmed status");
+            
+            // Should not be deducted again
+            Assert.Equal(afterFirst, afterSecond, $"Inventory for {ingredientId} should not be deducted again after processing status");
+        }
+    }
+    
+    [Fact]
+    public async Task Should_Get_Next_Status_Correctly()
+    {
+        // Arrange
+        var currentStatus = new OrderStatusId("pending");
+        
+        // Act
+        var nextStatus = await _workflowService.GetNextStatusAsync(currentStatus);
+        
+        // Assert
+        Assert.NotNull(nextStatus);
+        Assert.Equal("confirmed", nextStatus.Id.Value);
+        Assert.Equal("Đã xác nhận", nextStatus.DisplayName);
+    }
+    
+    [Fact]
+    public async Task Should_Return_Null_For_Last_Status()
+    {
+        // Arrange
+        var lastStatus = new OrderStatusId("completed");
+        
+        // Act
+        var nextStatus = await _workflowService.GetNextStatusAsync(lastStatus);
+        
+        // Assert
+        Assert.Null(nextStatus);
+    }
+    
+    [Fact]
+    public async Task Should_Get_Active_Statuses_Only()
+    {
+        // Act
+        var activeStatuses = await _workflowService.GetActiveStatusesAsync();
+        
+        // Assert
+        Assert.All(activeStatuses, status => Assert.True(status.IsActive));
+        Assert.NotEmpty(activeStatuses);
+    }
+    
+    [Fact]
+    public async Task Should_Prevent_Transition_For_NonExistent_Order()
+    {
+        // Arrange
+        var nonExistentOrderId = new OrderId(Guid.NewGuid());
+        var fromStatus = new OrderStatusId("pending");
+        var toStatus = new OrderStatusId("confirmed");
+        
+        // Act
+        var canTransition = await _workflowService.CanTransitionStatusAsync(nonExistentOrderId, fromStatus, toStatus);
+        
+        // Assert
+        Assert.False(canTransition);
+    }
+    
+    [Fact]
+    public async Task Should_Handle_Multiple_Status_Transitions()
+    {
+        // Arrange
+        var order = await CreateTestOrder();
+        
+        // Act & Assert - Multiple forward transitions
+        var confirmed = await _workflowService.TransitionStatusAsync(order.Id, new OrderStatusId("confirmed"));
+        Assert.NotNull(confirmed);
+        Assert.Equal("confirmed", confirmed.CurrentStatusId.Value);
+        
+        var processing = await _workflowService.TransitionStatusAsync(order.Id, new OrderStatusId("processing"));
+        Assert.NotNull(processing);
+        Assert.Equal("processing", processing.CurrentStatusId.Value);
+        
+        var ready = await _workflowService.TransitionStatusAsync(order.Id, new OrderStatusId("ready"));
+        Assert.NotNull(ready);
+        Assert.Equal("ready", ready.CurrentStatusId.Value);
+        
+        var completed = await _workflowService.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+        Assert.NotNull(completed);
+        Assert.Equal("completed", completed.CurrentStatusId.Value);
+    }
+    
+    private async Task<Order> CreateTestOrder()
+    {
+        var order = new Order
+        {
+            Id = new OrderId(Guid.NewGuid()),
+            Items = new[]
+            {
+                new OrderItem 
+                { 
+                    ProductId = new ProductId(Guid.NewGuid()), 
+                    ProductName = "Test Product", 
+                    Quantity = 1, 
+                    UnitPrice = 25000m 
+                }
+            },
+            CustomerDeviceId = "test_device_123",
+            CurrentStatusId = new OrderStatusId("pending")
+        };
+        
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+        
+        return order;
+    }
+    
+    private void SeedTestData()
+    {
+        // Seed ingredients
+        var ingredients = VanAnSeedData.Ingredients.All;
+        _context.Ingredients.AddRange(ingredients);
+        
+        // Seed products
+        var products = VanAnSeedData.Products.All;
+        _context.Products.AddRange(products);
+        
+        // Seed recipes
+        var recipes = VanAnSeedData.Recipes.All;
+        _context.Recipes.AddRange(recipes);
+        
+        // Seed inventories
+        var inventories = VanAnSeedData.Inventories.All;
+        _context.Inventories.AddRange(inventories);
+        
+        _context.SaveChanges();
+    }
+    
+    public void Dispose()
+    {
+        _context?.Database?.CloseConnection();
+        _context?.Dispose();
+    }
+}

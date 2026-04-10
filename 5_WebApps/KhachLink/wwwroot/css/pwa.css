@@ -1,0 +1,114 @@
+/* PWA Install Prompt Styles */
+.install-prompt-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    max-width: 400px;
+    width: 90%;
+}
+
+.install-prompt-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 1.5rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    border: 2px solid rgba(255,255,255,0.2);
+    backdrop-filter: blur(10px);
+}
+
+.install-prompt-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: white;
+}
+
+.install-prompt-icon {
+    font-size: 2rem;
+    animation: bounce 2s infinite;
+}
+
+.install-prompt-text h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.install-prompt-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.install-prompt-text {
+    flex: 1;
+}
+
+.install-prompt-actions {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-install {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-install:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+}
+
+.btn-dismiss {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-dismiss:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+}
+
+@media (max-width: 768px) {
+    .install-prompt-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .install-prompt-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-install {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+}

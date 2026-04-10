@@ -1,0 +1,25 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\2_Gateway\\wwwroot\\favicon.ico",
+      "PackagePath": "staticwebassets\\favicon.ico"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.VanAn.Gateway.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.build.VanAn.Gateway.props",
+      "PackagePath": "build\\VanAn.Gateway.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.VanAn.Gateway.props",
+      "PackagePath": "buildMultiTargeting\\VanAn.Gateway.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.buildTransitive.VanAn.Gateway.props",
+      "PackagePath": "buildTransitive\\VanAn.Gateway.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

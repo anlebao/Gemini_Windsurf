@@ -1,0 +1,6 @@
+@VanAn.Gateway_HostAddress = http://localhost:5143
+
+GET {{VanAn.Gateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

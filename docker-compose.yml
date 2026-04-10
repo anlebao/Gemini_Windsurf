@@ -1,0 +1,99 @@
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vanan-postgres
+    environment:
+      - POSTGRES_DB=VanAnCoreHub
+      - POSTGRES_USER=vanan_admin
+      - POSTGRES_PASSWORD=VanAn@2024!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vanan_admin -d VanAnCoreHub"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  seq:
+    image: datalust/seq:latest
+    container_name: vanan-seq
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORD=VanAn2026
+    ports:
+      - "5341:5341"  # Ingestion API
+      - "8081:80"    # Web UI
+    volumes:
+      - seq_data:/data
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: vanan-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"  # HTTP monitoring port
+    command: ["-js", "-sd", "/data/jetstream", "-m", "8222"]  # Enable JetStream, persistent store, and monitoring
+    volumes:
+      - nats_data:/data/jetstream  # Persistent volume for JetStream data
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: vanan-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@vanan.com
+      PGADMIN_DEFAULT_PASSWORD: VanAn@2024!
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - vanan-network
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+  nats_data:
+  pgadmin_data:
+  seq_data:
+
+networks:
+  vanan-network:
+    driver: bridge

@@ -1,0 +1,112 @@
+@page "/cart"
+@inject VanAn.KhachLink.Services.CartService CartService
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<h3>🛒 Giỏ hàng của bạn</h3>
+
+@if (cartState.GetTotalItems() == 0)
+{
+    <div class="alert alert-info">
+        <p>Giỏ hàng của bạn đang trống. Hãy thêm sản phẩm để tiếp tục!</p>
+        <a href="/" class="btn btn-primary">Quay lại trang chủ</a>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-8">
+            <h4>Sản phẩm đã chọn</h4>
+            <div class="list-group">
+                @foreach (var item in cartState.Items)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">@item.ProductName</h6>
+                            <small class="text-muted">@item.ProductDescription</small>
+                            <div class="mt-2">
+                                <span class="badge bg-success">@item.UnitPrice.ToString("N0") VNĐ</span>
+                                <span class="badge bg-info">VAT: @(item.VatRate * 100)%</span>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="input-group" style="width: 120px;">
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)">-</button>
+                                <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)">+</button>
+                            </div>
+                            <button class="btn btn-danger ms-2" @onclick="() => RemoveItem(item.ProductId)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>💰 Chi tiết thanh toán</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tạm tính:</span>
+                        <strong>@cartState.SubTotal.ToString("N0") VNĐ</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>VAT (@(cartState.Items.FirstOrDefault()?.VatRate * 100 ?? 10)%):</span>
+                        <strong>@cartState.TotalVatAmount.ToString("N0") VNĐ</strong>
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between mb-3">
+                        <h5>Tổng cộng:</h5>
+                        <h5 class="text-danger">@cartState.TotalAmount.ToString("N0") VNĐ</h5>
+                    </div>
+                    <button class="btn btn-success w-100" @onclick="ProceedToCheckout">
+                        <i class="bi bi-qr-code"></i> Thanh toán
+                    </button>
+                    <button class="btn btn-outline-secondary w-100 mt-2" @onclick="ClearCart">
+                        <i class="bi bi-trash"></i> Xóa giỏ hàng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private VanAn.KhachLink.Services.CartState cartState = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        cartState = CartService.GetCartState();
+        CartService.OnCartChanged += StateHasChanged;
+        await CartService.LoadCartFromStorageAsync();
+    }
+
+    private async Task UpdateQuantity(Guid productId, int quantity)
+    {
+        await CartService.UpdateQuantityAsync(productId, quantity);
+    }
+
+    private async Task RemoveItem(Guid productId)
+    {
+        await CartService.RemoveItemAsync(productId);
+    }
+
+    private async Task ClearCart()
+    {
+        await CartService.ClearCartAsync();
+    }
+
+    private void ProceedToCheckout()
+    {
+        NavigationManager.NavigateTo("/checkout");
+    }
+
+    public void Dispose()
+    {
+        CartService.OnCartChanged -= StateHasChanged;
+    }
+}

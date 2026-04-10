@@ -1,0 +1,148 @@
+{
+  "Common": {
+    "Order": "Order",
+    "Orders": "Orders",
+    "Payment": "Payment",
+    "Menu": "Menu",
+    "Cart": "Cart",
+    "Total": "Total",
+    "Price": "Price",
+    "Quantity": "Quantity",
+    "Status": "Status",
+    "Cancel": "Cancel",
+    "Confirm": "Confirm",
+    "Save": "Save",
+    "Edit": "Edit",
+    "Delete": "Delete",
+    "Search": "Search",
+    "Filter": "Filter",
+    "Loading": "Loading...",
+    "Error": "Error",
+    "Success": "Success",
+    "Warning": "Warning",
+    "Info": "Info"
+  },
+  "Product": {
+    "Name": "Product Name",
+    "Description": "Description",
+    "Category": "Category",
+    "Price": "Price",
+    "InStock": "In Stock",
+    "OutOfStock": "Out of Stock",
+    "Available": "Available",
+    "Unavailable": "Unavailable"
+  },
+  "Order": {
+    "OrderId": "Order ID",
+    "CustomerName": "Customer Name",
+    "OrderDate": "Order Date",
+    "EstimatedTime": "Estimated Time",
+    "Status": {
+      "New": "New",
+      "Confirmed": "Confirmed",
+      "Preparing": "Preparing",
+      "Ready": "Ready",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled"
+    },
+    "Items": "Items",
+    "Subtotal": "Subtotal",
+    "Tax": "Tax",
+    "Discount": "Discount",
+    "FinalTotal": "Final Total",
+    "Note": "Note"
+  },
+  "Payment": {
+    "Method": "Payment Method",
+    "Cash": "Cash",
+    "Card": "Card",
+    "QRCode": "QR Code",
+    "Online": "Online",
+    "Status": {
+      "Pending": "Pending",
+      "Paid": "Paid",
+      "Failed": "Failed",
+      "Refunded": "Refunded"
+    },
+    "VietQR": {
+      "GenerateQR": "Generate QR",
+      "ScanToPay": "Scan to Pay",
+      "QRGenerated": "QR Code Generated",
+      "Amount": "Amount",
+      "BankInfo": "Bank Information"
+    }
+  },
+  "Voice": {
+    "Command": "Voice Command",
+    "Recording": "Recording...",
+    "StopRecording": "Stop Recording",
+    "StartRecording": "Start Recording",
+    "Transcript": "Transcript",
+    "Language": "Language",
+    "Vietnamese": "Vietnamese",
+    "English": "English",
+    "Commands": {
+      "NewOrder": "new order",
+      "CompleteOrder": "complete order",
+      "ReadyOrder": "order ready",
+      "CancelOrder": "cancel order"
+    },
+    "Errors": {
+      "NotSupported": "Browser does not support speech recognition",
+      "PermissionDenied": "Microphone permission denied",
+      "NetworkError": "Network error",
+      "Timeout": "Recording timeout"
+    }
+  },
+  "Shop": {
+    "Name": "Shop Name",
+    "Address": "Address",
+    "Phone": "Phone",
+    "Email": "Email",
+    "Category": "Category",
+    "Description": "Description",
+    "OperatingHours": "Operating Hours",
+    "Theme": "Theme",
+    "Logo": "Logo",
+    "Colors": "Colors",
+    "PrimaryColor": "Primary Color",
+    "SecondaryColor": "Secondary Color"
+  },
+  "Onboarding": {
+    "QuickSetup": "Quick Setup",
+    "ChooseTemplate": "Choose Template",
+    "ShopInfo": "Shop Information",
+    "Confirmation": "Confirmation",
+    "Complete": "Complete",
+    "Templates": {
+      "Cafe": "Coffee Shop",
+      "Beauty": "Beauty Spa",
+      "Retail": "Retail Store"
+    },
+    "Steps": {
+      "Step1": "Choose template",
+      "Step2": "Shop information",
+      "Step3": "Confirmation",
+      "Step4": "Complete"
+    }
+  },
+  "Validation": {
+    "Required": "This field is required",
+    "InvalidEmail": "Invalid email address",
+    "InvalidPhone": "Invalid phone number",
+    "MinLength": "Minimum {0} characters",
+    "MaxLength": "Maximum {0} characters",
+    "Numeric": "Must be numeric",
+    "Positive": "Must be positive"
+  },
+  "Messages": {
+    "OrderPlaced": "Order placed successfully",
+    "PaymentProcessed": "Payment processed successfully",
+    "VoiceCommandProcessed": "Voice command processed",
+    "SettingsSaved": "Settings saved",
+    "DataLoaded": "Data loaded",
+    "NetworkError": "Network error. Please try again.",
+    "ServerError": "Server error. Please try again later.",
+    "Unauthorized": "Unauthorized access"
+  }
+}

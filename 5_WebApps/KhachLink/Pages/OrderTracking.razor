@@ -1,0 +1,297 @@
+@page "/order-tracking/{orderId:guid}"
+@inject IServiceProvider ServiceProvider
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: -30px;
+        top: 5px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        background: white;
+        border: 2px solid #dee2e6;
+    }
+    .timeline-content {
+        margin-left: 10px;
+    }
+    .timeline-item.completed .timeline-marker {
+        background: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+    .timeline-item.pending .timeline-marker {
+        background: #6c757d;
+        border-color: #6c757d;
+        color: white;
+    }
+    .order-info {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+</style>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">📋 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
+                </div>
+                <div class="card-body">
+                    @if (order == null)
+                    {
+                        <div class="alert alert-warning">
+                            <h5>❌ Không tìm thấy đơn hàng</h5>
+                            <p>Mã đơn hàng không tồn tại trong hệ thống.</p>
+                            <a href="/" class="btn btn-primary">Quay lại trang chủ</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5>Trạng thái đơn hàng</h5>
+                                
+                                <!-- Status Timeline -->
+                                <div class="timeline">
+                                    @foreach (var status in statusTimeline)
+                                    {
+                                        <div class="timeline-item @(status.IsCompleted ? "completed" : "pending")">
+                                            <div class="timeline-marker">
+                                                @if (status.IsCompleted)
+                                                {
+                                                    <span>✅</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>⏳</span>
+                                                }
+                                            </div>
+                                            <div class="timeline-content">
+                                                <h6>@status.DisplayName</h6>
+                                                @if (status.Timestamp.HasValue)
+                                                {
+                                                    <small class="text-muted">@status.Timestamp.Value.ToString("HH:mm:ss")</small>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                
+                                <!-- Current Status Progress -->
+                                <div class="mt-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6>Trạng thái hiện tại: <strong>@order.CurrentStatus.DisplayName</strong></h6>
+                                        <span class="badge bg-@(GetStatusColor(order.CurrentStatus.Id.Value)) text-white">
+                                            @GetStatusIcon(order.CurrentStatus.Id.Value) @order.CurrentStatus.DisplayName
+                                        </span>
+                                    </div>
+                                    
+                                    @if (isProcessing)
+                                    {
+                                        <div class="progress mb-3">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                                 style="width: @GetProgressPercentage()%" 
+                                                 role="progressbar">
+                                                <span>@GetProgressPercentage()%</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="alert alert-info">
+                                            <h6>⏱️ Đang chế biến...</h6>
+                                            <div class="d-flex align-items-center">
+                                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                                <span>Còn @(processingTimeRemaining) giây</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <h5>Thông tin đơn hàng</h5>
+                                <div class="order-info">
+                                    <p><strong>Mã đơn:</strong> #@order.Id.ToString()[..8]</p>
+                                    <p><strong>Thời gian đặt:</strong> @order.OrderDate.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p><strong>Tổng tiền:</strong> @order.TotalAmount.ToString("N0")đ</p>
+                                    <p><strong>Thời gian dự kiến:</strong> @order.EstimatedMinutes phút</p>
+                                    
+                                    @if (order.StatusStartedAt.HasValue)
+                                    {
+                                        <p><strong>Bắt đầu lúc:</strong> @order.StatusStartedAt.Value.ToString("HH:mm:ss")</p>
+                                    }
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h6>Chi tiết đơn hàng</h6>
+                                    <ul class="list-group">
+                                        @foreach (var item in order.Items)
+                                        {
+                                            <li class="list-group-item d-flex justify-content-between">
+                                                <span>@item.ProductName</span>
+                                                <span>@item.Quantity x @item.UnitPrice.ToString("N0")đ</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid orderId { get; set; }
+    private dynamic? order;
+    private List<dynamic> statusTimeline = new();
+    private bool isProcessing = false;
+    private int processingTimeRemaining = 0;
+    private System.Timers.Timer? processingTimer;
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadOrderAsync();
+        await LoadStatusTimelineAsync();
+        await Task.CompletedTask;
+    }
+    
+    private async Task LoadOrderAsync()
+    {
+        // Simulate order data
+        order = new 
+        {
+            Id = orderId,
+            Items = new[]
+            {
+                new { ProductName = "Trà sữa truyền thống", Quantity = 1, UnitPrice = 28000 },
+                new { ProductName = "Cà phê sữa", Quantity = 2, UnitPrice = 22000 }
+            },
+            CustomerDeviceId = "device_123",
+            OrderDate = DateTime.UtcNow.AddMinutes(-15),
+            CurrentStatusId = "processing",
+            EstimatedMinutes = 15,
+            StatusStartedAt = DateTime.UtcNow.AddMinutes(-5),
+            CurrentStatus = new { Id = "processing", DisplayName = "Đang pha chế" },
+            TotalAmount = 72000m
+        };
+        
+        isProcessing = order.CurrentStatusId == "processing";
+        if (isProcessing)
+        {
+            processingTimeRemaining = 600;
+            StartProcessingTimer();
+        }
+    }
+    
+    private async Task LoadStatusTimelineAsync()
+    {
+        if (order == null) return;
+        
+        var allStatuses = new[]
+        {
+            new { Id = "pending", DisplayName = "Chờ xác nhận", Sequence = 1 },
+            new { Id = "confirmed", DisplayName = "Đã xác nhận", Sequence = 2 },
+            new { Id = "processing", DisplayName = "Đang pha chế", Sequence = 3 },
+            new { Id = "ready", DisplayName = "Sẵn sàng", Sequence = 4 },
+            new { Id = "shipping", DisplayName = "Đang giao hàng", Sequence = 5 },
+            new { Id = "completed", DisplayName = "Hoàn thành", Sequence = 6 }
+        };
+        
+        var currentSequence = allStatuses.FirstOrDefault(s => s.Id == order.CurrentStatusId)?.Sequence ?? 1;
+        
+        statusTimeline = allStatuses.Select(status => new
+        {
+            Id = status.Id,
+            DisplayName = status.DisplayName,
+            IsCompleted = status.Sequence <= currentSequence,
+            Timestamp = status.Sequence == currentSequence ? order.StatusStartedAt : (DateTime?)null
+        }).Cast<dynamic>().ToList();
+    }
+    
+    private void StartProcessingTimer()
+    {
+        processingTimer = new System.Timers.Timer(1000);
+        processingTimer.Elapsed += (sender, e) =>
+        {
+            if (processingTimeRemaining > 0)
+            {
+                processingTimeRemaining--;
+                InvokeAsync(StateHasChanged);
+            }
+        };
+        processingTimer.Start();
+    }
+    
+    private string GetStatusColor(string statusId)
+    {
+        var colors = new Dictionary<string, string>
+        {
+            { "pending", "secondary" },
+            { "confirmed", "primary" },
+            { "processing", "info" },
+            { "ready", "warning" },
+            { "shipping", "dark" },
+            { "completed", "success" }
+        };
+        
+        return colors.GetValueOrDefault(statusId, "secondary");
+    }
+    
+    private string GetStatusIcon(string statusId)
+    {
+        var icons = new Dictionary<string, string>
+        {
+            { "pending", "⏳" },
+            { "confirmed", "✅" },
+            { "processing", "⚡" },
+            { "ready", "🎯" },
+            { "shipping", "🚚" },
+            { "completed", "🎉" }
+        };
+        
+        return icons.GetValueOrDefault(statusId, "📋");
+    }
+    
+    private int GetProgressPercentage()
+    {
+        if (order == null) return 0;
+        
+        var sequenceMap = new Dictionary<string, int>
+        {
+            { "pending", 10 },
+            { "confirmed", 25 },
+            { "processing", 50 },
+            { "ready", 75 },
+            { "shipping", 90 },
+            { "completed", 100 }
+        };
+        
+        return sequenceMap.ContainsKey(order.CurrentStatusId) ? sequenceMap[order.CurrentStatusId] : 0;
+    }
+    
+    public void Dispose()
+    {
+        processingTimer?.Dispose();
+    }
+}

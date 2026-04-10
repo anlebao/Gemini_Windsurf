@@ -1,0 +1,139 @@
+{
+  "templateType": "cafe",
+  "templateName": "Quán Cafe Mẫu",
+  "description": "Template cho quán cà phê và trà sữa",
+  "shopInfo": {
+    "name": "VanAn Cafe",
+    "category": "F&B",
+    "address": "123 Nguyễn Huệ, Q.1, TP.HCM",
+    "phone": "0901234567",
+    "email": "contact@vanancafe.vn"
+  },
+  "products": [
+    {
+      "name": "Trà sữa truyền thống",
+      "description": "Trà sữa với trân châu đen dẻo",
+      "price": 28000,
+      "category": "Trà sữa",
+      "ingredients": [
+        { "name": "Trà sữa", "quantity": 200, "unit": "ml" },
+        { "name": "Trân châu", "quantity": 50, "unit": "g" },
+        { "name": "Đường", "quantity": 30, "unit": "g" }
+      ]
+    },
+    {
+      "name": "Cà phê sữa đá",
+      "description": "Cà phê Việt Nam pha phin với sữa đặc",
+      "price": 22000,
+      "category": "Cà phê",
+      "ingredients": [
+        { "name": "Cà phê rang xay", "quantity": 20, "unit": "g" },
+        { "name": "Sữa đặc", "quantity": 30, "unit": "ml" },
+        { "name": "Đá", "quantity": 200, "unit": "g" }
+      ]
+    },
+    {
+      "name": "Trà vải hoa hồng",
+      "description": "Trà vải tươi với hoa hồng",
+      "price": 32000,
+      "category": "Trà hoa",
+      "ingredients": [
+        { "name": "Trà vải", "quantity": 150, "unit": "ml" },
+        { "name": "Hoa hồng", "quantity": 5, "unit": "g" },
+        { "name": "Đường phèn", "quantity": 25, "unit": "g" }
+      ]
+    },
+    {
+      "name": "Bánh mì trứng muối",
+      "description": "Bánh mì nóng với trứng muối và bơ",
+      "price": 18000,
+      "category": "Bánh ngọt",
+      "ingredients": [
+        { "name": "Bánh mì", "quantity": 1, "unit": "cái" },
+        { "name": "Trứng muối", "quantity": 1, "unit": "quả" },
+        { "name": "Bơ", "quantity": 20, "unit": "g" }
+      ]
+    }
+  ],
+  "ingredients": [
+    {
+      "name": "Trà sữa",
+      "unit": "lít",
+      "costPerUnit": 150000,
+      "minStock": 5,
+      "currentStock": 20
+    },
+    {
+      "name": "Trân châu",
+      "unit": "kg",
+      "costPerUnit": 80000,
+      "minStock": 2,
+      "currentStock": 10
+    },
+    {
+      "name": "Cà phê rang xay",
+      "unit": "kg",
+      "costPerUnit": 250000,
+      "minStock": 3,
+      "currentStock": 15
+    },
+    {
+      "name": "Sữa đặc",
+      "unit": "lon",
+      "costPerUnit": 25000,
+      "minStock": 10,
+      "currentStock": 30
+    },
+    {
+      "name": "Trà vải",
+      "unit": "kg",
+      "costPerUnit": 300000,
+      "minStock": 1,
+      "currentStock": 5
+    },
+    {
+      "name": "Đường",
+      "unit": "kg",
+      "costPerUnit": 35000,
+      "minStock": 5,
+      "currentStock": 25
+    },
+    {
+      "name": "Bánh mì",
+      "unit": "cái",
+      "costPerUnit": 8000,
+      "minStock": 20,
+      "currentStock": 50
+    }
+  ],
+  "workflowSteps": [
+    {
+      "id": "new",
+      "name": "Đơn mới",
+      "description": "Khách hàng vừa đặt hàng",
+      "estimatedMinutes": 0,
+      "color": "#6c757d"
+    },
+    {
+      "id": "confirmed",
+      "name": "Xác nhận",
+      "description": "Đơn hàng đã được xác nhận",
+      "estimatedMinutes": 2,
+      "color": "#007bff"
+    },
+    {
+      "id": "preparing",
+      "name": "Đang pha chế",
+      "description": "Đang chế biến đồ uống",
+      "estimatedMinutes": 8,
+      "color": "#ffc107"
+    },
+    {
+      "id": "ready",
+      "name": "Hoàn thành",
+      "description": "Đồ uống sẵn sàng phục vụ",
+      "estimatedMinutes": 0,
+      "color": "#28a745"
+    }
+  ]
+}

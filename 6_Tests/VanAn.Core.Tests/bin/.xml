@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>VanAn.Core.Tests</name>
+    </assembly>
+    <members>
+        <member name="T:VanAn.Core.Tests.Domain.CustomerTests">
+            <summary>
+            Unit tests for Customer entity
+            Tests domain behavior and compliance with Engineering Constitution
+            </summary>
+        </member>
+        <member name="T:VanAn.CoreHub.Tests.TestInfrastructure.TestDbContextConfiguration">
+            <summary>
+            Test-specific EF Core configuration that bypasses complex production setups
+            Follows windsurf-guard.js rules: minimal test configurations
+            </summary>
+        </member>
+    </members>
+</doc>

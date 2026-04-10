@@ -1,0 +1,456 @@
+@page "/quick-setup"
+@using Microsoft.AspNetCore.Components.Web
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Khởi tạo nhanh - VanAn ERP</PageTitle>
+
+<style>
+    .wizard-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .wizard-step {
+        display: none;
+        animation: fadeIn 0.3s ease-in;
+    }
+    
+    .wizard-step.active {
+        display: block;
+    }
+    
+    .template-card {
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .template-card:hover {
+        border-color: var(--primary-color, #007bff);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .template-card.selected {
+        border-color: var(--primary-color, #007bff);
+        background-color: rgba(0,123,255,0.05);
+    }
+    
+    .template-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .progress-wizard {
+        margin-bottom: 2rem;
+    }
+    
+    .setup-result {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="wizard-container">
+    <div class="text-center mb-4">
+        <h1>🚀 Khởi tạo nhanh cửa hàng</h1>
+        <p class="text-muted">Chọn template và cấu hình cửa hàng của bạn trong vài phút</p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-wizard">
+        <div class="progress" style="height: 25px;">
+            <div class="progress-bar" id="progressBar" style="width: 25%;" role="progressbar">
+                <span id="progressText">Bước 1/4</span>
+            </div>
+        </div>
+        <div class="d-flex justify-content-between mt-2">
+            <small class="text-muted">Chọn template</small>
+            <small class="text-muted">Thông tin cửa hàng</small>
+            <small class="text-muted">Xác nhận</small>
+            <small class="text-muted">Hoàn thành</small>
+        </div>
+    </div>
+
+    <!-- Step 1: Choose Template -->
+    <div class="wizard-step active" id="step1">
+        <h3>Chọn mẫu phù hợp với ngành hàng của bạn</h3>
+        <div class="row g-3">
+            @if (templates != null)
+            {
+                @foreach (var template in templates)
+                {
+                    <div class="col-md-4">
+                        <div class="template-card @(selectedTemplate?.Type == template.Type ? "selected" : "")" 
+                             @onclick="() => SelectTemplate(template)">
+                            <div class="text-center">
+                                <div class="template-icon">@template.Icon</div>
+                                <h5>@template.Name</h5>
+                                <p class="text-muted">@template.Description</p>
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        📦 @template.Products Sản phẩm<br>
+                                        🥘 @template.Ingredients Nguyên liệu<br>
+                                        ⚙️ @template.WorkflowSteps Quy trình
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12 text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Đang tải templates...</p>
+                </div>
+            }
+        </div>
+        <div class="mt-4 text-end">
+            <button class="btn btn-primary btn-lg" @onclick="GoToStep2" disabled="@(selectedTemplate == null)">
+                Tiếp tục →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Shop Information -->
+    <div class="wizard-step" id="step2">
+        <h3>Thông tin cửa hàng</h3>
+        <div class="row">
+            <div class="col-md-8">
+                <form id="shopInfoForm">
+                    <div class="mb-3">
+                        <label class="form-label">Tên cửa hàng *</label>
+                        <input type="text" class="form-control" @bind="shopName" placeholder="Nhập tên cửa hàng" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Địa chỉ *</label>
+                        <input type="text" class="form-control" @bind="shopAddress" placeholder="Nhập địa chỉ" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Số điện thoại *</label>
+                            <input type="tel" class="form-control" @bind="shopPhone" placeholder="Nhập số điện thoại" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="shopEmail" placeholder="Nhập email" />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-4">
+                <div class="alert alert-info">
+                    <h6>Template đã chọn:</h6>
+                    <div class="template-icon">@selectedTemplate?.Icon</div>
+                    <strong>@selectedTemplate?.Name</strong>
+                    <p class="mb-0 small">@selectedTemplate?.Description</p>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 d-flex justify-content-between">
+            <button class="btn btn-secondary" @onclick="GoToStep1">← Quay lại</button>
+            <button class="btn btn-primary btn-lg" @onclick="GoToStep3" disabled="@(string.IsNullOrEmpty(shopName) || string.IsNullOrEmpty(shopAddress) || string.IsNullOrEmpty(shopPhone))">
+                Tiếp tục →
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: Confirmation -->
+    <div class="wizard-step" id="step3">
+        <h3>Xác nhận thông tin</h3>
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Thông tin cửa hàng</h5>
+                <table class="table table-borderless">
+                    <tr><td><strong>Tên:</strong></td><td>@shopName</td></tr>
+                    <tr><td><strong>Địa chỉ:</strong></td><td>@shopAddress</td></tr>
+                    <tr><td><strong>Điện thoại:</strong></td><td>@shopPhone</td></tr>
+                    <tr><td><strong>Email:</strong></td><td>@shopEmail</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>Template sẽ được áp dụng</h5>
+                <div class="alert alert-success">
+                    <div class="template-icon">@selectedTemplate?.Icon</div>
+                    <strong>@selectedTemplate?.Name</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>@selectedTemplate?.Products sản phẩm mẫu</li>
+                        <li>@selectedTemplate?.Ingredients nguyên liệu mẫu</li>
+                        <li>@selectedTemplate?.WorkflowSteps bước quy trình</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 d-flex justify-content-between">
+            <button class="btn btn-secondary" @onclick="GoToStep2">← Quay lại</button>
+            <button class="btn btn-success btn-lg" @onclick="CompleteSetup">
+                🚀 Bắt đầu khởi tạo
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 4: Completion -->
+    <div class="wizard-step" id="step4">
+        @if (isProcessing)
+        {
+            <div class="text-center">
+                <div class="loading-spinner"></div>
+                <h4 class="mt-3">Đang khởi tạo cửa hàng...</h4>
+                <p class="text-muted">Vui lòng chờ trong giây lát</p>
+            </div>
+        }
+        else if (setupResult != null)
+        {
+            <div class="setup-result">
+                <h2 class="mb-4">🎉 Khởi tạo thành công!</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Cửa hàng của bạn đã sẵn sàng</h5>
+                        <p><strong>@setupResult.ShopInfo.Name</strong></p>
+                        <p>@setupResult.ShopInfo.Address</p>
+                        <p>@setupResult.ShopInfo.Phone</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Đã thiết lập</h5>
+                        <ul class="list-unstyled">
+                            <li>✅ @setupResult.ProductsCount sản phẩm</li>
+                            <li>✅ @setupResult.IngredientsCount nguyên liệu</li>
+                            <li>✅ @setupResult.WorkflowStepsCount quy trình</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h6>Các bước tiếp theo:</h6>
+                    <ul class="list-unstyled">
+                        @foreach (var step in setupResult.NextSteps)
+                        {
+                            <li>📝 @step</li>
+                        }
+                    </ul>
+                </div>
+                <div class="mt-4">
+                    <button class="btn btn-light btn-lg" @onclick="GoToDashboard">
+                        Đi đến Dashboard →
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- JavaScript for Wizard -->
+<script>
+    function hideAllWizardSteps() {
+        document.querySelectorAll('.wizard-step').forEach(step => {
+            step.classList.remove('active');
+        });
+    }
+    
+    function showWizardStep(stepId) {
+        const step = document.getElementById(stepId);
+        if (step) {
+            step.classList.add('active');
+        }
+    }
+    
+    function updateProgressBar(percentage, text) {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        if (progressBar) {
+            progressBar.style.width = percentage + '%';
+        }
+        
+        if (progressText) {
+            progressText.textContent = text;
+        }
+    }
+</script>
+
+@code {
+    private List<TemplateInfo>? templates;
+    private TemplateInfo? selectedTemplate;
+    private string shopName = "";
+    private string shopAddress = "";
+    private string shopPhone = "";
+    private string shopEmail = "";
+    private bool isProcessing = false;
+    private QuickSetupResponse? setupResult;
+    private int currentStep = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplates();
+    }
+
+    private async Task LoadTemplates()
+    {
+        try
+        {
+            templates = await Http.GetFromJsonAsync<List<TemplateInfo>>("/api/v1/onboarding/templates");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading templates: {ex.Message}");
+        }
+    }
+
+    private void SelectTemplate(TemplateInfo template)
+    {
+        selectedTemplate = template;
+        StateHasChanged();
+    }
+
+    private void GoToStep1()
+    {
+        currentStep = 1;
+        UpdateWizardUI();
+    }
+
+    private void GoToStep2()
+    {
+        currentStep = 2;
+        UpdateWizardUI();
+    }
+
+    private void GoToStep3()
+    {
+        currentStep = 3;
+        UpdateWizardUI();
+    }
+
+    private void CompleteSetup()
+    {
+        currentStep = 4;
+        UpdateWizardUI();
+        _ = ProcessSetupAsync();
+    }
+
+    private void UpdateWizardUI()
+    {
+        // Hide all steps
+        JSRuntime.InvokeVoidAsync("hideAllWizardSteps");
+        
+        // Show current step
+        JSRuntime.InvokeVoidAsync("showWizardStep", $"step{currentStep}");
+        
+        // Update progress bar
+        var progress = (currentStep * 25);
+        JSRuntime.InvokeVoidAsync("updateProgressBar", progress, $"Bước {currentStep}/4");
+        
+        StateHasChanged();
+    }
+
+    private async Task ProcessSetupAsync()
+    {
+        try
+        {
+            isProcessing = true;
+            StateHasChanged();
+
+            var request = new QuickSetupRequest
+            {
+                TemplateType = selectedTemplate?.Type ?? "cafe",
+                ShopName = shopName,
+                ShopAddress = shopAddress,
+                ShopPhone = shopPhone,
+                ShopEmail = shopEmail
+            };
+
+            var shopId = Guid.NewGuid(); // In real implementation, this would come from authentication
+            var response = await Http.PostAsJsonAsync($"/api/v1/onboarding/shops/{shopId}/quick-setup", request);
+            if (response.IsSuccessStatusCode)
+            {
+                setupResult = await response.Content.ReadFromJsonAsync<QuickSetupResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during setup: {ex.Message}");
+            // Handle error - maybe show error message
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToDashboard()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    public class TemplateInfo
+    {
+        public string Type { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public int Products { get; set; }
+        public int Ingredients { get; set; }
+        public int WorkflowSteps { get; set; }
+    }
+
+    public class QuickSetupRequest
+    {
+        public string TemplateType { get; set; } = string.Empty;
+        public string ShopName { get; set; } = string.Empty;
+        public string ShopAddress { get; set; } = string.Empty;
+        public string ShopPhone { get; set; } = string.Empty;
+        public string ShopEmail { get; set; } = string.Empty;
+    }
+
+    public class QuickSetupResponse
+    {
+        public bool Success { get; set; }
+        public Guid ShopId { get; set; }
+        public ShopInfo ShopInfo { get; set; } = new();
+        public int ProductsCount { get; set; }
+        public int IngredientsCount { get; set; }
+        public int WorkflowStepsCount { get; set; }
+        public TimeSpan EstimatedSetupTime { get; set; }
+        public string[] NextSteps { get; set; } = Array.Empty<string>();
+    }
+
+    public class ShopInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
+}

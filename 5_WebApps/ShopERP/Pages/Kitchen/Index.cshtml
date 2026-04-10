@@ -1,0 +1,704 @@
+@page
+@model VanAn.ShopERP.Pages.Kitchen.IndexModel
+@{
+    ViewData["Title"] = "Kitchen Display System";
+    Layout = "_Layout";
+}
+
+<html lang="vi" class="notranslate" translate="no">
+<head>
+    <meta name="google" content="notranslate">
+    <meta http-equiv="Content-Language" content="vi">
+</head>
+<body>
+    <div class="kitchen-dashboard">
+        <!-- Header -->
+        <header class="kitchen-header">
+            <div class="header-content">
+                <h1>🍳 Bếp Trung Tâm</h1>
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Đang chờ</span>
+                        <span class="stat-value" id="pending-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Đang làm</span>
+                        <span class="stat-value" id="preparing-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Hoàn thành</span>
+                        <span class="stat-value" id="completed-count">0</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="refreshKitchenItems()">
+                        🔄 Làm mới
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="kitchen-main">
+            <div class="kitchen-items" id="kitchen-items">
+                <!-- Kitchen item groups will be dynamically loaded here -->
+            </div>
+        </main>
+
+        <!-- Voice Recording Modal -->
+        <div class="voice-modal" id="voice-modal" style="display: none;">
+            <div class="voice-modal-content">
+                <h3>🎤 Ghi chú giọng nói</h3>
+                <div class="voice-controls">
+                    <button class="btn-record" id="record-btn" onclick="toggleRecording()">
+                        🔴 Bắt đầu ghi âm
+                    </button>
+                    <button class="btn-stop" id="stop-btn" onclick="stopRecording()" style="display: none;">
+                        ⏹️ Dừng
+                    </button>
+                    <button class="btn-cancel" onclick="closeVoiceModal()">
+                        ❌ Hủy
+                    </button>
+                </div>
+                <div class="voice-status" id="voice-status">
+                    <span id="recording-time">00:00</span>
+                </div>
+                <textarea class="voice-text" id="voice-text" placeholder="Chuyển đổi giọng nói thành văn bản..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        // SignalR Connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/kitchenhub")
+            .withAutomaticReconnect()
+            .build();
+
+        // Current shop ID (should come from user context)
+        let currentShopId = "@Model.ShopId";
+        let currentOrderId = null;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingStartTime = null;
+        let recordingInterval = null;
+
+        // Initialize SignalR
+        connection.start().then(() => {
+            console.log("Connected to Kitchen Hub");
+            connection.invoke("JoinKitchen", currentShopId);
+            loadKitchenItems();
+        }).catch(err => console.error("SignalR connection error:", err));
+
+        // SignalR Event Handlers
+        connection.on("ItemStatusChanged", (update) => {
+            console.log("Item status changed:", update);
+            loadKitchenItems(); // Refresh the display
+        });
+
+        connection.on("OrderConfirmed", (orderEvent) => {
+            console.log("New order confirmed:", orderEvent);
+            loadKitchenItems(); // Refresh the display
+            showNotification(`📢 Đơn hàng mới: ${orderEvent.OrderId}`);
+        });
+
+        connection.on("VoiceNoteProcessed", (data) => {
+            console.log("Voice note processed:", data);
+            showNotification("🎤 Ghi chú giọng nói đã được xử lý");
+        });
+
+        // Kitchen Item Management
+        async function loadKitchenItems() {
+            try {
+                const response = await fetch(`/api/kitchen/items/${currentShopId}`);
+                const items = await response.json();
+                renderKitchenItems(items);
+                updateStats(items);
+            } catch (error) {
+                console.error("Error loading kitchen items:", error);
+            }
+        }
+
+        function renderKitchenItems(items) {
+            const container = document.getElementById('kitchen-items');
+            container.innerHTML = '';
+
+            items.forEach(group => {
+                const groupElement = createKitchenGroupElement(group);
+                container.appendChild(groupElement);
+            });
+        }
+
+        function createKitchenGroupElement(group) {
+            const div = document.createElement('div');
+            div.className = `kitchen-group ${group.groupStatus.toLowerCase()}`;
+            div.innerHTML = `
+                <div class="group-header">
+                    <h3>${group.productName}</h3>
+                    <div class="group-info">
+                        <span class="quantity-badge">${group.totalQuantity}</span>
+                        <span class="time-badge">${formatTime(group.oldestOrderTime)}</span>
+                    </div>
+                </div>
+                <div class="group-items">
+                    ${group.items.map(item => createItemElement(item)).join('')}
+                </div>
+                <div class="group-actions">
+                    <button class="btn btn-success" onclick="updateGroupStatus('${group.productId}', 'Completed')">
+                        ✅ Hoàn thành tất cả
+                    </button>
+                    <button class="btn btn-warning" onclick="updateGroupStatus('${group.productId}', 'Preparing')">
+                        ⏳ Bắt đầu làm
+                    </button>
+                </div>
+            `;
+            return div;
+        }
+
+        function createItemElement(item) {
+            return `
+                <div class="kitchen-item ${item.status.toLowerCase()}" data-item-id="${item.orderItemId}">
+                    <div class="item-info">
+                        <span class="order-id">Đơn #${item.orderId.toString().substring(0, 8)}</span>
+                        <span class="quantity">Số lượng: ${item.quantity}</span>
+                        <span class="time">${formatTime(item.orderCreatedAt)}</span>
+                    </div>
+                    <div class="item-status">
+                        <select class="status-select" onchange="updateItemStatus('${item.orderItemId}', this.value)">
+                            <option value="Pending" ${item.status === 'Pending' ? 'selected' : ''}>🕐 Chờ</option>
+                            <option value="Preparing" ${item.status === 'Preparing' ? 'selected' : ''}>⏳ Đang làm</option>
+                            <option value="Completed" ${item.status === 'Completed' ? 'selected' : ''}>✅ Hoàn thành</option>
+                            <option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>❌ Hủy</option>
+                        </select>
+                    </div>
+                    ${item.voiceNoteText ? `
+                        <div class="voice-note-display">
+                            🎤 <strong class="voice-note-text">${item.voiceNoteText}</strong>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        async function updateItemStatus(itemId, newStatus) {
+            try {
+                const response = await fetch('/api/kitchen/status', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        orderItemId: itemId,
+                        newStatus: newStatus,
+                        shopId: currentShopId,
+                        updatedBy: "KitchenDisplay"
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification(`✅ Cập nhật trạng thái thành công`);
+                } else {
+                    showNotification(`❌ Lỗi cập nhật trạng thái`);
+                }
+            } catch (error) {
+                console.error("Error updating item status:", error);
+                showNotification(`❌ Lỗi cập nhật trạng thái`);
+            }
+        }
+
+        async function updateGroupStatus(productId, newStatus) {
+            // Update all items in the group
+            const items = document.querySelectorAll(`[data-product-id="${productId}"] .kitchen-item`);
+            for (const item of items) {
+                const itemId = item.dataset.itemId;
+                await updateItemStatus(itemId, newStatus);
+            }
+        }
+
+        // Voice Recording Functions
+        function toggleVoiceMode() {
+            const modal = document.getElementById('voice-modal');
+            modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function openVoiceModal(orderId) {
+            currentOrderId = orderId;
+            document.getElementById('voice-modal').style.display = 'block';
+        }
+
+        function closeVoiceModal() {
+            document.getElementById('voice-modal').style.display = 'none';
+            document.getElementById('voice-text').value = '';
+            stopRecording();
+        }
+
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioBase64 = await blobToBase64(audioBlob);
+                    
+                    // Here you would send to speech-to-text service
+                    // For now, just show a placeholder
+                    document.getElementById('voice-text').value = "Ghi âm hoàn thành. Đang xử lý chuyển đổi giọng nói...";
+                    
+                    // Simulate speech-to-text
+                    setTimeout(() => {
+                        document.getElementById('voice-text').value = "Cà phê đen không đường, nhiều đá. Cảm ơn!";
+                    }, 2000);
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                recordingStartTime = Date.now();
+
+                // Update UI
+                document.getElementById('record-btn').style.display = 'none';
+                document.getElementById('stop-btn').style.display = 'block';
+
+                // Start timer
+                recordingInterval = setInterval(updateRecordingTime, 1000);
+
+            } catch (error) {
+                console.error("Error starting recording:", error);
+                showNotification("❌ Không thể truy cập micro");
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+
+                // Update UI
+                document.getElementById('record-btn').style.display = 'block';
+                document.getElementById('stop-btn').style.display = 'none';
+
+                // Stop timer
+                clearInterval(recordingInterval);
+            }
+        }
+
+        function updateRecordingTime() {
+            if (recordingStartTime) {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('recording-time').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        async function submitVoiceNote() {
+            const text = document.getElementById('voice-text').value;
+            if (!text.trim()) {
+                showNotification("❌ Vui lòng nhập ghi chú");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/kitchen/voice-note/${currentOrderId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        audioBlob: null, // Would be the actual audio blob
+                        transcriptionSuccessful: true,
+                        recordedAt: new Date().toISOString()
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification("✅ Ghi chú đã được lưu");
+                    closeVoiceModal();
+                    loadKitchenItems();
+                } else {
+                    showNotification("❌ Lỗi lưu ghi chú");
+                }
+            } catch (error) {
+                console.error("Error submitting voice note:", error);
+                showNotification("❌ Lỗi lưu ghi chú");
+            }
+        }
+
+        // Utility Functions
+        function updateStats(items) {
+            let pending = 0, preparing = 0, completed = 0;
+
+            items.forEach(group => {
+                group.items.forEach(item => {
+                    switch (item.status) {
+                        case 'Pending': pending++; break;
+                        case 'Preparing': preparing++; break;
+                        case 'Completed': completed++; break;
+                    }
+                });
+            });
+
+            document.getElementById('pending-count').textContent = pending;
+            document.getElementById('preparing-count').textContent = preparing;
+            document.getElementById('completed-count').textContent = completed;
+        }
+
+        function formatTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString('vi-VN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+
+        function refreshKitchenItems() {
+            loadKitchenItems();
+            showNotification("🔄 Đã làm mới danh sách");
+        }
+
+        function showNotification(message) {
+            // Simple notification - could be enhanced with a proper notification system
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #333;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadKitchenItems();
+        }, 30000);
+    </script>
+
+    <style>
+        .kitchen-dashboard {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .kitchen-header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+
+        .btn:hover { opacity: 0.9; }
+
+        .kitchen-main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .kitchen-group {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .kitchen-group.pending { border-left: 4px solid #f39c12; }
+        .kitchen-group.preparing { border-left: 4px solid #3498db; }
+        .kitchen-group.completed { border-left: 4px solid #27ae60; }
+
+        .group-header {
+            padding: 1rem;
+            background: #ecf0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .group-header h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .group-info {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .quantity-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .time-badge {
+            background: #95a5a6;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .group-items {
+            padding: 1rem;
+        }
+
+        .kitchen-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .kitchen-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-info {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .order-id {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .quantity {
+            background: #ecf0f1;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .time {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+        }
+
+        .status-select {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+
+        .voice-note-display {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 6px;
+            font-size: 1.25rem;
+            line-height: 1.4;
+        }
+
+        .voice-note-text {
+            color: #856404;
+            font-weight: 700;
+        }
+
+        .group-actions {
+            padding: 1rem;
+            background: #ecf0f1;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .voice-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .voice-modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .voice-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .btn-record {
+            background: #e74c3c;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .btn-stop {
+            background: #95a5a6;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .voice-status {
+            text-align: center;
+            margin: 1rem 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .voice-text {
+            width: 100%;
+            height: 100px;
+            padding: 0.5rem;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            resize: vertical;
+            margin: 1rem 0;
+        }
+
+        .notification {
+            animation: slideIn 0.3s ease;
+        }
+
+        @@keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @@media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .header-stats {
+                justify-content: center;
+            }
+
+            .group-header {
+                flex-direction: column;
+                gap: 0.5rem;
+                text-align: center;
+            }
+
+            .item-info {
+                flex-direction: column;
+                gap: 0.25rem;
+                align-items: flex-start;
+            }
+
+            .group-actions {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</body>
+</html>

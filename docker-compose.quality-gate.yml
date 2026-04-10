@@ -1,0 +1,134 @@
+services:
+  # Quality Gate Service
+  quality-gate:
+    build:
+      context: .
+      dockerfile: 6_Testing/Dockerfile.quality-gate
+    container_name: vanan-quality-gate
+    environment:
+      # Test Configuration
+      - SMOKE_TEST_ENABLED=${SMOKE_TEST_ENABLED:-true}
+      - ENABLE_E2E=${ENABLE_E2E:-true}
+      - ENABLE_LOAD_TEST=${ENABLE_LOAD_TEST:-false}
+      - ENABLE_CHAOS=${ENABLE_CHAOS:-false}
+      
+      # Service Endpoints (using localhost for standalone testing)
+      # CoreHub is a library hosted by Gateway, no direct endpoint
+      - GATEWAY_URL=http://host.docker.internal:5001
+      - KHACHLINK_URL=http://host.docker.internal:5002
+      - SHOPERP_URL=http://host.docker.internal:5003
+      
+      # Test Timeouts
+      - SMOKE_TEST_TIMEOUT=${SMOKE_TEST_TIMEOUT:-30}
+      - E2E_TEST_TIMEOUT=${E2E_TEST_TIMEOUT:-120}
+      - LOAD_TEST_DURATION=${LOAD_TEST_DURATION:-60}
+      - CHAOS_TEST_DURATION=${CHAOS_TEST_DURATION:-300}
+      
+      # Test Intensity
+      - LOAD_TEST_VUS=${LOAD_TEST_VUS:-10}
+      - CHAOS_INTENSITY=${CHAOS_INTENSITY:-0.3}
+      
+      # Environment
+      - TEST_ENVIRONMENT=${TEST_ENVIRONMENT:-development}
+      - QUALITY_GATE_STRICT=${QUALITY_GATE_STRICT:-false}
+    volumes:
+      - ./6_Testing/reports:/app/reports
+      - ./.env.test:/app/.env.test:ro
+    networks:
+      - vanan-network
+    depends_on:
+      # CoreHub is a library, not a separate service
+      gateway:
+        condition: service_healthy
+      khachlink:
+        condition: service_healthy
+      shoperp:
+        condition: service_healthy
+    profiles:
+      - testing
+
+  # Load Testing Service (K6)
+  load-tester:
+    image: loadimpact/k6:latest
+    container_name: vanan-load-tester
+    environment:
+      # CoreHub is a library hosted by Gateway
+      - GATEWAY_URL=http://gateway:5001
+      - KHACHLINK_URL=http://khachlink:5002
+      - SHOPERP_URL=http://shoperp:5003
+      - LOAD_TEST_DURATION=${LOAD_TEST_DURATION:-60}
+      - LOAD_TEST_VUS=${LOAD_TEST_VUS:-10}
+      - LOAD_TEST_RAMP_UP=${LOAD_TEST_RAMP_UP:-10}
+    volumes:
+      - ./6_Testing/load-tests:/scripts
+      - ./6_Testing/reports:/reports
+    networks:
+      - vanan-network
+    depends_on:
+      corehub:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      khachlink:
+        condition: service_healthy
+      shoperp:
+        condition: service_healthy
+    profiles:
+      - load-testing
+    command: run /scripts/load-test.js
+
+  # Chaos Testing Service
+  chaos-engine:
+    image: python:3.9-slim
+    container_name: vanan-chaos-engine
+    environment:
+      - ENABLE_CHAOS=${ENABLE_CHAOS:-false}
+      - CHAOS_TEST_DURATION=${CHAOS_TEST_DURATION:-300}
+      - CHAOS_TEST_LATENCY=${CHAOS_TEST_LATENCY:-true}
+      - CHAOS_TEST_FAILURES=${CHAOS_TEST_FAILURES:-false}
+      - CHAOS_INTENSITY=${CHAOS_INTENSITY:-0.3}
+      - CHAOS_TARGET_SERVICES=${CHAOS_TARGET_SERVICES:-corehub,gateway,khachlink,shoperp}
+      - COREHUB_URL=http://corehub:5010
+      - GATEWAY_URL=http://gateway:5001
+      - KHACHLINK_URL=http://khachlink:5002
+      - SHOPERP_URL=http://shoperp:5003
+    volumes:
+      - ./6_Testing/chaos-tests:/app
+      - ./6_Testing/reports:/reports
+    networks:
+      - vanan-network
+    depends_on:
+      corehub:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      khachlink:
+        condition: service_healthy
+      shoperp:
+        condition: service_healthy
+    profiles:
+      - chaos-testing
+    command: >
+      bash -c "
+        pip install requests &&
+        python /app/chaos-engine.py
+      "
+
+  # Test Dashboard Service
+  test-dashboard:
+    image: nginx:alpine
+    container_name: vanan-test-dashboard
+    ports:
+      - "8080:80"
+    volumes:
+      - ./6_Testing/dashboard:/usr/share/nginx/html:ro
+      - ./6_Testing/reports:/usr/share/nginx/html/reports:ro
+    networks:
+      - vanan-network
+    profiles:
+      - testing
+      - dashboard
+
+networks:
+  vanan-network:
+    external: true

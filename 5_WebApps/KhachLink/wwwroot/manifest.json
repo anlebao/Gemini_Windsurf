@@ -1,0 +1,95 @@
+{
+  "name": "Vạn An Group - Đặt hàng nhanh",
+  "short_name": "Vạn An",
+  "description": "Hệ thống đặt hàng thông minh của Vạn An Group",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#8B4513",
+  "theme_color": "#8B4513",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "vi",
+  "categories": ["food", "shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "screenshots/mobile-1.png",
+      "sizes": "375x667",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Đặt trà sữa",
+      "short_name": "Trà sữa",
+      "description": "Đặt trà sữa nhanh chóng",
+      "url": "/menu/tra-sua",
+      "icons": [
+        {
+          "src": "icons/shortcuts/tra-sua.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Đặt cà phê",
+      "short_name": "Cà phê",
+      "description": "Đặt cà phê nhanh chóng",
+      "url": "/menu/ca-phe",
+      "icons": [
+        {
+          "src": "icons/shortcuts/ca-phe.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

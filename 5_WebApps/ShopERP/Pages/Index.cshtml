@@ -1,0 +1,379 @@
+@page "/"
+@using VanAn.Shared.Domain
+@using Microsoft.AspNetCore.Authorization
+@model VanAn.ShopERP.Pages.IndexModel
+@attribute [Authorize]
+
+@{
+    var userRole = Enum.TryParse<UserRole>(User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Staff", out var parsedRole) ? parsedRole : UserRole.Staff;
+    var displayName = User.FindFirst("DisplayName")?.Value ?? "User";
+}
+
+<html lang="vi" class="notranslate" translate="no">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShopERP - @displayName</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+    
+    <!-- Navigation -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">Vạn An ShopERP</h1>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-700 mr-4">Xin chào, <strong>@displayName</strong></span>
+                    <form method="post" asp-page="/Logout">
+                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                            Đăng xuất
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Role-based Dashboard -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            
+            @* OWNER DASHBOARD - Full access *@
+            @if (userRole == UserRole.Owner)
+            {
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Tổng quan hệ thống</h2>
+                    <p class="text-gray-600">Quản lý toàn bộ hoạt động của quán</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">💰</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Doanh thu hôm nay</dt>
+                                        <dd class="text-lg font-medium text-gray-900">@Model.TodayRevenue.ToString("N0") VNĐ</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📦</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Đơn hàng</dt>
+                                        <dd class="text-lg font-medium text-gray-900">@Model.TodayOrderCount đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">👥</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Nhân viên</dt>
+                                        <dd class="text-lg font-medium text-gray-900">12 người</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📊</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Tỷ lệ hài lòng</dt>
+                                        <dd class="text-lg font-medium text-gray-900">94.5%</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Quản lý nhân sự</h3>
+                        <div class="space-y-3">
+                            <a href="/Staff" class="block w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded">
+                                👥 Danh sách nhân viên
+                            </a>
+                            <a href="/Schedule" class="block w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded">
+                                📅 Lịch làm việc
+                            </a>
+                            <a href="/Payroll" class="block w-full text-left px-4 py-2 bg-blue-50 hover:bg-blue-100 rounded">
+                                💰 Bảng lương
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Báo cáo & Phân tích</h3>
+                        <div class="space-y-3">
+                            <a href="/Reports/Sales" class="block w-full text-left px-4 py-2 bg-green-50 hover:bg-green-100 rounded">
+                                📈 Báo cáo doanh thu
+                            </a>
+                            <a href="/Reports/Inventory" class="block w-full text-left px-4 py-2 bg-green-50 hover:bg-green-100 rounded">
+                                📦 Báo cáo tồn kho
+                            </a>
+                            <a href="/Reports/Performance" class="block w-full text-left px-4 py-2 bg-green-50 hover:bg-green-100 rounded">
+                                📊 Hiệu suất nhân viên
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @* STOREKEEPER DASHBOARD - Inventory Management *@
+            @if (userRole == UserRole.StoreKeeper)
+            {
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Quản lý Kho</h2>
+                    <p class="text-gray-600">Theo dõi và quản lý nguyên vật liệu</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📦</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Tồn kho hiện tại</dt>
+                                        <dd class="text-lg font-medium text-gray-900">156 items</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">⚠️</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Cần nhập hàng</dt>
+                                        <dd class="text-lg font-medium text-gray-900">8 items</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📥</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Nhập hôm nay</dt>
+                                        <dd class="text-lg font-medium text-gray-900">23 items</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 bg-white shadow rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Thao tác kho</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <a href="/Inventory" class="block w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded">
+                            📦 Xem tồn kho
+                        </a>
+                        <a href="/Inventory/Import" class="block w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 rounded">
+                            📥 Nhập hàng
+                        </a>
+                        <a href="/Inventory/Export" class="block w-full text-left px-4 py-3 bg-red-50 hover:bg-red-100 rounded">
+                            📤 Xuất hàng
+                        </a>
+                        <a href="/Inventory/LowStock" class="block w-full text-left px-4 py-3 bg-yellow-50 hover:bg-yellow-100 rounded">
+                            ⚠️ Hàng tồn thấp
+                        </a>
+                    </div>
+                </div>
+            }
+            
+            @* GUARD DASHBOARD - Simple Check-in/out *@
+            @if (userRole == UserRole.Guard)
+            {
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Bảo vệ</h2>
+                    <p class="text-gray-600">Kiểm soát ra vào</p>
+                </div>
+                
+                <div class="max-w-md mx-auto">
+                    <div class="bg-white shadow rounded-lg p-8 text-center">
+                        <div class="mb-6">
+                            <div class="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <span class="text-white text-4xl">📱</span>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Quét mã QR</h3>
+                            <p class="text-gray-600">Đưa mã QR của khách hoặc xe vào để quét</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <button class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg">
+                                📷 Bắt đầu quét QR
+                            </button>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <button class="bg-green-50 hover:bg-green-100 text-green-700 py-2 px-4 rounded">
+                                    ✅ Check-in
+                                </button>
+                                <button class="bg-red-50 hover:bg-red-100 text-red-700 py-2 px-4 rounded">
+                                    ❌ Check-out
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <p class="text-sm text-gray-600 mb-2">Hoạt động gần đây:</p>
+                            <div class="text-left space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span>Khách A - Check-in</span>
+                                    <span class="text-gray-500">2 phút trước</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span>Khách B - Check-out</span>
+                                    <span class="text-gray-500">5 phút trước</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @* STAFF DASHBOARD - Order Management *@
+            @if (userRole == UserRole.Staff)
+            {
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Phục vụ</h2>
+                    <p class="text-gray-600">Quản lý đơn hàng</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">⏳</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Đang chờ</dt>
+                                        <dd class="text-lg font-medium text-gray-900">12 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">👨‍🍳</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Đang pha</dt>
+                                        <dd class="text-lg font-medium text-gray-900">8 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">✅</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Hoàn thành</dt>
+                                        <dd class="text-lg font-medium text-gray-900">45 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 bg-white shadow rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Quản lý đơn hàng</h3>
+                    <div class="space-y-3">
+                        <a href="/Orders/Pending" class="block w-full text-left px-4 py-3 bg-yellow-50 hover:bg-yellow-100 rounded">
+                            ⏳ Đơn hàng chờ xử lý
+                        </a>
+                        <a href="/Orders/Preparing" class="block w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded">
+                            👨‍🍳 Đang pha chế
+                        </a>
+                        <a href="/Orders/Ready" class="block w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 rounded">
+                            ✅ Sẵn sàng phục vụ
+                        </a>
+                        <a href="/Orders/New" class="block w-full text-left px-4 py-3 bg-purple-50 hover:bg-purple-100 rounded">
+                            ➕ Tạo đơn mới
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    </main>
+</body>
+</html>

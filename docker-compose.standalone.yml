@@ -1,0 +1,40 @@
+services:
+  # Quality Gate Service (Standalone - No dependencies)
+  quality-gate:
+    build:
+      context: .
+      dockerfile: 6_Testing/Dockerfile.quality-gate
+    container_name: vanan-quality-gate
+    environment:
+      # Test Configuration
+      - SMOKE_TEST_ENABLED=${SMOKE_TEST_ENABLED:-true}
+      - ENABLE_E2E=${ENABLE_E2E:-true}
+      - ENABLE_LOAD_TEST=${ENABLE_LOAD_TEST:-false}
+      - ENABLE_CHAOS=${ENABLE_CHAOS:-false}
+      
+      # Service Endpoints (using Docker service names)
+      - COREHUB_URL=http://vanan-corehub:5010
+      - GATEWAY_URL=http://vanan-gateway:5001
+      - KHACHLINK_URL=http://vanan-khachlink:5002
+      - SHOPERP_URL=http://vanan-shoperp:5003
+      
+      # Test Timeouts
+      - SMOKE_TEST_TIMEOUT=${SMOKE_TEST_TIMEOUT:-30}
+      - E2E_TEST_TIMEOUT=${E2E_TEST_TIMEOUT:-120}
+      - LOAD_TEST_DURATION=${LOAD_TEST_DURATION:-60}
+      - CHAOS_TEST_DURATION=${CHAOS_TEST_DURATION:-300}
+      
+      # Test Intensity
+      - LOAD_TEST_VUS=${LOAD_TEST_VUS:-10}
+      - CHAOS_INTENSITY=${CHAOS_INTENSITY:-0.3}
+      
+      # Environment
+      - TEST_ENVIRONMENT=${TEST_ENVIRONMENT:-development}
+      - QUALITY_GATE_STRICT=${QUALITY_GATE_STRICT:-false}
+    volumes:
+      - ./6_Testing/reports:/app/reports
+      - ./.env.test:/app/.env.test:ro
+    ports:
+      - "8080:8080"  # Dashboard port
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

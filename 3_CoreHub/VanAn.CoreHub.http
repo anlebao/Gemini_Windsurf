@@ -1,0 +1,6 @@
+@VanAn.CoreHub_HostAddress = http://localhost:5073
+
+GET {{VanAn.CoreHub_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

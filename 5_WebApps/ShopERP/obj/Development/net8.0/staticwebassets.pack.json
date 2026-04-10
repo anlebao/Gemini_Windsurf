@@ -1,0 +1,61 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\obj\\Development\\net8.0\\scopedcss\\projectbundle\\VanAn.ShopERP.bundle.scp.css",
+      "PackagePath": "staticwebassets\\VanAn.ShopERP.bundle.scp.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\bootstrap\\bootstrap.min.css",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\bootstrap\\bootstrap.min.css.map",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css.map"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\favicon.ico",
+      "PackagePath": "staticwebassets\\favicon.ico"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\favicon.png",
+      "PackagePath": "staticwebassets\\favicon.png"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\seed-data\\beauty-template.json",
+      "PackagePath": "staticwebassets\\seed-data\\beauty-template.json"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\seed-data\\cafe-template.json",
+      "PackagePath": "staticwebassets\\seed-data\\cafe-template.json"
+    },
+    {
+      "Id": "C:\\vibecoding\\gemini_windsurf\\5_WebApps\\ShopERP\\wwwroot\\seed-data\\retail-template.json",
+      "PackagePath": "staticwebassets\\seed-data\\retail-template.json"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.VanAn.ShopERP.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.build.VanAn.ShopERP.props",
+      "PackagePath": "build\\VanAn.ShopERP.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.VanAn.ShopERP.props",
+      "PackagePath": "buildMultiTargeting\\VanAn.ShopERP.props"
+    },
+    {
+      "Id": "obj\\Development\\net8.0\\staticwebassets\\msbuild.buildTransitive.VanAn.ShopERP.props",
+      "PackagePath": "buildTransitive\\VanAn.ShopERP.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

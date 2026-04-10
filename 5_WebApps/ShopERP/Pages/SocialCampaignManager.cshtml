@@ -1,0 +1,341 @@
+@page "/campaigns"
+@inject VanAn.ShopERP.Services.ISocialCampaignService CampaignService
+@inject VanAn.ShopERP.Services.IShopService ShopService
+@using System.Text.Json
+
+@{
+    var campaigns = new List<VanAn.Shared.Domain.SocialCampaign>();
+    var shops = new List<VanAn.Shared.Domain.Shop>();
+    var code = "";
+}
+
+<PageTitle>Social Campaign Manager - Vạn An ERP</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>🚀 Social Campaign Manager</h2>
+            <p class="text-muted">Quản lý chiến dịch Social Media & O2O Flywheel</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCampaignModal">
+                <i class="fas fa-plus"></i> Tạo Chiến Dịch Mới
+            </button>
+        </div>
+        <div class="col-md-4">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Tìm kiếm chiến dịch...">
+                <button class="btn btn-outline-secondary" type="button">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">📊 Danh sách chiến dịch</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Tên Chiến Dịch</th>
+                                    <th>UTM Source</th>
+                                    <th>Tracking Code</th>
+                                    <th>🔥 Total Clicks</th>
+                                    <th>✅ Converted Orders</th>
+                                    <th>📈 Conversion Rate</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (campaigns != null && campaigns.Any())
+                                {
+                                    @foreach (var campaign in campaigns)
+                                    {
+                                        <tr>
+                                            <td>@campaign.CampaignName</td>
+                                            <td><span class="badge bg-info">@campaign.UtmSource</span></td>
+                                            <td>
+                                                <code>@campaign.TrackingCode</code>
+                                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="copyTrackingCode('@campaign.TrackingCode')">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </td>
+                                            <td><strong>@campaign.TotalClicks</strong></td>
+                                            <td><strong>@campaign.ConvertedOrders</strong></td>
+                                            <td>
+                                                @{
+                                                    var conversionRate = campaign.TotalClicks > 0 ? (campaign.ConvertedOrders * 100.0 / campaign.TotalClicks) : 0;
+                                                }
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar" role="progressbar" style="width: @conversionRate%">
+                                                        @conversionRate.ToString("F1")%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (campaign.IsActive)
+                                                {
+                                                    <span class="badge bg-success">Đang chạy</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Đã dừng</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info" onclick="viewCampaignDetails('@campaign.Id')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-warning" onclick="editCampaign('@campaign.Id')">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteCampaign('@campaign.Id')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">
+                                            <i class="fas fa-inbox fa-3x mb-3"></i>
+                                            <p>Chưa có chiến dịch nào. Hãy tạo chiến dịch đầu tiên!</p>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Campaign Modal -->
+<div class="modal fade" id="createCampaignModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🚀 Tạo Chiến Dịch Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createCampaignForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="campaignName" class="form-label">Tên Chiến Dịch *</label>
+                                <input type="text" class="form-control" id="campaignName" required>
+                                <div class="form-text">VD: Flash Sale TikTok, Khuyến Mãi Facebook</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="utmSource" class="form-label">UTM Source *</label>
+                                <select class="form-select" id="utmSource" required>
+                                    <option value="">-- Chọn nền tảng --</option>
+                                    <option value="tiktok">🎵 TikTok</option>
+                                    <option value="facebook">📘 Facebook</option>
+                                    <option value="instagram">📷 Instagram</option>
+                                    <option value="youtube">📺 YouTube</option>
+                                    <option value="zalo">💬 Zalo</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="generatedTrackingCode" class="form-label">Tracking Code (Tự động)</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="generatedTrackingCode" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="generateTrackingCode()">
+                                        <i class="fas fa-sync"></i> Tạo mới
+                                    </button>
+                                </div>
+                                <div class="form-text">Mã này sẽ được dùng trong URL: khachlink.com/c/{tracking_code}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="shopSelect" class="form-label">Cửa hàng *</label>
+                                <select class="form-select" id="shopSelect" required>
+                                    <option value="">-- Chọn cửa hàng --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isActive" checked>
+                            <label class="form-check-label" for="isActive">
+                                Kích hoạt chiến dịch ngay lập tức
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" onclick="createCampaign()">
+                    <i class="fas fa-rocket"></i> Tạo Chiến Dịch
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let campaigns = @Html.Raw(JsonSerializer.Serialize(campaigns ?? new List<VanAn.Shared.Domain.SocialCampaign>()));
+        let shops = @Html.Raw(JsonSerializer.Serialize(shops ?? new List<VanAn.Shared.Domain.Shop>()));
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadShops();
+            generateTrackingCode();
+        });
+
+        function loadShops() {
+            const shopSelect = document.getElementById('shopSelect');
+            shops.forEach(shop => {
+                const option = document.createElement('option');
+                option.value = shop.id;
+                option.textContent = shop.name;
+                shopSelect.appendChild(option);
+            });
+        }
+
+        function generateTrackingCode() {
+            const prefixes = {
+                'tiktok': 'TT',
+                'facebook': 'FB', 
+                'instagram': 'IG',
+                'youtube': 'YT',
+                'zalo': 'ZL'
+            };
+            
+            const utmSource = document.getElementById('utmSource').value;
+            const prefix = prefixes[utmSource] || 'CM';
+            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const trackingCode = `${prefix}${random}`;
+            
+            document.getElementById('generatedTrackingCode').value = trackingCode;
+        }
+
+        async function createCampaign() {
+            const form = document.getElementById('createCampaignForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const campaign = {
+                campaignName: document.getElementById('campaignName').value,
+                utmSource: document.getElementById('utmSource').value,
+                trackingCode: document.getElementById('generatedTrackingCode').value,
+                shopId: document.getElementById('shopSelect').value,
+                isActive: document.getElementById('isActive').checked
+            };
+
+            try {
+                const response = await fetch('/api/campaigns', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(campaign)
+                });
+
+                if (response.ok) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('createCampaignModal'));
+                    modal.hide();
+                    
+                    // Show success message
+                    showNotification('Chiến dịch đã được tạo thành công!', 'success');
+                    
+                    // Reload campaigns
+                    loadCampaigns();
+                } else {
+                    showNotification('Có lỗi xảy ra khi tạo chiến dịch', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating campaign:', error);
+                showNotification('Có lỗi xảy ra khi tạo chiến dịch', 'error');
+            }
+        }
+
+        function copyTrackingCode(trackingCode) {
+            const fullUrl = `khachlink.com/c/${trackingCode}`;
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                showNotification('Đã sao chép URL: ' + fullUrl, 'success');
+            });
+        }
+
+        function showNotification(message, type) {
+            // Simple notification - can be enhanced with a proper toast library
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        async function loadCampaigns() {
+            // Reload campaigns from server
+            location.reload();
+        }
+    </script>
+}
+
+@code {
+    private List<SocialCampaign>? campaigns;
+    private List<Shop>? shops;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Load campaigns for current tenant's shops
+            var tenantShops = await ShopService.GetShopsAsync();
+            shops = tenantShops.ToList();
+            
+            if (shops.Any())
+            {
+                var allCampaigns = new List<SocialCampaign>();
+                foreach (var shop in shops)
+                {
+                    var shopCampaigns = await CampaignService.GetCampaignsByShopAsync(shop.Id);
+                    allCampaigns.AddRange(shopCampaigns);
+                }
+                campaigns = allCampaigns.OrderByDescending(c => c.CreatedAt).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle error
+            Console.WriteLine($"Error loading campaigns: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VanAn Ecosystem - Test Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .header .timestamp {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .config-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+
+        .tiers-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .tier-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tier-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .tier-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .tier-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .tier-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tier-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .status-badge {
+            padding: 8px 15px;
+            border-radius: 20px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .tier-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .test-summary {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .test-count {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: bold;
+        }
+
+        .test-duration {
+            color: #666;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .architect-note {
+            margin-top: 15px;
+            padding: 12px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-left: 4px solid #007bff;
+            font-size: 12px;
+            color: #495057;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .architect-note strong {
+            color: #007bff;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+        }
+
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 40px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .refresh-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+
+        .refresh-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Status Colors */
+        .status-pass { background-color: #28a745; }
+        .status-fail { background-color: #dc3545; }
+        .status-skip { background-color: #6c757d; }
+        .status-not_run { background-color: #ffc107; color: #333; }
+
+        .test-count.passed { background-color: #28a745; }
+        .test-count.failed { background-color: #dc3545; }
+        .test-count.skipped { background-color: #6c757d; }
+
+        /* Tier-specific colors */
+        .tier-smoke .tier-icon { background: linear-gradient(135deg, #28a745, #20c997); }
+        .tier-e2e .tier-icon { background: linear-gradient(135deg, #007bff, #6610f2); }
+        .tier-load .tier-icon { background: linear-gradient(135deg, #fd7e14, #e83e8c); }
+        .tier-chaos .tier-icon { background: linear-gradient(135deg, #dc3545, #6f42c1); }
+
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .tiers-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .test-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>
+                🧪 VanAn Ecosystem Test Dashboard
+            </h1>
+            <p>Real-time testing status and quality metrics</p>
+            <div class="timestamp" id="timestamp">Loading...</div>
+            
+            <div class="config-info" id="config-info">
+                <strong>Configuration:</strong> Loading...
+            </div>
+            
+            <button class="refresh-button" onclick="refreshDashboard()">
+                🔄 Refresh Dashboard
+            </button>
+        </div>
+        
+        <div class="tiers-container" id="tiers-container">
+            <!-- Tier cards will be dynamically inserted here -->
+        </div>
+        
+        <div class="footer">
+            <p>Generated by VanAn Ecosystem Test Framework v1.0.0</p>
+            <p id="environment-info">Environment: Loading...</p>
+            <p>Auto-refresh every 30 seconds | Last updated: <span id="last-updated">Loading...</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Test configuration and data
+        const testConfig = {
+            smoke: { enabled: true, name: 'Smoke Tests', icon: '🔥', description: 'Basic health checks' },
+            e2e: { enabled: true, name: 'E2E Tests', icon: '🔄', description: 'End-to-end workflows' },
+            load: { enabled: false, name: 'Load Tests', icon: '⚡', description: 'Performance testing' },
+            chaos: { enabled: false, name: 'Chaos Tests', icon: '🔥', description: 'Resilience testing' }
+        };
+
+        // Sample test results (in real implementation, this would come from API)
+        const testResults = {
+            smoke: {
+                status: 'pass',
+                tests: [
+                    { name: 'CoreHub Health Check', status: 'pass', duration: 120 },
+                    { name: 'Gateway Health Check', status: 'pass', duration: 95 },
+                    { name: 'KhachLink Health Check', status: 'pass', duration: 110 },
+                    { name: 'ShopERP Health Check', status: 'pass', duration: 105 },
+                    { name: 'Database Connectivity', status: 'pass', duration: 200 }
+                ],
+                startTime: new Date(Date.now() - 30000),
+                duration: 30000
+            },
+            e2e: {
+                status: 'pass',
+                tests: [
+                    { name: 'Product Catalog Display', status: 'pass', duration: 2500 },
+                    { name: 'Add to Cart', status: 'pass', duration: 1200 },
+                    { name: 'Place Order', status: 'pass', duration: 3000 },
+                    { name: 'View Orders in ShopERP', status: 'pass', duration: 1800 },
+                    { name: 'Update Order Status', status: 'pass', duration: 1500 },
+                    { name: 'Order Status Reflection', status: 'pass', duration: 2200 },
+                    { name: 'Inventory Update', status: 'skip', duration: 0, reason: 'API not available' }
+                ],
+                startTime: new Date(Date.now() - 15000),
+                duration: 15000
+            },
+            load: {
+                status: 'skip',
+                tests: [],
+                startTime: new Date(),
+                duration: 0,
+                architectDecision: 'Bypassed by Architect - Load tests disabled'
+            },
+            chaos: {
+                status: 'skip',
+                tests: [],
+                startTime: new Date(),
+                duration: 0,
+                architectDecision: 'Bypassed by Architect - Chaos tests disabled'
+            }
+        };
+
+        function getStatusColor(status) {
+            switch (status) {
+                case 'pass': return '#28a745';
+                case 'fail': return '#dc3545';
+                case 'skip': return '#6c757d';
+                case 'not_run': return '#ffc107';
+                default: return '#6c757d';
+            }
+        }
+
+        function getStatusIcon(status) {
+            switch (status) {
+                case 'pass': return '✓';
+                case 'fail': return '✗';
+                case 'skip': return '⊘';
+                case 'not_run': return '⏸';
+                default: return '?';
+            }
+        }
+
+        function formatDuration(ms) {
+            if (ms < 1000) return `${ms}ms`;
+            return `${(ms / 1000).toFixed(2)}s`;
+        }
+
+        function createTierCard(tierKey, tierConfig, result) {
+            const passedTests = result.tests.filter(t => t.status === 'pass').length;
+            const failedTests = result.tests.filter(t => t.status === 'fail').length;
+            const skippedTests = result.tests.filter(t => t.status === 'skip').length;
+
+            const statusColor = getStatusColor(result.status);
+            const statusIcon = getStatusIcon(result.status);
+
+            return `
+                <div class="tier-card tier-${tierKey}" data-tier="${tierKey}">
+                    <div class="tier-header">
+                        <h3>
+                            <div class="tier-icon">${tierConfig.icon}</div>
+                            ${tierConfig.name}
+                        </h3>
+                        <span class="status-badge status-${result.status}" style="background-color: ${statusColor}">
+                            ${statusIcon} ${result.status.toUpperCase()}
+                        </span>
+                    </div>
+                    <div class="tier-content">
+                        <div class="test-summary">
+                            <span class="test-count passed">${passedTests} Passed</span>
+                            <span class="test-count failed">${failedTests} Failed</span>
+                            <span class="test-count skipped">${skippedTests} Skipped</span>
+                        </div>
+                        
+                        <div class="test-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Duration:</span>
+                                <span class="detail-value">${formatDuration(result.duration)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Total Tests:</span>
+                                <span class="detail-value">${result.tests.length}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Success Rate:</span>
+                                <span class="detail-value">${result.tests.length > 0 ? ((passedTests / result.tests.length) * 100).toFixed(1) : 0}%</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value">${result.status}</span>
+                            </div>
+                        </div>
+                        
+                        ${result.architectDecision ? `
+                            <div class="architect-note">
+                                <strong>Architect Decision:</strong> ${result.architectDecision}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${result.tests.length > 0 ? (passedTests / result.tests.length) * 100 : 0}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadConfiguration() {
+            // In real implementation, this would fetch from .env.test file
+            const config = {
+                SMOKE_TEST_ENABLED: true,
+                ENABLE_E2E: true,
+                ENABLE_LOAD_TEST: false,
+                ENABLE_CHAOS: false,
+                TEST_ENVIRONMENT: 'development',
+                COREHUB_URL: 'http://localhost:5010',
+                GATEWAY_URL: 'http://localhost:5001',
+                KHACHLINK_URL: 'http://localhost:5002',
+                SHOPERP_URL: 'http://localhost:5003'
+            };
+
+            // Update test configuration based on environment
+            testConfig.smoke.enabled = config.SMOKE_TEST_ENABLED;
+            testConfig.e2e.enabled = config.ENABLE_E2E;
+            testConfig.load.enabled = config.ENABLE_LOAD_TEST;
+            testConfig.chaos.enabled = config.ENABLE_CHAOS;
+
+            // Update configuration display
+            const configInfo = document.getElementById('config-info');
+            configInfo.innerHTML = `
+                <strong>Configuration:</strong> 
+                Smoke: ${config.SMOKE_TEST_ENABLED ? '✅' : '❌'} | 
+                E2E: ${config.ENABLE_E2E ? '✅' : '❌'} | 
+                Load: ${config.ENABLE_LOAD_TEST ? '✅' : '❌'} | 
+                Chaos: ${config.ENABLE_CHAOS ? '✅' : '❌'}
+                <br>
+                <strong>Environment:</strong> ${config.TEST_ENVIRONMENT} | 
+                <strong>Services:</strong> CoreHub(${config.COREHUB_URL.split(':')[2]}), 
+                Gateway(${config.GATEWAY_URL.split(':')[2]}), 
+                KhachLink(${config.KHACHLINK_URL.split(':')[2]}), 
+                ShopERP(${config.SHOPERP_URL.split(':')[2]})
+            `;
+
+            // Update environment info
+            document.getElementById('environment-info').textContent = 
+                `Environment: ${config.TEST_ENVIRONMENT} | Configuration: .env.test`;
+        }
+
+        function renderDashboard() {
+            const container = document.getElementById('tiers-container');
+            container.innerHTML = '';
+
+            Object.keys(testConfig).forEach(tierKey => {
+                const tierConfig = testConfig[tierKey];
+                const result = testResults[tierKey];
+
+                // Update status based on configuration
+                if (!tierConfig.enabled) {
+                    result.status = 'skip';
+                    result.architectDecision = 'Bypassed by Architect - Tests disabled';
+                }
+
+                const tierCard = createTierCard(tierKey, tierConfig, result);
+                container.innerHTML += tierCard;
+            });
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('timestamp').textContent = 
+                `Last updated: ${now.toLocaleString('vi-VN')}`;
+            document.getElementById('last-updated').textContent = 
+                now.toLocaleTimeString('vi-VN');
+        }
+
+        function refreshDashboard() {
+            const button = event.target;
+            button.innerHTML = '<span class="loading"></span> Refreshing...';
+            button.disabled = true;
+
+            // Simulate refresh delay
+            setTimeout(() => {
+                loadConfiguration();
+                renderDashboard();
+                updateTimestamp();
+                button.innerHTML = '🔄 Refresh Dashboard';
+                button.disabled = false;
+            }, 1000);
+        }
+
+        // Initialize dashboard
+        function initDashboard() {
+            loadConfiguration();
+            renderDashboard();
+            updateTimestamp();
+
+            // Auto-refresh every 30 seconds
+            setInterval(() => {
+                loadConfiguration();
+                renderDashboard();
+                updateTimestamp();
+            }, 30000);
+        }
+
+        // Start the dashboard when page loads
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

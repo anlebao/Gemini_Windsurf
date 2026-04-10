@@ -1,0 +1,276 @@
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Extensions
+@using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Components.Shared
+@using System.Globalization
+
+<section id="vibe-showcase" class="vibe-showcase-section">
+    <div class="container">
+        <h2 class="section-title text-center mb-4">🍹 Thực đơn đặc sắc</h2>
+        
+        @if (ShopConfig?.ActiveTheme != null)
+        {
+            var themeClass = ShopConfig.ActiveTheme.ToCssClass();
+            switch (ShopConfig.ActiveTheme)
+            {
+                case ThemeType.Teen:
+                    <div class="teen-vibe">
+                        <div class="row g-4">
+                            @foreach (var product in Products ?? new List<CartItem>())
+                            {
+                                <div class="col-md-6 col-lg-4" key="@product.Id">
+                                    <div class="teen-card">
+                                        <div class="teen-image">
+                                            <img src="/images/teen-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                            <div class="teen-overlay">
+                                                <span class="teen-badge">HOT</span>
+                                            </div>
+                                        </div>
+                                        <div class="teen-content">
+                                            <h4 class="neon-text">@(product?.Name ?? "Sản phẩm")</h4>
+                                            <p class="teen-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                            <div class="teen-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</div>
+                                            <button class="teen-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                                <span>ADD TO CART</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    break;
+
+                case ThemeType.Lady:
+                    <div class="lady-vibe">
+                        <div class="row g-4">
+                            @foreach (var product in Products ?? new List<CartItem>())
+                            {
+                                <div class="col-md-6 col-lg-4" key="@product.Id">
+                                    <div class="lady-card">
+                                        <div class="lady-header">
+                                            <h4 class="elegant-title">@(product?.Name ?? "Sản phẩm")</h4>
+                                            <div class="lady-icon">🌸</div>
+                                        </div>
+                                        <p class="lady-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                        <div class="lady-footer">
+                                            <span class="lady-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                            <button class="lady-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                                <span>Thêm vào giỏ</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    break;
+
+                case ThemeType.Classic:
+                    <div class="classic-vibe">
+                        <div class="row">
+                            @foreach (var product in Products ?? new List<CartItem>())
+                            {
+                                <div class="col-md-6 mb-4" key="@product.Id">
+                                    <div class="classic-card">
+                                        <div class="classic-row">
+                                            <div class="classic-info">
+                                                <h4>@(product?.Name ?? "Sản phẩm")</h4>
+                                                <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                                <span class="classic-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                            </div>
+                                            <button class="classic-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                                Đặt hàng
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    break;
+
+                case ThemeType.Premium:
+                    <div class="premium-vibe">
+                        @foreach (var product in Products ?? new List<CartItem>())
+                        {
+                            <div class="premium-card mb-4" key="@product.Id">
+                                <div class="premium-image">
+                                    <img src="/images/premium-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                </div>
+                                <div class="premium-content">
+                                    <div class="premium-header">
+                                        <h3 class="premium-title">@(product?.Name ?? "Sản phẩm")</h3>
+                                        <div class="premium-badge">PREMIUM</div>
+                                    </div>
+                                    <p class="premium-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                    <div class="premium-footer">
+                                        <span class="premium-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                        <button class="premium-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                            <span>Đặt ngay</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    break;
+            }
+        }
+        else
+        {
+            // Default fallback
+            <div class="default-vibe">
+                <div class="row">
+                    @foreach (var product in Products ?? new List<CartItem>())
+                    {
+                        <div class="col-md-4 mb-3" key="@product.Id">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5>@(product?.Name ?? "Sản phẩm")</h5>
+                                    <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                    <p><strong>@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</strong></p>
+                                    <button class="btn btn-primary" @onclick="() => AddToCart?.Invoke(product)">
+                                        Thêm vào giỏ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+<style>
+    /* Teen Theme Styles */
+    .teen-vibe {
+        background: linear-gradient(45deg, #ff006e, #8338ec, #3a86ff);
+        padding: 2rem;
+        border-radius: 20px;
+    }
+    
+    .teen-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        overflow: hidden;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        transition: transform 0.3s ease;
+    }
+    
+    .teen-card:hover {
+        transform: translateY(-10px) scale(1.02);
+    }
+    
+    .neon-text {
+        color: #fff;
+        text-shadow: 0 0 10px #ff006e, 0 0 20px #ff006e;
+    }
+    
+    .teen-btn {
+        background: linear-gradient(45deg, #ff006e, #8338ec);
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    /* Lady Theme Styles */
+    .lady-vibe {
+        background: linear-gradient(135deg, #ffeaa7, #fdcb6e, #fab1a0);
+        padding: 2rem;
+        border-radius: 20px;
+    }
+    
+    .lady-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255, 182, 193, 0.3);
+    }
+    
+    .elegant-title {
+        color: #d63031;
+        font-family: 'Georgia', serif;
+    }
+    
+    .lady-btn {
+        background: linear-gradient(45deg, #ff7675, #fd79a8);
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+    
+    /* Classic Theme Styles */
+    .classic-vibe {
+        background: linear-gradient(135deg, #dfe6e9, #b2bec3, #636e72);
+        padding: 2rem;
+        border-radius: 15px;
+    }
+    
+    .classic-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        border-left: 4px solid #8b4513;
+    }
+    
+    .classic-btn {
+        background: #8b4513;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+    }
+    
+    /* Premium Theme Styles */
+    .premium-vibe {
+        background: linear-gradient(135deg, #000000, #1a1a1a, #2d2d2d);
+        padding: 2rem;
+        border-radius: 20px;
+    }
+    
+    .premium-card {
+        background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+        border-radius: 15px;
+        overflow: hidden;
+        border: 1px solid #ffd700;
+        display: flex;
+        align-items: center;
+    }
+    
+    .premium-title {
+        color: #ffd700;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .premium-btn {
+        background: linear-gradient(45deg, #ffd700, #ffed4e);
+        color: #000;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: bold;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public ShopConfig? Config { get; set; }
+    
+    [Parameter]
+    public List<CartItem>? Products { get; set; }
+    
+    private ShopConfig? ShopConfig => Config;
+    
+    [Parameter]
+    public Action<CartItem>? AddToCart { get; set; }
+}

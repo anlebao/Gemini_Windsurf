@@ -1,0 +1,44 @@
+2026-04-09 22:44:06.445 +07:00 [INF] 🚀 Starting Vạn An Gateway Service...
+2026-04-09 22:44:06.666 +07:00 [INF] User profile is available. Using 'C:\Users\lebao\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-04-09 22:44:06.796 +07:00 [INF] Loading proxy data from config.
+2026-04-09 22:44:07.350 +07:00 [INF] Now listening on: http://0.0.0.0:5001
+2026-04-09 22:44:07.366 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-04-09 22:44:07.369 +07:00 [INF] Hosting environment: Development
+2026-04-09 22:44:07.372 +07:00 [INF] Content root path: C:\vibecoding\gemini_windsurf\2_Gateway
+2026-04-09 23:21:49.107 +07:00 [INF] 🚀 Starting Vạn An Gateway Service...
+2026-04-09 23:21:49.271 +07:00 [INF] User profile is available. Using 'C:\Users\lebao\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-04-09 23:21:49.320 +07:00 [INF] Loading proxy data from config.
+2026-04-09 23:21:49.771 +07:00 [INF] Now listening on: http://0.0.0.0:5001
+2026-04-09 23:21:49.784 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-04-09 23:21:49.787 +07:00 [INF] Hosting environment: Development
+2026-04-09 23:21:49.788 +07:00 [INF] Content root path: C:\vibecoding\gemini_windsurf\2_Gateway
+2026-04-09 23:24:01.632 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5001/api/build/status - null null
+2026-04-09 23:24:02.404 +07:00 [INF] CORS policy execution successful.
+2026-04-09 23:24:05.137 +07:00 [WRN] Resource file not found: C:\vibecoding\gemini_windsurf\2_Gateway\1_Shared\Localization\Resources.vi.json
+2026-04-09 23:24:09.918 +07:00 [WRN] Resource file not found: C:\vibecoding\gemini_windsurf\2_Gateway\1_Shared\Localization\Resources.en.json
+2026-04-09 23:24:12.067 +07:00 [INF] Executing endpoint 'VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway)'
+2026-04-09 23:24:12.363 +07:00 [INF] Route matched with {action = "GetBuildStatus", controller = "Build"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object]] GetBuildStatus() on controller VanAn.Gateway.Controllers.BuildController (VanAn.Gateway).
+2026-04-09 23:25:13.421 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5001/api/build/status - null null
+2026-04-09 23:25:17.979 +07:00 [INF] CORS policy execution successful.
+2026-04-09 23:25:17.983 +07:00 [WRN] Resource file not found: C:\vibecoding\gemini_windsurf\2_Gateway\1_Shared\Localization\Resources.vi.json
+2026-04-09 23:25:17.985 +07:00 [WRN] Resource file not found: C:\vibecoding\gemini_windsurf\2_Gateway\1_Shared\Localization\Resources.en.json
+2026-04-09 23:25:17.986 +07:00 [INF] Executing endpoint 'VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway)'
+2026-04-09 23:25:17.988 +07:00 [INF] Route matched with {action = "GetBuildStatus", controller = "Build"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object]] GetBuildStatus() on controller VanAn.Gateway.Controllers.BuildController (VanAn.Gateway).
+2026-04-09 23:25:40.747 +07:00 [INF] Request starting HTTP/1.1 GET http://localhost:5001/api/build/status - null null
+2026-04-09 23:25:41.805 +07:00 [INF] CORS policy execution successful.
+2026-04-09 23:25:41.814 +07:00 [WRN] Resource file not found: C:\vibecoding\gemini_windsurf\2_Gateway\1_Shared\Localization\Resources.vi.json
+2026-04-09 23:25:41.816 +07:00 [WRN] Resource file not found: C:\vibecoding\gemini_windsurf\2_Gateway\1_Shared\Localization\Resources.en.json
+2026-04-09 23:25:41.819 +07:00 [INF] Executing endpoint 'VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway)'
+2026-04-09 23:25:41.821 +07:00 [INF] Route matched with {action = "GetBuildStatus", controller = "Build"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object]] GetBuildStatus() on controller VanAn.Gateway.Controllers.BuildController (VanAn.Gateway).
+2026-04-09 23:26:36.949 +07:00 [INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType1`5[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-04-09 23:26:37.044 +07:00 [INF] Executed action VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway) in 144677.1073ms
+2026-04-09 23:26:37.063 +07:00 [INF] Executed endpoint 'VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway)'
+2026-04-09 23:26:37.073 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5001/api/build/status - 499 null application/json; charset=utf-8 155451.4608ms
+2026-04-09 23:26:44.650 +07:00 [INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType1`5[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-04-09 23:26:44.705 +07:00 [INF] Executed action VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway) in 86716.8059ms
+2026-04-09 23:26:44.709 +07:00 [INF] Executed endpoint 'VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway)'
+2026-04-09 23:26:44.712 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5001/api/build/status - 499 null application/json; charset=utf-8 91294.6621ms
+2026-04-09 23:26:47.818 +07:00 [INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType1`5[[System.Boolean, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.DateTime, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-04-09 23:26:47.833 +07:00 [INF] Executed action VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway) in 65829.1107ms
+2026-04-09 23:26:47.836 +07:00 [INF] Executed endpoint 'VanAn.Gateway.Controllers.BuildController.GetBuildStatus (VanAn.Gateway)'
+2026-04-09 23:26:47.839 +07:00 [INF] Request finished HTTP/1.1 GET http://localhost:5001/api/build/status - 499 null application/json; charset=utf-8 67094.7781ms

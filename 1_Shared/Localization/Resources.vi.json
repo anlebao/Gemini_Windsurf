@@ -1,0 +1,148 @@
+{
+  "Common": {
+    "Order": "Đơn hàng",
+    "Orders": "Đơn hàng",
+    "Payment": "Thanh toán",
+    "Menu": "Thực đơn",
+    "Cart": "Giỏ hàng",
+    "Total": "Tổng cộng",
+    "Price": "Giá",
+    "Quantity": "Số lượng",
+    "Status": "Trạng thái",
+    "Cancel": "Hủy",
+    "Confirm": "Xác nhận",
+    "Save": "Lưu",
+    "Edit": "Chỉnh sửa",
+    "Delete": "Xóa",
+    "Search": "Tìm kiếm",
+    "Filter": "Lọc",
+    "Loading": "Đang tải...",
+    "Error": "Lỗi",
+    "Success": "Thành công",
+    "Warning": "Cảnh báo",
+    "Info": "Thông tin"
+  },
+  "Product": {
+    "Name": "Tên sản phẩm",
+    "Description": "Mô tả",
+    "Category": "Danh mục",
+    "Price": "Giá",
+    "InStock": "Còn hàng",
+    "OutOfStock": "Hết hàng",
+    "Available": "Có sẵn",
+    "Unavailable": "Không có sẵn"
+  },
+  "Order": {
+    "OrderId": "Mã đơn hàng",
+    "CustomerName": "Tên khách hàng",
+    "OrderDate": "Ngày đặt hàng",
+    "EstimatedTime": "Thời gian dự kiến",
+    "Status": {
+      "New": "Mới",
+      "Confirmed": "Đã xác nhận",
+      "Preparing": "Đang chế biến",
+      "Ready": "Sẵn sàng",
+      "Completed": "Hoàn thành",
+      "Cancelled": "Đã hủy"
+    },
+    "Items": "Sản phẩm",
+    "Subtotal": "Thành tiền",
+    "Tax": "Thuế",
+    "Discount": "Giảm giá",
+    "FinalTotal": "Tổng cộng",
+    "Note": "Ghi chú"
+  },
+  "Payment": {
+    "Method": "Phương thức thanh toán",
+    "Cash": "Tiền mặt",
+    "Card": "Thẻ",
+    "QRCode": "QR Code",
+    "Online": "Trực tuyến",
+    "Status": {
+      "Pending": "Chờ thanh toán",
+      "Paid": "Đã thanh toán",
+      "Failed": "Thất bại",
+      "Refunded": "Đã hoàn tiền"
+    },
+    "VietQR": {
+      "GenerateQR": "Tạo mã QR",
+      "ScanToPay": "Quét mã để thanh toán",
+      "QRGenerated": "Mã QR đã được tạo",
+      "Amount": "Số tiền",
+      "BankInfo": "Thông tin ngân hàng"
+    }
+  },
+  "Voice": {
+    "Command": "Lệnh giọng nói",
+    "Recording": "Đang ghi âm...",
+    "StopRecording": "Dừng ghi âm",
+    "StartRecording": "Bắt đầu ghi âm",
+    "Transcript": "Bản ghi âm",
+    "Language": "Ngôn ngữ",
+    "Vietnamese": "Tiếng Việt",
+    "English": "Tiếng Anh",
+    "Commands": {
+      "NewOrder": "đơn mới",
+      "CompleteOrder": "xong đơn",
+      "ReadyOrder": "sẵn sàng",
+      "CancelOrder": "hủy đơn"
+    },
+    "Errors": {
+      "NotSupported": "Trình duyệt không hỗ trợ nhận diện giọng nói",
+      "PermissionDenied": "Quyền truy cập micro bị từ chối",
+      "NetworkError": "Lỗi kết nối mạng",
+      "Timeout": "Hết thời gian ghi âm"
+    }
+  },
+  "Shop": {
+    "Name": "Tên cửa hàng",
+    "Address": "Địa chỉ",
+    "Phone": "Điện thoại",
+    "Email": "Email",
+    "Category": "Loại hình",
+    "Description": "Mô tả",
+    "OperatingHours": "Giờ hoạt động",
+    "Theme": "Chủ đề",
+    "Logo": "Logo",
+    "Colors": "Màu sắc",
+    "PrimaryColor": "Màu chính",
+    "SecondaryColor": "Màu phụ"
+  },
+  "Onboarding": {
+    "QuickSetup": "Khởi tạo nhanh",
+    "ChooseTemplate": "Chọn mẫu phù hợp",
+    "ShopInfo": "Thông tin cửa hàng",
+    "Confirmation": "Xác nhận",
+    "Complete": "Hoàn thành",
+    "Templates": {
+      "Cafe": "Quán Cafe",
+      "Beauty": "Spa & Beauty",
+      "Retail": "Cửa hàng"
+    },
+    "Steps": {
+      "Step1": "Chọn template",
+      "Step2": "Thông tin cửa hàng",
+      "Step3": "Xác nhận",
+      "Step4": "Hoàn thành"
+    }
+  },
+  "Validation": {
+    "Required": "Trường này là bắt buộc",
+    "InvalidEmail": "Email không hợp lệ",
+    "InvalidPhone": "Số điện thoại không hợp lệ",
+    "MinLength": "Tối thiểu {0} ký tự",
+    "MaxLength": "Tối đa {0} ký tự",
+    "Numeric": "Phải là số",
+    "Positive": "Phải là số dương"
+  },
+  "Messages": {
+    "OrderPlaced": "Đơn hàng đã được đặt thành công",
+    "PaymentProcessed": "Thanh toán đã được xử lý",
+    "VoiceCommandProcessed": "Lệnh giọng nói đã được xử lý",
+    "SettingsSaved": "Cài đặt đã được lưu",
+    "DataLoaded": "Dữ liệu đã được tải",
+    "NetworkError": "Lỗi kết nối mạng. Vui lòng thử lại.",
+    "ServerError": "Lỗi máy chủ. Vui lòng thử lại sau.",
+    "Unauthorized": "Không được phép truy cập"
+  }
+}

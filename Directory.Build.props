@@ -1,0 +1,68 @@
+<Project>
+  <!-- VẠN AN GROUP - Tầng phòng thủ từ phôi -->
+  <!-- Siết chặt kỷ luật build để chặn lỗi LoggerMessage và các vấn đề nghiêm trọng -->
+  
+  <PropertyGroup>
+    <!-- Biến cảnh báo lỗi thành lỗi nghiêm trọng -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    
+    <!-- Chỉ các lỗi nghiêm trọng nhất mới fail build -->
+    <WarningsAsErrors>
+      CS0101; <!-- Duplicate namespace definitions -->
+      CS8863; <!-- Duplicate type definitions -->
+    </WarningsAsErrors>
+    
+    <!-- Các cảnh báo được cho phép (tạm thời) -->
+    <WarningsNotAsErrors>
+      CA1848; <!-- LoggerMessage violations -->
+      CA2254; <!-- Template string violations -->
+      CA1062; <!-- Null validation violations -->
+      CA2007; <!-- ConfigureAwait violations -->
+      CA1031; <!-- Generic catch blocks -->
+      CA1812; <!-- Unused classes -->
+      CA1852; <!-- Sealed suggestions -->
+    </WarningsNotAsErrors>
+    
+    <!-- Cấu hình build nghiêm ngặt -->
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
+    
+    <!-- Enterprise Assembly Information Standard -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyCompany>Vạn An Group</AssemblyCompany>
+    <AssemblyProduct>Vạn An Ecosystem</AssemblyProduct>
+    <AssemblyCopyright>Copyright © Vạn An Group 2026</AssemblyCopyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    
+    <!-- Hiển thị tất cả cảnh báo -->
+    <WarningLevel>5</WarningLevel>
+    
+    <!-- Tắt các warning không quan trọng -->
+    <NoWarn>$(NoWarn);CS1591;CS8618;CS8604</NoWarn>
+  </PropertyGroup>
+  
+  <!-- Package references chung cho toàn solution -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.25" />
+  </ItemGroup>
+  
+  <!-- Analyzer packages cho static analysis -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+</Project>

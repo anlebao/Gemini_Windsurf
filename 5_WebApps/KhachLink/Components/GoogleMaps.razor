@@ -1,0 +1,90 @@
+@inject IJSRuntime JSRuntime
+
+<div class="location-section my-4">
+    <h3 class="text-center mb-4">Tìm chúng tôi</h3>
+    
+    @if (ShopConfig?.Latitude != null && ShopConfig?.Longitude != null)
+    {
+        <div class="map-container">
+            <iframe 
+                width="100%" 
+                height="400" 
+                frameborder="0" 
+                style="border:0; border-radius: 10px;"
+                src="@GetGoogleMapsUrl()"
+                allowfullscreen>
+            </iframe>
+        </div>
+        
+        <div class="map-info mt-3 text-center">
+            <h3>@ShopConfig.ShopName</h3>
+            <p class="mb-1">
+                <i class="fas fa-map-marker-alt"></i> @ShopConfig.Address
+            </p>
+            <p class="mb-1">
+                <i class="fas fa-phone"></i> @ShopConfig.Phone
+            </p>
+            <p class="mb-0">
+                <i class="fas fa-envelope"></i> @ShopConfig.Email
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="text-center p-4 bg-light rounded">
+            <i class="fas fa-map-marked-alt fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Chưa cập nhật tọa độ GPS</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public ShopConfig ShopConfig { get; set; }
+
+    private string GetGoogleMapsUrl()
+    {
+        if (ShopConfig?.Latitude == null || ShopConfig?.Longitude == null)
+            return "";
+            
+        var lat = ShopConfig.Latitude.Value;
+        var lng = ShopConfig.Longitude.Value;
+        
+        // Google Maps embed URL with custom styling
+        return $"https://www.google.com/maps/embed/v1/place?key=AIzaSyDummyKey&q={lat},{lng}&zoom=16&maptype=roadmap&language=vi";
+    }
+}
+
+<style>
+.location-section {
+    background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 15px;
+    padding: 2rem;
+    color: white;
+}
+
+.map-container {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.map-info {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.map-info h5 {
+    color: #fff;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.map-info p {
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 0.25rem;
+}
+</style>

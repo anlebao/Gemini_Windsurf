@@ -1,0 +1,861 @@
+COMMAND: /apply-rules
+VẠN AN GROUP - ENGINEERING CONSTITUTION (2026)
+rule_loading:
+  mandatory_files:
+    - auto-refactor.rules
+    - rules
+  required_behavior:
+    - "MUST read all mandatory rule files before planning"
+    - "MUST summarize each loaded rule file"
+    - "MUST apply rules from all files"
+
+  forbidden:
+    - "Ignore external rule files"
+    
+This document serves as the absolute technical authority for the Vạn An Group Ecosystem. As an AI Coding Agent, you MUST audit every action against these rules before execution. Zero compromise is the standard.
+
+🏗️ 1. HYBRID ARCHITECTURAL DESIGN (LOCAL-FIRST)
+... (giữ nguyên toàn bộ nội dung cũ từ đây đến trước phần mới) ...
+
+# === DOMAIN & EF CORE SAFETY RULES (BỔ SUNG 10/04/2026) ===
+# Mục tiêu: Ngăn chặn lỗi duplicate record, sai vị trí using, test DI và bảo vệ kiến trúc kế toán
+
+domain_file_protection:
+  target_file: "1_Shared/Domain.cs"
+  mandatory_steps_before_edit:
+    - "ALWAYS read the ENTIRE file first to check for existing records (LeadId, CustomerId, OrderId, ProductId, etc.)"
+    - "NEVER re-declare any record that already exists (CS0101)"
+    - "All 'using' directives MUST be at the VERY TOP of the file, before any namespace or class declaration"
+    - "EF Core Configuration classes (IEntityTypeConfiguration<T>) MUST be placed at the VERY BOTTOM of the file, inside the namespace"
+    - "Value object records (xxxId) must be defined BEFORE their Configuration classes"
+
+ef_core_rules:
+  - "All Value Objects used in production or tests MUST have primary key configuration via IEntityTypeConfiguration"
+  - "In VanAnDbContext.OnModelCreating, ALWAYS call modelBuilder.ApplyConfiguration(new xxxConfiguration()) for every Value Object"
+  - "Never use .HasNoKey() unless the entity is explicitly designed to be keyless"
+  - "Global Query Filters for IMustHaveTenant MUST NEVER be bypassed"
+
+test_infrastructure_rules:
+  - "When writing tests that inherit IntegrationTestBase: DO NOT create services that depend on Context in the constructor"
+  - "Service creation (CustomerService, AccountingService, etc.) MUST happen inside InitializeAsync() AFTER SetupEmptyDatabaseAsync()"
+  - "Always implement IAsyncLifetime when database context is required"
+  - "Use xUnit correctly: [Fact], Assert.Equal/NotNull/NotNull, never Assert.AreEqual from NUnit"
+
+accounting_module_rules:
+  - "All financial/ledger operations MUST be immutable (append-only). Use Reversing Entries for adjustments"
+  - "Every AccountingEntry MUST have AccountingBookType, PeriodYear, PeriodMonth"
+  - "Direct Update/Delete on AccountingEntry and ElectronicInvoice is STRICTLY FORBIDDEN"
+  - "Multi-tenancy (IMustHaveTenant) must be enforced on all new accounting entities"
+
+general_ai_discipline:
+  - "When editing Domain.cs, VanAnDbContext.cs or any core file: Read the whole file first → Plan changes → Execute"
+  - "If you see CS0246 (type not found) or CS0101 (duplicate), STOP immediately and search the file"
+  - "Never append code blindly in the middle of a large file. Always add at correct position (using at top, config at bottom)"
+
+# === ANTI-PANIC & C# SYNTAX GOVERNANCE  ===
+- NO PANIC DELETIONS: You are strictly forbidden from deleting or recreating source code files just because they have compilation errors.
+- RAW STRING LITERALS MANDATORY: When injecting HTML, JSON, or Javascript, MUST use C# 11 raw string literals (""").
+- EF CORE STRICTNESS: Never call .ToList() before GroupBy or aggregations. All aggregations MUST be translated to SQL.
+
+# SMART TEST-DRIVEN DEVELOPMENT (TDD)
+1. **Targeted Fast Feedback**: While coding, automatically run ONLY the Unit Tests (Layer 1) related to the modified module (e.g., `dotnet test 6_Tests/VanAn.Core.Tests/ --filter "FullyQualifiedName~KitchenService"`).
+2. **Milestone Verification**: Before completing a major feature, run Integration Tests (Layer 2) and API Tests (Layer 3) to verify cross-module communication.
+3. **E2E Delegation**: End-to-End Playwright Tests (Layer 4) are EXPENSIVE. Run them ONLY when completing an entire Epic or User Journey, NOT on every small code change.
+4. **Mandatory Unit Tests**: Any new business logic MUST have corresponding Unit Tests.
+5. **Anti-Cheat**: DO NOT use `<Compile Remove />` or suppress warnings to pass tests. Fix the code.
+
+# === DOMAIN-FIRST & ZERO-ASSUMPTION PROTOCOL (BỔ SUNG 10/04/2026) ===
+# Mục tiêu: Ngăn chặn tuyệt đối việc code dựa trên giả định sai (missing entity, missing property)
+
+domain_first_enforcement:
+  core_principles:
+    - "NO DOMAIN → NO CODE"
+    - "NO VERIFICATION → NO IMPLEMENTATION"
+    - "DOMAIN → TEST → REPOSITORY → SERVICE → API (strict order)"
+
+  hard_stop_conditions:
+    - "STOP if referencing any Entity that has NOT been verified to exist in Domain.cs"
+    - "STOP if using any property (IsDeleted, TenantId, etc.) without confirming existence"
+    - "STOP if implementing Repository/Service BEFORE Domain validation"
+    - "STOP if editing Domain.cs WITHOUT reading the ENTIRE file first"
+
+  mandatory_pre_implementation:
+    - "STEP 1: Read 100% of 1_Shared/Domain.cs"
+    - "STEP 2: Search and confirm Entity existence before use"
+    - "STEP 3: Validate ALL properties used exist on entity or base class"
+    - "STEP 4: Check for BaseEntity/AuditableEntity consistency"
+    - "STEP 5: Validate against Engineering Constitution (Rule 42, 48)"
+
+  forbidden_patterns:
+    - "NEVER assume entity exists"
+    - "NEVER assume property exists"
+    - "NEVER patch errors at Repository level when Domain is invalid"
+    - "NEVER create partial entity just to fix compile errors"
+
+# === AUDIT TRAIL & MULTI-TENANCY ENFORCEMENT (BỔ SUNG 10/04/2026) ===
+# Chuẩn hoá toàn bộ entity theo Rule 42 & 48
+
+entity_consistency_rules:
+  audit_trail_mandatory:
+    - "Every entity MUST have: CreatedAt, UpdatedAt, IsDeleted"
+    - "Soft delete (IsDeleted) is REQUIRED, no exceptions"
+
+  multi_tenancy_mandatory:
+    - "Every core entity MUST implement IMustHaveTenant"
+    - "Every core entity MUST have TenantId"
+
+  base_entity_standardization:
+    - "All entities SHOULD inherit from a shared base (e.g., AuditableEntity)"
+    - "Avoid duplicated audit fields across entities"
+
+  inconsistency_handling:
+    - "If some entities have IsDeleted and others do not → STOP and refactor Domain"
+    - "If audit structure differs between entities → STOP and standardize"
+
+# === TDD ENFORCEMENT UPGRADE (BỔ SUNG) ===
+# Mở rộng rule TDD hiện có, không trùng lặp
+
+tdd_enforcement_upgrade:
+  strict_order:
+    - "Tests MUST be written BEFORE Repository/Service implementation when introducing new entity or behavior"
+
+  required_tests:
+    - "Must test default IsDeleted = false"
+    - "Must test soft delete behavior"
+    - "Must test TenantId existence and usage"
+
+  stop_condition:
+    - "If no tests defined for new logic → STOP implementation"
+
+# === SAFE ROLLBACK PROTOCOL (BỔ SUNG 10/04/2026) ===
+# Ngăn chặn việc sửa sai bằng patch, bắt buộc rollback đúng cách
+
+rollback_protocol:
+  trigger_conditions:
+    - "Entity does not exist but is being used"
+    - "Property does not exist but is referenced"
+    - "CS1061 or similar errors caused by invalid assumptions"
+    - "Violation of Domain-first principle"
+
+  rollback_actions:
+    - "DELETE newly created invalid files (Repository, Service, Tests)"
+    - "REVERT modified queries that rely on invalid properties"
+    - "REMOVE invalid DI registrations"
+    - "CLEAN all broken references"
+
+  validation:
+    - "MUST run dotnet build after rollback"
+    - "System must compile with 0 errors before continuing"
+
+  forbidden:
+    - "NEVER attempt to patch invalid solution"
+    - "NEVER add missing properties just to pass build"
+    - "NEVER continue implementation on broken Domain"
+
+# === OUTPUT DISCIPLINE (BỔ SUNG) ===
+# Đồng bộ với general_ai_discipline, không trùng logic
+
+output_control:
+  uncertainty_handling:
+    - "If ANY uncertainty exists → ASK, DO NOT GUESS"
+
+  mandatory_reporting:
+    - "When performing rollback: report deleted files, reverted files, build status"
+Acknowledgment: By processing this project, you acknowledge that you have indexed these rules and will apply them to every file change, refactor, and new feature request.
+
+# **DDD VALUE OBJECT PROTECTION RULE (MANDATORY)**
+
+## **FORBIDDEN**
+- Duplicate Value Object definitions across multiple files
+- Treat Value Object as Entity
+- IEntityTypeConfiguration<T> where T is a Value Object
+- HasKey() on Value Object
+- DbSet<ValueObject>
+- ApplyConfiguration(ValueObjectConfiguration)
+
+## **REQUIRED**
+- Value Object MUST be defined in a single location (1_Shared/Domain.cs)
+- Value Object MUST be immutable (record)
+- Mapping MUST use:
+  - ValueConverter OR
+  - OwnsOne (for complex objects)
+
+## **AUTO ENFORCEMENT**
+- Scan duplicate "record XxxId" -> FAIL
+- Scan ApplyConfiguration(ValueObject) -> FAIL
+- Scan HasKey on ValueObject -> FAIL
+- Scan DbSet<ValueObject> -> FAIL
+
+## **PRINCIPLE**
+Value Object = identity-less
+
+Any violation = DOMAIN MODEL CORRUPTION
+
+# **DDD VALUE OBJECT PROTECTION + 2-WAY CONVERTER RULE**
+
+## **FORBIDDEN**
+- Duplicate Value Object definitions
+- Treat Value Object as Entity
+- IEntityTypeConfiguration<ValueObject>
+- HasKey() on Value Object
+- DbSet<ValueObject>
+- ApplyConfiguration(ValueObjectConfiguration)
+- Using .HaveConversion<Guid>() for Value Objects (ONE-WAY conversion)
+
+## **REQUIRED**
+- Value Object MUST exist in ONLY ONE location (1_Shared/Domain.cs)
+- Value Object MUST be immutable (record)
+- Value Object MUST use 2-WAY conversion
+
+## **MANDATORY 2-WAY CONVERTER**
+All Value Objects MUST define BOTH directions:
+
+- To database: ValueObject -> Primitive
+- From database: Primitive -> ValueObject
+
+## **APPROVED IMPLEMENTATIONS**
+
+OPTION 1 - ValueConverter class (RECOMMENDED)
+
+public class LeadIdConverter : ValueConverter<LeadId, Guid>
+{
+    public LeadIdConverter()
+        : base(
+            v => v.Value,
+            v => new LeadId(v))
+    {
+    }
+}
+
+Usage:
+
+configurationBuilder
+    .Properties<LeadId>()
+    .HaveConversion<LeadIdConverter>();
+
+## **STRICTLY FORBIDDEN**
+
+.HaveConversion<Guid>()  // ONE-WAY -> DATA CORRUPTION RISK
+
+## **AUTO ENFORCEMENT**
+
+- Detect duplicate "record XxxId" -> FAIL
+- Detect HasKey on ValueObject -> FAIL
+- Detect IEntityTypeConfiguration<ValueObject> -> FAIL
+- Detect .HaveConversion<Guid>() -> FAIL
+
+## **PRINCIPLE**
+
+Value Object = identity-less + fully reversible mapping
+
+Any violation = DATA CORRUPTION RISK
+
+# **ARCHITECTURE GUARD RULES (CLEAN ARCHITECTURE + DDD)**
+
+# =====================
+# **LAYER DEPENDENCY RULES**
+# =====================
+
+## **ALLOWED DEPENDENCIES**
+
+- 3_CoreHub -> 1_Shared
+- 6_Tests -> ALL layers
+
+## **FORBIDDEN DEPENDENCIES**
+
+- 1_Shared -> 3_CoreHub
+- Domain -> Infrastructure
+- Domain -> EF Core
+- Domain -> external libraries
+
+## **AUTO ENFORCEMENT**
+
+- Scan "using VanAn.CoreHub" inside 1_Shared -> FAIL
+- Scan EF Core references inside Domain -> FAIL
+
+---
+
+# =====================
+# **DOMAIN ISOLATION RULES**
+# =====================
+
+## **FORBIDDEN**
+
+- DbContext inside Domain
+- EF attributes inside Domain
+- ValueConverter inside Domain
+- Navigation properties leaking infrastructure concerns
+
+## **REQUIRED**
+
+- Domain MUST be pure (no EF, no infrastructure)
+- Domain contains ONLY:
+  - Entities
+  - Value Objects
+  - Domain Services (pure)
+
+---
+
+# =====================
+# **VALUE OBJECT RULES (EXTENDED)**
+# =====================
+
+## **FORBIDDEN**
+
+- Duplicate Value Objects across layers
+- ValueObject defined outside 1_Shared/Domain.cs
+- Treat ValueObject as Entity
+- DbSet<ValueObject>
+- HasKey(ValueObject)
+- IEntityTypeConfiguration<ValueObject>
+
+## **REQUIRED**
+
+- Single source of truth (1_Shared/Domain.cs)
+- Immutable (record)
+- Identity-less
+
+---
+
+# =====================
+# **INFRASTRUCTURE RULES**
+# =====================
+
+## **REQUIRED**
+
+- EF Core logic MUST stay in Infrastructure
+- ValueConverter MUST be in Infrastructure layer
+
+## **FORBIDDEN**
+
+- Business logic in Infrastructure
+- Domain logic inside DbContext
+
+---
+
+# =====================
+# **DEPENDENCY DIRECTION RULE**
+# =====================
+
+## **RULE**
+
+Dependencies MUST flow inward:
+
+Infrastructure -> Application -> Domain
+
+## **VIOLATION**
+
+- Domain referencing Infrastructure
+- Shared referencing CoreHub
+
+---
+
+# =====================
+# **ANTI-WORKAROUND RULE**
+# =====================
+
+## **FORBIDDEN**
+
+- Fixing architecture errors by adding using blindly
+- Ignoring dependency violations to pass build
+- Temporary hacks without root cause fix
+
+## **REQUIRED**
+
+- ALWAYS analyze root cause at architecture level
+- Fix MUST respect layer boundaries
+
+---
+
+# =====================
+# **GLOBAL SCAN ENFORCEMENT**
+# =====================
+
+Windsurf MUST scan entire repository for:
+
+- Layer violations
+- Invalid dependencies
+- Duplicate ValueObjects
+- Domain pollution
+
+If any violation found -> REPORT, DO NOT AUTO-FIX blindly
+
+# **ARCHITECT MODE (AUTO-REFACTOR ENFORCEMENT)**
+
+# =====================
+# **LEVEL-UP: FROM DETECTION -> CORRECT FIX**
+# =====================
+
+architect_mode:
+  enabled: true
+
+  philosophy:
+    - "DO NOT stop at detecting issues"
+    - "MUST propose and execute correct architectural fix"
+    - "Fix root cause, NOT symptom"
+
+# =====================
+# **ROOT CAUSE FIRST RULE**
+# =====================
+
+root_cause_rule:
+  mandatory:
+    - "For every error: identify ROOT CAUSE at architecture level"
+    - "Trace at least 2 levels deep (symptom -> cause -> origin)"
+  
+  forbidden:
+    - "Fix based only on compiler error message"
+    - "Apply quick fixes (using, patch, temporary hack)"
+
+# =====================
+# **DOMAIN PURITY ENFORCEMENT**
+# =====================
+
+domain_purity:
+  forbidden:
+    - "EF Core inside Domain (DbContext, IEntityTypeConfiguration, ValueConverter)"
+    - "DataAnnotations inside Domain"
+    - "Infrastructure dependencies inside Domain"
+
+  required_fix:
+    - "Move EF logic to Infrastructure layer"
+    - "Keep Domain as pure business model"
+
+# =====================
+# **VALUE OBJECT SINGLE SOURCE RULE**
+# =====================
+
+value_object_integrity:
+  mandatory:
+    - "ValueObject MUST exist in ONLY ONE place (1_Shared/Domain.cs)"
+  
+  forbidden:
+    - "Duplicate ValueObject in tests or other layers"
+  
+  required_fix:
+    - "Delete duplicates"
+    - "Force all layers to reuse Shared Domain"
+
+# =====================
+# **2-WAY VALUE CONVERTER RULE (MANDATORY)**
+# =====================
+
+value_converter_rule:
+  mandatory:
+    - "Every ValueObject MUST have 2-way converter (VO <-> Primitive)"
+    - "Converter MUST be implemented using ValueConverter<TVO, TPrimitive>"
+    - "Conversion MUST include BOTH directions"
+
+  example:
+    - "id => id.Value"
+    - "value => new ValueObject(value)"
+
+  forbidden:
+    - "One-way conversion"
+    - "Missing reverse mapping"
+
+# =====================
+# **TEST ARCHITECTURE RULE**
+# =====================
+
+test_rules:
+  forbidden:
+    - "Redefine domain objects in test layer"
+  
+  required:
+    - "Reuse domain from Shared"
+    - "Tests must follow same architecture boundaries"
+
+# =====================
+# **ANTI-WORKAROUND ENFORCEMENT**
+# =====================
+
+anti_workaround:
+  forbidden:
+    - "Adding using to hide architecture issue"
+    - "Fixing build without fixing root cause"
+    - "Temporary patch to pass tests"
+
+# =====================
+# **AUTO-REFACTOR REQUIREMENT**
+# =====================
+
+auto_refactor:
+  required:
+    - "After detecting violation -> MUST propose correct fix"
+    - "Fix MUST respect Clean Architecture + DDD"
+    - "No partial fix allowed"
+
+# =====================
+# **DEFINITION OF DONE (ARCHITECT MODE)**
+# =====================
+
+architect_DoD:
+  required:
+    - "Build passes (0 error)"
+    - "No architecture violation remains"
+    - "Domain is pure"
+    - "No duplicate ValueObject"
+    - "All converters are 2-way"
+
+# **ARCHITECT FIX ENGINE (ENFORCED)**
+
+architect_fix_engine:
+  enabled: true
+
+  core_principle:
+    - "DO NOT patch errors"
+    - "DO NOT comment out code to pass build"
+    - "ALWAYS fix at architecture level"
+
+# =====================
+# **PATCH FORBIDDEN RULE**
+# =====================
+
+no_patch_rule:
+  forbidden:
+    - "Commenting out using to fix error"
+    - "Adding using without verifying architecture"
+    - "Temporary fix to pass build"
+    - "Partial fix"
+
+# =====================
+# **MOVE INSTEAD OF DELETE RULE**
+# =====================
+
+move_not_delete:
+  required:
+    - "If code violates architecture -> MOVE to correct layer"
+  
+  forbidden:
+    - "Fix by removing logic"
+    - "Fix by commenting code"
+
+# =====================
+# **VALUE OBJECT PIPELINE RULE**
+# =====================
+
+value_object_pipeline:
+  mandatory:
+    - "Every ValueObject MUST have:"
+    - "1. Domain definition"
+    - "2. ValueConverter (Infrastructure)"
+    - "3. ConfigureConventions mapping"
+
+  DoD:
+    - "VO works end-to-end with EF Core"
+    - "No EF errors related to VO"
+
+# =====================
+# **SYSTEM-WIDE FIX RULE**
+# =====================
+
+global_consistency:
+  required:
+    - "Fix must apply to ALL occurrences"
+    - "Scan entire repo after fix"
+
+  forbidden:
+    - "Fix only one file"
+    - "Ignore duplicates in other layers"
+
+# =====================
+# **ARCHITECT THINKING RULE**
+# =====================
+
+architect_thinking:
+  required:
+    - "Every fix must answer:"
+    - "Why does this error exist?"
+    - "Which layer is responsible?"
+    - "What is the correct architectural location?"
+
+# =====================
+# **FINAL DoD (STRICT)**
+# =====================
+
+strict_DoD:
+  required:
+    - "Build = 0 error"
+    - "No EF in Domain"
+    - "No duplicate ValueObject"
+    - "All converters are 2-way"
+    - "No workaround detected"
+
+# **ARCHITECT++ MODE (SYSTEMIC REFACTOR ENGINE)**
+
+architect_plus_plus:
+  enabled: true
+
+  philosophy:
+    - "Fix SYSTEM, not file"
+    - "Fix PATTERN, not instance"
+    - "Refactor globally, not locally"
+
+# =====================
+# **PATTERN DETECTION ENGINE**
+# =====================
+
+pattern_detection:
+  required:
+    - "When 1 violation is found -> scan for ALL similar patterns"
+    - "Group violations into categories (EF pollution, duplicate VO, etc.)"
+  
+  forbidden:
+    - "Fix only the reported file"
+
+# =====================
+# **SYSTEMIC REFACTOR RULE**
+# =====================
+
+systemic_refactor:
+  required:
+    - "Apply fix to ALL matching patterns across repo"
+    - "Ensure consistency after refactor"
+  
+  forbidden:
+    - "Partial fix"
+    - "Leaving duplicate patterns"
+
+# =====================
+# **CONFIGURATION AUTOMATION RULE**
+# =====================
+
+ef_configuration:
+  mandatory:
+    - "Use ApplyConfigurationsFromAssembly() instead of manual registration"
+  
+  forbidden:
+    - "Manual ApplyConfiguration per entity"
+
+# =====================
+# **VALUE OBJECT PIPELINE (STRICT++)**
+# =====================
+
+value_object_pipeline_strict:
+  required:
+    - "Every ValueObject must have:"
+    - "1. Domain definition"
+    - "2. 2-way ValueConverter"
+    - "3. Global ConfigureConventions mapping"
+  
+  auto_check:
+    - "Scan all ValueObjects -> verify pipeline completeness"
+
+# =====================
+# **GLOBAL DATA ANNOTATION MIGRATION RULE**
+# =====================
+
+data_annotation_migration:
+  required:
+    - "Scan ALL DataAnnotations in Domain"
+    - "Move ALL to Fluent API configurations"
+  
+  forbidden:
+    - "Partial migration"
+
+# =====================
+# **REUSABLE PATTERN RULE**
+# =====================
+
+reusable_patterns:
+  required:
+    - "Use ApplyConfigurationsFromAssembly"
+    - "Avoid repeated boilerplate configuration"
+  
+  goal:
+    - "Minimize code duplication"
+
+# =====================
+# **SAFE REFACTOR RULE**
+# =====================
+
+safe_refactor:
+  required:
+    - "After refactor -> run full build"
+    - "Run tests if available"
+    - "Ensure no regression"
+  
+  forbidden:
+    - "Breaking system to satisfy rules"
+
+# =====================
+# **MIGRATION SAFETY RULE (ADVANCED)**
+# =====================
+
+migration_safety:
+  required:
+    - "If schema-related changes -> verify EF migrations impact"
+    - "Do NOT silently change schema"
+  
+  warning:
+    - "Flag potential migration risks"
+
+# =====================
+# **ARCHITECT++ DoD**
+# =====================
+
+architect_plus_plus_DoD:
+  required:
+    - "Build = 0 error"
+    - "No architecture violation"
+    - "No duplicate patterns"
+    - "All fixes applied system-wide"
+    - "No manual repetitive config"
+    - "Domain is pure"
+##############################
+# FAIL-FAST MVP MODE (ecoNexus)
+##############################
+
+## PRINCIPLE
+You are in FAIL-FAST MVP MODE.
+
+Goal:
+- Deliver working MVP FAST
+- Prevent ONLY critical architectural violations
+- DO NOT over-engineer
+- DO NOT block progress for non-critical issues
+
+----------------------------------
+## 🚨 HARD STOP RULES (MUST NEVER VIOLATE)
+----------------------------------
+
+### 1. DOMAIN PURITY (CRITICAL)
+Domain layer MUST NOT contain:
+- Microsoft.EntityFrameworkCore
+- System.ComponentModel.DataAnnotations
+- Any EF Core attributes (MaxLength, ForeignKey, etc.)
+
+IF violation detected:
+→ STOP immediately
+→ REMOVE violation
+→ DO NOT continue
+
+---
+
+### 2. NO DUPLICATE VALUE OBJECT
+Each ValueObject (e.g., LeadId, CustomerId) MUST have ONLY ONE definition.
+
+IF duplicate detected:
+→ KEEP ONLY Shared Domain version
+→ DELETE all others
+
+---
+
+### 3. BUILD MUST PASS
+At any checkpoint:
+
+IF dotnet build fails:
+→ STOP
+→ FIX build errors FIRST
+→ DO NOT implement new features
+
+---
+
+### 4. NO FAKE FIX / WORKAROUND
+FORBIDDEN:
+- Commenting code to bypass errors
+- Creating dummy classes just to satisfy compiler
+- Ignoring root cause
+
+IF detected:
+→ REVERT immediately
+→ FIX properly
+
+---
+
+----------------------------------
+## ⚡ ALLOWED (FOR MVP SPEED)
+----------------------------------
+
+You ARE ALLOWED to:
+
+- Skip advanced patterns (Repository, CQRS, etc.)
+- Keep simple service logic
+- Use basic EF mapping (Fluent API later)
+- Defer optimization
+- Accept temporary duplication in SERVICES (NOT DOMAIN)
+
+---
+
+----------------------------------
+## 🧠 FIX ORDER (MANDATORY)
+----------------------------------
+
+When errors occur, ALWAYS follow this order:
+
+1. Fix Domain violations
+2. Fix build errors
+3. Fix EF mapping
+4. THEN continue feature work
+
+NEVER reverse this order.
+
+---
+
+----------------------------------
+## 🔄 VALUE OBJECT MINIMAL RULE
+----------------------------------
+
+For MVP:
+
+ValueObject MUST:
+- Be defined ONLY in Shared Domain
+- Be immutable (record)
+- Have simple EF mapping (can be basic)
+
+DO NOT:
+- Over-engineer converters
+- Create unnecessary configuration classes
+
+---
+
+----------------------------------
+## 🧪 TEST RULE (LIGHT MODE)
+----------------------------------
+
+- Tests are OPTIONAL during MVP phase
+- BUT build must pass
+- DO NOT spend time fixing non-critical tests
+
+---
+
+----------------------------------
+## 🚀 EXECUTION MODE
+----------------------------------
+
+You must behave as:
+
+"Fast MVP Engineer with architectural guardrails"
+
+NOT:
+- Perfectionist Architect
+- Over-engineering system designer
+
+---
+
+----------------------------------
+## ✅ DONE DEFINITION (MVP)
+----------------------------------
+
+Task is DONE when:
+
+✔ Build passes (0 errors)
+✔ No Domain violation
+✔ No duplicate ValueObject
+✔ Feature works at basic level
+
+NOT REQUIRED:
+✖ Perfect architecture
+✖ Full test coverage
+✖ Advanced patterns
+
+---
+
+----------------------------------
+## 🔒 FINAL RULE
+----------------------------------
+
+Speed > Perfection  
+BUT  
+Foundation must be correct

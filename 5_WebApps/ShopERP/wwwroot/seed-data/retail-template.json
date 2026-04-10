@@ -1,0 +1,153 @@
+{
+  "templateType": "retail",
+  "templateName": "Cửa hàng bán lẻ Mẫu",
+  "description": "Template cho cửa hàng thời trang và bán lẻ",
+  "shopInfo": {
+    "name": "VanAn Store",
+    "category": "Retail",
+    "address": "789 Hai Bà Trưng, Q.1, TP.HCM",
+    "phone": "0905555777",
+    "email": "sales@vananstore.vn"
+  },
+  "products": [
+    {
+      "name": "Áo thun nam basic",
+      "description": "Cotton 100%, form dáng chuẩn, nhiều màu",
+      "price": 180000,
+      "category": "Áo nam",
+      "sizes": ["S", "M", "L", "XL"],
+      "colors": ["Trắng", "Đen", "Xanh", "Xám"],
+      "ingredients": [
+        { "name": "Vải cotton", "quantity": 0.8, "unit": "mét" },
+        { "name": "Cúc áo", "quantity": 3, "unit": "cái" },
+        { "name": "Chỉ may", "quantity": 50, "unit": "mét" }
+      ]
+    },
+    {
+      "name": "Quần jeans nữ co giãn",
+      "description": "Jean co giãn 4 chiều, dáng slim-fit",
+      "price": 250000,
+      "category": "Quần nữ",
+      "sizes": ["26", "27", "28", "29", "30"],
+      "colors": ["Xanh đậm", "Xanh nhạt", "Đen"],
+      "ingredients": [
+        { "name": "Vải jeans", "quantity": 1.2, "unit": "mét" },
+        { "name": "Khóa kéo", "quantity": 1, "unit": "cái" },
+        { "name": "Nút", "quantity": 2, "unit": "cái" }
+      ]
+    },
+    {
+      "name": "Giày sneaker thể thao",
+      "description": "Phong cách thể thao, đế cao su chống trượt",
+      "price": 320000,
+      "category": "Giày",
+      "sizes": ["36", "37", "38", "39", "40", "41", "42"],
+      "colors": ["Trắng", "Đen", "Hồng"],
+      "ingredients": [
+        { "name": "Vải lưới", "quantity": 0.5, "unit": "mét" },
+        { "name": "Đế cao su", "quantity": 1, "unit": "đôi" },
+        { "name": "Keo dán", "quantity": 50, "unit": "ml" }
+      ]
+    },
+    {
+      "name": "Túi xách thời trang",
+      "description": "Chất liệu da PU, nhiều ngăn tiện dụng",
+      "price": 280000,
+      "category": "Phụ kiện",
+      "colors": ["Đen", "Nâu", "Be", "Hồng"],
+      "ingredients": [
+        { "name": "Da PU", "quantity": 1, "unit": "mét" },
+        { "name": "Khung kim loại", "quantity": 1, "unit": "cái" },
+        { "name": "Dây xách", "quantity": 1.2, "unit": "mét" }
+      ]
+    }
+  ],
+  "ingredients": [
+    {
+      "name": "Vải cotton",
+      "unit": "mét",
+      "costPerUnit": 80000,
+      "minStock": 20,
+      "currentStock": 100
+    },
+    {
+      "name": "Vải jeans",
+      "unit": "mét",
+      "costPerUnit": 120000,
+      "minStock": 15,
+      "currentStock": 80
+    },
+    {
+      "name": "Vải lưới",
+      "unit": "mét",
+      "costPerUnit": 60000,
+      "minStock": 10,
+      "currentStock": 50
+    },
+    {
+      "name": "Da PU",
+      "unit": "mét",
+      "costPerUnit": 150000,
+      "minStock": 8,
+      "currentStock": 40
+    },
+    {
+      "name": "Đế cao su",
+      "unit": "đôi",
+      "costPerUnit": 45000,
+      "minStock": 20,
+      "currentStock": 100
+    },
+    {
+      "name": "Khóa kéo",
+      "unit": "cái",
+      "costPerUnit": 15000,
+      "minStock": 50,
+      "currentStock": 200
+    },
+    {
+      "name": "Cúc áo",
+      "unit": "hộp",
+      "costPerUnit": 25000,
+      "minStock": 10,
+      "currentStock": 50
+    }
+  ],
+  "workflowSteps": [
+    {
+      "id": "new",
+      "name": "Đơn mới",
+      "description": "Khách hàng vừa đặt hàng",
+      "estimatedMinutes": 0,
+      "color": "#6c757d"
+    },
+    {
+      "id": "confirmed",
+      "name": "Xác nhận",
+      "description": "Đơn hàng đã được xác nhận",
+      "estimatedMinutes": 5,
+      "color": "#007bff"
+    },
+    {
+      "id": "picking",
+      "name": "Lấy hàng",
+      "description": "Đang lấy hàng từ kho",
+      "estimatedMinutes": 10,
+      "color": "#ffc107"
+    },
+    {
+      "id": "packing",
+      "name": "Đóng gói",
+      "description": "Đang đóng gói sản phẩm",
+      "estimatedMinutes": 5,
+      "color": "#fd7e14"
+    },
+    {
+      "id": "ready",
+      "name": "Sẵn sàng",
+      "description": "Đơn hàng sẵn sàng giao/đón",
+      "estimatedMinutes": 0,
+      "color": "#28a745"
+    }
+  ]
+}

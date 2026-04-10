@@ -1,0 +1,56 @@
+# Use Node.js 18 for Playwright compatibility
+FROM node:18-alpine
+
+# Install required system dependencies
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    curl \
+    bash \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY 6_Testing/package*.json ./
+
+# Install Node.js dependencies
+RUN npm config set registry https://registry.npmmirror.com/ && \
+    npm install --production --no-optional
+
+# Install Python dependencies for chaos testing
+RUN pip3 install requests
+
+# Install Playwright browsers
+RUN npx playwright install chromium
+RUN npx playwright install firefox
+RUN npx playwright install webkit
+
+# Install K6 (if needed for load testing)
+RUN curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz | tar xvz -C /usr/local/bin --strip-components=1
+
+# Copy test files
+COPY . .
+
+# Create reports directory
+RUN mkdir -p reports
+
+# Set permissions
+RUN chmod +x scripts/quality-gate.js
+
+# Expose dashboard port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "console.log('Quality Gate Service Healthy')" || exit 1
+
+# Default command
+CMD ["node", "scripts/quality-gate.js"]

@@ -1,0 +1,1174 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>VanAn.Shared</name>
+    </assembly>
+    <members>
+        <member name="T:VanAn.Shared.Domain.AccountingEntry">
+            <summary>
+            Accounting Entry - Append-Only (Immutable) for VAT 2026 Compliance
+            Direct Method for Household Businesses as per Vietnamese Tax Law 2026
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.AccountingEntry.ReversalEntryId">
+            <summary>
+            For reversal entries (Bút toán đảo) - VAT 2026 Compliance
+            Direct updates/deletes are prohibited
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.AccountingEntry.OriginalEntry">
+            <summary>
+            Navigation to original entry if this is a reversal
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.AccountingEntry.ReversalEntries">
+            <summary>
+            Navigation to reversal entries if this has been reversed
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.AccountingEntry.Description">
+            <summary>
+            Description for audit trail
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.AccountingEntry.ReferenceId">
+            <summary>
+            Reference to related entity (Order, Invoice, etc.)
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.AccountingEntry.ReferenceType">
+            <summary>
+            Type of reference entity
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Domain.Common.IMustHaveTenant">
+            <summary>
+            Contract cho Multi-tenancy - Bắt buộc mọi Entity phải có TenantId
+            </summary>
+        </member>
+        <member name="P:VanAn.Shared.Domain.Common.IMustHaveTenant.TenantId">
+            <summary>
+            Tenant ID để cách ly dữ liệu giữa các quán
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Domain.Common.BaseEntity">
+            <summary>
+            Base Entity với TenantId tích hợp sẵn
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Domain.KitchenStatus">
+            <summary>
+            Kitchen workflow status for orders and items
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.KitchenAnalyticsDto">
+            <summary>
+            Kitchen analytics data transfer object
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.KitchenPerformanceDto">
+            <summary>
+            Kitchen performance metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.OrderConfirmedEvent">
+            <summary>
+            SignalR event for order confirmation
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.KitchenItemStatusChangedEvent">
+            <summary>
+            SignalR event for kitchen item status changes
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.KitchenItemGroupDto">
+            <summary>
+            Kitchen item group for FIFO preparation workflow
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.GroupedOrderItemDto">
+            <summary>
+            Individual order item within a kitchen group
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.KitchenStatusUpdateDto">
+            <summary>
+            Kitchen status update request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.DTOs.VoiceNoteDto">
+            <summary>
+            Voice note data transfer object with defensive constraints
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Extensions.ServiceCollectionExtensions.AddVanAnSqlite(Microsoft.Extensions.DependencyInjection.IServiceCollection,System.String)">
+            <summary>
+            Add SQLite DbContext with WAL Mode and optimized settings for Edge Nodes
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Extensions.ServiceCollectionExtensions.InitializeSqliteDatabaseAsync(System.IServiceProvider)">
+            <summary>
+            Initialize SQLite database with WAL mode and optimizations
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Services.IKitchenService">
+            <summary>
+            Kitchen service for managing order preparation workflow with FIFO grouping
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Services.LocalDataPruningService">
+            <summary>
+            🛡️ PHASE 5: Local Data Pruning Service for Edge Nodes
+            Mục đích: Cắt tỉa dữ liệu cũ giữ file SQLite siêu nhẹ
+            Chạy ngầm mỗi ngày, xóa Orders cũ > 7 ngày đã sync thành công
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IDataVersioning">
+            <summary>
+            Data versioning and audit trail interface for omnichannel synchronization
+            Provides comprehensive version tracking and change history
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.CreateVersionAsync(System.String,System.String,System.Object,System.String,System.String)">
+            <summary>
+            Create new version of entity data
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.GetCurrentVersionAsync(System.String,System.String)">
+            <summary>
+            Get current version of entity
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.GetVersionHistoryAsync(System.String,System.String,System.Int32)">
+            <summary>
+            Get version history for entity
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.CompareVersionsAsync(System.String,System.String,System.String,System.String)">
+            <summary>
+            Compare two versions and return differences
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.RevertToVersionAsync(System.String,System.String,System.String,System.String)">
+            <summary>
+            Revert entity to specific version
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.GetAuditTrailAsync(System.String,System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime})">
+            <summary>
+            Get audit trail for entity
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.CreateAuditEntryAsync(System.String,System.String,VanAn.Shared.Omnichannel.AuditOperation,System.String,System.String,System.Object)">
+            <summary>
+            Create audit entry for entity operation
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.ValidateVersionIntegrityAsync(System.String,System.String)">
+            <summary>
+            Validate version integrity
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IDataVersioning.CleanupOldVersionsAsync(System.String,System.TimeSpan)">
+            <summary>
+            Cleanup old versions based on retention policy
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DataVersion">
+            <summary>
+            Data version containing complete state information
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.VersionComparison">
+            <summary>
+            Version comparison result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.PropertyDifference">
+            <summary>
+            Property difference between versions
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RevertResult">
+            <summary>
+            Revert operation result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.AuditEntry">
+            <summary>
+            Audit entry for tracking entity operations
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.VersionIntegrityResult">
+            <summary>
+            Version integrity validation result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IntegrityIssue">
+            <summary>
+            Version integrity issue
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.CleanupResult">
+            <summary>
+            Cleanup operation result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.VersionType">
+            <summary>
+            Version types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ComparisonResult">
+            <summary>
+            Comparison result types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DifferenceType">
+            <summary>
+            Difference types between versions
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.AuditOperation">
+            <summary>
+            Audit operation types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.AuditSeverity">
+            <summary>
+            Audit severity levels
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IssueSeverity">
+            <summary>
+            Issue severity levels
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IOmnichannelOrderService">
+            <summary>
+            Omnichannel order management service interface
+            Provides cross-device order tracking, status synchronization, and workflow management
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.CreateOrderAsync(VanAn.Shared.Omnichannel.CreateOrderRequest,System.String,System.String)">
+            <summary>
+            Create order with omnichannel tracking
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.GetOrderAsync(System.Guid,System.String)">
+            <summary>
+            Get order with full omnichannel context
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.UpdateOrderAsync(VanAn.Shared.Omnichannel.UpdateOrderRequest,System.String,System.String)">
+            <summary>
+            Update order with cross-device synchronization
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.UpdateOrderStatusAsync(System.Guid,VanAn.Shared.Domain.OrderStatusId,System.String,System.String,System.String)">
+            <summary>
+            Update order status with real-time sync
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.GetOrderHistoryAsync(System.Guid,System.String)">
+            <summary>
+            Get order history across all devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.SyncOrderAcrossDevicesAsync(System.Guid,System.String)">
+            <summary>
+            Sync order status across all user devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.GetOrdersByStatusAsync(VanAn.Shared.Domain.OrderStatusId,System.String,System.String)">
+            <summary>
+            Get orders by status with device filtering
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.GetActiveOrdersAsync(System.String)">
+            <summary>
+            Get active orders across all devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.CancelOrderAsync(System.Guid,System.String,System.String,System.String)">
+            <summary>
+            Cancel order with conflict resolution
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.GetOrderAnalyticsAsync(System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime})">
+            <summary>
+            Get order analytics across devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.DetectOrderConflictsAsync(System.Guid,System.String)">
+            <summary>
+            Detect and resolve order conflicts
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.ResolveOrderConflictAsync(System.Guid,System.String,VanAn.Shared.Omnichannel.OrderConflictResolutionStrategy,System.String)">
+            <summary>
+            Resolve order conflict using specified strategy
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.GetOrderWorkflowStatusAsync(System.Guid,System.String)">
+            <summary>
+            Get order workflow status
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelOrderService.AdvanceOrderWorkflowAsync(System.Guid,System.String,System.String,System.Collections.Generic.Dictionary{System.String,System.Object})">
+            <summary>
+            Advance order workflow to next step
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OmnichannelOrder">
+            <summary>
+            Omnichannel order with full cross-device context
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderDeviceTracking">
+            <summary>
+            Order device tracking information
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderWorkflowInfo">
+            <summary>
+            Order workflow information
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.CreateOrderRequest">
+            <summary>
+            Create order request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.UpdateOrderRequest">
+            <summary>
+            Update order request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderStatusUpdateResult">
+            <summary>
+            Order status update result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderSyncResult">
+            <summary>
+            Order sync result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeviceSyncError">
+            <summary>
+            Device sync error
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderHistoryEntry">
+            <summary>
+            Order history entry
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderCancellationResult">
+            <summary>
+            Order cancellation result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderAnalytics">
+            <summary>
+            Order analytics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderMetrics">
+            <summary>
+            Order metrics for analytics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderConflict">
+            <summary>
+            Order conflict
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderConflictResolution">
+            <summary>
+            Order conflict resolution
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderWorkflowStatus">
+            <summary>
+            Order workflow status
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.WorkflowStep">
+            <summary>
+            Workflow step
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.WorkflowAdvanceResult">
+            <summary>
+            Workflow advance result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderPriority">
+            <summary>
+            Order priority enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderHistoryAction">
+            <summary>
+            Order history action enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderConflictSeverity">
+            <summary>
+            Order conflict severity enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderConflictResolutionStrategy">
+            <summary>
+            Order conflict resolution strategy enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IOmnichannelService">
+            <summary>
+            Omnichannel service interface for cross-platform operations
+            Ensures consistent user experience across mobile, web, and desktop platforms
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.SyncUserPreferencesAsync(System.String,VanAn.Shared.Omnichannel.UserPreferences)">
+            <summary>
+            Sync user preferences across all devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.GetUserPreferencesAsync(System.String)">
+            <summary>
+            Get user preferences with offline fallback
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.SyncOrderStatusAsync(System.Guid,VanAn.Shared.Omnichannel.OrderStatus)">
+            <summary>
+            Sync order status across all devices in real-time
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.GetOrderStatusAsync(System.Guid)">
+            <summary>
+            Get real-time order updates
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.SyncInventoryAsync(System.Guid,System.Int32)">
+            <summary>
+            Sync inventory levels across all platforms
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.GetInventoryStatusAsync(System.Guid)">
+            <summary>
+            Get current inventory with offline support
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.ConnectRealtimeAsync(System.String)">
+            <summary>
+            Establish real-time connection for live updates
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.DisconnectRealtimeAsync(System.String)">
+            <summary>
+            Disconnect real-time connection
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.QueueOfflineOperationAsync(VanAn.Shared.Omnichannel.OfflineOperation)">
+            <summary>
+            Handle offline mode - queue operations for later sync
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IOmnichannelService.ProcessOfflineQueueAsync(System.String)">
+            <summary>
+            Process queued offline operations when connection restored
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.UserPreferences">
+            <summary>
+            User preferences for omnichannel experience
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OrderStatus">
+            <summary>
+            Order status for omnichannel tracking
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.InventoryStatus">
+            <summary>
+            Inventory status for real-time sync
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.OfflineOperation">
+            <summary>
+            Offline operation for queue and sync
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IProductionDeploymentService">
+            <summary>
+            Production deployment service interface for omnichannel system
+            Provides deployment orchestration, health monitoring, and environment management
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.DeployToProductionAsync(VanAn.Shared.Omnichannel.DeploymentRequest,System.String)">
+            <summary>
+            Deploy omnichannel system to production environment
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.GetDeploymentStatusAsync(System.String)">
+            <summary>
+            Get deployment status and health information
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.PerformHealthCheckAsync(System.String,System.Boolean)">
+            <summary>
+            Perform health check on all omnichannel services
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.GetSystemMetricsAsync(System.String,System.Nullable{System.TimeSpan})">
+            <summary>
+            Get system performance metrics
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.ScaleServicesAsync(VanAn.Shared.Omnichannel.ScalingRequest,System.String)">
+            <summary>
+            Scale services based on load and performance requirements
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.RollbackDeploymentAsync(System.String,System.String,System.String)">
+            <summary>
+            Rollback deployment to previous version
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.GetDeploymentHistoryAsync(System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime})">
+            <summary>
+            Get deployment history and audit trail
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.ValidateDeploymentPrerequisitesAsync(System.String,VanAn.Shared.Omnichannel.DeploymentRequest)">
+            <summary>
+            Validate deployment prerequisites and requirements
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.GetEnvironmentConfigurationAsync(System.String)">
+            <summary>
+            Get environment configuration and settings
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.UpdateEnvironmentConfigurationAsync(System.String,VanAn.Shared.Omnichannel.EnvironmentConfiguration,System.String)">
+            <summary>
+            Update environment configuration
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.GetServiceDependenciesAsync(System.String)">
+            <summary>
+            Get service dependencies and their status
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.PerformLoadTestAsync(VanAn.Shared.Omnichannel.LoadTestRequest,System.String)">
+            <summary>
+            Perform load testing validation
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.GetDeploymentAnalyticsAsync(System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime})">
+            <summary>
+            Get deployment analytics and insights
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.CreateDeploymentBackupAsync(System.String,System.String)">
+            <summary>
+            Create deployment backup before deployment
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IProductionDeploymentService.RestoreFromBackupAsync(System.String,System.String,System.String)">
+            <summary>
+            Restore from deployment backup
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeploymentRequest">
+            <summary>
+            Deployment request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeploymentResult">
+            <summary>
+            Deployment result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceDeploymentResult">
+            <summary>
+            Service deployment result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeploymentStatus">
+            <summary>
+            Deployment status
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceStatus">
+            <summary>
+            Service status
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.HealthCheckResult">
+            <summary>
+            Health check result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceHealthCheck">
+            <summary>
+            Service health check
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DependencyHealthCheck">
+            <summary>
+            Dependency health check
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.InfrastructureHealthCheck">
+            <summary>
+            Infrastructure health check
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SystemMetrics">
+            <summary>
+            System metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.PerformanceMetrics">
+            <summary>
+            Performance metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ResourceMetrics">
+            <summary>
+            Resource metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.BusinessMetrics">
+            <summary>
+            Business metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ErrorMetrics">
+            <summary>
+            Error metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceMetrics">
+            <summary>
+            Service metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.Alert">
+            <summary>
+            Alert
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SystemTrends">
+            <summary>
+            System trends
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ScalingRequest">
+            <summary>
+            Scaling request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceScalingRequest">
+            <summary>
+            Service scaling request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ScalingResult">
+            <summary>
+            Scaling result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceScalingResult">
+            <summary>
+            Service scaling result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RollbackResult">
+            <summary>
+            Rollback result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceRollbackResult">
+            <summary>
+            Service rollback result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeploymentHistoryEntry">
+            <summary>
+            Deployment history entry
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ValidationResult">
+            <summary>
+            Validation result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ValidationIssue">
+            <summary>
+            Validation issue
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.EnvironmentConfiguration">
+            <summary>
+            Environment configuration
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConfigurationUpdateResult">
+            <summary>
+            Configuration update result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceDependency">
+            <summary>
+            Service dependency
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.LoadTestRequest">
+            <summary>
+            Load test request
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.LoadTestResult">
+            <summary>
+            Load test result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.LoadTestMetrics">
+            <summary>
+            Load test metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ServiceLoadTestResult">
+            <summary>
+            Service load test result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeploymentAnalytics">
+            <summary>
+            Deployment analytics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.BackupResult">
+            <summary>
+            Backup result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RestoreResult">
+            <summary>
+            Restore result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeploymentStrategy">
+            <summary>
+            Supporting enums and helper classes
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.PerformanceTimeSeries">
+            <summary>
+            Time series data points
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IRealTimeSyncService">
+            <summary>
+            Real-time synchronization service for inventory and customer data
+            Provides instant data synchronization across all connected devices and platforms
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.SubscribeToInventoryUpdatesAsync(System.String,System.String,System.Func{VanAn.Shared.Omnichannel.InventoryUpdate,System.Threading.Tasks.Task})">
+            <summary>
+            Subscribe to real-time inventory updates
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.SubscribeToCustomerUpdatesAsync(System.String,System.String,System.Func{VanAn.Shared.Omnichannel.CustomerUpdate,System.Threading.Tasks.Task})">
+            <summary>
+            Subscribe to real-time customer data updates
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.PublishInventoryUpdateAsync(VanAn.Shared.Omnichannel.InventoryUpdate,System.String)">
+            <summary>
+            Publish inventory update to all connected devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.PublishCustomerUpdateAsync(VanAn.Shared.Omnichannel.CustomerUpdate,System.String)">
+            <summary>
+            Publish customer data update to all connected devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.GetInventorySyncStatusAsync(System.String,VanAn.Shared.Domain.ProductId)">
+            <summary>
+            Get current inventory sync status
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.GetCustomerSyncStatusAsync(System.String,VanAn.Shared.Domain.CustomerId)">
+            <summary>
+            Get current customer data sync status
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.ForceSyncInventoryAsync(System.String,VanAn.Shared.Domain.ProductId,System.String)">
+            <summary>
+            Force sync inventory data across all devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.ForceSyncCustomerAsync(System.String,VanAn.Shared.Domain.CustomerId,System.String)">
+            <summary>
+            Force sync customer data across all devices
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.DetectSyncConflictsAsync(System.String)">
+            <summary>
+            Detect and resolve real-time sync conflicts
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.ResolveSyncConflictAsync(System.String,VanAn.Shared.Omnichannel.RealTimeConflictResolutionStrategy,System.String)">
+            <summary>
+            Resolve real-time sync conflict
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.GetSyncAnalyticsAsync(System.String,System.Nullable{System.DateTime},System.Nullable{System.DateTime})">
+            <summary>
+            Get real-time sync analytics
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.GetConnectedDevicesAsync(System.String)">
+            <summary>
+            Get connected devices for a shop
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.DisconnectDeviceAsync(System.String,System.String)">
+            <summary>
+            Disconnect device from real-time sync
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IRealTimeSyncService.GetPerformanceMetricsAsync(System.String)">
+            <summary>
+            Get sync performance metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.InventoryUpdate">
+            <summary>
+            Real-time inventory update
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.CustomerUpdate">
+            <summary>
+            Real-time customer data update
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SubscriptionResult">
+            <summary>
+            Subscription result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.PublishResult">
+            <summary>
+            Publish result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeliveryError">
+            <summary>
+            Delivery error
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.InventorySyncStatus">
+            <summary>
+            Inventory sync status
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.CustomerSyncStatus">
+            <summary>
+            Customer sync status
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ForceSyncResult">
+            <summary>
+            Force sync result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncError">
+            <summary>
+            Sync error
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RealTimeSyncConflict">
+            <summary>
+            Real-time sync conflict
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConflictResolutionResult">
+            <summary>
+            Conflict resolution result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RealTimeSyncAnalytics">
+            <summary>
+            Real-time sync analytics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.HourlySyncMetrics">
+            <summary>
+            Hourly sync metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConnectedDevice">
+            <summary>
+            Connected device
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DisconnectResult">
+            <summary>
+            Disconnect result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncPerformanceMetrics">
+            <summary>
+            Sync performance metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DevicePerformanceMetrics">
+            <summary>
+            Device performance metrics
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.InventoryUpdateType">
+            <summary>
+            Inventory update type enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.CustomerUpdateType">
+            <summary>
+            Customer update type enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncHealth">
+            <summary>
+            Sync health enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RealTimeConflictSeverity">
+            <summary>
+            Real-time conflict severity enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.RealTimeConflictResolutionStrategy">
+            <summary>
+            Real-time conflict resolution strategy enum
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IResponsiveUIService">
+            <summary>
+            Responsive UI service for omnichannel mobile-first experience
+            Ensures consistent UI/UX across all device types and screen sizes
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.GetLayoutConfigAsync(VanAn.Shared.Omnichannel.DeviceInfo)">
+            <summary>
+            Get responsive layout configuration for current device
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.GetComponentSizesAsync(VanAn.Shared.Omnichannel.ScreenSize)">
+            <summary>
+            Get component sizes based on screen dimensions
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.IsTouchEnabledAsync(VanAn.Shared.Omnichannel.DeviceType)">
+            <summary>
+            Determine if touch interactions should be enabled
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.GetNavigationPatternAsync(VanAn.Shared.Omnichannel.DeviceInfo)">
+            <summary>
+            Get appropriate navigation pattern for device
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.GetFontScaleAsync(VanAn.Shared.Omnichannel.UserPreferences)">
+            <summary>
+            Get font scaling for accessibility
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.GetColorThemeAsync(VanAn.Shared.Omnichannel.DeviceInfo,VanAn.Shared.Omnichannel.UserPreferences)">
+            <summary>
+            Get color theme for current device and user preferences
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.IResponsiveUIService.GetAnimationSettingsAsync(VanAn.Shared.Omnichannel.DeviceInfo)">
+            <summary>
+            Get animation settings based on device capabilities
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeviceInfo">
+            <summary>
+            Device information for responsive design
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ResponsiveLayout">
+            <summary>
+            Responsive layout configuration
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ComponentSizes">
+            <summary>
+            Component sizes for responsive design
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.NavigationPattern">
+            <summary>
+            Navigation patterns for different devices
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeviceType">
+            <summary>
+            Device types for responsive design
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ScreenSize">
+            <summary>
+            Screen sizes for responsive breakpoints
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ColorTheme">
+            <summary>
+            Color theme for responsive UI
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.AnimationSettings">
+            <summary>
+            Animation settings based on device capabilities
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.Orientation">
+            <summary>
+            Screen orientation
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ISyncStrategy">
+            <summary>
+            Synchronization strategy interface for multi-device data consistency
+            Provides different sync strategies based on data type and network conditions
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.SynchronizeAsync(VanAn.Shared.Omnichannel.SyncRequest)">
+            <summary>
+            Synchronize data using appropriate strategy
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.DetectConflictsAsync(System.String,System.String,System.Object,System.Object)">
+            <summary>
+            Detect conflicts between local and remote data
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.ResolveConflictAsync(VanAn.Shared.Omnichannel.SyncConflict,VanAn.Shared.Omnichannel.ConflictResolutionStrategy)">
+            <summary>
+            Resolve conflicts using configured resolution strategy
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.CalculateDeltaAsync(System.String,System.Object,System.Object)">
+            <summary>
+            Calculate delta between local and remote data for efficient sync
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.ApplyDeltaAsync(System.Object,VanAn.Shared.Omnichannel.SyncDelta)">
+            <summary>
+            Apply delta to local data
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.GetStrategyTypeAsync(System.String)">
+            <summary>
+            Get sync strategy for specific entity type
+            </summary>
+        </member>
+        <member name="M:VanAn.Shared.Omnichannel.ISyncStrategy.ValidateDataIntegrityAsync(System.String,System.Object)">
+            <summary>
+            Validate data integrity before and after sync
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncRequest">
+            <summary>
+            Sync request containing all necessary information for synchronization
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncResult">
+            <summary>
+            Sync result containing synchronization outcome
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncConflict">
+            <summary>
+            Sync conflict between local and remote data
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConflictResolution">
+            <summary>
+            Conflict resolution result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncDelta">
+            <summary>
+            Sync delta for efficient data synchronization
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.PropertyDelta">
+            <summary>
+            Property-level delta for fine-grained synchronization
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DataIntegrityResult">
+            <summary>
+            Data integrity validation result
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.IntegrityViolation">
+            <summary>
+            Data integrity violation
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncStrategyType">
+            <summary>
+            Sync strategy types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncOutcome">
+            <summary>
+            Sync outcome types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConflictType">
+            <summary>
+            Conflict types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConflictSeverity">
+            <summary>
+            Conflict severity levels
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ConflictResolutionStrategy">
+            <summary>
+            Conflict resolution strategies
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.SyncPriority">
+            <summary>
+            Sync priority levels
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeltaOperation">
+            <summary>
+            Delta operation types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.DeltaType">
+            <summary>
+            Delta types
+            </summary>
+        </member>
+        <member name="T:VanAn.Shared.Omnichannel.ViolationSeverity">
+            <summary>
+            Violation severity levels
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -1,0 +1,351 @@
+@page "/signalr-dashboard"
+@using VanAn.Shared.Domain
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IServiceProvider ServiceProvider
+
+@{
+    var userRole = Enum.TryParse<UserRole>(User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Staff", out var parsedRole) ? parsedRole : UserRole.Staff;
+    var displayName = User.FindFirst("DisplayName")?.Value ?? "User";
+}
+
+<html lang="vi" class="notranslate" translate="no">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShopERP - @displayName</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+</head>
+<body>
+    
+    <!-- Navigation -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">Vạn An ShopERP</h1>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-700 mr-4">Xin chào, <strong>@displayName</strong></span>
+                    <form method="post" asp-page="/Logout">
+                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                            Đăng xuất
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Role-based Dashboard -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            
+            @* OWNER DASHBOARD - Full access *@
+            @if (userRole == UserRole.Owner)
+            {
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Tổng quan hệ thống</h2>
+                    <p class="text-gray-600">Quản lý toàn bộ hoạt động của quán</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">💰</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Doanh thu hôm nay</dt>
+                                        <dd class="text-lg font-medium text-gray-900">12.450.000 VNĐ</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">📦</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Đơn hàng</dt>
+                                        <dd class="text-lg font-medium text-gray-900" id="orderCount">87 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">👥</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Khách hàng</dt>
+                                        <dd class="text-lg font-medium text-gray-900">234 người</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">🔥</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Khuyến mãi</dt>
+                                        <dd class="text-lg font-medium text-gray-900">3 đang chạy</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Orders Section -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">📱 Đơn hàng mới</h3>
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div id="newOrdersContainer" class="space-y-4">
+                                <div class="text-center text-gray-500 py-8">
+                                    <p>Chưa có đơn hàng mới</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            
+            @* STAFF DASHBOARD - Limited access *@
+            else if (userRole == UserRole.Staff)
+            {
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Trang nhân viên</h2>
+                    <p class="text-gray-600">Quản lý đơn hàng và chế biến</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">⏳</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Đang chờ</dt>
+                                        <dd class="text-lg font-medium text-gray-900">5 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">👨‍🍳</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Đang chế biến</dt>
+                                        <dd class="text-lg font-medium text-gray-900">3 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                        <span class="text-white text-sm font-bold">✅</span>
+                                    </div>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Hoàn thành</dt>
+                                        <dd class="text-lg font-medium text-gray-900">12 đơn</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </main>
+
+    <!-- Audio notification -->
+    <audio id="notificationSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBi+Gy/DaijMGHm7A7+OZURE" type="audio/wav">
+    </audio>
+
+    <script>
+        let connection;
+        let orderCount = 87;
+
+        // Initialize SignalR connection
+        document.addEventListener('DOMContentLoaded', function() {
+            startSignalRConnection();
+        });
+
+        async function startSignalRConnection() {
+            try {
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl('http://localhost:5001/orderHub')
+                    .withAutomaticReconnect()
+                    .configureLogging(signalR.LogLevel.Information)
+                    .build();
+
+                // Handle new order notifications
+                connection.on('NewOrderReceived', function(order) {
+                    handleNewOrder(order);
+                });
+
+                // Handle order status changes
+                connection.on('OrderStatusChanged', function(data) {
+                    console.log('Order status changed:', data);
+                });
+
+                // Start connection
+                await connection.start();
+                console.log('SignalR connected successfully');
+                
+                // Join shop group
+                await connection.invoke('JoinShopGroup', 'default-shop');
+            } catch (err) {
+                console.error('Error connecting to SignalR:', err);
+                setTimeout(startSignalRConnection, 5000); // Retry after 5 seconds
+            }
+        }
+
+        function handleNewOrder(order) {
+            console.log('New order received:', order);
+            
+            // Update order count
+            orderCount++;
+            document.getElementById('orderCount').textContent = orderCount + ' đơn';
+            
+            // Add to new orders list
+            const container = document.getElementById('newOrdersContainer');
+            
+            // Clear "no orders" message if present
+            if (container.querySelector('.text-gray-500')) {
+                container.innerHTML = '';
+            }
+            
+            // Create order element
+            const orderElement = document.createElement('div');
+            orderElement.className = 'border-l-4 border-green-500 bg-green-50 p-4 rounded-md';
+            orderElement.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900">Đơn hàng #${order.orderId}</h4>
+                        <p class="text-sm text-gray-600">Khách hàng: ${order.customerDeviceId}</p>
+                        <p class="text-sm text-gray-600">Tổng cộng: ${order.totalAmount.toLocaleString('vi-VN')} VNĐ</p>
+                        <div class="mt-2">
+                            ${order.items.map(item => 
+                                `<span class="inline-block bg-white rounded-full px-3 py-1 text-sm font-semibold text-gray-800 mr-2 mb-1">
+                                    ${item.productName} x ${item.quantity}
+                                </span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-500">${new Date(order.orderDate).toLocaleTimeString('vi-VN')}</span>
+                        <br />
+                        <button class="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs" 
+                                onclick="acceptOrder('${order.orderId}')">
+                            Nhận đơn
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add to top of container
+            container.insertBefore(orderElement, container.firstChild);
+            
+            // Limit to 5 recent orders
+            while (container.children.length > 5) {
+                container.removeChild(container.lastChild);
+            }
+            
+            // Play notification sound
+            playNotificationSound();
+            
+            // Show browser notification
+            showBrowserNotification(order);
+        }
+
+        function playNotificationSound() {
+            const audio = document.getElementById('notificationSound');
+            audio.play().catch(e => console.log('Could not play sound:', e));
+        }
+
+        function showBrowserNotification(order) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Đơn hàng mới!', {
+                    body: `Đơn hàng #${order.orderId} - ${order.totalAmount.toLocaleString('vi-VN')} VNĐ`,
+                    icon: '/favicon.ico'
+                });
+            } else if ('Notification' in window && Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        }
+
+        async function acceptOrder(orderId) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/accept`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    console.log('Order accepted:', orderId);
+                    // Remove the order element or update its status
+                }
+            } catch (error) {
+                console.error('Error accepting order:', error);
+            }
+        }
+
+        // Handle connection close
+        connection.onclose(function() {
+            console.log('SignalR connection closed. Attempting to reconnect...');
+            setTimeout(startSignalRConnection, 5000);
+        });
+    </script>
+</body>
+</html>

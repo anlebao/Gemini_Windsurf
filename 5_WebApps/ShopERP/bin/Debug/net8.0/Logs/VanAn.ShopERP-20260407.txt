@@ -1,0 +1,14 @@
+2026-04-07 12:37:23.602 +07:00 [INF] Executed DbCommand (17ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT COUNT(*) FROM "sqlite_master" WHERE "type" = 'table' AND "rootpage" IS NOT NULL;
+2026-04-07 12:37:23.743 +07:00 [INF] User profile is available. Using 'C:\Users\lebao\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-04-07 12:37:23.941 +07:00 [INF] Now listening on: http://localhost:5003
+2026-04-07 12:37:23.955 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-04-07 12:37:23.957 +07:00 [INF] Hosting environment: Development
+2026-04-07 12:37:23.960 +07:00 [INF] Content root path: C:\vibecoding\gemini_windsurf\5_WebApps\ShopERP
+2026-04-07 12:50:03.771 +07:00 [INF] Executed DbCommand (26ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT COUNT(*) FROM "sqlite_master" WHERE "type" = 'table' AND "rootpage" IS NOT NULL;
+2026-04-07 12:50:03.934 +07:00 [INF] User profile is available. Using 'C:\Users\lebao\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-04-07 12:50:04.252 +07:00 [INF] Now listening on: http://localhost:5003
+2026-04-07 12:50:04.264 +07:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-04-07 12:50:04.267 +07:00 [INF] Hosting environment: Development
+2026-04-07 12:50:04.269 +07:00 [INF] Content root path: C:\vibecoding\gemini_windsurf\5_WebApps\ShopERP
