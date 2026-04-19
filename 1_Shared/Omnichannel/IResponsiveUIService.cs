@@ -54,6 +54,11 @@ public record DeviceInfo
     public bool IsHighDensity { get; init; }
     public bool HasTouch { get; init; }
     public Orientation Orientation { get; init; } = Orientation.Portrait;
+
+    public DeviceInfo(ScreenSize screen)
+    {
+        Screen = screen;
+    }
 }
 
 /// <summary>

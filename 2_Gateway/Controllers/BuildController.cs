@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
-using System.Threading.Tasks;
+using VanAn.CoreHub.Services;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -8,45 +7,20 @@ namespace VanAn.Gateway.Controllers
     [Route("api/[controller]")]
     public class BuildController : ControllerBase
     {
+        private readonly IBuildService _buildService;
+
+        public BuildController(IBuildService buildService)
+        {
+            _buildService = buildService;
+        }
+
         [HttpGet("status")]
         public async Task<ActionResult<object>> GetBuildStatus()
         {
             try
             {
-                var processInfo = new ProcessStartInfo
-                {
-                    FileName = "dotnet",
-                    Arguments = "build --no-restore --verbosity quiet",
-                    WorkingDirectory = @"C:\VibeCoding\Gemini_Windsurf",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(processInfo);
-                if (process == null)
-                {
-                    return Ok(new { success = false, error = "Failed to start build process" });
-                }
-
-                var outputTask = process.StandardOutput.ReadToEndAsync();
-                var errorTask = process.StandardError.ReadToEndAsync();
-
-                await Task.WhenAll(outputTask, errorTask);
-                await process.WaitForExitAsync();
-
-                var output = await outputTask;
-                var error = await errorTask;
-                var exitCode = process.ExitCode;
-                
-                return Ok(new { 
-                    success = exitCode == 0,
-                    exitCode = exitCode,
-                    output = output,
-                    error = error,
-                    timestamp = DateTime.UtcNow
-                });
+                var result = await _buildService.GetBuildStatusAsync();
+                return Ok(result);
             }
             catch (Exception ex)
             {

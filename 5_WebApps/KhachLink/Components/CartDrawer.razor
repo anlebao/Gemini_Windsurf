@@ -226,8 +226,8 @@
     [Parameter]
     public Action<Guid>? RemoveFromCart { get; set; }
     
-    [Parameter]
-    public Func<Task> Checkout { get; set; }
+    [Parameter, EditorRequired]
+    public Func<Task> Checkout { get; set; } = default!;
     
     private bool isCartOpen = true;
 

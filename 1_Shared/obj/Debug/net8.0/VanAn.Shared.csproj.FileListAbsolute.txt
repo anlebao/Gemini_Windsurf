@@ -1,7 +1,6 @@
 C:\VibeCoding\Gemini_Windsurf\1_Shared\bin\Debug\net8.0\VanAn.Shared.deps.json
 C:\VibeCoding\Gemini_Windsurf\1_Shared\bin\Debug\net8.0\VanAn.Shared.dll
 C:\VibeCoding\Gemini_Windsurf\1_Shared\bin\Debug\net8.0\VanAn.Shared.pdb
-C:\VibeCoding\Gemini_Windsurf\1_Shared\bin\Debug\net8.0\.xml
 C:\VibeCoding\Gemini_Windsurf\1_Shared\obj\Debug\net8.0\VanAn.Shared.csproj.AssemblyReference.cache
 C:\VibeCoding\Gemini_Windsurf\1_Shared\obj\Debug\net8.0\VanAn.Shared.GeneratedMSBuildEditorConfig.editorconfig
 C:\VibeCoding\Gemini_Windsurf\1_Shared\obj\Debug\net8.0\VanAn.Shared.AssemblyInfoInputs.cache

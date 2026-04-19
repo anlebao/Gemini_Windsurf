@@ -41,6 +41,9 @@ public partial class Program
         builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
         builder.Services.AddScoped<ICustomerService, CustomerService>();
         
+        // Register Repositories (FIX: Missing ICustomerRepository registration)
+        builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.ICustomerRepository, VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository>();
+        
         // Register Dashboard Service
         builder.Services.AddScoped<VanAn.CoreHub.Services.IDashboardService, VanAn.CoreHub.Services.DashboardService>();
         

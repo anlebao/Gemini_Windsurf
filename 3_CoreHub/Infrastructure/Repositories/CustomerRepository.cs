@@ -24,7 +24,7 @@ public class CustomerRepository : ICustomerRepository
     {
         return await _context.Customers
             .Where(c => c.Id == id && 
-                       c.TenantId == _currentTenantId && 
+                       c.TenantId.Value == _currentTenantId && 
                        !c.IsDeleted)
             .FirstOrDefaultAsync();
     }
@@ -33,7 +33,7 @@ public class CustomerRepository : ICustomerRepository
     {
         return await _context.Customers
             .Where(c => c.DeviceId == deviceId && 
-                       c.TenantId == _currentTenantId && 
+                       c.TenantId.Value == _currentTenantId && 
                        !c.IsDeleted)
             .FirstOrDefaultAsync();
     }
@@ -41,7 +41,7 @@ public class CustomerRepository : ICustomerRepository
     public async Task<IReadOnlyList<Customer>> GetAllActiveAsync()
     {
         return await _context.Customers
-            .Where(c => c.TenantId == _currentTenantId && 
+            .Where(c => c.TenantId.Value == _currentTenantId && 
                        !c.IsDeleted)
             .OrderBy(c => c.FullName)
             .ToListAsync();
@@ -50,7 +50,7 @@ public class CustomerRepository : ICustomerRepository
     public async Task<Customer> AddAsync(Customer customer)
     {
         // Ensure tenant compliance
-        customer.TenantId = _currentTenantId;
+        customer.TenantId = new TenantId(_currentTenantId);
         customer.CreatedAt = DateTime.UtcNow;
         customer.IsDeleted = false;
 
@@ -98,7 +98,7 @@ public class CustomerRepository : ICustomerRepository
     {
         return await _context.Customers
             .AnyAsync(c => c.DeviceId == deviceId && 
-                         c.TenantId == _currentTenantId && 
+                         c.TenantId.Value == _currentTenantId && 
                          !c.IsDeleted);
     }
 
@@ -107,7 +107,7 @@ public class CustomerRepository : ICustomerRepository
         return await _context.Customers
             .Include(c => c.Orders)
             .Where(c => c.Id == id && 
-                       c.TenantId == _currentTenantId && 
+                       c.TenantId.Value == _currentTenantId && 
                        !c.IsDeleted)
             .FirstOrDefaultAsync();
     }

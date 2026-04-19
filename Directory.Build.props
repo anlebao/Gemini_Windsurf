@@ -1,68 +1,85 @@
 <Project>
-  <!-- VẠN AN GROUP - Tầng phòng thủ từ phôi -->
-  <!-- Siết chặt kỷ luật build để chặn lỗi LoggerMessage và các vấn đề nghiêm trọng -->
-  
   <PropertyGroup>
-    <!-- Biến cảnh báo lỗi thành lỗi nghiêm trọng -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    
-    <!-- Chỉ các lỗi nghiêm trọng nhất mới fail build -->
-    <WarningsAsErrors>
-      CS0101; <!-- Duplicate namespace definitions -->
-      CS8863; <!-- Duplicate type definitions -->
-    </WarningsAsErrors>
-    
-    <!-- Các cảnh báo được cho phép (tạm thời) -->
-    <WarningsNotAsErrors>
-      CA1848; <!-- LoggerMessage violations -->
-      CA2254; <!-- Template string violations -->
-      CA1062; <!-- Null validation violations -->
-      CA2007; <!-- ConfigureAwait violations -->
-      CA1031; <!-- Generic catch blocks -->
-      CA1812; <!-- Unused classes -->
-      CA1852; <!-- Sealed suggestions -->
-    </WarningsNotAsErrors>
-    
-    <!-- Cấu hình build nghiêm ngặt -->
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
-    
-    <!-- Enterprise Assembly Information Standard -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <AssemblyCompany>Vạn An Group</AssemblyCompany>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    
     <AssemblyProduct>Vạn An Ecosystem</AssemblyProduct>
-    <AssemblyCopyright>Copyright © Vạn An Group 2026</AssemblyCopyright>
+    <AssemblyCopyright>Copyright Vạn An Group 2026</AssemblyCopyright>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    
-    <!-- Hiển thị tất cả cảnh báo -->
-    <WarningLevel>5</WarningLevel>
-    
-    <!-- Tắt các warning không quan trọng -->
-    <NoWarn>$(NoWarn);CS1591;CS8618;CS8604</NoWarn>
+    <AssemblyFileVersion>1.0.0.0</AssemblyFileVersion>
+    <MauiVersion>8.0.14</MauiVersion>
   </PropertyGroup>
-  
-  <!-- Package references chung cho toàn solution -->
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
-    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
-    <PackageReference Include="Serilog.Sinks.Seq" Version="8.0.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.25" />
-  </ItemGroup>
-  
-  <!-- Analyzer packages cho static analysis -->
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+    <!-- EF Core & Postgres -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.7" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
+    <PackageVersion Include="Npgsql" Version="8.0.8" />
+
+    <!-- Microsoft.Extensions - STABLE .NET 8 (nâng 2 package cho SignalR) -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.0" />
+
+    <!-- Others -->
+    <PackageVersion Include="System.Text.Json" Version="8.0.5" />
+    <PackageVersion Include="Serilog" Version="4.2.0" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Seq" Version="8.0.0" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Protocols.Json" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+    <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
+
+    <!-- Code Analysis -->
+    <PackageVersion Include="Microsoft.CodeAnalysis" Version="4.8.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
+    <PackageVersion Include="VanAn.Accounting.Analyzers" Version="1.0.0" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+
+    <!-- Testing -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageVersion Include="xunit" Version="2.7.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.7" />
+    <PackageVersion Include="Moq" Version="4.20.70" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.50.0" />
+    <PackageVersion Include="Microsoft.Playwright.xUnit" Version="1.50.0" />
+    <PackageVersion Include="NBomber" Version="6.0.0" />
+    <PackageVersion Include="NBomber.Http" Version="6.0.0" />
+    <PackageVersion Include="NBomber.Contracts" Version="6.0.0" />
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+    <PackageVersion Include="System.Net.Http.Json" Version="8.0.0" />
+
+    <!-- MAUI -->
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="8.0.14" />
+    <PackageVersion Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.14" />
   </ItemGroup>
 </Project>

@@ -10,15 +10,13 @@ namespace VanAn.ShopERP.Pages
     public class IndexModel : PageModel
     {
         private readonly IOrderService _orderService;
-        private readonly IAccountingService _accountingService;
 
-        public IndexModel(IOrderService orderService, IAccountingService accountingService)
+        public IndexModel(IOrderService orderService)
         {
             _orderService = orderService;
-            _accountingService = accountingService;
         }
 
-        public decimal TodayRevenue { get; private set; }
+        public decimal TodayRevenue { get; private set; } = 0; // MVP: Placeholder
         public int TodayOrderCount { get; private set; }
 
         public async Task OnGetAsync()
@@ -26,7 +24,7 @@ namespace VanAn.ShopERP.Pages
             var tenantId = GetTenantId();
             
             // Real-time data from backend services
-            TodayRevenue = await _accountingService.GetTodayRevenueAsync(tenantId);
+            // TodayRevenue - MVP: Placeholder until accounting service implemented
             TodayOrderCount = await _orderService.GetTodayOrderCountAsync(tenantId);
         }
 

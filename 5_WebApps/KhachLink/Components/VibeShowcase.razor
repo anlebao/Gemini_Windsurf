@@ -30,7 +30,7 @@
                                             <h4 class="neon-text">@(product?.Name ?? "Sản phẩm")</h4>
                                             <p class="teen-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                             <div class="teen-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</div>
-                                            <button class="teen-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                            <button class="teen-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 <span>ADD TO CART</span>
                                             </button>
                                         </div>
@@ -55,7 +55,7 @@
                                         <p class="lady-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                         <div class="lady-footer">
                                             <span class="lady-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
-                                            <button class="lady-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                            <button class="lady-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 <span>Thêm vào giỏ</span>
                                             </button>
                                         </div>
@@ -79,7 +79,7 @@
                                                 <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
                                                 <span class="classic-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
                                             </div>
-                                            <button class="classic-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                            <button class="classic-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 Đặt hàng
                                             </button>
                                         </div>
@@ -106,7 +106,7 @@
                                     <p class="premium-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                     <div class="premium-footer">
                                         <span class="premium-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
-                                        <button class="premium-btn" @onclick="() => AddToCart?.Invoke(product)">
+                                        <button class="premium-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                             <span>Đặt ngay</span>
                                         </button>
                                     </div>
@@ -130,7 +130,7 @@
                                     <h5>@(product?.Name ?? "Sản phẩm")</h5>
                                     <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
                                     <p><strong>@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</strong></p>
-                                    <button class="btn btn-primary" @onclick="() => AddToCart?.Invoke(product)">
+                                    <button class="btn btn-primary" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                         Thêm vào giỏ
                                     </button>
                                 </div>

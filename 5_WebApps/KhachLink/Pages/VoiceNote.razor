@@ -67,14 +67,17 @@
     @code {
         private bool isRecording = false;
         private string transcriptionText = "";
-        private DotNetObjectReference<VoiceNote> dotNetRef;
+        private DotNetObjectReference<VoiceNote>? dotNetRef;
 
-        protected override async Task OnInitializedAsync()
+        protected override void OnAfterRender(bool firstRender)
         {
-            dotNetRef = DotNetObjectReference.Create(this);
-            
-            // Initialize Speech Recognition API
-            await JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", dotNetRef);
+            if (firstRender)
+            {
+                dotNetRef = DotNetObjectReference.Create(this);
+                
+                // Initialize Speech Recognition API
+                JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", dotNetRef);
+            }
         }
 
         private async Task ToggleRecording()

@@ -36,19 +36,19 @@ public class DashboardService : IDashboardService
 
             // Tenant Count
             metrics.TenantCount = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty)
+                .Where(o => o.TenantId.Value != Guid.Empty)
                 .Select(o => o.TenantId)
                 .Distinct()
                 .CountAsync();
 
             // Total Orders
             metrics.TotalOrders = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty)
+                .Where(o => o.TenantId.Value != Guid.Empty)
                 .CountAsync();
 
             // Total Revenue - Use client-side evaluation for SQLite compatibility
             var orders = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty)
+                .Where(o => o.TenantId.Value != Guid.Empty)
                 .ToListAsync();
             metrics.TotalRevenue = orders.Sum(o => o.TotalAmount);
 
@@ -59,13 +59,13 @@ public class DashboardService : IDashboardService
 
             // Tenant growth
             var tenantsLastMonth = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.CreatedAt >= oneMonthAgo)
+                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneMonthAgo)
                 .Select(o => o.TenantId)
                 .Distinct()
                 .CountAsync();
             
             var tenantsPreviousMonth = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.CreatedAt >= oneMonthAgo.AddMonths(-1) && o.CreatedAt < oneMonthAgo)
+                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneMonthAgo.AddMonths(-1) && o.CreatedAt < oneMonthAgo)
                 .Select(o => o.TenantId)
                 .Distinct()
                 .CountAsync();
@@ -76,11 +76,11 @@ public class DashboardService : IDashboardService
 
             // Order growth (daily)
             var ordersToday = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.CreatedAt >= DateTime.UtcNow.Date)
+                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= DateTime.UtcNow.Date)
                 .CountAsync();
 
             var ordersYesterday = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.CreatedAt >= yesterday.Date && o.CreatedAt < DateTime.UtcNow.Date)
+                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= yesterday.Date && o.CreatedAt < DateTime.UtcNow.Date)
                 .CountAsync();
 
             metrics.OrderGrowth = ordersYesterday > 0 
@@ -89,12 +89,12 @@ public class DashboardService : IDashboardService
 
             // Revenue growth (weekly) - Use client-side evaluation for SQLite compatibility
             var revenueThisWeekOrders = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.CreatedAt >= oneWeekAgo)
+                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneWeekAgo)
                 .ToListAsync();
             var revenueThisWeek = revenueThisWeekOrders.Sum(o => o.TotalAmount);
 
             var revenueLastWeekOrders = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.CreatedAt >= oneWeekAgo.AddDays(-7) && o.CreatedAt < oneWeekAgo)
+                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneWeekAgo.AddDays(-7) && o.CreatedAt < oneWeekAgo)
                 .ToListAsync();
             var revenueLastWeek = revenueLastWeekOrders.Sum(o => o.TotalAmount);
 
@@ -104,11 +104,11 @@ public class DashboardService : IDashboardService
 
             // Sync Rate
             var totalOrdersWithSync = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty)
+                .Where(o => o.TenantId.Value != Guid.Empty)
                 .CountAsync();
 
             var syncedOrders = await _context.Orders
-                .Where(o => o.TenantId != Guid.Empty && o.LastSyncedAt != null && o.LastSyncedAt > default(DateTime))
+                .Where(o => o.TenantId.Value != Guid.Empty && o.LastSyncedAt != default(DateTime))
                 .CountAsync();
 
             metrics.SyncRate = totalOrdersWithSync > 0 

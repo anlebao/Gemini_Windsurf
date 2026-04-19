@@ -33,6 +33,7 @@ $Colors = @{
     Service = "Magenta"
     URL = "White"
     Header = "Yellow"
+    DarkGray = "DarkGray"
 }
 
 Write-Host "[STARTUP] Van An Ecosystem Startup Script v3.0" -ForegroundColor $Colors.Header
@@ -46,7 +47,11 @@ function Write-ColorOutput {
         [string]$Message,
         [string]$Color = "White"
     )
-    Write-Host $Message -ForegroundColor $Colors[$Color]
+    $foregroundColor = $Colors[$Color]
+    if ($null -eq $foregroundColor) {
+        $foregroundColor = "White"
+    }
+    Write-Host $Message -ForegroundColor $foregroundColor
 }
 
 # Function to check if a port is in use

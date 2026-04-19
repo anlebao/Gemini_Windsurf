@@ -171,12 +171,12 @@
     
     protected override async Task OnParametersSetAsync()
     {
-        await LoadOrderAsync();
-        await LoadStatusTimelineAsync();
+        LoadOrderAsync();
+        LoadStatusTimelineAsync();
         await Task.CompletedTask;
     }
     
-    private async Task LoadOrderAsync()
+    private void LoadOrderAsync()
     {
         // Simulate order data
         order = new 
@@ -204,7 +204,7 @@
         }
     }
     
-    private async Task LoadStatusTimelineAsync()
+    private void LoadStatusTimelineAsync()
     {
         if (order == null) return;
         

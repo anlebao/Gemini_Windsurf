@@ -1,1 +1,0 @@
-C:\VibeCoding\Gemini_Windsurf\apps\HRApp\VanAn.HRApp.csproj;x64

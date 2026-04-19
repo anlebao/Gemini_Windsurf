@@ -18,12 +18,78 @@ public enum AccountingEntryType
     Adjustment = 4      // Điều chỉnh
 }
 
+public enum AccountingBookType
+{
+    RevenueBook = 1,    // Sách chi doanh thu
+    ExpenseBook = 2,    // Sách chi chi phí
+    CashBankBook = 3,   // Sách chi tiền mặt ngân hàng
+    TaxDeclarationBook = 4  // Sách chi kê khai thuế
+}
+
 public enum VatRate
 {
     Exempt = 0,         // Miễn thuế
     Zero = 0,           // 0%
     Five = 5,           // 5%
     Ten = 10            // 10%
+}
+
+/// <summary>
+/// Accounting Period for Household Business reporting
+/// </summary>
+public record AccountingPeriod(int Year, int Month)
+{
+    public override string ToString() => $"{Year:0000}-{Month:00}";
+    
+    public static AccountingPeriod FromDateTime(DateTime date) => new(date.Year, date.Month);
+    
+    public DateTime StartDate => new DateTime(Year, Month, 1);
+    public DateTime EndDate => StartDate.AddMonths(1).AddDays(-1);
+    
+    // Static Create method for test files compatibility
+    public static AccountingPeriod Create(int year, int month) => new(year, month);
+}
+
+/// <summary>
+/// Tenant ID Value Object
+/// </summary>
+public record TenantId(Guid Value)
+{
+    public static implicit operator Guid(TenantId tenantId) => tenantId.Value;
+    public static implicit operator TenantId(Guid value) => new(value);
+    
+    public static TenantId FromGuid(Guid value) => new(value);
+    public Guid ToGuid() => Value;
+}
+
+/// <summary>
+/// Accounting Entry ID Value Object
+/// </summary>
+public record AccountingEntryId(Guid Value)
+{
+    public static implicit operator Guid(AccountingEntryId entryId) => entryId.Value;
+    public static implicit operator AccountingEntryId(Guid value) => new(value);
+    
+    public static AccountingEntryId FromGuid(Guid value) => new(value);
+    public Guid ToGuid() => Value;
+}
+
+/// <summary>
+/// Money Value Object
+/// </summary>
+public record Money(decimal Value)
+{
+    public static implicit operator decimal(Money money) => money.Value;
+    public static implicit operator Money(decimal value) => new(value);
+    
+    public static Money FromDecimal(decimal value) => new(value);
+    public decimal ToDecimal() => Value;
+    
+    // Backward compatibility constructor for test files
+    public Money(decimal value, string currency) : this(value)
+    {
+        // Currency parameter ignored for backward compatibility
+    }
 }
 
 /// <summary>
@@ -36,6 +102,22 @@ public class AccountingEntry : BaseEntity
     public AccountingEntryType EntryType { get; set; }
     public VatRate VatRate { get; set; }
     public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
+    
+    /// <summary>
+    /// HKD Book classification for VAT 2026 compliance
+    /// </summary>
+    public AccountingBookType AccountingBookType { get; set; }
+    
+    /// <summary>
+    /// Period tracking for reporting (Vietnamese Tax Year)
+    /// </summary>
+    public int PeriodYear { get; set; }
+    public int PeriodMonth { get; set; }
+    
+    /// <summary>
+    /// Combined Period property for test files compatibility
+    /// </summary>
+    public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
     
     /// <summary>
     /// For reversal entries (Bút toán đảo) - VAT 2026 Compliance
@@ -57,6 +139,80 @@ public class AccountingEntry : BaseEntity
     /// Description for audit trail
     /// </summary>
     public string Description { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Static factory method for creating revenue entries
+    /// </summary>
+    public static AccountingEntry CreateRevenue(
+        TenantId tenantId,
+        AccountingPeriod period,
+        Money amount,
+        string description)
+    {
+        return new AccountingEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Amount = amount.Value,
+            EntryType = AccountingEntryType.Revenue,
+            VatRate = VatRate.Zero,
+            TransactionDate = DateTime.UtcNow,
+            AccountingBookType = AccountingBookType.RevenueBook,
+            PeriodYear = period.Year,
+            PeriodMonth = period.Month,
+            Description = description,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+    
+    /// <summary>
+    /// Static factory method for creating expense entries
+    /// </summary>
+    public static AccountingEntry CreateExpense(
+        TenantId tenantId,
+        AccountingPeriod period,
+        Money amount,
+        string description)
+    {
+        return new AccountingEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Amount = amount.Value,
+            EntryType = AccountingEntryType.Expense,
+            VatRate = VatRate.Zero,
+            TransactionDate = DateTime.UtcNow,
+            AccountingBookType = AccountingBookType.ExpenseBook,
+            PeriodYear = period.Year,
+            PeriodMonth = period.Month,
+            Description = description,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+    
+    /// <summary>
+    /// Static factory method for creating reversal entries
+    /// </summary>
+    public static AccountingEntry CreateReversal(
+        AccountingEntry originalEntry,
+        string reason)
+    {
+        return new AccountingEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = originalEntry.TenantId,
+            Amount = -originalEntry.Amount, // Negative amount for reversal
+            EntryType = originalEntry.EntryType == AccountingEntryType.Revenue ? AccountingEntryType.Expense : AccountingEntryType.Revenue,
+            VatRate = originalEntry.VatRate,
+            TransactionDate = DateTime.UtcNow,
+            AccountingBookType = originalEntry.AccountingBookType,
+            PeriodYear = originalEntry.PeriodYear,
+            PeriodMonth = originalEntry.PeriodMonth,
+            Description = $"REVERSAL: {reason} | Original: {originalEntry.Description}",
+            ReversalEntryId = originalEntry.Id,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
     
     /// <summary>
     /// Reference to related entity (Order, Invoice, etc.)
@@ -572,6 +728,122 @@ public class CleanupResult
     public int TotalExpired { get; set; }
     public DateTime Timestamp { get; set; }
     public string? Error { get; set; }
+}
+
+// ====================== ACCOUNTING ENTRY FACTORY - DDD PATTERN ======================
+
+/// <summary>
+/// Factory for creating Accounting Entries - DDD Pattern
+/// Updated to use decimal Amount (not Money Value Object) to match current domain model
+/// Ensures business rules and immutability compliance
+/// </summary>
+public static class AccountingEntryFactory
+{
+    /// <summary>
+    /// Create revenue entry with validation
+    /// </summary>
+    public static AccountingEntry CreateRevenue(
+        TenantId tenantId,
+        AccountingPeriod period,
+        decimal amount,        // Use decimal (not Money Value Object)
+        string description)
+    {
+        ArgumentNullException.ThrowIfNull(tenantId);
+        if (amount <= 0) throw new ArgumentException("Amount must be positive", nameof(amount));
+        if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description required", nameof(description));
+        
+        return new AccountingEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Amount = amount,                    // decimal directly
+            EntryType = AccountingEntryType.Revenue,
+            VatRate = VatRate.Zero,
+            Description = description,
+            CreatedAt = DateTime.UtcNow,
+            AccountingBookType = AccountingBookType.RevenueBook,
+            PeriodYear = period.Year,
+            PeriodMonth = period.Month
+        };
+    }
+    
+    /// <summary>
+    /// Create expense entry with validation
+    /// </summary>
+    public static AccountingEntry CreateExpense(
+        TenantId tenantId,
+        AccountingPeriod period,
+        decimal amount,        // Use decimal (not Money Value Object)
+        string description)
+    {
+        ArgumentNullException.ThrowIfNull(tenantId);
+        if (amount <= 0) throw new ArgumentException("Amount must be positive", nameof(amount));
+        if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description required", nameof(description));
+        
+        return new AccountingEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Amount = amount,                    // decimal directly
+            EntryType = AccountingEntryType.Expense,
+            VatRate = VatRate.Zero,
+            Description = description,
+            CreatedAt = DateTime.UtcNow,
+            AccountingBookType = AccountingBookType.ExpenseBook,
+            PeriodYear = period.Year,
+            PeriodMonth = period.Month
+        };
+    }
+    
+    /// <summary>
+    /// Create reversal entry with validation
+    /// </summary>
+    public static AccountingEntry CreateReversal(
+        AccountingEntry originalEntry,
+        string reason)
+    {
+        ArgumentNullException.ThrowIfNull(originalEntry);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason required", nameof(reason));
+        
+        return new AccountingEntry
+        {
+            Id = Guid.NewGuid(),
+            TenantId = originalEntry.TenantId,
+            Amount = -originalEntry.Amount,     // Negative for reversal
+            EntryType = originalEntry.EntryType,
+            VatRate = originalEntry.VatRate,
+            Description = $"Reversal of: {originalEntry.Description} - {reason}",
+            CreatedAt = DateTime.UtcNow,
+            AccountingBookType = originalEntry.AccountingBookType,
+            PeriodYear = originalEntry.PeriodYear,
+            PeriodMonth = originalEntry.PeriodMonth,
+            ReversalEntryId = originalEntry.Id
+        };
+    }
+    
+    /// <summary>
+    /// Backward compatibility method - CreateRevenueEntry delegates to CreateRevenue
+    /// </summary>
+    public static AccountingEntry CreateRevenueEntry(
+        TenantId tenantId,
+        AccountingPeriod period,
+        decimal amount,
+        string description)
+    {
+        return CreateRevenue(tenantId, period, amount, description);
+    }
+    
+    /// <summary>
+    /// Backward compatibility method - CreateExpenseEntry delegates to CreateExpense
+    /// </summary>
+    public static AccountingEntry CreateExpenseEntry(
+        TenantId tenantId,
+        AccountingPeriod period,
+        decimal amount,
+        string description)
+    {
+        return CreateExpense(tenantId, period, amount, description);
+    }
 }
 
 // ====================== VALUE OBJECTS & EF CORE CONFIGURATIONS ======================

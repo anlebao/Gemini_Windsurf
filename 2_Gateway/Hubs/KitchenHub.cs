@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using System.Threading.Tasks;
-using VanAn.Shared.DTOs;
 
 namespace VanAn.Gateway.Hubs
 {
@@ -14,7 +13,6 @@ namespace VanAn.Gateway.Hubs
         public async Task JoinKitchen(string shopId)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"shop_{shopId}");
-            await Clients.Caller.SendAsync("JoinedKitchen", $"Connected to kitchen {shopId}");
         }
 
         /// <summary>
@@ -41,25 +39,8 @@ namespace VanAn.Gateway.Hubs
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"order_{orderId}");
         }
 
-        /// <summary>
-        /// Broadcast kitchen item status change
-        /// </summary>
-        public async Task BroadcastStatusChange(KitchenStatusUpdateDto update)
-        {
-            await Clients.Group($"shop_{update.ShopId}").SendAsync("ItemStatusChanged", update);
-        }
-
-        /// <summary>
-        /// Broadcast new order confirmation
-        /// </summary>
-        public async Task BroadcastOrderConfirmation(OrderConfirmedEvent orderEvent)
-        {
-            await Clients.Group($"shop_{orderEvent.ShopId}").SendAsync("OrderConfirmed", orderEvent);
-        }
-
         public override async Task OnDisconnectedAsync(System.Exception? exception)
         {
-            // Clean up group memberships on disconnect
             await base.OnDisconnectedAsync(exception);
         }
     }

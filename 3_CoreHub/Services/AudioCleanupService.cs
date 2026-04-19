@@ -8,7 +8,6 @@ public class AudioCleanupService
 {
     private readonly ILogger<AudioCleanupService> _logger;
     private readonly IServiceProvider _serviceProvider;
-    private readonly TimeSpan _cleanupInterval = TimeSpan.FromHours(1);
     
     private static readonly Action<ILogger, Exception?> LogServiceStarting = 
         LoggerMessage.Define(LogLevel.Information, new EventId(1, "AudioCleanup"), "Audio Cleanup Service is starting.");

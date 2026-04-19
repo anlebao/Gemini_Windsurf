@@ -114,7 +114,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
     {
         public static async Task<bool> SetupTestDatabaseAsync(this VanAnDbContext context, ILogger logger = null!)
         {
-            var syncEngine = new SchemaSyncEngine(logger as ILogger<SchemaSyncEngine>);
+            var syncEngine = new SchemaSyncEngine(logger as ILogger<SchemaSyncEngine> ?? new NullLogger<SchemaSyncEngine>());
             
             // Reset and recreate schema
             var resetSuccess = await syncEngine.ResetAndRecreateAsync(context);

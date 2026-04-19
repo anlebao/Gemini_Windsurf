@@ -1,19 +1,26 @@
 using Microsoft.Extensions.Logging;
 
-namespace VanAn.CoreHub
+namespace VanAn.CoreHub;
+
+public static class LoggerExtensions
 {
-    public static partial class LoggerExtensions
+    public static void LogMigrationSuccess(this ILogger logger)
     {
-        [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "✅ Database migration completed successfully")]
-        public static partial void LogMigrationSuccess(ILogger logger);
-        
-        [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "🔐 Vạn An Identity System Initialized")]
-        public static partial void LogIdentityInitialized(ILogger logger);
-        
-        [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "❌ Database migration failed after {RetryCount} attempts")]
-        public static partial void LogMigrationFailed(ILogger logger, Exception ex, int retryCount);
-        
-        [LoggerMessage(EventId = 4, Level = LogLevel.Warning, Message = "⚠️ Database migration attempt {RetryCount} failed, retrying in {DelaySeconds} seconds...")]
-        public static partial void LogMigrationRetry(ILogger logger, int retryCount, int delaySeconds);
+        logger.LogInformation("Migration completed successfully");
+    }
+
+    public static void LogIdentityInitialized(this ILogger logger)
+    {
+        logger.LogInformation("Identity system initialized");
+    }
+
+    public static void LogMigrationFailed(this ILogger logger, Exception exception, int AttemptCount)
+    {
+        logger.LogError(exception, "Migration failed after {AttemptCount} attempts", AttemptCount);
+    }
+
+    public static void LogMigrationRetry(this ILogger logger, int AttemptCount, int MaxAttempts)
+    {
+        logger.LogWarning("Migration retry attempt {AttemptCount} of {MaxAttempts}", AttemptCount, MaxAttempts);
     }
 }

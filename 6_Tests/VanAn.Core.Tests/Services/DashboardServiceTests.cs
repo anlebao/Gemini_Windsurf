@@ -170,7 +170,7 @@ public class DashboardServiceTests : IntegrationTestBase
 
         // Assert
         Assert.True(result.IsPostgresOnline); // In-memory database should be accessible
-        Assert.NotNull(result.LastUpdated);
+        Assert.True(result.LastUpdated > DateTime.MinValue);
         _output.WriteLine($"PostgreSQL online: {result.IsPostgresOnline}");
         _output.WriteLine($"System healthy: {result.IsHealthy}");
     }

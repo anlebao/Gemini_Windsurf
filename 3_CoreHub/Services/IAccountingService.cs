@@ -24,6 +24,36 @@ namespace VanAn.CoreHub.Services
         Task<AccountingEntry> CreateEntryAsync(AccountingEntry entry);
         
         /// <summary>
+        /// Get accounting entry by ID
+        /// </summary>
+        Task<AccountingEntry?> GetEntryByIdAsync(Guid entryId);
+        
+        /// <summary>
+        /// Create revenue entry (VAT 2026 compliant)
+        /// </summary>
+        Task<AccountingEntry> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description);
+        
+        /// <summary>
+        /// Create expense entry (VAT 2026 compliant)
+        /// </summary>
+        Task<AccountingEntry> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description);
+        
+        /// <summary>
+        /// Get entries by tenant
+        /// </summary>
+        Task<IEnumerable<AccountingEntry>> GetEntriesByTenantAsync(TenantId tenantId);
+        
+        /// <summary>
+        /// Get entries by tenant and book type
+        /// </summary>
+        Task<IEnumerable<AccountingEntry>> GetEntriesByTenantAndBookTypeAsync(TenantId tenantId, AccountingBookType bookType);
+        
+        /// <summary>
+        /// Get entries by tenant and period
+        /// </summary>
+        Task<IEnumerable<AccountingEntry>> GetEntriesByTenantAndPeriodAsync(TenantId tenantId, AccountingPeriod period);
+        
+        /// <summary>
         /// Create reversal entry for VAT 2026 compliance (Bút toán đảo)
         /// </summary>
         Task<AccountingEntry> CreateReversalEntryAsync(Guid originalEntryId, string reason, Guid tenantId);

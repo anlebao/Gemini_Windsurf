@@ -1,0 +1,30 @@
+{
+  "release": "1.0.0",
+  "shippedRules": [
+    {
+      "id": "VA0001",
+      "description": "Immutable accounting rule",
+      "category": "Design",
+      "defaultSeverity": "Error"
+    },
+    {
+      "id": "VA0002", 
+      "description": "Reversal only rule",
+      "category": "Design",
+      "defaultSeverity": "Error"
+    },
+    {
+      "id": "VA0003",
+      "description": "No business in gateway", 
+      "category": "Design",
+      "defaultSeverity": "Error"
+    },
+    {
+      "id": "VA0004",
+      "description": "Central package management rule",
+      "category": "Usage", 
+      "defaultSeverity": "Error"
+    }
+  ],
+  "unshippedRules": []
+}

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Services;
@@ -7,6 +9,7 @@ using VanAn.Shared.Extensions;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
+using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Infrastructure;
 
@@ -45,14 +48,38 @@ public class VanAnDbContext : DbContext
     // Multi-tenant Shops
     public DbSet<Shop> Shops { get; set; }
     
-    // 🛡️ PHASE 2: SOCIAL FLYWHEEL ENTITIES
+    // PHASE 2: SOCIAL FLYWHEEL ENTITIES
     public DbSet<SocialCampaign> SocialCampaigns { get; set; }
     public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }
+    
+    // WEEK 1: ACCOUNTING ENGINE ENTITIES
+    public DbSet<CoreAccountingEntry> AccountingEntries { get; set; }
+    
+    // OUTBOX PATTERN: Reliable event processing
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
         // All converters now use separate classes for consistency
+        
+        // Add missing ValueConverters for AccountingEntry ValueObjects
+        configurationBuilder.Properties<AccountingEntryId>()
+            .HaveConversion<AccountingEntryIdConverter>();
+        
+        configurationBuilder.Properties<TenantId>()
+            .HaveConversion<TenantIdConverter>();
+        
+        configurationBuilder.Properties<Money>()
+            .HaveConversion<MoneyConverter>();
+        
+        configurationBuilder.Properties<AccountingPeriod>()
+            .HaveConversion<AccountingPeriodConverter>();
+        
+        configurationBuilder.Properties<AccountingBookType>()
+            .HaveConversion<AccountingBookTypeConverter>();
+        
+        // Keep existing converters
         configurationBuilder.Properties<LeadId>()
             .HaveConversion<LeadIdConverter>();
         
@@ -174,7 +201,7 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
             // 🛡️ MULTI-TENANCY: Direct query filter
-            entity.HasQueryFilter(e => e.TenantId == this.CurrentTenantId);
+            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
         });
         
         // Configure OrderItem entity
@@ -210,7 +237,7 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
             // 🛡️ MULTI-TENANCY: Direct query filter for Shop
-            entity.HasQueryFilter(e => e.TenantId == this.CurrentTenantId);
+            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
         });
 
         // Configure DemoUser entity
@@ -233,7 +260,7 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
             // 🛡️ MULTI-TENANCY: Direct query filter
-            entity.HasQueryFilter(e => e.TenantId == this.CurrentTenantId);
+            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
             
             // Navigation properties
             entity.HasOne(e => e.Shop)
@@ -250,7 +277,7 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
             // 🛡️ MULTI-TENANCY: Direct query filter
-            entity.HasQueryFilter(e => e.TenantId == this.CurrentTenantId);
+            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
             
             // Navigation properties
             entity.HasOne(e => e.Customer)
@@ -269,7 +296,14 @@ public class VanAnDbContext : DbContext
         // Skip if tenant provider is null (for design-time or migrations)
         if (_tenantProvider == null) return;
         
-        // Áp dụng filter cho tất cả entities implement IMustHaveTenant
+        // Get current tenant dynamically from ITenantProvider
+        var currentTenantId = _tenantProvider.TenantId;
+        
+        // Apply filter for AccountingEntries specifically with dynamic tenant
+        modelBuilder.Entity<CoreAccountingEntry>()
+            .HasQueryFilter(e => e.TenantId.Value == currentTenantId);
+        
+        // Apply to all entities implement IMustHaveTenant
         var entityTypes = modelBuilder.Model.GetEntityTypes()
             .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType));
 
@@ -277,13 +311,11 @@ public class VanAnDbContext : DbContext
         {
             try
             {
-                // Create a simple filter that checks TenantId equals current tenant
                 var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
                 var tenantIdProperty = System.Linq.Expressions.Expression.Property(parameter, nameof(IMustHaveTenant.TenantId));
-                var currentTenantId = System.Linq.Expressions.Expression.Constant(_tenantProvider?.TenantId ?? Guid.Empty);
-                var filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantId);
+                var currentTenantIdConstant = System.Linq.Expressions.Expression.Constant(currentTenantId);
+                var filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantIdConstant);
                 
-                // Create LambdaExpression using generic method
                 var lambdaMethod = typeof(System.Linq.Expressions.Expression)
                     .GetMethods()
                     .First(m => m.Name == "Lambda" && m.IsGenericMethod && m.GetParameters().Length == 2)
@@ -296,7 +328,6 @@ public class VanAnDbContext : DbContext
             }
             catch (Exception ex)
             {
-                // Skip this entity if filter creation fails
                 System.Diagnostics.Debug.WriteLine($"Failed to create multi-tenancy filter for {entityType.ClrType.Name}: {ex.Message}");
             }
         }
@@ -312,9 +343,9 @@ public class VanAnDbContext : DbContext
         foreach (var entry in entries)
         {
             var entity = (IMustHaveTenant)entry.Entity;
-            if (entity.TenantId == Guid.Empty)
+            if (entity.TenantId.Value == Guid.Empty)
             {
-                entity.TenantId = _tenantProvider?.TenantId ?? Guid.Empty;
+                entity.TenantId = new TenantId(_tenantProvider?.TenantId ?? Guid.Empty);
             }
         }
 

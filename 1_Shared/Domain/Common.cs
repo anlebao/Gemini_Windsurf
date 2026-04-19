@@ -8,7 +8,7 @@ public interface IMustHaveTenant
     /// <summary>
     /// Tenant ID để cách ly dữ liệu giữa các quán
     /// </summary>
-    Guid TenantId { get; set; }
+    TenantId TenantId { get; set; }
 }
 
 /// <summary>
@@ -21,7 +21,7 @@ public abstract class BaseEntity : IMustHaveTenant
     public DateTime? UpdatedAt { get; set; }
     
     // Multi-tenancy field
-    public Guid TenantId { get; set; }
+    public TenantId TenantId { get; set; } = new TenantId(Guid.Empty);
     
     // Audit Trail Compliance (Rule 48)
     public bool IsDeleted { get; set; } = false;

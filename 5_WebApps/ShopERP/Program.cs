@@ -1,6 +1,7 @@
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 using VanAn.Shared.Extensions;
+using VanAn.CoreHub.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using VanAn.CoreHub.Infrastructure;
@@ -37,11 +38,30 @@ public partial class Program
         // Add services to the container.
         builder.Services.AddRazorPages();
         
-        // 🛡️ PHASE 5: SQLite with WAL Mode for Edge Node
+        // PHASE 5: SQLite with WAL Mode for Edge Node
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
             ?? $"Data Source={System.IO.Path.Combine(AppContext.BaseDirectory, "vanan_shoperp.db")}";
         builder.Services.AddDbContext<VanAnDbContext>(options => 
             options.UseSqlite(connectionString));
+        
+        // Register CoreHub Services (FIX: Missing services registration)
+        builder.Services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
+        builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
+        builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
+        builder.Services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
+        builder.Services.AddScoped<IOnboardingService, OnboardingService>();
+        builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
+        builder.Services.AddScoped<ICustomerService, CustomerService>();
+        builder.Services.AddScoped<IOrderService, OrderService>();
+        
+        // Register Repositories (FIX: Missing repository registration)
+        builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.ICustomerRepository, VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository>();
+        
+        // Register Dashboard Service
+        builder.Services.AddScoped<VanAn.CoreHub.Services.IDashboardService, VanAn.CoreHub.Services.DashboardService>();
+        
+        // Add Memory Cache for ShopConfigService
+        builder.Services.AddMemoryCache();
         
         // PHÂN QUYỀN - Authentication & Authorization
         builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

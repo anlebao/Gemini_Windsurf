@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Tests.TestInfrastructure;
@@ -8,7 +9,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 {
     public abstract class IntegrationTestBase : IDisposable
     {
-        protected VanAnDbContext Context { get; private set; }
+        protected VanAnDbContext Context { get; private set; } = null!;
         protected ITestDbProvider DbProvider { get; private set; }
         protected ILogger Logger { get; private set; }
         protected SchemaSyncEngine SchemaEngine { get; private set; }
@@ -17,7 +18,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             DbProvider = dbProvider ?? TestDbProviderFactory.CreateSqlite();
             Logger = logger;
-            SchemaEngine = new SchemaSyncEngine(logger as ILogger<SchemaSyncEngine>);
+            SchemaEngine = new SchemaSyncEngine(logger as ILogger<SchemaSyncEngine> ?? new NullLogger<SchemaSyncEngine>());
         }
 
         protected async Task CreateContextAsync()

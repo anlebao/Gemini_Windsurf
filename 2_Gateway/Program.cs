@@ -50,6 +50,9 @@ public partial class Program
         // Register Order Services
         builder.Services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
 
+        // Register Build Service
+        builder.Services.AddScoped<IBuildService, BuildService>();
+
         // Register Customer Services (Domain-First Implementation)
         builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
         builder.Services.AddScoped<ICustomerService, CustomerService>();

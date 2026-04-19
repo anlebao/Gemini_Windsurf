@@ -62,7 +62,7 @@ public class OrderWorkflowService : IOrderWorkflowService
     public async Task<List<Order>> GetOrdersByShopAsync(Guid shopId)
     {
         return await _context.Set<Order>()
-            .Where(o => o.TenantId == shopId)
+            .Where(o => o.TenantId.Value == shopId)
             .ToListAsync();
     }
 

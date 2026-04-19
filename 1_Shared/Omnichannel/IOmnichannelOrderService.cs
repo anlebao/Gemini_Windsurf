@@ -108,8 +108,21 @@ public record OmnichannelOrder
     public Dictionary<string, object> Metadata { get; init; } = new();
     public bool IsSyncedAcrossDevices { get; init; }
     public string SyncVersion { get; init; } = string.Empty;
-    public List<OrderDeviceTracking> DeviceTracking { get; init; } = new();
     public OrderWorkflowInfo WorkflowInfo { get; init; } = new();
+    public List<OrderDeviceTracking> DeviceTracking { get; init; } = new();
+
+    public OmnichannelOrder()
+    {
+        // Parameterless constructor for backward compatibility
+        CustomerId = new CustomerId(Guid.Empty);
+        Status = new OrderStatusId(string.Empty);
+    }
+
+    public OmnichannelOrder(CustomerId customerId, OrderStatusId status)
+    {
+        CustomerId = customerId ?? throw new ArgumentNullException(nameof(customerId));
+        Status = status;
+    }
 }
 
 /// <summary>
@@ -153,6 +166,11 @@ public record CreateOrderRequest
     public DateTime? EstimatedDeliveryTime { get; init; }
     public Dictionary<string, object> Metadata { get; init; } = new();
     public List<string> Tags { get; init; } = new();
+
+    public CreateOrderRequest(CustomerId customerId)
+    {
+        CustomerId = customerId ?? throw new ArgumentNullException(nameof(customerId));
+    }
 }
 
 /// <summary>
@@ -185,6 +203,19 @@ public record OrderStatusUpdateResult
     public List<string> SyncedDevices { get; init; } = new();
     public List<string> Errors { get; init; } = new();
     public string? Comment { get; init; }
+
+    public OrderStatusUpdateResult()
+    {
+        // Parameterless constructor for backward compatibility
+        PreviousStatus = new OrderStatusId(string.Empty);
+        NewStatus = new OrderStatusId(string.Empty);
+    }
+
+    public OrderStatusUpdateResult(OrderStatusId previousStatus, OrderStatusId newStatus)
+    {
+        PreviousStatus = previousStatus;
+        NewStatus = newStatus;
+    }
 }
 
 /// <summary>
@@ -251,6 +282,19 @@ public record OrderCancellationResult
     public List<string> SyncedDevices { get; init; } = new();
     public List<string> Errors { get; init; } = new();
     public bool RequiresManualIntervention { get; init; }
+
+    public OrderCancellationResult()
+    {
+        // Parameterless constructor for backward compatibility
+        PreviousStatus = new OrderStatusId(string.Empty);
+        NewStatus = new OrderStatusId(string.Empty);
+    }
+
+    public OrderCancellationResult(OrderStatusId previousStatus, OrderStatusId newStatus)
+    {
+        PreviousStatus = previousStatus;
+        NewStatus = newStatus;
+    }
 }
 
 /// <summary>

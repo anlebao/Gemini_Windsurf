@@ -30,7 +30,7 @@ public class KitchenService : IKitchenService
     {
         // 🛡️ STEP 1: SQL Projection - Server-side filtering & flat projection
         var flatItems = await _context.OrderItems
-            .Where(oi => oi.Order.TenantId == shopId && 
+            .Where(oi => oi.Order.TenantId.Value == shopId && 
                         (oi.KitchenStatus == KitchenStatus.Pending || oi.KitchenStatus == KitchenStatus.Preparing))
             .Select(oi => new {
                 OrderItemId = oi.Id,
@@ -43,34 +43,42 @@ public class KitchenService : IKitchenService
                 OrderCreatedAt = oi.Order.OrderDate,
                 OrderId = oi.OrderId
             })
-            .ToListAsync(); // ✅ ALLOWED: Small, flat, filtered dataset
+            .ToListAsync();
 
-        // �️ STEP 2: In-Memory Grouping - Safe client-side with bounded memory
-        var groupedItems = flatItems
-            .GroupBy(item => new { item.ProductId, item.ProductName })
-            .Select(g => new KitchenItemGroupDto
-            {
-                ProductId = g.Key.ProductId,
-                ProductName = g.Key.ProductName,
-                TotalQuantity = g.Sum(item => item.Quantity),
-                GroupStatus = g.All(item => item.Status == KitchenStatus.Pending) ? KitchenStatus.Pending : KitchenStatus.Preparing,
-                OldestOrderTime = g.Min(item => item.OrderCreatedAt),
-                Items = g.Select(item => new GroupedOrderItemDto
+        //  STEP 2: In-Memory Grouping - Safe client-side with bounded memory
+        try
+        {
+            var groupedItems = flatItems
+                .GroupBy(item => new { item.ProductId, item.ProductName })
+                .Select(g => new KitchenItemGroupDto
                 {
-                    OrderItemId = item.OrderItemId,
-                    OrderId = item.OrderId,
-                    Quantity = item.Quantity,
-                    Status = item.Status,
-                    VoiceNoteText = item.VoiceNoteText,
-                    VoiceNoteAudioBlob = item.VoiceNoteAudioBlob,
-                    OrderCreatedAt = item.OrderCreatedAt
-                }).OrderBy(item => item.OrderCreatedAt).ToList() // FIFO within group
-            })
-            .OrderBy(g => g.OldestOrderTime) // FIFO between groups
-            .ToList();
+                    ProductId = g.Key.ProductId,
+                    ProductName = g.Key.ProductName,
+                    TotalQuantity = g.Sum(item => item.Quantity),
+                GroupStatus = g.All(item => item.Status == KitchenStatus.Pending) ? KitchenStatus.Pending : KitchenStatus.Preparing,
+                    OldestOrderTime = g.Min(item => item.OrderCreatedAt),
+                    Items = g.Select(item => new GroupedOrderItemDto
+                    {
+                        OrderItemId = item.OrderItemId,
+                        OrderId = item.OrderId,
+                        Quantity = item.Quantity,
+                        Status = item.Status,
+                        VoiceNoteText = item.VoiceNoteText,
+                        VoiceNoteAudioBlob = item.VoiceNoteAudioBlob,
+                        OrderCreatedAt = item.OrderCreatedAt
+                    }).OrderBy(item => item.OrderCreatedAt).ToList() // FIFO within group
+                })
+                .OrderBy(g => g.OldestOrderTime) // FIFO between groups
+                .ToList();
 
-        _logger.LogInformation("Retrieved {Count} grouped kitchen items for shop {ShopId}", groupedItems.Count, shopId);
-        return groupedItems;
+            _logger.LogInformation("Retrieved {Count} grouped kitchen items for shop {ShopId}", groupedItems.Count, shopId);
+            return groupedItems;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting kitchen items for shop {ShopId}", shopId);
+            return new List<KitchenItemGroupDto>();
+        }
     }
 
     // 📝 STATUS MANAGEMENT
@@ -146,14 +154,14 @@ public class KitchenService : IKitchenService
     {
         return await _context.OrderItems
             .Include(oi => oi.Order)
-            .CountAsync(oi => oi.Order.TenantId == shopId && oi.KitchenStatus == KitchenStatus.Pending);
+            .CountAsync(oi => oi.Order.TenantId.Value == shopId && oi.KitchenStatus == KitchenStatus.Pending);
     }
 
     public async Task<TimeSpan> GetAveragePreparationTimeAsync(Guid shopId, DateTime from)
     {
         var completedItems = await _context.OrderItems
             .Include(oi => oi.Order)
-            .Where(oi => oi.Order.TenantId == shopId && 
+            .Where(oi => oi.Order.TenantId.Value == shopId && 
                         oi.KitchenStatus == KitchenStatus.Completed &&
                         oi.Order.CompletedAt.HasValue &&
                         oi.Order.OrderDate >= from)
@@ -239,7 +247,7 @@ public class KitchenService : IKitchenService
     public async Task<KitchenAnalyticsDto> GetKitchenAnalyticsAsync(Guid shopId, DateTime from)
     {
         var orders = await _context.Orders
-            .Where(o => o.TenantId == shopId && o.OrderDate >= from)
+            .Where(o => o.TenantId.Value == shopId && o.OrderDate >= from)
             .ToListAsync();
 
         var completedOrders = orders.Where(o => o.Status.Value == "Completed").ToList();
@@ -250,9 +258,9 @@ public class KitchenService : IKitchenService
             ShopId = shopId,
             PeriodStart = from,
             PeriodEnd = DateTime.UtcNow,
-            TotalOrders = orders.Count,
-            CompletedOrders = completedOrders.Count,
-            PendingOrders = pendingOrders.Count,
+            TotalOrders = orders.Count(),
+            CompletedOrders = completedOrders.Count(),
+            PendingOrders = pendingOrders.Count(),
             AveragePreparationTime = completedOrders.Any() 
                 ? (double)completedOrders.Average(o => (o.CompletedAt - o.OrderDate)?.TotalMinutes ?? 0)
                 : 0,

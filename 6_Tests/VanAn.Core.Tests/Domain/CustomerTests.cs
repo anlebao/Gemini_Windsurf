@@ -24,12 +24,12 @@ public class CustomerTests
     {
         // Arrange & Act
         var customer = new Customer();
-        var tenantId = Guid.NewGuid();
+        var tenantId = new TenantId(Guid.NewGuid());
         customer.TenantId = tenantId;
 
         // Assert
-        Assert.Equal(tenantId, customer.TenantId);
-        Assert.NotEqual(Guid.Empty, customer.TenantId);
+        Assert.Equal(tenantId.Value, customer.TenantId.Value);
+        Assert.NotEqual(Guid.Empty, customer.TenantId.Value);
     }
 
     [Fact]

@@ -98,6 +98,11 @@ public record InventoryUpdate
     public Dictionary<string, object> Metadata { get; init; } = new();
     public string SyncVersion { get; init; } = string.Empty;
     public List<string> AffectedDevices { get; init; } = new();
+
+    public InventoryUpdate(ProductId productId)
+    {
+        ProductId = productId;
+    }
 }
 
 /// <summary>
@@ -116,9 +121,13 @@ public record CustomerUpdate
     public string UpdatedByDevice { get; init; } = string.Empty;
     public DateTime UpdatedAt { get; init; } = DateTime.UtcNow;
     public string UpdateReason { get; init; } = string.Empty;
-    public Dictionary<string, object> Metadata { get; init; } = new();
     public string SyncVersion { get; init; } = string.Empty;
     public List<string> AffectedDevices { get; init; } = new();
+
+    public CustomerUpdate(CustomerId customerId)
+    {
+        CustomerId = customerId;
+    }
 }
 
 /// <summary>
@@ -181,6 +190,17 @@ public record InventorySyncStatus
     public SyncHealth Health { get; init; }
     public TimeSpan AverageSyncLatency { get; init; }
     public int ConflictCount { get; init; }
+
+    public InventorySyncStatus()
+    {
+        // Parameterless constructor for backward compatibility
+        ProductId = new ProductId(Guid.Empty);
+    }
+
+    public InventorySyncStatus(ProductId productId)
+    {
+        ProductId = productId;
+    }
 }
 
 /// <summary>
@@ -199,6 +219,17 @@ public record CustomerSyncStatus
     public TimeSpan AverageSyncLatency { get; init; }
     public int ConflictCount { get; init; }
     public Dictionary<string, object> CurrentData { get; init; } = new();
+
+    public CustomerSyncStatus()
+    {
+        // Parameterless constructor for backward compatibility
+        CustomerId = new CustomerId(Guid.Empty);
+    }
+
+    public CustomerSyncStatus(CustomerId customerId)
+    {
+        CustomerId = customerId;
+    }
 }
 
 /// <summary>

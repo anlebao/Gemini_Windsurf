@@ -1,7 +1,16 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\3_CoreHub",
+    "\\3_CoreHub\\Infrastructure",
+    "\\5_WebApps",
+    "\\5_WebApps\\ShopERP",
+    "\\5_WebApps\\ShopERP\\Components",
+    "\\5_WebApps\\ShopERP\\Pages",
+    "\\5_WebApps\\ShopERP\\Properties",
+    "\\5_WebApps\\ShopERP\\Services",
+    "\\5_WebApps\\ShopERP\\wwwroot"
   ],
-  "SelectedNode": "\\ecoNexus.Apps.sln",
+  "SelectedNode": "\\3_CoreHub\\Infrastructure\\VanAnDbContext.cs",
   "PreviewInSolutionExplorer": false
 }

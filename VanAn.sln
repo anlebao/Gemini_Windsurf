@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Gateway", "2_Gateway\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.CoreHub", "3_CoreHub\VanAn.CoreHub.csproj", "{D0EA47BA-E5A6-4395-903E-3070A1FA7053}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Accounting", "VanAn.Accounting\VanAn.Accounting.csproj", "{F8A9C5E2-7B4D-4E8F-9A1B-6C3D8E7F9A2B}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "5_WebApps", "5_WebApps", "{A237B000-C43B-4B8F-8FEE-51246CC0DAA0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.KhachLink", "5_WebApps\KhachLink\VanAn.KhachLink.csproj", "{31ECF62E-C1F8-4E30-A8F1-B8A7EDCDD521}"
@@ -19,9 +21,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "6_Tests", "6_Tests", "{9FA8
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Core.Tests", "6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj", "{595E1AFD-5EB6-4403-B379-5AC2552F262C}"
 EndProject
-# Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VanAn.Integration.Tests", "6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj", "{5026577B-54FD-436F-B575-E6122FC0C4B5}"
-# EndProject
-# Temporarily excluded due to architectural issues requiring complete rewrite
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,10 +42,10 @@ Global
 		{D0EA47BA-E5A6-4395-903E-3070A1FA7053}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D0EA47BA-E5A6-4395-903E-3070A1FA7053}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D0EA47BA-E5A6-4395-903E-3070A1FA7053}.Release|Any CPU.Build.0 = Release|Any CPU
-		#		{8B8B9A89-16A9-4A6F-8D00-39B448C62FAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		#		{8B8B9A89-16A9-4A6F-8D00-39B448C62FAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		#		{8B8B9A89-16A9-4A6F-8D00-39B448C62FAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		#		{8B8B9A89-16A9-4A6F-8D00-39B448C62FAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8A9C5E2-7B4D-4E8F-9A1B-6C3D8E7F9A2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8A9C5E2-7B4D-4E8F-9A1B-6C3D8E7F9A2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8A9C5E2-7B4D-4E8F-9A1B-6C3D8E7F9A2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8A9C5E2-7B4D-4E8F-9A1B-6C3D8E7F9A2B}.Release|Any CPU.Build.0 = Release|Any CPU
 		{31ECF62E-C1F8-4E30-A8F1-B8A7EDCDD521}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{31ECF62E-C1F8-4E30-A8F1-B8A7EDCDD521}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{31ECF62E-C1F8-4E30-A8F1-B8A7EDCDD521}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -59,17 +58,10 @@ Global
 		{595E1AFD-5EB6-4403-B379-5AC2552F262C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{595E1AFD-5EB6-4403-B379-5AC2552F262C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{595E1AFD-5EB6-4403-B379-5AC2552F262C}.Release|Any CPU.Build.0 = Release|Any CPU
-		# Integration tests temporarily excluded
-		# {5026577B-54FD-436F-B575-E6122FC0C4B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		# {5026577B-54FD-436F-B575-E6122FC0C4B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		# {5026577B-54FD-436F-B575-E6122FC0C4B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		# {5026577B-54FD-436F-B575-E6122FC0C4B5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		#		{8B8B9A89-16A9-4A6F-8D00-39B448C62FAA} = {55DACB7E-5E74-4AA3-A3B3-1348DDC1D5B4}
 		{31ECF62E-C1F8-4E30-A8F1-B8A7EDCDD521} = {A237B000-C43B-4B8F-8FEE-51246CC0DAA0}
 		{72E0BBB4-37CF-4189-A9E0-21A3E2896B04} = {A237B000-C43B-4B8F-8FEE-51246CC0DAA0}
 		{595E1AFD-5EB6-4403-B379-5AC2552F262C} = {9FA80C79-0EC3-4E39-8635-B46D869004C3}
-		# {5026577B-54FD-436F-B575-E6122FC0C4B5} = {9FA80C79-0EC3-4E39-8635-B46D869004C3}
 	EndGlobalSection
 EndGlobal
