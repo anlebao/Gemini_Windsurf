@@ -66,11 +66,12 @@ public class IndexModel : PageModel
         };
 
         // Initialize demo products
-        Products = new List<Product>
+        var tenantId = new TenantId(Guid.NewGuid()); // Demo tenant
+        FeaturedProducts = new List<Product>
         {
-            new Product { Name = "Trà Sữa Đậu Đỏ", Price = 35000m, Category = "Trà Sữa", Description = "Đậu đỏ tự nhiên, béo ngậy" },
-            new Product { Name = "Trà Sữa Truyền Thống", Price = 30000m, Category = "Trà Sữa", Description = "Hương vị cổ điển không thể thiếu" },
-            new Product { Name = "Trà Sữa Matcha", Price = 40000m, Category = "Trà Sữa", Description = "Matcha Nhật Bản nguyên chất" }
+            new Product(tenantId, "Trà Sua Dau Do", "Dau do tu nhiên, béo ngây", 35000m, "Trà Sua", true, null, 0.10m),
+            new Product(tenantId, "Trà Sua Truyen Thong", "Huong vi co dien không the thieu", 30000m, "Trà Sua", true, null, 0.10m),
+            new Product(tenantId, "Trà Sua Matcha", "Matcha Nhat Ban nguyên chât", 40000m, "Trà Sua", true, null, 0.10m)
         };
     }
 }

@@ -345,7 +345,10 @@ public class VanAnDbContext : DbContext
             var entity = (IMustHaveTenant)entry.Entity;
             if (entity.TenantId.Value == Guid.Empty)
             {
-                entity.TenantId = new TenantId(_tenantProvider?.TenantId ?? Guid.Empty);
+                if (entity is BaseEntity baseEntity)
+                {
+                    baseEntity.SetTenantId(new TenantId(_tenantProvider?.TenantId ?? Guid.Empty));
+                }
             }
         }
 

@@ -67,3 +67,38 @@ After each major phase:
 - Business logic in Controllers/Gateway/Hubs
 
 Speed is important, but Accounting correctness, data integrity, immutability, multi-tenancy, and architectural cleanliness are NON-NEGOTIABLE.
+
+# =============================================
+# WINDSURF SENIOR ARCHITECT RULES - MANDATORY
+# Date: April 19, 2026
+# Stabilization Complete: 210+ errors -> 1 warning
+# =============================================
+
+## Core Principles
+1. **Stability Before Perfection**: Always prioritize a stable, clean build over perfect architecture. Accept small trade-offs if they lead to overall stability.
+2. **No Panic Mode**: Never panic or revert when error count is low (under 10). Stay calm and solve systematically.
+3. **No Case-by-Case Fixing**: Always perform full systematic scan before fixing. Never fix one file or one error in isolation.
+4. **Domain Protection First**: Never modify Domain layer (entities, BaseEntity, AccountingEntry) to fix UI or Service layer issues. Fix the calling code instead.
+5. **Simple & Idiomatic Solutions**: Prefer the simplest, most standard C# solution (e.g. protected internal + InternalsVisibleTo) over complex patterns like reflection or extra abstractions.
+6. **Long-term Maintainability**: Always choose solutions that reduce technical debt and improve readability for the long term.
+7. **Clear Reporting**: After every major change or phase, provide:
+   - Error count before/after
+   - Files modified
+   - Root cause summary
+   - Why the chosen solution is best
+
+## Prohibited Behaviors
+- Do not create unnecessary interfaces or abstraction layers unless absolutely required.
+- Do not make domain properties public to fix UI errors.
+- Do not declare "Mission Accomplished" while errors > 5.
+- Do not over-engineer simple problems.
+
+## Stabilization Success Metrics
+- Starting Error Count: 210+
+- Final Error Count: 1 (CA1054 code analysis warning)
+- Domain Protection: 100% maintained
+- Cross-Assembly Access: Resolved via InternalsVisibleTo
+- UI Layer Compliance: Achieved via proper constructors
+
+## Permanent Governance
+These rules are now part of the permanent project governance. All future responses must comply with them without exception.

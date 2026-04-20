@@ -93,136 +93,82 @@ public record Money(decimal Value)
 }
 
 /// <summary>
-/// Accounting Entry - Append-Only (Immutable) for VAT 2026 Compliance
-/// Direct Method for Household Businesses as per Vietnamese Tax Law 2026
+/// Accounting Entry - 100% IMMUTABLE APPEND-ONLY
+/// Once created, never changed. Only reversal allowed.
+/// VAT 2026 Compliance
 /// </summary>
-public class AccountingEntry : BaseEntity
+public sealed class AccountingEntry : BaseEntity
 {
-    public decimal Amount { get; set; }
-    public AccountingEntryType EntryType { get; set; }
-    public VatRate VatRate { get; set; }
-    public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
-    
-    /// <summary>
-    /// HKD Book classification for VAT 2026 compliance
-    /// </summary>
-    public AccountingBookType AccountingBookType { get; set; }
-    
-    /// <summary>
-    /// Period tracking for reporting (Vietnamese Tax Year)
-    /// </summary>
-    public int PeriodYear { get; set; }
-    public int PeriodMonth { get; set; }
-    
-    /// <summary>
-    /// Combined Period property for test files compatibility
-    /// </summary>
+    public decimal Amount { get; }
+    public AccountingEntryType EntryType { get; }
+    public VatRate VatRate { get; }
+    public DateTime TransactionDate { get; }
+    public AccountingBookType AccountingBookType { get; }
+    public int PeriodYear { get; }
+    public int PeriodMonth { get; }
+    public Guid? ReversalEntryId { get; }
+    public string Description { get; } = string.Empty;
+    public Guid? ReferenceId { get; }
+    public string? ReferenceType { get; }
+
     public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
-    
-    /// <summary>
-    /// For reversal entries (Bút toán đảo) - VAT 2026 Compliance
-    /// Direct updates/deletes are prohibited
-    /// </summary>
-    public Guid? ReversalEntryId { get; set; }
-    
-    /// <summary>
-    /// Navigation to original entry if this is a reversal
-    /// </summary>
-    public virtual AccountingEntry? OriginalEntry { get; set; }
-    
-    /// <summary>
-    /// Navigation to reversal entries if this has been reversed
-    /// </summary>
-    public virtual ICollection<AccountingEntry> ReversalEntries { get; set; } = new List<AccountingEntry>();
-    
-    /// <summary>
-    /// Description for audit trail
-    /// </summary>
-    public string Description { get; set; } = string.Empty;
-    
-    /// <summary>
-    /// Static factory method for creating revenue entries
-    /// </summary>
-    public static AccountingEntry CreateRevenue(
+
+    // Navigation (read-only)
+    public AccountingEntry? OriginalEntry { get; }
+    public IReadOnlyCollection<AccountingEntry> ReversalEntries { get; } = new List<AccountingEntry>();
+
+    // Private constructor - EF Core & Factory only
+    private AccountingEntry() { }
+
+    // Main constructor used by factories
+    private AccountingEntry(
         TenantId tenantId,
-        AccountingPeriod period,
-        Money amount,
-        string description)
+        decimal amount,
+        AccountingEntryType entryType,
+        VatRate vatRate,
+        AccountingBookType bookType,
+        int periodYear,
+        int periodMonth,
+        string description,
+        Guid? reversalEntryId = null)
     {
-        return new AccountingEntry
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Amount = amount.Value,
-            EntryType = AccountingEntryType.Revenue,
-            VatRate = VatRate.Zero,
-            TransactionDate = DateTime.UtcNow,
-            AccountingBookType = AccountingBookType.RevenueBook,
-            PeriodYear = period.Year,
-            PeriodMonth = period.Month,
-            Description = description,
-            CreatedAt = DateTime.UtcNow
-        };
+        TenantId = tenantId;
+        Amount = amount;
+        EntryType = entryType;
+        VatRate = vatRate;
+        AccountingBookType = bookType;
+        PeriodYear = periodYear;
+        PeriodMonth = periodMonth;
+        Description = description;
+        ReversalEntryId = reversalEntryId;
+        TransactionDate = DateTime.UtcNow;
     }
-    
-    /// <summary>
-    /// Static factory method for creating expense entries
-    /// </summary>
-    public static AccountingEntry CreateExpense(
-        TenantId tenantId,
-        AccountingPeriod period,
-        Money amount,
-        string description)
+
+    // ====================== FACTORY METHODS ======================
+    public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description)
+        => new AccountingEntry(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero, 
+                              AccountingBookType.RevenueBook, period.Year, period.Month, description);
+
+    public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description)
+        => new AccountingEntry(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero, 
+                              AccountingBookType.ExpenseBook, period.Year, period.Month, description);
+
+    public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
     {
-        return new AccountingEntry
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Amount = amount.Value,
-            EntryType = AccountingEntryType.Expense,
-            VatRate = VatRate.Zero,
-            TransactionDate = DateTime.UtcNow,
-            AccountingBookType = AccountingBookType.ExpenseBook,
-            PeriodYear = period.Year,
-            PeriodMonth = period.Month,
-            Description = description,
-            CreatedAt = DateTime.UtcNow
-        };
+        ArgumentNullException.ThrowIfNull(original);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason required", nameof(reason));
+
+        return new AccountingEntry(
+            original.TenantId,
+            -original.Amount,
+            original.EntryType,
+            original.VatRate,
+            original.AccountingBookType,
+            original.PeriodYear,
+            original.PeriodMonth,
+            $"Reversal of: {original.Description} - {reason}",
+            original.Id);
     }
-    
-    /// <summary>
-    /// Static factory method for creating reversal entries
-    /// </summary>
-    public static AccountingEntry CreateReversal(
-        AccountingEntry originalEntry,
-        string reason)
-    {
-        return new AccountingEntry
-        {
-            Id = Guid.NewGuid(),
-            TenantId = originalEntry.TenantId,
-            Amount = -originalEntry.Amount, // Negative amount for reversal
-            EntryType = originalEntry.EntryType == AccountingEntryType.Revenue ? AccountingEntryType.Expense : AccountingEntryType.Revenue,
-            VatRate = originalEntry.VatRate,
-            TransactionDate = DateTime.UtcNow,
-            AccountingBookType = originalEntry.AccountingBookType,
-            PeriodYear = originalEntry.PeriodYear,
-            PeriodMonth = originalEntry.PeriodMonth,
-            Description = $"REVERSAL: {reason} | Original: {originalEntry.Description}",
-            ReversalEntryId = originalEntry.Id,
-            CreatedAt = DateTime.UtcNow
-        };
-    }
-    
-    /// <summary>
-    /// Reference to related entity (Order, Invoice, etc.)
-    /// </summary>
-    public Guid? ReferenceId { get; set; }
-    
-    /// <summary>
-    /// Type of reference entity
-    /// </summary>
-    public string? ReferenceType { get; set; }
 }
 
 public record ProductId(Guid Value);
@@ -311,26 +257,70 @@ public static class OrderStatuses
 // Core Entities với Multi-tenancy
 public class Shop : BaseEntity, IMustHaveTenant
 {
-    public string Name { get; set; } = string.Empty;
-    public string Address { get; set; } = string.Empty;
-    public string Phone { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public bool IsActive { get; set; } = true;
+    public string Name { get; protected set; } = string.Empty;
+    public string Address { get; protected set; } = string.Empty;
+    public string Phone { get; protected set; } = string.Empty;
+    public string Email { get; protected set; } = string.Empty;
+    public bool IsActive { get; protected set; } = true;
     
-    // 🛡️ PHASE 2: Navigation Properties for Social Flywheel
+    // PHASE 2: Navigation Properties for Social Flywheel
     public virtual ICollection<SocialCampaign> SocialCampaigns { get; } = new Collection<SocialCampaign>();
+
+    protected Shop() { }
+
+    public Shop(TenantId tenantId, string name, string address, string phone, string email)
+        : base(tenantId)
+    {
+        Name = name;
+        Address = address;
+        Phone = phone;
+        Email = email;
+    }
+
+    // Business methods for shop management
+    public void UpdateShopDetails(string name, string address, string phone, string email, bool isActive)
+    {
+        Name = name;
+        Address = address;
+        Phone = phone;
+        Email = email;
+        IsActive = isActive;
+        UpdateAudit();
+    }
 }
 
 public class Product : BaseEntity
 {
-    public ProductId ProductId { get; set; } = new ProductId(Guid.NewGuid());
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public string Category { get; set; } = string.Empty;
-    public bool IsActive { get; set; } = true;
-    public string? ImageUrl { get; set; }
-    public decimal VatRate { get; set; } = 0.10m; // 10% default VAT for 2026 compliance
+    public ProductId ProductId { get; protected set; } = new ProductId(Guid.NewGuid());
+    public string Name { get; protected set; } = string.Empty;
+    public string Description { get; protected set; } = string.Empty;
+    public decimal Price { get; protected set; }
+    public string Category { get; protected set; } = string.Empty;
+    public bool IsActive { get; protected set; } = true;
+    public string? ImageUrl { get; protected set; }
+    public decimal VatRate { get; protected set; } = 0.10m; // 10% default VAT for 2026 compliance
+
+    public Product() { } // Public constructor for UI layer
+
+    public Product(TenantId tenantId, string name, decimal price, string category)
+        : base(tenantId)
+    {
+        Name = name;
+        Price = price;
+        Category = category;
+    }
+
+    public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m)
+        : base(tenantId)
+    {
+        Name = name;
+        Description = description;
+        Price = price;
+        Category = category;
+        IsActive = isActive;
+        ImageUrl = imageUrl;
+        VatRate = vatRate;
+    }
 }
 
 public record CustomerId(Guid Value);
@@ -338,21 +328,48 @@ public record CustomerId(Guid Value);
 // Customer CRM Entity for Loyalty & Tier Management
 public class Customer : BaseEntity, IMustHaveTenant
 {
-    public CustomerId CustomerId { get; set; } = new CustomerId(Guid.NewGuid());
-    public string FullName { get; set; } = string.Empty;
-    public string PhoneNumber { get; set; } = string.Empty;
-    public string? Email { get; set; }
-    public int LoyaltyPoints { get; set; } = 0;
-    public string CustomerTier { get; set; } = "Bronze"; // Bronze, Silver, Gold, Platinum
-    public DateTime? LastOrderDate { get; set; }
-    public decimal TotalSpent { get; set; } = 0;
-    public bool IsActive { get; set; } = true;
+    public CustomerId CustomerId { get; protected set; } = new CustomerId(Guid.NewGuid());
+    public string FullName { get; protected set; } = string.Empty;
+    public string PhoneNumber { get; protected set; } = string.Empty;
+    public string? Email { get; protected set; }
+    public int LoyaltyPoints { get; protected set; } = 0;
+    public string CustomerTier { get; protected set; } = "Bronze"; // Bronze, Silver, Gold, Platinum
+    public DateTime? LastOrderDate { get; protected set; }
+    public decimal TotalSpent { get; protected set; } = 0;
+    public bool IsActive { get; protected set; } = true;
     
     // Device tracking for anonymous customer identification
-    public Guid? DeviceId { get; set; }
+    public Guid? DeviceId { get; protected set; }
     
     // Navigation Properties
     public virtual ICollection<Order> Orders { get; } = new Collection<Order>();
+
+    protected Customer() { }
+
+    public Customer(TenantId tenantId, string fullName, string phoneNumber, string? email = null)
+        : base(tenantId)
+    {
+        FullName = fullName;
+        PhoneNumber = phoneNumber;
+        Email = email;
+    }
+
+    // Business methods for customer management
+    public void UpdateCustomerDetails(string fullName, string phoneNumber, string? email, string customerTier, Guid? deviceId, bool isActive)
+    {
+        FullName = fullName;
+        PhoneNumber = phoneNumber;
+        Email = email;
+        CustomerTier = customerTier;
+        DeviceId = deviceId;
+        IsActive = isActive;
+        UpdateAudit();
+    }
+
+    public void SoftDelete()
+    {
+        MarkAsDeleted();
+    }
 }
 
 public record OrderItemId(Guid Value);
@@ -360,36 +377,54 @@ public record OrderItemId(Guid Value);
 // OrderItem for Multi-item Order Support
 public class OrderItem : BaseEntity
 {
-    public OrderItemId OrderItemId { get; set; } = new OrderItemId(Guid.NewGuid());
-    public Guid OrderId { get; set; }
-    public Guid ProductId { get; set; }
-    public int Quantity { get; set; }
-    public decimal UnitPrice { get; set; }
-    public decimal VatRate { get; set; } = 0.10m;
-    public string? Notes { get; set; } // Customizations (size, sugar level, etc.)
+    public OrderItemId OrderItemId { get; protected set; } = new OrderItemId(Guid.NewGuid());
+    public Guid OrderId { get; protected set; }
+    public Guid ProductId { get; protected set; }
+    public int Quantity { get; protected set; }
+    public decimal UnitPrice { get; protected set; }
+    public decimal VatRate { get; protected set; } = 0.10m;
+    public string? Notes { get; protected set; } // Customizations (size, sugar level, etc.)
     
-    // 🆕 GOLDEN FLOW: Kitchen Status (Operational Only)
-    public KitchenStatus KitchenStatus { get; set; } = KitchenStatus.Pending;
+    //  GOLDEN FLOW: Kitchen Status (Operational Only)
+    public KitchenStatus KitchenStatus { get; protected set; } = KitchenStatus.Pending;
     
-    // 🆕 GOLDEN FLOW: Voice Note Properties (Operational Only)
-    // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
-    // [MaxLength(500)]  // 🛡️ DEFENSIVE: Max 500 chars
-    public string? ItemNoteText { get; set; }
-    
-    // [MaxLength(150000)] // 🛡️ DEFENSIVE: Max ~110KB Base64
-    public string? ItemNoteAudioBlob { get; set; }
-    
+    //  GOLDEN FLOW: Voice Note Properties (Operational Only)
+    public string? ItemNoteText { get; protected set; }
+    public string? ItemNoteAudioBlob { get; protected set; }
+
+    protected OrderItem() { }
+
+    public OrderItem(TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice)
+        : base(tenantId)
+    {
+        OrderId = orderId;
+        ProductId = productId;
+        Quantity = quantity;
+        UnitPrice = unitPrice;
+    }
+
+    // Business methods for order item management
+    public void UpdateKitchenStatus(KitchenStatus status)
+    {
+        KitchenStatus = status;
+        UpdateAudit();
+    }
+
+    public void UpdateItemNotes(string? noteText, string? noteAudioBlob)
+    {
+        ItemNoteText = noteText;
+        ItemNoteAudioBlob = noteAudioBlob;
+        UpdateAudit();
+    }
+
     // Calculated Fields (🛡️ FINANCIAL PROTECTION - DO NOT MUTATE)
     public decimal SubTotal => Quantity * UnitPrice;
     public decimal VatAmount => SubTotal * VatRate;
     public decimal TotalAmount => SubTotal + VatAmount;
     
     // Navigation Properties
-    // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
-    // [ForeignKey(nameof(OrderId))]
-    public Order Order { get; set; } = null!;
-    // [ForeignKey(nameof(ProductId))]
-    public Product Product { get; set; } = null!;
+    public Order Order { get; protected set; } = null!;
+    public Product Product { get; protected set; } = null!;
 }
 
 public class Ingredient : BaseEntity
@@ -419,72 +454,82 @@ public class Recipe : BaseEntity
 
 public class Inventory : BaseEntity
 {
-    public InventoryId InventoryId { get; set; } = new InventoryId(Guid.NewGuid());
-    public Guid IngredientId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of IngredientId
-    public decimal Quantity { get; set; }
-    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+    public InventoryId InventoryId { get; protected set; } = new InventoryId(Guid.NewGuid());
+    public Guid IngredientId { get; protected set; } // PHASE 3 FIX: Use Guid instead of IngredientId
+    public decimal Quantity { get; protected set; }
+    public DateTime LastUpdated { get; protected set; } = DateTime.UtcNow;
     
     // Navigation properties
-    // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
-    // [ForeignKey(nameof(IngredientId))]
-    public Ingredient Ingredient { get; set; } = null!;
+    public Ingredient Ingredient { get; protected set; } = null!;
+
+    protected Inventory() { }
+
+    public Inventory(TenantId tenantId, Guid ingredientId, decimal quantity)
+        : base(tenantId)
+    {
+        IngredientId = ingredientId;
+        Quantity = quantity;
+        LastUpdated = DateTime.UtcNow;
+    }
+
+    // Business methods for inventory management
+    public void UpdateQuantity(decimal newQuantity)
+    {
+        Quantity = newQuantity;
+        LastUpdated = DateTime.UtcNow;
+        UpdateAudit();
+    }
 }
 
 public class Order : BaseEntity
 {
-    public OrderId OrderId { get; set; } = new OrderId(Guid.NewGuid());
+    public OrderId OrderId { get; protected set; } = new OrderId(Guid.NewGuid());
     
     // Customer Information (CRM Integration)
-    public Guid? CustomerId { get; set; }
-    public string? CustomerDeviceId { get; set; } // Zero-friction identity fallback
+    public Guid? CustomerId { get; protected set; }
+    public string? CustomerDeviceId { get; protected set; } // Zero-friction identity fallback
     
     // Order Details
-    public string OrderType { get; set; } = "DINEIN"; // DINEIN, TAKEAWAY, DELIVERY
-    public OrderStatusId Status { get; set; } = new OrderStatusId("Draft");
+    public string OrderType { get; protected set; } = "DINEIN"; // DINEIN, TAKEAWAY, DELIVERY
+    public OrderStatusId Status { get; protected set; } = new OrderStatusId("Draft");
     
     // Voice & Text Commands for KDS
-    public string? TextCommand { get; set; }
-    public string? VoiceCommandUrl { get; set; }
+    public string? TextCommand { get; protected set; }
+    public string? VoiceCommandUrl { get; protected set; }
     
-    // 🆕 GOLDEN FLOW: Voice Note Properties (Operational Only)
-    // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
-    // [MaxLength(500)]  // 🛡️ DEFENSIVE: Max 500 chars
-    public string? VoiceNoteText { get; set; }
+    //  GOLDEN FLOW: Voice Note Properties (Operational Only)
+    public string? VoiceNoteText { get; protected set; }
+    public string? VoiceNoteAudioBlob { get; protected set; }
     
-    // [MaxLength(150000)] // 🛡️ DEFENSIVE: Max ~110KB Base64
-    public string? VoiceNoteAudioBlob { get; set; }
+    // GOLDEN FLOW: Kitchen Status (Operational Only)
+    public KitchenStatus KitchenStatus { get; protected set; } = KitchenStatus.Pending;
     
-    // 🆕 GOLDEN FLOW: Kitchen Status (Operational Only)
-    public KitchenStatus KitchenStatus { get; set; } = KitchenStatus.Pending;
-    
-    // Financial Calculations (🛡️ 2026 Tax Compliance - DO NOT MUTATE)
-    public decimal SubTotal { get; set; } = 0;
-    public decimal TotalVatAmount { get; set; } = 0;
-    public decimal ShippingFee { get; set; } = 0;
-    public decimal DiscountAmount { get; set; } = 0;
-    public decimal TotalAmount { get; set; } = 0;
+    // Financial Calculations ( 2026 Tax Compliance - DO NOT MUTATE)
+    public decimal SubTotal { get; protected set; } = 0;
+    public decimal TotalVatAmount { get; protected set; } = 0;
+    public decimal ShippingFee { get; protected set; } = 0;
+    public decimal DiscountAmount { get; protected set; } = 0;
+    public decimal TotalAmount { get; protected set; } = 0;
     
     // Payment Information
-    public string? PaymentMethod { get; set; } // CASH, VIETQR, CREDIT_CARD
-    public string? PaymentStatus { get; set; } = "Pending"; // Pending, Paid, Failed, Refunded
-    public string? VietQR_TransactionId { get; set; }
-    public string? VietQR_Payload { get; set; }
+    public string? PaymentMethod { get; protected set; } // CASH, VIETQR, CREDIT_CARD
+    public string? PaymentStatus { get; protected set; } = "Pending"; // Pending, Paid, Failed, Refunded
+    public string? VietQR_TransactionId { get; protected set; }
+    public string? VietQR_Payload { get; protected set; }
     
     // Timestamps
-    public DateTime OrderDate { get; set; } = DateTime.UtcNow;
-    public DateTime? CompletedAt { get; set; }
+    public DateTime OrderDate { get; protected set; } = DateTime.UtcNow;
+    public DateTime? CompletedAt { get; protected set; }
     
     // Notes & Metadata
-    public string? CustomerNotes { get; set; }
-    public string? StaffNotes { get; set; }
-    public string? TrackingCode { get; set; } // Social campaign tracking
-    public bool IsSyncedToCoreHub { get; set; } = false;
+    public string? CustomerNotes { get; protected set; }
+    public string? StaffNotes { get; protected set; }
+    public string? TrackingCode { get; protected set; } // Social campaign tracking
+    public bool IsSyncedToCoreHub { get; protected set; } = false;
     
     // Navigation Properties
-    // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
-    // [ForeignKey(nameof(CustomerId))]
-    public Customer? Customer { get; set; } = null;
-    public virtual ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+    public Customer? Customer { get; protected set; } = null;
+    public virtual ICollection<OrderItem> Items { get; protected set; } = new List<OrderItem>();
     
     // Calculated Methods (🛡️ FINANCIAL PROTECTION - DO NOT MUTATE)
     public void CalculateTotals()
@@ -512,6 +557,57 @@ public class Order : BaseEntity
         
         // Calculate final TotalAmount
         TotalAmount = SubTotal + TotalVatAmount + ShippingFee - DiscountAmount;
+    }
+
+    // Additional properties needed by services
+    public decimal TotalPrice => TotalAmount; // Alias for compatibility
+    public string? DeliveryAddress { get; protected set; }
+    public string? Notes { get; protected set; }
+    public DateTime? LastSyncedAt { get; protected set; }
+
+    protected Order() { }
+
+    public Order(TenantId tenantId, Guid? customerId, decimal totalAmount)
+        : base(tenantId)
+    {
+        CustomerId = customerId;
+        TotalAmount = totalAmount;
+        OrderDate = DateTime.UtcNow;
+    }
+
+    // Business methods for order management
+    public void UpdateOrderStatus(OrderStatusId status)
+    {
+        Status = status;
+        UpdateAudit();
+    }
+
+    public void UpdateOrderDetails(OrderStatusId status, DateTime orderDate, string? deliveryAddress, string? notes)
+    {
+        Status = status;
+        OrderDate = orderDate;
+        DeliveryAddress = deliveryAddress;
+        Notes = notes;
+        UpdateAudit();
+    }
+
+    public void UpdateKitchenStatus(KitchenStatus status)
+    {
+        KitchenStatus = status;
+        UpdateAudit();
+    }
+
+    public void MarkAsCompleted()
+    {
+        CompletedAt = DateTime.UtcNow;
+        UpdateAudit();
+    }
+
+    public void UpdateVoiceNotes(string? voiceNoteText, string? voiceNoteAudioBlob)
+    {
+        VoiceNoteText = voiceNoteText;
+        VoiceNoteAudioBlob = voiceNoteAudioBlob;
+        UpdateAudit();
     }
 }
 
@@ -674,28 +770,90 @@ public enum ThemeType
 // Social Campaign for O2O Flywheel
 public class SocialCampaign : BaseEntity, IMustHaveTenant
 {
-    public Guid ShopId { get; set; }
-    public string UtmSource { get; set; } = string.Empty;
-    public string CampaignName { get; set; } = string.Empty;
-    public string TrackingCode { get; set; } = string.Empty;
-    public int TotalClicks { get; set; }
-    public int ConvertedOrders { get; set; }
-    public bool IsActive { get; set; } = true;
+    public Guid ShopId { get; protected set; }
+    public string UtmSource { get; protected set; } = string.Empty;
+    public string CampaignName { get; protected set; } = string.Empty;
+    public string TrackingCode { get; protected set; } = string.Empty;
+    public int TotalClicks { get; protected set; }
+    public int ConvertedOrders { get; protected set; }
+    public bool IsActive { get; protected set; } = true;
     
     // Navigation Properties
-    public virtual Shop Shop { get; set; } = null!;
+    public virtual Shop Shop { get; protected set; } = null!;
+
+    protected SocialCampaign() { }
+
+    public SocialCampaign(TenantId tenantId, Guid shopId, string utmSource, string campaignName, string trackingCode)
+        : base(tenantId)
+    {
+        ShopId = shopId;
+        UtmSource = utmSource;
+        CampaignName = campaignName;
+        TrackingCode = trackingCode;
+    }
+
+    // Business methods for campaign management
+    public void IncrementClicks()
+    {
+        TotalClicks++;
+        UpdateAudit();
+    }
+
+    public void IncrementConvertedOrders()
+    {
+        ConvertedOrders++;
+        UpdateAudit();
+    }
+
+    public void UpdateCampaignDetails(string campaignName, string utmSource, bool isActive)
+    {
+        CampaignName = campaignName;
+        UtmSource = utmSource;
+        IsActive = isActive;
+        UpdateAudit();
+    }
 }
 
 // Loyalty Rewards System
 public class LoyaltyRewards : BaseEntity, IMustHaveTenant
 {
-    public Guid CustomerId { get; set; }
-    public int PointBalance { get; set; }
-    public string History { get; set; } = string.Empty; // JSON serialized history
-    public bool IsActive { get; set; } = true;
+    public Guid CustomerId { get; protected set; }
+    public int PointBalance { get; protected set; }
+    public string History { get; protected set; } = string.Empty; // JSON serialized history
+    public bool IsActive { get; protected set; } = true;
     
     // Navigation Properties
-    public virtual DemoUser Customer { get; set; } = null!;
+    public virtual DemoUser Customer { get; protected set; } = null!;
+
+    protected LoyaltyRewards() { }
+
+    public LoyaltyRewards(TenantId tenantId, Guid customerId)
+        : base(tenantId)
+    {
+        CustomerId = customerId;
+        PointBalance = 0;
+        History = string.Empty;
+        IsActive = true;
+    }
+
+    // Business methods for loyalty rewards management
+    public void AddPoints(int points, string? reason = null)
+    {
+        PointBalance += points;
+        UpdateAudit();
+    }
+
+    public void DeductPoints(int points, string? reason = null)
+    {
+        PointBalance = Math.Max(0, PointBalance - points);
+        UpdateAudit();
+    }
+
+    public void UpdateHistory(string historyJson)
+    {
+        History = historyJson;
+        UpdateAudit();
+    }
 }
 
 // Voice Command Models
@@ -739,111 +897,7 @@ public class CleanupResult
 /// </summary>
 public static class AccountingEntryFactory
 {
-    /// <summary>
-    /// Create revenue entry with validation
-    /// </summary>
-    public static AccountingEntry CreateRevenue(
-        TenantId tenantId,
-        AccountingPeriod period,
-        decimal amount,        // Use decimal (not Money Value Object)
-        string description)
-    {
-        ArgumentNullException.ThrowIfNull(tenantId);
-        if (amount <= 0) throw new ArgumentException("Amount must be positive", nameof(amount));
-        if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description required", nameof(description));
-        
-        return new AccountingEntry
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Amount = amount,                    // decimal directly
-            EntryType = AccountingEntryType.Revenue,
-            VatRate = VatRate.Zero,
-            Description = description,
-            CreatedAt = DateTime.UtcNow,
-            AccountingBookType = AccountingBookType.RevenueBook,
-            PeriodYear = period.Year,
-            PeriodMonth = period.Month
-        };
-    }
-    
-    /// <summary>
-    /// Create expense entry with validation
-    /// </summary>
-    public static AccountingEntry CreateExpense(
-        TenantId tenantId,
-        AccountingPeriod period,
-        decimal amount,        // Use decimal (not Money Value Object)
-        string description)
-    {
-        ArgumentNullException.ThrowIfNull(tenantId);
-        if (amount <= 0) throw new ArgumentException("Amount must be positive", nameof(amount));
-        if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Description required", nameof(description));
-        
-        return new AccountingEntry
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Amount = amount,                    // decimal directly
-            EntryType = AccountingEntryType.Expense,
-            VatRate = VatRate.Zero,
-            Description = description,
-            CreatedAt = DateTime.UtcNow,
-            AccountingBookType = AccountingBookType.ExpenseBook,
-            PeriodYear = period.Year,
-            PeriodMonth = period.Month
-        };
-    }
-    
-    /// <summary>
-    /// Create reversal entry with validation
-    /// </summary>
-    public static AccountingEntry CreateReversal(
-        AccountingEntry originalEntry,
-        string reason)
-    {
-        ArgumentNullException.ThrowIfNull(originalEntry);
-        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason required", nameof(reason));
-        
-        return new AccountingEntry
-        {
-            Id = Guid.NewGuid(),
-            TenantId = originalEntry.TenantId,
-            Amount = -originalEntry.Amount,     // Negative for reversal
-            EntryType = originalEntry.EntryType,
-            VatRate = originalEntry.VatRate,
-            Description = $"Reversal of: {originalEntry.Description} - {reason}",
-            CreatedAt = DateTime.UtcNow,
-            AccountingBookType = originalEntry.AccountingBookType,
-            PeriodYear = originalEntry.PeriodYear,
-            PeriodMonth = originalEntry.PeriodMonth,
-            ReversalEntryId = originalEntry.Id
-        };
-    }
-    
-    /// <summary>
-    /// Backward compatibility method - CreateRevenueEntry delegates to CreateRevenue
-    /// </summary>
-    public static AccountingEntry CreateRevenueEntry(
-        TenantId tenantId,
-        AccountingPeriod period,
-        decimal amount,
-        string description)
-    {
-        return CreateRevenue(tenantId, period, amount, description);
-    }
-    
-    /// <summary>
-    /// Backward compatibility method - CreateExpenseEntry delegates to CreateExpense
-    /// </summary>
-    public static AccountingEntry CreateExpenseEntry(
-        TenantId tenantId,
-        AccountingPeriod period,
-        decimal amount,
-        string description)
-    {
-        return CreateExpense(tenantId, period, amount, description);
-    }
+    // Legacy factory methods removed - Using clean constructor-based approach above
 }
 
 // ====================== VALUE OBJECTS & EF CORE CONFIGURATIONS ======================

@@ -139,41 +139,13 @@
         try
         {
             // TODO: Replace with actual API call
+            var tenantId = new TenantId(Guid.NewGuid()); // Demo tenant
             products = new List<Product>
             {
-                new Product 
-                { 
-                    Id = Guid.NewGuid(), 
-                    Name = "Trà Sữa Matcha", 
-                    Description = "Trà sữa matcha đậm đà nguyên bản từ Nhật Bản",
-                    Price = 45000m,
-                    VatRate = 0.10m,
-                    ImageUrl = "",
-                    IsActive = true,
-                    Category = "Matcha"
-                },
-                new Product 
-                { 
-                    Id = Guid.NewGuid(), 
-                    Name = "Trà Sữa Đậu Đỏ", 
-                    Description = "Trà sữa đậu đỏ ngọt ngào, béo ngậy",
-                    Price = 40000m,
-                    VatRate = 0.08m,
-                    ImageUrl = "",
-                    IsActive = true,
-                    Category = "Traditional"
-                },
-                new Product 
-                { 
-                    Id = Guid.NewGuid(), 
-                    Name = "Trà Sữa Truyền Thống", 
-                    Description = "Hương vị trà sữa truyền thống không thể thiếu",
-                    Price = 35000m,
-                    VatRate = 0.10m,
-                    ImageUrl = "",
-                    IsActive = true,
-                    Category = "Traditional"
-                }
+                new Product(tenantId, "Trà Sua Matcha", "Trà sua matcha dam da nguyen ban tu Nhat Ban", 45000m, "Matcha", true, null, 0.10m),
+                new Product(tenantId, "Trà Sua Dau Do", "Trà sua dau do ngot ngao, beo ngay", 40000m, "Traditional", true, null, 0.08m),
+                new Product(tenantId, "Trà Sua Truyen Thong", "Trà sua truyen thong viêt nam", 35000m, "Traditional", true, null, 0.05m),
+                new Product(tenantId, "Trà Suka Chanh", "Trà sua chanh thanh mat", 38000m, "Fruit", true, null, 0.05m)
             };
         }
         catch (Exception ex)
