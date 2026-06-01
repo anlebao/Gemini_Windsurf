@@ -1,0 +1,53 @@
+# ShopERP Code Owners
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @anlebao
+
+# Domain Layer - Critical, requires domain expert review
+1_Shared/Domain.cs @anlebao
+1_Shared/BusinessRules.cs @anlebao
+
+# Architecture and ADRs
+docs/decisions/ @anlebao
+.windsurf/rules/ @anlebao
+
+# CI/CD Workflows
+.github/workflows/ @anlebao
+.github/actions/ @anlebao
+guard-check.ps1 @anlebao
+
+# Database and Infrastructure
+docker-compose*.yml @anlebao
+**/Dockerfile @anlebao
+docs/Implement/ @anlebao
+
+# UI Platform
+UI.Platform/ @anlebao
+
+# Testing
+6_Tests/ @anlebao
+6_Testing/ @anlebao
+*.spec.ts @anlebao
+
+# Mobile Apps
+4_MobileApps/ @mobile-lead
+
+# Accounting Domain
+docs/knowledge-base/02-domains/Accounting.md @accounting-domain
+1_Shared/Domain.cs # AccountingEntry @accounting-domain
+
+# Order Domain
+docs/knowledge-base/02-domains/Order.md @order-domain
+
+# Security-sensitive files
+**/*secret* @security
+**/*password* @security
+.env* @security
+
+# Documentation
+docs/ @tech-writer
+*.md @tech-writer
+
+# Note: Replace @anlebao, @anlebao, etc. with actual GitHub usernames
+# Example: @johndoe, @janesmith
