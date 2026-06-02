@@ -1,0 +1,205 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '5_WebApps/**'
+      - 'UI.Platform/**'
+      - '6_Testing/e2e-tests/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '5_WebApps/**'
+      - 'UI.Platform/**'
+      - '6_Testing/e2e-tests/**'
+  workflow_dispatch:
+    inputs:
+      spec:
+        description: 'Specific test file to run (optional)'
+        required: false
+        default: ''
+      browser:
+        description: 'Browser to use'
+        required: false
+        default: 'chromium'
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+  PLAYWRIGHT_VERSION: '1.40.x'
+
+jobs:
+  # Job 1: Build Applications
+  build-apps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+      
+      - name: Restore
+        run: dotnet restore VanAn.sln
+      
+      - name: Build Solution
+        run: dotnet build VanAn.sln --no-restore --configuration Release
+        
+      - name: Publish ShopERP
+        run: dotnet publish 5_WebApps/ShopERP/VanAn.ShopERP.csproj --no-build --configuration Release --output ./artifacts/shoperp
+        
+      - name: Publish Gateway
+        run: dotnet publish 2_Gateway/VanAn.Gateway.csproj --no-build --configuration Release --output ./artifacts/gateway
+        
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-artifacts
+          path: ./artifacts/
+          retention-days: 1
+
+  # Job 2: Setup Playwright
+  setup-playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Cache Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ hashFiles('6_Testing/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}-
+            ${{ runner.os }}-playwright-
+      
+      - name: Install Dependencies
+        working-directory: 6_Testing
+        run: npm ci
+        
+      - name: Install Playwright Browsers
+        working-directory: 6_Testing
+        run: npx playwright install --with-deps ${{ github.event.inputs.browser || 'chromium' }}
+
+  # Job 3: Run E2E Tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [build-apps, setup-playwright]
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Restore Playwright Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ hashFiles('6_Testing/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}-
+      
+      - name: Install Dependencies
+        working-directory: 6_Testing
+        run: npm ci
+        
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-artifacts
+          path: ./artifacts/
+          
+      - name: Start Services
+        run: |
+          # Start applications in background
+          dotnet ./artifacts/gateway/VanAn.Gateway.dll &
+          sleep 10
+          dotnet ./artifacts/shoperp/VanAn.ShopERP.dll &
+          sleep 10
+        continue-on-error: true
+        
+      - name: Run E2E Tests
+        working-directory: 6_Testing
+        run: |
+          if [ -n "${{ github.event.inputs.spec }}" ]; then
+            npx playwright test ${{ github.event.inputs.spec }} --project=${{ github.event.inputs.browser || 'chromium' }}
+          else
+            npx playwright test --project=${{ github.event.inputs.browser || 'chromium' }} --grep-invert "@slow"
+          fi
+        env:
+          CI: true
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
+          
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-results
+          path: |
+            6_Testing/playwright-report/
+            6_Testing/test-results/
+          retention-days: 30
+          
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            6_Testing/reports/
+          retention-days: 30
+
+  # Job 4: Quality Gate Summary
+  quality-gate:
+    runs-on: ubuntu-latest
+    needs: [build-apps, e2e-tests]
+    if: always()
+    timeout-minutes: 5
+    
+    steps:
+      - name: E2E Test Summary
+        run: |
+          echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.e2e-tests.result }}" == "success" ]; then
+            echo "✅ E2E Tests Passed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.e2e-tests.result }}" == "skipped" ]; then
+            echo "⏭️ E2E Tests Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ E2E Tests Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Artifacts available for download" >> $GITHUB_STEP_SUMMARY
