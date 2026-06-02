@@ -1,0 +1,192 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  # Job 1: PR Metadata Check
+  pr-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        
+      - name: Check PR Title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const patterns = [
+              /^feat:/i,
+              /^fix:/i,
+              /^docs:/i,
+              /^refactor:/i,
+              /^test:/i,
+              /^chore:/i,
+              /^adr:/i
+            ];
+            
+            const valid = patterns.some(p => p.test(title));
+            if (!valid) {
+              core.setFailed(`PR title must start with: feat:, fix:, docs:, refactor:, test:, chore:, or adr:`);
+            }
+            
+      - name: Check Branch Naming
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          if [[ ! "$BRANCH" =~ ^(feature|fix|docs|refactor|test|adr)/ ]]; then
+            echo "⚠️ Branch name should start with: feature/, fix/, docs/, refactor/, test/, or adr/"
+            echo "Current: $BRANCH"
+          else
+            echo "✅ Branch name follows convention"
+          fi
+
+  # Job 2: File Change Analysis
+  changed-files:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    outputs:
+      domain_changed: ${{ steps.check.outputs.domain_changed }}
+      workflow_changed: ${{ steps.check.outputs.workflow_changed }}
+      adr_added: ${{ steps.check.outputs.adr_added }}
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Get Changed Files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        
+      - name: Check Critical Files
+        id: check
+        run: |
+          # Check Domain changes
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -q "1_Shared/Domain.cs"; then
+            echo "domain_changed=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Domain.cs changed - requires Domain Guardian review"
+          else
+            echo "domain_changed=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check Workflow changes
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -q ".github/workflows/"; then
+            echo "workflow_changed=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Workflow files changed - verify CI/CD integrity"
+          else
+            echo "workflow_changed=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check ADR additions
+          if echo "${{ steps.changed-files.outputs.added_files }}" | grep -q "docs/decisions/ADR-"; then
+            echo "adr_added=true" >> $GITHUB_OUTPUT
+            echo "✅ New ADR added - ensure README.md updated"
+          else
+            echo "adr_added=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Job 3: Build Verification
+  build-verify:
+    runs-on: ubuntu-latest
+    needs: [pr-metadata]
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props') }}
+          
+      - name: Restore
+        run: dotnet restore VanAn.sln
+        
+      - name: Build
+        run: dotnet build VanAn.sln --no-restore --configuration Release
+        
+      - name: Test
+        run: dotnet test 6_Tests/ --no-build --verbosity normal
+
+  # Job 4: Documentation Check
+  docs-check:
+    runs-on: ubuntu-latest
+    needs: [changed-files]
+    if: needs.changed-files.outputs.adr_added == 'true'
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Verify ADR Index
+        run: |
+          if grep -q "ADR-" docs/decisions/README.md; then
+            echo "✅ ADR README.md contains ADR references"
+          else
+            echo "⚠️ Consider updating docs/decisions/README.md with new ADR"
+          fi
+
+  # Job 5: Summary
+  pr-summary:
+    runs-on: ubuntu-latest
+    needs: [pr-metadata, changed-files, build-verify, docs-check]
+    if: always()
+    timeout-minutes: 5
+    
+    steps:
+      - name: PR Check Summary
+        run: |
+          echo "## PR Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Build status
+          if [ "${{ needs.build-verify.result }}" == "success" ]; then
+            echo "✅ Build & Tests Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Build or Tests Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Domain warning
+          if [ "${{ needs.changed-files.outputs.domain_changed }}" == "true" ]; then
+            echo "⚠️ **Domain layer modified** - Ensure Domain Guardian review" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Workflow warning
+          if [ "${{ needs.changed-files.outputs.workflow_changed }}" == "true" ]; then
+            echo "⚠️ **CI/CD workflows modified** - Verify pipeline integrity" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # ADR notice
+          if [ "${{ needs.changed-files.outputs.adr_added }}" == "true" ]; then
+            echo "📋 **New ADR added** - Architecture decision documented" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Required reviews based on changes:" >> $GITHUB_STEP_SUMMARY
+          echo "- Code review: Always required" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.changed-files.outputs.domain_changed }}" == "true" ]; then
+            echo "- **Domain review: Required**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.changed-files.outputs.workflow_changed }}" == "true" ]; then
+            echo "- **DevOps review: Required**" >> $GITHUB_STEP_SUMMARY
+          fi

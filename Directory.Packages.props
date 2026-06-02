@@ -2,4 +2,52 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageVersion Include="NATS.Client" Version="1.1.6" />
+    <PackageVersion Include="System.Data.SQLite" Version="1.0.118" />
+    <PackageVersion Include="Moq" Version="4.20.70" />
+    
+    <!-- Testing packages -->
+    <PackageVersion Include="bunit" Version="1.28.9" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.0" />
+    <PackageVersion Include="xunit" Version="2.7.0" />
+    <PackageVersion Include="xunit.extensibility.core" Version="2.7.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.7" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.0" />
+    
+    <!-- Microsoft.Extensions - HYBRID (9.0.3 compatible, 8.0.x for incompatible) -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="9.0.3" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.0" />
+    <PackageVersion Include="System.Text.Json" Version="9.0.3" />
+    
+    <!-- Authentication Packages -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.9" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.8" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="8.0.8" />
+    
+    <!-- Required for Authentication.Cookies compatibility -->
+    <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Core" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Abstractions" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Http.Extensions" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection" Version="2.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Hosting.Abstractions" Version="2.3.0" />
+  </ItemGroup>
 </Project>
