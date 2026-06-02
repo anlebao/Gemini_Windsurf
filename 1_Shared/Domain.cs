@@ -1246,6 +1246,30 @@ public record HKDBooksPackage(
     DateTime GeneratedAt
 );
 
+// ====================== SPRINT 2: PERIOD CLOSING ======================
+
+/// <summary>
+/// Status of an accounting period closing workflow
+/// </summary>
+public enum PeriodClosingStatus
+{
+    Open,
+    Validating,
+    Closing,
+    Closed,
+    Reopening
+}
+
+/// <summary>
+/// Result of pre-closing validation checks
+/// </summary>
+public record PeriodClosingCheckResult(bool IsValid, List<string> Errors, List<string> Warnings);
+
+/// <summary>
+/// Immutable record of a period closing action — Reversal Entry pattern for reopening
+/// </summary>
+public record ClosingEntry(Guid PeriodId, AccountingPeriod Period, DateTime ClosingDate, Guid CreatedBy);
+
 // ====================== VALUE OBJECTS & EF CORE CONFIGURATIONS ======================
 
 // Value Objects (LeadId thêm vào, CustomerId ã tón tai ó dòng 180)
