@@ -18,17 +18,65 @@ public enum AccountingEntryType
     Adjustment = 4      // Điều chỉnh
 }
 
+// Financial Safety Infrastructure
+public enum EventStatus
+{
+    Pending = 1,
+    Processed = 2,
+    Failed = 3
+}
+
+public enum OperationPriority
+{
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Critical = 3
+}
+
+/// <summary>
+/// Business Type Classification - Company vs Household Business
+/// </summary>
+public enum BusinessType
+{
+    Company = 1,           // Doanh nghiệp (Company)
+    HouseholdBusiness = 2  // Hộ kinh doanh (Household Business)
+}
+
+/// <summary>
+/// Household Business Groups - 3 sub-groups per Vietnamese regulations
+/// </summary>
+public enum HKDGroup
+{
+    Group1 = 1,  // S1a-HKD: Không chịu thuế GTGT, không nộp thuế TNCN
+    Group2 = 2,  // S2a-HKD, S2b-HKD, S2c-HKD, S2d-HKD, S2e-HKD: Nộp thuế GTGT và TNCN
+    Group3 = 3   // S3a-HKD: Hộ kinh doanh có hoạt động thuộc diện chịu các loại thuế khác
+}
+
+/// <summary>
+/// Accounting Book Types - Company vs HKD (7 types for HKD per Thông tư 152/2025/TT-BTC)
+/// </summary>
 public enum AccountingBookType
 {
+    // COMPANY BOOKS
     RevenueBook = 1,    // Sách chi doanh thu
     ExpenseBook = 2,    // Sách chi chi phí
     CashBankBook = 3,   // Sách chi tiền mặt ngân hàng
-    TaxDeclarationBook = 4  // Sách chi kê khai thuế
+    TaxDeclarationBook = 4,  // Sách chi kê khai thuế
+    
+    // HKD BOOKS - 7 types per Thông tư 152/2025/TT-BTC
+    S1a_HKD = 5,        // Sổ theo dõi hàng hóa, dịch vụ cung ứng (không chịu thuế GTGT)
+    S2a_HKD = 6,        // Sổ theo dõi hàng hóa, dịch vụ cung ứng (nộp thuế GTGT theo tỷ lệ %)
+    S2b_HKD = 7,        // Sổ doanh thu bán hàng hóa, dịch vụ
+    S2c_HKD = 8,        // Sổ chi tiết doanh thu, chi phí
+    S2d_HKD = 9,        // Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa
+    S2e_HKD = 10,       // Sổ chi tiết tiền
+    S3a_HKD = 11        // Sổ theo dõi hoạt động thuộc diện chịu các loại thuế khác
 }
 
 public enum VatRate
 {
-    Exempt = 0,         // Miễn thuế
+    Exempt = -1,        // Miễn thuế
     Zero = 0,           // 0%
     Five = 5,           // 5%
     Ten = 10            // 10%
@@ -43,23 +91,69 @@ public record AccountingPeriod(int Year, int Month)
     
     public static AccountingPeriod FromDateTime(DateTime date) => new(date.Year, date.Month);
     
+    public DateTime ToDateTime() => new DateTime(Year, Month, 1);
+    
     public DateTime StartDate => new DateTime(Year, Month, 1);
-    public DateTime EndDate => StartDate.AddMonths(1).AddDays(-1);
+    public DateTime EndDate => StartDate.AddMonths(1).AddTicks(-1);
     
     // Static Create method for test files compatibility
     public static AccountingPeriod Create(int year, int month) => new(year, month);
 }
 
 /// <summary>
-/// Tenant ID Value Object
+/// Tenant ID Value Object with Business Context
 /// </summary>
 public record TenantId(Guid Value)
 {
+    public static TenantId Empty { get; } = new TenantId(Guid.Empty);
+    
     public static implicit operator Guid(TenantId tenantId) => tenantId.Value;
     public static implicit operator TenantId(Guid value) => new(value);
     
     public static TenantId FromGuid(Guid value) => new(value);
     public Guid ToGuid() => Value;
+    
+    public bool IsEmpty() => Value == Guid.Empty;
+    
+    public bool IsNotEmpty() => Value != Guid.Empty;
+}
+
+/// <summary>
+/// Tenant with Business Type and HKD Classification
+/// </summary>
+public record Tenant
+{
+    public TenantId Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public BusinessType BusinessType { get; init; }
+    public HKDGroup? HKDGroup { get; init; } // Only for Household Business
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
+    public bool IsActive { get; init; } = true;
+    
+    public static Tenant CreateCompany(TenantId id, string name)
+    {
+        return new Tenant
+        {
+            Id = id,
+            Name = name,
+            BusinessType = BusinessType.Company
+        };
+    }
+    
+    public static Tenant CreateHouseholdBusiness(TenantId id, string name, HKDGroup hkdGroup)
+    {
+        return new Tenant
+        {
+            Id = id,
+            Name = name,
+            BusinessType = BusinessType.HouseholdBusiness,
+            HKDGroup = hkdGroup
+        };
+    }
+    
+    public bool IsHouseholdBusiness() => BusinessType == BusinessType.HouseholdBusiness;
+    
+    public bool IsCompany() => BusinessType == BusinessType.Company;
 }
 
 /// <summary>
@@ -169,6 +263,23 @@ public sealed class AccountingEntry : BaseEntity
             $"Reversal of: {original.Description} - {reason}",
             original.Id);
     }
+
+    public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)
+    {
+        ArgumentNullException.ThrowIfNull(original);
+        if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Reason required", nameof(reason));
+
+        return new AccountingEntry(
+            original.TenantId,
+            -original.Amount,
+            original.EntryType,
+            original.VatRate,
+            original.AccountingBookType,
+            original.PeriodYear,
+            original.PeriodMonth,
+            $"Reversal of: {original.Description} - {reason}",
+            originalEntryId);
+    }
 }
 
 public record ProductId(Guid Value);
@@ -176,7 +287,18 @@ public record IngredientId(Guid Value);
 public record RecipeId(Guid Value);
 public record InventoryId(Guid Value);
 public record OrderId(Guid Value);
-public record OrderStatusId(string Value);
+public record OrderStatusId(string Value)
+{
+    // ✅ FIXED: Add static properties for UI compatibility
+    public static readonly OrderStatusId Pending = new("pending");
+    public static readonly OrderStatusId Confirmed = new("confirmed");
+    public static readonly OrderStatusId Preparing = new("preparing");
+    public static readonly OrderStatusId Ready = new("ready");
+    public static readonly OrderStatusId Delivering = new("delivering");
+    public static readonly OrderStatusId Completed = new("completed");
+    public static readonly OrderStatusId Cancelled = new("cancelled");
+    public static readonly OrderStatusId Processing = new("preparing"); // Alias for compatibility
+};
 public record ShopId(Guid Value);
 
 // Identity Schema - RBAC for ShopERP
@@ -385,6 +507,10 @@ public class OrderItem : BaseEntity
     public decimal VatRate { get; protected set; } = 0.10m;
     public string? Notes { get; protected set; } // Customizations (size, sugar level, etc.)
     
+    // ✅ FIXED: Add missing properties for UI compatibility
+    public string ProductName { get; protected set; } = string.Empty;
+    public decimal TotalPrice => TotalAmount; // Alias for UI compatibility
+    
     //  GOLDEN FLOW: Kitchen Status (Operational Only)
     public KitchenStatus KitchenStatus { get; protected set; } = KitchenStatus.Pending;
     
@@ -394,13 +520,31 @@ public class OrderItem : BaseEntity
 
     protected OrderItem() { }
 
-    public OrderItem(TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice)
+    public OrderItem(TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice, string productName = "")
         : base(tenantId)
     {
         OrderId = orderId;
         ProductId = productId;
         Quantity = quantity;
         UnitPrice = unitPrice;
+        ProductName = productName;
+    }
+
+    /// <summary>
+    /// DDD Compliant Static Factory Method - Domain-Driven Design
+    /// Phase 2.5.4: Unified API Integration - Single Backend Service
+    /// Creates a new OrderItem entity with proper domain encapsulation
+    /// </summary>
+    public static OrderItem Create(Guid id, TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice, string productName = "")
+    {
+        var orderItem = new OrderItem(tenantId, orderId, productId, quantity, unitPrice, productName);
+        
+        // Use internal access to set protected Id property
+        var orderItemType = typeof(OrderItem);
+        var idProperty = orderItemType.GetProperty("Id");
+        idProperty?.SetValue(orderItem, id);
+        
+        return orderItem;
     }
 
     // Business methods for order item management
@@ -435,6 +579,9 @@ public class Ingredient : BaseEntity
     public decimal CurrentStock { get; set; }
     public decimal MinStockThreshold { get; set; }
     public decimal PricePerUnit { get; set; }
+
+    // EF Core constructor for materialization
+    protected Ingredient() { }
 }
 
 public class Recipe : BaseEntity
@@ -443,13 +590,14 @@ public class Recipe : BaseEntity
     public Guid ProductId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of ProductId
     public Guid IngredientId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of IngredientId
     public decimal QuantityNeeded { get; set; }
-    
+
     // Navigation properties
     // REMOVED: DataAnnotations violate Domain purity (FAIL-FAST MVP)
-    // [ForeignKey(nameof(ProductId))]
     public Product Product { get; set; } = null!;
-    // [ForeignKey(nameof(IngredientId))]
     public Ingredient Ingredient { get; set; } = null!;
+
+    // EF Core constructor for materialization
+    protected Recipe() { }
 }
 
 public class Inventory : BaseEntity
@@ -488,6 +636,9 @@ public class Order : BaseEntity
     // Customer Information (CRM Integration)
     public Guid? CustomerId { get; protected set; }
     public string? CustomerDeviceId { get; protected set; } // Zero-friction identity fallback
+    
+    // ✅ FIXED: Add CustomerInfo property for UI compatibility
+    public CustomerInfo? CustomerInfo { get; protected set; }
     
     // Order Details
     public string OrderType { get; protected set; } = "DINEIN"; // DINEIN, TAKEAWAY, DELIVERY
@@ -575,6 +726,36 @@ public class Order : BaseEntity
         OrderDate = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// DDD Compliant Static Factory Method - Domain-Driven Design
+    /// Phase 2.5.4: Unified API Integration - Single Backend Service
+    /// Creates a new Order entity with proper domain encapsulation
+    /// </summary>
+    public static Order Create(Guid id, TenantId tenantId, Guid? customerId, List<OrderItem> items)
+    {
+        var order = new Order(tenantId, customerId, 0);
+        
+        // Use internal access to set protected properties
+        var orderType = typeof(Order);
+        
+        // Set Id
+        var idProperty = orderType.GetProperty("Id");
+        idProperty?.SetValue(order, id);
+        
+        // Set Status to Pending
+        var statusProperty = orderType.GetProperty("Status");
+        statusProperty?.SetValue(order, OrderStatusId.Pending);
+        
+        // Set Items collection
+        var itemsProperty = orderType.GetProperty("Items");
+        itemsProperty?.SetValue(order, items);
+        
+        // Calculate totals using domain method
+        order.CalculateTotals();
+        
+        return order;
+    }
+
     // Business methods for order management
     public void UpdateOrderStatus(OrderStatusId status)
     {
@@ -603,6 +784,18 @@ public class Order : BaseEntity
         UpdateAudit();
     }
 
+    public void MarkAsSynced()
+    {
+        LastSyncedAt = DateTime.UtcNow;
+        UpdateAudit();
+    }
+
+    public void SetCustomerDeviceId(string deviceFingerprint)
+    {
+        CustomerDeviceId = deviceFingerprint;
+        UpdateAudit();
+    }
+
     public void UpdateVoiceNotes(string? voiceNoteText, string? voiceNoteAudioBlob)
     {
         VoiceNoteText = voiceNoteText;
@@ -619,6 +812,9 @@ public class DemoUser : BaseEntity
     public string DisplayName { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.Staff;
     public bool IsActive { get; set; } = true;
+
+    // EF Core constructor for materialization
+    protected DemoUser() { }
 }
 
 // Legacy record types cho compatibility - sẽ được migrate
@@ -821,7 +1017,7 @@ public class LoyaltyRewards : BaseEntity, IMustHaveTenant
     public int PointBalance { get; protected set; }
     public string History { get; protected set; } = string.Empty; // JSON serialized history
     public bool IsActive { get; protected set; } = true;
-    
+
     // Navigation Properties
     public virtual DemoUser Customer { get; protected set; } = null!;
 
@@ -852,6 +1048,90 @@ public class LoyaltyRewards : BaseEntity, IMustHaveTenant
     public void UpdateHistory(string historyJson)
     {
         History = historyJson;
+        UpdateAudit();
+    }
+}
+
+// Financial Safety Infrastructure - Domain Entities
+public sealed class IdempotentOperation : BaseEntity
+{
+    public string OperationId { get; } = string.Empty;
+    public string OperationType { get; } = string.Empty;
+    public string Result { get; } = string.Empty;
+    public DateTime ProcessedAt { get; }
+
+    protected IdempotentOperation() { }
+
+    public IdempotentOperation(string operationId, string operationType, string result, DateTime processedAt)
+        : base(TenantId.Empty) // System-level operations don't need tenant
+    {
+        OperationId = operationId;
+        OperationType = operationType;
+        Result = result;
+        ProcessedAt = processedAt;
+    }
+}
+
+public sealed class EntityVersion : BaseEntity
+{
+    public string EntityType { get; } = string.Empty;
+    public string EntityId { get; } = string.Empty;
+    public int Version { get; }
+    public string Changes { get; } = string.Empty;
+    public string ChangedBy { get; } = string.Empty;
+    public DateTime ChangedAt { get; }
+
+    protected EntityVersion() { }
+
+    public EntityVersion(string entityType, string entityId, int version, string changes, string changedBy, DateTime changedAt)
+        : base(TenantId.Empty) // System-level operations don't need tenant
+    {
+        EntityType = entityType;
+        EntityId = entityId;
+        Version = version;
+        Changes = changes;
+        ChangedBy = changedBy;
+        ChangedAt = changedAt;
+    }
+}
+
+public sealed class QueuedEvent : BaseEntity
+{
+    public string EventId { get; } = string.Empty;
+    public string EventType { get; } = string.Empty;
+    public string EventData { get; } = string.Empty;
+    public string EntityId { get; } = string.Empty;
+    public int Priority { get; }
+    public EventStatus Status { get; private set; } = EventStatus.Pending;
+    public DateTime QueuedAt { get; }
+    public DateTime? ProcessedAt { get; private set; }
+    public string? ErrorMessage { get; private set; }
+
+    protected QueuedEvent() { }
+
+    public QueuedEvent(string eventId, string eventType, string eventData, string entityId, int priority, DateTime queuedAt)
+        : base(TenantId.Empty) // System-level operations don't need tenant
+    {
+        EventId = eventId;
+        EventType = eventType;
+        EventData = eventData;
+        EntityId = entityId;
+        Priority = priority;
+        QueuedAt = queuedAt;
+    }
+
+    public void MarkAsProcessed(DateTime processedAt)
+    {
+        Status = EventStatus.Processed;
+        ProcessedAt = processedAt;
+        UpdateAudit();
+    }
+
+    public void MarkAsFailed(string error, DateTime processedAt)
+    {
+        Status = EventStatus.Failed;
+        ErrorMessage = error;
+        ProcessedAt = processedAt;
         UpdateAudit();
     }
 }
@@ -899,6 +1179,72 @@ public static class AccountingEntryFactory
 {
     // Legacy factory methods removed - Using clean constructor-based approach above
 }
+
+// ====================== HKD BOOKS DOMAIN ENTITIES ======================
+
+/// <summary>
+/// General Ledger entry with running balance - Sổ Cái
+/// </summary>
+public record GeneralLedgerEntry(
+    string AccountNumber,
+    string AccountName,
+    DateTime TransactionDate,
+    string Description,
+    decimal DebitAmount,
+    decimal CreditAmount,
+    decimal RunningBalance,
+    string ReferenceType,
+    Guid ReferenceId
+);
+
+/// <summary>
+/// Detailed Ledger entry for specific account - Sổ Chi tiết
+/// </summary>
+public record DetailedLedgerEntry(
+    DateTime TransactionDate,
+    string Description,
+    decimal DebitAmount,
+    decimal CreditAmount,
+    decimal Balance,
+    string ReferenceType,
+    Guid ReferenceId
+);
+
+/// <summary>
+/// Trial Balance summary for period - Sổ Tổng hợp
+/// </summary>
+public record TrialBalance(
+    AccountingPeriod Period,
+    DateTime GeneratedAt,
+    IEnumerable<TrialBalanceAccount> Accounts,
+    decimal TotalDebit,
+    decimal TotalCredit,
+    bool IsBalanced
+);
+
+/// <summary>
+/// Trial Balance account summary
+/// </summary>
+public record TrialBalanceAccount(
+    string AccountNumber,
+    string AccountName,
+    decimal DebitTotal,
+    decimal CreditTotal,
+    decimal Balance
+);
+
+/// <summary>
+/// Complete HKD Books package
+/// </summary>
+public record HKDBooksPackage(
+    TenantId TenantId,
+    AccountingPeriod Period,
+    IEnumerable<JournalEntry> GeneralJournal,
+    IEnumerable<GeneralLedgerEntry> GeneralLedger,
+    Dictionary<string, IEnumerable<DetailedLedgerEntry>> DetailedLedgers,
+    TrialBalance TrialBalance,
+    DateTime GeneratedAt
+);
 
 // ====================== VALUE OBJECTS & EF CORE CONFIGURATIONS ======================
 

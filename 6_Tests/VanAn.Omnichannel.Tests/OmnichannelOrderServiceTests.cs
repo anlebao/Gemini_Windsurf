@@ -19,12 +19,13 @@ public class OmnichannelOrderServiceTests
     public async Task OmnichannelOrder_CreateOrder_ShouldReturnOrderWithTracking()
     {
         // Arrange
+        var orderId = Guid.NewGuid();
         var request = new CreateOrderRequest
         {
             CustomerId = new CustomerId(Guid.NewGuid()),
             Items = new List<OrderItem>
             {
-                new OrderItem { ProductId = Guid.NewGuid(), Quantity = 2, UnitPrice = 15000 }
+                new OrderItem(new TenantId(Guid.NewGuid()), orderId, Guid.NewGuid(), 2, 15000)
             },
             PaymentMethod = "CASH",
             DeliveryAddress = "123 Main St, HCM",

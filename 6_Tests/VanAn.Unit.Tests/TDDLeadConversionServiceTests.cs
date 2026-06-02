@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
+using VanAn.Shared.Domain;
 using VanAn.Unit.Tests.Domain;
 using VanAn.Unit.Tests.Services;
 using VanAn.Unit.Tests.Repositories;
@@ -64,7 +65,7 @@ public class TDDLeadConversionServiceTests : TestBase
         // Setup customer repository mock for the new customer that will be created
         customerRepositoryMock
             .Setup(x => x.GetByIdAsync(It.IsAny<Guid>()))
-            .ReturnsAsync((Guid customerId) => new Customer { Id = customerId, FullName = lead.FullName, PhoneNumber = lead.PhoneNumber });
+            .ReturnsAsync((Guid customerId) => new Customer(new TenantId(Guid.NewGuid()), lead.FullName, lead.PhoneNumber));
 
         // Act
         var result = await service.ConvertLeadToCustomerAsync(leadId, conversionReason);
@@ -265,19 +266,12 @@ public class LeadConversionService : ILeadConversionService
             return existingCustomer;
         }
 
-        // Create new customer
-        var customer = new Customer
+        // Create new customer using production Customer from VanAn.Shared.Domain
+        var customer = new Customer(lead.TenantId, lead.FullName, lead.PhoneNumber, lead.Email)
         {
-            Id = Guid.NewGuid(),
-            FullName = lead.FullName,
-            PhoneNumber = lead.PhoneNumber,
-            Email = lead.Email,
             CustomerTier = "Bronze",
             LoyaltyPoints = 50, // Welcome points
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            TenantId = lead.TenantId
+            IsActive = true
         };
 
         await _customerRepository.AddAsync(customer);
