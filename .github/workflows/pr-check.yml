@@ -115,7 +115,7 @@ jobs:
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props') }}
-          
+
       - name: Restore
         run: dotnet restore VanAn.sln
         

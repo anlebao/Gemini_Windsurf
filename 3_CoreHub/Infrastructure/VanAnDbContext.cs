@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain.Common;
@@ -9,11 +10,12 @@ using VanAn.Shared.Extensions;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
+using VanAn.CoreHub.Infrastructure.Configurations;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Infrastructure;
 
-public class VanAnDbContext : DbContext
+public class VanAnDbContext : DbContext, IVanAnDbContext
 {
     private readonly ITenantProvider _tenantProvider;
 
@@ -48,6 +50,9 @@ public class VanAnDbContext : DbContext
     // Multi-tenant Shops
     public DbSet<Shop> Shops { get; set; }
     
+    // HKD Business Tenants
+    public DbSet<Tenant> Tenants { get; set; }
+    
     // PHASE 2: SOCIAL FLYWHEEL ENTITIES
     public DbSet<SocialCampaign> SocialCampaigns { get; set; }
     public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }
@@ -55,31 +60,23 @@ public class VanAnDbContext : DbContext
     // WEEK 1: ACCOUNTING ENGINE ENTITIES
     public DbSet<CoreAccountingEntry> AccountingEntries { get; set; }
     
-    // OUTBOX PATTERN: Reliable event processing
+    // Outbox Pattern for Event Sourcing
     public DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public DbSet<JournalTemplate> JournalTemplates { get; set; }
+    public DbSet<JournalEntry> JournalEntries { get; set; }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
         // All converters now use separate classes for consistency
         
-        // Add missing ValueConverters for AccountingEntry ValueObjects
-        configurationBuilder.Properties<AccountingEntryId>()
-            .HaveConversion<AccountingEntryIdConverter>();
-        
         configurationBuilder.Properties<TenantId>()
             .HaveConversion<TenantIdConverter>();
-        
-        configurationBuilder.Properties<Money>()
-            .HaveConversion<MoneyConverter>();
-        
-        configurationBuilder.Properties<AccountingPeriod>()
-            .HaveConversion<AccountingPeriodConverter>();
         
         configurationBuilder.Properties<AccountingBookType>()
             .HaveConversion<AccountingBookTypeConverter>();
         
-        // Keep existing converters
+        // Keep existing converters for other entities (not AccountingEntry)
         configurationBuilder.Properties<LeadId>()
             .HaveConversion<LeadIdConverter>();
         
@@ -109,11 +106,24 @@ public class VanAnDbContext : DbContext
         
         configurationBuilder.Properties<OrderItemId>()
             .HaveConversion<OrderItemIdConverter>();
+        
+        configurationBuilder.Properties<JournalEntryId>()
+            .HaveConversion<JournalEntryIdConverter>();
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // === GLOBAL IGNORES ===
+        // AccountingPeriod is a value object (record) used as computed property
+        // It should never be mapped as a separate entity
+        modelBuilder.Ignore<VanAn.Shared.Domain.AccountingPeriod>();
+
+        // HKDBook is an abstract base class for dynamic report generation
+        // It's not meant to be persisted as an entity
+        modelBuilder.Ignore<VanAn.Shared.Domain.HKDBook>();
+        modelBuilder.Ignore<VanAn.Shared.Domain.GenericHKDBook>();
 
         // === AUTO-DISCOVER ALL CONFIGURATIONS ===
         // Architect++: Use auto-discovery instead of manual registration
@@ -162,32 +172,7 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.LastUpdated).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 
-        // Configure Order entity
-        modelBuilder.Entity<Order>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.OrderType).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.TextCommand).HasMaxLength(500);
-            entity.Property(e => e.VoiceCommandUrl).HasMaxLength(500);
-            entity.Property(e => e.SubTotal).HasPrecision(18, 2);
-            entity.Property(e => e.TotalVatAmount).HasPrecision(18, 2);
-            entity.Property(e => e.ShippingFee).HasPrecision(18, 2);
-            entity.Property(e => e.DiscountAmount).HasPrecision(18, 2);
-            entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
-            entity.Property(e => e.PaymentMethod).HasMaxLength(20);
-            entity.Property(e => e.PaymentStatus).HasMaxLength(20);
-            entity.Property(e => e.VietQR_TransactionId).HasMaxLength(100);
-            entity.Property(e => e.CustomerNotes).HasMaxLength(1000);
-            entity.Property(e => e.StaffNotes).HasMaxLength(1000);
-            entity.Property(e => e.TrackingCode).HasMaxLength(50);
-            entity.Property(e => e.OrderDate).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            
-            // Navigation properties
-            entity.HasOne(e => e.Customer)
-                  .WithMany(c => c.Orders)
-                  .HasForeignKey(e => e.CustomerId)
-                  .OnDelete(DeleteBehavior.SetNull);
-        });
+        // Order entity is configured in OrderConfiguration.cs (OwnsOne for CustomerInfo, HasKey for OrderId)
         
         // Configure Customer entity
         modelBuilder.Entity<Customer>(entity =>
@@ -199,9 +184,6 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.CustomerTier).IsRequired().HasMaxLength(20);
             entity.Property(e => e.TotalSpent).HasPrecision(18, 2);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            
-            // 🛡️ MULTI-TENANCY: Direct query filter
-            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
         });
         
         // Configure OrderItem entity
@@ -236,8 +218,6 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.Email).HasMaxLength(100);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
-            // 🛡️ MULTI-TENANCY: Direct query filter for Shop
-            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
         });
 
         // Configure DemoUser entity
@@ -259,9 +239,6 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.TrackingCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
-            // 🛡️ MULTI-TENANCY: Direct query filter
-            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
-            
             // Navigation properties
             entity.HasOne(e => e.Shop)
                   .WithMany(s => s.SocialCampaigns)
@@ -276,16 +253,9 @@ public class VanAnDbContext : DbContext
             entity.Property(e => e.History).HasMaxLength(2000);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             
-            // 🛡️ MULTI-TENANCY: Direct query filter
-            entity.HasQueryFilter(e => e.TenantId.Value == this.CurrentTenantId);
-            
-            // Navigation properties
-            entity.HasOne(e => e.Customer)
-                  .WithMany()
-                  .HasForeignKey(e => e.CustomerId)
-                  .OnDelete(DeleteBehavior.Cascade);
         });
         
+                
         // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation for other entities
         ApplyMultiTenancyFilters(modelBuilder);
     }
@@ -299,36 +269,39 @@ public class VanAnDbContext : DbContext
         // Get current tenant dynamically from ITenantProvider
         var currentTenantId = _tenantProvider.TenantId;
         
-        // Apply filter for AccountingEntries specifically with dynamic tenant
-        modelBuilder.Entity<CoreAccountingEntry>()
-            .HasQueryFilter(e => e.TenantId.Value == currentTenantId);
-        
-        // Apply to all entities implement IMustHaveTenant
+        // Apply to all entities implement IMustHaveTenant (except AccountingEntry)
+        // AccountingEntry is excluded: special case for cross-tenant queries, audit/history, reconciliation
         var entityTypes = modelBuilder.Model.GetEntityTypes()
-            .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType));
+            .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType) && e.ClrType != typeof(CoreAccountingEntry));
 
         foreach (var entityType in entityTypes)
         {
             try
             {
                 var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
-                var tenantIdProperty = System.Linq.Expressions.Expression.Property(parameter, nameof(IMustHaveTenant.TenantId));
-                var currentTenantIdConstant = System.Linq.Expressions.Expression.Constant(currentTenantId);
-                var filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantIdConstant);
                 
-                var lambdaMethod = typeof(System.Linq.Expressions.Expression)
-                    .GetMethods()
-                    .First(m => m.Name == "Lambda" && m.IsGenericMethod && m.GetParameters().Length == 2)
-                    .MakeGenericMethod(entityType.ClrType, typeof(bool));
+                // Use EF.Property<TenantId> to access the TenantId property with value converter
+                // This allows EF Core to translate the filter correctly with the converter
+                var propertyMethod = typeof(EF).GetMethod(nameof(EF.Property))!
+                    .MakeGenericMethod(typeof(TenantId));
+                var tenantIdProperty = System.Linq.Expressions.Expression.Call(
+                    propertyMethod,
+                    parameter,
+                    System.Linq.Expressions.Expression.Constant("TenantId"));
                 
-                var lambda = lambdaMethod.Invoke(null, new object[] { filter, parameter }) 
-                    ?? throw new InvalidOperationException("Failed to create lambda expression");
+                var currentTenantIdValue = System.Linq.Expressions.Expression.Constant(
+                    new TenantId(currentTenantId));
+                var filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantIdValue);
+                
+                // Use non-generic overload that infers delegate type automatically
+                var lambda = System.Linq.Expressions.Expression.Lambda(filter, parameter);
                 
                 modelBuilder.Entity(entityType.ClrType).HasQueryFilter((System.Linq.Expressions.LambdaExpression)lambda);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to create multi-tenancy filter for {entityType.ClrType.Name}: {ex.Message}");
+                // Log error but continue - some entities may not have TenantId
+                Console.WriteLine($"Failed to apply tenant filter to {entityType.ClrType.Name}: {ex.Message}");
             }
         }
     }
@@ -353,6 +326,12 @@ public class VanAnDbContext : DbContext
         }
 
         return await base.SaveChangesAsync(cancellationToken);
+    }
+
+    // IVanAnDbContext implementation
+    public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+    {
+        return await Database.BeginTransactionAsync(cancellationToken);
     }
 }
 
