@@ -41,9 +41,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Build Analyzers First
-        run: dotnet build VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj -c Release
-
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
@@ -86,9 +83,6 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
-
-      - name: Build Analyzers First
-        run: dotnet build VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj -c Release
 
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_PATH }}
@@ -149,9 +143,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Build Analyzers First
-        run: dotnet build VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj -c Release
 
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_PATH }}

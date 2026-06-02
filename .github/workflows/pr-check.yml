@@ -116,9 +116,6 @@ jobs:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props') }}
 
-      - name: Build Analyzers First
-        run: dotnet build VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj -c Release
-
       - name: Restore
         run: dotnet restore VanAn.sln
         
