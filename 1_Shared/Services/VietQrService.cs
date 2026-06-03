@@ -1,4 +1,4 @@
-using VanAn.Shared.Domain;
+﻿using VanAn.Shared.Domain;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -94,11 +94,9 @@ namespace VanAn.Shared.Services
 
             string url = $"{baseUrl}/{bankAccount}-{template}.jpg";
 
-            List<string> parameters =
-            [
-                // Add amount
-                .. request.Amount > 0 ? [$"amount={request.Amount.ToString(CultureInfo.InvariantCulture)}"] : [],
-            ];
+            var parameters = new List<string>();
+            if (request.Amount > 0)
+                parameters.Add($"amount={request.Amount.ToString(CultureInfo.InvariantCulture)}");
 
             // Add description
             if (!string.IsNullOrWhiteSpace(request.OrderDescription))
