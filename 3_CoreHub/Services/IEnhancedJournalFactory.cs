@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Services
@@ -15,16 +12,16 @@ namespace VanAn.CoreHub.Services
         /// Creates a journal entry from template with business rules applied
         /// </summary>
         Task<JournalEntry> CreateFromTemplateAsync(
-            TenantId tenantId, 
-            string templateCode, 
-            decimal amount, 
+            TenantId tenantId,
+            string templateCode,
+            decimal amount,
             Dictionary<string, object> parameters);
 
         /// <summary>
         /// Validates a journal template before use
         /// </summary>
         Task<bool> ValidateTemplateAsync(
-            JournalTemplate template, 
+            JournalTemplate template,
             Dictionary<string, object> parameters);
 
         /// <summary>

@@ -1,15 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using FluentAssertions;
 using Xunit;
-using VanAn.Shared.Domain;
 
 namespace VanAn.Core.Tests.Accounting
 {
     // Business Rules Tests - TO BE IMPLEMENTED IN STEP 6
     // These tests will be added when business rules are implemented in Phase 2
-    
+
     public class BusinessRuleTestsPlaceholder
     {
         [Fact]

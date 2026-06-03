@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.RegularExpressions;
 using VanAn.Shared.Domain;
 
@@ -20,7 +17,7 @@ namespace VanAn.CoreHub.Services.Journal
     /// <summary>
     /// Concrete Expression Parser implementation with Vietnamese accounting formulas
     /// </summary>
-    public class ExpressionParser : IExpressionParser
+    public partial class ExpressionParser : IExpressionParser
     {
         private readonly Dictionary<string, Func<TemplateContext, decimal>> _functions;
         private readonly Regex _parameterRegex;
@@ -37,33 +34,35 @@ namespace VanAn.CoreHub.Services.Journal
                 ["COGS"] = ctx => ctx.COGS,
                 ["ImportTaxAmount"] = ctx => ctx.ImportTaxAmount,
                 ["DiscountAmount"] = ctx => ctx.DiscountAmount,
-                
+
                 // Vietnamese accounting specific formulas
                 ["GrossRevenue"] = ctx => ctx.Amount,
                 ["NetRevenue"] = ctx => ctx.NetAmount,
                 ["TaxableAmount"] = ctx => ctx.NetAmount > 0 ? ctx.NetAmount : ctx.Amount,
-                
+
                 // Helper functions
                 ["Max"] = ctx => Math.Max(ctx.Amount, ctx.NetAmount),
                 ["Min"] = ctx => Math.Min(ctx.Amount, ctx.NetAmount),
                 ["Abs"] = ctx => Math.Abs(ctx.Amount),
             };
 
-            _parameterRegex = new Regex(@"\{(\w+)\}", RegexOptions.Compiled);
-            _functionRegex = new Regex(@"(\w+)\s*\(\s*\)", RegexOptions.Compiled);
+            _parameterRegex = MyRegex();
+            _functionRegex = MyRegex1();
         }
 
         public decimal Evaluate(string expression, TemplateContext context, CultureInfo? cultureInfo = null)
         {
             if (string.IsNullOrWhiteSpace(expression))
+            {
                 return 0;
+            }
 
             cultureInfo ??= CultureInfo.InvariantCulture;
 
             try
             {
                 // Step 1: Replace parameters {ParamName} with actual values
-                var processedExpression = ReplaceParameters(expression, context, cultureInfo);
+                string processedExpression = ReplaceParameters(expression, context, cultureInfo);
 
                 // Step 2: Replace function calls with actual values
                 processedExpression = ReplaceFunctions(processedExpression, context, cultureInfo);
@@ -80,19 +79,23 @@ namespace VanAn.CoreHub.Services.Journal
         public bool CanParse(string expression)
         {
             if (string.IsNullOrWhiteSpace(expression))
+            {
                 return false;
+            }
 
             try
             {
                 // Check if expression contains valid parameters or functions
-                var hasValidTokens = _parameterRegex.IsMatch(expression) || 
+                bool hasValidTokens = _parameterRegex.IsMatch(expression) ||
                                   _functions.Keys.Any(func => expression.Contains(func, StringComparison.OrdinalIgnoreCase));
 
                 if (!hasValidTokens)
+                {
                     return false;
+                }
 
                 // Basic syntax validation
-                return !expression.Contains("++") && !expression.Contains("--") && 
+                return !expression.Contains("++") && !expression.Contains("--") &&
                        expression.Count(c => c == '(') == expression.Count(c => c == ')');
             }
             catch
@@ -103,20 +106,20 @@ namespace VanAn.CoreHub.Services.Journal
 
         public IEnumerable<string> GetRequiredParameters(string expression)
         {
-            var parameters = new HashSet<string>();
+            HashSet<string> parameters = [];
 
             // Find parameter references {ParamName}
-            var parameterMatches = _parameterRegex.Matches(expression);
-            foreach (Match match in parameterMatches)
+            MatchCollection parameterMatches = _parameterRegex.Matches(expression);
+            foreach (Match match in parameterMatches.Cast<Match>())
             {
                 parameters.Add(match.Groups[1].Value);
             }
 
             // Find function calls that might require specific context values
-            var functionMatches = _functionRegex.Matches(expression);
-            foreach (Match match in functionMatches)
+            MatchCollection functionMatches = _functionRegex.Matches(expression);
+            foreach (Match match in functionMatches.Cast<Match>())
             {
-                var functionName = match.Groups[1].Value;
+                string functionName = match.Groups[1].Value;
                 if (_functions.ContainsKey(functionName))
                 {
                     // Add context parameters that might be needed
@@ -133,7 +136,7 @@ namespace VanAn.CoreHub.Services.Journal
         {
             return _parameterRegex.Replace(expression, match =>
             {
-                var parameterName = match.Groups[1].Value;
+                string parameterName = match.Groups[1].Value;
                 return GetParameterValue(parameterName, context, cultureInfo).ToString(cultureInfo);
             });
         }
@@ -142,12 +145,12 @@ namespace VanAn.CoreHub.Services.Journal
         {
             return _functionRegex.Replace(expression, match =>
             {
-                var functionName = match.Groups[1].Value;
-                if (_functions.TryGetValue(functionName, out var function))
+                string functionName = match.Groups[1].Value;
+                if (_functions.TryGetValue(functionName, out Func<TemplateContext, decimal>? function))
                 {
                     try
                     {
-                        var result = function(context);
+                        decimal result = function(context);
                         return result.ToString(cultureInfo);
                     }
                     catch
@@ -159,7 +162,7 @@ namespace VanAn.CoreHub.Services.Journal
             });
         }
 
-        private decimal GetParameterValue(string parameterName, TemplateContext context, CultureInfo cultureInfo)
+        private static decimal GetParameterValue(string parameterName, TemplateContext context, CultureInfo cultureInfo)
         {
             return parameterName.ToUpperInvariant() switch
             {
@@ -169,12 +172,12 @@ namespace VanAn.CoreHub.Services.Journal
                 "COGS" => context.COGS,
                 "IMPORTTAXAMOUNT" => context.ImportTaxAmount,
                 "DISCOUNTAMOUNT" => context.DiscountAmount,
-                
+
                 // Vietnamese specific
                 "GROSSREVENUE" => context.Amount,
                 "NETREVENUE" => context.NetAmount,
                 "TAXABLEAMOUNT" => context.NetAmount > 0 ? context.NetAmount : context.Amount,
-                
+
                 // Try to get from context parameters
                 _ => context.GetParameter<decimal>(parameterName, 0)
             };
@@ -184,35 +187,39 @@ namespace VanAn.CoreHub.Services.Journal
         {
             // Simple arithmetic evaluator for basic operations
             // In production, consider using a more robust expression parser library
-            
+
             expression = expression.Trim();
             if (string.IsNullOrEmpty(expression) || expression == "0")
+            {
                 return 0;
+            }
 
             // Handle parentheses recursively
-            while (expression.Contains("("))
+            while (expression.Contains('('))
             {
-                var start = expression.LastIndexOf('(');
-                var end = expression.IndexOf(')', start);
+                int start = expression.LastIndexOf('(');
+                int end = expression.IndexOf(')', start);
                 if (end == -1)
+                {
                     throw new InvalidOperationException("Mismatched parentheses");
+                }
 
-                var innerExpression = expression.Substring(start + 1, end - start - 1);
-                var innerResult = EvaluateArithmeticExpression(innerExpression, cultureInfo);
-                expression = expression.Substring(0, start) + innerResult.ToString(cultureInfo) + expression.Substring(end + 1);
+                string innerExpression = expression.Substring(start + 1, end - start - 1);
+                decimal innerResult = EvaluateArithmeticExpression(innerExpression, cultureInfo);
+                expression = expression[..start] + innerResult.ToString(cultureInfo) + expression[(end + 1)..];
             }
 
             // Handle multiplication and division
-            var operators = new[] { '*', '/' };
-            foreach (var op in operators)
+            char[] operators = ['*', '/'];
+            foreach (char op in operators)
             {
-                var parts = expression.Split(op, StringSplitOptions.RemoveEmptyEntries);
+                string[] parts = expression.Split(op, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length > 1)
                 {
-                    var result = decimal.Parse(parts[0], cultureInfo);
+                    decimal result = decimal.Parse(parts[0], cultureInfo);
                     for (int i = 1; i < parts.Length; i++)
                     {
-                        var value = decimal.Parse(parts[i], cultureInfo);
+                        decimal value = decimal.Parse(parts[i], cultureInfo);
                         result = op == '*' ? result * value : result / value;
                     }
                     return result;
@@ -220,16 +227,16 @@ namespace VanAn.CoreHub.Services.Journal
             }
 
             // Handle addition and subtraction
-            operators = new[] { '+', '-' };
-            foreach (var op in operators)
+            operators = ['+', '-'];
+            foreach (char op in operators)
             {
-                var parts = expression.Split(op, StringSplitOptions.RemoveEmptyEntries);
+                string[] parts = expression.Split(op, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length > 1)
                 {
-                    var result = decimal.Parse(parts[0], cultureInfo);
+                    decimal result = decimal.Parse(parts[0], cultureInfo);
                     for (int i = 1; i < parts.Length; i++)
                     {
-                        var value = decimal.Parse(parts[i], cultureInfo);
+                        decimal value = decimal.Parse(parts[i], cultureInfo);
                         result = op == '+' ? result + value : result - value;
                     }
                     return result;
@@ -239,5 +246,10 @@ namespace VanAn.CoreHub.Services.Journal
             // Return the parsed value if no operators found
             return decimal.Parse(expression, cultureInfo);
         }
+
+        [GeneratedRegex(@"\{(\w+)\}", RegexOptions.Compiled)]
+        private static partial Regex MyRegex();
+        [GeneratedRegex(@"(\w+)\s*\(\s*\)", RegexOptions.Compiled)]
+        private static partial Regex MyRegex1();
     }
 }

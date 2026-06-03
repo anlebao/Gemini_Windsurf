@@ -1,9 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using VanAn.Shared.DTOs;
 using VanAn.Shared.Services;
 using VanAn.Gateway.Hubs;
@@ -14,16 +11,10 @@ namespace VanAn.Gateway.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize(Roles = "Masterchef,Staff,Manager")]
-    public class KitchenController : ControllerBase
+    public class KitchenController(IKitchenService kitchenService, IHubContext<KitchenHub> hubContext) : ControllerBase
     {
-        private readonly IKitchenService _kitchenService;
-        private readonly IHubContext<KitchenHub> _hubContext;
-
-        public KitchenController(IKitchenService kitchenService, IHubContext<KitchenHub> hubContext)
-        {
-            _kitchenService = kitchenService;
-            _hubContext = hubContext;
-        }
+        private readonly IKitchenService _kitchenService = kitchenService;
+        private readonly IHubContext<KitchenHub> _hubContext = hubContext;
 
         /// <summary>
         /// Get grouped kitchen items for display
@@ -31,7 +22,7 @@ namespace VanAn.Gateway.Controllers
         [HttpGet("items/{shopId}")]
         public async Task<ActionResult<List<KitchenItemGroupDto>>> GetGroupedItems(Guid shopId)
         {
-            var result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
+            List<KitchenItemGroupDto> result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
             return Ok(result);
         }
 
@@ -41,17 +32,17 @@ namespace VanAn.Gateway.Controllers
         [HttpPut("status")]
         public async Task<ActionResult<bool>> UpdateItemStatus([FromBody] KitchenStatusUpdateDto update)
         {
-            var userIdStr = User.FindFirst("sub")?.Value ?? Guid.NewGuid().ToString();
-            var userId = Guid.TryParse(userIdStr, out var parsedUserId) ? parsedUserId : Guid.NewGuid();
-            
-            var result = await _kitchenService.UpdateItemStatusAsync(update, userId);
-            
+            string userIdStr = User.FindFirst("sub")?.Value ?? Guid.NewGuid().ToString();
+            Guid userId = Guid.TryParse(userIdStr, out Guid parsedUserId) ? parsedUserId : Guid.NewGuid();
+
+            bool result = await _kitchenService.UpdateItemStatusAsync(update, userId);
+
             if (result)
             {
                 // Broadcast update to all kitchen clients
                 await _hubContext.Clients.Group($"shop_{update.ShopId}").SendAsync("ItemStatusChanged", update);
             }
-            
+
             return Ok(result);
         }
 
@@ -61,11 +52,11 @@ namespace VanAn.Gateway.Controllers
         [HttpPost("voice-note/{orderId}")]
         public async Task<ActionResult<VoiceNoteDto>> ProcessVoiceNote(Guid orderId, [FromBody] VoiceNoteDto voiceNote)
         {
-            var result = await _kitchenService.ProcessVoiceNoteAsync(orderId, voiceNote);
-            
+            VoiceNoteDto result = await _kitchenService.ProcessVoiceNoteAsync(orderId, voiceNote);
+
             // Broadcast voice note update
             await _hubContext.Clients.Group($"order_{orderId}").SendAsync("VoiceNoteProcessed", new { OrderId = orderId, VoiceNote = result });
-            
+
             return Ok(result);
         }
 
@@ -75,7 +66,7 @@ namespace VanAn.Gateway.Controllers
         [HttpGet("analytics/{shopId}")]
         public async Task<ActionResult<KitchenAnalyticsDto>> GetAnalytics(Guid shopId, [FromQuery] DateTime from)
         {
-            var result = await _kitchenService.GetKitchenAnalyticsAsync(shopId, from);
+            KitchenAnalyticsDto result = await _kitchenService.GetKitchenAnalyticsAsync(shopId, from);
             return Ok(result);
         }
 
@@ -85,7 +76,7 @@ namespace VanAn.Gateway.Controllers
         [HttpGet("order-status/{orderId}")]
         public async Task<ActionResult<KitchenStatus>> GetOrderStatus(Guid orderId)
         {
-            var result = await _kitchenService.GetOrderKitchenStatusAsync(orderId);
+            KitchenStatus? result = await _kitchenService.GetOrderKitchenStatusAsync(orderId);
             return Ok(result);
         }
     }

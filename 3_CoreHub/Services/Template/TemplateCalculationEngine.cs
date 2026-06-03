@@ -9,22 +9,15 @@ namespace VanAn.CoreHub.Services.Template
     /// Template Calculation Engine - Uses FormulaEngine to calculate template values
     /// Bridges the gap between templates and the formula engine
     /// </summary>
-    public class TemplateCalculationEngine
+    public class TemplateCalculationEngine(
+        IFormulaEngine formulaEngine,
+        IDataProvider dataProvider,
+        ILogger<TemplateCalculationEngine> logger)
     {
-        private readonly IFormulaEngine _formulaEngine;
-        private readonly IDataProvider _dataProvider;
-        private readonly ILogger<TemplateCalculationEngine> _logger;
-        
-        public TemplateCalculationEngine(
-            IFormulaEngine formulaEngine,
-            IDataProvider dataProvider,
-            ILogger<TemplateCalculationEngine> logger)
-        {
-            _formulaEngine = formulaEngine;
-            _dataProvider = dataProvider;
-            _logger = logger;
-        }
-        
+        private readonly IFormulaEngine _formulaEngine = formulaEngine;
+        private readonly IDataProvider _dataProvider = dataProvider;
+        private readonly ILogger<TemplateCalculationEngine> _logger = logger;
+
         /// <summary>
         /// Calculate all field values for a template
         /// </summary>
@@ -33,49 +26,49 @@ namespace VanAn.CoreHub.Services.Template
             TenantId tenantId,
             AccountingPeriod period)
         {
-            var results = new Dictionary<string, decimal>();
-            var context = new DataProviderContext(tenantId, period);
-            
+            Dictionary<string, decimal> results = [];
+            DataProviderContext context = new(tenantId, period);
+
             // Create base variables with tenant and period context
-            var variables = CreateBaseVariables(tenantId, period);
-            
-            _logger.LogInformation("Calculating {FieldCount} fields for template {TemplateCode}", 
+            Dictionary<string, decimal> variables = CreateBaseVariables(tenantId, period);
+
+            _logger.LogInformation("Calculating {FieldCount} fields for template {TemplateCode}",
                 template.Fields.Count, template.TemplateCode);
-            
+
             // Calculate each field
-            foreach (var field in template.Fields)
+            foreach (TemplateField field in template.Fields)
             {
                 if (string.IsNullOrEmpty(field.Formula))
                 {
                     if (field.DefaultValue.HasValue)
                     {
                         results[field.FieldName] = field.DefaultValue.Value;
-                        _logger.LogDebug("Field {FieldName} using default value: {Value}", 
+                        _logger.LogDebug("Field {FieldName} using default value: {Value}",
                             field.FieldName, field.DefaultValue.Value);
                     }
                     continue;
                 }
-                
+
                 try
                 {
-                    var value = await CalculateFormulaAsync(field.Formula, variables, context);
+                    decimal value = await CalculateFormulaAsync(field.Formula, variables, context);
                     results[field.FieldName] = value;
-                    
+
                     _logger.LogDebug("Field {FieldName} calculated: {Value}", field.FieldName, value);
-                    
+
                     // Add calculated value to variables for dependent calculations
                     variables[field.FieldName] = value;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error calculating field {FieldName} with formula {Formula}", 
+                    _logger.LogError(ex, "Error calculating field {FieldName} with formula {Formula}",
                         field.FieldName, field.Formula);
-                    
+
                     if (field.IsRequired)
                     {
                         throw new InvalidOperationException($"Required field {field.FieldName} calculation failed", ex);
                     }
-                    
+
                     // Use default value for optional fields
                     if (field.DefaultValue.HasValue)
                     {
@@ -83,13 +76,13 @@ namespace VanAn.CoreHub.Services.Template
                     }
                 }
             }
-            
-            _logger.LogInformation("Template {TemplateCode} field calculation completed: {SuccessCount}/{TotalCount} fields", 
+
+            _logger.LogInformation("Template {TemplateCode} field calculation completed: {SuccessCount}/{TotalCount} fields",
                 template.TemplateCode, results.Count, template.Fields.Count);
-            
+
             return results;
         }
-        
+
         /// <summary>
         /// Calculate all calculation values for a template
         /// </summary>
@@ -99,61 +92,61 @@ namespace VanAn.CoreHub.Services.Template
             TenantId tenantId,
             AccountingPeriod period)
         {
-            var results = new Dictionary<string, decimal>();
-            var context = new DataProviderContext(tenantId, period);
-            
+            Dictionary<string, decimal> results = [];
+            DataProviderContext context = new(tenantId, period);
+
             // Start with field values as variables
-            var variables = new Dictionary<string, decimal>(fieldValues);
-            
+            Dictionary<string, decimal> variables = new(fieldValues);
+
             // Add base variables
-            foreach (var kvp in CreateBaseVariables(tenantId, period))
+            foreach (KeyValuePair<string, decimal> kvp in CreateBaseVariables(tenantId, period))
             {
                 variables[kvp.Key] = kvp.Value;
             }
-            
-            _logger.LogInformation("Calculating {CalculationCount} calculations for template {TemplateCode}", 
+
+            _logger.LogInformation("Calculating {CalculationCount} calculations for template {TemplateCode}",
                 template.Calculations.Count, template.TemplateCode);
-            
+
             // Calculate each calculation in order
-            var orderedCalculations = template.Calculations
+            IOrderedEnumerable<TemplateCalculation> orderedCalculations = template.Calculations
                 .OrderBy(c => c.Order)
                 .ThenBy(c => c.CalculationName);
-            
-            foreach (var calculation in orderedCalculations)
+
+            foreach (TemplateCalculation? calculation in orderedCalculations)
             {
                 if (string.IsNullOrEmpty(calculation.Formula))
                 {
                     continue;
                 }
-                
+
                 try
                 {
-                    var value = await CalculateFormulaAsync(calculation.Formula, variables, context);
+                    decimal value = await CalculateFormulaAsync(calculation.Formula, variables, context);
                     results[calculation.CalculationName] = value;
-                    
-                    _logger.LogDebug("Calculation {CalculationName} calculated: {Value}", 
+
+                    _logger.LogDebug("Calculation {CalculationName} calculated: {Value}",
                         calculation.CalculationName, value);
-                    
+
                     // Add calculated value to variables for dependent calculations
                     variables[calculation.CalculationName] = value;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error calculating calculation {CalculationName} with formula {Formula}", 
+                    _logger.LogError(ex, "Error calculating calculation {CalculationName} with formula {Formula}",
                         calculation.CalculationName, calculation.Formula);
                     throw new InvalidOperationException($"Calculation {calculation.CalculationName} failed", ex);
                 }
             }
-            
-            _logger.LogInformation("Template {TemplateCode} calculation completed: {SuccessCount}/{TotalCount} calculations", 
+
+            _logger.LogInformation("Template {TemplateCode} calculation completed: {SuccessCount}/{TotalCount} calculations",
                 template.TemplateCode, results.Count, template.Calculations.Count);
-            
+
             return results;
         }
-        
+
         private async Task<decimal> CalculateFormulaAsync(
-            string formula, 
-            Dictionary<string, decimal> variables, 
+            string formula,
+            Dictionary<string, decimal> variables,
             DataProviderContext context)
         {
             // Validate formula first
@@ -161,14 +154,14 @@ namespace VanAn.CoreHub.Services.Template
             {
                 throw new InvalidOperationException($"Invalid formula: {formula}");
             }
-            
+
             // Evaluate formula
-            var result = _formulaEngine.Evaluate(formula, variables);
-            
+            decimal result = _formulaEngine.Evaluate(formula, variables);
+
             return await Task.FromResult(result);
         }
-        
-        private Dictionary<string, decimal> CreateBaseVariables(TenantId tenantId, AccountingPeriod period)
+
+        private static Dictionary<string, decimal> CreateBaseVariables(TenantId tenantId, AccountingPeriod period)
         {
             return new Dictionary<string, decimal>
             {
@@ -179,17 +172,17 @@ namespace VanAn.CoreHub.Services.Template
                 ["_PeriodDays"] = DateTime.DaysInMonth(period.Year, period.Month)
             };
         }
-        
+
         /// <summary>
         /// Validate template formulas
         /// </summary>
         public async Task<List<string>> ValidateTemplateAsync(HKDBookTemplate template)
         {
-            var errors = new List<string>();
-            var variables = CreateBaseVariables(new TenantId(Guid.NewGuid()), AccountingPeriod.Create(2026, 1));
-            
+            List<string> errors = [];
+            Dictionary<string, decimal> variables = CreateBaseVariables(new TenantId(Guid.NewGuid()), AccountingPeriod.Create(2026, 1));
+
             // Validate field formulas
-            foreach (var field in template.Fields)
+            foreach (TemplateField field in template.Fields)
             {
                 if (!string.IsNullOrEmpty(field.Formula))
                 {
@@ -206,9 +199,9 @@ namespace VanAn.CoreHub.Services.Template
                     }
                 }
             }
-            
+
             // Validate calculation formulas
-            foreach (var calculation in template.Calculations)
+            foreach (TemplateCalculation calculation in template.Calculations)
             {
                 if (!string.IsNullOrEmpty(calculation.Formula))
                 {
@@ -225,7 +218,7 @@ namespace VanAn.CoreHub.Services.Template
                     }
                 }
             }
-            
+
             return await Task.FromResult(errors);
         }
     }

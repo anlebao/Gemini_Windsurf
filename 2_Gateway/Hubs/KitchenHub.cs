@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
-using System.Threading.Tasks;
 
 namespace VanAn.Gateway.Hubs
 {
@@ -39,7 +38,7 @@ namespace VanAn.Gateway.Hubs
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"order_{orderId}");
         }
 
-        public override async Task OnDisconnectedAsync(System.Exception? exception)
+        public override async Task OnDisconnectedAsync(Exception? exception)
         {
             await base.OnDisconnectedAsync(exception);
         }

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain
@@ -18,13 +15,13 @@ namespace VanAn.Shared.Domain
         public DateTime CreatedAt { get; }
         public DateTime? UpdatedAt { get; }
 
-        private readonly List<JournalTemplateLine> _lines = new();
+        private readonly List<JournalTemplateLine> _lines = [];
         public IReadOnlyCollection<JournalTemplateLine> Lines => _lines.AsReadOnly();
 
-        private readonly List<string> _businessRules = new();
+        private readonly List<string> _businessRules = [];
         public IReadOnlyCollection<string> BusinessRules => _businessRules.AsReadOnly();
 
-        private readonly List<TemplateValidationRule> _validationRules = new();
+        private readonly List<TemplateValidationRule> _validationRules = [];
         public IReadOnlyCollection<TemplateValidationRule> ValidationRules => _validationRules.AsReadOnly();
 
         // EF Core constructor
@@ -40,7 +37,11 @@ namespace VanAn.Shared.Domain
             : base(tenantId)
         {
             TenantId = tenantId;
-            if (string.IsNullOrWhiteSpace(code)) throw new ArgumentNullException(nameof(code));
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                throw new ArgumentNullException(nameof(code));
+            }
+
             Code = code;
             Description = description ?? throw new ArgumentNullException(nameof(description));
             IsActive = isActive;
@@ -50,10 +51,14 @@ namespace VanAn.Shared.Domain
         public void AddLine(string accountNumber, bool isDebit, string? amountFormula, string? descriptionTemplate = null)
         {
             if (string.IsNullOrWhiteSpace(accountNumber))
+            {
                 throw new ArgumentException("Account number is required", nameof(accountNumber));
+            }
 
             if (isDebit && string.IsNullOrWhiteSpace(amountFormula))
+            {
                 throw new ArgumentException("Amount formula is required for debit lines", nameof(amountFormula));
+            }
 
             _lines.Add(new JournalTemplateLine(accountNumber, isDebit, amountFormula, descriptionTemplate));
         }
@@ -61,7 +66,9 @@ namespace VanAn.Shared.Domain
         public void AddBusinessRule(string ruleName)
         {
             if (string.IsNullOrWhiteSpace(ruleName))
+            {
                 throw new ArgumentException("Rule name is required", nameof(ruleName));
+            }
 
             if (!_businessRules.Contains(ruleName))
             {
@@ -72,7 +79,9 @@ namespace VanAn.Shared.Domain
         public void AddValidationRule(string rule, string? message = null)
         {
             if (string.IsNullOrWhiteSpace(rule))
+            {
                 throw new ArgumentException("Rule is required", nameof(rule));
+            }
 
             _validationRules.Add(new TemplateValidationRule(rule, message));
         }

@@ -1,26 +1,27 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace VanAn.UI.Platform.Models;
-
-public class DynamicField
+namespace VanAn.UI.Platform.Models
 {
-    public object? Value { get; set; }
-    public bool Required { get; set; }
-    public string? Label { get; set; }
-}
-
-public class DynamicFormModel : IValidatableObject
-{
-    public Dictionary<string, DynamicField> Fields { get; set; } = new();
-    
-    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    public class DynamicField
     {
-        foreach (var field in Fields)
+        public object? Value { get; set; }
+        public bool Required { get; set; }
+        public string? Label { get; set; }
+    }
+
+    public class DynamicFormModel : IValidatableObject
+    {
+        public Dictionary<string, DynamicField> Fields { get; set; } = [];
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            if (field.Value.Required && 
-                (field.Value.Value == null || string.IsNullOrEmpty(field.Value.Value.ToString())))
+            foreach (KeyValuePair<string, DynamicField> field in Fields)
             {
-                yield return new ValidationResult($"{field.Value.Label ?? field.Key} không được để trống", new[] { field.Key });
+                if (field.Value.Required &&
+                    (field.Value.Value == null || string.IsNullOrEmpty(field.Value.Value.ToString())))
+                {
+                    yield return new ValidationResult($"{field.Value.Label ?? field.Key} không được để trống", new[] { field.Key });
+                }
             }
         }
     }

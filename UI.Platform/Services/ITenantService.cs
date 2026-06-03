@@ -16,6 +16,6 @@ namespace VanAn.UI.Platform.Services
         public string TenantName { get; set; } = string.Empty;
         public string Theme { get; set; } = "default";
         public string Logo { get; set; } = string.Empty;
-        public Dictionary<string, object> Settings { get; set; } = new();
+        public Dictionary<string, object> Settings { get; set; } = [];
     }
 }

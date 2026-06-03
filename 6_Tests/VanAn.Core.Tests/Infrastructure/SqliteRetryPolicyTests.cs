@@ -4,136 +4,133 @@ using VanAn.ShopERP.Infrastructure;
 using Xunit;
 using Moq;
 
-namespace VanAn.Core.Tests.Infrastructure;
-
-/// <summary>
-/// Tests for SqliteRetryPolicy - SQLite concurrency handling
-/// </summary>
-public class SqliteRetryPolicyTests
+namespace VanAn.Core.Tests.Infrastructure
 {
-    private readonly Mock<ILogger> _loggerMock;
-
-    public SqliteRetryPolicyTests()
+    /// <summary>
+    /// Tests for SqliteRetryPolicy - SQLite concurrency handling
+    /// </summary>
+    public class SqliteRetryPolicyTests
     {
-        _loggerMock = new Mock<ILogger>();
-    }
+        private readonly Mock<ILogger> _loggerMock;
 
-    [Fact]
-    public async Task ExecuteWithRetryAsync_ShouldSucceed_WhenNoException()
-    {
-        // Arrange
-        var callCount = 0;
-        Func<Task<int>> operation = () =>
+        public SqliteRetryPolicyTests()
         {
-            callCount++;
-            return Task.FromResult(callCount);
-        };
+            _loggerMock = new Mock<ILogger>();
+        }
 
-        // Act
-        var result = await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
-
-        // Assert
-        Assert.Equal(1, callCount);
-        Assert.Equal(1, result);
-    }
-
-    [Fact]
-    public async Task ExecuteWithRetryAsync_ShouldRetry_WhenSQLiteBusyException()
-    {
-        // Arrange
-        var callCount = 0;
-        Func<Task<int>> operation = () =>
+        [Fact]
+        public async Task ExecuteWithRetryAsync_ShouldSucceed_WhenNoException()
         {
-            callCount++;
-            if (callCount == 1)
+            // Arrange
+            int callCount = 0;
+            Task<int> operation()
+            {
+                callCount++;
+                return Task.FromResult(callCount);
+            }
+
+            // Act
+            int result = await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
+
+            // Assert
+            Assert.Equal(1, callCount);
+            Assert.Equal(1, result);
+        }
+
+        [Fact]
+        public async Task ExecuteWithRetryAsync_ShouldRetry_WhenSQLiteBusyException()
+        {
+            // Arrange
+            int callCount = 0;
+            Task<int> operation()
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    throw new SqliteException("Database is busy", 5); // SqliteErrorCode.Busy = 5
+                }
+                return Task.FromResult(callCount);
+            }
+
+            // Act
+            int result = await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
+
+            // Assert
+            Assert.Equal(2, callCount);
+            Assert.Equal(2, result);
+        }
+
+        [Fact]
+        public async Task ExecuteWithRetryAsync_ShouldRetry_WhenSQLiteLockedException()
+        {
+            // Arrange
+            int callCount = 0;
+            Task<int> operation()
+            {
+                callCount++;
+                if (callCount == 1)
+                {
+                    throw new SqliteException("Database is locked", 6); // SqliteErrorCode.Locked = 6
+                }
+                return Task.FromResult(callCount);
+            }
+
+            // Act
+            int result = await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
+
+            // Assert
+            Assert.Equal(2, callCount);
+            Assert.Equal(2, result);
+        }
+
+        [Fact]
+        public async Task ExecuteWithRetryAsync_ShouldFail_WhenMaxRetriesExceeded()
+        {
+            // Arrange
+            static Task<int> operation()
             {
                 throw new SqliteException("Database is busy", 5); // SqliteErrorCode.Busy = 5
             }
-            return Task.FromResult(callCount);
-        };
 
-        // Act
-        var result = await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object));
+        }
 
-        // Assert
-        Assert.Equal(2, callCount);
-        Assert.Equal(2, result);
-    }
-
-    [Fact]
-    public async Task ExecuteWithRetryAsync_ShouldRetry_WhenSQLiteLockedException()
-    {
-        // Arrange
-        var callCount = 0;
-        Func<Task<int>> operation = () =>
+        [Fact]
+        public async Task ExecuteWithRetryAsync_ShouldNotRetry_WhenNonRetryableException()
         {
-            callCount++;
-            if (callCount == 1)
+            // Arrange
+            int callCount = 0;
+            Task<int> operation()
             {
-                throw new SqliteException("Database is locked", 6); // SqliteErrorCode.Locked = 6
+                callCount++;
+                return callCount == 1 ? throw new InvalidOperationException("Non-retryable error") : Task.FromResult(callCount);
             }
-            return Task.FromResult(callCount);
-        };
 
-        // Act
-        var result = await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object));
 
-        // Assert
-        Assert.Equal(2, callCount);
-        Assert.Equal(2, result);
-    }
+            Assert.Equal(1, callCount); // Should not have retried
+        }
 
-    [Fact]
-    public async Task ExecuteWithRetryAsync_ShouldFail_WhenMaxRetriesExceeded()
-    {
-        // Arrange
-        Func<Task<int>> operation = () =>
+        [Fact]
+        public async Task ExecuteWithRetryAsync_VoidMethod_ShouldWork()
         {
-            throw new SqliteException("Database is busy", 5); // SqliteErrorCode.Busy = 5
-        };
-
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object));
-    }
-
-    [Fact]
-    public async Task ExecuteWithRetryAsync_ShouldNotRetry_WhenNonRetryableException()
-    {
-        // Arrange
-        var callCount = 0;
-        Func<Task<int>> operation = () =>
-        {
-            callCount++;
-            if (callCount == 1)
+            // Arrange
+            int callCount = 0;
+            Task operation()
             {
-                throw new InvalidOperationException("Non-retryable error");
+                callCount++;
+                return Task.CompletedTask;
             }
-            return Task.FromResult(callCount);
-        };
 
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object));
-        
-        Assert.Equal(1, callCount); // Should not have retried
-    }
+            // Act
+            await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
 
-    [Fact]
-    public async Task ExecuteWithRetryAsync_VoidMethod_ShouldWork()
-    {
-        // Arrange
-        var callCount = 0;
-        Func<Task> operation = () =>
-        {
-            callCount++;
-            return Task.CompletedTask;
-        };
-
-        // Act
-        await SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object);
-
-        // Assert
-        Assert.Equal(1, callCount);
+            // Assert
+            Assert.Equal(1, callCount);
+        }
     }
 }

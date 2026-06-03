@@ -1,33 +1,28 @@
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
 
-namespace VanAn.ShopERP.Services;
-
-/// <summary>
-/// Bridges Razor Pages authentication to Blazor components.
-/// Uses HttpContext to retrieve authentication state from cookie-based auth.
-/// </summary>
-public class HttpContextAuthenticationStateProvider : AuthenticationStateProvider
+namespace VanAn.ShopERP.Services
 {
-    private readonly IHttpContextAccessor _httpContextAccessor;
-
-    public HttpContextAuthenticationStateProvider(IHttpContextAccessor httpContextAccessor)
+    /// <summary>
+    /// Bridges Razor Pages authentication to Blazor components.
+    /// Uses HttpContext to retrieve authentication state from cookie-based auth.
+    /// </summary>
+    public class HttpContextAuthenticationStateProvider(IHttpContextAccessor httpContextAccessor) : AuthenticationStateProvider
     {
-        _httpContextAccessor = httpContextAccessor;
-    }
+        private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
 
-    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
-    {
-        var httpContext = _httpContextAccessor.HttpContext;
-        
-        if (httpContext == null)
+        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-        }
+            HttpContext? httpContext = _httpContextAccessor.HttpContext;
 
-        var user = httpContext.User;
-        
-        return new AuthenticationState(user);
+            if (httpContext == null)
+            {
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            }
+
+            ClaimsPrincipal user = httpContext.User;
+
+            return new AuthenticationState(user);
+        }
     }
 }

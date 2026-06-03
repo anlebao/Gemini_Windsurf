@@ -5,23 +5,18 @@ using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Tests.TestInfrastructure
 {
-    public class TestDataBuilder
+    public class TestDataBuilder(ILogger? logger = null)
     {
-        private readonly ILogger? _logger;
-        private readonly List<Shop> _shops = new();
-        private readonly List<Order> _orders = new();
-        private readonly List<Customer> _customers = new();
-
-        public TestDataBuilder(ILogger? logger = null)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger? _logger = logger;
+        private readonly List<Shop> _shops = [];
+        private readonly List<Order> _orders = [];
+        private readonly List<Customer> _customers = [];
 
         public TestDataBuilder WithShops(int count)
         {
             for (int i = 1; i <= count; i++)
             {
-                var tenantId = new TenantId(Guid.NewGuid());
+                TenantId tenantId = new(Guid.NewGuid());
                 _shops.Add(new Shop(tenantId, $"Shop {i}", $"Address {i}", $"09{i:D8}", $"shop{i}@vanan.com"));
             }
             return this;
@@ -36,8 +31,8 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 
             for (int i = 1; i <= count; i++)
             {
-                var shop = _shops[i % _shops.Count]; // Round-robin shop assignment
-                var totalAmount = (i * 110) + (i % 2 == 0 ? 0m : 5m) - (i % 3 == 0 ? 10m : 0m);
+                Shop shop = _shops[i % _shops.Count]; // Round-robin shop assignment
+                decimal totalAmount = (i * 110) + (i % 2 == 0 ? 0m : 5m) - (i % 3 == 0 ? 10m : 0m);
                 _orders.Add(new Order(shop.TenantId, null, totalAmount)); // null customerId avoids FK constraint
             }
             return this;
@@ -47,7 +42,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             for (int i = 1; i <= count; i++)
             {
-                var customerTenantId = _shops.Count > 0 ? _shops[i % _shops.Count].TenantId : new TenantId(Guid.NewGuid());
+                TenantId customerTenantId = _shops.Count > 0 ? _shops[i % _shops.Count].TenantId : new TenantId(Guid.NewGuid());
                 _customers.Add(new Customer(customerTenantId, $"Customer {i}", $"555000{i:D4}", $"customer{i}@example.com"));
             }
             return this;
@@ -74,8 +69,8 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         public async Task BuildAsync(VanAnDbContext context)
         {
             _logger?.LogInformation("[TestDataBuilder] Starting to build test data...");
-            
-            using var transaction = await context.Database.BeginTransactionAsync();
+
+            using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
             try
             {
                 // Clear existing data

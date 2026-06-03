@@ -16,7 +16,7 @@ namespace VanAn.CoreHub.Services.Data
         /// <param name="side">Credit or Debit</param>
         /// <returns>Sum of amounts</returns>
         decimal GetAccountSum(DataProviderContext context, string accountPattern, string side);
-        
+
         /// <summary>
         /// Get account balance (Debit - Credit)
         /// </summary>
@@ -24,14 +24,14 @@ namespace VanAn.CoreHub.Services.Data
         /// <param name="accountPattern">Account pattern</param>
         /// <returns>Account balance</returns>
         decimal GetAccountBalance(DataProviderContext context, string accountPattern);
-        
+
         /// <summary>
         /// Get pre-aggregated data for context
         /// </summary>
         /// <param name="context">Data provider context</param>
         /// <returns>Dictionary of pre-aggregated values</returns>
         Task<Dictionary<string, decimal>> GetPreAggregatedDataAsync(DataProviderContext context);
-        
+
         /// <summary>
         /// Get period total for specific account pattern
         /// </summary>

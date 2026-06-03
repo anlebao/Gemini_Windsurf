@@ -1,4 +1,3 @@
-using System;
 using FluentAssertions;
 using Xunit;
 using VanAn.Shared.Domain;
@@ -7,9 +6,9 @@ namespace VanAn.Core.Tests.Accounting
 {
     public class JournalEntryLineTests
     {
-        private readonly TenantId _tenantId = new TenantId(Guid.NewGuid());
+        private readonly TenantId _tenantId = new(Guid.NewGuid());
         private readonly DateTime _testDate = DateTime.UtcNow;
-        private JournalEntry _journal;
+        private readonly JournalEntry _journal;
 
         public JournalEntryLineTests()
         {
@@ -20,13 +19,13 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Create_With_Valid_Data()
         {
             // Arrange
-            var accountNumber = "111";
-            var debitAmount = 1000m;
-            var creditAmount = 0m;
-            var description = "Test Line";
+            string accountNumber = "111";
+            decimal debitAmount = 1000m;
+            decimal creditAmount = 0m;
+            string description = "Test Line";
 
             // Act
-            var line = new JournalEntryLine(_journal, accountNumber, debitAmount, creditAmount, description);
+            JournalEntryLine line = new(_journal, accountNumber, debitAmount, creditAmount, description);
 
             // Assert
             line.AccountNumber.Should().Be(accountNumber);
@@ -40,12 +39,12 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Create_With_Null_Description()
         {
             // Arrange
-            var accountNumber = "111";
-            var debitAmount = 1000m;
-            var creditAmount = 0m;
+            string accountNumber = "111";
+            decimal debitAmount = 1000m;
+            decimal creditAmount = 0m;
 
             // Act
-            var line = new JournalEntryLine(_journal, accountNumber, debitAmount, creditAmount, null);
+            JournalEntryLine line = new(_journal, accountNumber, debitAmount, creditAmount, null);
 
             // Assert
             line.Description.Should().BeNull();
@@ -55,13 +54,13 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Create_With_Empty_Description()
         {
             // Arrange
-            var accountNumber = "111";
-            var debitAmount = 1000m;
-            var creditAmount = 0m;
-            var description = "";
+            string accountNumber = "111";
+            decimal debitAmount = 1000m;
+            decimal creditAmount = 0m;
+            string description = "";
 
             // Act
-            var line = new JournalEntryLine(_journal, accountNumber, debitAmount, creditAmount, description);
+            JournalEntryLine line = new(_journal, accountNumber, debitAmount, creditAmount, description);
 
             // Assert
             line.Description.Should().Be("");
@@ -75,7 +74,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Handle_Valid_Account_Numbers(string accountNumber, decimal debit, decimal credit)
         {
             // Arrange & Act
-            var line = new JournalEntryLine(_journal, accountNumber, debit, credit, "Test");
+            JournalEntryLine line = new(_journal, accountNumber, debit, credit, "Test");
 
             // Assert
             line.AccountNumber.Should().Be(accountNumber);
@@ -87,10 +86,10 @@ namespace VanAn.Core.Tests.Accounting
         [InlineData("", 1000, 0)]
         [InlineData("   ", 1000, 0)]
         [InlineData(null, 1000, 0)]
-        public void JournalEntryLine_Should_Handle_Invalid_Account_Numbers(string accountNumber, decimal debit, decimal credit)
+        public void JournalEntryLine_Should_Handle_Invalid_Account_Numbers(string? accountNumber, decimal debit, decimal credit)
         {
             // Arrange & Act
-            var line = new JournalEntryLine(_journal, accountNumber, debit, credit, "Test");
+            JournalEntryLine line = new(_journal, accountNumber, debit, credit, "Test");
 
             // Assert - Should still create but account number will be empty/null
             line.AccountNumber.Should().Be(accountNumber);
@@ -100,10 +99,10 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Assign_Correct_JournalEntryId()
         {
             // Arrange
-            var journalId = _journal.JournalEntryId.Value;
+            Guid journalId = _journal.JournalEntryId.Value;
 
             // Act
-            var line = new JournalEntryLine(_journal, "111", 1000m, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", 1000m, 0m, "Test");
 
             // Assert
             line.JournalEntryId.Should().Be(journalId);
@@ -113,7 +112,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Handle_Zero_Amounts()
         {
             // Arrange & Act
-            var line = new JournalEntryLine(_journal, "111", 0m, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", 0m, 0m, "Test");
 
             // Assert
             line.DebitAmount.Should().Be(0m);
@@ -124,10 +123,10 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Handle_Large_Amounts()
         {
             // Arrange
-            var largeAmount = 999999999.99m;
+            decimal largeAmount = 999999999.99m;
 
             // Act
-            var line = new JournalEntryLine(_journal, "111", largeAmount, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", largeAmount, 0m, "Test");
 
             // Assert
             line.DebitAmount.Should().Be(largeAmount);
@@ -137,10 +136,10 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Handle_Decimal_Precision()
         {
             // Arrange
-            var preciseAmount = 1234.5678m;
+            decimal preciseAmount = 1234.5678m;
 
             // Act
-            var line = new JournalEntryLine(_journal, "111", preciseAmount, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", preciseAmount, 0m, "Test");
 
             // Assert
             line.DebitAmount.Should().Be(preciseAmount);
@@ -153,7 +152,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Throw_For_Both_Debit_And_Credit_Positive(decimal debit, decimal credit)
         {
             // Arrange & Act & Assert
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 new JournalEntryLine(_journal, "111", debit, credit, "Test"));
         }
 
@@ -167,7 +166,7 @@ namespace VanAn.Core.Tests.Accounting
             // Arrange & Act & Assert
             // Note: Line constructor doesn't validate, but AddLine in JournalEntry does
             // This test documents current behavior for future improvement
-            var line = new JournalEntryLine(_journal, invalidAccount, 1000m, 0m, "Test");
+            JournalEntryLine line = new(_journal, invalidAccount, 1000m, 0m, "Test");
             line.AccountNumber.Should().Be(invalidAccount);
         }
 
@@ -175,7 +174,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Maintain_Immutability()
         {
             // Arrange
-            var line = new JournalEntryLine(_journal, "111", 1000m, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", 1000m, 0m, "Test");
 
             // Act & Assert - All properties should be readonly
             line.AccountNumber.Should().Be("111");
@@ -188,10 +187,10 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Handle_Negative_Zero()
         {
             // Arrange
-            var negativeZero = -0.0m;
+            decimal negativeZero = -0.0m;
 
             // Act
-            var line = new JournalEntryLine(_journal, "111", negativeZero, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", negativeZero, 0m, "Test");
 
             // Assert
             line.DebitAmount.Should().Be(0m); // Should normalize to 0
@@ -204,7 +203,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Handle_Small_Amounts(decimal smallAmount)
         {
             // Arrange & Act
-            var line = new JournalEntryLine(_journal, "111", smallAmount, 0m, "Test");
+            JournalEntryLine line = new(_journal, "111", smallAmount, 0m, "Test");
 
             // Assert
             line.DebitAmount.Should().Be(smallAmount);
@@ -217,7 +216,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalEntryLine_Should_Throw_For_Negative_Amounts(decimal debit, decimal credit)
         {
             // Arrange & Act & Assert
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 new JournalEntryLine(_journal, "111", debit, credit, "Test"));
         }
     }

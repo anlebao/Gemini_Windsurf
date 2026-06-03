@@ -10,7 +10,7 @@ namespace VanAn.UI.Platform.Models
         public string Title { get; set; } = string.Empty;
         public string Url { get; set; } = string.Empty;
         public string Icon { get; set; } = string.Empty;
-        public bool IsActive { get; set; } = false;
-        public List<NavigationItem> Children { get; set; } = new();
+        public bool IsActive { get; set; }
+        public List<NavigationItem> Children { get; set; } = [];
     }
 }

@@ -1,37 +1,34 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using VanAn.Shared.Domain;
-using System;
 
-namespace VanAn.Shared.Extensions;
-
-public static class ServiceCollectionExtensions
+namespace VanAn.Shared.Extensions
 {
-    /// <summary>
-    /// Add SQLite DbContext with WAL Mode and optimized settings for Edge Nodes
-    /// NOTE: This method should be moved to Infrastructure layer - EF Core references violate Domain purity
-    /// </summary>
-    public static IServiceCollection AddVanAnSqlite(this IServiceCollection services, string connectionString)
+    public static class ServiceCollectionExtensions
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(connectionString);
+        /// <summary>
+        /// Add SQLite DbContext with WAL Mode and optimized settings for Edge Nodes
+        /// NOTE: This method should be moved to Infrastructure layer - EF Core references violate Domain purity
+        /// </summary>
+        public static IServiceCollection AddVanAnSqlite(this IServiceCollection services, string connectionString)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(connectionString);
 
-        // TODO: Move EF Core DbContext configuration to Infrastructure layer
-        // This is a placeholder for the actual implementation
-        
-        return services;
-    }
+            // TODO: Move EF Core DbContext configuration to Infrastructure layer
+            // This is a placeholder for the actual implementation
 
-    /// <summary>
-    /// Initialize SQLite database with WAL mode and optimizations
-    /// NOTE: This method should be moved to Infrastructure layer - EF Core references violate Domain purity
-    /// </summary>
-    public static async Task InitializeSqliteDatabaseAsync(this IServiceProvider serviceProvider)
-    {
-        // TODO: Move EF Core DbContext initialization to Infrastructure layer
-        // This is a placeholder for the actual implementation
-        
-        await Task.CompletedTask;
+            return services;
+        }
+
+        /// <summary>
+        /// Initialize SQLite database with WAL mode and optimizations
+        /// NOTE: This method should be moved to Infrastructure layer - EF Core references violate Domain purity
+        /// </summary>
+        public static async Task InitializeSqliteDatabaseAsync(this IServiceProvider serviceProvider)
+        {
+            // TODO: Move EF Core DbContext initialization to Infrastructure layer
+            // This is a placeholder for the actual implementation
+
+            await Task.CompletedTask;
+        }
     }
 }

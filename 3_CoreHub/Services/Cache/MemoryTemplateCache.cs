@@ -8,64 +8,58 @@ namespace VanAn.CoreHub.Services.Cache
     /// In-memory cache for HKD book templates
     /// Provides fast access to frequently used templates
     /// </summary>
-    public class MemoryTemplateCache : IMemoryTemplateCache
+    public class MemoryTemplateCache(IMemoryCache cache, ILogger<MemoryTemplateCache> logger) : IMemoryTemplateCache
     {
-        private readonly IMemoryCache _cache;
-        private readonly ILogger<MemoryTemplateCache> _logger;
-        
-        public MemoryTemplateCache(IMemoryCache cache, ILogger<MemoryTemplateCache> logger)
-        {
-            _cache = cache;
-            _logger = logger;
-        }
-        
+        private readonly IMemoryCache _cache = cache;
+        private readonly ILogger<MemoryTemplateCache> _logger = logger;
+
         /// <summary>
         /// Get cached template
         /// </summary>
         public HKDBookTemplate? GetTemplate(string templateCode)
         {
-            var cacheKey = $"template_{templateCode}";
-            
+            string cacheKey = $"template_{templateCode}";
+
             if (_cache.TryGetValue(cacheKey, out HKDBookTemplate? template))
             {
                 _logger.LogDebug("Template {TemplateCode} found in cache", templateCode);
                 return template;
             }
-            
+
             _logger.LogDebug("Template {TemplateCode} not found in cache", templateCode);
             return null;
         }
-        
+
         /// <summary>
         /// Set template in cache
         /// </summary>
         public void SetTemplate(string templateCode, HKDBookTemplate template, TimeSpan expiration)
         {
-            var cacheKey = $"template_{templateCode}";
-            
-            var cacheOptions = new MemoryCacheEntryOptions
+            string cacheKey = $"template_{templateCode}";
+
+            MemoryCacheEntryOptions cacheOptions = new()
             {
                 AbsoluteExpirationRelativeToNow = expiration,
                 SlidingExpiration = expiration / 2
             };
-            
+
             _cache.Set(cacheKey, template, cacheOptions);
-            
-            _logger.LogDebug("Template {TemplateCode} cached for {Expiration} minutes", 
+
+            _logger.LogDebug("Template {TemplateCode} cached for {Expiration} minutes",
                 templateCode, expiration.TotalMinutes);
         }
-        
+
         /// <summary>
         /// Remove template from cache
         /// </summary>
         public void RemoveTemplate(string templateCode)
         {
-            var cacheKey = $"template_{templateCode}";
+            string cacheKey = $"template_{templateCode}";
             _cache.Remove(cacheKey);
-            
+
             _logger.LogDebug("Template {TemplateCode} removed from cache", templateCode);
         }
-        
+
         /// <summary>
         /// Clear all templates from cache
         /// </summary>
@@ -75,7 +69,7 @@ namespace VanAn.CoreHub.Services.Cache
             // This would require tracking all cache keys or using a separate cache instance
             _logger.LogDebug("Template cache clear requested (not fully implemented with IMemoryCache)");
         }
-        
+
         /// <summary>
         /// Get cache statistics
         /// </summary>
@@ -91,17 +85,17 @@ namespace VanAn.CoreHub.Services.Cache
                 LastCleanup = DateTime.UtcNow
             };
         }
-        
+
         /// <summary>
         /// Check if template exists in cache
         /// </summary>
         public bool ContainsTemplate(string templateCode)
         {
-            var cacheKey = $"template_{templateCode}";
+            string cacheKey = $"template_{templateCode}";
             return _cache.TryGetValue(cacheKey, out _);
         }
     }
-    
+
     /// <summary>
     /// Interface for memory template cache
     /// </summary>
@@ -114,7 +108,7 @@ namespace VanAn.CoreHub.Services.Cache
         MemoryCacheStatistics GetStatistics();
         bool ContainsTemplate(string templateCode);
     }
-    
+
     /// <summary>
     /// Memory cache statistics
     /// </summary>

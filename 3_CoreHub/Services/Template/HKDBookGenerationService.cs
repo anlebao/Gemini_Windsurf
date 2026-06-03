@@ -10,25 +10,17 @@ namespace VanAn.CoreHub.Services.Template
     /// HKD Book Generation Service - Orchestrates template creation and book generation
     /// Main service for generating HKD books from templates
     /// </summary>
-    public class HKDBookGenerationService : IHKDBookGenerationService
+    public class HKDBookGenerationService(
+        VanAnDbContext context,
+        TemplateFactory templateFactory,
+        IBookResultCache cache,
+        ILogger<HKDBookGenerationService> logger) : IHKDBookGenerationService
     {
-        private readonly VanAnDbContext _context;
-        private readonly TemplateFactory _templateFactory;
-        private readonly IBookResultCache _cache;
-        private readonly ILogger<HKDBookGenerationService> _logger;
-        
-        public HKDBookGenerationService(
-            VanAnDbContext context,
-            TemplateFactory templateFactory,
-            IBookResultCache cache,
-            ILogger<HKDBookGenerationService> logger)
-        {
-            _context = context;
-            _templateFactory = templateFactory;
-            _cache = cache;
-            _logger = logger;
-        }
-        
+        private readonly VanAnDbContext _context = context;
+        private readonly TemplateFactory _templateFactory = templateFactory;
+        private readonly IBookResultCache _cache = cache;
+        private readonly ILogger<HKDBookGenerationService> _logger = logger;
+
         /// <summary>
         /// Generate HKD book for a specific template and period
         /// </summary>
@@ -37,47 +29,42 @@ namespace VanAn.CoreHub.Services.Template
             AccountingPeriod period,
             string templateCode)
         {
-            var cacheKey = GetCacheKey(tenantId, period, templateCode);
-            
+            string cacheKey = GetCacheKey(tenantId, period, templateCode);
+
             // Check cache first
-            var cachedBook = await _cache.GetBookAsync(cacheKey);
+            GenericHKDBook? cachedBook = await _cache.GetBookAsync(cacheKey);
             if (cachedBook != null)
             {
-                _logger.LogDebug("Using cached HKD book for tenant {TenantId}, template {TemplateCode}, period {Period}", 
+                _logger.LogDebug("Using cached HKD book for tenant {TenantId}, template {TemplateCode}, period {Period}",
                     tenantId.Value, templateCode, period);
                 return cachedBook;
             }
-            
-            _logger.LogInformation("Generating HKD book for tenant {TenantId}, template {TemplateCode}, period {Period}", 
+
+            _logger.LogInformation("Generating HKD book for tenant {TenantId}, template {TemplateCode}, period {Period}",
                 tenantId.Value, templateCode, period);
-            
+
             // Get tenant information to determine HKD group
-            var tenant = await _context.Tenants
-                .FirstOrDefaultAsync(t => t.Id == tenantId);
-            
-            if (tenant == null)
-            {
-                throw new ArgumentException($"Tenant {tenantId.Value} not found");
-            }
-            
+            Tenant? tenant = await _context.Tenants
+                .FirstOrDefaultAsync(t => t.Id == tenantId) ?? throw new ArgumentException($"Tenant {tenantId.Value} not found");
+
             // Get journal entries for the period
-            var entries = await GetJournalEntriesAsync(tenantId, period);
-            
+            List<JournalEntry> entries = await GetJournalEntriesAsync(tenantId, period);
+
             // Create template using factory
-            var template = _templateFactory.CreateTemplate(tenant.HKDGroup ?? HKDGroup.Group1, templateCode);
-            
+            HKDBookTemplate template = _templateFactory.CreateTemplate(tenant.HKDGroup ?? HKDGroup.Group1, templateCode);
+
             // Generate book using template
-            var book = await template.CreateBookAsync(tenantId, period, entries);
-            
+            GenericHKDBook book = await template.CreateBookAsync(tenantId, period, entries);
+
             // Cache the result
             await _cache.SetBookAsync(cacheKey, book, TimeSpan.FromHours(1));
-            
-            _logger.LogInformation("HKD book generated successfully: {TemplateCode} with {ValueCount} values", 
+
+            _logger.LogInformation("HKD book generated successfully: {TemplateCode} with {ValueCount} values",
                 templateCode, book.NumericValues.Count);
-            
+
             return book;
         }
-        
+
         /// <summary>
         /// Generate all HKD books for a tenant and period
         /// </summary>
@@ -85,90 +72,79 @@ namespace VanAn.CoreHub.Services.Template
             TenantId tenantId,
             AccountingPeriod period)
         {
-            _logger.LogInformation("Generating all HKD books for tenant {TenantId}, period {Period}", 
+            _logger.LogInformation("Generating all HKD books for tenant {TenantId}, period {Period}",
                 tenantId.Value, period);
-            
+
             // Get tenant information
-            var tenant = await _context.Tenants
-                .FirstOrDefaultAsync(t => t.Id == tenantId);
-            
-            if (tenant == null)
-            {
-                throw new ArgumentException($"Tenant {tenantId.Value} not found");
-            }
-            
+            Tenant? tenant = await _context.Tenants
+                .FirstOrDefaultAsync(t => t.Id == tenantId) ?? throw new ArgumentException($"Tenant {tenantId.Value} not found");
+
             // Get all templates for the tenant's group
-            var templates = _templateFactory.GetTemplatesForGroup(tenant.HKDGroup ?? HKDGroup.Group1);
-            var books = new List<GenericHKDBook>();
-            
+            List<HKDBookTemplate> templates = _templateFactory.GetTemplatesForGroup(tenant.HKDGroup ?? HKDGroup.Group1);
+            List<GenericHKDBook> books = [];
+
             // Get journal entries once for all templates
-            var entries = await GetJournalEntriesAsync(tenantId, period);
-            
+            List<JournalEntry> entries = await GetJournalEntriesAsync(tenantId, period);
+
             // Generate each book
-            foreach (var template in templates)
+            foreach (HKDBookTemplate template in templates)
             {
                 try
                 {
-                    var book = await template.CreateBookAsync(tenantId, period, entries);
+                    GenericHKDBook book = await template.CreateBookAsync(tenantId, period, entries);
                     books.Add(book);
-                    
+
                     // Cache individual book
-                    var cacheKey = GetCacheKey(tenantId, period, template.TemplateCode);
+                    string cacheKey = GetCacheKey(tenantId, period, template.TemplateCode);
                     await _cache.SetBookAsync(cacheKey, book, TimeSpan.FromHours(1));
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error generating HKD book {TemplateCode} for tenant {TenantId}", 
+                    _logger.LogError(ex, "Error generating HKD book {TemplateCode} for tenant {TenantId}",
                         template.TemplateCode, tenantId.Value);
                     // Continue with other templates
                 }
             }
-            
-            _logger.LogInformation("Generated {SuccessCount}/{TotalCount} HKD books for tenant {TenantId}", 
+
+            _logger.LogInformation("Generated {SuccessCount}/{TotalCount} HKD books for tenant {TenantId}",
                 books.Count, templates.Count, tenantId.Value);
-            
+
             return books;
         }
-        
+
         /// <summary>
         /// Get available templates for a tenant
         /// </summary>
         public async Task<List<HKDBookTemplate>> GetAvailableTemplatesAsync(TenantId tenantId)
         {
-            var tenant = await _context.Tenants
-                .FirstOrDefaultAsync(t => t.Id == tenantId);
-            
-            if (tenant == null)
-            {
-                throw new ArgumentException($"Tenant {tenantId.Value} not found");
-            }
-            
-            var templates = _templateFactory.GetTemplatesForGroup(tenant.HKDGroup ?? HKDGroup.Group1);
-            
-            _logger.LogDebug("Found {TemplateCount} templates for tenant {TenantId} (Group: {Group})", 
+            Tenant? tenant = await _context.Tenants
+                .FirstOrDefaultAsync(t => t.Id == tenantId) ?? throw new ArgumentException($"Tenant {tenantId.Value} not found");
+            List<HKDBookTemplate> templates = _templateFactory.GetTemplatesForGroup(tenant.HKDGroup ?? HKDGroup.Group1);
+
+            _logger.LogDebug("Found {TemplateCount} templates for tenant {TenantId} (Group: {Group})",
                 templates.Count, tenantId.Value, tenant.HKDGroup);
-            
+
             return await Task.FromResult(templates);
         }
-        
+
         /// <summary>
         /// Validate template before generation
         /// </summary>
         public async Task<List<string>> ValidateTemplateAsync(string templateCode)
         {
             // Create a temporary template instance for validation
-            var template = _templateFactory.CreateTemplate(HKDGroup.Group1, templateCode);
-            
+            HKDBookTemplate template = _templateFactory.CreateTemplate(HKDGroup.Group1, templateCode);
+
             // Use the template's validation method
             if (template is BaseHKDBookTemplate baseTemplate)
             {
                 return await baseTemplate.ValidateTemplateAsync();
             }
-            
+
             // For other template types, return empty validation
             return await Task.FromResult(new List<string>());
         }
-        
+
         /// <summary>
         /// Get book generation status
         /// </summary>
@@ -176,8 +152,8 @@ namespace VanAn.CoreHub.Services.Template
             TenantId tenantId,
             AccountingPeriod period)
         {
-            var templates = await GetAvailableTemplatesAsync(tenantId);
-            var status = new BookGenerationStatus
+            List<HKDBookTemplate> templates = await GetAvailableTemplatesAsync(tenantId);
+            BookGenerationStatus status = new()
             {
                 TenantId = tenantId,
                 Period = period,
@@ -185,21 +161,21 @@ namespace VanAn.CoreHub.Services.Template
                 GeneratedBooks = 0,
                 FailedBooks = 0
             };
-            
-            foreach (var template in templates)
+
+            foreach (HKDBookTemplate template in templates)
             {
-                var cacheKey = GetCacheKey(tenantId, period, template.TemplateCode);
-                var cachedBook = await _cache.GetBookAsync(cacheKey);
-                
+                string cacheKey = GetCacheKey(tenantId, period, template.TemplateCode);
+                GenericHKDBook? cachedBook = await _cache.GetBookAsync(cacheKey);
+
                 if (cachedBook != null)
                 {
                     status.GeneratedBooks++;
                 }
             }
-            
+
             return status;
         }
-        
+
         private async Task<List<JournalEntry>> GetJournalEntriesAsync(TenantId tenantId, AccountingPeriod period)
         {
             return await _context.JournalEntries
@@ -209,13 +185,13 @@ namespace VanAn.CoreHub.Services.Template
                 .OrderBy(e => e.EntryDate)
                 .ToListAsync();
         }
-        
-        private string GetCacheKey(TenantId tenantId, AccountingPeriod period, string templateCode)
+
+        private static string GetCacheKey(TenantId tenantId, AccountingPeriod period, string templateCode)
         {
             return $"hkd_book_{tenantId.Value}_{period.Year}_{period.Month:D2}_{templateCode}";
         }
     }
-    
+
     /// <summary>
     /// Service interface for HKD book generation
     /// </summary>
@@ -227,7 +203,7 @@ namespace VanAn.CoreHub.Services.Template
         Task<List<string>> ValidateTemplateAsync(string templateCode);
         Task<BookGenerationStatus> GetGenerationStatusAsync(TenantId tenantId, AccountingPeriod period);
     }
-    
+
     /// <summary>
     /// Book generation status
     /// </summary>

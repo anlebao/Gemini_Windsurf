@@ -1,5 +1,3 @@
-using VanAn.Shared.Domain;
-
 namespace VanAn.CoreHub.Commands
 {
     /// <summary>
@@ -10,7 +8,7 @@ namespace VanAn.CoreHub.Commands
     public class CreateOrderCommand
     {
         public Guid CustomerDeviceId { get; set; }
-        public List<OrderItemRequest> Items { get; set; } = new();
+        public List<OrderItemRequest> Items { get; set; } = [];
     }
 
     public class OrderItemRequest

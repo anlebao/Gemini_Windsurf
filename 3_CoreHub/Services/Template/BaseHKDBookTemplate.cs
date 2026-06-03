@@ -10,10 +10,10 @@ namespace VanAn.CoreHub.Services.Template
     /// </summary>
     public abstract record BaseHKDBookTemplate : HKDBookTemplate
     {
-        protected readonly IFormulaEngine FormulaEngine;
-        protected readonly IDataProvider DataProvider;
-        protected readonly ILogger<BaseHKDBookTemplate> Logger;
-        
+        protected IFormulaEngine FormulaEngine { get; private set; }
+        protected IDataProvider DataProvider { get; private set; }
+        protected ILogger<BaseHKDBookTemplate> Logger { get; private set; }
+
         protected BaseHKDBookTemplate(
             IFormulaEngine formulaEngine,
             IDataProvider dataProvider,
@@ -23,16 +23,16 @@ namespace VanAn.CoreHub.Services.Template
             DataProvider = dataProvider;
             Logger = logger;
         }
-        
+
         public override async Task<GenericHKDBook> CreateBookAsync(
-            TenantId tenantId, 
-            AccountingPeriod period, 
+            TenantId tenantId,
+            AccountingPeriod period,
             List<JournalEntry> entries)
         {
-            Logger.LogInformation("Creating HKD book {TemplateCode} for tenant {TenantId}, period {Period}", 
+            Logger.LogInformation("Creating HKD book {TemplateCode} for tenant {TenantId}, period {Period}",
                 TemplateCode, tenantId.Value, period);
-            
-            var book = new GenericHKDBook
+
+            GenericHKDBook book = new()
             {
                 TenantId = tenantId,
                 Period = period,
@@ -40,45 +40,45 @@ namespace VanAn.CoreHub.Services.Template
                 Template = this,
                 Entries = entries
             };
-            
+
             // Calculate all values using the template calculation engine
             await CalculateAsync(book);
-            
+
             // Validate the calculated values
             await ValidateAsync(book);
-            
-            Logger.LogInformation("HKD book {TemplateCode} created successfully with {ValueCount} calculated values", 
+
+            Logger.LogInformation("HKD book {TemplateCode} created successfully with {ValueCount} calculated values",
                 TemplateCode, book.NumericValues.Count);
-            
+
             return book;
         }
-        
+
         public override async Task CalculateAsync(GenericHKDBook book)
         {
-            var calculationEngine = new TemplateCalculationEngine(FormulaEngine, DataProvider, null!); // Logger will be created internally
-            
+            TemplateCalculationEngine calculationEngine = new(FormulaEngine, DataProvider, null!); // Logger will be created internally
+
             try
             {
                 // Calculate field values
-                var fieldValues = await calculationEngine.CalculateFieldsAsync(this, book.TenantId, book.Period);
-                
+                Dictionary<string, decimal> fieldValues = await calculationEngine.CalculateFieldsAsync(this, book.TenantId, book.Period);
+
                 // Add field values to book
-                foreach (var kvp in fieldValues)
+                foreach (KeyValuePair<string, decimal> kvp in fieldValues)
                 {
                     book.NumericValues[kvp.Key] = kvp.Value;
                 }
-                
+
                 // Calculate calculation values
-                var calculationValues = await calculationEngine.CalculateCalculationsAsync(
+                Dictionary<string, decimal> calculationValues = await calculationEngine.CalculateCalculationsAsync(
                     this, fieldValues, book.TenantId, book.Period);
-                
+
                 // Add calculation values to book
-                foreach (var kvp in calculationValues)
+                foreach (KeyValuePair<string, decimal> kvp in calculationValues)
                 {
                     book.NumericValues[kvp.Key] = kvp.Value;
                 }
-                
-                Logger.LogDebug("HKD book {TemplateCode} calculation completed: {FieldCount} fields, {CalculationCount} calculations", 
+
+                Logger.LogDebug("HKD book {TemplateCode} calculation completed: {FieldCount} fields, {CalculationCount} calculations",
                     TemplateCode, fieldValues.Count, calculationValues.Count);
             }
             catch (Exception ex)
@@ -87,26 +87,26 @@ namespace VanAn.CoreHub.Services.Template
                 throw;
             }
         }
-        
+
         public override async Task ValidateAsync(GenericHKDBook book)
         {
-            var errors = new List<string>();
-            
+            List<string> errors = [];
+
             // Check required fields
-            foreach (var field in Fields.Where(f => f.IsRequired))
+            foreach (TemplateField? field in Fields.Where(f => f.IsRequired))
             {
                 if (!book.NumericValues.ContainsKey(field.FieldName))
                 {
                     errors.Add($"Required field {field.FieldName} is missing");
                 }
             }
-            
+
             // Check validation rules
-            foreach (var rule in ValidationRules)
+            foreach (TemplateValidationRule rule in ValidationRules)
             {
                 try
                 {
-                    var isValid = await ValidateRuleAsync(rule, book);
+                    bool isValid = await ValidateRuleAsync(rule, book);
                     if (!isValid)
                     {
                         errors.Add($"Validation rule failed: {rule.Rule}");
@@ -118,18 +118,18 @@ namespace VanAn.CoreHub.Services.Template
                     errors.Add($"Validation rule error: {rule.Rule} - {ex.Message}");
                 }
             }
-            
+
             if (errors.Count > 0)
             {
-                var errorMessage = $"HKD book {TemplateCode} validation failed: {string.Join(", ", errors)}";
+                string errorMessage = $"HKD book {TemplateCode} validation failed: {string.Join(", ", errors)}";
                 Logger.LogError(errorMessage);
                 throw new InvalidOperationException(errorMessage);
             }
-            
+
             Logger.LogInformation("HKD book {TemplateCode} validation passed", TemplateCode);
             await Task.CompletedTask;
         }
-        
+
         private async Task<bool> ValidateRuleAsync(TemplateValidationRule rule, GenericHKDBook book)
         {
             // Simple validation implementation - can be extended
@@ -138,7 +138,7 @@ namespace VanAn.CoreHub.Services.Template
             {
                 try
                 {
-                    var variables = new Dictionary<string, decimal>(book.NumericValues);
+                    Dictionary<string, decimal> variables = new(book.NumericValues);
                     return FormulaEngine.ValidateFormula(rule.Rule);
                 }
                 catch
@@ -146,16 +146,16 @@ namespace VanAn.CoreHub.Services.Template
                     return false;
                 }
             }
-            
+
             return true;
         }
-        
+
         /// <summary>
         /// Validate template formulas
         /// </summary>
         public async Task<List<string>> ValidateTemplateAsync()
         {
-            var calculationEngine = new TemplateCalculationEngine(FormulaEngine, DataProvider, null!); // Logger will be created internally
+            TemplateCalculationEngine calculationEngine = new(FormulaEngine, DataProvider, null!); // Logger will be created internally
             return await calculationEngine.ValidateTemplateAsync(this);
         }
     }

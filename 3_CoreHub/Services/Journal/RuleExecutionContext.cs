@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Diagnostics;
 using VanAn.Shared.Domain;
 
@@ -7,24 +6,16 @@ namespace VanAn.CoreHub.Services.Journal
     /// <summary>
     /// Context for tracing rule execution chains with detailed logging
     /// </summary>
-    public sealed class RuleExecutionContext
+    public sealed class RuleExecutionContext(TenantId tenantId, string journalTemplateCode)
     {
-        private readonly List<RuleExecutionStep> _executionSteps = new();
+        private readonly List<RuleExecutionStep> _executionSteps = [];
         private readonly Stopwatch _stopwatch = new();
-        private readonly TenantId _tenantId;
-        private readonly string _journalTemplateCode;
 
-        public TenantId TenantId => _tenantId;
-        public string JournalTemplateCode => _journalTemplateCode;
+        public TenantId TenantId { get; } = tenantId;
+        public string JournalTemplateCode { get; } = journalTemplateCode;
         public IReadOnlyList<RuleExecutionStep> ExecutionSteps => _executionSteps.AsReadOnly();
         public TimeSpan TotalExecutionTime => _stopwatch.Elapsed;
         public bool HasFailures => _executionSteps.Exists(step => !step.IsSuccess);
-
-        public RuleExecutionContext(TenantId tenantId, string journalTemplateCode)
-        {
-            _tenantId = tenantId;
-            _journalTemplateCode = journalTemplateCode;
-        }
 
         /// <summary>
         /// Start timing the rule execution
@@ -49,7 +40,7 @@ namespace VanAn.CoreHub.Services.Journal
         /// </summary>
         public void AddStep(string ruleName, string description, bool isSuccess, string? errorMessage = null)
         {
-            var step = new RuleExecutionStep
+            RuleExecutionStep step = new()
             {
                 RuleName = ruleName,
                 Description = description,
@@ -83,11 +74,11 @@ namespace VanAn.CoreHub.Services.Journal
         /// </summary>
         public string GetExecutionSummary()
         {
-            var successCount = _executionSteps.Count(step => step.IsSuccess);
-            var failureCount = _executionSteps.Count(step => !step.IsSuccess);
-            var totalSteps = _executionSteps.Count;
+            int successCount = _executionSteps.Count(step => step.IsSuccess);
+            int failureCount = _executionSteps.Count(step => !step.IsSuccess);
+            int totalSteps = _executionSteps.Count;
 
-            return $"Rule execution completed for template {_journalTemplateCode} (Tenant: {_tenantId.Value}): " +
+            return $"Rule execution completed for template {JournalTemplateCode} (Tenant: {TenantId.Value}): " +
                    $"{totalSteps} steps, {successCount} success, {failureCount} failures, " +
                    $"Total time: {_stopwatch.ElapsedMilliseconds}ms";
         }
@@ -97,10 +88,10 @@ namespace VanAn.CoreHub.Services.Journal
         /// </summary>
         public string GetDetailedReport()
         {
-            var report = new System.Text.StringBuilder();
+            System.Text.StringBuilder report = new();
             report.AppendLine($"=== Rule Execution Report ===");
-            report.AppendLine($"Template: {_journalTemplateCode}");
-            report.AppendLine($"Tenant: {_tenantId.Value}");
+            report.AppendLine($"Template: {JournalTemplateCode}");
+            report.AppendLine($"Tenant: {TenantId.Value}");
             report.AppendLine($"Total Steps: {_executionSteps.Count}");
             report.AppendLine($"Success: {_executionSteps.Count(step => step.IsSuccess)}");
             report.AppendLine($"Failures: {_executionSteps.Count(step => !step.IsSuccess)}");
@@ -108,18 +99,18 @@ namespace VanAn.CoreHub.Services.Journal
             report.AppendLine($"Execution Time: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
             report.AppendLine();
 
-            foreach (var step in _executionSteps)
+            foreach (RuleExecutionStep step in _executionSteps)
             {
                 report.AppendLine($"[{step.Timestamp:HH:mm:ss.fff}] {step.RuleName}");
                 report.AppendLine($"  Description: {step.Description}");
                 report.AppendLine($"  Success: {step.IsSuccess}");
                 report.AppendLine($"  Execution Time: {step.ExecutionTime.TotalMilliseconds:F2}ms");
-                
+
                 if (!string.IsNullOrWhiteSpace(step.ErrorMessage))
                 {
                     report.AppendLine($"  Error: {step.ErrorMessage}");
                 }
-                
+
                 report.AppendLine();
             }
 

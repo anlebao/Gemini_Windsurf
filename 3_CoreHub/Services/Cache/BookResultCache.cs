@@ -9,19 +9,12 @@ namespace VanAn.CoreHub.Services.Cache
     /// Cache for HKD book generation results
     /// Provides caching for generated books to improve performance
     /// </summary>
-    public class BookResultCache : IBookResultCache
+    public class BookResultCache(IMemoryCache cache, ILogger<BookResultCache> logger) : IBookResultCache
     {
-        private readonly IMemoryCache _cache;
-        private readonly ILogger<BookResultCache> _logger;
-        private readonly BookCacheStatistics _statistics;
-        
-        public BookResultCache(IMemoryCache cache, ILogger<BookResultCache> logger)
-        {
-            _cache = cache;
-            _logger = logger;
-            _statistics = new BookCacheStatistics();
-        }
-        
+        private readonly IMemoryCache _cache = cache;
+        private readonly ILogger<BookResultCache> _logger = logger;
+        private readonly BookCacheStatistics _statistics = new();
+
         /// <summary>
         /// Get cached book
         /// </summary>
@@ -31,7 +24,7 @@ namespace VanAn.CoreHub.Services.Cache
             {
                 try
                 {
-                    var book = JsonSerializer.Deserialize<GenericHKDBook>(cachedData);
+                    GenericHKDBook? book = JsonSerializer.Deserialize<GenericHKDBook>(cachedData);
                     if (book != null)
                     {
                         _statistics.RecordHit();
@@ -44,12 +37,12 @@ namespace VanAn.CoreHub.Services.Cache
                     _logger.LogError(ex, "Error deserializing cached book: {CacheKey}", cacheKey);
                 }
             }
-            
+
             _statistics.RecordMiss();
             _logger.LogDebug("Book not found in cache: {CacheKey}", cacheKey);
             return null;
         }
-        
+
         /// <summary>
         /// Set book in cache
         /// </summary>
@@ -57,19 +50,19 @@ namespace VanAn.CoreHub.Services.Cache
         {
             try
             {
-                var serializedData = JsonSerializer.SerializeToUtf8Bytes(book);
-                
-                var cacheOptions = new MemoryCacheEntryOptions
+                byte[] serializedData = JsonSerializer.SerializeToUtf8Bytes(book);
+
+                MemoryCacheEntryOptions cacheOptions = new()
                 {
                     AbsoluteExpirationRelativeToNow = expiration,
                     SlidingExpiration = expiration / 2,
                     Size = serializedData.Length // Track memory usage
                 };
-                
+
                 _cache.Set(cacheKey, serializedData, cacheOptions);
                 _statistics.RecordSet(serializedData.Length);
-                
-                _logger.LogDebug("Book cached: {CacheKey} ({Size} bytes, expires in {Expiration} minutes)", 
+
+                _logger.LogDebug("Book cached: {CacheKey} ({Size} bytes, expires in {Expiration} minutes)",
                     cacheKey, serializedData.Length, expiration.TotalMinutes);
             }
             catch (Exception ex)
@@ -77,7 +70,7 @@ namespace VanAn.CoreHub.Services.Cache
                 _logger.LogError(ex, "Error caching book: {CacheKey}", cacheKey);
             }
         }
-        
+
         /// <summary>
         /// Remove book from cache
         /// </summary>
@@ -85,10 +78,10 @@ namespace VanAn.CoreHub.Services.Cache
         {
             _cache.Remove(cacheKey);
             _statistics.RecordRemoval();
-            
+
             _logger.LogDebug("Book removed from cache: {CacheKey}", cacheKey);
         }
-        
+
         /// <summary>
         /// Clear all books from cache
         /// </summary>
@@ -100,11 +93,11 @@ namespace VanAn.CoreHub.Services.Cache
             {
                 memoryCache.Compact(1.0); // Remove all entries
             }
-            
+
             _statistics.Reset();
             _logger.LogDebug("Book cache cleared");
         }
-        
+
         /// <summary>
         /// Get cache statistics
         /// </summary>
@@ -112,7 +105,7 @@ namespace VanAn.CoreHub.Services.Cache
         {
             return _statistics.Clone();
         }
-        
+
         /// <summary>
         /// Check if book exists in cache
         /// </summary>
@@ -120,34 +113,34 @@ namespace VanAn.CoreHub.Services.Cache
         {
             return _cache.TryGetValue(cacheKey, out _);
         }
-        
+
         /// <summary>
         /// Get multiple books by cache keys
         /// </summary>
         public async Task<Dictionary<string, GenericHKDBook?>> GetBooksAsync(IEnumerable<string> cacheKeys)
         {
-            var results = new Dictionary<string, GenericHKDBook?>();
-            
-            foreach (var cacheKey in cacheKeys)
+            Dictionary<string, GenericHKDBook?> results = [];
+
+            foreach (string cacheKey in cacheKeys)
             {
-                var book = await GetBookAsync(cacheKey);
+                GenericHKDBook? book = await GetBookAsync(cacheKey);
                 results[cacheKey] = book;
             }
-            
+
             return results;
         }
-        
+
         /// <summary>
         /// Set multiple books in cache
         /// </summary>
         public async Task SetBooksAsync(Dictionary<string, GenericHKDBook> books, TimeSpan expiration)
         {
-            var tasks = books.Select(async kvp => 
+            IEnumerable<Task> tasks = books.Select(async kvp =>
                 await SetBookAsync(kvp.Key, kvp.Value, expiration));
-            
+
             await Task.WhenAll(tasks);
         }
-        
+
         /// <summary>
         /// Remove expired entries and optimize cache
         /// </summary>
@@ -158,11 +151,11 @@ namespace VanAn.CoreHub.Services.Cache
                 // Compact to remove expired entries
                 memoryCache.Compact(0.9); // Keep 90% of memory
             }
-            
+
             _logger.LogDebug("Book cache optimized");
         }
     }
-    
+
     /// <summary>
     /// Interface for book result cache
     /// </summary>
@@ -178,89 +171,84 @@ namespace VanAn.CoreHub.Services.Cache
         Task SetBooksAsync(Dictionary<string, GenericHKDBook> books, TimeSpan expiration);
         Task OptimizeCacheAsync();
     }
-    
+
     /// <summary>
     /// Book cache statistics
     /// </summary>
     public class BookCacheStatistics
     {
-        private long _hits;
-        private long _misses;
-        private long _sets;
-        private long _removals;
-        private long _totalBytes;
-        private readonly object _lock = new object();
-        
-        public long Hits => _hits;
-        public long Misses => _misses;
-        public long Sets => _sets;
-        public long Removals => _removals;
-        public long TotalBytes => _totalBytes;
-        public decimal HitRate => (_hits + _misses) > 0 ? (decimal)_hits / (_hits + _misses) * 100 : 0;
+        private readonly object _lock = new();
+
+        public long Hits { get; private set; }
+        public long Misses { get; private set; }
+        public long Sets { get; private set; }
+        public long Removals { get; private set; }
+        public long TotalBytes { get; private set; }
+        public decimal HitRate => (Hits + Misses) > 0 ? (decimal)Hits / (Hits + Misses) * 100 : 0;
         public DateTime LastUpdated { get; private set; } = DateTime.UtcNow;
-        
+
         internal void RecordHit()
         {
             lock (_lock)
             {
-                _hits++;
+                Hits++;
                 LastUpdated = DateTime.UtcNow;
             }
         }
-        
+
         internal void RecordMiss()
         {
             lock (_lock)
             {
-                _misses++;
+                Misses++;
                 LastUpdated = DateTime.UtcNow;
             }
         }
-        
+
         internal void RecordSet(long bytes)
         {
             lock (_lock)
             {
-                _sets++;
-                _totalBytes += bytes;
+                Sets++;
+                TotalBytes += bytes;
                 LastUpdated = DateTime.UtcNow;
             }
         }
-        
+
         internal void RecordRemoval()
         {
             lock (_lock)
             {
-                _removals++;
+                Removals++;
                 LastUpdated = DateTime.UtcNow;
             }
         }
-        
+
         internal void Reset()
         {
             lock (_lock)
             {
-                _hits = 0;
-                _misses = 0;
-                _sets = 0;
-                _removals = 0;
-                _totalBytes = 0;
+                Hits = 0;
+                Misses = 0;
+                Sets = 0;
+                Removals = 0;
+                TotalBytes = 0;
                 LastUpdated = DateTime.UtcNow;
             }
         }
-        
+
         public BookCacheStatistics Clone()
         {
             lock (_lock)
             {
                 return new BookCacheStatistics
                 {
-                    _hits = this._hits,
-                    _misses = this._misses,
-                    _sets = this._sets,
-                    _removals = this._removals,
-                    _totalBytes = this._totalBytes,
-                    LastUpdated = this.LastUpdated
+                    Hits = Hits,
+                    Misses = Misses,
+                    Sets = Sets,
+                    Removals = Removals,
+                    TotalBytes = TotalBytes,
+                    LastUpdated = LastUpdated
                 };
             }
         }

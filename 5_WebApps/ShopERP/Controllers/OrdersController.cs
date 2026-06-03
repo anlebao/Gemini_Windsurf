@@ -1,9 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
-using VanAn.Shared.Services;
 using VanAn.ShopERP.Services;
 
 namespace VanAn.ShopERP.Controllers
@@ -11,39 +9,32 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class OrdersController : ControllerBase
+    public class OrdersController(
+        IOrderService orderService,
+        IOrderManagementService orderManagementService,
+        ILogger<OrdersController> logger) : ControllerBase
     {
-        private readonly IOrderService _orderService;
-        private readonly IOrderManagementService _orderManagementService;
-        private readonly ILogger<OrdersController> _logger;
-
-        public OrdersController(
-            IOrderService orderService, 
-            IOrderManagementService orderManagementService,
-            ILogger<OrdersController> logger)
-        {
-            _orderService = orderService;
-            _orderManagementService = orderManagementService;
-            _logger = logger;
-        }
+        private readonly IOrderService _orderService = orderService;
+        private readonly IOrderManagementService _orderManagementService = orderManagementService;
+        private readonly ILogger<OrdersController> _logger = logger;
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Order>>> GetOrders([FromQuery] string? status = null)
         {
             try
             {
-                var tenantId = GetTenantId();
-                
+                Guid tenantId = GetTenantId();
+
                 if (string.IsNullOrEmpty(status))
                 {
-                    var today = DateTime.UtcNow.Date;
-                    var orders = await _orderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
+                    DateTime today = DateTime.UtcNow.Date;
+                    IEnumerable<Order> orders = await _orderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
                     return Ok(orders);
                 }
                 else
                 {
-                    var statusId = new OrderStatusId(status);
-                    var orders = await _orderService.GetOrdersByStatusAsync(statusId, tenantId);
+                    OrderStatusId statusId = new(status);
+                    List<Order> orders = await _orderService.GetOrdersByStatusAsync(statusId, tenantId);
                     return Ok(orders);
                 }
             }
@@ -59,15 +50,10 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                var tenantId = GetTenantId();
-                var order = await _orderService.GetOrderByIdAsync(id, tenantId);
-                
-                if (order == null)
-                {
-                    return NotFound();
-                }
-                
-                return Ok(order);
+                Guid tenantId = GetTenantId();
+                Order? order = await _orderService.GetOrderByIdAsync(id, tenantId);
+
+                return order == null ? (ActionResult<Order>)NotFound() : (ActionResult<Order>)Ok(order);
             }
             catch (Exception ex)
             {
@@ -81,34 +67,34 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                var tenantId = GetTenantId();
-                
+                Guid tenantId = GetTenantId();
+
                 // Validate transition using CoreHub service
-                var currentOrder = await _orderService.GetOrderByIdAsync(id, tenantId);
+                Order? currentOrder = await _orderService.GetOrderByIdAsync(id, tenantId);
                 if (currentOrder == null)
                 {
                     return NotFound();
                 }
-                
-                var newStatus = new OrderStatusId(request.Status);
-                var isValidTransition = await _orderService.IsTransitionValidAsync(currentOrder.Status, newStatus);
-                
+
+                OrderStatusId newStatus = new(request.Status);
+                bool isValidTransition = await _orderService.IsTransitionValidAsync(currentOrder.Status, newStatus);
+
                 if (!isValidTransition)
                 {
                     return BadRequest($"Invalid status transition from {currentOrder.Status} to {request.Status}");
                 }
-                
-                var success = await _orderService.UpdateOrderStatusAsync(id, request.Status, tenantId);
-                
+
+                bool success = await _orderService.UpdateOrderStatusAsync(id, request.Status, tenantId);
+
                 if (!success)
                 {
                     return NotFound();
                 }
-                
+
                 // Log status change for audit
-                _logger.LogInformation("Order {OrderId} status updated to {Status} by {User}", 
+                _logger.LogInformation("Order {OrderId} status updated to {Status} by {User}",
                     id, request.Status, User.Identity?.Name);
-                
+
                 return NoContent();
             }
             catch (Exception ex)
@@ -123,8 +109,8 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                var tenantId = GetTenantId();
-                var metrics = await _orderService.GetDashboardDataAsync(tenantId);
+                Guid tenantId = GetTenantId();
+                OrderDashboardData metrics = await _orderService.GetDashboardDataAsync(tenantId);
                 return Ok(metrics);
             }
             catch (Exception ex)
@@ -135,12 +121,12 @@ namespace VanAn.ShopERP.Controllers
         }
 
         [HttpGet("summary/{id}")]
-        public async Task<ActionResult<VanAn.CoreHub.Services.OrderSummary>> GetOrderSummary(Guid id)
+        public async Task<ActionResult<CoreHub.Services.OrderSummary>> GetOrderSummary(Guid id)
         {
             try
             {
-                var tenantId = GetTenantId();
-                var summary = await _orderService.GetOrderSummaryAsync(id, tenantId);
+                Guid tenantId = GetTenantId();
+                CoreHub.Services.OrderSummary summary = await _orderService.GetOrderSummaryAsync(id, tenantId);
                 return Ok(summary);
             }
             catch (Exception ex)
@@ -155,13 +141,13 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                var success = await _orderManagementService.AssignOrderToStaffAsync(id, request.StaffId);
-                
+                bool success = await _orderManagementService.AssignOrderToStaffAsync(id, request.StaffId);
+
                 if (!success)
                 {
                     return NotFound();
                 }
-                
+
                 _logger.LogInformation("Order {OrderId} assigned to staff {StaffId}", id, request.StaffId);
                 return NoContent();
             }
@@ -174,8 +160,8 @@ namespace VanAn.ShopERP.Controllers
 
         private Guid GetTenantId()
         {
-            var tenantClaim = User.FindFirst("TenantId")?.Value;
-            return Guid.TryParse(tenantClaim, out var tenantId) ? tenantId : Guid.Empty;
+            string? tenantClaim = User.FindFirst("TenantId")?.Value;
+            return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
         }
     }
 

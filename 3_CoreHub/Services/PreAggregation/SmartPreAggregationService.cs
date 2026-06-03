@@ -10,73 +10,68 @@ namespace VanAn.CoreHub.Services.PreAggregation
     /// Smart PreAggregation Service - Dependency-driven optimization
     /// Only aggregates what's actually needed by templates
     /// </summary>
-    public class SmartPreAggregationService : IPreAggregationService
+    public class SmartPreAggregationService(
+        VanAnDbContext context,
+        IFormulaEngine formulaEngine,
+        ILogger<SmartPreAggregationService> logger) : IPreAggregationService
     {
-        private readonly VanAnDbContext _context;
-        private readonly IFormulaEngine _formulaEngine;
-        private readonly ILogger<SmartPreAggregationService> _logger;
-        
-        public SmartPreAggregationService(
-            VanAnDbContext context,
-            IFormulaEngine formulaEngine,
-            ILogger<SmartPreAggregationService> logger)
-        {
-            _context = context;
-            _formulaEngine = formulaEngine;
-            _logger = logger;
-        }
-        
+        private readonly VanAnDbContext _context = context;
+        private readonly IFormulaEngine _formulaEngine = formulaEngine;
+        private readonly ILogger<SmartPreAggregationService> _logger = logger;
+
         public async Task<Dictionary<string, decimal>> GetAccountAggregatesAsync(
-            TenantId tenantId, 
+            TenantId tenantId,
             AccountingPeriod period)
         {
-            _logger.LogInformation("Starting smart pre-aggregation for tenant {TenantId}, period {Period}", 
+            _logger.LogInformation("Starting smart pre-aggregation for tenant {TenantId}, period {Period}",
                 tenantId.Value, period);
-            
+
             // Get all templates for this tenant
-            var templates = await GetTemplatesForTenantAsync(tenantId);
-            
+            List<HKDBookTemplate> templates = await GetTemplatesForTenantAsync(tenantId);
+
             // Extract account patterns from ALL template formulas
-            var accountPatterns = ExtractAccountPatterns(templates);
-            
-            _logger.LogInformation("Extracted {Count} unique account patterns from {TemplateCount} templates for tenant {TenantId}", 
+            HashSet<string> accountPatterns = ExtractAccountPatterns(templates);
+
+            _logger.LogInformation("Extracted {Count} unique account patterns from {TemplateCount} templates for tenant {TenantId}",
                 accountPatterns.Count, templates.Count, tenantId.Value);
-            
-            var aggregates = new Dictionary<string, decimal>();
-            
+
+            Dictionary<string, decimal> aggregates = [];
+
             // Only aggregate what's needed
-            foreach (var pattern in accountPatterns)
+            foreach (string pattern in accountPatterns)
             {
-                var creditSum = await GetAccountSumAsync(tenantId, period, pattern, "Credit");
-                var debitSum = await GetAccountSumAsync(tenantId, period, pattern, "Debit");
-                
+                decimal creditSum = await GetAccountSumAsync(tenantId, period, pattern, "Credit");
+                decimal debitSum = await GetAccountSumAsync(tenantId, period, pattern, "Debit");
+
                 aggregates[$"Account_{pattern}_Credit"] = creditSum;
                 aggregates[$"Account_{pattern}_Debit"] = debitSum;
-                
-                _logger.LogDebug("Aggregated pattern {Pattern}: Credit={Credit}, Debit={Debit}", 
+
+                _logger.LogDebug("Aggregated pattern {Pattern}: Credit={Credit}, Debit={Debit}",
                     pattern, creditSum, debitSum);
             }
-            
-            _logger.LogInformation("Smart pre-aggregation completed for tenant {TenantId}: {ValueCount} values", 
+
+            _logger.LogInformation("Smart pre-aggregation completed for tenant {TenantId}: {ValueCount} values",
                 tenantId.Value, aggregates.Count);
-            
+
             return aggregates;
         }
-        
+
         private async Task<List<HKDBookTemplate>> GetTemplatesForTenantAsync(TenantId tenantId)
         {
-            var templates = new List<HKDBookTemplate>();
-            
+            List<HKDBookTemplate> templates = [];
+
             // For now, we'll create templates based on HKD group
             // In production, this would come from tenant configuration
-            var tenantData = await GetTenantAsync(tenantId);
-            
+            Dictionary<string, object> tenantData = await GetTenantAsync(tenantId);
+
             // Extract HKDGroup from dictionary
-            var hkdGroupValue = tenantData.GetValueOrDefault("HKDGroup")?.ToString();
+            string? hkdGroupValue = tenantData.GetValueOrDefault("HKDGroup")?.ToString();
             HKDGroup? hkdGroup = null;
-            if (Enum.TryParse<HKDGroup>(hkdGroupValue, out var parsedGroup))
+            if (Enum.TryParse(hkdGroupValue, out HKDGroup parsedGroup))
+            {
                 hkdGroup = parsedGroup;
-            
+            }
+
             switch (hkdGroup)
             {
                 case HKDGroup.Group1:
@@ -92,111 +87,113 @@ namespace VanAn.CoreHub.Services.PreAggregation
                 case HKDGroup.Group3:
                     templates.Add(new S3aHKDTemplate());
                     break;
+                default:
+                    break;
             }
-            
-            _logger.LogDebug("Retrieved {Count} templates for tenant {TenantId} with HKD group {Group}", 
+
+            _logger.LogDebug("Retrieved {Count} templates for tenant {TenantId} with HKD group {Group}",
                 templates.Count, tenantId.Value, hkdGroup);
-            
+
             return templates;
         }
-        
+
         private HashSet<string> ExtractAccountPatterns(List<HKDBookTemplate> templates)
         {
-            var patterns = new HashSet<string>();
-            
-            foreach (var template in templates)
+            HashSet<string> patterns = [];
+
+            foreach (HKDBookTemplate template in templates)
             {
                 // Extract from fields
                 if (template.Fields != null)
                 {
-                    foreach (var field in template.Fields)
+                    foreach (TemplateField field in template.Fields)
                     {
                         if (!string.IsNullOrEmpty(field.Formula))
                         {
-                            var dependencies = _formulaEngine.GetDependencies(field.Formula);
+                            List<string> dependencies = _formulaEngine.GetDependencies(field.Formula);
                             AddAccountPatternsFromDependencies(dependencies, patterns);
                         }
                     }
                 }
-                
+
                 // Extract from calculations
                 if (template.Calculations != null)
                 {
-                    foreach (var calculation in template.Calculations)
+                    foreach (TemplateCalculation calculation in template.Calculations)
                     {
                         if (!string.IsNullOrEmpty(calculation.Formula))
                         {
-                            var dependencies = _formulaEngine.GetDependencies(calculation.Formula);
+                            List<string> dependencies = _formulaEngine.GetDependencies(calculation.Formula);
                             AddAccountPatternsFromDependencies(dependencies, patterns);
                         }
                     }
                 }
             }
-            
+
             _logger.LogDebug("Extracted account patterns: {Patterns}", string.Join(", ", patterns));
-            
+
             return patterns;
         }
-        
-        private void AddAccountPatternsFromDependencies(List<string> dependencies, HashSet<string> patterns)
+
+        private static void AddAccountPatternsFromDependencies(List<string> dependencies, HashSet<string> patterns)
         {
-            foreach (var dependency in dependencies)
+            foreach (string dependency in dependencies)
             {
                 if (dependency.StartsWith("Account_"))
                 {
-                    var parts = dependency.Split('_');
+                    string[] parts = dependency.Split('_');
                     if (parts.Length >= 3)
                     {
-                        var pattern = parts[1];
+                        string pattern = parts[1];
                         patterns.Add(pattern);
                     }
                 }
             }
         }
-        
+
         private async Task<decimal> GetAccountSumAsync(
-            TenantId tenantId, 
-            AccountingPeriod period, 
-            string accountPattern, 
+            TenantId tenantId,
+            AccountingPeriod period,
+            string accountPattern,
             string side)
         {
             try
             {
-                var query = _context.JournalEntries
+                IQueryable<JournalEntry> query = _context.JournalEntries
                     .Where(e => EF.Property<Guid>(e, "TenantId") == tenantId.Value &&
                                e.Period.Year == period.Year &&
                                e.Period.Month == period.Month &&
                                e.Lines.Any(l => l.AccountNumber.StartsWith(accountPattern)));
-                
-                var sum = await query
+
+                decimal sum = await query
                     .SelectMany(e => e.Lines)
                     .Where(l => l.AccountNumber.StartsWith(accountPattern))
                     .SumAsync(l => side.Equals("Credit", StringComparison.OrdinalIgnoreCase) ? l.CreditAmount : l.DebitAmount);
-                
-                _logger.LogDebug("Account sum for tenant {TenantId}, pattern {Pattern}, side {Side}: {Sum}", 
+
+                _logger.LogDebug("Account sum for tenant {TenantId}, pattern {Pattern}, side {Side}: {Sum}",
                     tenantId.Value, accountPattern, side, sum);
-                
+
                 return sum;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting account sum for tenant {TenantId}, pattern {Pattern}, side {Side}", 
+                _logger.LogError(ex, "Error getting account sum for tenant {TenantId}, pattern {Pattern}, side {Side}",
                     tenantId.Value, accountPattern, side);
                 return 0;
             }
         }
-        
+
         private async Task<Dictionary<string, object>> GetTenantAsync(TenantId tenantId)
         {
-            var tenant = await _context.Tenants
+            Tenant? tenant = await _context.Tenants
                 .FirstOrDefaultAsync(t => t.Id == tenantId);
-            
+
             if (tenant == null)
             {
                 _logger.LogWarning("Tenant {TenantId} not found", tenantId.Value);
-                return new Dictionary<string, object>();
+                return [];
             }
-            
+
             return new Dictionary<string, object>
             {
                 ["TenantId"] = tenant.Id.Value,

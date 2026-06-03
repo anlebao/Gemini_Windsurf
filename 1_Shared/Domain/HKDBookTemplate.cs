@@ -9,20 +9,20 @@ namespace VanAn.Shared.Domain
         public string TemplateName { get; init; } = null!;
         public string TemplateVersion { get; init; } = null!;
         public HKDGroup TargetGroup { get; init; }
-        public List<TemplateField> Fields { get; init; } = new();
-        public List<TemplateCalculation> Calculations { get; init; } = new();
-        public List<TemplateValidationRule> ValidationRules { get; init; } = new();
-        
+        public List<TemplateField> Fields { get; init; } = [];
+        public List<TemplateCalculation> Calculations { get; init; } = [];
+        public List<TemplateValidationRule> ValidationRules { get; init; } = [];
+
         public abstract Task<GenericHKDBook> CreateBookAsync(
-            TenantId tenantId, 
-            AccountingPeriod period, 
+            TenantId tenantId,
+            AccountingPeriod period,
             List<JournalEntry> entries);
-        
+
         public abstract Task CalculateAsync(GenericHKDBook book);
         public abstract Task ValidateAsync(GenericHKDBook book);
         public abstract Task<string> GenerateReportAsync(GenericHKDBook book);
     }
-    
+
     /// <summary>
     /// Template field definition
     /// </summary>
@@ -36,7 +36,7 @@ namespace VanAn.Shared.Domain
         public string Formula { get; init; } = string.Empty;
         public string ValidationRule { get; init; } = string.Empty;
     }
-    
+
     /// <summary>
     /// Template calculation definition
     /// </summary>
@@ -44,11 +44,11 @@ namespace VanAn.Shared.Domain
     {
         public string CalculationName { get; init; } = null!;
         public string Formula { get; init; } = null!;
-        public List<string> Dependencies { get; init; } = new();
+        public List<string> Dependencies { get; init; } = [];
         public CalculationOrder Order { get; init; }
     }
-    
-        
+
+
     /// <summary>
     /// Field types for templates
     /// </summary>
@@ -59,7 +59,7 @@ namespace VanAn.Shared.Domain
         Date,
         Boolean
     }
-    
+
     /// <summary>
     /// Calculation order
     /// </summary>
@@ -69,5 +69,5 @@ namespace VanAn.Shared.Domain
         AfterData,
         Final
     }
-    
-    }
+
+}

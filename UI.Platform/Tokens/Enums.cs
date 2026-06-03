@@ -1,41 +1,42 @@
-namespace VanAn.UI.Platform.Tokens;
-
-/// <summary>
-/// Component variant enumerations
-/// </summary>
-
-/// <summary>
-/// Button variant types
-/// </summary>
-public enum ButtonVariant
+namespace VanAn.UI.Platform.Tokens
 {
-    Primary,
-    Secondary,
-    Success,
-    Error,
-    Warning,
-    Info,
-    Outline,
-    Ghost
-}
+    /// <summary>
+    /// Component variant enumerations
+    /// </summary>
 
-/// <summary>
-/// Button size types
-/// </summary>
-public enum ButtonSize
-{
-    Small,
-    Medium,
-    Large
-}
+    /// <summary>
+    /// Button variant types
+    /// </summary>
+    public enum ButtonVariant
+    {
+        Primary,
+        Secondary,
+        Success,
+        Error,
+        Warning,
+        Info,
+        Outline,
+        Ghost
+    }
 
-/// <summary>
-/// Alert variant types
-/// </summary>
-public enum AlertVariant
-{
-    Success,
-    Warning,
-    Error,
-    Info
+    /// <summary>
+    /// Button size types
+    /// </summary>
+    public enum ButtonSize
+    {
+        Small,
+        Medium,
+        Large
+    }
+
+    /// <summary>
+    /// Alert variant types
+    /// </summary>
+    public enum AlertVariant
+    {
+        Success,
+        Warning,
+        Error,
+        Info
+    }
 }

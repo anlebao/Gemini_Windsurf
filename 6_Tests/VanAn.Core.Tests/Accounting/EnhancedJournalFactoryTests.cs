@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -21,7 +18,7 @@ namespace VanAn.Core.Tests.Accounting
         private readonly Mock<IBusinessRuleRegistry> _ruleRegistryMock;
         private readonly Mock<ITemplateValidator> _validatorMock;
         private readonly EnhancedJournalFactory _factory;
-        private readonly TenantId _tenantId = new TenantId(Guid.NewGuid());
+        private readonly TenantId _tenantId = new(Guid.NewGuid());
 
         public EnhancedJournalFactoryTests()
         {
@@ -35,18 +32,18 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Create_Journal_From_Template()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "SALE-CASH", "Bán hàng tiền mặt");
+            JournalTemplate template = new(_tenantId, "SALE-CASH", "Bán hàng tiền mặt");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount");
 
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "SALE-CASH")).ReturnsAsync(template);
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
-            var parameters = new Dictionary<string, object>();
-            var amount = 10000m;
+            Dictionary<string, object> parameters = [];
+            decimal amount = 10000m;
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-CASH", amount, parameters);
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-CASH", amount, parameters);
 
             // Assert
             result.Should().NotBeNull();
@@ -61,15 +58,15 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Apply_Business_Rules()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "SALE-VIP", "Bán hàng khách VIP");
+            JournalTemplate template = new(_tenantId, "SALE-VIP", "Bán hàng khách VIP");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "NetAmount");
             template.AddLine("3331", false, "VatAmount");
             template.AddBusinessRule("VIPDiscountRule");
             template.AddBusinessRule("VATCalculationRule");
 
-            var vipRule = new Mock<IBusinessRule>();
-            var vatRule = new Mock<IBusinessRule>();
+            Mock<IBusinessRule> vipRule = new();
+            Mock<IBusinessRule> vatRule = new();
 
             vipRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
             vatRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
@@ -79,16 +76,16 @@ namespace VanAn.Core.Tests.Accounting
             _ruleRegistryMock.Setup(x => x.GetRule("VATCalculationRule")).Returns(vatRule.Object);
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
-            var parameters = new Dictionary<string, object> { ["IsVIP"] = true, ["VatRate"] = 10m };
-            var amount = 10000m;
+            Dictionary<string, object> parameters = new() { ["IsVIP"] = true, ["VatRate"] = 10m };
+            decimal amount = 10000m;
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-VIP", amount, parameters);
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-VIP", amount, parameters);
 
             // Assert
             result.Should().NotBeNull();
             result.Lines.Should().HaveCount(3);
-            
+
             // Verify rules were applied
             vipRule.Verify(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>()), Times.Once);
             vipRule.Verify(x => x.ApplyAsync(It.IsAny<CoreTemplateContext>()), Times.Once);
@@ -100,7 +97,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Complex_Scenarios()
         {
             // Arrange - Complex sale with VIP, export, COGS
-            var template = new JournalTemplate(_tenantId, "COMPLEX-SALE", "Bán hàng phức tạp");
+            JournalTemplate template = new(_tenantId, "COMPLEX-SALE", "Bán hàng phức tạp");
             template.AddLine("111", true, "TotalAmount");
             template.AddLine("511", false, "NetAmount");
             template.AddLine("3331", false, "VatAmount");
@@ -110,9 +107,9 @@ namespace VanAn.Core.Tests.Accounting
             template.AddBusinessRule("VATCalculationRule");
             template.AddBusinessRule("COGSCalculationRule");
 
-            var vipRule = new Mock<IBusinessRule>();
-            var vatRule = new Mock<IBusinessRule>();
-            var cogsRule = new Mock<IBusinessRule>();
+            Mock<IBusinessRule> vipRule = new();
+            Mock<IBusinessRule> vatRule = new();
+            Mock<IBusinessRule> cogsRule = new();
 
             vipRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
             vatRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
@@ -124,17 +121,17 @@ namespace VanAn.Core.Tests.Accounting
             _ruleRegistryMock.Setup(x => x.GetRule("COGSCalculationRule")).Returns(cogsRule.Object);
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
-            var parameters = new Dictionary<string, object>
+            Dictionary<string, object> parameters = new()
             {
                 ["IsVIP"] = true,
                 ["VIPLevel"] = "Gold",
                 ["VatRate"] = 10m,
                 ["COGSPercentage"] = 0.6m
             };
-            var amount = 10000m;
+            decimal amount = 10000m;
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "COMPLEX-SALE", amount, parameters);
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "COMPLEX-SALE", amount, parameters);
 
             // Assert
             result.Should().NotBeNull();
@@ -151,34 +148,34 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Map_To_HKD_AccountingEntry()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "SALE-CASH", "Bán hàng tiền mặt");
+            JournalTemplate template = new(_tenantId, "SALE-CASH", "Bán hàng tiền mặt");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount");
 
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "SALE-CASH")).ReturnsAsync(template);
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
-            var parameters = new Dictionary<string, object>();
-            var amount = 10000m;
+            Dictionary<string, object> parameters = [];
+            decimal amount = 10000m;
 
             // Act
-            var journalEntry = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-CASH", amount, parameters);
+            JournalEntry journalEntry = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-CASH", amount, parameters);
 
             // Simulate HKD mapping (this would be done in a separate service)
-            var accountingEntry = new VanAn.Core.Domain.AccountingEntry(
+            Core.Domain.AccountingEntry accountingEntry = new(
                 _tenantId,
-                new VanAn.Core.Domain.Money(journalEntry.Lines.Sum(l => l.DebitAmount)),
-                VanAn.Core.Domain.AccountingEntryType.Revenue,
-                VanAn.Core.Domain.VatRate.Ten,
+                new Core.Domain.Money(journalEntry.Lines.Sum(l => l.DebitAmount)),
+                Core.Domain.AccountingEntryType.Revenue,
+                Core.Domain.VatRate.Ten,
                 journalEntry.EntryDate,
-                VanAn.Core.Domain.AccountingBookType.RevenueBook,
+                Core.Domain.AccountingBookType.RevenueBook,
                 journalEntry.Description
             );
 
             // Assert
             accountingEntry.Should().NotBeNull();
             accountingEntry.Amount.Value.Should().Be(10000m);
-            accountingEntry.EntryType.Should().Be(VanAn.Core.Domain.AccountingEntryType.Revenue);
+            accountingEntry.EntryType.Should().Be(Core.Domain.AccountingEntryType.Revenue);
             accountingEntry.TenantId.Should().Be(_tenantId);
         }
 
@@ -189,8 +186,8 @@ namespace VanAn.Core.Tests.Accounting
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "INVALID")).ReturnsAsync((JournalTemplate)null);
 
             // Act & Assert
-            await Assert.ThrowsAsync<VanAn.Shared.Domain.NotFoundException>(
-                () => _factory.CreateFromTemplateAsync(_tenantId, "INVALID", 1000m, new Dictionary<string, object>())
+            await Assert.ThrowsAsync<NotFoundException>(
+                () => _factory.CreateFromTemplateAsync(_tenantId, "INVALID", 1000m, [])
             );
         }
 
@@ -198,13 +195,13 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Validate_Template()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "SALE-CASH", "Test");
+            JournalTemplate template = new(_tenantId, "SALE-CASH", "Test");
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "SALE-CASH")).ReturnsAsync(template);
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Failure("Test validation failure"));
 
             // Act & Assert
-            await Assert.ThrowsAsync<VanAn.Shared.Domain.ValidationException>(
-                () => _factory.CreateFromTemplateAsync(_tenantId, "SALE-CASH", 1000m, new Dictionary<string, object>())
+            await Assert.ThrowsAsync<ValidationException>(
+                () => _factory.CreateFromTemplateAsync(_tenantId, "SALE-CASH", 1000m, [])
             );
 
             _validatorMock.Verify(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>()), Times.Once);
@@ -214,7 +211,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Empty_Business_Rules()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "SIMPLE-SALE", "Bán hàng đơn giản");
+            JournalTemplate template = new(_tenantId, "SIMPLE-SALE", "Bán hàng đơn giản");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount");
             // No business rules
@@ -223,12 +220,12 @@ namespace VanAn.Core.Tests.Accounting
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "SIMPLE-SALE", 5000m, new Dictionary<string, object>());
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "SIMPLE-SALE", 5000m, []);
 
             // Assert
             result.Should().NotBeNull();
             result.Lines.Should().HaveCount(2);
-            
+
             // Verify no rules were applied
             _ruleRegistryMock.Verify(x => x.GetRule(It.IsAny<string>()), Times.Never);
         }
@@ -237,12 +234,12 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Rule_That_Does_Not_Apply()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "SALE-NONVIP", "Bán hàng không VIP");
+            JournalTemplate template = new(_tenantId, "SALE-NONVIP", "Bán hàng không VIP");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount");
             template.AddBusinessRule("VIPDiscountRule");
 
-            var vipRule = new Mock<IBusinessRule>();
+            Mock<IBusinessRule> vipRule = new();
             vipRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(false); // Rule doesn't apply
 
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "SALE-NONVIP")).ReturnsAsync(template);
@@ -250,12 +247,12 @@ namespace VanAn.Core.Tests.Accounting
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-NONVIP", 8000m, new Dictionary<string, object>());
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "SALE-NONVIP", 8000m, []);
 
             // Assert
             result.Should().NotBeNull();
             result.Lines.Should().HaveCount(2);
-            
+
             // Verify rule was checked but not applied
             vipRule.Verify(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>()), Times.Once);
             vipRule.Verify(x => x.ApplyAsync(It.IsAny<CoreTemplateContext>()), Times.Never);
@@ -269,13 +266,13 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Different_Amount_Formulas(string formula)
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "TEST-FORMULA", "Test formula");
+            JournalTemplate template = new(_tenantId, "TEST-FORMULA", "Test formula");
             template.AddLine("111", true, formula);
 
             // Add business rules to populate context values for formulas that need them
-            if (formula == "NetAmount" || formula == "VatAmount" || formula == "COGS")
+            if (formula is "NetAmount" or "VatAmount" or "COGS")
             {
-                var rule = new Mock<IBusinessRule>();
+                Mock<IBusinessRule> rule = new();
                 rule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
                 rule.Setup(x => x.ApplyAsync(It.IsAny<CoreTemplateContext>()))
                     .Callback<CoreTemplateContext>(ctx =>
@@ -285,7 +282,7 @@ namespace VanAn.Core.Tests.Accounting
                         ctx.COGS = 6000m;
                     })
                     .Returns(Task.CompletedTask);
-                
+
                 template.AddBusinessRule("TestRule");
                 _ruleRegistryMock.Setup(x => x.GetRule("TestRule")).Returns(rule.Object);
             }
@@ -294,7 +291,7 @@ namespace VanAn.Core.Tests.Accounting
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>())).ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "TEST-FORMULA", 10000m, new Dictionary<string, object>());
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "TEST-FORMULA", 10000m, []);
 
             // Assert
             result.Should().NotBeNull();
@@ -307,7 +304,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Verify_All_Mock_Behaviors()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "VERIFY", "Verification Test");
+            JournalTemplate template = new(_tenantId, "VERIFY", "Verification Test");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount");
 
@@ -316,12 +313,12 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "VERIFY", 1000m, new Dictionary<string, object>());
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "VERIFY", 1000m, []);
 
             // Assert - STRONG VERIFICATION
             _templateRepoMock.Verify(x => x.GetByCodeAsync(_tenantId, "VERIFY"), Times.Once);
             _validatorMock.Verify(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>()), Times.Once);
-            
+
             result.Should().NotBeNull();
             result.Lines.Should().HaveCount(2);
         }
@@ -330,7 +327,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Calculate_Complex_Formulas()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "FORMULA", "Formula Test");
+            JournalTemplate template = new(_tenantId, "FORMULA", "Formula Test");
             template.AddLine("111", true, "Amount*0.1");
             template.AddLine("3331", false, "Amount*0.05");
             template.AddLine("511", false, "NetAmount");
@@ -340,7 +337,7 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "FORMULA", 10000m, new Dictionary<string, object>());
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "FORMULA", 10000m, []);
 
             // Assert - Formula calculation verification
             result.Lines.Should().HaveCount(3);
@@ -353,12 +350,12 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Update_CoreTemplateContext_State()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "CONTEXT", "Context Test");
+            JournalTemplate template = new(_tenantId, "CONTEXT", "Context Test");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "NetAmount");
             template.AddBusinessRule("VIPDiscountRule");
 
-            var vipRule = new Mock<IBusinessRule>();
+            Mock<IBusinessRule> vipRule = new();
             vipRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
             vipRule.Setup(x => x.ApplyAsync(It.IsAny<CoreTemplateContext>()))
                    .Callback<CoreTemplateContext>(ctx => ctx.NetAmount = 9000m) // Simulate rule effect
@@ -370,7 +367,7 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "CONTEXT", 10000m, new Dictionary<string, object>());
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "CONTEXT", 10000m, []);
 
             // Assert - Context state change verification
             vipRule.Verify(x => x.ApplyAsync(It.Is<CoreTemplateContext>(ctx => ctx.Amount == 10000m)), Times.Once);
@@ -384,18 +381,18 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Different_Formulas(string formula, decimal amount, decimal expected)
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "FORMULA-TEST", "Formula Test");
+            JournalTemplate template = new(_tenantId, "FORMULA-TEST", "Formula Test");
             template.AddLine("111", true, formula);
-            
-            var parameters = formula.Contains("VatRate") ? new Dictionary<string, object> { ["VatRate"] = 10m } :
-                             new Dictionary<string, object>();
+
+            Dictionary<string, object> parameters = formula.Contains("VatRate") ? new Dictionary<string, object> { ["VatRate"] = 10m } :
+                             [];
 
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "FORMULA-TEST")).ReturnsAsync(template);
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>()))
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "FORMULA-TEST", amount, parameters);
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "FORMULA-TEST", amount, parameters);
 
             // Assert
             result.Lines.First().DebitAmount.Should().Be(expected);
@@ -405,7 +402,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Validate_Journal_Balance()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "UNBALANCED", "Unbalanced Template");
+            JournalTemplate template = new(_tenantId, "UNBALANCED", "Unbalanced Template");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount*0.5"); // Creates imbalance
 
@@ -414,15 +411,15 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(() => 
-                _factory.CreateFromTemplateAsync(_tenantId, "UNBALANCED", 1000m, new Dictionary<string, object>()));
+            await Assert.ThrowsAsync<ValidationException>(() =>
+                _factory.CreateFromTemplateAsync(_tenantId, "UNBALANCED", 1000m, []));
         }
 
         [Fact]
         public async Task EnhancedJournalFactory_Should_Validate_Account_Numbers()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "INVALID-ACCOUNT", "Invalid Account Test");
+            JournalTemplate template = new(_tenantId, "INVALID-ACCOUNT", "Invalid Account Test");
             template.AddLine("INVALID", true, "Amount"); // Invalid account number
 
             _templateRepoMock.Setup(x => x.GetByCodeAsync(_tenantId, "INVALID-ACCOUNT")).ReturnsAsync(template);
@@ -430,22 +427,22 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(() => 
-                _factory.CreateFromTemplateAsync(_tenantId, "INVALID-ACCOUNT", 1000m, new Dictionary<string, object>()));
+            await Assert.ThrowsAsync<ValidationException>(() =>
+                _factory.CreateFromTemplateAsync(_tenantId, "INVALID-ACCOUNT", 1000m, []));
         }
 
         [Fact]
         public async Task EnhancedJournalFactory_Should_Handle_Multiple_Rules_Chaining()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "CHAIN", "Rule Chaining Test");
+            JournalTemplate template = new(_tenantId, "CHAIN", "Rule Chaining Test");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "NetAmount");
             template.AddBusinessRule("VIPDiscountRule");
             template.AddBusinessRule("VATCalculationRule");
 
-            var vipRule = new Mock<IBusinessRule>();
-            var vatRule = new Mock<IBusinessRule>();
+            Mock<IBusinessRule> vipRule = new();
+            Mock<IBusinessRule> vatRule = new();
 
             vipRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
             vatRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
@@ -465,7 +462,7 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "CHAIN", 10000m, new Dictionary<string, object> { ["VatRate"] = 10m });
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "CHAIN", 10000m, new Dictionary<string, object> { ["VatRate"] = 10m });
 
             // Assert - Rule chaining verification
             vipRule.Verify(x => x.ApplyAsync(It.IsAny<CoreTemplateContext>()), Times.Once);
@@ -477,19 +474,19 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Rule_Execution_Order()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "ORDER", "Rule Order Test");
+            JournalTemplate template = new(_tenantId, "ORDER", "Rule Order Test");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "NetAmount");
             template.AddBusinessRule("FirstRule");
             template.AddBusinessRule("SecondRule");
 
-            var firstRule = new Mock<IBusinessRule>();
-            var secondRule = new Mock<IBusinessRule>();
+            Mock<IBusinessRule> firstRule = new();
+            Mock<IBusinessRule> secondRule = new();
 
             firstRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
             secondRule.Setup(x => x.ShouldApplyAsync(It.IsAny<CoreTemplateContext>())).ReturnsAsync(true);
 
-            var executionOrder = new List<string>();
+            List<string> executionOrder = [];
             firstRule.Setup(x => x.ApplyAsync(It.IsAny<CoreTemplateContext>()))
                      .Callback<CoreTemplateContext>(_ => executionOrder.Add("First"))
                      .Returns(Task.CompletedTask);
@@ -504,7 +501,7 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Success());
 
             // Act
-            await _factory.CreateFromTemplateAsync(_tenantId, "ORDER", 1000m, new Dictionary<string, object>());
+            await _factory.CreateFromTemplateAsync(_tenantId, "ORDER", 1000m, []);
 
             // Assert - Rule execution order
             executionOrder.Should().ContainInOrder("First", "Second");
@@ -514,7 +511,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Handle_Parameter_Edges()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "EDGE", "Edge Case Test");
+            JournalTemplate template = new(_tenantId, "EDGE", "Edge Case Test");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount", "Payment {CustomerName}");
 
@@ -522,14 +519,14 @@ namespace VanAn.Core.Tests.Accounting
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>()))
                            .ReturnsAsync(ValidationResult.Success());
 
-            var edgeParameters = new Dictionary<string, object>
+            Dictionary<string, object> edgeParameters = new()
             {
                 ["CustomerName"] = "",
                 ["MissingParam"] = "Value"
             };
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "EDGE", 1000m, edgeParameters);
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "EDGE", 1000m, edgeParameters);
 
             // Assert
             result.Lines.ToList()[1].Description.Should().Be("Payment "); // Empty parameter handled
@@ -539,7 +536,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task EnhancedJournalFactory_Should_Validate_Template_Activity()
         {
             // Arrange
-            var inactiveTemplate = new JournalTemplate(_tenantId, "INACTIVE", "Inactive Template");
+            JournalTemplate inactiveTemplate = new(_tenantId, "INACTIVE", "Inactive Template");
             inactiveTemplate.AddLine("111", true, "Amount");
             // Note: Template would need IsActive property set to false
 
@@ -548,15 +545,15 @@ namespace VanAn.Core.Tests.Accounting
                            .ReturnsAsync(ValidationResult.Failure("Template is not active"));
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(() => 
-                _factory.CreateFromTemplateAsync(_tenantId, "INACTIVE", 1000m, new Dictionary<string, object>()));
+            await Assert.ThrowsAsync<ValidationException>(() =>
+                _factory.CreateFromTemplateAsync(_tenantId, "INACTIVE", 1000m, []));
         }
 
         [Fact]
         public async Task EnhancedJournalFactory_Should_Handle_Null_Parameters()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "NULL-PARAM", "Null Parameter Test");
+            JournalTemplate template = new(_tenantId, "NULL-PARAM", "Null Parameter Test");
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount", "Payment {CustomerName}");
 
@@ -564,13 +561,13 @@ namespace VanAn.Core.Tests.Accounting
             _validatorMock.Setup(x => x.ValidateTemplateAsync(template, It.IsAny<Dictionary<string, object>>()))
                            .ReturnsAsync(ValidationResult.Success());
 
-            var nullParams = new Dictionary<string, object>
+            Dictionary<string, object> nullParams = new()
             {
                 ["CustomerName"] = null
             };
 
             // Act
-            var result = await _factory.CreateFromTemplateAsync(_tenantId, "NULL-PARAM", 1000m, nullParams);
+            JournalEntry result = await _factory.CreateFromTemplateAsync(_tenantId, "NULL-PARAM", 1000m, nullParams);
 
             // Assert
             result.Should().NotBeNull();

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
@@ -10,16 +8,10 @@ namespace VanAn.CoreHub.Services.Journal
     /// Enhanced Formula Engine with Expression Parser foundation
     /// Supports Vietnamese accounting formulas and calculations
     /// </summary>
-    public class FormulaEngine
+    public class FormulaEngine(ILogger<FormulaEngine> logger, IExpressionParser expressionParser)
     {
-        private readonly ILogger<FormulaEngine> _logger;
-        private readonly IExpressionParser _expressionParser;
-
-        public FormulaEngine(ILogger<FormulaEngine> logger, IExpressionParser expressionParser)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _expressionParser = expressionParser ?? throw new ArgumentNullException(nameof(expressionParser));
-        }
+        private readonly ILogger<FormulaEngine> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        private readonly IExpressionParser _expressionParser = expressionParser ?? throw new ArgumentNullException(nameof(expressionParser));
 
         /// <summary>
         /// Evaluate a formula expression with the given context
@@ -52,7 +44,7 @@ namespace VanAn.CoreHub.Services.Journal
                 }
 
                 // Evaluate the formula
-                var result = _expressionParser.Evaluate(formula, context, cultureInfo);
+                decimal result = _expressionParser.Evaluate(formula, context, cultureInfo);
 
                 _logger.LogDebug("Formula evaluation result: {Formula} = {Result}", formula, result);
 
@@ -71,7 +63,9 @@ namespace VanAn.CoreHub.Services.Journal
         public IEnumerable<string> GetRequiredParameters(string formula)
         {
             if (string.IsNullOrWhiteSpace(formula))
+            {
                 return Array.Empty<string>();
+            }
 
             try
             {
@@ -90,7 +84,9 @@ namespace VanAn.CoreHub.Services.Journal
         public bool ValidateFormula(string formula)
         {
             if (string.IsNullOrWhiteSpace(formula))
+            {
                 return false;
+            }
 
             try
             {

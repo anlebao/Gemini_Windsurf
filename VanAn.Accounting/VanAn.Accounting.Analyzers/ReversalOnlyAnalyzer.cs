@@ -16,7 +16,7 @@ namespace VanAn.Accounting.Analyzers
         private static readonly LocalizableString MessageFormat = "AccountingEntry must only use reversal entries for corrections. Do not delete or modify entries.";
         private static readonly LocalizableString Description = "All corrections to accounting entries must be done through reversal entries to maintain audit trail and data integrity.";
 
-        private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
+        private static readonly DiagnosticDescriptor Rule = new(
             DiagnosticId,
             Title,
             MessageFormat,
@@ -27,7 +27,7 @@ namespace VanAn.Accounting.Analyzers
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
-    
+
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -35,24 +35,26 @@ namespace VanAn.Accounting.Analyzers
             context.RegisterSyntaxNodeAction(AnalyzeRemoveCall, SyntaxKind.InvocationExpression);
         }
 
-        
+
         private void AnalyzeRemoveCall(SyntaxNodeAnalysisContext context)
         {
-            if (AnalyzerHelpers.ShouldSkipAnalysis(context)) return;
+            if (AnalyzerHelpers.ShouldSkipAnalysis(context))
+            {
+                return;
+            }
 
-            var invocation = (InvocationExpressionSyntax)context.Node;
-            var methodSymbol = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
 
-            if (methodSymbol != null)
+            if (context.SemanticModel.GetSymbolInfo(invocation).Symbol is IMethodSymbol methodSymbol)
             {
                 // Check for Remove, Delete, or Update methods on collections containing AccountingEntry
-                var methodName = methodSymbol.Name;
-                if (methodName == "Remove" || methodName == "Delete" || methodName == "Update")
+                string methodName = methodSymbol.Name;
+                if (methodName is "Remove" or "Delete" or "Update")
                 {
-                    var receiverType = methodSymbol.ReceiverType;
+                    ITypeSymbol? receiverType = methodSymbol.ReceiverType;
                     if (receiverType != null && IsAccountingEntryCollection(receiverType))
                     {
-                        var diagnostic = Diagnostic.Create(Rule, invocation.GetLocation());
+                        Diagnostic diagnostic = Diagnostic.Create(Rule, invocation.GetLocation());
                         context.ReportDiagnostic(diagnostic);
                     }
                 }
@@ -67,28 +69,28 @@ namespace VanAn.Accounting.Analyzers
                 // Check for IEnumerable<AccountingEntry>, List<AccountingEntry>, etc.
                 if (namedType.OriginalDefinition != null)
                 {
-                    var typeName = namedType.OriginalDefinition.Name;
-                    if (typeName == "IEnumerable" || typeName == "List" || typeName == "ICollection" || typeName == "DbSet")
+                    string typeName = namedType.OriginalDefinition.Name;
+                    if (typeName is "IEnumerable" or "List" or "ICollection" or "DbSet")
                     {
-                        var typeArgs = namedType.TypeArguments;
+                        ImmutableArray<ITypeSymbol> typeArgs = namedType.TypeArguments;
                         if (typeArgs.Length == 1 && typeArgs[0].Name == "AccountingEntry")
                         {
                             return true;
                         }
                     }
                 }
-                
+
                 // Check for DbSet<AccountingEntry> directly
                 if (namedType.Name == "DbSet")
                 {
-                    var typeArgs = namedType.TypeArguments;
+                    ImmutableArray<ITypeSymbol> typeArgs = namedType.TypeArguments;
                     if (typeArgs.Length == 1 && typeArgs[0].Name == "AccountingEntry")
                     {
                         return true;
                     }
                 }
             }
-            
+
             return false;
         }
     }

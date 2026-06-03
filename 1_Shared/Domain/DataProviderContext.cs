@@ -12,7 +12,7 @@ namespace VanAn.Shared.Domain
     {
         public string RequestId { get; init; } = RequestId ?? Guid.NewGuid().ToString();
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
-        
+
         /// <summary>
         /// Create context for specific tenant and period
         /// </summary>
@@ -20,7 +20,7 @@ namespace VanAn.Shared.Domain
         {
             return new DataProviderContext(tenantId, period);
         }
-        
+
         /// <summary>
         /// Create context with custom request ID
         /// </summary>
@@ -28,16 +28,16 @@ namespace VanAn.Shared.Domain
         {
             return new DataProviderContext(tenantId, period, requestId);
         }
-        
+
         /// <summary>
         /// Check if context is still valid (not too old)
         /// </summary>
         public bool IsValid(TimeSpan maxAge = default)
         {
-            var age = maxAge == default ? TimeSpan.FromMinutes(30) : maxAge;
+            TimeSpan age = maxAge == default ? TimeSpan.FromMinutes(30) : maxAge;
             return DateTime.UtcNow - CreatedAt <= age;
         }
-        
+
         /// <summary>
         /// Get cache key for this context
         /// </summary>

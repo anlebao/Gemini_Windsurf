@@ -1,19 +1,11 @@
-using System.Net;
 using System.Text.Json;
-using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Middleware
 {
-    public class UnifiedErrorHandler
+    public class UnifiedErrorHandler(RequestDelegate next, ILogger<UnifiedErrorHandler> logger)
     {
-        private readonly RequestDelegate _next;
-        private readonly ILogger<UnifiedErrorHandler> _logger;
-
-        public UnifiedErrorHandler(RequestDelegate next, ILogger<UnifiedErrorHandler> logger)
-        {
-            _next = next;
-            _logger = logger;
-        }
+        private readonly RequestDelegate _next = next;
+        private readonly ILogger<UnifiedErrorHandler> _logger = logger;
 
         public async Task InvokeAsync(HttpContext context)
         {
@@ -29,14 +21,14 @@ namespace VanAn.Gateway.Middleware
 
         private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
-            var logger = context.RequestServices.GetRequiredService<ILogger<UnifiedErrorHandler>>();
-            
+            ILogger<UnifiedErrorHandler> logger = context.RequestServices.GetRequiredService<ILogger<UnifiedErrorHandler>>();
+
             logger.LogError(exception, "An unhandled exception occurred: {Message}", exception.Message);
 
             context.Response.Clear();
             context.Response.ContentType = "application/json";
-            
-            var errorResponse = new ErrorResponse
+
+            ErrorResponse errorResponse = new()
             {
                 ErrorId = Guid.NewGuid().ToString(),
                 Message = GetErrorMessage(exception),
@@ -48,12 +40,12 @@ namespace VanAn.Gateway.Middleware
 
             context.Response.StatusCode = GetStatusCode(exception);
 
-            var jsonOptions = new JsonSerializerOptions
+            JsonSerializerOptions jsonOptions = new()
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            var jsonResponse = JsonSerializer.Serialize(errorResponse, jsonOptions);
+            string jsonResponse = JsonSerializer.Serialize(errorResponse, jsonOptions);
             await context.Response.WriteAsync(jsonResponse);
         }
 
@@ -78,7 +70,7 @@ namespace VanAn.Gateway.Middleware
             {
                 return exception.ToString();
             }
-            
+
             // In production, return generic message
             return "See application logs for more details";
         }

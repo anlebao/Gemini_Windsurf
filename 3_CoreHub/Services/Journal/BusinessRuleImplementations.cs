@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 
@@ -11,14 +8,9 @@ namespace VanAn.CoreHub.Services.Journal
     /// Implements Vietnamese accounting standards and regulations
     /// </summary>
 
-    public class VietnameseVATRule : IBusinessRule
+    public class VietnameseVATRule(ILogger<VietnameseVATRule> logger) : IBusinessRule
     {
-        private readonly ILogger<VietnameseVATRule> _logger;
-
-        public VietnameseVATRule(ILogger<VietnameseVATRule> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger<VietnameseVATRule> _logger = logger;
 
         public string Name => "VietnameseVAT";
 
@@ -27,10 +19,10 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Apply VAT for all transactions except exempt ones
-                var transactionType = context.GetParameter<string>("TransactionType", "");
-                var isExempt = context.GetParameter<bool>("IsVATExempt", false);
-                var shouldApply = !isExempt && context.Amount > 0;
-                
+                string? transactionType = context.GetParameter("TransactionType", "");
+                bool isExempt = context.GetParameter("IsVATExempt", false);
+                bool shouldApply = !isExempt && context.Amount > 0;
+
                 return Task.FromResult(shouldApply);
             }
             catch (Exception ex)
@@ -45,18 +37,18 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Vietnamese VAT rates: 0%, 5%, 10%
-                var vatRate = context.GetParameter<decimal>("VATRate", 0.10m); // Default 10%
-                var taxableAmount = context.NetAmount > 0 ? context.NetAmount : context.Amount;
-                
+                decimal vatRate = context.GetParameter("VATRate", 0.10m); // Default 10%
+                decimal taxableAmount = context.NetAmount > 0 ? context.NetAmount : context.Amount;
+
                 // Validate VAT rate
-                if (vatRate != 0m && vatRate != 0.05m && vatRate != 0.10m)
+                if (vatRate is not 0m and not 0.05m and not 0.10m)
                 {
                     _logger.LogWarning("Invalid VAT rate: {VATRate}, using default 10%", vatRate);
                     vatRate = 0.10m;
                 }
-                
+
                 context.VatAmount = taxableAmount * vatRate;
-                
+
                 return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -67,14 +59,9 @@ namespace VanAn.CoreHub.Services.Journal
         }
     }
 
-    public class CorporateIncomeTaxRule : IBusinessRule
+    public class CorporateIncomeTaxRule(ILogger<CorporateIncomeTaxRule> logger) : IBusinessRule
     {
-        private readonly ILogger<CorporateIncomeTaxRule> _logger;
-
-        public CorporateIncomeTaxRule(ILogger<CorporateIncomeTaxRule> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger<CorporateIncomeTaxRule> _logger = logger;
 
         public string Name => "CorporateIncomeTax";
 
@@ -83,8 +70,8 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Apply CIT for revenue transactions
-                var transactionType = context.GetParameter<string>("TransactionType", "");
-                var shouldApply = transactionType == "Revenue" || transactionType == "Sale";
+                string? transactionType = context.GetParameter("TransactionType", "");
+                bool shouldApply = transactionType is "Revenue" or "Sale";
                 return Task.FromResult(shouldApply);
             }
             catch (Exception ex)
@@ -99,12 +86,12 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // CIT rate: 20% standard
-                var citRate = context.GetParameter<decimal>("CITRate", 0.20m);
-                var taxableIncome = context.NetAmount > 0 ? context.NetAmount : context.Amount;
-                
+                decimal citRate = context.GetParameter("CITRate", 0.20m);
+                decimal taxableIncome = context.NetAmount > 0 ? context.NetAmount : context.Amount;
+
                 // Store CIT amount for reporting
                 context.SetParameter("CITAmount", taxableIncome * citRate);
-                
+
                 return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -115,14 +102,9 @@ namespace VanAn.CoreHub.Services.Journal
         }
     }
 
-    public class PersonalIncomeTaxRule : IBusinessRule
+    public class PersonalIncomeTaxRule(ILogger<PersonalIncomeTaxRule> logger) : IBusinessRule
     {
-        private readonly ILogger<PersonalIncomeTaxRule> _logger;
-
-        public PersonalIncomeTaxRule(ILogger<PersonalIncomeTaxRule> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger<PersonalIncomeTaxRule> _logger = logger;
 
         public string Name => "PersonalIncomeTax";
 
@@ -131,8 +113,8 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Apply PIT for salary and wage transactions
-                var transactionType = context.GetParameter<string>("TransactionType", "");
-                var shouldApply = transactionType == "Salary" || transactionType == "Wage";
+                string? transactionType = context.GetParameter("TransactionType", "");
+                bool shouldApply = transactionType is "Salary" or "Wage";
                 return Task.FromResult(shouldApply);
             }
             catch (Exception ex)
@@ -147,11 +129,11 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // PIT progressive rates: 5%, 10%, 15%, 20%, 25%, 30%, 35%
-                var monthlyIncome = context.NetAmount > 0 ? context.NetAmount : context.Amount;
-                var pitAmount = CalculatePIT(monthlyIncome);
-                
+                decimal monthlyIncome = context.NetAmount > 0 ? context.NetAmount : context.Amount;
+                decimal pitAmount = CalculatePIT(monthlyIncome);
+
                 context.SetParameter("PITAmount", pitAmount);
-                
+
                 return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -161,27 +143,36 @@ namespace VanAn.CoreHub.Services.Journal
             }
         }
 
-        private decimal CalculatePIT(decimal monthlyIncome)
+        private static decimal CalculatePIT(decimal monthlyIncome)
         {
             // Simplified PIT calculation - progressive rates
-            if (monthlyIncome <= 5000000) return 0;
-            if (monthlyIncome <= 10000000) return monthlyIncome * 0.05m;
-            if (monthlyIncome <= 18000000) return monthlyIncome * 0.10m;
-            if (monthlyIncome <= 32000000) return monthlyIncome * 0.15m;
-            if (monthlyIncome <= 52000000) return monthlyIncome * 0.20m;
-            if (monthlyIncome <= 80000000) return monthlyIncome * 0.25m;
-            return monthlyIncome * 0.30m;
+            if (monthlyIncome <= 5000000)
+            {
+                return 0;
+            }
+
+            if (monthlyIncome <= 10000000)
+            {
+                return monthlyIncome * 0.05m;
+            }
+
+            if (monthlyIncome <= 18000000)
+            {
+                return monthlyIncome * 0.10m;
+            }
+
+            if (monthlyIncome <= 32000000)
+            {
+                return monthlyIncome * 0.15m;
+            }
+
+            return monthlyIncome <= 52000000 ? monthlyIncome * 0.20m : monthlyIncome <= 80000000 ? monthlyIncome * 0.25m : monthlyIncome * 0.30m;
         }
     }
 
-    public class PeriodClosingValidationRule : IBusinessRule
+    public class PeriodClosingValidationRule(ILogger<PeriodClosingValidationRule> logger) : IBusinessRule
     {
-        private readonly ILogger<PeriodClosingValidationRule> _logger;
-
-        public PeriodClosingValidationRule(ILogger<PeriodClosingValidationRule> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger<PeriodClosingValidationRule> _logger = logger;
 
         public string Name => "PeriodClosingValidation";
 
@@ -190,7 +181,7 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Apply for period closing transactions
-                var isPeriodClosing = context.GetParameter<bool>("IsPeriodClosing", false);
+                bool isPeriodClosing = context.GetParameter("IsPeriodClosing", false);
                 return Task.FromResult(isPeriodClosing);
             }
             catch (Exception ex)
@@ -205,15 +196,11 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Validate period closing requirements
-                var period = context.GetParameter<AccountingPeriod>("Period", null);
-                if (period == null)
-                {
-                    throw new ValidationException("Period is required for period closing");
-                }
+                AccountingPeriod? period = context.GetParameter<AccountingPeriod>("Period", null) ?? throw new ValidationException("Period is required for period closing");
 
                 // Add validation logic for period closing
                 context.SetParameter("PeriodValidated", true);
-                
+
                 return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -224,14 +211,9 @@ namespace VanAn.CoreHub.Services.Journal
         }
     }
 
-    public class AccountingStandardComplianceRule : IBusinessRule
+    public class AccountingStandardComplianceRule(ILogger<AccountingStandardComplianceRule> logger) : IBusinessRule
     {
-        private readonly ILogger<AccountingStandardComplianceRule> _logger;
-
-        public AccountingStandardComplianceRule(ILogger<AccountingStandardComplianceRule> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger<AccountingStandardComplianceRule> _logger = logger;
 
         public string Name => "AccountingStandardCompliance";
 
@@ -254,9 +236,9 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Validate against Vietnamese Accounting Standards (VAS)
-                var transactionType = context.GetParameter<string>("TransactionType", "");
-                var amount = context.Amount;
-                
+                string? transactionType = context.GetParameter("TransactionType", "");
+                decimal amount = context.Amount;
+
                 // Basic compliance checks
                 if (amount < 0)
                 {
@@ -266,7 +248,7 @@ namespace VanAn.CoreHub.Services.Journal
                 // Add compliance validation logic
                 context.SetParameter("ComplianceValidated", true);
                 context.SetParameter("ComplianceVersion", "TT152/2025/TT-BTC");
-                
+
                 return Task.CompletedTask;
             }
             catch (Exception ex)
@@ -277,14 +259,9 @@ namespace VanAn.CoreHub.Services.Journal
         }
     }
 
-    public class VIPDiscountRule : IBusinessRule
+    public class VIPDiscountRule(ILogger<VIPDiscountRule> logger) : IBusinessRule
     {
-        private readonly ILogger<VIPDiscountRule> _logger;
-
-        public VIPDiscountRule(ILogger<VIPDiscountRule> logger)
-        {
-            _logger = logger;
-        }
+        private readonly ILogger<VIPDiscountRule> _logger = logger;
 
         public string Name => "VIPDiscount";
 
@@ -293,7 +270,7 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Check if customer is VIP
-                var isVip = context.GetParameter<bool>("IsVIP", false);
+                bool isVip = context.GetParameter("IsVIP", false);
                 return Task.FromResult(isVip);
             }
             catch (Exception ex)
@@ -308,10 +285,10 @@ namespace VanAn.CoreHub.Services.Journal
             try
             {
                 // Apply 10% discount for VIP customers
-                var discountRate = 0.1m;
+                decimal discountRate = 0.1m;
                 context.DiscountAmount = context.Amount * discountRate;
                 context.NetAmount = context.Amount - context.DiscountAmount;
-                
+
                 return Task.CompletedTask;
             }
             catch (Exception ex)

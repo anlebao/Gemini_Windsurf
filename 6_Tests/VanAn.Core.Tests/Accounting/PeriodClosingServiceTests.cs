@@ -1,181 +1,181 @@
-using Microsoft.Extensions.Logging;
 using Moq;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
 using Xunit;
 
-namespace VanAn.Core.Tests.Accounting;
-
-/// <summary>
-/// TDD Phase 2 — Service unit tests for PeriodClosingService.
-/// Written BEFORE implementation (Red phase).
-/// Uses Moq to isolate service from infrastructure.
-/// </summary>
-public class PeriodClosingServiceTests
+namespace VanAn.Core.Tests.Accounting
 {
-    private readonly Mock<IPeriodClosingService> _mockService;
-    private readonly TenantId _tenantId;
-    private readonly AccountingPeriod _period;
-    private readonly Guid _userId;
-
-    public PeriodClosingServiceTests()
+    /// <summary>
+    /// TDD Phase 2 — Service unit tests for PeriodClosingService.
+    /// Written BEFORE implementation (Red phase).
+    /// Uses Moq to isolate service from infrastructure.
+    /// </summary>
+    public class PeriodClosingServiceTests
     {
-        _mockService = new Mock<IPeriodClosingService>();
-        _tenantId = new TenantId(Guid.NewGuid());
-        _period = new AccountingPeriod(2025, 12);
-        _userId = Guid.NewGuid();
-    }
+        private readonly Mock<IPeriodClosingService> _mockService;
+        private readonly TenantId _tenantId;
+        private readonly AccountingPeriod _period;
+        private readonly Guid _userId;
 
-    // ── ValidatePeriodAsync ───────────────────────────────────────────────
+        public PeriodClosingServiceTests()
+        {
+            _mockService = new Mock<IPeriodClosingService>();
+            _tenantId = new TenantId(Guid.NewGuid());
+            _period = new AccountingPeriod(2025, 12);
+            _userId = Guid.NewGuid();
+        }
 
-    [Fact]
-    public async Task ValidatePeriodAsync_WithValidPeriod_ReturnsSuccess()
-    {
-        var expected = new PeriodClosingCheckResult(true, new List<string>(), new List<string>());
-        _mockService
-            .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
+        // ── ValidatePeriodAsync ───────────────────────────────────────────────
 
-        var result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
+        [Fact]
+        public async Task ValidatePeriodAsync_WithValidPeriod_ReturnsSuccess()
+        {
+            PeriodClosingCheckResult expected = new(true, [], []);
+            _mockService
+                .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expected);
 
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Errors);
-    }
+            PeriodClosingCheckResult result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
 
-    [Fact]
-    public async Task ValidatePeriodAsync_WithMissingEntries_ReturnsError()
-    {
-        var errors = new List<string> { "No accounting entries found for period 2025-12" };
-        var expected = new PeriodClosingCheckResult(false, errors, new List<string>());
-        _mockService
-            .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
+            Assert.True(result.IsValid);
+            Assert.Empty(result.Errors);
+        }
 
-        var result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
+        [Fact]
+        public async Task ValidatePeriodAsync_WithMissingEntries_ReturnsError()
+        {
+            List<string> errors = ["No accounting entries found for period 2025-12"];
+            PeriodClosingCheckResult expected = new(false, errors, []);
+            _mockService
+                .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expected);
 
-        Assert.False(result.IsValid);
-        Assert.Contains("No accounting entries found for period 2025-12", result.Errors);
-    }
+            PeriodClosingCheckResult result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
 
-    [Fact]
-    public async Task ValidatePeriodAsync_WithUnbalancedEntries_ReturnsError()
-    {
-        var errors = new List<string> { "Debit/Credit totals are unbalanced: Debit=10000, Credit=9500" };
-        var expected = new PeriodClosingCheckResult(false, errors, new List<string>());
-        _mockService
-            .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
+            Assert.False(result.IsValid);
+            Assert.Contains("No accounting entries found for period 2025-12", result.Errors);
+        }
 
-        var result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
+        [Fact]
+        public async Task ValidatePeriodAsync_WithUnbalancedEntries_ReturnsError()
+        {
+            List<string> errors = ["Debit/Credit totals are unbalanced: Debit=10000, Credit=9500"];
+            PeriodClosingCheckResult expected = new(false, errors, []);
+            _mockService
+                .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expected);
 
-        Assert.False(result.IsValid);
-        Assert.Single(result.Errors);
-        Assert.Contains("unbalanced", result.Errors[0], StringComparison.OrdinalIgnoreCase);
-    }
+            PeriodClosingCheckResult result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
 
-    // ── ClosePeriodAsync ─────────────────────────────────────────────────
+            Assert.False(result.IsValid);
+            Assert.Single(result.Errors);
+            Assert.Contains("unbalanced", result.Errors[0], StringComparison.OrdinalIgnoreCase);
+        }
 
-    [Fact]
-    public async Task ClosePeriodAsync_WhenValid_CreatesClosingEntries()
-    {
-        var periodId = Guid.NewGuid();
-        var closingDate = DateTime.UtcNow;
-        var expected = new ClosingEntry(periodId, _period, closingDate, _userId);
-        _mockService
-            .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
+        // ── ClosePeriodAsync ─────────────────────────────────────────────────
 
-        var result = await _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId);
+        [Fact]
+        public async Task ClosePeriodAsync_WhenValid_CreatesClosingEntries()
+        {
+            Guid periodId = Guid.NewGuid();
+            DateTime closingDate = DateTime.UtcNow;
+            ClosingEntry expected = new(periodId, _period, closingDate, _userId);
+            _mockService
+                .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expected);
 
-        Assert.NotNull(result);
-        Assert.Equal(_period, result.Period);
-        Assert.Equal(_userId, result.CreatedBy);
-    }
+            ClosingEntry result = await _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId);
 
-    [Fact]
-    public async Task ClosePeriodAsync_WhenInvalid_ThrowsException()
-    {
-        _mockService
-            .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Period validation failed. Cannot close period with errors."));
+            Assert.NotNull(result);
+            Assert.Equal(_period, result.Period);
+            Assert.Equal(_userId, result.CreatedBy);
+        }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId));
+        [Fact]
+        public async Task ClosePeriodAsync_WhenInvalid_ThrowsException()
+        {
+            _mockService
+                .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Period validation failed. Cannot close period with errors."));
 
-        Assert.Contains("validation failed", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId));
 
-    [Fact]
-    public async Task ClosePeriodAsync_WhenAlreadyClosed_ThrowsException()
-    {
-        _mockService
-            .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Period 2025-12 is already closed."));
+            Assert.Contains("validation failed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId));
+        [Fact]
+        public async Task ClosePeriodAsync_WhenAlreadyClosed_ThrowsException()
+        {
+            _mockService
+                .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Period 2025-12 is already closed."));
 
-        Assert.Contains("already closed", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId));
 
-    [Fact]
-    public async Task ClosePeriodAsync_WhenPeriodHasPendingTransactions_ThrowsException()
-    {
-        _mockService
-            .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Cannot close period: 3 pending transactions exist."));
+            Assert.Contains("already closed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId));
+        [Fact]
+        public async Task ClosePeriodAsync_WhenPeriodHasPendingTransactions_ThrowsException()
+        {
+            _mockService
+                .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Cannot close period: 3 pending transactions exist."));
 
-        Assert.Contains("pending transactions", ex.Message, StringComparison.OrdinalIgnoreCase);
-    }
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _mockService.Object.ClosePeriodAsync(_period, _tenantId, _userId));
 
-    // ── ReopenPeriodAsync ────────────────────────────────────────────────
+            Assert.Contains("pending transactions", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
 
-    [Fact]
-    public async Task ReopenPeriodAsync_CreatesReversalEntry()
-    {
-        var reason = "Correction required for Q4 audit";
-        _mockService
-            .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        // ── ReopenPeriodAsync ────────────────────────────────────────────────
 
-        await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason);
+        [Fact]
+        public async Task ReopenPeriodAsync_CreatesReversalEntry()
+        {
+            string reason = "Correction required for Q4 audit";
+            _mockService
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
-        _mockService.Verify(
-            s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
+            await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason);
 
-    [Fact]
-    public async Task ReopenPeriodAsync_WithClosedPeriod_UpdatesStatus()
-    {
-        var reason = "Audit correction";
-        _mockService
-            .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _mockService
-            .Setup(s => s.GetPeriodStatusAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(PeriodClosingStatus.Open);
+            _mockService.Verify(
+                s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
 
-        await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason);
-        var status = await _mockService.Object.GetPeriodStatusAsync(_period, _tenantId);
+        [Fact]
+        public async Task ReopenPeriodAsync_WithClosedPeriod_UpdatesStatus()
+        {
+            string reason = "Audit correction";
+            _mockService
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            _mockService
+                .Setup(s => s.GetPeriodStatusAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
 
-        Assert.Equal(PeriodClosingStatus.Open, status);
-    }
+            await _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason);
+            PeriodClosingStatus status = await _mockService.Object.GetPeriodStatusAsync(_period, _tenantId);
 
-    [Fact]
-    public async Task ReopenPeriodAsync_WithOpenPeriod_ThrowsException()
-    {
-        var reason = "Mistake";
-        _mockService
-            .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Cannot reopen period 2025-12: it is not closed."));
+            Assert.Equal(PeriodClosingStatus.Open, status);
+        }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason));
+        [Fact]
+        public async Task ReopenPeriodAsync_WithOpenPeriod_ThrowsException()
+        {
+            string reason = "Mistake";
+            _mockService
+                .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Cannot reopen period 2025-12: it is not closed."));
 
-        Assert.Contains("not closed", ex.Message, StringComparison.OrdinalIgnoreCase);
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _mockService.Object.ReopenPeriodAsync(_period, _tenantId, _userId, reason));
+
+            Assert.Contains("not closed", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

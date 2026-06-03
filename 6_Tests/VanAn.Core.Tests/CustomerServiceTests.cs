@@ -1,59 +1,62 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Services;
-using VanAn.Shared.Domain;
 using VanAn.CoreHub.Tests.TestInfrastructure;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace VanAn.Core.Tests;
-
-public class CustomerServiceTests : IntegrationTestBase, IAsyncLifetime
+namespace VanAn.Core.Tests
 {
-    private CustomerService _customerService = null!;
-    private readonly ILogger<CustomerService> _logger;
-    private readonly ITestOutputHelper _output;
-
-    public CustomerServiceTests(ITestOutputHelper output)
+    public class CustomerServiceTests : IntegrationTestBase, IAsyncLifetime
     {
-        _output = output;
-        _logger = new Logger<CustomerService>(new LoggerFactory());
-        _output.WriteLine("[CustomerServiceTests] Test class initialized");
-    }
+        private CustomerService _customerService = null!;
+        private readonly ILogger<CustomerService> _logger;
+        private readonly ITestOutputHelper _output;
 
-    public async Task InitializeAsync()
-    {
-        await SetupEmptyDatabaseAsync();
-        
-        // Create repository for testing
-        var repository = new VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository(Context);
-        _customerService = new CustomerService(repository, _logger);
-        _output.WriteLine("[CustomerServiceTests] CustomerService created successfully");
-    }
+        public CustomerServiceTests(ITestOutputHelper output)
+        {
+            _output = output;
+            _logger = new Logger<CustomerService>(new LoggerFactory());
+            _output.WriteLine("[CustomerServiceTests] Test class initialized");
+        }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+        public async Task InitializeAsync()
+        {
+            await SetupEmptyDatabaseAsync();
 
-    [Fact]
-    public async Task GetOrCreateCustomerByDeviceIdAsync_WhenCustomerNotExists_CreatesNewCustomer()
-    {
-        var deviceId = Guid.NewGuid();
+            // Create repository for testing
+            CoreHub.Infrastructure.Repositories.CustomerRepository repository = new(Context);
+            _customerService = new CustomerService(repository, _logger);
+            _output.WriteLine("[CustomerServiceTests] CustomerService created successfully");
+        }
 
-        var customer = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId, "Test Customer");
+        public Task DisposeAsync()
+        {
+            return Task.CompletedTask;
+        }
 
-        Assert.NotNull(customer);
-        Assert.Equal(deviceId, customer.DeviceId);
-        Assert.Equal("Test Customer", customer.FullName);
-    }
+        [Fact]
+        public async Task GetOrCreateCustomerByDeviceIdAsync_WhenCustomerNotExists_CreatesNewCustomer()
+        {
+            Guid deviceId = Guid.NewGuid();
 
-    [Fact]
-    public async Task GetOrCreateCustomerByDeviceIdAsync_WithMultipleCalls_ReturnsSameCustomer()
-    {
-        var deviceId = Guid.NewGuid();
+            Shared.Domain.Customer customer = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId, "Test Customer");
 
-        var customer1 = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId);
-        var customer2 = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId);
+            Assert.NotNull(customer);
+            Assert.Equal(deviceId, customer.DeviceId);
+            Assert.Equal("Test Customer", customer.FullName);
+        }
 
-        Assert.Equal(customer1.CustomerId.Value, customer2.CustomerId.Value);
-        Assert.Equal(1, await Context.Customers.CountAsync(c => c.DeviceId == deviceId));
+        [Fact]
+        public async Task GetOrCreateCustomerByDeviceIdAsync_WithMultipleCalls_ReturnsSameCustomer()
+        {
+            Guid deviceId = Guid.NewGuid();
+
+            Shared.Domain.Customer customer1 = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId);
+            Shared.Domain.Customer customer2 = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId);
+
+            Assert.Equal(customer1.CustomerId.Value, customer2.CustomerId.Value);
+            Assert.Equal(1, await Context.Customers.CountAsync(c => c.DeviceId == deviceId));
+        }
     }
 }

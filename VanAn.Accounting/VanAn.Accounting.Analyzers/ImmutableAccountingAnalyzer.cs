@@ -16,7 +16,7 @@ namespace VanAn.Accounting.Analyzers
         private static readonly LocalizableString MessageFormat = "AccountingEntry must be immutable. Do not modify properties after creation. Use reversal entries for corrections.";
         private static readonly LocalizableString Description = "Accounting entries should never be modified after creation. All corrections must be done through reversal entries to maintain audit trail.";
 
-        private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
+        private static readonly DiagnosticDescriptor Rule = new(
             DiagnosticId,
             Title,
             MessageFormat,
@@ -27,7 +27,7 @@ namespace VanAn.Accounting.Analyzers
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
-    
+
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -35,25 +35,28 @@ namespace VanAn.Accounting.Analyzers
             context.RegisterSyntaxNodeAction(AnalyzePropertyAssignment, SyntaxKind.SimpleAssignmentExpression);
         }
 
-        
+
         private void AnalyzePropertyAssignment(SyntaxNodeAnalysisContext context)
         {
-            if (AnalyzerHelpers.ShouldSkipAnalysis(context)) return;
+            if (AnalyzerHelpers.ShouldSkipAnalysis(context))
+            {
+                return;
+            }
 
-            var assignment = (AssignmentExpressionSyntax)context.Node;
-            
+            AssignmentExpressionSyntax assignment = (AssignmentExpressionSyntax)context.Node;
+
             // Check if assignment is to an AccountingEntry property
             if (assignment.Left is MemberAccessExpressionSyntax memberAccess)
             {
-                var memberName = memberAccess.Name.Identifier.ValueText;
-                var expressionType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
-                
+                string memberName = memberAccess.Name.Identifier.ValueText;
+                ITypeSymbol? expressionType = context.SemanticModel.GetTypeInfo(memberAccess.Expression).Type;
+
                 if (expressionType != null && expressionType.Name == "AccountingEntry")
                 {
                     // Allow setting properties in constructors
                     if (!IsInConstructor(context, assignment))
                     {
-                        var diagnostic = Diagnostic.Create(Rule, assignment.GetLocation());
+                        Diagnostic diagnostic = Diagnostic.Create(Rule, assignment.GetLocation());
                         context.ReportDiagnostic(diagnostic);
                     }
                 }
@@ -62,7 +65,7 @@ namespace VanAn.Accounting.Analyzers
 
         private static bool IsInConstructor(SyntaxNodeAnalysisContext context, SyntaxNode node)
         {
-            var constructor = node.FirstAncestorOrSelf<ConstructorDeclarationSyntax>();
+            ConstructorDeclarationSyntax? constructor = node.FirstAncestorOrSelf<ConstructorDeclarationSyntax>();
             return constructor != null;
         }
     }

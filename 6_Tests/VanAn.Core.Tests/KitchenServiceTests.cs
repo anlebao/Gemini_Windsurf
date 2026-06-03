@@ -1,13 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Tests.TestInfrastructure;
-using VanAn.Shared.Services;
 using VanAn.Shared.DTOs;
 using VanAn.Shared.Domain;
 using Xunit;
@@ -31,44 +24,44 @@ namespace VanAn.CoreHub.Tests
         public async Task GetGroupedItems_Should_GroupIdenticalProducts_FromDifferentOrders()
         {
             // Arrange
-            var shopId = Guid.NewGuid();
-            var customerId = Guid.NewGuid();
+            Guid shopId = Guid.NewGuid();
+            Guid customerId = Guid.NewGuid();
 
             // Create shop
-            var shopTenantId = new TenantId(shopId);
-            var shop = new Shop(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
+            TenantId shopTenantId = new(shopId);
+            Shop shop = new(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
             await Context.Shops.AddAsync(shop);
 
-            var product = new Product(shopTenantId, "Cà phê noir", "Cà phê nguyên chất", 25000m, "Coffee", true, null, 0.10m);
+            Product product = new(shopTenantId, "Cà phê noir", "Cà phê nguyên chất", 25000m, "Coffee", true, null, 0.10m);
             await Context.Products.AddAsync(product);
 
-            var customer = new Customer(shopTenantId, "Test Customer", "0123456789", "test@customer.com");
+            Customer customer = new(shopTenantId, "Test Customer", "0123456789", "test@customer.com");
             await Context.Customers.AddAsync(customer);
 
             // Save customer and product first to ensure Ids are properly tracked
             await Context.SaveChangesAsync();
 
-            var order1 = new Order(shopTenantId, customer.Id, 25000m);
+            Order order1 = new(shopTenantId, customer.Id, 25000m);
             await Context.Orders.AddAsync(order1);
 
-            var order2 = new Order(shopTenantId, customer.Id, 50000m);
+            Order order2 = new(shopTenantId, customer.Id, 50000m);
             await Context.Orders.AddAsync(order2);
 
             // Save orders to ensure Ids are properly tracked
             await Context.SaveChangesAsync();
 
-            var item1 = new OrderItem(shopTenantId, order1.Id, product.Id, 1, 25000m, "Cà phê noir");
-            var item2 = new OrderItem(shopTenantId, order2.Id, product.Id, 2, 25000m, "Cà phê noir");
+            OrderItem item1 = new(shopTenantId, order1.Id, product.Id, 1, 25000m, "Cà phê noir");
+            OrderItem item2 = new(shopTenantId, order2.Id, product.Id, 2, 25000m, "Cà phê noir");
 
             await Context.OrderItems.AddRangeAsync(item1, item2);
             await Context.SaveChangesAsync();
 
             // Act
-            var result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
+            List<KitchenItemGroupDto> result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
 
             // Assert
             Assert.NotNull(result);
-            var coffeeGroup = result.FirstOrDefault(g => g.ProductId == product.Id);
+            KitchenItemGroupDto? coffeeGroup = result.FirstOrDefault(g => g.ProductId == product.Id);
             if (coffeeGroup != null)
             {
                 Assert.True(coffeeGroup.TotalQuantity > 1); // Should be grouped (1+2=3)
@@ -85,7 +78,7 @@ namespace VanAn.CoreHub.Tests
         public async Task GetGroupedItems_Should_OrderGroups_ByOldestOrderTime_FIFO()
         {
             // Arrange
-            var shopId = Context.Shops.FirstOrDefault()?.Id ?? Guid.Empty;
+            Guid shopId = Context.Shops.FirstOrDefault()?.Id ?? Guid.Empty;
             if (shopId == Guid.Empty)
             {
                 Assert.True(true, "Test data not properly seeded");
@@ -93,15 +86,15 @@ namespace VanAn.CoreHub.Tests
             }
 
             // Act
-            var result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
+            List<KitchenItemGroupDto> result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
 
             // Assert
             Assert.NotNull(result);
             if (result.Count >= 1)
             {
                 // FIFO: Groups should be ordered by oldest order time
-                var oldestTime = result[0].OldestOrderTime;
-                foreach (var group in result.Skip(1))
+                DateTime oldestTime = result[0].OldestOrderTime;
+                foreach (KitchenItemGroupDto? group in result.Skip(1))
                 {
                     Assert.True(group.OldestOrderTime >= oldestTime, "Groups should be ordered by FIFO");
                     oldestTime = group.OldestOrderTime;
@@ -118,17 +111,17 @@ namespace VanAn.CoreHub.Tests
         public async Task UpdateItemStatus_Should_UpdateUnderlyingOrder_WhenAllItemsCompleted()
         {
             // Arrange
-            var orderItem = Context.OrderItems.FirstOrDefault();
+            OrderItem? orderItem = Context.OrderItems.FirstOrDefault();
             if (orderItem == null)
             {
                 Assert.True(true, "Test data not properly seeded");
                 return;
             }
-            
-            var orderId = orderItem.OrderId;
-            var userId = Guid.NewGuid();
-            
-            var updateDto = new KitchenStatusUpdateDto
+
+            Guid orderId = orderItem.OrderId;
+            Guid userId = Guid.NewGuid();
+
+            KitchenStatusUpdateDto updateDto = new()
             {
                 OrderItemId = orderItem.Id,
                 NewStatus = KitchenStatus.Completed,
@@ -136,13 +129,13 @@ namespace VanAn.CoreHub.Tests
             };
 
             // Act
-            var result = await _kitchenService.UpdateItemStatusAsync(updateDto, userId);
+            bool result = await _kitchenService.UpdateItemStatusAsync(updateDto, userId);
 
             // Assert
             Assert.True(result);
-            
+
             // Verify order status is updated when all items are completed
-            var orderStatus = await _kitchenService.GetOrderKitchenStatusAsync(orderId);
+            KitchenStatus? orderStatus = await _kitchenService.GetOrderKitchenStatusAsync(orderId);
             Assert.Equal(KitchenStatus.Completed, orderStatus);
         }
 
@@ -150,16 +143,16 @@ namespace VanAn.CoreHub.Tests
         public async Task ProcessVoiceNoteAsync_Should_Reject_OversizedAudioBlob_Gracefully()
         {
             // Arrange - Create oversized audio blob (> 150KB)
-            var oversizedAudioBlob = new string('A', 200000); // ~200KB
-            var order = Context.Orders.FirstOrDefault();
+            string oversizedAudioBlob = new('A', 200000); // ~200KB
+            Order? order = Context.Orders.FirstOrDefault();
             if (order == null)
             {
                 Assert.True(true, "Test data not properly seeded");
                 return;
             }
-            var orderId = order.Id;
-            
-            var inputDto = new VoiceNoteDto
+            Guid orderId = order.Id;
+
+            VoiceNoteDto inputDto = new()
             {
                 Text = "Test note",
                 AudioBlob = oversizedAudioBlob,
@@ -167,7 +160,7 @@ namespace VanAn.CoreHub.Tests
             };
 
             // Act
-            var result = await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
+            VoiceNoteDto result = await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
 
             // Assert - Should gracefully degrade to text-only
             Assert.NotNull(result);
@@ -180,16 +173,16 @@ namespace VanAn.CoreHub.Tests
         public async Task ProcessVoiceNoteAsync_Should_Reject_OversizedText_Gracefully()
         {
             // Arrange - Create oversized text (> 500 chars)
-            var oversizedText = new string('A', 600); // 600 characters
-            var order = Context.Orders.FirstOrDefault();
+            string oversizedText = new('A', 600); // 600 characters
+            Order? order = Context.Orders.FirstOrDefault();
             if (order == null)
             {
                 Assert.True(true, "Test data not properly seeded");
                 return;
             }
-            var orderId = order.Id;
-            
-            var inputDto = new VoiceNoteDto
+            Guid orderId = order.Id;
+
+            VoiceNoteDto inputDto = new()
             {
                 Text = oversizedText,
                 AudioBlob = "small_audio_blob",
@@ -197,7 +190,7 @@ namespace VanAn.CoreHub.Tests
             };
 
             // Act
-            var result = await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
+            VoiceNoteDto result = await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
 
             // Assert - Should truncate or reject oversized text
             Assert.NotNull(result);
@@ -210,27 +203,27 @@ namespace VanAn.CoreHub.Tests
         public async Task GetGroupedItems_Should_IncludeVoiceNotes_InGroupedItems()
         {
             // Arrange
-            var shopId = Context.Shops.FirstOrDefault()?.Id ?? Guid.Empty;
-            var productId = Context.Products.FirstOrDefault(p => p.Name == "Cà phê đen")?.Id ?? Guid.Empty;
-            var voiceNoteText = "Cà phê đen không đường, nhiều đá";
-            
+            Guid shopId = Context.Shops.FirstOrDefault()?.Id ?? Guid.Empty;
+            Guid productId = Context.Products.FirstOrDefault(p => p.Name == "Cà phê đen")?.Id ?? Guid.Empty;
+            string voiceNoteText = "Cà phê đen không đường, nhiều đá";
+
             if (shopId == Guid.Empty || productId == Guid.Empty)
             {
                 // Skip test if no shop or coffee product found
                 Assert.True(true, "No shop or coffee product found for voice note test");
                 return;
             }
-            
-            var orderId = Context.Orders.FirstOrDefault()?.Id ?? Guid.Empty;
+
+            Guid orderId = Context.Orders.FirstOrDefault()?.Id ?? Guid.Empty;
             if (orderId == Guid.Empty)
             {
                 // Skip test if no order found
                 Assert.True(true, "No order found for voice note test");
                 return;
             }
-            
+
             // Add voice note to order
-            var inputDto = new VoiceNoteDto
+            VoiceNoteDto inputDto = new()
             {
                 Text = voiceNoteText,
                 TranscriptionSuccessful = true
@@ -238,23 +231,23 @@ namespace VanAn.CoreHub.Tests
             await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
 
             // Act
-            var result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
+            List<KitchenItemGroupDto> result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
 
             // Assert
             Assert.NotNull(result);
-            var coffeeGroup = result.FirstOrDefault(g => g.ProductId == productId);
+            KitchenItemGroupDto? coffeeGroup = result.FirstOrDefault(g => g.ProductId == productId);
             if (coffeeGroup == null)
             {
                 // Skip if no coffee group found
                 Assert.True(true, "No coffee group found for voice note test");
                 return;
             }
-            
-            var itemWithNote = coffeeGroup.Items.FirstOrDefault(i => !string.IsNullOrEmpty(i.VoiceNoteText));
+
+            GroupedOrderItemDto? itemWithNote = coffeeGroup.Items.FirstOrDefault(i => !string.IsNullOrEmpty(i.VoiceNoteText));
             if (itemWithNote == null)
             {
                 // Check if voice note was saved to order instead
-                var order = await Context.Orders.FindAsync(orderId);
+                Order? order = await Context.Orders.FindAsync(orderId);
                 Assert.Equal(voiceNoteText, order?.VoiceNoteText);
             }
             else
@@ -265,17 +258,20 @@ namespace VanAn.CoreHub.Tests
     }
 
     // Simple test logger for unit tests
-    public class TestLogger<T> : ILogger<T>
+    public class TestLogger<T>(ITestOutputHelper output) : ILogger<T>
     {
-        private readonly ITestOutputHelper _output;
+        private readonly ITestOutputHelper _output = output;
 
-        public TestLogger(ITestOutputHelper output)
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
         {
-            _output = output;
+            return null!;
         }
 
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null!;
-        public bool IsEnabled(LogLevel logLevel) => true;
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             _output.WriteLine($"[{logLevel}] {formatter(state, exception)}");

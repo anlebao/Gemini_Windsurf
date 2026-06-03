@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Components;
-
 namespace VanAn.ShopERP.Services
 {
     public interface IErrorNotificationService

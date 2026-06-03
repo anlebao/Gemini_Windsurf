@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Threading.Tasks;
 using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain
@@ -10,7 +6,7 @@ namespace VanAn.Shared.Domain
     /// Immutable Journal Entry aggregate root for Hybrid Architecture
     /// Source of Truth: VanAn.Shared.Domain
     /// </summary>
-    public sealed class JournalEntry : BaseEntity, IMustHaveTenant
+    public sealed partial class JournalEntry : BaseEntity, IMustHaveTenant
     {
         public TenantId TenantId { get; } = null!;
         public JournalEntryId JournalEntryId { get; } = null!;
@@ -23,7 +19,7 @@ namespace VanAn.Shared.Domain
         public bool IsReversal { get; }
         public JournalEntryId? ReversedJournalId { get; }
 
-        private readonly List<JournalEntryLine> _lines = new();
+        private readonly List<JournalEntryLine> _lines = [];
         public IReadOnlyCollection<JournalEntryLine> Lines => _lines.AsReadOnly();
 
         // EF Core constructor
@@ -40,7 +36,7 @@ namespace VanAn.Shared.Domain
             string description,
             AccountingPeriod period)
         {
-            var entry = new JournalEntry(tenantId, entryDate, description);
+            JournalEntry entry = new(tenantId, entryDate, description);
             // Add line with debit/credit amounts
             entry.AddLine(accountNumber, amount, 0, description);
             return entry;
@@ -71,16 +67,24 @@ namespace VanAn.Shared.Domain
         public void AddLine(string accountNumber, decimal debitAmount, decimal creditAmount, string? description = null)
         {
             if (string.IsNullOrWhiteSpace(accountNumber))
+            {
                 throw new ArgumentException("Account number is required", nameof(accountNumber));
+            }
 
-            if (!System.Text.RegularExpressions.Regex.IsMatch(accountNumber, @"^\d{1,10}$"))
+            if (!MyRegex().IsMatch(accountNumber))
+            {
                 throw new ArgumentException($"Invalid Vietnamese account number format: {accountNumber}", nameof(accountNumber));
+            }
 
             if (debitAmount < 0 || creditAmount < 0)
+            {
                 throw new ArgumentException("Amounts cannot be negative");
-            
+            }
+
             if (debitAmount > 0 && creditAmount > 0)
+            {
                 throw new ArgumentException("Cannot have both debit and credit amounts greater than zero");
+            }
 
             _lines.Add(new JournalEntryLine(this, accountNumber, debitAmount, creditAmount, description));
         }
@@ -88,9 +92,11 @@ namespace VanAn.Shared.Domain
         public JournalEntry CreateReversal(string reason)
         {
             if (IsReversal)
+            {
                 throw new InvalidOperationException("Cannot create reversal of a reversal entry");
+            }
 
-            var reversalEntry = new JournalEntry(
+            JournalEntry reversalEntry = new(
                 TenantId,
                 DateTime.UtcNow,
                 $"Reversal: {Description}",
@@ -101,9 +107,9 @@ namespace VanAn.Shared.Domain
             );
 
             // Create reversal lines (swap debit/credit)
-            foreach (var line in _lines)
+            foreach (JournalEntryLine line in _lines)
             {
-                reversalEntry.AddLine(line.AccountNumber, line.CreditAmount, line.DebitAmount, 
+                reversalEntry.AddLine(line.AccountNumber, line.CreditAmount, line.DebitAmount,
                     $"Reversal: {line.Description}");
             }
 
@@ -121,7 +127,13 @@ namespace VanAn.Shared.Domain
             return Task.FromResult(CreateReversal(reason));
         }
 
-        private static string GenerateJournalNo() => $"J{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+        private static string GenerateJournalNo()
+        {
+            return $"J{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpper(System.Globalization.CultureInfo.CurrentCulture)}";
+        }
+
+        [System.Text.RegularExpressions.GeneratedRegex(@"^\d{1,10}$")]
+        private static partial System.Text.RegularExpressions.Regex MyRegex();
     }
 
     public sealed class JournalEntryLine
@@ -138,10 +150,14 @@ namespace VanAn.Shared.Domain
         public JournalEntryLine(JournalEntry journal, string accountNumber, decimal debitAmount, decimal creditAmount, string? description)
         {
             if (debitAmount < 0 || creditAmount < 0)
+            {
                 throw new ArgumentException("Amounts cannot be negative");
+            }
 
             if (debitAmount > 0 && creditAmount > 0)
+            {
                 throw new ArgumentException("Cannot have both debit and credit amounts greater than zero");
+            }
 
             JournalEntryId = journal.JournalEntryId.Value;
             AccountNumber = accountNumber;
@@ -154,7 +170,10 @@ namespace VanAn.Shared.Domain
     public sealed record JournalEntryId(Guid Value)
     {
         public static JournalEntryId Empty => new(Guid.Empty);
-        
-        public static JournalEntryId New() => new(Guid.NewGuid());
+
+        public static JournalEntryId New()
+        {
+            return new(Guid.NewGuid());
+        }
     }
 }

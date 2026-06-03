@@ -12,12 +12,12 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         /// <summary>
         /// Configures TenantId as owned type with converter
         /// </summary>
-        public static void Configure<T>(OwnedNavigationBuilder<T, TenantId> builder) 
+        public static void Configure<T>(OwnedNavigationBuilder<T, TenantId> builder)
             where T : class
         {
             builder.Property(t => t.Value)
                 .HasColumnName("TenantId")
-                .HasConversion<VanAn.CoreHub.Infrastructure.ValueConverters.TenantIdConverter>();
+                .HasConversion<ValueConverters.TenantIdConverter>();
         }
     }
 }

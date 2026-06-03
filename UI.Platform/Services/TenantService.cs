@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components.Authorization;
-using System.Security.Claims;
 
 namespace VanAn.UI.Platform.Services
 {
@@ -7,25 +6,20 @@ namespace VanAn.UI.Platform.Services
     /// Frontend Tenant Service Implementation - UI Platform
     /// Retrieves tenant info from authentication state only
     /// </summary>
-    public class TenantService : ITenantService
+    public class TenantService(AuthenticationStateProvider authStateProvider) : ITenantService
     {
-        private readonly AuthenticationStateProvider _authStateProvider;
+        private readonly AuthenticationStateProvider _authStateProvider = authStateProvider;
         private Guid _currentTenantId;
-
-        public TenantService(AuthenticationStateProvider authStateProvider)
-        {
-            _authStateProvider = authStateProvider;
-        }
 
         public Guid GetCurrentTenantId()
         {
             if (_currentTenantId == Guid.Empty)
             {
-                var authState = _authStateProvider.GetAuthenticationStateAsync().Result;
-                var user = authState.User;
-                
-                var tenantClaim = user.FindFirst("TenantId")?.Value;
-                if (!string.IsNullOrEmpty(tenantClaim) && Guid.TryParse(tenantClaim, out var tenantId))
+                AuthenticationState authState = _authStateProvider.GetAuthenticationStateAsync().Result;
+                System.Security.Claims.ClaimsPrincipal user = authState.User;
+
+                string? tenantClaim = user.FindFirst("TenantId")?.Value;
+                if (!string.IsNullOrEmpty(tenantClaim) && Guid.TryParse(tenantClaim, out Guid tenantId))
                 {
                     _currentTenantId = tenantId;
                 }
@@ -34,7 +28,7 @@ namespace VanAn.UI.Platform.Services
                     _currentTenantId = Guid.Empty; // Default fallback
                 }
             }
-            
+
             return _currentTenantId;
         }
 

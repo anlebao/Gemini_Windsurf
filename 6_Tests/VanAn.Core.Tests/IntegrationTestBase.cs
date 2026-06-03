@@ -1,9 +1,6 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System;
 using VanAn.CoreHub.Infrastructure;
-using VanAn.CoreHub.Tests.TestInfrastructure;
 
 namespace VanAn.CoreHub.Tests.TestInfrastructure
 {
@@ -28,7 +25,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             // FIX: Use TestContextScope wrapper to bind DI scope lifespan to context
             ContextScope = VanAnDbContextTestFactory.Create();
-            
+
             await Context.Database.EnsureCreatedAsync();
         }
 
@@ -47,7 +44,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             // Dispose context scope (which disposes both context and DI scope)
             ContextScope?.Dispose();
             ContextScope = null!;
-            
+
             GC.SuppressFinalize(this);
         }
 

@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using FluentAssertions;
 using Xunit;
 using Moq;
@@ -11,7 +9,7 @@ namespace VanAn.Core.Tests.Accounting
 {
     public class JournalTemplateTests
     {
-        private readonly TenantId _tenantId = new TenantId(Guid.NewGuid());
+        private readonly TenantId _tenantId = new(Guid.NewGuid());
         private readonly JournalTemplateService _templateService;
 
         public JournalTemplateTests()
@@ -23,12 +21,12 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Create_With_Valid_Data()
         {
             // Arrange
-            var tenantId = new TenantId(Guid.NewGuid());
-            var code = "SALE-CASH";
-            var description = "Bán hàng tiền mặt";
+            TenantId tenantId = new(Guid.NewGuid());
+            string code = "SALE-CASH";
+            string description = "Bán hàng tiền mặt";
 
             // Act
-            var template = new JournalTemplate(tenantId, code, description);
+            JournalTemplate template = new(tenantId, code, description);
             template.AddLine("111", true, "Amount");
             template.AddLine("511", false, "Amount");
 
@@ -46,12 +44,12 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Create_With_Empty_Lines()
         {
             // Arrange
-            var tenantId = new TenantId(Guid.NewGuid());
-            var code = "EMPTY-TEMPLATE";
-            var description = "Template rỗng";
+            TenantId tenantId = new(Guid.NewGuid());
+            string code = "EMPTY-TEMPLATE";
+            string description = "Template rỗng";
 
             // Act
-            var template = new JournalTemplate(tenantId, code, description);
+            JournalTemplate template = new(tenantId, code, description);
 
             // Assert
             template.Code.Should().Be(code);
@@ -63,8 +61,8 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Business_Rules()
         {
             // Arrange
-            var tenantId = new TenantId(Guid.NewGuid());
-            var template = new JournalTemplate(tenantId, "SALE-VIP", "Bán hàng khách VIP");
+            TenantId tenantId = new(Guid.NewGuid());
+            JournalTemplate template = new(tenantId, "SALE-VIP", "Bán hàng khách VIP");
             template.AddBusinessRule("VIPDiscountRule");
             template.AddBusinessRule("VATCalculationRule");
 
@@ -78,8 +76,8 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Validation_Rules()
         {
             // Arrange
-            var tenantId = new TenantId(Guid.NewGuid());
-            var template = new JournalTemplate(tenantId, "PURCHASE", "Mua hàng");
+            TenantId tenantId = new(Guid.NewGuid());
+            JournalTemplate template = new(tenantId, "PURCHASE", "Mua hàng");
             template.AddValidationRule("Amount > 0", "Số tiền phải lớn hơn 0");
 
             // Act & Assert
@@ -96,8 +94,8 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Different_Codes(string code)
         {
             // Arrange & Act
-            var tenantId = new TenantId(Guid.NewGuid());
-            var template = new JournalTemplate(tenantId, code, "Test Template");
+            TenantId tenantId = new(Guid.NewGuid());
+            JournalTemplate template = new(tenantId, code, "Test Template");
 
             // Assert
             template.Code.Should().Be(code);
@@ -107,17 +105,17 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Complex_Lines()
         {
             // Arrange
-            var tenantId = new TenantId(Guid.NewGuid());
+            TenantId tenantId = new(Guid.NewGuid());
 
             // Act
-            var template = new JournalTemplate(tenantId, "COMPLEX-SALE", "Bán hàng phức tạp");
+            JournalTemplate template = new(tenantId, "COMPLEX-SALE", "Bán hàng phức tạp");
             template.AddLine("111", true, "TotalAmount", "Thu tiền {CustomerName}");
             template.AddLine("511", false, "NetAmount", "Doanh thu {InvoiceNo}");
             template.AddLine("3331", false, "VatAmount", "Thuế GTGT {VatRate}%");
 
             // Assert
             template.Lines.Should().HaveCount(3);
-            var linesList = template.Lines.ToList();
+            List<JournalTemplateLine> linesList = [.. template.Lines];
             linesList[0].DescriptionTemplate.Should().Be("Thu tiền {CustomerName}");
             linesList[1].DescriptionTemplate.Should().Be("Doanh thu {InvoiceNo}");
             linesList[2].DescriptionTemplate.Should().Be("Thuế GTGT {VatRate}%");
@@ -127,17 +125,17 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Execute_Parameter_Replacement()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "TEST", "Test Template");
+            JournalTemplate template = new(_tenantId, "TEST", "Test Template");
             template.AddLine("111", true, "Amount", "Payment from {CustomerName} for {InvoiceNo}");
-            
-            var parameters = new Dictionary<string, object>
+
+            Dictionary<string, object> parameters = new()
             {
                 ["CustomerName"] = "Nguyễn Văn A",
                 ["InvoiceNo"] = "INV-001"
             };
 
             // Act - Simulate parameter replacement using service
-            var description = _templateService.ReplaceParameters(template.Lines.First().DescriptionTemplate, parameters);
+            string description = _templateService.ReplaceParameters(template.Lines.First().DescriptionTemplate, parameters);
 
             // Assert
             description.Should().Be("Payment from Nguyễn Văn A for INV-001");
@@ -146,19 +144,19 @@ namespace VanAn.Core.Tests.Accounting
 
     public class JournalTemplateLineTests
     {
-        private readonly TenantId _tenantId = new TenantId(Guid.NewGuid());
+        private readonly TenantId _tenantId = new(Guid.NewGuid());
 
         [Fact]
         public void JournalTemplateLine_Should_Create_With_Valid_Data()
         {
             // Arrange
-            var accountNumber = "111";
-            var isDebit = true;
-            var amountFormula = "Amount";
-            var descriptionTemplate = "Test Line";
+            string accountNumber = "111";
+            bool isDebit = true;
+            string amountFormula = "Amount";
+            string descriptionTemplate = "Test Line";
 
             // Act
-            var line = new JournalTemplateLine(accountNumber, isDebit, amountFormula, descriptionTemplate);
+            JournalTemplateLine line = new(accountNumber, isDebit, amountFormula, descriptionTemplate);
 
             // Assert
             line.AccountNumber.Should().Be(accountNumber);
@@ -178,7 +176,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplateLine_Should_Handle_Different_Amount_Formulas(string formula)
         {
             // Arrange & Act
-            var line = new JournalTemplateLine("111", true, formula, null);
+            JournalTemplateLine line = new("111", true, formula, null);
 
             // Assert
             line.AmountFormula.Should().Be(formula);
@@ -193,7 +191,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplateLine_Should_Handle_Different_Account_Numbers(string accountNumber)
         {
             // Arrange & Act
-            var line = new JournalTemplateLine(accountNumber, true, "Amount", null);
+            JournalTemplateLine line = new(accountNumber, true, "Amount", null);
 
             // Assert
             line.AccountNumber.Should().Be(accountNumber);
@@ -203,7 +201,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplateLine_Should_Handle_Null_Description_Template()
         {
             // Arrange & Act
-            var line = new JournalTemplateLine("111", true, "Amount", null);
+            JournalTemplateLine line = new("111", true, "Amount", null);
 
             // Assert
             line.DescriptionTemplate.Should().BeNull();
@@ -213,7 +211,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplateLine_Should_Handle_Empty_Description_Template()
         {
             // Arrange & Act
-            var line = new JournalTemplateLine("111", true, "Amount", "");
+            JournalTemplateLine line = new("111", true, "Amount", "");
 
             // Assert
             line.DescriptionTemplate.Should().Be("");
@@ -223,40 +221,40 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplateLine_Should_Handle_Null_Amount_Formula()
         {
             // Arrange & Act
-            var line = new JournalTemplateLine("111", true, null, null);
+            JournalTemplateLine line = new("111", true, null, null);
 
             // Assert
             line.AmountFormula.Should().BeNull();
         }
 
         [Theory]
-        [InlineData(true, false)]
-        [InlineData(false, true)]
-        [InlineData(false, false)]
-        public void JournalTemplateLine_Should_Handle_Different_Debit_Credit_Combinations(bool isDebit, bool isCredit)
+        [InlineData(true)]
+        [InlineData(false)]
+        [InlineData(false)]
+        public void JournalTemplateLine_Should_Handle_Different_Debit_Credit_Combinations(bool isDebit)
         {
             // Arrange & Act
-            var line = new JournalTemplateLine("111", isDebit, "Amount", null);
+            JournalTemplateLine line = new("111", isDebit, "Amount", null);
 
             // Assert
             line.IsDebit.Should().Be(isDebit);
             line.IsCredit.Should().Be(!isDebit);
         }
 
-        
+
         [Fact]
         public void JournalTemplate_Should_Calculate_Formula_Amounts()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "FORMULA", "Formula Test");
+            JournalTemplate template = new(_tenantId, "FORMULA", "Formula Test");
             template.AddLine("111", true, "Amount*0.1");
             template.AddLine("511", false, "Amount*0.05");
-            
-            var context = new TemplateContext(template, 10000m, new Dictionary<string, object>());
+
+            TemplateContext context = new(template, 10000m, []);
 
             // Act
-            var amount1 = CalculateLineAmount(template.Lines.First(), context);
-            var amount2 = CalculateLineAmount(template.Lines.Last(), context);
+            decimal amount1 = CalculateLineAmount(template.Lines.First(), context);
+            decimal amount2 = CalculateLineAmount(template.Lines.Last(), context);
 
             // Assert
             amount1.Should().Be(1000m); // 10% of 10000
@@ -267,7 +265,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Validate_Business_Rule_Execution()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "RULE-TEST", "Rule Test");
+            JournalTemplate template = new(_tenantId, "RULE-TEST", "Rule Test");
             template.AddBusinessRule("VIPDiscountRule");
             template.AddValidationRule("Amount > 0", "Amount must be positive");
 
@@ -281,10 +279,10 @@ namespace VanAn.Core.Tests.Accounting
         [InlineData("")]
         [InlineData("   ")]
         [InlineData(null)]
-        public void JournalTemplate_Should_Handle_Empty_Codes(string invalidCode)
+        public void JournalTemplate_Should_Handle_Empty_Codes(string? invalidCode)
         {
             // Arrange & Act & Assert
-            Assert.Throws<ArgumentNullException>(() => 
+            Assert.Throws<ArgumentNullException>(() =>
                 new JournalTemplate(_tenantId, invalidCode, "Test"));
         }
 
@@ -292,7 +290,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Prevent_Duplicate_Business_Rules()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "TEST", "Test");
+            JournalTemplate template = new(_tenantId, "TEST", "Test");
 
             // Act
             template.AddBusinessRule("VIPRule");
@@ -306,14 +304,14 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Complex_Formulas()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "COMPLEX", "Complex Formula");
+            JournalTemplate template = new(_tenantId, "COMPLEX", "Complex Formula");
             template.AddLine("111", true, "Amount*0.1*VatRate");
-            
-            var parameters = new Dictionary<string, object> { ["VatRate"] = 10m };
-            var context = new TemplateContext(template, 10000m, parameters);
+
+            Dictionary<string, object> parameters = new() { ["VatRate"] = 10m };
+            TemplateContext context = new(template, 10000m, parameters);
 
             // Act
-            var amount = CalculateLineAmount(template.Lines.First(), context);
+            decimal amount = CalculateLineAmount(template.Lines.First(), context);
 
             // Assert
             amount.Should().Be(100m); // 10000 * 0.1 * 10/100
@@ -323,10 +321,10 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Validate_Account_Number_In_Lines()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "VALIDATE", "Validation Test");
+            JournalTemplate template = new(_tenantId, "VALIDATE", "Validation Test");
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => 
+            Assert.Throws<ArgumentException>(() =>
                 template.AddLine("", true, "Amount")); // Empty account number
         }
 
@@ -334,17 +332,17 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Description_Templates()
         {
             // Arrange
-            var template = new JournalTemplate(_tenantId, "DESC", "Description Test");
+            JournalTemplate template = new(_tenantId, "DESC", "Description Test");
             template.AddLine("111", true, "Amount", "Thu tiền {Amount} từ {Customer}");
 
             // Act
-            var line = template.Lines.First();
+            JournalTemplateLine line = template.Lines.First();
 
             // Assert
             line.DescriptionTemplate.Should().Be("Thu tiền {Amount} từ {Customer}");
         }
 
-        private decimal CalculateLineAmount(JournalTemplateLine line, TemplateContext context)
+        private static decimal CalculateLineAmount(JournalTemplateLine line, TemplateContext context)
         {
             return line.AmountFormula switch
             {
@@ -356,7 +354,7 @@ namespace VanAn.Core.Tests.Accounting
                 "TotalAmount" => context.Amount,
                 "Amount*0.1" => context.Amount * 0.1m,
                 "Amount*0.05" => context.Amount * 0.05m,
-                "Amount*0.1*VatRate" => context.Amount * 0.1m * (context.GetParameter<decimal>("VatRate", 0m) / 100m),
+                "Amount*0.1*VatRate" => context.Amount * 0.1m * (context.GetParameter("VatRate", 0m) / 100m),
                 _ => context.Amount
             };
         }
@@ -364,17 +362,17 @@ namespace VanAn.Core.Tests.Accounting
 
     public class TemplateValidationRuleTests
     {
-        private readonly TenantId _tenantId = new TenantId(Guid.NewGuid());
+        private readonly TenantId _tenantId = new(Guid.NewGuid());
 
         [Fact]
         public void TemplateValidationRule_Should_Create_With_Valid_Data()
         {
             // Arrange
-            var rule = "Amount > 0";
-            var message = "Số tiền phải lớn hơn 0";
+            string rule = "Amount > 0";
+            string message = "Số tiền phải lớn hơn 0";
 
             // Act
-            var validationRule = new TemplateValidationRule(rule, message);
+            TemplateValidationRule validationRule = new(rule, message);
 
             // Assert
             validationRule.Rule.Should().Be(rule);
@@ -389,7 +387,7 @@ namespace VanAn.Core.Tests.Accounting
         public void TemplateValidationRule_Should_Handle_Different_Rules(string rule)
         {
             // Arrange & Act
-            var validationRule = new TemplateValidationRule(rule, "Validation message");
+            TemplateValidationRule validationRule = new(rule, "Validation message");
 
             // Assert
             validationRule.Rule.Should().Be(rule);
@@ -399,7 +397,7 @@ namespace VanAn.Core.Tests.Accounting
         public void TemplateValidationRule_Should_Handle_Null_Message()
         {
             // Arrange & Act
-            var validationRule = new TemplateValidationRule("Amount > 0", null);
+            TemplateValidationRule validationRule = new("Amount > 0", null);
 
             // Assert
             validationRule.Message.Should().BeNull();

@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace VanAn.Shared.Domain
 {
     /// <summary>
@@ -9,7 +5,7 @@ namespace VanAn.Shared.Domain
     /// Source of Truth: VanAn.Shared.Domain
     /// Only pure interfaces - no implementation logic
     /// </summary>
-    
+
     public interface IBusinessRule
     {
         string Name { get; }
@@ -50,31 +46,21 @@ namespace VanAn.Shared.Domain
     }
 
     // Forward declaration for TemplateContext - implementation in CoreHub
-    public class TemplateContext
+    public class TemplateContext(JournalTemplate template, decimal amount, Dictionary<string, object> parameters)
     {
-        public JournalTemplate Template { get; }
-        public decimal Amount { get; }
-        public Dictionary<string, object> Parameters { get; }
-        public decimal NetAmount { get; set; }
+        public JournalTemplate Template { get; } = template ?? throw new ArgumentNullException(nameof(template));
+        public decimal Amount { get; } = amount;
+        public Dictionary<string, object> Parameters { get; } = parameters ?? [];
+        public decimal NetAmount { get; set; } = amount; // Default to Amount; rules can override
         public decimal DiscountAmount { get; set; }
         public decimal VatAmount { get; set; }
         public decimal COGS { get; set; }
         public decimal ImportTaxAmount { get; set; }
-        public List<string> AppliedRules { get; } = new();
-
-        public TemplateContext(JournalTemplate template, decimal amount, Dictionary<string, object> parameters)
-        {
-            Template = template ?? throw new ArgumentNullException(nameof(template));
-            Amount = amount;
-            NetAmount = amount; // Default to Amount; rules can override
-            Parameters = parameters ?? new Dictionary<string, object>();
-        }
+        public List<string> AppliedRules { get; } = [];
 
         public T? GetParameter<T>(string key, T? defaultValue = default)
         {
-            if (Parameters.TryGetValue(key, out var value) && value is T typedValue)
-                return typedValue;
-            return defaultValue;
+            return Parameters.TryGetValue(key, out object? value) && value is T typedValue ? typedValue : defaultValue;
         }
 
         public void SetParameter<T>(string key, T? value)
@@ -82,7 +68,10 @@ namespace VanAn.Shared.Domain
             Parameters[key] = value!;
         }
 
-        public bool HasParameter(string key) => Parameters.ContainsKey(key);
+        public bool HasParameter(string key)
+        {
+            return Parameters.ContainsKey(key);
+        }
     }
 
     /// <summary>
@@ -101,26 +90,32 @@ namespace VanAn.Shared.Domain
             Warnings = warnings;
         }
 
-        public static ValidationResult Success() => 
-            new(true, Array.Empty<string>(), Array.Empty<string>());
-        
-        public static ValidationResult Failure(params string[] errors) => 
-            new(false, errors.ToList(), Array.Empty<string>());
-        
-        public static ValidationResult WithWarnings(params string[] warnings) => 
-            new(true, Array.Empty<string>(), warnings.ToList());
-        
-        public static ValidationResult WithErrorsAndWarnings(string[] errors, string[] warnings) => 
-            new(false, errors.ToList(), warnings.ToList());
+        public static ValidationResult Success()
+        {
+            return new(true, Array.Empty<string>(), Array.Empty<string>());
+        }
+
+        public static ValidationResult Failure(params string[] errors)
+        {
+            return new(false, errors.ToList(), Array.Empty<string>());
+        }
+
+        public static ValidationResult WithWarnings(params string[] warnings)
+        {
+            return new(true, Array.Empty<string>(), warnings.ToList());
+        }
+
+        public static ValidationResult WithErrorsAndWarnings(string[] errors, string[] warnings)
+        {
+            return new(false, errors.ToList(), warnings.ToList());
+        }
     }
 
-    public sealed class ValidationException : Exception
+    public sealed class ValidationException(string message) : Exception(message)
     {
-        public ValidationException(string message) : base(message) { }
     }
 
-    public sealed class NotFoundException : Exception
+    public sealed class NotFoundException(string message) : Exception(message)
     {
-        public NotFoundException(string message) : base(message) { }
     }
 }

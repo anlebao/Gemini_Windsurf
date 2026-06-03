@@ -6,28 +6,26 @@ namespace VanAn.UI.Platform.Services
     /// </summary>
     public class ThemeProvider : IThemeProvider
     {
-        private string _currentTheme = "default";
-
-        public string CurrentTheme => _currentTheme;
+        public string CurrentTheme { get; private set; } = "default";
 
         public void SetTheme(string theme)
         {
             if (!string.IsNullOrEmpty(theme))
             {
-                _currentTheme = theme;
+                CurrentTheme = theme;
             }
         }
 
         public List<string> GetAvailableThemes()
         {
-            return new List<string>
-            {
+            return
+            [
                 "default",
-                "dark", 
+                "dark",
                 "light",
                 "blue",
                 "green"
-            };
+            ];
         }
     }
 }

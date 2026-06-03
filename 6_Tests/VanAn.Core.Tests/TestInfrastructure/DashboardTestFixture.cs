@@ -5,7 +5,6 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Tests.TestInfrastructure;
-using Xunit.Abstractions;
 
 namespace VanAn.Core.Tests.TestInfrastructure
 {
@@ -20,21 +19,21 @@ namespace VanAn.Core.Tests.TestInfrastructure
         {
             // FIX: Use TestContextScope wrapper to bind DI scope lifespan to context
             ContextScope = VanAnDbContextTestFactory.Create();
-            
+
             // Setup database schema using Test Harness extensions
             Context.SetupTestDatabaseAsync().Wait();
-            
+
             // Setup test data using Test Harness extensions
             Context.SeedTestDataAsync(TestDataBuilder.CreateBasicScenario()).Wait();
-            
+
             // Create mocks
             ConfigMock = new Mock<IConfiguration>();
             ConfigMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("test-data");
             ConfigMock.Setup(c => c["ShopERP:DatabasePath"]).Returns("test-data");
-            
+
             // Create service
-            var loggerMock = new Mock<ILogger<DashboardService>>();
-            var systemMetricsRepo = new SystemMetricsRepository(Context);
+            Mock<ILogger<DashboardService>> loggerMock = new();
+            SystemMetricsRepository systemMetricsRepo = new(Context);
             Service = new DashboardService(systemMetricsRepo, loggerMock.Object, ConfigMock.Object);
         }
 

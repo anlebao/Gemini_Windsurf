@@ -1,6 +1,7 @@
-﻿namespace VanAn.Shared;
-
-public class Class1
+﻿namespace VanAn.Shared
 {
+    public class Class1
+    {
 
+    }
 }

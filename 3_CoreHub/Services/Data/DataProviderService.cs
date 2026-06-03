@@ -12,12 +12,16 @@ namespace VanAn.CoreHub.Services.Data
     /// Provides data aggregation with tenant isolation and period filtering
     /// Essential for HKD book generation and formula engine integration
     /// </summary>
-    public class DataProviderService : IDataProvider
+    public class DataProviderService(
+        VanAnDbContext context,
+        IAccountingEntryRepository repository,
+        IMemoryCache cache,
+        ILogger<DataProviderService> logger) : IDataProvider
     {
-        private readonly VanAnDbContext _context;
-        private readonly IAccountingEntryRepository _repository;
-        private readonly IMemoryCache _cache;
-        private readonly ILogger<DataProviderService> _logger;
+        private readonly VanAnDbContext _context = context;
+        private readonly IAccountingEntryRepository _repository = repository;
+        private readonly IMemoryCache _cache = cache;
+        private readonly ILogger<DataProviderService> _logger = logger;
 
         // Cache keys
         private const string CACHE_PREFIX = "DataProvider";
@@ -26,32 +30,20 @@ namespace VanAn.CoreHub.Services.Data
         private const string ACCOUNT_BALANCE_PREFIX = "AccountBalance";
         private const string PERIOD_TOTAL_PREFIX = "PeriodTotal";
 
-        public DataProviderService(
-            VanAnDbContext context,
-            IAccountingEntryRepository repository,
-            IMemoryCache cache,
-            ILogger<DataProviderService> logger)
-        {
-            _context = context;
-            _repository = repository;
-            _cache = cache;
-            _logger = logger;
-        }
-
         /// <summary>
         /// Get account sum for specific pattern and side with multi-tenant isolation
         /// </summary>
         public decimal GetAccountSum(DataProviderContext context, string accountPattern, string side)
         {
-            var cacheKey = context.GetCacheKey($"{ACCOUNT_SUM_PREFIX}_{accountPattern}_{side}");
-            
+            string cacheKey = context.GetCacheKey($"{ACCOUNT_SUM_PREFIX}_{accountPattern}_{side}");
+
             return _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-                
+
                 try
                 {
-                    var query = _context.AccountingEntries
+                    IQueryable<AccountingEntry> query = _context.AccountingEntries
                         .Where(e => e.TenantId == context.TenantId &&
                                    e.PeriodYear == context.Period.Year &&
                                    e.PeriodMonth == context.Period.Month &&
@@ -60,7 +52,7 @@ namespace VanAn.CoreHub.Services.Data
                     // Apply account pattern filter based on EntryType
                     if (accountPattern.Contains('*'))
                     {
-                        var pattern = accountPattern.Replace("*", "");
+                        string pattern = accountPattern.Replace("*", "");
                         // For now, filter by EntryType since AccountNumber doesn't exist
                         query = pattern switch
                         {
@@ -76,18 +68,18 @@ namespace VanAn.CoreHub.Services.Data
                     }
 
                     // Apply side filter based on EntryType
-                    query = side.ToUpper() switch
+                    query = side.ToUpper(System.Globalization.CultureInfo.CurrentCulture) switch
                     {
                         "CREDIT" => query.Where(e => e.EntryType == AccountingEntryType.Revenue),
                         "DEBIT" => query.Where(e => e.EntryType == AccountingEntryType.Expense),
                         _ => throw new ArgumentException($"Invalid side: {side}")
                     };
 
-                    var sum = query.Sum(e => e.Amount);
-                    
+                    decimal sum = query.Sum(e => e.Amount);
+
                     _logger.LogDebug("Account sum calculated: {Pattern} {Side} = {Sum} for tenant {TenantId}",
                         accountPattern, side, sum, context.TenantId.Value);
-                    
+
                     return sum;
                 }
                 catch (Exception ex)
@@ -104,15 +96,15 @@ namespace VanAn.CoreHub.Services.Data
         /// </summary>
         public decimal GetAccountBalance(DataProviderContext context, string accountPattern)
         {
-            var cacheKey = context.GetCacheKey($"{ACCOUNT_BALANCE_PREFIX}_{accountPattern}");
-            
+            string cacheKey = context.GetCacheKey($"{ACCOUNT_BALANCE_PREFIX}_{accountPattern}");
+
             return _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-                
+
                 try
                 {
-                    var query = _context.AccountingEntries
+                    IQueryable<AccountingEntry> query = _context.AccountingEntries
                         .Where(e => e.TenantId == context.TenantId &&
                                    e.PeriodYear == context.Period.Year &&
                                    e.PeriodMonth == context.Period.Month &&
@@ -121,7 +113,7 @@ namespace VanAn.CoreHub.Services.Data
                     // Apply account pattern filter based on EntryType
                     if (accountPattern.Contains('*'))
                     {
-                        var pattern = accountPattern.Replace("*", "");
+                        string pattern = accountPattern.Replace("*", "");
                         // For now, filter by EntryType since AccountNumber doesn't exist
                         query = pattern switch
                         {
@@ -136,11 +128,11 @@ namespace VanAn.CoreHub.Services.Data
                         query = query;
                     }
 
-                    var balance = query.Sum(e => e.EntryType == AccountingEntryType.Expense ? e.Amount : -e.Amount);
-                    
+                    decimal balance = query.Sum(e => e.EntryType == AccountingEntryType.Expense ? e.Amount : -e.Amount);
+
                     _logger.LogDebug("Account balance calculated: {Pattern} = {Balance} for tenant {TenantId}",
                         accountPattern, balance, context.TenantId.Value);
-                    
+
                     return balance;
                 }
                 catch (Exception ex)
@@ -157,55 +149,56 @@ namespace VanAn.CoreHub.Services.Data
         /// </summary>
         public async Task<Dictionary<string, decimal>> GetPreAggregatedDataAsync(DataProviderContext context)
         {
-            var cacheKey = context.GetCacheKey(PREAGGREGATED_PREFIX);
-            
+            string cacheKey = context.GetCacheKey(PREAGGREGATED_PREFIX);
+
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-                
+
                 try
                 {
-                    var entries = await _context.AccountingEntries
+                    List<AccountingEntry> entries = await _context.AccountingEntries
                         .Where(e => e.TenantId == context.TenantId &&
                                    e.PeriodYear == context.Period.Year &&
                                    e.PeriodMonth == context.Period.Month &&
                                    !e.IsDeleted)
                         .ToListAsync();
 
-                    var aggregatedData = new Dictionary<string, decimal>();
-
-                    // Pre-aggregate common patterns based on EntryType
-                    aggregatedData["TotalRevenue_5"] = entries
+                    Dictionary<string, decimal> aggregatedData = new()
+                    {
+                        // Pre-aggregate common patterns based on EntryType
+                        ["TotalRevenue_5"] = entries
                         .Where(e => e.EntryType == AccountingEntryType.Revenue)
-                        .Sum(e => e.Amount);
+                        .Sum(e => e.Amount),
 
-                    aggregatedData["TotalExpense_6"] = entries
+                        ["TotalExpense_6"] = entries
                         .Where(e => e.EntryType == AccountingEntryType.Expense)
-                        .Sum(e => e.Amount);
+                        .Sum(e => e.Amount),
 
-                    // Assets, Liabilities, Equity would need AccountNumber property
-                    // For now, using EntryType as approximation
-                    aggregatedData["TotalAssets_1"] = 0m; // Would need AccountNumber
-                    aggregatedData["TotalLiabilities_2"] = 0m; // Would need AccountNumber
-                    aggregatedData["TotalEquity_3"] = 0m; // Would need AccountNumber
+                        // Assets, Liabilities, Equity would need AccountNumber property
+                        // For now, using EntryType as approximation
+                        ["TotalAssets_1"] = 0m, // Would need AccountNumber
+                        ["TotalLiabilities_2"] = 0m, // Would need AccountNumber
+                        ["TotalEquity_3"] = 0m, // Would need AccountNumber
 
-                    // Specific account aggregations would need AccountNumber
-                    aggregatedData["Cash_111"] = 0m; // Would need AccountNumber
-                    aggregatedData["Bank_112"] = 0m; // Would need AccountNumber
-                    aggregatedData["Inventory_156"] = 0m; // Would need AccountNumber
-                    aggregatedData["Receivables_131"] = 0m; // Would need AccountNumber
-                    aggregatedData["Payables_331"] = 0m; // Would need AccountNumber
+                        // Specific account aggregations would need AccountNumber
+                        ["Cash_111"] = 0m, // Would need AccountNumber
+                        ["Bank_112"] = 0m, // Would need AccountNumber
+                        ["Inventory_156"] = 0m, // Would need AccountNumber
+                        ["Receivables_131"] = 0m, // Would need AccountNumber
+                        ["Payables_331"] = 0m // Would need AccountNumber
+                    };
 
                     _logger.LogDebug("Pre-aggregated data calculated for tenant {TenantId} period {Period}",
                         context.TenantId.Value, context.Period);
-                    
+
                     return aggregatedData;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error calculating pre-aggregated data for tenant {TenantId} period {Period}",
                         context.TenantId.Value, context.Period);
-                    return new Dictionary<string, decimal>();
+                    return [];
                 }
             });
         }
@@ -215,15 +208,15 @@ namespace VanAn.CoreHub.Services.Data
         /// </summary>
         public decimal GetPeriodTotal(DataProviderContext context, string accountPattern)
         {
-            var cacheKey = context.GetCacheKey($"{PERIOD_TOTAL_PREFIX}_{accountPattern}");
-            
+            string cacheKey = context.GetCacheKey($"{PERIOD_TOTAL_PREFIX}_{accountPattern}");
+
             return _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-                
+
                 try
                 {
-                    var query = _context.AccountingEntries
+                    IQueryable<AccountingEntry> query = _context.AccountingEntries
                         .Where(e => e.TenantId == context.TenantId &&
                                    e.PeriodYear == context.Period.Year &&
                                    e.PeriodMonth == context.Period.Month &&
@@ -232,7 +225,7 @@ namespace VanAn.CoreHub.Services.Data
                     // Apply account pattern filter based on EntryType
                     if (accountPattern.Contains('*'))
                     {
-                        var pattern = accountPattern.Replace("*", "");
+                        string pattern = accountPattern.Replace("*", "");
                         // For now, filter by EntryType since AccountNumber doesn't exist
                         query = pattern switch
                         {
@@ -247,11 +240,11 @@ namespace VanAn.CoreHub.Services.Data
                         query = query;
                     }
 
-                    var total = query.Sum(e => e.Amount);
-                    
+                    decimal total = query.Sum(e => e.Amount);
+
                     _logger.LogDebug("Period total calculated: {Pattern} = {Total} for tenant {TenantId}",
                         accountPattern, total, context.TenantId.Value);
-                    
+
                     return total;
                 }
                 catch (Exception ex)
@@ -278,15 +271,15 @@ namespace VanAn.CoreHub.Services.Data
         /// </summary>
         public void ClearContextCache(DataProviderContext context)
         {
-            var cacheKeys = new[]
-            {
+            string[] cacheKeys =
+            [
                 context.GetCacheKey(PREAGGREGATED_PREFIX),
                 context.GetCacheKey(ACCOUNT_SUM_PREFIX),
                 context.GetCacheKey(ACCOUNT_BALANCE_PREFIX),
                 context.GetCacheKey(PERIOD_TOTAL_PREFIX)
-            };
+            ];
 
-            foreach (var key in cacheKeys)
+            foreach (string? key in cacheKeys)
             {
                 _cache.Remove(key);
             }

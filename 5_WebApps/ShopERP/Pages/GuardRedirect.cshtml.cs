@@ -1,17 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using System.Security.Claims;
-using VanAn.Shared.Domain;
 
-namespace VanAn.ShopERP.Pages;
-
-[Authorize(Roles = "Guard")]
-public class GuardRedirectModel : PageModel
+namespace VanAn.ShopERP.Pages
 {
-    public IActionResult OnGet()
+    [Authorize(Roles = "Guard")]
+    public class GuardRedirectModel : PageModel
     {
-        // Auto-redirect Guard users to scanner page
-        return RedirectToPage("/Guard/Scan");
+        public IActionResult OnGet()
+        {
+            // Auto-redirect Guard users to scanner page
+            return RedirectToPage("/Guard/Scan");
+        }
     }
 }
