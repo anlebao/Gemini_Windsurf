@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Services.Journal
@@ -116,17 +116,13 @@ namespace VanAn.CoreHub.Services.Journal
                 return ValidationResult.Failure("Journal entry is null");
             }
 
-            List<string> errors =
-            [
-                // Check if entry has lines
-                .. journalEntry.Lines.Count == 0 ? ["Journal entry must have at least one line"] : [],
-
-                // Check if entry is balanced
-                .. !IsBalanced(journalEntry) ? ["Journal entry is not balanced"] : [],
-
-                // Check account numbers
-                .. !HasValidAccountNumbers(journalEntry) ? ["Journal entry contains invalid account numbers"] : [],
-            ];
+            var errors = new List<string>();
+            if (journalEntry.Lines.Count == 0)
+                errors.Add("Journal entry must have at least one line");
+            if (!IsBalanced(journalEntry))
+                errors.Add("Journal entry is not balanced");
+            if (!HasValidAccountNumbers(journalEntry))
+                errors.Add("Journal entry contains invalid account numbers");
 
             // Check for valid amounts
             foreach (JournalEntryLine line in journalEntry.Lines)

@@ -6,6 +6,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Interfaces;
+using VanAn.CoreHub.Hubs;
 using Microsoft.EntityFrameworkCore;
 
 namespace VanAn.CoreHub

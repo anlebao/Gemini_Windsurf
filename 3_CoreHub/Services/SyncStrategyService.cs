@@ -1,4 +1,4 @@
-using VanAn.Shared.Omnichannel;
+﻿using VanAn.Shared.Omnichannel;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
@@ -536,13 +536,13 @@ namespace VanAn.CoreHub.Services
                     // Implement intelligent merge logic
                     return localData; // Simplified - would need proper merging
                 case ConflictResolutionStrategy.LastWriteWins:
-                    break;
+                    return localData;
                 case ConflictResolutionStrategy.UserChoice:
-                    break;
+                    return localData;
                 case ConflictResolutionStrategy.Skip:
-                    break;
+                    return localData;
                 case ConflictResolutionStrategy.CreateBoth:
-                    break;
+                    return localData;
                 default:
                     return localData;
             }

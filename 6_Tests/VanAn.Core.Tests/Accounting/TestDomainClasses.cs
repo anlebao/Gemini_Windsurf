@@ -256,9 +256,9 @@ namespace VanAn.Core.Domain
 
         public async Task ApplyAsync(TemplateContext context)
         {
-            decimal importTaxRate = context.Parameters.TryGetValue("ImportTaxRate", out object? value) ? (decimal)value : 5m; // Default 5%
+            decimal importTaxRate = context.Parameters.TryGetValue("ImportTaxRate", out object? taxRateValue) ? (decimal)taxRateValue : 5m; // Default 5%
 
-            decimal baseAmount = context.Parameters.TryGetValue("ForeignAmount", out object? value) && context.Parameters.TryGetValue("ExchangeRate", out object? value) ? (decimal)value * (decimal)value : context.Amount;
+            decimal baseAmount = context.Parameters.TryGetValue("ForeignAmount", out object? foreignAmountValue) && context.Parameters.TryGetValue("ExchangeRate", out object? exchangeRateValue) ? (decimal)foreignAmountValue * (decimal)exchangeRateValue : context.Amount;
             context.ImportTaxAmount = baseAmount * importTaxRate / 100;
             context.NetAmount = baseAmount;
         }

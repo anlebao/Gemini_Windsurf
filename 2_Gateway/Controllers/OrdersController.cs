@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Hubs;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 using VanAn.CoreHub.Commands;

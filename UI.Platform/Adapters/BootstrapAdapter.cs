@@ -1,3 +1,4 @@
+﻿using System.Linq;
 using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Tokens;
 
@@ -10,10 +11,9 @@ namespace VanAn.UI.Platform.Adapters
     {
         public string GetButtonClass(ButtonVariant variant, ButtonSize size, bool fullWidth = false)
         {
-            List<string> classes =
-            [
+            var classes = new System.Collections.Generic.List<string>
+            {
                 "btn",
-                // Variant classes
                 variant switch
                 {
                     ButtonVariant.Primary => "btn-primary",
@@ -26,14 +26,13 @@ namespace VanAn.UI.Platform.Adapters
                     ButtonVariant.Ghost => "btn-link",
                     _ => "btn-primary"
                 },
-
-                // Size classes
                 size switch
                 {
                     ButtonSize.Small => "btn-sm",
-                    ButtonSize.Large => "btn-lg", ButtonSize.Medium => throw new NotImplementedException(), _ => ""
-                },
-                // Full width
+                    ButtonSize.Large => "btn-lg",
+                    ButtonSize.Medium => throw new System.NotImplementedException(),
+                    _ => ""
+                }
             };
             if (fullWidth)
                 classes.Add("w-100");
@@ -43,8 +42,8 @@ namespace VanAn.UI.Platform.Adapters
 
         public string GetAlertClass(AlertVariant variant, bool dismissible = false)
         {
-            List<string> classes =
-            [
+            var classes = new System.Collections.Generic.List<string>
+            {
                 "alert",
                 variant switch
                 {
@@ -63,7 +62,7 @@ namespace VanAn.UI.Platform.Adapters
 
         public string GetCardClass(bool hoverable = false, bool shadow = true)
         {
-            var classes = new List<string> { "card" };
+            var classes = new System.Collections.Generic.List<string> { "card" };
             if (shadow)
                 classes.Add("shadow-sm");
             if (hoverable)
@@ -74,7 +73,7 @@ namespace VanAn.UI.Platform.Adapters
 
         public string GetModalClass(bool isOpen = false)
         {
-            var classes = new List<string> { "modal" };
+            var classes = new System.Collections.Generic.List<string> { "modal" };
             if (isOpen)
                 classes.Add("show");
 
