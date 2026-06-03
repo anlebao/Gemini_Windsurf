@@ -1,74 +1,21 @@
-# EditorConfig for VanAn Ecosystem
-# Zero Warnings Initiative - Global Suppression Rules
+root = true
 
-[*.cs]
-# Suppress LoggerMessage performance warning (Over-engineering for now)
+# FORCE LOW RISK SUPPRESSION
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1805.severity = none
+dotnet_diagnostic.CA1069.severity = none
+dotnet_diagnostic.CA1008.severity = none
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1031.severity = none
 dotnet_diagnostic.CA1848.severity = none
 
-# Suppress Collection design warnings to preserve JSON serialization
-dotnet_diagnostic.CA1002.severity = none
-dotnet_diagnostic.CA2227.severity = none
+# MEDIUM RISK
+dotnet_diagnostic.CA1002.severity = warning
+dotnet_diagnostic.CA2227.severity = warning
+dotnet_diagnostic.CA2007.severity = suggestion
 
-# Suppress Generic EventHandler rule (Too disruptive for UI components)
-dotnet_diagnostic.CA1003.severity = none
-
-# Suppress Property vs Method rule (Acceptable for service methods)
-dotnet_diagnostic.CA1024.severity = none
-
-# Suppress Reserved Keyword rule (Acceptable for existing interfaces)
-dotnet_diagnostic.CA1716.severity = none
-
-# Suppress Static Type rule (Acceptable for minimal APIs)
-dotnet_diagnostic.CA1052.severity = none
-
-# Suppress Return Type URI rule (String is acceptable for URLs)
-dotnet_diagnostic.CA1055.severity = none
-
-# Suppress Insecure Random rule (Only for demo/test components)
-dotnet_diagnostic.CA5394.severity = none
-
-# Suppress Member can be static rule (Acceptable for instance methods)
-dotnet_diagnostic.CA1822.severity = none
-
-# Suppress Type can be sealed rule (Acceptable for public types)
-dotnet_diagnostic.CA1852.severity = none
-
-# Suppress Unused Variable rule (Acceptable for test variables)
-dotnet_diagnostic.CS0219.severity = none
-
-# Suppress Performance optimization rules (Acceptable for readability)
-dotnet_diagnostic.CA1860.severity = none
-dotnet_diagnostic.CA1866.severity = none
-dotnet_diagnostic.CA1850.severity = none
-dotnet_diagnostic.CA1854.severity = none
-
-# Suppress Async ConfigureAwait rule (Acceptable for library code)
-dotnet_diagnostic.CA2007.severity = none
-
-# Suppress Parameter validation rule (Acceptable for internal methods)
-dotnet_diagnostic.CA1062.severity = none
-
-# Suppress Exception handling rule (Acceptable for general exception handling)
-dotnet_diagnostic.CA1031.severity = none
-
-# Suppress Async method without await rule (Acceptable for interface implementations)
-dotnet_diagnostic.CS1998.severity = none
-
-# Suppress Enum design rules (Acceptable for business domain enums)
-dotnet_diagnostic.CA1008.severity = none
-dotnet_diagnostic.CA1069.severity = none
-
-# Suppress Property type rules (Acceptable for string URLs)
-dotnet_diagnostic.CA1056.severity = none
-
-# Suppress Default value initialization rule (Acceptable for explicit initialization)
-dotnet_diagnostic.CA1805.severity = none
-
-# Suppress Naming rules (Acceptable for domain-specific naming)
+# Global fallback
+[*]
+dotnet_analyzer_diagnostic.severity = warning
 dotnet_diagnostic.CA1707.severity = none
-
-# Suppress Array property rule (Acceptable for API responses)
-dotnet_diagnostic.CA1819.severity = none
-
-# Suppress all remaining analyzer warnings for zero warning build
-dotnet_diagnostic.severity = none
+dotnet_diagnostic.CA1848.severity = none

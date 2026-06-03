@@ -1,0 +1,102 @@
+name: 'Setup VanAn Environment'
+description: 'Composite action to setup .NET, Node.js, and dependencies for VanAn Ecosystem'
+
+inputs:
+  dotnet-version:
+    description: '.NET SDK version'
+    required: false
+    default: '8.0.x'
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '20.x'
+  install-playwright:
+    description: 'Install Playwright browsers'
+    required: false
+    default: 'false'
+  playwright-browsers:
+    description: 'Playwright browsers to install'
+    required: false
+    default: 'chromium'
+  
+outputs:
+  dotnet-path:
+    description: 'Path to .NET SDK'
+    value: ${{ steps.setup-dotnet.outputs.dotnet-path }}
+  node-path:
+    description: 'Path to Node.js'
+    value: ${{ steps.setup-node.outputs.node-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET
+      id: setup-dotnet
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+        
+    - name: Setup Node.js
+      id: setup-node
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+          
+    - name: Restore .NET Dependencies
+      shell: bash
+      run: dotnet restore VanAn.sln
+      
+    - name: Cache Node modules
+      if: ${{ inputs.install-playwright == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('6_Testing/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+          
+    - name: Install Node Dependencies
+      if: ${{ inputs.install-playwright == 'true' }}
+      shell: bash
+      working-directory: 6_Testing
+      run: npm ci
+      
+    - name: Cache Playwright Browsers
+      if: ${{ inputs.install-playwright == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ inputs.playwright-browsers }}-${{ hashFiles('6_Testing/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-${{ inputs.playwright-browsers }}-
+          ${{ runner.os }}-playwright-
+          
+    - name: Install Playwright Browsers
+      if: ${{ inputs.install-playwright == 'true' }}
+      shell: bash
+      working-directory: 6_Testing
+      run: npx playwright install --with-deps ${{ inputs.playwright-browsers }}
+      
+    - name: Verify Setup
+      shell: bash
+      run: |
+        echo "=== VanAn Environment Setup Complete ==="
+        echo ".NET Version:"
+        dotnet --version
+        echo "Node Version:"
+        node --version
+        echo "NPM Version:"
+        npm --version
+        
+        if [ "${{ inputs.install-playwright }}" == "true" ]; then
+          echo "Playwright Version:"
+          npx playwright --version
+        fi

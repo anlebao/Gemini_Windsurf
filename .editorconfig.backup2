@@ -1,0 +1,25 @@
+root = true
+
+[*]
+# === LOW RISK - BYPASS (do not fix) ===
+dotnet_diagnostic.CA1805.severity = none
+dotnet_diagnostic.CA1069.severity = none
+dotnet_diagnostic.CA1008.severity = none
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1031.severity = none
+dotnet_diagnostic.CA1716.severity = none   # Suppress namespace rename - too high risk
+
+# === MEDIUM & HIGH will be handled by code fixes ===
+# CA1055/CA1056: Keep string URLs for serialization compatibility
+dotnet_diagnostic.CA1055.severity = none
+dotnet_diagnostic.CA1056.severity = none
+
+# CA1002/CA2227: Keep List<T> for JSON serialization compatibility
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA2227.severity = none
+
+# CA2007: Keep ConfigureAwait as-is for library compatibility
+dotnet_diagnostic.CA2007.severity = none
+
+# CA1062: Null validation - handled with ThrowIfNull
+dotnet_diagnostic.CA1062.severity = none

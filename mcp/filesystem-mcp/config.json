@@ -1,0 +1,104 @@
+{
+  "_note": "REFERENCE ONLY — Windsurf đọc MCP config từ %APPDATA%\\Windsurf\\User\\settings.json, không phải file này.",
+  "name": "filesystem-mcp",
+  "description": "Filesystem MCP Server for ShopERP - AI-driven file operations",
+  "version": "1.0.0",
+  "server": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem"
+    ]
+  },
+  "capabilities": {
+    "tools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "create_directory",
+      "list_directory",
+      "search_files",
+      "get_file_info",
+      "move_file",
+      "delete_file",
+      "copy_file",
+      "read_multiple_files",
+      "edit_multiple_files"
+    ],
+    "resources": [
+      "file://{path}",
+      "directory://{path}"
+    ]
+  },
+  "config": {
+    "allowed_paths": [
+      "c:\\VibeCoding\\Gemini_Windsurf"
+    ],
+    "blocked_paths": [
+      "c:\\VibeCoding\\Gemini_Windsurf\\.git",
+      "c:\\VibeCoding\\Gemini_Windsurf\\.env",
+      "c:\\VibeCoding\\Gemini_Windsurf\\secrets",
+      "c:\\VibeCoding\\Gemini_Windsurf\\**/appsettings.Production.json"
+    ],
+    "max_file_size_mb": 10,
+    "max_files_per_operation": 20,
+    "backup_before_edit": true,
+    "backup_directory": "c:\\VibeCoding\\Gemini_Windsurf\\.mcp-backups"
+  },
+  "file_patterns": {
+    "read_only": [
+      "*.dll",
+      "*.exe",
+      "*.bin",
+      "*.dat",
+      ".gitignore",
+      ".editorconfig"
+    ],
+    "require_approval": [
+      "1_Shared/Domain.cs",
+      ".github/workflows/*.yml",
+      "docs/decisions/ADR-*.md",
+      "6_Testing/*.spec.ts"
+    ],
+    "auto_backup": [
+      "*.cs",
+      "*.razor",
+      "*.csproj",
+      "*.sln"
+    ]
+  },
+  "knowledge_base": {
+    "index_paths": [
+      "docs/knowledge-base",
+      ".windsurf/rules",
+      ".windsurf/workflows",
+      ".windsurf/skills"
+    ],
+    "auto_load_on_startup": [
+      "docs/knowledge-base/00-core/PROJECT_CONTEXT.md",
+      ".windsurf/rules/.windsurfrules"
+    ]
+  },
+  "integrations": {
+    "windsurf": {
+      "enabled": true,
+      "read_on_startup": [
+        "docs/knowledge-base/00-core/PROJECT_CONTEXT.md"
+      ],
+      "watch_paths": [
+        "docs/knowledge-base",
+        ".windsurf"
+      ]
+    }
+  },
+  "logging": {
+    "level": "info",
+    "operations": [
+      "write_file",
+      "delete_file",
+      "move_file",
+      "edit_file"
+    ],
+    "log_path": "c:\\VibeCoding\\Gemini_Windsurf\\.mcp-logs\\filesystem.log"
+  }
+}

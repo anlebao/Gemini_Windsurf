@@ -1,0 +1,111 @@
+{
+  "_note": "REFERENCE ONLY — Windsurf đọc MCP config từ %APPDATA%\\Windsurf\\User\\settings.json, không phải file này.",
+  "name": "github-mcp",
+  "description": "GitHub MCP Server for ShopERP - AI-driven repository operations",
+  "version": "1.0.0",
+  "server": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-github"
+    ],
+    "env": {
+      "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+    }
+  },
+  "capabilities": {
+    "tools": [
+      "create_issue",
+      "update_issue",
+      "list_issues",
+      "get_issue",
+      "create_pull_request",
+      "update_pull_request",
+      "list_pull_requests",
+      "get_pull_request",
+      "create_branch",
+      "list_branches",
+      "create_commit",
+      "push_changes",
+      "create_repository",
+      "fork_repository",
+      "search_code",
+      "list_commits",
+      "get_commit",
+      "add_comment",
+      "list_comments",
+      "update_comment"
+    ],
+    "resources": [
+      "repository://{owner}/{repo}",
+      "issue://{owner}/{repo}/issues/{number}",
+      "pull_request://{owner}/{repo}/pulls/{number}",
+      "branch://{owner}/{repo}/branches/{branch}",
+      "commit://{owner}/{repo}/commits/{sha}"
+    ]
+  },
+  "config": {
+    "rate_limit": {
+      "requests_per_hour": 5000,
+      "retry_after_seconds": 60
+    },
+    "permissions": {
+      "issues": ["read", "write"],
+      "pull_requests": ["read", "write"],
+      "contents": ["read", "write"],
+      "commits": ["read", "write"],
+      "comments": ["read", "write"],
+      "metadata": ["read"]
+    },
+    "allowed_repositories": [
+      "VibeCoding/Gemini_Windsurf"
+    ],
+    "blocked_operations": [
+      "delete_repository",
+      "force_push_protected_branch",
+      "remove_collaborator",
+      "change_repository_visibility"
+    ]
+  },
+  "workflows": {
+    "feature_from_issue": {
+      "description": "Create feature branch and PR from GitHub issue",
+      "steps": [
+        "read_issue",
+        "create_branch",
+        "commit_changes",
+        "create_pull_request"
+      ],
+      "prompt_template": "docs/knowledge-base/08-ai/prompts/feature-development.md"
+    },
+    "bug_fix_from_issue": {
+      "description": "Create fix branch and PR from bug report",
+      "steps": [
+        "read_issue",
+        "create_branch",
+        "commit_changes",
+        "create_pull_request"
+      ],
+      "prompt_template": "docs/knowledge-base/08-ai/prompts/bug-fix.md"
+    },
+    "code_review": {
+      "description": "Review pull request and provide feedback",
+      "steps": [
+        "get_pull_request",
+        "list_files_changed",
+        "add_comment"
+      ],
+      "prompt_template": "docs/knowledge-base/08-ai/prompts/code-review.md"
+    }
+  },
+  "integrations": {
+    "windsurf": {
+      "enabled": true,
+      "mode_triggers": {
+        "IMPLEMENT": ["create_branch", "commit_changes", "push_changes"],
+        "FIX_ONLY": ["create_branch", "commit_changes"],
+        "REVIEW_ONLY": ["add_comment", "update_pull_request"]
+      }
+    }
+  }
+}

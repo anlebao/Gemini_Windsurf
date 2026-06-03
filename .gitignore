@@ -412,7 +412,10 @@ Restart-VanAnEcosystem.ps1.local
 
 # Test results
 TestResults/
+!TestResults/full-results.trx
 coverage/
+!coverage/**/*.opencover.xml
+!coverage/**/*.cobertura.xml
 
 # Documentation build artifacts
 docs/_build/

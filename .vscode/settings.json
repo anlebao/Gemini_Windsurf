@@ -1,0 +1,9 @@
+{
+    "workbench.colorTheme": "Default Light+",
+    "workbench.iconTheme": "symbols",
+    "workbench.preferredDarkColorTheme": "Default Light Modern",
+    "workbench.preferredHighContrastColorTheme": "Default High Contrast Light",
+    "workbench.preferredHighContrastLightColorTheme": "Visual Studio Light",
+    "workbench.preferredLightColorTheme": "Default High Contrast Light",
+    "extensions.allowOpenInModalEditor": false
+}
