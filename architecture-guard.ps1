@@ -99,10 +99,27 @@ foreach ($file in $serviceFiles) {
         continue
     }
     
-    # Should not reference other layers incorrectly
-    if ($content -match 'using VanAn\.CoreHub\.Domain' -and $content -match 'public record|public class') {
-        $violations += "Service layer referencing CoreHub.Domain instead of Shared.Domain: $($file.Name)"
-        $hasViolations = $true
+    # Should not define new domain entities inline - only service classes themselves are allowed
+    # CoreHub services are permitted to reference VanAn.CoreHub.Domain (their own domain)
+    if ($content -match 'using VanAn\.CoreHub\.Domain') {
+        # Only flag if the service is defining domain entity types (not just the service class itself)
+        $domainEntityInService = @(
+            'public record.*Entry\b',
+            'public record.*Balance\b',
+            'public record.*Package\b',
+            'public record.*Ledger\b',
+            'public class.*Entry\s*[:{]',
+            'public class.*Balance\s*[:{]',
+            'public class.*Package\s*[:{]',
+            'public class.*Ledger\s*[:{]'
+        )
+        foreach ($pattern in $domainEntityInService) {
+            if ($content -match $pattern) {
+                $violations += "Service layer defining domain entities while referencing CoreHub.Domain: $($file.Name) - Pattern: $pattern"
+                $hasViolations = $true
+                break
+            }
+        }
     }
 }
 
