@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'feature/**' ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.windsurf/**'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'align-consumer-phase4' ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
