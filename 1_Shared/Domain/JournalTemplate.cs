@@ -11,9 +11,9 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public sealed class JournalTemplate : BaseEntity, IMustHaveTenant
     {
-        public TenantId TenantId { get; }
-        public string Code { get; }
-        public string Description { get; }
+        public TenantId TenantId { get; } = null!;
+        public string Code { get; } = null!;
+        public string Description { get; } = null!;
         public bool IsActive { get; }
         public DateTime CreatedAt { get; }
         public DateTime? UpdatedAt { get; }
@@ -28,7 +28,9 @@ namespace VanAn.Shared.Domain
         public IReadOnlyCollection<TemplateValidationRule> ValidationRules => _validationRules.AsReadOnly();
 
         // EF Core constructor
+#pragma warning disable CS8618
         private JournalTemplate() { }
+#pragma warning restore CS8618
 
         public JournalTemplate(
             TenantId tenantId,

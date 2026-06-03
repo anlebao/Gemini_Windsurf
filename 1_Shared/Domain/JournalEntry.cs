@@ -12,12 +12,12 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public sealed class JournalEntry : BaseEntity, IMustHaveTenant
     {
-        public TenantId TenantId { get; }
-        public JournalEntryId JournalEntryId { get; }
-        public string JournalNo { get; }
+        public TenantId TenantId { get; } = null!;
+        public JournalEntryId JournalEntryId { get; } = null!;
+        public string JournalNo { get; } = null!;
         public DateTime EntryDate { get; }
-        public AccountingPeriod Period { get; }
-        public string Description { get; }
+        public AccountingPeriod Period { get; } = null!;
+        public string Description { get; } = null!;
         public string? ReferenceType { get; }
         public Guid? ReferenceId { get; }
         public bool IsReversal { get; }
@@ -27,7 +27,9 @@ namespace VanAn.Shared.Domain
         public IReadOnlyCollection<JournalEntryLine> Lines => _lines.AsReadOnly();
 
         // EF Core constructor
+#pragma warning disable CS8618
         private JournalEntry() { }
+#pragma warning restore CS8618
 
         // ✅ FIXED: Add Create static method for TemplateFactory compatibility
         public static JournalEntry Create(

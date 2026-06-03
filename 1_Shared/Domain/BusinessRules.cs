@@ -77,9 +77,9 @@ namespace VanAn.Shared.Domain
             return defaultValue;
         }
 
-        public void SetParameter<T>(string key, T value)
+        public void SetParameter<T>(string key, T? value)
         {
-            Parameters[key] = value;
+            Parameters[key] = value!;
         }
 
         public bool HasParameter(string key) => Parameters.ContainsKey(key);
