@@ -25,6 +25,8 @@ public partial class VietQrService : IVietQrService
 
     public async Task<VietQrResponse> GenerateQrCodeAsync(VietQrRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        
         try
         {
             LogVietQrProcessing(request.OrderDescription, request.Amount);
@@ -63,6 +65,8 @@ public partial class VietQrService : IVietQrService
 
     public async Task<bool> ValidateBankConfigAsync(BankConfig config)
     {
+        ArgumentNullException.ThrowIfNull(config);
+        
         try
         {
             await Task.CompletedTask;
@@ -87,6 +91,8 @@ public partial class VietQrService : IVietQrService
 
     public static string BuildVietQrUrl(VietQrRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        
         // VietQR URL format: https://img.vietqr.io/image/<BANK_ID>-<ACCOUNT_NO>-template.jpg?amount=<AMOUNT>&addInfo=<DESCRIPTION>
         var baseUrl = "https://img.vietqr.io/image";
         var bankAccount = $"{request.BankConfig.BankId}-{request.BankConfig.AccountNo}";

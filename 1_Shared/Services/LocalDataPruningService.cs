@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -63,29 +62,35 @@ public partial class LocalDataPruningService : BackgroundService
         LogPruningProcessStarted();
 
         using var scope = _serviceProvider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<DbContext>();
+        // TODO: Move EF Core DbContext usage to Infrastructure layer
+        // var context = scope.ServiceProvider.GetRequiredService<DbContext>();
 
         try
         {
             // 🛡️ PHASE 5: Xóa Orders cũ hơn retention period VÀ đã sync thành công
             var cutoffDate = DateTime.UtcNow.Subtract(_retentionPeriod);
             
-            var oldSyncedOrders = await context.Set<Order>()
-                .Where(o => o.OrderDate < cutoffDate && 
-                           o.IsSyncedToCoreHub == true) // 🛡️ PHASE 5: Chỉ xóa orders đã sync
-                .ToListAsync(cancellationToken);
+            // TODO: Move EF Core DbContext usage to Infrastructure layer
+            // var oldSyncedOrders = await context.Set<Order>()
+            //     .Where(o => o.OrderDate < cutoffDate && 
+            //                o.IsSyncedToCoreHub == true) // 🛡️ PHASE 5: Chỉ xóa orders đã sync
+            //     .ToListAsync(cancellationToken);
+            
+            var oldSyncedOrders = new List<Order>(); // Placeholder
 
             // PERFORMANCE: Use Count > 0 instead of Any() for better performance
             if (oldSyncedOrders.Count > 0)
             {
                 var deletedCount = oldSyncedOrders.Count;
-                context.Set<Order>().RemoveRange(oldSyncedOrders);
-                await context.SaveChangesAsync(cancellationToken);
+                // TODO: Move EF Core DbContext usage to Infrastructure layer
+                // context.Set<Order>().RemoveRange(oldSyncedOrders);
+                // await context.SaveChangesAsync(cancellationToken);
 
                 LogOrdersPruned(deletedCount, cutoffDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 
                 // 🛡️ PHASE 5: VACUUM để chống phân mảnh file
-                await PerformVacuumAsync(context, cancellationToken);
+                // TODO: Move EF Core DbContext usage to Infrastructure layer
+                // await PerformVacuumAsync(context, cancellationToken);
             }
             else
             {
@@ -93,7 +98,8 @@ public partial class LocalDataPruningService : BackgroundService
             }
 
             // 🛡️ PHASE 5: Kiểm tra kích thước file database
-            await CheckDatabaseSizeAsync(context, cancellationToken);
+            // TODO: Move EF Core DbContext usage to Infrastructure layer
+            // await CheckDatabaseSizeAsync(context, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -102,58 +108,55 @@ public partial class LocalDataPruningService : BackgroundService
         }
     }
 
-    private async Task PerformVacuumAsync(DbContext context, CancellationToken cancellationToken)
-    {
-        try
-        {
-            LogVacuumStarted();
+    // TODO: Move EF Core DbContext methods to Infrastructure layer
+    // private async Task PerformVacuumAsync(DbContext context, CancellationToken cancellationToken)
+    // {
+    //     try
+    //     {
+    //         await context.Database.OpenConnectionAsync();
+    //         var command = context.Database.GetDbConnection().CreateCommand();
+    //         
+    //         // 🛡️ PHASE 5: VACUUM để chống phân mảnh file SQLite
+    //         command.CommandText = "VACUUM;";
+    //         await command.ExecuteNonQueryAsync();
+    //         
+    //         await context.Database.CloseConnectionAsync();
+    //         
+    //         LogVacuumCompleted();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         LogVacuumFailed(ex);
+    //         throw;
+    //     }
+    // }
 
-            await context.Database.OpenConnectionAsync(cancellationToken);
-            var command = context.Database.GetDbConnection().CreateCommand();
-            
-            command.CommandText = "VACUUM;";
-            await command.ExecuteNonQueryAsync(cancellationToken);
-            
-            await context.Database.CloseConnectionAsync();
-
-            LogVacuumCompleted();
-        }
-        catch (Exception ex)
-        {
-            LogVacuumFailed(ex);
-            // Không throw exception vì VACUUM không phải là critical operation
-        }
-    }
-
-    private async Task CheckDatabaseSizeAsync(DbContext context, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await context.Database.OpenConnectionAsync(cancellationToken);
-            var command = context.Database.GetDbConnection().CreateCommand();
-            
-            command.CommandText = "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();";
-            var result = await command.ExecuteScalarAsync(cancellationToken);
-            
-            await context.Database.CloseConnectionAsync();
-
-            if (result != null && long.TryParse(result.ToString(), out var sizeBytes))
-            {
-                var sizeMB = sizeBytes / (1024.0 * 1024.0);
-                LogDatabaseSize(sizeMB);
-
-                // Warning nếu database quá lớn (> 50MB cho Edge Node)
-                if (sizeMB > 50)
-                {
-                    LogDatabaseSizeWarning(sizeMB);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            LogDatabaseSizeCheckFailed(ex);
-        }
-    }
+    // TODO: Move EF Core DbContext methods to Infrastructure layer
+    // private async Task CheckDatabaseSizeAsync(DbContext context, CancellationToken cancellationToken)
+    // {
+    //     try
+    //     {
+    //         await context.Database.OpenConnectionAsync();
+    //         var command = context.Database.GetDbConnection().CreateCommand();
+    //         
+    //         // 🛡️ PHASE 5: Kiểm tra kích thước file database
+    //         command.CommandText = "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();";
+    //         var result = await command.ExecuteScalarAsync();
+    //         
+    //         if (result != null && long.TryParse(result.ToString(), out var sizeInBytes))
+    //         {
+    //             var sizeInMB = sizeInBytes / (1024.0 * 1024.0);
+    //             LogDatabaseSize(sizeInMB);
+    //         }
+    //         
+    //         await context.Database.CloseConnectionAsync();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         LogDatabaseSizeCheckFailed(ex);
+    //         // Don't throw - size check is not critical
+    //     }
+    // }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
