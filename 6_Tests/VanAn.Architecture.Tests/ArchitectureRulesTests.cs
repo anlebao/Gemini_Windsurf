@@ -11,9 +11,9 @@ public class ArchitectureRulesTests
         // Arrange - Check source files directly since assemblies might not exist
         var programFiles = new[]
         {
-            "../../../../../2_Gateway/Program.cs",
-            "../../../../../5_WebApps/KhachLink/Program.cs", 
-            "../../../../../5_WebApps/ShopERP/Program.cs"
+            Path.Combine("..", "..", "..", "..", "..", "2_Gateway", "Program.cs"),
+            Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "KhachLink", "Program.cs"),
+            Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "ShopERP", "Program.cs")
         };
 
         // Act & Assert
@@ -38,10 +38,10 @@ public class ArchitectureRulesTests
         // Arrange - Check project files directly (exclude CoreHub as it's allowed to use InMemory for testing)
         var projectFiles = new[]
         {
-            "../../../../../1_Shared/VanAn.Shared.csproj",
-            "../../../../../2_Gateway/VanAn.Gateway.csproj",
-            "../../../../../5_WebApps/KhachLink/VanAn.KhachLink.csproj",
-            "../../../../../5_WebApps/ShopERP/VanAn.ShopERP.csproj"
+            Path.Combine("..", "..", "..", "..", "..", "1_Shared", "VanAn.Shared.csproj"),
+            Path.Combine("..", "..", "..", "..", "..", "2_Gateway", "VanAn.Gateway.csproj"),
+            Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"),
+            Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj")
         };
 
         // Act & Assert
@@ -66,8 +66,8 @@ public class ArchitectureRulesTests
         // Arrange
         var edgeNodeProjects = new[]
         {
-            "../../../../../5_WebApps/KhachLink/VanAn.KhachLink.csproj",
-            "../../../../../5_WebApps/ShopERP/VanAn.ShopERP.csproj"
+            Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"),
+            Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj")
         };
 
         // Act & Assert
@@ -91,7 +91,7 @@ public class ArchitectureRulesTests
     public void CoreEntities_ShouldInheritIMustHaveTenant()
     {
         // Arrange - Check domain file directly
-        var domainFile = "../../../../../1_Shared/Domain.cs";
+        var domainFile = Path.Combine("..", "..", "..", "..", "..", "1_Shared", "Domain.cs");
         
         if (File.Exists(domainFile))
         {
@@ -143,11 +143,11 @@ public class ArchitectureRulesTests
         // Arrange
         var projectFiles = new Dictionary<string, string>
         {
-            { "../../../../../1_Shared/VanAn.Shared.csproj", "net8.0" },
-            { "../../../../../2_Gateway/VanAn.Gateway.csproj", "net8.0" },
-            { "../../../../../3_CoreHub/VanAn.CoreHub.csproj", "net8.0" },
-            { "../../../../../5_WebApps/KhachLink/VanAn.KhachLink.csproj", "net8.0" },
-            { "../../../../../5_WebApps/ShopERP/VanAn.ShopERP.csproj", "net8.0" }
+            { Path.Combine("..", "..", "..", "..", "..", "1_Shared", "VanAn.Shared.csproj"), "net8.0" },
+            { Path.Combine("..", "..", "..", "..", "..", "2_Gateway", "VanAn.Gateway.csproj"), "net8.0" },
+            { Path.Combine("..", "..", "..", "..", "..", "3_CoreHub", "VanAn.CoreHub.csproj"), "net8.0" },
+            { Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"), "net8.0" },
+            { Path.Combine("..", "..", "..", "..", "..", "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj"), "net8.0" }
         };
 
         // Act & Assert
@@ -169,7 +169,7 @@ public class ArchitectureRulesTests
     [Fact(DisplayName = "Rule F: CartItem must have ProductId property (FK to Product catalog)")]
     public void CartItem_MustHave_ProductId()
     {
-        var cartItemFile = "../../../../../1_Shared/Domain/CartItem.cs";
+        var cartItemFile = Path.Combine("..", "..", "..", "..", "..", "1_Shared", "Domain", "CartItem.cs");
 
         if (File.Exists(cartItemFile))
         {
@@ -185,7 +185,7 @@ public class ArchitectureRulesTests
     [Fact(DisplayName = "Rule G: CartItem must NOT have redundant Name or Price properties (removed in refactor)")]
     public void CartItem_MustNotHave_RedundantNameOrPrice()
     {
-        var cartItemFile = "../../../../../1_Shared/Domain/CartItem.cs";
+        var cartItemFile = Path.Combine("..", "..", "..", "..", "..", "1_Shared", "Domain", "CartItem.cs");
 
         if (File.Exists(cartItemFile))
         {
