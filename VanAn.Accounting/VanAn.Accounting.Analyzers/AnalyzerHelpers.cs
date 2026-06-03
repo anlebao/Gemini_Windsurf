@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis.Diagnostics;
+using System;
 
 namespace VanAn.Accounting.Analyzers
 {
