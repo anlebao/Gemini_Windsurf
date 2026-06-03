@@ -1,0 +1,104 @@
+@* VanAModal Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+@if (IsVisible)
+{
+    <div class="vanan-modal-backdrop @GetBackdropClass()" @onclick="HandleBackdropClick">
+        <div class="vanan-modal @GetModalClass()" @onclick:stopPropagation>
+            <div class="vanan-modal__header">
+                <h3 class="vanan-modal__title">@Title</h3>
+                @if (ShowCloseButton)
+                {
+                    <button class="vanan-modal__close" @onclick="HandleClose" aria-label="Close">
+                        ×
+                    </button>
+                }
+            </div>
+            
+            <div class="vanan-modal__body">
+                @Body
+            </div>
+            
+            @if (Footer != null)
+            {
+                <div class="vanan-modal__footer">
+                    @Footer
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Size { get; set; } = "medium"; // small, medium, large, fullscreen
+
+    [Parameter]
+    public bool CloseOnBackdrop { get; set; } = true;
+
+    [Parameter]
+    public bool CloseOnEscape { get; set; } = true;
+
+    [Parameter]
+    public bool ShowCloseButton { get; set; } = true;
+
+    [Parameter]
+    public RenderFragment? Body { get; set; }
+
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        
+        if (IsVisible && CloseOnEscape)
+        {
+            // Add escape key listener
+            // This would typically be implemented with JS interop
+        }
+    }
+
+    private string GetBackdropClass()
+    {
+        return IsVisible ? "vanan-modal-backdrop--visible" : "";
+    }
+
+    private string GetModalClass()
+    {
+        var sizeClass = Size switch
+        {
+            "small" => "vanan-modal--small",
+            "large" => "vanan-modal--large", 
+            "fullscreen" => "vanan-modal--fullscreen",
+            _ => "vanan-modal--medium"
+        };
+
+        return $"{sizeClass} {(IsVisible ? "vanan-modal--visible" : "")}";
+    }
+
+    private async Task HandleClose()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        if (CloseOnBackdrop)
+        {
+            await HandleClose();
+        }
+    }
+}

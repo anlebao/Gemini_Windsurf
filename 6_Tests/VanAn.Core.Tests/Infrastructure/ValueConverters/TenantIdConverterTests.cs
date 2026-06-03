@@ -43,8 +43,10 @@ public class TenantIdConverterTests
     [Fact]
     public void Should_Handle_Null_Values()
     {
-        // Act & Assert
-        _converter.ConvertToProvider(null).Should().Be(Guid.Empty);
-        _converter.ConvertFromProvider(Guid.Empty).Should().BeNull();
+        // TenantIdConverter maps TenantId<->Guid (non-nullable)
+        // Guid.Empty maps to a TenantId with empty value (not null)
+        var emptyTenantId = _converter.ConvertFromProvider(Guid.Empty);
+        emptyTenantId.Should().NotBeNull();
+        ((TenantId)emptyTenantId!).Value.Should().Be(Guid.Empty);
     }
 }

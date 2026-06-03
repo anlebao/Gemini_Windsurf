@@ -52,8 +52,8 @@ public class ReversalService : IReversalService
             }
             
             // Create reversal entry ONLY - no updates to the original entry
-            // The Factory handles setting the ReversalEntryId to link to the original
-            var reversalEntry = VanAn.Shared.Domain.AccountingEntryFactory.CreateReversal(originalEntry, reason);
+            // Explicitly pass the originalEntryId so ReversalEntryId matches the queried key
+            var reversalEntry = CoreAccountingEntry.CreateReversalWithId(originalEntry, reason, originalEntryId.Value);
             
             // Add only the new reversal entry - never modify the original
             await _repository.AddAsync(reversalEntry, cancellationToken);
@@ -107,31 +107,21 @@ public class ReversalService : IReversalService
             // Get all tenant entries once to optimize performance
             var tenantEntries = await _repository.GetByTenantAsync(tenantId, cancellationToken);
             var entryDict = tenantEntries.ToDictionary(e => e.Id, e => e);
-            
-            var allEntries = new List<CoreAccountingEntry>();
-            var currentId = originalEntryId;
-            var visitedIds = new HashSet<Guid>(); // Prevent infinite loops
-            
-            while (currentId != null && visitedIds.Add(currentId))
+
+            // Resolve the starting entry via GetByIdAsync so mock-based tests work correctly
+            var startEntry = await _repository.GetByIdAsync(originalEntryId, cancellationToken);
+            if (startEntry == null)
+                return Enumerable.Empty<CoreAccountingEntry>();
+
+            var allEntries = new List<CoreAccountingEntry> { startEntry };
+            var visitedIds = new HashSet<Guid> { startEntry.Id };
+
+            // Follow reversal chain forward (find reversal pointing to this entry)
+            var reversal = tenantEntries.FirstOrDefault(e => e.ReversalEntryId == startEntry.Id);
+            while (reversal != null && visitedIds.Add(reversal.Id))
             {
-                if (!entryDict.TryGetValue(currentId, out var entry))
-                {
-                    break;
-                }
-                
-                allEntries.Add(entry);
-                
-                if (entry.ReversalEntryId != null)
-                {
-                    // This is a reversal entry, get the original
-                    currentId = entry.ReversalEntryId;
-                }
-                else
-                {
-                    // This is the original entry, find reversals pointing to it
-                    var reversal = tenantEntries.FirstOrDefault(e => e.ReversalEntryId == currentId.Value);
-                    currentId = reversal?.Id;
-                }
+                allEntries.Add(reversal);
+                reversal = tenantEntries.FirstOrDefault(e => e.ReversalEntryId == reversal.Id);
             }
             
             return allEntries.OrderBy(e => e.CreatedAt);

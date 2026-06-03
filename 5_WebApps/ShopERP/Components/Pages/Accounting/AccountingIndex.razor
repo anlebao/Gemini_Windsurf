@@ -1,0 +1,193 @@
+@page "/accounting"
+@layout AccountingLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain
+@using CoreAccountingService = VanAn.CoreHub.Services
+@inject CoreAccountingService.IAccountingService AccountingService
+@inject IThemeProvider ThemeProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<AccountingIndex> Logger
+@inject NavigationManager NavigationManager
+
+<div class="accounting-dashboard @ThemeProvider.CurrentTheme">
+    <!-- Header -->
+    <header class="accounting-header">
+        <h1>Kế Toán Dashboard</h1>
+        <div class="header-actions">
+            <VanAButton 
+                Variant="secondary" 
+                Size="small"
+                OnClick="RefreshData">
+                🔄 Refresh
+            </VanAButton>
+        </div>
+    </header>
+
+    <!-- Metrics Grid -->
+    <section class="metrics-section">
+        <div class="metrics-grid">
+            <VanAMetricsCard 
+                Title="Doanh Thu Tháng Này" 
+                Value="@MonthlyRevenueDisplay" 
+                Icon="💰" 
+                Trend="@Metrics.RevenueTrend" 
+                Color="success" />
+            <VanAMetricsCard 
+                Title="Chi Phí Tháng Này" 
+                Value="@MonthlyExpenseDisplay" 
+                Icon="📉" 
+                Trend="@Metrics.ExpenseTrend" 
+                Color="warning" />
+            <VanAMetricsCard 
+                Title="Lợi Nhuận Ròng" 
+                Value="@NetProfitDisplay" 
+                Icon="📈" 
+                Trend="@Metrics.ProfitTrend" 
+                Color="primary" />
+            <VanAMetricsCard 
+                Title="Số Bút Toán" 
+                Value="@Metrics.EntryCount.ToString()" 
+                Icon="📋" 
+                Trend="+0%" 
+                Color="info" />
+        </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions-section">
+        <VanACard Header="Thao Tác Nhanh">
+            <div class="action-buttons">
+                <VanAButton 
+                    Variant="primary" 
+                    OnClick="() => NavigateToRevenueEntry()">
+                    ➕ Nhập Doanh Thu
+                </VanAButton>
+                <VanAButton 
+                    Variant="danger" 
+                    OnClick="() => NavigateToExpenseEntry()">
+                    ➖ Nhập Chi Phí
+                </VanAButton>
+                <VanAButton 
+                    Variant="secondary" 
+                    OnClick="() => NavigateToHistory()">
+                    📜 Lịch Sử Giao Dịch
+                </VanAButton>
+                <VanAButton 
+                    Variant="secondary" 
+                    OnClick="() => NavigateToBalance()">
+                    💰 Số Dư Tài Khoản
+                </VanAButton>
+            </div>
+        </VanACard>
+    </section>
+</div>
+
+@code {
+    private AccountingDashboardMetrics Metrics = new();
+    private bool isRefreshing = false;
+    private bool showStaffModal = false;
+    private bool showStatusModal = false;
+    private Guid selectedOrderId;
+    private string currentStatus = string.Empty;
+    private Guid _tenantId = Guid.Empty;
+
+    // Computed properties for display
+    private string MonthlyRevenueDisplay => Metrics.MonthlyRevenue.ToString("N0") + " ₫";
+    private string MonthlyExpenseDisplay => Metrics.MonthlyExpense.ToString("N0") + " ₫";
+    private string NetProfitDisplay => Metrics.NetProfit.ToString("N0") + " ₫";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var tenantIdClaim = user.FindFirst("TenantId");
+                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
+                {
+                    _tenantId = tenantId;
+                }
+            }
+
+            if (_tenantId != Guid.Empty)
+            {
+                await LoadMetrics();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing AccountingIndex");
+        }
+    }
+
+    private async Task LoadMetrics()
+    {
+        try
+        {
+            // Load accounting metrics for current month
+            var currentDate = DateTime.Now;
+            var period = new AccountingPeriod(currentDate.Year, currentDate.Month);
+            var tenantId = new TenantId(_tenantId);
+
+            var entries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, period);
+
+            Metrics.MonthlyRevenue = entries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
+            Metrics.MonthlyExpense = entries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            Metrics.NetProfit = Metrics.MonthlyRevenue - Metrics.MonthlyExpense;
+            Metrics.EntryCount = entries.Count();
+
+            // Calculate trends (placeholder - would compare with previous month)
+            Metrics.RevenueTrend = "+8%";
+            Metrics.ExpenseTrend = "+5%";
+            Metrics.ProfitTrend = "+12%";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading accounting metrics for tenant {TenantId}", _tenantId);
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadMetrics();
+    }
+
+    private void NavigateToRevenueEntry()
+    {
+        NavigationManager.NavigateTo("/accounting/revenue");
+    }
+
+    private void NavigateToExpenseEntry()
+    {
+        NavigationManager.NavigateTo("/accounting/expenses");
+    }
+
+    private void NavigateToHistory()
+    {
+        NavigationManager.NavigateTo("/accounting/history");
+    }
+
+    private void NavigateToBalance()
+    {
+        NavigationManager.NavigateTo("/accounting/balance");
+    }
+}
+
+@code {
+    public class AccountingDashboardMetrics
+    {
+        public decimal MonthlyRevenue { get; set; }
+        public decimal MonthlyExpense { get; set; }
+        public decimal NetProfit { get; set; }
+        public int EntryCount { get; set; }
+        public string RevenueTrend { get; set; } = "+0%";
+        public string ExpenseTrend { get; set; } = "+0%";
+        public string ProfitTrend { get; set; } = "+0%";
+    }
+}

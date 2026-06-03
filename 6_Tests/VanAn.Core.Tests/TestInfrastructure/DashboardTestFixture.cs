@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Tests.TestInfrastructure;
 using Xunit.Abstractions;
@@ -10,15 +11,15 @@ namespace VanAn.Core.Tests.TestInfrastructure
 {
     public class DashboardTestFixture : IDisposable
     {
-        public VanAnDbContext Context { get; private set; }
+        public TestContextScope ContextScope { get; private set; } = null!;
+        public VanAnDbContext Context => ContextScope?.Context!;
         public DashboardService Service { get; private set; }
         public Mock<IConfiguration> ConfigMock { get; private set; }
 
         public DashboardTestFixture()
         {
-            // Initialize context using Test Harness 4 layer
-            var provider = TestDbProviderFactory.CreateSqlite();
-            Context = provider.Create();
+            // FIX: Use TestContextScope wrapper to bind DI scope lifespan to context
+            ContextScope = VanAnDbContextTestFactory.Create();
             
             // Setup database schema using Test Harness extensions
             Context.SetupTestDatabaseAsync().Wait();
@@ -33,12 +34,14 @@ namespace VanAn.Core.Tests.TestInfrastructure
             
             // Create service
             var loggerMock = new Mock<ILogger<DashboardService>>();
-            Service = new DashboardService(Context, loggerMock.Object, ConfigMock.Object);
+            var systemMetricsRepo = new SystemMetricsRepository(Context);
+            Service = new DashboardService(systemMetricsRepo, loggerMock.Object, ConfigMock.Object);
         }
 
         public void Dispose()
         {
-            Context?.Dispose();
+            ContextScope?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

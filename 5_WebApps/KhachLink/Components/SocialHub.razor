@@ -1,73 +1,86 @@
 @using VanAn.Shared.Domain
 @using VanAn.KhachLink.Models
+@using VanAn.UI.Platform.Components.Atomic
 
 @if (ShopConfig?.SocialLinksFb != null || ShopConfig?.SocialLinksTiktok != null)
 {
-    <section class="social-hub-section py-4">
+    <VanAnCard CssClass="social-hub-section" Shadow="true">
         <div class="container">
             <h3 class="text-center mb-4">Kết nối với chúng tôi</h3>
             <div class="row">
                 @if (!string.IsNullOrEmpty(ShopConfig?.SocialLinksFb))
                 {
                     <div class="col-md-6 mb-3">
-                        <div class="social-card">
-                            <div class="card-body">
-                                <h5 class="card-title">📘 Facebook</h5>
-                                <div class="social-embed">
-                                    <iframe src="@GetFacebookEmbedUrl(ShopConfig.SocialLinksFb)" 
-                                            width="100%" 
-                                            height="300" 
-                                            style="border:none;overflow:hidden" 
-                                            scrolling="no" 
-                                            frameborder="0" 
-                                            allowfullscreen="true" 
-                                            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share">
-                                    </iframe>
-                                </div>
+                        <VanAnCard CssClass="social-card" Shadow="false">
+                            <div class="social-header">
+                                <h5>📘 Facebook</h5>
                             </div>
-                        </div>
+                            <div class="social-embed">
+                                <iframe src="@GetFacebookEmbedUrl(ShopConfig.SocialLinksFb)" 
+                                        width="100%" 
+                                        height="300" 
+                                        style="border:none;overflow:hidden" 
+                                        scrolling="no" 
+                                        frameborder="0" 
+                                        allowfullscreen="true" 
+                                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share">
+                                </iframe>
+                            </div>
+                        </VanAnCard>
                     </div>
                 }
                 
                 @if (!string.IsNullOrEmpty(ShopConfig?.SocialLinksTiktok))
                 {
                     <div class="col-md-6 mb-3">
-                        <div class="social-card">
-                            <div class="card-body">
-                                <h5 class="card-title">🎵 TikTok</h5>
-                                <div class="social-embed">
-                                    <blockquote class="tiktok-embed" 
-                                               cite="@ShopConfig.SocialLinksTiktok" 
-                                               data-video-id="@GetTikTokVideoId(ShopConfig.SocialLinksTiktok)" 
-                                               style="max-width: 605px;min-width: 325px;">
-                                        <section>&nbsp;</section>
-                                    </blockquote>
-                                    <script async src="https://www.tiktok.com/embed.js"></script>
-                                </div>
+                        <VanAnCard CssClass="social-card" Shadow="false">
+                            <div class="social-header">
+                                <h5>🎵 TikTok</h5>
                             </div>
-                        </div>
+                            <div class="social-embed">
+                                <blockquote class="tiktok-embed" 
+                                           cite="@ShopConfig.SocialLinksTiktok" 
+                                           data-video-id="@GetTikTokVideoId(ShopConfig.SocialLinksTiktok)" 
+                                           style="max-width: 605px;min-width: 325px;">
+                                    <section>&nbsp;</section>
+                                </blockquote>
+                                <script async src="https://www.tiktok.com/embed.js"></script>
+                            </div>
+                        </VanAnCard>
                     </div>
                 }
             </div>
         </div>
-    </section>
+    </VanAnCard>
 }
 
 <style>
     .social-hub-section {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 15px;
-        padding: 2rem;
         color: white;
-        margin: 20px 0;
+    }
+    
+    .social-hub-section ::deep .card-body {
+        padding: 2rem;
     }
     
     .social-card {
         background: rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(10px);
-        border-radius: 10px;
-        padding: 1rem;
         border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .social-card ::deep .card-body {
+        padding: 1rem;
+    }
+    
+    .social-header {
+        margin-bottom: 1rem;
+    }
+    
+    .social-header h5 {
+        color: white;
+        margin: 0;
     }
     
     .social-embed {

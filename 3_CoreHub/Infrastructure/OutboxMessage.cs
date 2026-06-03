@@ -17,13 +17,16 @@ public class OutboxMessage : IMustHaveTenant
     public string? Error { get; set; }
     public int RetryCount { get; set; }
     public DateTime? NextRetryAt { get; set; }
-    
+
     // IMustHaveTenant implementation
     public TenantId TenantId { get; set; } = new TenantId(Guid.Empty);
-    
+
     // Properties for EF Core
     public OutboxMessageStatus Status { get; set; }
-    
+
+    // EF Core constructor for materialization
+    public OutboxMessage() { }
+
     public static OutboxMessage Create(
         string eventType,
         string eventData,
@@ -41,7 +44,7 @@ public class OutboxMessage : IMustHaveTenant
             NextRetryAt = DateTime.UtcNow
         };
     }
-    
+
     public void MarkAsProcessed()
     {
         Status = OutboxMessageStatus.Processed;
@@ -49,13 +52,13 @@ public class OutboxMessage : IMustHaveTenant
         Error = null;
         NextRetryAt = null;
     }
-    
+
     public void MarkAsFailed(string error)
     {
         Status = OutboxMessageStatus.Failed;
         Error = error;
         RetryCount++;
-        
+
         // Exponential backoff: 1min, 2min, 4min, 8min, 16min, max 1hour
         var delayMinutes = Math.Min(60, Math.Pow(2, RetryCount));
         NextRetryAt = DateTime.UtcNow.AddMinutes(delayMinutes);

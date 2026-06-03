@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 
@@ -6,23 +7,22 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 {
     public class TestDataBuilder
     {
+        private readonly ILogger? _logger;
         private readonly List<Shop> _shops = new();
         private readonly List<Order> _orders = new();
         private readonly List<Customer> _customers = new();
+
+        public TestDataBuilder(ILogger? logger = null)
+        {
+            _logger = logger;
+        }
 
         public TestDataBuilder WithShops(int count)
         {
             for (int i = 1; i <= count; i++)
             {
-                _shops.Add(new Shop 
-                { 
-                    Id = Guid.NewGuid(),
-                    Name = $"Shop {i}",
-                    Address = $"Address {i}",
-                    Phone = $"12345678{i}",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                });
+                var tenantId = new TenantId(Guid.NewGuid());
+                _shops.Add(new Shop(tenantId, $"Shop {i}", $"Address {i}", $"09{i:D8}", $"shop{i}@vanan.com"));
             }
             return this;
         }
@@ -37,24 +37,8 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             for (int i = 1; i <= count; i++)
             {
                 var shop = _shops[i % _shops.Count]; // Round-robin shop assignment
-                _orders.Add(new Order 
-                { 
-                    Id = Guid.NewGuid(),
-                    OrderId = new OrderId(Guid.NewGuid()),
-                    TenantId = shop.Id,
-                    Status = new OrderStatusId("COMPLETED"),
-                    OrderType = i % 2 == 0 ? "DINE_IN" : "TAKEAWAY",
-                    SubTotal = (i * 100) + 0.01m,
-                    TotalVatAmount = (i * 10) + 0.01m,
-                    ShippingFee = i % 2 == 0 ? 0m : 5m,
-                    DiscountAmount = i % 3 == 0 ? 10m : 0m,
-                    TotalAmount = (i * 110) + (i % 2 == 0 ? 0m : 5m) - (i % 3 == 0 ? 10m : 0m),
-                    OrderDate = DateTime.UtcNow.AddHours(-i),
-                    CompletedAt = DateTime.UtcNow.AddMinutes(-i * 10),
-                    LastSyncedAt = synced ? DateTime.UtcNow.AddMinutes(-i * 5) : default(DateTime),
-                    CreatedAt = DateTime.UtcNow.AddHours(-i),
-                    RowVersion = i
-                });
+                var totalAmount = (i * 110) + (i % 2 == 0 ? 0m : 5m) - (i % 3 == 0 ? 10m : 0m);
+                _orders.Add(new Order(shop.TenantId, null, totalAmount)); // null customerId avoids FK constraint
             }
             return this;
         }
@@ -63,16 +47,8 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             for (int i = 1; i <= count; i++)
             {
-                _customers.Add(new Customer 
-                { 
-                    Id = Guid.NewGuid(),
-                    FullName = $"Customer {i}",
-                    Email = $"customer{i}@example.com",
-                    PhoneNumber = $"555000{i:D4}",
-                    TenantId = _shops.Count > 0 ? _shops[i % _shops.Count].Id : Guid.NewGuid(),
-                    CreatedAt = DateTime.UtcNow.AddDays(-i),
-                    UpdatedAt = DateTime.UtcNow
-                });
+                var customerTenantId = _shops.Count > 0 ? _shops[i % _shops.Count].TenantId : new TenantId(Guid.NewGuid());
+                _customers.Add(new Customer(customerTenantId, $"Customer {i}", $"555000{i:D4}", $"customer{i}@example.com"));
             }
             return this;
         }
@@ -84,16 +60,12 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 WithOrders(4);
             }
 
-            // Set mixed sync status: 75% synced (3/4)
+            // Mark 3 out of every 4 orders as synced (75% sync rate)
             for (int i = 0; i < _orders.Count; i++)
             {
-                if (i < _orders.Count * 0.75) // First 75% are synced
+                if (i % 4 != 3) // Skip every 4th order (0-indexed), leaving it unsynced
                 {
-                    _orders[i].LastSyncedAt = DateTime.UtcNow.AddMinutes(-i * 5);
-                }
-                else // Last 25% are not synced
-                {
-                    _orders[i].LastSyncedAt = default(DateTime);
+                    _orders[i].MarkAsSynced();
                 }
             }
             return this;
@@ -101,36 +73,46 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 
         public async Task BuildAsync(VanAnDbContext context)
         {
-            Console.WriteLine($"[TestDataBuilder] Starting to build test data...");
+            _logger?.LogInformation("[TestDataBuilder] Starting to build test data...");
             
-            // Clear existing data
-            context.Orders.RemoveRange(context.Orders);
-            context.Shops.RemoveRange(context.Shops);
-            context.Customers.RemoveRange(context.Customers);
-            await context.SaveChangesAsync();
-
-            Console.WriteLine($"[TestDataBuilder] Cleared existing data. Shops: {_shops.Count}, Orders: {_orders.Count}, Customers: {_customers.Count}");
-
-            // Add new data in proper order (parent first)
-            if (_shops.Any())
+            using var transaction = await context.Database.BeginTransactionAsync();
+            try
             {
-                await context.Shops.AddRangeAsync(_shops);
+                // Clear existing data
+                context.Orders.RemoveRange(context.Orders);
+                context.Shops.RemoveRange(context.Shops);
+                context.Customers.RemoveRange(context.Customers);
                 await context.SaveChangesAsync();
-            }
 
-            if (_customers.Any())
+                _logger?.LogInformation("[TestDataBuilder] Cleared existing data. Shops: {ShopsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", _shops.Count, _orders.Count, _customers.Count);
+
+                // Add new data in proper order (parent first)
+                if (_shops.Count > 0)
+                {
+                    await context.Shops.AddRangeAsync(_shops);
+                    await context.SaveChangesAsync();
+                }
+
+                if (_customers.Count > 0)
+                {
+                    await context.Customers.AddRangeAsync(_customers);
+                    await context.SaveChangesAsync();
+                }
+
+                if (_orders.Count > 0)
+                {
+                    await context.Orders.AddRangeAsync(_orders);
+                    await context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+                _logger?.LogInformation("[TestDataBuilder] Test data built successfully. Final counts - Shops: {ShopsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", await context.Shops.CountAsync(), await context.Orders.CountAsync(), await context.Customers.CountAsync());
+            }
+            catch
             {
-                await context.Customers.AddRangeAsync(_customers);
-                await context.SaveChangesAsync();
+                await transaction.RollbackAsync();
+                throw;
             }
-
-            if (_orders.Any())
-            {
-                await context.Orders.AddRangeAsync(_orders);
-                await context.SaveChangesAsync();
-            }
-
-            Console.WriteLine($"[TestDataBuilder] Test data built successfully. Final counts - Shops: {await context.Shops.CountAsync()}, Orders: {await context.Orders.CountAsync()}, Customers: {await context.Customers.CountAsync()}");
         }
 
         // Static factory methods for common scenarios

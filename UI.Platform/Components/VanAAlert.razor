@@ -1,0 +1,79 @@
+@* VanAAlert Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="vanan-alert @GetAlertClass()" @attributes="AdditionalAttributes">
+        @if (Dismissible)
+        {
+            <button class="vanan-alert__close" @onclick="HandleDismiss" aria-label="Dismiss">
+                ×
+            </button>
+        }
+        
+        <div class="vanan-alert__content">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <div class="vanan-alert__title">@Title</div>
+            }
+            <div class="vanan-alert__message">@Message</div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Variant { get; set; } = "info"; // info, success, warning, error
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public bool Dismissible { get; set; } = true;
+
+    [Parameter]
+    public TimeSpan? AutoCloseAfter { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _isVisible = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        
+        if (AutoCloseAfter.HasValue)
+        {
+            _ = Task.Delay(AutoCloseAfter.Value).ContinueWith(_ =>
+            {
+                if (_isVisible)
+                {
+                    InvokeAsync(HandleDismiss);
+                }
+            });
+        }
+    }
+
+    private string GetAlertClass()
+    {
+        if (!_isVisible) return "vanan-alert--hidden";
+        
+        return Variant.ToLower() switch
+        {
+            "success" => "vanan-alert--success",
+            "warning" => "vanan-alert--warning", 
+            "error" => "vanan-alert--error",
+            _ => "vanan-alert--info"
+        };
+    }
+
+    private async Task HandleDismiss()
+    {
+        _isVisible = false;
+        await InvokeAsync(StateHasChanged);
+    }
+}

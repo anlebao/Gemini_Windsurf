@@ -1,126 +1,121 @@
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.Shared.Domain
 @page "/home"
 @inject VanAn.KhachLink.Services.CartService CartService
-@inject Microsoft.AspNetCore.Components.NavigationManager NavigationManager
+@inject NavigationManager Navigation
+@inject IThemeProvider ThemeProvider
+@inject ITenantService TenantService
 @implements IDisposable
 
 <PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
 
 <!-- Cart Drawer Component -->
 <CartDrawer 
-    CartItems="@cartState.Items.Select(i => new VanAn.KhachLink.Models.CartItem 
-    { 
-        Id = i.ProductId, 
-        Name = i.ProductName, 
-        Description = i.ProductDescription,
-        Quantity = i.Quantity, 
-        UnitPrice = i.UnitPrice,
-        Price = i.UnitPrice
-    }).ToList()"
+    CartItems="@cartState.Items"
     TotalAmount="@cartState.TotalAmount"
     RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
     Checkout="async () => await GoToCheckout()" />
 
-<div class="container-fluid vh-100 d-flex flex-column">
-    <!-- Header -->
-    <header class="bg-primary text-white py-3">
+<KhachLinkLayout>
+    <!-- Hero Section -->
+    <VanAnCard CssClass="hero-section text-center py-5 mb-4">
         <div class="container">
-            <div class="row align-items-center">
-                <div class="col">
-                    <h1 class="h3 mb-0">
-                        <i class="bi bi-link-45deg"></i> KhachLink
-                    </h1>
-                    <small class="opacity-75">Cỗ máy O2O Flywheel</small>
+            <h1 class="display-4 fw-bold mb-3">
+                <i class="bi bi-link-45deg"></i> KhachLink
+            </h1>
+            <p class="lead mb-4">Cỗ máy O2O Flywheel - Giữ khách & Tăng doanh thu</p>
+            <div class="d-flex justify-content-center gap-3">
+                <VanAnButton Icon="cart" OnClick="@(() => Navigation.NavigateTo("/cart"))">
+                    Xem Giỏ Hàng
+                </VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Outline" Icon="phone" OnClick="@(() => Navigation.NavigateTo("/contact"))">
+                    Liên Hệ
+                </VanAnButton>
+            </div>
+        </div>
+    </VanAnCard>
+
+    <!-- Stats Section -->
+    <VanAnCard CssClass="stats-section mb-4">
+        <div class="container">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <i class="bi bi-people text-primary fs-1"></i>
+                        <h3>1,234</h3>
+                        <p>Khách hàng</p>
+                    </div>
                 </div>
-                <div class="col-auto">
-                    <div class="d-flex align-items-center">
-                        <div class="me-3">
-                            <i class="bi bi-coin text-warning"></i>
-                            <strong>0</strong> điểm
-                        </div>
-                        <button class="btn btn-outline-light btn-sm">
-                            <i class="bi bi-clock-history"></i> Lịch sử
-                        </button>
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <i class="bi bi-cart text-success fs-1"></i>
+                        <h3>567</h3>
+                        <p>Đơn hàng</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <i class="bi bi-star text-warning fs-1"></i>
+                        <h3>4.8</h3>
+                        <p>Đánh giá</p>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-item">
+                        <i class="bi bi-coin text-info fs-1"></i>
+                        <h3>@cartState.GetTotalItems()</h3>
+                        <p>Sản phẩm</p>
                     </div>
                 </div>
             </div>
         </div>
-    </header>
+    </VanAnCard>
 
-    <!-- Main Content -->
-    <main class="flex-grow-1">
-        <div class="container h-100">
-            <div class="row h-100 align-items-center justify-content-center">
-                <div class="col-lg-8">
-                    <!-- Hero Section -->
-                    <div class="text-center mb-5">
-                        <h1 class="display-4 fw-bold text-primary mb-3">
-                            🍵 Trà Sữa Vạn An
-                        </h1>
-                        <p class="lead text-muted">
-                            Trải nghiệm trà sữa đậm đà nguyên bản với công phức chế độc quyền
-                        </p>
-                    </div>
-
-                    <!-- Product Showcase -->
-                    <div class="row mb-5">
-                        @if (products != null && products.Any())
-                        {
-                            @foreach (var item in products)
-                            {
-                                <div class="col-md-4 mb-3">
-                                    <div class="card h-100 border-0 shadow-sm">
-                                        <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
-                                             class="card-img-top" 
-                                             alt="@item.Name" 
-                                             style="height: 200px; object-fit: cover;" />
-                                        <div class="card-body">
-                                            <h5 class="card-title">@item.Name</h5>
-                                            <p class="card-text text-muted">@item.Description</p>
-                                            <div class="d-flex justify-content-between align-items-center">
+    <!-- Product Showcase -->
+    <VanAnCard CssClass="products-section mb-4">
+        <div class="container">
+            <h2 class="text-center mb-4">Sản Phẩm Nổi Bật</h2>
+            <div class="row">
+                @if (products != null && products.Any())
+                {
+                    @foreach (var item in products)
+                    {
+                        <div class="col-md-4 mb-3">
+                            <VanAnCard CssClass="product-card h-100">
+                                <div class="product-image">
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                         class="card-img-top" 
+                                         alt="@item.Name" 
+                                         style="height: 200px; object-fit: cover;" />
+                                </div>
+                                <div class="product-info">
+                                    <h5>@item.Name</h5>
+                                    <p class="text-muted">@item.Description</p>
+                                    <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <span class="h5 text-primary mb-0">@item.Price.ToString("N0")đ</span>
                                                     <br />
                                                     <small class="text-muted">VAT: @(item.VatRate * 100)%</small>
                                                 </div>
-                                                <button class="btn btn-primary btn-sm" @onclick="() => AddToCart(item)">
-                                                    <i class="bi bi-cart-plus"></i> Đặt ngay
-                                                </button>
+                                                <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item))">
+                                                    Đặt ngay
+                                                </VanAnButton>
                                             </div>
-                                        </div>
-                                    </div>
                                 </div>
-                            }
-                        }
-                        else
-                        {
-                            <div class="col-12 text-center">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Đang tải...</span>
-                                </div>
-                                <p class="mt-2">Đang tải sản phẩm...</p>
-                            </div>
-                        }
-                    </div>
-
-                    <!-- Social Proof Section -->
-                    <div class="text-center">
-                        <h4 class="mb-4">🔥 Khách hàng đang yêu thích</h4>
-                        <div class="row" id="socialProofContainer">
-                            <!-- Social proof items will be loaded here -->
+                            </VanAnCard>
                         </div>
+                    }
+                }
+                else
+                {
+                    <div class="col-12 text-center">
+                        <VanAnAlert Variant="AlertVariant.Info" Message="Đang tải sản phẩm..." />
                     </div>
-                </div>
+                }
             </div>
         </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-light py-3">
-        <div class="container text-center">
-            <p class="mb-0 text-muted">© 2024 Vạn An Group - Trà Sữa Cao Cấp</p>
-        </div>
-    </footer>
-</div>
+    </VanAnCard>
+</KhachLinkLayout>
 
 @code {
     private VanAn.KhachLink.Services.CartState cartState = null!;
@@ -170,13 +165,13 @@
 
     private void GoToCart()
     {
-        NavigationManager.NavigateTo("/cart");
+        Navigation.NavigateTo("/cart");
     }
 
     private async Task GoToCheckout()
     {
-        NavigationManager.NavigateTo("/checkout");
-        await Task.CompletedTask;
+        Navigation.NavigateTo("/checkout");
+        await Task.Delay(100);
     }
 
     public void Dispose()

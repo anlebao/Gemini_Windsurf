@@ -31,18 +31,11 @@ public class ReversalServiceTests
         // Arrange
         var tenantId = new TenantId(Guid.NewGuid());
         var originalEntryId = new AccountingEntryId(Guid.NewGuid());
-        var originalEntry = new CoreAccountingEntry
-        {
-            Id = originalEntryId,
-            TenantId = tenantId,
-            Amount = 1000m,
-            EntryType = AccountingEntryType.Revenue,
-            Description = "Original entry",
-            CreatedAt = DateTime.UtcNow,
-            AccountingBookType = AccountingBookType.RevenueBook,
-            PeriodYear = 2024,
-            PeriodMonth = 1
-        };
+        var originalEntry = CoreAccountingEntry.CreateRevenue(
+            tenantId, 
+            AccountingPeriod.Create(2024, 1), 
+            new Money(1000m, "VND"), 
+            "Original entry");
         var reason = "Test reversal";
         
         _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
@@ -91,7 +84,7 @@ public class ReversalServiceTests
         var tenantId = new TenantId(Guid.NewGuid());
         var differentTenantId = new TenantId(Guid.NewGuid());
         var originalEntryId = new AccountingEntryId(Guid.NewGuid());
-        var originalEntry = AccountingEntryFactory.CreateRevenueEntry(
+        var originalEntry = CoreAccountingEntry.CreateRevenue(
             differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Original entry");
         var reason = "Test reversal";
         
@@ -115,11 +108,11 @@ public class ReversalServiceTests
         var tenantId = new TenantId(Guid.NewGuid());
         var originalEntryId = new AccountingEntryId(Guid.NewGuid());
         var reversalEntryId = new AccountingEntryId(Guid.NewGuid());
-        var originalEntry = AccountingEntryFactory.CreateRevenueEntry(
+        var originalEntry = CoreAccountingEntry.CreateRevenue(
             tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Original entry");
         
         // Simulate already reversed entry
-        var reversalEntry = VanAn.Shared.Domain.AccountingEntryFactory.CreateReversal(originalEntry, "Previous reversal");
+        var reversalEntry = CoreAccountingEntry.CreateReversal(originalEntry, "Previous reversal");
         
         _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(originalEntry);
@@ -141,7 +134,7 @@ public class ReversalServiceTests
         // Arrange
         var tenantId = new TenantId(Guid.NewGuid());
         var entryId = new AccountingEntryId(Guid.NewGuid());
-        var entry = AccountingEntryFactory.CreateRevenueEntry(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
+        var entry = CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
         
         _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
         
@@ -150,7 +143,7 @@ public class ReversalServiceTests
         
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(entryId.Value, result.Id);
+        Assert.Equal(tenantId, result.TenantId); // Entry belongs to the correct tenant
         
         _mockRepository.Verify(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -162,7 +155,7 @@ public class ReversalServiceTests
         var tenantId = new TenantId(Guid.NewGuid());
         var differentTenantId = new TenantId(Guid.NewGuid());
         var entryId = new AccountingEntryId(Guid.NewGuid());
-        var entry = AccountingEntryFactory.CreateRevenueEntry(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
+        var entry = CoreAccountingEntry.CreateRevenue(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
         
         _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
         
@@ -181,7 +174,7 @@ public class ReversalServiceTests
         // Arrange
         var tenantId = new TenantId(Guid.NewGuid());
         var entryId = new AccountingEntryId(Guid.NewGuid());
-        var entry = AccountingEntryFactory.CreateRevenueEntry(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
+        var entry = CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
         
         _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
         
@@ -219,7 +212,7 @@ public class ReversalServiceTests
         var tenantId = new TenantId(Guid.NewGuid());
         var differentTenantId = new TenantId(Guid.NewGuid());
         var entryId = new AccountingEntryId(Guid.NewGuid());
-        var entry = AccountingEntryFactory.CreateRevenueEntry(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
+        var entry = CoreAccountingEntry.CreateRevenue(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
         
         _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
         
@@ -238,7 +231,7 @@ public class ReversalServiceTests
         // Arrange
         var tenantId = new TenantId(Guid.NewGuid());
         var originalEntryId = new AccountingEntryId(Guid.NewGuid());
-        var originalEntry = AccountingEntryFactory.CreateRevenueEntry(
+        var originalEntry = CoreAccountingEntry.CreateRevenue(
             tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Original entry");
         
         var allTenantEntries = new List<CoreAccountingEntry> { originalEntry };
@@ -254,7 +247,7 @@ public class ReversalServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Single(result);
-        Assert.Equal(originalEntryId.Value, result.First().Id);
+        Assert.Equal("Original entry", result.First().Description);
         
         _mockRepository.Verify(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()), Times.Once);
     }

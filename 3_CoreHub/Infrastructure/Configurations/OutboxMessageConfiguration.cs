@@ -7,7 +7,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations;
 /// EF Core configuration for OutboxMessage - Week 1 implementation
 /// Implements Eventual Consistency pattern for reliable event processing
 /// </summary>
-public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
+public class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>, IEntityConfiguration
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> builder)
     {

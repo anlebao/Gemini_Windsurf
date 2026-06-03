@@ -24,6 +24,10 @@ public interface IAccountingEntryRepository
         DateTime startDate, 
         DateTime endDate, 
         CancellationToken cancellationToken = default);
+    Task<IEnumerable<CoreAccountingEntry>> GetByPeriodAsync(
+        TenantId tenantId,
+        AccountingPeriod period, 
+        CancellationToken cancellationToken = default);
     
     // Only Add operations - no Update/Delete methods (immutable design)
     Task AddAsync(CoreAccountingEntry entry, CancellationToken cancellationToken = default);

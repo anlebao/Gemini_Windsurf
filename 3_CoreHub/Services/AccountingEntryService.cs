@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
+using VanAn.Shared.DTOs;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Repositories;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
@@ -69,26 +70,17 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<AccountingEntry> CreateEntryAsync(AccountingEntry entry)
+    public async Task<AccountingEntryDto> CreateEntryAsync(AccountingEntryDto entry)
     {
         try
         {
             // Create immutable AccountingEntry using Factory
             var period = new AccountingPeriod(entry.TransactionDate.Year, entry.TransactionDate.Month);
+            var tenantId = new TenantId(entry.TenantId);
             
-            var coreEntry = new CoreAccountingEntry
-            {
-                Id = Guid.NewGuid(),
-                TenantId = new TenantId(entry.TenantId),
-                Amount = entry.Amount,
-                Description = entry.Description,
-                EntryType = entry.EntryType,
-                CreatedAt = DateTime.UtcNow,
-                AccountingBookType = entry.AccountingBookType,
-                PeriodYear = entry.PeriodYear,
-                PeriodMonth = entry.PeriodMonth,
-                ReversalEntryId = entry.ReversalEntryId
-            };
+            var coreEntry = entry.EntryType == AccountingEntryType.Revenue 
+                ? CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(entry.Amount), entry.Description)
+                : CoreAccountingEntry.CreateExpense(tenantId, period, new Money(entry.Amount), entry.Description);
             
             await _repository.AddAsync(coreEntry);
             
@@ -101,14 +93,14 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<AccountingEntry?> GetEntryByIdAsync(Guid entryId)
+    public async Task<AccountingEntryDto?> GetEntryByIdAsync(Guid entryId)
     {
         try
         {
             var entry = await _repository.GetByIdAsync(entryId);
             if (entry == null) return null;
             
-            return new AccountingEntry
+            return new AccountingEntryDto
             {
                 Id = entry.Id,
                 TenantId = entry.TenantId.Value,
@@ -119,7 +111,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = entry.AccountingBookType,
                 PeriodYear = entry.PeriodYear,
                 PeriodMonth = entry.PeriodMonth,
-                ReversalEntryId = entry.ReversalEntryId
+                ReversalEntryId = entry.ReversalEntryId,
+                TransactionDate = entry.TransactionDate
             };
         }
         catch (Exception ex)
@@ -129,14 +122,14 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<AccountingEntry> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
+    public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
     {
         try
         {
-            var entry = VanAn.Shared.Domain.AccountingEntryFactory.CreateRevenueEntry(tenantId, period, amount, description);
+            var entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description);
             await _repository.AddAsync(entry);
             
-            return new AccountingEntry
+            return new AccountingEntryDto
             {
                 Id = entry.Id,
                 TenantId = entry.TenantId.Value,
@@ -147,7 +140,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = entry.AccountingBookType,
                 PeriodYear = entry.PeriodYear,
                 PeriodMonth = entry.PeriodMonth,
-                ReversalEntryId = entry.ReversalEntryId
+                ReversalEntryId = entry.ReversalEntryId,
+                TransactionDate = entry.TransactionDate
             };
         }
         catch (Exception ex)
@@ -157,14 +151,14 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<AccountingEntry> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
+    public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
     {
         try
         {
-            var entry = VanAn.Shared.Domain.AccountingEntryFactory.CreateExpense(tenantId, period, amount, description);
+            var entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description);
             await _repository.AddAsync(entry);
             
-            return new AccountingEntry
+            return new AccountingEntryDto
             {
                 Id = entry.Id,
                 TenantId = entry.TenantId.Value,
@@ -175,7 +169,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = entry.AccountingBookType,
                 PeriodYear = entry.PeriodYear,
                 PeriodMonth = entry.PeriodMonth,
-                ReversalEntryId = entry.ReversalEntryId
+                ReversalEntryId = entry.ReversalEntryId,
+                TransactionDate = entry.TransactionDate
             };
         }
         catch (Exception ex)
@@ -185,12 +180,12 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<IEnumerable<AccountingEntry>> GetEntriesByTenantAsync(TenantId tenantId)
+    public async Task<IEnumerable<AccountingEntryDto>> GetEntriesByTenantAsync(TenantId tenantId)
     {
         try
         {
             var entries = await _repository.GetByTenantAsync(tenantId, CancellationToken.None);
-            return entries.Select(e => new AccountingEntry
+            return entries.Select(e => new AccountingEntryDto
             {
                 Id = e.Id,
                 TenantId = e.TenantId.Value,
@@ -201,7 +196,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = e.AccountingBookType,
                 PeriodYear = e.PeriodYear,
                 PeriodMonth = e.PeriodMonth,
-                ReversalEntryId = e.ReversalEntryId
+                ReversalEntryId = e.ReversalEntryId,
+                TransactionDate = e.TransactionDate
             });
         }
         catch (Exception ex)
@@ -211,12 +207,12 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<IEnumerable<AccountingEntry>> GetEntriesByTenantAndBookTypeAsync(TenantId tenantId, AccountingBookType bookType)
+    public async Task<IEnumerable<AccountingEntryDto>> GetEntriesByTenantAndBookTypeAsync(TenantId tenantId, AccountingBookType bookType)
     {
         try
         {
             var entries = await _repository.GetByTenantAndBookTypeAsync(tenantId, bookType, CancellationToken.None);
-            return entries.Select(e => new AccountingEntry
+            return entries.Select(e => new AccountingEntryDto
             {
                 Id = e.Id,
                 TenantId = e.TenantId.Value,
@@ -227,7 +223,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = e.AccountingBookType,
                 PeriodYear = e.PeriodYear,
                 PeriodMonth = e.PeriodMonth,
-                ReversalEntryId = e.ReversalEntryId
+                ReversalEntryId = e.ReversalEntryId,
+                TransactionDate = e.TransactionDate
             });
         }
         catch (Exception ex)
@@ -237,12 +234,12 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<IEnumerable<AccountingEntry>> GetEntriesByTenantAndPeriodAsync(TenantId tenantId, AccountingPeriod period)
+    public async Task<IEnumerable<AccountingEntryDto>> GetEntriesByTenantAndPeriodAsync(TenantId tenantId, AccountingPeriod period)
     {
         try
         {
             var entries = await _repository.GetByTenantAndPeriodAsync(tenantId, period, CancellationToken.None);
-            return entries.Select(e => new AccountingEntry
+            return entries.Select(e => new AccountingEntryDto
             {
                 Id = e.Id,
                 TenantId = e.TenantId.Value,
@@ -253,7 +250,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = e.AccountingBookType,
                 PeriodYear = e.PeriodYear,
                 PeriodMonth = e.PeriodMonth,
-                ReversalEntryId = e.ReversalEntryId
+                ReversalEntryId = e.ReversalEntryId,
+                TransactionDate = e.TransactionDate
             });
         }
         catch (Exception ex)
@@ -263,7 +261,7 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<AccountingEntry> CreateReversalEntryAsync(Guid originalEntryId, string reason, Guid tenantId)
+    public async Task<AccountingEntryDto> CreateReversalEntryAsync(Guid originalEntryId, string reason, Guid tenantId)
     {
         try
         {
@@ -284,14 +282,14 @@ public class AccountingEntryService : IAccountingService
             }
             
             // Create reversal entry using Factory
-            var reversalEntry = VanAn.Shared.Domain.AccountingEntryFactory.CreateReversal(originalEntry, reason);
+            var reversalEntry = CoreAccountingEntry.CreateReversal(originalEntry, reason);
             await _repository.AddAsync(reversalEntry, CancellationToken.None);
             
             _logger.LogInformation("Created reversal entry {ReversalId} for original entry {OriginalId}", 
                 reversalEntry.Id, originalEntryId);
             
-            // Convert back to shared domain for return
-            return new AccountingEntry
+            // Convert to DTO for return
+            return new AccountingEntryDto
             {
                 Id = reversalEntry.Id,
                 TenantId = reversalEntry.TenantId.Value,
@@ -302,7 +300,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = reversalEntry.AccountingBookType,
                 PeriodYear = reversalEntry.PeriodYear,
                 PeriodMonth = reversalEntry.PeriodMonth,
-                ReversalEntryId = reversalEntry.ReversalEntryId
+                ReversalEntryId = reversalEntry.ReversalEntryId,
+                TransactionDate = reversalEntry.TransactionDate
             };
         }
         catch (Exception ex)
@@ -312,7 +311,7 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<IEnumerable<AccountingEntry>> GetEntriesByDateRangeAsync(Guid tenantId, DateTime startDate, DateTime endDate)
+    public async Task<IEnumerable<AccountingEntryDto>> GetEntriesByDateRangeAsync(Guid tenantId, DateTime startDate, DateTime endDate)
     {
         try
         {
@@ -323,7 +322,7 @@ public class AccountingEntryService : IAccountingService
                 endDate, 
                 CancellationToken.None);
             
-            return entries.Select(e => new AccountingEntry
+            return entries.Select(e => new AccountingEntryDto
             {
                 Id = e.Id,
                 TenantId = e.TenantId.Value,
@@ -334,7 +333,8 @@ public class AccountingEntryService : IAccountingService
                 AccountingBookType = e.AccountingBookType,
                 PeriodYear = e.PeriodYear,
                 PeriodMonth = e.PeriodMonth,
-                ReversalEntryId = e.ReversalEntryId
+                ReversalEntryId = e.ReversalEntryId,
+                TransactionDate = e.TransactionDate
             });
         }
         catch (Exception ex)
@@ -345,7 +345,7 @@ public class AccountingEntryService : IAccountingService
         }
     }
     
-    public async Task<decimal> CalculateVatAsync(decimal revenue, VatRate vatRate)
+    public decimal CalculateVat(decimal revenue, VatRate vatRate)
     {
         try
         {

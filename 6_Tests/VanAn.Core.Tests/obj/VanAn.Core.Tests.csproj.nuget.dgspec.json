@@ -30,7 +30,6 @@
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "C:\\Program Files\\dotnet\\library-packs": {},
-          "C:\\VibeCoding\\Gemini_Windsurf\\VanAn.Accounting\\VanAn.Accounting.Analyzers\\bin\\Release": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -38,9 +37,6 @@
             "targetAlias": "net8.0",
             "projectReferences": {}
           }
-        },
-        "warningProperties": {
-          "allWarningsAsErrors": true
         }
       },
       "frameworks": {
@@ -64,32 +60,32 @@
             },
             "Microsoft.Extensions.Caching.Abstractions": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.DependencyInjection.Abstractions": {
               "target": "Package",
-              "version": "[8.0.1, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Hosting": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Hosting.Abstractions": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Http": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Logging.Abstractions": {
               "target": "Package",
-              "version": "[8.0.1, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Serilog.Extensions.Hosting": {
@@ -114,14 +110,31 @@
             },
             "System.Text.Json": {
               "target": "Package",
-              "version": "[8.0.5, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             }
           },
           "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
             "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
             "FluentAssertions": "[6.12.0, )",
-            "Microsoft.AspNetCore.Http.Abstractions": "[2.2.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
             "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
             "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
             "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
@@ -137,25 +150,27 @@
             "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
-            "Microsoft.Extensions.Caching.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.1, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Http": "[8.0.0, )",
-            "Microsoft.Extensions.Logging": "[8.0.0, )",
-            "Microsoft.Extensions.Logging.Abstractions": "[8.0.1, )",
-            "Microsoft.Extensions.Logging.Debug": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
             "Microsoft.Maui.Controls": "[8.0.14, )",
             "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
             "Microsoft.NET.Test.Sdk": "[17.10.0, )",
             "Microsoft.Playwright": "[1.50.0, )",
             "Microsoft.Playwright.xUnit": "[1.50.0, )",
             "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
             "NBomber": "[6.0.0, )",
             "NBomber.Contracts": "[6.0.0, )",
             "NBomber.Http": "[6.0.0, )",
@@ -170,10 +185,11 @@
             "Serilog.Sinks.File": "[6.0.0, )",
             "Serilog.Sinks.Seq": "[8.0.0, )",
             "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
-            "System.Text.Json": "[8.0.5, )",
-            "VanAn.Accounting.Analyzers": "[1.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
             "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },
@@ -223,7 +239,6 @@
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "C:\\Program Files\\dotnet\\library-packs": {},
-          "C:\\VibeCoding\\Gemini_Windsurf\\VanAn.Accounting\\VanAn.Accounting.Analyzers\\bin\\Release": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -238,9 +253,6 @@
               }
             }
           }
-        },
-        "warningProperties": {
-          "allWarningsAsErrors": true
         }
       },
       "frameworks": {
@@ -269,9 +281,26 @@
             }
           },
           "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
             "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
             "FluentAssertions": "[6.12.0, )",
-            "Microsoft.AspNetCore.Http.Abstractions": "[2.2.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
             "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
             "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
             "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
@@ -287,25 +316,27 @@
             "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
-            "Microsoft.Extensions.Caching.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.1, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Http": "[8.0.0, )",
-            "Microsoft.Extensions.Logging": "[8.0.0, )",
-            "Microsoft.Extensions.Logging.Abstractions": "[8.0.1, )",
-            "Microsoft.Extensions.Logging.Debug": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
             "Microsoft.Maui.Controls": "[8.0.14, )",
             "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
             "Microsoft.NET.Test.Sdk": "[17.10.0, )",
             "Microsoft.Playwright": "[1.50.0, )",
             "Microsoft.Playwright.xUnit": "[1.50.0, )",
             "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
             "NBomber": "[6.0.0, )",
             "NBomber.Contracts": "[6.0.0, )",
             "NBomber.Http": "[6.0.0, )",
@@ -320,10 +351,11 @@
             "Serilog.Sinks.File": "[6.0.0, )",
             "Serilog.Sinks.Seq": "[8.0.0, )",
             "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
-            "System.Text.Json": "[8.0.5, )",
-            "VanAn.Accounting.Analyzers": "[1.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
             "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },
@@ -376,7 +408,6 @@
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "C:\\Program Files\\dotnet\\library-packs": {},
-          "C:\\VibeCoding\\Gemini_Windsurf\\VanAn.Accounting\\VanAn.Accounting.Analyzers\\bin\\Release": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -416,9 +447,14 @@
               "version": "[8.0.8, )",
               "versionCentrallyManaged": true
             },
+            "Microsoft.Extensions.Caching.Memory": {
+              "target": "Package",
+              "version": "[9.0.3, )",
+              "versionCentrallyManaged": true
+            },
             "Microsoft.Extensions.DependencyInjection": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": {
@@ -426,9 +462,24 @@
               "version": "[8.0.0, )",
               "versionCentrallyManaged": true
             },
+            "Microsoft.Extensions.Hosting": {
+              "target": "Package",
+              "version": "[9.0.3, )",
+              "versionCentrallyManaged": true
+            },
             "Microsoft.Extensions.Logging.Abstractions": {
               "target": "Package",
-              "version": "[8.0.1, )",
+              "version": "[9.0.3, )",
+              "versionCentrallyManaged": true
+            },
+            "Moq": {
+              "target": "Package",
+              "version": "[4.20.70, )",
+              "versionCentrallyManaged": true
+            },
+            "NATS.Client": {
+              "target": "Package",
+              "version": "[1.1.6, )",
               "versionCentrallyManaged": true
             },
             "Newtonsoft.Json": {
@@ -448,14 +499,31 @@
             },
             "System.Text.Json": {
               "target": "Package",
-              "version": "[8.0.5, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             }
           },
           "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
             "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
             "FluentAssertions": "[6.12.0, )",
-            "Microsoft.AspNetCore.Http.Abstractions": "[2.2.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
             "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
             "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
             "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
@@ -471,25 +539,27 @@
             "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
-            "Microsoft.Extensions.Caching.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.1, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Http": "[8.0.0, )",
-            "Microsoft.Extensions.Logging": "[8.0.0, )",
-            "Microsoft.Extensions.Logging.Abstractions": "[8.0.1, )",
-            "Microsoft.Extensions.Logging.Debug": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
             "Microsoft.Maui.Controls": "[8.0.14, )",
             "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
             "Microsoft.NET.Test.Sdk": "[17.10.0, )",
             "Microsoft.Playwright": "[1.50.0, )",
             "Microsoft.Playwright.xUnit": "[1.50.0, )",
             "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
             "NBomber": "[6.0.0, )",
             "NBomber.Contracts": "[6.0.0, )",
             "NBomber.Http": "[6.0.0, )",
@@ -504,10 +574,11 @@
             "Serilog.Sinks.File": "[6.0.0, )",
             "Serilog.Sinks.Seq": "[8.0.0, )",
             "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
-            "System.Text.Json": "[8.0.5, )",
-            "VanAn.Accounting.Analyzers": "[1.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
             "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },
@@ -523,6 +594,387 @@
           "assetTargetFallback": true,
           "warn": true,
           "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\VanAn.KhachLink.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\VanAn.KhachLink.csproj",
+        "projectName": "VanAn.KhachLink",
+        "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\VanAn.KhachLink.csproj",
+        "packagesPath": "C:\\Users\\lebao\\.nuget\\packages",
+        "outputPath": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\VibeCoding\\Gemini_Windsurf\\NuGet.Config",
+          "C:\\Users\\lebao\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\VibeCoding\\Gemini_Windsurf\\1_Shared\\VanAn.Shared.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\1_Shared\\VanAn.Shared.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\3_CoreHub\\VanAn.CoreHub.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\3_CoreHub\\VanAn.CoreHub.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj"
+              }
+            }
+          }
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.Components": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.Authorization": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.Web": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Serilog.AspNetCore": {
+              "target": "Package",
+              "version": "[8.0.0, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
+            "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
+            "FluentAssertions": "[6.12.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
+            "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
+            "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
+            "Microsoft.AspNetCore.SignalR.Client": "[8.0.8, )",
+            "Microsoft.AspNetCore.SignalR.Protocols.Json": "[8.0.8, )",
+            "Microsoft.CodeAnalysis": "[4.8.0, )",
+            "Microsoft.CodeAnalysis.Analyzers": "[3.3.4, )",
+            "Microsoft.CodeAnalysis.CSharp": "[4.8.0, )",
+            "Microsoft.Data.Sqlite": "[8.0.7, )",
+            "Microsoft.EntityFrameworkCore": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Design": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.InMemory": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
+            "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
+            "Microsoft.Maui.Controls": "[8.0.14, )",
+            "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
+            "Microsoft.NET.Test.Sdk": "[17.10.0, )",
+            "Microsoft.Playwright": "[1.50.0, )",
+            "Microsoft.Playwright.xUnit": "[1.50.0, )",
+            "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
+            "NBomber": "[6.0.0, )",
+            "NBomber.Contracts": "[6.0.0, )",
+            "NBomber.Http": "[6.0.0, )",
+            "NetArchTest.Rules": "[1.3.2, )",
+            "Newtonsoft.Json": "[13.0.3, )",
+            "Npgsql": "[8.0.8, )",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "[8.0.8, )",
+            "Serilog": "[4.2.0, )",
+            "Serilog.AspNetCore": "[8.0.0, )",
+            "Serilog.Extensions.Hosting": "[8.0.0, )",
+            "Serilog.Sinks.Console": "[6.0.0, )",
+            "Serilog.Sinks.File": "[6.0.0, )",
+            "Serilog.Sinks.Seq": "[8.0.0, )",
+            "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
+            "System.Net.Http.Json": "[8.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
+            "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
+            "xunit.runner.visualstudio": "[2.5.7, )",
+            "Yarp.ReverseProxy": "[2.3.0, )"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\VanAn.ShopERP.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\VanAn.ShopERP.csproj",
+        "projectName": "VanAn.ShopERP",
+        "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\VanAn.ShopERP.csproj",
+        "packagesPath": "C:\\Users\\lebao\\.nuget\\packages",
+        "outputPath": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\VibeCoding\\Gemini_Windsurf\\NuGet.Config",
+          "C:\\Users\\lebao\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\VibeCoding\\Gemini_Windsurf\\1_Shared\\VanAn.Shared.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\1_Shared\\VanAn.Shared.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\3_CoreHub\\VanAn.CoreHub.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\3_CoreHub\\VanAn.CoreHub.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj"
+              }
+            }
+          }
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.Authentication.Cookies": {
+              "target": "Package",
+              "version": "[2.3.9, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.Authorization": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.EntityFrameworkCore.Sqlite": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.Extensions.Http": {
+              "target": "Package",
+              "version": "[9.0.3, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
+            "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
+            "FluentAssertions": "[6.12.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
+            "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
+            "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
+            "Microsoft.AspNetCore.SignalR.Client": "[8.0.8, )",
+            "Microsoft.AspNetCore.SignalR.Protocols.Json": "[8.0.8, )",
+            "Microsoft.CodeAnalysis": "[4.8.0, )",
+            "Microsoft.CodeAnalysis.Analyzers": "[3.3.4, )",
+            "Microsoft.CodeAnalysis.CSharp": "[4.8.0, )",
+            "Microsoft.Data.Sqlite": "[8.0.7, )",
+            "Microsoft.EntityFrameworkCore": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Design": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.InMemory": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
+            "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
+            "Microsoft.Maui.Controls": "[8.0.14, )",
+            "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
+            "Microsoft.NET.Test.Sdk": "[17.10.0, )",
+            "Microsoft.Playwright": "[1.50.0, )",
+            "Microsoft.Playwright.xUnit": "[1.50.0, )",
+            "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
+            "NBomber": "[6.0.0, )",
+            "NBomber.Contracts": "[6.0.0, )",
+            "NBomber.Http": "[6.0.0, )",
+            "NetArchTest.Rules": "[1.3.2, )",
+            "Newtonsoft.Json": "[13.0.3, )",
+            "Npgsql": "[8.0.8, )",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "[8.0.8, )",
+            "Serilog": "[4.2.0, )",
+            "Serilog.AspNetCore": "[8.0.0, )",
+            "Serilog.Extensions.Hosting": "[8.0.0, )",
+            "Serilog.Sinks.Console": "[6.0.0, )",
+            "Serilog.Sinks.File": "[6.0.0, )",
+            "Serilog.Sinks.Seq": "[8.0.0, )",
+            "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
+            "System.Net.Http.Json": "[8.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
+            "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
+            "xunit.runner.visualstudio": "[2.5.7, )",
+            "Yarp.ReverseProxy": "[2.3.0, )"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
@@ -557,7 +1009,6 @@
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "C:\\Program Files\\dotnet\\library-packs": {},
-          "C:\\VibeCoding\\Gemini_Windsurf\\VanAn.Accounting\\VanAn.Accounting.Analyzers\\bin\\Release": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -572,12 +1023,20 @@
               },
               "C:\\VibeCoding\\Gemini_Windsurf\\3_CoreHub\\VanAn.CoreHub.csproj": {
                 "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\3_CoreHub\\VanAn.CoreHub.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\VanAn.KhachLink.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\VanAn.KhachLink.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\VanAn.ShopERP.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\VanAn.ShopERP.csproj"
+              },
+              "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj"
               }
             }
           }
         },
         "warningProperties": {
-          "allWarningsAsErrors": true,
           "warnAsError": [
             "NU1605"
           ]
@@ -594,7 +1053,7 @@
             },
             "Microsoft.AspNetCore.Http.Abstractions": {
               "target": "Package",
-              "version": "[2.2.0, )",
+              "version": "[2.3.0, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.AspNetCore.Mvc": {
@@ -619,22 +1078,22 @@
             },
             "Microsoft.Extensions.Configuration": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Configuration.Abstractions": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Logging": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Logging.Abstractions": {
               "target": "Package",
-              "version": "[8.0.1, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.NET.Test.Sdk": {
@@ -652,6 +1111,30 @@
               "version": "[8.0.8, )",
               "versionCentrallyManaged": true
             },
+            "System.Data.SQLite": {
+              "target": "Package",
+              "version": "[1.0.118, )",
+              "versionCentrallyManaged": true
+            },
+            "bunit": {
+              "target": "Package",
+              "version": "[1.28.9, )",
+              "versionCentrallyManaged": true
+            },
+            "coverlet.collector": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[6.0.0, )",
+              "versionCentrallyManaged": true
+            },
+            "coverlet.msbuild": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[6.0.0, )",
+              "versionCentrallyManaged": true
+            },
             "xunit": {
               "target": "Package",
               "version": "[2.7.0, )",
@@ -666,9 +1149,26 @@
             }
           },
           "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
             "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
             "FluentAssertions": "[6.12.0, )",
-            "Microsoft.AspNetCore.Http.Abstractions": "[2.2.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
             "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
             "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
             "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
@@ -684,25 +1184,27 @@
             "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
-            "Microsoft.Extensions.Caching.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.1, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Http": "[8.0.0, )",
-            "Microsoft.Extensions.Logging": "[8.0.0, )",
-            "Microsoft.Extensions.Logging.Abstractions": "[8.0.1, )",
-            "Microsoft.Extensions.Logging.Debug": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
             "Microsoft.Maui.Controls": "[8.0.14, )",
             "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
             "Microsoft.NET.Test.Sdk": "[17.10.0, )",
             "Microsoft.Playwright": "[1.50.0, )",
             "Microsoft.Playwright.xUnit": "[1.50.0, )",
             "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
             "NBomber": "[6.0.0, )",
             "NBomber.Contracts": "[6.0.0, )",
             "NBomber.Http": "[6.0.0, )",
@@ -717,10 +1219,174 @@
             "Serilog.Sinks.File": "[6.0.0, )",
             "Serilog.Sinks.Seq": "[8.0.0, )",
             "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
-            "System.Text.Json": "[8.0.5, )",
-            "VanAn.Accounting.Analyzers": "[1.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
             "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
+            "xunit.runner.visualstudio": "[2.5.7, )",
+            "Yarp.ReverseProxy": "[2.3.0, )"
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj",
+        "projectName": "VanAn.UI.Platform",
+        "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj",
+        "packagesPath": "C:\\Users\\lebao\\.nuget\\packages",
+        "outputPath": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\obj\\",
+        "projectStyle": "PackageReference",
+        "centralPackageVersionsManagementEnabled": true,
+        "CentralPackageTransitivePinningEnabled": true,
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\VibeCoding\\Gemini_Windsurf\\NuGet.Config",
+          "C:\\Users\\lebao\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "C:\\VibeCoding\\Gemini_Windsurf\\1_Shared\\VanAn.Shared.csproj": {
+                "projectPath": "C:\\VibeCoding\\Gemini_Windsurf\\1_Shared\\VanAn.Shared.csproj"
+              }
+            }
+          }
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.AspNetCore.Components": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.Authorization": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.Forms": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            },
+            "Microsoft.AspNetCore.Components.Web": {
+              "target": "Package",
+              "version": "[8.0.8, )",
+              "versionCentrallyManaged": true
+            }
+          },
+          "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
+            "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
+            "FluentAssertions": "[6.12.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
+            "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
+            "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
+            "Microsoft.AspNetCore.SignalR.Client": "[8.0.8, )",
+            "Microsoft.AspNetCore.SignalR.Protocols.Json": "[8.0.8, )",
+            "Microsoft.CodeAnalysis": "[4.8.0, )",
+            "Microsoft.CodeAnalysis.Analyzers": "[3.3.4, )",
+            "Microsoft.CodeAnalysis.CSharp": "[4.8.0, )",
+            "Microsoft.Data.Sqlite": "[8.0.7, )",
+            "Microsoft.EntityFrameworkCore": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Design": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.InMemory": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
+            "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
+            "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
+            "Microsoft.Maui.Controls": "[8.0.14, )",
+            "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
+            "Microsoft.NET.Test.Sdk": "[17.10.0, )",
+            "Microsoft.Playwright": "[1.50.0, )",
+            "Microsoft.Playwright.xUnit": "[1.50.0, )",
+            "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
+            "NBomber": "[6.0.0, )",
+            "NBomber.Contracts": "[6.0.0, )",
+            "NBomber.Http": "[6.0.0, )",
+            "NetArchTest.Rules": "[1.3.2, )",
+            "Newtonsoft.Json": "[13.0.3, )",
+            "Npgsql": "[8.0.8, )",
+            "Npgsql.EntityFrameworkCore.PostgreSQL": "[8.0.8, )",
+            "Serilog": "[4.2.0, )",
+            "Serilog.AspNetCore": "[8.0.0, )",
+            "Serilog.Extensions.Hosting": "[8.0.0, )",
+            "Serilog.Sinks.Console": "[6.0.0, )",
+            "Serilog.Sinks.File": "[6.0.0, )",
+            "Serilog.Sinks.Seq": "[8.0.0, )",
+            "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
+            "System.Net.Http.Json": "[8.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
+            "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },
@@ -770,7 +1436,6 @@
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "C:\\Program Files\\dotnet\\library-packs": {},
-          "C:\\VibeCoding\\Gemini_Windsurf\\VanAn.Accounting\\VanAn.Accounting.Analyzers\\bin\\Release": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -835,17 +1500,17 @@
             },
             "Microsoft.Extensions.DependencyInjection.Abstractions": {
               "target": "Package",
-              "version": "[8.0.1, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Logging": {
               "target": "Package",
-              "version": "[8.0.0, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Microsoft.Extensions.Logging.Abstractions": {
               "target": "Package",
-              "version": "[8.0.1, )",
+              "version": "[9.0.3, )",
               "versionCentrallyManaged": true
             },
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
@@ -855,9 +1520,26 @@
             }
           },
           "centralPackageVersions": {
+            "bunit": "[1.28.9, )",
             "coverlet.collector": "[6.0.0, )",
+            "coverlet.msbuild": "[6.0.0, )",
             "FluentAssertions": "[6.12.0, )",
-            "Microsoft.AspNetCore.Http.Abstractions": "[2.2.0, )",
+            "Microsoft.AspNetCore.Authentication": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.Cookies": "[2.3.9, )",
+            "Microsoft.AspNetCore.Authentication.Core": "[2.3.0, )",
+            "Microsoft.AspNetCore.Authentication.OpenIdConnect": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Authorization": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Forms": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Server": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.Web": "[8.0.8, )",
+            "Microsoft.AspNetCore.Components.WebAssembly.Authentication": "[8.0.8, )",
+            "Microsoft.AspNetCore.DataProtection": "[2.3.0, )",
+            "Microsoft.AspNetCore.Hosting.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Abstractions": "[2.3.0, )",
+            "Microsoft.AspNetCore.Http.Extensions": "[2.3.0, )",
             "Microsoft.AspNetCore.Mvc": "[2.2.0, )",
             "Microsoft.AspNetCore.Mvc.Testing": "[8.0.8, )",
             "Microsoft.AspNetCore.OpenApi": "[8.0.0, )",
@@ -873,25 +1555,27 @@
             "Microsoft.EntityFrameworkCore.Relational": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Sqlite": "[8.0.8, )",
             "Microsoft.EntityFrameworkCore.Tools": "[8.0.8, )",
-            "Microsoft.Extensions.Caching.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration": "[8.0.0, )",
-            "Microsoft.Extensions.Configuration.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection": "[8.0.0, )",
-            "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.1, )",
+            "Microsoft.Extensions.Caching.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Caching.Memory": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration": "[9.0.3, )",
+            "Microsoft.Extensions.Configuration.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection": "[9.0.3, )",
+            "Microsoft.Extensions.DependencyInjection.Abstractions": "[9.0.3, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.0, )",
             "Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting": "[8.0.0, )",
-            "Microsoft.Extensions.Hosting.Abstractions": "[8.0.0, )",
-            "Microsoft.Extensions.Http": "[8.0.0, )",
-            "Microsoft.Extensions.Logging": "[8.0.0, )",
-            "Microsoft.Extensions.Logging.Abstractions": "[8.0.1, )",
-            "Microsoft.Extensions.Logging.Debug": "[8.0.0, )",
+            "Microsoft.Extensions.Hosting": "[9.0.3, )",
+            "Microsoft.Extensions.Hosting.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Http": "[9.0.3, )",
+            "Microsoft.Extensions.Logging": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Abstractions": "[9.0.3, )",
+            "Microsoft.Extensions.Logging.Debug": "[9.0.3, )",
             "Microsoft.Maui.Controls": "[8.0.14, )",
             "Microsoft.Maui.Controls.Compatibility": "[8.0.14, )",
             "Microsoft.NET.Test.Sdk": "[17.10.0, )",
             "Microsoft.Playwright": "[1.50.0, )",
             "Microsoft.Playwright.xUnit": "[1.50.0, )",
             "Moq": "[4.20.70, )",
+            "NATS.Client": "[1.1.6, )",
             "NBomber": "[6.0.0, )",
             "NBomber.Contracts": "[6.0.0, )",
             "NBomber.Http": "[6.0.0, )",
@@ -906,10 +1590,11 @@
             "Serilog.Sinks.File": "[6.0.0, )",
             "Serilog.Sinks.Seq": "[8.0.0, )",
             "Swashbuckle.AspNetCore": "[6.5.0, )",
+            "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
-            "System.Text.Json": "[8.0.5, )",
-            "VanAn.Accounting.Analyzers": "[1.0.0, )",
+            "System.Text.Json": "[9.0.3, )",
             "xunit": "[2.7.0, )",
+            "xunit.extensibility.core": "[2.7.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },

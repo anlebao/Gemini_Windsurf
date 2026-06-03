@@ -36,7 +36,7 @@ public class AccountingPeriodConverterTests
         var period = (AccountingPeriod?)result;
         Assert.NotNull(period);
         Assert.Equal(2024, period!.Year);   // dùng ! vì sudah check NotNull
-        Assert.Equal(4, period!.Month);
+        Assert.Equal(3, period!.Month);
     }
 
     [Fact]

@@ -2,9 +2,11 @@
 @using VanAn.Shared.Extensions
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components.Shared
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
 @using System.Globalization
 
-<section id="vibe-product-grid" class="vibe-product-grid-section">
+<VanAnCard CssClass="product-grid-container" Shadow="false">
     <div class="container">
         <h2 class="section-title text-center mb-4">🍹 Thực đơn đặc sắc</h2>
         
@@ -19,22 +21,25 @@
                             @foreach (var product in Products ?? new List<CartItem>())
                             {
                                 <div class="col-md-6 col-lg-4" key="@product.Id">
-                                    <div class="teen-card">
+                                    <VanAnCard CssClass="teen-card" Shadow="true" Hoverable="true">
                                         <div class="teen-image">
-                                            <img src="/images/teen-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                            <img src="/images/teen-product.jpg" alt="@(product?.ProductName ?? "Sản phẩm")" />
                                             <div class="teen-overlay">
                                                 <span class="teen-badge">HOT</span>
                                             </div>
                                         </div>
                                         <div class="teen-content">
-                                            <h4 class="neon-text">@(product?.Name ?? "Sản phẩm")</h4>
+                                            <h4 class="neon-text">@(product?.ProductName ?? "Sản phẩm")</h4>
                                             <p class="teen-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                             <div class="teen-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</div>
-                                            <button class="teen-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                <span>ADD TO CART</span>
-                                            </button>
+                                            <VanAnButton Variant="ButtonVariant.Primary" 
+                                                       Size="ButtonSize.Medium"
+                                                       FullWidth="true"
+                                                       OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
+                                                ADD TO CART
+                                            </VanAnButton>
                                         </div>
-                                    </div>
+                                    </VanAnCard>
                                 </div>
                             }
                         </div>
@@ -47,19 +52,21 @@
                             @foreach (var product in Products ?? new List<CartItem>())
                             {
                                 <div class="col-md-6 col-lg-4" key="@product.Id">
-                                    <div class="lady-card">
+                                    <VanAnCard CssClass="lady-card" Shadow="true">
                                         <div class="lady-header">
-                                            <h4 class="elegant-title">@(product?.Name ?? "Sản phẩm")</h4>
+                                            <h4 class="elegant-title">@(product?.ProductName ?? "Sản phẩm")</h4>
                                             <div class="lady-icon">🌸</div>
                                         </div>
                                         <p class="lady-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                         <div class="lady-footer">
                                             <span class="lady-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
-                                            <button class="lady-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                <span>Thêm vào giỏ</span>
-                                            </button>
+                                            <VanAnButton Variant="ButtonVariant.Secondary" 
+                                                       Size="ButtonSize.Small"
+                                                       OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
+                                                Thêm vào giỏ
+                                            </VanAnButton>
                                         </div>
-                                    </div>
+                                    </VanAnCard>
                                 </div>
                             }
                         </div>
@@ -72,18 +79,20 @@
                             @foreach (var product in Products ?? new List<CartItem>())
                             {
                                 <div class="col-md-6 mb-4" key="@product.Id">
-                                    <div class="classic-card">
+                                    <VanAnCard CssClass="classic-card" Shadow="true">
                                         <div class="classic-row">
                                             <div class="classic-info">
-                                                <h4>@(product?.Name ?? "Sản phẩm")</h4>
+                                                <h4>@(product?.ProductName ?? "Sản phẩm")</h4>
                                                 <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
                                                 <span class="classic-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
                                             </div>
-                                            <button class="classic-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
+                                            <VanAnButton Variant="ButtonVariant.Primary" 
+                                                       Size="ButtonSize.Small"
+                                                       OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 Đặt hàng
-                                            </button>
+                                            </VanAnButton>
                                         </div>
-                                    </div>
+                                    </VanAnCard>
                                 </div>
                             }
                         </div>
@@ -94,23 +103,29 @@
                     <div class="premium-vibe">
                         @foreach (var product in Products ?? new List<CartItem>())
                         {
-                            <div class="premium-card mb-4" key="@product.Id">
-                                <div class="premium-image">
-                                    <img src="/images/premium-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
-                                </div>
-                                <div class="premium-content">
-                                    <div class="premium-header">
-                                        <h3 class="premium-title">@(product?.Name ?? "Sản phẩm")</h3>
-                                        <div class="premium-badge">PREMIUM</div>
+                            <div class="premium-card-wrapper mb-4" key="@product.Id">
+                                <VanAnCard CssClass="premium-card" Shadow="true">
+                                    <div class="premium-layout">
+                                        <div class="premium-image">
+                                            <img src="/images/premium-product.jpg" alt="@(product?.ProductName ?? "Sản phẩm")" />
+                                        </div>
+                                        <div class="premium-content">
+                                            <div class="premium-header">
+                                                <h3 class="premium-title">@(product?.ProductName ?? "Sản phẩm")</h3>
+                                                <div class="premium-badge">PREMIUM</div>
+                                            </div>
+                                            <p class="premium-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                            <div class="premium-footer">
+                                                <span class="premium-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                                <VanAnButton Variant="ButtonVariant.Success" 
+                                                           Size="ButtonSize.Large"
+                                                           OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
+                                                    Đặt ngay
+                                                </VanAnButton>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p class="premium-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
-                                    <div class="premium-footer">
-                                        <span class="premium-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
-                                        <button class="premium-btn" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                            <span>Đặt ngay</span>
-                                        </button>
-                                    </div>
-                                </div>
+                                </VanAnCard>
                             </div>
                         }
                     </div>
@@ -119,29 +134,32 @@
         }
         else
         {
-            // Default fallback
+            // Default fallback using UI Platform
             <div class="default-vibe">
                 <div class="row">
                     @foreach (var product in Products ?? new List<CartItem>())
                     {
                         <div class="col-md-4 mb-3" key="@product.Id">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5>@(product?.Name ?? "Sản phẩm")</h5>
+                            <VanAnCard CssClass="product-card" Shadow="true">
+                                <div class="product-info">
+                                    <h5>@(product?.ProductName ?? "Sản phẩm")</h5>
                                     <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
-                                    <p><strong>@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</strong></p>
-                                    <button class="btn btn-primary" @onclick="() => { if (product is not null) AddToCart?.Invoke(product); }">
+                                    <p class="product-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</p>
+                                    <VanAnButton Variant="ButtonVariant.Primary" 
+                                               Size="ButtonSize.Medium"
+                                               FullWidth="true"
+                                               OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                         Thêm vào giỏ
-                                    </button>
+                                    </VanAnButton>
                                 </div>
-                            </div>
+                            </VanAnCard>
                         </div>
                     }
                 </div>
             </div>
         }
     </div>
-</section>
+</VanAnCard>
 
 <style>
     /* Teen Theme Styles */

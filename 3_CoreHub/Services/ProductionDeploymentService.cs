@@ -34,6 +34,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<DeploymentResult> DeployToProductionAsync(DeploymentRequest request, string deployedBy)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Starting deployment of version {Version} to environment {Environment} by {DeployedBy}", 
@@ -141,6 +142,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<DeploymentStatus> GetDeploymentStatusAsync(string environment)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting deployment status for environment {Environment}", environment);
@@ -177,6 +179,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<HealthCheckResult> PerformHealthCheckAsync(string environment, bool includeDependencies = true)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Performing health check for environment {Environment}", environment);
@@ -312,6 +315,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<SystemMetrics> GetSystemMetricsAsync(string environment, TimeSpan? lookbackPeriod = null)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting system metrics for environment {Environment}", environment);
@@ -461,6 +465,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<ScalingResult> ScaleServicesAsync(ScalingRequest request, string environment)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Scaling services in environment {Environment} with strategy {Strategy}", 
@@ -529,6 +534,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<RollbackResult> RollbackDeploymentAsync(string environment, string targetVersion, string requestedBy)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Rollback deployment in environment {Environment} to version {Version} requested by {RequestedBy}", 
@@ -607,6 +613,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     public async Task<List<DeploymentHistoryEntry>> GetDeploymentHistoryAsync(string environment, DateTime? from = null, DateTime? to = null)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting deployment history for environment {Environment}", environment);
@@ -638,8 +645,9 @@ public class ProductionDeploymentService : IProductionDeploymentService
         }
     }
 
-    public async Task<ValidationResult> ValidateDeploymentPrerequisitesAsync(string environment, DeploymentRequest request)
+    public async Task<VanAn.Shared.Omnichannel.ValidationResult> ValidateDeploymentPrerequisitesAsync(string environment, DeploymentRequest request)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Validating deployment prerequisites for environment {Environment}", environment);
@@ -734,7 +742,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
             var isValid = issues.Count == 0;
 
-            var result = new ValidationResult
+            var result = new VanAn.Shared.Omnichannel.ValidationResult
             {
                 IsValid = isValid,
                 Issues = issues,
@@ -804,8 +812,8 @@ public class ProductionDeploymentService : IProductionDeploymentService
                 updatedSettings.Add("FeatureFlags");
 
                 // Restart services if needed
-                if (configuration.AppSettings.ContainsKey("RestartRequired") && 
-                    bool.Parse(configuration.AppSettings["RestartRequired"]))
+                if (configuration.AppSettings.TryGetValue("RestartRequired", out var restartRequired) && 
+                    bool.Parse(restartRequired))
                 {
                     restartedServices.Add("OmnichannelOrderService");
                     restartedServices.Add("RealTimeSyncService");
@@ -956,8 +964,8 @@ public class ProductionDeploymentService : IProductionDeploymentService
                 SuccessfulRequests = successfulRequests,
                 FailedRequests = failedRequests,
                 SuccessRate = totalRequests > 0 ? (decimal)successfulRequests / totalRequests : 0,
-                AverageResponseTime = serviceResults.Any() ? serviceResults.Average(sr => sr.AverageResponseTime) : 0,
-                P95ResponseTime = serviceResults.Any() ? serviceResults.Max(sr => sr.P95ResponseTime) : 0,
+                AverageResponseTime = serviceResults.Count > 0 ? serviceResults.Average(sr => sr.AverageResponseTime) : 0,
+                P95ResponseTime = serviceResults.Count > 0 ? serviceResults.Max(sr => sr.P95ResponseTime) : 0,
                 RequestsPerSecond = request.RequestsPerSecond,
                 Throughput = totalRequests > 0 ? (decimal)successfulRequests / (decimal)request.Duration.TotalSeconds : 0,
                 ErrorRate = totalRequests > 0 ? (decimal)failedRequests / totalRequests : 0,
@@ -1039,7 +1047,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
                 SuccessfulDeployments = successfulDeployments,
                 FailedDeployments = failedDeployments,
                 SuccessRate = totalDeployments > 0 ? (decimal)successfulDeployments / totalDeployments : 0,
-                AverageDeploymentTime = history.Any() ? TimeSpan.FromTicks((long)history.Average(h => h.DeploymentDuration.Ticks)) : TimeSpan.Zero,
+                AverageDeploymentTime = history.Count > 0 ? TimeSpan.FromTicks((long)history.Average(h => h.DeploymentDuration.Ticks)) : TimeSpan.Zero,
                 AverageRollbackTime = TimeSpan.FromMinutes(8), // Simulated
                 DeploymentsByService = deploymentsByService,
                 DeploymentsByDay = deploymentsByDay,
@@ -1048,7 +1056,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
                 DeploymentTrends = GenerateDeploymentTrends(history),
                 PerformanceMetrics = new Dictionary<string, object>
                 {
-                    ["AverageDeploymentDuration"] = history.Any() ? history.Average(h => h.DeploymentDuration.TotalSeconds) : 0,
+                    ["AverageDeploymentDuration"] = history.Count > 0 ? history.Average(h => h.DeploymentDuration.TotalSeconds) : 0,
                     ["AverageRollbackDuration"] = 480,
                     ["DeploymentSuccessRate"] = totalDeployments > 0 ? (decimal)successfulDeployments / totalDeployments : 0,
                     ["MeanTimeToRecovery"] = 300
@@ -1163,7 +1171,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         }
     }
 
-    private EnvironmentConfiguration GetDefaultEnvironmentConfiguration(string environment)
+    private static EnvironmentConfiguration GetDefaultEnvironmentConfiguration(string environment)
     {
         return new EnvironmentConfiguration
         {
@@ -1222,7 +1230,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<ServiceDeploymentResult> DeployServiceAsync(string serviceName, DeploymentRequest request, string deployedBy)
+    private static async Task<ServiceDeploymentResult> DeployServiceAsync(string serviceName, DeploymentRequest request, string deployedBy)
     {
         // Simulate service deployment
         await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(2, 5)));
@@ -1242,7 +1250,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<ServiceHealthCheck> CheckServiceHealthAsync(string serviceName, string environment)
+    private static async Task<ServiceHealthCheck> CheckServiceHealthAsync(string serviceName, string environment)
     {
         // Simulate health check
         await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(10, 100)));
@@ -1266,7 +1274,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<DependencyHealthCheck> CheckDependencyHealthAsync(ServiceDependency dependency)
+    private static async Task<DependencyHealthCheck> CheckDependencyHealthAsync(ServiceDependency dependency)
     {
         // Simulate dependency health check
         await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(5, 50)));
@@ -1286,7 +1294,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<InfrastructureHealthCheck> CheckInfrastructureHealthAsync(string componentName, InfrastructureComponent type)
+    private static async Task<InfrastructureHealthCheck> CheckInfrastructureHealthAsync(string componentName, InfrastructureComponent type)
     {
         // Simulate infrastructure health check
         await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(10, 50)));
@@ -1304,7 +1312,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<ServiceScalingResult> ScaleServiceAsync(ServiceScalingRequest request, string environment)
+    private static async Task<ServiceScalingResult> ScaleServiceAsync(ServiceScalingRequest request, string environment)
     {
         // Simulate service scaling
         await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(1, 3)));
@@ -1322,7 +1330,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<ServiceRollbackResult> RollbackServiceAsync(string serviceName, string fromVersion, string toVersion, string environment)
+    private static async Task<ServiceRollbackResult> RollbackServiceAsync(string serviceName, string fromVersion, string toVersion, string environment)
     {
         // Simulate service rollback
         await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(2, 4)));
@@ -1341,7 +1349,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         };
     }
 
-    private async Task<ServiceLoadTestResult> PerformServiceLoadTestAsync(string serviceName, LoadTestRequest request)
+    private static async Task<ServiceLoadTestResult> PerformServiceLoadTestAsync(string serviceName, LoadTestRequest request)
     {
         // Simulate service load test
         await Task.Delay(TimeSpan.FromMilliseconds(Random.Shared.Next(100, 500)));
@@ -1399,6 +1407,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     private async Task UpdateDeploymentStatusAfterRollbackAsync(string environment, string targetVersion)
     {
+        await Task.CompletedTask;
         if (_deploymentStatuses.TryGetValue(environment, out var status))
         {
             var updatedStatus = status with
@@ -1414,6 +1423,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
 
     private async Task AddToDeploymentHistoryAsync(DeploymentResult result)
     {
+        await Task.CompletedTask;
         var history = _deploymentHistory.GetOrAdd(result.Environment, _ => new List<DeploymentHistoryEntry>());
         
         var entry = new DeploymentHistoryEntry
@@ -1439,32 +1449,32 @@ public class ProductionDeploymentService : IProductionDeploymentService
         history.Add(entry);
     }
 
-    private bool IsValidService(string serviceName)
+    private static bool IsValidService(string serviceName)
     {
         var validServices = new[] { "OmnichannelOrderService", "RealTimeSyncService", "DataVersioningService" };
         return validServices.Contains(serviceName);
     }
 
-    private bool IsValidVersion(string version)
+    private static bool IsValidVersion(string version)
     {
         return version.StartsWith('v') && version.Contains('.');
     }
 
-    private async Task<bool> CheckResourcesAvailabilityAsync(string environment)
+    private static async Task<bool> CheckResourcesAvailabilityAsync(string environment)
     {
         // Simulate resource check
         await Task.Delay(TimeSpan.FromMilliseconds(100));
         return Random.Shared.NextDouble() > 0.1; // 90% availability
     }
 
-    private async Task<bool> CheckDependenciesHealthAsync(string environment)
+    private static async Task<bool> CheckDependenciesHealthAsync(string environment)
     {
         // Simulate dependency health check
         await Task.Delay(TimeSpan.FromMilliseconds(100));
         return Random.Shared.NextDouble() > 0.05; // 95% healthy
     }
 
-    private List<PerformanceTrend> GeneratePerformanceTrends()
+    private static List<PerformanceTrend> GeneratePerformanceTrends()
     {
         var trends = new List<PerformanceTrend>();
         var now = DateTime.UtcNow;
@@ -1483,7 +1493,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         return trends;
     }
 
-    private List<ResourceTrend> GenerateResourceTrends()
+    private static List<ResourceTrend> GenerateResourceTrends()
     {
         var trends = new List<ResourceTrend>();
         var now = DateTime.UtcNow;
@@ -1503,7 +1513,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         return trends;
     }
 
-    private List<BusinessTrend> GenerateBusinessTrends()
+    private static List<BusinessTrend> GenerateBusinessTrends()
     {
         var trends = new List<BusinessTrend>();
         var now = DateTime.UtcNow;
@@ -1523,7 +1533,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         return trends;
     }
 
-    private List<ErrorTrend> GenerateErrorTrends()
+    private static List<ErrorTrend> GenerateErrorTrends()
     {
         var trends = new List<ErrorTrend>();
         var now = DateTime.UtcNow;
@@ -1548,7 +1558,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         return trends;
     }
 
-    private List<UserTrend> GenerateUserTrends()
+    private static List<UserTrend> GenerateUserTrends()
     {
         var trends = new List<UserTrend>();
         var now = DateTime.UtcNow;
@@ -1568,7 +1578,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         return trends;
     }
 
-    private List<PerformanceTimeSeries> GenerateLoadTestTimeSeries(TimeSpan duration)
+    private static List<PerformanceTimeSeries> GenerateLoadTestTimeSeries(TimeSpan duration)
     {
         var timeSeries = new List<PerformanceTimeSeries>();
         var interval = TimeSpan.FromSeconds(10);
@@ -1590,7 +1600,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
         return timeSeries;
     }
 
-    private List<DeploymentTrend> GenerateDeploymentTrends(List<DeploymentHistoryEntry> history)
+    private static List<DeploymentTrend> GenerateDeploymentTrends(List<DeploymentHistoryEntry> history)
     {
         var trends = new List<DeploymentTrend>();
         var groupedByDate = history.GroupBy(h => h.StartedAt.Date);
@@ -1604,7 +1614,7 @@ public class ProductionDeploymentService : IProductionDeploymentService
                 DeploymentCount = deployments.Count,
                 SuccessCount = deployments.Count(d => d.Success),
                 FailureCount = deployments.Count(d => !d.Success),
-                AverageDuration = deployments.Any() ? TimeSpan.FromTicks((long)deployments.Average(d => d.DeploymentDuration.Ticks)) : TimeSpan.Zero
+                AverageDuration = deployments.Count > 0 ? TimeSpan.FromTicks((long)deployments.Average(d => d.DeploymentDuration.Ticks)) : TimeSpan.Zero
             });
         }
 

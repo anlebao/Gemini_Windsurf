@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
@@ -17,33 +18,50 @@ public class AccountingEntryConfiguration : IEntityTypeConfiguration<CoreAccount
         // Primary key
         builder.HasKey(e => e.Id);
         
-        // Property configurations with correct converters
+        // Property configurations - NO CONVERTERS for SQLite compatibility
+        // Store as primitive types, handle conversion in repository/service layer
+        
         builder.Property(e => e.Id)
-            .HasConversion<AccountingEntryIdConverter>();
+            .ValueGeneratedOnAdd();
         
         builder.Property(e => e.AccountingBookType)
-            .HasConversion<AccountingBookTypeConverter>();
-        
-        builder.Property(e => e.PeriodYear);
-        builder.Property(e => e.PeriodMonth);
+            .HasConversion<int>();
+
+        builder.Property(e => e.EntryType)
+            .HasConversion<int>();
+
+        builder.Property(e => e.VatRate)
+            .HasConversion<int>();
+
+        builder.Property(e => e.PeriodYear)
+            .HasConversion<int>();
+
+        builder.Property(e => e.PeriodMonth)
+            .HasConversion<int>();
         
         builder.Property(e => e.Amount)
-            .HasConversion<MoneyConverter>()
-            .HasPrecision(18, 2); // Financial precision
+            .HasPrecision(18, 2);
         
         builder.Property(e => e.Description)
             .IsRequired()
             .HasMaxLength(500);
-        
+
+        // Use inline TenantId conversion for SQLite compatibility
         builder.Property(e => e.TenantId)
-            .HasConversion<TenantIdConverter>()
-            .IsRequired();
+            .IsRequired()
+            .HasConversion(
+                id => id.Value,
+                value => new TenantId(value))
+            .Metadata.SetValueComparer(new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<TenantId>(
+                (c1, c2) => c1.Value == c2.Value,
+                c => c.Value.GetHashCode(),
+                c => new TenantId(c.Value)));
         
         builder.Property(e => e.CreatedAt)
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
         
-        builder.Property(e => e.ReversalEntryId)
-            .HasConversion<AccountingEntryIdConverter>();
+        builder.Property(e => e.ReversalEntryId);
+        // Note: ReversalEntryId is already Guid?, no converter needed
         
         // Indexes for performance with 4 HKD Books
         builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });

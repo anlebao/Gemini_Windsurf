@@ -32,6 +32,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task SyncUserPreferencesAsync(string userId, UserPreferences preferences)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Syncing preferences for user: {UserId}", userId);
@@ -57,6 +58,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task<UserPreferences> GetUserPreferencesAsync(string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting preferences for user: {UserId}", userId);
@@ -97,6 +99,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task SyncOrderStatusAsync(Guid orderId, OrderStatus status)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Syncing order status for order: {OrderId}", orderId);
@@ -122,6 +125,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task<OrderStatus> GetOrderStatusAsync(Guid orderId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting order status for order: {OrderId}", orderId);
@@ -158,8 +162,35 @@ public class OmnichannelService : IOmnichannelService
         }
     }
 
+    public async Task SyncInventoryStatusAsync(Guid productId, InventoryStatus status)
+    {
+        await Task.CompletedTask;
+        try
+        {
+            _logger.LogInformation("Syncing inventory status: {ProductId}", productId);
+            
+            // Update in-memory storage
+            _inventoryStatuses[productId] = status;
+            
+            // Cache with short expiration for real-time data
+            var cacheKey = $"inventory_{productId}";
+            _cache.Set(cacheKey, status, TimeSpan.FromMinutes(15));
+            
+            // TODO: Broadcast to connected clients via SignalR
+            // await _hubContext.Clients.All.SendAsync("InventoryUpdated", status);
+            
+            _logger.LogInformation("Inventory status synced successfully for product: {ProductId}", productId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing inventory status for product: {ProductId}", productId);
+            throw;
+        }
+    }
+
     public async Task SyncInventoryAsync(Guid productId, int quantity)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Syncing inventory for product: {ProductId}, quantity: {Quantity}", productId, quantity);
@@ -196,6 +227,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task<InventoryStatus> GetInventoryStatusAsync(Guid productId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting inventory status for product: {ProductId}", productId);
@@ -237,6 +269,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task ConnectRealtimeAsync(string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Connecting real-time updates for user: {UserId}", userId);
@@ -259,6 +292,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task DisconnectRealtimeAsync(string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Disconnecting real-time updates for user: {UserId}", userId);
@@ -278,6 +312,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task QueueOfflineOperationAsync(OfflineOperation operation)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Queuing offline operation: {OperationId} for user: {UserId}", operation.Id, operation.UserId);
@@ -298,6 +333,7 @@ public class OmnichannelService : IOmnichannelService
 
     public async Task ProcessOfflineQueueAsync(string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Processing offline queue for user: {UserId}", userId);

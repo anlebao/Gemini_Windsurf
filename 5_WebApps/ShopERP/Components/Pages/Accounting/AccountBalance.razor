@@ -1,0 +1,239 @@
+@page "/accounting/balance"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain
+@using VanAn.Shared.DTOs
+@using CoreAccountingService = VanAn.CoreHub.Services
+@inject CoreAccountingService.IAccountingService AccountingService
+@inject IThemeProvider ThemeProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<AccountBalance> Logger
+@inject NavigationManager NavigationManager
+
+<div class="account-balance-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Số Dư Tài Khoản</h1>
+        <div class="header-actions">
+            <VanAButton 
+                Variant="secondary" 
+                Size="small"
+                OnClick="RefreshData">
+                🔄 Refresh
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (showWarning)
+    {
+        <VanAAlert Type="warning" Message="Chi phí vượt 150% doanh thu - cần kiểm tra!" Dismissible="true" OnDismiss="() => showWarning = false" />
+    }
+
+    <!-- Metrics Cards with Period Comparison -->
+    <section class="metrics-section">
+        <div class="metrics-grid">
+            <VanAMetricsCard 
+                Title="Tổng Doanh Thu" 
+                Value="@TotalRevenueDisplay" 
+                Icon="💰" 
+                Trend="@revenueTrend" 
+                Color="success" />
+            <VanAMetricsCard 
+                Title="Tổng Chi Phí" 
+                Value="@TotalExpenseDisplay" 
+                Icon="📉" 
+                Trend="@expenseTrend" 
+                Color="warning" />
+            <VanAMetricsCard 
+                Title="Lợi Nhuận Ròng" 
+                Value="@NetProfitDisplay" 
+                Icon="📈" 
+                Trend="@profitTrend" 
+                Color="primary" />
+        </div>
+    </section>
+
+    <!-- Account Balance Details with VanAnDataGrid -->
+    <VanACard Header="Chi Tiết Theo Tài Khoản">
+        <VanAnDataGrid TItem="AccountBalanceRow" Items="@accountBalances" EmptyMessage="Không có dữ liệu số dư">
+            <Columns>
+                <VanAnColumn TItem="AccountBalanceRow" Title="Mã Tài Khoản" Width="2">
+                    <Template Context="item">
+                        @item.AccountCode
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountBalanceRow" Title="Tên Tài Khoản" Width="4">
+                    <Template Context="item">
+                        @item.AccountName
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountBalanceRow" Title="Loại" Width="2">
+                    <Template Context="item">
+                        @item.AccountType
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountBalanceRow" Title="Số Dư" Width="3">
+                    <Template Context="item">
+                        @item.Balance.ToString("N0") ₫
+                    </Template>
+                </VanAnColumn>
+            </Columns>
+        </VanAnDataGrid>
+    </VanACard>
+
+    <!-- Negative Balance Alert -->
+    @if (hasNegativeBalance)
+    {
+        <VanAAlert Type="error" Message="Có tài khoản số dư âm - cần kiểm tra lại!" Dismissible="true" />
+    }
+</div>
+
+@code {
+    private decimal totalRevenue = 0;
+    private decimal totalExpense = 0;
+    private decimal netProfit = 0;
+    private decimal prevRevenue = 0;
+    private decimal prevExpense = 0;
+    private decimal prevProfit = 0;
+    private bool showWarning = false;
+    private bool hasNegativeBalance = false;
+    private List<AccountBalanceRow> accountBalances = new();
+    private string revenueTrend = "+0%";
+    private string expenseTrend = "+0%";
+    private string profitTrend = "+0%";
+    private Guid _tenantId = Guid.Empty;
+
+    private string TotalRevenueDisplay => totalRevenue.ToString("N0") + " ₫";
+    private string TotalExpenseDisplay => totalExpense.ToString("N0") + " ₫";
+    private string NetProfitDisplay => netProfit.ToString("N0") + " ₫";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var tenantIdClaim = user.FindFirst("TenantId");
+                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
+                {
+                    _tenantId = tenantId;
+                }
+            }
+
+            if (_tenantId != Guid.Empty)
+            {
+                await LoadBalanceData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing AccountBalance");
+        }
+    }
+
+    private async Task LoadBalanceData()
+    {
+        try
+        {
+            var currentDate = DateTime.Now;
+            var currentPeriod = new AccountingPeriod(currentDate.Year, currentDate.Month);
+            var tenantId = new TenantId(_tenantId);
+
+            // Load current month data
+            var currentEntries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, currentPeriod);
+
+            totalRevenue = currentEntries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
+            totalExpense = currentEntries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            netProfit = totalRevenue - totalExpense;
+
+            // Load previous month data for comparison
+            var prevDate = currentDate.AddMonths(-1);
+            var previousPeriod = new AccountingPeriod(prevDate.Year, prevDate.Month);
+            var prevEntries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, previousPeriod);
+
+            prevRevenue = prevEntries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
+            prevExpense = prevEntries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            prevProfit = prevRevenue - prevExpense;
+
+            // Calculate real trends
+            revenueTrend = CalculateTrend(totalRevenue, prevRevenue);
+            expenseTrend = CalculateTrend(totalExpense, prevExpense);
+            profitTrend = CalculateTrend(netProfit, prevProfit);
+
+            // Warning if expense > 150% of revenue
+            if (totalExpense > totalRevenue * 1.5m && totalRevenue > 0)
+            {
+                showWarning = true;
+            }
+
+            // Build account balance rows from actual data
+            var groupedEntries = currentEntries.GroupBy(e => e.AccountCode).ToList();
+            accountBalances = groupedEntries
+                .Where(g => !string.IsNullOrEmpty(g.Key))
+                .Select(g => new AccountBalanceRow
+                {
+                    AccountCode = g.Key,
+                    AccountName = GetAccountName(g.Key),
+                    AccountType = g.Key.StartsWith("5") || g.Key.StartsWith("7") ? "Doanh Thu" : "Chi Phí",
+                    Balance = g.Sum(e => e.Amount)
+                })
+                .OrderBy(b => b.AccountCode)
+                .ToList();
+
+            // Check for negative balances
+            hasNegativeBalance = accountBalances.Any(b => b.Balance < 0);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading balance data for tenant {TenantId}", _tenantId);
+        }
+    }
+
+    private string CalculateTrend(decimal current, decimal previous)
+    {
+        if (previous == 0)
+        {
+            return current > 0 ? "▲ +100%" : "+0%";
+        }
+
+        var delta = current - previous;
+        var percent = (delta / Math.Abs(previous)) * 100;
+        return percent >= 0 ? $"▲ +{percent:F1}%" : $"▼ {percent:F1}%";
+    }
+
+    private string GetAccountName(string accountCode) => accountCode switch
+    {
+        "511" => "Doanh thu bán hàng hóa",
+        "512" => "Doanh thu cung cấp dịch vụ",
+        "515" => "Doanh thu hoạt động khác",
+        "711" => "Chênh lệch tỷ giá hối đoái",
+        "621" => "Chi phí nguyên vật liệu",
+        "622" => "Chi phí nhân công",
+        "627" => "Chi phí bán hàng",
+        "641" => "Chi phí quản lý doanh nghiệp",
+        "642" => "Chi phí tài chính",
+        _ => $"Tài khoản {accountCode}"
+    };
+
+    private async Task RefreshData()
+    {
+        await LoadBalanceData();
+    }
+}
+
+@code {
+    public class AccountBalanceRow
+    {
+        public string AccountCode { get; set; } = string.Empty;
+        public string AccountName { get; set; } = string.Empty;
+        public decimal Balance { get; set; }
+        public string AccountType { get; set; } = string.Empty;
+    }
+}

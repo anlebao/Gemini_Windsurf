@@ -100,7 +100,7 @@ public class VoiceCommandController : ControllerBase
     }
 
     [HttpPost("tts")]
-    public async Task<ActionResult<string>> TextToSpeech([FromBody] TtsRequest request)
+    public ActionResult<string> TextToSpeech([FromBody] TtsRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         

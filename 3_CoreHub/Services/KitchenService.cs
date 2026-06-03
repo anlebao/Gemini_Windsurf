@@ -30,7 +30,7 @@ public class KitchenService : IKitchenService
     {
         // 🛡️ STEP 1: SQL Projection - Server-side filtering & flat projection
         var flatItems = await _context.OrderItems
-            .Where(oi => oi.Order.TenantId.Value == shopId && 
+            .Where(oi => oi.Order.TenantId == new TenantId(shopId) && 
                         (oi.KitchenStatus == KitchenStatus.Pending || oi.KitchenStatus == KitchenStatus.Preparing))
             .Select(oi => new {
                 OrderItemId = oi.Id,
@@ -95,8 +95,7 @@ public class KitchenService : IKitchenService
         }
 
         var oldStatus = orderItem.KitchenStatus;
-        orderItem.KitchenStatus = update.NewStatus;
-        orderItem.UpdatedAt = DateTime.UtcNow;
+        orderItem.UpdateKitchenStatus(update.NewStatus);
 
         // Check if all items in the order are completed
         if (update.NewStatus == KitchenStatus.Completed)
@@ -107,8 +106,8 @@ public class KitchenService : IKitchenService
 
             if (remainingItems.All(oi => oi.KitchenStatus == KitchenStatus.Completed))
             {
-                orderItem.Order.KitchenStatus = KitchenStatus.Completed;
-                orderItem.Order.CompletedAt = DateTime.UtcNow;
+                orderItem.Order.UpdateKitchenStatus(KitchenStatus.Completed);
+                orderItem.Order.MarkAsCompleted();
             }
         }
 
@@ -154,20 +153,20 @@ public class KitchenService : IKitchenService
     {
         return await _context.OrderItems
             .Include(oi => oi.Order)
-            .CountAsync(oi => oi.Order.TenantId.Value == shopId && oi.KitchenStatus == KitchenStatus.Pending);
+            .CountAsync(oi => oi.Order.TenantId == new TenantId(shopId) && oi.KitchenStatus == KitchenStatus.Pending);
     }
 
     public async Task<TimeSpan> GetAveragePreparationTimeAsync(Guid shopId, DateTime from)
     {
         var completedItems = await _context.OrderItems
             .Include(oi => oi.Order)
-            .Where(oi => oi.Order.TenantId.Value == shopId && 
+            .Where(oi => oi.Order.TenantId == new TenantId(shopId) && 
                         oi.KitchenStatus == KitchenStatus.Completed &&
                         oi.Order.CompletedAt.HasValue &&
                         oi.Order.OrderDate >= from)
             .ToListAsync();
 
-        if (!completedItems.Any())
+        if (completedItems.Count == 0)
             return TimeSpan.Zero;
 
         var averageTicks = completedItems
@@ -204,9 +203,7 @@ public class KitchenService : IKitchenService
         var order = await _context.Orders.FindAsync(orderId);
         if (order != null)
         {
-            order.VoiceNoteText = processedText;
-            order.VoiceNoteAudioBlob = processedAudioBlob;
-            order.UpdatedAt = DateTime.UtcNow;
+            order.UpdateVoiceNotes(processedText, processedAudioBlob);
             await _context.SaveChangesAsync();
         }
 
@@ -233,10 +230,10 @@ public class KitchenService : IKitchenService
             return false;
         }
 
-        // 🛡️ DEFENSIVE: Apply size constraints
-        orderItem.ItemNoteText = voiceNote.Text?.Length > 500 ? voiceNote.Text.Substring(0, 500) : voiceNote.Text;
-        orderItem.ItemNoteAudioBlob = voiceNote.AudioBlob?.Length > 150000 ? null : voiceNote.AudioBlob;
-        orderItem.UpdatedAt = DateTime.UtcNow;
+        //  DEFENSIVE: Apply size constraints
+        var noteText = voiceNote.Text?.Length > 500 ? voiceNote.Text.Substring(0, 500) : voiceNote.Text;
+        var noteAudioBlob = voiceNote.AudioBlob?.Length > 150000 ? null : voiceNote.AudioBlob;
+        orderItem.UpdateItemNotes(noteText, noteAudioBlob);
 
         await _context.SaveChangesAsync();
 
@@ -247,7 +244,7 @@ public class KitchenService : IKitchenService
     public async Task<KitchenAnalyticsDto> GetKitchenAnalyticsAsync(Guid shopId, DateTime from)
     {
         var orders = await _context.Orders
-            .Where(o => o.TenantId.Value == shopId && o.OrderDate >= from)
+            .Where(o => o.TenantId == new TenantId(shopId) && o.OrderDate >= from)
             .ToListAsync();
 
         var completedOrders = orders.Where(o => o.Status.Value == "Completed").ToList();
@@ -258,10 +255,10 @@ public class KitchenService : IKitchenService
             ShopId = shopId,
             PeriodStart = from,
             PeriodEnd = DateTime.UtcNow,
-            TotalOrders = orders.Count(),
-            CompletedOrders = completedOrders.Count(),
-            PendingOrders = pendingOrders.Count(),
-            AveragePreparationTime = completedOrders.Any() 
+            TotalOrders = orders.Count,
+            CompletedOrders = completedOrders.Count,
+            PendingOrders = pendingOrders.Count,
+            AveragePreparationTime = completedOrders.Count > 0 
                 ? (double)completedOrders.Average(o => (o.CompletedAt - o.OrderDate)?.TotalMinutes ?? 0)
                 : 0,
             Performance = new List<KitchenPerformanceDto>()

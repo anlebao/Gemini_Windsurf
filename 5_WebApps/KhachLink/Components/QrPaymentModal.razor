@@ -1,58 +1,74 @@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Tokens
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
 
-<div class="modal fade" id="qrPaymentModal" tabindex="-1" aria-labelledby="qrPaymentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="qrPaymentModalLabel">
-                    <i class="fas fa-qrcode"></i> Thanh toán qua VietQR
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<VanAnModal IsOpen="true" 
+          Title="Thanh toán qua VietQR" 
+          OnClose="OnPaymentCompleted"
+          Closable="true">
+    <div class="qr-modal-content text-center">
+        @if (IsLoading)
+        {
+            <div class="loading-container">
+                <span class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Đang tạo mã QR...</span>
+                </span>
+                <p class="mt-3">Đang tạo mã QR thanh toán...</p>
             </div>
-            <div class="modal-body text-center">
-                @if (IsLoading)
-                {
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Đang tạo mã QR...</span>
-                    </div>
-                    <p class="mt-2">Đang tạo mã QR thanh toán...</p>
-                }
-                else if (!string.IsNullOrEmpty(QrImageUrl))
-                {
-                    <div class="qr-container">
-                        <img src="@QrImageUrl" alt="VietQR Payment Code" class="img-fluid qr-image" />
-                        <div class="mt-3">
-                            <h6>Thông tin thanh toán</h6>
-                            <p class="mb-1"><strong>Số tiền:</strong> @Amount.ToString("N0")đ</p>
-                            <p class="mb-1"><strong>Mã đơn hàng:</strong> @OrderId</p>
-                            <p class="mb-1"><strong>Ngân hàng:</strong> @BankName</p>
-                            <p class="mb-0"><small class="text-muted">Quét mã QR bằng ứng dụng ngân hàng để thanh toán</small></p>
-                        </div>
-                    </div>
-                }
-                else if (Error != null)
-                {
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        @Error
-                    </div>
-                }
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                @if (!string.IsNullOrEmpty(QrImageUrl))
-                {
-                    <button type="button" class="btn btn-primary" @onclick="DownloadQr">
-                        <i class="fas fa-download"></i> Lưu mã QR
-                    </button>
-                }
-            </div>
-        </div>
+        }
+        else if (!string.IsNullOrEmpty(QrImageUrl))
+        {
+            <VanAnCard CssClass="qr-info-card" Shadow="true">
+                <div class="qr-image-container">
+                    <img src="@QrImageUrl" alt="VietQR Payment Code" class="qr-image" />
+                </div>
+                <div class="qr-info mt-3">
+                    <h6>Thông tin thanh toán</h6>
+                    <p class="mb-1"><strong>Số tiền:</strong> @Amount.ToString("N0")đ</p>
+                    <p class="mb-1"><strong>Mã đơn hàng:</strong> @OrderId</p>
+                    <p class="mb-1"><strong>Ngân hàng:</strong> @BankName</p>
+                    <p class="mb-0"><small class="text-muted">Quét mã QR bằng ứng dụng ngân hàng để thanh toán</small></p>
+                </div>
+            </VanAnCard>
+        }
+        else if (Error != null)
+        {
+            <VanAnCard CssClass="error-card" Shadow="true">
+                <div class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span class="ms-2">@Error</span>
+                </div>
+            </VanAnCard>
+        }
     </div>
-</div>
+    
+    <FooterContent>
+        <VanAnButton Variant="ButtonVariant.Secondary" 
+                   OnClick="OnPaymentCompleted">
+            Đóng
+        </VanAnButton>
+        @if (!string.IsNullOrEmpty(QrImageUrl))
+        {
+            <VanAnButton Variant="ButtonVariant.Primary" 
+                       Icon="download"
+                       OnClick="DownloadQr">
+                Lưu mã QR
+            </VanAnButton>
+        }
+    </FooterContent>
+</VanAnModal>
 
 <style>
+    .qr-modal-content {
+        padding: 20px;
+    }
+    
+    .loading-container {
+        padding: 40px 20px;
+    }
+    
     .qr-image {
         max-width: 300px;
         max-height: 300px;
@@ -60,10 +76,20 @@
         border-radius: 8px;
     }
     
-    .qr-container {
+    .qr-info-card {
         background: #f8f9fa;
         padding: 20px;
-        border-radius: 8px;
+    }
+    
+    .qr-info-card ::deep .card-body {
+        padding: 0;
+    }
+    
+    .error-card ::deep .card-body {
+        padding: 20px;
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
     }
 </style>
 

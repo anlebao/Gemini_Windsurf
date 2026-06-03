@@ -64,16 +64,9 @@ public class CustomerService : ICustomerService
             }
 
             // Create new customer if not found
-            var newCustomer = new Customer
-            {
-                CustomerId = new CustomerId(Guid.NewGuid()),
-                FullName = displayName ?? "Khách hàng anonymity",
-                PhoneNumber = "Unknown",
-                CustomerTier = "Bronze",
-                DeviceId = deviceId,
-                IsActive = true
-                // TenantId and audit fields will be set by repository
-            };
+            var tenantId = new TenantId(Guid.NewGuid()); // Will be set by repository
+            var newCustomer = new Customer(tenantId, displayName ?? "Khách hàng anonymity", "Unknown");
+            newCustomer.UpdateCustomerDetails(displayName ?? "Khách hàng anonymity", "Unknown", null, "Bronze", deviceId, true);
 
             var createdCustomer = await _repository.AddAsync(newCustomer);
 

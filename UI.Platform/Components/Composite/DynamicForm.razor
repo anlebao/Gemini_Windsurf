@@ -1,0 +1,133 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Logging
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Models
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+@inject ILogger<DynamicForm> Logger
+
+<form onsubmit="event.preventDefault(); return false;" @onsubmit="HandleSubmit" @onsubmit:preventDefault class="@GetFormClasses()" data-blazor-interactive="@IsInteractive.ToString().ToLower()" @attributes="GetMergedAttributes()">
+    @if (Fields != null)
+    {
+        @Fields
+    }
+    else
+    {
+        <DynamicFormFields FieldDefinitions="@FieldDefinitions" />
+    }
+    
+    @if (SubmitButton != null)
+    {
+        @SubmitButton
+    }
+    else
+    {
+        <button type="submit" class="btn btn-primary" disabled="@(!IsInteractive)" data-testid="expense-submit">
+            @SubmitText
+        </button>
+    }
+</form>
+
+@code {
+    private object _formModel = new();
+    private bool IsInteractive { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Logger.LogInformation("DynamicForm OnInitialized - prerender mode detected");
+    }
+
+    protected override void OnParametersSet()
+    {
+        Logger.LogInformation("DynamicForm OnParametersSet");
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        Logger.LogInformation("DynamicForm OnAfterRender - firstRender: {FirstRender}, IsInteractive: {IsInteractive}", firstRender, IsInteractive);
+
+        if (firstRender && !IsInteractive)
+        {
+            Logger.LogInformation("DynamicForm Setting IsInteractive to true");
+            IsInteractive = true;
+            StateHasChanged();
+            Logger.LogInformation("DynamicForm IsInteractive set to true, StateHasChanged called");
+        }
+    }
+
+    /// <summary>
+    /// Custom fields content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Fields { get; set; }
+    
+    /// <summary>
+    /// Field definitions for dynamic form
+    /// </summary>
+    [Parameter]
+    public List<FormField>? FieldDefinitions { get; set; }
+    
+    /// <summary>
+    /// Custom submit button
+    /// </summary>
+    [Parameter]
+    public RenderFragment? SubmitButton { get; set; }
+    
+    /// <summary>
+    /// Submit button text
+    /// </summary>
+    [Parameter]
+    public string SubmitText { get; set; } = "Submit";
+    
+    /// <summary>
+    /// On submit event callback
+    /// </summary>
+    [Parameter]
+    public EventCallback<FormData> OnSubmit { get; set; }
+    
+    /// <summary>
+    /// Get form CSS classes using adapter
+    /// </summary>
+    private string GetFormClasses()
+    {
+        var baseClasses = CssAdapter.GetFormClass();
+        return GetCombinedCssClass(baseClasses);
+    }
+    
+    /// <summary>
+    /// Handle form submission with double click prevention
+    /// </summary>
+    private async Task HandleSubmit()
+    {
+        Logger.LogInformation("DynamicForm HandleSubmit ENTERED - FieldDefinitions count: {Count}", FieldDefinitions?.Count ?? 0);
+        var formData = new FormData();
+        Logger.LogInformation("Collecting form data from {FieldCount} fields", FieldDefinitions?.Count ?? 0);
+
+        if (FieldDefinitions != null)
+        {
+            foreach (var field in FieldDefinitions)
+            {
+                formData.Values[field.Id] = field.Value?.ToString() ?? string.Empty;
+                Logger.LogDebug("Field {FieldId}: {FieldValue}", field.Id, field.Value);
+            }
+        }
+
+        Logger.LogInformation("OnSubmit.HasDelegate: {HasDelegate}", OnSubmit.HasDelegate);
+        if (OnSubmit.HasDelegate)
+        {
+            Logger.LogInformation("Invoking OnSubmit callback");
+            await OnSubmit.InvokeAsync(formData);
+            Logger.LogInformation("OnSubmit callback completed");
+        }
+        else
+        {
+            Logger.LogWarning("OnSubmit has no delegate - form submission will not trigger parent handler");
+        }
+    }
+}

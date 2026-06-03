@@ -1,6 +1,7 @@
 using VanAn.Shared.Omnichannel;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
 
 namespace VanAn.CoreHub.Services;
 
@@ -21,6 +22,7 @@ public class ResponsiveUIService : IResponsiveUIService
 
     public async Task<ResponsiveLayout> GetLayoutConfigAsync(DeviceInfo device)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting layout config for device: {DeviceType}, screen: {Width}x{Height}", 
@@ -31,12 +33,12 @@ public class ResponsiveUIService : IResponsiveUIService
                 DeviceType.Mobile => GetMobileLayout(device.Screen),
                 DeviceType.Tablet => GetTabletLayout(device.Screen),
                 DeviceType.Desktop => GetDesktopLayout(device.Screen),
+                DeviceType.TV => GetDesktopLayout(device.Screen),
+                DeviceType.Wearable => GetMobileLayout(device.Screen),
                 _ => GetDefaultLayout(device.Screen)
             };
 
-            _logger.LogInformation("Layout config determined: {Breakpoint}, columns: {Columns}", 
-                layout.Breakpoint, layout.GridColumns);
-
+            _logger.LogInformation("Layout configuration determined: {Layout} for device: {DeviceType}", layout, device.Type);
             return layout;
         }
         catch (Exception ex)
@@ -48,30 +50,36 @@ public class ResponsiveUIService : IResponsiveUIService
 
     public async Task<ComponentSizes> GetComponentSizesAsync(ScreenSize screen)
     {
+        await Task.CompletedTask;
         try
         {
-            _logger.LogInformation("Getting component sizes for screen: {Width}x{Height}", screen.Width, screen.Height);
+            _logger.LogInformation("Getting component sizes for screen: {Width}x{Height}", 
+                screen.Width, screen.Height);
 
             var sizes = screen.Width switch
             {
-                < 576 => GetMobileComponentSizes(),
-                < 768 => GetTabletComponentSizes(),
-                < 992 => GetSmallDesktopComponentSizes(),
+                < 768 => GetMobileComponentSizes(),
+                < 1024 => GetTabletComponentSizes(),
+                < 1440 => GetSmallDesktopComponentSizes(),
                 _ => GetDesktopComponentSizes()
             };
 
-            _logger.LogInformation("Component sizes determined for breakpoint: {Breakpoint}", screen.Width);
+            _logger.LogInformation("Component sizes determined: {ButtonHeight}x{ButtonWidth}", 
+                sizes.ButtonHeight, sizes.ButtonMinWidth);
+
             return sizes;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting component sizes for screen: {Width}x{Height}", screen.Width, screen.Height);
+            _logger.LogError(ex, "Error getting component sizes for screen: {Width}x{Height}", 
+                screen.Width, screen.Height);
             throw;
         }
     }
 
     public async Task<bool> IsTouchEnabledAsync(DeviceType deviceType)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Checking touch enablement for device type: {DeviceType}", deviceType);
@@ -81,14 +89,12 @@ public class ResponsiveUIService : IResponsiveUIService
                 DeviceType.Mobile => true,
                 DeviceType.Tablet => true,
                 DeviceType.Wearable => true,
-                DeviceType.Desktop => false,
                 DeviceType.TV => false,
+                DeviceType.Desktop => false,
                 _ => false
             };
 
-            _logger.LogInformation("Touch enablement determined: {IsTouchEnabled} for device: {DeviceType}", 
-                isTouchEnabled, deviceType);
-
+            _logger.LogInformation("Touch enablement determined: {IsTouchEnabled} for device type: {DeviceType}", isTouchEnabled, deviceType);
             return isTouchEnabled;
         }
         catch (Exception ex)
@@ -100,6 +106,7 @@ public class ResponsiveUIService : IResponsiveUIService
 
     public async Task<NavigationPattern> GetNavigationPatternAsync(DeviceInfo device)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting navigation pattern for device: {DeviceType}", device.Type);
@@ -126,6 +133,7 @@ public class ResponsiveUIService : IResponsiveUIService
 
     public async Task<float> GetFontScaleAsync(UserPreferences preferences)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting font scale for user preferences");
@@ -142,7 +150,7 @@ public class ResponsiveUIService : IResponsiveUIService
             // if (preferences.Accessibility?.LargeText == true)
             //     fontScale *= 1.2f;
 
-            _logger.LogInformation("Font scale determined: {FontScale}", fontScale);
+            _logger.LogInformation("Font scale determined: {FontScale} for language: {Language}", fontScale, preferences.Language);
             return fontScale;
         }
         catch (Exception ex)
@@ -154,11 +162,12 @@ public class ResponsiveUIService : IResponsiveUIService
 
     public async Task<ColorTheme> GetColorThemeAsync(DeviceInfo device, UserPreferences preferences)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting color theme for device: {DeviceType}, theme: {Theme}", device.Type, preferences.Theme);
 
-            var theme = preferences.Theme.ToLower() switch
+            var theme = preferences.Theme.ToLower(CultureInfo.InvariantCulture) switch
             {
                 "dark" => GetDarkTheme(),
                 "light" => GetLightTheme(),
@@ -178,6 +187,7 @@ public class ResponsiveUIService : IResponsiveUIService
 
     public async Task<AnimationSettings> GetAnimationSettingsAsync(DeviceInfo device)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting animation settings for device: {DeviceType}", device.Type);
@@ -204,54 +214,7 @@ public class ResponsiveUIService : IResponsiveUIService
         }
     }
 
-    #region Private Helper Methods
-
-    private ResponsiveLayout GetMobileLayout(ScreenSize screen)
-    {
-        return new ResponsiveLayout
-        {
-            MaxWidth = screen.Width,
-            Padding = 16,
-            Margin = 8,
-            GridColumns = 1,
-            IsMobile = true,
-            IsTablet = false,
-            IsDesktop = false,
-            Breakpoint = "sm"
-        };
-    }
-
-    private ResponsiveLayout GetTabletLayout(ScreenSize screen)
-    {
-        return new ResponsiveLayout
-        {
-            MaxWidth = screen.Width,
-            Padding = 24,
-            Margin = 16,
-            GridColumns = screen.Width >= 768 ? 2 : 1,
-            IsMobile = false,
-            IsTablet = true,
-            IsDesktop = false,
-            Breakpoint = "md"
-        };
-    }
-
-    private ResponsiveLayout GetDesktopLayout(ScreenSize screen)
-    {
-        return new ResponsiveLayout
-        {
-            MaxWidth = screen.Width,
-            Padding = 32,
-            Margin = 24,
-            GridColumns = 12,
-            IsMobile = false,
-            IsTablet = false,
-            IsDesktop = true,
-            Breakpoint = screen.Width >= 1200 ? "xl" : "lg"
-        };
-    }
-
-    private ResponsiveLayout GetDefaultLayout(ScreenSize screen)
+    private static ResponsiveLayout GetDefaultLayout(ScreenSize screen)
     {
         return new ResponsiveLayout
         {
@@ -266,7 +229,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private ComponentSizes GetMobileComponentSizes()
+    private static ComponentSizes GetMobileComponentSizes()
     {
         return new ComponentSizes
         {
@@ -281,7 +244,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private ComponentSizes GetTabletComponentSizes()
+    private static ComponentSizes GetTabletComponentSizes()
     {
         return new ComponentSizes
         {
@@ -296,7 +259,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private ComponentSizes GetSmallDesktopComponentSizes()
+    private static ComponentSizes GetSmallDesktopComponentSizes()
     {
         return new ComponentSizes
         {
@@ -311,7 +274,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private ComponentSizes GetDesktopComponentSizes()
+    private static ComponentSizes GetDesktopComponentSizes()
     {
         return new ComponentSizes
         {
@@ -326,39 +289,33 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private ColorTheme GetLightTheme()
+    private static ColorTheme GetLightTheme()
     {
         return new ColorTheme
         {
             Name = "light",
-            Primary = "#0d6efd",
-            Secondary = "#6c757d",
+            Primary = "#1976d2",
+            Secondary = "#424242",
             Background = "#ffffff",
-            Surface = "#f8f9fa",
-            Text = "#212529",
-            TextSecondary = "#6c757d",
-            Border = "#dee2e6",
+            Surface = "#f5f5f5",
             IsDark = false
         };
     }
 
-    private ColorTheme GetDarkTheme()
+    private static ColorTheme GetDarkTheme()
     {
         return new ColorTheme
         {
             Name = "dark",
-            Primary = "#0d6efd",
-            Secondary = "#6c757d",
+            Primary = "#1976d2",
+            Secondary = "#424242",
             Background = "#212529",
             Surface = "#343a40",
-            Text = "#ffffff",
-            TextSecondary = "#adb5bd",
-            Border = "#495057",
             IsDark = true
         };
     }
 
-    private AnimationSettings GetMobileAnimationSettings(bool isHighDensity)
+    private static AnimationSettings GetMobileAnimationSettings(bool isHighDensity)
     {
         return new AnimationSettings
         {
@@ -371,7 +328,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private AnimationSettings GetTabletAnimationSettings(bool isHighDensity)
+    private static AnimationSettings GetTabletAnimationSettings(bool isHighDensity)
     {
         return new AnimationSettings
         {
@@ -384,7 +341,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private AnimationSettings GetDesktopAnimationSettings(bool isHighDensity)
+    private static AnimationSettings GetDesktopAnimationSettings(bool isHighDensity)
     {
         return new AnimationSettings
         {
@@ -397,7 +354,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private AnimationSettings GetTVAnimationSettings()
+    private static AnimationSettings GetTVAnimationSettings()
     {
         return new AnimationSettings
         {
@@ -410,7 +367,7 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private AnimationSettings GetWearableAnimationSettings()
+    private static AnimationSettings GetWearableAnimationSettings()
     {
         return new AnimationSettings
         {
@@ -423,18 +380,62 @@ public class ResponsiveUIService : IResponsiveUIService
         };
     }
 
-    private AnimationSettings GetDefaultAnimationSettings()
+    private static AnimationSettings GetDefaultAnimationSettings()
     {
         return new AnimationSettings
         {
             EnableAnimations = true,
-            DurationMs = 200,
-            Easing = "ease-out",
+            DurationMs = 300,
+            Easing = "ease-in-out",
             EnableTransitions = true,
-            EnableGestures = false,
+            EnableGestures = true,
             ReducesMotion = 0.0
         };
     }
 
-    #endregion
+    private static ResponsiveLayout GetMobileLayout(ScreenSize screen)
+    {
+        return new ResponsiveLayout
+        {
+            MaxWidth = screen.Width,
+            Padding = 8,
+            Margin = 4,
+            GridColumns = 2,
+            IsMobile = true,
+            IsTablet = false,
+            IsDesktop = false,
+            Breakpoint = "xs"
+        };
+    }
+
+    private static ResponsiveLayout GetTabletLayout(ScreenSize screen)
+    {
+        return new ResponsiveLayout
+        {
+            MaxWidth = screen.Width,
+            Padding = 16,
+            Margin = 8,
+            GridColumns = 4,
+            IsMobile = false,
+            IsTablet = true,
+            IsDesktop = false,
+            Breakpoint = "md"
+        };
+    }
+
+    private static ResponsiveLayout GetDesktopLayout(ScreenSize screen)
+    {
+        return new ResponsiveLayout
+        {
+            MaxWidth = screen.Width,
+            Padding = 24,
+            Margin = 16,
+            GridColumns = 12,
+            IsMobile = false,
+            IsTablet = false,
+            IsDesktop = true,
+            Breakpoint = screen.Width >= 1200 ? "xl" : "lg"
+        };
+    }
+
 }

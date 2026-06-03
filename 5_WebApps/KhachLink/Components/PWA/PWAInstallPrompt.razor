@@ -1,0 +1,283 @@
+@using VanAn.KhachLink.Services.PWA
+@inject PWAService PWAService
+@inject IJSRuntime JSRuntime
+
+<div class="pwa-install-prompt" style="@GetDisplayStyle()">
+    <div class="pwa-install-content">
+        <div class="pwa-install-icon">
+            <img src="/icons/icon-192x192.png" alt="Vạn An App" />
+        </div>
+        <div class="pwa-install-text">
+            <h3>Cài đặt Vạn An App</h3>
+            <p>Trải nghiệm tốt hơn với ứng dụng Vạn An trên thiết bị của bạn!</p>
+        </div>
+        <div class="pwa-install-actions">
+            <button class="btn btn-primary" @onclick="InstallApp">
+                <i class="fas fa-download"></i> Cài đặt
+            </button>
+            <button class="btn btn-secondary" @onclick="DismissPrompt">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (ShowOfflineIndicator)
+{
+    <div class="offline-indicator @(IsOnline ? "online" : "offline")">
+        <div class="offline-content">
+            <i class="fas @(IsOnline ? "fa-wifi" : "fa-wifi-slash")"></i>
+            <span>@(IsOnline ? "Đã kết nối" : "Ngoại tuyến")</span>
+        </div>
+    </div>
+}
+
+<style>
+    .pwa-install-prompt {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+        color: white;
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        z-index: 1000;
+        transform: translateY(0);
+        transition: all 0.3s ease;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .pwa-install-prompt:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.3);
+    }
+
+    .pwa-install-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .pwa-install-icon img {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+    }
+
+    .pwa-install-text {
+        flex: 1;
+    }
+
+    .pwa-install-text h3 {
+        margin: 0 0 4px 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .pwa-install-text p {
+        margin: 0;
+        font-size: 14px;
+        opacity: 0.9;
+    }
+
+    .pwa-install-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .pwa-install-actions .btn {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+
+    .pwa-install-actions .btn-primary {
+        background: white;
+        color: #8B4513;
+        font-weight: 500;
+    }
+
+    .pwa-install-actions .btn-primary:hover {
+        background: #f8f9fa;
+        transform: scale(1.05);
+    }
+
+    .pwa-install-actions .btn-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        padding: 8px 10px;
+    }
+
+    .pwa-install-actions .btn-secondary:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+    .offline-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 1001;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .offline-indicator.online {
+        background: #28a745;
+        color: white;
+    }
+
+    .offline-indicator.offline {
+        background: #dc3545;
+        color: white;
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .offline-content {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Mobile responsive */
+    @@media (max-width: 768px) {
+        .pwa-install-prompt {
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            padding: 12px;
+        }
+
+        .pwa-install-content {
+            flex-direction: column;
+            text-align: center;
+            gap: 8px;
+        }
+
+        .pwa-install-icon img {
+            width: 40px;
+            height: 40px;
+        }
+
+        .pwa-install-text h3 {
+            font-size: 15px;
+        }
+
+        .pwa-install-text p {
+            font-size: 13px;
+        }
+
+        .pwa-install-actions {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .offline-indicator {
+            top: 10px;
+            right: 10px;
+            font-size: 13px;
+        }
+    }
+
+    /* Hide animations */
+    .pwa-install-prompt.hidden {
+        transform: translateY(120%);
+        opacity: 0;
+    }
+</style>
+
+@code {
+    private bool _showInstallPrompt = false;
+    private bool _dismissed = false;
+    private bool _isOnline = true;
+    private bool _showOfflineIndicator = false;
+
+    public bool IsOnline => _isOnline;
+    public bool ShowOfflineIndicator => _showOfflineIndicator;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize PWA service
+        await PWAService.InitializeAsync();
+        
+        // Subscribe to events
+        PWAService.OnInstallStateChanged += HandleInstallStateChanged;
+        PWAService.OnOnlineStateChanged += HandleOnlineStateChanged;
+        
+        // Check initial state
+        _isOnline = PWAService.IsOnline;
+        _showOfflineIndicator = true;
+        
+        // Show install prompt if not installed and not dismissed
+        if (!PWAService.IsInstalled && !_dismissed)
+        {
+            // Show after a delay to be less intrusive
+            await Task.Delay(3000);
+            _showInstallPrompt = true;
+        }
+    }
+
+    private string GetDisplayStyle()
+    {
+        return _showInstallPrompt && !_dismissed ? "" : "display: none;";
+    }
+
+    private async Task InstallApp()
+    {
+        var success = await PWAService.ShowInstallPromptAsync();
+        if (success)
+        {
+            _showInstallPrompt = false;
+            await ShowNotificationAsync("Đã cài đặt thành công!", "Vạn An App đã được cài đặt trên thiết bị của bạn.");
+        }
+    }
+
+    private void DismissPrompt()
+    {
+        _dismissed = true;
+        _showInstallPrompt = false;
+    }
+
+    private void HandleInstallStateChanged(bool installed)
+    {
+        _showInstallPrompt = false;
+        StateHasChanged();
+    }
+
+    private void HandleOnlineStateChanged(bool online)
+    {
+        _isOnline = online;
+        StateHasChanged();
+    }
+
+    private async Task ShowNotificationAsync(string title, string message)
+    {
+        await PWAService.ShowNotificationAsync(title, message);
+    }
+
+    public async void Dispose()
+    {
+        if (PWAService != null)
+        {
+            PWAService.OnInstallStateChanged -= HandleInstallStateChanged;
+            PWAService.OnOnlineStateChanged -= HandleOnlineStateChanged;
+            await PWAService.DisposeAsync();
+        }
+    }
+}

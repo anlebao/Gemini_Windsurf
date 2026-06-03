@@ -1,0 +1,9 @@
+@page "/dashboard"
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components.Dashboard
+
+<PageTitle>Real-time Dashboard - Vạn An Group</PageTitle>
+
+<VanAnLayout ActivePage="dashboard" UnreadNotifications="3">
+    <component type="typeof(RealTimeDashboard)" render-mode="ServerPrerendered" />
+</VanAnLayout>

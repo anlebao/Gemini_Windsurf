@@ -3,6 +3,9 @@ using VanAn.Shared.Services;
 using VanAn.Shared.Extensions;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.UI.Platform.Core.Interfaces;
+using VanAn.UI.Platform.Services;
+using VanAn.UI.Platform.Adapters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Http;
 using System;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Integration.Tests")]
 
 namespace VanAn.KhachLink;
 
@@ -25,12 +29,20 @@ public partial class Program
         // Add services to the container.
         builder.Services.AddRazorPages();
         builder.Services.AddServerSideBlazor();
+        builder.Services.AddLogging();
+        
+        // UI Platform Services
+        builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
+        builder.Services.AddScoped<IThemeProvider, ThemeProvider>();
+        builder.Services.AddScoped<ITenantService, TenantService>();
         
         // 🛡️ PHASE 5: SQLite with WAL Mode for Edge Node
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
             ?? $"Data Source={System.IO.Path.Combine(AppContext.BaseDirectory, "vanan_khachlink.db")}";
         builder.Services.AddDbContext<VanAnDbContext>(options => 
             options.UseSqlite(connectionString));
+        // Register IVanAnDbContext interface for repositories that depend on the abstraction
+        builder.Services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         
         // Register CoreHub Services
         builder.Services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
@@ -41,14 +53,26 @@ public partial class Program
         builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
         builder.Services.AddScoped<ICustomerService, CustomerService>();
         
-        // Register Repositories (FIX: Missing ICustomerRepository registration)
+        // Register Repositories
         builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.ICustomerRepository, VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository>();
+        builder.Services.AddScoped<VanAn.CoreHub.Repositories.IOrderRepository, VanAn.CoreHub.Repositories.OrderRepository>();
+        builder.Services.AddScoped<VanAn.CoreHub.Repositories.ISocialCampaignRepository, VanAn.CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
+        builder.Services.AddScoped<VanAn.CoreHub.Repositories.ILoyaltyRewardsRepository, VanAn.CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
+        builder.Services.AddScoped<VanAn.CoreHub.Repositories.ISystemMetricsRepository, VanAn.CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
         
         // Register Dashboard Service
         builder.Services.AddScoped<VanAn.CoreHub.Services.IDashboardService, VanAn.CoreHub.Services.DashboardService>();
         
         // Register Cart Services
         builder.Services.AddScoped<VanAn.KhachLink.Services.CartService>();
+        
+        // Register PWA Services
+        builder.Services.AddScoped<VanAn.KhachLink.Services.PWA.PWAService>();
+        builder.Services.AddHttpClient(); // For PWA API calls
+        
+        // Register Dashboard Services
+        builder.Services.AddScoped<VanAn.KhachLink.Services.Dashboard.RealTimeDashboardService>();
+        builder.Services.AddSignalR(); // SignalR for real-time updates
         
         // Add Memory Cache for ShopConfigService
         builder.Services.AddMemoryCache();
@@ -84,6 +108,9 @@ public partial class Program
         app.UseAuthorization();
         app.MapRazorPages();
         app.MapBlazorHub();
+        
+        // Map SignalR Hub
+        app.MapHub<VanAn.KhachLink.Hubs.DashboardHub>("/dashboardHub");
         
         // PROPER RAZOR PAGES ROUTING - ANTI-CHEATING RULE #2
         app.UseDefaultFiles();

@@ -1,11 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
-using VanAn.CoreHub.Services;
-using VanAn.CoreHub.Infrastructure;
 using VanAn.Gateway.Hubs;
+using VanAn.CoreHub.Commands;
 
 namespace VanAn.Gateway.Controllers;
 
@@ -13,81 +12,47 @@ namespace VanAn.Gateway.Controllers;
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
-    private readonly VanAnDbContext _context;
+    private readonly IOrderService _orderService;
     private readonly IVietQrService _vietQrService;
-    private readonly IOrderWorkflowService _orderWorkflowService;
     private readonly IHubContext<OrderHub> _orderHub;
     private readonly ILogger<OrdersController> _logger;
 
     public OrdersController(
-        VanAnDbContext context,
+        IOrderService orderService,
         IVietQrService vietQrService,
-        IOrderWorkflowService orderWorkflowService,
         IHubContext<OrderHub> orderHub,
         ILogger<OrdersController> logger)
     {
-        _context = context;
+        _orderService = orderService;
         _vietQrService = vietQrService;
-        _orderWorkflowService = orderWorkflowService;
         _orderHub = orderHub;
         _logger = logger;
     }
 
     [HttpPost]
-    public async Task<ActionResult<VietQrResponse>> CreateOrder([FromBody] CreateOrderRequest request)
+    public async Task<ActionResult<VietQrResponse>> CreateOrder([FromBody] CreateOrderCommand command)
     {
         try
         {
-            // Create Order
-            var order = new Order
-            {
-                OrderId = new OrderId(Guid.NewGuid()),
-                CustomerDeviceId = request.CustomerDeviceId,
-                OrderType = request.OrderType,
-                Status = new OrderStatusId("Draft"),
-                CustomerNotes = request.CustomerNotes,
-                TenantId = Guid.NewGuid() // TODO: Get from tenant provider
-            };
-
-            // Add OrderItems
-            foreach (var itemRequest in request.Items)
-            {
-                var orderItem = new OrderItem
-                {
-                    OrderItemId = new OrderItemId(Guid.NewGuid()),
-                    OrderId = order.Id,
-                    ProductId = itemRequest.ProductId,
-                    Quantity = itemRequest.Quantity,
-                    UnitPrice = itemRequest.UnitPrice,
-                    VatRate = itemRequest.VatRate,
-                    Notes = itemRequest.Notes,
-                    TenantId = order.TenantId
-                };
-                order.Items.Add(orderItem);
-            }
-
-            // Calculate totals
-            order.CalculateTotals();
-
-            // Save to database
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
+            var tenantId = Guid.NewGuid(); // TODO: Get from tenant provider
+            
+            // Delegate order creation to service layer - Clean Architecture
+            var createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);
 
             // Notify ShopERP via SignalR
             await _orderHub.Clients.All.SendAsync("NewOrderReceived", new
             {
-                OrderId = order.OrderId.Value,
-                CustomerDeviceId = order.CustomerDeviceId,
-                OrderType = order.OrderType,
-                Status = order.Status.Value,
-                TotalAmount = order.TotalAmount,
-                OrderDate = order.OrderDate,
-                Items = order.Items.Select(i => new
+                OrderId = createdOrder.Id,
+                CustomerId = createdOrder.CustomerId,
+                Status = createdOrder.Status.Value,
+                TotalAmount = createdOrder.TotalPrice,
+                CreatedAt = createdOrder.CreatedAt,
+                Items = createdOrder.Items.Select(i => new
                 {
-                    ProductName = i.Product?.Name ?? "Unknown",
+                    ProductId = i.ProductId,
                     Quantity = i.Quantity,
                     UnitPrice = i.UnitPrice,
-                    TotalAmount = i.TotalAmount
+                    TotalPrice = i.TotalPrice
                 }).ToList()
             });
 
@@ -100,23 +65,20 @@ public class OrdersController : ControllerBase
                     AccountNo = "1234567890",
                     AccountName = "VAN AN GROUP"
                 },
-                Amount = order.TotalAmount,
-                OrderDescription = $"Don hang {order.OrderId.Value}"
+                Amount = createdOrder.TotalPrice,
+                OrderDescription = $"Don hang {createdOrder.Id}"
             });
-
-            // Generate QR image URL (using VietQR image service)
-            var qrImageUrl = $"https://img.vietqr.io/image/970418-1234567890-compact.jpg?amount={order.TotalAmount}&addInfo={Uri.EscapeDataString($"Don hang {order.OrderId.Value}")}";
 
             var response = new VietQrResponse
             {
-                OrderId = order.OrderId.Value.ToString(),
+                OrderId = createdOrder.Id.ToString(),
                 QrImageUrl = payload.QrImageUrl,
                 PaymentUrl = payload.PaymentUrl,
-                Amount = order.TotalAmount,
+                Amount = createdOrder.TotalPrice,
                 GeneratedAt = DateTime.UtcNow
             };
 
-            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, response);
+            return CreatedAtAction(nameof(GetOrder), new { id = createdOrder.Id }, response);
         }
         catch (Exception ex)
         {
@@ -128,17 +90,56 @@ public class OrdersController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Order>> GetOrder(Guid id)
     {
-        var order = await _context.Orders
-            .Include(o => o.Items)
-            .ThenInclude(i => i.Product)
-            .FirstOrDefaultAsync(o => o.Id == id);
-
-        if (order == null)
+        try
         {
-            return NotFound();
+            var tenantId = GetTenantId();
+            var order = await _orderService.GetOrderByIdAsync(id, tenantId);
+            
+            if (order == null)
+            {
+                return NotFound();
+            }
+            
+            return Ok(order);
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting order {OrderId}", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
 
-        return order;
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Order>>> GetOrders([FromQuery] string? status = null)
+    {
+        try
+        {
+            var tenantId = GetTenantId();
+            
+            if (string.IsNullOrEmpty(status))
+            {
+                var today = DateTime.UtcNow.Date;
+                var orders = await _orderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
+                return Ok(orders);
+            }
+            else
+            {
+                var statusId = new OrderStatusId(status);
+                var orders = await _orderService.GetOrdersByStatusAsync(statusId, tenantId);
+                return Ok(orders);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting orders");
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    private Guid GetTenantId()
+    {
+        var tenantClaim = User.FindFirst("TenantId")?.Value;
+        return Guid.TryParse(tenantClaim, out var tenantId) ? tenantId : Guid.Empty;
     }
 }
 

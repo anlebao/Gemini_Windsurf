@@ -1,0 +1,341 @@
+@page "/accounting/history"
+@layout AccountingLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain
+@using VanAn.Shared.DTOs
+@using CoreAccountingService = VanAn.CoreHub.Services
+@inject CoreAccountingService.IAccountingService AccountingService
+@inject IThemeProvider ThemeProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<TransactionHistory> Logger
+@inject NavigationManager NavigationManager
+
+<div class="transaction-history-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Lịch Sử Giao Dịch</h1>
+        <div class="header-actions">
+            <VanAButton 
+                Variant="secondary" 
+                Size="small"
+                OnClick="ExportToExcel">
+                📊 Export Excel
+            </VanAButton>
+        </div>
+    </header>
+
+    <!-- Search & Filter Bar -->
+    <VanAnSearchBar 
+        Placeholder="Tìm theo diễn giải..."
+        ShowFilterButton="true"
+        ShowAmountFilter="true"
+        OnSearch="HandleSearch"
+        OnFilter="HandleFilter"
+        AmountMinChanged="HandleAmountMinChanged"
+        AmountMaxChanged="HandleAmountMaxChanged" />
+
+    <!-- Period & Account Type Filter -->
+    @if (showFilterPanel)
+    {
+        <VanACard Header="Bộ Lọc">
+            <div class="filter-panel">
+                <div class="filter-row">
+                    <label>Tháng:</label>
+                    <select class="form-select" @onchange="HandleMonthChange">
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i" selected="@(selectedMonth == i)">Tháng @i</option>
+                        }
+                    </select>
+                </div>
+                <div class="filter-row">
+                    <label>Năm:</label>
+                    <select class="form-select" @onchange="HandleYearChange">
+                        @for (int i = DateTime.Now.Year; i >= DateTime.Now.Year - 5; i--)
+                        {
+                            <option value="@i" selected="@(selectedYear == i)">@i</option>
+                        }
+                    </select>
+                </div>
+                <div class="filter-row">
+                    <label>Loại tài khoản:</label>
+                    <select class="form-select" @onchange="HandleAccountTypeChange">
+                        @foreach (var opt in GetAccountTypeOptions())
+                        {
+                            <option value="@opt.Value" selected="@(selectedAccountType == opt.Value)">@opt.Label</option>
+                        }
+                    </select>
+                </div>
+                <div class="filter-actions">
+                    <VanAButton Variant="primary" Size="small" OnClick="ApplyFilter">Áp Dụng</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" OnClick="ResetFilter">Reset</VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+
+    <!-- Transaction DataGrid -->
+    <VanACard Header="Danh Sách Giao Dịch">
+        <VanAnDataGrid TItem="AccountingEntryDto" Items="@filteredTransactions" EmptyMessage="Không có giao dịch nào">
+            <Columns>
+                <VanAnColumn TItem="AccountingEntryDto" Title="Ngày" Width="1">
+                    <Template Context="item">
+                        @item.TransactionDate.ToString("dd/MM/yyyy")
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountingEntryDto" Title="Loại" Width="1">
+                    <Template Context="item">
+                        @item.EntryType.ToString()
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountingEntryDto" Title="Tài Khoản" Width="1">
+                    <Template Context="item">
+                        @item.AccountCode
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountingEntryDto" Title="Diễn Giải" Width="3">
+                    <Template Context="item">
+                        @item.Description
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountingEntryDto" Title="Số Tiền" Width="1">
+                    <Template Context="item">
+                        <span data-testid="datagrid-cell-amount">@item.Amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", ".") ₫</span>
+                    </Template>
+                </VanAnColumn>
+                <VanAnColumn TItem="AccountingEntryDto" Title="Thao Tác" Width="1">
+                    <Template Context="item">
+                        <VanAButton Variant="secondary" Size="small" OnClick="() => ShowDetail(item)">Chi Tiết</VanAButton>
+                    </Template>
+                </VanAnColumn>
+            </Columns>
+        </VanAnDataGrid>
+    </VanACard>
+
+    <!-- Transaction Detail Modal -->
+    @if (showDetailModal)
+    {
+        <VanAModal 
+            Title="Chi Tiết Giao Dịch"
+            OnClose="CloseDetailModal">
+            <div class="transaction-detail">
+                <div class="detail-row">
+                    <label>Ngày:</label>
+                    <span>@selectedTransaction?.TransactionDate.ToString("dd/MM/yyyy")</span>
+                </div>
+                <div class="detail-row">
+                    <label>Loại:</label>
+                    <span>@selectedTransaction?.EntryType</span>
+                </div>
+                <div class="detail-row">
+                    <label>Tài Khoản:</label>
+                    <span>@selectedTransaction?.AccountCode</span>
+                </div>
+                <div class="detail-row">
+                    <label>Số Tiền:</label>
+                    <span>@selectedTransaction?.Amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", ".") ₫</span>
+                </div>
+                <div class="detail-row">
+                    <label>Diễn Giải:</label>
+                    <span>@selectedTransaction?.Description</span>
+                </div>
+                @if (!string.IsNullOrEmpty(selectedTransaction?.Reference))
+                {
+                    <div class="detail-row">
+                        <label>Số Chứng Từ:</label>
+                        <span>@selectedTransaction.Reference</span>
+                    </div>
+                }
+            </div>
+        </VanAModal>
+    }
+</div>
+
+@code {
+    private List<AccountingEntryDto> transactions = new();
+    private List<AccountingEntryDto> filteredTransactions = new();
+    private string searchTerm = string.Empty;
+    private bool showFilterPanel = false;
+    private int selectedMonth = DateTime.Now.Month;
+    private int selectedYear = DateTime.Now.Year;
+    private string selectedAccountType = string.Empty;
+    private decimal? amountMin;
+    private decimal? amountMax;
+    private bool showDetailModal = false;
+    private AccountingEntryDto? selectedTransaction;
+    private Guid _tenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var tenantIdClaim = user.FindFirst("TenantId");
+                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
+                {
+                    _tenantId = tenantId;
+                }
+            }
+
+            // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
+            // Fallback tenant hardcode vì login demo không set TenantId claim.
+            // Sửa triệt để: thêm claim TenantId khi login, xóa fallback.
+            // Tier: 1 (Tenant - ưu tiên cao)
+            if (_tenantId == Guid.Empty)
+            {
+                _tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+            }
+
+            await LoadTransactions();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing TransactionHistory");
+        }
+    }
+
+    private async Task LoadTransactions()
+    {
+        try
+        {
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            var tenantId = new TenantId(_tenantId);
+
+            var entries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, period);
+
+            transactions = entries.ToList();
+            Logger.LogInformation("LoadTransactions: tenant={TenantId}, period={Start}..{End}, count={Count}",
+                _tenantId, period.StartDate, period.EndDate, transactions.Count);
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading transactions for tenant {TenantId}", _tenantId);
+        }
+    }
+
+    private void HandleSearch(string searchValue)
+    {
+        searchTerm = searchValue;
+        ApplyFilters();
+    }
+
+    private void HandleFilter()
+    {
+        showFilterPanel = !showFilterPanel;
+    }
+
+    private void HandleAmountMinChanged(decimal? value)
+    {
+        amountMin = value;
+        ApplyFilters();
+    }
+
+    private void HandleAmountMaxChanged(decimal? value)
+    {
+        amountMax = value;
+        ApplyFilters();
+    }
+
+    private void HandleMonthChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var month))
+        {
+            selectedMonth = month;
+        }
+    }
+
+    private void HandleYearChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var year))
+        {
+            selectedYear = year;
+        }
+    }
+
+    private void HandleAccountTypeChange(ChangeEventArgs e)
+    {
+        selectedAccountType = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task ApplyFilter()
+    {
+        await LoadTransactions();
+    }
+
+    private void ResetFilter()
+    {
+        selectedMonth = DateTime.Now.Month;
+        selectedYear = DateTime.Now.Year;
+        selectedAccountType = string.Empty;
+        amountMin = null;
+        amountMax = null;
+        searchTerm = string.Empty;
+        showFilterPanel = false;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredTransactions = transactions;
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            filteredTransactions = filteredTransactions
+                .Where(t => t.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (!string.IsNullOrEmpty(selectedAccountType))
+        {
+            filteredTransactions = selectedAccountType switch
+            {
+                "Revenue" => filteredTransactions.Where(t => t.EntryType == AccountingEntryType.Revenue).ToList(),
+                "Expense" => filteredTransactions.Where(t => t.EntryType == AccountingEntryType.Expense).ToList(),
+                _ => filteredTransactions
+            };
+        }
+
+        if (amountMin.HasValue)
+        {
+            filteredTransactions = filteredTransactions.Where(t => t.Amount >= amountMin.Value).ToList();
+        }
+
+        if (amountMax.HasValue)
+        {
+            filteredTransactions = filteredTransactions.Where(t => t.Amount <= amountMax.Value).ToList();
+        }
+    }
+
+    private List<FieldOption> GetAccountTypeOptions() => new()
+    {
+        new FieldOption { Value = "", Label = "Tất cả loại" },
+        new FieldOption { Value = "Revenue", Label = "Doanh thu (5xx)" },
+        new FieldOption { Value = "Expense", Label = "Chi phí (6xx)" }
+    };
+
+    private void ShowDetail(AccountingEntryDto transaction)
+    {
+        selectedTransaction = transaction;
+        showDetailModal = true;
+    }
+
+    private void CloseDetailModal()
+    {
+        showDetailModal = false;
+        selectedTransaction = null;
+    }
+
+    private void ExportToExcel()
+    {
+        Logger.LogInformation("Export to Excel requested for tenant {TenantId}, period {Year}/{Month}", 
+            _tenantId, selectedYear, selectedMonth);
+    }
+}

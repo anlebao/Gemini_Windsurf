@@ -1,0 +1,53 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate",
+  "version": "1.0.0",
+  "timestamp": "2026-05-22T13:43:06.430Z",
+  "duration": 9835,
+  "summary": {
+    "total": 4,
+    "passed": 0,
+    "failed": 2,
+    "skipped": 2
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": true,
+    "ENABLE_LOAD_TEST": false,
+    "ENABLE_CHAOS": false,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:5002",
+    "SHOPERP_URL": "http://localhost:5003",
+    "SMOKE_TEST_TIMEOUT": 300,
+    "E2E_TEST_TIMEOUT": 600,
+    "LOAD_TEST_DURATION": 120,
+    "CHAOS_TEST_DURATION": 180
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 4863,
+      "error": "Command failed: npx playwright test smoke-tests/\nError: Cannot find module './utils/global-setup.ts'\nRequire stack:\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\program.js\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\@playwright\\test\\cli.js\n    at Module.<anonymous> (node:internal/modules/cjs/loader:1456:15)\n    at Module.resolveFilename [as _resolveFilename] (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:1076:36)\n    at require.resolve (node:internal/modules/helpers:163:19)\n    at resolveScript (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:742:18)\n    at C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:553:128\n    at Array.map (<anonymous>)\n    at new FullConfigInternal (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:553:117)\n    at loadConfig (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:1306:22)\n    at Object.loadConfigFromFile (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:1517:10)\n    at runTests (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\cli\\testActions.js:45:18)\n    at _Command.<anonymous> (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\program.js:50:7) {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: [\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\node_modules\\\\playwright\\\\lib\\\\common\\\\index.js',\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\node_modules\\\\playwright\\\\lib\\\\program.js',\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\node_modules\\\\@playwright\\\\test\\\\cli.js'\n  ]\n}\n",
+      "description": "Smoke Tests (Playwright)"
+    },
+    "e2e": {
+      "status": "fail",
+      "duration": 4949,
+      "error": "Command failed: npx playwright test e2e-tests/\nError: Cannot find module './utils/global-setup.ts'\nRequire stack:\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\program.js\n- C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\@playwright\\test\\cli.js\n    at Module.<anonymous> (node:internal/modules/cjs/loader:1456:15)\n    at Module.resolveFilename [as _resolveFilename] (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:1076:36)\n    at require.resolve (node:internal/modules/helpers:163:19)\n    at resolveScript (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:742:18)\n    at C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:553:128\n    at Array.map (<anonymous>)\n    at new FullConfigInternal (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:553:117)\n    at loadConfig (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:1306:22)\n    at Object.loadConfigFromFile (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\common\\index.js:1517:10)\n    at runTests (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\cli\\testActions.js:45:18)\n    at _Command.<anonymous> (C:\\VibeCoding\\Gemini_Windsurf\\6_Testing\\node_modules\\playwright\\lib\\program.js:50:7) {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: [\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\node_modules\\\\playwright\\\\lib\\\\common\\\\index.js',\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\node_modules\\\\playwright\\\\lib\\\\program.js',\n    'C:\\\\VibeCoding\\\\Gemini_Windsurf\\\\6_Testing\\\\node_modules\\\\@playwright\\\\test\\\\cli.js'\n  ]\n}\n",
+      "description": "E2E Tests (Playwright)"
+    },
+    "load": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Load Tests",
+      "architectDecision": "Bypassed by Architect - Load tests disabled"
+    },
+    "chaos": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Chaos Tests",
+      "architectDecision": "Bypassed by Architect - Chaos tests disabled"
+    }
+  },
+  "status": "fail"
+}

@@ -5,6 +5,7 @@ using Moq;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Controllers;
+using VanAn.Shared.DTOs;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 using Xunit;
 
@@ -49,15 +50,30 @@ public class AccountingEntriesControllerTests
             Description = "Test revenue"
         };
         
-        var expectedEntry = AccountingEntryFactory.CreateRevenueEntry(
+        var expectedEntry = CoreAccountingEntry.CreateRevenue(
             new TenantId(request.TenantId),
             AccountingPeriod.Create(request.Year, request.Month),
             new Money(request.Amount, request.Currency),
             request.Description);
         
+        var expectedDto = new AccountingEntryDto
+        {
+            Id = expectedEntry.Id,
+            TenantId = expectedEntry.TenantId,
+            Amount = expectedEntry.Amount,
+            Description = expectedEntry.Description,
+            EntryType = AccountingEntryType.Revenue,
+            CreatedAt = expectedEntry.CreatedAt,
+            AccountingBookType = expectedEntry.AccountingBookType,
+            PeriodYear = expectedEntry.Period.Year,
+            PeriodMonth = expectedEntry.Period.Month,
+            ReversalEntryId = expectedEntry.ReversalEntryId,
+            TransactionDate = expectedEntry.CreatedAt
+        };
+        
         _mockAccountingService.Setup(s => s.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
-            .ReturnsAsync(expectedEntry);
+            .ReturnsAsync(expectedDto);
         
         // Set up tenant header
         _controller.ControllerContext.HttpContext = new DefaultHttpContext();
@@ -68,9 +84,9 @@ public class AccountingEntriesControllerTests
         
         // Assert
         var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-        Assert.Equal(expectedEntry, createdResult.Value);
+        Assert.Equal(expectedDto, createdResult.Value);
         Assert.Equal(nameof(_controller.GetEntryById), createdResult.ActionName);
-        Assert.Equal(expectedEntry.Id, createdResult.RouteValues?["id"]);
+        Assert.Equal(expectedDto.Id, createdResult.RouteValues?["id"]);
         
         _mockAccountingService.Verify(s => s.CreateRevenueEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Once);
@@ -117,15 +133,30 @@ public class AccountingEntriesControllerTests
             Description = "Test expense"
         };
         
-        var expectedEntry = AccountingEntryFactory.CreateExpenseEntry(
+        var expectedEntry = CoreAccountingEntry.CreateExpense(
             new TenantId(request.TenantId),
             AccountingPeriod.Create(request.Year, request.Month),
             new Money(request.Amount, request.Currency),
             request.Description);
         
+        var expectedDto = new AccountingEntryDto
+        {
+            Id = expectedEntry.Id,
+            TenantId = expectedEntry.TenantId,
+            Amount = expectedEntry.Amount,
+            Description = expectedEntry.Description,
+            EntryType = AccountingEntryType.Expense,
+            CreatedAt = expectedEntry.CreatedAt,
+            AccountingBookType = expectedEntry.AccountingBookType,
+            PeriodYear = expectedEntry.Period.Year,
+            PeriodMonth = expectedEntry.Period.Month,
+            ReversalEntryId = expectedEntry.ReversalEntryId,
+            TransactionDate = expectedEntry.CreatedAt
+        };
+        
         _mockAccountingService.Setup(s => s.CreateExpenseEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
-            .ReturnsAsync(expectedEntry);
+            .ReturnsAsync(expectedDto);
         
         // Set up tenant header
         _controller.ControllerContext.HttpContext = new DefaultHttpContext();
@@ -136,7 +167,7 @@ public class AccountingEntriesControllerTests
         
         // Assert
         var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-        Assert.Equal(expectedEntry, createdResult.Value);
+        Assert.Equal(expectedDto, createdResult.Value);
         
         _mockAccountingService.Verify(s => s.CreateExpenseEntryAsync(
             It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Once);
@@ -148,29 +179,38 @@ public class AccountingEntriesControllerTests
         // Arrange
         var entryId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var expectedEntry = AccountingEntryFactory.CreateRevenueEntry(
-            new TenantId(tenantId),
-            AccountingPeriod.Create(2024, 1),
-            new Money(1000m, "VND"),
-            "Test entry");
-        
-        _mockAccountingService.Setup(s => s.GetEntryByIdAsync(
-            It.IsAny<Guid>()))
-            .ReturnsAsync(expectedEntry);
-        
+        var expectedDto = new AccountingEntryDto
+        {
+            Id = entryId,
+            TenantId = tenantId,
+            Amount = new Money(1000m, "VND"),
+            Description = "Test entry",
+            EntryType = AccountingEntryType.Revenue,
+            CreatedAt = DateTime.UtcNow,
+            AccountingBookType = AccountingBookType.RevenueBook,
+            PeriodYear = 2024,
+            PeriodMonth = 1
+        };
+
+        var entriesList = new List<AccountingEntryDto> { expectedDto };
+
+        _mockAccountingService.Setup(s => s.GetEntriesByDateRangeAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(entriesList);
+
         // Set up tenant header
         _controller.ControllerContext.HttpContext = new DefaultHttpContext();
         _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
-        
+
         // Act
         var result = await _controller.GetEntryById(entryId);
-        
+
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        Assert.Equal(expectedEntry, okResult.Value);
-        
-        _mockAccountingService.Verify(s => s.GetEntryByIdAsync(
-            It.IsAny<Guid>()), Times.Once);
+        Assert.Equal(expectedDto, okResult.Value);
+
+        _mockAccountingService.Verify(s => s.GetEntriesByDateRangeAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
     }
     
     [Fact]
@@ -199,23 +239,24 @@ public class AccountingEntriesControllerTests
         // Arrange
         var entryId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        
-        _mockAccountingService.Setup(s => s.GetEntryByIdAsync(
-            It.IsAny<Guid>()))
-            .ReturnsAsync((CoreAccountingEntry?)null);
-        
+
+        // Return empty list - entry not found
+        _mockAccountingService.Setup(s => s.GetEntriesByDateRangeAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<AccountingEntryDto>());
+
         // Set up tenant header
         _controller.ControllerContext.HttpContext = new DefaultHttpContext();
         _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
-        
+
         // Act
         var result = await _controller.GetEntryById(entryId);
-        
+
         // Assert
         Assert.IsType<NotFoundResult>(result.Result);
-        
-        _mockAccountingService.Verify(s => s.GetEntryByIdAsync(
-            It.IsAny<Guid>()), Times.Once);
+
+        _mockAccountingService.Verify(s => s.GetEntriesByDateRangeAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
     }
     
     [Fact]
@@ -229,13 +270,13 @@ public class AccountingEntriesControllerTests
             Reason = "Test reversal"
         };
         
-        var originalEntry = AccountingEntryFactory.CreateRevenueEntry(
+        var originalEntry = CoreAccountingEntry.CreateRevenue(
             new TenantId(tenantId),
             AccountingPeriod.Create(2024, 1),
             new Money(1000m, "VND"),
             "Original entry");
         
-        var reversalEntry = VanAn.Shared.Domain.AccountingEntryFactory.CreateReversal(originalEntry, request.Reason);
+        var reversalEntry = CoreAccountingEntry.CreateReversal(originalEntry, request.Reason);
         
         _mockReversalService.Setup(s => s.CanReverseEntryAsync(
             It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
@@ -307,8 +348,8 @@ public class AccountingEntriesControllerTests
         var totalRevenue = 5000m;
         var entries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateRevenueEntry(new TenantId(tenantId), period, new Money(3000m, "VND"), "Revenue 1"),
-            AccountingEntryFactory.CreateRevenueEntry(new TenantId(tenantId), period, new Money(2000m, "VND"), "Revenue 2")
+            CoreAccountingEntry.CreateRevenue(new TenantId(tenantId), period, new Money(3000m, "VND"), "Revenue 1"),
+            CoreAccountingEntry.CreateRevenue(new TenantId(tenantId), period, new Money(2000m, "VND"), "Revenue 2")
         };
         
         _mockHKDBookService.Setup(s => s.GetRevenueTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))

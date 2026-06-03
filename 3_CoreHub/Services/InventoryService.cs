@@ -52,6 +52,7 @@ public class InventoryService : IInventoryService
 
     public async Task<IReadOnlyDictionary<IngredientId, decimal>> CalculateIngredientDeductionAsync(Order order, IReadOnlyDictionary<Guid, Recipe> recipes)
     {
+        await Task.CompletedTask;
         try
         {
             var deductions = new Dictionary<IngredientId, decimal>();
@@ -107,8 +108,7 @@ public class InventoryService : IInventoryService
                         continue;
                     }
 
-                    inventory.Quantity = newQuantity;
-                    inventory.UpdatedAt = DateTime.UtcNow;
+                    inventory.UpdateQuantity(newQuantity);
                     
                     updatedInventories[deduction.Key] = inventory;
                 }

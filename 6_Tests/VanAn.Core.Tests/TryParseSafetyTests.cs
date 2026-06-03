@@ -38,10 +38,7 @@ public class TryParseSafetyTests
     [Fact(DisplayName = "Guid.TryParse - Null Input")]
     public void GuidTryParse_NullInput_ReturnsFalse()
     {
-        // Arrange
-        string? nullInput = null;
-
-        // Act
+        // Arrange & Act
         var result = Guid.TryParse(null, out Guid parsedGuid);
 
         // Assert
@@ -108,10 +105,7 @@ public class TryParseSafetyTests
     [Fact(DisplayName = "int.TryParse - Null Input")]
     public void IntTryParse_NullInput_ReturnsFalse()
     {
-        // Arrange
-        string? nullInput = null;
-
-        // Act
+        // Arrange & Act
         var result = int.TryParse((string?)null, out int parsedInt);
 
         // Assert
@@ -180,10 +174,7 @@ public class TryParseSafetyTests
     [Fact(DisplayName = "DateTime.TryParse - Null Input")]
     public void DateTimeTryParse_NullInput_ReturnsFalse()
     {
-        // Arrange
-        string? nullInput = null;
-
-        // Act
+        // Arrange & Act
         var result = DateTime.TryParse(null, out DateTime parsedDate);
 
         // Assert

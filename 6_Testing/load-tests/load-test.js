@@ -17,10 +17,15 @@ const config = {
 };
 
 // Test options
+const parsedDuration = parseInt(config.duration);
+if (isNaN(parsedDuration) || parsedDuration <= 0) {
+  throw new Error(`Invalid LOAD_TEST_DURATION: ${config.duration}. Must be a positive integer.`);
+}
+
 export const options = {
   stages: [
     { duration: `${config.rampUp}s`, target: config.vus },
-    { duration: `${parseInt(config.duration) - config.rampUp}s`, target: config.vus },
+    { duration: `${parsedDuration - config.rampUp}s`, target: config.vus },
     { duration: '10s', target: 0 }
   ],
   thresholds: {
@@ -32,7 +37,7 @@ export const options = {
 
 // Test data generator
 function generateRandomDeviceId() {
-  return `device_${Math.random().toString(36).substr(2, 9)}`;
+  return `device_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 function generateTestOrder() {

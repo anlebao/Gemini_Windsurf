@@ -4,10 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <WarningsAsErrors />
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <InvariantGlobalization>true</InvariantGlobalization>
-    <AnalysisMode>All</AnalysisMode>
+    <WarningsAsErrors></WarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>Default</AnalysisMode>
+    <NoWarn>$(NoWarn);CA1707;CA1848;CA1716</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,12 +24,19 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="NATS.Client" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Moq" />
+    <!-- ✅ FIXED: Add FrameworkReference for ASP.NET Core -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  
   <ItemGroup>
     <ProjectReference Include="..\1_Shared\VanAn.Shared.csproj" />
     <ProjectReference Include="..\VanAn.Accounting\VanAn.Accounting.csproj" />

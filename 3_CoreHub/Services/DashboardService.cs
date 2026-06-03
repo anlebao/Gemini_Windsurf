@@ -1,9 +1,9 @@
-using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Models;
-using Microsoft.EntityFrameworkCore;
+using VanAn.CoreHub.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace VanAn.CoreHub.Services;
 
@@ -17,13 +17,13 @@ public interface IDashboardService
 
 public class DashboardService : IDashboardService
 {
-    private readonly VanAnDbContext _context;
+    private readonly ISystemMetricsRepository _metricsRepository;
     private readonly ILogger<DashboardService> _logger;
     private readonly IConfiguration _configuration;
 
-    public DashboardService(VanAnDbContext context, ILogger<DashboardService> logger, IConfiguration configuration)
+    public DashboardService(ISystemMetricsRepository metricsRepository, ILogger<DashboardService> logger, IConfiguration configuration)
     {
-        _context = context;
+        _metricsRepository = metricsRepository;
         _logger = logger;
         _configuration = configuration;
     }
@@ -34,23 +34,10 @@ public class DashboardService : IDashboardService
         {
             var metrics = new DashboardMetrics();
 
-            // Tenant Count
-            metrics.TenantCount = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty)
-                .Select(o => o.TenantId)
-                .Distinct()
-                .CountAsync();
-
-            // Total Orders
-            metrics.TotalOrders = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty)
-                .CountAsync();
-
-            // Total Revenue - Use client-side evaluation for SQLite compatibility
-            var orders = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty)
-                .ToListAsync();
-            metrics.TotalRevenue = orders.Sum(o => o.TotalAmount);
+            // Get basic metrics from repository
+            metrics.TenantCount = await _metricsRepository.GetTenantCountAsync();
+            metrics.TotalOrders = await _metricsRepository.GetTotalOrdersCountAsync();
+            metrics.TotalRevenue = await _metricsRepository.GetTotalRevenueAsync();
 
             // Growth calculations (compare with previous periods)
             var oneMonthAgo = DateTime.UtcNow.AddMonths(-1);
@@ -58,61 +45,35 @@ public class DashboardService : IDashboardService
             var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
 
             // Tenant growth
-            var tenantsLastMonth = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneMonthAgo)
-                .Select(o => o.TenantId)
-                .Distinct()
-                .CountAsync();
-            
-            var tenantsPreviousMonth = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneMonthAgo.AddMonths(-1) && o.CreatedAt < oneMonthAgo)
-                .Select(o => o.TenantId)
-                .Distinct()
-                .CountAsync();
+            var tenantsLastMonth = await _metricsRepository.GetTenantCountByDateRangeAsync(oneMonthAgo, DateTime.UtcNow);
+            var tenantsPreviousMonth = await _metricsRepository.GetTenantCountByDateRangeAsync(oneMonthAgo.AddMonths(-1), oneMonthAgo);
 
             metrics.TenantGrowth = tenantsPreviousMonth > 0 
                 ? ((double)(tenantsLastMonth - tenantsPreviousMonth) / tenantsPreviousMonth) * 100 
                 : 0;
 
             // Order growth (daily)
-            var ordersToday = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= DateTime.UtcNow.Date)
-                .CountAsync();
-
-            var ordersYesterday = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= yesterday.Date && o.CreatedAt < DateTime.UtcNow.Date)
-                .CountAsync();
+            var ordersToday = await _metricsRepository.GetOrderCountByDateRangeAsync(DateTime.UtcNow.Date, DateTime.UtcNow);
+            var ordersYesterday = await _metricsRepository.GetOrderCountByDateRangeAsync(yesterday.Date, DateTime.UtcNow.Date);
 
             metrics.OrderGrowth = ordersYesterday > 0 
                 ? ((double)(ordersToday - ordersYesterday) / ordersYesterday) * 100 
                 : 0;
 
-            // Revenue growth (weekly) - Use client-side evaluation for SQLite compatibility
-            var revenueThisWeekOrders = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneWeekAgo)
-                .ToListAsync();
-            var revenueThisWeek = revenueThisWeekOrders.Sum(o => o.TotalAmount);
-
-            var revenueLastWeekOrders = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.CreatedAt >= oneWeekAgo.AddDays(-7) && o.CreatedAt < oneWeekAgo)
-                .ToListAsync();
-            var revenueLastWeek = revenueLastWeekOrders.Sum(o => o.TotalAmount);
+            // Revenue growth (weekly)
+            var revenueThisWeek = await _metricsRepository.GetRevenueByDateRangeAsync(oneWeekAgo, DateTime.UtcNow);
+            var revenueLastWeek = await _metricsRepository.GetRevenueByDateRangeAsync(oneWeekAgo.AddDays(-7), oneWeekAgo);
 
             metrics.RevenueGrowth = revenueLastWeek > 0 
                 ? ((double)(revenueThisWeek - revenueLastWeek) / (double)revenueLastWeek) * 100 
                 : 0;
 
-            // Sync Rate
-            var totalOrdersWithSync = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty)
-                .CountAsync();
+            // Sync rate - calculate from LastSyncedAt field
+            var totalOrders = await _metricsRepository.GetTotalOrdersCountAsync();
+            var syncedOrders = await _metricsRepository.GetSyncedOrdersCountAsync();
 
-            var syncedOrders = await _context.Orders
-                .Where(o => o.TenantId.Value != Guid.Empty && o.LastSyncedAt != default(DateTime))
-                .CountAsync();
-
-            metrics.SyncRate = totalOrdersWithSync > 0 
-                ? ((double)syncedOrders / totalOrdersWithSync) * 100 
+            metrics.SyncRate = totalOrders > 0 
+                ? ((double)syncedOrders / totalOrders) * 100 
                 : 0;
 
             metrics.LastUpdated = DateTime.UtcNow;
@@ -136,7 +97,7 @@ public class DashboardService : IDashboardService
             var metrics = new SQLiteMetrics { NodeType = nodeType };
 
             // Determine database path based on node type
-            var dbPath = nodeType.ToLower() switch
+            var dbPath = nodeType.ToLower(CultureInfo.InvariantCulture) switch
             {
                 "khachlink" => GetKhachLinkDbPath(),
                 "shoperp" => GetShopErpDbPath(),
@@ -155,7 +116,7 @@ public class DashboardService : IDashboardService
             // Local Orders
             var orderCommand = connection.CreateCommand();
             orderCommand.CommandText = "SELECT COUNT(*) FROM Orders";
-            metrics.LocalOrders = Convert.ToInt32(await orderCommand.ExecuteScalarAsync());
+            metrics.LocalOrders = Convert.ToInt32(await orderCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
 
             // Sync status
             var syncCommand = connection.CreateCommand();
@@ -178,7 +139,7 @@ public class DashboardService : IDashboardService
             var walCommand = connection.CreateCommand();
             walCommand.CommandText = "PRAGMA journal_mode";
             var walMode = await walCommand.ExecuteScalarAsync() as string;
-            metrics.IsWalModeEnabled = walMode?.ToLower() == "wal";
+            metrics.IsWalModeEnabled = walMode?.ToLower(CultureInfo.InvariantCulture) == "wal";
 
             // Last sync time
             var lastSyncCommand = connection.CreateCommand();
@@ -187,7 +148,7 @@ public class DashboardService : IDashboardService
             
             if (lastSync != null && lastSync != DBNull.Value)
             {
-                metrics.LastSyncTime = Convert.ToDateTime(lastSync);
+                metrics.LastSyncTime = Convert.ToDateTime(lastSync, CultureInfo.InvariantCulture);
                 metrics.LastSyncDescription = GetRelativeTimeString(metrics.LastSyncTime.Value);
             }
             else
@@ -249,11 +210,10 @@ public class DashboardService : IDashboardService
         {
             var health = new SystemHealth();
 
-            // Check PostgreSQL connectivity
+            // Check PostgreSQL connectivity using repository
             try
             {
-                await _context.Database.CanConnectAsync();
-                health.IsPostgresOnline = true;
+                health.IsPostgresOnline = await _metricsRepository.CanConnectAsync();
             }
             catch
             {
@@ -315,7 +275,7 @@ public class DashboardService : IDashboardService
         return Path.Combine(basePath, "vanan_shoperp.db");
     }
 
-    private string GetRelativeTimeString(DateTime dateTime)
+    private static string GetRelativeTimeString(DateTime dateTime)
     {
         var span = DateTime.UtcNow - dateTime;
         
@@ -328,7 +288,7 @@ public class DashboardService : IDashboardService
         if (span.TotalDays < 7)
             return $"{(int)span.TotalDays} day{((int)span.TotalDays != 1 ? "s" : "")} ago";
         
-        return dateTime.ToString("yyyy-MM-dd");
+        return dateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 }
 

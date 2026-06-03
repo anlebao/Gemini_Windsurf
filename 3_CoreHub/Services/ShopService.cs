@@ -27,13 +27,13 @@ public class ShopService : IShopService
 
     public async Task<Shop> CreateShopAsync(Shop shop)
     {
-        // Auto-set TenantId từ provider
-        shop.TenantId = _tenantProvider.TenantId;
+        // Create new Shop with proper constructor
+        var newShop = new Shop(_tenantProvider.TenantId, shop.Name, shop.Address, shop.Phone, shop.Email);
         
-        _context.Shops.Add(shop);
+        _context.Shops.Add(newShop);
         await _context.SaveChangesAsync();
         
-        return shop;
+        return newShop;
     }
 
     public async Task<Shop?> GetShopByIdAsync(Guid shopId)
@@ -57,12 +57,7 @@ public class ShopService : IShopService
         if (existing == null)
             throw new InvalidOperationException("Shop not found or access denied");
 
-        existing.Name = shop.Name;
-        existing.Address = shop.Address;
-        existing.Phone = shop.Phone;
-        existing.Email = shop.Email;
-        existing.IsActive = shop.IsActive;
-        existing.UpdatedAt = DateTime.UtcNow;
+        existing.UpdateShopDetails(shop.Name, shop.Address, shop.Phone, shop.Email, shop.IsActive);
 
         await _context.SaveChangesAsync();
         return existing;

@@ -24,4 +24,42 @@ public static class AnalyzerHelpers
         return filePath.IndexOf("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) >= 0 ||
                filePath.IndexOf("/Analyzers/", StringComparison.OrdinalIgnoreCase) >= 0;
     }
+
+    /// <summary>
+    /// ContainsIgnoreCase - Fix CA2249 using IndexOf (stable on .NET Standard 2.0)
+    /// </summary>
+    public static bool ContainsIgnoreCase(this string source, string value)
+    {
+        if (source == null || value == null)
+            return false;
+
+        return source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    /// <summary>
+    /// ContainsOrdinal
+    /// </summary>
+    public static bool ContainsOrdinal(this string source, string value)
+    {
+        if (source == null || value == null)
+            return false;
+
+        return source.IndexOf(value, StringComparison.Ordinal) >= 0;
+    }
+
+    /// <summary>
+    /// Check if string contains any of the values (case-insensitive)
+    /// </summary>
+    public static bool ContainsAny(this string source, params string[] values)
+    {
+        if (source == null || values == null || values.Length == 0)
+            return false;
+
+        foreach (var value in values)
+        {
+            if (source.ContainsIgnoreCase(value))
+                return true;
+        }
+        return false;
+    }
 }

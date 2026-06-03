@@ -3,7 +3,7 @@ using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.ValueConverters;
 
-public class AccountingPeriodConverter : ValueConverter<AccountingPeriod, string>
+public class AccountingPeriodConverter : ValueConverter<AccountingPeriod?, string?>
 {
     public AccountingPeriodConverter() : base(
         convertToProviderExpression: period => period != null ? $"{period.Year:D4}-{period.Month:D2}" : null,

@@ -1,25 +1,23 @@
-using Microsoft.EntityFrameworkCore;
-using VanAn.CoreHub.Infrastructure;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
+using VanAn.CoreHub.Repositories;
 
 namespace VanAn.CoreHub.Services;
 
 public class SocialCampaignService : ISocialCampaignService
 {
-    private readonly VanAnDbContext _context;
+    private readonly ISocialCampaignRepository _repository;
     private readonly ILogger<SocialCampaignService> _logger;
 
-    public SocialCampaignService(VanAnDbContext context, ILogger<SocialCampaignService> logger)
+    public SocialCampaignService(ISocialCampaignRepository repository, ILogger<SocialCampaignService> logger)
     {
-        _context = context;
+        _repository = repository;
         _logger = logger;
     }
 
     public async Task<SocialCampaign> CreateCampaignAsync(SocialCampaign campaign)
     {
-        await _context.SocialCampaigns.AddAsync(campaign);
-        await _context.SaveChangesAsync();
+        await _repository.AddAsync(campaign);
         
         _logger.LogInformation("Created social campaign {CampaignId} for shop {ShopId}", campaign.Id, campaign.ShopId);
         return campaign;
@@ -27,17 +25,13 @@ public class SocialCampaignService : ISocialCampaignService
 
     public async Task<SocialCampaign?> GetCampaignByIdAsync(Guid campaignId)
     {
-        return await _context.SocialCampaigns
-            .Include(c => c.Shop)
-            .FirstOrDefaultAsync(c => c.Id == campaignId);
+        return await _repository.GetByIdAsync(campaignId);
     }
 
     public async Task<List<SocialCampaign>> GetCampaignsByShopAsync(Guid shopId)
     {
-        return await _context.SocialCampaigns
-            .Where(c => c.ShopId == shopId && c.IsActive)
-            .OrderByDescending(c => c.CreatedAt)
-            .ToListAsync();
+        var campaigns = await _repository.GetByTenantIdAsync(new TenantId(shopId));
+        return campaigns.Where(c => c.IsActive).OrderByDescending(c => c.CreatedAt).ToList();
     }
 
     public async Task<string> GenerateTrackingUrlAsync(Guid campaignId)
@@ -56,17 +50,19 @@ public class SocialCampaignService : ISocialCampaignService
 
     public async Task<bool> RecordClickAsync(string trackingCode)
     {
-        var campaign = await GetCampaignByTrackingCodeAsync(trackingCode);
+        // Need to add GetByTrackingCodeAsync to repository
+        var campaigns = await _repository.GetActiveAsync();
+        var campaign = campaigns.FirstOrDefault(c => c.TrackingCode == trackingCode);
+        
         if (campaign == null)
         {
             _logger.LogWarning("Campaign not found for tracking code: {TrackingCode}", trackingCode);
             return false;
         }
 
-        campaign.TotalClicks++;
-        campaign.UpdatedAt = DateTime.UtcNow;
+        campaign.IncrementClicks();
         
-        await _context.SaveChangesAsync();
+        await _repository.UpdateAsync(campaign);
         
         _logger.LogInformation("Recorded click for campaign {CampaignId}, total clicks: {TotalClicks}", 
             campaign.Id, campaign.TotalClicks);
@@ -75,8 +71,8 @@ public class SocialCampaignService : ISocialCampaignService
 
     public async Task<SocialCampaign?> GetCampaignByTrackingCodeAsync(string trackingCode)
     {
-        return await _context.SocialCampaigns
-            .FirstOrDefaultAsync(c => c.TrackingCode == trackingCode && c.IsActive);
+        var campaigns = await _repository.GetActiveAsync();
+        return campaigns.FirstOrDefault(c => c.TrackingCode == trackingCode);
     }
 
     public async Task<bool> IncrementConvertedOrdersAsync(Guid campaignId)
@@ -88,10 +84,9 @@ public class SocialCampaignService : ISocialCampaignService
             return false;
         }
 
-        campaign.ConvertedOrders++;
-        campaign.UpdatedAt = DateTime.UtcNow;
+        campaign.IncrementConvertedOrders();
         
-        await _context.SaveChangesAsync();
+        await _repository.UpdateAsync(campaign);
         
         _logger.LogInformation("Incremented converted orders for campaign {CampaignId}, total: {TotalConverted}", 
             campaign.Id, campaign.ConvertedOrders);
@@ -104,12 +99,9 @@ public class SocialCampaignService : ISocialCampaignService
         if (existing == null)
             throw new InvalidOperationException($"Campaign {campaign.Id} not found");
 
-        existing.CampaignName = campaign.CampaignName;
-        existing.UtmSource = campaign.UtmSource;
-        existing.IsActive = campaign.IsActive;
-        existing.UpdatedAt = DateTime.UtcNow;
+        existing.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, campaign.IsActive);
 
-        await _context.SaveChangesAsync();
+        await _repository.UpdateAsync(existing);
         
         _logger.LogInformation("Updated social campaign {CampaignId}", campaign.Id);
         return existing;
@@ -121,10 +113,9 @@ public class SocialCampaignService : ISocialCampaignService
         if (campaign == null)
             return false;
 
-        campaign.IsActive = false;
-        campaign.UpdatedAt = DateTime.UtcNow;
+        campaign.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, false);
         
-        await _context.SaveChangesAsync();
+        await _repository.UpdateAsync(campaign);
         
         _logger.LogInformation("Deactivated social campaign {CampaignId}", campaignId);
         return true;
@@ -132,10 +123,6 @@ public class SocialCampaignService : ISocialCampaignService
 
     public async Task<IEnumerable<SocialCampaign>> GetAllCampaignsAsync()
     {
-        return await _context.SocialCampaigns
-            .Include(c => c.Shop)
-            .Where(c => c.IsActive)
-            .OrderByDescending(c => c.CreatedAt)
-            .ToListAsync();
+        return await _repository.GetActiveAsync();
     }
 }

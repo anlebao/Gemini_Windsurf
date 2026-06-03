@@ -1,23 +1,44 @@
-﻿@inherits LayoutComponentBase
+﻿@using VanAn.UI.Platform.Components
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
+<VanALayout SidebarCollapsed="false">
+    <Sidebar>
         <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
+    </Sidebar>
+    
+    <Header>
+        <div class="top-row">
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
         </div>
-
-        <article class="content px-4">
+    </Header>
+    
+    <ChildContent>
+        <article class="content">
             @Body
         </article>
-    </main>
-</div>
+    </ChildContent>
+</VanALayout>
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+<style>
+    .top-row {
+        padding: 1rem;
+        border-bottom: 1px solid #e5e5e5;
+        display: flex;
+        justify-content: flex-end;
+    }
+    
+    .top-row a {
+        color: #0077cc;
+        text-decoration: none;
+    }
+    
+    .content {
+        padding: 1.5rem;
+    }
+</style>

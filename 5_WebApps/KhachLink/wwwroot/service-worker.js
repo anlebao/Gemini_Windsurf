@@ -1,80 +1,151 @@
-const CACHE_NAME = 'vanan-khachlink-v1';
-const urlsToCache = [
+const CACHE_NAME = 'vanan-khachlink-v2';
+const STATIC_CACHE = 'vanan-static-v2';
+const DYNAMIC_CACHE = 'vanan-dynamic-v2';
+
+// Core static assets to cache
+const staticUrlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/css/bootstrap.min.css',
-  '/css/site.css',
+  '/css/app.css',
   '/js/app.js',
-  '/images/logo.png'
+  '/images/logo.png',
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png'
+];
+
+// Dynamic content that can be cached
+const dynamicCachePatterns = [
+  '/api/menu',
+  '/api/products',
+  '/api/orders'
 ];
 
 // Install Service Worker
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
+    caches.open(STATIC_CACHE)
       .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        console.log('Caching static assets');
+        return cache.addAll(staticUrlsToCache);
+      })
+      .then(() => {
+        console.log('Static assets cached successfully');
+        return self.skipWaiting(); // Force activation
       })
   );
 });
 
-// Fetch from cache first, then network
+// Enhanced fetch strategy with cache-first for static, network-first for dynamic
 self.addEventListener('fetch', event => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  // Cache-first strategy for static assets
+  if (request.destination === 'script' || 
+      request.destination === 'style' || 
+      request.destination === 'image' ||
+      staticUrlsToCache.some(staticUrl => url.pathname === staticUrl)) {
+    
+    event.respondWith(
+      caches.match(request)
+        .then(response => {
+          if (response) {
+            return response;
+          }
+          
+          return fetch(request).then(response => {
+            if (!response || response.status !== 200) {
+              return response;
+            }
+            
+            const responseToCache = response.clone();
+            caches.open(STATIC_CACHE).then(cache => {
+              cache.put(request, responseToCache);
+            });
+            
+            return response;
+          });
+        })
+    );
+    return;
+  }
+
+  // Network-first strategy for API calls with offline fallback
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (!response || response.status !== 200) {
+            return response;
+          }
+          
+          // Cache successful API responses
+          const responseToCache = response.clone();
+          caches.open(DYNAMIC_CACHE).then(cache => {
+            cache.put(request, responseToCache);
+          });
+          
+          return response;
+        })
+        .catch(() => {
+          // Try cache if network fails
+          return caches.match(request).then(cachedResponse => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            
+            // Offline fallback for API
+            if (url.pathname.includes('/menu')) {
+              return new Response(JSON.stringify({
+                error: 'Offline mode',
+                data: [
+                  { id: 1, name: 'Trà sữa', price: 25000, available: true },
+                  { id: 2, name: 'Cà phê', price: 20000, available: true }
+                ]
+              }), {
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+            
+            return new Response(JSON.stringify({ error: 'Offline mode' }), {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          });
+        })
+    );
+    return;
+  }
+
+  // Default: cache-first for navigation
   event.respondWith(
-    caches.match(event.request)
+    caches.match(request)
       .then(response => {
-        // Cache hit - return response
         if (response) {
           return response;
         }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then(
-          response => {
-            // Check if valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          }
-        ).catch(() => {
-          // Offline fallback
-          if (event.request.destination === 'image') {
-            return new Response(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#ccc"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#666">No Image</text></svg>',
-              { headers: { 'Content-Type': 'image/svg+xml' } }
-            );
-          }
-        });
+        return fetch(request);
       })
   );
 });
 
-// Activate Service Worker
+// Enhanced activation with cache cleanup
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
+  const cacheWhitelist = [STATIC_CACHE, DYNAMIC_CACHE];
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      console.log('Service Worker activated');
+      return self.clients.claim(); // Take control of all pages
     })
   );
 });

@@ -13,10 +13,10 @@ namespace VanAn.CoreHub.Repositories;
 /// </summary>
 public class AccountingEntryRepository : IAccountingEntryRepository
 {
-    private readonly VanAnDbContext _context;
+    private readonly IVanAnDbContext _context;
     private readonly ILogger<AccountingEntryRepository> _logger;
     
-    public AccountingEntryRepository(VanAnDbContext context, ILogger<AccountingEntryRepository> logger)
+    public AccountingEntryRepository(IVanAnDbContext context, ILogger<AccountingEntryRepository> logger)
     {
         _context = context;
         _logger = logger;
@@ -31,7 +31,7 @@ public class AccountingEntryRepository : IAccountingEntryRepository
     public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAsync(TenantId tenantId, CancellationToken cancellationToken = default)
     {
         return await _context.AccountingEntries
-            .Where(e => e.TenantId.Equals(tenantId))
+            .Where(e => e.TenantId.Value == tenantId.Value)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -42,7 +42,7 @@ public class AccountingEntryRepository : IAccountingEntryRepository
         CancellationToken cancellationToken = default)
     {
         return await _context.AccountingEntries
-            .Where(e => e.TenantId.Equals(tenantId) && e.AccountingBookType == bookType)
+            .Where(e => e.TenantId == tenantId && e.AccountingBookType == bookType)
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);
     }
@@ -65,7 +65,7 @@ public class AccountingEntryRepository : IAccountingEntryRepository
         
         // Build query with tenant filtering and date range
         var query = _context.AccountingEntries
-            .Where(e => e.TenantId.Equals(tenantId) && 
+            .Where(e => e.TenantId == tenantId && 
                        e.CreatedAt >= startDate && 
                        e.CreatedAt <= endDate);
             
@@ -105,9 +105,9 @@ public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndPeriodAsync(
         if (period == null) 
             throw new ArgumentNullException(nameof(period), "AccountingPeriod cannot be null");
         
-        // Convert AccountingPeriod to date range
-        var startDate = period.StartDate;
-        var endDate = period.EndDate;
+        // Convert AccountingPeriod to date range; normalize to UTC to match CreatedAt (DateTime.UtcNow)
+        var startDate = DateTime.SpecifyKind(period.StartDate, DateTimeKind.Utc);
+        var endDate = DateTime.SpecifyKind(period.EndDate, DateTimeKind.Utc);
         
         // Validate period date range
         if (startDate > endDate)
@@ -115,7 +115,7 @@ public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndPeriodAsync(
         
         // Build query with tenant filtering and period range
         var query = _context.AccountingEntries
-            .Where(e => e.TenantId.Equals(tenantId) && 
+            .Where(e => e.TenantId == tenantId && 
                        e.CreatedAt >= startDate && 
                        e.CreatedAt <= endDate);
             
@@ -176,6 +176,7 @@ public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndPeriodAsync(
         
         // Add entry to context (no tracking for immutability)
         await _context.AccountingEntries.AddAsync(entry, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
         
         _logger.LogInformation("Added accounting entry {EntryId} for tenant {TenantId} with amount {Amount}", 
             entry.Id, entry.TenantId.Value, entry.Amount);
@@ -235,19 +236,65 @@ public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAndPeriodAsync(
         
         // Add entries to context (no tracking for immutability)
         await _context.AccountingEntries.AddRangeAsync(entriesList, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
         
         _logger.LogInformation("Added {Count} accounting entries for tenant {TenantId}", 
             entriesList.Count, firstTenantId);
+        }
+        catch (OperationCanceledException ex)
+        {
+            _logger.LogWarning(ex, "AddRangeAsync was cancelled for {Count} entries", entries?.Count() ?? 0);
+            throw;
+        }
+        catch (Exception ex) when (!(ex is ArgumentNullException || ex is InvalidOperationException || ex is OperationCanceledException))
+        {
+            _logger.LogError(ex, "Unexpected error in AddRangeAsync for {Count} entries", entries?.Count() ?? 0);
+            throw new InvalidOperationException($"Failed to add accounting entries to database", ex);
+        }
     }
-    catch (OperationCanceledException ex)
+    
+    public async Task<IEnumerable<CoreAccountingEntry>> GetByPeriodAsync(
+        TenantId tenantId,
+        AccountingPeriod period, 
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogWarning(ex, "AddRangeAsync was cancelled for {Count} entries", entries?.Count() ?? 0);
-        throw;
+        try
+        {
+            // Input validation
+            if (period == null) 
+                throw new ArgumentNullException(nameof(period), "AccountingPeriod cannot be null");
+            if (tenantId == null)
+                throw new ArgumentNullException(nameof(tenantId), "TenantId cannot be null");
+            
+            // Build query for period-based filtering with tenant isolation
+            // Normalize to UTC to match CreatedAt (DateTime.UtcNow)
+            var startDate = DateTime.SpecifyKind(new DateTime(period.Year, period.Month, 1), DateTimeKind.Utc);
+            var endDate = DateTime.SpecifyKind(startDate.AddMonths(1).AddDays(-1), DateTimeKind.Utc);
+            
+            var query = _context.AccountingEntries
+                .Where(e => e.TenantId == tenantId &&
+                           e.CreatedAt >= startDate && 
+                           e.CreatedAt <= endDate);
+            
+            // Execute query with ordering
+            var result = await query
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync(cancellationToken);
+            
+            _logger.LogDebug("Retrieved {Count} accounting entries for period {Period}", 
+                result.Count, period.ToString());
+            
+            return result;
+        }
+        catch (OperationCanceledException ex)
+        {
+            _logger.LogWarning(ex, "GetByPeriodAsync was cancelled for period {Period}", period?.ToString());
+            throw;
+        }
+        catch (Exception ex) when (!(ex is ArgumentNullException || ex is OperationCanceledException))
+        {
+            _logger.LogError(ex, "Unexpected error in GetByPeriodAsync for period {Period}", period?.ToString());
+            throw new InvalidOperationException($"Failed to retrieve accounting entries for period {period?.ToString()}", ex);
+        }
     }
-    catch (Exception ex) when (!(ex is ArgumentNullException || ex is InvalidOperationException || ex is OperationCanceledException))
-    {
-        _logger.LogError(ex, "Unexpected error in AddRangeAsync for {Count} entries", entries?.Count() ?? 0);
-        throw new InvalidOperationException($"Failed to add accounting entries to database", ex);
-    }
-}
 }

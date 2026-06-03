@@ -124,10 +124,10 @@ test.describe('VanAn Ecosystem - Smoke Tests', () => {
     }
   });
 
-  test('Database Connectivity Check', async () => {
+  test('Database Connectivity Check', async ({ request }) => {
     // Basic database connectivity check through API
     try {
-      const response = await fetch(`${config.COREHUB_URL}/api/health/database`);
+      const response = await request.get(`${config.COREHUB_URL}/api/health/database`);
       const data = await response.json();
       
       expect(data.status).toBe('healthy');
@@ -146,10 +146,10 @@ test.describe('VanAn Ecosystem - Smoke Tests', () => {
     }
   });
 
-  test('NATS Messaging Check', async () => {
+  test('NATS Messaging Check', async ({ request }) => {
     // Check NATS connectivity through API
     try {
-      const response = await fetch(`${config.COREHUB_URL}/api/health/messaging`);
+      const response = await request.get(`${config.COREHUB_URL}/api/health/messaging`);
       const data = await response.json();
       
       expect(data.status).toBe('healthy');

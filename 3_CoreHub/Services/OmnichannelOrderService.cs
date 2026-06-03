@@ -3,6 +3,7 @@ using VanAn.Shared.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
+using System.Globalization;
 
 namespace VanAn.CoreHub.Services;
 
@@ -267,6 +268,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<List<OrderHistoryEntry>> GetOrderHistoryAsync(Guid orderId, string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting order history: {OrderId} for user: {UserId}", orderId, userId);
@@ -289,6 +291,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<OrderSyncResult> SyncOrderAcrossDevicesAsync(Guid orderId, string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Syncing order across devices: {OrderId} for user: {UserId}", orderId, userId);
@@ -375,6 +378,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<List<OmnichannelOrder>> GetOrdersByStatusAsync(OrderStatusId status, string userId, string? deviceId = null)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting orders by status: {Status} for user: {UserId}, device: {DeviceId}", status, userId, deviceId);
@@ -396,6 +400,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<List<OmnichannelOrder>> GetActiveOrdersAsync(string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting active orders for user: {UserId}", userId);
@@ -504,6 +509,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<OrderAnalytics> GetOrderAnalyticsAsync(string userId, DateTime? from = null, DateTime? to = null)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting order analytics for user: {UserId} from {From} to {To}", userId, from, to);
@@ -526,7 +532,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
                 CancelledOrders = userOrders.Count(o => o.Status.Value == "cancelled"),
                 PendingOrders = userOrders.Count(o => o.Status.Value == "pending" || o.Status.Value == "confirmed"),
                 TotalRevenue = userOrders.Where(o => o.Status.Value == "completed").Sum(o => o.TotalAmount),
-                AverageOrderValue = userOrders.Any() ? userOrders.Average(o => o.TotalAmount) : 0,
+                AverageOrderValue = userOrders.Count > 0 ? userOrders.Average(o => o.TotalAmount) : 0,
                 OrdersByStatus = userOrders.GroupBy(o => o.Status)
                     .ToDictionary(g => g.Key, g => g.Count()),
                 OrdersByDevice = userOrders
@@ -567,6 +573,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<List<OrderConflict>> DetectOrderConflictsAsync(Guid orderId, string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Detecting conflicts for order: {OrderId}", orderId);
@@ -614,6 +621,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<OrderConflictResolution> ResolveOrderConflictAsync(Guid orderId, string conflictId, OrderConflictResolutionStrategy strategy, string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Resolving conflict {ConflictId} for order: {OrderId} using strategy: {Strategy}", 
@@ -685,6 +693,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     public async Task<OrderWorkflowStatus> GetOrderWorkflowStatusAsync(Guid orderId, string userId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting workflow status for order: {OrderId}", orderId);
@@ -810,6 +819,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
 
     private async Task CreateOrderHistoryEntryAsync(Guid orderId, OrderHistoryAction action, string description, string userId, string deviceId, object? data = null)
     {
+        await Task.CompletedTask;
         var historyKey = $"history_{orderId}";
         if (!_orderHistory.TryGetValue(historyKey, out var history))
         {
@@ -922,9 +932,9 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         return syncedDevices;
     }
 
-    private string DetermineDeviceType(string deviceId)
+    private static string DetermineDeviceType(string deviceId)
     {
-        return deviceId.ToLower() switch
+        return deviceId.ToLower(CultureInfo.InvariantCulture) switch
         {
             var s when s.Contains("mobile") => "Mobile",
             var s when s.Contains("tablet") => "Tablet",
@@ -934,7 +944,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private string GetStatusDescription(OrderStatusId status)
+    private static string GetStatusDescription(OrderStatusId status)
     {
         return status.Value switch
         {
@@ -950,30 +960,30 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private bool CanCancelOrder(OmnichannelOrder order)
+    private static bool CanCancelOrder(OmnichannelOrder order)
     {
         var cancellableStatuses = new[] { "pending", "confirmed" };
         return cancellableStatuses.Contains(order.Status.Value);
     }
 
-    private decimal? CalculateRefundAmount(OmnichannelOrder order)
+    private static decimal? CalculateRefundAmount(OmnichannelOrder order)
     {
         // Simple refund logic - full refund for cancelled orders
         return order.Status.Value == "cancelled" ? order.TotalAmount : null;
     }
 
-    private string GenerateSyncVersion()
+    private static string GenerateSyncVersion()
     {
         return $"v{DateTime.UtcNow:yyyyMMdd-HHmmss}";
     }
 
-    private string GetDeviceIdForUser(string userId)
+    private static string GetDeviceIdForUser(string userId)
     {
         // Simple mapping - in production, this would be more sophisticated
         return $"device_{userId}";
     }
 
-    private OrderConflict? DetectConflictBetweenDevices(OmnichannelOrder order, string device1, string device2)
+    private static OrderConflict? DetectConflictBetweenDevices(OmnichannelOrder order, string device1, string device2)
     {
         // Simple conflict detection - in production, this would be more sophisticated
         if (order.DeviceTracking.Count(dt => dt.IsActive) > 1)
@@ -996,7 +1006,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         return null;
     }
 
-    private object? ApplyConflictResolutionStrategy(OrderConflict conflict, OrderConflictResolutionStrategy strategy)
+    private static object? ApplyConflictResolutionStrategy(OrderConflict conflict, OrderConflictResolutionStrategy strategy)
     {
         return strategy switch
         {
@@ -1007,7 +1017,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private List<WorkflowStep> GetWorkflowSteps(List<string> stepIds)
+    private static List<WorkflowStep> GetWorkflowSteps(List<string> stepIds)
     {
         return stepIds.Select(stepId => GetWorkflowStepInfo(stepId))
                      .Where(step => step != null)
@@ -1015,7 +1025,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
                      .ToList();
     }
 
-    private WorkflowStep? GetWorkflowStepInfo(string stepId)
+    private static WorkflowStep? GetWorkflowStepInfo(string stepId)
     {
         return stepId switch
         {
@@ -1028,13 +1038,13 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private decimal CalculateWorkflowProgress(OrderWorkflowInfo workflowInfo)
+    private static decimal CalculateWorkflowProgress(OrderWorkflowInfo workflowInfo)
     {
         var totalSteps = workflowInfo.CompletedSteps.Count + workflowInfo.PendingSteps.Count;
         return totalSteps > 0 ? (decimal)workflowInfo.CompletedSteps.Count / totalSteps : 0;
     }
 
-    private List<string> GetAvailableActions(string currentStep)
+    private static List<string> GetAvailableActions(string currentStep)
     {
         return currentStep switch
         {
@@ -1047,7 +1057,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private string GetNextWorkflowStep(string currentStep)
+    private static string GetNextWorkflowStep(string currentStep)
     {
         return currentStep switch
         {
@@ -1060,7 +1070,7 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private string MapStatusToWorkflowStep(string status)
+    private static string MapStatusToWorkflowStep(string status)
     {
         return status switch
         {
@@ -1076,10 +1086,10 @@ public class OmnichannelOrderService : IOmnichannelOrderService
         };
     }
 
-    private string GetProductCategory(Guid productId)
+    private static string GetProductCategory(Guid productId)
     {
         // Simple category mapping - in production, this would be more sophisticated
-        return productId.ToString().StartsWith("1") ? "Đồ uống" : "Đồ ăn";
+        return productId.ToString().StartsWith("1", StringComparison.OrdinalIgnoreCase) ? "Đồ uống" : "Đồ ăn";
     }
 
     #endregion

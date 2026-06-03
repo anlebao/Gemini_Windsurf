@@ -70,22 +70,8 @@ public class LeadActivity
     public DateTime ActivityDate { get; set; } = DateTime.UtcNow;
 }
 
-public class Customer
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string FullName { get; set; } = string.Empty;
-    public string PhoneNumber { get; set; } = string.Empty;
-    public string? Email { get; set; }
-    public string CustomerTier { get; set; } = "Bronze";
-    public int LoyaltyPoints { get; set; } = 0;
-    public DateTime? LastOrderDate { get; set; }
-    public decimal TotalSpent { get; set; } = 0;
-    public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    public bool IsDeleted { get; set; } = false;
-    public Guid TenantId { get; set; }
-}
+// REMOVED: LeadCustomer class - now using production Customer from VanAn.Shared.Domain (single source of truth)
+// See: 1_Shared/Domain.cs - Customer class
 
 public class CustomerOnboarding
 {

@@ -23,5 +23,8 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
-  
+  <ItemGroup>
+    <ProjectReference Include="..\..\1_Shared\VanAn.Shared.csproj" />
+    <ProjectReference Include="..\..\3_CoreHub\VanAn.CoreHub.csproj" />
+  </ItemGroup>
 </Project>

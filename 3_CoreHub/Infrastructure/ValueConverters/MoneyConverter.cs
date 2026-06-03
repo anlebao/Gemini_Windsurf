@@ -7,6 +7,6 @@ public class MoneyConverter : ValueConverter<Money, decimal>
 {
     public MoneyConverter() : base(
         convertToProviderExpression: money => money != null ? money.Value : 0m,
-        convertFromProviderExpression: value => value != 0m ? new Money(value) : null
+        convertFromProviderExpression: value => value != 0m ? new Money(value) : new Money(0m)
     ) { }
 }

@@ -1,0 +1,73 @@
+@* VanAMetricsCard Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<div class="vanan-metrics-card @GetColorClass()" @attributes="AdditionalAttributes">
+    <div class="vanan-metrics-card__header">
+        <div class="vanan-metrics-card__icon">@Icon</div>
+        <div class="vanan-metrics-card__title">@Title</div>
+    </div>
+    
+    <div class="vanan-metrics-card__content">
+        <div class="vanan-metrics-card__value">@Value</div>
+        @if (!string.IsNullOrEmpty(Trend))
+        {
+            <div class="vanan-metrics-card__trend @GetTrendClass()">
+                <span class="vanan-metrics-card__trend-icon">@GetTrendIcon()</span>
+                <span class="vanan-metrics-card__trend-text">@Trend</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Icon { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Trend { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Color { get; set; } = "primary";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetColorClass()
+    {
+        return Color.ToLower() switch
+        {
+            "primary" => "vanan-metrics-card--primary",
+            "secondary" => "vanan-metrics-card--secondary",
+            "success" => "vanan-metrics-card--success",
+            "warning" => "vanan-metrics-card--warning",
+            "error" => "vanan-metrics-card--error",
+            "info" => "vanan-metrics-card--info",
+            _ => "vanan-metrics-card--primary"
+        };
+    }
+
+    private string GetTrendClass()
+    {
+        if (string.IsNullOrEmpty(Trend)) return string.Empty;
+        
+        return Trend.StartsWith("+") 
+            ? "vanan-metrics-card__trend--up" 
+            : "vanan-metrics-card__trend--down";
+    }
+
+    private string GetTrendIcon()
+    {
+        if (string.IsNullOrEmpty(Trend)) return string.Empty;
+        
+        return Trend.StartsWith("+") ? "📈" : "📉";
+    }
+}

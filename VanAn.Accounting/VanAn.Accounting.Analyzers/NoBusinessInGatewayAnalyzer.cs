@@ -88,7 +88,7 @@ namespace VanAn.Accounting.Analyzers
                 "VanAn.Accounting.Repositories"
             };
 
-            return businessNamespaces.Any(ns => namespaceName.StartsWith(ns));
+            return businessNamespaces.Any(ns => namespaceName.StartsWith(ns, StringComparison.Ordinal));
         }
 
         private static bool IsBusinessMethod(IMethodSymbol method)
@@ -109,7 +109,7 @@ namespace VanAn.Accounting.Analyzers
 
             // Check if class inherits from Controller or has Controller suffix
             return typeSymbol.AllInterfaces.Any(i => i.Name == "IController") ||
-                   typeSymbol.Name.EndsWith("Controller");
+                   typeSymbol.Name.EndsWith("Controller", StringComparison.Ordinal);
         }
     }
 }

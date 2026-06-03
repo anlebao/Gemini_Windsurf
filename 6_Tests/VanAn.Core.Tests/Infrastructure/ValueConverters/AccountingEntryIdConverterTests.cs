@@ -43,8 +43,10 @@ public class AccountingEntryIdConverterTests
     [Fact]
     public void Should_Handle_Null_Values()
     {
-        // Act & Assert
-        _converter.ConvertToProvider(null).Should().Be(Guid.Empty);
-        _converter.ConvertFromProvider(Guid.Empty).Should().BeNull();
+        // AccountingEntryIdConverter maps AccountingEntryId<->Guid (non-nullable)
+        // Guid.Empty maps to an AccountingEntryId with empty value (not null)
+        var emptyEntryId = _converter.ConvertFromProvider(Guid.Empty);
+        emptyEntryId.Should().NotBeNull();
+        ((AccountingEntryId)emptyEntryId!).Value.Should().Be(Guid.Empty);
     }
 }

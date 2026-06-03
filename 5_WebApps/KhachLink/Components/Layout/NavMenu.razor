@@ -1,36 +1,99 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">VanAn.KhachLink</a>
+﻿@using VanAn.UI.Platform.Components.Atomic
+
+<VanAnCard CssClass="nav-menu-card" Shadow="false">
+    <div class="nav-header">
+        <a class="nav-brand" href="">VanAn.KhachLink</a>
     </div>
-</div>
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
+    
+    <nav class="nav-scrollable">
+        <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="counter">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="weather">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
+        <div class="nav-item">
             <NavLink class="nav-link" href="VanAnDashboard">
                 <span class="bi bi-speedometer2" aria-hidden="true"></span> Dashboard
             </NavLink>
         </div>
     </nav>
-</div>
+</VanAnCard>
+
+<style>
+    .nav-menu-card {
+        background: #1a1a2e;
+        color: white;
+        height: 100%;
+        border-radius: 0;
+    }
+    
+    .nav-menu-card ::deep .card-body {
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .nav-header {
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .nav-brand {
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 1.25rem;
+    }
+    
+    .nav-brand:hover {
+        color: #ddd;
+    }
+    
+    .nav-scrollable {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem 0;
+    }
+    
+    .nav-item {
+        padding: 0.5rem 1rem;
+    }
+    
+    .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    
+    .nav-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+    
+    .nav-link.active {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    .nav-link span {
+        margin-right: 0.5rem;
+    }
+</style>
 

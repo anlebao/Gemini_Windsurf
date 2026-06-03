@@ -5,7 +5,7 @@
  * Orchestrates all testing tiers based on configuration
  */
 
-const { execSync } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { loadEnvConfig } = require('../utils/env-config');
@@ -35,42 +35,84 @@ class QualityGate {
     
     const startTime = Date.now();
     
-    try {
-      const output = execSync(command, { 
-        encoding: 'utf8',
-        timeout,
+    return new Promise((resolve) => {
+      const output = [];
+      const errorOutput = [];
+      
+      const child = spawn(command, {
+        cwd: __dirname,
+        shell: true,
         stdio: 'pipe'
       });
       
-      const duration = Date.now() - startTime;
+      let timer;
+      if (timeout) {
+        timer = setTimeout(() => {
+          child.kill();
+          const duration = Date.now() - startTime;
+          this.log(`\u274c ${description} - FAILED (${duration}ms)`);
+          this.log(`Error: Command timed out after ${timeout}ms`);
+          resolve({
+            status: 'fail',
+            duration,
+            error: `Command timed out after ${timeout}ms`,
+            description
+          });
+        }, timeout);
+      }
       
-      this.log(`\u2705 ${description} - PASSED (${duration}ms)`);
+      child.stdout.on('data', (data) => {
+        output.push(data.toString());
+      });
       
-      return {
-        status: 'pass',
-        duration,
-        output,
-        description
-      };
+      child.stderr.on('data', (data) => {
+        errorOutput.push(data.toString());
+      });
       
-    } catch (error) {
-      const duration = Date.now() - startTime;
+      child.on('close', (code) => {
+        if (timer) clearTimeout(timer);
+        const duration = Date.now() - startTime;
+        const fullOutput = output.join('');
+        const fullError = errorOutput.join('');
+        
+        if (code === 0) {
+          this.log(`\u2705 ${description} - PASSED (${duration}ms)`);
+          resolve({
+            status: 'pass',
+            duration,
+            output: fullOutput,
+            description
+          });
+        } else {
+          this.log(`\u274c ${description} - FAILED (${duration}ms)`);
+          this.log(`Error: ${fullError || fullOutput || `Exit code: ${code}`}`);
+          resolve({
+            status: 'fail',
+            duration,
+            error: fullError || fullOutput || `Exit code: ${code}`,
+            description
+          });
+        }
+      });
       
-      this.log(`\u274c ${description} - FAILED (${duration}ms)`);
-      this.log(`Error: ${error.message}`);
-      
-      return {
-        status: 'fail',
-        duration,
-        error: error.message,
-        description
-      };
-    }
+      child.on('error', (error) => {
+        if (timer) clearTimeout(timer);
+        const duration = Date.now() - startTime;
+        this.log(`\u274c ${description} - FAILED (${duration}ms)`);
+        this.log(`Error: ${error.message}`);
+        resolve({
+          status: 'fail',
+          duration,
+          error: error.message,
+          description
+        });
+      });
+    });
   }
 
   async runSmokeTests() {
     if (!this.config.SMOKE_TEST_ENABLED) {
-      this.log('ð¥ Smoke tests disabled - skipping');
+      this.log('🔥 Smoke tests disabled - skipping');
       return {
         status: 'skip',
         duration: 0,
@@ -79,18 +121,18 @@ class QualityGate {
       };
     }
 
-    // Use .NET tests instead of Playwright
-    const command = 'dotnet test ../6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj --logger "console;verbosity=normal"';
+    // Run Playwright smoke tests
+    const command = 'npx playwright test smoke-tests/';
     return await this.executeCommand(
       command,
-      'Smoke Tests (.NET Unit Tests)',
+      'Smoke Tests (Playwright)',
       this.config.SMOKE_TEST_TIMEOUT * 1000
     );
   }
 
   async runE2ETests() {
     if (!this.config.ENABLE_E2E) {
-      this.log('ð E2E tests disabled - skipping');
+      this.log('🔥 E2E tests disabled - skipping');
       return {
         status: 'skip',
         duration: 0,
@@ -99,11 +141,11 @@ class QualityGate {
       };
     }
 
-    // Use .NET integration tests instead of Playwright
-    const command = 'dotnet test ../6_Tests/VanAn.Integration.Tests/VanAn.Integration.Tests.csproj --logger "console;verbosity=normal"';
+    // Run Playwright E2E tests
+    const command = 'npx playwright test e2e-tests/';
     return await this.executeCommand(
       command,
-      'Integration Tests (.NET Integration Tests)',
+      'E2E Tests (Playwright)',
       this.config.E2E_TEST_TIMEOUT * 1000
     );
   }

@@ -43,9 +43,11 @@ public class MoneyConverterTests
     [Fact]
     public void Should_Handle_Null_Values()
     {
-        // Act & Assert
-        _converter.ConvertToProvider(null).Should().Be(0m);
-        _converter.ConvertFromProvider(0m).Should().BeNull();
+        // MoneyConverter maps Money<->decimal (non-nullable)
+        // 0m maps to Money(0m) not null
+        var zeroMoney = _converter.ConvertFromProvider(0m);
+        zeroMoney.Should().NotBeNull();
+        ((Money)zeroMoney!).Value.Should().Be(0m);
     }
 
     [Fact]

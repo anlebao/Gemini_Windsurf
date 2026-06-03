@@ -61,27 +61,9 @@ public class OrderFinancialCalculationTests
         };
 
         // Create order items
-        var orderItemA = new OrderItem
-        {
-            OrderItemId = new OrderItemId(Guid.NewGuid()),
-            OrderId = order.Id,
-            ProductId = productA.Id,
-            Quantity = 2,
-            UnitPrice = 50000m,
-            VatRate = 0.10m,
-            TenantId = testTenantId
-        };
+        var orderItemA = new OrderItem(testTenantId, order.Id, productA.Id, 2, 50000m);
 
-        var orderItemB = new OrderItem
-        {
-            OrderItemId = new OrderItemId(Guid.NewGuid()),
-            OrderId = order.Id,
-            ProductId = productB.Id,
-            Quantity = 1,
-            UnitPrice = 30000m,
-            VatRate = 0.08m,
-            TenantId = testTenantId
-        };
+        var orderItemB = new OrderItem(testTenantId, order.Id, productB.Id, 1, 30000m);
 
         order.Items.Add(orderItemA);
         order.Items.Add(orderItemB);

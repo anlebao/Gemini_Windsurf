@@ -4,18 +4,16 @@
   "description": "VanAn Ecosystem Testing Framework",
   "main": "index.js",
   "scripts": {
-    "test": "npm run test:smoke && npm run test:e2e",
-    "test:smoke": "echo 'Smoke tests - using .NET tests instead'",
-    "test:e2e": "echo 'E2E tests - using .NET tests instead'",
-    "test:load": "echo 'Load tests - using .NET tests instead'",
-    "test:chaos": "echo 'Chaos tests - using .NET tests instead'",
-    "test:all": "npm run test:smoke && npm run test:e2e && npm run test:load && npm run test:chaos",
+    "test": "npm run test:e2e",
+    "test:e2e": "npx playwright test e2e-tests/",
+    "test:all": "npm run test:e2e",
     "test:quality-gate": "node scripts/quality-gate.js",
     "test:quality-gate:full": "node scripts/quality-gate.js --full-audit",
     "report": "node scripts/generate-reports.js",
     "dashboard": "open dashboard/index.html",
     "install:deps": "npm install",
-    "clean:reports": "rimraf reports/*.json reports/*.html"
+    "clean:reports": "rimraf reports/*.json reports/*.html",
+    "coverage": "npx playwright show-report"
   },
   "keywords": [
     "testing",
@@ -28,6 +26,7 @@
   "author": "VanAn Ecosystem Team",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
     "@types/node": "^18.0.0",
     "rimraf": "^5.0.0"
   },

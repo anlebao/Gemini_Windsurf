@@ -165,4 +165,37 @@ public class ArchitectureRulesTests
             }
         }
     }
+
+    [Fact(DisplayName = "Rule F: CartItem must have ProductId property (FK to Product catalog)")]
+    public void CartItem_MustHave_ProductId()
+    {
+        var cartItemFile = "../../../../../1_Shared/Domain/CartItem.cs";
+
+        if (File.Exists(cartItemFile))
+        {
+            var content = File.ReadAllText(cartItemFile);
+            Assert.Contains("ProductId", content);
+        }
+        else
+        {
+            Assert.Fail($"CartItem domain file not found: {cartItemFile}");
+        }
+    }
+
+    [Fact(DisplayName = "Rule G: CartItem must NOT have redundant Name or Price properties (removed in refactor)")]
+    public void CartItem_MustNotHave_RedundantNameOrPrice()
+    {
+        var cartItemFile = "../../../../../1_Shared/Domain/CartItem.cs";
+
+        if (File.Exists(cartItemFile))
+        {
+            var content = File.ReadAllText(cartItemFile);
+            Assert.DoesNotContain("required string Name", content);
+            Assert.DoesNotContain("required decimal Price", content);
+        }
+        else
+        {
+            Assert.Fail($"CartItem domain file not found: {cartItemFile}");
+        }
+    }
 }

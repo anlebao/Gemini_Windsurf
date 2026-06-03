@@ -21,12 +21,13 @@ public class IndexModel : PageModel
         _customerService = customerService;
     }
 
-    public LoyaltyRewards CustomerRewards { get; set; } = new();
+    public LoyaltyRewards CustomerRewards { get; set; } = null!;
     public ShopConfig ShopConfig { get; set; } = new ShopConfig 
     { 
         ShopId = Guid.NewGuid()
     };
     public IReadOnlyCollection<Product> Products { get; private set; } = new List<Product>();
+    public IReadOnlyCollection<Product> FeaturedProducts { get; private set; } = new List<Product>();
 
     public async Task OnGetAsync()
     {
@@ -49,11 +50,7 @@ public class IndexModel : PageModel
         var customer = await _customerService.GetOrCreateCustomerByDeviceIdAsync(parsedDeviceId);
 
         // Fetch customer rewards using actual customer ID
-        CustomerRewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customer.CustomerId.Value) ?? new LoyaltyRewards
-        {
-            PointBalance = 0,
-            History = "[]"
-        };
+        CustomerRewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customer.CustomerId.Value);
 
         // Fetch shop config
         var defaultShopId = Guid.NewGuid(); // Generate shop ID for this session
@@ -65,7 +62,7 @@ public class IndexModel : PageModel
             Theme = ThemeType.Classic
         };
 
-        // Initialize demo products
+        // Initialize demo products using service
         var tenantId = new TenantId(Guid.NewGuid()); // Demo tenant
         FeaturedProducts = new List<Product>
         {

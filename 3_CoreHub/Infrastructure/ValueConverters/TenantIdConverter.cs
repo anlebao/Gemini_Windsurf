@@ -3,10 +3,15 @@ using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.ValueConverters;
 
-public class TenantIdConverter : ValueConverter<TenantId, Guid>
+/// <summary>
+/// Value converter for TenantId to Guid
+/// </summary>
+public sealed class TenantIdConverter : ValueConverter<TenantId, Guid>
 {
-    public TenantIdConverter() : base(
-        convertToProviderExpression: tenantId => tenantId != null ? tenantId.Value : Guid.Empty,
-        convertFromProviderExpression: value => value != Guid.Empty ? new TenantId(value) : null
-    ) { }
+    public TenantIdConverter()
+        : base(
+            convertToProviderExpression: tenantId => tenantId.Value,
+            convertFromProviderExpression: guid => new TenantId(guid))
+    {
+    }
 }

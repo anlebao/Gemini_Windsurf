@@ -17,7 +17,7 @@ public class CampaignModel : PageModel
         _shopConfigService = shopConfigService;
     }
 
-    public SocialCampaign Campaign { get; set; } = new();
+    public SocialCampaign Campaign { get; set; } = null!;
     public string Code { get; set; } = string.Empty;
     public string TrackingCode { get; set; } = string.Empty;
     public string Keyframes { get; set; } = "fade-in";
@@ -34,16 +34,9 @@ public class CampaignModel : PageModel
 
         if (!string.IsNullOrEmpty(TrackingCode))
         {
-            Campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(TrackingCode) ?? new SocialCampaign
-            {
-                Id = Guid.NewGuid(),
-                ShopId = Guid.NewGuid(),
-                CampaignName = "Mùa Hè Sôi Động",
-                TrackingCode = TrackingCode,
-                TotalClicks = 1234,
-                ConvertedOrders = 56,
-                IsActive = true
-            };
+            var campaignTenantId = new TenantId(Guid.NewGuid()); // Demo tenant
+            Campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(TrackingCode) ?? 
+                new SocialCampaign(campaignTenantId, Guid.NewGuid(), "default", "Mùa Hè Sôi Ðông", TrackingCode);
         }
         else
         {
@@ -74,12 +67,13 @@ public class CampaignModel : PageModel
 
         await _socialCampaignService.RecordClickAsync(TrackingCode);
 
-        // Initialize demo products with campaign pricing
+        // Initialize demo products with campaign pricing using constructor
+        var tenantId = new TenantId(Guid.NewGuid()); // Demo tenant
         Products = new List<Product>
         {
-            new Product { Name = "Trà Sữa Đậu Đỏ", Price = 28000m, Category = "Trà Sữa", Description = "Đậu đỏ tự nhiên, béo ngậy" },
-            new Product { Name = "Trà Sữa Truyền Thống", Price = 25500m, Category = "Trà Sữa", Description = "Hương vị cổ điển không thể thiếu" },
-            new Product { Name = "Trà Sữa Matcha", Price = 30000m, Category = "Trà Sữa", Description = "Matcha Nhật Bản nguyên chất" }
+            new Product(tenantId, "Trà Sua Dau Do", "Dau do tu nhiên, béo ngây", 28000m, "Trà Sua", true, null, 0.10m),
+            new Product(tenantId, "Trà Sua Truyen Thong", "Huong vi co dien không the thieu", 25500m, "Trà Sua", true, null, 0.10m),
+            new Product(tenantId, "Trà Sua Matcha", "Matcha Nhat Ban nguyên chât", 30000m, "Trà Sua", true, null, 0.10m)
         };
 
         return Page();

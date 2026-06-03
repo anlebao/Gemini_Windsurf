@@ -1,39 +1,33 @@
-using Microsoft.EntityFrameworkCore;
-using VanAn.CoreHub.Infrastructure;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
+using VanAn.CoreHub.Repositories;
 using System.Text.Json;
 
 namespace VanAn.CoreHub.Services;
 
 public class LoyaltyRewardsService : ILoyaltyRewardsService
 {
-    private readonly VanAnDbContext _context;
+    private readonly ILoyaltyRewardsRepository _repository;
     private readonly ILogger<LoyaltyRewardsService> _logger;
 
-    public LoyaltyRewardsService(VanAnDbContext context, ILogger<LoyaltyRewardsService> logger)
+    public LoyaltyRewardsService(ILoyaltyRewardsRepository repository, ILogger<LoyaltyRewardsService> logger)
     {
-        _context = context;
+        _repository = repository;
         _logger = logger;
     }
 
     public async Task<LoyaltyRewards> GetOrCreateCustomerRewardsAsync(Guid customerId)
     {
-        var rewards = await _context.LoyaltyRewards
-            .FirstOrDefaultAsync(r => r.CustomerId == customerId);
+        var rewards = await _repository.GetByCustomerIdAsync(customerId);
 
         if (rewards == null)
         {
-            rewards = new LoyaltyRewards
-            {
-                CustomerId = customerId,
-                PointBalance = 0,
-                History = JsonSerializer.Serialize(new List<LoyaltyHistoryEntry>()),
-                IsActive = true
-            };
+            var tenantId = new TenantId(Guid.NewGuid()); // Will be set by repository
+            rewards = new LoyaltyRewards(tenantId, customerId);
+            rewards.UpdateHistory(JsonSerializer.Serialize(new List<LoyaltyHistoryEntry>()));
             
-            await _context.LoyaltyRewards.AddAsync(rewards);
-            await _context.SaveChangesAsync();
+            await _repository.AddAsync(rewards);
+            await _repository.SaveChangesAsync();
             
             _logger.LogInformation("Created new loyalty rewards for customer {CustomerId}", customerId);
         }
@@ -46,13 +40,12 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
         if (points <= 0)
             return false;
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        using var transaction = await _repository.BeginTransactionAsync();
         try
         {
             var rewards = await GetOrCreateCustomerRewardsAsync(customerId);
             
-            rewards.PointBalance += points;
-            rewards.UpdatedAt = DateTime.UtcNow;
+            rewards.AddPoints(points, reason);
             
             // Add history entry
             var history = GetHistoryEntries(rewards.History);
@@ -64,9 +57,10 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
                 Timestamp = DateTime.UtcNow,
                 BalanceAfter = rewards.PointBalance
             });
-            rewards.History = JsonSerializer.Serialize(history);
+            rewards.UpdateHistory(JsonSerializer.Serialize(history));
 
-            await _context.SaveChangesAsync();
+            await _repository.UpdateAsync(rewards);
+            await _repository.SaveChangesAsync();
             await transaction.CommitAsync();
             
             _logger.LogInformation("Added {Points} points to customer {CustomerId}. New balance: {Balance}", 
@@ -86,7 +80,7 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
         if (points <= 0)
             return false;
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        using var transaction = await _repository.BeginTransactionAsync();
         try
         {
             var rewards = await GetOrCreateCustomerRewardsAsync(customerId);
@@ -98,8 +92,7 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
                 return false;
             }
 
-            rewards.PointBalance -= points;
-            rewards.UpdatedAt = DateTime.UtcNow;
+            rewards.DeductPoints(points, reason);
             
             // Add history entry
             var history = GetHistoryEntries(rewards.History);
@@ -111,9 +104,10 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
                 Timestamp = DateTime.UtcNow,
                 BalanceAfter = rewards.PointBalance
             });
-            rewards.History = JsonSerializer.Serialize(history);
+            rewards.UpdateHistory(JsonSerializer.Serialize(history));
 
-            await _context.SaveChangesAsync();
+            await _repository.UpdateAsync(rewards);
+            await _repository.SaveChangesAsync();
             await transaction.CommitAsync();
             
             _logger.LogInformation("Subtracted {Points} points from customer {CustomerId}. New balance: {Balance}", 
@@ -130,17 +124,13 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
 
     public async Task<LoyaltyRewards?> GetCustomerRewardsAsync(Guid customerId)
     {
-        return await _context.LoyaltyRewards
-            .Include(r => r.Customer)
-            .FirstOrDefaultAsync(r => r.CustomerId == customerId && r.IsActive);
+        return await _repository.GetByCustomerIdAsync(customerId);
     }
 
     public async Task<List<LoyaltyRewards>> GetAllRewardsAsync()
     {
-        return await _context.LoyaltyRewards
-            .Include(r => r.Customer)
-            .Where(r => r.IsActive)
-            .ToListAsync();
+        var rewards = await _repository.GetActiveAsync();
+        return rewards.ToList();
     }
 
     public async Task<bool> UpdateHistoryAsync(Guid customerId, string historyEntry)
@@ -149,16 +139,16 @@ public class LoyaltyRewardsService : ILoyaltyRewardsService
         if (rewards == null)
             return false;
 
-        rewards.History = historyEntry;
-        rewards.UpdatedAt = DateTime.UtcNow;
+        rewards.UpdateHistory(historyEntry);
         
-        await _context.SaveChangesAsync();
+        await _repository.UpdateAsync(rewards);
+        await _repository.SaveChangesAsync();
         
         _logger.LogInformation("Updated history for customer {CustomerId}", customerId);
         return true;
     }
 
-    private List<LoyaltyHistoryEntry> GetHistoryEntries(string historyJson)
+    private static List<LoyaltyHistoryEntry> GetHistoryEntries(string historyJson)
     {
         try
         {

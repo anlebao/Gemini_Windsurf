@@ -47,8 +47,8 @@ public partial class Program
         builder.Services.AddHttpClient<IVietQrService, VietQrService>();
         builder.Services.AddScoped<IVietQrService, VietQrService>();
 
-        // Register Order Services
-        builder.Services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
+        // Register Order Services - UPDATE to use CoreHub
+        builder.Services.AddScoped<VanAn.CoreHub.Services.IOrderService, VanAn.CoreHub.Services.OrderService>();
 
         // Register Build Service
         builder.Services.AddScoped<IBuildService, BuildService>();
@@ -114,6 +114,9 @@ public partial class Program
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+
+            // Add unified error handling middleware
+            app.UseMiddleware<UnifiedErrorHandler>();
 
             // Local-First: DISABLE HTTPS REDIRECTION for development
             // app.UseHttpsRedirection();

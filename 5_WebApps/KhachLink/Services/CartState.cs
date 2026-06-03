@@ -2,25 +2,12 @@ using VanAn.Shared.Domain;
 
 namespace VanAn.KhachLink.Services;
 
-public class CartItem
-{
-    public Guid ProductId { get; set; }
-    public string ProductName { get; set; } = string.Empty;
-    public string ProductDescription { get; set; } = string.Empty;
-    public decimal UnitPrice { get; set; }
-    public decimal VatRate { get; set; }
-    public int Quantity { get; set; }
-    public decimal SubTotal => UnitPrice * Quantity;
-    public decimal VatAmount => SubTotal * VatRate;
-    public decimal TotalAmount => SubTotal + VatAmount;
-}
-
 public class CartState
 {
     public List<CartItem> Items { get; set; } = new();
-    public decimal SubTotal => Items.Sum(item => item.SubTotal);
-    public decimal TotalVatAmount => Items.Sum(item => item.VatAmount);
-    public decimal TotalAmount => Items.Sum(item => item.TotalAmount);
+    public decimal SubTotal => Items.Sum(item => item.TotalPrice);
+    public decimal TotalVatAmount => 0; // VAT not currently supported in Domain CartItem
+    public decimal TotalAmount => Items.Sum(item => item.TotalPrice);
     
     public void AddItem(Product product, int quantity = 1)
     {
@@ -29,18 +16,20 @@ public class CartState
         var existingItem = Items.FirstOrDefault(i => i.ProductId == product.Id);
         if (existingItem != null)
         {
-            existingItem.Quantity += quantity;
+            // CartItem is immutable, create new instance with updated quantity
+            var index = Items.IndexOf(existingItem);
+            Items[index] = existingItem with { Quantity = existingItem.Quantity + quantity };
         }
         else
         {
             Items.Add(new CartItem
             {
+                Id = Guid.NewGuid(),
                 ProductId = product.Id,
                 ProductName = product.Name,
-                ProductDescription = product.Description,
-                UnitPrice = product.Price,
-                VatRate = product.VatRate,
-                Quantity = quantity
+                Description = product.Description ?? string.Empty,
+                Quantity = quantity,
+                UnitPrice = product.Price
             });
         }
     }
@@ -61,7 +50,9 @@ public class CartState
         var item = Items.FirstOrDefault(i => i.ProductId == productId);
         if (item != null)
         {
-            item.Quantity = quantity;
+            // CartItem is immutable, create new instance with updated quantity
+            var index = Items.IndexOf(item);
+            Items[index] = item with { Quantity = quantity };
         }
     }
     

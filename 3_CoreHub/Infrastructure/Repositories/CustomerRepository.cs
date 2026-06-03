@@ -8,40 +8,44 @@ namespace VanAn.CoreHub.Infrastructure.Repositories;
 /// <summary>
 /// EF Core implementation of ICustomerRepository
 /// Engineering Constitution Compliance: ALWAYS filter by tenant and soft delete
+/// Decoupled from VanAnDbContext using IVanAnDbContext for Offline-First architecture
 /// </summary>
 public class CustomerRepository : ICustomerRepository
 {
-    private readonly VanAnDbContext _context;
+    private readonly IVanAnDbContext _context;
     private readonly Guid _currentTenantId;
 
-    public CustomerRepository(VanAnDbContext context)
+    public CustomerRepository(IVanAnDbContext context)
     {
         _context = context;
-        _currentTenantId = context.CurrentTenantId;
+        _currentTenantId = context is VanAnDbContext vanAnContext ? vanAnContext.CurrentTenantId : Guid.Empty;
     }
 
     public async Task<Customer?> GetByIdAsync(Guid id)
     {
+        var tenantId = _currentTenantId;
         return await _context.Customers
             .Where(c => c.Id == id && 
-                       c.TenantId.Value == _currentTenantId && 
+                       c.TenantId == new TenantId(tenantId) && 
                        !c.IsDeleted)
             .FirstOrDefaultAsync();
     }
 
     public async Task<Customer?> GetByDeviceIdAsync(Guid deviceId)
     {
+        var tenantId = _currentTenantId;
         return await _context.Customers
             .Where(c => c.DeviceId == deviceId && 
-                       c.TenantId.Value == _currentTenantId && 
+                       c.TenantId == new TenantId(tenantId) && 
                        !c.IsDeleted)
             .FirstOrDefaultAsync();
     }
 
     public async Task<IReadOnlyList<Customer>> GetAllActiveAsync()
     {
+        var tenantId = _currentTenantId;
         return await _context.Customers
-            .Where(c => c.TenantId.Value == _currentTenantId && 
+            .Where(c => c.TenantId == new TenantId(tenantId) && 
                        !c.IsDeleted)
             .OrderBy(c => c.FullName)
             .ToListAsync();
@@ -49,15 +53,16 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<Customer> AddAsync(Customer customer)
     {
-        // Ensure tenant compliance
-        customer.TenantId = new TenantId(_currentTenantId);
-        customer.CreatedAt = DateTime.UtcNow;
-        customer.IsDeleted = false;
+        // Create new customer with proper constructor
+        var newCustomer = new Customer(new TenantId(_currentTenantId), customer.FullName, customer.PhoneNumber, customer.Email);
+        
+        // Copy other properties if needed
+        newCustomer.UpdateCustomerDetails(customer.FullName, customer.PhoneNumber, customer.Email, customer.CustomerTier, customer.DeviceId, customer.IsActive);
 
-        await _context.Customers.AddAsync(customer);
+        await _context.Customers.AddAsync(newCustomer);
         await _context.SaveChangesAsync();
 
-        return customer;
+        return newCustomer;
     }
 
     public async Task<Customer> UpdateAsync(Customer customer)
@@ -69,14 +74,12 @@ public class CustomerRepository : ICustomerRepository
             throw new InvalidOperationException("Customer not found or access denied");
         }
 
-        // Update audit fields
-        customer.UpdatedAt = DateTime.UtcNow;
-        customer.TenantId = _currentTenantId;
+        // Update existing customer properties
+        existingCustomer.UpdateCustomerDetails(customer.FullName, customer.PhoneNumber, customer.Email, customer.CustomerTier, customer.DeviceId, customer.IsActive);
 
-        _context.Customers.Update(customer);
         await _context.SaveChangesAsync();
 
-        return customer;
+        return existingCustomer;
     }
 
     public async Task<bool> SoftDeleteAsync(Guid id)
@@ -87,8 +90,7 @@ public class CustomerRepository : ICustomerRepository
             return false;
         }
 
-        customer.IsDeleted = true;
-        customer.UpdatedAt = DateTime.UtcNow;
+        customer.SoftDelete();
 
         await _context.SaveChangesAsync();
         return true;
@@ -96,18 +98,20 @@ public class CustomerRepository : ICustomerRepository
 
     public async Task<bool> ExistsByDeviceIdAsync(Guid deviceId)
     {
+        var tenantId = _currentTenantId;
         return await _context.Customers
             .AnyAsync(c => c.DeviceId == deviceId && 
-                         c.TenantId.Value == _currentTenantId && 
+                         c.TenantId == new TenantId(tenantId) && 
                          !c.IsDeleted);
     }
 
     public async Task<Customer?> GetWithOrdersAsync(Guid id)
     {
+        var tenantId = _currentTenantId;
         return await _context.Customers
             .Include(c => c.Orders)
             .Where(c => c.Id == id && 
-                       c.TenantId.Value == _currentTenantId && 
+                       c.TenantId == new TenantId(tenantId) && 
                        !c.IsDeleted)
             .FirstOrDefaultAsync();
     }

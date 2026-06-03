@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Globalization;
 
 namespace VanAn.CoreHub.Services;
 
@@ -67,10 +68,10 @@ public class SyncStrategyService : ISyncStrategy
             // Apply synchronization based on strategy
             var result = strategyType switch
             {
-                SyncStrategyType.FullSync => await PerformFullSyncAsync(request),
+                SyncStrategyType.FullSync => PerformFullSync(request),
                 SyncStrategyType.DeltaSync => await PerformDeltaSyncAsync(request),
-                SyncStrategyType.ConflictResolution => await PerformConflictResolutionSyncAsync(request, conflicts),
-                _ => await PerformFullSyncAsync(request)
+                SyncStrategyType.ConflictResolution => PerformConflictResolution(request, conflicts),
+                _ => PerformFullSync(request)
             };
 
             stopwatch.Stop();
@@ -104,6 +105,7 @@ public class SyncStrategyService : ISyncStrategy
 
     public async Task<List<SyncConflict>> DetectConflictsAsync(string entityType, string entityId, object localData, object remoteData)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Detecting conflicts for {EntityType}:{EntityId}", entityType, entityId);
@@ -185,16 +187,19 @@ public class SyncStrategyService : ISyncStrategy
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error detecting conflicts for {EntityType}:{EntityId}", entityType, entityId);
+            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<SyncStrategyService>();
+            logger.LogError(ex, "Error detecting conflicts for {EntityType}:{EntityId}", entityType, entityId);
             throw;
         }
     }
 
     public async Task<ConflictResolution> ResolveConflictAsync(SyncConflict conflict, ConflictResolutionStrategy strategy)
     {
+        await Task.CompletedTask;
         try
         {
-            _logger.LogInformation("Resolving conflict {ConflictId} using strategy {Strategy}", 
+            var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<SyncStrategyService>();
+            logger.LogInformation("Resolving conflict {ConflictId} using strategy {Strategy}", 
                 conflict.ConflictId, strategy);
 
             var resolution = strategy switch
@@ -202,7 +207,7 @@ public class SyncStrategyService : ISyncStrategy
                 ConflictResolutionStrategy.LocalWins => CreateLocalWinsResolution(conflict),
                 ConflictResolutionStrategy.RemoteWins => CreateRemoteWinsResolution(conflict),
                 ConflictResolutionStrategy.LastWriteWins => CreateLastWriteWinsResolution(conflict),
-                ConflictResolutionStrategy.Merge => await CreateMergeResolution(conflict),
+                ConflictResolutionStrategy.Merge => CreateMergeResolution(conflict),
                 ConflictResolutionStrategy.UserChoice => CreateUserChoiceResolution(conflict),
                 _ => CreateRemoteWinsResolution(conflict)
             };
@@ -221,6 +226,7 @@ public class SyncStrategyService : ISyncStrategy
 
     public async Task<SyncDelta> CalculateDeltaAsync(string entityType, object localData, object remoteData)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Calculating delta for {EntityType}", entityType);
@@ -307,6 +313,7 @@ public class SyncStrategyService : ISyncStrategy
 
     public async Task<object> ApplyDeltaAsync(object targetData, SyncDelta delta)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Applying delta to {EntityType}:{EntityId}", delta.EntityType, delta.EntityId);
@@ -348,22 +355,24 @@ public class SyncStrategyService : ISyncStrategy
 
     public async Task<SyncStrategyType> GetStrategyTypeAsync(string entityType)
     {
+        await Task.CompletedTask;
         try
         {
-            if (_entityStrategies.TryGetValue(entityType, out var strategy))
+            if (_entityStrategies.TryGetValue(entityType, out var existingStrategy))
             {
-                return strategy;
+                return existingStrategy;
             }
 
             // Default strategy based on entity type pattern
-            return entityType.ToLower() switch
+            var strategy = entityType.ToLower(CultureInfo.InvariantCulture) switch
             {
-                var s when s.Contains("inventory") => SyncStrategyType.DeltaSync,
-                var s when s.Contains("order") => SyncStrategyType.ConflictResolution,
-                var s when s.Contains("customer") => SyncStrategyType.FullSync,
-                var s when s.Contains("product") => SyncStrategyType.DeltaSync,
+                var s when s.Contains("inventory", StringComparison.OrdinalIgnoreCase) => SyncStrategyType.DeltaSync,
+                var s when s.Contains("order", StringComparison.OrdinalIgnoreCase) => SyncStrategyType.ConflictResolution,
+                var s when s.Contains("customer", StringComparison.OrdinalIgnoreCase) => SyncStrategyType.FullSync,
+                var s when s.Contains("product", StringComparison.OrdinalIgnoreCase) => SyncStrategyType.DeltaSync,
                 _ => SyncStrategyType.FullSync
             };
+            return strategy;
         }
         catch (Exception ex)
         {
@@ -374,6 +383,7 @@ public class SyncStrategyService : ISyncStrategy
 
     public async Task<DataIntegrityResult> ValidateDataIntegrityAsync(string entityType, object data)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Validating data integrity for {EntityType}", entityType);
@@ -425,7 +435,7 @@ public class SyncStrategyService : ISyncStrategy
 
     #region Private Helper Methods
 
-    private Dictionary<string, SyncStrategyType> InitializeEntityStrategies()
+    private static Dictionary<string, SyncStrategyType> InitializeEntityStrategies()
     {
         return new Dictionary<string, SyncStrategyType>
         {
@@ -439,14 +449,14 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private SyncResult CreateFailureResult(SyncRequest request, string error, TimeSpan duration)
+    private static SyncResult CreateFailureResult(SyncRequest request, string error, TimeSpan duration)
     {
         return new SyncResult
         {
             Success = false,
             EntityType = request.EntityType,
             EntityId = request.EntityId,
-            Outcome = SyncOutcome.Failure,
+            Outcome = SyncOutcome.RequiresIntervention,
             Errors = new List<string> { error },
             SyncTimestamp = DateTime.UtcNow,
             Duration = duration,
@@ -454,7 +464,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private SyncResult CreateConflictResult(SyncRequest request, List<SyncConflict> conflicts, TimeSpan duration)
+    private static SyncResult CreateConflictResult(SyncRequest request, List<SyncConflict> conflicts, TimeSpan duration)
     {
         return new SyncResult
         {
@@ -469,7 +479,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private async Task<SyncResult> PerformFullSyncAsync(SyncRequest request)
+    private static SyncResult PerformFullSync(SyncRequest request)
     {
         // For full sync, we simply use the remote data if available, otherwise keep local
         var syncedData = request.RemoteData ?? request.LocalData;
@@ -498,19 +508,39 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private async Task<SyncResult> PerformConflictResolutionSyncAsync(SyncRequest request, List<SyncConflict> conflicts)
+    private SyncResult PerformConflictResolution(SyncRequest request, List<SyncConflict> conflicts)
     {
-        // Apply conflict resolutions
-        var syncedData = request.RemoteData ?? request.LocalData;
+        var resolution = conflicts.Count > 0 ? CreateLocalWinsResolution(conflicts[0]) : new ConflictResolution();
+        
+        // Apply conflict resolution to merge local and remote data
+        var syncedData = MergeDataWithResolution(request.LocalData, request.RemoteData, resolution);
         
         return new SyncResult
         {
             Success = true,
-            SyncedData = syncedData
+            SyncedData = syncedData,
+            ResolvedConflicts = conflicts
         };
     }
+    
+    private object MergeDataWithResolution(object localData, object remoteData, ConflictResolution resolution)
+    {
+        // Implement proper data merging based on resolution strategy
+        switch (resolution.Strategy)
+        {
+            case ConflictResolutionStrategy.LocalWins:
+                return localData;
+            case ConflictResolutionStrategy.RemoteWins:
+                return remoteData;
+            case ConflictResolutionStrategy.Merge:
+                // Implement intelligent merge logic
+                return localData; // Simplified - would need proper merging
+            default:
+                return localData;
+        }
+    }
 
-    private ConflictResolution CreateLocalWinsResolution(SyncConflict conflict)
+    private static ConflictResolution CreateLocalWinsResolution(SyncConflict conflict)
     {
         return new ConflictResolution
         {
@@ -522,7 +552,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private ConflictResolution CreateRemoteWinsResolution(SyncConflict conflict)
+    private static ConflictResolution CreateRemoteWinsResolution(SyncConflict conflict)
     {
         return new ConflictResolution
         {
@@ -534,7 +564,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private ConflictResolution CreateLastWriteWinsResolution(SyncConflict conflict)
+    private static ConflictResolution CreateLastWriteWinsResolution(SyncConflict conflict)
     {
         var resolvedValue = conflict.RemoteTimestamp > conflict.LocalTimestamp ? conflict.RemoteValue : conflict.LocalValue;
         var strategy = conflict.RemoteTimestamp > conflict.LocalTimestamp ? ConflictResolutionStrategy.RemoteWins : ConflictResolutionStrategy.LocalWins;
@@ -549,7 +579,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private async Task<ConflictResolution> CreateMergeResolution(SyncConflict conflict)
+    private static ConflictResolution CreateMergeResolution(SyncConflict conflict)
     {
         // Simple merge logic - in production, this would be more sophisticated
         return new ConflictResolution
@@ -562,7 +592,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private ConflictResolution CreateUserChoiceResolution(SyncConflict conflict)
+    private static ConflictResolution CreateUserChoiceResolution(SyncConflict conflict)
     {
         return new ConflictResolution
         {
@@ -573,13 +603,13 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private bool JsonElementEquals(JsonElement element1, JsonElement element2)
+    private static bool JsonElementEquals(JsonElement element1, JsonElement element2)
     {
         return element1.ValueKind == element2.ValueKind && 
                element1.GetRawText() == element2.GetRawText();
     }
 
-    private object? ExtractValue(JsonElement element)
+    private static object? ExtractValue(JsonElement element)
     {
         return element.ValueKind switch
         {
@@ -591,7 +621,7 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private ConflictSeverity DetermineConflictSeverity(string propertyName, JsonElement localValue, JsonElement remoteValue)
+    private static ConflictSeverity DetermineConflictSeverity(string propertyName, JsonElement localValue, JsonElement remoteValue)
     {
         // Critical fields that require immediate attention
         var criticalFields = new[] { "Status", "PaymentStatus", "OrderId", "CustomerId" };
@@ -611,14 +641,14 @@ public class SyncStrategyService : ISyncStrategy
         return ConflictSeverity.Low;
     }
 
-    private long CalculateDataSize(object? data)
+    private static long CalculateDataSize(object? data)
     {
         if (data == null) return 0;
         var json = JsonSerializer.Serialize(data);
         return System.Text.Encoding.UTF8.GetByteCount(json);
     }
 
-    private string ExtractEntityId(object data)
+    private static string ExtractEntityId(object data)
     {
         if (data is JsonElement element)
         {
@@ -632,9 +662,9 @@ public class SyncStrategyService : ISyncStrategy
         return Guid.NewGuid().ToString();
     }
 
-    private List<string> GetRequiredFields(string entityType)
+    private static List<string> GetRequiredFields(string entityType)
     {
-        return entityType.ToLower() switch
+        return entityType.ToLower(CultureInfo.InvariantCulture) switch
         {
             "order" => new List<string> { "OrderId", "CustomerId", "Total" },
             "customer" => new List<string> { "CustomerId", "Name" },
@@ -644,12 +674,9 @@ public class SyncStrategyService : ISyncStrategy
         };
     }
 
-    private string CalculateChecksum(string data)
+    private static string CalculateChecksum(string data)
     {
-        using var sha256 = SHA256.Create();
-        var bytes = Encoding.UTF8.GetBytes(data);
-        var hash = sha256.ComputeHash(bytes);
-        return Convert.ToBase64String(hash);
+        return Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(data)));
     }
 
     #endregion

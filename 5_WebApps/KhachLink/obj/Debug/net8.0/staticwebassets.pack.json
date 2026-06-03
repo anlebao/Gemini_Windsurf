@@ -21,6 +21,10 @@
       "PackagePath": "staticwebassets\\css\\pwa.css"
     },
     {
+      "Id": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\tailwind.css",
+      "PackagePath": "staticwebassets\\css\\tailwind.css"
+    },
+    {
       "Id": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\wwwroot\\css\\themes\\classic.css",
       "PackagePath": "staticwebassets\\css\\themes\\classic.css"
     },
@@ -47,6 +51,10 @@
     {
       "Id": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\wwwroot\\index.html",
       "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\wwwroot\\js\\pwa.js",
+      "PackagePath": "staticwebassets\\js\\pwa.js"
     },
     {
       "Id": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\KhachLink\\wwwroot\\manifest.json",

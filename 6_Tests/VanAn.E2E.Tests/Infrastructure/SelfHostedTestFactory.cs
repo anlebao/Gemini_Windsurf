@@ -31,6 +31,8 @@ namespace VanAn.E2E.Tests.Infrastructure
 
         public string KhachLinkUrl => "http://localhost:5002";
         public string ShopErpUrl => "http://localhost:5003";
+        public string ShopERPUrl => ShopErpUrl;
+        public string GatewayUrl => "http://localhost:5000";
 
         public async Task InitializeAsync()
         {

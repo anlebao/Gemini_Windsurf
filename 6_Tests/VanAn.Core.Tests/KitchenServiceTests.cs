@@ -17,14 +17,14 @@ namespace VanAn.CoreHub.Tests
 {
     public class KitchenServiceTests : IntegrationTestBase
     {
-        private readonly IKitchenService _kitchenService;
+        private readonly KitchenService _kitchenService;
         private readonly ITestOutputHelper _output;
 
         public KitchenServiceTests(ITestOutputHelper output)
         {
             _output = output;
-            _kitchenService = new KitchenService(Context, new TestLogger<KitchenService>(output));
             SetupAsync().Wait();
+            _kitchenService = new KitchenService(Context, new TestLogger<KitchenService>(output));
         }
 
         [Fact(DisplayName = "Kitchen: GetGroupedItems - Should Group Identical Products From Different Orders")]
@@ -32,90 +32,33 @@ namespace VanAn.CoreHub.Tests
         {
             // Arrange
             var shopId = Guid.NewGuid();
-            var productId = Guid.NewGuid();
             var customerId = Guid.NewGuid();
 
             // Create shop
-            var shop = new Shop
-            {
-                Id = shopId,
-                TenantId = shopId,
-                Name = "Test Shop",
-                IsActive = true
-            };
+            var shopTenantId = new TenantId(shopId);
+            var shop = new Shop(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
             await Context.Shops.AddAsync(shop);
 
-            var product = new Product
-            {
-                Id = productId,
-                TenantId = shopId,
-                Name = "Cà phê noir",
-                Price = 25000m,
-                Category = "Coffee",
-                IsActive = true
-            };
+            var product = new Product(shopTenantId, "Cà phê noir", "Cà phê nguyên chất", 25000m, "Coffee", true, null, 0.10m);
             await Context.Products.AddAsync(product);
 
-            var customer = new Customer
-            {
-                Id = customerId,
-                TenantId = shopId,
-                CustomerId = new CustomerId(customerId),
-                FullName = "Test Customer",
-                PhoneNumber = "0123456789",
-                IsActive = true
-            };
+            var customer = new Customer(shopTenantId, "Test Customer", "0123456789", "test@customer.com");
             await Context.Customers.AddAsync(customer);
 
-            var order1 = new Order
-            {
-                Id = Guid.NewGuid(),
-                TenantId = shopId,
-                OrderId = new OrderId(Guid.NewGuid()),
-                CustomerId = customerId,
-                OrderType = "DINEIN",
-                Status = new OrderStatusId("PENDING"),
-                TotalAmount = 25000m,
-                OrderDate = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
-            };
+            // Save customer and product first to ensure Ids are properly tracked
+            await Context.SaveChangesAsync();
+
+            var order1 = new Order(shopTenantId, customer.Id, 25000m);
             await Context.Orders.AddAsync(order1);
 
-            var order2 = new Order
-            {
-                Id = Guid.NewGuid(),
-                TenantId = shopId,
-                OrderId = new OrderId(Guid.NewGuid()),
-                CustomerId = customerId,
-                OrderType = "TAKEAWAY",
-                Status = new OrderStatusId("PENDING"),
-                TotalAmount = 50000m,
-                OrderDate = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
-            };
+            var order2 = new Order(shopTenantId, customer.Id, 50000m);
             await Context.Orders.AddAsync(order2);
 
-            var item1 = new OrderItem
-            {
-                Id = Guid.NewGuid(),
-                TenantId = shopId,
-                OrderId = order1.Id,
-                ProductId = productId,
-                Quantity = 1,
-                UnitPrice = 25000m,
-                KitchenStatus = KitchenStatus.Pending
-            };
+            // Save orders to ensure Ids are properly tracked
+            await Context.SaveChangesAsync();
 
-            var item2 = new OrderItem
-            {
-                Id = Guid.NewGuid(),
-                TenantId = shopId,
-                OrderId = order2.Id,
-                ProductId = productId,
-                Quantity = 2,
-                UnitPrice = 25000m,
-                KitchenStatus = KitchenStatus.Pending
-            };
+            var item1 = new OrderItem(shopTenantId, order1.Id, product.Id, 1, 25000m, "Cà phê noir");
+            var item2 = new OrderItem(shopTenantId, order2.Id, product.Id, 2, 25000m, "Cà phê noir");
 
             await Context.OrderItems.AddRangeAsync(item1, item2);
             await Context.SaveChangesAsync();
@@ -125,7 +68,7 @@ namespace VanAn.CoreHub.Tests
 
             // Assert
             Assert.NotNull(result);
-            var coffeeGroup = result.FirstOrDefault(g => g.ProductId == productId);
+            var coffeeGroup = result.FirstOrDefault(g => g.ProductId == product.Id);
             if (coffeeGroup != null)
             {
                 Assert.True(coffeeGroup.TotalQuantity > 1); // Should be grouped (1+2=3)

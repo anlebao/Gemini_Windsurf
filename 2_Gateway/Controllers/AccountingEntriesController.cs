@@ -48,19 +48,7 @@ public class AccountingEntriesController : ControllerBase
             var tenantId = new TenantId(request.TenantId);
             var period = new AccountingPeriod(request.Year, request.Month);
             var amount = new Money(request.Amount);
-            
-            var entry = await _accountingEntryService.CreateEntryAsync(
-                new CoreAccountingEntry
-                {
-                    TenantId = tenantId,
-                    Amount = amount.Value,
-                    EntryType = AccountingEntryType.Revenue,
-                    Description = request.Description,
-                    CreatedAt = DateTime.UtcNow,
-                    AccountingBookType = AccountingBookType.RevenueBook,
-                    PeriodYear = request.Year,
-                    PeriodMonth = request.Month
-                });
+            var entry = await _accountingEntryService.CreateRevenueEntryAsync(tenantId, period, amount.Value, request.Description);
             
             _logger.LogInformation("Revenue entry created: {EntryId} for tenant {TenantId}", 
                 entry.Id, request.TenantId);
@@ -91,18 +79,7 @@ public class AccountingEntriesController : ControllerBase
             var period = new AccountingPeriod(request.Year, request.Month);
             var amount = new Money(request.Amount);
             
-            var entry = await _accountingEntryService.CreateEntryAsync(
-                new CoreAccountingEntry
-                {
-                    TenantId = tenantId,
-                    Amount = amount.Value,
-                    EntryType = AccountingEntryType.Expense,
-                    Description = request.Description,
-                    CreatedAt = DateTime.UtcNow,
-                    AccountingBookType = AccountingBookType.ExpenseBook,
-                    PeriodYear = request.Year,
-                    PeriodMonth = request.Month
-                });
+            var entry = await _accountingEntryService.CreateExpenseEntryAsync(tenantId, period, amount.Value, request.Description);
             
             _logger.LogInformation("Expense entry created: {EntryId} for tenant {TenantId}", 
                 entry.Id, request.TenantId);

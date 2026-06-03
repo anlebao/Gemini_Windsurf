@@ -1,0 +1,107 @@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Tokens
+@inject IThemeProvider ThemeProvider
+@inject ITenantService TenantService
+@inherits VanAn.UI.Platform.Components.Base.BaseComponent
+
+<div class="khachlink-layout @ThemeProvider.CurrentTheme tenant-@_currentTenantId">
+    <VanAnLayout>
+        <div class="khachlink-header">
+            <VanAnCard CssClass="khachlink-nav">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-link-45deg me-2"></i>
+                        <h4 class="mb-0">KhachLink</h4>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <VanAnButton Size="ButtonSize.Small" Icon="cart" OnClick="@(() => Navigation.NavigateTo("/cart"))">
+                            Giỏ hàng
+                        </VanAnButton>
+                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" Icon="person" OnClick="@(() => Navigation.NavigateTo("/profile"))">
+                            Tài khoản
+                        </VanAnButton>
+                    </div>
+                </div>
+            </VanAnCard>
+        </div>
+        
+        <main class="khachlink-main">
+            @ChildContent
+        </main>
+        
+        <footer class="khachlink-footer">
+            <VanAnCard CssClass="text-center py-3">
+                <small class="text-muted">© 2026 Vạn An Group - KhachLink Platform</small>
+            </VanAnCard>
+        </footer>
+    </VanAnLayout>
+</div>
+
+<style>
+.khachlink-layout {
+    min-height: 100vh;
+    background: var(--color-neutral-50);
+}
+
+.khachlink-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--color-neutral-50);
+    border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.khachlink-nav {
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+}
+
+.khachlink-main {
+    flex: 1;
+    padding: var(--spacing-4);
+}
+
+.khachlink-footer {
+    background: var(--color-neutral-100);
+    border-top: 1px solid var(--color-neutral-200);
+}
+
+/* Theme Variations */
+.khachlink-layout.dark {
+    background: var(--color-neutral-900);
+}
+
+.khachlink-layout.dark .khachlink-header {
+    background: var(--color-neutral-900);
+    border-bottom-color: var(--color-neutral-700);
+}
+
+.khachlink-layout.dark .khachlink-footer {
+    background: var(--color-neutral-800);
+    border-top-color: var(--color-neutral-700);
+}
+
+/* Responsive Design */
+@@media (max-width: 768px) {
+    .khachlink-nav .d-flex {
+        flex-direction: column;
+    }
+}
+</style>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+    
+    [Inject]
+    public NavigationManager Navigation { get; set; } = default!;
+
+    private Guid _currentTenantId;
+
+    protected override void OnInitialized()
+    {
+        _currentTenantId = TenantService.GetCurrentTenantId();
+    }
+}

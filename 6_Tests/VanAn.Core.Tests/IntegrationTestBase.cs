@@ -7,29 +7,29 @@ using VanAn.CoreHub.Tests.TestInfrastructure;
 
 namespace VanAn.CoreHub.Tests.TestInfrastructure
 {
+    /// <summary>
+    /// Base class for integration tests using TestContextScope wrapper.
+    /// FIX: Uses TestContextScope to bind DI scope lifespan to DbContext lifespan
+    /// </summary>
     public abstract class IntegrationTestBase : IDisposable
     {
-        protected VanAnDbContext Context { get; private set; } = null!;
-        protected ITestDbProvider DbProvider { get; private set; }
+        protected TestContextScope ContextScope { get; private set; } = null!;
+        protected VanAnDbContext Context => ContextScope?.Context ?? throw new InvalidOperationException("Context not initialized. Call CreateContextAsync first.");
         protected ILogger Logger { get; private set; }
         protected SchemaSyncEngine SchemaEngine { get; private set; }
 
-        protected IntegrationTestBase(ITestDbProvider dbProvider = null!, ILogger logger = null!)
+        protected IntegrationTestBase(ILogger logger = null!)
         {
-            DbProvider = dbProvider ?? TestDbProviderFactory.CreateSqlite();
             Logger = logger;
             SchemaEngine = new SchemaSyncEngine(logger as ILogger<SchemaSyncEngine> ?? new NullLogger<SchemaSyncEngine>());
         }
 
         protected async Task CreateContextAsync()
         {
-            var testContext = TestDbFactory.CreateSqliteInMemory();
+            // FIX: Use TestContextScope wrapper to bind DI scope lifespan to context
+            ContextScope = VanAnDbContextTestFactory.Create();
             
-            // For backward compatibility, assign to Context property
-            // Note: This breaks strict typing but allows existing tests to work
-            Context = testContext;
-            
-            await testContext.Database.EnsureCreatedAsync();
+            await Context.Database.EnsureCreatedAsync();
         }
 
         protected async Task SeedTestDataAsync(TestDataBuilder builder = null!)
@@ -44,14 +44,17 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 
         public virtual void Dispose()
         {
-            DbProvider?.Dispose(Context);
-            Context = null!;
+            // Dispose context scope (which disposes both context and DI scope)
+            ContextScope?.Dispose();
+            ContextScope = null!;
+            
+            GC.SuppressFinalize(this);
         }
 
         // Helper methods for common test scenarios
         protected async Task SetupBasicTestDataAsync()
         {
-            // Context should already be created, just seed the data
+            await CreateContextAsync();
             await SeedTestDataAsync(TestDataBuilder.CreateBasicScenario());
         }
 

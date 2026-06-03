@@ -3,6 +3,7 @@ using VanAn.Shared.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Concurrent;
+using System.Globalization;
 
 namespace VanAn.CoreHub.Services;
 
@@ -33,6 +34,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<SubscriptionResult> SubscribeToInventoryUpdatesAsync(string shopId, string deviceId, Func<InventoryUpdate, Task> onInventoryUpdate)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Device {DeviceId} subscribing to inventory updates for shop {ShopId}", deviceId, shopId);
@@ -307,6 +309,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<InventorySyncStatus> GetInventorySyncStatusAsync(string shopId, ProductId productId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting inventory sync status for product {ProductId} in shop {ShopId}", productId, shopId);
@@ -346,6 +349,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<CustomerSyncStatus> GetCustomerSyncStatusAsync(string shopId, CustomerId customerId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting customer sync status for customer {CustomerId} in shop {ShopId}", customerId, shopId);
@@ -556,6 +560,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<List<RealTimeSyncConflict>> DetectSyncConflictsAsync(string shopId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Detecting sync conflicts for shop {ShopId}", shopId);
@@ -570,7 +575,7 @@ public class RealTimeSyncService : IRealTimeSyncService
             else
             {
                 // Generate some sample conflicts for demonstration
-                conflicts = GenerateSampleConflicts(shopId);
+                conflicts = await GenerateSampleConflictsAsync(shopId);
                 _conflicts[shopId] = conflicts;
             }
 
@@ -586,6 +591,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<ConflictResolutionResult> ResolveSyncConflictAsync(string conflictId, RealTimeConflictResolutionStrategy strategy, string resolverDeviceId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Resolving conflict {ConflictId} using strategy {Strategy}", conflictId, strategy);
@@ -640,6 +646,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<RealTimeSyncAnalytics> GetSyncAnalyticsAsync(string shopId, DateTime? from = null, DateTime? to = null)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting sync analytics for shop {ShopId} from {From} to {To}", shopId, from, to);
@@ -694,6 +701,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<List<ConnectedDevice>> GetConnectedDevicesAsync(string shopId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting connected devices for shop {ShopId}", shopId);
@@ -715,6 +723,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<DisconnectResult> DisconnectDeviceAsync(string shopId, string deviceId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Disconnecting device {DeviceId} from shop {ShopId}", deviceId, shopId);
@@ -773,6 +782,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     public async Task<SyncPerformanceMetrics> GetPerformanceMetricsAsync(string shopId)
     {
+        await Task.CompletedTask;
         try
         {
             _logger.LogInformation("Getting performance metrics for shop {ShopId}", shopId);
@@ -831,6 +841,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     private async Task UpdateDeviceConnectionAsync(string shopId, string deviceId, string subscriptionType)
     {
+        await Task.CompletedTask;
         var device = _connectedDevices.GetOrAdd(deviceId, _ => new ConnectedDevice
         {
             DeviceId = deviceId,
@@ -910,9 +921,9 @@ public class RealTimeSyncService : IRealTimeSyncService
         _customerStatus[statusKey] = updatedStatus;
     }
 
-    private string GetDeviceType(string deviceId)
+    private static string GetDeviceType(string deviceId)
     {
-        return deviceId.ToLower() switch
+        return deviceId.ToLower(CultureInfo.InvariantCulture) switch
         {
             var s when s.Contains("mobile") => "Mobile",
             var s when s.Contains("tablet") => "Tablet",
@@ -924,13 +935,14 @@ public class RealTimeSyncService : IRealTimeSyncService
         };
     }
 
-    private string GenerateSyncVersion()
+    private static string GenerateSyncVersion()
     {
-        return $"v{DateTime.UtcNow:yyyyMMdd-HHmmss}";
+        return $"v{DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}";
     }
 
-    private List<RealTimeSyncConflict> GenerateSampleConflicts(string shopId)
+    private static async Task<List<RealTimeSyncConflict>> GenerateSampleConflictsAsync(string shopId)
     {
+        await Task.CompletedTask;
         return new List<RealTimeSyncConflict>
         {
             new RealTimeSyncConflict
@@ -970,7 +982,7 @@ public class RealTimeSyncService : IRealTimeSyncService
         };
     }
 
-    private object? ApplyConflictResolutionStrategy(RealTimeSyncConflict conflict, RealTimeConflictResolutionStrategy strategy)
+    private static object? ApplyConflictResolutionStrategy(RealTimeSyncConflict conflict, RealTimeConflictResolutionStrategy strategy)
     {
         return strategy switch
         {
@@ -986,7 +998,7 @@ public class RealTimeSyncService : IRealTimeSyncService
 
     #region Internal Classes
 
-    private class Subscription
+    private sealed class Subscription
     {
         public string SubscriptionId { get; set; } = string.Empty;
         public string ShopId { get; set; } = string.Empty;

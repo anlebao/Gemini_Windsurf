@@ -15,14 +15,16 @@ namespace VanAn.Core.Tests.Accounting;
 public class HKDBookServiceTests
 {
     private readonly Mock<IAccountingEntryRepository> _mockRepository;
-    private readonly Mock<Logger<HKDBookService>> _mockLogger;
+    private readonly Mock<IHKDBookRepository> _mockHKDBookRepository;
+    private readonly Mock<ILogger<HKDBookService>> _mockLogger;
     private readonly HKDBookService _service;
     
     public HKDBookServiceTests()
     {
         _mockRepository = new Mock<IAccountingEntryRepository>();
-        _mockLogger = new Mock<Logger<HKDBookService>>();
-        _service = new HKDBookService(_mockRepository.Object, _mockLogger.Object);
+        _mockHKDBookRepository = new Mock<IHKDBookRepository>();
+        _mockLogger = new Mock<ILogger<HKDBookService>>();
+        _service = new HKDBookService(_mockRepository.Object, _mockHKDBookRepository.Object, _mockLogger.Object);
     }
     
     [Fact]
@@ -101,9 +103,9 @@ public class HKDBookServiceTests
         var period = AccountingPeriod.Create(2024, 1);
         var revenueEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(1000m, "VND"), "Revenue 1"),
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(1500m, "VND"), "Revenue 2"),
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, AccountingPeriod.Create(2024, 2), new Money(2000m, "VND"), "Revenue 3") // Different period
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(1000m, "VND"), "Revenue 1"),
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(1500m, "VND"), "Revenue 2"),
+            CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 2), new Money(2000m, "VND"), "Revenue 3") // Different period
         };
         
         _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
@@ -126,9 +128,9 @@ public class HKDBookServiceTests
         var period = AccountingPeriod.Create(2024, 1);
         var expenseEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(500m, "VND"), "Expense 1"),
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(300m, "VND"), "Expense 2"),
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, AccountingPeriod.Create(2024, 2), new Money(700m, "VND"), "Expense 3") // Different period
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(500m, "VND"), "Expense 1"),
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(300m, "VND"), "Expense 2"),
+            CoreAccountingEntry.CreateExpense(tenantId, AccountingPeriod.Create(2024, 2), new Money(700m, "VND"), "Expense 3") // Different period
         };
         
         _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
@@ -151,13 +153,13 @@ public class HKDBookServiceTests
         var period = AccountingPeriod.Create(2024, 1);
         var revenueEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(3000m, "VND"), "Revenue 1"),
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(2000m, "VND"), "Revenue 2")
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(3000m, "VND"), "Revenue 1"),
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(2000m, "VND"), "Revenue 2")
         };
         var expenseEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(1000m, "VND"), "Expense 1"),
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(1500m, "VND"), "Expense 2")
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(1000m, "VND"), "Expense 1"),
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(1500m, "VND"), "Expense 2")
         };
         
         _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
@@ -183,11 +185,11 @@ public class HKDBookServiceTests
         var period = AccountingPeriod.Create(2024, 1);
         var revenueEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(1000m, "VND"), "Revenue 1")
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(1000m, "VND"), "Revenue 1")
         };
         var expenseEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(2000m, "VND"), "Expense 1")
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(2000m, "VND"), "Expense 1")
         };
         
         _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
@@ -213,9 +215,9 @@ public class HKDBookServiceTests
         var period = AccountingPeriod.Create(2024, 1);
         var allRevenueEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(1000m, "VND"), "Revenue 1"),
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, period, new Money(1500m, "VND"), "Revenue 2"),
-            AccountingEntryFactory.CreateRevenueEntry(tenantId, AccountingPeriod.Create(2024, 2), new Money(2000m, "VND"), "Revenue 3") // Different period
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(1000m, "VND"), "Revenue 1"),
+            CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(1500m, "VND"), "Revenue 2"),
+            CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 2), new Money(2000m, "VND"), "Revenue 3") // Different period
         };
         
         _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
@@ -245,9 +247,9 @@ public class HKDBookServiceTests
         var period = AccountingPeriod.Create(2024, 1);
         var allExpenseEntries = new List<CoreAccountingEntry>
         {
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(500m, "VND"), "Expense 1"),
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, period, new Money(300m, "VND"), "Expense 2"),
-            AccountingEntryFactory.CreateExpenseEntry(tenantId, AccountingPeriod.Create(2024, 2), new Money(700m, "VND"), "Expense 3") // Different period
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(500m, "VND"), "Expense 1"),
+            CoreAccountingEntry.CreateExpense(tenantId, period, new Money(300m, "VND"), "Expense 2"),
+            CoreAccountingEntry.CreateExpense(tenantId, AccountingPeriod.Create(2024, 2), new Money(700m, "VND"), "Expense 3") // Different period
         };
         
         _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
