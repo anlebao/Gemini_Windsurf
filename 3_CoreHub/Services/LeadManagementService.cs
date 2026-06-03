@@ -18,8 +18,8 @@ namespace VanAn.CoreHub.Services
         {
             _logger.LogInformation("Creating new lead for tenant {TenantId}", lead.TenantId);
 
-            _dbContext.Leads.Add(lead);
-            await _dbContext.SaveChangesAsync();
+            _ = _dbContext.Leads.Add(lead);
+            _ = await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Lead created successfully with ID {LeadId}", lead.Id);
             return lead;
@@ -43,7 +43,7 @@ namespace VanAn.CoreHub.Services
                 lead.AssignedStaffId = staffId.Value;
             }
 
-            await _dbContext.SaveChangesAsync();
+            _ = await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Lead {LeadId} status updated successfully", leadId);
             return lead;

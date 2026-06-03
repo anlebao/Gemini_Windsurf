@@ -773,11 +773,11 @@ namespace VanAn.CoreHub.Services
         {
             var breakdowns = new List<TaxBreakdownRecord>();
             if (bookType != AccountingBookType.S1a_HKD)
-                breakdowns.Add(new TaxBreakdownRecord { TaxType = "VAT", TaxableAmount = revenue, TaxRate = 5m, TaxAmount = revenue * 0.05m, Description = "Thuế GTGT 5%" });
+                breakdowns.Add(new TaxBreakdownRecord {TaxType = "VAT", TaxableAmount = revenue, TaxRate = 5m, TaxAmount = revenue * 0.05m, Description = "Thuế GTGT 5%" });
             if (bookType != AccountingBookType.S1a_HKD)
-                breakdowns.Add(new TaxBreakdownRecord { TaxType = "TNCN", TaxableAmount = revenue, TaxRate = 10m, TaxAmount = revenue * 0.1m, Description = "Thuế TNCN 10%" });
+                breakdowns.Add(new TaxBreakdownRecord {TaxType = "TNCN", TaxableAmount = revenue, TaxRate = 10m, TaxAmount = revenue * 0.1m, Description = "Thuế TNCN 10%" });
             if (bookType == AccountingBookType.S3a_HKD)
-                breakdowns.Add(new TaxBreakdownRecord { TaxType = "Thuế đặc biệt", TaxableAmount = revenue, TaxRate = 5m, TaxAmount = revenue * 0.05m, Description = "Thuế đặc biệt 5%" });
+                breakdowns.Add(new TaxBreakdownRecord {TaxType = "Thuế đặc biệt", TaxableAmount = revenue, TaxRate = 5m, TaxAmount = revenue * 0.05m, Description = "Thuế đặc biệt 5%" });
 
             return breakdowns;
         }

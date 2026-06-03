@@ -1,5 +1,4 @@
-using Microsoft.CodeAnalysis.Diagnostics;
-using System;
+﻿using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace VanAn.Accounting.Analyzers
 {
@@ -9,17 +8,17 @@ namespace VanAn.Accounting.Analyzers
         {
             string filePath = context.Node.SyntaxTree?.FilePath ?? "";
             return !string.IsNullOrEmpty(filePath)
-&& (filePath.IndexOf("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   filePath.IndexOf("/Analyzers/", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   context.SemanticModel?.Compilation?.AssemblyName?.IndexOf("Analyzer", StringComparison.OrdinalIgnoreCase) >= 0);
+                && (filePath.IndexOf("\\Analyzers\\", System.StringComparison.OrdinalIgnoreCase) >= 0
+                   || filePath.IndexOf("/Analyzers/", System.StringComparison.OrdinalIgnoreCase) >= 0
+                   || context.SemanticModel?.Compilation?.AssemblyName?.IndexOf("Analyzer", System.StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         public static bool ShouldSkipAnalysis(AdditionalFileAnalysisContext context)
         {
             string filePath = context.AdditionalFile?.Path ?? "";
             return !string.IsNullOrEmpty(filePath)
-&& (filePath.IndexOf("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   filePath.IndexOf("/Analyzers/", StringComparison.OrdinalIgnoreCase) >= 0);
+                && (filePath.IndexOf("\\Analyzers\\", System.StringComparison.OrdinalIgnoreCase) >= 0
+                   || filePath.IndexOf("/Analyzers/", System.StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         /// <summary>
@@ -27,7 +26,7 @@ namespace VanAn.Accounting.Analyzers
         /// </summary>
         public static bool ContainsIgnoreCase(this string source, string value)
         {
-            return source != null && value != null && source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
+            return source != null && value != null && source.IndexOf(value, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         /// <summary>
@@ -35,7 +34,7 @@ namespace VanAn.Accounting.Analyzers
         /// </summary>
         public static bool ContainsOrdinal(this string source, string value)
         {
-            return source != null && value != null && source.Contains(value);
+            return source != null && value != null && source.IndexOf(value, System.StringComparison.Ordinal) >= 0;
         }
 
         /// <summary>

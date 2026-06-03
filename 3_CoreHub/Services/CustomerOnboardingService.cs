@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using VanAn.Shared.Domain;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure;
 
@@ -42,8 +43,8 @@ namespace VanAn.CoreHub.Services
                 StartedAt = DateTime.UtcNow
             };
 
-            _dbContext.CustomerOnboardings.Add(onboarding);
-            await _dbContext.SaveChangesAsync();
+            _ = _dbContext.CustomerOnboardings.Add(onboarding);
+            _ = await _dbContext.SaveChangesAsync();
 
             // Add initial activity
             await AddActivityAsync(customerId, OnboardingStep.Welcome, "Onboarding process started");
@@ -65,8 +66,8 @@ namespace VanAn.CoreHub.Services
             onboarding.CurrentStep = OnboardingStep.AppInstall;
             onboarding.UpdatedAt = DateTime.UtcNow;
 
-            _dbContext.CustomerOnboardings.Update(onboarding);
-            await _dbContext.SaveChangesAsync();
+            _ = _dbContext.CustomerOnboardings.Update(onboarding);
+            _ = await _dbContext.SaveChangesAsync();
 
             await AddActivityAsync(customerId, OnboardingStep.AppInstall, $"App installed: {appVersion} on {deviceType}");
 
@@ -85,8 +86,8 @@ namespace VanAn.CoreHub.Services
             onboarding.CurrentStep = OnboardingStep.Completed;
             onboarding.UpdatedAt = DateTime.UtcNow;
 
-            _dbContext.CustomerOnboardings.Update(onboarding);
-            await _dbContext.SaveChangesAsync();
+            _ = _dbContext.CustomerOnboardings.Update(onboarding);
+            _ = await _dbContext.SaveChangesAsync();
 
             await AddActivityAsync(customerId, OnboardingStep.Completed, "Onboarding completed");
 
@@ -99,7 +100,7 @@ namespace VanAn.CoreHub.Services
             _logger.LogInformation("Sending welcome messages to customer {CustomerId}", customerId);
 
             CustomerOnboarding onboarding = await GetOrCreateOnboardingAsync(customerId);
-            Shared.Domain.Customer? customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
+            Customer? customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
 
             if (customer == null)
             {
@@ -134,8 +135,8 @@ namespace VanAn.CoreHub.Services
             if (overallSuccess)
             {
                 onboarding.UpdatedAt = DateTime.UtcNow;
-                _dbContext.CustomerOnboardings.Update(onboarding);
-                await _dbContext.SaveChangesAsync();
+                _ = _dbContext.CustomerOnboardings.Update(onboarding);
+                _ = await _dbContext.SaveChangesAsync();
 
                 await AddActivityAsync(customerId, OnboardingStep.Welcome, "Welcome messages sent");
             }
@@ -161,8 +162,8 @@ namespace VanAn.CoreHub.Services
                 onboarding.CurrentStep = OnboardingStep.LoyaltyActivation;
                 onboarding.UpdatedAt = DateTime.UtcNow;
 
-                _dbContext.CustomerOnboardings.Update(onboarding);
-                await _dbContext.SaveChangesAsync();
+                _ = _dbContext.CustomerOnboardings.Update(onboarding);
+                _ = await _dbContext.SaveChangesAsync();
 
                 await AddActivityAsync(customerId, OnboardingStep.LoyaltyActivation, $"Loyalty program activated with offer: {welcomeOffer}");
             }
@@ -192,7 +193,7 @@ namespace VanAn.CoreHub.Services
             if (onboarding == null)
             {
                 // Get customer to determine tenant
-                Shared.Domain.Customer? customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId) ?? throw new InvalidOperationException($"Customer {customerId} not found");
+                Customer? customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId) ?? throw new InvalidOperationException($"Customer {customerId} not found");
                 onboarding = new CustomerOnboarding
                 {
                     CustomerId = customerId,
@@ -201,8 +202,8 @@ namespace VanAn.CoreHub.Services
                     CurrentStep = OnboardingStep.Welcome
                 };
 
-                _dbContext.CustomerOnboardings.Add(onboarding);
-                await _dbContext.SaveChangesAsync();
+                _ = _dbContext.CustomerOnboardings.Add(onboarding);
+                _ = await _dbContext.SaveChangesAsync();
             }
 
             return onboarding;
@@ -219,8 +220,8 @@ namespace VanAn.CoreHub.Services
                 CompletedAt = DateTime.UtcNow
             };
 
-            _dbContext.OnboardingActivities.Add(activity);
-            await _dbContext.SaveChangesAsync();
+            _ = _dbContext.OnboardingActivities.Add(activity);
+            _ = await _dbContext.SaveChangesAsync();
         }
     }
 }

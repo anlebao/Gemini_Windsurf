@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using VanAn.UI.Platform.Core.Interfaces;
+﻿using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Tokens;
 
 namespace VanAn.UI.Platform.Adapters
@@ -11,7 +10,7 @@ namespace VanAn.UI.Platform.Adapters
     {
         public string GetButtonClass(ButtonVariant variant, ButtonSize size, bool fullWidth = false)
         {
-            var classes = new System.Collections.Generic.List<string>
+            List<string> classes = new()
             {
                 "btn",
                 variant switch
@@ -30,19 +29,21 @@ namespace VanAn.UI.Platform.Adapters
                 {
                     ButtonSize.Small => "btn-sm",
                     ButtonSize.Large => "btn-lg",
-                    ButtonSize.Medium => throw new System.NotImplementedException(),
+                    ButtonSize.Medium => throw new NotImplementedException(),
                     _ => ""
                 }
             };
             if (fullWidth)
+            {
                 classes.Add("w-100");
+            }
 
             return string.Join(" ", classes.Where(c => !string.IsNullOrEmpty(c)));
         }
 
         public string GetAlertClass(AlertVariant variant, bool dismissible = false)
         {
-            var classes = new System.Collections.Generic.List<string>
+            List<string> classes = new()
             {
                 "alert",
                 variant switch
@@ -55,27 +56,36 @@ namespace VanAn.UI.Platform.Adapters
                 }
             };
             if (dismissible)
+            {
                 classes.Add("alert-dismissible");
+            }
 
             return string.Join(" ", classes);
         }
 
         public string GetCardClass(bool hoverable = false, bool shadow = true)
         {
-            var classes = new System.Collections.Generic.List<string> { "card" };
+            List<string> classes = new() { "card" };
             if (shadow)
+            {
                 classes.Add("shadow-sm");
+            }
+
             if (hoverable)
+            {
                 classes.Add("card-hover");
+            }
 
             return string.Join(" ", classes);
         }
 
         public string GetModalClass(bool isOpen = false)
         {
-            var classes = new System.Collections.Generic.List<string> { "modal" };
+            List<string> classes = new() { "modal" };
             if (isOpen)
+            {
                 classes.Add("show");
+            }
 
             return string.Join(" ", classes);
         }

@@ -1,10 +1,8 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using System;
 using System.Collections.Immutable;
-using System.Linq;
 
 namespace VanAn.Accounting.Analyzers
 {
@@ -29,7 +27,6 @@ namespace VanAn.Accounting.Analyzers
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
-
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -46,7 +43,7 @@ namespace VanAn.Accounting.Analyzers
             }
 
             ObjectCreationExpressionSyntax objectCreation = (ObjectCreationExpressionSyntax)context.Node;
-            ITypeSymbol? typeSymbol = context.SemanticModel.GetTypeInfo(objectCreation).Type;
+            ITypeSymbol typeSymbol = context.SemanticModel.GetTypeInfo(objectCreation).Type;
 
             if (typeSymbol != null && IsBusinessType(typeSymbol))
             {
@@ -77,62 +74,59 @@ namespace VanAn.Accounting.Analyzers
             }
         }
 
-
         private static bool IsBusinessType(ITypeSymbol type)
         {
-            // Check if type is in business domain
-            string? namespaceName = type.ContainingNamespace?.ToString();
-
+            string namespaceName = type.ContainingNamespace?.ToString();
             if (namespaceName == null)
             {
                 return false;
             }
 
-            // Business namespaces that should not be used directly in controllers
-            string[] businessNamespaces =
-            [
+            string[] businessNamespaces = new string[]
+            {
                 "VanAn.Accounting.Services",
                 "VanAn.Accounting.Domain",
                 "VanAn.Accounting.Repositories"
-            ];
+            };
 
             foreach (string ns in businessNamespaces)
             {
-                if (namespaceName.StartsWith(ns, StringComparison.Ordinal))
+                if (namespaceName.StartsWith(ns, System.StringComparison.Ordinal))
+                {
                     return true;
+                }
             }
             return false;
         }
 
         private static bool IsBusinessMethod(IMethodSymbol method)
         {
-            // Check if method is on a business type
             INamedTypeSymbol containingType = method.ContainingType;
             return containingType != null && IsBusinessType(containingType);
         }
 
         private static bool IsInController(SyntaxNodeAnalysisContext context, SyntaxNode node)
         {
-            // Check if node is within a Controller class
-            ClassDeclarationSyntax? typeDeclaration = node.FirstAncestorOrSelf<ClassDeclarationSyntax>();
+            ClassDeclarationSyntax typeDeclaration = node.FirstAncestorOrSelf<ClassDeclarationSyntax>();
             if (typeDeclaration == null)
             {
                 return false;
             }
 
-            INamedTypeSymbol? typeSymbol = context.SemanticModel.GetDeclaredSymbol(typeDeclaration);
+            INamedTypeSymbol typeSymbol = context.SemanticModel.GetDeclaredSymbol(typeDeclaration);
             if (typeSymbol == null)
             {
                 return false;
             }
 
-            // Check if class inherits from Controller or has Controller suffix
-            foreach (var iface in typeSymbol.AllInterfaces)
+            foreach (INamedTypeSymbol iface in typeSymbol.AllInterfaces)
             {
                 if (iface.Name == "IController")
+                {
                     return true;
+                }
             }
-            return typeSymbol.Name.EndsWith("Controller", StringComparison.Ordinal);
+            return typeSymbol.Name.EndsWith("Controller", System.StringComparison.Ordinal);
         }
     }
 }

@@ -1,5 +1,11 @@
-root = true
+﻿root = true
 
+[*]
+dotnet_analyzer_diagnostic.severity = warning
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1848.severity = none
+
+[*.cs]
 # FORCE LOW RISK SUPPRESSION
 dotnet_diagnostic.CA1716.severity = none
 dotnet_diagnostic.CA1805.severity = none
@@ -14,8 +20,8 @@ dotnet_diagnostic.CA1002.severity = warning
 dotnet_diagnostic.CA2227.severity = warning
 dotnet_diagnostic.CA2007.severity = suggestion
 
-# Global fallback
-[*]
-dotnet_analyzer_diagnostic.severity = warning
-dotnet_diagnostic.CA1707.severity = none
-dotnet_diagnostic.CA1848.severity = none
+# Disable collection expression rewrite - causes CS0173 on Linux CI (netstandard2.0)
+dotnet_diagnostic.IDE0300.severity = none
+dotnet_diagnostic.IDE0028.severity = none
+dotnet_diagnostic.IDE0305.severity = none
+csharp_style_prefer_collection_expression = false:none
