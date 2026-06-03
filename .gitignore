@@ -239,7 +239,8 @@ docker-compose.dev.yml
 
 # Local database files
 **/App_Data/
-**/Data/
+# Note: **/Data/ is intentionally NOT ignored — source code Data/ folders (UI.Platform, Services) must be tracked
+# **/Data/
 
 # ========================================
 # Logs and Runtime
@@ -403,7 +404,8 @@ khachlink_errors.txt
 *.temp
 
 # Cache directories
-cache/
+# Note: cache/ is intentionally NOT ignored — source code Cache/ folders (Services/Cache) must be tracked
+# cache/
 .Cache/
 
 # Local development files

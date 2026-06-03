@@ -1,0 +1,79 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@using VanAn.UI.Platform.Components.Data
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+
+@typeparam TItem
+
+@code {
+    /// <summary>
+    /// Parent DataGrid reference
+    /// </summary>
+    [CascadingParameter]
+    public VanAnDataGrid<TItem> Owner { get; set; } = default!;
+    
+    /// <summary>
+    /// Column title
+    /// </summary>
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Column template
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TItem> Template { get; set; } = default!;
+    
+    /// <summary>
+    /// Column width (1-12)
+    /// </summary>
+    [Parameter]
+    public int? Width { get; set; }
+    
+    /// <summary>
+    /// Is column sortable
+    /// </summary>
+    [Parameter]
+    public bool Sortable { get; set; }
+    
+    /// <summary>
+    /// Register with parent DataGrid
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        if (Owner != null)
+        {
+            Owner.RegisterColumn(this);
+        }
+    }
+    
+    /// <summary>
+    /// Get column CSS classes
+    /// </summary>
+    internal string GetColumnClasses()
+    {
+        var classes = CssAdapter.GetClasses("vanan-data-grid__column");
+        
+        if (!string.IsNullOrEmpty(CssClass))
+        {
+            classes += $" {CssClass}";
+        }
+        
+        if (Width.HasValue)
+        {
+            classes += $" col-{Width.Value}";
+        }
+        
+        if (Sortable)
+        {
+            classes += " sortable";
+        }
+        
+        return classes;
+    }
+}

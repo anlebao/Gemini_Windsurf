@@ -1,0 +1,125 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@using VanAn.UI.Platform.Components.Data
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+
+@typeparam TItem
+
+<table class="@GetDataGridClasses()" @attributes="GetMergedAttributes()">
+    <thead>
+        <tr>
+            @foreach (var col in _columns)
+            {
+                <th class="@GetColumnHeaderClass(col)">@col.Title</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @if (Items != null)
+        {
+            @foreach (var item in Items)
+            {
+                <tr class="@GetRowClass(item)">
+                    @foreach (var col in _columns)
+                    {
+                        <td class="@GetColumnClass(col)">
+                            @col.Template(item)
+                        </td>
+                    }
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="@_columns.Count" class="text-center py-4">
+                    <div class="text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <div>@EmptyMessage</div>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<CascadingValue Value="this">
+    @Columns
+</CascadingValue>
+
+@code {
+    /// <summary>
+    /// Data source
+    /// </summary>
+    [Parameter]
+    public IEnumerable<TItem>? Items { get; set; }
+    
+    /// <summary>
+    /// Empty message
+    /// </summary>
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No data available";
+    
+    /// <summary>
+    /// Columns definition
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Columns { get; set; }
+    
+    /// <summary>
+    /// Internal column registry
+    /// </summary>
+    internal List<VanAnColumn<TItem>> _columns = new();
+    
+    /// <summary>
+    /// Register a column with the grid
+    /// </summary>
+    internal void RegisterColumn(VanAnColumn<TItem> column)
+    {
+        _columns.Add(column);
+    }
+    
+    /// <summary>
+    /// Get data grid CSS classes
+    /// </summary>
+    private string GetDataGridClasses()
+    {
+        var classes = CssAdapter.GetClasses("vanan-data-grid table table-striped table-hover");
+        
+        if (!string.IsNullOrEmpty(CssClass))
+        {
+            classes += $" {CssClass}";
+        }
+        
+        return classes;
+    }
+    
+    /// <summary>
+    /// Get column header CSS classes
+    /// </summary>
+    private string GetColumnHeaderClass(VanAnColumn<TItem> column)
+    {
+        return CssAdapter.GetClasses("vanan-data-grid__header");
+    }
+    
+    /// <summary>
+    /// Get row CSS classes
+    /// </summary>
+    private string GetRowClass(TItem item)
+    {
+        return CssAdapter.GetClasses("vanan-data-grid__row");
+    }
+    
+    /// <summary>
+    /// Get column CSS classes
+    /// </summary>
+    private string GetColumnClass(VanAnColumn<TItem> column)
+    {
+        return CssAdapter.GetClasses("vanan-data-grid__cell");
+    }
+}
