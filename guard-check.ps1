@@ -22,7 +22,7 @@ Write-Host "â ARCHITECTURE GUARD PASSED" -ForegroundColor Green
 
 # 3. Run dotnet build with detailed output
 Write-Host "Running dotnet build..." -ForegroundColor Yellow
-$buildOutput = dotnet build --verbosity normal 2>&1 | Tee-Object -FilePath "build.log"
+$buildOutput = dotnet build --verbosity normal --configuration Release 2>&1 | Tee-Object -FilePath "build.log"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "â BUILD FAILED" -ForegroundColor Red
@@ -43,14 +43,14 @@ if ($criticalIssues) {
 # Prevents false-green: build pass alone does not guarantee correctness
 Write-Host "Running fast test gate (Domain + Architecture)..." -ForegroundColor Yellow
 
-dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj --verbosity quiet --no-build 2>&1 | Out-Null
+dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj --verbosity quiet --no-build --configuration Release 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAST TEST GATE FAILED: Core.Tests" -ForegroundColor Red
     Write-Host "Run: dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj for details" -ForegroundColor Yellow
     exit 1
 }
 
-dotnet test 6_Tests\VanAn.Architecture.Tests\VanAn.Architecture.Tests.csproj --verbosity quiet --no-build 2>&1 | Out-Null
+dotnet test 6_Tests\VanAn.Architecture.Tests\VanAn.Architecture.Tests.csproj --verbosity quiet --no-build --configuration Release 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAST TEST GATE FAILED: Architecture.Tests" -ForegroundColor Red
     Write-Host "Run: dotnet test 6_Tests\VanAn.Architecture.Tests\VanAn.Architecture.Tests.csproj for details" -ForegroundColor Yellow
