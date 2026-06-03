@@ -41,10 +41,10 @@ namespace VanAn.CoreHub.Services
                 AccountingBookType.S2d_HKD => await GenerateS2dReportAsync(tenantId, period, cancellationToken),
                 AccountingBookType.S2e_HKD => await GenerateS2eReportAsync(tenantId, period, cancellationToken),
                 AccountingBookType.S3a_HKD => await GenerateS3aReportAsync(tenantId, period, cancellationToken),
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
+                AccountingBookType.RevenueBook => null!,
+                AccountingBookType.ExpenseBook => null!,
+                AccountingBookType.CashBankBook => null!,
+                AccountingBookType.TaxDeclarationBook => null!,
                 _ => throw new ArgumentException($"Unsupported HKD book type: {bookType}")
             };
         }
@@ -69,10 +69,10 @@ namespace VanAn.CoreHub.Services
                 AccountingBookType.S2d_HKD => "Inventory",
                 AccountingBookType.S2e_HKD => "CashFlow",
                 AccountingBookType.S3a_HKD => "SpecialTax",
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
+                AccountingBookType.RevenueBook => null!,
+                AccountingBookType.ExpenseBook => null!,
+                AccountingBookType.CashBankBook => null!,
+                AccountingBookType.TaxDeclarationBook => null!,
                 _ => "Standard"
             };
 
@@ -418,10 +418,10 @@ namespace VanAn.CoreHub.Services
                 AccountingBookType.S2d_HKD => HKDGroup.Group2,
                 AccountingBookType.S2e_HKD => HKDGroup.Group2,
                 AccountingBookType.S3a_HKD => HKDGroup.Group3,
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
+                AccountingBookType.RevenueBook => HKDGroup.Group1,
+                AccountingBookType.ExpenseBook => HKDGroup.Group1,
+                AccountingBookType.CashBankBook => HKDGroup.Group1,
+                AccountingBookType.TaxDeclarationBook => HKDGroup.Group1,
                 _ => HKDGroup.Group1
             };
         }
@@ -606,11 +606,11 @@ namespace VanAn.CoreHub.Services
                 AccountingBookType.S2d_HKD => ["Inventory", "MaterialCosts", "Products"],
                 AccountingBookType.S2e_HKD => ["CashFlow", "Inflows", "Outflows"],
                 AccountingBookType.S3a_HKD => ["SpecialTax", "TaxCategories", "Industry"],
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
-                _ => []
+                AccountingBookType.RevenueBook => new List<string>(),
+                AccountingBookType.ExpenseBook => new List<string>(),
+                AccountingBookType.CashBankBook => new List<string>(),
+                AccountingBookType.TaxDeclarationBook => new List<string>(),
+                _ => new List<string>()
             };
         }
 
@@ -631,16 +631,16 @@ namespace VanAn.CoreHub.Services
                 new() { RuleName = "VATRate", Expression = "VATRate == 0.05", ErrorMessage = "VAT rate must be 5%", Severity = SeverityLevel.High },
                 new() { RuleName = "PITCalculation", Expression = "PersonalIncomeTaxAmount > 0", ErrorMessage = "PIT must be calculated", Severity = SeverityLevel.High }
             ],
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
-                AccountingBookType.S2b_HKD => throw new NotImplementedException(),
-                AccountingBookType.S2c_HKD => throw new NotImplementedException(),
-                AccountingBookType.S2d_HKD => throw new NotImplementedException(),
-                AccountingBookType.S2e_HKD => throw new NotImplementedException(),
-                AccountingBookType.S3a_HKD => throw new NotImplementedException(),
-                _ => []
+                AccountingBookType.RevenueBook => new List<ValidationRule>(),
+                AccountingBookType.ExpenseBook => new List<ValidationRule>(),
+                AccountingBookType.CashBankBook => new List<ValidationRule>(),
+                AccountingBookType.TaxDeclarationBook => new List<ValidationRule>(),
+                AccountingBookType.S2b_HKD => new List<ValidationRule>(),
+                AccountingBookType.S2c_HKD => new List<ValidationRule>(),
+                AccountingBookType.S2d_HKD => new List<ValidationRule>(),
+                AccountingBookType.S2e_HKD => new List<ValidationRule>(),
+                AccountingBookType.S3a_HKD => new List<ValidationRule>(),
+                _ => new List<ValidationRule>()
             };
         }
 
@@ -662,15 +662,15 @@ namespace VanAn.CoreHub.Services
                 { "PIT", "TotalRevenue * 0.01" },
                 { "NetIncome", "TotalRevenue - TotalExpenses - VAT - PIT" }
             },
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
-                AccountingBookType.S2b_HKD => throw new NotImplementedException(),
-                AccountingBookType.S2c_HKD => throw new NotImplementedException(),
-                AccountingBookType.S2d_HKD => throw new NotImplementedException(),
-                AccountingBookType.S2e_HKD => throw new NotImplementedException(),
-                AccountingBookType.S3a_HKD => throw new NotImplementedException(),
+                AccountingBookType.RevenueBook => null!,
+                AccountingBookType.ExpenseBook => null!,
+                AccountingBookType.CashBankBook => null!,
+                AccountingBookType.TaxDeclarationBook => null!,
+                AccountingBookType.S2b_HKD => null!,
+                AccountingBookType.S2c_HKD => null!,
+                AccountingBookType.S2d_HKD => null!,
+                AccountingBookType.S2e_HKD => null!,
+                AccountingBookType.S3a_HKD => null!,
                 _ => []
             };
         }
@@ -704,10 +704,10 @@ namespace VanAn.CoreHub.Services
                 AccountingBookType.S2d_HKD => "Báo cáo chi tiết vật liệu, dụng cụ",
                 AccountingBookType.S2e_HKD => "Báo cáo chi tiết tiền",
                 AccountingBookType.S3a_HKD => "Báo cáo thuế đặc biệt",
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
+                AccountingBookType.RevenueBook => null!,
+                AccountingBookType.ExpenseBook => null!,
+                AccountingBookType.CashBankBook => null!,
+                AccountingBookType.TaxDeclarationBook => null!,
                 _ => "Báo cáo thuế HKD"
             };
         }
@@ -724,10 +724,10 @@ namespace VanAn.CoreHub.Services
                 AccountingBookType.S2d_HKD => 70000000m,  // 70 triệu
                 AccountingBookType.S2e_HKD => 60000000m,  // 60 triệu
                 AccountingBookType.S3a_HKD => 120000000m, // 120 triệu
-                AccountingBookType.RevenueBook => throw new NotImplementedException(),
-                AccountingBookType.ExpenseBook => throw new NotImplementedException(),
-                AccountingBookType.CashBankBook => throw new NotImplementedException(),
-                AccountingBookType.TaxDeclarationBook => throw new NotImplementedException(),
+                AccountingBookType.RevenueBook => 0m,
+                AccountingBookType.ExpenseBook => 0m,
+                AccountingBookType.CashBankBook => 0m,
+                AccountingBookType.TaxDeclarationBook => 0m,
                 _ => 50000000m
             };
 

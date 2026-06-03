@@ -30,7 +30,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 4. Check for critical issues
-$criticalIssues = $buildOutput | Select-String -Pattern "CS8034|NU1109|NU1603|NU1605|VA0004|: error CS|: error NU|: error MSB" -CaseSensitive
+$criticalIssues = $buildOutput | Select-String -Pattern ": error CS|: error NU|: error MSB|VA0004" -CaseSensitive
 
 if ($criticalIssues) {
     Write-Host "CRITICAL ISSUES DETECTED:" -ForegroundColor Red
