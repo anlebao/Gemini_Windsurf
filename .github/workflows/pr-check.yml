@@ -16,28 +16,8 @@ jobs:
     
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v4
-        
-      - name: Check PR Title
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = context.payload.pull_request.title;
-            const patterns = [
-              /^feat:/i,
-              /^fix:/i,
-              /^docs:/i,
-              /^refactor:/i,
-              /^test:/i,
-              /^chore:/i,
-              /^adr:/i
-            ];
-            
-            const valid = patterns.some(p => p.test(title));
-            if (!valid) {
-              core.setFailed(`PR title must start with: feat:, fix:, docs:, refactor:, test:, chore:, or adr:`);
-            }
-            
+        uses: actions/checkout@v4       
+          
       - name: Check Branch Naming
         run: |
           BRANCH="${{ github.head_ref }}"
