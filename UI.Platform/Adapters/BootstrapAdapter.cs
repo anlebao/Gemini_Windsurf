@@ -34,8 +34,9 @@ namespace VanAn.UI.Platform.Adapters
                     ButtonSize.Large => "btn-lg", ButtonSize.Medium => throw new NotImplementedException(), _ => ""
                 },
                 // Full width
-                .. fullWidth ? ["w-100"] : [],
-            ];
+            };
+            if (fullWidth)
+                classes.Add("w-100");
 
             return string.Join(" ", classes.Where(c => !string.IsNullOrEmpty(c)));
         }
@@ -52,23 +53,30 @@ namespace VanAn.UI.Platform.Adapters
                     AlertVariant.Error => "alert-danger",
                     AlertVariant.Info => "alert-info",
                     _ => "alert-info"
-                },
-                .. dismissible ? ["alert-dismissible"] : [],
-            ];
+                }
+            };
+            if (dismissible)
+                classes.Add("alert-dismissible");
 
             return string.Join(" ", classes);
         }
 
         public string GetCardClass(bool hoverable = false, bool shadow = true)
         {
-            List<string> classes = ["card", .. shadow ? ["shadow-sm"] : [], .. hoverable ? ["card-hover"] : []];
+            var classes = new List<string> { "card" };
+            if (shadow)
+                classes.Add("shadow-sm");
+            if (hoverable)
+                classes.Add("card-hover");
 
             return string.Join(" ", classes);
         }
 
         public string GetModalClass(bool isOpen = false)
         {
-            List<string> classes = ["modal", .. isOpen ? ["show"] : []];
+            var classes = new List<string> { "modal" };
+            if (isOpen)
+                classes.Add("show");
 
             return string.Join(" ", classes);
         }

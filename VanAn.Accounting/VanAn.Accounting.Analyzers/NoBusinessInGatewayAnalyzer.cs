@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using System;
 using System.Collections.Immutable;
+using System.Linq;
 
 namespace VanAn.Accounting.Analyzers
 {
@@ -95,7 +96,12 @@ namespace VanAn.Accounting.Analyzers
                 "VanAn.Accounting.Repositories"
             ];
 
-            return businessNamespaces.Any(ns => namespaceName.StartsWith(ns, StringComparison.Ordinal));
+            foreach (string ns in businessNamespaces)
+            {
+                if (namespaceName.StartsWith(ns, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
         }
 
         private static bool IsBusinessMethod(IMethodSymbol method)
@@ -121,8 +127,12 @@ namespace VanAn.Accounting.Analyzers
             }
 
             // Check if class inherits from Controller or has Controller suffix
-            return typeSymbol.AllInterfaces.Any(i => i.Name == "IController") ||
-                   typeSymbol.Name.EndsWith("Controller", StringComparison.Ordinal);
+            foreach (var iface in typeSymbol.AllInterfaces)
+            {
+                if (iface.Name == "IController")
+                    return true;
+            }
+            return typeSymbol.Name.EndsWith("Controller", StringComparison.Ordinal);
         }
     }
 }

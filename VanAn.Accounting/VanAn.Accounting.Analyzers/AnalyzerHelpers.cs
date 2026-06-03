@@ -9,8 +9,8 @@ namespace VanAn.Accounting.Analyzers
         {
             string filePath = context.Node.SyntaxTree?.FilePath ?? "";
             return !string.IsNullOrEmpty(filePath)
-&& (filePath.Contains("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) ||
-                   filePath.Contains("/Analyzers/", StringComparison.OrdinalIgnoreCase) ||
+&& (filePath.IndexOf("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   filePath.IndexOf("/Analyzers/", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    context.SemanticModel?.Compilation?.AssemblyName?.IndexOf("Analyzer", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
@@ -18,8 +18,8 @@ namespace VanAn.Accounting.Analyzers
         {
             string filePath = context.AdditionalFile?.Path ?? "";
             return !string.IsNullOrEmpty(filePath)
-&& (filePath.Contains("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) ||
-                   filePath.Contains("/Analyzers/", StringComparison.OrdinalIgnoreCase));
+&& (filePath.IndexOf("\\Analyzers\\", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   filePath.IndexOf("/Analyzers/", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace VanAn.Accounting.Analyzers
         /// </summary>
         public static bool ContainsIgnoreCase(this string source, string value)
         {
-            return source != null && value != null && source.Contains(value, StringComparison.OrdinalIgnoreCase);
+            return source != null && value != null && source.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         /// <summary>
