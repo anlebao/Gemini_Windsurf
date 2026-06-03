@@ -123,7 +123,7 @@ public record TenantId(Guid Value)
 /// </summary>
 public record Tenant
 {
-    public TenantId Id { get; init; }
+    public TenantId Id { get; init; } = null!;
     public string Name { get; init; } = string.Empty;
     public BusinessType BusinessType { get; init; }
     public HKDGroup? HKDGroup { get; init; } // Only for Household Business

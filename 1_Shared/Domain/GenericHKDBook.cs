@@ -6,7 +6,7 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public record GenericHKDBook : HKDBook
     {
-        public HKDBookTemplate Template { get; init; }
+        public HKDBookTemplate Template { get; init; } = null!;
         public Dictionary<string, decimal> NumericValues { get; init; } = new();
         public Dictionary<string, string> TextValues { get; init; } = new();
         
@@ -31,9 +31,9 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public abstract record HKDBook
     {
-        public TenantId TenantId { get; init; }
-        public AccountingPeriod Period { get; init; }
-        public string BookTypeCode { get; init; } // STRING, not enum!
+        public TenantId TenantId { get; init; } = null!;
+        public AccountingPeriod Period { get; init; } = null!;
+        public string BookTypeCode { get; init; } = null!; // STRING, not enum!
         public List<JournalEntry> Entries { get; init; } = new();
         public DateTime GeneratedAt { get; init; } = DateTime.UtcNow;
         public string TemplateVersion { get; init; } = "1.0";

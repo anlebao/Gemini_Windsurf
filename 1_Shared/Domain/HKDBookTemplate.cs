@@ -5,9 +5,9 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public abstract record HKDBookTemplate
     {
-        public string TemplateCode { get; init; }
-        public string TemplateName { get; init; }
-        public string TemplateVersion { get; init; }
+        public string TemplateCode { get; init; } = null!;
+        public string TemplateName { get; init; } = null!;
+        public string TemplateVersion { get; init; } = null!;
         public HKDGroup TargetGroup { get; init; }
         public List<TemplateField> Fields { get; init; } = new();
         public List<TemplateCalculation> Calculations { get; init; } = new();
@@ -28,8 +28,8 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public record TemplateField
     {
-        public string FieldName { get; init; }
-        public string DisplayName { get; init; }
+        public string FieldName { get; init; } = null!;
+        public string DisplayName { get; init; } = null!;
         public FieldType Type { get; init; }
         public bool IsRequired { get; init; }
         public decimal? DefaultValue { get; init; }
@@ -42,8 +42,8 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public record TemplateCalculation
     {
-        public string CalculationName { get; init; }
-        public string Formula { get; init; }
+        public string CalculationName { get; init; } = null!;
+        public string Formula { get; init; } = null!;
         public List<string> Dependencies { get; init; } = new();
         public CalculationOrder Order { get; init; }
     }

@@ -10,7 +10,7 @@ public sealed record OrderCompletedEvent
     public Guid OrderId { get; init; }
     public Guid? CustomerId { get; init; }
     public string CustomerDeviceId { get; init; } = string.Empty;
-    public TenantId TenantId { get; init; }
+    public TenantId TenantId { get; init; } = null!;
     public decimal TotalAmount { get; init; }
     public List<OrderItemEvent> Items { get; init; } = new();
     public decimal SubTotal { get; init; }

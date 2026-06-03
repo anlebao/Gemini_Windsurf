@@ -70,7 +70,7 @@ namespace VanAn.Shared.Domain
             Parameters = parameters ?? new Dictionary<string, object>();
         }
 
-        public T GetParameter<T>(string key, T defaultValue = default)
+        public T? GetParameter<T>(string key, T? defaultValue = default)
         {
             if (Parameters.TryGetValue(key, out var value) && value is T typedValue)
                 return typedValue;
@@ -91,8 +91,8 @@ namespace VanAn.Shared.Domain
     public sealed record ValidationResult
     {
         public bool IsValid { get; init; }
-        public IReadOnlyList<string> Errors { get; init; }
-        public IReadOnlyList<string> Warnings { get; init; }
+        public IReadOnlyList<string> Errors { get; init; } = null!;
+        public IReadOnlyList<string> Warnings { get; init; } = null!;
 
         private ValidationResult(bool isValid, IReadOnlyList<string> errors, IReadOnlyList<string> warnings)
         {

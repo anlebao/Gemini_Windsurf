@@ -7,7 +7,7 @@ namespace VanAn.Shared.Domain
     public record DataProviderContext(
         TenantId TenantId,
         AccountingPeriod Period,
-        string RequestId = null
+        string? RequestId = null
     )
     {
         public string RequestId { get; init; } = RequestId ?? Guid.NewGuid().ToString();
