@@ -48,13 +48,13 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
 
             // Act
             await _repository.AddAsync(entry);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Assert
             CoreAccountingEntry? result = await _repository.GetByIdAsync(entry.Id);
-            result.Should().NotBeNull();
-            result!.Amount.Should().Be(1000m);
-            result.TenantId.Value.Should().Be(_testTenantId.Value);
+            _ = result.Should().NotBeNull();
+            _ = result!.Amount.Should().Be(1000m);
+            _ = result.TenantId.Value.Should().Be(_testTenantId.Value);
         }
 
         [Fact]
@@ -68,7 +68,7 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
                 "Test Revenue");
 
             await _repository.AddAsync(revenueEntry);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Act
             IEnumerable<CoreAccountingEntry> results = await _repository.GetByTenantAndBookTypeAsync(
@@ -76,8 +76,8 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
                 AccountingBookType.RevenueBook);
 
             // Assert
-            results.Should().HaveCount(1);
-            results.First().AccountingBookType.Should().Be(AccountingBookType.RevenueBook);
+            _ = results.Should().HaveCount(1);
+            _ = results.First().AccountingBookType.Should().Be(AccountingBookType.RevenueBook);
         }
 
         [Fact]
@@ -93,15 +93,15 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
                 "Test Revenue");
 
             await _repository.AddAsync(entry);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Act
             IEnumerable<CoreAccountingEntry> results = await _repository.GetByTenantAndDateRangeAsync(
                 _testTenantId, startDate, endDate);
 
             // Assert
-            results.Should().HaveCount(1);
-            results.First().TenantId.Should().Be(_testTenantId);
+            _ = results.Should().HaveCount(1);
+            _ = results.First().TenantId.Should().Be(_testTenantId);
         }
 
         [Fact]
@@ -116,15 +116,15 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
                 "Test Revenue");
 
             await _repository.AddAsync(entry);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Act
             IEnumerable<CoreAccountingEntry> results = await _repository.GetByTenantAndPeriodAsync(
                 _testTenantId, period);
 
             // Assert
-            results.Should().HaveCount(1);
-            results.First().TenantId.Should().Be(_testTenantId);
+            _ = results.Should().HaveCount(1);
+            _ = results.First().TenantId.Should().Be(_testTenantId);
         }
 
         [Fact]
@@ -136,11 +136,11 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
                 .Select(m => m.Name)
                 .ToList();
 
-            interfaceMethods.Should().Contain("AddAsync");
-            interfaceMethods.Should().Contain("AddRangeAsync");
-            interfaceMethods.Should().NotContain("UpdateAsync");
-            interfaceMethods.Should().NotContain("DeleteAsync");
-            interfaceMethods.Should().NotContain("RemoveAsync");
+            _ = interfaceMethods.Should().Contain("AddAsync");
+            _ = interfaceMethods.Should().Contain("AddRangeAsync");
+            _ = interfaceMethods.Should().NotContain("UpdateAsync");
+            _ = interfaceMethods.Should().NotContain("DeleteAsync");
+            _ = interfaceMethods.Should().NotContain("RemoveAsync");
         }
 
         [Fact]
@@ -155,7 +155,7 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
 
             // Act
             await _repository.AddAsync(entry);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Try to add the same entry again (should fail)
             // Since we can't easily set the ID via reflection due to protected setters,
@@ -183,12 +183,12 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
 
             // Act
             await _repository.AddAsync(entry);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Assert - Verify ReversalEntryId is null (can't be modified after creation)
             CoreAccountingEntry? result = await _repository.GetByIdAsync(entry.Id);
-            result.Should().NotBeNull();
-            result!.ReversalEntryId.Should().BeNull();
+            _ = result.Should().NotBeNull();
+            _ = result!.ReversalEntryId.Should().BeNull();
         }
 
         public void Dispose()

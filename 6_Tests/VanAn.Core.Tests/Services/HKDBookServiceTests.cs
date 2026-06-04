@@ -49,18 +49,18 @@ namespace VanAn.Core.Tests.Services
                 TestEntityBuilder.CreateAccountingEntry(_testTenantId, AccountingEntryType.Expense, new Money(500m), _testPeriod)
             ];
 
-            _mockAccountingEntryRepository.Setup(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()))
+            _ = _mockAccountingEntryRepository.Setup(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedEntries);
 
             // Act
             GenericHKDBook result = await _hkdBookService.GenerateS1aBookAsync(_testTenantId, _testPeriod);
 
             // Assert
-            result.Should().NotBeNull();
-            result.BookTypeCode.Should().Be("S1a_HKD");
-            result.TenantId.Should().Be(_testTenantId);
-            result.Period.Should().Be(_testPeriod);
-            result.Entries.Should().HaveCount(2);
+            _ = result.Should().NotBeNull();
+            _ = result.BookTypeCode.Should().Be("S1a_HKD");
+            _ = result.TenantId.Should().Be(_testTenantId);
+            _ = result.Period.Should().Be(_testPeriod);
+            _ = result.Entries.Should().HaveCount(2);
 
             _mockAccountingEntryRepository.Verify(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()), Times.Once);
         }
@@ -76,18 +76,18 @@ namespace VanAn.Core.Tests.Services
                 TestEntityBuilder.CreateAccountingEntry(_testTenantId, AccountingEntryType.Expense, new Money(500m), _testPeriod)
             ];
 
-            _mockAccountingEntryRepository.Setup(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()))
+            _ = _mockAccountingEntryRepository.Setup(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedEntries);
 
             // Act
             GenericHKDBook result = await _hkdBookService.GenerateS2aBookAsync(_testTenantId, _testPeriod);
 
             // Assert
-            result.Should().NotBeNull();
-            result.BookTypeCode.Should().Be("S2a_HKD");
-            result.TenantId.Should().Be(_testTenantId);
-            result.Period.Should().Be(_testPeriod);
-            result.Entries.Should().HaveCount(2);
+            _ = result.Should().NotBeNull();
+            _ = result.BookTypeCode.Should().Be("S2a_HKD");
+            _ = result.TenantId.Should().Be(_testTenantId);
+            _ = result.Period.Should().Be(_testPeriod);
+            _ = result.Entries.Should().HaveCount(2);
 
             _mockAccountingEntryRepository.Verify(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()), Times.Once);
         }
@@ -102,7 +102,7 @@ namespace VanAn.Core.Tests.Services
             bool result = await _hkdBookService.ValidateHKDGroupAsync(_testTenantId, HKDGroup.Group1);
 
             // Assert
-            result.Should().BeTrue();
+            _ = result.Should().BeTrue();
         }
 
         [Fact]
@@ -117,7 +117,7 @@ namespace VanAn.Core.Tests.Services
             // Assert
             // Production stub implementation always returns true - this is a placeholder
             // TODO: Implement actual tenant HKD group validation in production
-            result.Should().BeTrue(); // Current production behavior
+            _ = result.Should().BeTrue(); // Current production behavior
         }
 
         [Fact]
@@ -130,9 +130,9 @@ namespace VanAn.Core.Tests.Services
             List<AccountingBookType> result = await _hkdBookService.GetAvailableBookTypesAsync(_testTenantId);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().Contain(AccountingBookType.S1a_HKD);
-            result.Should().NotContain(AccountingBookType.RevenueBook); // Company books should not be available
+            _ = result.Should().NotBeNull();
+            _ = result.Should().Contain(AccountingBookType.S1a_HKD);
+            _ = result.Should().NotContain(AccountingBookType.RevenueBook); // Company books should not be available
         }
 
         [Fact]
@@ -147,8 +147,8 @@ namespace VanAn.Core.Tests.Services
             // Assert
             // Production stub implementation always returns HKD book types - this is a placeholder
             // TODO: Implement actual tenant type filtering in production
-            result.Should().NotBeNull();
-            result.Should().Contain(AccountingBookType.S1a_HKD); // Current production behavior
+            _ = result.Should().NotBeNull();
+            _ = result.Should().Contain(AccountingBookType.S1a_HKD); // Current production behavior
             // result.Should().Contain(AccountingBookType.RevenueBook); // Expected behavior when implemented
         }
 
@@ -163,18 +163,18 @@ namespace VanAn.Core.Tests.Services
                 TestEntityBuilder.CreateAccountingEntry(_testTenantId, AccountingEntryType.Revenue, new Money(800m), _testPeriod)
             ];
 
-            _mockAccountingEntryRepository.Setup(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()))
+            _ = _mockAccountingEntryRepository.Setup(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedEntries);
 
             // Act
             GenericHKDBook result = await _hkdBookService.GenerateS2bBookAsync(_testTenantId, _testPeriod);
 
             // Assert
-            result.Should().NotBeNull();
-            result.BookTypeCode.Should().Be("S2b_HKD");
-            result.TenantId.Should().Be(_testTenantId);
-            result.Period.Should().Be(_testPeriod);
-            result.Entries.Should().HaveCount(2);
+            _ = result.Should().NotBeNull();
+            _ = result.BookTypeCode.Should().Be("S2b_HKD");
+            _ = result.TenantId.Should().Be(_testTenantId);
+            _ = result.Period.Should().Be(_testPeriod);
+            _ = result.Entries.Should().HaveCount(2);
 
             _mockAccountingEntryRepository.Verify(x => x.GetByPeriodAsync(_testTenantId, _testPeriod, It.IsAny<CancellationToken>()), Times.Once);
         }

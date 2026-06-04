@@ -108,7 +108,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 2), new Money(2000m, "VND"), "Revenue 3") // Different period
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(revenueEntries);
 
             // Act
@@ -133,7 +133,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, AccountingPeriod.Create(2024, 2), new Money(700m, "VND"), "Expense 3") // Different period
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expenseEntries);
 
             // Act
@@ -162,9 +162,9 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, period, new Money(1500m, "VND"), "Expense 2")
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(revenueEntries);
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expenseEntries);
 
             // Act
@@ -192,9 +192,9 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, period, new Money(2000m, "VND"), "Expense 1")
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(revenueEntries);
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expenseEntries);
 
             // Act
@@ -220,7 +220,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 2), new Money(2000m, "VND"), "Revenue 3") // Different period
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(allRevenueEntries);
 
             // Act
@@ -252,7 +252,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, AccountingPeriod.Create(2024, 2), new Money(700m, "VND"), "Expense 3") // Different period
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(allExpenseEntries);
 
             // Act
@@ -279,7 +279,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingPeriod period = AccountingPeriod.Create(2024, 1);
             List<CoreAccountingEntry> emptyRevenueEntries = [];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(emptyRevenueEntries);
 
             // Act
@@ -299,7 +299,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingPeriod period = AccountingPeriod.Create(2024, 1);
             List<CoreAccountingEntry> emptyExpenseEntries = [];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.ExpenseBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(emptyExpenseEntries);
 
             // Act

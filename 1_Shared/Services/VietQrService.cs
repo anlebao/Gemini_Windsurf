@@ -94,9 +94,11 @@ namespace VanAn.Shared.Services
 
             string url = $"{baseUrl}/{bankAccount}-{template}.jpg";
 
-            var parameters = new List<string>();
+            List<string> parameters = new();
             if (request.Amount > 0)
+            {
                 parameters.Add($"amount={request.Amount.ToString(CultureInfo.InvariantCulture)}");
+            }
 
             // Add description
             if (!string.IsNullOrWhiteSpace(request.OrderDescription))

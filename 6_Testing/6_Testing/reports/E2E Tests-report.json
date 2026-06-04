@@ -1,21 +1,21 @@
 {
   "testSuite": "VanAn Ecosystem",
   "version": "1.0.0",
-  "timestamp": "2026-05-27T12:39:44.432Z",
+  "timestamp": "2026-06-03T18:05:05.462Z",
   "tier": {
     "tierName": "E2E Tests",
     "enabled": true,
     "status": "not_run",
     "tests": [],
-    "startTime": "2026-05-27T12:39:31.361Z",
-    "endTime": "2026-05-27T12:39:44.432Z",
-    "duration": 13071
+    "startTime": "2026-06-03T18:05:01.721Z",
+    "endTime": "2026-06-03T18:05:05.462Z",
+    "duration": 3741
   },
   "summary": {
     "total": 0,
     "passed": 0,
     "failed": 0,
     "skipped": 0,
-    "duration": 13071
+    "duration": 3741
   }
 }

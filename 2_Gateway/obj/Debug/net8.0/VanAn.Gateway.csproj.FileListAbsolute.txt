@@ -205,6 +205,7 @@ C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.AssemblyI
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.csproj.CoreCompileInputs.cache
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.MvcApplicationPartsAssemblyInfo.cs
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.MvcApplicationPartsAssemblyInfo.cache
+C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.sourcelink.json
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\staticwebassets.build.json
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\staticwebassets.development.json
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\staticwebassets\msbuild.VanAn.Gateway.Microsoft.AspNetCore.StaticWebAssets.props
@@ -219,4 +220,3 @@ C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\refint\VanAn.Gateway.dl
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.pdb
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.genruntimeconfig.cache
 C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\ref\VanAn.Gateway.dll
-C:\VibeCoding\Gemini_Windsurf\2_Gateway\obj\Debug\net8.0\VanAn.Gateway.sourcelink.json

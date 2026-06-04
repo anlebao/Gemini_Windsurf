@@ -59,7 +59,7 @@ namespace VanAn.CoreHub.Services.Cache
                     Size = serializedData.Length // Track memory usage
                 };
 
-                _cache.Set(cacheKey, serializedData, cacheOptions);
+                _ = _cache.Set(cacheKey, serializedData, cacheOptions);
                 _statistics.RecordSet(serializedData.Length);
 
                 _logger.LogDebug("Book cached: {CacheKey} ({Size} bytes, expires in {Expiration} minutes)",

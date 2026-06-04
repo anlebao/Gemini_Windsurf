@@ -42,7 +42,7 @@ namespace VanAn.CoreHub.Services
                 OrderStatusId oldStatus = order.Status;
                 order.UpdateOrderStatus(newStatus);
 
-                await _orderRepository.UpdateAsync(order);
+                _ = await _orderRepository.UpdateAsync(order);
                 await _orderRepository.SaveChangesAsync();
 
                 // 🛡️ PHASE 3: Event-Driven & Core Services
@@ -122,7 +122,7 @@ namespace VanAn.CoreHub.Services
             SocialCampaign? campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(trackingCode);
             if (campaign != null)
             {
-                await _socialCampaignService.IncrementConvertedOrdersAsync(campaign.Id);
+                _ = await _socialCampaignService.IncrementConvertedOrdersAsync(campaign.Id);
                 _logger.LogInformation("🔄 FLYWHEEL: Incremented conversion for campaign {CampaignName}", campaign.CampaignName);
             }
         }

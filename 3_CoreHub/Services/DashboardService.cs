@@ -223,17 +223,9 @@ namespace VanAn.CoreHub.Services
                 health.SyncRate = syncStatus.OverallSyncRate;
 
                 // Calculate health level based on metrics
-                HealthStatus level;
-
-                if (health.SyncRate >= 95 && health.SyncIssues == 0)
-                {
-                    level = HealthStatus.Excellent;
-                }
-                else
-                {
-                    level = health.SyncRate >= 85 ? HealthStatus.Good : health.SyncRate >= 70 ? HealthStatus.Warning : HealthStatus.Critical;
-                }
-
+                HealthStatus level = health.SyncRate >= 95 && health.SyncIssues == 0
+                    ? HealthStatus.Excellent
+                    : health.SyncRate >= 85 ? HealthStatus.Good : health.SyncRate >= 70 ? HealthStatus.Warning : HealthStatus.Critical;
                 health.StatusLevel = level;
                 health.IsHealthy = level >= HealthStatus.Good;
                 health.Status = level.ToString();
@@ -272,17 +264,11 @@ namespace VanAn.CoreHub.Services
         {
             TimeSpan span = DateTime.UtcNow - dateTime;
 
-            if (span.TotalMinutes < 1)
-            {
-                return "Just now";
-            }
-
-            if (span.TotalMinutes < 60)
-            {
-                return $"{(int)span.TotalMinutes} minute{((int)span.TotalMinutes != 1 ? "s" : "")} ago";
-            }
-
-            return span.TotalHours < 24
+            return span.TotalMinutes < 1
+                ? "Just now"
+                : span.TotalMinutes < 60
+                ? $"{(int)span.TotalMinutes} minute{((int)span.TotalMinutes != 1 ? "s" : "")} ago"
+                : span.TotalHours < 24
                 ? $"{(int)span.TotalHours} hour{((int)span.TotalHours != 1 ? "s" : "")} ago"
                 : span.TotalDays < 7
                 ? $"{(int)span.TotalDays} day{((int)span.TotalDays != 1 ? "s" : "")} ago"

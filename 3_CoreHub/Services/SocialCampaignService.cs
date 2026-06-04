@@ -11,7 +11,7 @@ namespace VanAn.CoreHub.Services
 
         public async Task<SocialCampaign> CreateCampaignAsync(SocialCampaign campaign)
         {
-            await _repository.AddAsync(campaign);
+            _ = await _repository.AddAsync(campaign);
 
             _logger.LogInformation("Created social campaign {CampaignId} for shop {ShopId}", campaign.Id, campaign.ShopId);
             return campaign;
@@ -54,7 +54,7 @@ namespace VanAn.CoreHub.Services
 
             campaign.IncrementClicks();
 
-            await _repository.UpdateAsync(campaign);
+            _ = await _repository.UpdateAsync(campaign);
 
             _logger.LogInformation("Recorded click for campaign {CampaignId}, total clicks: {TotalClicks}",
                 campaign.Id, campaign.TotalClicks);
@@ -78,7 +78,7 @@ namespace VanAn.CoreHub.Services
 
             campaign.IncrementConvertedOrders();
 
-            await _repository.UpdateAsync(campaign);
+            _ = await _repository.UpdateAsync(campaign);
 
             _logger.LogInformation("Incremented converted orders for campaign {CampaignId}, total: {TotalConverted}",
                 campaign.Id, campaign.ConvertedOrders);
@@ -90,7 +90,7 @@ namespace VanAn.CoreHub.Services
             SocialCampaign? existing = await GetCampaignByIdAsync(campaign.Id) ?? throw new InvalidOperationException($"Campaign {campaign.Id} not found");
             existing.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, campaign.IsActive);
 
-            await _repository.UpdateAsync(existing);
+            _ = await _repository.UpdateAsync(existing);
 
             _logger.LogInformation("Updated social campaign {CampaignId}", campaign.Id);
             return existing;
@@ -106,7 +106,7 @@ namespace VanAn.CoreHub.Services
 
             campaign.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, false);
 
-            await _repository.UpdateAsync(campaign);
+            _ = await _repository.UpdateAsync(campaign);
 
             _logger.LogInformation("Deactivated social campaign {CampaignId}", campaignId);
             return true;

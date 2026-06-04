@@ -68,7 +68,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "TaxExemption");
             // Assert.Contains(result, f => f.FormatType == "RevenueOnly"); // TODO: Implement multi-format support in production
@@ -112,7 +112,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns single FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "VATAndPIT");
             // TODO: Implement multi-format support in production
@@ -154,7 +154,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns single FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "RevenueOnly");
             // TODO: Implement multi-format support in production
@@ -198,7 +198,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns single FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "RevenueExpense");
             // TODO: Implement multi-format support in production
@@ -240,7 +240,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns single FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "Inventory");
             // TODO: Implement multi-format support in production
@@ -283,7 +283,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns single FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "CashFlow");
             // TODO: Implement multi-format support in production
@@ -324,7 +324,7 @@ namespace VanAn.Core.Tests.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.NotEqual(0, result.Count);
+            Assert.NotEmpty(result);
             // Production stub returns single FormatType based on book type
             Assert.Contains(result, f => f.FormatType == "SpecialTax");
             // TODO: Implement multi-format support in production

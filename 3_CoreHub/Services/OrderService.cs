@@ -218,7 +218,7 @@ namespace VanAn.CoreHub.Services
 
             order.UpdateOrderStatus(new OrderStatusId(newStatus));
 
-            await _orderRepository.UpdateAsync(order);
+            _ = await _orderRepository.UpdateAsync(order);
             await _orderRepository.SaveChangesAsync();
 
             _logger.LogInformation("Updated order {OrderId} status to {Status}", orderId, newStatus);

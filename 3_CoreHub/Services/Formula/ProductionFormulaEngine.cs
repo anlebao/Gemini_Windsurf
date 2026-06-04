@@ -100,7 +100,7 @@ namespace VanAn.CoreHub.Services.Formula
         private decimal EvaluateBalanceAccount(string formula, FormulaContext context)
         {
             // Parse FINAL syntax: BALANCE_ACCOUNT("156", "Debit")
-            Match match = Regex.Match(formula, @"BALANCE_ACCOUNT\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
+            Match match = MyRegex2().Match(formula);
 
             if (!match.Success)
             {
@@ -124,7 +124,7 @@ namespace VanAn.CoreHub.Services.Formula
         private decimal EvaluatePercentage(string formula, FormulaContext context)
         {
             // Parse FINAL syntax: PERCENTAGE("511", "Revenue")
-            Match match = Regex.Match(formula, @"PERCENTAGE\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
+            Match match = MyRegex3().Match(formula);
 
             if (!match.Success)
             {
@@ -140,43 +140,26 @@ namespace VanAn.CoreHub.Services.Formula
             DataProviderContext dataProviderContext = new(context.TenantId, context.Period);
 
             // Get source value
-            decimal sourceValue;
-            if (sourcePattern.StartsWith("Account_"))
-            {
-                sourceValue = _dataProvider.GetAccountSum(dataProviderContext, sourcePattern.Replace("Account_", ""), "Credit");
-            }
-            else if (Regex.IsMatch(sourcePattern, @"^\d+$")) // Handle plain account numbers
-            {
-                sourceValue = _dataProvider.GetAccountSum(dataProviderContext, sourcePattern, "Credit");
-            }
-            else
-            {
-                sourceValue = sourcePattern.Contains('*')
+            decimal sourceValue = sourcePattern.StartsWith("Account_")
+                ? _dataProvider.GetAccountSum(dataProviderContext, sourcePattern.Replace("Account_", ""), "Credit")
+                : MyRegex4().IsMatch(sourcePattern)
                     ? _dataProvider.GetAccountSum(dataProviderContext, sourcePattern, "Credit")
-                    : context.Variables.TryGetValue(sourcePattern, out decimal sourceVar)
-                                    ? sourceVar
-                                    : throw new InvalidOperationException($"Source pattern '{sourcePattern}' not found in variables or accounts");
-            }
+                    : sourcePattern.Contains('*')
+                                    ? _dataProvider.GetAccountSum(dataProviderContext, sourcePattern, "Credit")
+                                    : context.Variables.TryGetValue(sourcePattern, out decimal sourceVar)
+                                                    ? sourceVar
+                                                    : throw new InvalidOperationException($"Source pattern '{sourcePattern}' not found in variables or accounts");
 
             // Get total value
-            decimal totalValue;
-            if (totalPattern.StartsWith("Account_"))
-            {
-                totalValue = _dataProvider.GetAccountSum(dataProviderContext, totalPattern.Replace("Account_", ""), "Credit");
-            }
-            else if (Regex.IsMatch(totalPattern, @"^\d+$")) // Handle plain account numbers
-            {
-                totalValue = _dataProvider.GetAccountSum(dataProviderContext, totalPattern, "Credit");
-            }
-            else
-            {
-                totalValue = totalPattern.Contains('*')
+            decimal totalValue = totalPattern.StartsWith("Account_")
+                ? _dataProvider.GetAccountSum(dataProviderContext, totalPattern.Replace("Account_", ""), "Credit")
+                : MyRegex4().IsMatch(totalPattern)
                     ? _dataProvider.GetAccountSum(dataProviderContext, totalPattern, "Credit")
-                    : context.Variables.TryGetValue(totalPattern, out decimal totalVar)
-                                    ? totalVar
-                                    : throw new InvalidOperationException($"Total pattern '{totalPattern}' not found in variables or accounts");
-            }
-
+                    : totalPattern.Contains('*')
+                                    ? _dataProvider.GetAccountSum(dataProviderContext, totalPattern, "Credit")
+                                    : context.Variables.TryGetValue(totalPattern, out decimal totalVar)
+                                                    ? totalVar
+                                                    : throw new InvalidOperationException($"Total pattern '{totalPattern}' not found in variables or accounts");
             if (totalValue == 0)
             {
                 throw new DivideByZeroException($"Cannot calculate percentage: total value is zero in formula: {formula}");
@@ -192,7 +175,7 @@ namespace VanAn.CoreHub.Services.Formula
         private decimal EvaluateRatio(string formula, FormulaContext context)
         {
             // Parse FINAL syntax: RATIO("Cost", "Revenue")
-            Match match = Regex.Match(formula, @"RATIO\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
+            Match match = MyRegex5().Match(formula);
 
             if (!match.Success)
             {
@@ -208,43 +191,26 @@ namespace VanAn.CoreHub.Services.Formula
             DataProviderContext dataProviderContext = new(context.TenantId, context.Period);
 
             // Get numerator value
-            decimal numeratorValue;
-            if (numeratorPattern.StartsWith("Account_"))
-            {
-                numeratorValue = _dataProvider.GetAccountSum(dataProviderContext, numeratorPattern.Replace("Account_", ""), "Debit");
-            }
-            else if (Regex.IsMatch(numeratorPattern, @"^\d+$")) // Handle plain account numbers
-            {
-                numeratorValue = _dataProvider.GetAccountSum(dataProviderContext, numeratorPattern, "Debit");
-            }
-            else
-            {
-                numeratorValue = numeratorPattern.Contains('*')
+            decimal numeratorValue = numeratorPattern.StartsWith("Account_")
+                ? _dataProvider.GetAccountSum(dataProviderContext, numeratorPattern.Replace("Account_", ""), "Debit")
+                : MyRegex6().IsMatch(numeratorPattern)
                     ? _dataProvider.GetAccountSum(dataProviderContext, numeratorPattern, "Debit")
-                    : context.Variables.TryGetValue(numeratorPattern, out decimal numeratorVar)
-                                    ? numeratorVar
-                                    : throw new InvalidOperationException($"Numerator pattern '{numeratorPattern}' not found in variables or accounts");
-            }
+                    : numeratorPattern.Contains('*')
+                                    ? _dataProvider.GetAccountSum(dataProviderContext, numeratorPattern, "Debit")
+                                    : context.Variables.TryGetValue(numeratorPattern, out decimal numeratorVar)
+                                                    ? numeratorVar
+                                                    : throw new InvalidOperationException($"Numerator pattern '{numeratorPattern}' not found in variables or accounts");
 
             // Get denominator value
-            decimal denominatorValue;
-            if (denominatorPattern.StartsWith("Account_"))
-            {
-                denominatorValue = _dataProvider.GetAccountSum(dataProviderContext, denominatorPattern.Replace("Account_", ""), "Credit");
-            }
-            else if (Regex.IsMatch(denominatorPattern, @"^\d+$")) // Handle plain account numbers
-            {
-                denominatorValue = _dataProvider.GetAccountSum(dataProviderContext, denominatorPattern, "Credit");
-            }
-            else
-            {
-                denominatorValue = denominatorPattern.Contains('*')
+            decimal denominatorValue = denominatorPattern.StartsWith("Account_")
+                ? _dataProvider.GetAccountSum(dataProviderContext, denominatorPattern.Replace("Account_", ""), "Credit")
+                : MyRegex6().IsMatch(denominatorPattern)
                     ? _dataProvider.GetAccountSum(dataProviderContext, denominatorPattern, "Credit")
-                    : context.Variables.TryGetValue(denominatorPattern, out decimal denominatorVar)
-                                    ? denominatorVar
-                                    : throw new InvalidOperationException($"Denominator pattern '{denominatorPattern}' not found in variables or accounts");
-            }
-
+                    : denominatorPattern.Contains('*')
+                                    ? _dataProvider.GetAccountSum(dataProviderContext, denominatorPattern, "Credit")
+                                    : context.Variables.TryGetValue(denominatorPattern, out decimal denominatorVar)
+                                                    ? denominatorVar
+                                                    : throw new InvalidOperationException($"Denominator pattern '{denominatorPattern}' not found in variables or accounts");
             if (denominatorValue == 0)
             {
                 throw new DivideByZeroException($"Cannot calculate ratio: denominator value is zero in formula: {formula}");
@@ -321,19 +287,19 @@ namespace VanAn.CoreHub.Services.Formula
                 // Validate FINAL BALANCE_ACCOUNT syntax
                 if (formula.Contains("BALANCE_ACCOUNT"))
                 {
-                    return Regex.IsMatch(formula, @"BALANCE_ACCOUNT\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
+                    return MyRegex2().IsMatch(formula);
                 }
 
                 // Validate FINAL PERCENTAGE syntax
                 if (formula.Contains("PERCENTAGE"))
                 {
-                    return Regex.IsMatch(formula, @"PERCENTAGE\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
+                    return MyRegex3().IsMatch(formula);
                 }
 
                 // Validate FINAL RATIO syntax
                 if (formula.Contains("RATIO"))
                 {
-                    return Regex.IsMatch(formula, @"RATIO\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
+                    return MyRegex5().IsMatch(formula);
                 }
 
                 // Validate basic arithmetic patterns
@@ -596,5 +562,15 @@ namespace VanAn.CoreHub.Services.Formula
         private static partial Regex MyRegex();
         [GeneratedRegex(@"SUM_ACCOUNT\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase, "en-US")]
         private static partial Regex MyRegex1();
+        [GeneratedRegex(@"BALANCE_ACCOUNT\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase, "en-US")]
+        private static partial Regex MyRegex2();
+        [GeneratedRegex(@"PERCENTAGE\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase, "en-US")]
+        private static partial Regex MyRegex3();
+        [GeneratedRegex(@"^\d+$")]
+        private static partial Regex MyRegex4();
+        [GeneratedRegex(@"RATIO\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase, "en-US")]
+        private static partial Regex MyRegex5();
+        [GeneratedRegex(@"^\d+$")]
+        private static partial Regex MyRegex6();
     }
 }

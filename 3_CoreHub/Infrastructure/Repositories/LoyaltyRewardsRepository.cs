@@ -31,19 +31,19 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<LoyaltyRewards> AddAsync(LoyaltyRewards reward, CancellationToken cancellationToken = default)
         {
-            await _context.LoyaltyRewards.AddAsync(reward, cancellationToken);
+            _ = await _context.LoyaltyRewards.AddAsync(reward, cancellationToken);
             return reward;
         }
 
         public async Task<LoyaltyRewards> UpdateAsync(LoyaltyRewards reward, CancellationToken cancellationToken = default)
         {
-            _context.LoyaltyRewards.Update(reward);
+            _ = _context.LoyaltyRewards.Update(reward);
             return reward;
         }
 
         public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)

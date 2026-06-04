@@ -31,13 +31,13 @@ namespace VanAn.Core.Tests.Accounting
             template.AddLine("511", false, "Amount");
 
             // Assert
-            template.Code.Should().Be(code);
-            template.Description.Should().Be(description);
-            template.Lines.Should().HaveCount(2);
-            template.Lines.First().AccountNumber.Should().Be("111");
-            template.Lines.First().IsDebit.Should().BeTrue();
-            template.Lines.Last().AccountNumber.Should().Be("511");
-            template.Lines.Last().IsCredit.Should().BeTrue();
+            _ = template.Code.Should().Be(code);
+            _ = template.Description.Should().Be(description);
+            _ = template.Lines.Should().HaveCount(2);
+            _ = template.Lines.First().AccountNumber.Should().Be("111");
+            _ = template.Lines.First().IsDebit.Should().BeTrue();
+            _ = template.Lines.Last().AccountNumber.Should().Be("511");
+            _ = template.Lines.Last().IsCredit.Should().BeTrue();
         }
 
         [Fact]
@@ -52,9 +52,9 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplate template = new(tenantId, code, description);
 
             // Assert
-            template.Code.Should().Be(code);
-            template.Description.Should().Be(description);
-            template.Lines.Should().BeEmpty();
+            _ = template.Code.Should().Be(code);
+            _ = template.Description.Should().Be(description);
+            _ = template.Lines.Should().BeEmpty();
         }
 
         [Fact]
@@ -67,9 +67,9 @@ namespace VanAn.Core.Tests.Accounting
             template.AddBusinessRule("VATCalculationRule");
 
             // Act & Assert
-            template.BusinessRules.Should().HaveCount(2);
-            template.BusinessRules.Should().Contain("VIPDiscountRule");
-            template.BusinessRules.Should().Contain("VATCalculationRule");
+            _ = template.BusinessRules.Should().HaveCount(2);
+            _ = template.BusinessRules.Should().Contain("VIPDiscountRule");
+            _ = template.BusinessRules.Should().Contain("VATCalculationRule");
         }
 
         [Fact]
@@ -81,9 +81,9 @@ namespace VanAn.Core.Tests.Accounting
             template.AddValidationRule("Amount > 0", "Số tiền phải lớn hơn 0");
 
             // Act & Assert
-            template.ValidationRules.Should().HaveCount(1);
-            template.ValidationRules.First().Rule.Should().Be("Amount > 0");
-            template.ValidationRules.First().Message.Should().Be("Số tiền phải lớn hơn 0");
+            _ = template.ValidationRules.Should().HaveCount(1);
+            _ = template.ValidationRules.First().Rule.Should().Be("Amount > 0");
+            _ = template.ValidationRules.First().Message.Should().Be("Số tiền phải lớn hơn 0");
         }
 
         [Theory]
@@ -98,7 +98,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplate template = new(tenantId, code, "Test Template");
 
             // Assert
-            template.Code.Should().Be(code);
+            _ = template.Code.Should().Be(code);
         }
 
         [Fact]
@@ -114,11 +114,11 @@ namespace VanAn.Core.Tests.Accounting
             template.AddLine("3331", false, "VatAmount", "Thuế GTGT {VatRate}%");
 
             // Assert
-            template.Lines.Should().HaveCount(3);
+            _ = template.Lines.Should().HaveCount(3);
             List<JournalTemplateLine> linesList = [.. template.Lines];
-            linesList[0].DescriptionTemplate.Should().Be("Thu tiền {CustomerName}");
-            linesList[1].DescriptionTemplate.Should().Be("Doanh thu {InvoiceNo}");
-            linesList[2].DescriptionTemplate.Should().Be("Thuế GTGT {VatRate}%");
+            _ = linesList[0].DescriptionTemplate.Should().Be("Thu tiền {CustomerName}");
+            _ = linesList[1].DescriptionTemplate.Should().Be("Doanh thu {InvoiceNo}");
+            _ = linesList[2].DescriptionTemplate.Should().Be("Thuế GTGT {VatRate}%");
         }
 
         [Fact]
@@ -138,7 +138,7 @@ namespace VanAn.Core.Tests.Accounting
             string description = _templateService.ReplaceParameters(template.Lines.First().DescriptionTemplate, parameters);
 
             // Assert
-            description.Should().Be("Payment from Nguyễn Văn A for INV-001");
+            _ = description.Should().Be("Payment from Nguyễn Văn A for INV-001");
         }
     }
 
@@ -159,11 +159,11 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new(accountNumber, isDebit, amountFormula, descriptionTemplate);
 
             // Assert
-            line.AccountNumber.Should().Be(accountNumber);
-            line.IsDebit.Should().Be(isDebit);
-            line.IsCredit.Should().Be(!isDebit);
-            line.AmountFormula.Should().Be(amountFormula);
-            line.DescriptionTemplate.Should().Be(descriptionTemplate);
+            _ = line.AccountNumber.Should().Be(accountNumber);
+            _ = line.IsDebit.Should().Be(isDebit);
+            _ = line.IsCredit.Should().Be(!isDebit);
+            _ = line.AmountFormula.Should().Be(amountFormula);
+            _ = line.DescriptionTemplate.Should().Be(descriptionTemplate);
         }
 
         [Theory]
@@ -179,7 +179,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new("111", true, formula, null);
 
             // Assert
-            line.AmountFormula.Should().Be(formula);
+            _ = line.AmountFormula.Should().Be(formula);
         }
 
         [Theory]
@@ -194,7 +194,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new(accountNumber, true, "Amount", null);
 
             // Assert
-            line.AccountNumber.Should().Be(accountNumber);
+            _ = line.AccountNumber.Should().Be(accountNumber);
         }
 
         [Fact]
@@ -204,7 +204,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new("111", true, "Amount", null);
 
             // Assert
-            line.DescriptionTemplate.Should().BeNull();
+            _ = line.DescriptionTemplate.Should().BeNull();
         }
 
         [Fact]
@@ -214,7 +214,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new("111", true, "Amount", "");
 
             // Assert
-            line.DescriptionTemplate.Should().Be("");
+            _ = line.DescriptionTemplate.Should().Be("");
         }
 
         [Fact]
@@ -224,12 +224,11 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new("111", true, null, null);
 
             // Assert
-            line.AmountFormula.Should().BeNull();
+            _ = line.AmountFormula.Should().BeNull();
         }
 
         [Theory]
         [InlineData(true)]
-        [InlineData(false)]
         [InlineData(false)]
         public void JournalTemplateLine_Should_Handle_Different_Debit_Credit_Combinations(bool isDebit)
         {
@@ -237,8 +236,8 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = new("111", isDebit, "Amount", null);
 
             // Assert
-            line.IsDebit.Should().Be(isDebit);
-            line.IsCredit.Should().Be(!isDebit);
+            _ = line.IsDebit.Should().Be(isDebit);
+            _ = line.IsCredit.Should().Be(!isDebit);
         }
 
 
@@ -257,8 +256,8 @@ namespace VanAn.Core.Tests.Accounting
             decimal amount2 = CalculateLineAmount(template.Lines.Last(), context);
 
             // Assert
-            amount1.Should().Be(1000m); // 10% of 10000
-            amount2.Should().Be(500m);  // 5% of 10000
+            _ = amount1.Should().Be(1000m); // 10% of 10000
+            _ = amount2.Should().Be(500m);  // 5% of 10000
         }
 
         [Fact]
@@ -270,9 +269,9 @@ namespace VanAn.Core.Tests.Accounting
             template.AddValidationRule("Amount > 0", "Amount must be positive");
 
             // Act & Assert
-            template.BusinessRules.Should().Contain("VIPDiscountRule");
-            template.ValidationRules.Should().HaveCount(1);
-            template.ValidationRules.First().Rule.Should().Be("Amount > 0");
+            _ = template.BusinessRules.Should().Contain("VIPDiscountRule");
+            _ = template.ValidationRules.Should().HaveCount(1);
+            _ = template.ValidationRules.First().Rule.Should().Be("Amount > 0");
         }
 
         [Theory]
@@ -282,7 +281,7 @@ namespace VanAn.Core.Tests.Accounting
         public void JournalTemplate_Should_Handle_Empty_Codes(string? invalidCode)
         {
             // Arrange & Act & Assert
-            Assert.Throws<ArgumentNullException>(() =>
+            _ = Assert.Throws<ArgumentNullException>(() =>
                 new JournalTemplate(_tenantId, invalidCode, "Test"));
         }
 
@@ -297,7 +296,7 @@ namespace VanAn.Core.Tests.Accounting
             template.AddBusinessRule("VIPRule"); // Duplicate
 
             // Assert
-            template.BusinessRules.Should().HaveCount(1); // Should not add duplicate
+            _ = template.BusinessRules.Should().HaveCount(1); // Should not add duplicate
         }
 
         [Fact]
@@ -314,7 +313,7 @@ namespace VanAn.Core.Tests.Accounting
             decimal amount = CalculateLineAmount(template.Lines.First(), context);
 
             // Assert
-            amount.Should().Be(100m); // 10000 * 0.1 * 10/100
+            _ = amount.Should().Be(100m); // 10000 * 0.1 * 10/100
         }
 
         [Fact]
@@ -324,7 +323,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplate template = new(_tenantId, "VALIDATE", "Validation Test");
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() =>
+            _ = Assert.Throws<ArgumentException>(() =>
                 template.AddLine("", true, "Amount")); // Empty account number
         }
 
@@ -339,7 +338,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalTemplateLine line = template.Lines.First();
 
             // Assert
-            line.DescriptionTemplate.Should().Be("Thu tiền {Amount} từ {Customer}");
+            _ = line.DescriptionTemplate.Should().Be("Thu tiền {Amount} từ {Customer}");
         }
 
         private static decimal CalculateLineAmount(JournalTemplateLine line, TemplateContext context)
@@ -375,8 +374,8 @@ namespace VanAn.Core.Tests.Accounting
             TemplateValidationRule validationRule = new(rule, message);
 
             // Assert
-            validationRule.Rule.Should().Be(rule);
-            validationRule.Message.Should().Be(message);
+            _ = validationRule.Rule.Should().Be(rule);
+            _ = validationRule.Message.Should().Be(message);
         }
 
         [Theory]
@@ -390,7 +389,7 @@ namespace VanAn.Core.Tests.Accounting
             TemplateValidationRule validationRule = new(rule, "Validation message");
 
             // Assert
-            validationRule.Rule.Should().Be(rule);
+            _ = validationRule.Rule.Should().Be(rule);
         }
 
         [Fact]
@@ -400,7 +399,7 @@ namespace VanAn.Core.Tests.Accounting
             TemplateValidationRule validationRule = new("Amount > 0", null);
 
             // Assert
-            validationRule.Message.Should().BeNull();
+            _ = validationRule.Message.Should().BeNull();
         }
     }
 }

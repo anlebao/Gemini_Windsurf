@@ -94,7 +94,7 @@ namespace VanAn.CoreHub.Services.Events
                 // Generate HKD books (same container - direct call)
                 IHKDBookService hkdService = scope.ServiceProvider.GetRequiredService<IHKDBookService>();
                 AccountingEntry coreEntry = ConvertToCoreAccountingEntry(accountingEntry);
-                await hkdService.RecordRevenueAsync(
+                _ = await hkdService.RecordRevenueAsync(
                     coreEntry.TenantId,
                     coreEntry.Amount,
                     coreEntry.Description,

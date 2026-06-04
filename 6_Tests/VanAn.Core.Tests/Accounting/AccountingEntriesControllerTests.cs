@@ -71,7 +71,7 @@ namespace VanAn.Core.Tests.Accounting
                 TransactionDate = expectedEntry.CreatedAt
             };
 
-            _mockAccountingService.Setup(s => s.CreateRevenueEntryAsync(
+            _ = _mockAccountingService.Setup(s => s.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
                 .ReturnsAsync(expectedDto);
 
@@ -113,7 +113,7 @@ namespace VanAn.Core.Tests.Accounting
             ActionResult<CoreAccountingEntry> result = await _controller.CreateRevenueEntry(request);
 
             // Assert
-            Assert.IsType<BadRequestObjectResult>(result.Result);
+            _ = Assert.IsType<BadRequestObjectResult>(result.Result);
 
             _mockAccountingService.Verify(s => s.CreateRevenueEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Never);
@@ -154,7 +154,7 @@ namespace VanAn.Core.Tests.Accounting
                 TransactionDate = expectedEntry.CreatedAt
             };
 
-            _mockAccountingService.Setup(s => s.CreateExpenseEntryAsync(
+            _ = _mockAccountingService.Setup(s => s.CreateExpenseEntryAsync(
                 It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
                 .ReturnsAsync(expectedDto);
 
@@ -194,7 +194,7 @@ namespace VanAn.Core.Tests.Accounting
 
             List<AccountingEntryDto> entriesList = [expectedDto];
 
-            _mockAccountingService.Setup(s => s.GetEntriesByDateRangeAsync(
+            _ = _mockAccountingService.Setup(s => s.GetEntriesByDateRangeAsync(
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
                 .ReturnsAsync(entriesList);
 
@@ -241,7 +241,7 @@ namespace VanAn.Core.Tests.Accounting
             Guid tenantId = Guid.NewGuid();
 
             // Return empty list - entry not found
-            _mockAccountingService.Setup(s => s.GetEntriesByDateRangeAsync(
+            _ = _mockAccountingService.Setup(s => s.GetEntriesByDateRangeAsync(
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
                 .ReturnsAsync(new List<AccountingEntryDto>());
 
@@ -253,7 +253,7 @@ namespace VanAn.Core.Tests.Accounting
             ActionResult<CoreAccountingEntry> result = await _controller.GetEntryById(entryId);
 
             // Assert
-            Assert.IsType<NotFoundResult>(result.Result);
+            _ = Assert.IsType<NotFoundResult>(result.Result);
 
             _mockAccountingService.Verify(s => s.GetEntriesByDateRangeAsync(
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()), Times.Once);
@@ -278,11 +278,11 @@ namespace VanAn.Core.Tests.Accounting
 
             CoreAccountingEntry reversalEntry = CoreAccountingEntry.CreateReversal(originalEntry, request.Reason);
 
-            _mockReversalService.Setup(s => s.CanReverseEntryAsync(
+            _ = _mockReversalService.Setup(s => s.CanReverseEntryAsync(
                 It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(true);
 
-            _mockReversalService.Setup(s => s.CreateReversalEntryAsync(
+            _ = _mockReversalService.Setup(s => s.CreateReversalEntryAsync(
                 It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(reversalEntry);
 
@@ -316,7 +316,7 @@ namespace VanAn.Core.Tests.Accounting
                 Reason = "Test reversal"
             };
 
-            _mockReversalService.Setup(s => s.CanReverseEntryAsync(
+            _ = _mockReversalService.Setup(s => s.CanReverseEntryAsync(
                 It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(false);
 
@@ -352,9 +352,9 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateRevenue(new TenantId(tenantId), period, new Money(2000m, "VND"), "Revenue 2")
             ];
 
-            _mockHKDBookService.Setup(s => s.GetRevenueTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
+            _ = _mockHKDBookService.Setup(s => s.GetRevenueTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(totalRevenue);
-            _mockHKDBookService.Setup(s => s.GetRevenueEntriesAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
+            _ = _mockHKDBookService.Setup(s => s.GetRevenueEntriesAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(entries);
 
             // Set up tenant header
@@ -388,11 +388,11 @@ namespace VanAn.Core.Tests.Accounting
             decimal revenue = 5000m;
             decimal expense = 2500m;
 
-            _mockHKDBookService.Setup(s => s.GetProfitAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
+            _ = _mockHKDBookService.Setup(s => s.GetProfitAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(profit);
-            _mockHKDBookService.Setup(s => s.GetRevenueTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
+            _ = _mockHKDBookService.Setup(s => s.GetRevenueTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(revenue);
-            _mockHKDBookService.Setup(s => s.GetExpenseTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
+            _ = _mockHKDBookService.Setup(s => s.GetExpenseTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expense);
 
             // Set up tenant header

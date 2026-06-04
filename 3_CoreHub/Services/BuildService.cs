@@ -28,7 +28,7 @@ namespace VanAn.CoreHub.Services
                 Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
                 Task<string> errorTask = process.StandardError.ReadToEndAsync();
 
-                await Task.WhenAll(outputTask, errorTask);
+                _ = await Task.WhenAll(outputTask, errorTask);
                 await process.WaitForExitAsync();
 
                 string output = await outputTask;

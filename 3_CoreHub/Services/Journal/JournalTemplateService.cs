@@ -62,12 +62,8 @@ namespace VanAn.CoreHub.Services.Journal
         /// </summary>
         public static bool ValidateTemplateLine(string accountNumber, bool isDebit, string? amountFormula)
         {
-            if (string.IsNullOrWhiteSpace(accountNumber))
-            {
-                return false;
-            }
-
-            return !IsValidAccountNumber(accountNumber) ? false : !isDebit || !string.IsNullOrWhiteSpace(amountFormula);
+            return !string.IsNullOrWhiteSpace(accountNumber)
+&& IsValidAccountNumber(accountNumber) && (!isDebit || !string.IsNullOrWhiteSpace(amountFormula));
         }
 
         /// <summary>
@@ -104,7 +100,7 @@ namespace VanAn.CoreHub.Services.Journal
                     MatchCollection matches = MyRegex().Matches(line.DescriptionTemplate);
                     foreach (Match match in matches.Cast<Match>())
                     {
-                        parameters.Add(match.Groups[1].Value);
+                        _ = parameters.Add(match.Groups[1].Value);
                     }
                 }
             }
@@ -117,17 +113,17 @@ namespace VanAn.CoreHub.Services.Journal
                     // Simple parameter extraction from formulas
                     if (line.AmountFormula.Contains("Amount"))
                     {
-                        parameters.Add("Amount");
+                        _ = parameters.Add("Amount");
                     }
 
                     if (line.AmountFormula.Contains("VatRate"))
                     {
-                        parameters.Add("VatRate");
+                        _ = parameters.Add("VatRate");
                     }
 
                     if (line.AmountFormula.Contains("COGSPercentage"))
                     {
-                        parameters.Add("COGSPercentage");
+                        _ = parameters.Add("COGSPercentage");
                     }
                 }
             }

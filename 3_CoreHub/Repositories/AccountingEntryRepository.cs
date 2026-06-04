@@ -193,8 +193,8 @@ namespace VanAn.CoreHub.Repositories
                 }
 
                 // Add entry to context (no tracking for immutability)
-                await _context.AccountingEntries.AddAsync(entry, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
+                _ = await _context.AccountingEntries.AddAsync(entry, cancellationToken);
+                _ = await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Added accounting entry {EntryId} for tenant {TenantId} with amount {Amount}",
                     entry.Id, entry.TenantId.Value, entry.Amount);
@@ -253,7 +253,7 @@ namespace VanAn.CoreHub.Repositories
 
                 // Add entries to context (no tracking for immutability)
                 await _context.AccountingEntries.AddRangeAsync(entriesList, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
+                _ = await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Added {Count} accounting entries for tenant {TenantId}",
                     entriesList.Count, firstTenantId);

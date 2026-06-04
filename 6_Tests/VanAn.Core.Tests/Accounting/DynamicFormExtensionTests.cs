@@ -12,7 +12,7 @@ namespace VanAn.Core.Tests.Accounting
     {
         public DynamicFormExtensionTests()
         {
-            Services.AddSingleton<ICssAdapter, BootstrapAdapter>();
+            _ = Services.AddSingleton<ICssAdapter, BootstrapAdapter>();
         }
 
         [Fact]
@@ -80,8 +80,8 @@ namespace VanAn.Core.Tests.Accounting
             // Arrange — Full RevenueEntry field set
             List<FormField> fields =
             [
-                new FormField { Id = "date",        Label = "Ngày",          Type = FieldType.Date },
-                new FormField { Id = "amount",      Label = "Số tiền",        Type = FieldType.Currency },
+                new FormField { Id = "date", Label = "Ngày", Type = FieldType.Date },
+                new FormField { Id = "amount", Label = "Số tiền", Type = FieldType.Currency },
                 new FormField
                 {
                     Id = "account",
@@ -93,8 +93,8 @@ namespace VanAn.Core.Tests.Accounting
                         new FieldOption { Value = "102", Label = "Tiền gửi ngân hàng" }
                     ]
                 },
-                new FormField { Id = "description", Label = "Diễn giải",      Type = FieldType.TextArea },
-                new FormField { Id = "reference",   Label = "Số chứng từ",    Type = FieldType.Text }
+                new FormField { Id = "description", Label = "Diễn giải", Type = FieldType.TextArea },
+                new FormField { Id = "reference", Label = "Số chứng từ", Type = FieldType.Text }
             ];
 
             // Act

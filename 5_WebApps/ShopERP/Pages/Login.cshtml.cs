@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -50,7 +50,8 @@ namespace VanAn.ShopERP.Pages
             [
                 new Claim(ClaimTypes.Name, Username),
                 new Claim(ClaimTypes.Role, role.ToString()),
-                new Claim("DisplayName", GetDisplayName(role))
+                new Claim("DisplayName", GetDisplayName(role)),
+                new Claim("TenantId", "00000000-0000-0000-0000-000000000001") // E2E testing tenant
             ];
 
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -69,11 +70,11 @@ namespace VanAn.ShopERP.Pages
             return role switch
             {
                 UserRole.Guard => RedirectToPage("/Guard/Scan"),
+                UserRole.Owner => RedirectToPage("/Index"),
+                UserRole.StoreKeeper => RedirectToPage("/Index"),
+                UserRole.Staff => RedirectToPage("/Index"),
+                UserRole.Masterchef => RedirectToPage("/Index"),
                 UserRole.None => throw new NotImplementedException(),
-                UserRole.Owner => throw new NotImplementedException(),
-                UserRole.StoreKeeper => throw new NotImplementedException(),
-                UserRole.Staff => throw new NotImplementedException(),
-                UserRole.Masterchef => throw new NotImplementedException(),
                 _ => RedirectToPage("/Index")
             };
         }

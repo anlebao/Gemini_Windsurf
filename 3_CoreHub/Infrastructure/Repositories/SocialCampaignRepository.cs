@@ -38,13 +38,13 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<SocialCampaign> AddAsync(SocialCampaign campaign, CancellationToken cancellationToken = default)
         {
-            await _context.SocialCampaigns.AddAsync(campaign, cancellationToken);
+            _ = await _context.SocialCampaigns.AddAsync(campaign, cancellationToken);
             return campaign;
         }
 
         public async Task<SocialCampaign> UpdateAsync(SocialCampaign campaign, CancellationToken cancellationToken = default)
         {
-            _context.SocialCampaigns.Update(campaign);
+            _ = _context.SocialCampaigns.Update(campaign);
             return campaign;
         }
     }

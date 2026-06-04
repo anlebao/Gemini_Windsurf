@@ -81,7 +81,7 @@ namespace VanAn.CoreHub.Services
 
                 // Cache the order
                 string cacheKey = $"order_{orderId}";
-                _cache.Set(cacheKey, order, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, order, TimeSpan.FromHours(24));
 
                 _logger.LogInformation("Omnichannel order created successfully: {OrderId}", orderId);
                 return order;
@@ -113,7 +113,7 @@ namespace VanAn.CoreHub.Services
                     await UpdateDeviceTrackingAsync(orderId, userId, "GET");
 
                     // Cache for future requests
-                    _cache.Set(cacheKey, order, TimeSpan.FromHours(24));
+                    _ = _cache.Set(cacheKey, order, TimeSpan.FromHours(24));
 
                     return order;
                 }
@@ -176,7 +176,7 @@ namespace VanAn.CoreHub.Services
 
                 // Update cache
                 string cacheKey = $"order_{request.OrderId}";
-                _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
 
                 _logger.LogInformation("Omnichannel order updated successfully: {OrderId}", request.OrderId);
                 return updatedOrder;
@@ -231,7 +231,7 @@ namespace VanAn.CoreHub.Services
 
                 // Update cache
                 string cacheKey = $"order_{orderId}";
-                _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
 
                 OrderStatusUpdateResult result = new()
                 {
@@ -473,7 +473,7 @@ namespace VanAn.CoreHub.Services
 
                 // Update cache
                 string cacheKey = $"order_{orderId}";
-                _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
 
                 OrderCancellationResult result = new()
                 {
@@ -653,7 +653,7 @@ namespace VanAn.CoreHub.Services
                 List<string> affectedDevices = [conflict.LocalDeviceId, conflict.RemoteDeviceId];
 
                 // Remove resolved conflict
-                conflicts.Remove(conflict);
+                _ = conflicts.Remove(conflict);
 
                 // Create history entry
                 await CreateOrderHistoryEntryAsync(orderId, OrderHistoryAction.ConflictResolved,
@@ -781,7 +781,7 @@ namespace VanAn.CoreHub.Services
 
                 // Update cache
                 string cacheKey = $"order_{orderId}";
-                _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, updatedOrder, TimeSpan.FromHours(24));
 
                 WorkflowAdvanceResult result = new()
                 {

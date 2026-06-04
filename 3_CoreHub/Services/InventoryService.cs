@@ -110,10 +110,10 @@ namespace VanAn.CoreHub.Services
                 // Update in database
                 foreach (Inventory inventory in updatedInventories.Values)
                 {
-                    _context.Inventories.Update(inventory);
+                    _ = _context.Inventories.Update(inventory);
                 }
 
-                await _context.SaveChangesAsync();
+                _ = await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Updated {Count} inventory records", updatedInventories.Count);
                 return updatedInventories;

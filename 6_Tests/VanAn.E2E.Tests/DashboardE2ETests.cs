@@ -1,4 +1,5 @@
 using Microsoft.Playwright;
+using static Microsoft.Playwright.Assertions;
 using System.Text.Json;
 using Xunit.Abstractions;
 using Xunit;
@@ -9,41 +10,42 @@ namespace VanAn.E2E.Tests;
 public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposable
 {
     private readonly SelfHostedTestFactory _factory;
-    private readonly IPlaywright _playwright;
-    private readonly IBrowser _browser;
-    private readonly IPage _page;
+    private IPlaywright _playwright;
+    private IBrowser _browser;
+    private IPage _page;
     private readonly ITestOutputHelper _output;
 
     public DashboardE2ETests(SelfHostedTestFactory factory, ITestOutputHelper output)
     {
         _factory = factory;
         _output = output;
+    }
 
-        var playwright = Playwright.CreateAsync();
-        playwright.Wait();
-        _playwright = playwright.Result;
-
-        _browser = _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+    private async Task InitializeAsync()
+    {
+        _playwright = await Playwright.CreateAsync();
+        _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
             Headless = true,
             SlowMo = 100
-        }).Result;
-
-        _page = _browser.NewPageAsync().Result;
+        });
+        _page = await _browser.NewPageAsync();
     }
 
     [Fact(DisplayName = "Dashboard_Should_Load_And_Display_Metrics")]
     public async Task Dashboard_Should_Load_And_Display_Metrics()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
 
         // Wait for dashboard to load
-        await _page.WaitForSelectorAsync(".dashboard-container", new PageWaitForSelectorOptions { Timeout = 10000 });
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act & Assert - Check main elements
-        var dashboardTitle = await _page.TextContentAsync(".dashboard-title");
-        Assert.Contains("VanAn Dashboard", dashboardTitle);
+        // Act & Assert - Check main elements using Playwright assertions
+        var dashboardTitle = _page.Locator(".dashboard-title, [data-testid='dashboard-title']");
+        await Expect(dashboardTitle).ToContainTextAsync("VanAn Dashboard", new() { Timeout = 10000 });
 
         _output.WriteLine("Dashboard loaded successfully");
     }
@@ -51,97 +53,94 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
     [Fact(DisplayName = "Dashboard_Should_Display_PostgreSQL_Metrics")]
     public async Task Dashboard_Should_Display_PostgreSQL_Metrics()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Find PostgreSQL metrics cards
-        var postgresCards = await _page.QuerySelectorAllAsync(".metric-card.postgresql");
-
+        // Act - Find PostgreSQL metrics cards using Locator
+        var postgresCards = _page.Locator(".metric-card.postgresql, [data-testid*='postgresql']");
+        
         // Assert - Should have multiple PostgreSQL cards
-        Assert.True(postgresCards.Count >= 3);
+        await Expect(postgresCards).ToHaveCountAsync(3);
 
-        // Check specific metrics
-        IElementHandle? tenantCard = null;
-        foreach (var card in postgresCards)
-        {
-            var text = await card.TextContentAsync();
-            if (text != null && text.Contains("Tenant"))
-            {
-                tenantCard = card;
-                break;
-            }
-        }
+        // Check for Tenant card
+        var tenantCard = postgresCards.Filter(new() { HasText = "Tenant" });
+        await Expect(tenantCard).ToBeVisibleAsync();
 
-        Assert.NotNull(tenantCard);
-
-        _output.WriteLine($"Found {postgresCards.Count} PostgreSQL metric cards");
+        _output.WriteLine("PostgreSQL metrics displayed correctly");
     }
 
     [Fact(DisplayName = "Dashboard_Should_Display_SQLite_Metrics")]
     public async Task Dashboard_Should_Display_SQLite_Metrics()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Find SQLite metrics cards
-        var sqliteCards = await _page.QuerySelectorAllAsync(".metric-card.sqlite");
-
+        // Act - Find SQLite metrics cards using Locator
+        var sqliteCards = _page.Locator(".metric-card.sqlite, [data-testid*='sqlite']");
+        
         // Assert - Should have SQLite cards
-        Assert.True(sqliteCards.Count >= 2);
+        await Expect(sqliteCards).ToHaveCountAsync(2);
 
         // Check for KhachLink and ShopERP metrics
-        var pageContent = await _page.TextContentAsync(".dashboard-container");
-        Assert.Contains("KhachLink", pageContent);
-        Assert.Contains("ShopERP", pageContent);
+        var dashboardContainer = _page.Locator(".dashboard-container, [data-testid='dashboard-container']");
+        await Expect(dashboardContainer).ToContainTextAsync("KhachLink");
+        await Expect(dashboardContainer).ToContainTextAsync("ShopERP");
 
-        _output.WriteLine($"Found {sqliteCards.Count} SQLite metric cards");
+        _output.WriteLine("SQLite metrics displayed correctly");
     }
 
     [Fact(DisplayName = "Dashboard_Should_Display_Sync_Status")]
     public async Task Dashboard_Should_Display_Sync_Status()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Find sync status section
-        var syncSection = await _page.QuerySelectorAsync(".sync-status-grid");
-
+        // Act - Find sync status section using Locator
+        var syncSection = _page.Locator(".sync-status-grid, [data-testid='sync-status-grid']");
+        
         // Assert - Sync section should exist
-        Assert.NotNull(syncSection);
+        await Expect(syncSection).ToBeVisibleAsync();
 
         // Check for sync progress bars
-        var progressBars = await _page.QuerySelectorAllAsync(".progress-fill");
-        Assert.True(progressBars.Count > 0);
+        var progressBars = _page.Locator(".progress-fill, [data-testid='progress-fill']");
+        await Expect(progressBars).ToHaveCountAsync(1);
 
-        _output.WriteLine($"Sync status displayed with {progressBars.Count} progress indicators");
+        _output.WriteLine("Sync status displayed correctly");
     }
 
     [Fact(DisplayName = "Dashboard_Should_Have_Working_Refresh_Button")]
     public async Task Dashboard_Should_Have_Working_Refresh_Button()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Find and click refresh button
-        var refreshButton = await _page.QuerySelectorAsync(".refresh-btn");
-        Assert.NotNull(refreshButton);
-
-        // Click refresh button
+        // Act - Find and click refresh button using Locator
+        var refreshButton = _page.Locator(".refresh-btn, [data-testid='refresh-btn']");
+        await Expect(refreshButton).ToBeVisibleAsync();
         await refreshButton.ClickAsync();
 
         // Wait for loading state
-        await _page.WaitForSelectorAsync(".loading-spinner", new PageWaitForSelectorOptions { Timeout = 5000 });
+        var loadingSpinner = _page.Locator(".loading-spinner, [data-testid='loading-spinner']");
+        await Expect(loadingSpinner).ToBeVisibleAsync(new() { Timeout = 5000 });
 
         // Wait for loading to complete
-        await _page.WaitForSelectorAsync(".loading-spinner", new PageWaitForSelectorOptions { State = WaitForSelectorState.Hidden, Timeout = 10000 });
+        await Expect(loadingSpinner).ToBeHiddenAsync(new() { Timeout = 10000 });
 
         // Assert - Dashboard should still be visible after refresh
-        var dashboardContainer = await _page.QuerySelectorAsync(".dashboard-container");
-        Assert.NotNull(dashboardContainer);
+        var dashboardContainer = _page.Locator(".dashboard-container, [data-testid='dashboard-container']");
+        await Expect(dashboardContainer).ToBeVisibleAsync();
 
         _output.WriteLine("Refresh button working correctly");
     }
@@ -149,29 +148,32 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
     [Fact(DisplayName = "Dashboard_Should_Show_Last_Updated_Timestamp")]
     public async Task Dashboard_Should_Show_Last_Updated_Timestamp()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Find last updated section
-        var lastUpdated = await _page.QuerySelectorAsync(".last-updated");
-
+        // Act - Find last updated section using Locator
+        var lastUpdated = _page.Locator(".last-updated, [data-testid='last-updated']");
+        
         // Assert - Last updated should exist and contain date
-        Assert.NotNull(lastUpdated);
+        await Expect(lastUpdated).ToBeVisibleAsync();
+        await Expect(lastUpdated).ToContainTextAsync("Last Updated:");
+        await Expect(lastUpdated).ToContainTextAsync("System");
 
         var lastUpdatedText = await lastUpdated.TextContentAsync();
-        Assert.Contains("Last Updated:", lastUpdatedText);
-        Assert.Contains("System", lastUpdatedText);
-
         _output.WriteLine($"Last updated displayed: {lastUpdatedText}");
     }
 
     [Fact(DisplayName = "Dashboard_Should_Handle_Connection_Issues_Gracefully")]
     public async Task Dashboard_Should_Handle_Connection_Issues_Gracefully()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange - Navigate to dashboard
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
         // Act - Simulate connection issues by intercepting requests
         await _page.RouteAsync("**/*", async route =>
@@ -188,25 +190,16 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
         });
 
         // Click refresh to trigger API calls
-        var refreshButton = await _page.QuerySelectorAsync(".refresh-btn");
-        if (refreshButton != null)
+        var refreshButton = _page.Locator(".refresh-btn, [data-testid='refresh-btn']");
+        if (await refreshButton.CountAsync() > 0)
         {
             await refreshButton.ClickAsync();
-            await _page.WaitForTimeoutAsync(2000);
+            await Task.Delay(2000); // Wait for error handling
         }
 
         // Assert - Should show alerts for connection issues
-        var alerts = await _page.QuerySelectorAllAsync(".alert");
-        var hasConnectionAlert = false;
-        foreach (var alert in alerts)
-        {
-            var text = await alert.TextContentAsync();
-            if (text != null && text.Contains("Connection"))
-            {
-                hasConnectionAlert = true;
-                break;
-            }
-        }
+        var alerts = _page.Locator(".alert:has-text('Connection'), .alert:has-text('Error'), [data-testid='connection-alert']");
+        var hasConnectionAlert = await alerts.CountAsync() > 0;
 
         // Clean up routing
         await _page.UnrouteAllAsync();
@@ -217,6 +210,8 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
     [Fact(DisplayName = "Dashboard_Should_Be_Responsive")]
     public async Task Dashboard_Should_Be_Responsive()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange - Test different screen sizes
         var viewports = new[]
         {
@@ -230,15 +225,15 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
             // Act - Set viewport size
             await _page.SetViewportSizeAsync(viewport.Width, viewport.Height);
             await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-            await _page.WaitForSelectorAsync(".dashboard-container");
+            await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
             // Assert - Dashboard should be visible and functional
-            var dashboardContainer = await _page.QuerySelectorAsync(".dashboard-container");
-            Assert.NotNull(dashboardContainer);
+            var dashboardContainer = _page.Locator(".dashboard-container, [data-testid='dashboard-container']");
+            await Expect(dashboardContainer).ToBeVisibleAsync();
 
             // Check if metrics grid adapts to screen size
-            var metricsGrid = await _page.QuerySelectorAsync(".metrics-grid");
-            Assert.NotNull(metricsGrid);
+            var metricsGrid = _page.Locator(".metrics-grid, [data-testid='metrics-grid']");
+            await Expect(metricsGrid).ToBeVisibleAsync();
 
             _output.WriteLine($"Dashboard responsive on {viewport.Width}x{viewport.Height}");
         }
@@ -247,49 +242,59 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
     [Fact(DisplayName = "Dashboard_Should_Have_Proper_Accessibility")]
     public async Task Dashboard_Should_Have_Proper_Accessibility()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Check for accessibility features
-        var titleElement = await _page.QuerySelectorAsync("h1");
-        Assert.NotNull(titleElement);
+        // Act - Check for accessibility features using Locator
+        var titleElement = _page.Locator("h1");
+        await Expect(titleElement).ToBeVisibleAsync();
 
         // Check for semantic HTML elements
-        var navElements = await _page.QuerySelectorAllAsync("nav");
-        var mainElements = await _page.QuerySelectorAllAsync("main");
-        var footerElements = await _page.QuerySelectorAllAsync("footer");
+        var navElements = _page.Locator("nav");
+        var mainElements = _page.Locator("main");
+        var footerElements = _page.Locator("footer");
 
         // Assert - Should have semantic structure
-        Assert.True(navElements.Count > 0 || titleElement != null);
+        var hasNavOrTitle = await navElements.CountAsync() > 0 || await titleElement.CountAsync() > 0;
+        Assert.True(hasNavOrTitle);
 
         // Check for ARIA labels on interactive elements
-        var buttons = await _page.QuerySelectorAllAsync("button");
-        foreach (var button in buttons)
+        var buttons = _page.Locator("button");
+        var buttonCount = await buttons.CountAsync();
+        for (int i = 0; i < buttonCount; i++)
         {
+            var button = buttons.Nth(i);
             var ariaLabel = await button.GetAttributeAsync("aria-label");
             var buttonText = await button.TextContentAsync();
             
             // At least one should be present for accessibility
-            Assert.True(!string.IsNullOrEmpty(ariaLabel) || !string.IsNullOrEmpty(buttonText));
+            Assert.True(!string.IsNullOrEmpty(ariaLabel) || !string.IsNullOrEmpty(buttonText), 
+                $"Button {i} missing aria-label or text content");
         }
 
-        _output.WriteLine($"Accessibility checks passed: {buttons.Count} buttons checked");
+        _output.WriteLine($"Accessibility checks passed: {buttonCount} buttons checked");
     }
 
     [Fact(DisplayName = "Dashboard_Should_Display_Correct_Colors_For_Status")]
     public async Task Dashboard_Should_Display_Correct_Colors_For_Status()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Check status indicators
-        var statusIndicators = await _page.QuerySelectorAllAsync(".status-indicator");
+        // Act - Check status indicators using Locator
+        var statusIndicators = _page.Locator(".status-indicator, [data-testid='status-indicator']");
+        var indicatorCount = await statusIndicators.CountAsync();
 
         // Assert - Status indicators should have appropriate colors
-        foreach (var indicator in statusIndicators)
+        for (int i = 0; i < indicatorCount; i++)
         {
+            var indicator = statusIndicators.Nth(i);
             var classes = await indicator.GetAttributeAsync("class");
             Assert.NotNull(classes);
 
@@ -297,45 +302,46 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
             var hasStatusClass = classes.Contains("online") || 
                                classes.Contains("offline") || 
                                classes.Contains("warning");
-            Assert.True(hasStatusClass);
+            Assert.True(hasStatusClass, $"Status indicator {i} missing status class");
         }
 
         // Check metric card colors
-        var postgresCards = await _page.QuerySelectorAllAsync(".metric-card.postgresql");
-        var sqliteCards = await _page.QuerySelectorAllAsync(".metric-card.sqlite");
+        var postgresCards = _page.Locator(".metric-card.postgresql, [data-testid*='postgresql']");
+        var sqliteCards = _page.Locator(".metric-card.sqlite, [data-testid*='sqlite']");
 
-        Assert.True(postgresCards.Count > 0);
-        Assert.True(sqliteCards.Count > 0);
+        await Expect(postgresCards).ToHaveCountAsync(1);
+        await Expect(sqliteCards).ToHaveCountAsync(1);
 
-        _output.WriteLine($"Color scheme verified: {statusIndicators.Count} status indicators, {postgresCards.Count} PostgreSQL cards, {sqliteCards.Count} SQLite cards");
+        _output.WriteLine($"Color scheme verified: {indicatorCount} status indicators");
     }
 
     [Fact(DisplayName = "Dashboard_Navigation_Should_Work_Correctly")]
     public async Task Dashboard_Navigation_Should_Work_Correctly()
     {
+        if (_page == null) await InitializeAsync();
+        
         // Arrange - Start from home page
         await _page.GotoAsync($"{_factory.KhachLinkUrl}/");
-        await _page.WaitForSelectorAsync("nav");
+        await _page.WaitForSelectorAsync("nav, [data-testid='main-nav']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
-        // Act - Navigate to dashboard
-        var dashboardLink = await _page.QuerySelectorAsync("a[href='VanAnDashboard']");
-        Assert.NotNull(dashboardLink);
-
+        // Act - Navigate to dashboard using Locator
+        var dashboardLink = _page.Locator("a[href='VanAnDashboard'], a[href='/VanAnDashboard'], [data-testid='dashboard-link']");
+        await Expect(dashboardLink).ToBeVisibleAsync();
         await dashboardLink.ClickAsync();
 
         // Assert - Should navigate to dashboard
-        await _page.WaitForURLAsync("**/VanAnDashboard");
-        await _page.WaitForSelectorAsync(".dashboard-container");
+        await _page.WaitForURLAsync("**/VanAnDashboard", new() { Timeout = 10000 });
+        await _page.WaitForSelectorAsync(".dashboard-container, [data-testid='dashboard-container']", new PageWaitForSelectorOptions { Timeout = 10000 });
 
         var url = _page.Url;
         Assert.Contains("VanAnDashboard", url);
 
         // Navigate back to home
-        var homeLink = await _page.QuerySelectorAsync("a[href='/']");
-        if (homeLink != null)
+        var homeLink = _page.Locator("a[href='/'], [data-testid='home-link']");
+        if (await homeLink.CountAsync() > 0)
         {
             await homeLink.ClickAsync();
-            await _page.WaitForURLAsync("**/");
+            await _page.WaitForURLAsync("**/", new() { Timeout = 10000 });
         }
 
         _output.WriteLine("Navigation working correctly");
@@ -343,8 +349,8 @@ public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposab
 
     public void Dispose()
     {
-        _page?.CloseAsync();
-        _browser?.CloseAsync();
+        _page?.CloseAsync().GetAwaiter().GetResult();
+        _browser?.CloseAsync().GetAwaiter().GetResult();
         _playwright?.Dispose();
     }
 }

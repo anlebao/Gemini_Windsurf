@@ -24,8 +24,8 @@ namespace VanAn.CoreHub.Services
             // Create new Shop with proper constructor
             Shop newShop = new(_tenantProvider.TenantId, shop.Name, shop.Address, shop.Phone, shop.Email);
 
-            _context.Shops.Add(newShop);
-            await _context.SaveChangesAsync();
+            _ = _context.Shops.Add(newShop);
+            _ = await _context.SaveChangesAsync();
 
             return newShop;
         }
@@ -50,7 +50,7 @@ namespace VanAn.CoreHub.Services
             Shop? existing = await GetShopByIdAsync(shop.Id) ?? throw new InvalidOperationException("Shop not found or access denied");
             existing.UpdateShopDetails(shop.Name, shop.Address, shop.Phone, shop.Email, shop.IsActive);
 
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
             return existing;
         }
 
@@ -62,8 +62,8 @@ namespace VanAn.CoreHub.Services
                 return false;
             }
 
-            _context.Shops.Remove(shop);
-            await _context.SaveChangesAsync();
+            _ = _context.Shops.Remove(shop);
+            _ = await _context.SaveChangesAsync();
             return true;
         }
     }

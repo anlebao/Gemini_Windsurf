@@ -21,29 +21,29 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 
         private static void ConfigureCustomer(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Customer>(entity =>
+            _ = modelBuilder.Entity<Customer>(entity =>
             {
-                entity.HasKey(e => e.Id);
+                _ = entity.HasKey(e => e.Id);
 
                 // Value object conversion
-                entity.Property(e => e.CustomerId)
+                _ = entity.Property(e => e.CustomerId)
                     .HasConversion<Guid>()
                     .IsRequired();
 
-                entity.Property(e => e.DeviceId)
+                _ = entity.Property(e => e.DeviceId)
                     .IsRequired();
 
-                entity.Property(e => e.FullName)
+                _ = entity.Property(e => e.FullName)
                     .HasMaxLength(200);
 
-                entity.Property(e => e.PhoneNumber)
+                _ = entity.Property(e => e.PhoneNumber)
                     .HasMaxLength(20);
 
-                entity.Property(e => e.CustomerTier)
+                _ = entity.Property(e => e.CustomerTier)
                     .HasMaxLength(50)
                     .HasDefaultValue("Bronze");
 
-                entity.Property(e => e.TenantId)
+                _ = entity.Property(e => e.TenantId)
                     .IsRequired();
 
                 // No complex multi-tenancy filters for tests

@@ -110,7 +110,7 @@ namespace VanAn.CoreHub.Services
                 }
             }
 
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             _logger.LogInformation("Updated OrderItem {OrderItemId} status from {OldStatus} to {NewStatus} by user {UserId}",
                 update.OrderItemId, oldStatus, update.NewStatus, userId);
@@ -205,7 +205,7 @@ namespace VanAn.CoreHub.Services
             if (order != null)
             {
                 order.UpdateVoiceNotes(processedText, processedAudioBlob);
-                await _context.SaveChangesAsync();
+                _ = await _context.SaveChangesAsync();
             }
 
             VoiceNoteDto result = new()
@@ -236,7 +236,7 @@ namespace VanAn.CoreHub.Services
             string? noteAudioBlob = voiceNote.AudioBlob?.Length > 150000 ? null : voiceNote.AudioBlob;
             orderItem.UpdateItemNotes(noteText, noteAudioBlob);
 
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             _logger.LogInformation("Attached voice note to OrderItem {OrderItemId}", orderItemId);
             return true;

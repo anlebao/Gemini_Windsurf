@@ -74,7 +74,7 @@ namespace VanAn.KhachLink.Services
 
                 if (item != null)
                 {
-                    items.Remove(item);
+                    _ = items.Remove(item);
                     await _indexedDBService.SetAsync(_cartKey, items);
 
                     // Try to sync immediately if online
@@ -210,12 +210,12 @@ namespace VanAn.KhachLink.Services
                 if (conflictResolution.Action == ResolutionAction.Merge && conflictResolution.MergedOrder != null)
                 {
                     // Clear server cart first
-                    await _cartService.ClearCartAsync();
+                    _ = await _cartService.ClearCartAsync();
 
                     // Add merged items to server
                     foreach (OfflineOrderItemDto item in conflictResolution.MergedOrder.Items)
                     {
-                        await _cartService.AddItemAsync(new CartItem
+                        _ = await _cartService.AddItemAsync(new CartItem
                         {
                             Id = Guid.NewGuid(),
                             ProductId = Guid.Parse(item.ProductId),
@@ -272,12 +272,12 @@ namespace VanAn.KhachLink.Services
                 }
 
                 // Clear current server cart
-                await _cartService.ClearCartAsync();
+                _ = await _cartService.ClearCartAsync();
 
                 // Load offline items to server cart
                 foreach (CartItem item in offlineItems)
                 {
-                    await _cartService.AddItemAsync(item);
+                    _ = await _cartService.AddItemAsync(item);
                 }
 
                 _logger.LogInformation("Cart loaded from offline with {ItemCount} items", offlineItems.Count);

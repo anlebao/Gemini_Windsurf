@@ -13,14 +13,14 @@ using VanAn.Gateway;
 
 namespace VanAn.Integration.Tests;
 
-public class GoldenFlowSystemTests : IClassFixture<WebApplicationFactory<Program>>, IDisposable
+public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>, IDisposable
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly CustomWebApplicationFactory _factory;
     private readonly string _uniqueDbPath;
     private ServiceProvider _serviceProvider;
     private VanAnDbContext _dbContext;
 
-    public GoldenFlowSystemTests(WebApplicationFactory<Program> factory)
+    public GoldenFlowSystemTests(CustomWebApplicationFactory factory)
     {
         _factory = factory;
         

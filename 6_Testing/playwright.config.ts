@@ -5,6 +5,7 @@ const config = loadEnvConfig();
 
 export default defineConfig({
   testDir: './',
+  globalSetup: './global-setup',
   testMatch: '**/*.spec.ts',
   fullyParallel: config.E2E_TEST_PARALLEL,
   forbidOnly: !!process.env.CI,
@@ -27,7 +28,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     actionTimeout: 15000,
-    navigationTimeout: 30000
+    navigationTimeout: 30000,
+    storageState: 'auth/admin.json'
   },
 
   projects: [
@@ -48,7 +50,8 @@ export default defineConfig({
         baseURL: config.SHOPERP_URL,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
-        video: 'retain-on-failure'
+        video: 'retain-on-failure',
+        storageState: 'auth/admin.json'
       }
     },
     {

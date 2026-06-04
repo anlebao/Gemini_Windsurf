@@ -216,6 +216,7 @@ C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLi
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.MvcApplicationPartsAssemblyInfo.cache
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.RazorAssemblyInfo.cache
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.RazorAssemblyInfo.cs
+C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.sourcelink.json
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\staticwebassets.build.json
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\staticwebassets.development.json
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\staticwebassets\msbuild.VanAn.KhachLink.Microsoft.AspNetCore.StaticWebAssets.props
@@ -233,4 +234,3 @@ C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\refint\VanAn.
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.pdb
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.genruntimeconfig.cache
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\ref\VanAn.KhachLink.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\obj\Debug\net8.0\VanAn.KhachLink.sourcelink.json

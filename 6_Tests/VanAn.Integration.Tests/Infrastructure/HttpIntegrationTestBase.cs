@@ -22,15 +22,15 @@ public abstract class HttpIntegrationTestBase : IDisposable
 {
     protected readonly HttpClient _client;
     protected readonly ITestOutputHelper _output;
-    protected readonly WebApplicationFactory<Program> _factory;
+    protected readonly CustomWebApplicationFactory _factory;
     protected readonly VanAnDbContext _dbContext;
 
-    protected HttpIntegrationTestBase(WebApplicationFactory<Program> factory, ITestOutputHelper output)
+    protected HttpIntegrationTestBase(CustomWebApplicationFactory factory, ITestOutputHelper output)
     {
         _output = output;
         _factory = factory;
         _client = _factory.CreateClient();
-        
+
         // Setup DbContext for testing
         var scope = _factory.Services.CreateScope();
         _dbContext = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();

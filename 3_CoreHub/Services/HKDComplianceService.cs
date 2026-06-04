@@ -505,12 +505,9 @@ namespace VanAn.CoreHub.Services
 
         private static ComplianceStatus DetermineComplianceStatus(bool isCompliant, List<ComplianceViolation> violations, List<ComplianceWarning> warnings)
         {
-            if (isCompliant)
-            {
-                return ComplianceStatus.Compliant;
-            }
-
-            return violations.Any(v => v.Severity == SeverityLevel.High)
+            return isCompliant
+                ? ComplianceStatus.Compliant
+                : violations.Any(v => v.Severity == SeverityLevel.High)
                 ? ComplianceStatus.NonCompliant
                 : violations.Any(v => v.Severity == SeverityLevel.Medium)
                 ? ComplianceStatus.PartiallyCompliant

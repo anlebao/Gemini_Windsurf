@@ -38,7 +38,7 @@ namespace VanAn.Core.Tests.Accounting
                 "Original entry");
             string reason = "Test reversal";
 
-            _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(originalEntry);
 
             // Act
@@ -64,7 +64,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingEntryId originalEntryId = new(Guid.NewGuid());
             string reason = "Test reversal";
 
-            _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((CoreAccountingEntry?)null);
 
             // Act & Assert
@@ -88,7 +88,7 @@ namespace VanAn.Core.Tests.Accounting
                 differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Original entry");
             string reason = "Test reversal";
 
-            _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(originalEntry);
 
             // Act & Assert
@@ -114,7 +114,7 @@ namespace VanAn.Core.Tests.Accounting
             // Simulate already reversed entry
             CoreAccountingEntry reversalEntry = CoreAccountingEntry.CreateReversal(originalEntry, "Previous reversal");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(originalEntry);
 
             // This is a bit tricky since we can't directly set ReversalEntryId in the immutable design
@@ -136,7 +136,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingEntryId entryId = new(Guid.NewGuid());
             CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
 
             // Act
             CoreAccountingEntry? result = await _service.GetOriginalEntryAsync(entryId, tenantId);
@@ -157,7 +157,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingEntryId entryId = new(Guid.NewGuid());
             CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
 
             // Act
             CoreAccountingEntry? result = await _service.GetOriginalEntryAsync(entryId, tenantId);
@@ -176,7 +176,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingEntryId entryId = new(Guid.NewGuid());
             CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
 
             // Act
             bool result = await _service.CanReverseEntryAsync(entryId, tenantId);
@@ -194,7 +194,7 @@ namespace VanAn.Core.Tests.Accounting
             TenantId tenantId = new(Guid.NewGuid());
             AccountingEntryId entryId = new(Guid.NewGuid());
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync((CoreAccountingEntry?)null);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync((CoreAccountingEntry?)null);
 
             // Act
             bool result = await _service.CanReverseEntryAsync(entryId, tenantId);
@@ -214,7 +214,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingEntryId entryId = new(Guid.NewGuid());
             CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
 
             // Act
             bool result = await _service.CanReverseEntryAsync(entryId, tenantId);
@@ -236,9 +236,9 @@ namespace VanAn.Core.Tests.Accounting
 
             List<CoreAccountingEntry> allTenantEntries = [originalEntry];
 
-            _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(originalEntry);
-            _mockRepository.Setup(r => r.GetByTenantAsync(tenantId, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAsync(tenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(allTenantEntries);
 
             // Act
@@ -246,7 +246,7 @@ namespace VanAn.Core.Tests.Accounting
 
             // Assert
             Assert.NotNull(result);
-            Assert.Single(result);
+            _ = Assert.Single(result);
             Assert.Equal("Original entry", result.First().Description);
 
             _mockRepository.Verify(r => r.GetByIdAsync(originalEntryId, It.IsAny<CancellationToken>()), Times.Once);

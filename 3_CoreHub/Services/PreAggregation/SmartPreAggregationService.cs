@@ -145,7 +145,7 @@ namespace VanAn.CoreHub.Services.PreAggregation
                     if (parts.Length >= 3)
                     {
                         string pattern = parts[1];
-                        patterns.Add(pattern);
+                        _ = patterns.Add(pattern);
                     }
                 }
             }

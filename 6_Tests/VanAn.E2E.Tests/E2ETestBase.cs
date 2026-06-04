@@ -288,4 +288,123 @@ public class E2ETestBase : IAsyncLifetime
             return false;
         }
     }
+
+    /// <summary>
+    /// Mock Speech Recognition API for E2E testing
+    /// </summary>
+    protected async Task MockSpeechRecognitionAsync(string transcript = "Cà phê đen không đường, nhiều đá")
+    {
+        await Page.EvaluateAsync($@"() => {{
+            const mockSpeechRecognition = class {{
+                constructor() {{
+                    this.lang = 'vi-VN';
+                    this.continuous = false;
+                    this.interimResults = false;
+                    this.maxAlternatives = 1;
+                    this.onresult = null;
+                    this.onerror = null;
+                    this.onend = null;
+                }}
+                
+                start() {{
+                    setTimeout(() => {{
+                        if (this.onresult) {{
+                            this.onresult({{
+                                results: [{{
+                                    0: {{
+                                        transcript: '{transcript}'
+                                    }}
+                                }}]
+                            }});
+                        }}
+                        if (this.onend) {{
+                            this.onend();
+                        }}
+                    }}, 1000);
+                }}
+                
+                stop() {{
+                    if (this.onend) {{
+                        this.onend();
+                    }}
+                }}
+            }};
+
+            window.SpeechRecognition = mockSpeechRecognition;
+            window.webkitSpeechRecognition = mockSpeechRecognition;
+            console.log('Speech Recognition API mocked for E2E test');
+        }}");
+    }
+
+    /// <summary>
+    /// Retry logic for flaky operations
+    /// </summary>
+    protected async Task<T> RetryAsync<T>(Func<Task<T>> action, int maxAttempts = 3, int delayMs = 1000)
+    {
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            try
+            {
+                return await action();
+            }
+            catch (Exception ex) when (i < maxAttempts - 1)
+            {
+                Console.WriteLine($"[E2E] Retry {i + 1}/{maxAttempts} after error: {ex.Message}");
+                await Task.Delay(delayMs * (i + 1)); // Exponential backoff
+            }
+        }
+        throw new InvalidOperationException($"Operation failed after {maxAttempts} attempts");
+    }
+
+    /// <summary>
+    /// Retry logic for actions without return value
+    /// </summary>
+    protected async Task RetryAsync(Func<Task> action, int maxAttempts = 3, int delayMs = 1000)
+    {
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            try
+            {
+                await action();
+                return;
+            }
+            catch (Exception ex) when (i < maxAttempts - 1)
+            {
+                Console.WriteLine($"[E2E] Retry {i + 1}/{maxAttempts} after error: {ex.Message}");
+                await Task.Delay(delayMs * (i + 1)); // Exponential backoff
+            }
+        }
+        throw new InvalidOperationException($"Operation failed after {maxAttempts} attempts");
+    }
+
+    /// <summary>
+    /// Take screenshot on test failure
+    /// </summary>
+    protected async Task TakeScreenshotOnFailureAsync(string testName)
+    {
+        try
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var fileName = $"screenshots/failure_{testName}_{timestamp}.png";
+            
+            // Ensure screenshots directory exists
+            var directory = Path.GetDirectoryName(fileName);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            
+            await Page.ScreenshotAsync(new PageScreenshotOptions
+            {
+                Path = fileName,
+                FullPage = true
+            });
+            
+            Console.WriteLine($"[E2E] Screenshot saved: {fileName}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[E2E] Failed to take screenshot: {ex.Message}");
+        }
+    }
 }

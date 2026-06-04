@@ -108,8 +108,8 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                await _context.Orders.AddAsync(order, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
+                _ = await _context.Orders.AddAsync(order, cancellationToken);
+                _ = await _context.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("Added order {OrderId} for tenant {TenantId}", order.Id, order.TenantId);
                 return order;
             }
@@ -124,8 +124,8 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                _context.Orders.Update(order);
-                await _context.SaveChangesAsync(cancellationToken);
+                _ = _context.Orders.Update(order);
+                _ = await _context.SaveChangesAsync(cancellationToken);
                 _logger.LogInformation("Updated order {OrderId} for tenant {TenantId}", order.Id, order.TenantId);
                 return order;
             }
@@ -176,7 +176,7 @@ namespace VanAn.CoreHub.Repositories
 
         public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            _ = await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)

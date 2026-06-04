@@ -23,8 +23,8 @@ namespace VanAn.Core.Tests.Services
 
             // Setup configuration mock for database paths
             _configMock = new Mock<IConfiguration>();
-            _configMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("test-data");
-            _configMock.Setup(c => c["ShopERP:DatabasePath"]).Returns("test-data");
+            _ = _configMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("test-data");
+            _ = _configMock.Setup(c => c["ShopERP:DatabasePath"]).Returns("test-data");
 
             // Initialize context and service using Test Harness 4 layer
             // Create context first
@@ -93,8 +93,8 @@ namespace VanAn.Core.Tests.Services
         public async Task GetPostgreSQLMetricsAsync_Should_Handle_Empty_Database()
         {
             // Arrange
-            await Context.Database.EnsureDeletedAsync();
-            await Context.Database.EnsureCreatedAsync(); // Recreate schema
+            _ = await Context.Database.EnsureDeletedAsync();
+            _ = await Context.Database.EnsureCreatedAsync(); // Recreate schema
 
             // Act
             DashboardMetrics result = await _service.GetPostgreSQLMetricsAsync();
@@ -126,7 +126,7 @@ namespace VanAn.Core.Tests.Services
         public async Task GetSQLiteMetricsAsync_Should_Handle_Missing_Database_File()
         {
             // Arrange
-            _configMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("non-existent-path");
+            _ = _configMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("non-existent-path");
 
             // Act
             SQLiteMetrics result = await _service.GetSQLiteMetricsAsync("KhachLink");
@@ -178,7 +178,7 @@ namespace VanAn.Core.Tests.Services
         public async Task GetSystemHealthAsync_Should_Handle_Database_Connection_Failure()
         {
             // Arrange
-            await Context.Database.EnsureDeletedAsync();
+            _ = await Context.Database.EnsureDeletedAsync();
 
             // Act
             SystemHealth result = await _service.GetSystemHealthAsync();
@@ -211,7 +211,7 @@ namespace VanAn.Core.Tests.Services
             ];
 
             Context.Orders.AddRange(oldOrders);
-            Context.SaveChanges();
+            _ = Context.SaveChanges();
 
             // Act
             DashboardMetrics result = await _service.GetPostgreSQLMetricsAsync();
@@ -239,7 +239,7 @@ namespace VanAn.Core.Tests.Services
             ];
 
             Context.Orders.AddRange(lastWeekOrders);
-            Context.SaveChanges();
+            _ = Context.SaveChanges();
 
             // Act
             DashboardMetrics result = await _service.GetPostgreSQLMetricsAsync();
@@ -281,7 +281,7 @@ namespace VanAn.Core.Tests.Services
                 // In production, this would be handled by domain methods
                 // For test purposes, we'll skip this modification
             }
-            await Context.SaveChangesAsync();
+            _ = await Context.SaveChangesAsync();
 
             // Act
             DashboardMetrics result = await _service.GetPostgreSQLMetricsAsync();
@@ -304,7 +304,7 @@ namespace VanAn.Core.Tests.Services
 
             // Clear existing test data first
             Context.Orders.RemoveRange(Context.Orders);
-            await Context.SaveChangesAsync();
+            _ = await Context.SaveChangesAsync();
 
             // Use the same tenant ID as TestTenantProvider so orders are visible to the query
             TenantId testTenantId = new(Guid.Parse("12345678-1234-1234-1234-123456789012"));
@@ -317,7 +317,7 @@ namespace VanAn.Core.Tests.Services
             }
 
             Context.Orders.AddRange(largeOrderSet);
-            await Context.SaveChangesAsync();
+            _ = await Context.SaveChangesAsync();
 
             // Act
             DashboardMetrics result = await _service.GetPostgreSQLMetricsAsync();

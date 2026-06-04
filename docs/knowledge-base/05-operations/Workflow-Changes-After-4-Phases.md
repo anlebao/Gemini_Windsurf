@@ -305,16 +305,76 @@ Playwright test failed
 
 ## Activation Checklist
 
-Để sử dụng workflow mới:
+Trạng thái thực tế (cập nhật 2026-06-03):
 
-- [ ] Phase 1: Domain docs đã đọc và hiểu
-- [ ] Phase 2: AGENTS.md reference sẵn
-- [ ] Phase 3: CI/CD đang chạy (GitHub Actions)
-- [ ] Phase 4: MCP servers configured
-- [ ] GitHub token có đủ scopes
-- [ ] Team trained về workflow mới
+| Item | Trạng thái | Ghi chú |
+|------|-----------|---------|
+| Phase 1: Domain docs | ✅ Done | `docs/knowledge-base/` |
+| Phase 2: AGENTS.md | ✅ Done | `.windsurf/rules/` |
+| Phase 3: CI/CD GitHub Actions | ✅ Done | `ci.yml`, `e2e.yml`, `pr-check.yml` |
+| E2E trigger trên feature/** PR | ✅ Done | Fixed 2026-06-03 |
+| E2E block merge (quality-gate) | ⚠️ Partial | File fixed — cần bật Required Check trên GitHub Settings |
+| Auth storageState reuse | ✅ Done | `global-setup.ts` + `playwright.config.ts` |
+| Playwright ledger | ✅ Done | `6_Testing/reports/playwright-ledger.md` |
+| Phase 4: MCP servers configured | ⚠️ Partial | Config có sẵn, chưa kích hoạt trong Windsurf |
+| GitHub token scopes | ⚠️ Cần verify | Xem hướng dẫn bên dưới |
+| AI → GitHub Issue → PR flow | ❌ Chưa vận hành | Cần MCP kích hoạt + token |
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: June 1, 2026*
+## Kích Hoạt MCP GitHub
+
+### Bước 1 — Tạo GitHub Personal Access Token
+
+Vào: `GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)`
+
+Scopes cần thiết:
+- `repo` (Full control of private repositories)
+- `workflow` (Update GitHub Action workflows)
+- `read:org` (nếu dùng organization repo)
+
+### Bước 2 — Cấu hình trong Windsurf
+
+Vào: `%APPDATA%\Windsurf\User\settings.json`, thêm:
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "<your-token-here>"
+        }
+      }
+    }
+  }
+}
+```
+
+### Bước 3 — Quy trình AI → GitHub (sau khi MCP active)
+
+```
+User: "Làm Issue #42"
+    ↓
+AI đọc issue qua MCP: get_issue(42)
+    ↓
+AI tạo branch: create_branch("feature/issue-42-expense-form")
+    ↓
+AI implement + commit: commit_changes(...)
+    ↓
+AI tạo PR: create_pull_request(title="feat: ...", body="Closes #42")
+    ↓
+CI auto-trigger → build + test + E2E
+    ↓
+User review → Merge
+```
+
+Config workflow reference: `mcp/github-mcp/config.json`
+
+---
+
+*Document Version: 1.1*  
+*Last Updated: June 3, 2026*  
+*Changes: CI/CD gap fixes, storageState, ledger, MCP activation guide*

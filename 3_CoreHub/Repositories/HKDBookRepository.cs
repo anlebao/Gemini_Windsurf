@@ -141,8 +141,8 @@ namespace VanAn.CoreHub.Repositories
             {
                 // For now, just add the journal entry to the database
                 // In a full implementation, we would create separate entries for each book type
-                await _context.JournalEntries.AddAsync(entry, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
+                _ = await _context.JournalEntries.AddAsync(entry, cancellationToken);
+                _ = await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Added entry to HKD book {BookType} for tenant {TenantId}", bookType, entry.TenantId.Value);
             }
@@ -161,7 +161,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 await _context.JournalEntries.AddRangeAsync(entries, cancellationToken);
-                await _context.SaveChangesAsync(cancellationToken);
+                _ = await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation("Added {Count} entries to HKD book {BookType}", entries.Count(), bookType);
             }
@@ -217,8 +217,8 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                await _context.JournalEntries.AddAsync(entry);
-                await _context.SaveChangesAsync();
+                _ = await _context.JournalEntries.AddAsync(entry);
+                _ = await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Added journal entry {EntryId} to repository", entry.Id);
             }

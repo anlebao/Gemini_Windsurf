@@ -19,7 +19,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(money);
 
             // Assert
-            result.Should().Be(1000.50m);
+            _ = result.Should().Be(1000.50m);
         }
 
         [Fact]
@@ -32,10 +32,10 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertFromProvider(value);
 
             // Assert
-            result.Should().NotBeNull();
+            _ = result.Should().NotBeNull();
             if (result != null)
             {
-                ((Money)result).Value.Should().Be(value);
+                _ = ((Money)result).Value.Should().Be(value);
             }
         }
 
@@ -45,8 +45,8 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             // MoneyConverter maps Money<->decimal (non-nullable)
             // 0m maps to Money(0m) not null
             object? zeroMoney = _converter.ConvertFromProvider(0m);
-            zeroMoney.Should().NotBeNull();
-            ((Money)zeroMoney!).Value.Should().Be(0m);
+            _ = zeroMoney.Should().NotBeNull();
+            _ = ((Money)zeroMoney!).Value.Should().Be(0m);
         }
 
         [Fact]
@@ -59,7 +59,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(money);
 
             // Assert
-            result.Should().Be(0m);
+            _ = result.Should().Be(0m);
         }
     }
 }

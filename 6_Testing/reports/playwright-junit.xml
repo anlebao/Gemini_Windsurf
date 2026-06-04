@@ -1,14 +1,6 @@
-<testsuites id="" name="" tests="42" failures="11" skipped="12" errors="0" time="145.33208299999998">
-<testsuite name="e2e-tests\balance-dashboard-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="e2e-tests" tests="3" failures="0" skipped="0" time="5.662" errors="0">
-<testcase name="Balance Dashboard Flow › should display correct balance metrics" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="2.276">
-</testcase>
-<testcase name="Balance Dashboard Flow › should show warning when expenses exceed threshold" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.931">
-</testcase>
-<testcase name="Balance Dashboard Flow › should display balance grid with account details" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.455">
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="e2e-tests" tests="2" failures="1" skipped="0" time="17.451" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="15.765">
+<testsuites id="" name="" tests="12" failures="12" skipped="0" errors="0" time="142.38974299999998">
+<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="e2e-tests" tests="2" failures="2" skipped="0" time="39.54" errors="0">
+<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="20.025">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\test-failed-1.png]]
@@ -23,24 +15,24 @@
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('text=500.000 ₫')
+    Locator: getByTestId('expense-success-alert')
     Expected: visible
-    Timeout: 10000ms
+    Timeout: 15000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 10000ms
-      - waiting for locator('text=500.000 ₫')
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByTestId('expense-success-alert')
 
 
+      35 |     // Use data-testid for success alert
+      36 |     const successAlert = page.getByTestId('expense-success-alert');
+    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
+         |                                ^
+      38 |
       39 |     await page.goto('/accounting/history');
       40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-    > 41 |     await expect(page.locator('text=500.000 ₫')).toBeVisible();
-         |                                                  ^
-      42 |     // Assertion cụ thể kiểm tra format theo chuẩn vi-VN
-      43 |     const amountCell = page.locator('[data-testid="datagrid-cell-amount"]').first();
-      44 |     await expect(amountCell).toHaveText(/500\.000/);
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:41:50
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\test-failed-1.png
@@ -54,37 +46,55 @@
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="1.686">
+<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.515">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [e2e-tests] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+
+
+      64 |     await submitBtn.click();
+      65 |
+    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
+         |                                                                                                                                                                   ^
+      67 |   });
+      68 | });
+      69 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\error-context.md
+]]>
+</failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\export-excel-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="e2e-tests" tests="2" failures="0" skipped="2" time="0" errors="0">
-<testcase name="Export Excel Flow › should export transaction history to Excel" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-<testcase name="Export Excel Flow › should export only filtered data" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\balance-dashboard-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="chromium" tests="3" failures="0" skipped="0" time="3.64" errors="0">
-<testcase name="Balance Dashboard Flow › should display correct balance metrics" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.01">
-</testcase>
-<testcase name="Balance Dashboard Flow › should show warning when expenses exceed threshold" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.307">
-</testcase>
-<testcase name="Balance Dashboard Flow › should display balance grid with account details" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.323">
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="chromium" tests="2" failures="2" skipped="0" time="33.869" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="14.322">
+<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="chromium" tests="2" failures="2" skipped="0" time="39.725" errors="0">
+<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.744">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\test-failed-1.png]]
@@ -99,24 +109,24 @@
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('text=500.000 ₫')
+    Locator: getByTestId('expense-success-alert')
     Expected: visible
-    Timeout: 10000ms
+    Timeout: 15000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 10000ms
-      - waiting for locator('text=500.000 ₫')
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByTestId('expense-success-alert')
 
 
+      35 |     // Use data-testid for success alert
+      36 |     const successAlert = page.getByTestId('expense-success-alert');
+    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
+         |                                ^
+      38 |
       39 |     await page.goto('/accounting/history');
       40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-    > 41 |     await expect(page.locator('text=500.000 ₫')).toBeVisible();
-         |                                                  ^
-      42 |     // Assertion cụ thể kiểm tra format theo chuẩn vi-VN
-      43 |     const amountCell = page.locator('[data-testid="datagrid-cell-amount"]').first();
-      44 |     await expect(amountCell).toHaveText(/500\.000/);
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:41:50
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\test-failed-1.png
@@ -130,7 +140,7 @@
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.547">
+<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.981">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\test-failed-1.png]]
@@ -155,14 +165,14 @@
       - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
 
 
-      59 |     await submitBtn.click();
-      60 |
-    > 61 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
+      64 |     await submitBtn.click();
+      65 |
+    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
          |                                                                                                                                                                   ^
-      62 |   });
-      63 | });
-      64 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:61:163
+      67 |   });
+      68 | });
+      69 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\test-failed-1.png
@@ -177,34 +187,8 @@
 </failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\export-excel-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="chromium" tests="2" failures="0" skipped="2" time="0" errors="0">
-<testcase name="Export Excel Flow › should export transaction history to Excel" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-<testcase name="Export Excel Flow › should export only filtered data" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\balance-dashboard-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="firefox" tests="3" failures="0" skipped="0" time="13.672" errors="0">
-<testcase name="Balance Dashboard Flow › should display correct balance metrics" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="6.263">
-</testcase>
-<testcase name="Balance Dashboard Flow › should show warning when expenses exceed threshold" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="4.203">
-</testcase>
-<testcase name="Balance Dashboard Flow › should display balance grid with account details" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="3.206">
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="firefox" tests="2" failures="2" skipped="0" time="35.267" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="12.833">
+<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="firefox" tests="2" failures="2" skipped="0" time="47.507" errors="0">
+<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="25.555">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\test-failed-1.png]]
@@ -219,24 +203,24 @@
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('text=500.000 ₫')
+    Locator: getByTestId('expense-success-alert')
     Expected: visible
-    Timeout: 10000ms
+    Timeout: 15000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 10000ms
-      - waiting for locator('text=500.000 ₫')
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByTestId('expense-success-alert')
 
 
+      35 |     // Use data-testid for success alert
+      36 |     const successAlert = page.getByTestId('expense-success-alert');
+    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
+         |                                ^
+      38 |
       39 |     await page.goto('/accounting/history');
       40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-    > 41 |     await expect(page.locator('text=500.000 ₫')).toBeVisible();
-         |                                                  ^
-      42 |     // Assertion cụ thể kiểm tra format theo chuẩn vi-VN
-      43 |     const amountCell = page.locator('[data-testid="datagrid-cell-amount"]').first();
-      44 |     await expect(amountCell).toHaveText(/500\.000/);
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:41:50
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\test-failed-1.png
@@ -250,7 +234,7 @@
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="22.434">
+<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="21.952">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\test-failed-1.png]]
@@ -275,14 +259,14 @@
       - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
 
 
-      59 |     await submitBtn.click();
-      60 |
-    > 61 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
+      64 |     await submitBtn.click();
+      65 |
+    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
          |                                                                                                                                                                   ^
-      62 |   });
-      63 | });
-      64 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:61:163
+      67 |   });
+      68 | });
+      69 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\test-failed-1.png
@@ -297,34 +281,8 @@
 </failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\export-excel-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="firefox" tests="2" failures="0" skipped="2" time="0" errors="0">
-<testcase name="Export Excel Flow › should export transaction history to Excel" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-<testcase name="Export Excel Flow › should export only filtered data" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\balance-dashboard-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="webkit" tests="3" failures="0" skipped="0" time="11.763" errors="0">
-<testcase name="Balance Dashboard Flow › should display correct balance metrics" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="6.19">
-</testcase>
-<testcase name="Balance Dashboard Flow › should show warning when expenses exceed threshold" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="2.924">
-</testcase>
-<testcase name="Balance Dashboard Flow › should display balance grid with account details" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="2.649">
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="webkit" tests="2" failures="2" skipped="0" time="34.541" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="15.099">
+<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="webkit" tests="2" failures="2" skipped="0" time="53.665" errors="0">
+<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="30.122">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\test-failed-1.png]]
@@ -339,24 +297,24 @@
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('text=500.000 ₫')
+    Locator: getByTestId('expense-success-alert')
     Expected: visible
-    Timeout: 10000ms
+    Timeout: 15000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 10000ms
-      - waiting for locator('text=500.000 ₫')
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByTestId('expense-success-alert')
 
 
+      35 |     // Use data-testid for success alert
+      36 |     const successAlert = page.getByTestId('expense-success-alert');
+    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
+         |                                ^
+      38 |
       39 |     await page.goto('/accounting/history');
       40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-    > 41 |     await expect(page.locator('text=500.000 ₫')).toBeVisible();
-         |                                                  ^
-      42 |     // Assertion cụ thể kiểm tra format theo chuẩn vi-VN
-      43 |     const amountCell = page.locator('[data-testid="datagrid-cell-amount"]').first();
-      44 |     await expect(amountCell).toHaveText(/500\.000/);
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:41:50
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\test-failed-1.png
@@ -370,7 +328,7 @@
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.442">
+<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="23.543">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\test-failed-1.png]]
@@ -395,14 +353,14 @@
       - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
 
 
-      59 |     await submitBtn.click();
-      60 |
-    > 61 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
+      64 |     await submitBtn.click();
+      65 |
+    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
          |                                                                                                                                                                   ^
-      62 |   });
-      63 | });
-      64 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:61:163
+      67 |   });
+      68 | });
+      69 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\test-failed-1.png
@@ -417,34 +375,8 @@
 </failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\export-excel-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="webkit" tests="2" failures="0" skipped="2" time="0" errors="0">
-<testcase name="Export Excel Flow › should export transaction history to Excel" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-<testcase name="Export Excel Flow › should export only filtered data" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\balance-dashboard-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="Mobile Chrome" tests="3" failures="0" skipped="0" time="4.577" errors="0">
-<testcase name="Balance Dashboard Flow › should display correct balance metrics" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.287">
-</testcase>
-<testcase name="Balance Dashboard Flow › should show warning when expenses exceed threshold" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.575">
-</testcase>
-<testcase name="Balance Dashboard Flow › should display balance grid with account details" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.715">
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="Mobile Chrome" tests="2" failures="2" skipped="0" time="30.942" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="13.089">
+<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="Mobile Chrome" tests="2" failures="2" skipped="0" time="35.899" errors="0">
+<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="17.893">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\test-failed-1.png]]
@@ -459,24 +391,24 @@
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('text=500.000 ₫')
+    Locator: getByTestId('expense-success-alert')
     Expected: visible
-    Timeout: 10000ms
+    Timeout: 15000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 10000ms
-      - waiting for locator('text=500.000 ₫')
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByTestId('expense-success-alert')
 
 
+      35 |     // Use data-testid for success alert
+      36 |     const successAlert = page.getByTestId('expense-success-alert');
+    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
+         |                                ^
+      38 |
       39 |     await page.goto('/accounting/history');
       40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-    > 41 |     await expect(page.locator('text=500.000 ₫')).toBeVisible();
-         |                                                  ^
-      42 |     // Assertion cụ thể kiểm tra format theo chuẩn vi-VN
-      43 |     const amountCell = page.locator('[data-testid="datagrid-cell-amount"]').first();
-      44 |     await expect(amountCell).toHaveText(/500\.000/);
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:41:50
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\test-failed-1.png
@@ -490,7 +422,7 @@
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="17.853">
+<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.006">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\test-failed-1.png]]
@@ -515,14 +447,14 @@
       - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
 
 
-      59 |     await submitBtn.click();
-      60 |
-    > 61 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
+      64 |     await submitBtn.click();
+      65 |
+    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
          |                                                                                                                                                                   ^
-      62 |   });
-      63 | });
-      64 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:61:163
+      67 |   });
+      68 | });
+      69 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\test-failed-1.png
@@ -537,34 +469,8 @@
 </failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\export-excel-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="Mobile Chrome" tests="2" failures="0" skipped="2" time="0" errors="0">
-<testcase name="Export Excel Flow › should export transaction history to Excel" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-<testcase name="Export Excel Flow › should export only filtered data" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\balance-dashboard-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="Mobile Safari" tests="3" failures="0" skipped="0" time="5.235" errors="0">
-<testcase name="Balance Dashboard Flow › should display correct balance metrics" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.617">
-</testcase>
-<testcase name="Balance Dashboard Flow › should show warning when expenses exceed threshold" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.728">
-</testcase>
-<testcase name="Balance Dashboard Flow › should display balance grid with account details" classname="e2e-tests\balance-dashboard-flow.spec.ts" time="1.89">
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="Mobile Safari" tests="2" failures="2" skipped="0" time="31.994" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="13.323">
+<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="Mobile Safari" tests="2" failures="2" skipped="0" time="36.618" errors="0">
+<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.379">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\test-failed-1.png]]
@@ -579,24 +485,24 @@
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('text=500.000 ₫')
+    Locator: getByTestId('expense-success-alert')
     Expected: visible
-    Timeout: 10000ms
+    Timeout: 15000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 10000ms
-      - waiting for locator('text=500.000 ₫')
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByTestId('expense-success-alert')
 
 
+      35 |     // Use data-testid for success alert
+      36 |     const successAlert = page.getByTestId('expense-success-alert');
+    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
+         |                                ^
+      38 |
       39 |     await page.goto('/accounting/history');
       40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-    > 41 |     await expect(page.locator('text=500.000 ₫')).toBeVisible();
-         |                                                  ^
-      42 |     // Assertion cụ thể kiểm tra format theo chuẩn vi-VN
-      43 |     const amountCell = page.locator('[data-testid="datagrid-cell-amount"]').first();
-      44 |     await expect(amountCell).toHaveText(/500\.000/);
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:41:50
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\test-failed-1.png
@@ -610,7 +516,7 @@
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.671">
+<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.239">
 <system-out>
 <![CDATA[
 [[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\test-failed-1.png]]
@@ -635,14 +541,14 @@
       - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
 
 
-      59 |     await submitBtn.click();
-      60 |
-    > 61 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
+      64 |     await submitBtn.click();
+      65 |
+    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
          |                                                                                                                                                                   ^
-      62 |   });
-      63 | });
-      64 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:61:163
+      67 |   });
+      68 | });
+      69 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
     reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\test-failed-1.png
@@ -655,24 +561,6 @@
     Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\error-context.md
 ]]>
 </failure>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\export-excel-flow.spec.ts" timestamp="2026-05-31T13:15:15.750Z" hostname="Mobile Safari" tests="2" failures="0" skipped="2" time="0" errors="0">
-<testcase name="Export Excel Flow › should export transaction history to Excel" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
-</testcase>
-<testcase name="Export Excel Flow › should export only filtered data" classname="e2e-tests\export-excel-flow.spec.ts">
-<properties>
-<property name="skip" value="">
-</property>
-</properties>
-<skipped>
-</skipped>
 </testcase>
 </testsuite>
 </testsuites>

@@ -48,8 +48,8 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                await _context.JournalTemplates.AddAsync(template);
-                await _context.SaveChangesAsync();
+                _ = await _context.JournalTemplates.AddAsync(template);
+                _ = await _context.SaveChangesAsync();
                 _logger.LogInformation("Added journal template {Code} for tenant {TenantId}", template.Code, template.TenantId.Value);
             }
             catch (Exception ex)
@@ -63,8 +63,8 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                _context.JournalTemplates.Update(template);
-                await _context.SaveChangesAsync();
+                _ = _context.JournalTemplates.Update(template);
+                _ = await _context.SaveChangesAsync();
                 _logger.LogInformation("Updated journal template {Code} for tenant {TenantId}", template.Code, template.TenantId.Value);
             }
             catch (Exception ex)
@@ -78,8 +78,8 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                _context.JournalTemplates.Remove(template);
-                await _context.SaveChangesAsync();
+                _ = _context.JournalTemplates.Remove(template);
+                _ = await _context.SaveChangesAsync();
                 _logger.LogInformation("Deleted journal template {Code} for tenant {TenantId}", template.Code, template.TenantId.Value);
             }
             catch (Exception ex)

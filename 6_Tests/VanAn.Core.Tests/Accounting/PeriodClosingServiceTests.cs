@@ -31,7 +31,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task ValidatePeriodAsync_WithValidPeriod_ReturnsSuccess()
         {
             PeriodClosingCheckResult expected = new(true, [], []);
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expected);
 
@@ -46,7 +46,7 @@ namespace VanAn.Core.Tests.Accounting
         {
             List<string> errors = ["No accounting entries found for period 2025-12"];
             PeriodClosingCheckResult expected = new(false, errors, []);
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expected);
 
@@ -61,14 +61,14 @@ namespace VanAn.Core.Tests.Accounting
         {
             List<string> errors = ["Debit/Credit totals are unbalanced: Debit=10000, Credit=9500"];
             PeriodClosingCheckResult expected = new(false, errors, []);
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ValidatePeriodAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expected);
 
             PeriodClosingCheckResult result = await _mockService.Object.ValidatePeriodAsync(_period, _tenantId);
 
             Assert.False(result.IsValid);
-            Assert.Single(result.Errors);
+            _ = Assert.Single(result.Errors);
             Assert.Contains("unbalanced", result.Errors[0], StringComparison.OrdinalIgnoreCase);
         }
 
@@ -80,7 +80,7 @@ namespace VanAn.Core.Tests.Accounting
             Guid periodId = Guid.NewGuid();
             DateTime closingDate = DateTime.UtcNow;
             ClosingEntry expected = new(periodId, _period, closingDate, _userId);
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expected);
 
@@ -94,7 +94,7 @@ namespace VanAn.Core.Tests.Accounting
         [Fact]
         public async Task ClosePeriodAsync_WhenInvalid_ThrowsException()
         {
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Period validation failed. Cannot close period with errors."));
 
@@ -107,7 +107,7 @@ namespace VanAn.Core.Tests.Accounting
         [Fact]
         public async Task ClosePeriodAsync_WhenAlreadyClosed_ThrowsException()
         {
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Period 2025-12 is already closed."));
 
@@ -120,7 +120,7 @@ namespace VanAn.Core.Tests.Accounting
         [Fact]
         public async Task ClosePeriodAsync_WhenPeriodHasPendingTransactions_ThrowsException()
         {
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ClosePeriodAsync(_period, _tenantId, _userId, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Cannot close period: 3 pending transactions exist."));
 
@@ -136,7 +136,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task ReopenPeriodAsync_CreatesReversalEntry()
         {
             string reason = "Correction required for Q4 audit";
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
@@ -151,10 +151,10 @@ namespace VanAn.Core.Tests.Accounting
         public async Task ReopenPeriodAsync_WithClosedPeriod_UpdatesStatus()
         {
             string reason = "Audit correction";
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
-            _mockService
+            _ = _mockService
                 .Setup(s => s.GetPeriodStatusAsync(_period, _tenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(PeriodClosingStatus.Open);
 
@@ -168,7 +168,7 @@ namespace VanAn.Core.Tests.Accounting
         public async Task ReopenPeriodAsync_WithOpenPeriod_ThrowsException()
         {
             string reason = "Mistake";
-            _mockService
+            _ = _mockService
                 .Setup(s => s.ReopenPeriodAsync(_period, _tenantId, _userId, reason, It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Cannot reopen period 2025-12: it is not closed."));
 

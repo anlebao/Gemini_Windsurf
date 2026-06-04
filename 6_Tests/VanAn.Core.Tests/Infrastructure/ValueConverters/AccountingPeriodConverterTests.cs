@@ -19,7 +19,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(period);
 
             // Assert
-            result.Should().Be("2024-03");
+            _ = result.Should().Be("2024-03");
         }
 
         [Fact]
@@ -42,9 +42,9 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
         public void Should_Handle_Null_Values()
         {
             // Act & Assert
-            _converter.ConvertToProvider(null).Should().BeNull();
-            _converter.ConvertFromProvider(null).Should().BeNull();
-            _converter.ConvertFromProvider("").Should().BeNull();
+            _ = _converter.ConvertToProvider(null).Should().BeNull();
+            _ = _converter.ConvertFromProvider(null).Should().BeNull();
+            _ = _converter.ConvertFromProvider("").Should().BeNull();
         }
 
         [Fact]
@@ -57,7 +57,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(period);
 
             // Assert
-            result.Should().Be("2024-01");
+            _ = result.Should().Be("2024-01");
         }
 
         [Fact]
@@ -70,7 +70,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(period);
 
             // Assert
-            result.Should().Be("2024-12");
+            _ = result.Should().Be("2024-12");
         }
     }
 }

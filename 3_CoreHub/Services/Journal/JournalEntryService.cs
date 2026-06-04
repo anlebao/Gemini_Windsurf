@@ -84,17 +84,9 @@ namespace VanAn.CoreHub.Services.Journal
         /// </summary>
         public static bool ValidateJournalEntryLine(string accountNumber, decimal debitAmount, decimal creditAmount)
         {
-            if (string.IsNullOrWhiteSpace(accountNumber))
-            {
-                return false;
-            }
-
-            if (!IsValidAccountNumber(accountNumber))
-            {
-                return false;
-            }
-
-            return debitAmount < 0 || creditAmount < 0 ? false : debitAmount <= 0 || creditAmount <= 0;
+            return !string.IsNullOrWhiteSpace(accountNumber)
+&& IsValidAccountNumber(accountNumber)
+&& debitAmount >= 0 && creditAmount >= 0 && (debitAmount <= 0 || creditAmount <= 0);
         }
 
         /// <summary>

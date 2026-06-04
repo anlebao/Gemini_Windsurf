@@ -18,11 +18,11 @@ namespace VanAn.Integration.Tests.Api;
 /// Includes ITestOutputHelper for debugging
 /// NOTE: Temporarily disabled due to Program class visibility issues with top-level statements
 /// </summary>
-public class ShopApiIntegrationTests : HttpIntegrationTestBase, IClassFixture<WebApplicationFactory<Program>>
+public class ShopApiIntegrationTests : HttpIntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     private readonly new VanAnDbContext _dbContext;
 
-    public ShopApiIntegrationTests(WebApplicationFactory<Program> factory, ITestOutputHelper output)
+    public ShopApiIntegrationTests(CustomWebApplicationFactory factory, ITestOutputHelper output)
         : base(factory, output)
     {
         var scope = _factory.Services.CreateScope();

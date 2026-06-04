@@ -188,8 +188,8 @@
             "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
             "System.Text.Json": "[9.0.3, )",
-            "xunit": "[2.7.0, )",
-            "xunit.extensibility.core": "[2.7.0, )",
+            "xunit": "[2.9.0, )",
+            "xunit.extensibility.core": "[2.9.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },
@@ -408,8 +408,8 @@
             "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
             "System.Text.Json": "[9.0.3, )",
-            "xunit": "[2.7.0, )",
-            "xunit.extensibility.core": "[2.7.0, )",
+            "xunit": "[2.9.0, )",
+            "xunit.extensibility.core": "[2.9.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },
@@ -619,8 +619,8 @@
             "System.Data.SQLite": "[1.0.118, )",
             "System.Net.Http.Json": "[8.0.0, )",
             "System.Text.Json": "[9.0.3, )",
-            "xunit": "[2.7.0, )",
-            "xunit.extensibility.core": "[2.7.0, )",
+            "xunit": "[2.9.0, )",
+            "xunit.extensibility.core": "[2.9.0, )",
             "xunit.runner.visualstudio": "[2.5.7, )",
             "Yarp.ReverseProxy": "[2.3.0, )"
           },

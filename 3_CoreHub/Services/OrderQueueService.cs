@@ -23,7 +23,7 @@ namespace VanAn.CoreHub.Services
             {
                 IOrderService orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
 
-                await orderService.CreateOrderAsync(order, order.TenantId.Value);
+                _ = await orderService.CreateOrderAsync(order, order.TenantId.Value);
             });
 
             _logger.LogInformation("Order {OrderId} enqueued for background processing", order.Id);

@@ -12,42 +12,48 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         public void Configure(EntityTypeBuilder<Customer> builder)
         {
             // Primary key
-            builder.HasKey(e => e.Id);
+            _ = builder.HasKey(e => e.Id);
 
             // Property configurations
-            builder.Property(e => e.FullName)
+            _ = builder.Property(e => e.FullName)
                 .IsRequired()
                 .HasMaxLength(200);
 
-            builder.Property(e => e.PhoneNumber)
+            _ = builder.Property(e => e.PhoneNumber)
                 .IsRequired()
                 .HasMaxLength(20);
 
-            builder.Property(e => e.Email)
+            _ = builder.Property(e => e.Email)
                 .HasMaxLength(100);
 
-            builder.Property(e => e.CustomerTier)
+            _ = builder.Property(e => e.CustomerTier)
                 .IsRequired()
                 .HasMaxLength(20);
 
-            builder.Property(e => e.TotalSpent)
+            _ = builder.Property(e => e.TotalSpent)
                 .HasPrecision(18, 2);
 
-            builder.Property(e => e.DeviceId);
+            _ = builder.Property(e => e.DeviceId);
 
             // TenantId converter
-            builder.Property(e => e.TenantId)
+            _ = builder.Property(e => e.TenantId)
                 .IsRequired()
                 .HasConversion(
                     id => id.Value,
                     value => new TenantId(value));
 
             // Soft delete query filter
-            builder.HasQueryFilter(e => !e.IsDeleted);
+            _ = builder.HasQueryFilter(e => !e.IsDeleted);
+
+            // Navigation property: Orders - REMOVED
+            // Relationship configuration moved to OrderConfiguration.cs to avoid duplicate EF Core configuration
+            // OrderConfiguration defines the complete relationship with both navigation properties
+            // (HasOne(o => o.Customer).WithMany(c => c.Orders))
+            // This prevents SQLite schema generation errors ("no such table: Orders")
 
             // Indexes
-            builder.HasIndex(e => e.DeviceId);
-            builder.HasIndex(e => new { e.TenantId, e.DeviceId });
+            _ = builder.HasIndex(e => e.DeviceId);
+            _ = builder.HasIndex(e => new { e.TenantId, e.DeviceId });
         }
     }
 }

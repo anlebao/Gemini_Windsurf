@@ -58,7 +58,7 @@ namespace VanAn.KhachLink.Pages
                 });
             }
 
-            await _socialCampaignService.RecordClickAsync(TrackingCode);
+            _ = await _socialCampaignService.RecordClickAsync(TrackingCode);
 
             // Initialize demo products with campaign pricing using constructor
             TenantId tenantId = new(Guid.NewGuid()); // Demo tenant

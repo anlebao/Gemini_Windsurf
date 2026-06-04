@@ -14,33 +14,33 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         public void Configure(EntityTypeBuilder<CoreAccountingEntry> builder)
         {
             // Primary key
-            builder.HasKey(e => e.Id);
+            _ = builder.HasKey(e => e.Id);
 
             // Property configurations - NO CONVERTERS for SQLite compatibility
             // Store as primitive types, handle conversion in repository/service layer
 
-            builder.Property(e => e.Id)
+            _ = builder.Property(e => e.Id)
                 .ValueGeneratedOnAdd();
 
-            builder.Property(e => e.AccountingBookType)
+            _ = builder.Property(e => e.AccountingBookType)
                 .HasConversion<int>();
 
-            builder.Property(e => e.EntryType)
+            _ = builder.Property(e => e.EntryType)
                 .HasConversion<int>();
 
-            builder.Property(e => e.VatRate)
+            _ = builder.Property(e => e.VatRate)
                 .HasConversion<int>();
 
-            builder.Property(e => e.PeriodYear)
+            _ = builder.Property(e => e.PeriodYear)
                 .HasConversion<int>();
 
-            builder.Property(e => e.PeriodMonth)
+            _ = builder.Property(e => e.PeriodMonth)
                 .HasConversion<int>();
 
-            builder.Property(e => e.Amount)
+            _ = builder.Property(e => e.Amount)
                 .HasPrecision(18, 2);
 
-            builder.Property(e => e.Description)
+            _ = builder.Property(e => e.Description)
                 .IsRequired()
                 .HasMaxLength(500);
 
@@ -55,22 +55,22 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                     c => c.Value.GetHashCode(),
                     c => new TenantId(c.Value)));
 
-            builder.Property(e => e.CreatedAt)
+            _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-            builder.Property(e => e.ReversalEntryId);
+            _ = builder.Property(e => e.ReversalEntryId);
             // Note: ReversalEntryId is already Guid?, no converter needed
 
             // Indexes for performance with 4 HKD Books
-            builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
-            builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });
-            builder.HasIndex(e => e.ReversalEntryId);
+            _ = builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
+            _ = builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });
+            _ = builder.HasIndex(e => e.ReversalEntryId);
 
             // Multi-tenancy query filter - will be set dynamically by VanAnDbContext
             // builder.HasQueryFilter(e => e.TenantId == Guid.Empty);
 
             // Configure ReversalEntry relationship
-            builder.HasOne<CoreAccountingEntry>()
+            _ = builder.HasOne<CoreAccountingEntry>()
                 .WithMany()
                 .HasForeignKey(e => e.ReversalEntryId)
                 .OnDelete(DeleteBehavior.Restrict); // No cascade delete for immutability

@@ -26,7 +26,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             if (_shops.Count == 0)
             {
-                WithShops(1); // Auto-create a shop if none exists
+                _ = WithShops(1); // Auto-create a shop if none exists
             }
 
             for (int i = 1; i <= count; i++)
@@ -52,7 +52,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             if (_orders.Count == 0)
             {
-                WithOrders(4);
+                _ = WithOrders(4);
             }
 
             // Mark 3 out of every 4 orders as synced (75% sync rate)
@@ -77,7 +77,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 context.Orders.RemoveRange(context.Orders);
                 context.Shops.RemoveRange(context.Shops);
                 context.Customers.RemoveRange(context.Customers);
-                await context.SaveChangesAsync();
+                _ = await context.SaveChangesAsync();
 
                 _logger?.LogInformation("[TestDataBuilder] Cleared existing data. Shops: {ShopsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", _shops.Count, _orders.Count, _customers.Count);
 
@@ -85,19 +85,19 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 if (_shops.Count > 0)
                 {
                     await context.Shops.AddRangeAsync(_shops);
-                    await context.SaveChangesAsync();
+                    _ = await context.SaveChangesAsync();
                 }
 
                 if (_customers.Count > 0)
                 {
                     await context.Customers.AddRangeAsync(_customers);
-                    await context.SaveChangesAsync();
+                    _ = await context.SaveChangesAsync();
                 }
 
                 if (_orders.Count > 0)
                 {
                     await context.Orders.AddRangeAsync(_orders);
-                    await context.SaveChangesAsync();
+                    _ = await context.SaveChangesAsync();
                 }
 
                 await transaction.CommitAsync();

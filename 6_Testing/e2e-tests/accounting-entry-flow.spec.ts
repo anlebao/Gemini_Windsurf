@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Accounting Entry Flow', () => {
+  // AUTH_LIFECYCLE_TEST — uses accounting role credentials (accounting@vanan.com), not admin storageState
+  test.use({ storageState: { cookies: [], origins: [] } });
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/login');

@@ -19,18 +19,18 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, description);
 
             // Assert
-            journal.JournalEntryId.Should().NotBeNull();
-            journal.JournalEntryId.Value.Should().NotBeEmpty();
-            journal.TenantId.Should().Be(_tenantId);
-            journal.EntryDate.Should().Be(_testDate);
-            journal.Description.Should().Be(description);
-            journal.Period.Year.Should().Be(_testDate.Year);
-            journal.Period.Month.Should().Be(_testDate.Month);
-            journal.IsReversal.Should().BeFalse();
-            journal.ReversedJournalId.Should().BeNull();
-            journal.Lines.Should().BeEmpty();
-            journal.JournalNo.Should().StartWith("J");
-            journal.JournalNo.Should().Contain(_testDate.ToString("yyyyMMdd"));
+            _ = journal.JournalEntryId.Should().NotBeNull();
+            _ = journal.JournalEntryId.Value.Should().NotBeEmpty();
+            _ = journal.TenantId.Should().Be(_tenantId);
+            _ = journal.EntryDate.Should().Be(_testDate);
+            _ = journal.Description.Should().Be(description);
+            _ = journal.Period.Year.Should().Be(_testDate.Year);
+            _ = journal.Period.Month.Should().Be(_testDate.Month);
+            _ = journal.IsReversal.Should().BeFalse();
+            _ = journal.ReversedJournalId.Should().BeNull();
+            _ = journal.Lines.Should().BeEmpty();
+            _ = journal.JournalNo.Should().StartWith("J");
+            _ = journal.JournalNo.Should().Contain(_testDate.ToString("yyyyMMdd"));
         }
 
         [Fact]
@@ -45,8 +45,8 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, description, referenceType, referenceId);
 
             // Assert
-            journal.ReferenceType.Should().Be(referenceType);
-            journal.ReferenceId.Should().Be(referenceId);
+            _ = journal.ReferenceType.Should().Be(referenceType);
+            _ = journal.ReferenceId.Should().Be(referenceId);
         }
 
         [Fact]
@@ -63,12 +63,12 @@ namespace VanAn.Core.Tests.Accounting
             journal.AddLine(accountNumber, debitAmount, creditAmount, description);
 
             // Assert
-            journal.Lines.Should().HaveCount(1);
+            _ = journal.Lines.Should().HaveCount(1);
             JournalEntryLine line = journal.Lines.First();
-            line.AccountNumber.Should().Be(accountNumber);
-            line.DebitAmount.Should().Be(debitAmount);
-            line.CreditAmount.Should().Be(creditAmount);
-            line.Description.Should().Be(description);
+            _ = line.AccountNumber.Should().Be(accountNumber);
+            _ = line.DebitAmount.Should().Be(debitAmount);
+            _ = line.CreditAmount.Should().Be(creditAmount);
+            _ = line.Description.Should().Be(description);
         }
 
         [Fact]
@@ -82,9 +82,9 @@ namespace VanAn.Core.Tests.Accounting
             journal.AddLine("511", 0m, 1000m, "Credit Line");
 
             // Assert
-            journal.Lines.Should().HaveCount(2);
-            journal.Lines.First().DebitAmount.Should().Be(1000m);
-            journal.Lines.Last().CreditAmount.Should().Be(1000m);
+            _ = journal.Lines.Should().HaveCount(2);
+            _ = journal.Lines.First().DebitAmount.Should().Be(1000m);
+            _ = journal.Lines.Last().CreditAmount.Should().Be(1000m);
         }
 
         [Theory]
@@ -97,7 +97,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, "Test Entry");
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => journal.AddLine("111", debit, credit, "Test"));
+            _ = Assert.Throws<ArgumentException>(() => journal.AddLine("111", debit, credit, "Test"));
         }
 
         [Fact]
@@ -107,7 +107,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, "Test Entry");
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => journal.AddLine("111", 1000m, 500m, "Test"));
+            _ = Assert.Throws<ArgumentException>(() => journal.AddLine("111", 1000m, 500m, "Test"));
         }
 
         [Fact]
@@ -119,7 +119,7 @@ namespace VanAn.Core.Tests.Accounting
 
             // Act & Assert - JournalEntryId should be readonly
             JournalEntryId originalId = journal.JournalEntryId;
-            journal.JournalEntryId.Should().Be(originalId);
+            _ = journal.JournalEntryId.Should().Be(originalId);
 
             // Act & Assert - Lines should be readonly
             IReadOnlyCollection<JournalEntryLine> lines = journal.Lines;
@@ -127,7 +127,7 @@ namespace VanAn.Core.Tests.Accounting
             // Let's test that the original collection hasn't changed
             int originalCount = lines.Count;
             lines.ToList().Add(new JournalEntryLine(journal, "112", 500m, 0m, "Test"));
-            journal.Lines.Count.Should().Be(originalCount); // Original collection unchanged
+            _ = journal.Lines.Count.Should().Be(originalCount); // Original collection unchanged
         }
 
         [Fact]
@@ -138,9 +138,9 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal2 = new(_tenantId, _testDate, "Test 2");
 
             // Act & Assert
-            journal1.JournalNo.Should().NotBe(journal2.JournalNo);
-            journal1.JournalNo.Should().StartWith("J");
-            journal2.JournalNo.Should().StartWith("J");
+            _ = journal1.JournalNo.Should().NotBe(journal2.JournalNo);
+            _ = journal1.JournalNo.Should().StartWith("J");
+            _ = journal2.JournalNo.Should().StartWith("J");
         }
 
         [Fact]
@@ -150,7 +150,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, "");
 
             // Assert
-            journal.Description.Should().Be("");
+            _ = journal.Description.Should().Be("");
         }
 
         [Fact]
@@ -160,8 +160,8 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, "Test", null, null);
 
             // Assert
-            journal.ReferenceType.Should().BeNull();
-            journal.ReferenceId.Should().BeNull();
+            _ = journal.ReferenceType.Should().BeNull();
+            _ = journal.ReferenceId.Should().BeNull();
         }
 
         [Fact]
@@ -176,12 +176,12 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry reversalJournal = originalJournal.CreateReversal("Test reversal");
 
             // Assert - Strong behavior verification
-            reversalJournal.IsReversal.Should().BeTrue();
-            reversalJournal.ReversedJournalId.Should().Be(originalJournal.JournalEntryId);
-            reversalJournal.Lines.Should().HaveCount(2);
-            reversalJournal.Lines.First().DebitAmount.Should().Be(0m); // Swapped
-            reversalJournal.Lines.First().CreditAmount.Should().Be(1000m);
-            reversalJournal.Description.Should().Be("Reversal: Original Entry"); // Production behavior: reason not included in description
+            _ = reversalJournal.IsReversal.Should().BeTrue();
+            _ = reversalJournal.ReversedJournalId.Should().Be(originalJournal.JournalEntryId);
+            _ = reversalJournal.Lines.Should().HaveCount(2);
+            _ = reversalJournal.Lines.First().DebitAmount.Should().Be(0m); // Swapped
+            _ = reversalJournal.Lines.First().CreditAmount.Should().Be(1000m);
+            _ = reversalJournal.Description.Should().Be("Reversal: Original Entry"); // Production behavior: reason not included in description
         }
 
         [Fact]
@@ -192,7 +192,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry reversalJournal = originalJournal.CreateReversal("Test");
 
             // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => reversalJournal.CreateReversal("Double reversal"));
+            _ = Assert.Throws<InvalidOperationException>(() => reversalJournal.CreateReversal("Double reversal"));
         }
 
         [Theory]
@@ -220,7 +220,7 @@ namespace VanAn.Core.Tests.Accounting
             JournalEntry journal = new(_tenantId, _testDate, "Test");
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => journal.AddLine(invalidAccountNumber, 1000m, 0m, "Test"));
+            _ = Assert.Throws<ArgumentException>(() => journal.AddLine(invalidAccountNumber, 1000m, 0m, "Test"));
         }
     }
 }

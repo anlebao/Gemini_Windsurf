@@ -15,7 +15,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         public static void Configure<T>(OwnedNavigationBuilder<T, TenantId> builder)
             where T : class
         {
-            builder.Property(t => t.Value)
+            _ = builder.Property(t => t.Value)
                 .HasColumnName("TenantId")
                 .HasConversion<ValueConverters.TenantIdConverter>();
         }

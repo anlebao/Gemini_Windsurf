@@ -93,7 +93,7 @@ namespace VanAn.ShopERP.Services
                 }
             }
 
-            await context.SaveChangesAsync(cancellationToken);
+            _ = await context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Outbox processing completed: {Processed} processed, {Failed} failed",
                 processedCount, failedCount);

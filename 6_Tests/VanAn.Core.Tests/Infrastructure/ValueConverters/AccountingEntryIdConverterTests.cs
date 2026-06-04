@@ -19,7 +19,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(entryId);
 
             // Assert
-            result.Should().Be(entryId.Value);
+            _ = result.Should().Be(entryId.Value);
         }
 
         [Fact]
@@ -32,10 +32,10 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertFromProvider(guid);
 
             // Assert
-            result.Should().NotBeNull();
+            _ = result.Should().NotBeNull();
             if (result != null)
             {
-                ((AccountingEntryId)result).Value.Should().Be(guid);
+                _ = ((AccountingEntryId)result).Value.Should().Be(guid);
             }
         }
 
@@ -45,8 +45,8 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             // AccountingEntryIdConverter maps AccountingEntryId<->Guid (non-nullable)
             // Guid.Empty maps to an AccountingEntryId with empty value (not null)
             object? emptyEntryId = _converter.ConvertFromProvider(Guid.Empty);
-            emptyEntryId.Should().NotBeNull();
-            ((AccountingEntryId)emptyEntryId!).Value.Should().Be(Guid.Empty);
+            _ = emptyEntryId.Should().NotBeNull();
+            _ = ((AccountingEntryId)emptyEntryId!).Value.Should().Be(Guid.Empty);
         }
     }
 }

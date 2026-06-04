@@ -97,7 +97,7 @@ namespace VanAn.KhachLink.Services
                 foreach (OfflineOrderItemDto offlineItem in offlineItems)
                 {
                     mergedItems.Add(offlineItem);
-                    processedProductIds.Add(offlineItem.ProductId);
+                    _ = processedProductIds.Add(offlineItem.ProductId);
                 }
 
                 // Add server items that aren't in offline
@@ -196,7 +196,7 @@ namespace VanAn.KhachLink.Services
                     UnitPrice = serverItem.UnitPrice,
                     TotalPrice = serverItem.TotalPrice
                 });
-                processedProductIds.Add(serverItem.ProductId.ToString());
+                _ = processedProductIds.Add(serverItem.ProductId.ToString());
             }
 
             // Add offline items that aren't in server

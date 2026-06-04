@@ -51,7 +51,7 @@ namespace VanAn.CoreHub.Services
                 existingLead.CompanyName = ExtractFormDataField(payload.FormData, "company_name");
                 existingLead.UpdatedAt = DateTime.UtcNow;
 
-                await _dbContext.SaveChangesAsync();
+                _ = await _dbContext.SaveChangesAsync();
 
                 // Return existing FacebookLead
                 FacebookLead existingFacebookLead = await _dbContext.FacebookLeads
@@ -101,8 +101,8 @@ namespace VanAn.CoreHub.Services
             facebookLead.IsDeleted = false;
             facebookLead.TenantId = createdLead.TenantId;
 
-            _dbContext.FacebookLeads.Add(facebookLead);
-            await _dbContext.SaveChangesAsync();
+            _ = _dbContext.FacebookLeads.Add(facebookLead);
+            _ = await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("New Facebook lead created successfully with ID {LeadId}", facebookLead.Id);
             return facebookLead;

@@ -43,6 +43,9 @@ Call log:
     - listitem:
       - link "account-balanceSố Dư Tài Khoản":
         - /url: /accounting/balance
+    - listitem:
+      - link "lockĐóng Sổ Kỳ":
+        - /url: /accounting/period-closing
 - main:
   - heading "Nhập Chi Phí" [level=1]
   - button "← Quay Lại" [disabled]

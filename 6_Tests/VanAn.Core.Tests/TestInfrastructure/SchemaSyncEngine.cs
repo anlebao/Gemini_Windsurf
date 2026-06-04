@@ -17,7 +17,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 if (context.Database.IsSqlite())
                 {
                     _logger?.LogInformation("Creating schema using EnsureCreatedAsync for SQLite");
-                    await context.Database.EnsureCreatedAsync();
+                    _ = await context.Database.EnsureCreatedAsync();
                     _logger?.LogInformation("Schema creation completed successfully");
                 }
                 else
@@ -53,16 +53,16 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 _logger?.LogInformation("Resetting database schema");
 
                 // Delete and recreate database
-                await context.Database.EnsureDeletedAsync();
-                await context.Database.EnsureCreatedAsync();
+                _ = await context.Database.EnsureDeletedAsync();
+                _ = await context.Database.EnsureCreatedAsync();
 
                 // Apply migrations
-                await EnsureSchemaAsync(context);
+                _ = await EnsureSchemaAsync(context);
 
                 // CRITICAL: Disable foreign keys for test isolation
                 if (context.Database.IsSqlite())
                 {
-                    context.Database.ExecuteSqlRaw("PRAGMA foreign_keys = OFF;");
+                    _ = context.Database.ExecuteSqlRaw("PRAGMA foreign_keys = OFF;");
                 }
 
                 _logger?.LogInformation("Database reset and schema sync completed");

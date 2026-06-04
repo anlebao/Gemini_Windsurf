@@ -109,7 +109,7 @@ namespace VanAn.CoreHub.Services
             IEnumerable<AccountingEntry> entries = await _entryRepository.GetByTenantAndPeriodAsync(tenantId, period, cancellationToken);
             foreach (AccountingEntry entry in entries)
             {
-                await _reversalService.CreateReversalEntryAsync(
+                _ = await _reversalService.CreateReversalEntryAsync(
                     new AccountingEntryId(entry.Id),
                     tenantId,
                     $"Period reopening: {reason}",

@@ -89,29 +89,29 @@ namespace VanAn.CoreHub.Services.Journal
         public string GetDetailedReport()
         {
             System.Text.StringBuilder report = new();
-            report.AppendLine($"=== Rule Execution Report ===");
-            report.AppendLine($"Template: {JournalTemplateCode}");
-            report.AppendLine($"Tenant: {TenantId.Value}");
-            report.AppendLine($"Total Steps: {_executionSteps.Count}");
-            report.AppendLine($"Success: {_executionSteps.Count(step => step.IsSuccess)}");
-            report.AppendLine($"Failures: {_executionSteps.Count(step => !step.IsSuccess)}");
-            report.AppendLine($"Total Time: {_stopwatch.ElapsedMilliseconds}ms");
-            report.AppendLine($"Execution Time: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
-            report.AppendLine();
+            _ = report.AppendLine($"=== Rule Execution Report ===");
+            _ = report.AppendLine($"Template: {JournalTemplateCode}");
+            _ = report.AppendLine($"Tenant: {TenantId.Value}");
+            _ = report.AppendLine($"Total Steps: {_executionSteps.Count}");
+            _ = report.AppendLine($"Success: {_executionSteps.Count(step => step.IsSuccess)}");
+            _ = report.AppendLine($"Failures: {_executionSteps.Count(step => !step.IsSuccess)}");
+            _ = report.AppendLine($"Total Time: {_stopwatch.ElapsedMilliseconds}ms");
+            _ = report.AppendLine($"Execution Time: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
+            _ = report.AppendLine();
 
             foreach (RuleExecutionStep step in _executionSteps)
             {
-                report.AppendLine($"[{step.Timestamp:HH:mm:ss.fff}] {step.RuleName}");
-                report.AppendLine($"  Description: {step.Description}");
-                report.AppendLine($"  Success: {step.IsSuccess}");
-                report.AppendLine($"  Execution Time: {step.ExecutionTime.TotalMilliseconds:F2}ms");
+                _ = report.AppendLine($"[{step.Timestamp:HH:mm:ss.fff}] {step.RuleName}");
+                _ = report.AppendLine($"  Description: {step.Description}");
+                _ = report.AppendLine($"  Success: {step.IsSuccess}");
+                _ = report.AppendLine($"  Execution Time: {step.ExecutionTime.TotalMilliseconds:F2}ms");
 
                 if (!string.IsNullOrWhiteSpace(step.ErrorMessage))
                 {
-                    report.AppendLine($"  Error: {step.ErrorMessage}");
+                    _ = report.AppendLine($"  Error: {step.ErrorMessage}");
                 }
 
-                report.AppendLine();
+                _ = report.AppendLine();
             }
 
             return report.ToString();

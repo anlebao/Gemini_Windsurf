@@ -57,44 +57,44 @@ namespace VanAn.CoreHub.Infrastructure
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
             // All converters now use separate classes for consistency
 
-            configurationBuilder.Properties<TenantId>()
+            _ = configurationBuilder.Properties<TenantId>()
                 .HaveConversion<TenantIdConverter>();
 
-            configurationBuilder.Properties<AccountingBookType>()
+            _ = configurationBuilder.Properties<AccountingBookType>()
                 .HaveConversion<AccountingBookTypeConverter>();
 
             // Keep existing converters for other entities (not AccountingEntry)
-            configurationBuilder.Properties<LeadId>()
+            _ = configurationBuilder.Properties<LeadId>()
                 .HaveConversion<LeadIdConverter>();
 
-            configurationBuilder.Properties<CustomerId>()
+            _ = configurationBuilder.Properties<CustomerId>()
                 .HaveConversion<CustomerIdConverter>();
 
-            configurationBuilder.Properties<ProductId>()
+            _ = configurationBuilder.Properties<ProductId>()
                 .HaveConversion<ProductIdConverter>();
 
-            configurationBuilder.Properties<IngredientId>()
+            _ = configurationBuilder.Properties<IngredientId>()
                 .HaveConversion<IngredientIdConverter>();
 
-            configurationBuilder.Properties<RecipeId>()
+            _ = configurationBuilder.Properties<RecipeId>()
                 .HaveConversion<RecipeIdConverter>();
 
-            configurationBuilder.Properties<InventoryId>()
+            _ = configurationBuilder.Properties<InventoryId>()
                 .HaveConversion<InventoryIdConverter>();
 
-            configurationBuilder.Properties<OrderId>()
+            _ = configurationBuilder.Properties<OrderId>()
                 .HaveConversion<OrderIdConverter>();
 
-            configurationBuilder.Properties<OrderStatusId>()
+            _ = configurationBuilder.Properties<OrderStatusId>()
                 .HaveConversion<OrderStatusIdConverter>();
 
-            configurationBuilder.Properties<ShopId>()
+            _ = configurationBuilder.Properties<ShopId>()
                 .HaveConversion<ShopIdConverter>();
 
-            configurationBuilder.Properties<OrderItemId>()
+            _ = configurationBuilder.Properties<OrderItemId>()
                 .HaveConversion<OrderItemIdConverter>();
 
-            configurationBuilder.Properties<JournalEntryId>()
+            _ = configurationBuilder.Properties<JournalEntryId>()
                 .HaveConversion<JournalEntryIdConverter>();
         }
 
@@ -105,140 +105,140 @@ namespace VanAn.CoreHub.Infrastructure
             // === GLOBAL IGNORES ===
             // AccountingPeriod is a value object (record) used as computed property
             // It should never be mapped as a separate entity
-            modelBuilder.Ignore<AccountingPeriod>();
+            _ = modelBuilder.Ignore<AccountingPeriod>();
 
             // HKDBook is an abstract base class for dynamic report generation
             // It's not meant to be persisted as an entity
-            modelBuilder.Ignore<HKDBook>();
-            modelBuilder.Ignore<GenericHKDBook>();
+            _ = modelBuilder.Ignore<HKDBook>();
+            _ = modelBuilder.Ignore<GenericHKDBook>();
 
             // === AUTO-DISCOVER ALL CONFIGURATIONS ===
             // Architect++: Use auto-discovery instead of manual registration
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(VanAnDbContext).Assembly);
+            _ = modelBuilder.ApplyConfigurationsFromAssembly(typeof(VanAnDbContext).Assembly);
 
             // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation
             // ApplyMultiTenancyFilters(modelBuilder);
 
             // Configure Product entity
-            modelBuilder.Entity<Product>(entity =>
+            _ = modelBuilder.Entity<Product>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Description).HasMaxLength(500);
-                entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.Price).HasPrecision(18, 2);
-                entity.Property(e => e.VatRate).HasPrecision(5, 4); // 0.0000 to 1.0000
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.Description).HasMaxLength(500);
+                _ = entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
+                _ = entity.Property(e => e.Price).HasPrecision(18, 2);
+                _ = entity.Property(e => e.VatRate).HasPrecision(5, 4); // 0.0000 to 1.0000
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // Configure Ingredient entity
-            modelBuilder.Entity<Ingredient>(entity =>
+            _ = modelBuilder.Entity<Ingredient>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Unit).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.PricePerUnit).HasPrecision(18, 2);
-                entity.Property(e => e.CurrentStock).HasPrecision(18, 4);
-                entity.Property(e => e.MinStockThreshold).HasPrecision(18, 4);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.Unit).IsRequired().HasMaxLength(20);
+                _ = entity.Property(e => e.PricePerUnit).HasPrecision(18, 2);
+                _ = entity.Property(e => e.CurrentStock).HasPrecision(18, 4);
+                _ = entity.Property(e => e.MinStockThreshold).HasPrecision(18, 4);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // Configure Recipe entity
-            modelBuilder.Entity<Recipe>(entity =>
+            _ = modelBuilder.Entity<Recipe>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.QuantityNeeded).HasPrecision(18, 4);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.QuantityNeeded).HasPrecision(18, 4);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // Configure Inventory entity
-            modelBuilder.Entity<Inventory>(entity =>
+            _ = modelBuilder.Entity<Inventory>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Quantity).HasPrecision(18, 4);
-                entity.Property(e => e.LastUpdated).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Quantity).HasPrecision(18, 4);
+                _ = entity.Property(e => e.LastUpdated).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // Order entity is configured in OrderConfiguration.cs (OwnsOne for CustomerInfo, HasKey for OrderId)
 
             // Configure Customer entity
-            modelBuilder.Entity<Customer>(entity =>
+            _ = modelBuilder.Entity<Customer>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.PhoneNumber).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.Email).HasMaxLength(100);
-                entity.Property(e => e.CustomerTier).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.TotalSpent).HasPrecision(18, 2);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.PhoneNumber).IsRequired().HasMaxLength(20);
+                _ = entity.Property(e => e.Email).HasMaxLength(100);
+                _ = entity.Property(e => e.CustomerTier).IsRequired().HasMaxLength(20);
+                _ = entity.Property(e => e.TotalSpent).HasPrecision(18, 2);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // Configure OrderItem entity
-            modelBuilder.Entity<OrderItem>(entity =>
+            _ = modelBuilder.Entity<OrderItem>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Quantity);
-                entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
-                entity.Property(e => e.VatRate).HasPrecision(5, 4);
-                entity.Property(e => e.Notes).HasMaxLength(500);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Quantity);
+                _ = entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
+                _ = entity.Property(e => e.VatRate).HasPrecision(5, 4);
+                _ = entity.Property(e => e.Notes).HasMaxLength(500);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                 // Navigation properties
-                entity.HasOne(e => e.Order)
+                _ = entity.HasOne(e => e.Order)
                       .WithMany(o => o.Items)
                       .HasForeignKey(e => e.OrderId)
                       .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasOne(e => e.Product)
+                _ = entity.HasOne(e => e.Product)
                       .WithMany()
                       .HasForeignKey(e => e.ProductId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configure Shop entity
-            modelBuilder.Entity<Shop>(entity =>
+            _ = modelBuilder.Entity<Shop>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Address).HasMaxLength(500);
-                entity.Property(e => e.Phone).HasMaxLength(20);
-                entity.Property(e => e.Email).HasMaxLength(100);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.Address).HasMaxLength(500);
+                _ = entity.Property(e => e.Phone).HasMaxLength(20);
+                _ = entity.Property(e => e.Email).HasMaxLength(100);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             });
 
             // Configure DemoUser entity
-            modelBuilder.Entity<DemoUser>(entity =>
+            _ = modelBuilder.Entity<DemoUser>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
-                entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+                _ = entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
+                _ = entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // 🛡️ PHASE 2: Configure SocialCampaign entity
-            modelBuilder.Entity<SocialCampaign>(entity =>
+            _ = modelBuilder.Entity<SocialCampaign>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.UtmSource).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.CampaignName).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.TrackingCode).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.UtmSource).IsRequired().HasMaxLength(100);
+                _ = entity.Property(e => e.CampaignName).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.TrackingCode).IsRequired().HasMaxLength(50);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                 // Navigation properties
-                entity.HasOne(e => e.Shop)
+                _ = entity.HasOne(e => e.Shop)
                       .WithMany(s => s.SocialCampaigns)
                       .HasForeignKey(e => e.ShopId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
             // 🛡️ PHASE 2: Configure LoyaltyRewards entity
-            modelBuilder.Entity<LoyaltyRewards>(entity =>
+            _ = modelBuilder.Entity<LoyaltyRewards>(entity =>
             {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.History).HasMaxLength(2000);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.History).HasMaxLength(2000);
+                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             });
 
@@ -286,7 +286,7 @@ namespace VanAn.CoreHub.Infrastructure
                     // Use non-generic overload that infers delegate type automatically
                     System.Linq.Expressions.LambdaExpression lambda = System.Linq.Expressions.Expression.Lambda(filter, parameter);
 
-                    modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
+                    _ = modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
                 }
                 catch (Exception ex)
                 {

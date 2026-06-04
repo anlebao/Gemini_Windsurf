@@ -50,15 +50,15 @@ namespace VanAn.Core.Tests.Services
             // Arrange
             Order order = TestEntityBuilder.CreateOrder(_testTenantId, 100.00m);
 
-            _mockOrderRepository.Setup(x => x.AddAsync(order, It.IsAny<CancellationToken>()))
+            _ = _mockOrderRepository.Setup(x => x.AddAsync(order, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(order);
 
             // Act
             Order result = await _orderService.CreateOrderAsync(order, _testTenantId.Value);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().Be(order);
+            _ = result.Should().NotBeNull();
+            _ = result.Should().Be(order);
             _mockOrderRepository.Verify(x => x.AddAsync(order, It.IsAny<CancellationToken>()), Times.Once);
         }
 
@@ -69,14 +69,14 @@ namespace VanAn.Core.Tests.Services
             DateTime today = DateTime.UtcNow.Date;
             DateTime tomorrow = today.AddDays(1);
 
-            _mockOrderRepository.Setup(x => x.GetCountByDateRangeAsync(_testTenantId, today, tomorrow, It.IsAny<CancellationToken>()))
+            _ = _mockOrderRepository.Setup(x => x.GetCountByDateRangeAsync(_testTenantId, today, tomorrow, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(3);
 
             // Act
             int result = await _orderService.GetTodayOrderCountAsync(_testTenantId.Value);
 
             // Assert
-            result.Should().Be(3);
+            _ = result.Should().Be(3);
             _mockOrderRepository.Verify(x => x.GetCountByDateRangeAsync(_testTenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
         }
 
@@ -87,15 +87,15 @@ namespace VanAn.Core.Tests.Services
             OrderId orderId = new(Guid.NewGuid());
             Order expectedOrder = TestEntityBuilder.CreateOrder(_testTenantId, 150.00m);
 
-            _mockOrderRepository.Setup(x => x.GetByIdAsync(orderId, _testTenantId, It.IsAny<CancellationToken>()))
+            _ = _mockOrderRepository.Setup(x => x.GetByIdAsync(orderId, _testTenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedOrder);
 
             // Act
             Order? result = await _orderService.GetOrderByIdAsync(orderId.Value, _testTenantId.Value);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().Be(expectedOrder);
+            _ = result.Should().NotBeNull();
+            _ = result.Should().Be(expectedOrder);
             _mockOrderRepository.Verify(x => x.GetByIdAsync(orderId, _testTenantId, It.IsAny<CancellationToken>()), Times.Once);
         }
 
@@ -111,15 +111,15 @@ namespace VanAn.Core.Tests.Services
                 TestEntityBuilder.CreateOrder(_testTenantId, 200.00m)
             ];
 
-            _mockOrderRepository.Setup(x => x.GetByDateRangeAsync(_testTenantId, startDate, endDate, It.IsAny<CancellationToken>()))
+            _ = _mockOrderRepository.Setup(x => x.GetByDateRangeAsync(_testTenantId, startDate, endDate, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedOrders);
 
             // Act
             IEnumerable<Order> result = await _orderService.GetOrdersByDateRangeAsync(_testTenantId.Value, startDate, endDate);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
+            _ = result.Should().NotBeNull();
+            _ = result.Should().HaveCount(2);
             _mockOrderRepository.Verify(x => x.GetByDateRangeAsync(_testTenantId, startDate, endDate, It.IsAny<CancellationToken>()), Times.Once);
         }
 
@@ -131,16 +131,16 @@ namespace VanAn.Core.Tests.Services
             string newStatus = "Completed";
             Order existingOrder = TestEntityBuilder.CreateOrder(_testTenantId, 100.00m);
 
-            _mockOrderRepository.Setup(x => x.GetByIdAsync(orderId, _testTenantId, It.IsAny<CancellationToken>()))
+            _ = _mockOrderRepository.Setup(x => x.GetByIdAsync(orderId, _testTenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(existingOrder);
-            _mockOrderRepository.Setup(x => x.UpdateAsync(existingOrder, It.IsAny<CancellationToken>()))
+            _ = _mockOrderRepository.Setup(x => x.UpdateAsync(existingOrder, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(existingOrder);
 
             // Act
             bool result = await _orderService.UpdateOrderStatusAsync(orderId.Value, newStatus, _testTenantId.Value);
 
             // Assert
-            result.Should().BeTrue();
+            _ = result.Should().BeTrue();
             _mockOrderRepository.Verify(x => x.GetByIdAsync(orderId, _testTenantId, It.IsAny<CancellationToken>()), Times.Once);
             _mockOrderRepository.Verify(x => x.UpdateAsync(existingOrder, It.IsAny<CancellationToken>()), Times.Once);
         }
@@ -166,7 +166,7 @@ namespace VanAn.Core.Tests.Services
                 ]
             };
 
-            _mockOrderRepository
+            _ = _mockOrderRepository
                 .Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Order o, CancellationToken _) => o);
 
@@ -174,9 +174,9 @@ namespace VanAn.Core.Tests.Services
             Order result = await _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value);
 
             // Assert
-            result.Should().NotBeNull();
-            result.TenantId.Value.Should().Be(_testTenantId.Value);
-            result.Items.Should().HaveCount(2);
+            _ = result.Should().NotBeNull();
+            _ = result.TenantId.Value.Should().Be(_testTenantId.Value);
+            _ = result.Items.Should().HaveCount(2);
             _mockOrderRepository.Verify(
                 x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -201,7 +201,7 @@ namespace VanAn.Core.Tests.Services
             bool result = await _orderService.IsTransitionValidAsync(current, target);
 
             // Assert
-            result.Should().Be(expectedValid);
+            _ = result.Should().Be(expectedValid);
         }
 
         [Fact]
@@ -214,7 +214,7 @@ namespace VanAn.Core.Tests.Services
                 TestEntityBuilder.CreateOrder(_testTenantId, 100.00m),
                 TestEntityBuilder.CreateOrder(_testTenantId, 200.00m)
             ];
-            _mockOrderRepository
+            _ = _mockOrderRepository
                 .Setup(x => x.GetByStatusAsync(_testTenantId, status.Value, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(orders);
 
@@ -222,8 +222,8 @@ namespace VanAn.Core.Tests.Services
             List<Order> result = await _orderService.GetOrdersByStatusAsync(status, _testTenantId.Value);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
+            _ = result.Should().NotBeNull();
+            _ = result.Should().HaveCount(2);
             _mockOrderRepository.Verify(
                 x => x.GetByStatusAsync(_testTenantId, status.Value, It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -235,7 +235,7 @@ namespace VanAn.Core.Tests.Services
             // Arrange
             Guid orderId = Guid.NewGuid();
             Order order = TestEntityBuilder.CreateOrder(_testTenantId, 75.0m);
-            _mockOrderRepository
+            _ = _mockOrderRepository
                 .Setup(x => x.GetByIdWithIncludesAsync(orderId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(order);
 
@@ -243,10 +243,10 @@ namespace VanAn.Core.Tests.Services
             OrderSummary result = await _orderService.GetOrderSummaryAsync(orderId, _testTenantId.Value);
 
             // Assert
-            result.Should().NotBeNull();
-            result.OrderId.Should().Be(order.Id);
-            result.TotalAmount.Should().Be(order.TotalPrice);
-            result.ItemCount.Should().Be(order.Items.Count);
+            _ = result.Should().NotBeNull();
+            _ = result.OrderId.Should().Be(order.Id);
+            _ = result.TotalAmount.Should().Be(order.TotalPrice);
+            _ = result.ItemCount.Should().Be(order.Items.Count);
         }
 
         [Fact]
@@ -254,7 +254,7 @@ namespace VanAn.Core.Tests.Services
         {
             // Arrange
             Guid orderId = Guid.NewGuid();
-            _mockOrderRepository
+            _ = _mockOrderRepository
                 .Setup(x => x.GetByIdWithIncludesAsync(orderId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Order?)null);
 
@@ -262,9 +262,9 @@ namespace VanAn.Core.Tests.Services
             OrderSummary result = await _orderService.GetOrderSummaryAsync(orderId, _testTenantId.Value);
 
             // Assert
-            result.Should().NotBeNull();
-            result.OrderId.Should().Be(Guid.Empty);
-            result.Items.Should().BeEmpty();
+            _ = result.Should().NotBeNull();
+            _ = result.OrderId.Should().Be(Guid.Empty);
+            _ = result.Items.Should().BeEmpty();
         }
 
         [Fact]
@@ -278,7 +278,7 @@ namespace VanAn.Core.Tests.Services
                 _testTenantId, AccountingEntryType.Expense, new Money(50m));
             List<AccountingEntry> allEntries = [matchingEntry, otherEntry];
 
-            _mockAccountingEntryRepository
+            _ = _mockAccountingEntryRepository
                 .Setup(x => x.GetByTenantAsync(_testTenantId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(allEntries);
 
@@ -286,7 +286,7 @@ namespace VanAn.Core.Tests.Services
             List<AccountingEntry> result = await _orderService.GetEntriesByOrderAsync(orderId, _testTenantId);
 
             // Assert
-            result.Should().NotBeNull();
+            _ = result.Should().NotBeNull();
             // Filtering is by AccountingEntryId match — verify repository was queried
             _mockAccountingEntryRepository.Verify(
                 x => x.GetByTenantAsync(_testTenantId, It.IsAny<CancellationToken>()),

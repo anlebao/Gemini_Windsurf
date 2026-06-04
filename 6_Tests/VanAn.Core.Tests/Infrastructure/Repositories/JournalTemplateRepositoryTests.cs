@@ -42,17 +42,17 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
             // Arrange
             JournalTemplate template = TestEntityBuilder.CreateJournalTemplate(_testTenantId, "SALES_TEMPLATE", "Sales journal template");
 
-            await _context.JournalTemplates.AddAsync(template);
-            await _context.SaveChangesAsync();
+            _ = await _context.JournalTemplates.AddAsync(template);
+            _ = await _context.SaveChangesAsync();
 
             // Act
             JournalTemplate? result = await _repository.GetByCodeAsync(_testTenantId, "SALES_TEMPLATE");
 
             // Assert
-            result.Should().NotBeNull();
-            result!.Code.Should().Be("SALES_TEMPLATE");
-            result.Description.Should().Be("Sales journal template");
-            result.TenantId.Should().Be(_testTenantId);
+            _ = result.Should().NotBeNull();
+            _ = result!.Code.Should().Be("SALES_TEMPLATE");
+            _ = result.Description.Should().Be("Sales journal template");
+            _ = result.TenantId.Should().Be(_testTenantId);
         }
 
         [Fact]
@@ -62,7 +62,7 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
             JournalTemplate? result = await _repository.GetByCodeAsync(_testTenantId, "NONEXISTENT");
 
             // Assert
-            result.Should().BeNull();
+            _ = result.Should().BeNull();
         }
 
         [Fact]
@@ -77,17 +77,17 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
             JournalTemplate template3 = TestEntityBuilder.CreateJournalTemplate(tenant2, "TEMPLATE_3", "Template 3");
 
             await _context.JournalTemplates.AddRangeAsync([template1, template2, template3]);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Act
             IEnumerable<JournalTemplate> results = await _repository.GetByTenantAsync(tenant1);
 
             // Assert
-            results.Should().HaveCount(2);
-            results.Should().OnlyContain(t => t.TenantId.Equals(tenant1));
-            results.Should().Contain(t => t.Code == "TEMPLATE_1");
-            results.Should().Contain(t => t.Code == "TEMPLATE_2");
-            results.Should().NotContain(t => t.Code == "TEMPLATE_3");
+            _ = results.Should().HaveCount(2);
+            _ = results.Should().OnlyContain(t => t.TenantId.Equals(tenant1));
+            _ = results.Should().Contain(t => t.Code == "TEMPLATE_1");
+            _ = results.Should().Contain(t => t.Code == "TEMPLATE_2");
+            _ = results.Should().NotContain(t => t.Code == "TEMPLATE_3");
         }
 
         [Fact]
@@ -101,10 +101,10 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
 
             // Assert
             JournalTemplate? savedTemplate = await _context.JournalTemplates.FindAsync(template.Id);
-            savedTemplate.Should().NotBeNull();
-            savedTemplate!.Code.Should().Be("NEW_TEMPLATE");
-            savedTemplate.Description.Should().Be("New template");
-            savedTemplate.TenantId.Should().Be(_testTenantId);
+            _ = savedTemplate.Should().NotBeNull();
+            _ = savedTemplate!.Code.Should().Be("NEW_TEMPLATE");
+            _ = savedTemplate.Description.Should().Be("New template");
+            _ = savedTemplate.TenantId.Should().Be(_testTenantId);
         }
 
         [Fact]
@@ -113,14 +113,14 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
             // Arrange
             JournalTemplate template = TestEntityBuilder.CreateJournalTemplate(_testTenantId, "UPDATE_TEMPLATE", "Original description");
 
-            await _context.JournalTemplates.AddAsync(template);
-            await _context.SaveChangesAsync();
+            _ = await _context.JournalTemplates.AddAsync(template);
+            _ = await _context.SaveChangesAsync();
 
             // Act
             // Fetch the tracked entity - JournalTemplate has immutable properties, so we verify
             // that UpdateAsync correctly marks the entity as modified in EF Core change tracker
             JournalTemplate? trackedTemplate = await _context.JournalTemplates.FindAsync(template.Id);
-            trackedTemplate.Should().NotBeNull();
+            _ = trackedTemplate.Should().NotBeNull();
 
             // Detach to simulate fetching from another context
             _context.Entry(trackedTemplate!).State = EntityState.Detached;
@@ -130,7 +130,7 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
 
             // Assert
             Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<JournalTemplate> entry = _context.Entry(trackedTemplate!);
-            entry.State.Should().Be(EntityState.Unchanged); // UpdateAsync saves changes, so entity is now Unchanged
+            _ = entry.State.Should().Be(EntityState.Unchanged); // UpdateAsync saves changes, so entity is now Unchanged
         }
 
         [Fact]
@@ -139,15 +139,15 @@ namespace VanAn.Core.Tests.Infrastructure.Repositories
             // Arrange
             JournalTemplate template = TestEntityBuilder.CreateJournalTemplate(_testTenantId, "DELETE_TEMPLATE", "Template to delete");
 
-            await _context.JournalTemplates.AddAsync(template);
-            await _context.SaveChangesAsync();
+            _ = await _context.JournalTemplates.AddAsync(template);
+            _ = await _context.SaveChangesAsync();
 
             // Act
             await _repository.DeleteAsync(template);
 
             // Assert
             JournalTemplate? deletedTemplate = await _context.JournalTemplates.FindAsync(template.Id);
-            deletedTemplate.Should().BeNull();
+            _ = deletedTemplate.Should().BeNull();
         }
     }
 }

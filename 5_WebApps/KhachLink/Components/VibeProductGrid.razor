@@ -7,7 +7,7 @@
 @using System.Globalization
 
 <VanAnCard CssClass="product-grid-container" Shadow="false">
-    <div class="container">
+    <div class="container" data-testid="product-grid">
         <h2 class="section-title text-center mb-4">🍹 Thực đơn đặc sắc</h2>
         
         @if (ShopConfig?.ActiveTheme != null)
@@ -35,6 +35,7 @@
                                             <VanAnButton Variant="ButtonVariant.Primary" 
                                                        Size="ButtonSize.Medium"
                                                        FullWidth="true"
+                                                       data-testid="add-to-cart-btn"
                                                        OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 ADD TO CART
                                             </VanAnButton>
@@ -62,6 +63,7 @@
                                             <span class="lady-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
                                             <VanAnButton Variant="ButtonVariant.Secondary" 
                                                        Size="ButtonSize.Small"
+                                                       data-testid="add-to-cart-btn"
                                                        OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 Thêm vào giỏ
                                             </VanAnButton>
@@ -88,6 +90,7 @@
                                             </div>
                                             <VanAnButton Variant="ButtonVariant.Primary" 
                                                        Size="ButtonSize.Small"
+                                                       data-testid="add-to-cart-btn"
                                                        OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
                                                 Đặt hàng
                                             </VanAnButton>

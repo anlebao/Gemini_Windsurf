@@ -57,7 +57,7 @@ namespace VanAn.ShopERP.Infrastructure
             ILogger? logger = null,
             int maxRetries = MaxRetries)
         {
-            await ExecuteWithRetryAsync(async () =>
+            _ = await ExecuteWithRetryAsync(async () =>
             {
                 await operation();
                 return true;

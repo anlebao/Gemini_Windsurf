@@ -34,7 +34,7 @@ namespace VanAn.Core.Tests.Accounting
 
             Assert.True(result.IsValid);
             Assert.Empty(result.Errors);
-            Assert.Single(result.Warnings);
+            _ = Assert.Single(result.Warnings);
             Assert.Equal("No entries found for sub-account 112", result.Warnings[0]);
         }
 

@@ -610,7 +610,7 @@ namespace VanAn.CoreHub.Services
 
                 // Remove resolved conflict
                 List<RealTimeSyncConflict> shopConflicts = _conflicts[conflict.ShopId];
-                shopConflicts.Remove(conflict);
+                _ = shopConflicts.Remove(conflict);
 
                 ConflictResolutionResult result = new()
                 {
@@ -733,7 +733,7 @@ namespace VanAn.CoreHub.Services
                     List<Subscription> deviceSubscriptions = shopSubscriptions.Where(s => s.DeviceId == deviceId).ToList();
                     foreach (Subscription? subscription in deviceSubscriptions)
                     {
-                        shopSubscriptions.Remove(subscription);
+                        _ = shopSubscriptions.Remove(subscription);
                         removedSubscriptions.Add(subscription.SubscriptionType);
                     }
                 }

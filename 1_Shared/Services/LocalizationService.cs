@@ -169,7 +169,7 @@ namespace VanAn.Shared.Services
                     _resources[culture] = flattened;
 
                     // Cache for 1 hour
-                    _cache.Set(cacheKey, flattened, TimeSpan.FromHours(1));
+                    _ = _cache.Set(cacheKey, flattened, TimeSpan.FromHours(1));
 
                     LogLocalizationLoaded(flattened.Count, culture);
                 }

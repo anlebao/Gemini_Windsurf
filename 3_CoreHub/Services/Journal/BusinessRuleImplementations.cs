@@ -146,27 +146,15 @@ namespace VanAn.CoreHub.Services.Journal
         private static decimal CalculatePIT(decimal monthlyIncome)
         {
             // Simplified PIT calculation - progressive rates
-            if (monthlyIncome <= 5000000)
-            {
-                return 0;
-            }
-
-            if (monthlyIncome <= 10000000)
-            {
-                return monthlyIncome * 0.05m;
-            }
-
-            if (monthlyIncome <= 18000000)
-            {
-                return monthlyIncome * 0.10m;
-            }
-
-            if (monthlyIncome <= 32000000)
-            {
-                return monthlyIncome * 0.15m;
-            }
-
-            return monthlyIncome <= 52000000 ? monthlyIncome * 0.20m : monthlyIncome <= 80000000 ? monthlyIncome * 0.25m : monthlyIncome * 0.30m;
+            return monthlyIncome <= 5000000
+                ? 0
+                : monthlyIncome <= 10000000
+                ? monthlyIncome * 0.05m
+                : monthlyIncome <= 18000000
+                ? monthlyIncome * 0.10m
+                : monthlyIncome <= 32000000
+                ? monthlyIncome * 0.15m
+                : monthlyIncome <= 52000000 ? monthlyIncome * 0.20m : monthlyIncome <= 80000000 ? monthlyIncome * 0.25m : monthlyIncome * 0.30m;
         }
     }
 

@@ -154,8 +154,8 @@ namespace VanAn.KhachLink.Services.Dashboard
                 object metrics = await GenerateTenantMetricsAsync(tenantId);
 
                 // Cache metrics
-                _cachedMetrics.AddOrUpdate($"tenant_{tenantId}", metrics, (_, __) => metrics);
-                _lastUpdates.AddOrUpdate($"tenant_{tenantId}", DateTime.UtcNow, (_, __) => DateTime.UtcNow);
+                _ = _cachedMetrics.AddOrUpdate($"tenant_{tenantId}", metrics, (_, __) => metrics);
+                _ = _lastUpdates.AddOrUpdate($"tenant_{tenantId}", DateTime.UtcNow, (_, __) => DateTime.UtcNow);
 
                 // Broadcast to tenant group
                 await _hubContext.Clients.Group($"tenant_{tenantId}")
@@ -185,8 +185,8 @@ namespace VanAn.KhachLink.Services.Dashboard
                 object metrics = await GenerateShopMetricsAsync(shopId);
 
                 // Cache metrics
-                _cachedMetrics.AddOrUpdate($"shop_{shopId}", metrics, (_, __) => metrics);
-                _lastUpdates.AddOrUpdate($"shop_{shopId}", DateTime.UtcNow, (_, __) => DateTime.UtcNow);
+                _ = _cachedMetrics.AddOrUpdate($"shop_{shopId}", metrics, (_, __) => metrics);
+                _ = _lastUpdates.AddOrUpdate($"shop_{shopId}", DateTime.UtcNow, (_, __) => DateTime.UtcNow);
 
                 // Broadcast to shop group
                 await _hubContext.Clients.Group($"shop_{shopId}")
@@ -211,7 +211,7 @@ namespace VanAn.KhachLink.Services.Dashboard
         /// </summary>
         public object? GetTenantMetrics(string tenantId)
         {
-            _cachedMetrics.TryGetValue($"tenant_{tenantId}", out object? metrics);
+            _ = _cachedMetrics.TryGetValue($"tenant_{tenantId}", out object? metrics);
             return metrics;
         }
 
@@ -220,7 +220,7 @@ namespace VanAn.KhachLink.Services.Dashboard
         /// </summary>
         public object? GetShopMetrics(string shopId)
         {
-            _cachedMetrics.TryGetValue($"shop_{shopId}", out object? metrics);
+            _ = _cachedMetrics.TryGetValue($"shop_{shopId}", out object? metrics);
             return metrics;
         }
 
@@ -229,7 +229,7 @@ namespace VanAn.KhachLink.Services.Dashboard
         /// </summary>
         public DateTime? GetLastUpdateTime(string key)
         {
-            _lastUpdates.TryGetValue(key, out DateTime lastUpdate);
+            _ = _lastUpdates.TryGetValue(key, out DateTime lastUpdate);
             return lastUpdate;
         }
 

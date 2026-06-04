@@ -39,10 +39,10 @@ namespace VanAn.Shared.Extensions
                 .CreateLogger();
 
             // Add Serilog as logging provider
-            services.AddLogging(builder =>
+            _ = services.AddLogging(builder =>
             {
-                builder.ClearProviders();
-                builder.AddSerilog();
+                _ = builder.ClearProviders();
+                _ = builder.AddSerilog();
             });
 
             return services;
@@ -79,10 +79,10 @@ namespace VanAn.Shared.Extensions
                     formatProvider: CultureInfo.InvariantCulture)
                 .CreateLogger();
 
-            services.AddLogging(builder =>
+            _ = services.AddLogging(builder =>
             {
-                builder.ClearProviders();
-                builder.AddSerilog();
+                _ = builder.ClearProviders();
+                _ = builder.AddSerilog();
             });
 
             return services;

@@ -112,7 +112,7 @@ namespace VanAn.CoreHub.Services.Journal
             MatchCollection parameterMatches = _parameterRegex.Matches(expression);
             foreach (Match match in parameterMatches.Cast<Match>())
             {
-                parameters.Add(match.Groups[1].Value);
+                _ = parameters.Add(match.Groups[1].Value);
             }
 
             // Find function calls that might require specific context values
@@ -123,9 +123,9 @@ namespace VanAn.CoreHub.Services.Journal
                 if (_functions.ContainsKey(functionName))
                 {
                     // Add context parameters that might be needed
-                    parameters.Add("Amount");
-                    parameters.Add("NetAmount");
-                    parameters.Add("VatAmount");
+                    _ = parameters.Add("Amount");
+                    _ = parameters.Add("NetAmount");
+                    _ = parameters.Add("VatAmount");
                 }
             }
 

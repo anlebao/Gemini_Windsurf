@@ -26,17 +26,17 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             // FIX: Use TestContextScope wrapper to bind DI scope lifespan to context
             ContextScope = VanAnDbContextTestFactory.Create();
 
-            await Context.Database.EnsureCreatedAsync();
+            _ = await Context.Database.EnsureCreatedAsync();
         }
 
         protected async Task SeedTestDataAsync(TestDataBuilder builder = null!)
         {
-            await Context.SeedTestDataAsync(builder);
+            _ = await Context.SeedTestDataAsync(builder);
         }
 
         protected async Task ResetDatabaseAsync()
         {
-            await SchemaEngine.ResetAndRecreateAsync(Context);
+            _ = await SchemaEngine.ResetAndRecreateAsync(Context);
         }
 
         public virtual void Dispose()

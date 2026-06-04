@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VanAn.KhachLink")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3bee9def7fe901479d775583f161e8bc048f5c38")]
 [assembly: System.Reflection.AssemblyProductAttribute("VanAn.KhachLink")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VanAn.KhachLink")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -42,7 +42,7 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "5", "Credit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "5", "Credit"))
                 .Returns(1000m);
 
             // Act
@@ -65,7 +65,7 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Debit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Debit"))
                 .Returns(500m);
 
             // Act
@@ -174,9 +174,9 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "5", "Credit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "5", "Credit"))
                 .Returns(1000m);
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "6", "Debit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "6", "Debit"))
                 .Returns(600m);
 
             // Act
@@ -243,7 +243,7 @@ namespace VanAn.Core.Tests.Formula
             });
 
             // Act & Assert
-            Assert.Throws<DivideByZeroException>(() => _formulaEngine.Evaluate(formula, context));
+            _ = Assert.Throws<DivideByZeroException>(() => _formulaEngine.Evaluate(formula, context));
         }
 
         [Fact]
@@ -347,7 +347,7 @@ namespace VanAn.Core.Tests.Formula
             List<string> dependencies = _formulaEngine.GetDependencies(formula);
 
             // Assert
-            Assert.Single(dependencies);
+            _ = Assert.Single(dependencies);
             Assert.Contains("Account_5_Credit", dependencies);
         }
 
@@ -392,7 +392,7 @@ namespace VanAn.Core.Tests.Formula
             List<string> dependencies = _formulaEngine.GetDependencies(formula);
 
             // Assert
-            Assert.Single(dependencies);
+            _ = Assert.Single(dependencies);
             Assert.Contains("TotalRevenue", dependencies);
         }
 
@@ -408,7 +408,7 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountBalance(It.IsAny<DataProviderContext>(), "156"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountBalance(It.IsAny<DataProviderContext>(), "156"))
                 .Returns(2000m);
 
             // Act
@@ -433,7 +433,7 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Credit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Credit"))
                 .Returns(2500m);
 
             // Act
@@ -473,9 +473,9 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Credit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Credit"))
                 .Returns(2500m);
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "5*", "Credit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "5*", "Credit"))
                 .Returns(10000m);
 
             // Act
@@ -497,9 +497,9 @@ namespace VanAn.Core.Tests.Formula
                 AccountingPeriod.Create(2026, 4)
             );
 
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "632", "Debit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "632", "Debit"))
                 .Returns(3000m);
-            _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Credit"))
+            _ = _mockDataProvider.Setup(x => x.GetAccountSum(It.IsAny<DataProviderContext>(), "511", "Credit"))
                 .Returns(1000m);
 
             // Act
@@ -571,7 +571,7 @@ namespace VanAn.Core.Tests.Formula
             List<string> dependencies = _formulaEngine.GetDependencies(formula);
 
             // Assert
-            Assert.Single(dependencies);
+            _ = Assert.Single(dependencies);
             Assert.Contains("Account_156_Balance", dependencies);
         }
 
@@ -585,7 +585,7 @@ namespace VanAn.Core.Tests.Formula
             List<string> dependencies = _formulaEngine.GetDependencies(formula);
 
             // Assert
-            Assert.Single(dependencies);
+            _ = Assert.Single(dependencies);
             Assert.Contains("TotalRevenue", dependencies);
         }
 
@@ -615,7 +615,7 @@ namespace VanAn.Core.Tests.Formula
             });
 
             // Act & Assert
-            Assert.Throws<DivideByZeroException>(() => _formulaEngine.Evaluate(formula, context));
+            _ = Assert.Throws<DivideByZeroException>(() => _formulaEngine.Evaluate(formula, context));
         }
 
         [Fact]
@@ -630,7 +630,7 @@ namespace VanAn.Core.Tests.Formula
             });
 
             // Act & Assert
-            Assert.Throws<DivideByZeroException>(() => _formulaEngine.Evaluate(formula, context));
+            _ = Assert.Throws<DivideByZeroException>(() => _formulaEngine.Evaluate(formula, context));
         }
     }
 }

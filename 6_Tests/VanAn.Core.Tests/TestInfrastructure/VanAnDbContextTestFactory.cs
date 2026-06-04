@@ -29,7 +29,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
 
             TestTenantProvider tenantProvider = new();
             VanAnDbContext context = new(options, tenantProvider);
-            context.Database.EnsureCreated();
+            _ = context.Database.EnsureCreated();
 
             return new TestContextScope(context, connection);
         }

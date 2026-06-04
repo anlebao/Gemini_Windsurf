@@ -18,15 +18,15 @@ namespace VanAn.ShopERP
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             // Architect: Dynamic file logging configuration
-            builder.Host.UseSerilog((context, config) =>
+            _ = builder.Host.UseSerilog((context, config) =>
             {
-                config.WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture);
+                _ = config.WriteTo.Console(formatProvider: System.Globalization.CultureInfo.InvariantCulture);
 
                 // Architect: Only enable Disk I/O logging if explicitly turned on in appsettings
                 if (context.Configuration.GetValue<bool>("LoggingConfig:EnableFileLogging"))
                 {
                     string? appName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
-                    config.WriteTo.File(
+                    _ = config.WriteTo.File(
                         path: Path.Combine(AppContext.BaseDirectory, "Logs", $"{appName}-.txt"),
                         rollingInterval: RollingInterval.Day,
                         retainedFileCountLimit: 2,
@@ -36,12 +36,12 @@ namespace VanAn.ShopERP
             });
 
             // Add services to the container.
-            builder.Services.AddRazorPages();
-            builder.Services.AddRazorComponents()
+            _ = builder.Services.AddRazorPages();
+            _ = builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
             // Add SignalR timeout configuration to prevent circuit disconnect
-            builder.Services.AddServerSideBlazor()
+            _ = builder.Services.AddServerSideBlazor()
                 .AddHubOptions(options =>
                 {
                     options.KeepAliveInterval = TimeSpan.FromSeconds(30);
@@ -52,12 +52,12 @@ namespace VanAn.ShopERP
             // PHASE 5: SQLite with WAL Mode for Edge Node - Enhanced for concurrency
             string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? $"Data Source={Path.Combine(AppContext.BaseDirectory, "vanan_shoperp.db")}";
-            builder.Services.AddDbContext<ShopERPDbContext>(options =>
+            _ = builder.Services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseSqlite(connectionString));
 
             // Register IVanAnDbContext with ShopERPDbContext for Offline-First architecture
             // This decouples services from VanAnDbContext (PostgreSQL) and allows SQLite usage
-            builder.Services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
+            _ = builder.Services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
 
             // REMOVED: Queue and Outbox services for SQLite concurrency
             // builder.Services.AddSingleton<IOrderQueueService, OrderQueueService>();
@@ -68,56 +68,56 @@ namespace VanAn.ShopERP
             // builder.Services.AddScoped<VanAn.ShopERP.Services.IOrderWorkflowService, VanAn.ShopERP.Services.OrderWorkflowService>();
 
             // Register CoreHub Services (FIX: Use CoreHub interfaces and implementations)
-            builder.Services.AddScoped<CoreHub.Services.IShopConfigService, CoreHub.Services.ShopConfigService>();
-            builder.Services.AddScoped<CoreHub.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
-            builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
-            builder.Services.AddScoped<CoreHub.Services.IOnboardingService, CoreHub.Services.OnboardingService>();
-            builder.Services.AddScoped<CoreHub.Services.IVoiceCommandService, CoreHub.Services.VoiceCommandService>();
-            builder.Services.AddScoped<Shared.Services.ICustomerService, CoreHub.Services.CustomerService>();
-            builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
-            builder.Services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
-            builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
-            builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
-            builder.Services.AddHttpContextAccessor();
+            _ = builder.Services.AddScoped<CoreHub.Services.IShopConfigService, CoreHub.Services.ShopConfigService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IOnboardingService, CoreHub.Services.OnboardingService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IVoiceCommandService, CoreHub.Services.VoiceCommandService>();
+            _ = builder.Services.AddScoped<Shared.Services.ICustomerService, CoreHub.Services.CustomerService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
+            _ = builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
+            _ = builder.Services.AddHttpContextAccessor();
 
             // ADD these new services for Unified API Integration:
-            builder.Services.AddScoped<IOrderManagementService, OrderManagementService>();
-            builder.Services.AddScoped<OrderManagementService>();
+            _ = builder.Services.AddScoped<IOrderManagementService, OrderManagementService>();
+            _ = builder.Services.AddScoped<OrderManagementService>();
 
             // Add UI Platform services
-            builder.Services.AddScoped<ITenantService, TenantService>();
-            builder.Services.AddScoped<IThemeProvider, ThemeProvider>();
-            builder.Services.AddScoped<UI.Platform.Core.Interfaces.ICssAdapter, UI.Platform.Adapters.BootstrapAdapter>();
+            _ = builder.Services.AddScoped<ITenantService, TenantService>();
+            _ = builder.Services.AddScoped<IThemeProvider, ThemeProvider>();
+            _ = builder.Services.AddScoped<UI.Platform.Core.Interfaces.ICssAdapter, UI.Platform.Adapters.BootstrapAdapter>();
 
             // Add SignalR client
-            builder.Services.AddSignalR();
+            _ = builder.Services.AddSignalR();
 
             // ✅ FIXED: Error notification service
-            builder.Services.AddScoped<IErrorNotificationService, ErrorNotificationService>();
+            _ = builder.Services.AddScoped<IErrorNotificationService, ErrorNotificationService>();
 
             // Register Repositories (FIX: Missing repository registration)
-            builder.Services.AddScoped<CoreHub.Domain.Repositories.ICustomerRepository, CoreHub.Infrastructure.Repositories.CustomerRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Domain.Repositories.ICustomerRepository, CoreHub.Infrastructure.Repositories.CustomerRepository>();
 
             // Register Repository implementations for refactored services (using IVanAnDbContext)
-            builder.Services.AddScoped<CoreHub.Repositories.IOrderRepository, CoreHub.Repositories.OrderRepository>();
-            builder.Services.AddScoped<CoreHub.Repositories.IAccountingEntryRepository, CoreHub.Repositories.AccountingEntryRepository>();
-            builder.Services.AddScoped<CoreHub.Repositories.IHKDBookRepository, CoreHub.Repositories.HKDBookRepository>();
-            builder.Services.AddScoped<CoreHub.Repositories.ILoyaltyRewardsRepository, CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
-            builder.Services.AddScoped<CoreHub.Repositories.ISocialCampaignRepository, CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
-            builder.Services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Repositories.IOrderRepository, CoreHub.Repositories.OrderRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Repositories.IAccountingEntryRepository, CoreHub.Repositories.AccountingEntryRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Repositories.IHKDBookRepository, CoreHub.Repositories.HKDBookRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Repositories.ILoyaltyRewardsRepository, CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Repositories.ISocialCampaignRepository, CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
+            _ = builder.Services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
 
             // Register Dashboard Service
-            builder.Services.AddScoped<CoreHub.Services.IDashboardService, CoreHub.Services.DashboardService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IDashboardService, CoreHub.Services.DashboardService>();
 
             // Sprint 2: Period Closing (PR#1)
-            builder.Services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();
-            builder.Services.AddScoped<CoreHub.Services.IPeriodClosingService, CoreHub.Services.PeriodClosingService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IPeriodClosingService, CoreHub.Services.PeriodClosingService>();
 
             // Add Memory Cache for ShopConfigService
-            builder.Services.AddMemoryCache();
+            _ = builder.Services.AddMemoryCache();
 
             // ✅ FIXED: Enterprise authentication configuration
-            builder.Services.AddAuthentication(options =>
+            _ = builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
@@ -152,7 +152,7 @@ namespace VanAn.ShopERP
                 };
             });
 
-            builder.Services.AddAuthorizationBuilder()
+            _ = builder.Services.AddAuthorizationBuilder()
                 .AddPolicy("RequireAuthenticatedUser", policy =>
                     policy.RequireAuthenticatedUser())
                 .AddPolicy("RequireTenantAccess", policy =>
@@ -164,13 +164,13 @@ namespace VanAn.ShopERP
                 .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()));
 
             // ✅ FIXED: Add cascading authentication state
-            builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>();
+            _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>();
 
             // ✅ FIXED: Register AuthenticationStateProvider to bridge Razor Pages auth to Blazor
-            builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, HttpContextAuthenticationStateProvider>();
+            _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, HttpContextAuthenticationStateProvider>();
 
             // 🛡️ Antiforgery configuration for local HTTP development
-            builder.Services.AddAntiforgery(options =>
+            _ = builder.Services.AddAntiforgery(options =>
             {
                 // Allow cookies over plain HTTP for local development
                 options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
@@ -183,13 +183,13 @@ namespace VanAn.ShopERP
             using (IServiceScope scope = app.Services.CreateScope())
             {
                 ShopERPDbContext context = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
-                await context.Database.EnsureCreatedAsync();
+                _ = await context.Database.EnsureCreatedAsync();
 
                 // Optimize SQLite for concurrency
-                await context.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
-                await context.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=30000;");
-                await context.Database.ExecuteSqlRawAsync("PRAGMA cache_size=10000;");
-                await context.Database.ExecuteSqlRawAsync("PRAGMA synchronous=NORMAL;");
+                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
+                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=30000;");
+                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA cache_size=10000;");
+                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA synchronous=NORMAL;");
 
                 Console.WriteLine("SQLite database optimized for concurrency");
             }
@@ -197,26 +197,27 @@ namespace VanAn.ShopERP
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
-                app.UseExceptionHandler("/Error");
-                app.UseHsts();
+                _ = app.UseExceptionHandler("/Error");
+                _ = app.UseHsts();
             }
 
             // Local-First: DISABLE HTTPS REDIRECTION for development
             // app.UseHttpsRedirection();
 
             // MIDDLEWARE ORDER COMPLIANCE - RULE #2: StaticFiles -> Routing -> Auth -> Antiforgery -> MapRazorPages
-            app.UseStaticFiles(); // MUST be first to serve wwwroot files
-            app.UseRouting();
-            app.UseAuthentication();
-            app.UseAuthorization();
-            app.UseAntiforgery();
+            _ = app.UseStaticFiles(); // MUST be first to serve wwwroot files
+            _ = app.UseRouting();
+            _ = app.UseAuthentication();
+            _ = app.UseAuthorization();
+            _ = app.UseAntiforgery();
 
             // PROPER RAZOR PAGES ROUTING - ANTI-CHEATING RULE #2
-            app.MapControllers(); // If you have API controllers in ShopERP
-            app.MapRazorPages();
-            app.MapRazorComponents<Components.App>()
+            _ = app.MapControllers(); // If you have API controllers in ShopERP
+            _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn ShopERP", Timestamp = DateTime.UtcNow }));
+            _ = app.MapRazorPages();
+            _ = app.MapRazorComponents<Components.App>()
                 .AddInteractiveServerRenderMode();
-            app.MapFallbackToPage("/Index"); // Proper fallback to Razor Page, not static HTML
+            _ = app.MapFallbackToPage("/Index"); // Proper fallback to Razor Page, not static HTML
 
             string urls = builder.Configuration["ASPNETCORE_URLS"] ?? "http://0.0.0.0:5003";
             await app.RunAsync(urls);

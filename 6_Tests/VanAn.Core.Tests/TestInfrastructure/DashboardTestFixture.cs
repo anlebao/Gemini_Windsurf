@@ -28,8 +28,8 @@ namespace VanAn.Core.Tests.TestInfrastructure
 
             // Create mocks
             ConfigMock = new Mock<IConfiguration>();
-            ConfigMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("test-data");
-            ConfigMock.Setup(c => c["ShopERP:DatabasePath"]).Returns("test-data");
+            _ = ConfigMock.Setup(c => c["KhachLink:DatabasePath"]).Returns("test-data");
+            _ = ConfigMock.Setup(c => c["ShopERP:DatabasePath"]).Returns("test-data");
 
             // Create service
             Mock<ILogger<DashboardService>> loggerMock = new();

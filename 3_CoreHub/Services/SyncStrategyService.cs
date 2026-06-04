@@ -334,7 +334,7 @@ namespace VanAn.CoreHub.Services
                             break;
 
                         case DeltaOperation.Delete:
-                            mutableTarget.Remove(propertyDelta.PropertyName);
+                            _ = mutableTarget.Remove(propertyDelta.PropertyName);
                             break;
                         default:
                             break;
@@ -526,26 +526,18 @@ namespace VanAn.CoreHub.Services
         private static object MergeDataWithResolution(object localData, object remoteData, ConflictResolution resolution)
         {
             // Implement proper data merging based on resolution strategy
-            switch (resolution.Strategy)
+            return resolution.Strategy switch
             {
-                case ConflictResolutionStrategy.LocalWins:
-                    return localData;
-                case ConflictResolutionStrategy.RemoteWins:
-                    return remoteData;
-                case ConflictResolutionStrategy.Merge:
-                    // Implement intelligent merge logic
-                    return localData; // Simplified - would need proper merging
-                case ConflictResolutionStrategy.LastWriteWins:
-                    return localData;
-                case ConflictResolutionStrategy.UserChoice:
-                    return localData;
-                case ConflictResolutionStrategy.Skip:
-                    return localData;
-                case ConflictResolutionStrategy.CreateBoth:
-                    return localData;
-                default:
-                    return localData;
-            }
+                ConflictResolutionStrategy.LocalWins => localData,
+                ConflictResolutionStrategy.RemoteWins => remoteData,
+                ConflictResolutionStrategy.Merge => localData,// Implement intelligent merge logic
+                                                              // Simplified - would need proper merging
+                ConflictResolutionStrategy.LastWriteWins => localData,
+                ConflictResolutionStrategy.UserChoice => localData,
+                ConflictResolutionStrategy.Skip => localData,
+                ConflictResolutionStrategy.CreateBoth => localData,
+                _ => localData,
+            };
         }
 
         private static ConflictResolution CreateLocalWinsResolution(SyncConflict conflict)

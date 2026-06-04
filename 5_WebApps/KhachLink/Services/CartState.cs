@@ -39,7 +39,7 @@ namespace VanAn.KhachLink.Services
 
         public void RemoveItem(Guid productId)
         {
-            Items.RemoveAll(i => i.ProductId == productId);
+            _ = Items.RemoveAll(i => i.ProductId == productId);
         }
 
         public void UpdateQuantity(Guid productId, int quantity)

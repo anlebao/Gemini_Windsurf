@@ -38,25 +38,25 @@ namespace VanAn.Core.Tests.Performance
             _natsConnectionMock = new Mock<IConnection>();
 
             // Setup NATS factory to return mocked connection
-            _natsConnectionFactoryMock
+            _ = _natsConnectionFactoryMock
                 .Setup(f => f.CreateConnection(It.IsAny<string>()))
                 .Returns(_natsConnectionMock.Object);
 
             ServiceCollection services = new();
-            services.AddDbContext<ShopERPDbContext>(options =>
+            _ = services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseInMemoryDatabase("PerformanceTestDb"));
-            services.AddSingleton(_queueLoggerMock.Object);
-            services.AddSingleton(_outboxLoggerMock.Object);
-            services.AddSingleton(_natsConnectionFactoryMock.Object);
-            services.AddSingleton<OrderQueueService>();
-            services.AddSingleton<SimpleOutboxProcessor>();
+            _ = services.AddSingleton(_queueLoggerMock.Object);
+            _ = services.AddSingleton(_outboxLoggerMock.Object);
+            _ = services.AddSingleton(_natsConnectionFactoryMock.Object);
+            _ = services.AddSingleton<OrderQueueService>();
+            _ = services.AddSingleton<SimpleOutboxProcessor>();
 
             _serviceProvider = services.BuildServiceProvider();
             _context = _serviceProvider.GetRequiredService<ShopERPDbContext>();
             _queueService = _serviceProvider.GetRequiredService<OrderQueueService>();
             _outboxProcessor = _serviceProvider.GetRequiredService<SimpleOutboxProcessor>();
 
-            _context.Database.EnsureCreated();
+            _ = _context.Database.EnsureCreated();
         }
 
         [Fact]
@@ -255,7 +255,7 @@ namespace VanAn.Core.Tests.Performance
             }
 
             await _context.OutboxMessages.AddRangeAsync(messages);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Act
             Stopwatch stopwatch = Stopwatch.StartNew();
@@ -341,8 +341,8 @@ namespace VanAn.Core.Tests.Performance
             foreach (int batchSize in batchSizes)
             {
                 // Clear database
-                await _context.Database.EnsureDeletedAsync();
-                await _context.Database.EnsureCreatedAsync();
+                _ = await _context.Database.EnsureDeletedAsync();
+                _ = await _context.Database.EnsureCreatedAsync();
 
                 int orderCount = batchSize * 2; // 2 batches
                 List<Order> orders = [];
@@ -385,7 +385,7 @@ namespace VanAn.Core.Tests.Performance
         {
             _queueService?.Dispose();
             _outboxProcessor?.Dispose();
-            _context?.Database.EnsureDeleted();
+            _ = (_context?.Database.EnsureDeleted());
             _context?.Dispose();
         }
 

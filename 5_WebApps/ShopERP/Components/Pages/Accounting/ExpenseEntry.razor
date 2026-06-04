@@ -226,7 +226,7 @@
             // CRITICAL FIX: Always read DOM value for amount/category to ensure E2E fills are captured.
             // Blazor @bind can drop events during fast Playwright fills; DOM is source of truth.
             var formData = new PlatformComposite.FormData();
-            var criticalFields = new HashSet<string> { "amount", "category", "vendor", "description", "entryDate" };
+            var criticalFields = new HashSet<string> { "amount", "category", "vendor", "description", "account", "date" };
             foreach (var field in expenseFields)
             {
                 string value;

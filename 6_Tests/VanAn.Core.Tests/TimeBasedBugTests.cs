@@ -27,10 +27,10 @@ namespace VanAn.Tests
             _loggerMock = new Mock<ILogger<OfflineOrderService>>();
 
             ServiceCollection services = new();
-            services.AddSingleton(_indexedDBServiceMock.Object);
-            services.AddSingleton(_orderServiceMock.Object);
-            services.AddSingleton(_loggerMock.Object);
-            services.AddTransient<OfflineOrderService>();
+            _ = services.AddSingleton(_indexedDBServiceMock.Object);
+            _ = services.AddSingleton(_orderServiceMock.Object);
+            _ = services.AddSingleton(_loggerMock.Object);
+            _ = services.AddTransient<OfflineOrderService>();
 
             _serviceProvider = services.BuildServiceProvider();
             _offlineOrderService = _serviceProvider.GetRequiredService<OfflineOrderService>();
@@ -46,10 +46,10 @@ namespace VanAn.Tests
             Order serverOrder = order.ToDomain();
             // Server time differs (CreatedAt is protected, use factory in real scenario)
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(serverOrder);
 
             // Act
@@ -79,20 +79,20 @@ namespace VanAn.Tests
             order2.CreatedAtTimestamp = timestamp.ToUnixTimeMilliseconds();
             order2.Id = order1.Id; // Same ID but different timestamp
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync([order1]);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order1.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order1.Id}"))
                 .ReturnsAsync(order1);
 
             Order domainOrder = order1.ToDomain();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act
-            await _offlineOrderService.CreateOrderAsync(order1);
-            await _offlineOrderService.CreateOrderAsync(order2);
+            _ = await _offlineOrderService.CreateOrderAsync(order1);
+            _ = await _offlineOrderService.CreateOrderAsync(order2);
 
             bool result = await _offlineOrderService.SyncOrdersAsync();
 
@@ -118,10 +118,10 @@ namespace VanAn.Tests
             Order serverOrder = order.ToDomain();
             // Server time after DST (CreatedAt is protected, use factory in real scenario)
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(serverOrder);
 
             // Act
@@ -149,10 +149,10 @@ namespace VanAn.Tests
             Order serverOrder = order.ToDomain();
             // Server uses UTC (CreatedAt is protected, use factory in real scenario)
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(serverOrder);
 
             // Act
@@ -178,10 +178,10 @@ namespace VanAn.Tests
             Order serverOrder = order.ToDomain();
             // CreatedAt is protected, use factory
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(serverOrder);
 
             // Act
@@ -209,10 +209,10 @@ namespace VanAn.Tests
             Order serverOrder = order.ToDomain();
             // CreatedAt is protected, use factory
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(serverOrder);
 
             // Act
@@ -235,7 +235,7 @@ namespace VanAn.Tests
             DateTimeOffset expiredTime = DateTimeOffset.UtcNow.AddHours(-25); // Older than 24 hours
             order.CreatedAtTimestamp = expiredTime.ToUnixTimeMilliseconds();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             // Act
@@ -255,7 +255,7 @@ namespace VanAn.Tests
             Order domainOrder = order.ToDomain();
 
             int callCount = 0;
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
                 .ReturnsAsync(() =>
                 {
                     callCount++;
@@ -264,7 +264,7 @@ namespace VanAn.Tests
                     return domainOrder;
                 });
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             // Act - Concurrent sync attempts
@@ -288,17 +288,17 @@ namespace VanAn.Tests
             DateTimeOffset futureTime = DateTimeOffset.UtcNow.AddHours(1); // Future timestamp
             order.CreatedAtTimestamp = futureTime.ToUnixTimeMilliseconds();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             Order serverOrder = order.ToDomain();
             // Server corrects to current time (CreatedAt is protected, use factory)
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
 
@@ -319,7 +319,7 @@ namespace VanAn.Tests
             long maxTimestamp = DateTimeOffset.MaxValue.ToUnixTimeMilliseconds();
             order.CreatedAtTimestamp = maxTimestamp;
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             // Act
@@ -338,7 +338,7 @@ namespace VanAn.Tests
             int negativeTimestamp = -1000; // Before Unix epoch
             order.CreatedAtTimestamp = negativeTimestamp;
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             // Act
@@ -365,13 +365,13 @@ namespace VanAn.Tests
 
             List<Order> domainOrders = orders.Select(o => o.ToDomain()).ToList();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             // Act
@@ -401,10 +401,10 @@ namespace VanAn.Tests
             Order serverOrder = order.ToDomain();
             // CreatedAt is protected, use factory
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(serverOrder);
 
             // Act
@@ -427,7 +427,7 @@ namespace VanAn.Tests
             Order domainOrder = order.ToDomain();
 
             int updateCount = 0;
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
                 .ReturnsAsync(() =>
                 {
                     updateCount++;
@@ -436,7 +436,7 @@ namespace VanAn.Tests
                     return domainOrder;
                 });
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(() => order);
 
             // Act - Rapid successive syncs

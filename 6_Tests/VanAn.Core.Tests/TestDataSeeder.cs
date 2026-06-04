@@ -19,7 +19,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             Shop shop2 = new(shop2TenantId, "Shop B", "Address B", "0987654321", "shop2@vanan.com");
 
             context.Shops.AddRange(shop1, shop2);
-            await context.SaveChangesAsync(); // Save shops first
+            _ = await context.SaveChangesAsync(); // Save shops first
 
             // Create 4 orders with correct sync flags (child entities)
             List<Order> orders =
@@ -31,7 +31,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             ];
 
             context.Orders.AddRange(orders);
-            await context.SaveChangesAsync();
+            _ = await context.SaveChangesAsync();
         }
     }
 }

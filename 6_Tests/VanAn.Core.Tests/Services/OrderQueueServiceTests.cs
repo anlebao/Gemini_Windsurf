@@ -22,10 +22,10 @@ namespace VanAn.Core.Tests.Services
             _loggerMock = new Mock<ILogger<OrderQueueService>>();
 
             ServiceCollection services = new();
-            services.AddSingleton(_loggerMock.Object);
-            services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
-            services.AddSingleton(new Mock<IServiceScopeFactory>().Object);
-            services.AddSingleton<OrderQueueService>();
+            _ = services.AddSingleton(_loggerMock.Object);
+            _ = services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+            _ = services.AddSingleton(new Mock<IServiceScopeFactory>().Object);
+            _ = services.AddSingleton<OrderQueueService>();
 
             _serviceProvider = services.BuildServiceProvider();
             _queueService = _serviceProvider.GetRequiredService<OrderQueueService>();

@@ -19,7 +19,7 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertToProvider(tenantId);
 
             // Assert
-            result.Should().Be(tenantId.Value);
+            _ = result.Should().Be(tenantId.Value);
         }
 
         [Fact]
@@ -32,10 +32,10 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             object? result = _converter.ConvertFromProvider(guid);
 
             // Assert
-            result.Should().NotBeNull();
+            _ = result.Should().NotBeNull();
             if (result != null)
             {
-                ((TenantId)result).Value.Should().Be(guid);
+                _ = ((TenantId)result).Value.Should().Be(guid);
             }
         }
 
@@ -45,8 +45,8 @@ namespace VanAn.Core.Tests.Infrastructure.ValueConverters
             // TenantIdConverter maps TenantId<->Guid (non-nullable)
             // Guid.Empty maps to a TenantId with empty value (not null)
             object? emptyTenantId = _converter.ConvertFromProvider(Guid.Empty);
-            emptyTenantId.Should().NotBeNull();
-            ((TenantId)emptyTenantId!).Value.Should().Be(Guid.Empty);
+            _ = emptyTenantId.Should().NotBeNull();
+            _ = ((TenantId)emptyTenantId!).Value.Should().Be(Guid.Empty);
         }
     }
 }

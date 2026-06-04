@@ -43,7 +43,7 @@ namespace VanAn.CoreHub.Services.Cache
                 SlidingExpiration = expiration / 2
             };
 
-            _cache.Set(cacheKey, template, cacheOptions);
+            _ = _cache.Set(cacheKey, template, cacheOptions);
 
             _logger.LogDebug("Template {TemplateCode} cached for {Expiration} minutes",
                 templateCode, expiration.TotalMinutes);

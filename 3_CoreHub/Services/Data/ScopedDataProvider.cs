@@ -42,7 +42,7 @@ namespace VanAn.CoreHub.Services.Data
                 Dictionary<string, decimal> data = distributedCached.NumericValues.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
                 // Cache locally for this request
-                _localCache.Set(cacheKey, data, TimeSpan.FromMinutes(5));
+                _ = _localCache.Set(cacheKey, data, TimeSpan.FromMinutes(5));
 
                 _logger.LogDebug("Using distributed cache for tenant {TenantId} in request {RequestId}",
                     context.TenantId.Value, context.RequestId);
@@ -54,7 +54,7 @@ namespace VanAn.CoreHub.Services.Data
             Dictionary<string, decimal> preAggregatedData = await _preAggregationService.GetAccountAggregatesAsync(context.TenantId, context.Period);
 
             // Cache both locally and distributed
-            _localCache.Set(cacheKey, preAggregatedData, TimeSpan.FromMinutes(5));
+            _ = _localCache.Set(cacheKey, preAggregatedData, TimeSpan.FromMinutes(5));
 
             GenericHKDBook cacheBook = new()
             {
@@ -93,7 +93,7 @@ namespace VanAn.CoreHub.Services.Data
                 return 0;
             }
 
-            _localCache.Set(cacheKey, value, TimeSpan.FromMinutes(5));
+            _ = _localCache.Set(cacheKey, value, TimeSpan.FromMinutes(5));
 
             _logger.LogDebug("Account sum for {Pattern} {Side} in request {RequestId}: {Value}",
                 accountPattern, side, context.RequestId, value);
@@ -116,7 +116,7 @@ namespace VanAn.CoreHub.Services.Data
             decimal debit = GetAccountSum(context, accountPattern, "Debit");
             decimal balance = debit - credit;
 
-            _localCache.Set(cacheKey, balance, TimeSpan.FromMinutes(5));
+            _ = _localCache.Set(cacheKey, balance, TimeSpan.FromMinutes(5));
 
             _logger.LogDebug("Account balance for {Pattern} in request {RequestId}: {Balance} (Debit: {Debit}, Credit: {Credit})",
                 accountPattern, context.RequestId, balance, debit, credit);

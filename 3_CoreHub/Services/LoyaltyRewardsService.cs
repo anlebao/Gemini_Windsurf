@@ -20,7 +20,7 @@ namespace VanAn.CoreHub.Services
                 rewards = new LoyaltyRewards(tenantId, customerId);
                 rewards.UpdateHistory(JsonSerializer.Serialize(new List<LoyaltyHistoryEntry>()));
 
-                await _repository.AddAsync(rewards);
+                _ = await _repository.AddAsync(rewards);
                 await _repository.SaveChangesAsync();
 
                 _logger.LogInformation("Created new loyalty rewards for customer {CustomerId}", customerId);
@@ -55,7 +55,7 @@ namespace VanAn.CoreHub.Services
                 });
                 rewards.UpdateHistory(JsonSerializer.Serialize(history));
 
-                await _repository.UpdateAsync(rewards);
+                _ = await _repository.UpdateAsync(rewards);
                 await _repository.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -104,7 +104,7 @@ namespace VanAn.CoreHub.Services
                 });
                 rewards.UpdateHistory(JsonSerializer.Serialize(history));
 
-                await _repository.UpdateAsync(rewards);
+                _ = await _repository.UpdateAsync(rewards);
                 await _repository.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -141,7 +141,7 @@ namespace VanAn.CoreHub.Services
 
             rewards.UpdateHistory(historyEntry);
 
-            await _repository.UpdateAsync(rewards);
+            _ = await _repository.UpdateAsync(rewards);
             await _repository.SaveChangesAsync();
 
             _logger.LogInformation("Updated history for customer {CustomerId}", customerId);
@@ -170,7 +170,7 @@ namespace VanAn.CoreHub.Services
                 LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId);
 
                 // Add welcome bonus points
-                await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
+                _ = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
 
                 _logger.LogInformation("Loyalty program activated for customer {CustomerId}", customerId);
                 return true;

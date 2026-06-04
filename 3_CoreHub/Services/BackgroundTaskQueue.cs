@@ -18,13 +18,13 @@ namespace VanAn.CoreHub.Services
             ArgumentNullException.ThrowIfNull(workItem);
 
             _workItems.Enqueue(workItem);
-            _signal.Release();
+            _ = _signal.Release();
         }
 
         public async Task<Func<IServiceScope, CancellationToken, Task>> DequeueAsync(CancellationToken cancellationToken)
         {
             await _signal.WaitAsync(cancellationToken);
-            _workItems.TryDequeue(out Func<IServiceScope, CancellationToken, Task>? workItem);
+            _ = _workItems.TryDequeue(out Func<IServiceScope, CancellationToken, Task>? workItem);
 
             return workItem ?? throw new InvalidOperationException("Work item queue is empty");
         }

@@ -76,7 +76,7 @@ namespace VanAn.ShopERP.Services
                 OrderMetrics metrics = await _orderManagementService.GetOrderMetricsAsync();
 
                 // Cache for 30 seconds
-                _cache.Set(cacheKey, metrics, TimeSpan.FromSeconds(30));
+                _ = _cache.Set(cacheKey, metrics, TimeSpan.FromSeconds(30));
 
                 return metrics;
             }
@@ -104,7 +104,7 @@ namespace VanAn.ShopERP.Services
                     .ToList();
 
                 // Cache for 15 seconds
-                _cache.Set(cacheKey, recentOrders, TimeSpan.FromSeconds(15));
+                _ = _cache.Set(cacheKey, recentOrders, TimeSpan.FromSeconds(15));
 
                 return recentOrders;
             }
@@ -136,7 +136,7 @@ namespace VanAn.ShopERP.Services
                 ];
 
                 // Cache for 10 seconds
-                _cache.Set(cacheKey, activeOrders, TimeSpan.FromSeconds(10));
+                _ = _cache.Set(cacheKey, activeOrders, TimeSpan.FromSeconds(10));
 
                 return activeOrders;
             }
@@ -167,7 +167,7 @@ namespace VanAn.ShopERP.Services
                 // Create alert for high-value orders
                 if (order.TotalAmount > 1000000) // 1 million VND
                 {
-                    await CreateAlertAsync(new DashboardAlert
+                    _ = await CreateAlertAsync(new DashboardAlert
                     {
                         Type = AlertType.HighValueOrder,
                         Title = "High Value Order",
@@ -195,7 +195,7 @@ namespace VanAn.ShopERP.Services
                 });
 
                 // Also broadcast updated metrics
-                await BroadcastMetricsUpdateAsync();
+                _ = await BroadcastMetricsUpdateAsync();
 
                 _logger.LogInformation("Broadcasted order update: {OrderId}", order.Id);
                 return true;
@@ -283,7 +283,7 @@ namespace VanAn.ShopERP.Services
             {
                 lock (_lock)
                 {
-                    _subscribedConnections.Remove(connectionId);
+                    _ = _subscribedConnections.Remove(connectionId);
                 }
 
                 _logger.LogInformation("Client unsubscribed from dashboard updates: {ConnectionId}", connectionId);
@@ -322,7 +322,7 @@ namespace VanAn.ShopERP.Services
                 ];
 
                 // Cache for 1 minute
-                _cache.Set(cacheKey, alerts, TimeSpan.FromMinutes(1));
+                _ = _cache.Set(cacheKey, alerts, TimeSpan.FromMinutes(1));
 
                 return alerts;
             }
@@ -347,7 +347,7 @@ namespace VanAn.ShopERP.Services
                 {
                     if (_subscribedConnections.Count != 0)
                     {
-                        _hubContext.Clients.All.SendAsync("AlertCreated", new
+                        _ = _hubContext.Clients.All.SendAsync("AlertCreated", new
                         {
                             alert.Id,
                             alert.Type,
@@ -381,17 +381,17 @@ namespace VanAn.ShopERP.Services
 
         public async Task SubscribeToUpdates()
         {
-            await _dashboardService.SubscribeToUpdatesAsync(Context.ConnectionId);
+            _ = await _dashboardService.SubscribeToUpdatesAsync(Context.ConnectionId);
         }
 
         public async Task UnsubscribeFromUpdates()
         {
-            await _dashboardService.UnsubscribeFromUpdatesAsync(Context.ConnectionId);
+            _ = await _dashboardService.UnsubscribeFromUpdatesAsync(Context.ConnectionId);
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            await _dashboardService.UnsubscribeFromUpdatesAsync(Context.ConnectionId);
+            _ = await _dashboardService.UnsubscribeFromUpdatesAsync(Context.ConnectionId);
             await base.OnDisconnectedAsync(exception);
         }
     }

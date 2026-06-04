@@ -13,7 +13,21 @@ namespace VanAn.CoreHub.Services
     {
         private readonly ILogger<HKDTaxClassificationService> _logger = logger;
         private static readonly string[] collection = ["Sổ S1a-HKD", "Hóa đơn đầu ra", "Hóa đơn đầu vào"];
-        private static readonly string[] collection0 = new[] { "Excel", "PDF", "XML" };
+        private static readonly string[] collection0 = ["Excel", "PDF", "XML"];
+        private static readonly string[] collection1 = [
+                        "Sổ S2a-HKD",
+            "Sổ S2b-HKD",
+            "Sổ S2c-HKD",
+            "Sổ S2d-HKD",
+            "Sổ S2e-HKD",
+            "Hóa đơn đầu ra",
+            "Hóa đơn đầu vào",
+            "Phiếu thu",
+            "Phiếu chi"
+                    ];
+        private static readonly string[] collection2 = ["Excel", "PDF", "XML", "JSON"];
+        private static readonly string[] collection3 = new[] { "Sổ S3a-HKD", "Hóa đơn", "Giấy phép kinh doanh" };
+        private static readonly string[] collection4 = new[] { "Excel", "PDF" };
 
         /// <summary>
         /// Classify tax obligations for HKD based on book type and transaction
@@ -264,11 +278,8 @@ namespace VanAn.CoreHub.Services
                         Deadline = new DateTime(DateTime.Now.Year, (((DateTime.Now.Month - 1) / 3) + 1) * 3, 30),
                         IsMandatory = true
                     });
-                    requiredDocuments.AddRange(new[] {
-                        "Sổ S2a-HKD", "Sổ S2b-HKD", "Sổ S2c-HKD", "Sổ S2d-HKD", "Sổ S2e-HKD",
-                        "Hóa đơn đầu ra", "Hóa đơn đầu vào", "Phiếu thu", "Phiếu chi"
-                    });
-                    reportFormats.AddRange(new[] { "Excel", "PDF", "XML", "JSON" });
+                    requiredDocuments.AddRange(collection1);
+                    reportFormats.AddRange(collection2);
                     break;
 
                 case HKDGroup.Group3: // S3a
@@ -280,8 +291,8 @@ namespace VanAn.CoreHub.Services
                         Deadline = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 25),
                         IsMandatory = true
                     });
-                    requiredDocuments.AddRange(new[] { "Sổ S3a-HKD", "Hóa đơn", "Giấy phép kinh doanh" });
-                    reportFormats.AddRange(new[] { "Excel", "PDF" });
+                    requiredDocuments.AddRange(collection3);
+                    reportFormats.AddRange(collection4);
                     break;
                 default:
                     break;

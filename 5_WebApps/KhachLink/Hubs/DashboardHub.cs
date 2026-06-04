@@ -31,9 +31,9 @@ namespace VanAn.KhachLink.Hubs
 
             await Groups.AddToGroupAsync(connectionId, groupName);
 
-            _tenantConnections.AddOrUpdate(tenantId,
+            _ = _tenantConnections.AddOrUpdate(tenantId,
                 [connectionId],
-                (key, existing) => { existing.Add(connectionId); return existing; });
+                (key, existing) => { _ = existing.Add(connectionId); return existing; });
 
             _logger.LogInformation("Connection {ConnectionId} joined tenant group {TenantId}",
                 connectionId, tenantId);
@@ -58,9 +58,9 @@ namespace VanAn.KhachLink.Hubs
 
             await Groups.AddToGroupAsync(connectionId, groupName);
 
-            _shopConnections.AddOrUpdate(shopId,
+            _ = _shopConnections.AddOrUpdate(shopId,
                 [connectionId],
-                (key, existing) => { existing.Add(connectionId); return existing; });
+                (key, existing) => { _ = existing.Add(connectionId); return existing; });
 
             _logger.LogInformation("Connection {ConnectionId} joined shop group {ShopId}",
                 connectionId, shopId);
@@ -81,10 +81,10 @@ namespace VanAn.KhachLink.Hubs
 
             if (_tenantConnections.TryGetValue(tenantId, out HashSet<string>? connections))
             {
-                connections.Remove(connectionId);
+                _ = connections.Remove(connectionId);
                 if (connections.Count == 0)
                 {
-                    _tenantConnections.TryRemove(tenantId, out _);
+                    _ = _tenantConnections.TryRemove(tenantId, out _);
                 }
             }
 
@@ -104,10 +104,10 @@ namespace VanAn.KhachLink.Hubs
 
             if (_shopConnections.TryGetValue(shopId, out HashSet<string>? connections))
             {
-                connections.Remove(connectionId);
+                _ = connections.Remove(connectionId);
                 if (connections.Count == 0)
                 {
-                    _shopConnections.TryRemove(shopId, out _);
+                    _ = _shopConnections.TryRemove(shopId, out _);
                 }
             }
 
@@ -254,10 +254,10 @@ namespace VanAn.KhachLink.Hubs
             {
                 if (kvp.Value.Contains(connectionId))
                 {
-                    kvp.Value.Remove(connectionId);
+                    _ = kvp.Value.Remove(connectionId);
                     if (kvp.Value.Count == 0)
                     {
-                        _tenantConnections.TryRemove(kvp.Key, out _);
+                        _ = _tenantConnections.TryRemove(kvp.Key, out _);
                     }
                     break;
                 }
@@ -267,10 +267,10 @@ namespace VanAn.KhachLink.Hubs
             {
                 if (kvp.Value.Contains(connectionId))
                 {
-                    kvp.Value.Remove(connectionId);
+                    _ = kvp.Value.Remove(connectionId);
                     if (kvp.Value.Count == 0)
                     {
-                        _shopConnections.TryRemove(kvp.Key, out _);
+                        _ = _shopConnections.TryRemove(kvp.Key, out _);
                     }
                     break;
                 }

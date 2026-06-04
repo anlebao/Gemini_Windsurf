@@ -80,7 +80,7 @@ namespace VanAn.Core.Tests.Accounting
             TenantId tenantId = new(Guid.NewGuid());
             CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entry.Id, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entry.Id, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
 
             // Act
             Shared.DTOs.AccountingEntryDto? result = await _service.GetEntryByIdAsync(entry.Id);
@@ -99,7 +99,7 @@ namespace VanAn.Core.Tests.Accounting
             TenantId tenantId = new(Guid.NewGuid());
             AccountingEntryId entryId = new(Guid.NewGuid());
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync((CoreAccountingEntry?)null);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync((CoreAccountingEntry?)null);
 
             // Act
             Shared.DTOs.AccountingEntryDto? result = await _service.GetEntryByIdAsync(entryId);
@@ -120,7 +120,7 @@ namespace VanAn.Core.Tests.Accounting
             AccountingEntryId entryId = new(Guid.NewGuid());
             CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(differentTenantId, AccountingPeriod.Create(2024, 1), new Money(1000m, "VND"), "Test");
 
-            _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
+            _ = _mockRepository.Setup(r => r.GetByIdAsync(entryId, It.IsAny<CancellationToken>())).ReturnsAsync(entry);
 
             // Act
             Shared.DTOs.AccountingEntryDto? result = await _service.GetEntryByIdAsync(entryId);
@@ -143,7 +143,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, AccountingPeriod.Create(2024, 1), new Money(500m, "VND"), "Test 2")
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAsync(tenantId, It.IsAny<CancellationToken>())).ReturnsAsync(entries);
+            _ = _mockRepository.Setup(r => r.GetByTenantAsync(tenantId, It.IsAny<CancellationToken>())).ReturnsAsync(entries);
 
             // Act
             IEnumerable<Shared.DTOs.AccountingEntryDto> result = await _service.GetEntriesByTenantAsync(tenantId);
@@ -166,7 +166,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateRevenue(tenantId, AccountingPeriod.Create(2024, 2), new Money(1500m, "VND"), "Test 2")
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndBookTypeAsync(tenantId, AccountingBookType.RevenueBook, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(revenueEntries);
 
             // Act
@@ -193,7 +193,7 @@ namespace VanAn.Core.Tests.Accounting
                 CoreAccountingEntry.CreateExpense(tenantId, period, new Money(500m, "VND"), "Test 2")
             ];
 
-            _mockRepository.Setup(r => r.GetByTenantAndPeriodAsync(tenantId, period, It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.GetByTenantAndPeriodAsync(tenantId, period, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(periodEntries);
 
             // Act
@@ -220,7 +220,7 @@ namespace VanAn.Core.Tests.Accounting
             Money amount = new(1000m, "VND");
             string description = "Test revenue";
 
-            _mockRepository.Setup(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()))
+            _ = _mockRepository.Setup(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Database error"));
 
             // Act & Assert

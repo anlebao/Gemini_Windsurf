@@ -93,7 +93,7 @@ namespace VanAn.Core.Tests.Infrastructure
             }
 
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object));
         }
 
@@ -109,7 +109,7 @@ namespace VanAn.Core.Tests.Infrastructure
             }
 
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 SqliteRetryPolicy.ExecuteWithRetryAsync(operation, _loggerMock.Object));
 
             Assert.Equal(1, callCount); // Should not have retried

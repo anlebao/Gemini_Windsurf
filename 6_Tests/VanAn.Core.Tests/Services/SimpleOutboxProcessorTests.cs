@@ -31,21 +31,21 @@ namespace VanAn.Core.Tests.Services
             _natsConnectionMock = new Mock<IConnection>();
 
             // Setup NATS factory to return mocked connection
-            _natsConnectionFactoryMock
+            _ = _natsConnectionFactoryMock
                 .Setup(f => f.CreateConnection(It.IsAny<string>()))
                 .Returns(_natsConnectionMock.Object);
 
             ServiceCollection services = new();
-            services.AddDbContext<ShopERPDbContext>(options =>
+            _ = services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseInMemoryDatabase("OutboxTestDb"));
-            services.AddSingleton(_loggerMock.Object);
-            services.AddSingleton(_natsConnectionFactoryMock.Object);
+            _ = services.AddSingleton(_loggerMock.Object);
+            _ = services.AddSingleton(_natsConnectionFactoryMock.Object);
 
             _serviceProvider = services.BuildServiceProvider();
             _context = _serviceProvider.GetRequiredService<ShopERPDbContext>();
             _processor = new SimpleOutboxProcessor(_serviceProvider, _loggerMock.Object, _natsConnectionFactoryMock.Object);
 
-            _context.Database.EnsureCreated();
+            _ = _context.Database.EnsureCreated();
         }
 
         [Fact]
@@ -70,8 +70,8 @@ namespace VanAn.Core.Tests.Services
                 RetryCount = 0
             };
 
-            await _context.OutboxMessages.AddAsync(outboxMessage);
-            await _context.SaveChangesAsync();
+            _ = await _context.OutboxMessages.AddAsync(outboxMessage);
+            _ = await _context.SaveChangesAsync();
 
             // Act
             await _processor.ProcessOutboxMessagesAsync(CancellationToken.None);
@@ -83,7 +83,7 @@ namespace VanAn.Core.Tests.Services
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(m => m.Id == outboxMessage.Id);
             Assert.NotNull(processedMessage);
-            Assert.NotNull(processedMessage.ProcessedAt);
+            _ = Assert.NotNull(processedMessage.ProcessedAt);
             Assert.Equal(0, processedMessage.RetryCount);
         }
 
@@ -123,8 +123,8 @@ namespace VanAn.Core.Tests.Services
 
             // Simulate previous failure by setting retry count
             outboxMessage.RetryCount = 1;
-            await _context.OutboxMessages.AddAsync(outboxMessage);
-            await _context.SaveChangesAsync();
+            _ = await _context.OutboxMessages.AddAsync(outboxMessage);
+            _ = await _context.SaveChangesAsync();
 
             // Wait for retry time to pass
             await Task.Delay(100);
@@ -140,7 +140,7 @@ namespace VanAn.Core.Tests.Services
                 .FirstOrDefaultAsync(m => m.Id == outboxMessage.Id);
             Assert.NotNull(retriedMessage);
             Assert.Equal(1, retriedMessage.RetryCount); // Should stay at 1 when successfully processed
-            Assert.NotNull(retriedMessage.ProcessedAt); // Should be marked as processed
+            _ = Assert.NotNull(retriedMessage.ProcessedAt); // Should be marked as processed
         }
 
         [Fact]
@@ -171,7 +171,7 @@ namespace VanAn.Core.Tests.Services
             }
 
             await _context.OutboxMessages.AddRangeAsync(messages);
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             // Act
             await _processor.ProcessOutboxMessagesAsync(CancellationToken.None);
@@ -206,8 +206,8 @@ namespace VanAn.Core.Tests.Services
                 RetryCount = 0
             };
 
-            await _context.OutboxMessages.AddAsync(orderEvent);
-            await _context.SaveChangesAsync();
+            _ = await _context.OutboxMessages.AddAsync(orderEvent);
+            _ = await _context.SaveChangesAsync();
 
             // Act
             await _processor.ProcessOutboxMessagesAsync(CancellationToken.None);
@@ -219,7 +219,7 @@ namespace VanAn.Core.Tests.Services
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(m => m.Id == orderEvent.Id);
             Assert.NotNull(processedMessage);
-            Assert.NotNull(processedMessage.ProcessedAt);
+            _ = Assert.NotNull(processedMessage.ProcessedAt);
             Assert.Equal(EventTypes.OrderCompleted, processedMessage.EventType);
         }
 
@@ -245,8 +245,8 @@ namespace VanAn.Core.Tests.Services
                 RetryCount = 0
             };
 
-            await _context.OutboxMessages.AddAsync(outboxMessage);
-            await _context.SaveChangesAsync();
+            _ = await _context.OutboxMessages.AddAsync(outboxMessage);
+            _ = await _context.SaveChangesAsync();
 
             using CancellationTokenSource cts = new(TimeSpan.FromSeconds(6)); // Run for 6 seconds
 
@@ -260,12 +260,12 @@ namespace VanAn.Core.Tests.Services
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(m => m.Id == outboxMessage.Id);
             Assert.NotNull(processedMessage);
-            Assert.NotNull(processedMessage.ProcessedAt);
+            _ = Assert.NotNull(processedMessage.ProcessedAt);
         }
 
         public void Dispose()
         {
-            _context?.Database.EnsureDeleted();
+            _ = (_context?.Database.EnsureDeleted());
             _context?.Dispose();
             _processor?.Dispose();
         }

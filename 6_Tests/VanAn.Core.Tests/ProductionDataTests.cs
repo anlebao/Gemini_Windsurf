@@ -27,10 +27,10 @@ namespace VanAn.Tests
             _loggerMock = new Mock<ILogger<OfflineOrderService>>();
 
             ServiceCollection services = new();
-            services.AddSingleton(_indexedDBServiceMock.Object);
-            services.AddSingleton(_orderServiceMock.Object);
-            services.AddSingleton(_loggerMock.Object);
-            services.AddTransient<OfflineOrderService>();
+            _ = services.AddSingleton(_indexedDBServiceMock.Object);
+            _ = services.AddSingleton(_orderServiceMock.Object);
+            _ = services.AddSingleton(_loggerMock.Object);
+            _ = services.AddTransient<OfflineOrderService>();
 
             _serviceProvider = services.BuildServiceProvider();
             _offlineOrderService = _serviceProvider.GetRequiredService<OfflineOrderService>();
@@ -42,15 +42,15 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> largeDataset = CreateLargeProductionDataset(1000); // 1000 orders
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(largeDataset);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => largeDataset.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             List<Order> domainOrders = largeDataset.Select(o => o.ToDomain()).ToList();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act
@@ -74,13 +74,13 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> variedOrders = CreateVariedProductionOrders();
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(variedOrders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => variedOrders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act
@@ -103,14 +103,14 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> orders = CreateProductionDatasetWithErrorRate(100, 0.1); // 10% error rate
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             int callCount = 0;
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) =>
                 {
                     callCount++;
@@ -118,10 +118,10 @@ namespace VanAn.Tests
                     return callCount % 10 == 0 ? throw new HttpRequestException("Simulated production error") : order;
                 });
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             // Act
@@ -144,15 +144,15 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> orders = CreateLargeProductionDataset(500);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             List<Order> domainOrders = orders.Select(o => o.ToDomain()).ToList();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act - Simulate concurrent load
@@ -164,7 +164,7 @@ namespace VanAn.Tests
                 {
                     foreach (OfflineOrderDto? order in batch)
                     {
-                        await _offlineOrderService.CreateOrderAsync(order);
+                        _ = await _offlineOrderService.CreateOrderAsync(order);
                     }
                     return await _offlineOrderService.SyncOrdersAsync();
                 }));
@@ -185,13 +185,13 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> corruptedOrders = CreateCorruptedProductionData();
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(corruptedOrders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => corruptedOrders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act
@@ -210,14 +210,14 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> orders = CreateLargeProductionDataset(200);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             int callCount = 0;
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) =>
                 {
                     callCount++;
@@ -227,10 +227,10 @@ namespace VanAn.Tests
                         : callCount % 5 == 0 ? throw new TaskCanceledException("Request cancelled") : order;
                 });
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             // Act
@@ -254,13 +254,13 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> memoryIntensiveOrders = CreateMemoryIntensiveDataset(100);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(memoryIntensiveOrders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => memoryIntensiveOrders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act
@@ -283,14 +283,14 @@ namespace VanAn.Tests
             List<OfflineOrderDto> baselineOrders = CreateLargeProductionDataset(100);
             List<OfflineOrderDto> spikeOrders = CreateLargeProductionDataset(1000); // 10x spike
 
-            _indexedDBServiceMock.SetupSequence(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.SetupSequence(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(baselineOrders)
                 .ReturnsAsync(spikeOrders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => baselineOrders.Concat(spikeOrders).FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act - Baseline sync
@@ -322,13 +322,13 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> longRunningOrders = CreateLargeProductionDataset(500);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(longRunningOrders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => longRunningOrders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) =>
                 {
                     // Simulate long-running operation
@@ -354,13 +354,13 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> orders = CreateProductionDatasetWithDependencies(200);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             // Act
@@ -389,13 +389,13 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> edgeCaseOrders = CreateEdgeCaseProductionData();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(edgeCaseOrders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => edgeCaseOrders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             // Act

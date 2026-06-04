@@ -36,25 +36,25 @@ namespace VanAn.Core.Tests.Integration
             _natsConnectionMock = new Mock<IConnection>();
 
             // Setup NATS factory to return mocked connection
-            _natsConnectionFactoryMock
+            _ = _natsConnectionFactoryMock
                 .Setup(f => f.CreateConnection(It.IsAny<string>()))
                 .Returns(_natsConnectionMock.Object);
 
             ServiceCollection services = new();
-            services.AddDbContext<ShopERPDbContext>(options =>
+            _ = services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseInMemoryDatabase("ConcurrencyTestDb"));
-            services.AddSingleton(_queueLoggerMock.Object);
-            services.AddSingleton(_outboxLoggerMock.Object);
-            services.AddSingleton(_natsConnectionFactoryMock.Object);
-            services.AddSingleton<OrderQueueService>();
-            services.AddSingleton<SimpleOutboxProcessor>();
+            _ = services.AddSingleton(_queueLoggerMock.Object);
+            _ = services.AddSingleton(_outboxLoggerMock.Object);
+            _ = services.AddSingleton(_natsConnectionFactoryMock.Object);
+            _ = services.AddSingleton<OrderQueueService>();
+            _ = services.AddSingleton<SimpleOutboxProcessor>();
 
             _serviceProvider = services.BuildServiceProvider();
             _context = _serviceProvider.GetRequiredService<ShopERPDbContext>();
             _queueService = _serviceProvider.GetRequiredService<OrderQueueService>();
             _outboxProcessor = _serviceProvider.GetRequiredService<SimpleOutboxProcessor>();
 
-            _context.Database.EnsureCreated();
+            _ = _context.Database.EnsureCreated();
         }
 
         [Fact]
@@ -145,8 +145,8 @@ namespace VanAn.Core.Tests.Integration
                 Status = OutboxMessageStatus.Pending,
                 NextRetryAt = DateTime.UtcNow
             };
-            await _context.OutboxMessages.AddAsync(outboxMessage);
-            await _context.SaveChangesAsync();
+            _ = await _context.OutboxMessages.AddAsync(outboxMessage);
+            _ = await _context.SaveChangesAsync();
 
             // Verify message was added
             CoreHub.Infrastructure.OutboxMessage? messageBeforeProcessing = await _context.OutboxMessages
@@ -167,7 +167,7 @@ namespace VanAn.Core.Tests.Integration
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(m => m.Id == outboxMessage.Id);
             Assert.NotNull(processedMessage);
-            Assert.NotNull(processedMessage.ProcessedAt);
+            _ = Assert.NotNull(processedMessage.ProcessedAt);
             Assert.Equal(0, processedMessage.RetryCount);
         }
 
@@ -275,7 +275,7 @@ namespace VanAn.Core.Tests.Integration
         {
             _queueService?.Dispose();
             _outboxProcessor?.Dispose();
-            _context?.Database.EnsureDeleted();
+            _ = (_context?.Database.EnsureDeleted());
             _context?.Dispose();
         }
 

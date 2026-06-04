@@ -2,13 +2,13 @@ name: E2E Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop, 'feature/**' ]
     paths:
       - '5_WebApps/**'
       - 'UI.Platform/**'
       - '6_Testing/e2e-tests/**'
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
     paths:
       - '5_WebApps/**'
       - 'UI.Platform/**'
@@ -142,12 +142,18 @@ jobs:
           
       - name: Start Services
         run: |
-          # Start applications in background
           dotnet ./artifacts/gateway/VanAn.Gateway.dll &
-          sleep 10
           dotnet ./artifacts/shoperp/VanAn.ShopERP.dll &
-          sleep 10
-        continue-on-error: true
+
+      - name: Wait for Gateway ready
+        run: |
+          timeout 60 bash -c 'until curl -sf http://localhost:5001/health; do sleep 2; done'
+          echo "Gateway is ready"
+
+      - name: Wait for ShopERP ready
+        run: |
+          timeout 60 bash -c 'until curl -sf http://localhost:5003/health; do sleep 2; done'
+          echo "ShopERP is ready"
         
       - name: Run E2E Tests
         working-directory: 6_Testing
@@ -159,7 +165,7 @@ jobs:
           fi
         env:
           CI: true
-          PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:5003
           
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -184,7 +190,6 @@ jobs:
   quality-gate:
     runs-on: ubuntu-latest
     needs: [build-apps, e2e-tests]
-    if: always()
     timeout-minutes: 5
     
     steps:

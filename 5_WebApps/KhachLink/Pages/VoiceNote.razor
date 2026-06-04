@@ -12,14 +12,14 @@
     <meta http-equiv="Content-Language" content="vi">
 </head>
 <body>
-    <div class="voice-note-container">
+    <div class="voice-note-container" data-testid="voice-note-container">
         <div class="voice-header">
-            <h2>🎤 Ghi chú giọng nói</h2>
+            <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
             <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
         </div>
 
         <div class="voice-controls">
-            <button class="record-btn" @onclick="ToggleRecording" disabled="@isRecording">
+            <button class="record-btn" data-testid="record-button" @onclick="ToggleRecording" disabled="@isRecording">
                 @if (isRecording)
                 {
                     <span>⏹️ Dừng ghi âm</span>
@@ -48,13 +48,13 @@
             {
                 <div class="transcription-result">
                     <h4>Văn bản chuyển đổi:</h4>
-                    <p>@transcriptionText</p>
+                    <p data-testid="transcription-text">@transcriptionText</p>
                 </div>
             }
         </div>
 
         <div class="voice-actions">
-            <button class="submit-btn" @onclick="SubmitVoiceNote" disabled="@string.IsNullOrEmpty(transcriptionText)">
+            <button class="submit-btn" data-testid="submit-voice-note" @onclick="SubmitVoiceNote" disabled="@string.IsNullOrEmpty(transcriptionText)">
                 📤 Gửi ghi chú
             </button>
             

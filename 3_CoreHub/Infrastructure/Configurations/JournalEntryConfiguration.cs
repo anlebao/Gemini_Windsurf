@@ -13,44 +13,44 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
     {
         public void Configure(EntityTypeBuilder<JournalEntry> builder)
         {
-            builder.HasKey(e => e.Id);
+            _ = builder.HasKey(e => e.Id);
 
-            builder.Property(e => e.JournalEntryId)
+            _ = builder.Property(e => e.JournalEntryId)
                 .HasConversion<JournalEntryIdConverter>()
                 .IsRequired();
 
-            builder.Property(e => e.JournalNo)
+            _ = builder.Property(e => e.JournalNo)
                 .IsRequired()
                 .HasMaxLength(50);
 
-            builder.Property(e => e.Description)
+            _ = builder.Property(e => e.Description)
                 .IsRequired()
                 .HasMaxLength(500);
 
-            builder.Property(e => e.ReferenceType)
+            _ = builder.Property(e => e.ReferenceType)
                 .HasMaxLength(100);
 
-            builder.Property(e => e.TenantId)
+            _ = builder.Property(e => e.TenantId)
                 .HasConversion<TenantIdConverter>()
                 .IsRequired();
 
-            builder.Property(e => e.ReversedJournalId)
+            _ = builder.Property(e => e.ReversedJournalId)
                 .HasConversion<JournalEntryIdConverter>();
 
             // OwnsMany: JournalEntryLine is a Value Object owned by JournalEntry
-            builder.OwnsMany(e => e.Lines, lineBuilder =>
+            _ = builder.OwnsMany(e => e.Lines, lineBuilder =>
             {
-                lineBuilder.WithOwner().HasForeignKey(l => l.JournalEntryId);
-                lineBuilder.Property(l => l.AccountNumber).IsRequired().HasMaxLength(50);
-                lineBuilder.Property(l => l.DebitAmount).HasPrecision(18, 2);
-                lineBuilder.Property(l => l.CreditAmount).HasPrecision(18, 2);
-                lineBuilder.Property(l => l.Description).HasMaxLength(500);
+                _ = lineBuilder.WithOwner().HasForeignKey(l => l.JournalEntryId);
+                _ = lineBuilder.Property(l => l.AccountNumber).IsRequired().HasMaxLength(50);
+                _ = lineBuilder.Property(l => l.DebitAmount).HasPrecision(18, 2);
+                _ = lineBuilder.Property(l => l.CreditAmount).HasPrecision(18, 2);
+                _ = lineBuilder.Property(l => l.Description).HasMaxLength(500);
             });
 
             // Indexes
-            builder.HasIndex(e => e.JournalEntryId).IsUnique();
-            builder.HasIndex(e => e.JournalNo).IsUnique();
-            builder.HasIndex(e => e.TenantId);
+            _ = builder.HasIndex(e => e.JournalEntryId).IsUnique();
+            _ = builder.HasIndex(e => e.JournalNo).IsUnique();
+            _ = builder.HasIndex(e => e.TenantId);
         }
     }
 }

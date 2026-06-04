@@ -370,10 +370,10 @@ C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\bin\Debug\net8.0\VanAn.Ac
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.csproj.AssemblyReference.cache
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.GeneratedMSBuildEditorConfig.editorconfig
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.csproj.CoreCompileInputs.cache
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.sourcelink.json
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.csproj.CopyComplete
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.dll
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\refint\VanAn.Core.Tests.dll
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.pdb
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.genruntimeconfig.cache
 C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\ref\VanAn.Core.Tests.dll
-C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Core.Tests\obj\Debug\net8.0\VanAn.Core.Tests.sourcelink.json

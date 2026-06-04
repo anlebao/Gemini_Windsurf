@@ -402,7 +402,7 @@ namespace VanAn.KhachLink.Services
                         UnitPrice = serverItem.UnitPrice,
                         TotalPrice = serverItem.TotalPrice
                     });
-                    processedProductIds.Add(serverItem.ProductId.ToString());
+                    _ = processedProductIds.Add(serverItem.ProductId.ToString());
                 }
 
                 // Add offline items not in server

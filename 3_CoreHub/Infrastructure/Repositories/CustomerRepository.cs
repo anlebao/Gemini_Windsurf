@@ -52,8 +52,8 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             // Copy other properties if needed
             newCustomer.UpdateCustomerDetails(customer.FullName, customer.PhoneNumber, customer.Email, customer.CustomerTier, customer.DeviceId, customer.IsActive);
 
-            await _context.Customers.AddAsync(newCustomer);
-            await _context.SaveChangesAsync();
+            _ = await _context.Customers.AddAsync(newCustomer);
+            _ = await _context.SaveChangesAsync();
 
             return newCustomer;
         }
@@ -66,7 +66,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             // Update existing customer properties
             existingCustomer.UpdateCustomerDetails(customer.FullName, customer.PhoneNumber, customer.Email, customer.CustomerTier, customer.DeviceId, customer.IsActive);
 
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
 
             return existingCustomer;
         }
@@ -81,7 +81,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
             customer.SoftDelete();
 
-            await _context.SaveChangesAsync();
+            _ = await _context.SaveChangesAsync();
             return true;
         }
 

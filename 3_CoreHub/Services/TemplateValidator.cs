@@ -31,7 +31,7 @@ namespace VanAn.CoreHub.Services
             if (!template.IsActive)
             {
                 ValidationResult result = ValidationResult.Failure($"Template {template.Code} is not active");
-                _cache.Set(cacheKey, result, _cacheExpiration);
+                _ = _cache.Set(cacheKey, result, _cacheExpiration);
                 return result;
             }
 
@@ -39,7 +39,7 @@ namespace VanAn.CoreHub.Services
             if (template.Lines.Count == 0)
             {
                 ValidationResult result = ValidationResult.Failure($"Template {template.Code} has no lines defined");
-                _cache.Set(cacheKey, result, _cacheExpiration);
+                _ = _cache.Set(cacheKey, result, _cacheExpiration);
                 return result;
             }
 
@@ -49,7 +49,7 @@ namespace VanAn.CoreHub.Services
                 if (!IsValidAccountNumber(line.AccountNumber))
                 {
                     ValidationResult result = ValidationResult.Failure($"Invalid account number: {line.AccountNumber}");
-                    _cache.Set(cacheKey, result, _cacheExpiration);
+                    _ = _cache.Set(cacheKey, result, _cacheExpiration);
                     return result;
                 }
             }
@@ -60,7 +60,7 @@ namespace VanAn.CoreHub.Services
                 if (!IsValidAmountFormula(line.AmountFormula))
                 {
                     ValidationResult result = ValidationResult.Failure($"Invalid amount formula: {line.AmountFormula}");
-                    _cache.Set(cacheKey, result, _cacheExpiration);
+                    _ = _cache.Set(cacheKey, result, _cacheExpiration);
                     return result;
                 }
             }
@@ -71,7 +71,7 @@ namespace VanAn.CoreHub.Services
                 if (string.IsNullOrWhiteSpace(ruleName))
                 {
                     ValidationResult result = ValidationResult.Failure("Empty business rule name found");
-                    _cache.Set(cacheKey, result, _cacheExpiration);
+                    _ = _cache.Set(cacheKey, result, _cacheExpiration);
                     return result;
                 }
             }
@@ -82,7 +82,7 @@ namespace VanAn.CoreHub.Services
                 ValidationResult validationResult = ValidateRule(validationRule, parameters);
                 if (!validationResult.IsValid)
                 {
-                    _cache.Set(cacheKey, validationResult, _cacheExpiration);
+                    _ = _cache.Set(cacheKey, validationResult, _cacheExpiration);
                     return validationResult;
                 }
             }
@@ -94,14 +94,14 @@ namespace VanAn.CoreHub.Services
                 if (!parameters.ContainsKey(requiredParam))
                 {
                     ValidationResult result = ValidationResult.Failure($"Required parameter missing: {requiredParam}");
-                    _cache.Set(cacheKey, result, _cacheExpiration);
+                    _ = _cache.Set(cacheKey, result, _cacheExpiration);
                     return result;
                 }
             }
 
             _logger.LogDebug("Template {TemplateCode} validation passed", template.Code);
             ValidationResult successResult = ValidationResult.Success();
-            _cache.Set(cacheKey, successResult, _cacheExpiration);
+            _ = _cache.Set(cacheKey, successResult, _cacheExpiration);
             return successResult;
         }
 
@@ -135,8 +135,15 @@ namespace VanAn.CoreHub.Services
 
             string[] validFormulas =
             [
-                "Amount", "NetAmount", "VatAmount", "COGS", "ImportTax", "TotalAmount",
-                "Amount*0.1", "Amount*0.05", "Amount*0.1*VatRate"
+                "Amount",
+                "NetAmount",
+                "VatAmount",
+                "COGS",
+                "ImportTax",
+                "TotalAmount",
+                "Amount*0.1",
+                "Amount*0.05",
+                "Amount*0.1*VatRate"
             ];
 
             return validFormulas.Contains(formula);
@@ -206,12 +213,12 @@ namespace VanAn.CoreHub.Services
             {
                 if (line.AmountFormula?.Contains("VatRate") == true)
                 {
-                    requiredParams.Add("VatRate");
+                    _ = requiredParams.Add("VatRate");
                 }
 
                 if (line.AmountFormula?.Contains("COGSPercentage") == true)
                 {
-                    requiredParams.Add("COGSPercentage");
+                    _ = requiredParams.Add("COGSPercentage");
                 }
             }
 
@@ -223,7 +230,7 @@ namespace VanAn.CoreHub.Services
                     MatchCollection matches = MyRegex().Matches(line.DescriptionTemplate);
                     foreach (Match match in matches.Cast<Match>())
                     {
-                        requiredParams.Add(match.Groups[1].Value);
+                        _ = requiredParams.Add(match.Groups[1].Value);
                     }
                 }
             }
@@ -233,17 +240,17 @@ namespace VanAn.CoreHub.Services
             {
                 if (rule.Rule.Contains("CustomerName"))
                 {
-                    requiredParams.Add("CustomerName");
+                    _ = requiredParams.Add("CustomerName");
                 }
 
                 if (rule.Rule.Contains("Amount"))
                 {
-                    requiredParams.Add("Amount");
+                    _ = requiredParams.Add("Amount");
                 }
 
                 if (rule.Rule.Contains("VatRate"))
                 {
-                    requiredParams.Add("VatRate");
+                    _ = requiredParams.Add("VatRate");
                 }
             }
 

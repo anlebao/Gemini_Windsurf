@@ -64,8 +64,8 @@ namespace VanAn.CoreHub.Services
                 customerType.GetProperty("UpdatedAt")?.SetValue(customer, DateTime.UtcNow);
                 customerType.GetProperty("IsDeleted")?.SetValue(customer, false);
 
-                _dbContext.Customers.Add(customer);
-                await _dbContext.SaveChangesAsync();
+                _ = _dbContext.Customers.Add(customer);
+                _ = await _dbContext.SaveChangesAsync();
 
                 // Update lead status
                 lead.Status = LeadStatus.Converted;
@@ -74,7 +74,7 @@ namespace VanAn.CoreHub.Services
                 lead.ConversionReason = conversionReason;
                 lead.UpdatedAt = DateTime.UtcNow;
 
-                await _leadManagementService.UpdateLeadStatusAsync(leadId, LeadStatus.Converted);
+                _ = await _leadManagementService.UpdateLeadStatusAsync(leadId, LeadStatus.Converted);
 
                 // Initialize loyalty rewards for new customer
                 _logger.LogInformation("Initializing loyalty rewards for customer {CustomerId}", customer.Id);
@@ -82,7 +82,7 @@ namespace VanAn.CoreHub.Services
 
                 // Start customer onboarding
                 _logger.LogInformation("Starting onboarding for customer {CustomerId}", customer.Id);
-                await _customerOnboardingService.StartOnboardingAsync(customer.Id);
+                _ = await _customerOnboardingService.StartOnboardingAsync(customer.Id);
 
                 await transaction.CommitAsync();
 

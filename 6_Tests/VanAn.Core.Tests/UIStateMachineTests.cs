@@ -21,7 +21,7 @@ namespace VanAn.Tests
         private readonly Mock<IJSRuntime> _jsRuntimeMock;
         private readonly OfflineOrderService _offlineOrderService;
         private static readonly bool[] expected = [true, false, true];
-        private static readonly string[] expectedArray = new[] { "online", "offline", "online" };
+        private static readonly string[] expectedArray = ["online", "offline", "online"];
 
         public UIStateMachineTests()
         {
@@ -44,14 +44,14 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
 
@@ -66,14 +66,14 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ThrowsAsync(new HttpRequestException("Network unreachable"));
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
 
@@ -96,14 +96,14 @@ namespace VanAn.Tests
 
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
 
@@ -123,14 +123,14 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             // Act - Simulate multiple UI updates
             Task[] tasks =
@@ -151,15 +151,15 @@ namespace VanAn.Tests
         public async Task UI_Should_Show_Offline_Indicator_When_Disconnected()
         {
             // Arrange
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ThrowsAsync(new HttpRequestException("No internet connection"));
 
             OfflineOrderDto order = CreateTestOrder();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             // Act
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
@@ -183,13 +183,13 @@ namespace VanAn.Tests
 
             List<Order> domainOrders = orders.Select(o => o.ToDomain()).ToList();
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order)
                 .Callback(() => Task.Delay(50)); // Simulate processing time
 
@@ -222,7 +222,7 @@ namespace VanAn.Tests
         {
             // Arrange
             OfflineOrderDto order = CreateTestOrder();
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             // Act - Simulate UI cancellation flow
             bool shouldShowConfirmation = true;
@@ -247,22 +247,22 @@ namespace VanAn.Tests
             // Arrange
             List<OfflineOrderDto> initialOrders = [];
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(initialOrders);
 
             // Act - Create new order
             OfflineOrderDto newOrder = CreateTestOrder();
-            await _offlineOrderService.CreateOrderAsync(newOrder);
+            _ = await _offlineOrderService.CreateOrderAsync(newOrder);
 
             // Update mock to return the new order
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync([newOrder]);
 
             // UI should refresh order list
             List<OfflineOrderDto> updatedOrders = await _offlineOrderService.GetPendingOrdersAsync();
 
             // Assert
-            Assert.Single(updatedOrders);
+            _ = Assert.Single(updatedOrders);
             Assert.Equal(newOrder.Id, updatedOrders[0].Id);
 
             // UI should show updated count
@@ -294,10 +294,10 @@ namespace VanAn.Tests
             ];
             order.TotalAmount = order.Items.Sum(i => i.TotalPrice);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             // Act
             OfflineOrderDto? retrievedOrder = await _offlineOrderService.GetOrderAsync(order.Id);
@@ -323,7 +323,7 @@ namespace VanAn.Tests
                 .Select(i => CreateTestOrder())
                 .ToList();
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(largeOrderList);
 
             // Act
@@ -354,7 +354,7 @@ namespace VanAn.Tests
                 orders.Add(order);
             }
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
             // Act - Simulate UI filter
@@ -376,10 +376,10 @@ namespace VanAn.Tests
             // Arrange
             OfflineOrderDto order = CreateTestOrder();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             // Act - Simulate network state changes
             string[] networkStates = ["online", "offline", "online"];
@@ -389,12 +389,12 @@ namespace VanAn.Tests
             {
                 if (state == "online")
                 {
-                    _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+                    _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                         .ReturnsAsync(order.ToDomain());
                 }
                 else
                 {
-                    _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+                    _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                         .ThrowsAsync(new HttpRequestException("Offline"));
                 }
 

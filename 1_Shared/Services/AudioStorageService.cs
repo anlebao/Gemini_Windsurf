@@ -27,7 +27,7 @@ namespace VanAn.Shared.Services
             // Ensure storage directory exists
             if (!Directory.Exists(_storagePath))
             {
-                Directory.CreateDirectory(_storagePath);
+                _ = Directory.CreateDirectory(_storagePath);
             }
         }
 
@@ -78,7 +78,7 @@ namespace VanAn.Shared.Services
                         File.Delete(filePath);
                     }
 
-                    _audioFiles.Remove(audioId);
+                    _ = _audioFiles.Remove(audioId);
                     LogAudioFileDeleted(audioId);
                     await Task.CompletedTask;
                     return true;

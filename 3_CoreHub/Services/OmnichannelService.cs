@@ -32,7 +32,7 @@ namespace VanAn.CoreHub.Services
 
                 // Cache with expiration
                 string cacheKey = $"user_prefs_{userId}";
-                _cache.Set(cacheKey, preferences, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, preferences, TimeSpan.FromHours(24));
 
                 // TODO: In production, sync to cloud storage/database
                 // await _cloudStorage.SetAsync(cacheKey, preferences);
@@ -99,7 +99,7 @@ namespace VanAn.CoreHub.Services
 
                 // Cache with shorter expiration for real-time data
                 string cacheKey = $"order_status_{orderId}";
-                _cache.Set(cacheKey, status, TimeSpan.FromMinutes(30));
+                _ = _cache.Set(cacheKey, status, TimeSpan.FromMinutes(30));
 
                 // TODO: Broadcast to connected clients via SignalR
                 // await _hubContext.Clients.All.SendAsync("OrderStatusUpdated", status);
@@ -164,7 +164,7 @@ namespace VanAn.CoreHub.Services
 
                 // Cache with short expiration for real-time data
                 string cacheKey = $"inventory_{productId}";
-                _cache.Set(cacheKey, status, TimeSpan.FromMinutes(15));
+                _ = _cache.Set(cacheKey, status, TimeSpan.FromMinutes(15));
 
                 // TODO: Broadcast to connected clients via SignalR
                 // await _hubContext.Clients.All.SendAsync("InventoryUpdated", status);
@@ -201,7 +201,7 @@ namespace VanAn.CoreHub.Services
 
                 // Cache with short expiration for real-time data
                 string cacheKey = $"inventory_{productId}";
-                _cache.Set(cacheKey, inventoryStatus, TimeSpan.FromMinutes(15));
+                _ = _cache.Set(cacheKey, inventoryStatus, TimeSpan.FromMinutes(15));
 
                 // TODO: Broadcast to connected clients via SignalR
                 // await _hubContext.Clients.All.SendAsync("InventoryUpdated", inventoryStatus);

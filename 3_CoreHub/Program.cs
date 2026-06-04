@@ -25,7 +25,7 @@ namespace VanAn.CoreHub
             using (IServiceScope scope = host.Services.CreateScope())
             {
                 VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
-                await context.Database.EnsureCreatedAsync();
+                _ = await context.Database.EnsureCreatedAsync();
             }
 
             await host.RunAsync();
@@ -40,41 +40,41 @@ namespace VanAn.CoreHub
                     string connectionString = context.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
                         ?? "Host=localhost;Database=VanAnCoreHub;Username=vanan_admin;Password=VanAn@2024!";
 
-                    services.AddDbContext<VanAnDbContext>(options =>
+                    _ = services.AddDbContext<VanAnDbContext>(options =>
                         options.UseNpgsql(connectionString));
 
                     // Repository layer
-                    services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
-                    services.AddScoped<IJournalTemplateRepository, JournalTemplateRepository>();
-                    services.AddScoped<IOrderRepository, OrderRepository>();
-                    services.AddScoped<IHKDBookRepository, HKDBookRepository>();
+                    _ = services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
+                    _ = services.AddScoped<IJournalTemplateRepository, JournalTemplateRepository>();
+                    _ = services.AddScoped<IOrderRepository, OrderRepository>();
+                    _ = services.AddScoped<IHKDBookRepository, HKDBookRepository>();
 
                     // Core services
-                    services.AddScoped<IAccountingService, AccountingEntryService>();
-                    services.AddScoped<IHKDBookService, HKDBookService>();
-                    services.AddScoped<IOrderService, OrderService>();
+                    _ = services.AddScoped<IAccountingService, AccountingEntryService>();
+                    _ = services.AddScoped<IHKDBookService, HKDBookService>();
+                    _ = services.AddScoped<IOrderService, OrderService>();
 
                     // Background task queue
-                    services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
-                    services.AddHostedService<OrderQueueService>();
+                    _ = services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+                    _ = services.AddHostedService<OrderQueueService>();
 
                     // Enhanced order services
-                    services.AddScoped<IOrderQueueService, OrderQueueService>();
+                    _ = services.AddScoped<IOrderQueueService, OrderQueueService>();
 
                     // SignalR
-                    services.AddSignalR();
+                    _ = services.AddSignalR();
 
                     // Template factory (if not already registered)
-                    services.AddScoped<ITemplateFactory, TemplateFactory>();
+                    _ = services.AddScoped<ITemplateFactory, TemplateFactory>();
 
                     // Order hub
-                    services.AddScoped<OrderHub>();
+                    _ = services.AddScoped<OrderHub>();
 
                     // Event handling services
-                    services.AddHostedService<SimpleAccountingEventHandler>();
+                    _ = services.AddHostedService<SimpleAccountingEventHandler>();
 
                     // Logging
-                    services.AddLogging(builder => builder.AddConsole());
+                    _ = services.AddLogging(builder => builder.AddConsole());
                 });
         }
     }

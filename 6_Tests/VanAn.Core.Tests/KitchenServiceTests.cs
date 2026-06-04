@@ -30,31 +30,31 @@ namespace VanAn.CoreHub.Tests
             // Create shop
             TenantId shopTenantId = new(shopId);
             Shop shop = new(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
-            await Context.Shops.AddAsync(shop);
+            _ = await Context.Shops.AddAsync(shop);
 
             Product product = new(shopTenantId, "Cà phê noir", "Cà phê nguyên chất", 25000m, "Coffee", true, null, 0.10m);
-            await Context.Products.AddAsync(product);
+            _ = await Context.Products.AddAsync(product);
 
             Customer customer = new(shopTenantId, "Test Customer", "0123456789", "test@customer.com");
-            await Context.Customers.AddAsync(customer);
+            _ = await Context.Customers.AddAsync(customer);
 
             // Save customer and product first to ensure Ids are properly tracked
-            await Context.SaveChangesAsync();
+            _ = await Context.SaveChangesAsync();
 
             Order order1 = new(shopTenantId, customer.Id, 25000m);
-            await Context.Orders.AddAsync(order1);
+            _ = await Context.Orders.AddAsync(order1);
 
             Order order2 = new(shopTenantId, customer.Id, 50000m);
-            await Context.Orders.AddAsync(order2);
+            _ = await Context.Orders.AddAsync(order2);
 
             // Save orders to ensure Ids are properly tracked
-            await Context.SaveChangesAsync();
+            _ = await Context.SaveChangesAsync();
 
             OrderItem item1 = new(shopTenantId, order1.Id, product.Id, 1, 25000m, "Cà phê noir");
             OrderItem item2 = new(shopTenantId, order2.Id, product.Id, 2, 25000m, "Cà phê noir");
 
             await Context.OrderItems.AddRangeAsync(item1, item2);
-            await Context.SaveChangesAsync();
+            _ = await Context.SaveChangesAsync();
 
             // Act
             List<KitchenItemGroupDto> result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);
@@ -228,7 +228,7 @@ namespace VanAn.CoreHub.Tests
                 Text = voiceNoteText,
                 TranscriptionSuccessful = true
             };
-            await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
+            _ = await _kitchenService.ProcessVoiceNoteAsync(orderId, inputDto);
 
             // Act
             List<KitchenItemGroupDto> result = await _kitchenService.GetGroupedKitchenItemsAsync(shopId);

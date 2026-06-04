@@ -57,10 +57,10 @@ namespace VanAn.CoreHub.Services
 
                 // Cache the current version
                 string cacheKey = $"current_version_{entityKey}";
-                _cache.Set(cacheKey, version, TimeSpan.FromHours(24));
+                _ = _cache.Set(cacheKey, version, TimeSpan.FromHours(24));
 
                 // Create audit entry
-                await CreateAuditEntryAsync(entityType, entityId, AuditOperation.Update, userId, deviceId,
+                _ = await CreateAuditEntryAsync(entityType, entityId, AuditOperation.Update, userId, deviceId,
                     new { version.VersionId, version.VersionNumber });
 
                 _logger.LogInformation("Version {VersionId} created for {EntityType}:{EntityId}",
@@ -95,7 +95,7 @@ namespace VanAn.CoreHub.Services
                 if (_versionStorage.TryGetValue(entityKey, out List<DataVersion>? versions) && versions.Count > 0)
                 {
                     DataVersion currentVersion = versions.OrderByDescending(v => v.VersionNumber).First();
-                    _cache.Set(cacheKey, currentVersion, TimeSpan.FromHours(24));
+                    _ = _cache.Set(cacheKey, currentVersion, TimeSpan.FromHours(24));
                     return currentVersion;
                 }
 
@@ -226,7 +226,7 @@ namespace VanAn.CoreHub.Services
                 };
 
                 // Create audit entry for revert
-                await CreateAuditEntryAsync(entityType, entityId, AuditOperation.Revert, userId, "system-revert",
+                _ = await CreateAuditEntryAsync(entityType, entityId, AuditOperation.Revert, userId, "system-revert",
                     new { result.FromVersionId, ToVersionId = versionId });
 
                 _logger.LogInformation("Successfully reverted {EntityType}:{EntityId} to version {VersionId}",
@@ -424,7 +424,7 @@ namespace VanAn.CoreHub.Services
                         {
                             try
                             {
-                                versions.Remove(versionToDelete);
+                                _ = versions.Remove(versionToDelete);
                                 versionsDeleted++;
                                 spaceSaved += versionToDelete.DataSizeBytes;
                             }

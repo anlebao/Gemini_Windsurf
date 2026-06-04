@@ -27,10 +27,10 @@ namespace VanAn.Tests
             _loggerMock = new Mock<ILogger<OfflineOrderService>>();
 
             ServiceCollection services = new();
-            services.AddSingleton(_indexedDBServiceMock.Object);
-            services.AddSingleton(_orderServiceMock.Object);
-            services.AddSingleton(_loggerMock.Object);
-            services.AddTransient<OfflineOrderService>();
+            _ = services.AddSingleton(_indexedDBServiceMock.Object);
+            _ = services.AddSingleton(_orderServiceMock.Object);
+            _ = services.AddSingleton(_loggerMock.Object);
+            _ = services.AddTransient<OfflineOrderService>();
 
             _serviceProvider = services.BuildServiceProvider();
             _offlineOrderService = _serviceProvider.GetRequiredService<OfflineOrderService>();
@@ -43,7 +43,7 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
@@ -51,7 +51,7 @@ namespace VanAn.Tests
                 .Verifiable();
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             // Act - Send same order multiple times
             SyncResult result1 = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
@@ -78,20 +78,20 @@ namespace VanAn.Tests
             OfflineOrderDto order2 = CreateTestOrder();
             order2.Id = orderId;
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync([order1]);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{orderId}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{orderId}"))
                 .ReturnsAsync(order1);
 
             Order domainOrder = order1.ToDomain();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act
-            await _offlineOrderService.CreateOrderAsync(order1);
-            await _offlineOrderService.CreateOrderAsync(order2);
+            _ = await _offlineOrderService.CreateOrderAsync(order1);
+            _ = await _offlineOrderService.CreateOrderAsync(order2);
 
             bool result = await _offlineOrderService.SyncOrdersAsync();
 
@@ -110,16 +110,16 @@ namespace VanAn.Tests
 
             List<Order> domainOrders = orders.Select(o => o.ToDomain()).ToList();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act - Create orders first
             foreach (OfflineOrderDto? order in orders)
             {
-                await _offlineOrderService.CreateOrderAsync(order);
+                _ = await _offlineOrderService.CreateOrderAsync(order);
             }
 
             // Act - Concurrent sync
@@ -147,16 +147,16 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
             // First call fails, second succeeds
-            _orderServiceMock.SetupSequence(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.SetupSequence(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ThrowsAsync(new HttpRequestException("Network error"))
                 .ReturnsAsync(domainOrder);
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
 
             SyncResult result1 = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
             Assert.False(result1.Success);
@@ -208,15 +208,15 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             order.Id = orderId;
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync([order]);
 
             Order domainOrder = order.ToDomain();
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act - Simulate concurrent creation attempts
@@ -224,7 +224,7 @@ namespace VanAn.Tests
             Task<bool> task2 = _offlineOrderService.CreateOrderAsync(order);
             Task<bool> task3 = _offlineOrderService.CreateOrderAsync(order);
 
-            await Task.WhenAll(task1, task2, task3);
+            _ = await Task.WhenAll(task1, task2, task3);
 
             // Sync should only create one order
             bool syncResult = await _offlineOrderService.SyncOrdersAsync();
@@ -241,14 +241,14 @@ namespace VanAn.Tests
             OfflineOrderDto order = CreateTestOrder();
             Order domainOrder = order.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{order.Id}"))
                 .ReturnsAsync(order);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act
-            await _offlineOrderService.CreateOrderAsync(order);
+            _ = await _offlineOrderService.CreateOrderAsync(order);
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(order.Id);
 
             // Assert
@@ -268,14 +268,14 @@ namespace VanAn.Tests
             // Arrange
             OfflineOrderDto largeOrder = CreateLargeTestOrder(50); // 50 items
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{largeOrder.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{largeOrder.Id}"))
                 .ReturnsAsync(largeOrder);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) => order);
 
             // Act - Create order first
-            await _offlineOrderService.CreateOrderAsync(largeOrder);
+            _ = await _offlineOrderService.CreateOrderAsync(largeOrder);
 
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(largeOrder.Id);
 
@@ -302,14 +302,14 @@ namespace VanAn.Tests
                 orders.Add(CreateTestOrder());
             }
 
-            _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
+            _ = _indexedDBServiceMock.Setup(x => x.GetAllAsync<OfflineOrderDto>())
                 .ReturnsAsync(orders);
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>(It.IsAny<string>()))
                 .ReturnsAsync((string key) => orders.FirstOrDefault(o => key == $"order_{o.Id}"));
 
             // Make the third order fail
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(It.IsAny<Order>(), It.IsAny<Guid>()))
                 .ReturnsAsync((Order order, Guid tenantId) =>
                 {
                     return order.Id.ToString() == orders[2].Id ? throw new HttpRequestException("Partial failure") : order;
@@ -318,7 +318,7 @@ namespace VanAn.Tests
             // Act
             foreach (OfflineOrderDto order in orders)
             {
-                await _offlineOrderService.CreateOrderAsync(order);
+                _ = await _offlineOrderService.CreateOrderAsync(order);
             }
 
             bool syncResult = await _offlineOrderService.SyncOrdersAsync();
@@ -370,14 +370,14 @@ namespace VanAn.Tests
 
             Order domainOrder = precisionOrder.ToDomain();
 
-            _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{precisionOrder.Id}"))
+            _ = _indexedDBServiceMock.Setup(x => x.GetAsync<OfflineOrderDto>($"order_{precisionOrder.Id}"))
                 .ReturnsAsync(precisionOrder);
 
-            _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
+            _ = _orderServiceMock.Setup(x => x.CreateOrderAsync(domainOrder, It.IsAny<Guid>()))
                 .ReturnsAsync(domainOrder);
 
             // Act
-            await _offlineOrderService.CreateOrderAsync(precisionOrder);
+            _ = await _offlineOrderService.CreateOrderAsync(precisionOrder);
             SyncResult result = await _offlineOrderService.SyncSingleOrderAsync(precisionOrder.Id);
 
             // Assert

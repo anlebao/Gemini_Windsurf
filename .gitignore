@@ -459,5 +459,11 @@ docs/.cache/
 !.windsurf/
 
 # ========================================
+# Playwright Auth State
+# ========================================
+# Session tokens saved by global-setup.ts — must NOT be committed
+6_Testing/auth/
+
+# ========================================
 # End of VanAn Ecosystem .gitignore
 # ========================================
