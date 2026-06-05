@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Audit;
 
 namespace VanAn.CoreHub.Infrastructure
 {
@@ -19,6 +20,7 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<SocialCampaign> SocialCampaigns { get; }
         DbSet<OutboxMessage> OutboxMessages { get; }
         DbSet<JournalEntry> JournalEntries { get; }
+        DbSet<AuditLog> AuditLogs { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

@@ -15,14 +15,16 @@ namespace VanAn.Core.Tests.Accounting
     public class AccountingEntryServiceTests
     {
         private readonly Mock<IAccountingEntryRepository> _mockRepository;
+        private readonly Mock<IAuditTrailService> _mockAuditTrail;
         private readonly Mock<ILogger<AccountingEntryService>> _mockLogger;
         private readonly AccountingEntryService _service;
 
         public AccountingEntryServiceTests()
         {
             _mockRepository = new Mock<IAccountingEntryRepository>();
+            _mockAuditTrail = new Mock<IAuditTrailService>();
             _mockLogger = new Mock<ILogger<AccountingEntryService>>();
-            _service = new AccountingEntryService(_mockRepository.Object, _mockLogger.Object);
+            _service = new AccountingEntryService(_mockRepository.Object, _mockAuditTrail.Object, _mockLogger.Object);
         }
 
         [Fact]

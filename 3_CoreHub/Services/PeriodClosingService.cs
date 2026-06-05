@@ -12,10 +12,12 @@ namespace VanAn.CoreHub.Services
     public class PeriodClosingService(
         IAccountingEntryRepository entryRepository,
         IReversalService reversalService,
+        IAuditTrailService auditTrailService,
         ILogger<PeriodClosingService> logger) : IPeriodClosingService
     {
         private readonly IAccountingEntryRepository _entryRepository = entryRepository;
         private readonly IReversalService _reversalService = reversalService;
+        private readonly IAuditTrailService _auditTrailService = auditTrailService;
         private readonly ILogger<PeriodClosingService> _logger = logger;
 
         private static readonly Dictionary<(TenantId, AccountingPeriod), PeriodClosingStatus> _statusStore = [];
@@ -84,6 +86,14 @@ namespace VanAn.CoreHub.Services
             _statusStore[key] = PeriodClosingStatus.Closed;
 
             ClosingEntry closingEntry = new(Guid.NewGuid(), period, DateTime.UtcNow, userId);
+
+            // Audit log: Period closing
+            await _auditTrailService.LogPeriodCloseAsync(
+                period,
+                "Period closed after validation",
+                correlationId: closingEntry.PeriodId.ToString(),
+                cancellationToken: cancellationToken);
+
             _logger.LogInformation("Period {Period} closed successfully by user {UserId}", period, userId);
 
             return closingEntry;
@@ -117,6 +127,13 @@ namespace VanAn.CoreHub.Services
             }
 
             _statusStore[key] = PeriodClosingStatus.Open;
+
+            // Audit log: Period reopening
+            await _auditTrailService.LogPeriodReopenAsync(
+                period,
+                reason,
+                cancellationToken: cancellationToken);
+
             _logger.LogInformation("Period {Period} reopened by user {UserId}", period, userId);
         }
 

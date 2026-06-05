@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Configurations;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
@@ -33,6 +34,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
         public DbSet<HKDBook> HKDBooks { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
