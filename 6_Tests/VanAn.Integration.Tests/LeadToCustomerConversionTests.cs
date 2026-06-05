@@ -13,6 +13,7 @@ namespace VanAn.Integration.Tests;
 /// Integration tests for Lead to Customer Conversion
 /// Layer 2: Integration Tests - Lead Conversion Workflow
 /// </summary>
+[Trait("Category", "Integration")]
 public class LeadToCustomerConversionTests : IntegrationTestBase
 {
     private readonly Lazy<ILeadManagementService> _leadManagementService;

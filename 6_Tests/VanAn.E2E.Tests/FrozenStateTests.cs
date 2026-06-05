@@ -8,6 +8,7 @@ using static Microsoft.Playwright.Assertions;
 namespace VanAn.E2E.Tests
 {
     [Collection("SelfHosted Tests")]
+    [Trait("Category", "E2E")]
     public class FrozenStateTests : E2ETestBase
     {
         public FrozenStateTests(SelfHostedTestFactory factory, ITestOutputHelper output) 

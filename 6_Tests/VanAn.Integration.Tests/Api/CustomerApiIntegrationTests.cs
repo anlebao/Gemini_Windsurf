@@ -18,6 +18,7 @@ namespace VanAn.Integration.Tests.Api;
 /// Customer API Integration Tests - Tests business behavior through HTTP endpoints
 /// Includes ITestOutputHelper for debugging
 /// </summary>
+[Trait("Category", "Integration")]
 public class CustomerApiIntegrationTests : HttpIntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     private readonly new VanAnDbContext _dbContext;

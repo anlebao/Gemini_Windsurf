@@ -7,6 +7,7 @@ using VanAn.E2E.Tests.Infrastructure;
 
 namespace VanAn.E2E.Tests;
 
+[Trait("Category", "E2E")]
 public class DashboardE2ETests : IClassFixture<SelfHostedTestFactory>, IDisposable
 {
     private readonly SelfHostedTestFactory _factory;

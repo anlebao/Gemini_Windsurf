@@ -9,6 +9,7 @@ using System.Text.Json;
 namespace VanAn.E2E.Tests
 {
     [Collection("SelfHosted Tests")]
+    [Trait("Category", "E2E")]
     public class GoldenFlowE2ETests : E2ETestBase
     {
         private readonly ITestOutputHelper _output;

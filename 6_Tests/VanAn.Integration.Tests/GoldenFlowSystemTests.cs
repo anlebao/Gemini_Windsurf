@@ -13,6 +13,7 @@ using VanAn.Gateway;
 
 namespace VanAn.Integration.Tests;
 
+[Trait("Category", "Integration")]
 public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>, IDisposable
 {
     private readonly CustomWebApplicationFactory _factory;

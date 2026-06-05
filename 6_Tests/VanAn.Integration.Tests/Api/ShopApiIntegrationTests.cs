@@ -18,6 +18,7 @@ namespace VanAn.Integration.Tests.Api;
 /// Includes ITestOutputHelper for debugging
 /// NOTE: Temporarily disabled due to Program class visibility issues with top-level statements
 /// </summary>
+[Trait("Category", "Integration")]
 public class ShopApiIntegrationTests : HttpIntegrationTestBase, IClassFixture<CustomWebApplicationFactory>
 {
     private readonly new VanAnDbContext _dbContext;

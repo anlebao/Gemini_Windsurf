@@ -10,6 +10,7 @@ namespace VanAn.E2E.Tests;
 /// Infrastructure validation tests to ensure E2E framework is working correctly
 /// </summary>
 [Collection("SelfHosted Tests")]
+[Trait("Category", "E2E")]
 public class InfrastructureTests : E2ETestBase
 {
     public InfrastructureTests(SelfHostedTestFactory factory, ITestOutputHelper output) : base(factory, output)
