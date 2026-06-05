@@ -1,3 +1,4 @@
+using VanAn.Shared.Domain;
 using VanAn.Unit.Tests.Domain;
 
 namespace VanAn.Unit.Tests.Services;
@@ -26,6 +27,7 @@ public interface ILeadManagementService
 
 /// <summary>
 /// Service interface for Lead Conversion
+/// Uses production Customer from VanAn.Shared.Domain (single source of truth)
 /// </summary>
 public interface ILeadConversionService
 {

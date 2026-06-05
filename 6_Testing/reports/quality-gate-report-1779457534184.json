@@ -1,0 +1,53 @@
+{
+  "testSuite": "VanAn Ecosystem Quality Gate",
+  "version": "1.0.0",
+  "timestamp": "2026-05-22T13:45:34.184Z",
+  "duration": 118170,
+  "summary": {
+    "total": 4,
+    "passed": 0,
+    "failed": 2,
+    "skipped": 2
+  },
+  "configuration": {
+    "SMOKE_TEST_ENABLED": true,
+    "ENABLE_E2E": true,
+    "ENABLE_LOAD_TEST": false,
+    "ENABLE_CHAOS": false,
+    "COREHUB_URL": "http://localhost:5010",
+    "GATEWAY_URL": "http://localhost:5001",
+    "KHACHLINK_URL": "http://localhost:5002",
+    "SHOPERP_URL": "http://localhost:5003",
+    "SMOKE_TEST_TIMEOUT": 300,
+    "E2E_TEST_TIMEOUT": 600,
+    "LOAD_TEST_DURATION": 120,
+    "CHAOS_TEST_DURATION": 180
+  },
+  "results": {
+    "smoke": {
+      "status": "fail",
+      "duration": 105045,
+      "error": "Command failed: npx playwright test smoke-tests/",
+      "description": "Smoke Tests (Playwright)"
+    },
+    "e2e": {
+      "status": "fail",
+      "duration": 13009,
+      "error": "Command failed: npx playwright test e2e-tests/",
+      "description": "E2E Tests (Playwright)"
+    },
+    "load": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Load Tests",
+      "architectDecision": "Bypassed by Architect - Load tests disabled"
+    },
+    "chaos": {
+      "status": "skip",
+      "duration": 0,
+      "description": "Chaos Tests",
+      "architectDecision": "Bypassed by Architect - Chaos tests disabled"
+    }
+  },
+  "status": "fail"
+}

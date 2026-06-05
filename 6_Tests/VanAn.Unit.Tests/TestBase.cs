@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
+using VanAn.Shared.Domain;
 using VanAn.Unit.Tests.Domain;
 using VanAn.Unit.Tests.Repositories;
 using VanAn.Unit.Tests.Services;
@@ -64,16 +65,11 @@ public abstract class TestBase
         TenantId = Guid.NewGuid()
     };
     
-    protected Customer CreateTestCustomer() => new()
+    protected Customer CreateTestCustomer() => new Customer(new TenantId(Guid.NewGuid()), "Test Customer", "0987654321", "customer@test.com")
     {
-        Id = Guid.NewGuid(),
-        FullName = "Test Customer",
-        PhoneNumber = "0987654321",
-        Email = "customer@test.com",
         CustomerTier = "Bronze",
         LoyaltyPoints = 50,
-        IsActive = true,
-        TenantId = Guid.NewGuid()
+        IsActive = true
     };
     
     protected CustomerOnboarding CreateTestCustomerOnboarding() => new()

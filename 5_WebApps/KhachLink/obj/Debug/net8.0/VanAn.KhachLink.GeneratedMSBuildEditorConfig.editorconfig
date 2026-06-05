@@ -38,6 +38,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xDYXJ0RHJhd2VyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/Dashboard/RealTimeDashboard.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEYXNoYm9hcmRcUmVhbFRpbWVEYXNoYm9hcmQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/DynamicThemeProvider.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xEeW5hbWljVGhlbWVQcm92aWRlci5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
@@ -48,6 +52,14 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/IdentityUpgradeModal.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xJZGVudGl0eVVwZ3JhZGVNb2RhbC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/Layout/KhachLinkLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcS2hhY2hMaW5rTGF5b3V0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/Layout/VanAnLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcVmFuQW5MYXlvdXQucmF6b3I=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/Pages/Counter.razor]
@@ -68,6 +80,10 @@ build_metadata.AdditionalFiles.CssScope =
 
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/Pages/Weather.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xXZWF0aGVyLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/PWA/PWAInstallPrompt.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQV0FcUFdBSW5zdGFsbFByb21wdC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Components/QrPaymentModal.razor]
@@ -142,8 +158,16 @@ build_metadata.AdditionalFiles.CssScope = b-t87y0oymvn
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcQ2FtcGFpZ24uY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Pages/Dashboard.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcRGFzaGJvYXJkLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Pages/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Pages/IndexModern.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXNcSW5kZXhNb2Rlcm4uY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/KhachLink/Pages/_Host.cshtml]

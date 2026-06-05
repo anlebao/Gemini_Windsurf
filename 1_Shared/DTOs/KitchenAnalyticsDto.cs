@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace VanAn.Shared.DTOs
 {
     /// <summary>
@@ -15,7 +12,7 @@ namespace VanAn.Shared.DTOs
         public int CompletedOrders { get; set; }
         public int PendingOrders { get; set; }
         public double AveragePreparationTime { get; set; }
-        public List<KitchenPerformanceDto> Performance { get; set; } = new();
+        public List<KitchenPerformanceDto> Performance { get; set; } = [];
     }
 
     /// <summary>

@@ -1,0 +1,270 @@
+@page "/accounting/period-closing"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain
+@using CoreServices = VanAn.CoreHub.Services
+@inject CoreServices.IPeriodClosingService PeriodClosingService
+@inject IThemeProvider ThemeProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<PeriodClosing> Logger
+@inject NavigationManager NavigationManager
+
+<div class="period-closing-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Đóng Sổ Kỳ Kế Toán</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="GoBack">
+            ← Quay Lại
+        </VanAButton>
+    </header>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="ClearError" />
+    }
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <VanAAlert Type="success" Message="@successMessage" Dismissible="true" OnDismiss="ClearSuccess" />
+    }
+
+    <VanACard Title="Chọn Kỳ Kế Toán">
+        <div class="period-selector">
+            <div class="form-group">
+                <label>Năm</label>
+                <input type="number" class="form-control" @bind="selectedYear" min="2020" max="2099" />
+            </div>
+            <div class="form-group">
+                <label>Tháng</label>
+                <select class="form-control" @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">Tháng @m</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </VanACard>
+
+    @if (currentStep == WizardStep.Validate || currentStep == WizardStep.Review || currentStep == WizardStep.Close)
+    {
+        <div class="wizard-steps">
+            <span class="step @(currentStep == WizardStep.Validate ? "active" : "")">1. Kiểm Tra</span>
+            <span class="step-divider">→</span>
+            <span class="step @(currentStep == WizardStep.Review ? "active" : "")">2. Xem Lại</span>
+            <span class="step-divider">→</span>
+            <span class="step @(currentStep == WizardStep.Close ? "active" : "")">3. Đóng Sổ</span>
+        </div>
+    }
+
+    @if (currentStep == WizardStep.Idle)
+    {
+        <VanACard Title="Thao Tác">
+            <VanAButton Variant="primary" IsLoading="@isLoading" OnClick="StartValidation">
+                Bắt Đầu Kiểm Tra Kỳ @selectedYear-@selectedMonth.ToString("D2")
+            </VanAButton>
+        </VanACard>
+    }
+
+    @if (currentStep == WizardStep.Validate && validationResult != null)
+    {
+        <VanACard Title="Kết Quả Kiểm Tra">
+            @if (validationResult.IsValid)
+            {
+                <VanAAlert Type="success" Message="Kỳ kế toán đã sẵn sàng để đóng sổ." />
+                @if (validationResult.Warnings.Any())
+                {
+                    <div class="warnings-list">
+                        <p><strong>Cảnh báo:</strong></p>
+                        <ul>
+                            @foreach (var warning in validationResult.Warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            }
+            else
+            {
+                <VanAAlert Type="error" Message="Kỳ kế toán chưa thể đóng sổ. Vui lòng xử lý các lỗi bên dưới." />
+                <ul class="error-list">
+                    @foreach (var error in validationResult.Errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            }
+            <div class="wizard-actions">
+                <VanAButton Variant="secondary" OnClick="ResetWizard">Huỷ</VanAButton>
+                @if (validationResult.IsValid)
+                {
+                    <VanAButton Variant="primary" OnClick="ProceedToReview">Tiếp Theo →</VanAButton>
+                }
+            </div>
+        </VanACard>
+    }
+
+    @if (currentStep == WizardStep.Review)
+    {
+        <VanACard Title="Xem Lại Trước Khi Đóng Sổ">
+            <p>Bạn đang chuẩn bị đóng sổ kỳ <strong>@selectedYear-@selectedMonth.ToString("D2")</strong>.</p>
+            <p>Sau khi đóng sổ, mọi thay đổi sẽ phải thực hiện qua <em>Bút toán Đảo Ngược (Reversal Entry)</em>.</p>
+            <VanAAlert Type="warning" Message="Hành động này không thể hoàn tác trực tiếp. Vui lòng xác nhận." />
+            <div class="wizard-actions">
+                <VanAButton Variant="secondary" OnClick="() => currentStep = WizardStep.Validate">← Quay Lại</VanAButton>
+                <VanAButton Variant="danger" IsLoading="@isLoading" OnClick="ExecuteClose">Xác Nhận Đóng Sổ</VanAButton>
+            </div>
+        </VanACard>
+    }
+
+    @if (currentStep == WizardStep.Close && closingEntry != null)
+    {
+        <VanACard Title="Đóng Sổ Thành Công">
+            <VanAAlert Type="success" Message="@($"Kỳ {closingEntry.Period.Year}-{closingEntry.Period.Month:D2} đã được đóng sổ.")" />
+            <p>Thời gian: <strong>@closingEntry.ClosingDate.ToString("dd/MM/yyyy HH:mm") UTC</strong></p>
+            <div class="wizard-actions">
+                <VanAButton Variant="primary" OnClick="ResetWizard">Đóng Sổ Kỳ Khác</VanAButton>
+                <VanAButton Variant="secondary" OnClick="GoBack">Về Trang Kế Toán</VanAButton>
+            </div>
+        </VanACard>
+    }
+
+    @if (currentStatus != null)
+    {
+        <VanACard Title="Trạng Thái Kỳ Hiện Tại">
+            <p>Kỳ <strong>@selectedYear-@selectedMonth.ToString("D2")</strong>: <strong>@currentStatus</strong></p>
+            @if (currentStatus == PeriodClosingStatus.Closed)
+            {
+                <VanAButton Variant="secondary" OnClick="ShowReopenDialog">Mở Lại Kỳ Này</VanAButton>
+            }
+        </VanACard>
+    }
+
+    @if (showReopenDialog)
+    {
+        <VanACard Title="Mở Lại Kỳ Kế Toán">
+            <VanAAlert Type="warning" Message="Mở lại kỳ sẽ tạo Bút toán Đảo Ngược cho toàn bộ entries trong kỳ này." />
+            <div class="form-group">
+                <label>Lý do mở lại <span class="required">*</span></label>
+                <input type="text" class="form-control" @bind="reopenReason" placeholder="Nhập lý do mở lại kỳ..." />
+            </div>
+            <div class="wizard-actions">
+                <VanAButton Variant="secondary" OnClick="() => showReopenDialog = false">Huỷ</VanAButton>
+                <VanAButton Variant="danger" IsLoading="@isLoading" OnClick="ExecuteReopen"
+                    Disabled="@string.IsNullOrWhiteSpace(reopenReason)">
+                    Xác Nhận Mở Lại
+                </VanAButton>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private enum WizardStep { Idle, Validate, Review, Close }
+
+    private int selectedYear = DateTime.Now.Year;
+    private int selectedMonth = DateTime.Now.Month;
+    private WizardStep currentStep = WizardStep.Idle;
+    private PeriodClosingCheckResult? validationResult;
+    private ClosingEntry? closingEntry;
+    private PeriodClosingStatus? currentStatus;
+    private bool isLoading;
+    private bool showReopenDialog;
+    private string reopenReason = string.Empty;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+
+    private TenantId GetTenantId() => new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshStatusAsync();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        try
+        {
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            currentStatus = await PeriodClosingService.GetPeriodStatusAsync(period, GetTenantId());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to get period status");
+        }
+    }
+
+    private async Task StartValidation()
+    {
+        isLoading = true;
+        ClearMessages();
+        try
+        {
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            validationResult = await PeriodClosingService.ValidatePeriodAsync(period, GetTenantId());
+            currentStep = WizardStep.Validate;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi kiểm tra kỳ: {ex.Message}";
+            Logger.LogError(ex, "Validation failed for period {Year}-{Month}", selectedYear, selectedMonth);
+        }
+        finally { isLoading = false; }
+    }
+
+    private void ProceedToReview() => currentStep = WizardStep.Review;
+
+    private async Task ExecuteClose()
+    {
+        isLoading = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid) ? uid : Guid.NewGuid();
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            closingEntry = await PeriodClosingService.ClosePeriodAsync(period, GetTenantId(), userId);
+            currentStep = WizardStep.Close;
+            await RefreshStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể đóng sổ: {ex.Message}";
+            currentStep = WizardStep.Review;
+            Logger.LogError(ex, "Close period failed");
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task ExecuteReopen()
+    {
+        if (string.IsNullOrWhiteSpace(reopenReason)) return;
+        isLoading = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid) ? uid : Guid.NewGuid();
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            await PeriodClosingService.ReopenPeriodAsync(period, GetTenantId(), userId, reopenReason);
+            successMessage = $"Kỳ {selectedYear}-{selectedMonth:D2} đã được mở lại thành công.";
+            showReopenDialog = false;
+            reopenReason = string.Empty;
+            await RefreshStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Không thể mở lại kỳ: {ex.Message}";
+            Logger.LogError(ex, "Reopen period failed");
+        }
+        finally { isLoading = false; }
+    }
+
+    private void ShowReopenDialog() { showReopenDialog = true; ClearMessages(); }
+    private void ResetWizard() { currentStep = WizardStep.Idle; validationResult = null; closingEntry = null; ClearMessages(); }
+    private void GoBack() => NavigationManager.NavigateTo("/accounting");
+    private void ClearError() => errorMessage = string.Empty;
+    private void ClearSuccess() => successMessage = string.Empty;
+    private void ClearMessages() { errorMessage = string.Empty; successMessage = string.Empty; }
+}

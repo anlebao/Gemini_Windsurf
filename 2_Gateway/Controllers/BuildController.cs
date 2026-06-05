@@ -5,21 +5,16 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class BuildController : ControllerBase
+    public class BuildController(IBuildService buildService) : ControllerBase
     {
-        private readonly IBuildService _buildService;
-
-        public BuildController(IBuildService buildService)
-        {
-            _buildService = buildService;
-        }
+        private readonly IBuildService _buildService = buildService;
 
         [HttpGet("status")]
         public async Task<ActionResult<object>> GetBuildStatus()
         {
             try
             {
-                var result = await _buildService.GetBuildStatusAsync();
+                object result = await _buildService.GetBuildStatusAsync();
                 return Ok(result);
             }
             catch (Exception ex)

@@ -1,0 +1,75 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+
+<div class="@GetCardClasses()" @attributes="GetMergedAttributes()">
+    @if (!string.IsNullOrEmpty(Header))
+    {
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">@Header</h5>
+            @if (HeaderActions != null)
+            {
+                <div class="card-actions">
+                    @HeaderActions
+                </div>
+            }
+        </div>
+    }
+    
+    <div class="card-body">
+        @ChildContent
+    </div>
+    
+    @if (Footer != null)
+    {
+        <div class="card-footer">
+            @Footer
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// Card header text
+    /// </summary>
+    [Parameter]
+    public string? Header { get; set; }
+    
+    /// <summary>
+    /// Card footer content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+    
+    /// <summary>
+    /// Header actions content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? HeaderActions { get; set; }
+    
+    /// <summary>
+    /// Is card hoverable
+    /// </summary>
+    [Parameter]
+    public bool Hoverable { get; set; }
+    
+    /// <summary>
+    /// Has shadow
+    /// </summary>
+    [Parameter]
+    public bool Shadow { get; set; } = true;
+    
+    /// <summary>
+    /// Get card CSS classes using adapter
+    /// </summary>
+    private string GetCardClasses()
+    {
+        var baseClasses = CssAdapter.GetCardClass(Hoverable, Shadow);
+        return GetCombinedCssClass(baseClasses);
+    }
+}

@@ -57,4 +57,55 @@ function loadEnvConfig() {
   return defaultConfig;
 }
 
-module.exports = { loadEnvConfig };
+function isTierEnabled(tier) {
+  const config = loadEnvConfig();
+  
+  switch (tier) {
+    case 'smoke':
+      return config.SMOKE_TEST_ENABLED;
+    case 'e2e':
+      return config.ENABLE_E2E;
+    case 'load':
+      return config.ENABLE_LOAD_TEST;
+    case 'chaos':
+      return config.ENABLE_CHAOS;
+    default:
+      return false;
+  }
+}
+
+function getTierConfig(tier) {
+  const config = loadEnvConfig();
+  
+  switch (tier) {
+    case 'smoke':
+      return {
+        enabled: config.SMOKE_TEST_ENABLED,
+        timeout: config.SMOKE_TEST_TIMEOUT
+      };
+    case 'e2e':
+      return {
+        enabled: config.ENABLE_E2E,
+        timeout: config.E2E_TEST_TIMEOUT
+      };
+    case 'load':
+      return {
+        enabled: config.ENABLE_LOAD_TEST,
+        duration: config.LOAD_TEST_DURATION
+      };
+    case 'chaos':
+      return {
+        enabled: config.ENABLE_CHAOS,
+        duration: config.CHAOS_TEST_DURATION
+      };
+    default:
+      return { enabled: false };
+  }
+}
+
+// Alias for backward compatibility
+function getTestConfig() {
+  return loadEnvConfig();
+}
+
+module.exports = { loadEnvConfig, isTierEnabled, getTierConfig, getTestConfig };

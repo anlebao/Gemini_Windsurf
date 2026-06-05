@@ -10,6 +10,7 @@ using GatewayProgram = VanAn.Gateway.Program;
 
 namespace VanAn.Load.Tests;
 
+[Trait("Category", "Load")]
 public class SimpleLoadTests : IClassFixture<WebApplicationFactory<GatewayProgram>>
 {
     private readonly WebApplicationFactory<GatewayProgram> _factory;

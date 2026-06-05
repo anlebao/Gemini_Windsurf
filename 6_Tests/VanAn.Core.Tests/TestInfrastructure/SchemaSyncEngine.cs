@@ -2,18 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using VanAn.CoreHub.Infrastructure;
-using VanAn.CoreHub.Tests.TestInfrastructure;
 
 namespace VanAn.CoreHub.Tests.TestInfrastructure
 {
-    public class SchemaSyncEngine
+    public class SchemaSyncEngine(ILogger<SchemaSyncEngine> logger = null!)
     {
-        private readonly ILogger<SchemaSyncEngine> _logger;
-
-        public SchemaSyncEngine(ILogger<SchemaSyncEngine> logger = null!)
-        {
-            _logger = logger ?? NullLogger<SchemaSyncEngine>.Instance;
-        }
+        private readonly ILogger<SchemaSyncEngine> _logger = logger ?? NullLogger<SchemaSyncEngine>.Instance;
 
         public async Task<bool> EnsureSchemaAsync(VanAnDbContext context)
         {
@@ -23,14 +17,14 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 if (context.Database.IsSqlite())
                 {
                     _logger?.LogInformation("Creating schema using EnsureCreatedAsync for SQLite");
-                    await context.Database.EnsureCreatedAsync();
+                    _ = await context.Database.EnsureCreatedAsync();
                     _logger?.LogInformation("Schema creation completed successfully");
                 }
                 else
                 {
                     // For PostgreSQL, use migrations
-                    var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-                    
+                    IEnumerable<string> pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+
                     if (pendingMigrations.Any())
                     {
                         _logger?.LogInformation("Applying {Count} pending migrations", pendingMigrations.Count());
@@ -57,20 +51,20 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             try
             {
                 _logger?.LogInformation("Resetting database schema");
-                
+
                 // Delete and recreate database
-                await context.Database.EnsureDeletedAsync();
-                await context.Database.EnsureCreatedAsync();
-                
+                _ = await context.Database.EnsureDeletedAsync();
+                _ = await context.Database.EnsureCreatedAsync();
+
                 // Apply migrations
-                await EnsureSchemaAsync(context);
-                
+                _ = await EnsureSchemaAsync(context);
+
                 // CRITICAL: Disable foreign keys for test isolation
                 if (context.Database.IsSqlite())
                 {
-                    context.Database.ExecuteSqlRaw("PRAGMA foreign_keys = OFF;");
+                    _ = context.Database.ExecuteSqlRaw("PRAGMA foreign_keys = OFF;");
                 }
-                
+
                 _logger?.LogInformation("Database reset and schema sync completed");
                 return true;
             }
@@ -86,7 +80,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             try
             {
                 // Test basic database connectivity
-                var canConnect = await context.Database.CanConnectAsync();
+                bool canConnect = await context.Database.CanConnectAsync();
                 if (!canConnect)
                 {
                     _logger?.LogWarning("Cannot connect to database");
@@ -94,12 +88,12 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 }
 
                 // Test basic query on key tables
-                var shopCount = await context.Shops.CountAsync();
-                var orderCount = await context.Orders.CountAsync();
-                
-                _logger?.LogInformation("Schema validation successful - Shops: {ShopCount}, Orders: {OrderCount}", 
+                int shopCount = await context.Shops.CountAsync();
+                int orderCount = await context.Orders.CountAsync();
+
+                _logger?.LogInformation("Schema validation successful - Shops: {ShopCount}, Orders: {OrderCount}",
                     shopCount, orderCount);
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -114,23 +108,18 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
     {
         public static async Task<bool> SetupTestDatabaseAsync(this VanAnDbContext context, ILogger logger = null!)
         {
-            var syncEngine = new SchemaSyncEngine(logger as ILogger<SchemaSyncEngine> ?? new NullLogger<SchemaSyncEngine>());
-            
+            SchemaSyncEngine syncEngine = new(logger as ILogger<SchemaSyncEngine> ?? new NullLogger<SchemaSyncEngine>());
+
             // Reset and recreate schema
-            var resetSuccess = await syncEngine.ResetAndRecreateAsync(context);
+            bool resetSuccess = await syncEngine.ResetAndRecreateAsync(context);
             if (!resetSuccess)
             {
                 return false;
             }
 
             // Validate schema
-            var validationSuccess = await syncEngine.ValidateSchemaAsync(context);
-            if (!validationSuccess)
-            {
-                return false;
-            }
-
-            return true;
+            bool validationSuccess = await syncEngine.ValidateSchemaAsync(context);
+            return validationSuccess;
         }
 
         public static async Task<bool> SeedTestDataAsync(this VanAnDbContext context, TestDataBuilder builder = null!)

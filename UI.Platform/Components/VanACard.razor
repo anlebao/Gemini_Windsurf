@@ -1,0 +1,61 @@
+@* VanACard Component - Phase 2.5.3: UI Platform Standard Card *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<div class="vanan-card @GetCardClass()" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrEmpty(Header))
+    {
+        <div class="vanan-card__header">
+            <h5 class="vanan-card__title">@Header</h5>
+            @if (HeaderActions != null)
+            {
+                <div class="vanan-card__actions">
+                    @HeaderActions
+                </div>
+            }
+        </div>
+    }
+
+    <div class="vanan-card__body">
+        @ChildContent
+    </div>
+
+    @if (Footer != null)
+    {
+        <div class="vanan-card__footer">
+            @Footer
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? Header { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    [Parameter]
+    public RenderFragment? HeaderActions { get; set; }
+
+    [Parameter]
+    public bool Hoverable { get; set; }
+
+    [Parameter]
+    public bool Shadow { get; set; } = true;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetCardClass()
+    {
+        var classes = new List<string>();
+
+        if (Shadow) classes.Add("vanan-card--shadow");
+        if (Hoverable) classes.Add("vanan-card--hoverable");
+
+        return string.Join(" ", classes);
+    }
+}

@@ -1,0 +1,174 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.Extensions.Logging
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Models
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+@inject ILogger<DynamicFormFields> Logger
+
+@if (Fields != null)
+{
+    @Fields
+}
+else if (FieldDefinitions != null && FieldDefinitions.Any())
+{
+    @foreach (var field in FieldDefinitions)
+    {
+        <div class="mb-3">
+            <label for="@field.Id" class="form-label">@field.Label</label>
+            
+            @if (field.Type == FieldType.Text)
+            {
+                <input type="text" 
+                       class="form-control" 
+                       id="@field.Id" 
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => NotifyChanged(field))"
+                       placeholder="@field.Placeholder"
+                       disabled="@State.IsDisabled" />
+            }
+            else if (field.Type == FieldType.Select)
+            {
+                <select class="form-select" 
+                        id="@field.Id" 
+                        disabled="@State.IsDisabled"
+                        @bind="field.Value"
+                        @bind:event="onchange"
+                        @bind:after="@(() => NotifyChanged(field))">
+                    @if (!string.IsNullOrEmpty(field.Placeholder))
+                    {
+                        <option value="">@field.Placeholder</option>
+                    }
+                    @foreach (var option in field.Options)
+                    {
+                        <option value="@option.Value" selected="@(option.Value == field.Value)">
+                            @option.Label
+                        </option>
+                    }
+                </select>
+            }
+            else if (field.Type == FieldType.Checkbox)
+            {
+                <div class="form-check">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           id="@field.Id"
+                           @bind="field.Value"
+                           @bind:after="@(() => NotifyChanged(field))"
+                           disabled="@State.IsDisabled" />
+                    <label class="form-check-label" for="@field.Id">@field.Label</label>
+                </div>
+            }
+            else if (field.Type == FieldType.Date)
+            {
+                <input type="date"
+                       class="form-control"
+                       id="@field.Id"
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => NotifyChanged(field))"
+                       disabled="@State.IsDisabled" />
+            }
+            else if (field.Type == FieldType.Currency)
+            {
+                <input type="number"
+                       class="form-control"
+                       id="@field.Id"
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => NotifyChanged(field))"
+                       step="0.01"
+                       min="0"
+                       placeholder="@field.Placeholder"
+                       disabled="@State.IsDisabled" />
+            }
+            else if (field.Type == FieldType.TextArea)
+            {
+                <textarea class="form-control"
+                          id="@field.Id"
+                          rows="3"
+                          placeholder="@field.Placeholder"
+                          disabled="@State.IsDisabled"
+                          @bind="field.Value"
+                          @bind:event="oninput"
+                          @bind:after="@(() => NotifyChanged(field))"></textarea>
+            }
+            else if (field.Type == FieldType.Number)
+            {
+                <input type="number"
+                       class="form-control"
+                       id="@field.Id"
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => NotifyChanged(field))"
+                       placeholder="@field.Placeholder"
+                       disabled="@State.IsDisabled" />
+            }
+            else if (field.Type == FieldType.Email)
+            {
+                <input type="email"
+                       class="form-control"
+                       id="@field.Id"
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => NotifyChanged(field))"
+                       placeholder="@field.Placeholder"
+                       disabled="@State.IsDisabled" />
+            }
+            else if (field.Type == FieldType.Password)
+            {
+                <input type="password"
+                       class="form-control"
+                       id="@field.Id"
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => NotifyChanged(field))"
+                       placeholder="@field.Placeholder"
+                       disabled="@State.IsDisabled" />
+            }
+
+            @if (!string.IsNullOrEmpty(field.HelpText))
+            {
+                <small class="form-text text-muted">@field.HelpText</small>
+            }
+        </div>
+    }
+}
+
+@code {
+    /// <summary>
+    /// Custom fields content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Fields { get; set; }
+    
+    /// <summary>
+    /// Field definitions for dynamic form
+    /// </summary>
+    [Parameter]
+    public List<FormField>? FieldDefinitions { get; set; }
+
+    /// <summary>
+    /// Raised whenever a field value changes, allowing the parent host to react
+    /// </summary>
+    [Parameter]
+    public EventCallback<FormField> OnFieldChanged { get; set; }
+
+    /// <summary>
+    /// Notifies the parent host that the shared FormField reference was mutated by @bind
+    /// </summary>
+    private async Task NotifyChanged(FormField field)
+    {
+        if (OnFieldChanged.HasDelegate)
+        {
+            await OnFieldChanged.InvokeAsync(field);
+        }
+    }
+}

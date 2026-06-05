@@ -1,0 +1,165 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Core.Base
+@using VanAn.UI.Platform.Tokens
+
+@code {
+    /// <summary>
+    /// Component state management
+    /// </summary>
+    protected ComponentState State { get; } = new();
+    
+    /// <summary>
+    /// Additional CSS classes
+    /// </summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+    
+    /// <summary>
+    /// Is component disabled
+    /// </summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+    
+    /// <summary>
+    /// Is component loading
+    /// </summary>
+    [Parameter]
+    public bool Loading { get; set; }
+    
+    /// <summary>
+    /// Additional HTML attributes
+    /// </summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+    
+    /// <summary>
+    /// ARIA label for accessibility
+    /// </summary>
+    [Parameter]
+    public string? AriaLabel { get; set; }
+    
+    /// <summary>
+    /// Child content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+    
+    /// <summary>
+    /// Update component state based on parameters
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        
+        State.SetDisabled(Disabled);
+        State.SetLoading(Loading);
+    }
+    
+    /// <summary>
+    /// Combine CSS classes safely
+    /// </summary>
+    protected virtual string GetCombinedCssClass(params string[] classes)
+    {
+        var allClasses = new List<string>();
+        
+        if (!string.IsNullOrEmpty(CssClass))
+            allClasses.Add(CssClass);
+            
+        allClasses.AddRange(classes.Where(c => !string.IsNullOrEmpty(c)));
+        
+        // Add state classes
+        if (State.IsDisabled)
+            allClasses.Add("disabled");
+        if (State.IsLoading)
+            allClasses.Add("loading");
+            
+        return string.Join(" ", allClasses);
+    }
+    
+    /// <summary>
+    /// Get ARIA attributes for accessibility
+    /// </summary>
+    protected virtual Dictionary<string, object> GetAriaAttributes()
+    {
+        var attributes = new Dictionary<string, object>();
+        
+        if (!string.IsNullOrEmpty(AriaLabel))
+            attributes["aria-label"] = AriaLabel;
+            
+        if (State.IsDisabled)
+            attributes["aria-disabled"] = "true";
+            
+        if (State.IsLoading)
+            attributes["aria-busy"] = "true";
+            
+        return attributes;
+    }
+    
+    /// <summary>
+    /// Merge additional attributes with component attributes
+    /// </summary>
+    protected virtual Dictionary<string, object> GetMergedAttributes(params Dictionary<string, object>[] attributeSets)
+    {
+        var merged = new Dictionary<string, object>();
+        
+        // Add base attributes
+        if (AdditionalAttributes != null)
+        {
+            foreach (var attr in AdditionalAttributes)
+                merged[attr.Key] = attr.Value;
+        }
+        
+        // Add ARIA attributes
+        var ariaAttributes = GetAriaAttributes();
+        foreach (var attr in ariaAttributes)
+            merged[attr.Key] = attr.Value;
+            
+        // Add additional attribute sets
+        foreach (var attributeSet in attributeSets)
+        {
+            foreach (var attr in attributeSet)
+                merged[attr.Key] = attr.Value;
+        }
+        
+        return merged;
+    }
+    
+    /// <summary>
+    /// Prevent double click helper
+    /// </summary>
+    protected bool _isProcessing = false;
+    protected async Task<T> PreventDoubleClick<T>(Func<Task<T>> action)
+    {
+        if (_isProcessing || !State.IsInteractive)
+            return default(T);
+            
+        _isProcessing = true;
+        try
+        {
+            return await action();
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+    
+    /// <summary>
+    /// Prevent double click helper for void actions
+    /// </summary>
+    protected async Task PreventDoubleClick(Func<Task> action)
+    {
+        if (_isProcessing || !State.IsInteractive)
+            return;
+            
+        _isProcessing = true;
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+}

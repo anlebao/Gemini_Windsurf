@@ -1,11 +1,23 @@
 {
   "Version": 1,
-  "Hash": "xIljxYohvNfa5YbqmOYt+45DvbYpxoeQ0jVH4t2IZhY=",
+  "Hash": "2D9YOnOLgtIwOe5zcv3FkKtyhCBGMwvTejTAyPHG4A4=",
   "Source": "VanAn.ShopERP",
   "BasePath": "_content/VanAn.ShopERP",
   "Mode": "Default",
   "ManifestType": "Build",
-  "ReferencedProjectsConfiguration": [],
+  "ReferencedProjectsConfiguration": [
+    {
+      "Identity": "C:\\VibeCoding\\Gemini_Windsurf\\UI.Platform\\VanAn.UI.Platform.csproj",
+      "Version": 2,
+      "Source": "VanAn.UI.Platform",
+      "GetPublishAssetsTargets": "ComputeReferencedStaticWebAssetsPublishManifest;GetCurrentProjectPublishStaticWebAssetItems",
+      "AdditionalPublishProperties": "",
+      "AdditionalPublishPropertiesToRemove": "WebPublishProfileFile;Configuration;Platform;TargetFramework;RuntimeIdentifier;SelfContained",
+      "GetBuildAssetsTargets": "GetCurrentProjectBuildStaticWebAssetItems",
+      "AdditionalBuildProperties": "",
+      "AdditionalBuildPropertiesToRemove": "WebPublishProfileFile;Configuration;Platform;TargetFramework;RuntimeIdentifier;SelfContained"
+    }
+  ],
   "DiscoveryPatterns": [
     {
       "Name": "VanAn.ShopERP\\wwwroot",
@@ -16,6 +28,25 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "C:\\Users\\lebao\\.nuget\\packages\\microsoft.aspnetcore.components.webassembly.authentication\\8.0.8\\staticwebassets\\AuthenticationService.js",
+      "SourceId": "Microsoft.AspNetCore.Components.WebAssembly.Authentication",
+      "SourceType": "Package",
+      "ContentRoot": "C:\\Users\\lebao\\.nuget\\packages\\microsoft.aspnetcore.components.webassembly.authentication\\8.0.8\\staticwebassets\\",
+      "BasePath": "_content/Microsoft.AspNetCore.Components.WebAssembly.Authentication",
+      "RelativePath": "AuthenticationService.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "C:\\Users\\lebao\\.nuget\\packages\\microsoft.aspnetcore.components.webassembly.authentication\\8.0.8\\staticwebassets\\AuthenticationService.js"
+    },
     {
       "Identity": "C:\\VibeCoding\\Gemini_Windsurf\\5_WebApps\\ShopERP\\obj\\Debug\\net8.0\\scopedcss\\bundle\\VanAn.ShopERP.styles.css",
       "SourceId": "VanAn.ShopERP",

@@ -6,6 +6,9 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using VanAn.KhachLink;
@@ -31,6 +34,8 @@ namespace VanAn.E2E.Tests.Infrastructure
 
         public string KhachLinkUrl => "http://localhost:5002";
         public string ShopErpUrl => "http://localhost:5003";
+        public string ShopERPUrl => ShopErpUrl;
+        public string GatewayUrl => "http://localhost:5000";
 
         public async Task InitializeAsync()
         {
@@ -43,8 +48,11 @@ namespace VanAn.E2E.Tests.Infrastructure
             // Start ShopERP on port 5003
             _shopErpProcess = StartWebApp("ShopERP", "5003", _shopErpDbPath);
             
-            // Wait for applications to start
-            await Task.Delay(3000);
+            // Wait for applications to be healthy
+            await WaitForServicesAsync();
+            
+            // Seed test data
+            await SeedTestDataAsync();
         }
 
         public async Task DisposeAsync()
@@ -71,6 +79,85 @@ namespace VanAn.E2E.Tests.Infrastructure
             // Create empty SQLite databases for testing
             await File.WriteAllTextAsync(_khachLinkDbPath, "");
             await File.WriteAllTextAsync(_shopErpDbPath, "");
+        }
+
+        private async Task WaitForServicesAsync(CancellationToken ct = default)
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            
+            try
+            {
+                await WaitForEndpointAsync(http, KhachLinkUrl, TimeSpan.FromSeconds(30), ct);
+                await WaitForEndpointAsync(http, ShopErpUrl, TimeSpan.FromSeconds(30), ct);
+            }
+            catch (TimeoutException ex)
+            {
+                throw new InvalidOperationException(
+                    $"E2E Test Setup Failed: Services did not start within timeout. {ex.Message}", ex);
+            }
+        }
+
+        private async Task WaitForEndpointAsync(HttpClient http, string baseUrl, 
+            TimeSpan timeout, CancellationToken ct)
+        {
+            var start = DateTime.UtcNow;
+            while (DateTime.UtcNow - start < timeout)
+            {
+                try
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var response = await http.GetAsync(baseUrl, ct);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"[E2E] Service at {baseUrl} is healthy");
+                        return;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    // Service not ready yet, retry
+                }
+                catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // Timeout on individual request, retry
+                }
+                
+                await Task.Delay(500, ct);
+            }
+            
+            throw new TimeoutException($"Service at {baseUrl} failed to start within {timeout}");
+        }
+
+        private async Task SeedTestDataAsync()
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            
+            try
+            {
+                // Seed a test product in KhachLink
+                var product = new
+                {
+                    Name = "E2E Test Coffee",
+                    Price = 25000,
+                    Category = "Drink",
+                    Description = "Test product for E2E tests"
+                };
+                
+                var response = await http.PostAsJsonAsync($"{KhachLinkUrl}/api/test/seed-product", product);
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine("[E2E] Test data seeded successfully");
+                }
+                else
+                {
+                    Console.WriteLine($"[E2E] Warning: Failed to seed test data (Status: {response.StatusCode})");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[E2E] Warning: Test data seeding failed: {ex.Message}");
+                // Don't fail the test setup if seeding fails - tests can still run with empty data
+            }
         }
 
         private Process StartWebApp(string appName, string port, string dbPath)

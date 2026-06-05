@@ -1,0 +1,30 @@
+{
+  "testSuite": "VanAn Ecosystem",
+  "version": "1.0.0",
+  "timestamp": "2026-06-03T18:03:20.138Z",
+  "tier": {
+    "tierName": "Smoke Tests",
+    "enabled": true,
+    "status": "fail",
+    "tests": [
+      {
+        "testName": "NATS Messaging",
+        "status": "fail",
+        "details": {
+          "error": "apiRequestContext.get: connect ECONNREFUSED ::1:5010\nCall log:\n\u001b[2m  - → GET http://localhost:5010/api/health/messaging\u001b[22m\n\u001b[2m    - user-agent: Playwright/1.60.0 (x64; windows 10.0) node/24.14\u001b[22m\n\u001b[2m    - accept: */*\u001b[22m\n\u001b[2m    - accept-encoding: gzip,deflate,br\u001b[22m\n\u001b[2m    - cookie: .AspNetCore.Antiforgery.tdu-BMcJZJk=CfDJ8FcoTB1o6NFPjX99plw2SgM_2RqlbM3svk0HsuqEL8-Eugq1cPmKy87nHG2JaNd9QdFAHRwxDWjm7mTbTyX5Ji3j85xZ_ATYkqzVRDxRqS7AybbpgvIXG7_-WvaGFAcT0iq91fCsd3vozc_S1l9uV6o; .VanAn.Auth=CfDJ8FcoTB1o6NFPjX99plw2SgNSH1s2Xq3OAjOxzBgVW6hwhvkbEY3q52B6lGFrlRFpgwt4D1JtWDzd5rLFj8PJH0YavW1c3L5EIy4zFCZ7NrvdM3lyHQRyaUJqZ52ZFdwvnBXLaCmZ9oSB-burVfgHDqPidz-2t2IC9ujy6KbtOU2iiKIIMh7XweCJyNtpN2c9SuBF6Jz0GBr9M7oS3qjX_jq7BYZANT6oWE1qU7e0yYMncQNc73k2ItSUkrfKiMrYVkGDDGqcqU-Hcn8DAnz2fRVnxowedayRidhBLDy8wblMMUU4U22cNU7kRWCBMVcGipOGtN5eRcRQthcDHxvNM1NmuZdU4wdPCZ6MajF_MEFAxfzhxygAXhGTS_f3QV7HCzZsH-PEyfMIrlWGFhxB-QW27r_8NqiKoe_p4zxzVpAnLnWTxUOwRu3HEdkD7QtNXiuHwwP9D-0Yc6hCJEIdP5lHmBFb1Xa6jShE5cKo4epGv8GqtekatLhqA8ko2NMQwuEl2UXZxOWz-tCWoAaDFuWc04GIDp_IZKeJK8YGXEMu\u001b[22m\n"
+        },
+        "timestamp": "2026-06-03T18:03:20.092Z"
+      }
+    ],
+    "startTime": "2026-06-03T18:03:19.655Z",
+    "endTime": "2026-06-03T18:03:20.138Z",
+    "duration": 483
+  },
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "duration": 483
+  }
+}

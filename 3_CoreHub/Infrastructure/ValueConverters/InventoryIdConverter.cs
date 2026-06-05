@@ -1,16 +1,17 @@
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VanAn.Shared.Domain;
 
-namespace VanAn.CoreHub.Infrastructure.ValueConverters;
-
-/// <summary>
-/// 2-way ValueConverter for InventoryId Value Object
-/// </summary>
-public class InventoryIdConverter : ValueConverter<InventoryId, Guid>
+namespace VanAn.CoreHub.Infrastructure.ValueConverters
 {
-    public InventoryIdConverter() : base(
-        id => id.Value,
-        value => new InventoryId(value))
+    /// <summary>
+    /// 2-way ValueConverter for InventoryId Value Object
+    /// </summary>
+    public class InventoryIdConverter : ValueConverter<InventoryId, Guid>
     {
+        public InventoryIdConverter() : base(
+            id => id.Value,
+            value => new InventoryId(value))
+        {
+        }
     }
 }

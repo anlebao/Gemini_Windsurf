@@ -1,16 +1,11 @@
 {
   "ExpandedNodes": [
     "",
-    "\\3_CoreHub",
-    "\\3_CoreHub\\Infrastructure",
-    "\\5_WebApps",
     "\\5_WebApps\\ShopERP",
     "\\5_WebApps\\ShopERP\\Components",
-    "\\5_WebApps\\ShopERP\\Pages",
     "\\5_WebApps\\ShopERP\\Properties",
-    "\\5_WebApps\\ShopERP\\Services",
-    "\\5_WebApps\\ShopERP\\wwwroot"
+    "\\6_Tests"
   ],
-  "SelectedNode": "\\3_CoreHub\\Infrastructure\\VanAnDbContext.cs",
+  "SelectedNode": "\\6_Tests\\VanAn.Tests.sln",
   "PreviewInSolutionExplorer": false
 }

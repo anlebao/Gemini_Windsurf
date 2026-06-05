@@ -1,3 +1,4 @@
+using VanAn.Shared.Domain;
 using VanAn.Unit.Tests.Domain;
 
 namespace VanAn.Unit.Tests.Repositories;
@@ -104,6 +105,7 @@ public class InMemoryLeadActivityRepository : ILeadActivityRepository
 
 /// <summary>
 /// In-memory implementation of ICustomerRepository
+/// Uses production Customer from VanAn.Shared.Domain (single source of truth)
 /// </summary>
 public class InMemoryCustomerRepository : ICustomerRepository
 {

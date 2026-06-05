@@ -1,169 +1,158 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
+using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Hubs;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
-using VanAn.CoreHub.Services;
-using VanAn.CoreHub.Infrastructure;
-using VanAn.Gateway.Hubs;
+using VanAn.CoreHub.Commands;
 
-namespace VanAn.Gateway.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-public class OrdersController : ControllerBase
+namespace VanAn.Gateway.Controllers
 {
-    private readonly VanAnDbContext _context;
-    private readonly IVietQrService _vietQrService;
-    private readonly IOrderWorkflowService _orderWorkflowService;
-    private readonly IHubContext<OrderHub> _orderHub;
-    private readonly ILogger<OrdersController> _logger;
-
-    public OrdersController(
-        VanAnDbContext context,
+    [ApiController]
+    [Route("api/[controller]")]
+    public class OrdersController(
+        IOrderService orderService,
         IVietQrService vietQrService,
-        IOrderWorkflowService orderWorkflowService,
         IHubContext<OrderHub> orderHub,
-        ILogger<OrdersController> logger)
+        ILogger<OrdersController> logger) : ControllerBase
     {
-        _context = context;
-        _vietQrService = vietQrService;
-        _orderWorkflowService = orderWorkflowService;
-        _orderHub = orderHub;
-        _logger = logger;
-    }
+        private readonly IOrderService _orderService = orderService;
+        private readonly IVietQrService _vietQrService = vietQrService;
+        private readonly IHubContext<OrderHub> _orderHub = orderHub;
+        private readonly ILogger<OrdersController> _logger = logger;
 
-    [HttpPost]
-    public async Task<ActionResult<VietQrResponse>> CreateOrder([FromBody] CreateOrderRequest request)
-    {
-        try
+        [HttpPost]
+        public async Task<ActionResult<VietQrResponse>> CreateOrder([FromBody] CreateOrderCommand command)
         {
-            // Create Order
-            var order = new Order
+            try
             {
-                OrderId = new OrderId(Guid.NewGuid()),
-                CustomerDeviceId = request.CustomerDeviceId,
-                OrderType = request.OrderType,
-                Status = new OrderStatusId("Draft"),
-                CustomerNotes = request.CustomerNotes,
-                TenantId = Guid.NewGuid() // TODO: Get from tenant provider
-            };
+                Guid tenantId = Guid.NewGuid(); // TODO: Get from tenant provider
 
-            // Add OrderItems
-            foreach (var itemRequest in request.Items)
-            {
-                var orderItem = new OrderItem
+                // Delegate order creation to service layer - Clean Architecture
+                Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);
+
+                // Notify ShopERP via SignalR
+                await _orderHub.Clients.All.SendAsync("NewOrderReceived", new
                 {
-                    OrderItemId = new OrderItemId(Guid.NewGuid()),
-                    OrderId = order.Id,
-                    ProductId = itemRequest.ProductId,
-                    Quantity = itemRequest.Quantity,
-                    UnitPrice = itemRequest.UnitPrice,
-                    VatRate = itemRequest.VatRate,
-                    Notes = itemRequest.Notes,
-                    TenantId = order.TenantId
+                    OrderId = createdOrder.Id,
+                    createdOrder.CustomerId,
+                    Status = createdOrder.Status.Value,
+                    TotalAmount = createdOrder.TotalPrice,
+                    createdOrder.CreatedAt,
+                    Items = createdOrder.Items.Select(i => new
+                    {
+                        i.ProductId,
+                        i.Quantity,
+                        i.UnitPrice,
+                        i.TotalPrice
+                    }).ToList()
+                });
+
+                // Generate VietQR
+                Shared.Domain.VietQrResponse payload = await _vietQrService.GenerateQrCodeAsync(new VietQrRequest
+                {
+                    BankConfig = new BankConfig
+                    {
+                        BankId = "970418",
+                        AccountNo = "1234567890",
+                        AccountName = "VAN AN GROUP"
+                    },
+                    Amount = createdOrder.TotalPrice,
+                    OrderDescription = $"Don hang {createdOrder.Id}"
+                });
+
+                VietQrResponse response = new()
+                {
+                    OrderId = createdOrder.Id.ToString(),
+                    QrImageUrl = payload.QrImageUrl,
+                    PaymentUrl = payload.PaymentUrl,
+                    Amount = createdOrder.TotalPrice,
+                    GeneratedAt = DateTime.UtcNow
                 };
-                order.Items.Add(orderItem);
+
+                return CreatedAtAction(nameof(GetOrder), new { id = createdOrder.Id }, response);
             }
-
-            // Calculate totals
-            order.CalculateTotals();
-
-            // Save to database
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
-
-            // Notify ShopERP via SignalR
-            await _orderHub.Clients.All.SendAsync("NewOrderReceived", new
+            catch (Exception ex)
             {
-                OrderId = order.OrderId.Value,
-                CustomerDeviceId = order.CustomerDeviceId,
-                OrderType = order.OrderType,
-                Status = order.Status.Value,
-                TotalAmount = order.TotalAmount,
-                OrderDate = order.OrderDate,
-                Items = order.Items.Select(i => new
-                {
-                    ProductName = i.Product?.Name ?? "Unknown",
-                    Quantity = i.Quantity,
-                    UnitPrice = i.UnitPrice,
-                    TotalAmount = i.TotalAmount
-                }).ToList()
-            });
-
-            // Generate VietQR
-            var payload = await _vietQrService.GenerateQrCodeAsync(new VietQrRequest
-            {
-                BankConfig = new BankConfig
-                {
-                    BankId = "970418",
-                    AccountNo = "1234567890",
-                    AccountName = "VAN AN GROUP"
-                },
-                Amount = order.TotalAmount,
-                OrderDescription = $"Don hang {order.OrderId.Value}"
-            });
-
-            // Generate QR image URL (using VietQR image service)
-            var qrImageUrl = $"https://img.vietqr.io/image/970418-1234567890-compact.jpg?amount={order.TotalAmount}&addInfo={Uri.EscapeDataString($"Don hang {order.OrderId.Value}")}";
-
-            var response = new VietQrResponse
-            {
-                OrderId = order.OrderId.Value.ToString(),
-                QrImageUrl = payload.QrImageUrl,
-                PaymentUrl = payload.PaymentUrl,
-                Amount = order.TotalAmount,
-                GeneratedAt = DateTime.UtcNow
-            };
-
-            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, response);
+                _logger.LogError(ex, "Error creating order");
+                return StatusCode(500, "Internal server error");
+            }
         }
-        catch (Exception ex)
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Order>> GetOrder(Guid id)
         {
-            _logger.LogError(ex, "Error creating order");
-            return StatusCode(500, "Internal server error");
+            try
+            {
+                Guid tenantId = GetTenantId();
+                Order? order = await _orderService.GetOrderByIdAsync(id, tenantId);
+
+                return order == null ? (ActionResult<Order>)NotFound() : (ActionResult<Order>)Ok(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting order {OrderId}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Order>>> GetOrders([FromQuery] string? status = null)
+        {
+            try
+            {
+                Guid tenantId = GetTenantId();
+
+                if (string.IsNullOrEmpty(status))
+                {
+                    DateTime today = DateTime.UtcNow.Date;
+                    IEnumerable<Order> orders = await _orderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
+                    return Ok(orders);
+                }
+                else
+                {
+                    OrderStatusId statusId = new(status);
+                    List<Order> orders = await _orderService.GetOrdersByStatusAsync(statusId, tenantId);
+                    return Ok(orders);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting orders");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        private Guid GetTenantId()
+        {
+            string? tenantClaim = User.FindFirst("TenantId")?.Value;
+            return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
         }
     }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Order>> GetOrder(Guid id)
+    public class CreateOrderRequest
     {
-        var order = await _context.Orders
-            .Include(o => o.Items)
-            .ThenInclude(i => i.Product)
-            .FirstOrDefaultAsync(o => o.Id == id);
-
-        if (order == null)
-        {
-            return NotFound();
-        }
-
-        return order;
+        public string CustomerDeviceId { get; set; } = string.Empty;
+        public string OrderType { get; set; } = "DINEIN";
+        public string CustomerNotes { get; set; } = string.Empty;
+        public List<OrderItemRequest> Items { get; set; } = [];
     }
-}
 
-public class CreateOrderRequest
-{
-    public string CustomerDeviceId { get; set; } = string.Empty;
-    public string OrderType { get; set; } = "DINEIN";
-    public string CustomerNotes { get; set; } = string.Empty;
-    public List<OrderItemRequest> Items { get; set; } = new();
-}
+    public class OrderItemRequest
+    {
+        public Guid ProductId { get; set; }
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal VatRate { get; set; }
+        public string Notes { get; set; } = string.Empty;
+    }
 
-public class OrderItemRequest
-{
-    public Guid ProductId { get; set; }
-    public int Quantity { get; set; }
-    public decimal UnitPrice { get; set; }
-    public decimal VatRate { get; set; }
-    public string Notes { get; set; } = string.Empty;
-}
-
-public class VietQrResponse
-{
-    public string OrderId { get; set; } = string.Empty;
-    public Uri QrImageUrl { get; set; } = null!;
-    public Uri PaymentUrl { get; set; } = null!;
-    public decimal Amount { get; set; }
-    public DateTime GeneratedAt { get; set; }
+    public class VietQrResponse
+    {
+        public string OrderId { get; set; } = string.Empty;
+        public Uri QrImageUrl { get; set; } = null!;
+        public Uri PaymentUrl { get; set; } = null!;
+        public decimal Amount { get; set; }
+        public DateTime GeneratedAt { get; set; }
+    }
 }

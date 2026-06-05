@@ -1,0 +1,252 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="vanan-layout">
+    <!-- Mobile Header -->
+    <header class="vanan-header md:hidden">
+        <div class="flex items-center justify-between p-4">
+            <div class="flex items-center gap-3">
+                <button class="btn btn-ghost p-2" @onclick="ToggleMobileMenu">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center gap-2">
+                    <img src="/icons/icon-192x192.png" alt="Vạn An" class="w-8 h-8" />
+                    <span class="font-bold text-lg">Vạn An</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button class="btn btn-ghost p-2" @onclick="ToggleNotifications">
+                    <i class="fas fa-bell text-lg"></i>
+                    @if (UnreadNotifications > 0)
+                    {
+                        <span class="badge badge-error absolute -top-1 -right-1 text-xs">@UnreadNotifications</span>
+                    }
+                </button>
+                <button class="btn btn-ghost p-2" @onclick="ToggleUserMenu">
+                    <i class="fas fa-user-circle text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Desktop Header -->
+    <header class="vanan-header hidden md:flex">
+        <div class="container-fluid">
+            <div class="flex items-center justify-between py-4">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <img src="/icons/icon-192x192.png" alt="Vạn An" class="w-10 h-10" />
+                        <span class="font-bold text-xl">Vạn An Group</span>
+                    </div>
+                    <nav class="hidden lg:flex items-center gap-6">
+                        <a href="/" class="text-gray-600 hover:text-primary transition-colors">Trang chủ</a>
+                        <a href="/menu" class="text-gray-600 hover:text-primary transition-colors">Thực đơn</a>
+                        <a href="/orders" class="text-gray-600 hover:text-primary transition-colors">Đơn hàng</a>
+                        <a href="/dashboard" class="text-gray-600 hover:text-primary transition-colors">Dashboard</a>
+                    </nav>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button class="btn btn-ghost p-2" @onclick="ToggleNotifications">
+                        <i class="fas fa-bell"></i>
+                        @if (UnreadNotifications > 0)
+                        {
+                            <span class="badge badge-error absolute -top-1 -right-1 text-xs">@UnreadNotifications</span>
+                        }
+                    </button>
+                    <div class="relative">
+                        <button class="btn btn-ghost p-2" @onclick="ToggleUserMenu">
+                            <i class="fas fa-user-circle text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Menu Overlay -->
+    @if (ShowMobileMenu)
+    {
+        <div class="fixed inset-0 z-40 md:hidden">
+            <div class="fixed inset-0 bg-black bg-opacity-50" @onclick="CloseMobileMenu"></div>
+            <div class="fixed left-0 top-0 h-full w-64 bg-white shadow-lg transform transition-transform">
+                <div class="p-4">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-2">
+                            <img src="/icons/icon-192x192.png" alt="Vạn An" class="w-8 h-8" />
+                            <span class="font-bold text-lg">Vạn An</span>
+                        </div>
+                        <button class="btn btn-ghost p-2" @onclick="CloseMobileMenu">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <nav class="space-y-2">
+                        <a href="/" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
+                            <i class="fas fa-home me-3"></i>Trang chủ
+                        </a>
+                        <a href="/menu" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
+                            <i class="fas fa-utensils me-3"></i>Thực đơn
+                        </a>
+                        <a href="/orders" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
+                            <i class="fas fa-shopping-cart me-3"></i>Đơn hàng
+                        </a>
+                        <a href="/dashboard" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
+                            <i class="fas fa-chart-line me-3"></i>Dashboard
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Main Content -->
+    <main class="vanan-main">
+        @ChildContent
+    </main>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="vanan-bottom-nav md:hidden">
+        <a href="/" class="nav-item @(ActivePage == "home" ? "active" : "")">
+            <i class="fas fa-home"></i>
+            <span>Trang chủ</span>
+        </a>
+        <a href="/menu" class="nav-item @(ActivePage == "menu" ? "active" : "")">
+            <i class="fas fa-utensils"></i>
+            <span>Thực đơn</span>
+        </a>
+        <a href="/orders" class="nav-item @(ActivePage == "orders" ? "active" : "")">
+            <i class="fas fa-shopping-cart"></i>
+            <span>Đơn hàng</span>
+        </a>
+        <a href="/dashboard" class="nav-item @(ActivePage == "dashboard" ? "active" : "")">
+            <i class="fas fa-chart-line"></i>
+            <span>Dashboard</span>
+        </a>
+    </nav>
+</div>
+
+<style>
+    .vanan-layout {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .vanan-header {
+        background: white;
+        border-bottom: 1px solid var(--vanan-gray-200);
+        position: sticky;
+        top: 0;
+        z-index: 30;
+    }
+
+    .vanan-main {
+        flex: 1;
+        padding-bottom: 60px; /* Space for bottom nav on mobile */
+    }
+
+    .vanan-bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 1px solid var(--vanan-gray-200);
+        display: flex;
+        justify-content: space-around;
+        padding: 8px 0;
+        z-index: 30;
+    }
+
+    .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 16px;
+        text-decoration: none;
+        color: var(--vanan-gray-500);
+        font-size: 0.75rem;
+        transition: all 0.2s ease;
+        border-radius: var(--vanan-radius-md);
+    }
+
+    .nav-item:hover {
+        color: var(--vanan-primary);
+        background: var(--vanan-gray-50);
+    }
+
+    .nav-item.active {
+        color: var(--vanan-primary);
+        background: var(--vanan-gray-50);
+    }
+
+    .nav-item i {
+        font-size: 1.25rem;
+    }
+
+    /* Desktop styles */
+    @@media (min-width: 768px) {
+        .vanan-main {
+            padding-bottom: 0; /* No bottom nav on desktop */
+        }
+    }
+
+    /* Touch-friendly sizing */
+    @@media (hover: none) and (pointer: coarse) {
+        .nav-item {
+            padding: 12px 20px;
+            min-height: 44px;
+        }
+
+        .nav-item i {
+            font-size: 1.5rem;
+        }
+
+        .nav-item span {
+            font-size: 0.875rem;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string ActivePage { get; set; } = "home";
+
+    [Parameter]
+    public int UnreadNotifications { get; set; } = 0;
+
+    private bool _showMobileMenu = false;
+    private bool _showNotifications = false;
+    private bool _showUserMenu = false;
+
+    public bool ShowMobileMenu => _showMobileMenu;
+
+    private void ToggleMobileMenu()
+    {
+        _showMobileMenu = !_showMobileMenu;
+    }
+
+    private void CloseMobileMenu()
+    {
+        _showMobileMenu = false;
+    }
+
+    private void ToggleNotifications()
+    {
+        _showNotifications = !_showNotifications;
+        // Close other menus
+        _showUserMenu = false;
+        _showMobileMenu = false;
+    }
+
+    private void ToggleUserMenu()
+    {
+        _showUserMenu = !_showUserMenu;
+        // Close other menus
+        _showNotifications = false;
+        _showMobileMenu = false;
+    }
+}

@@ -239,7 +239,8 @@ docker-compose.dev.yml
 
 # Local database files
 **/App_Data/
-**/Data/
+# Note: **/Data/ is intentionally NOT ignored — source code Data/ folders (UI.Platform, Services) must be tracked
+# **/Data/
 
 # ========================================
 # Logs and Runtime
@@ -403,7 +404,8 @@ khachlink_errors.txt
 *.temp
 
 # Cache directories
-cache/
+# Note: cache/ is intentionally NOT ignored — source code Cache/ folders (Services/Cache) must be tracked
+# cache/
 .Cache/
 
 # Local development files
@@ -412,7 +414,10 @@ Restart-VanAnEcosystem.ps1.local
 
 # Test results
 TestResults/
+!TestResults/full-results.trx
 coverage/
+!coverage/**/*.opencover.xml
+!coverage/**/*.cobertura.xml
 
 # Documentation build artifacts
 docs/_build/
@@ -452,6 +457,12 @@ docs/.cache/
 # Keep rules
 !.rules/
 !.windsurf/
+
+# ========================================
+# Playwright Auth State
+# ========================================
+# Session tokens saved by global-setup.ts — must NOT be committed
+6_Testing/auth/
 
 # ========================================
 # End of VanAn Ecosystem .gitignore

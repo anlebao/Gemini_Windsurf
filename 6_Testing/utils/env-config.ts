@@ -1,6 +1,5 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { config } from 'dotenv';
 
 interface TestConfig {
   // Smoke Tests
@@ -202,4 +201,9 @@ export function getTierConfig(tier: 'smoke' | 'e2e' | 'load' | 'chaos') {
     default:
       return { enabled: false };
   }
+}
+
+// Alias for backward compatibility
+export function getTestConfig() {
+  return loadEnvConfig();
 }

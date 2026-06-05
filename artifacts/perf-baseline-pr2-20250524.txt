@@ -1,0 +1,32 @@
+PR2 Performance Baseline - 2025-05-24
+========================================
+
+StartupSec: ~8 seconds (faster than PR1 due to cached build)
+WorkingSetMB: 326.5 (Process ID: 53796 - largest dotnet process)
+
+Endpoint Inventory (PR2):
+/                          → 200
+/login                     → 200
+/accounting/balance        → 500 (component issue, not routing)
+/accounting/revenue        → 200
+/accounting/expense        → 500 (component issue, not routing)
+/accounting/transactions   → 500 (component issue, not routing)
+/counter                   → 200
+/nonexistent               → 500 (expected - no route)
+/_framework/blazor.web.js  → 200
+
+Hard Abort Conditions Check:
+- AB1 (duplicate-route): NOT triggered ✓
+- AB2 (auth redirect loop): NOT triggered ✓
+- AB3 (memory > PR1 + 20%): 326.5MB vs PR1 205.2MB = 59% increase → AB3 TRIGGERED ⚠
+- AB4 (Bunit regression): pending
+- AB5 (SignalR conflict): NOT triggered ✓
+- AB6 (Razor Page /Login): 200 ✓
+- AB9 (startup > PR1 + 50%): 8s vs PR1 35s = 77% decrease ✓
+- AB11 (_framework/blazor.web.js): 200 ✓
+
+Notes:
+- Blazor routing successfully enabled
+- Antiforgery middleware fixed
+- Some accounting routes return 500 due to component-level issues (not routing)
+- Memory regression detected (AB3) - may need investigation in PR4

@@ -171,10 +171,10 @@
 
     private static readonly List<CartItem> SampleProducts = new()
     {
-        new() { Id = Guid.NewGuid(), Name = "Trà sữa", Description = "Trà sữa truyền thống", UnitPrice = 25000, Quantity = 1 },
-        new() { Id = Guid.NewGuid(), Name = "Cà phê", Description = "Cà phê đen đá", UnitPrice = 18000, Quantity = 1 },
-        new() { Id = Guid.NewGuid(), Name = "Nước ép", Description = "Nước ép trái cây", UnitPrice = 22000, Quantity = 1 },
-        new() { Id = Guid.NewGuid(), Name = "Trà vải", Description = "Trà vải tươi", UnitPrice = 32000, Quantity = 1 }
+        new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductName = "Trà sữa", Description = "Trà sữa truyền thống", UnitPrice = 25000, Quantity = 1 },
+        new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductName = "Cà phê", Description = "Cà phê đen đá", UnitPrice = 18000, Quantity = 1 },
+        new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductName = "Nước ép", Description = "Nước ép trái cây", UnitPrice = 22000, Quantity = 1 },
+        new() { Id = Guid.NewGuid(), ProductId = Guid.NewGuid(), ProductName = "Trà vải", Description = "Trà vải tươi", UnitPrice = 32000, Quantity = 1 }
     };
 
     private decimal totalAmount => cartItems.Sum(item => (decimal)item.Quantity * item.UnitPrice);
@@ -195,14 +195,17 @@
         var existingItem = cartItems.FirstOrDefault(item => item.Id == product.Id);
         if (existingItem != null)
         {
-            existingItem.Quantity++;
+            // Create new item with updated quantity (record is immutable)
+            cartItems = cartItems.Where(item => item.Id != product.Id).ToList();
+            cartItems.Add(existingItem with { Quantity = existingItem.Quantity + 1 });
         }
         else
         {
             cartItems.Add(new CartItem
             {
-                Id = product.Id,
-                Name = product.Name,
+                Id = Guid.NewGuid(),
+                ProductId = product.ProductId,
+                ProductName = product.ProductName,
                 Description = product.Description,
                 Quantity = 1,
                 UnitPrice = product.UnitPrice

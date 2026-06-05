@@ -5,6 +5,7 @@ const config = loadEnvConfig();
 
 export default defineConfig({
   testDir: './',
+  globalSetup: './global-setup',
   testMatch: '**/*.spec.ts',
   fullyParallel: config.E2E_TEST_PARALLEL,
   forbidOnly: !!process.env.CI,
@@ -13,15 +14,22 @@ export default defineConfig({
   reporter: [
     ['html', { outputFolder: 'reports/playwright-html-report' }],
     ['json', { outputFile: 'reports/playwright-report.json' }],
-    ['junit', { outputFile: 'reports/playwright-junit.xml' }],
-    ['./utils/custom-reporter.ts']
+    ['junit', { outputFile: 'reports/playwright-junit.xml' }]
   ],
-  globalSetup: './utils/global-setup.ts',
-  globalTeardown: './utils/global-teardown.ts',
   
   timeout: config.E2E_TEST_TIMEOUT * 1000,
   expect: {
     timeout: 10000
+  },
+
+  use: {
+    baseURL: config.SHOPERP_URL,
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
+    storageState: 'auth/admin.json'
   },
 
   projects: [
@@ -39,24 +47,13 @@ export default defineConfig({
       name: 'e2e-tests',
       testMatch: 'e2e-tests/**/*.spec.ts',
       use: {
-        baseURL: config.KHACHLINK_URL,
+        baseURL: config.SHOPERP_URL,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
-        video: 'retain-on-failure'
+        video: 'retain-on-failure',
+        storageState: 'auth/admin.json'
       }
-    }
-  ],
-
-  use: {
-    baseURL: config.COREHUB_URL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    actionTimeout: 15000,
-    navigationTimeout: 30000
-  },
-
-  projects: [
+    },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },

@@ -1,0 +1,288 @@
+@* VanAStatusForm Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+@using VanAn.Shared.Domain
+
+<VanAModal IsVisible="@IsVisible" OnClose="@HandleClose" Title="Update Order Status">
+    <VanAModal.Body>
+        <div class="vanan-status-form">
+            <div class="vanan-status-form__order-info">
+                <h4>Order Information</h4>
+                <div class="vanan-status-form__order-details">
+                    <div class="vanan-status-form__detail">
+                        <label>Order ID:</label>
+                        <span>@Order?.Id.ToString("N")[..8]</span>
+                    </div>
+                    <div class="vanan-status-form__detail">
+                        <label>Customer:</label>
+                        <span>@GetCustomerName(Order)</span>
+                    </div>
+                    <div class="vanan-status-form__detail">
+                        <label>Current Status:</label>
+                        <span class="vanan-status-form__current-status @GetStatusClass(Order?.Status)">
+                            @Order?.Status.Value
+                        </span>
+                    </div>
+                    <div class="vanan-status-form__detail">
+                        <label>Total Amount:</label>
+                        <span>@Order?.TotalAmount.ToString("C")</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vanan-status-form__update">
+                <h4>Status Update</h4>
+                
+                <div class="vanan-status-form__field">
+                    <label for="status-select">New Status:</label>
+                    <select id="status-select" class="vanan-status-form__select" @bind="SelectedStatus">
+                        @if (AvailableStatuses != null)
+                        {
+                            @foreach (var status in AvailableStatuses)
+                            {
+                                <option value="@status.Value">@GetStatusDisplayName(status)</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="vanan-status-form__field">
+                    <label for="reason">Reason for Change:</label>
+                    <select id="reason" class="vanan-status-form__select" @bind="Reason">
+                        <option value="">-- Select Reason --</option>
+                        <option value="customer_request">Customer Request</option>
+                        <option value="staff_decision">Staff Decision</option>
+                        <option value="payment_issue">Payment Issue</option>
+                        <option value="inventory_shortage">Inventory Shortage</option>
+                        <option value="technical_issue">Technical Issue</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="vanan-status-form__field">
+                    <label for="notes">Additional Notes:</label>
+                    <textarea id="notes" 
+                              class="vanan-status-form__textarea" 
+                              @bind="Notes"
+                              placeholder="Enter detailed reason for status change...">
+                    </textarea>
+                </div>
+
+                <div class="vanan-status-form__field">
+                    <label for="notify-customer">
+                        <input type="checkbox" id="notify-customer" @bind="NotifyCustomer" />
+                        Notify customer of status change
+                    </label>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <VanAAlert Variant="error" Message="@ErrorMessage" />
+                }
+
+                @if (ShowConfirmation && !string.IsNullOrEmpty(ConfirmationMessage))
+                {
+                    <VanAAlert Variant="warning" Message="@ConfirmationMessage" />
+                }
+            </div>
+        </div>
+    </VanAModal.Body>
+
+    <VanAModal.Footer>
+        <div class="vanan-status-form__actions">
+            <VanAnButton Variant="secondary" OnClick="@HandleClose">
+                Cancel
+            </VanAnButton>
+            @if (ShowConfirmation)
+            {
+                <VanAnButton Variant="danger" OnClick="@HandleConfirm">
+                    Confirm Change
+                </VanAnButton>
+            }
+            else
+            {
+                <VanAnButton Variant="primary" OnClick="@HandleSubmit" disabled="@IsSubmitting">
+                    @(IsSubmitting ? "Updating..." : "Update Status")
+                </VanAnButton>
+            }
+        </div>
+    </VanAModal.Footer>
+</VanAModal>
+
+@code {
+    [Parameter]
+    public Order? Order { get; set; }
+
+    [Parameter]
+    public List<OrderStatusId>? AvailableStatuses { get; set; }
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback<OrderStatusUpdate> OnSubmit { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private string SelectedStatus { get; set; } = string.Empty;
+    private string Reason { get; set; } = string.Empty;
+    private string Notes { get; set; } = string.Empty;
+    private bool NotifyCustomer { get; set; } = true;
+    private bool IsSubmitting { get; set; }
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool ShowConfirmation { get; set; }
+    private string ConfirmationMessage { get; set; } = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        // Reset form when order changes
+        if (Order != null)
+        {
+            SelectedStatus = Order.Status.Value;
+            Reason = string.Empty;
+            Notes = string.Empty;
+            NotifyCustomer = true;
+            ErrorMessage = string.Empty;
+            ShowConfirmation = false;
+            ConfirmationMessage = string.Empty;
+        }
+    }
+
+    private string GetCustomerName(Order? order)
+    {
+        if (order?.CustomerInfo != null)
+        {
+            return order.CustomerInfo.FullName;
+        }
+        
+        return order?.CustomerDeviceId?.Substring(0, Math.Min(8, order.CustomerDeviceId.Length)) ?? "Guest";
+    }
+
+    private string GetStatusClass(OrderStatusId? status)
+    {
+        if (status == null) return string.Empty;
+        
+        return status.Value.ToLower() switch
+        {
+            "pending" => "vanan-status-form__status--pending",
+            "processing" => "vanan-status-form__status--processing",
+            "completed" => "vanan-status-form__status--completed",
+            "cancelled" => "vanan-status-form__status--cancelled",
+            _ => "vanan-status-form__status--default"
+        };
+    }
+
+    private string GetStatusDisplayName(OrderStatusId status)
+    {
+        return status.Value switch
+        {
+            "pending" => "Pending",
+            "processing" => "Processing",
+            "completed" => "Completed",
+            "cancelled" => "Cancelled",
+            "draft" => "Draft",
+            "confirmed" => "Confirmed",
+            "ready" => "Ready for Pickup",
+            "delivered" => "Delivered",
+            _ => status.Value
+        };
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (Order == null || AvailableStatuses == null)
+        {
+            ErrorMessage = "Order or status information is missing.";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(SelectedStatus))
+        {
+            ErrorMessage = "Please select a new status.";
+            return;
+        }
+
+        if (SelectedStatus == Order.Status.Value)
+        {
+            ErrorMessage = "New status must be different from current status.";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(Reason))
+        {
+            ErrorMessage = "Please select a reason for the status change.";
+            return;
+        }
+
+        // Check if confirmation is needed for critical status changes
+        var needsConfirmation = SelectedStatus == "cancelled" || 
+                              SelectedStatus == "completed" && Order.Status.Value != "ready";
+
+        if (needsConfirmation && !ShowConfirmation)
+        {
+            ShowConfirmation = true;
+            ConfirmationMessage = $"Are you sure you want to change the order status to '{GetStatusDisplayName(new OrderStatusId(SelectedStatus))}'? This action cannot be undone.";
+            return;
+        }
+
+        try
+        {
+            IsSubmitting = true;
+            ErrorMessage = string.Empty;
+
+            var statusUpdate = new OrderStatusUpdate
+            {
+                OrderId = Order.Id,
+                NewStatus = new OrderStatusId(SelectedStatus),
+                PreviousStatus = Order.Status,
+                Reason = Reason,
+                UpdatedByStaffId = Guid.Empty, // This would be set from current user context
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await OnSubmit.InvokeAsync(statusUpdate);
+            
+            // Reset form on successful submission
+            SelectedStatus = string.Empty;
+            Reason = string.Empty;
+            Notes = string.Empty;
+            ShowConfirmation = false;
+            ConfirmationMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error updating status: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    private async Task HandleConfirm()
+    {
+        ShowConfirmation = false;
+        ConfirmationMessage = string.Empty;
+        await HandleSubmit();
+    }
+
+    private async Task HandleClose()
+    {
+        await OnClose.InvokeAsync();
+    }
+}
+
+@* Supporting Models *@
+@code {
+    public class OrderStatusUpdate
+    {
+        public Guid OrderId { get; set; }
+        public OrderStatusId NewStatus { get; set; } = new OrderStatusId("");
+        public OrderStatusId PreviousStatus { get; set; } = new OrderStatusId("");
+        public string Reason { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+        public Guid? UpdatedByStaffId { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public bool NotifyCustomer { get; set; } = true;
+    }
+}

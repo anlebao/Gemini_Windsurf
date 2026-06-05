@@ -1,0 +1,98 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="@GetAlertClasses()" role="alert" @attributes="GetMergedAttributes()">
+        <div class="d-flex align-items-center">
+            @if (!string.IsNullOrEmpty(GetIcon()))
+            {
+                <i class="fas fa-@GetIcon() me-2"></i>
+            }
+            
+            <div class="flex-grow-1">
+                @Message
+            </div>
+            
+            @if (Dismissible)
+            {
+                <button type="button" 
+                        class="btn-close ms-2" 
+                        aria-label="Close"
+                        @onclick="HandleDismiss"
+                        disabled="@State.IsDisabled">
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Alert variant
+    /// </summary>
+    [Parameter]
+    public AlertVariant Variant { get; set; } = AlertVariant.Info;
+    
+    /// <summary>
+    /// Alert message
+    /// </summary>
+    [Parameter]
+    public string? Message { get; set; }
+    
+    /// <summary>
+    /// Is alert dismissible
+    /// </summary>
+    [Parameter]
+    public bool Dismissible { get; set; }
+    
+    /// <summary>
+    /// On dismiss event callback
+    /// </summary>
+    [Parameter]
+    public EventCallback OnDismiss { get; set; }
+    
+    /// <summary>
+    /// Get alert CSS classes using adapter
+    /// </summary>
+    private string GetAlertClasses()
+    {
+        var baseClasses = CssAdapter.GetAlertClass(Variant, Dismissible);
+        return GetCombinedCssClass(baseClasses);
+    }
+    
+    /// <summary>
+    /// Get icon for alert variant
+    /// </summary>
+    private string GetIcon()
+    {
+        return Variant switch
+        {
+            AlertVariant.Success => "check-circle",
+            AlertVariant.Warning => "exclamation-triangle",
+            AlertVariant.Error => "times-circle",
+            AlertVariant.Info => "info-circle",
+            _ => "info-circle"
+        };
+    }
+    
+    /// <summary>
+    /// Handle dismiss with double click prevention
+    /// </summary>
+    private async Task HandleDismiss()
+    {
+        await PreventDoubleClick(async () =>
+        {
+            if (OnDismiss.HasDelegate)
+            {
+                await OnDismiss.InvokeAsync();
+            }
+        });
+    }
+}

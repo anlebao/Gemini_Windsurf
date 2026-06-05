@@ -1,6 +1,8 @@
 using Microsoft.Playwright;
 using Xunit;
+using Xunit.Abstractions;
 using VanAn.E2E.Tests.Infrastructure;
+using static Microsoft.Playwright.Assertions;
 
 namespace VanAn.E2E.Tests;
 
@@ -8,8 +10,15 @@ namespace VanAn.E2E.Tests;
 /// End-to-End tests for Facebook Lead Integration
 /// Layer 4: E2E Tests - Complete Facebook Lead to Customer Journey
 /// </summary>
+[Collection("SelfHosted Tests")]
+[Trait("Category", "E2E")]
 public class FacebookLeadE2ETests : E2ETestBase
 {
+    public FacebookLeadE2ETests(SelfHostedTestFactory factory, ITestOutputHelper output)
+        : base(factory, output)
+    {
+    }
+
     [Fact(DisplayName = "Facebook_To_Customer_Complete_Journey_ShouldSucceed")]
     public async Task Facebook_To_Customer_Complete_Journey_ShouldSucceed()
     {

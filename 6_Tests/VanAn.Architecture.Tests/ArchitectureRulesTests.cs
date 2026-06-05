@@ -1,19 +1,39 @@
 using Xunit;
 using System.IO;
+using System.Reflection;
 
 namespace VanAn.Architecture.Tests;
 
 public class ArchitectureRulesTests
 {
+    private static string GetRepoRoot()
+    {
+        var currentDir = Directory.GetCurrentDirectory();
+        var dir = new DirectoryInfo(currentDir);
+        
+        // Navigate up to find repo root (contains .git directory)
+        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
+        {
+            dir = dir.Parent;
+        }
+        
+        if (dir == null)
+        {
+            throw new DirectoryNotFoundException("Could not find repository root (no .git directory found)");
+        }
+        
+        return dir.FullName;
+    }
     [Fact(DisplayName = "Rule A: No MapFallbackToFile in Program.cs")]
     public void ProgramCs_ShouldNotUseMapFallbackToFile()
     {
         // Arrange - Check source files directly since assemblies might not exist
+        var repoRoot = GetRepoRoot();
         var programFiles = new[]
         {
-            "../../../../../2_Gateway/Program.cs",
-            "../../../../../5_WebApps/KhachLink/Program.cs", 
-            "../../../../../5_WebApps/ShopERP/Program.cs"
+            Path.Combine(repoRoot, "2_Gateway", "Program.cs"),
+            Path.Combine(repoRoot, "5_WebApps", "KhachLink", "Program.cs"),
+            Path.Combine(repoRoot, "5_WebApps", "ShopERP", "Program.cs")
         };
 
         // Act & Assert
@@ -36,12 +56,13 @@ public class ArchitectureRulesTests
     public void Projects_ShouldNotReferenceInMemoryDatabase_ExceptTests()
     {
         // Arrange - Check project files directly (exclude CoreHub as it's allowed to use InMemory for testing)
+        var repoRoot = GetRepoRoot();
         var projectFiles = new[]
         {
-            "../../../../../1_Shared/VanAn.Shared.csproj",
-            "../../../../../2_Gateway/VanAn.Gateway.csproj",
-            "../../../../../5_WebApps/KhachLink/VanAn.KhachLink.csproj",
-            "../../../../../5_WebApps/ShopERP/VanAn.ShopERP.csproj"
+            Path.Combine(repoRoot, "1_Shared", "VanAn.Shared.csproj"),
+            Path.Combine(repoRoot, "2_Gateway", "VanAn.Gateway.csproj"),
+            Path.Combine(repoRoot, "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"),
+            Path.Combine(repoRoot, "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj")
         };
 
         // Act & Assert
@@ -64,10 +85,11 @@ public class ArchitectureRulesTests
     public void EdgeNodes_ShouldNotReferencePostgreSqlProvider()
     {
         // Arrange
+        var repoRoot = GetRepoRoot();
         var edgeNodeProjects = new[]
         {
-            "../../../../../5_WebApps/KhachLink/VanAn.KhachLink.csproj",
-            "../../../../../5_WebApps/ShopERP/VanAn.ShopERP.csproj"
+            Path.Combine(repoRoot, "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"),
+            Path.Combine(repoRoot, "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj")
         };
 
         // Act & Assert
@@ -91,7 +113,8 @@ public class ArchitectureRulesTests
     public void CoreEntities_ShouldInheritIMustHaveTenant()
     {
         // Arrange - Check domain file directly
-        var domainFile = "../../../../../1_Shared/Domain.cs";
+        var repoRoot = GetRepoRoot();
+        var domainFile = Path.Combine(repoRoot, "1_Shared", "Domain.cs");
         
         if (File.Exists(domainFile))
         {
@@ -141,13 +164,14 @@ public class ArchitectureRulesTests
     public void Projects_ShouldTargetNet8()
     {
         // Arrange
+        var repoRoot = GetRepoRoot();
         var projectFiles = new Dictionary<string, string>
         {
-            { "../../../../../1_Shared/VanAn.Shared.csproj", "net8.0" },
-            { "../../../../../2_Gateway/VanAn.Gateway.csproj", "net8.0" },
-            { "../../../../../3_CoreHub/VanAn.CoreHub.csproj", "net8.0" },
-            { "../../../../../5_WebApps/KhachLink/VanAn.KhachLink.csproj", "net8.0" },
-            { "../../../../../5_WebApps/ShopERP/VanAn.ShopERP.csproj", "net8.0" }
+            { Path.Combine(repoRoot, "1_Shared", "VanAn.Shared.csproj"), "net8.0" },
+            { Path.Combine(repoRoot, "2_Gateway", "VanAn.Gateway.csproj"), "net8.0" },
+            { Path.Combine(repoRoot, "3_CoreHub", "VanAn.CoreHub.csproj"), "net8.0" },
+            { Path.Combine(repoRoot, "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"), "net8.0" },
+            { Path.Combine(repoRoot, "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj"), "net8.0" }
         };
 
         // Act & Assert
@@ -163,6 +187,41 @@ public class ArchitectureRulesTests
             {
                 Assert.Fail($"Project file not found: {fullPath}");
             }
+        }
+    }
+
+    [Fact(DisplayName = "Rule F: CartItem must have ProductId property (FK to Product catalog)")]
+    public void CartItem_MustHave_ProductId()
+    {
+        var repoRoot = GetRepoRoot();
+        var cartItemFile = Path.Combine(repoRoot, "1_Shared", "Domain", "CartItem.cs");
+
+        if (File.Exists(cartItemFile))
+        {
+            var content = File.ReadAllText(cartItemFile);
+            Assert.Contains("ProductId", content);
+        }
+        else
+        {
+            Assert.Fail($"CartItem domain file not found: {cartItemFile}");
+        }
+    }
+
+    [Fact(DisplayName = "Rule G: CartItem must NOT have redundant Name or Price properties (removed in refactor)")]
+    public void CartItem_MustNotHave_RedundantNameOrPrice()
+    {
+        var repoRoot = GetRepoRoot();
+        var cartItemFile = Path.Combine(repoRoot, "1_Shared", "Domain", "CartItem.cs");
+
+        if (File.Exists(cartItemFile))
+        {
+            var content = File.ReadAllText(cartItemFile);
+            Assert.DoesNotContain("required string Name", content);
+            Assert.DoesNotContain("required decimal Price", content);
+        }
+        else
+        {
+            Assert.Fail($"CartItem domain file not found: {cartItemFile}");
         }
     }
 }

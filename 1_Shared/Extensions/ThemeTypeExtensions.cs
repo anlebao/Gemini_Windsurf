@@ -1,19 +1,20 @@
 using VanAn.Shared.Domain;
 
-namespace VanAn.Shared.Extensions;
-
-public static class ThemeTypeExtensions
+namespace VanAn.Shared.Extensions
 {
-    public static string ToCssClass(this ThemeType theme)
+    public static class ThemeTypeExtensions
     {
-        return theme switch
+        public static string ToCssClass(this ThemeType theme)
         {
-            ThemeType.Classic => "theme-classic",
-            ThemeType.Modern => "theme-modern",
-            ThemeType.Teen => "theme-teen",
-            ThemeType.Lady => "theme-lady",
-            ThemeType.Premium => "theme-premium",
-            _ => "theme-default"
-        };
+            return theme switch
+            {
+                ThemeType.Classic => "theme-classic",
+                ThemeType.Modern => "theme-modern",
+                ThemeType.Teen => "theme-teen",
+                ThemeType.Lady => "theme-lady",
+                ThemeType.Premium => "theme-premium",
+                _ => "theme-default"
+            };
+        }
     }
 }

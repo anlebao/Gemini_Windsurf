@@ -1,0 +1,237 @@
+@page "/accounting/revenue"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@using VanAn.UI.Platform.Components
+@using PlatformComposite = VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain
+@using CoreAccountingService = VanAn.CoreHub.Services
+@inject CoreAccountingService.IAccountingService AccountingService
+@inject IThemeProvider ThemeProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<RevenueEntry> Logger
+@inject NavigationManager NavigationManager
+
+<div class="revenue-entry-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Nhập Doanh Thu</h1>
+        <VanAButton 
+            Variant="secondary" 
+            Size="small"
+            OnClick="GoBack">
+            ← Quay Lại
+        </VanAButton>
+    </header>
+
+    @if (showSuccess)
+    {
+        <VanAAlert Type="success" Message="Đã lưu doanh thu thành công!" Dismissible="true" />
+    }
+
+    @if (showError)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" />
+    }
+
+    <VanACard Header="Thông Tin Doanh Thu">
+        <DynamicForm 
+            FieldDefinitions="@revenueFields"
+            SubmitText="Lưu Doanh Thu"
+            OnSubmit="HandleSubmit" />
+    </VanACard>
+</div>
+
+@code {
+    private List<VanAn.UI.Platform.Components.Composite.FormField> revenueFields = new();
+    private bool showSuccess = false;
+    private bool showError = false;
+    private string errorMessage = string.Empty;
+    private Guid _tenantId = Guid.Empty;
+
+    protected override void OnInitialized()
+    {
+        InitializeFields();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var tenantIdClaim = user.FindFirst("TenantId");
+                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
+                {
+                    _tenantId = tenantId;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing RevenueEntry");
+        }
+    }
+
+    private void InitializeFields()
+    {
+        var today = DateTime.Now.ToString("yyyy-MM-dd");
+
+        revenueFields = new List<PlatformComposite.FormField>
+        {
+            new PlatformComposite.FormField
+            {
+                Id = "date",
+                Label = "Ngày",
+                Type = PlatformComposite.FieldType.Date,
+                Value = today,
+                Required = true,
+                HelpText = "Ngày phát sinh doanh thu"
+            },
+            new PlatformComposite.FormField
+            {
+                Id = "amount",
+                Label = "Số Tiền (VNĐ)",
+                Type = PlatformComposite.FieldType.Currency,
+                Placeholder = "0.00",
+                Required = true,
+                HelpText = "Nhập số tiền doanh thu"
+            },
+            new PlatformComposite.FormField
+            {
+                Id = "account",
+                Label = "Tài Khoản",
+                Type = PlatformComposite.FieldType.Select,
+                Options = GetRevenueAccounts(),
+                Required = true,
+                HelpText = "Chọn tài khoản kế toán"
+            },
+            new PlatformComposite.FormField
+            {
+                Id = "description",
+                Label = "Diễn Giải",
+                Type = PlatformComposite.FieldType.TextArea,
+                Placeholder = "Nhập diễn giải giao dịch",
+                Required = true,
+                HelpText = "Mô tả chi tiết về doanh thu"
+            },
+            new PlatformComposite.FormField
+            {
+                Id = "reference",
+                Label = "Số Chứng Từ",
+                Type = PlatformComposite.FieldType.Text,
+                Placeholder = "VD: HĐ-001",
+                HelpText = "Số hóa đơn hoặc chứng từ liên quan"
+            }
+        };
+    }
+
+    private List<PlatformComposite.FieldOption> GetRevenueAccounts()
+    {
+        return new List<PlatformComposite.FieldOption>
+        {
+            new PlatformComposite.FieldOption { Value = "511", Label = "511 - Doanh thu bán hàng hóa" },
+            new PlatformComposite.FieldOption { Value = "512", Label = "512 - Doanh thu cung cấp dịch vụ" },
+            new PlatformComposite.FieldOption { Value = "515", Label = "515 - Doanh thu hoạt động khác" },
+            new PlatformComposite.FieldOption { Value = "711", Label = "711 - Chênh lệch tỷ giá hối đoái" }
+        };
+    }
+
+    private record RecentEntry(decimal Amount, DateTime Date, string AccountCode, DateTime SubmittedAt);
+    private List<RecentEntry> _recentEntries = new();
+
+    private async Task HandleSubmit(PlatformComposite.FormData formData)
+    {
+        try
+        {
+            showSuccess = false;
+            showError = false;
+
+            if (_tenantId == Guid.Empty)
+            {
+                showError = true;
+                errorMessage = "Không xác định được Tenant ID";
+                return;
+            }
+
+            // Validate amount
+            if (!decimal.TryParse(formData.Values["amount"], out var amount) || amount <= 0)
+            {
+                showError = true;
+                errorMessage = "Số tiền phải lớn hơn 0";
+                return;
+            }
+
+            // Validate date
+            if (!DateTime.TryParse(formData.Values["date"], out var date))
+            {
+                showError = true;
+                errorMessage = "Ngày không hợp lệ";
+                return;
+            }
+
+            // Validate account code format (must be 5xx for revenue)
+            var accountCode = formData.Values.GetValueOrDefault("account") ?? string.Empty;
+            if (string.IsNullOrEmpty(accountCode) || !IsValidRevenueAccountCode(accountCode))
+            {
+                showError = true;
+                errorMessage = "Mã tài khoản không hợp lệ. Doanh thu phải thuộc nhóm 5xx hoặc 7xx.";
+                return;
+            }
+
+            // Duplicate check: same amount + date + account within 5 minutes
+            var now = DateTime.Now;
+            _recentEntries.RemoveAll(e => (now - e.SubmittedAt).TotalMinutes > 5);
+            var duplicate = _recentEntries.FirstOrDefault(e =>
+                e.Amount == amount && e.Date.Date == date.Date && e.AccountCode == accountCode);
+
+            if (duplicate != null)
+            {
+                showError = true;
+                errorMessage = "Phát hiện bút toán trùng lặp (cùng số tiền, ngày, tài khoản trong 5 phút). Vui lòng kiểm tra lại.";
+                return;
+            }
+
+            // Create accounting period
+            var period = new AccountingPeriod(date.Year, date.Month);
+            var tenantId = new TenantId(_tenantId);
+
+            // Create accounting entry using IAccountingService
+            await AccountingService.CreateRevenueEntryAsync(
+                tenantId,
+                period,
+                amount,
+                formData.Values["description"]);
+
+            // Track for duplicate detection
+            _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
+
+            showSuccess = true;
+            showError = false;
+            errorMessage = string.Empty;
+
+            // Reset form
+            InitializeFields();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving revenue entry for tenant {TenantId}", _tenantId);
+            showError = true;
+            errorMessage = $"Lỗi khi lưu: {ex.Message}";
+        }
+    }
+
+    private static bool IsValidRevenueAccountCode(string code)
+    {
+        if (code.Length != 3) return false;
+        return code.StartsWith("5") || code.StartsWith("7");
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/accounting");
+    }
+}

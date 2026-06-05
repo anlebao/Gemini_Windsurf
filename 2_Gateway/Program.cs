@@ -3,148 +3,151 @@ using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.Gateway.Middleware;
-using VanAn.Shared.Extensions;
 using VanAn.Gateway.Hubs;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Serilog;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
-namespace VanAn.Gateway;
-
-public partial class Program
+namespace VanAn.Gateway
 {
-    public static void Main(string[] args)
+    public partial class Program
     {
-        var builder = WebApplication.CreateBuilder(args);
-
-        // Architect: Dynamic file logging configuration
-        builder.Host.UseSerilog((context, config) => 
+        public static void Main(string[] args)
         {
-            config.WriteTo.Console();
-            
-            // Architect: Only enable Disk I/O logging if explicitly turned on in appsettings
-            if (context.Configuration.GetValue<bool>("LoggingConfig:EnableFileLogging"))
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+            // Architect: Dynamic file logging configuration
+            _ = builder.Host.UseSerilog((context, config) =>
             {
-                var appName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
-                config.WriteTo.File(
-                    path: System.IO.Path.Combine(AppContext.BaseDirectory, "Logs", $"{appName}-.txt"),
-                    rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 2
-                );
-            }
-        });
+                _ = config.WriteTo.Console();
 
-        // Add services to the container.
-        builder.Services.AddControllers();
-        builder.Services.AddSignalR();
-
-        // Add YARP Reverse Proxy
-        builder.Services.AddReverseProxy()
-            .LoadFromConfig(builder.Configuration);
-
-        // Register VietQR Service
-        builder.Services.AddHttpClient<IVietQrService, VietQrService>();
-        builder.Services.AddScoped<IVietQrService, VietQrService>();
-
-        // Register Order Services
-        builder.Services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
-
-        // Register Build Service
-        builder.Services.AddScoped<IBuildService, BuildService>();
-
-        // Register Customer Services (Domain-First Implementation)
-        builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-        builder.Services.AddScoped<ICustomerService, CustomerService>();
-
-        // Register Social Campaign Service
-        builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
-
-        // Register Loyalty Rewards Service
-        builder.Services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
-
-        // Register Swagger for API documentation
-        builder.Services.AddSwaggerGen(c =>
-        {
-            c.SwaggerDoc("v1", new() { 
-                Title = "VanAn Gateway API", 
-                Version = "v1",
-                Description = "VanAn Ecosystem Gateway Service API Documentation"
+                // Architect: Only enable Disk I/O logging if explicitly turned on in appsettings
+                if (context.Configuration.GetValue<bool>("LoggingConfig:EnableFileLogging"))
+                {
+                    string? appName = System.Reflection.Assembly.GetExecutingAssembly().GetName().Name;
+                    _ = config.WriteTo.File(
+                        path: Path.Combine(AppContext.BaseDirectory, "Logs", $"{appName}-.txt"),
+                        rollingInterval: RollingInterval.Day,
+                        retainedFileCountLimit: 2
+                    );
+                }
             });
-        });
 
-        // Add DbContext (PostgreSQL for development)
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
-            options.UseNpgsql(connectionString));
-
-        // Register ShopConfig Service
-        builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
-
-        // Register Onboarding Service
-        builder.Services.AddHttpClient<IOnboardingService, OnboardingService>();
-        builder.Services.AddScoped<IOnboardingService, OnboardingService>();
-
-        // Register Voice Command Services
-        builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
-        builder.Services.AddScoped<IAudioStorageService, AudioStorageService>();
-        builder.Services.AddMemoryCache();
-        builder.Services.AddScoped<ILocalizationService, LocalizationService>();
-
-        // CORS for frontend
-        builder.Services.AddCors(options =>
-        {
-            options.AddPolicy("AllowAll", policy =>
-            {
-                policy.AllowAnyOrigin()
-                      .AllowAnyMethod()
-                      .AllowAnyHeader();
-            });
-        });
-
-        var app = builder.Build();
-
-        try
-        {
-            Log.Information("🚀 Starting Vạn An Gateway Service...");
-            
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-            // Local-First: DISABLE HTTPS REDIRECTION for development
-            // app.UseHttpsRedirection();
-            app.UseCors("AllowAll");
-
-            // Add Localization Middleware
-            app.UseMiddleware<LocalizationMiddleware>();
+            // Add services to the container.
+            _ = builder.Services.AddControllers();
+            _ = builder.Services.AddSignalR();
 
             // Add YARP Reverse Proxy
-            app.MapReverseProxy();
+            _ = builder.Services.AddReverseProxy()
+                .LoadFromConfig(builder.Configuration);
 
-            app.MapControllers();
-            app.MapHub<OrderHub>("/orderHub");
-            app.MapHub<KitchenHub>("/kitchenhub");
+            // Register VietQR Service
+            _ = builder.Services.AddHttpClient<IVietQrService, VietQrService>();
+            _ = builder.Services.AddScoped<IVietQrService, VietQrService>();
 
-            // Health check endpoint
-            app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn Gateway", Timestamp = DateTime.UtcNow }));
+            // Register Order Services - UPDATE to use CoreHub
+            _ = builder.Services.AddScoped<IOrderService, OrderService>();
 
-            // ÉP CỨNG BINDING - Fix 404
-            app.Urls.Add("http://0.0.0.0:5001");
-            app.Run("http://0.0.0.0:5001");
-        }
-        catch (Exception ex)
-        {
-            Log.Fatal(ex, "❌ Gateway Service terminated unexpectedly");
-        }
-        finally
-        {
-            Log.CloseAndFlush();
+            // Register Build Service
+            _ = builder.Services.AddScoped<IBuildService, BuildService>();
+
+            // Register Customer Services (Domain-First Implementation)
+            _ = builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+            _ = builder.Services.AddScoped<ICustomerService, CustomerService>();
+
+            // Register Social Campaign Service
+            _ = builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
+
+            // Register Loyalty Rewards Service
+            _ = builder.Services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
+
+            // Register Swagger for API documentation
+            _ = builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new()
+                {
+                    Title = "VanAn Gateway API",
+                    Version = "v1",
+                    Description = "VanAn Ecosystem Gateway Service API Documentation"
+                });
+            });
+
+            // Add DbContext (PostgreSQL for development)
+            string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            _ = builder.Services.AddDbContext<CoreHub.Infrastructure.VanAnDbContext>(options =>
+                options.UseNpgsql(connectionString));
+
+            // Register ShopConfig Service
+            _ = builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
+
+            // Register Onboarding Service
+            _ = builder.Services.AddHttpClient<IOnboardingService, OnboardingService>();
+            _ = builder.Services.AddScoped<IOnboardingService, OnboardingService>();
+
+            // Register Voice Command Services
+            _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
+            _ = builder.Services.AddScoped<IAudioStorageService, AudioStorageService>();
+            _ = builder.Services.AddMemoryCache();
+            _ = builder.Services.AddScoped<ILocalizationService, LocalizationService>();
+
+            // CORS for frontend
+            _ = builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    _ = policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+
+            WebApplication app = builder.Build();
+
+            try
+            {
+                Log.Information("🚀 Starting Vạn An Gateway Service...");
+
+                // Configure the HTTP request pipeline.
+                if (app.Environment.IsDevelopment())
+                {
+                    _ = app.UseSwagger();
+                    _ = app.UseSwaggerUI();
+                }
+
+                // Add unified error handling middleware
+                _ = app.UseMiddleware<UnifiedErrorHandler>();
+
+                // Local-First: DISABLE HTTPS REDIRECTION for development
+                // app.UseHttpsRedirection();
+                _ = app.UseCors("AllowAll");
+
+                // Add Localization Middleware
+                _ = app.UseMiddleware<LocalizationMiddleware>();
+
+                // Add YARP Reverse Proxy
+                _ = app.MapReverseProxy();
+
+                _ = app.MapControllers();
+                _ = app.MapHub<OrderHub>("/orderHub");
+                _ = app.MapHub<KitchenHub>("/kitchenhub");
+
+                // Health check endpoint
+                _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn Gateway", Timestamp = DateTime.UtcNow }));
+
+                // ÉP CỨNG BINDING - Fix 404
+                app.Urls.Add("http://0.0.0.0:5001");
+                app.Run("http://0.0.0.0:5001");
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "❌ Gateway Service terminated unexpectedly");
+            }
+            finally
+            {
+                Log.CloseAndFlush();
+            }
         }
     }
-}
 
-public partial class Program { }
+    public partial class Program { }
+}

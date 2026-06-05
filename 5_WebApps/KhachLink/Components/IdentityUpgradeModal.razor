@@ -1,50 +1,60 @@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Tokens
+
 @* Identity Upgrade Modal - Loyalty System *@
-@if (ShowModal)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-0">
-                    <h5 class="modal-title text-center w-100">
-                        <i class="fas fa-shield-alt text-primary me-2"></i>
-                        Nâng Cấp Tài Khoản Vạn An
-                    </h5>
-                </div>
-                <div class="modal-body text-center">
-                    <div class="mb-4">
-                        <i class="fas fa-gift text-warning" style="font-size: 3rem;"></i>
-                    </div>
-                    
-                    <h4 class="text-primary mb-3">Bảo vệ điểm của bạn!</h4>
-                    
-                    <p class="mb-4">
-                        "@ShopConfig?.LoyaltyConfig?.UpgradeMessage ?? "Bảo vệ điểm của bạn và nhận thêm quà tặng!""
-                    </p>
-                    
-                    <div class="alert alert-success">
-                        <i class="fas fa-star me-2"></i>
-                        <strong>Thưởng @(ShopConfig?.LoyaltyConfig?.BonusPointsOnUpgrade ?? 100) điểm</strong> khi nâng cấp ngay!
-                    </div>
-                    
-                    <div class="text-muted small mb-4">
-                        <i class="fas fa-lock me-1"></i>
-                        Dữ liệu của bạn được bảo mật bằng Shadow ID - không lộ thông tin cá nhân
-                    </div>
-                </div>
-                <div class="modal-footer border-0 justify-content-center">
-                    <button class="btn btn-secondary me-2" @onclick="OnDismiss">
-                        <i class="fas fa-times me-1"></i>
-                        Bây giờ sau
-                    </button>
-                    <button class="btn btn-primary" @onclick="OnUpgrade">
-                        <i class="fas fa-shield-alt me-1"></i>
-                        Nâng cấp ngay
-                    </button>
-                </div>
+<VanAnModal IsOpen="ShowModal" 
+          Title="Nâng Cấp Tài Khoản Vạn An" 
+          OnClose="OnDismiss"
+          Closable="true">
+    <div class="text-center">
+        <div class="mb-4">
+            <i class="fas fa-gift text-warning" style="font-size: 3rem;"></i>
+        </div>
+        
+        <h4 class="text-primary mb-3">Bảo vệ điểm của bạn!</h4>
+        
+        <p class="mb-4">
+            @(ShopConfig?.LoyaltyConfig?.UpgradeMessage ?? "Bảo vệ điểm của bạn và nhận thêm quà tặng!")
+        </p>
+        
+        <VanAnCard CssClass="bonus-points-card mb-4" Shadow="true">
+            <div class="text-success">
+                <i class="fas fa-star me-2"></i>
+                <strong>Thưởng @(ShopConfig?.LoyaltyConfig?.BonusPointsOnUpgrade ?? 100) điểm</strong> khi nâng cấp ngay!
             </div>
+        </VanAnCard>
+        
+        <div class="text-muted small mb-4">
+            <i class="fas fa-lock me-1"></i>
+            Dữ liệu của bạn được bảo mật bằng Shadow ID - không lộ thông tin cá nhân
         </div>
     </div>
-}
+    
+    <FooterContent>
+        <VanAnButton Variant="ButtonVariant.Secondary" 
+                   OnClick="OnDismiss">
+            <i class="fas fa-times me-1"></i>
+            Bây giờ sau
+        </VanAnButton>
+        <VanAnButton Variant="ButtonVariant.Primary" 
+                   OnClick="OnUpgrade">
+            <i class="fas fa-shield-alt me-1"></i>
+            Nâng cấp ngay
+        </VanAnButton>
+    </FooterContent>
+</VanAnModal>
+
+<style>
+    .bonus-points-card {
+        background: #f8fff8;
+        border: 1px solid #d4edda;
+    }
+    
+    .bonus-points-card ::deep .card-body {
+        padding: 1rem;
+    }
+</style>
 
 @code {
     [Parameter]

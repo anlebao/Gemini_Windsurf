@@ -1,0 +1,63 @@
+@* VanANavigation Component - Phase 2.5.3: UI Platform Navigation *@
+@using VanAn.UI.Platform.Models
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<nav class="vanan-navigation @GetNavClass()" @attributes="AdditionalAttributes">
+    <ul class="vanan-navigation__list">
+        @if (MenuItems != null)
+        {
+            @foreach (var item in MenuItems)
+            {
+                <li class="vanan-navigation__item @(item.IsActive ? "vanan-navigation__item--active" : "")">
+                    <a href="@item.Url" class="vanan-navigation__link">
+                        @if (!string.IsNullOrEmpty(item.Icon))
+                        {
+                            <span class="vanan-navigation__icon">@item.Icon</span>
+                        }
+                        <span class="vanan-navigation__text">@item.Title</span>
+                    </a>
+                    @if (item.Children.Any())
+                    {
+                        <ul class="vanan-navigation__submenu">
+                            @foreach (var child in item.Children)
+                            {
+                                <li class="vanan-navigation__subitem">
+                                    <a href="@child.Url" class="vanan-navigation__sublink">@child.Title</a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        }
+    </ul>
+</nav>
+
+@code {
+    [Parameter]
+    public List<NavigationItem>? MenuItems { get; set; }
+
+    [Parameter]
+    public string Orientation { get; set; } = "vertical"; // vertical, horizontal
+
+    [Parameter]
+    public bool Collapsed { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetNavClass()
+    {
+        var classes = new List<string>();
+
+        classes.Add(Orientation.ToLower() switch
+        {
+            "horizontal" => "vanan-navigation--horizontal",
+            _ => "vanan-navigation--vertical"
+        });
+
+        if (Collapsed) classes.Add("vanan-navigation--collapsed");
+
+        return string.Join(" ", classes);
+    }
+}

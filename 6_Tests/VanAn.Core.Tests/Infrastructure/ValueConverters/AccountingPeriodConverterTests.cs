@@ -1,76 +1,76 @@
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using VanAn.Shared.Domain;
 using Xunit;
 using FluentAssertions;
 
-namespace VanAn.Core.Tests.Infrastructure.ValueConverters;
-
-public class AccountingPeriodConverterTests
+namespace VanAn.Core.Tests.Infrastructure.ValueConverters
 {
-    private readonly AccountingPeriodConverter _converter = new();
-
-    [Fact]
-    public void Should_Convert_To_Database_Value()
+    public class AccountingPeriodConverterTests
     {
-        // Arrange
-        var period = AccountingPeriod.FromDateTime(new DateTime(2024, 3, 15));
-        
-        // Act
-        var result = _converter.ConvertToProvider(period);
-        
-        // Assert
-        result.Should().Be("2024-03");
-    }
+        private readonly AccountingPeriodConverter _converter = new();
 
-    [Fact]
-    public void Should_Convert_From_Database_Value()
-    {
-        // Arrange
-        var value = "2024-03";
-        
-        // Act
-        var result = _converter.ConvertFromProvider(value);
-        
-        // Assert
-        var period = (AccountingPeriod?)result;
-        Assert.NotNull(period);
-        Assert.Equal(2024, period!.Year);   // dùng ! vì sudah check NotNull
-        Assert.Equal(4, period!.Month);
-    }
+        [Fact]
+        public void Should_Convert_To_Database_Value()
+        {
+            // Arrange
+            AccountingPeriod period = AccountingPeriod.FromDateTime(new DateTime(2024, 3, 15));
 
-    [Fact]
-    public void Should_Handle_Null_Values()
-    {
-        // Act & Assert
-        _converter.ConvertToProvider(null).Should().BeNull();
-        _converter.ConvertFromProvider(null).Should().BeNull();
-        _converter.ConvertFromProvider("").Should().BeNull();
-    }
+            // Act
+            object? result = _converter.ConvertToProvider(period);
 
-    [Fact]
-    public void Should_Handle_Single_Digit_Month()
-    {
-        // Arrange
-        var period = AccountingPeriod.FromDateTime(new DateTime(2024, 1, 15));
-        
-        // Act
-        var result = _converter.ConvertToProvider(period);
-        
-        // Assert
-        result.Should().Be("2024-01");
-    }
+            // Assert
+            _ = result.Should().Be("2024-03");
+        }
 
-    [Fact]
-    public void Should_Handle_Double_Digit_Month()
-    {
-        // Arrange
-        var period = AccountingPeriod.FromDateTime(new DateTime(2024, 12, 15));
-        
-        // Act
-        var result = _converter.ConvertToProvider(period);
-        
-        // Assert
-        result.Should().Be("2024-12");
+        [Fact]
+        public void Should_Convert_From_Database_Value()
+        {
+            // Arrange
+            string value = "2024-03";
+
+            // Act
+            object? result = _converter.ConvertFromProvider(value);
+
+            // Assert
+            AccountingPeriod? period = (AccountingPeriod?)result;
+            Assert.NotNull(period);
+            Assert.Equal(2024, period!.Year);   // dùng ! vì sudah check NotNull
+            Assert.Equal(3, period!.Month);
+        }
+
+        [Fact]
+        public void Should_Handle_Null_Values()
+        {
+            // Act & Assert
+            _ = _converter.ConvertToProvider(null).Should().BeNull();
+            _ = _converter.ConvertFromProvider(null).Should().BeNull();
+            _ = _converter.ConvertFromProvider("").Should().BeNull();
+        }
+
+        [Fact]
+        public void Should_Handle_Single_Digit_Month()
+        {
+            // Arrange
+            AccountingPeriod period = AccountingPeriod.FromDateTime(new DateTime(2024, 1, 15));
+
+            // Act
+            object? result = _converter.ConvertToProvider(period);
+
+            // Assert
+            _ = result.Should().Be("2024-01");
+        }
+
+        [Fact]
+        public void Should_Handle_Double_Digit_Month()
+        {
+            // Arrange
+            AccountingPeriod period = AccountingPeriod.FromDateTime(new DateTime(2024, 12, 15));
+
+            // Act
+            object? result = _converter.ConvertToProvider(period);
+
+            // Assert
+            _ = result.Should().Be("2024-12");
+        }
     }
 }

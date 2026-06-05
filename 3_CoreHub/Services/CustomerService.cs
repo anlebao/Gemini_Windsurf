@@ -3,89 +3,77 @@ using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 
-namespace VanAn.CoreHub.Services;
-
-/// <summary>
-/// Implementation of customer management service
-/// Engineering Constitution: Uses repository pattern with tenant enforcement and soft delete compliance
-/// </summary>
-public class CustomerService : ICustomerService
+namespace VanAn.CoreHub.Services
 {
-    private readonly ICustomerRepository _repository;
-    private readonly ILogger<CustomerService> _logger;
-
-    public CustomerService(ICustomerRepository repository, ILogger<CustomerService> logger)
+    /// <summary>
+    /// Implementation of customer management service
+    /// Engineering Constitution: Uses repository pattern with tenant enforcement and soft delete compliance
+    /// </summary>
+    public class CustomerService(ICustomerRepository repository, ILogger<CustomerService> logger) : ICustomerService
     {
-        _repository = repository;
-        _logger = logger;
-    }
+        private readonly ICustomerRepository _repository = repository;
+        private readonly ILogger<CustomerService> _logger = logger;
 
-    public async Task<Customer?> GetCustomerByDeviceIdAsync(Guid deviceId)
-    {
-        try
+        public async Task<Customer?> GetCustomerByDeviceIdAsync(Guid deviceId)
         {
-            _logger.LogDebug("Looking up customer by device ID: {DeviceId}", deviceId);
-
-            var customer = await _repository.GetByDeviceIdAsync(deviceId);
-
-            if (customer != null)
+            try
             {
-                _logger.LogDebug("Found customer {CustomerId} for device ID: {DeviceId}", 
-                    customer.CustomerId, deviceId);
+                _logger.LogDebug("Looking up customer by device ID: {DeviceId}", deviceId);
+
+                Customer? customer = await _repository.GetByDeviceIdAsync(deviceId);
+
+                if (customer != null)
+                {
+                    _logger.LogDebug("Found customer {CustomerId} for device ID: {DeviceId}",
+                        customer.CustomerId, deviceId);
+                }
+                else
+                {
+                    _logger.LogDebug("No customer found for device ID: {DeviceId}", deviceId);
+                }
+
+                return customer;
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogDebug("No customer found for device ID: {DeviceId}", deviceId);
+                _logger.LogError(ex, "Error looking up customer by device ID: {DeviceId}", deviceId);
+                throw;
             }
-
-            return customer;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error looking up customer by device ID: {DeviceId}", deviceId);
-            throw;
-        }
-    }
 
-    public async Task<Customer> GetOrCreateCustomerByDeviceIdAsync(Guid deviceId, string? displayName = null)
-    {
-        try
+        public async Task<Customer> GetOrCreateCustomerByDeviceIdAsync(Guid deviceId, string? displayName = null)
         {
-            _logger.LogDebug("Getting or creating customer for device ID: {DeviceId}", deviceId);
-
-            // First, try to find existing customer
-            var existingCustomer = await GetCustomerByDeviceIdAsync(deviceId);
-            
-            if (existingCustomer != null)
+            try
             {
-                _logger.LogDebug("Returning existing customer {CustomerId} for device ID: {DeviceId}", 
-                    existingCustomer.CustomerId, deviceId);
-                return existingCustomer;
+                _logger.LogDebug("Getting or creating customer for device ID: {DeviceId}", deviceId);
+
+                // First, try to find existing customer
+                Customer? existingCustomer = await GetCustomerByDeviceIdAsync(deviceId);
+
+                if (existingCustomer != null)
+                {
+                    _logger.LogDebug("Returning existing customer {CustomerId} for device ID: {DeviceId}",
+                        existingCustomer.CustomerId, deviceId);
+                    return existingCustomer;
+                }
+
+                // Create new customer if not found
+                TenantId tenantId = new(Guid.NewGuid()); // Will be set by repository
+                Customer newCustomer = new(tenantId, displayName ?? "Khách hàng anonymity", "Unknown");
+                newCustomer.UpdateCustomerDetails(displayName ?? "Khách hàng anonymity", "Unknown", null, "Bronze", deviceId, true);
+
+                Customer createdCustomer = await _repository.AddAsync(newCustomer);
+
+                _logger.LogInformation("Created new customer {CustomerId} for device ID: {DeviceId}",
+                    createdCustomer.CustomerId, deviceId);
+
+                return createdCustomer;
             }
-
-            // Create new customer if not found
-            var newCustomer = new Customer
+            catch (Exception ex)
             {
-                CustomerId = new CustomerId(Guid.NewGuid()),
-                FullName = displayName ?? "Khách hàng anonymity",
-                PhoneNumber = "Unknown",
-                CustomerTier = "Bronze",
-                DeviceId = deviceId,
-                IsActive = true
-                // TenantId and audit fields will be set by repository
-            };
-
-            var createdCustomer = await _repository.AddAsync(newCustomer);
-
-            _logger.LogInformation("Created new customer {CustomerId} for device ID: {DeviceId}", 
-                createdCustomer.CustomerId, deviceId);
-
-            return createdCustomer;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting or creating customer for device ID: {DeviceId}", deviceId);
-            throw;
+                _logger.LogError(ex, "Error getting or creating customer for device ID: {DeviceId}", deviceId);
+                throw;
+            }
         }
     }
 }

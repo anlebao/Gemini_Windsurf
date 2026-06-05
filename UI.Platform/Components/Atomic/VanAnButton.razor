@@ -1,0 +1,102 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+
+<button class="@GetButtonClasses()" 
+        disabled="@State.IsDisabled"
+        aria-busy="@State.IsLoading"
+        @attributes="GetMergedAttributes()"
+        @onclick="HandleClick">
+    
+    @if (State.IsLoading)
+    {
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    }
+    else if (!string.IsNullOrEmpty(Icon))
+    {
+        <i class="fas fa-@Icon me-2"></i>
+    }
+    
+    @ChildContent
+    
+    @if (State.IsLoading)
+    {
+        <span class="sr-only">Loading...</span>
+    }
+</button>
+
+@code {
+    /// <summary>
+    /// Button variant
+    /// </summary>
+    [Parameter]
+    public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    
+    /// <summary>
+    /// Button size
+    /// </summary>
+    [Parameter]
+    public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    
+    /// <summary>
+    /// Icon class (without "fa-" prefix)
+    /// </summary>
+    [Parameter]
+    public string? Icon { get; set; }
+    
+    /// <summary>
+    /// Full width button
+    /// </summary>
+    [Parameter]
+    public bool FullWidth { get; set; }
+    
+    /// <summary>
+    /// On click event callback
+    /// </summary>
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+    
+    /// <summary>
+    /// Get button CSS classes using adapter
+    /// </summary>
+    private string GetButtonClasses()
+    {
+        var baseClasses = CssAdapter.GetButtonClass(Variant, Size, FullWidth);
+        return GetCombinedCssClass(baseClasses);
+    }
+    
+    /// <summary>
+    /// Handle button click with double click prevention
+    /// </summary>
+    private async Task HandleClick()
+    {
+        await PreventDoubleClick(async () =>
+        {
+            if (OnClick.HasDelegate)
+            {
+                await OnClick.InvokeAsync();
+            }
+        });
+    }
+    
+    /// <summary>
+    /// Set ARIA attributes for button
+    /// </summary>
+    protected override Dictionary<string, object> GetAriaAttributes()
+    {
+        var attributes = base.GetAriaAttributes();
+        
+        if (State.IsLoading)
+        {
+            attributes["aria-live"] = "polite";
+        }
+        
+        return attributes;
+    }
+}

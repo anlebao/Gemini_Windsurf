@@ -7,6 +7,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>VanAn.Integration.Tests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,11 +28,15 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Moq" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="FluentAssertions" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\1_Shared\VanAn.Shared.csproj" />
     <ProjectReference Include="..\..\2_Gateway\VanAn.Gateway.csproj" />
     <ProjectReference Include="..\..\3_CoreHub\VanAn.CoreHub.csproj" />
+    <ProjectReference Include="..\..\5_WebApps\KhachLink\VanAn.KhachLink.csproj" />
+    <ProjectReference Include="..\..\5_WebApps\ShopERP\VanAn.ShopERP.csproj" />
   </ItemGroup>
 
 </Project>

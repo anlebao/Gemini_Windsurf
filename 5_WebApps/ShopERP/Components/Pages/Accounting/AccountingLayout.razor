@@ -1,0 +1,23 @@
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@inherits LayoutComponentBase
+
+<VanALayout>
+    <VanANavigation MenuItems="@AccountingMenuItems" />
+    <main class="accounting-content">
+        @Body
+    </main>
+</VanALayout>
+
+@code {
+    private List<NavigationItem> AccountingMenuItems = new()
+    {
+        new() { Title = "Dashboard", Icon = "dashboard", Url = "/accounting" },
+        new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
+        new() { Title = "Nhập Chi Phí", Icon = "minus-circle", Url = "/accounting/expenses" },
+        new() { Title = "Lịch Sử Giao Dịch", Icon = "history", Url = "/accounting/history" },
+        new() { Title = "Số Dư Tài Khoản", Icon = "account-balance", Url = "/accounting/balance" },
+        new() { Title = "Đóng Sổ Kỳ", Icon = "lock", Url = "/accounting/period-closing" }
+    };
+}

@@ -1,0 +1,96 @@
+@* VanALayout Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<div class="vanan-layout @GetLayoutClass()" @attributes="AdditionalAttributes">
+    <div class="vanan-layout__sidebar">
+        @if (Sidebar != null)
+        {
+            @Sidebar
+        }
+        else
+        {
+            <div class="vanan-layout__sidebar-placeholder">
+                <!-- Default sidebar content -->
+            </div>
+        }
+    </div>
+    
+    <div class="vanan-layout__main">
+        <div class="vanan-layout__header">
+            @if (Header != null)
+            {
+                @Header
+            }
+            else
+            {
+                <div class="vanan-layout__header-placeholder">
+                    <!-- Default header content -->
+                </div>
+            }
+        </div>
+        
+        <div class="vanan-layout__content">
+            @ChildContent
+        </div>
+        
+        @if (Footer != null)
+        {
+            <div class="vanan-layout__footer">
+                @Footer
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? Sidebar { get; set; }
+
+    [Parameter]
+    public RenderFragment? Header { get; set; }
+
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+
+    [Parameter]
+    public string Layout { get; set; } = "default"; // default, compact, wide, fullscreen
+
+    [Parameter]
+    public bool CollapsibleSidebar { get; set; } = true;
+
+    [Parameter]
+    public bool SidebarCollapsed { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnSidebarToggle { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetLayoutClass()
+    {
+        var classes = new List<string>();
+
+        classes.Add(Layout.ToLower() switch
+        {
+            "compact" => "vanan-layout--compact",
+            "wide" => "vanan-layout--wide",
+            "fullscreen" => "vanan-layout--fullscreen",
+            _ => "vanan-layout--default"
+        });
+
+        if (CollapsibleSidebar) classes.Add("vanan-layout--collapsible");
+        if (SidebarCollapsed) classes.Add("vanan-layout--sidebar-collapsed");
+
+        return string.Join(" ", classes);
+    }
+
+    private async Task HandleSidebarToggle()
+    {
+        SidebarCollapsed = !SidebarCollapsed;
+        await OnSidebarToggle.InvokeAsync(SidebarCollapsed);
+    }
+}

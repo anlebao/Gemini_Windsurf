@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VanAn.CoreHub")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6b656ec88b7dc346ef89e936e066650cd98f803f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3bee9def7fe901479d775583f161e8bc048f5c38")]
 [assembly: System.Reflection.AssemblyProductAttribute("VanAn.CoreHub")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VanAn.CoreHub")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

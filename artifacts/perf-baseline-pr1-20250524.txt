@@ -1,0 +1,14 @@
+PR1 Performance Baseline - 2025-05-24
+========================================
+
+StartupSec: ~35 seconds (estimated from build + startup time)
+WorkingSetMB: 205.2 (Process ID: 32988 - largest dotnet process)
+
+Endpoint Inventory (PR1):
+/          → 200
+/login     → 200
+
+Notes:
+- App successfully unblocked after adding HttpContextAuthenticationStateProvider
+- Both Razor Pages endpoints accessible
+- Startup time includes build + database initialization

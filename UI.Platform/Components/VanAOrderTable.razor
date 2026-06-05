@@ -1,0 +1,212 @@
+@* VanAOrderTable Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+@using VanAn.Shared.Domain
+
+<div class="vanan-order-table" @attributes="AdditionalAttributes">
+    <div class="vanan-order-table__header">
+        <h3 class="vanan-order-table__title">Orders</h3>
+        <div class="vanan-order-table__actions">
+            <VanAnButton Variant="secondary" Size="small" OnClick="@RefreshOrders">
+                🔄 Refresh
+            </VanAnButton>
+            <VanAnButton Variant="primary" Size="small" OnClick="@ShowFilters">
+                🔍 Filters
+            </VanAnButton>
+        </div>
+    </div>
+
+    @if (Orders == null || !Orders.Any())
+    {
+        <div class="vanan-order-table__empty">
+            <div class="vanan-order-table__empty-icon">📋</div>
+            <div class="vanan-order-table__empty-text">No orders found</div>
+        </div>
+    }
+    else
+    {
+        <div class="vanan-order-table__container">
+            <table class="vanan-order-table__table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var order in Orders)
+                    {
+                        <tr class="vanan-order-table__row">
+                            <td class="vanan-order-table__cell">
+                                <span class="vanan-order-table__order-id">@order.Id.ToString("N")[..8]</span>
+                            </td>
+                            <td class="vanan-order-table__cell">
+                                <span class="vanan-order-table__customer">@GetCustomerName(order)</span>
+                            </td>
+                            <td class="vanan-order-table__cell">
+                                <span class="vanan-order-table__items">@order.Items.Count</span>
+                            </td>
+                            <td class="vanan-order-table__cell">
+                                <span class="vanan-order-table__total">@order.TotalAmount.ToString("C")</span>
+                            </td>
+                            <td class="vanan-order-table__cell">
+                                <span class="vanan-order-table__status @GetStatusClass(order.Status)">
+                                    @order.Status.Value
+                                </span>
+                            </td>
+                            <td class="vanan-order-table__cell">
+                                <span class="vanan-order-table__time">@GetFormattedTime(order.CreatedAt)</span>
+                            </td>
+                            <td class="vanan-order-table__cell">
+                                <div class="vanan-order-table__actions-cell">
+                                    <VanAnButton Variant="outline" Size="small" OnClick="@(() => HandleViewDetails(order))">
+                                        👁️
+                                    </VanAnButton>
+                                    <VanAnButton Variant="outline" Size="small" OnClick="@(() => HandleAssignStaff(order))">
+                                        👥
+                                    </VanAnButton>
+                                    <VanAnButton Variant="outline" Size="small" OnClick="@(() => HandleUpdateStatus(order))">
+                                        📝
+                                    </VanAnButton>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (ShowPagination)
+        {
+            <div class="vanan-order-table__pagination">
+                <VanAnButton Variant="secondary" Size="small" OnClick="@PreviousPage" disabled="@(!HasPreviousPage)">
+                    ← Previous
+                </VanAnButton>
+                <span class="vanan-order-table__page-info">
+                    Page @CurrentPage of @TotalPages
+                </span>
+                <VanAnButton Variant="secondary" Size="small" OnClick="@NextPage" disabled="@(!HasNextPage)">
+                    Next →
+                </VanAnButton>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<Order>? Orders { get; set; }
+
+    [Parameter]
+    public EventCallback<Order> OnAssignStaff { get; set; }
+
+    [Parameter]
+    public EventCallback<Order> OnUpdateStatus { get; set; }
+
+    [Parameter]
+    public EventCallback<Order> OnViewDetails { get; set; }
+
+    [Parameter]
+    public bool ShowPagination { get; set; } = false;
+
+    [Parameter]
+    public int CurrentPage { get; set; } = 1;
+
+    [Parameter]
+    public int PageSize { get; set; } = 10;
+
+    [Parameter]
+    public int TotalPages { get; set; } = 1;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool HasPreviousPage => CurrentPage > 1;
+    private bool HasNextPage => CurrentPage < TotalPages;
+
+    private string GetCustomerName(Order order)
+    {
+        if (order.CustomerInfo != null)
+        {
+            return order.CustomerInfo.FullName;
+        }
+        
+        return order.CustomerDeviceId?.Substring(0, Math.Min(8, order.CustomerDeviceId.Length)) ?? "Guest";
+    }
+
+    private string GetStatusClass(OrderStatusId status)
+    {
+        return status.Value.ToLower() switch
+        {
+            "pending" => "vanan-order-table__status--pending",
+            "processing" => "vanan-order-table__status--processing",
+            "completed" => "vanan-order-table__status--completed",
+            "cancelled" => "vanan-order-table__status--cancelled",
+            _ => "vanan-order-table__status--default"
+        };
+    }
+
+    private string GetFormattedTime(DateTime dateTime)
+    {
+        var now = DateTime.UtcNow;
+        var diff = now - dateTime;
+
+        if (diff.TotalMinutes < 1)
+            return "Just now";
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours}h ago";
+        
+        return dateTime.ToString("MMM dd");
+    }
+
+    private void HandleViewDetails(Order order)
+    {
+        OnViewDetails.InvokeAsync(order);
+    }
+
+    private void HandleAssignStaff(Order order)
+    {
+        OnAssignStaff.InvokeAsync(order);
+    }
+
+    private void HandleUpdateStatus(Order order)
+    {
+        OnUpdateStatus.InvokeAsync(order);
+    }
+
+    private void RefreshOrders()
+    {
+        // Implementation for refreshing orders
+        // This would typically call a service to reload data
+    }
+
+    private void ShowFilters()
+    {
+        // Implementation for showing filters
+        // This would open a filter modal or panel
+    }
+
+    private void PreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            CurrentPage--;
+            // Trigger data reload for new page
+        }
+    }
+
+    private void NextPage()
+    {
+        if (HasNextPage)
+        {
+            CurrentPage++;
+            // Trigger data reload for new page
+        }
+    }
+}

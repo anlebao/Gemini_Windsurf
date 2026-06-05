@@ -22,7 +22,9 @@ WORKDIR /app
 COPY 6_Testing/package*.json ./
 
 # Install Node.js dependencies
-RUN npm config set registry https://registry.npmmirror.com/ && \
+# NPM registry can be configured via build argument NPM_REGISTRY
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+RUN npm config set registry ${NPM_REGISTRY} && \
     npm install --production --no-optional
 
 # Install Python dependencies for chaos testing

@@ -1,0 +1,205 @@
+@* VanAStaffForm Component - Phase 2.5.3: ShopERP Dashboard *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+@using VanAn.Shared.Domain
+
+<VanAModal IsVisible="@IsVisible" OnClose="@HandleClose" Title="Assign Staff">
+    <VanAModal.Body>
+        <div class="vanan-staff-form">
+            <div class="vanan-staff-form__order-info">
+                <h4>Order Information</h4>
+                <div class="vanan-staff-form__order-details">
+                    <div class="vanan-staff-form__detail">
+                        <label>Order ID:</label>
+                        <span>@Order?.Id.ToString("N")[..8]</span>
+                    </div>
+                    <div class="vanan-staff-form__detail">
+                        <label>Customer:</label>
+                        <span>@GetCustomerName(Order)</span>
+                    </div>
+                    <div class="vanan-staff-form__detail">
+                        <label>Total Amount:</label>
+                        <span>@Order?.TotalAmount.ToString("C")</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vanan-staff-form__assignment">
+                <h4>Staff Assignment</h4>
+                
+                <div class="vanan-staff-form__field">
+                    <label for="staff-select">Select Staff:</label>
+                    <select id="staff-select" class="vanan-staff-form__select" @bind="SelectedStaffId">
+                        <option value="">-- Select Staff --</option>
+                        @if (AvailableStaff != null)
+                        {
+                            @foreach (var staff in AvailableStaff)
+                            {
+                                <option value="@staff.Id">@staff.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="vanan-staff-form__field">
+                    <label for="assignment-notes">Assignment Notes:</label>
+                    <textarea id="assignment-notes" 
+                              class="vanan-staff-form__textarea" 
+                              @bind="AssignmentNotes"
+                              placeholder="Enter any special instructions or notes...">
+                    </textarea>
+                </div>
+
+                <div class="vanan-staff-form__field">
+                    <label for="priority">Priority:</label>
+                    <select id="priority" class="vanan-staff-form__select" @bind="Priority">
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <VanAAlert Variant="error" Message="@ErrorMessage" />
+            }
+        </div>
+    </VanAModal.Body>
+
+    <VanAModal.Footer>
+        <div class="vanan-staff-form__actions">
+            <VanAnButton Variant="secondary" OnClick="@HandleClose">
+                Cancel
+            </VanAnButton>
+            <VanAnButton Variant="primary" OnClick="@HandleSubmit" disabled="@IsSubmitting">
+                @(IsSubmitting ? "Assigning..." : "Assign Staff")
+            </VanAnButton>
+        </div>
+    </VanAModal.Footer>
+</VanAModal>
+
+@code {
+    [Parameter]
+    public Order? Order { get; set; }
+
+    [Parameter]
+    public List<Staff>? AvailableStaff { get; set; }
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback<StaffAssignment> OnSubmit { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private Guid SelectedStaffId { get; set; }
+    private string AssignmentNotes { get; set; } = string.Empty;
+    private string Priority { get; set; } = "normal";
+    private bool IsSubmitting { get; set; }
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        // Reset form when order changes
+        if (Order != null)
+        {
+            SelectedStaffId = Order.CustomerId ?? Guid.Empty;
+            AssignmentNotes = string.Empty;
+            Priority = "normal";
+            ErrorMessage = string.Empty;
+        }
+    }
+
+    private string GetCustomerName(Order? order)
+    {
+        if (order?.CustomerInfo != null)
+        {
+            return order.CustomerInfo.FullName;
+        }
+        
+        return order?.CustomerDeviceId?.Substring(0, Math.Min(8, order.CustomerDeviceId.Length)) ?? "Guest";
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (Order == null || AvailableStaff == null)
+        {
+            ErrorMessage = "Order or staff information is missing.";
+            return;
+        }
+
+        if (SelectedStaffId == Guid.Empty)
+        {
+            ErrorMessage = "Please select a staff member.";
+            return;
+        }
+
+        var selectedStaff = AvailableStaff.FirstOrDefault(s => s.Id == SelectedStaffId);
+        if (selectedStaff == null)
+        {
+            ErrorMessage = "Selected staff member not found.";
+            return;
+        }
+
+        try
+        {
+            IsSubmitting = true;
+            ErrorMessage = string.Empty;
+
+            var assignment = new StaffAssignment
+            {
+                OrderId = Order.Id,
+                StaffId = SelectedStaffId,
+                StaffName = selectedStaff.Name,
+                AssignedAt = DateTime.UtcNow,
+                AssignmentNotes = string.IsNullOrEmpty(AssignmentNotes) ? null : AssignmentNotes
+            };
+
+            await OnSubmit.InvokeAsync(assignment);
+            
+            // Reset form on successful submission
+            SelectedStaffId = Guid.Empty;
+            AssignmentNotes = string.Empty;
+            Priority = "normal";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error assigning staff: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    private async Task HandleClose()
+    {
+        await OnClose.InvokeAsync();
+    }
+}
+
+@* Supporting Models *@
+@code {
+    public class Staff
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public bool IsAvailable { get; set; } = true;
+        public int CurrentOrders { get; set; } = 0;
+    }
+
+    public class StaffAssignment
+    {
+        public Guid OrderId { get; set; }
+        public Guid StaffId { get; set; }
+        public string StaffName { get; set; } = string.Empty;
+        public DateTime AssignedAt { get; set; }
+        public string? AssignmentNotes { get; set; }
+        public string Priority { get; set; } = "normal";
+    }
+}

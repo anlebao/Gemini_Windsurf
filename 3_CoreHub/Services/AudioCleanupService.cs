@@ -2,70 +2,71 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Services;
 
-namespace VanAn.CoreHub.Services;
-
-public class AudioCleanupService
+namespace VanAn.CoreHub.Services
 {
-    private readonly ILogger<AudioCleanupService> _logger;
-    private readonly IServiceProvider _serviceProvider;
-    
-    private static readonly Action<ILogger, Exception?> LogServiceStarting = 
-        LoggerMessage.Define(LogLevel.Information, new EventId(1, "AudioCleanup"), "Audio Cleanup Service is starting.");
-    
-    private static readonly Action<ILogger, Exception?> LogServiceStopping = 
-        LoggerMessage.Define(LogLevel.Information, new EventId(2, "AudioCleanup"), "Audio Cleanup Service is stopping.");
-    
-    private static readonly Action<ILogger, Exception?> LogCleanupSuccess = 
-        LoggerMessage.Define(LogLevel.Information, new EventId(3, "AudioCleanup"), "Expired audio files cleaned up successfully.");
-    
-    private static readonly Action<ILogger, Exception?> LogNoFilesFound = 
-        LoggerMessage.Define(LogLevel.Debug, new EventId(4, "AudioCleanup"), "No expired audio files found for cleanup.");
-    
-    private static readonly Action<ILogger, Exception?> LogCleanupError = 
-        LoggerMessage.Define(LogLevel.Error, new EventId(5, "AudioCleanup"), "Error occurred during audio cleanup.");
-
-    public AudioCleanupService(
-        ILogger<AudioCleanupService> logger,
-        IServiceProvider serviceProvider)
+    public class AudioCleanupService
     {
-        ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(serviceProvider);
-        _logger = logger;
-        _serviceProvider = serviceProvider;
-    }
+        private readonly ILogger<AudioCleanupService> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-    public async Task PerformCleanupAsync()
-    {
-        LogServiceStarting(_logger, null);
-        
-        try
-        {
-            await PerformCleanupInternalAsync().ConfigureAwait(false);
-            LogCleanupSuccess(_logger, null);
-        }
-        catch (Exception ex)
-        {
-            LogCleanupError(_logger, ex);
-            throw;
-        }
-        
-        LogServiceStopping(_logger, null);
-    }
+        private static readonly Action<ILogger, Exception?> LogServiceStarting =
+            LoggerMessage.Define(LogLevel.Information, new EventId(1, "AudioCleanup"), "Audio Cleanup Service is starting.");
 
-    private async Task PerformCleanupInternalAsync()
-    {
-        using var scope = _serviceProvider.CreateScope();
-        var audioStorageService = scope.ServiceProvider.GetRequiredService<IAudioStorageService>();
+        private static readonly Action<ILogger, Exception?> LogServiceStopping =
+            LoggerMessage.Define(LogLevel.Information, new EventId(2, "AudioCleanup"), "Audio Cleanup Service is stopping.");
 
-        var cleaned = await audioStorageService.CleanupExpiredAudioFilesAsync().ConfigureAwait(false);
-        
-        if (cleaned)
+        private static readonly Action<ILogger, Exception?> LogCleanupSuccess =
+            LoggerMessage.Define(LogLevel.Information, new EventId(3, "AudioCleanup"), "Expired audio files cleaned up successfully.");
+
+        private static readonly Action<ILogger, Exception?> LogNoFilesFound =
+            LoggerMessage.Define(LogLevel.Debug, new EventId(4, "AudioCleanup"), "No expired audio files found for cleanup.");
+
+        private static readonly Action<ILogger, Exception?> LogCleanupError =
+            LoggerMessage.Define(LogLevel.Error, new EventId(5, "AudioCleanup"), "Error occurred during audio cleanup.");
+
+        public AudioCleanupService(
+            ILogger<AudioCleanupService> logger,
+            IServiceProvider serviceProvider)
         {
-            LogCleanupSuccess(_logger, null);
+            ArgumentNullException.ThrowIfNull(logger);
+            ArgumentNullException.ThrowIfNull(serviceProvider);
+            _logger = logger;
+            _serviceProvider = serviceProvider;
         }
-        else
+
+        public async Task PerformCleanupAsync()
         {
-            LogNoFilesFound(_logger, null);
+            LogServiceStarting(_logger, null);
+
+            try
+            {
+                await PerformCleanupInternalAsync().ConfigureAwait(false);
+                LogCleanupSuccess(_logger, null);
+            }
+            catch (Exception ex)
+            {
+                LogCleanupError(_logger, ex);
+                throw;
+            }
+
+            LogServiceStopping(_logger, null);
+        }
+
+        private async Task PerformCleanupInternalAsync()
+        {
+            using IServiceScope scope = _serviceProvider.CreateScope();
+            IAudioStorageService audioStorageService = scope.ServiceProvider.GetRequiredService<IAudioStorageService>();
+
+            bool cleaned = await audioStorageService.CleanupExpiredAudioFilesAsync().ConfigureAwait(false);
+
+            if (cleaned)
+            {
+                LogCleanupSuccess(_logger, null);
+            }
+            else
+            {
+                LogNoFilesFound(_logger, null);
+            }
         }
     }
 }

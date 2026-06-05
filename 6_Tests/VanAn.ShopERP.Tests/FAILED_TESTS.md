@@ -1,0 +1,54 @@
+# Failed Tests - VanAn.ShopERP.Tests
+# Total: 29 Failed, 8 Passed, 0 Skipped
+# Date: 2026-05-23
+
+## AccountingBalanceTests.cs
+1. AccountBalance_ShouldShowCurrentBalance_WhenComponentMounted
+2. AccountBalance_ShouldShowIncomeExpense_WhenTransactionsExist
+
+## AccountingLayoutNavigationTests.cs
+3. AccountingLayout_ShouldRenderFiveMenuItems_WhenComponentMounted
+4. AccountingLayout_ShouldContainAllRequiredRoutes_WhenRendered
+5. AccountingLayout_ShouldRenderMenuLabelsInVietnamese_WhenMounted
+6. VanADashboard_ShouldContainAccountingMenuItem_AfterSidebarUpdate
+7. VanADashboard_AccountingMenuItem_ShouldLinkToAccountingRoute
+
+## AccountingIndexTests.cs
+8. AccountingIndex_ShouldRenderFourMetricsCards_WhenComponentMounted
+9. AccountingIndex_ShouldRenderQuickActionButtons_WhenComponentMounted
+10. AccountingIndex_ShouldNavigateToRevenueEntry_WhenRevenueButtonClicked
+11. AccountingIndex_ShouldNavigateToExpenseEntry_WhenExpenseButtonClicked
+
+## ExpenseEntryTests.cs
+12. ExpenseEntry_ShouldRenderVendorField_WhenComponentMounted
+13. ExpenseEntry_ShouldRenderCategoryDropdown_WhenComponentMounted
+14. ExpenseEntry_ShouldRequireVendor_WhenExpenseTypeIsPurchase
+15. ExpenseEntry_ShouldCallService_WithVendorInfo_WhenFormIsValid
+
+## RevenueEntryTests.cs
+16. RevenueEntry_ShouldRenderDateField_WhenComponentMounted
+17. RevenueEntry_ShouldShowValidationError_WhenAmountIsZero
+18. RevenueEntry_ShouldShowValidationError_WhenDateIsMissing
+19. RevenueEntry_ShouldCallService_WhenFormIsValid
+20. RevenueEntry_ShouldShowSuccessAlert_WhenEntryCreated
+
+## TransactionDetailModalTests.cs
+21. TransactionDetailModal_ShouldRenderTransactionDetails_WhenComponentMounted
+22. TransactionDetailModal_ShouldClose_WhenCloseButtonClicked
+23. TransactionDetailModal_ShouldShowEditButton_WhenTransactionIsEditable
+
+## TransactionHistoryTests.cs
+24. TransactionHistory_ShouldRenderTransactionList_WhenComponentMounted
+25. TransactionHistory_ShouldFilterByDateRange_WhenDateRangeSelected
+26. TransactionHistory_ShouldNavigateToDetail_WhenTransactionClicked
+
+## VanAnSearchBarTests.cs
+27. VanAnSearchBar_ShouldRenderSearchInput_WhenComponentMounted
+28. VanAnSearchBar_ShouldFilterResults_WhenSearchTextEntered
+29. VanAnSearchBar_ShouldClearFilter_WhenClearButtonClicked
+
+## Common Error Pattern
+Most failures are due to missing UI elements:
+- ElementNotFoundException: No elements found matching selectors like '#date', '#amount', '#vendor', '#category', '.metrics-card', 'button.quick-action', 'nav a.menu-item', etc.
+
+This suggests the actual Blazor components may not have these specific CSS selectors or the component structure differs from what the tests expect.

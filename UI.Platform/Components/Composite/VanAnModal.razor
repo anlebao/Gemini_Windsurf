@@ -1,0 +1,177 @@
+@using Microsoft.AspNetCore.Components
+@using VanAn.UI.Platform.Components.Base
+@using VanAn.UI.Platform.Core.Interfaces
+@using VanAn.UI.Platform.Adapters
+@using VanAn.UI.Platform.Tokens
+@inherits BaseComponent
+
+@inject ICssAdapter CssAdapter
+
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" 
+         tabindex="-1" 
+         role="dialog" 
+         aria-labelledby="modalTitle"
+         aria-hidden="false"
+         @attributes="GetMergedAttributes()">
+        
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                @if (!string.IsNullOrEmpty(Title))
+                {
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitle">@Title</h5>
+                        @if (Closable)
+                        {
+                            <button type="button" 
+                                    class="btn-close" 
+                                    aria-label="Close"
+                                    @onclick="HandleClose"
+                                    disabled="@State.IsDisabled">
+                            </button>
+                        }
+                    </div>
+                }
+                
+                <div class="modal-body">
+                    @ChildContent
+                </div>
+                
+                @if (Footer != null)
+                {
+                    <div class="modal-footer">
+                        @Footer
+                    </div>
+                }
+                else if (ShowDefaultFooter)
+                {
+                    <div class="modal-footer">
+                        <VanAnButton Variant="ButtonVariant.Secondary" 
+                                    @onclick="HandleClose"
+                                    Disabled="@State.IsDisabled">
+                            Cancel
+                        </VanAnButton>
+                        
+                        <VanAnButton Variant="ButtonVariant.Primary" 
+                                    @onclick="HandleConfirm"
+                                    Loading="@State.IsLoading"
+                                    Disabled="@State.IsDisabled">
+                            Confirm
+                        </VanAnButton>
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <div class="modal-backdrop fade show" @onclick="HandleBackdropClick"></div>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Is modal open
+    /// </summary>
+    [Parameter]
+    public bool IsOpen { get; set; }
+    
+    /// <summary>
+    /// Modal title
+    /// </summary>
+    [Parameter]
+    public string? Title { get; set; }
+    
+    /// <summary>
+    /// Is modal closable
+    /// </summary>
+    [Parameter]
+    public bool Closable { get; set; } = true;
+    
+    /// <summary>
+    /// Show default footer
+    /// </summary>
+    [Parameter]
+    public bool ShowDefaultFooter { get; set; }
+    
+    /// <summary>
+    /// Footer content
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Footer { get; set; }
+    
+    /// <summary>
+    /// On close event callback
+    /// </summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+    
+    /// <summary>
+    /// On confirm event callback
+    /// </summary>
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+    
+    /// <summary>
+    /// On backdrop click event callback
+    /// </summary>
+    [Parameter]
+    public EventCallback OnBackdropClick { get; set; }
+    
+    /// <summary>
+    /// Handle close with double click prevention
+    /// </summary>
+    private async Task HandleClose()
+    {
+        await PreventDoubleClick(async () =>
+        {
+            if (OnClose.HasDelegate)
+            {
+                await OnClose.InvokeAsync();
+            }
+        });
+    }
+    
+    /// <summary>
+    /// Handle confirm with double click prevention
+    /// </summary>
+    private async Task HandleConfirm()
+    {
+        await PreventDoubleClick(async () =>
+        {
+            if (OnConfirm.HasDelegate)
+            {
+                await OnConfirm.InvokeAsync();
+            }
+        });
+    }
+    
+    /// <summary>
+    /// Handle backdrop click
+    /// </summary>
+    private async Task HandleBackdropClick()
+    {
+        if (Closable && OnBackdropClick.HasDelegate)
+        {
+            await OnBackdropClick.InvokeAsync();
+        }
+        else if (Closable)
+        {
+            await HandleClose();
+        }
+    }
+    
+    /// <summary>
+    /// Set ARIA attributes for modal
+    /// </summary>
+    protected override Dictionary<string, object> GetAriaAttributes()
+    {
+        var attributes = base.GetAriaAttributes();
+        
+        if (IsOpen)
+        {
+            attributes["aria-modal"] = "true";
+        }
+        
+        return attributes;
+    }
+}
