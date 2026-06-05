@@ -19,10 +19,11 @@
 
 ## 2. Current Objective
 
-**Phase 2.9.4 Audit Trail — BUILD FIXED**. Sẵn sàng tạo PR.
+**Phase 2.9.4 Audit Trail — MERGED into main** ✅
 
 Sprint 2 PR#1 (Period Closing Wizard) đã merge thành công vào `main`.
-Branch `feature/audit-trail-sprint2` đã tạo và implement xong Phase 2.9.4.
+Sprint 2 PR#2 (Audit Trail) đã merge thành công vào `main`.
+Ready to start next phase.
 
 ---
 
@@ -60,9 +61,7 @@ Branch `feature/audit-trail-sprint2` đã tạo và implement xong Phase 2.9.4.
 
 ### In Progress
 
-* ✅ Build errors fixed — `AccountingEntryServiceTests.cs` updated với `IAuditTrailService` mock
-* ⏳ Run `guard-check.ps1` để verify tests pass
-* ⏳ Tạo PR cho Phase 2.9.4 Audit Trail
+* Không có task đang chạy.
 
 ### Blocked
 
