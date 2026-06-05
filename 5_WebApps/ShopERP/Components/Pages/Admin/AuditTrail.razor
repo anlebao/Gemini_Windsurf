@@ -1,0 +1,563 @@
+@page "/admin/audit-trail"
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Domain.Audit
+@using VanAn.CoreHub.Services
+@inject IAuditTrailService AuditTrailService
+@inject IThemeProvider ThemeProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<AuditTrail> Logger
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Roles = "Admin")]
+
+<div class="audit-trail-page @ThemeProvider.CurrentTheme">
+    <!-- Header -->
+    <header class="audit-header">
+        <h1>📝 Nhật Ký Audit</h1>
+        <div class="header-actions">
+            <VanAButton
+                Variant="secondary"
+                Size="small"
+                OnClick="RefreshData">
+                🔄 Refresh
+            </VanAButton>
+            <VanAButton
+                Variant="primary"
+                Size="small"
+                OnClick="ExportLogs">
+                📤 Export
+            </VanAButton>
+        </div>
+    </header>
+
+    <!-- Filter Panel -->
+    <section class="filter-section">
+        <VanACard Header="Bộ Lọc">
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label>Từ ngày</label>
+                    <input type="date" class="vanan-input" @bind="Filter.FromDate" />
+                </div>
+                <div class="filter-group">
+                    <label>Đến ngày</label>
+                    <input type="date" class="vanan-input" @bind="Filter.ToDate" />
+                </div>
+                <div class="filter-group">
+                    <label>Loại hành động</label>
+                    <select class="vanan-select" @bind="Filter.Action">
+                        <option value="">Tất cả</option>
+                        <option value="@AuditActionType.Create">Tạo mới</option>
+                        <option value="@AuditActionType.Update">Cập nhật</option>
+                        <option value="@AuditActionType.Delete">Xóa</option>
+                        <option value="@AuditActionType.PeriodClose">Đóng kỳ</option>
+                        <option value="@AuditActionType.PeriodReopen">Mở kỳ</option>
+                        <option value="@AuditActionType.Correction">Điều chỉnh</option>
+                        <option value="@AuditActionType.Reversal">Đảo ngược</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Loại entity</label>
+                    <select class="vanan-select" @bind="Filter.EntityType">
+                        <option value="">Tất cả</option>
+                        <option value="@AuditableEntityType.AccountingEntry">Bút toán</option>
+                        <option value="@AuditableEntityType.PeriodClosing">Kỳ kế toán</option>
+                        <option value="@AuditableEntityType.Customer">Khách hàng</option>
+                        <option value="@AuditableEntityType.Order">Đơn hàng</option>
+                        <option value="@AuditableEntityType.Product">Sản phẩm</option>
+                        <option value="@AuditableEntityType.Shop">Cửa hàng</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>User ID</label>
+                    <input type="text" class="vanan-input" @bind="Filter.UserId" placeholder="User ID..." />
+                </div>
+                <div class="filter-group">
+                    <label>Tìm kiếm</label>
+                    <input type="text" class="vanan-input" @bind="Filter.SearchTerm" placeholder="Search..." />
+                </div>
+            </div>
+            <div class="filter-actions">
+                <VanAButton
+                    Variant="primary"
+                    OnClick="ApplyFilter">
+                    🔍 Áp dụng
+                </VanAButton>
+                <VanAButton
+                    Variant="outline"
+                    OnClick="ClearFilter">
+                    ❌ Xóa bộ lọc
+                </VanAButton>
+            </div>
+        </VanACard>
+    </section>
+
+    <!-- Results -->
+    <section class="results-section">
+        @if (IsLoading)
+        {
+            <VanACard>
+                <div class="loading-state">
+                    <VanASpinner Size="large" />
+                    <p>Đang tải dữ liệu...</p>
+                </div>
+            </VanACard>
+        }
+        else if (AuditLogs == null || !AuditLogs.Any())
+        {
+            <VanACard>
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <p>Không tìm thấy bản ghi audit nào</p>
+                </div>
+            </VanACard>
+        }
+        else
+        {
+            <VanACard Header="Kết quả">
+                <div class="audit-table-container">
+                    <table class="vanan-table audit-table">
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Hành động</th>
+                                <th>Entity</th>
+                                <th>User</th>
+                                <th>Lý do</th>
+                                <th>Chi tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in AuditLogs)
+                            {
+                                <tr class="audit-row @GetActionClass(log.Action)">
+                                    <td class="timestamp">@log.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td class="action">
+                                        <span class="action-badge @GetActionClass(log.Action)">
+                                            @GetActionDisplay(log.Action)
+                                        </span>
+                                    </td>
+                                    <td class="entity">
+                                        <div class="entity-type">@log.EntityType</div>
+                                        <div class="entity-id text-muted">@log.EntityId.ToString()[..Math.Min(8, log.EntityId.ToString().Length)]...</div>
+                                    </td>
+                                    <td class="user">
+                                        <div class="user-name">@(log.UserName ?? log.UserId ?? "System")</div>
+                                    </td>
+                                    <td class="reason">
+                                        @if (!string.IsNullOrEmpty(log.Reason))
+                                        {
+                                            <span class="reason-text" title="@log.Reason">@Truncate(log.Reason, 30)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="actions">
+                                        <VanAButton
+                                            Variant="ghost"
+                                            Size="small"
+                                            OnClick="() => ShowDetails(log)">
+                                            👁️ Chi tiết
+                                        </VanAButton>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                @if (TotalPages > 1)
+                {
+                    <div class="pagination">
+                        <VanAButton
+                            Variant="outline"
+                            Size="small"
+                            Disabled="CurrentPage <= 1"
+                            OnClick="() => GoToPage(CurrentPage - 1)">
+                            ◀ Trước
+                        </VanAButton>
+                        <span class="page-info">Trang @CurrentPage / @TotalPages</span>
+                        <VanAButton
+                            Variant="outline"
+                            Size="small"
+                            Disabled="CurrentPage >= TotalPages"
+                            OnClick="() => GoToPage(CurrentPage + 1)">
+                            Tiếp ▶
+                        </VanAButton>
+                    </div>
+                }
+            </VanACard>
+        }
+    </section>
+</div>
+
+<!-- Detail Modal -->
+@if (SelectedLog != null)
+{
+    <VanAModal Title="Chi tiết Audit Log" OnClose="CloseDetails">
+        <div class="audit-detail">
+            <div class="detail-row">
+                <label>ID:</label>
+                <span>@SelectedLog.Id</span>
+            </div>
+            <div class="detail-row">
+                <label>Thời gian:</label>
+                <span>@SelectedLog.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</span>
+            </div>
+            <div class="detail-row">
+                <label>Hành động:</label>
+                <span class="action-badge @GetActionClass(SelectedLog.Action)">@GetActionDisplay(SelectedLog.Action)</span>
+            </div>
+            <div class="detail-row">
+                <label>Entity Type:</label>
+                <span>@SelectedLog.EntityType</span>
+            </div>
+            <div class="detail-row">
+                <label>Entity ID:</label>
+                <span>@SelectedLog.EntityId</span>
+            </div>
+            <div class="detail-row">
+                <label>User:</label>
+                <span>@(SelectedLog.UserName ?? SelectedLog.UserId ?? "System")</span>
+            </div>
+            @if (!string.IsNullOrEmpty(SelectedLog.Reason))
+            {
+                <div class="detail-row">
+                    <label>Lý do:</label>
+                    <span>@SelectedLog.Reason</span>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(SelectedLog.CorrelationId))
+            {
+                <div class="detail-row">
+                    <label>Correlation ID:</label>
+                    <span>@SelectedLog.CorrelationId</span>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(SelectedLog.OldValues))
+            {
+                <div class="detail-section">
+                    <label>Giá trị cũ:</label>
+                    <pre class="json-preview">@SelectedLog.OldValues</pre>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(SelectedLog.NewValues))
+            {
+                <div class="detail-section">
+                    <label>Giá trị mới:</label>
+                    <pre class="json-preview">@SelectedLog.NewValues</pre>
+                </div>
+            }
+        </div>
+    </VanAModal>
+}
+
+@code {
+    private List<AuditLog> AuditLogs { get; set; } = new();
+    private bool IsLoading { get; set; } = false;
+    private int CurrentPage { get; set; } = 1;
+    private int PageSize { get; set; } = 50;
+    private int TotalCount { get; set; } = 0;
+    private int TotalPages => (TotalCount + PageSize - 1) / PageSize;
+    private string PaginationInfo => $"Hiển thị {AuditLogs.Count} / {TotalCount} bản ghi";
+
+    private FilterModel Filter { get; set; } = new();
+    private AuditLog? SelectedLog { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            var query = new AuditLogQuery
+            {
+                FromDate = Filter.FromDate,
+                ToDate = Filter.ToDate?.AddDays(1).AddTicks(-1),
+                Action = Filter.Action,
+                EntityType = Filter.EntityType,
+                UserId = Filter.UserId,
+                SearchTerm = Filter.SearchTerm,
+                PageNumber = CurrentPage,
+                PageSize = PageSize
+            };
+
+            var result = await AuditTrailService.QueryAsync(query);
+            AuditLogs = result.Items.ToList();
+            TotalCount = result.TotalCount;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading audit logs");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadData();
+    }
+
+    private async Task ApplyFilter()
+    {
+        CurrentPage = 1;
+        await LoadData();
+    }
+
+    private async Task ClearFilter()
+    {
+        Filter = new FilterModel();
+        CurrentPage = 1;
+        await LoadData();
+    }
+
+    private async Task GoToPage(int page)
+    {
+        CurrentPage = page;
+        await LoadData();
+    }
+
+    private void ShowDetails(AuditLog log)
+    {
+        SelectedLog = log;
+        StateHasChanged();
+    }
+
+    private void CloseDetails()
+    {
+        SelectedLog = null;
+        StateHasChanged();
+    }
+
+    private void ExportLogs()
+    {
+        // TODO: Implement CSV/Excel export
+        Logger.LogInformation("Export audit logs requested");
+    }
+
+    private string GetActionDisplay(AuditActionType action) => action switch
+    {
+        AuditActionType.Create => "Tạo mới",
+        AuditActionType.Update => "Cập nhật",
+        AuditActionType.Delete => "Xóa",
+        AuditActionType.PeriodClose => "Đóng kỳ",
+        AuditActionType.PeriodReopen => "Mở kỳ",
+        AuditActionType.Correction => "Điều chỉnh",
+        AuditActionType.Reversal => "Đảo ngược",
+        AuditActionType.Export => "Xuất",
+        AuditActionType.Login => "Đăng nhập",
+        AuditActionType.Logout => "Đăng xuất",
+        AuditActionType.PermissionChange => "Thay đổi quyền",
+        _ => action.ToString()
+    };
+
+    private string GetActionClass(AuditActionType action) => action switch
+    {
+        AuditActionType.Create => "action-create",
+        AuditActionType.Update => "action-update",
+        AuditActionType.Delete => "action-delete",
+        AuditActionType.PeriodClose => "action-period-close",
+        AuditActionType.PeriodReopen => "action-period-reopen",
+        AuditActionType.Correction => "action-correction",
+        AuditActionType.Reversal => "action-reversal",
+        _ => "action-default"
+    };
+
+    private string Truncate(string value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return value;
+        return value.Length <= maxLength ? value : value[..maxLength] + "...";
+    }
+
+    public class FilterModel
+    {
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
+        public AuditActionType? Action { get; set; }
+        public AuditableEntityType? EntityType { get; set; }
+        public string? UserId { get; set; }
+        public string? SearchTerm { get; set; }
+    }
+}
+
+<style>
+    .audit-trail-page {
+        padding: 1rem;
+    }
+
+    .audit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .filter-section {
+        margin-bottom: 1rem;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .filter-group label {
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .vanan-input, .vanan-select {
+        padding: 0.5rem;
+        border: 1px solid var(--border-color, #ddd);
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+
+    .audit-table-container {
+        overflow-x: auto;
+    }
+
+    .audit-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .audit-table th,
+    .audit-table td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color, #ddd);
+    }
+
+    .audit-table th {
+        font-weight: 600;
+        background-color: var(--header-bg, #f5f5f5);
+    }
+
+    .action-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .action-create { background-color: #d4edda; color: #155724; }
+    .action-update { background-color: #fff3cd; color: #856404; }
+    .action-delete { background-color: #f8d7da; color: #721c24; }
+    .action-period-close { background-color: #cce5ff; color: #004085; }
+    .action-period-reopen { background-color: #e2e3e5; color: #383d41; }
+    .action-correction { background-color: #d1ecf1; color: #0c5460; }
+    .action-reversal { background-color: #f5c6cb; color: #721c24; }
+    .action-default { background-color: #e2e3e5; color: #383d41; }
+
+    .timestamp {
+        font-family: monospace;
+        font-size: 0.875rem;
+    }
+
+    .entity-type {
+        font-weight: 500;
+    }
+
+    .entity-id {
+        font-size: 0.75rem;
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color, #ddd);
+    }
+
+    .page-info {
+        font-size: 0.875rem;
+    }
+
+    .loading-state, .empty-state {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .audit-detail {
+        padding: 1rem;
+    }
+
+    .detail-row {
+        display: flex;
+        margin-bottom: 0.75rem;
+    }
+
+    .detail-row label {
+        width: 150px;
+        font-weight: 500;
+        flex-shrink: 0;
+    }
+
+    .detail-section {
+        margin-top: 1rem;
+    }
+
+    .detail-section label {
+        font-weight: 500;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .json-preview {
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.75rem;
+        overflow-x: auto;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+</style>

@@ -55,6 +55,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
             _ = builder.Services.AddScoped<ICustomerService, CustomerService>();
 
+            // Register Audit Trail Services (Phase 2.9.4)
+            _ = builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+            _ = builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+
             // Register Social Campaign Service
             _ = builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
 

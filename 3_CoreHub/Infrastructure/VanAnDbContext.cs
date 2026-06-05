@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
@@ -51,6 +52,9 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<OutboxMessage> OutboxMessages { get; set; }
         public DbSet<JournalTemplate> JournalTemplates { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
+
+        // PHASE 2.9.4: Audit Trail - Immutable append-only logs
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {

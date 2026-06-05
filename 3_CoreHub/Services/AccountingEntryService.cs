@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
+using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Repositories;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
@@ -12,9 +13,11 @@ namespace VanAn.CoreHub.Services
     /// </summary>
     public class AccountingEntryService(
         IAccountingEntryRepository repository,
+        IAuditTrailService auditTrailService,
         ILogger<AccountingEntryService> logger) : IAccountingService
     {
         private readonly IAccountingEntryRepository _repository = repository;
+        private readonly IAuditTrailService _auditTrailService = auditTrailService;
         private readonly ILogger<AccountingEntryService> _logger = logger;
 
         public async Task<decimal> GetTodayRevenueAsync(Guid tenantId)
@@ -77,6 +80,14 @@ namespace VanAn.CoreHub.Services
 
                 await _repository.AddAsync(coreEntry);
 
+                // Audit log: Entry creation
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { entry.Amount, entry.Description, entry.EntryType, entry.TransactionDate });
+                await _auditTrailService.LogCreateAsync(
+                    AuditableEntityType.AccountingEntry,
+                    coreEntry.Id,
+                    newValues,
+                    correlationId: coreEntry.Id.ToString());
+
                 return entry;
             }
             catch (Exception ex)
@@ -122,6 +133,14 @@ namespace VanAn.CoreHub.Services
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description);
                 await _repository.AddAsync(entry);
 
+                // Audit log: Revenue entry creation
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Revenue" });
+                await _auditTrailService.LogCreateAsync(
+                    AuditableEntityType.AccountingEntry,
+                    entry.Id,
+                    newValues,
+                    correlationId: entry.Id.ToString());
+
                 return new AccountingEntryDto
                 {
                     Id = entry.Id,
@@ -150,6 +169,14 @@ namespace VanAn.CoreHub.Services
             {
                 CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description);
                 await _repository.AddAsync(entry);
+
+                // Audit log: Expense entry creation
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Expense" });
+                await _auditTrailService.LogCreateAsync(
+                    AuditableEntityType.AccountingEntry,
+                    entry.Id,
+                    newValues,
+                    correlationId: entry.Id.ToString());
 
                 return new AccountingEntryDto
                 {

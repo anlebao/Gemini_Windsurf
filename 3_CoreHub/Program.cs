@@ -5,6 +5,8 @@ using VanAn.CoreHub.Services.Events;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Domain.Repositories;
+using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Hubs;
 using Microsoft.EntityFrameworkCore;
@@ -48,11 +50,13 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IJournalTemplateRepository, JournalTemplateRepository>();
                     _ = services.AddScoped<IOrderRepository, OrderRepository>();
                     _ = services.AddScoped<IHKDBookRepository, HKDBookRepository>();
+                    _ = services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
                     // Core services
                     _ = services.AddScoped<IAccountingService, AccountingEntryService>();
                     _ = services.AddScoped<IHKDBookService, HKDBookService>();
                     _ = services.AddScoped<IOrderService, OrderService>();
+                    _ = services.AddScoped<IAuditTrailService, AuditTrailService>();
 
                     // Background task queue
                     _ = services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
