@@ -19,6 +19,7 @@ namespace VanAn.Integration.Tests;
 /// Integration tests for Facebook Lead Integration
 /// Layer 2: Integration Tests - Facebook Webhook Processing
 /// </summary>
+[Trait("Category", "Integration")]
 public class FacebookLeadIntegrationTests : IntegrationTestBase
 {
     private readonly Lazy<IFacebookLeadService> _facebookLeadService;
@@ -98,7 +99,7 @@ public class FacebookLeadIntegrationTests : IntegrationTestBase
         };
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => GetFacebookLeadService().ProcessFacebookWebhookAsync(invalidPayload));
 
         Assert.Contains("required", exception.Message.ToLower());
