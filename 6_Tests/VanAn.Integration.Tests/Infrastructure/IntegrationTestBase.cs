@@ -42,12 +42,6 @@ public abstract class IntegrationTestBase : IDisposable
         _dbContext = _serviceProvider.GetRequiredService<VanAnDbContext>();
         _logger = _serviceProvider.GetRequiredService<ILogger<IntegrationTestBase>>();
 
-        // Open connection before EnsureCreated for SQLite
-        _dbContext.Database.OpenConnection();
-        
-        // Enable foreign key constraints for SQLite
-        _dbContext.Database.ExecuteSqlRaw("PRAGMA foreign_keys = ON");
-        
         // Ensure database is created
         _dbContext.Database.EnsureCreated();
     }
