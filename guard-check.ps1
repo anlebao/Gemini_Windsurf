@@ -115,12 +115,12 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# NEW: Integration tests (with real NATS service) - Phase 2.4
-Write-Host "Running Integration test gate (requires NATS service)..." -ForegroundColor Yellow
-dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --verbosity quiet --configuration Release 2>&1 | Out-Null
+# NEW: Integration tests (CircuitBreaker only - no external services required) - Phase 2.4
+Write-Host "Running Integration test gate (CircuitBreaker tests only)..." -ForegroundColor Yellow
+dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --verbosity quiet --configuration Release --filter "FullyQualifiedName~CircuitBreakerIntegrationTests" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "INTEGRATION TEST GATE FAILED" -ForegroundColor Red
-    Write-Host "Run: dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj for details" -ForegroundColor Yellow
+    Write-Host "Run: dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --filter FullyQualifiedName~CircuitBreakerIntegrationTests for details" -ForegroundColor Yellow
     exit 1
 }
 

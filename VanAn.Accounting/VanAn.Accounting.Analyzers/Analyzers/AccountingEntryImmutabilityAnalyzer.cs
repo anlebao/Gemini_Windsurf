@@ -50,9 +50,28 @@ public class AccountingEntryImmutabilityAnalyzer : DiagnosticAnalyzer
         // Check if property has setter
         if (property.AccessorList != null)
         {
-            var hasSetter = property.AccessorList.Accessors.Any(a => 
-                a.IsKind(SyntaxKind.SetAccessorDeclaration) && 
-                !a.Modifiers.Any(m => m.IsKind(SyntaxKind.PrivateKeyword)));
+            var hasSetter = false;
+            foreach (var accessor in property.AccessorList.Accessors)
+            {
+                if (accessor.IsKind(SyntaxKind.SetAccessorDeclaration))
+                {
+                    // Check if setter is not private
+                    var isPrivate = false;
+                    foreach (var modifier in accessor.Modifiers)
+                    {
+                        if (modifier.IsKind(SyntaxKind.PrivateKeyword))
+                        {
+                            isPrivate = true;
+                            break;
+                        }
+                    }
+                    if (!isPrivate)
+                    {
+                        hasSetter = true;
+                        break;
+                    }
+                }
+            }
             
             if (hasSetter)
             {
