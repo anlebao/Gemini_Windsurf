@@ -19,10 +19,17 @@
 
 ## 2. Current Objective
 
-**Phase 2.9.4 Audit Trail — BUILD FIXED**. Sẵn sàng tạo PR.
+**Sprint 3 - Phase 5 E-Invoice Multi-Provider Integration (IN PROGRESS)**
 
-Sprint 2 PR#1 (Period Closing Wizard) đã merge thành công vào `main`.
-Branch `feature/audit-trail-sprint2` đã tạo và implement xong Phase 2.9.4.
+Sprint 2 (Period Closing Wizard + Audit Trail) đã hoàn thành và merge thành công vào `main`.
+Branch `feature/sprint3-einvoice` đã tạo và đang implement theo workflow `newfeaturebuild.md`.
+
+- ✅ Step 5: Pre-Implementation Validation (domain entities, namespace, guard-check.ps1) - COMPLETED
+- ✅ Step 6.1: Day 1 - Domain Models & Invoice Aggregate (1_Shared/Domain.cs) - COMPLETED
+- ✅ Step 6.2: Day 2-4 - Provider Interfaces, Factory, Registry, Manager - COMPLETED
+- ✅ Step 6.3: Day 5-7 - Business Logic, Outbox Pattern - COMPLETED
+- 🔄 Step 6.4: Day 8-11 - Circuit Breaker, API Controllers, Webhook - IN PROGRESS
+- ⏳ Step 7: Review & Approval - PENDING
 
 ---
 
@@ -31,21 +38,55 @@ Branch `feature/audit-trail-sprint2` đã tạo và implement xong Phase 2.9.4.
 ### Completed
 
 * Sprint 1 (Phase 2.6 Frontend Accounting Module) is fully completed.
-* **Sprint 2 PR#1 — Period Closing Wizard (Phase 2.9.3) MERGED vào `main`** ✅
-* **Phase 2.9.4 Audit Trail — IMPLEMENTATION COMPLETE** (phiên này):
-  * Domain layer: `AuditLog.cs` (immutable entity), `IAuditable.cs`, `AuditActionType`, `AuditableEntityType`, `AuditLogQuery`, `AuditLogPagedResult` ✅
-  * Infrastructure layer: `AuditLogConfiguration.cs` (EF Core), `IAuditLogRepository.cs`, `AuditLogRepository.cs` ✅
-  * Application layer: `IAuditTrailService.cs`, `AuditTrailService.cs` ✅
-  * Gateway layer: `AuditTrailController.cs` (REST API with Admin authorization) ✅
-  * UI layer: `AuditTrail.razor` (Admin audit log viewer page) ✅
-  * E2E test: `audit-trail-flow.spec.ts` (6 test cases) ✅
-  * Integration: Audit logging integrated into `PeriodClosingService` (PeriodClose, PeriodReopen) and `AccountingEntryService` (CreateRevenueEntry, CreateExpenseEntry) ✅
-  * DI registration: Added `IAuditLogRepository`, `IAuditTrailService` to `Program.cs` (CoreHub & Gateway) ✅
+* **Sprint 2 — Period Closing Wizard + Audit Trail MERGED vào `main`** ✅
+* **Sprint 3 — Phase 5 E-Invoice Multi-Provider Integration (IN PROGRESS)**:
+  * Day 1 - Domain Models & Invoice Aggregate (1_Shared/Domain.cs) ✅
+    * Enums: InvoiceStatus, InvoiceType, HKDRevenueGroup, ProviderStatus
+    * Value Objects: ElectronicInvoiceId, ProviderId, InvoiceIdempotencyKey
+    * Entities: ElectronicInvoice, InvoiceAggregate, OutboxEvent, SubmitAttempt, HKDRevenueClassification, ProviderConfiguration
+    * Domain Events: InvoiceSubmitted, InvoiceConfirmed, InvoiceRejected
+    * State machine enforcement with InvalidOperationException
+  * Day 2-4 - Provider Interfaces, Factory, Registry, Manager ✅
+    * IPOSProvider interface with ProviderCapabilities, POSOrderRequest/Response
+    * IEInvoiceProvider interface with EInvoiceRequest/Response, InvoiceStatusResponse
+    * IPOSProviderFactory/POSProviderFactory implementations
+    * IPOSProviderRegistry/POSProviderRegistry with auto-discovery
+    * IEInvoiceProviderFactory/EInvoiceProviderFactory implementations
+    * IEInvoiceProviderRegistry/EInvoiceProviderRegistry with auto-discovery
+    * ProviderAttribute for auto-registration
+    * IProviderManager for multi-tenant provider management
+    * ProviderManager with configuration caching (NOT instances)
+    * ITenantProviderConfigurationService for tenant-specific configuration
+    * TenantProviderConfigurationService stub implementation
+  * Day 5-7 - Business Logic, Outbox Pattern ✅
+    * IHKDRevenueClassificationService for TT152-2025 revenue classification
+    * HKDRevenueClassificationService implementation
+    * IEInvoiceOrchestrator (ONLY coordination, Anti-God Service pattern)
+    * EInvoiceOrchestrator implementation with service delegation
+    * IInvoicePolicyService for invoice business rules
+    * InvoicePolicyService implementation
+    * IRetryPolicyService for retry logic
+    * RetryPolicyService implementation
+    * IFallbackService for provider failover
+    * FallbackService implementation
+    * IComplianceService for TT152-2025 compliance
+    * ComplianceService implementation
+    * IWebhookService for webhook processing with idempotency
+    * WebhookService implementation
+    * IOutboxRepository for atomic Invoice + Outbox transaction
+    * OutboxRepository stub implementation
+    * EInvoiceWorker background worker with Dead Letter Queue
+  * Day 8-11 - Circuit Breaker, API Controllers, Webhook (IN PROGRESS)
+    * ICircuitBreakerService for provider resilience
+    * CircuitBreakerService implementation with state transitions
+    * HKDElectronicInvoiceController for E-Invoice REST API
+    * ProviderController for provider management REST API
+    * WebhookController for provider webhook callbacks with idempotency
 * `docs/AI/project_state.md` was created as the AI project state source of truth.
 * Authoritative MVP roadmap `docs/plan_MVP/RoadMap/MVP plan Account M.md` has been read and understood.
 * 7 HKD book reference documents confirmed in `docs/plan_MVP/HKD_BookAcc`.
 * SQLite integration test fixes confirmed in `docs/SQLite_Configuration_Fix_Plan.md`.
-* CI pipeline fully stabilized (phiên này):
+* CI pipeline fully stabilized:
   * `build-verify`: filter `Category!=Performance&Category!=Integration&Category!=E2E` ✅
   * `integration-tests`: filter `Category!=Integration/E2E/Load` via `[Trait]` ✅
   * `guard-check.ps1`: fast test gate thêm `--filter "Category!=Performance&Category!=Integration&Category!=E2E"` ✅
@@ -56,18 +97,18 @@ Branch `feature/audit-trail-sprint2` đã tạo và implement xong Phase 2.9.4.
   * `Load`: `SimpleLoadTests`
   * `E2E`: `GoldenFlowE2ETests`, `FrozenStateTests`, `FacebookLeadE2ETests`, `InfrastructureTests`, `DashboardE2ETests`
   * `Performance`: `GetPostgreSQLMetricsAsync_Should_Perform_With_Large_Dataset` — flaky wall-clock assert removed
-* Branch `feature/period-closing-sprint2` đã merged (có thể xóa).
 
 ### In Progress
 
-* ✅ Build errors fixed — `AccountingEntryServiceTests.cs` updated với `IAuditTrailService` mock
-* ⏳ Run `guard-check.ps1` để verify tests pass
-* ⏳ Tạo PR cho Phase 2.9.4 Audit Trail
+* 🔄 Day 8-11 - Circuit Breaker, API Controllers, Webhook implementation
+* ⏳ Fix build errors for API controllers (missing using directives)
+* ⏳ Run guard-check.ps1 để verify build và tests pass
+* ⏳ Commit Day 8-11 changes
+* ⏳ Step 7: Review & Approval - Final validation
 
 ### Blocked
 
 * Không có blockers.
-* Sprint 3 (Phase 5 E-Invoice Multi-Provider Integration) chờ Sprint 2 hoàn thành.
 
 ---
 
@@ -210,18 +251,23 @@ Phase 1 — Unblock CI (COMPLETED)
 * Task: ✅ DONE — Added `IVanAnDbContext`, `ILoyaltyRewardsRepository`, `ISocialCampaignRepository`, `INotificationService` registrations to `IntegrationTestBase`.
 * Remaining: `LeadConversion_*` (5 tests) still fail — DI chain for `CustomerOnboardingService` has further missing deps. `API: *` (7 tests) fail — `WebApplicationFactory` DI validation. Both non-blocking (continue-on-error).
 
-Phase 2 — Complete Sprint 2 (IN PROGRESS)
+Phase 2 — Complete Sprint 2 (COMPLETED)
 
 * Task: ✅ DONE — Phase 2.9.4 Audit Trail implementation complete.
-* Task: 🔄 IN PROGRESS — Fix build errors cho ShopERP project (AuditTrail.razor).
-* Task: ⏳ PENDING — Run guard-check và verify tests pass.
-* Task: ⏳ PENDING — Create PR cho Phase 2.9.4 Audit Trail.
+* Task: ✅ DONE — Sprint 2 (Period Closing Wizard + Audit Trail) merged into `main`.
 * Expected Result: Sprint 2 complete (Period Closing + Audit Trail merged).
 
-Phase 3 — Begin Sprint 3
+Phase 3 — Sprint 3 - Phase 5 E-Invoice Multi-Provider Integration (IN PROGRESS)
 
-* Task: Start Phase 5 E-Invoice Multi-Provider Integration after Sprint 2 completes.
-* Expected Result: Domain models, provider interfaces, circuit breaker and outbox pattern implemented.
+* Task: ✅ DONE — Step 5: Pre-Implementation Validation (domain entities, namespace, guard-check.ps1)
+* Task: ✅ DONE — Step 6.1: Day 1 - Domain Models & Invoice Aggregate (1_Shared/Domain.cs)
+* Task: ✅ DONE — Step 6.2: Day 2-4 - Provider Interfaces, Factory, Registry, Manager
+* Task: ✅ DONE — Step 6.3: Day 5-7 - Business Logic, Outbox Pattern
+* Task: 🔄 IN PROGRESS — Step 6.4: Day 8-11 - Circuit Breaker, API Controllers, Webhook
+* Task: ⏳ PENDING — Fix build errors for API controllers
+* Task: ⏳ PENDING — Run guard-check.ps1 để verify build và tests pass
+* Task: ⏳ PENDING — Step 7: Review & Approval - Final validation
+* Expected Result: Sprint 3 complete (E-Invoice Multi-Provider Integration implemented).
 
 ---
 
@@ -302,11 +348,12 @@ Phase 3 — Begin Sprint 3
 
 ## 9. Next Actions
 
-* ✅ DONE — Fix build errors cho `AccountingEntryServiceTests.cs` (CS7036 — thiếu `IAuditTrailService` parameter)
-* Action 1: Run `guard-check.ps1` để verify build và unit tests pass.
-* Action 2: Tạo PR cho Phase 2.9.4 Audit Trail.
-* Action 4: Technical debt — fix `LeadConversion_*` DI chain trong `IntegrationTestBase` (non-blocking, schedule sau Sprint 2).
-* Action 5: Technical debt — fix `API: *` tests `WebApplicationFactory` DI registrations (non-blocking, schedule sau Sprint 2).
+* Action 1: Fix build errors for API controllers (missing using directives).
+* Action 2: Run `guard-check.ps1` để verify build và unit tests pass.
+* Action 3: Commit Day 8-11 changes (Circuit Breaker, API Controllers, Webhook).
+* Action 4: Step 7: Review & Approval - Final validation.
+* Action 5: Technical debt — fix `LeadConversion_*` DI chain trong `IntegrationTestBase` (non-blocking, schedule sau Sprint 3).
+* Action 6: Technical debt — fix `API: *` tests `WebApplicationFactory` DI registrations (non-blocking, schedule sau Sprint 3).
 
 ---
 
@@ -330,16 +377,13 @@ High
 
 ### Recommended Action
 
-**Continue — Create PR**
+**Continue — Fix build errors for API controllers**
 
-> Reasoning: Build errors đã được fix. `VanAn.sln` build thành công với 0 errors. `AccountingEntryServiceTests` (9 tests) đều pass. Sẵn sàng chạy `guard-check.ps1` và tạo PR cho Phase 2.9.4 Audit Trail.
+> Reasoning: Sprint 3 implementation đang ở Day 8-11 (Circuit Breaker, API Controllers, Webhook). Domain models, provider interfaces, business logic, outbox pattern đã hoàn thành. Cần fix build errors cho API controllers (missing using directives) rồi commit và chạy guard-check.ps1.
 >
 > Implementation Summary:
-> - ✅ Domain layer: AuditLog entity, IAuditable interface
-> - ✅ Infrastructure layer: EF Core config, Repository
-> - ✅ Application layer: AuditTrailService
-> - ✅ Gateway layer: AuditTrailController
-> - ✅ UI layer: AuditTrail.razor
-> - ✅ E2E test: audit-trail-flow.spec.ts
-> - ✅ Service integration: PeriodClosingService + AccountingEntryService
-> - ✅ Build fixed — sẵn sàng tạo PR
+> - ✅ Day 1: Domain Models & Invoice Aggregate (enums, value objects, entities, domain events)
+> - ✅ Day 2-4: Provider Interfaces, Factory, Registry, Manager (stateless provider pattern)
+> - ✅ Day 5-7: Business Logic, Outbox Pattern (Anti-God Service, focused services, atomic transaction)
+> - 🔄 Day 8-11: Circuit Breaker, API Controllers, Webhook (IN PROGRESS - fix build errors)
+> - ⏳ Step 7: Review & Approval - PENDING
