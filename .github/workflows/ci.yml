@@ -98,6 +98,62 @@ jobs:
           path: '**/TestResults/*.trx'
           retention-days: 30
 
+  # Job 2b: Integration Tests (NEW - Phase 2.1)
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+    
+    services:
+      nats:
+        image: nats:latest
+        ports:
+          - 4222:4222
+        options: >-
+          --name ci-nats
+          -js
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration Release
+
+      - name: Wait for NATS
+        run: |
+          timeout 30 bash -c 'until nc -z localhost 4222; do sleep 1; done'
+          echo "NATS is ready"
+
+      - name: Integration Tests
+        run: dotnet test 6_Tests/VanAn.Integration.Tests/ --configuration Release --verbosity normal --logger trx
+        env:
+          NATS_URL: nats://localhost:4222
+        
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-integration
+          path: '**/TestResults/*.trx'
+          retention-days: 30
+
   # Job 3: Guard Check (Windows-only)
   guard-check:
     runs-on: windows-latest
@@ -113,6 +169,11 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          
       - name: Run Guard Check
         shell: pwsh
         run: ./guard-check.ps1
@@ -122,7 +183,7 @@ jobs:
         if: always()
         with:
           name: guard-check-results
-          path: 'guard-*.txt'
+          path: 'guard-report-*.txt'
           retention-days: 30
 
   # Job 4: Code Quality (Optional)

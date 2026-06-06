@@ -19,7 +19,7 @@
 
 ## 2. Current Objective
 
-**Sprint 3 - Phase 5 E-Invoice Multi-Provider Integration (IN PROGRESS)**
+**Sprint 3 - Phase 5 E-Invoice Multi-Provider Integration (COMPLETED)**
 
 Sprint 2 (Period Closing Wizard + Audit Trail) đã hoàn thành và merge thành công vào `main`.
 Branch `feature/sprint3-einvoice` đã tạo và đang implement theo workflow `newfeaturebuild.md`.
@@ -29,7 +29,27 @@ Branch `feature/sprint3-einvoice` đã tạo và đang implement theo workflow `
 - ✅ Step 6.2: Day 2-4 - Provider Interfaces, Factory, Registry, Manager - COMPLETED
 - ✅ Step 6.3: Day 5-7 - Business Logic, Outbox Pattern - COMPLETED
 - ✅ Step 6.4: Day 8-11 - Circuit Breaker, API Controllers, Webhook - COMPLETED
-- ⏳ Step 7: Review & Approval - IN PROGRESS (Unit tests missing)
+- ✅ Step 7: Review & Approval - COMPLETED
+
+**Guard Check Upgrade - Phase 2 (COMPLETED)**
+
+Infrastructure Quality Gate upgrade from string matching to Roslyn Analyzers + Integration Tests with real NATS service.
+
+- ✅ Phase 2.1: NATS Dependency Resolution - COMPLETED
+  - Added NATS service to CI (.github/workflows/ci.yml)
+  - Made NATS URL configurable in SimpleAccountingEventHandler.cs
+  - Created CircuitBreakerIntegrationTests.cs with 5 test cases
+- ✅ Phase 2.2: Roslyn Analyzer Project - COMPLETED
+  - Created 5 Roslyn Analyzer rules (VA1001-VA1005)
+  - DomainEntityLocationAnalyzer, DependencyDirectionAnalyzer, EfCoreInDomainAnalyzer
+  - BusinessLogicInGatewayAnalyzer, AccountingEntryImmutabilityAnalyzer
+- ✅ Phase 2.3: Analyzer Integration - COMPLETED
+  - Updated Directory.Build.props with analyzer configuration
+  - Updated guard-check.ps1 to run Roslyn analyzers
+- ✅ Phase 2.4: Integration Tests to Fast Gate - COMPLETED
+  - Added Integration Tests to guard-check.ps1 fast gate
+- ✅ Phase 2.5: CI Workflows and Guard Report - COMPLETED
+  - Updated guard report to include new components
 
 ---
 

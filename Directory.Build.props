@@ -4,6 +4,8 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <WarningsAsErrors>VA1001;VA1002;VA1003;VA1004;VA1005</WarningsAsErrors>
     
     <AssemblyProduct>Vạn An Ecosystem</AssemblyProduct>
     <AssemblyCopyright>Copyright Vạn An Group 2026</AssemblyCopyright>
