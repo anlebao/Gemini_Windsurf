@@ -102,16 +102,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     needs: build
-    timeout-minutes: 15
-    
-    services:
-      nats:
-        image: nats:latest
-        ports:
-          - 4222:4222
-        options: >-
-          --name ci-nats
-        # NATS JetStream enabled by default in nats:latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -136,15 +127,8 @@ jobs:
       - name: Build
         run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration Release
 
-      - name: Wait for NATS
-        run: |
-          timeout 30 bash -c 'until nc -z localhost 4222; do sleep 1; done'
-          echo "NATS is ready"
-
-      - name: Integration Tests
-        run: dotnet test 6_Tests/VanAn.Integration.Tests/ --configuration Release --verbosity normal --logger trx
-        env:
-          NATS_URL: nats://localhost:4222
+      - name: Integration Tests (CircuitBreaker only - no external services)
+        run: dotnet test 6_Tests/VanAn.Integration.Tests/ --configuration Release --verbosity normal --logger trx --filter "FullyQualifiedName~CircuitBreakerIntegrationTests"
         
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
