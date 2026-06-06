@@ -6,21 +6,30 @@ Giúp AI làm việc hiệu quả qua nhiều phiên chat mà không mất conte
 
 ---
 
-## Tổng quan hệ thống 4 tầng
+## Tổng quan hệ thống 4 tầng (Updated ACS Architecture)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Tầng 1 — Always-on Rules (.windsurfrules)                  │
 │  Luôn inject vào mọi turn. Giữ ngắn < 500 tokens.          │
+│  Bao gồm cả AI Context Gate Rules (ACS)                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Tầng 2 — Session State (docs/AI/project_state.md)          │
-│  Đọc 1 lần đầu mỗi chat mới. Giữ < 250 dòng.               │
+│  Tầng 2 — State-Architecture Dual Layer                      │
+│  • Session State (docs/AI/project_state.md)                 │
+│    Đọc 1 lần đầu mỗi chat mới. Giữ < 60 dòng.              │
+│  • Static Memory (docs/AI/architecture_memory.md)            │
+│    Chỉ đọc khi cần kiến trúc tĩnh. Không đọc mặc định.      │
+│  • Investigation Log (docs/AI/investigation_log.md)          │
+│    Chỉ đọc khi tra cứu lỗi cũ. Append-only.                 │
 ├─────────────────────────────────────────────────────────────┤
-│  Tầng 3 — On-demand Docs (roadmap, plan, fix plans)         │
-│  Chỉ đọc khi task cụ thể cần đến. Không đọc mặc định.      │
+│  Tầng 3 — Task Isolation Layer (docs/AI/tasks/)             │
+│  • Task Cards với boundary rules                            │
+│  • Relevant files giới hạn scope                             │
+│  • Success criteria rõ ràng                                 │
 ├─────────────────────────────────────────────────────────────┤
-│  Tầng 4 — Triggered Workflows (.windsurf/workflows/)        │
-│  Chỉ gọi bằng /slash-command khi cần quy trình đó.         │
+│  Tầng 4 — On-demand Docs & Workflows                        │
+│  • Roadmap, plan, fix plans (chỉ đọc khi cần)               │
+│  • Triggered Workflows (.windsurf/workflows/)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -110,17 +119,18 @@ Là **nguồn sự thật duy nhất cho trạng thái làm việc hiện tại 
 
 ### Giữ file ngắn
 
-- Mục tiêu: < 250 dòng.
-- Khi quá dài, compact bằng cách gộp các Root Cause Analysis đã resolved vào 1 dòng tóm tắt.
+- Mục tiêu: < 60 dòng (Updated ACS target).
+- Khi quá dài, compact bằng cách gộp các Root Cause Analysis đã resolved vào investigation_log.md.
 - Xóa các Next Actions đã hoàn thành.
+- Di dời kiến trúc tĩnh sang architecture_memory.md.
 
-### Prompt mẫu — Bắt đầu chat mới
+### Prompt mẫu — Bắt đầu chat mới (Updated ACS)
 
 ```
-Đọc docs/AI/project_state.md.
-Tóm tắt trong 10 dòng: Current Objective, Current Status, Blocked, Next Actions, AI Health Check.
-Chỉ tiếp tục sau khi tóm tắt xong.
-Không code nếu Recommended Action không phải Continue Coding.
+Đọc docs/AI/project_state.md và docs/AI/tasks/task_XXXX.md.
+Xác nhận ma trận Health Check và thực thi nghiêm ngặt theo boundary quy định.
+Chỉ tiếp tục sau khi xác nhận xong.
+Không code nếu Recommended Action không phải Continue hoặc Assumptions >= Verified Facts.
 ```
 
 ### Prompt mẫu — Cập nhật state
@@ -146,7 +156,40 @@ và thực hiện bước tiếp theo theo plan. Tối đa 1-3 file mỗi lần.
 
 ---
 
-## Tầng 3 — On-demand Docs
+## Tầng 3 — Task Isolation Layer (docs/AI/tasks/)
+
+### Mục đích
+
+Tạo "vòng kim cô" cho từng phiên làm việc nhỏ, ngăn chặn việc AI đọc lan man làm phình ngữ cảnh.
+
+### Cấu trúc Task Card
+
+```markdown
+# Task Card: [Tên Task]
+
+## 1. Goal
+* [Mục tiêu cụ thể]
+
+## 2. Relevant Files
+* [Danh sách file liên quan]
+
+## 3. Boundary Rules
+* [Quy tắc giới hạn scope - không đọc file ngoài scope]
+
+## 4. Success Criteria
+* [Tiêu chí thành công]
+```
+
+### Nguyên tắc
+
+- Mỗi task có Task Card riêng trong `docs/AI/tasks/task_*.md`
+- Boundary rules ngăn AI đọc file ngoài scope
+- Success criteria rõ ràng để biết khi nào task hoàn thành
+- Task card được cập nhật khi task thay đổi
+
+---
+
+## Tầng 4 — On-demand Docs & Workflows
 
 ### Mục đích
 
@@ -156,6 +199,8 @@ Các tài liệu lớn chứa roadmap, architecture detail, fix history. **Khôn
 
 | File | Đọc khi nào |
 |---|---|
+| `docs/AI/architecture_memory.md` | Cần kiến trúc tĩnh (Project Overview, Architecture Decisions, Important Files) |
+| `docs/AI/investigation_log.md` | Cần tra cứu lỗi cũ đã resolved |
 | `docs/plan_MVP/RoadMap/MVP plan Account M.md` | Cần xem roadmap sprint hoặc phase detail |
 | `docs/plan_MVP/DETAIL_PLAN.md` | Cần xem architecture code pattern |
 | `docs/SQLite_Configuration_Fix_Plan.md` | Debug SQLite/EF Core test issues |
@@ -170,7 +215,7 @@ Các tài liệu lớn chứa roadmap, architecture detail, fix history. **Khôn
 
 ---
 
-## Tầng 4 — Triggered Workflows (`.windsurf/workflows/`)
+## Tầng 5 — Triggered Workflows (`.windsurf/workflows/`)
 
 ### Mục đích
 
