@@ -1,0 +1,65 @@
+# VẠN AN ECOSYSTEM - WINDSURF RULES v8.1 (HIGH-DENSITY SMART ROUTER)
+
+## AUTO-ROUTING
+| Trigger | Mode | Workflow |
+|---|---|---|
+| Feature request | ANALYZE→IMPLEMENT | newfeaturebuild.md |
+| Build errors | FIX_ONLY | Fix_Errors.md |
+| Test failures (C#) | FIX_ONLY_TESTS | Fix_Tests.md |
+| Playwright E2E fail | TRIAGE_ONLY | playwright_triage.md |
+| Playwright classified (Selector/Timing/UI) | FIX_PLAYWRIGHT | playwright_fix.md |
+| Playwright architectural fail | FIX_ARCHITECTURAL | playwright_fix_architectural.md |
+| Blazor interactivity bug | DEBUG | blazor_interactivity_debug.md |
+| Code review | REVIEW_ONLY | review.md |
+
+## SKILL MATRIX (max 3 per task)
+| Subsystem | Skills |
+|---|---|
+| Kế toán/Thuế HKD | einvoice-integration, dynamic-hkd-book-architecture, domain-integrity-validation |
+| Tầng dữ liệu | outbox-pattern-implementation, sqlite-concurrency-analysis, nats-sqlite-deployment-validation |
+| Tầng UI | accounting-ui-implementation, ui-platform-compliance-review, ui-platform-migration |
+| Order Workflow | order-workflow-unified, outbox-pattern-implementation, domain-integrity-validation |
+| Period Closing | period-closing-audit-trail, domain-integrity-validation |
+| Refactor | system-refactor-safety, domain-integrity-validation, test-system-upgrade |
+| Tests | test-system-upgrade, pattern-based-fixing, build-error-analysis |
+| Build Errors | build-error-analysis, pattern-based-fixing, domain-integrity-validation |
+| Playwright | playwright_cost_optimizer, playwright_guard |
+
+## HARDENING GATES
+### Gate 1: Anti-Guessing
+Assumptions >= Verified Facts → CẤM sửa code, chuyển Investigate
+
+### Gate 2: Blazor Interactivity
+- Category A: OnAfterRender missing → `prerender: false`
+- Category B: Native form submit → ÉP inline `onsubmit="event.preventDefault(); return false;"` vĩnh viễn
+- Category C: Event handler not called → IsInteractive flag + StateHasChanged
+- Category D: DLL cache → Deep clean bin/obj
+- Category E: Hydration gap → ÉP inline JS tĩnh đồng bộ (giống Category B)
+
+### Gate 3: Playwright Isolation
+Cấm chạy Playwright diện rộng khi đang code (Steps 1-6). playwright_guard auto-activate.
+
+### Gate 4: UI Layout → E2E Test
+UI layout change → BẮT BUỘC viết E2E test tại `6_Testing/e2e-tests/`
+
+### Gate 5: Domain Integrity
+AccountingEntry 100% immutable. Domain layer pure (NO EF Core, NO DbContext). Single Source of Truth: 1_Shared/Domain.cs.
+
+### Gate 6: ACS Health Check
+✅ Được sửa code: Assumptions < Verified Facts VÀ Open Questions < 3
+❌ Cấm sửa code: Assumptions >= Verified Facts HOẶC Open Questions >= 3
+
+## MODE ISOLATION
+ANALYZE: inspect, assess, plan. NO code changes.
+IMPLEMENT: code, validate. NO scope expansion.
+FIX_ONLY: fix errors only. NO features, NO architecture redesign.
+REVIEW_ONLY: report only. NO code modifications.
+
+## DOMAIN PROTECTION
+NEVER modify Domain to fix UI/Service issues. AccountingEntry immutable in all modes.
+
+## UI PLATFORM
+ALWAYS use UI Platform components. NEVER bypass. Full reference: docs/UI_Platform_Implementation_Guide.md
+
+## SPRINT TRACKING
+Sprint protocol: .windsurf/rules/sprint_tracking.rules.md
