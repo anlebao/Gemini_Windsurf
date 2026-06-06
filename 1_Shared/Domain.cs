@@ -1348,4 +1348,489 @@ namespace VanAn.Shared.Domain
     // REMOVED: Value Objects must NOT use IEntityTypeConfiguration
     // public class LeadIdConfiguration : IEntityTypeConfiguration<LeadId> - VIOLATION
     // public class CustomerIdConfiguration : IEntityTypeConfiguration<CustomerId> - VIOLATION
+
+    // ====================== SPRINT 3: E-INVOICE MULTI-PROVIDER INTEGRATION ======================
+
+    /// <summary>
+    /// Invoice Status - State Machine for E-Invoice lifecycle
+    /// Enforced transitions: Draft → PendingSend → SentToProvider → TaxApproved/Failed
+    /// </summary>
+    public enum InvoiceStatus
+    {
+        Draft = 1,           // Initial state
+        PendingSend = 2,     // Ready to submit to provider
+        SentToProvider = 3,   // Submitted, waiting for callback
+        TaxApproved = 4,      // Approved by tax authority
+        Failed = 5,          // Submission failed
+        Rejected = 6          // Rejected by tax authority
+    }
+
+    /// <summary>
+    /// Invoice Type - Goods, Services, or Mixed
+    /// </summary>
+    public enum InvoiceType
+    {
+        Goods = 1,
+        Services = 2,
+        Mixed = 3
+    }
+
+    /// <summary>
+    /// HKD Revenue Group - 4-level classification per TT152-2025/TT-BTC
+    /// </summary>
+    public enum HKDRevenueGroup
+    {
+        Group1 = 1,  // ≤500M
+        Group2 = 2,  // >500M-1B
+        Group3 = 3,  // >1B-3B
+        Group4 = 4   // >3B
+    }
+
+    /// <summary>
+    /// Provider Status - Health status of E-Invoice providers
+    /// </summary>
+    public enum ProviderStatus
+    {
+        Active = 1,        // Healthy and operational
+        Inactive = 2,      // Disabled by configuration
+        Error = 3,         // Temporary error
+        Maintenance = 4    // Under maintenance
+    }
+
+    /// <summary>
+    /// Electronic Invoice ID Value Object
+    /// </summary>
+    public record ElectronicInvoiceId(Guid Value)
+    {
+        public static implicit operator Guid(ElectronicInvoiceId id) => id.Value;
+        public static implicit operator ElectronicInvoiceId(Guid value) => new(value);
+        public static ElectronicInvoiceId FromGuid(Guid value) => new(value);
+        public Guid ToGuid() => Value;
+    }
+
+    /// <summary>
+    /// Provider ID Value Object
+    /// </summary>
+    public record ProviderId(string Value)
+    {
+        public static implicit operator string(ProviderId id) => id.Value;
+        public static implicit operator ProviderId(string value) => new(value);
+        public static ProviderId FromString(string value) => new(value);
+    }
+
+    /// <summary>
+    /// Invoice Idempotency Key - Prevents duplicate submissions (legal compliance)
+    /// </summary>
+    public record InvoiceIdempotencyKey(string Value)
+    {
+        public static implicit operator string(InvoiceIdempotencyKey key) => key.Value;
+        public static implicit operator InvoiceIdempotencyKey(string value) => new(value);
+        public static InvoiceIdempotencyKey FromString(string value) => new(value);
+    }
+
+    /// <summary>
+    /// Electronic Invoice - Base invoice entity for E-Invoice system
+    /// Domain Purity: NO EF Core, NO DbContext, NO DataAnnotations
+    /// </summary>
+    public class ElectronicInvoice : BaseEntity
+    {
+        public ElectronicInvoiceId InvoiceId { get; protected set; } = new ElectronicInvoiceId(Guid.NewGuid());
+        public OrderId OrderId { get; protected set; } = null!;
+        public InvoiceIdempotencyKey IdempotencyKey { get; protected set; } = null!;
+        public InvoiceType InvoiceType { get; protected set; }
+        public decimal Amount { get; protected set; }
+        public decimal VatAmount { get; protected set; }
+        public decimal TotalAmount { get; protected set; }
+        public string CustomerName { get; protected set; } = string.Empty;
+        public string CustomerTaxCode { get; protected set; } = string.Empty;
+        public string CustomerAddress { get; protected set; } = string.Empty;
+        public InvoiceStatus Status { get; protected set; } = InvoiceStatus.Draft;
+        public ProviderId? CurrentProvider { get; protected set; }
+        public DateTime? SubmittedAt { get; protected set; }
+        public DateTime? ApprovedAt { get; protected set; }
+        public string? ProviderInvoiceNumber { get; protected set; }
+        public string? FailureReason { get; protected set; }
+
+        // Navigation (read-only)
+        public virtual ICollection<SubmitAttempt> SubmitAttempts { get; protected set; } = new List<SubmitAttempt>();
+        public virtual OutboxEvent? OutboxEvent { get; protected set; }
+
+        protected ElectronicInvoice() { }
+
+        public ElectronicInvoice(
+            TenantId tenantId,
+            OrderId orderId,
+            InvoiceIdempotencyKey idempotencyKey,
+            InvoiceType invoiceType,
+            decimal amount,
+            decimal vatAmount,
+            decimal totalAmount,
+            string customerName,
+            string customerTaxCode,
+            string customerAddress)
+            : base(tenantId)
+        {
+            OrderId = orderId;
+            IdempotencyKey = idempotencyKey;
+            InvoiceType = invoiceType;
+            Amount = amount;
+            VatAmount = vatAmount;
+            TotalAmount = totalAmount;
+            CustomerName = customerName;
+            CustomerTaxCode = customerTaxCode;
+            CustomerAddress = customerAddress;
+            Status = InvoiceStatus.Draft;
+        }
+
+        /// <summary>
+        /// Submit invoice for processing - State transition: Draft → PendingSend
+        /// </summary>
+        public void Submit()
+        {
+            if (Status != InvoiceStatus.Draft)
+                throw new InvalidOperationException($"Cannot submit invoice in status {Status}. Expected: Draft");
+
+            Status = InvoiceStatus.PendingSend;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as sent to provider - State transition: PendingSend → SentToProvider
+        /// </summary>
+        public void MarkAsSentToProvider(ProviderId providerId)
+        {
+            if (Status != InvoiceStatus.PendingSend)
+                throw new InvalidOperationException($"Cannot mark as sent in status {Status}. Expected: PendingSend");
+
+            Status = InvoiceStatus.SentToProvider;
+            CurrentProvider = providerId;
+            SubmittedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as tax approved - State transition: SentToProvider → TaxApproved
+        /// </summary>
+        public void MarkAsTaxApproved(string providerInvoiceNumber)
+        {
+            if (Status != InvoiceStatus.SentToProvider)
+                throw new InvalidOperationException($"Cannot mark as approved in status {Status}. Expected: SentToProvider");
+
+            Status = InvoiceStatus.TaxApproved;
+            ProviderInvoiceNumber = providerInvoiceNumber;
+            ApprovedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as failed - State transition: SentToProvider → Failed
+        /// </summary>
+        public void MarkAsFailed(string failureReason)
+        {
+            if (Status != InvoiceStatus.SentToProvider)
+                throw new InvalidOperationException($"Cannot mark as failed in status {Status}. Expected: SentToProvider");
+
+            Status = InvoiceStatus.Failed;
+            FailureReason = failureReason;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as rejected - State transition: SentToProvider → Rejected
+        /// </summary>
+        public void MarkAsRejected(string rejectionReason)
+        {
+            if (Status != InvoiceStatus.SentToProvider)
+                throw new InvalidOperationException($"Cannot mark as rejected in status {Status}. Expected: SentToProvider");
+
+            Status = InvoiceStatus.Rejected;
+            FailureReason = rejectionReason;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Invoice Aggregate - Root entity with enforced state machine
+    /// Ensures business rules are enforced at domain level
+    /// </summary>
+    public class InvoiceAggregate : BaseEntity
+    {
+        public ElectronicInvoiceId InvoiceId { get; protected set; } = null!;
+        public InvoiceStatus Status { get; protected set; }
+        public ElectronicInvoice Invoice { get; protected set; } = null!;
+
+        protected InvoiceAggregate() { }
+
+        public InvoiceAggregate(ElectronicInvoice invoice)
+        {
+            Invoice = invoice;
+            InvoiceId = invoice.InvoiceId;
+            Status = invoice.Status;
+        }
+
+        /// <summary>
+        /// Submit invoice - Enforced state transition
+        /// </summary>
+        public void Submit()
+        {
+            if (Status != InvoiceStatus.Draft)
+                throw new InvalidOperationException($"Cannot submit invoice in status {Status}. Expected: Draft");
+
+            Invoice.Submit();
+            Status = Invoice.Status;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as sent to provider - Enforced state transition
+        /// </summary>
+        public void MarkAsSentToProvider(ProviderId providerId)
+        {
+            if (Status != InvoiceStatus.PendingSend)
+                throw new InvalidOperationException($"Cannot mark as sent in status {Status}. Expected: PendingSend");
+
+            Invoice.MarkAsSentToProvider(providerId);
+            Status = Invoice.Status;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as tax approved - Enforced state transition
+        /// </summary>
+        public void MarkAsTaxApproved(string providerInvoiceNumber)
+        {
+            if (Status != InvoiceStatus.SentToProvider)
+                throw new InvalidOperationException($"Cannot mark as approved in status {Status}. Expected: SentToProvider");
+
+            Invoice.MarkAsTaxApproved(providerInvoiceNumber);
+            Status = Invoice.Status;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as failed - Enforced state transition
+        /// </summary>
+        public void MarkAsFailed(string failureReason)
+        {
+            if (Status != InvoiceStatus.SentToProvider)
+                throw new InvalidOperationException($"Cannot mark as failed in status {Status}. Expected: SentToProvider");
+
+            Invoice.MarkAsFailed(failureReason);
+            Status = Invoice.Status;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Outbox Event - Atomic link to Invoice for reliable async processing
+    /// Domain Purity: NO EF Core, NO DbContext
+    /// </summary>
+    public class OutboxEvent : BaseEntity
+    {
+        public Guid OutboxEventId { get; protected set; } = Guid.NewGuid();
+        public ElectronicInvoiceId InvoiceId { get; protected set; } = null!;
+        public string EventType { get; protected set; } = string.Empty;
+        public string EventData { get; protected set; } = string.Empty;
+        public EventStatus Status { get; protected set; } = EventStatus.Pending;
+        public DateTime? ProcessedAt { get; protected set; }
+        public int RetryCount { get; protected set; }
+        public string? ErrorDetails { get; protected set; }
+
+        protected OutboxEvent() { }
+
+        public OutboxEvent(
+            TenantId tenantId,
+            ElectronicInvoiceId invoiceId,
+            string eventType,
+            string eventData)
+            : base(tenantId)
+        {
+            InvoiceId = invoiceId;
+            EventType = eventType;
+            EventData = eventData;
+            Status = EventStatus.Pending;
+            RetryCount = 0;
+        }
+
+        /// <summary>
+        /// Mark as processed
+        /// </summary>
+        public void MarkAsProcessed()
+        {
+            Status = EventStatus.Processed;
+            ProcessedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark as failed with retry increment
+        /// </summary>
+        public void MarkAsFailed(string errorDetails)
+        {
+            Status = EventStatus.Failed;
+            ErrorDetails = errorDetails;
+            RetryCount++;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Submit Attempt - Track provider submission attempts for safe failover
+    /// Domain Purity: NO EF Core, NO DbContext
+    /// </summary>
+    public class SubmitAttempt : BaseEntity
+    {
+        public Guid SubmitAttemptId { get; protected set; } = Guid.NewGuid();
+        public ElectronicInvoiceId InvoiceId { get; protected set; } = null!;
+        public ProviderId ProviderId { get; protected set; } = null!;
+        public DateTime AttemptedAt { get; protected set; }
+        public bool Success { get; protected set; }
+        public string? ErrorMessage { get; protected set; }
+        public int AttemptNumber { get; protected set; }
+
+        protected SubmitAttempt() { }
+
+        public SubmitAttempt(
+            TenantId tenantId,
+            ElectronicInvoiceId invoiceId,
+            ProviderId providerId,
+            int attemptNumber)
+            : base(tenantId)
+        {
+            InvoiceId = invoiceId;
+            ProviderId = providerId;
+            AttemptedAt = DateTime.UtcNow;
+            Success = false;
+            AttemptNumber = attemptNumber;
+        }
+
+        /// <summary>
+        /// Mark attempt as successful
+        /// </summary>
+        public void MarkAsSuccessful()
+        {
+            Success = true;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark attempt as failed
+        /// </summary>
+        public void MarkAsFailed(string errorMessage)
+        {
+            Success = false;
+            ErrorMessage = errorMessage;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// HKD Revenue Classification - Revenue group classification per TT152-2025/TT-BTC
+    /// Domain Purity: NO EF Core, NO DbContext
+    /// </summary>
+    public class HKDRevenueClassification : BaseEntity
+    {
+        public Guid ClassificationId { get; protected set; } = Guid.NewGuid();
+        public TenantId TenantId { get; protected set; } = null!;
+        public AccountingPeriod Period { get; protected set; } = null!;
+        public decimal TotalRevenue { get; protected set; }
+        public HKDRevenueGroup RevenueGroup { get; protected set; }
+        public DateTime CalculatedAt { get; protected set; }
+
+        protected HKDRevenueClassification() { }
+
+        public HKDRevenueClassification(
+            TenantId tenantId,
+            AccountingPeriod period,
+            decimal totalRevenue,
+            HKDRevenueGroup revenueGroup)
+            : base(tenantId)
+        {
+            TenantId = tenantId;
+            Period = period;
+            TotalRevenue = totalRevenue;
+            RevenueGroup = revenueGroup;
+            CalculatedAt = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Calculate revenue group based on TT152-2025 thresholds
+        /// </summary>
+        public static HKDRevenueGroup CalculateGroup(decimal totalRevenue)
+        {
+            if (totalRevenue <= 500_000_000) return HKDRevenueGroup.Group1;
+            if (totalRevenue <= 1_000_000_000) return HKDRevenueGroup.Group2;
+            if (totalRevenue <= 3_000_000_000) return HKDRevenueGroup.Group3;
+            return HKDRevenueGroup.Group4;
+        }
+    }
+
+    /// <summary>
+    /// Provider Configuration - Multi-tenant provider configuration
+    /// Domain Purity: NO EF Core, NO DbContext
+    /// </summary>
+    public class ProviderConfiguration : BaseEntity
+    {
+        public Guid ConfigurationId { get; protected set; } = Guid.NewGuid();
+        public TenantId TenantId { get; protected set; } = null!;
+        public ProviderId ProviderId { get; protected set; } = null!;
+        public string ProviderName { get; protected set; } = string.Empty;
+        public bool IsActive { get; protected set; }
+        public int Priority { get; protected set; } // 1 = Primary, 2 = Fallback 1, etc.
+        public string ConfigurationData { get; protected set; } = string.Empty; // JSON string
+        public ProviderStatus Status { get; protected set; } = ProviderStatus.Active;
+
+        protected ProviderConfiguration() { }
+
+        public ProviderConfiguration(
+            TenantId tenantId,
+            ProviderId providerId,
+            string providerName,
+            bool isActive,
+            int priority,
+            string configurationData)
+            : base(tenantId)
+        {
+            TenantId = tenantId;
+            ProviderId = providerId;
+            ProviderName = providerName;
+            IsActive = isActive;
+            Priority = priority;
+            ConfigurationData = configurationData;
+            Status = ProviderStatus.Active;
+        }
+
+        /// <summary>
+        /// Update provider status
+        /// </summary>
+        public void UpdateStatus(ProviderStatus status)
+        {
+            Status = status;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Update configuration data
+        /// </summary>
+        public void UpdateConfiguration(string configurationData)
+        {
+            ConfigurationData = configurationData;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Domain Event: Invoice Submitted
+    /// </summary>
+    public record InvoiceSubmitted(ElectronicInvoiceId InvoiceId, TenantId TenantId, DateTime OccurredAt);
+
+    /// <summary>
+    /// Domain Event: Invoice Confirmed (Tax Approved)
+    /// </summary>
+    public record InvoiceConfirmed(ElectronicInvoiceId InvoiceId, TenantId TenantId, string ProviderInvoiceNumber, DateTime OccurredAt);
+
+    /// <summary>
+    /// Domain Event: Invoice Rejected
+    /// </summary>
+    public record InvoiceRejected(ElectronicInvoiceId InvoiceId, TenantId TenantId, string RejectionReason, DateTime OccurredAt);
 }
