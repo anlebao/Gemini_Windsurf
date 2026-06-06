@@ -111,7 +111,7 @@ jobs:
           - 4222:4222
         options: >-
           --name ci-nats
-          -js
+        # NATS JetStream enabled by default in nats:latest
 
     steps:
       - name: Checkout
