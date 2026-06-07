@@ -207,26 +207,4 @@ namespace VanAn.Gateway.Controllers
         [System.Text.RegularExpressions.GeneratedRegex(@"^[a-zA-Z0-9\-_]+$")]
         private static partial System.Text.RegularExpressions.Regex MyRegex();
     }
-
-    // Request/Response DTOs
-    public record TextCommandRequest
-    {
-        public string CommandText { get; init; } = string.Empty;
-        public string? OrderId { get; init; }
-        public string? Parameters { get; init; }
-    }
-
-    public record TtsRequest
-    {
-        public string Text { get; init; } = string.Empty;
-        public string Language { get; init; } = "vi-VN";
-    }
-
-    public record CleanupResult
-    {
-        public bool CleanedFiles { get; init; }
-        public int TotalExpired { get; init; }
-        public DateTime Timestamp { get; init; }
-        public string? Error { get; init; }
-    }
 }

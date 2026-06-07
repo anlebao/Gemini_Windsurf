@@ -146,13 +146,4 @@ namespace VanAn.Gateway.Controllers
         public decimal VatRate { get; set; }
         public string Notes { get; set; } = string.Empty;
     }
-
-    public class VietQrResponse
-    {
-        public string OrderId { get; set; } = string.Empty;
-        public Uri QrImageUrl { get; set; } = null!;
-        public Uri PaymentUrl { get; set; } = null!;
-        public decimal Amount { get; set; }
-        public DateTime GeneratedAt { get; set; }
-    }
 }

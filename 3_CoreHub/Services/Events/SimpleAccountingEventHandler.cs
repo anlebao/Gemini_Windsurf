@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,10 +17,12 @@ namespace VanAn.CoreHub.Services.Events
     /// </summary>
     public class SimpleAccountingEventHandler(
         IServiceProvider serviceProvider,
-        ILogger<SimpleAccountingEventHandler> logger) : BackgroundService
+        ILogger<SimpleAccountingEventHandler> logger,
+        IConfiguration configuration) : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider = serviceProvider;
         private readonly ILogger<SimpleAccountingEventHandler> _logger = logger;
+        private readonly IConfiguration _configuration = configuration;
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
@@ -130,7 +133,7 @@ namespace VanAn.CoreHub.Services.Events
         /// </summary>
         private IConnection CreateNatsConnection()
         {
-            string natsUrl = "nats://localhost:4222"; // TODO: Make configurable
+            string natsUrl = _configuration["NATS:Url"] ?? "nats://localhost:4222";
 
             try
             {
