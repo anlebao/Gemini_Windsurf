@@ -100,7 +100,8 @@ Sprint 3 KHÔNG đạt Definition of Done. Code mới ở mức scaffolding: nhi
 **NEXT: Chạy full `guard-check.ps1` → nếu 0 errors → merge Sprint 3 → Sprint 4.**
 
 1. **R8 — Integration Test Gate ✅** — `EInvoiceDISmokeTests` fixed (ITenantProvider + IVanAnDbContext), 21/21 tests pass.
-2. **R9 — NEXT:** `guard-check.ps1` full run → verify 0 errors → merge Sprint 3.
+2. **R8b — CS0311 Fix ✅** — `Microsoft.Extensions.Hosting` package added, build passes.
+3. **R9 — NEXT:** `guard-check.ps1` full run → verify 0 errors → merge Sprint 3.
 
 ---
 
@@ -153,6 +154,11 @@ Phase 3 — Sprint 3 Recovery (IN PROGRESS)
   * Test results: 21/21 Integration Gate tests pass (CircuitBreaker + EInvoiceDI + EInvoiceProvider)
   * Root cause: `AuditTrailService` requires `ITenantProvider`, `AccountingEntryRepository` requires `IVanAnDbContext`
   * Solution: Added `TestTenantProvider` registration and `IVanAnDbContext` forwarding to `VanAnDbContext`
+
+* Session 8b — CS0311 Build Fix ✅ DONE
+  * Error: `EInvoiceWorker` cannot be used as type parameter `THostedService` in `AddHostedService<EInvoiceWorker>()`
+  * Root cause: `VanAn.Integration.Tests.csproj` missing `Microsoft.Extensions.Hosting` package
+  * Fix: Added `<PackageReference Include="Microsoft.Extensions.Hosting" />` to csproj
 
 * NEXT — Run full `guard-check.ps1` to verify all gates pass → merge Sprint 3.
 
@@ -264,12 +270,15 @@ Phase 3 — Sprint 3 Recovery (IN PROGRESS)
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-09 02:42 UTC+7
+* Last Updated: 2026-06-09 03:22 UTC+7
 * Current Branch: `main`
-* Last Restructure: Session 8 — Integration Test Gate Fix
-  * File: `6_Tests/VanAn.Integration.Tests/Services/EInvoiceDISmokeTests.cs`
-  * Changes: Added `using VanAn.Integration.Tests.Infrastructure;`, `using VanAn.Shared.Domain.Common;`
-  * Changes: Added `services.AddScoped<ITenantProvider, TestTenantProvider>();`
-  * Changes: Added `services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());`
-  * Result: 21/21 Integration Gate tests pass
+* Last Restructure: Session 8 & 8b — Integration Test Gate + CS0311 Fix
+  * Session 8 — File: `6_Tests/VanAn.Integration.Tests/Services/EInvoiceDISmokeTests.cs`
+    * Changes: Added `using VanAn.Integration.Tests.Infrastructure;`, `using VanAn.Shared.Domain.Common;`
+    * Changes: Added `services.AddScoped<ITenantProvider, TestTenantProvider>();`
+    * Changes: Added `services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());`
+    * Result: 21/21 Integration Gate tests pass
+  * Session 8b — File: `6_Tests/VanAn.Integration.Tests/VanAn.Integration.Tests.csproj`
+    * Changes: Added `<PackageReference Include="Microsoft.Extensions.Hosting" />`
+    * Result: Fix CS0311 build error (`EInvoiceWorker` cannot be used as `THostedService`)
   * Next: Full `guard-check.ps1` run → merge Sprint 3
