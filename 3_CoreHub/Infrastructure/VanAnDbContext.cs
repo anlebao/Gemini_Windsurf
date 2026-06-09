@@ -4,6 +4,7 @@ using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Domain;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
@@ -53,6 +54,12 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<JournalTemplate> JournalTemplates { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
 
+        // E-Invoice (Sprint 3 — persisted state for atomic transaction with Outbox)
+        public DbSet<ElectronicInvoice> ElectronicInvoices { get; set; }
+
+        // E-Invoice Webhook Idempotency — durable deduplication store (Finding #5 fix)
+        public DbSet<ProcessedWebhookKey> ProcessedWebhookKeys { get; set; }
+
         // PHASE 2.9.4: Audit Trail - Immutable append-only logs
         public DbSet<AuditLog> AuditLogs { get; set; }
 
@@ -100,6 +107,9 @@ namespace VanAn.CoreHub.Infrastructure
 
             _ = configurationBuilder.Properties<JournalEntryId>()
                 .HaveConversion<JournalEntryIdConverter>();
+
+            _ = configurationBuilder.Properties<ElectronicInvoiceId>()
+                .HaveConversion<ElectronicInvoiceIdConverter>();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -115,6 +125,16 @@ namespace VanAn.CoreHub.Infrastructure
             // It's not meant to be persisted as an entity
             _ = modelBuilder.Ignore<HKDBook>();
             _ = modelBuilder.Ignore<GenericHKDBook>();
+
+            // E-Invoice value objects — not entities, used as converted properties
+            _ = modelBuilder.Ignore<ProviderId>();
+            _ = modelBuilder.Ignore<InvoiceIdempotencyKey>();
+            _ = modelBuilder.Ignore<InvoiceAggregate>();
+            _ = modelBuilder.Ignore<SubmitAttempt>();
+
+            // OutboxEvent is a domain entity — persistence via OutboxMessage (OutboxRepository maps between them)
+            // Must be ignored to prevent EF from creating a duplicate OutboxEvent table
+            _ = modelBuilder.Ignore<OutboxEvent>();
 
             // === AUTO-DISCOVER ALL CONFIGURATIONS ===
             // Architect++: Use auto-discovery instead of manual registration
