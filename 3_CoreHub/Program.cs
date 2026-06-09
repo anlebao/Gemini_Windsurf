@@ -9,6 +9,9 @@ using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Hubs;
+using VanAn.CoreHub.Infrastructure.Messaging;
+using VanAn.CoreHub.Services.Orchestration;
+using VanAn.CoreHub.Services.Resilience;
 using Microsoft.EntityFrameworkCore;
 
 namespace VanAn.CoreHub
@@ -76,6 +79,26 @@ namespace VanAn.CoreHub
 
                     // Event handling services
                     _ = services.AddHostedService<SimpleAccountingEventHandler>();
+
+                    // E-Invoice Services (Sprint 3 — R4 DI wiring)
+                    _ = services.AddMemoryCache();
+                    _ = services.AddScoped<IOutboxRepository, OutboxRepository>();
+                    _ = services.AddScoped<IInvoicePolicyService, InvoicePolicyService>();
+                    _ = services.AddScoped<IRetryPolicyService>(sp =>
+                    {
+                        Func<VanAn.Shared.Domain.ElectronicInvoiceId, CancellationToken, Task> submitAction =
+                            (invoiceId, ct) => Task.CompletedTask; // TODO(F4): Wire to real provider submission
+                        return new RetryPolicyService(submitAction, sp.GetRequiredService<ILogger<RetryPolicyService>>());
+                    });
+                    _ = services.AddScoped<IComplianceService, ComplianceService>();
+                    _ = services.AddScoped<IWebhookService, WebhookService>();
+                    _ = services.AddScoped<IHKDRevenueClassificationService, HKDRevenueClassificationService>();
+                    _ = services.AddScoped<ITenantProviderConfigurationService, TenantProviderConfigurationService>();
+                    _ = services.AddScoped<IProviderManager, ProviderManager>();
+                    _ = services.AddScoped<IFallbackService, FallbackService>();
+                    _ = services.AddScoped<IEInvoiceOrchestrator, EInvoiceOrchestrator>();
+                    _ = services.AddSingleton<ICircuitBreakerService, CircuitBreakerService>();
+                    _ = services.AddHostedService<EInvoiceWorker>();
 
                     // Logging
                     _ = services.AddLogging(builder => builder.AddConsole());
