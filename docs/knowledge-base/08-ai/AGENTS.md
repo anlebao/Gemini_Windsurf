@@ -12,6 +12,9 @@
 | Playwright Guardian | TRIAGE/VALIDATE/FIX_PLAYWRIGHT | E2E failures | Medium |
 | Domain Guardian | REVIEW_ONLY | Domain layer changes | Critical |
 | Refactoring Safety | ANALYZE → IMPLEMENT (with validation) | Refactoring | Medium |
+| Documentation | AUTO-UPDATE | Code changes | Low |
+| Project Memory | LOG → QUERY | Session tracking | Low |
+| Knowledge Retrieval | RETRIEVE_ONLY | Context needed | Low |
 
 ---
 
@@ -200,6 +203,157 @@ Feature-specific từ table:
 
 ---
 
+## 6. Documentation Agent (Phase 5)
+
+### Mode
+**AUTO-UPDATE** — Draft doc updates, user approval required
+
+### Trigger
+- Feature implementation complete
+- Build fix applied (new pattern learned)
+- Architecture decision made
+
+### Auto-Update Rules
+
+| Code Change | Doc Update | Template |
+|-------------|------------|----------|
+| New endpoint | `API_DOCUMENTATION.md` | API Template |
+| New domain entity | `knowledge-base/02-domains/*.md` | Domain Template |
+| Business rule change | Domain docs + `CHANGELOG.md` | Changelog |
+| ADR-worthy decision | `decisions/ADR-*.md` | ADR Template |
+| New error pattern | `.windsurf/skills/*.md` | Skill Template |
+| Bug fix | `CHANGELOG.md` | Changelog Entry |
+
+### Workflow
+1. DETECT change type from modified files
+2. MAP to target doc files
+3. APPLY template with code metadata
+4. PRESENT draft to user
+5. USER reviews and approves
+6. COMMIT code + docs together
+
+### Constraints
+
+| Constraint | Rule |
+|------------|------|
+| Approval | All auto-updates require user review |
+| Append only | Never overwrite existing docs |
+| Links | Verify cross-references valid |
+| No duplicate | Check existing entries before adding |
+
+### Templates Location
+- `docs/knowledge-base/08-ai/templates/`
+
+### Stop Conditions
+- User rejects update
+- Unclear change type
+- Doc file doesn't exist
+
+---
+
+## 7. Project Memory Agent (Phase 6)
+
+### Mode
+**LOG → QUERY** — Track sessions, enable historical queries
+
+### Trigger
+- Session start (S1, S2, F0...)
+- Task completed
+- User query: "What did we do?"
+
+### Operations
+
+| Operation | Method | Example |
+|-----------|--------|---------|
+| Start Session | `StartSessionAsync` | S1, UC1 QR Checkout, testsTotal=9 |
+| Log Action | `LogAgentActionAsync` | Feature Developer implemented domain |
+| Complete Session | `CompleteSessionAsync` | S1, 9 tests passed |
+| Query History | `GetWhatWeDidLastMonthAsync` | "Last 30 days actions" |
+| Generate Report | `GenerateSprintRetrospectiveAsync` | UC1 QR Checkout summary |
+
+### Query Patterns
+
+```csharp
+// What did we do last month?
+var actions = await _memory.GetWhatWeDidLastMonthAsync();
+
+// Sprint retrospective
+var report = await _memory.GenerateSprintRetrospectiveAsync("UC1 QR Checkout");
+
+// Find similar patterns
+var patterns = await _memory.FindSimilarPatternsAsync("CS0311");
+```
+
+### Rx Report Format
+```
+S1 ✅ | coverage 9/20 | next: S2
+S2 ✅ | coverage 4/20 | next: S3
+```
+
+### Storage
+- **Current:** SQLite (file-based, offline-first)
+- **Future:** PostgreSQL (cloud)
+- **Location:** `3_CoreHub/Infrastructure/ProjectMemory/`
+
+### Constraints
+
+| Constraint | Rule |
+|------------|------|
+| Log always | Every session/action must be logged |
+| JSON extensible | Metadata fields allow flexible data |
+| Query performance | Max 100 results per query |
+| User privacy | No sensitive data in logs |
+
+### Stop Conditions
+- Storage unavailable
+- Query timeout (>5s)
+
+---
+
+## 8. Knowledge Retrieval Agent (Phase 7)
+
+### Mode
+**RETRIEVE_ONLY** — Semantic search for context injection
+
+### Trigger
+- AI needs domain knowledge
+- User asks about existing code/patterns
+- Feature development needs context
+
+### Operations
+
+| Operation | Method | Example |
+|-----------|--------|---------|
+| Find ADRs | `FindAdrsAsync` | "Find ADRs about accounting" |
+| Find Domain | `FindDomainDocsAsync` | "Order aggregate patterns" |
+| Find Skills | `FindSkillsAsync` | "CS0311 build error" |
+| Find Code | `FindCodeSnippetsAsync` | "InvoiceService DI pattern" |
+| Cross-search | `SearchAcrossCollectionsAsync` | Search skills + workflows |
+
+### Collections
+- `adrs` — Architecture decisions
+- `domains` — Domain documentation
+- `workflows` — Process workflows
+- `skills` — Error patterns & solutions
+- `codebase` — Source code snippets
+- `tasks` — Task history
+
+### Constraints
+
+| Constraint | Rule |
+|------------|------|
+| Top-K limit | Max 10 results per query |
+| Relevance threshold | Score > 0.7 for inclusion |
+| Context budget | Include only relevant chunks |
+| Freshness | Prefer recently indexed docs |
+
+### Stop Conditions
+- No relevant results found
+- Query timeout (>3s)
+- All collections empty
+
+---
+
 ## Hand-off Protocols
 
 ### Between Agents
@@ -220,6 +374,22 @@ Playwright Guardian → Build Fixer
 Domain Guardian → Feature Developer
     [When] Domain review complete
     [Hand-off] Approval + constraints
+
+Feature Developer → Documentation Agent
+    [When] Implementation complete
+    [Hand-off] Changed files + feature summary
+    
+Build Fixer → Documentation Agent
+    [When] New pattern learned from fix
+    [Hand-off] Pattern description + template suggestion
+
+Feature Developer → Project Memory Agent
+    [When] Session start/complete
+    [Hand-off] Session code + test results + summary
+    
+User → Project Memory Agent
+    [When] Query project history
+    [Hand-off] Question + context
 ```
 
 ### To User
@@ -248,6 +418,9 @@ All Agents → User
 | Test Failures | Build Fixer + Playwright | test-system-upgrade, pattern-based-fixing |
 | Domain Changes | Domain Guardian | domain-integrity-validation |
 | Refactoring | Refactoring Safety | system-refactor-safety, test-strategy-planning |
+| Doc Updates | Documentation | doc-automation, changelog-management |
+| History Query | Project Memory | project-memory-query, session-tracking |
+| Knowledge Query | Knowledge Retrieval | semantic-search, knowledge-retrieval |
 
 ---
 
@@ -275,8 +448,11 @@ Before every action:
 - `.windsurf/workflows/` - All workflows
 - `.windsurf/skills/` - All skills
 - `docs/decisions/ADR-005-Playwright-Isolation.md` - Playwright rules
+- `docs/knowledge-base/08-ai/DOC_AUTOMATION.md` - Phase 5 Auto-doc rules
+- `docs/knowledge-base/08-ai/PROJECT_MEMORY.md` - Phase 6 Project Memory
+- `docs/knowledge-base/08-ai/SEMANTIC_SEARCH.md` - Phase 7 Semantic Search
 
 ---
 
-*Version: 1.0*  
-*Last Updated: June 1, 2026*
+*Version: 1.4*  
+*Last Updated: June 10, 2026 (Phases 5-7 COMPLETE: Documentation + Project Memory + Semantic Search)*
