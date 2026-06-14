@@ -15,8 +15,9 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
-  <!-- Release tracking configuration -->
+  <!-- Release tracking configuration (RS2008 requires AdditionalFiles, not EmbeddedResource) -->
   <ItemGroup>
-    <EmbeddedResource Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 </Project>

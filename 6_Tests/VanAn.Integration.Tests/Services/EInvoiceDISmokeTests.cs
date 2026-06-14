@@ -36,7 +36,12 @@ public class EInvoiceDISmokeTests
 
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IInvoicePolicyService, InvoicePolicyService>();
-        services.AddScoped<IRetryPolicyService, RetryPolicyService>();
+        services.AddScoped<IRetryPolicyService>(sp =>
+        {
+            Func<VanAn.Shared.Domain.ElectronicInvoiceId, CancellationToken, Task> submitAction =
+                (invoiceId, ct) => Task.CompletedTask;
+            return new RetryPolicyService(submitAction, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RetryPolicyService>>());
+        });
         services.AddScoped<IComplianceService, ComplianceService>();
         services.AddScoped<IWebhookService, WebhookService>();
         services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();

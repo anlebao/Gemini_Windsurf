@@ -328,4 +328,53 @@ public class WebhookServiceTests : IntegrationTestBase
         _dbContext.Entry(invoice).Reload();
         invoice.Status.Should().Be(InvoiceStatus.TaxApproved);
     }
+
+    [Fact]
+    public async Task ProcessWebhookAsync_DualDbContext_SimulatesRestart_PersistsToDB()
+    {
+        // Arrange: Create invoice and process webhook via Context A
+        var tenantId = TestTenantId;
+        var orderId = new OrderId(Guid.NewGuid());
+        var idempotencyKey = new InvoiceIdempotencyKey(Guid.NewGuid().ToString());
+        var invoice = new ElectronicInvoice(
+            tenantId, orderId, idempotencyKey, InvoiceType.Goods,
+            10_000_000m, 1_000_000m, 11_000_000m,
+            "Test Customer", "1234567890", "Test Address");
+
+        invoice.Submit();
+        invoice.MarkAsSentToProvider(new ProviderId("viettel"));
+
+        var providerInvoiceNumber = "RESTART-001";
+        typeof(ElectronicInvoice).GetProperty("ProviderInvoiceNumber", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)?.SetValue(invoice, providerInvoiceNumber);
+
+        var payload = JsonSerializer.Serialize(new ViettelWebhookDto
+        {
+            InvoiceNo = providerInvoiceNumber,
+            Status = 3, // Approved
+            IssueDate = "2026-06-13"
+        });
+
+        // Context A: Save webhook (simulates first process lifetime)
+        using (var scopeA = CreateNewScope())
+        {
+            var dbContextA = scopeA.ServiceProvider.GetRequiredService<VanAnDbContext>();
+            await dbContextA.ElectronicInvoices.AddAsync(invoice);
+            await dbContextA.SaveChangesAsync();
+
+            var sut1 = new WebhookService(dbContextA, NullLogger<WebhookService>.Instance);
+            await sut1.ProcessWebhookAsync("viettel", providerInvoiceNumber, payload);
+            await dbContextA.SaveChangesAsync();
+        } // Dispose Context A = app restart simulation
+
+        // Act: Context B (new instance = restart) checks idempotency
+        using (var scopeB = CreateNewScope())
+        {
+            var dbContextB = scopeB.ServiceProvider.GetRequiredService<VanAnDbContext>();
+            var sut2 = new WebhookService(dbContextB, NullLogger<WebhookService>.Instance);
+            var result = await sut2.HasBeenProcessedAsync("viettel", providerInvoiceNumber);
+
+            // Assert: L2 DB lookup returns true (no L1 cache - new instance)
+            result.Should().BeTrue("Webhook idempotency should persist across app restart via DB");
+        }
+    }
 }

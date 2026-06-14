@@ -1,4 +1,5 @@
 using VanAn.Shared.Domain;
+using VanAn.Shared.DTOs;
 
 namespace VanAn.KhachLink.Services
 {
@@ -9,14 +10,14 @@ namespace VanAn.KhachLink.Services
         public decimal TotalVatAmount => 0; // VAT not currently supported in Domain CartItem
         public decimal TotalAmount => Items.Sum(item => item.TotalPrice);
 
-        public void AddItem(Product product, int quantity = 1)
+        public void AddItem(ProductDto product, int quantity = 1)
         {
             if (quantity <= 0)
             {
                 return;
             }
 
-            CartItem? existingItem = Items.FirstOrDefault(i => i.ProductId == product.Id);
+            CartItem? existingItem = Items.FirstOrDefault(i => i.ProductId == product.ProductId);
             if (existingItem != null)
             {
                 // CartItem is immutable, create new instance with updated quantity
@@ -28,7 +29,7 @@ namespace VanAn.KhachLink.Services
                 Items.Add(new CartItem
                 {
                     Id = Guid.NewGuid(),
-                    ProductId = product.Id,
+                    ProductId = product.ProductId,
                     ProductName = product.Name,
                     Description = product.Description ?? string.Empty,
                     Quantity = quantity,

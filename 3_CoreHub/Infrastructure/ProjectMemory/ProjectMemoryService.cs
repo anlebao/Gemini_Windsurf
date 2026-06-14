@@ -379,4 +379,61 @@ public class ProjectMemoryService : IProjectMemoryService
     }
 
     #endregion
+
+    #region Cleanup Operations
+
+    public async Task<CleanupResult> CleanupOldDataAsync(TimeSpan retentionPeriod)
+    {
+        var result = new CleanupResult();
+        var startTime = DateTime.UtcNow;
+        var cutoffDate = DateTime.UtcNow - retentionPeriod;
+
+        // Delete old completed sessions (keep active ones)
+        var oldSessions = await _context.Sessions
+            .Where(s => s.StartTime < cutoffDate && s.Status == AiSessionStatus.Completed)
+            .ToListAsync();
+        
+        result.SessionsDeleted = oldSessions.Count;
+        _context.Sessions.RemoveRange(oldSessions);
+
+        // Delete old tasks that are completed
+        var oldTasks = await _context.Tasks
+            .Where(t => t.CreatedAt < cutoffDate && t.Status == AiTaskStatus.Completed)
+            .ToListAsync();
+        
+        result.TasksDeleted = oldTasks.Count;
+        _context.Tasks.RemoveRange(oldTasks);
+
+        // Delete old agent history entries (keep recent ones)
+        var oldHistory = await _context.AgentHistories
+            .Where(h => h.ExecutedAt < cutoffDate)
+            .ToListAsync();
+        
+        result.HistoryEntriesDeleted = oldHistory.Count;
+        _context.AgentHistories.RemoveRange(oldHistory);
+
+        // Archive old decisions (mark as archived instead of deleting)
+        var oldDecisions = await _context.Decisions
+            .Where(d => d.MadeAt < cutoffDate)
+            .ToListAsync();
+        
+        foreach (var decision in oldDecisions)
+        {
+            // Add archived flag to consequences JSON
+            var existingConsequences = decision.GetConsequences();
+            if (existingConsequences != null)
+            {
+                existingConsequences.Pros.Add("[ARCHIVED]");
+                decision.SetConsequences(existingConsequences);
+            }
+        }
+        result.DecisionsArchived = oldDecisions.Count;
+
+        await _context.SaveChangesAsync();
+        result.ExecutionTime = DateTime.UtcNow - startTime;
+        
+        return result;
+    }
+
+    #endregion
 }

@@ -1,8 +1,15 @@
-# Analyzer Release Tracking
-## Shipped Analyzers
+## Release 1.0
 
-### Version 1.0.0
-- VA0001: AccountingEntry mutation detected
-- VA0002: AccountingEntry deletion/modification detected  
-- VA0003: Business logic detected in Gateway/Controller
-- VA0004: Manual package version detected
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-------
+VA0001 | Architecture | Error | AccountingEntry mutation detected
+VA0002 | Architecture | Error | AccountingEntry deletion/modification detected
+VA0003 | Architecture | Error | Business logic detected in Gateway/Controller
+VA0004 | Architecture | Error | Manual package version detected
+VA1001 | Architecture | Error | Domain entity defined outside Domain layer
+VA1002 | Architecture | Error | Invalid dependency direction
+VA1003 | Architecture | Error | EF Core found in Domain layer
+VA1004 | Architecture | Error | Business logic in Gateway layer
+VA1005 | Architecture | Error | AccountingEntry mutability violation

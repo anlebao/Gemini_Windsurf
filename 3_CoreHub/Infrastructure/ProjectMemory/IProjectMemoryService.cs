@@ -58,4 +58,7 @@ public interface IProjectMemoryService
     Task<IReadOnlyList<AiAgentHistory>> GetWhatWeDidLastMonthAsync();
     Task<string> GenerateSprintRetrospectiveAsync(string featureName);
     Task<IReadOnlyList<string>> FindSimilarPatternsAsync(string pattern);
+    
+    // Cleanup operations
+    Task<CleanupResult> CleanupOldDataAsync(TimeSpan retentionPeriod);
 }

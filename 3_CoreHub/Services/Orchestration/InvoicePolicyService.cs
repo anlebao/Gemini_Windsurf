@@ -96,8 +96,16 @@ public class InvoicePolicyService : IInvoicePolicyService
         if (string.IsNullOrWhiteSpace(invoice.CustomerName))
             errors.Add("CustomerName is required for invoice submission.");
 
-        if (string.IsNullOrWhiteSpace(invoice.CustomerTaxCode))
-            errors.Add("CustomerTaxCode is required for invoice submission.");
+        // CustomerTaxCode validation
+        // If provided, must be valid format (10 digits). If empty, assume B2C (retail) and allow.
+        if (!string.IsNullOrWhiteSpace(invoice.CustomerTaxCode))
+        {
+            var cleanMst = invoice.CustomerTaxCode.Trim();
+            if (cleanMst.Length != 10 || !cleanMst.All(char.IsDigit))
+            {
+                errors.Add("CustomerTaxCode must be exactly 10 digits for B2B invoice submission.");
+            }
+        }
 
         if (errors.Count > 0)
             throw new InvalidOperationException(
@@ -116,5 +124,50 @@ public class InvoicePolicyService : IInvoicePolicyService
         };
 
         return Math.Round(amount * vatRate, 2, MidpointRounding.AwayFromZero);
+    }
+
+    // HKD threshold per TT152-2025: 1 billion VND annual revenue
+    private const decimal HkdEInvoiceThreshold = 1_000_000_000m;
+
+    /// <summary>
+    /// Determine recipient type based on MST and phone number
+    /// </summary>
+    public InvoiceRecipientType DetermineRecipientType(string? mst, string? phoneNumber)
+    {
+        // B2B: Has valid MST (10 digits)
+        if (!string.IsNullOrWhiteSpace(mst) && mst.Length == 10 && mst.All(char.IsDigit))
+        {
+            return InvoiceRecipientType.B2B;
+        }
+
+        // RetailMember: Has phone number but no valid MST
+        if (!string.IsNullOrWhiteSpace(phoneNumber) && phoneNumber.Length >= 10)
+        {
+            return InvoiceRecipientType.RetailMember;
+        }
+
+        // RetailAnonymous: No MST, no phone
+        return InvoiceRecipientType.RetailAnonymous;
+    }
+
+    /// <summary>
+    /// Check if e-invoice is required based on business type and annual revenue
+    /// </summary>
+    public bool IsEInvoiceRequired(BusinessType businessType, decimal annualRevenue)
+    {
+        // Company: Always required
+        if (businessType == BusinessType.Company)
+        {
+            return true;
+        }
+
+        // HKD (HouseholdBusiness): Required if revenue >= 1 billion VND
+        if (businessType == BusinessType.HouseholdBusiness)
+        {
+            return annualRevenue >= HkdEInvoiceThreshold;
+        }
+
+        // Other business types: default to false
+        return false;
     }
 }

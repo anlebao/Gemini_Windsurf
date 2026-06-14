@@ -105,17 +105,16 @@ public class InvoicePolicyServiceTests
             totalAmount: 11_000m,
             customerName: "Khách lẻ",
             customerTaxCode: "",
-            customerAddress: "",
-            recipientType: InvoiceRecipientType.RetailAnonymous);
+            customerAddress: "");
 
         var act = () => InvoicePolicyServiceTestHelper.InvokeValidateBusinessPolicy(invoice);
 
         act.Should().NotThrow();
     }
 
-    // T09 — B2B with empty TaxCode must throw
+    // T09 — Invalid MST format must throw
     [Fact]
-    public void ValidateBusinessPolicy_B2BEmptyTaxCode_ThrowsInvalidOperationException()
+    public void ValidateBusinessPolicy_InvalidMstFormat_ThrowsInvalidOperationException()
     {
         var tenantId = new TenantId(Guid.NewGuid());
         var orderId = new OrderId(Guid.NewGuid());
@@ -127,14 +126,13 @@ public class InvoicePolicyServiceTests
             vatAmount: 1_000m,
             totalAmount: 11_000m,
             customerName: "Công ty ABC",
-            customerTaxCode: "",
-            customerAddress: "Hà Nội",
-            recipientType: InvoiceRecipientType.B2B);
+            customerTaxCode: "ABC",
+            customerAddress: "Hà Nội");
 
         var act = () => InvoicePolicyServiceTestHelper.InvokeValidateBusinessPolicy(invoice);
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*CustomerTaxCode is required for B2B*");
+            .WithMessage("*CustomerTaxCode must be exactly 10 digits*");
     }
 }
 

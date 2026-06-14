@@ -168,11 +168,8 @@ public class WebhookServiceTests
         await _webhookService.ProcessWebhookAsync(providerId, providerInvoiceNumber, callbackData, cancellationToken);
         var hasBeenProcessed = await _webhookService.HasBeenProcessedAsync(providerId, providerInvoiceNumber, cancellationToken);
 
-        // Assert
-        // Note: This test documents expected behavior for idempotency
-        // The stub implementation currently returns false, but the real implementation
-        // should return true after processing
-        hasBeenProcessed.Should().BeFalse(); // Current stub behavior
+        // Assert — real idempotency: after processing, HasBeenProcessed must return true
+        hasBeenProcessed.Should().BeTrue();
     }
 
     [Fact]

@@ -21,6 +21,7 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<OutboxMessage> OutboxMessages { get; }
         DbSet<JournalEntry> JournalEntries { get; }
         DbSet<AuditLog> AuditLogs { get; }
+        DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

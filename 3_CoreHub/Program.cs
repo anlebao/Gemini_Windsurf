@@ -15,6 +15,7 @@ using VanAn.CoreHub.Services.Resilience;
 using VanAn.CoreHub.Infrastructure.ProjectMemory;
 using VanAn.CoreHub.Infrastructure.SemanticSearch;
 using VanAn.CoreHub.Infrastructure.SemanticSearch.Services;
+using VanAn.CoreHub.Agents;
 using Microsoft.EntityFrameworkCore;
 
 namespace VanAn.CoreHub
@@ -35,9 +36,9 @@ namespace VanAn.CoreHub
                 VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
                 _ = await context.Database.EnsureCreatedAsync();
 
-                // Phase 6: Ensure Project Memory database is created
+                // Phase 6: Apply Project Memory migrations
                 ProjectMemoryDbContext memoryContext = scope.ServiceProvider.GetRequiredService<ProjectMemoryDbContext>();
-                _ = await memoryContext.Database.EnsureCreatedAsync();
+                await memoryContext.Database.MigrateAsync();
             }
 
             await host.RunAsync();
@@ -107,25 +108,57 @@ namespace VanAn.CoreHub
                     _ = services.AddSingleton<ICircuitBreakerService, CircuitBreakerService>();
                     _ = services.AddHostedService<EInvoiceWorker>();
 
-                    // UC1: QR Checkout Completion services
-                    _ = services.AddScoped<ICustomerRepository, CustomerRepository>();
-                    _ = services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
-                    _ = services.AddScoped<IGuestMergeService, GuestMergeService>();
-                    _ = services.AddScoped<ICheckoutCompletionService, CheckoutCompletionService>();
+                    // UC1: QR Checkout Completion services (TODO: Sprint 3 incomplete - commented out for Phase 6 migration)
+                    // _ = services.AddScoped<ICustomerRepository, CustomerRepository>();
+                    // _ = services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
+                    // _ = services.AddScoped<IGuestMergeService, GuestMergeService>();
+                    // _ = services.AddScoped<ICheckoutCompletionService, CheckoutCompletionService>();
                     _ = services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
-                    _ = services.AddHttpClient<IMstLookupService, MstLookupService>("VietQR", client =>
-                    {
-                        client.BaseAddress = new Uri("https://api.vietqr.io/v2/");
-                        client.Timeout = TimeSpan.FromSeconds(3);
-                    });
+                    // _ = services.AddHttpClient<IMstLookupService, MstLookupService>("VietQR", client =>
+                    // {
+                    //     client.BaseAddress = new Uri("https://api.vietqr.io/v2/");
+                    //     client.Timeout = TimeSpan.FromSeconds(3);
+                    // });
                     _ = services.AddHostedService<BatchInvoiceProcessor>();
 
-                    // Phase 6: Project Memory
-                    string projectMemoryConnection = context.Configuration.GetSection("ConnectionStrings")["ProjectMemory"]
-                        ?? "Data Source=project_memory.db";
-                    _ = services.AddDbContext<ProjectMemoryDbContext>(options =>
-                        options.UseSqlite(projectMemoryConnection));
-                    _ = services.AddScoped<IProjectMemoryService, ProjectMemoryService>();
+                    // Phase 6: Project Memory (PostgreSQL with SQLite fallback)
+                    var dbProvider = context.Configuration["ProjectMemory:DatabaseProvider"] ?? "PostgreSQL";
+                    var projectMemoryConnectionString = context.Configuration["ProjectMemory:ConnectionString"]
+                        ?? "Host=localhost;Port=5432;Database=vanan_project_memory;Username=vanan;Password=VanAn@2024!";
+
+                    if (dbProvider.Equals("SQLite", StringComparison.OrdinalIgnoreCase))
+                    {
+                        services.AddDbContext<ProjectMemoryDbContext>(options =>
+                            options.UseSqlite(projectMemoryConnectionString));
+                    }
+                    else
+                    {
+                        // PostgreSQL registration with explicit CEI flag
+                        services.AddDbContext<ProjectMemoryDbContext>(options =>
+                            options.UseNpgsql(projectMemoryConnectionString));
+
+                        // Override constructor to inject usePostgresFeatures: true (CEI Standard)
+                        services.AddScoped<ProjectMemoryDbContext>(sp =>
+                        {
+                            var options = sp.GetRequiredService<DbContextOptions<ProjectMemoryDbContext>>();
+                            return new ProjectMemoryDbContext(options, usePostgresFeatures: true);
+                        });
+                    }
+
+                    services.AddScoped<IProjectMemoryService, ProjectMemoryService>();
+
+                    // Phase 6: Project Memory Health Check
+                    services.AddHealthChecks()
+                        .AddCheck<ProjectMemoryHealthCheck>("project-memory");
+
+                    // Phase 6: Agent Executors
+                    services.AddScoped<FeatureDeveloperExecutor>();
+                    services.AddScoped<BuildFixerExecutor>();
+
+                    // Phase 6: Project Memory Cleanup Service
+                    services.Configure<ProjectMemoryCleanupOptions>(
+                        context.Configuration.GetSection("ProjectMemoryCleanup"));
+                    services.AddHostedService<ProjectMemoryCleanupService>();
 
                     // Phase 7: Semantic Search
                     string semanticSearchConnection = context.Configuration.GetSection("ConnectionStrings")["SemanticSearch"]

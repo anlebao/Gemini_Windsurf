@@ -89,4 +89,50 @@ public abstract class IntegrationTestBase : IDisposable
     {
         return _serviceProvider.GetRequiredService<T>();
     }
+
+    /// <summary>
+    /// Creates a new service provider scope with fresh DbContext instance
+    /// Used for testing app restart scenarios (dual-DbContext pattern)
+    /// </summary>
+    protected IServiceScope CreateNewScope()
+    {
+        var services = new ServiceCollection();
+
+        // Add logging
+        services.AddLogging(builder => builder.AddConsole());
+
+        // Add SQLite in-memory database (same connection for test lifetime)
+        services.AddDbContext<VanAnDbContext>(options =>
+            options.UseSqlite(_connection));
+
+        // Register IVanAnDbContext and ITenantProvider
+        services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+        services.AddScoped<ITenantProvider, TestTenantProvider>();
+
+        // Add repository registrations
+        services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
+        // Add core services
+        services.AddScoped<IAccountingService, AccountingEntryService>();
+        services.AddScoped<IAccountingEntryService, AccountingEntryServiceStub>();
+        services.AddScoped<IAuditTrailService, AuditTrailService>();
+
+        // Add E-Invoice orchestration services
+        services.AddScoped<IComplianceService, ComplianceService>();
+        services.AddScoped<IInvoicePolicyService, InvoicePolicyService>();
+        services.AddScoped<IHKDRevenueClassificationService, HKDRevenueClassificationService>();
+        services.AddScoped<IWebhookService, WebhookService>();
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+
+        // Add lead management services
+        services.AddScoped<VanAn.CoreHub.Services.ILeadManagementService, VanAn.CoreHub.Services.LeadManagementService>();
+        services.AddScoped<VanAn.CoreHub.Services.ILeadConversionService, VanAn.CoreHub.Services.LeadConversionService>();
+        services.AddScoped<VanAn.CoreHub.Services.IFacebookLeadService, VanAn.CoreHub.Services.FacebookLeadService>();
+        services.AddScoped<VanAn.CoreHub.Services.ICustomerOnboardingService, VanAn.CoreHub.Services.CustomerOnboardingService>();
+        services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+
+        var serviceProvider = services.BuildServiceProvider();
+        return serviceProvider.CreateScope();
+    }
 }

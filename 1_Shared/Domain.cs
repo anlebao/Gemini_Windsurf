@@ -1366,13 +1366,14 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// Invoice Type - Goods, Services, or Mixed
+    /// Invoice Type - Goods, Services, Mixed, or HKD (per Nghị định 123/2020/NĐ-CP)
     /// </summary>
     public enum InvoiceType
     {
         Goods = 1,
         Services = 2,
-        Mixed = 3
+        Mixed = 3,
+        HKD = 4  // Hộ kinh doanh (Nghị định 123/2020/NĐ-CP)
     }
 
     /// <summary>
@@ -1454,6 +1455,7 @@ namespace VanAn.Shared.Domain
         // Navigation (read-only)
         public virtual ICollection<SubmitAttempt> SubmitAttempts { get; protected set; } = new List<SubmitAttempt>();
         public virtual OutboxEvent? OutboxEvent { get; protected set; }
+        public virtual ICollection<InvoiceItem> Items { get; protected set; } = new List<InvoiceItem>();
 
         protected ElectronicInvoice() { }
 
@@ -1546,6 +1548,93 @@ namespace VanAn.Shared.Domain
             Status = InvoiceStatus.Rejected;
             FailureReason = rejectionReason;
             UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Invoice Item ID - Strongly-typed ID for InvoiceItem
+    /// </summary>
+    public record InvoiceItemId(Guid Value)
+    {
+        public static implicit operator Guid(InvoiceItemId id) => id.Value;
+        public static implicit operator InvoiceItemId(Guid value) => new(value);
+        public static InvoiceItemId FromGuid(Guid value) => new(value);
+    }
+
+    /// <summary>
+    /// Invoice Item - Line item for electronic invoice (HKD mandatory per Nghị định 123/2020/NĐ-CP)
+    /// Domain Purity: NO EF Core, NO DbContext, NO DataAnnotations
+    /// </summary>
+    public class InvoiceItem : BaseEntity
+    {
+        public InvoiceItemId Id { get; protected set; } = new InvoiceItemId(Guid.NewGuid());
+        public ElectronicInvoiceId InvoiceId { get; protected set; } = null!;
+
+        /// <summary>
+        /// Mã hàng hóa/dịch vụ
+        /// </summary>
+        public string ItemCode { get; protected set; } = string.Empty;
+
+        /// <summary>
+        /// Tên hàng hóa/dịch vụ
+        /// </summary>
+        public string ItemName { get; protected set; } = string.Empty;
+
+        /// <summary>
+        /// Đơn vị tính
+        /// </summary>
+        public string Unit { get; protected set; } = string.Empty;
+
+        /// <summary>
+        /// Số lượng
+        /// </summary>
+        public decimal Quantity { get; protected set; }
+
+        /// <summary>
+        /// Đơn giá
+        /// </summary>
+        public decimal UnitPrice { get; protected set; }
+
+        /// <summary>
+        /// Thuế suất (%)
+        /// </summary>
+        public decimal VatRate { get; protected set; }
+
+        /// <summary>
+        /// Thành tiền (Quantity * UnitPrice)
+        /// </summary>
+        public decimal Amount { get; protected set; }
+
+        /// <summary>
+        /// Tiền thuế (Amount * VatRate / 100)
+        /// </summary>
+        public decimal VatAmount { get; protected set; }
+
+        // Navigation
+        public virtual ElectronicInvoice Invoice { get; protected set; } = null!;
+
+        protected InvoiceItem() { }
+
+        public InvoiceItem(
+            TenantId tenantId,
+            ElectronicInvoiceId invoiceId,
+            string itemCode,
+            string itemName,
+            string unit,
+            decimal quantity,
+            decimal unitPrice,
+            decimal vatRate)
+            : base(tenantId)
+        {
+            InvoiceId = invoiceId;
+            ItemCode = itemCode;
+            ItemName = itemName;
+            Unit = unit;
+            Quantity = quantity;
+            UnitPrice = unitPrice;
+            VatRate = vatRate;
+            Amount = quantity * unitPrice;
+            VatAmount = Amount * vatRate / 100;
         }
     }
 
@@ -1833,4 +1922,73 @@ namespace VanAn.Shared.Domain
     /// Domain Event: Invoice Rejected
     /// </summary>
     public record InvoiceRejected(ElectronicInvoiceId InvoiceId, TenantId TenantId, string RejectionReason, DateTime OccurredAt);
+
+    /// <summary>
+    /// Pending Invoice Queue - Batch processing for anonymous retail invoices
+    /// UC1 Feature: Queue orders for batch invoice processing at 23:00 or threshold 500
+    /// </summary>
+    public class PendingInvoiceQueue : BaseEntity
+    {
+        public Guid QueueId { get; protected set; } = Guid.NewGuid();
+        public OrderId OrderId { get; protected set; } = null!;
+        public TenantId TenantId { get; protected set; } = null!;
+        public decimal TotalAmount { get; protected set; }
+        public decimal VatAmount { get; protected set; }
+        public PendingInvoiceStatus Status { get; protected set; } = PendingInvoiceStatus.PendingInvoice;
+        public int RetryCount { get; protected set; } = 0;
+        public string? ErrorMessage { get; protected set; }
+        public DateTime? ProcessedAt { get; protected set; }
+        public DateTime CreatedAt { get; protected set; } = DateTime.UtcNow;
+
+        protected PendingInvoiceQueue() { }
+
+        public PendingInvoiceQueue(TenantId tenantId, OrderId orderId, decimal totalAmount, decimal vatAmount)
+            : base(tenantId)
+        {
+            TenantId = tenantId;
+            OrderId = orderId;
+            TotalAmount = totalAmount;
+            VatAmount = vatAmount;
+        }
+
+        /// <summary>
+        /// Mark invoice as being processed
+        /// </summary>
+        public void MarkAsProcessing()
+        {
+            Status = PendingInvoiceStatus.Processing;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark invoice as successfully processed
+        /// </summary>
+        public void MarkAsProcessed()
+        {
+            Status = PendingInvoiceStatus.Invoiced;
+            ProcessedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Mark invoice as failed with error message
+        /// </summary>
+        public void MarkAsFailed(string error)
+        {
+            RetryCount++;
+            ErrorMessage = error;
+            Status = PendingInvoiceStatus.Failed;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Reset invoice for retry attempt
+        /// </summary>
+        public void ResetForRetry()
+        {
+            Status = PendingInvoiceStatus.PendingInvoice;
+            ErrorMessage = null;
+            UpdateAudit();
+        }
+    }
 }

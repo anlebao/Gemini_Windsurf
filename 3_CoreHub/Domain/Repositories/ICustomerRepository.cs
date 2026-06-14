@@ -47,5 +47,10 @@ namespace VanAn.CoreHub.Domain.Repositories
         /// Get customer with orders (for complex queries)
         /// </summary>
         Task<Customer?> GetWithOrdersAsync(Guid id);
+
+        /// <summary>
+        /// Get customer by phone number (only active, non-deleted, same tenant)
+        /// </summary>
+        Task<Customer?> GetByPhoneAsync(string phoneNumber);
     }
 }

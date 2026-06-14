@@ -104,5 +104,15 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                            !c.IsDeleted)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<Customer?> GetByPhoneAsync(string phoneNumber)
+        {
+            Guid tenantId = _currentTenantId;
+            return await _context.Customers
+                .Where(c => c.PhoneNumber == phoneNumber &&
+                           c.TenantId == new TenantId(tenantId) &&
+                           !c.IsDeleted)
+                .FirstOrDefaultAsync();
+        }
     }
 }
