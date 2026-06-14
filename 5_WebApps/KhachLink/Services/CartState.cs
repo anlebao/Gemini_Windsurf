@@ -1,3 +1,4 @@
+using VanAn.KhachLink.Models;
 using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
 

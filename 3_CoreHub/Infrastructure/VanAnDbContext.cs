@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
@@ -10,7 +10,7 @@ using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Infrastructure
 {
-    public class VanAnDbContext(DbContextOptions<VanAnDbContext> options, ITenantProvider tenantProvider = null!) : BaseVanAnDbContext(options), IVanAnDbContext
+    public class VanAnDbContext(DbContextOptions<VanAnDbContext> options, ITenantProvider tenantProvider = null!) : DbContext(options), IVanAnDbContext
     {
         private readonly ITenantProvider _tenantProvider = tenantProvider;
 
@@ -265,34 +265,52 @@ namespace VanAn.CoreHub.Infrastructure
             IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes()
                 .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType) && e.ClrType != typeof(CoreAccountingEntry));
 
+            // Resolve EF.Property<Guid> MethodInfo safely with explicit parameter types to avoid
+            // null-forgiving operator (!) and satisfy Nullable Static Analysis in Release build.
+            // EF.Property<TProperty>(object entity, string propertyName) - single generic overload in EF Core 8.
+            System.Reflection.MethodInfo? efPropertyOpenMethod = typeof(EF).GetMethod(
+                nameof(EF.Property),
+                new[] { typeof(object), typeof(string) });
+
+            if (efPropertyOpenMethod == null)
+            {
+                // EF.Property method not found via reflection - this should never happen with EF Core 8.
+                // Guard defensively to prevent null-ref and to satisfy nullable analyzer in Release build.
+                System.Diagnostics.Trace.TraceError(
+                    "ApplyMultiTenancyFilters: Could not resolve EF.Property<TProperty> via reflection. Multi-tenancy query filters were NOT applied.");
+                return;
+            }
+
+            System.Reflection.MethodInfo genericPropertyMethod = efPropertyOpenMethod.MakeGenericMethod(typeof(Guid));
+
             foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType? entityType in entityTypes)
             {
                 try
                 {
                     System.Linq.Expressions.ParameterExpression parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
 
-                    // Use EF.Property<Guid> to access the underlying storage type directly
-                    // This matches the repository pattern and avoids value object translation issues in LINQ expression trees
-                    System.Reflection.MethodInfo propertyMethod = typeof(EF).GetMethod(nameof(EF.Property))!
-                        .MakeGenericMethod(typeof(Guid));
+                    // Use EF.Property<Guid> to access the underlying storage type directly.
+                    // This matches the repository pattern and avoids value object translation issues in LINQ expression trees.
                     System.Linq.Expressions.MethodCallExpression tenantIdProperty = System.Linq.Expressions.Expression.Call(
-                        propertyMethod,
+                        genericPropertyMethod,
                         parameter,
                         System.Linq.Expressions.Expression.Constant("TenantId"));
 
+                    // Explicitly typed Constant to ensure Roslyn/EF type inference is unambiguous in Release build.
                     System.Linq.Expressions.ConstantExpression currentTenantIdValue = System.Linq.Expressions.Expression.Constant(
-                        currentTenantId);
+                        currentTenantId, typeof(Guid));
+
                     System.Linq.Expressions.BinaryExpression filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantIdValue);
 
-                    // Use non-generic overload that infers delegate type automatically
+                    // Use non-generic overload that infers delegate type automatically.
                     System.Linq.Expressions.LambdaExpression lambda = System.Linq.Expressions.Expression.Lambda(filter, parameter);
 
                     _ = modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
                 }
                 catch (Exception ex)
                 {
-                    // Log error but continue - some entities may not have TenantId
-                    Console.WriteLine($"Failed to apply tenant filter to {entityType.ClrType.Name}: {ex.Message}");
+                    // Log error but continue - some entities may not have TenantId mapped as shadow property.
+                    System.Diagnostics.Trace.TraceError($"ApplyMultiTenancyFilters: Failed to apply tenant filter to {entityType.ClrType.Name}: {ex.Message}");
                 }
             }
         }

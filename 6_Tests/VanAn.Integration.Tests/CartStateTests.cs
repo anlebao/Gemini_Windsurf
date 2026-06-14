@@ -1,5 +1,6 @@
 using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
+using VanAn.KhachLink.Models;
 using VanAn.KhachLink.Services;
 using VanAn.Integration.Tests.Infrastructure;
 using Xunit;

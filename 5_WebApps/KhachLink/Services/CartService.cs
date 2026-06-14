@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 using System.Text.Json;
+using VanAn.KhachLink.Models;
 using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
 
