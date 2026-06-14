@@ -14,11 +14,17 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.InvoiceId);
 
+            // Configure TenantId (from BaseEntity) - required for SQLite mapping
+            _ = builder.Property(e => e.TenantId)
+                .HasConversion(id => id.Value, value => new TenantId(value))
+                .IsRequired();
+
             _ = builder.Property(e => e.InvoiceId)
                 .HasConversion(id => id.Value, value => new ElectronicInvoiceId(value))
                 .IsRequired();
 
             _ = builder.Property(e => e.OrderId)
+                .HasConversion(id => id.Value, value => new OrderId(value))
                 .IsRequired();
 
             _ = builder.Property(e => e.IdempotencyKey)
@@ -82,3 +88,4 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         }
     }
 }
+

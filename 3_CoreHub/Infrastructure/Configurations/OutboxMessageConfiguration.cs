@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VanAn.CoreHub.Infrastructure.ValueConverters;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
 {
@@ -39,6 +40,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired(false);
 
             _ = builder.Property(e => e.TenantId)
+                .HasConversion(new TenantIdConverter())
                 .IsRequired();
 
             _ = builder.Property(e => e.Status)
