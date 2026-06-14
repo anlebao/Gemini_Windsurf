@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Services.Events;
@@ -16,6 +16,8 @@ using VanAn.CoreHub.Infrastructure.ProjectMemory;
 using VanAn.CoreHub.Infrastructure.SemanticSearch;
 using VanAn.CoreHub.Infrastructure.SemanticSearch.Services;
 using VanAn.CoreHub.Agents;
+using VanAn.CoreHub.Services.Providers.EInvoice;
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 
 namespace VanAn.CoreHub
@@ -92,11 +94,87 @@ namespace VanAn.CoreHub
                     _ = services.AddMemoryCache();
                     _ = services.AddScoped<IOutboxRepository, OutboxRepository>();
                     _ = services.AddScoped<IInvoicePolicyService, InvoicePolicyService>();
+                    // Viettel provider - named HttpClient + config
+                    _ = services.Configure<ViettelConfig>(context.Configuration.GetSection("ViettelConfig"));
+                    _ = services.AddHttpClient<ViettelEInvoiceProvider>("viettel", client =>
+                    {
+                        client.BaseAddress = new Uri(
+                            context.Configuration["ViettelConfig:BaseUrl"] ?? "https://sinvoice.viettel.vn/");
+                        client.Timeout = TimeSpan.FromSeconds(30);
+                    });
+
+                    // MISA provider - named HttpClient + config
+                    _ = services.Configure<MisaConfig>(context.Configuration.GetSection("MisaConfig"));
+                    _ = services.AddHttpClient<MisaEInvoiceProvider>("misa", client =>
+                    {
+                        client.BaseAddress = new Uri(
+                            context.Configuration["MisaConfig:BaseUrl"] ?? "https://api.meinvoice.vn/");
+                        client.Timeout = TimeSpan.FromSeconds(45);
+                    });
+
+                    // Provider registry (Singleton)
+                    _ = services.AddSingleton<IEInvoiceProviderRegistry>(sp =>
+                    {
+                        var registry = new EInvoiceProviderRegistry();
+                        registry.RegisterProvider("viettel", typeof(ViettelEInvoiceProvider));
+                        registry.RegisterProvider("misa",    typeof(MisaEInvoiceProvider));
+                        return registry;
+                    });
+                    _ = services.AddScoped<IEInvoiceProviderFactory, EInvoiceProviderFactory>();
+
+                    // RetryPolicyService - Fix TODO(F4): wire submitAction to real provider
+                    // Safe: Scoped shares VanAnDbContext lifetime within same request scope
                     _ = services.AddScoped<IRetryPolicyService>(sp =>
                     {
+                        var factory = sp.GetRequiredService<IEInvoiceProviderFactory>();
+                        var breaker = sp.GetRequiredService<ICircuitBreakerService>();
+                        var db      = sp.GetRequiredService<VanAnDbContext>();
+                        var logger  = sp.GetRequiredService<ILogger<RetryPolicyService>>();
+
                         Func<VanAn.Shared.Domain.ElectronicInvoiceId, CancellationToken, Task> submitAction =
-                            (invoiceId, ct) => Task.CompletedTask; // TODO(F4): Wire to real provider submission
-                        return new RetryPolicyService(submitAction, sp.GetRequiredService<ILogger<RetryPolicyService>>());
+                            async (invoiceId, ct) =>
+                            {
+                                var invoice = await db.ElectronicInvoices
+                                    .FirstOrDefaultAsync(i => i.InvoiceId == invoiceId, ct)
+                                    ?? throw new InvalidOperationException(
+                                        $"Invoice {invoiceId.Value} not found");
+
+                                // Null-safe: CurrentProvider is ProviderId? (nullable)
+                                var providerId = invoice.CurrentProvider is not null
+                                    ? invoice.CurrentProvider.Value
+                                    : "viettel";
+
+                                if (breaker.IsOpen(providerId))
+                                    throw new InvalidOperationException(
+                                        "Circuit breaker OPEN for provider: " + providerId);
+
+                                var provider = factory.CreateProvider(providerId);
+                                var request  = new EInvoiceRequest(
+                                    invoice.TenantId,
+                                    invoice.InvoiceId,
+                                    invoice.OrderId,
+                                    invoice.InvoiceType,
+                                    invoice.Amount,
+                                    invoice.VatAmount,
+                                    invoice.TotalAmount,
+                                    invoice.CustomerName,
+                                    invoice.CustomerTaxCode,
+                                    invoice.CustomerAddress,
+                                    invoice.SubmittedAt ?? DateTime.UtcNow,
+                                    new Dictionary<string, string>());
+
+                                var response = await provider.SubmitInvoiceAsync(request, ct);
+
+                                if (response.Success)
+                                    breaker.RecordSuccess(providerId);
+                                else
+                                {
+                                    breaker.RecordFailure(providerId);
+                                    throw new InvalidOperationException(response.ErrorMessage);
+                                }
+                            };
+
+                        return new RetryPolicyService(submitAction, logger);
                     });
                     _ = services.AddScoped<IComplianceService, ComplianceService>();
                     _ = services.AddScoped<IWebhookService, WebhookService>();

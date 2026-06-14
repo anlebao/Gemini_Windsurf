@@ -5,11 +5,14 @@ namespace VanAn.Shared.DTOs;
 
 /// <summary>
 /// ViettelWebhookDto — Typed DTO for Viettel SInvoicer webhook callbacks.
-/// Status codes: 1=Created, 2=PendingSend, 3=Approved, 4=Rejected, 5=Failed
+/// Status codes: 1=Pending, 2=Processing, 3=Approved, 4=Rejected
 /// Per Viettel SInvoicer API spec (2025).
 /// </summary>
 public sealed class ViettelWebhookDto
 {
+    [JsonPropertyName("transactionId")]
+    public string? TransactionId { get; init; }
+
     [JsonPropertyName("invoiceNo")]
     public string? InvoiceNo { get; init; }
 
@@ -34,22 +37,24 @@ public sealed class ViettelWebhookDto
     [JsonPropertyName("errorMessage")]
     public string? ErrorMessage { get; init; }
 
+    [JsonPropertyName("signedTime")]
+    public DateTime? SignedTime { get; init; }
+
     /// <summary>
     /// Maps Viettel status codes to domain InvoiceStatus.
-    /// 3 = TaxApproved, 4 = Rejected, else = SentToProvider
+    /// 3 = TaxApproved, 4 = Rejected, 1/2 = SentToProvider
     /// </summary>
     public InvoiceStatus GetInvoiceStatus() => Status switch
     {
         3 => InvoiceStatus.TaxApproved,
         4 => InvoiceStatus.Rejected,
-        5 => InvoiceStatus.Failed,
         _ => InvoiceStatus.SentToProvider
     };
 }
 
 /// <summary>
 /// MisaWebhookDto — Typed DTO for MISA meInvoice webhook callbacks.
-/// ProcessStatus codes: 1=Success/Approved, 2=Rejected, 3=Pending
+/// ProcessStatus codes: 1=Success/Approved, 2=Failed/Rejected, 3=Processing
 /// Per MISA meInvoice API spec (2025).
 /// </summary>
 public sealed class MisaWebhookDto
@@ -75,6 +80,12 @@ public sealed class MisaWebhookDto
     [JsonPropertyName("submitDate")]
     public string? SubmitDate { get; init; }
 
+    [JsonPropertyName("failureReason")]
+    public string? FailureReason { get; init; }
+
+    [JsonPropertyName("processedAt")]
+    public DateTime? ProcessedAt { get; init; }
+
     /// <summary>
     /// Maps MISA processStatus codes to domain InvoiceStatus.
     /// 1 = TaxApproved, 2 = Rejected, else = SentToProvider
@@ -90,5 +101,7 @@ public sealed class MisaWebhookDto
     /// Returns failure reason when ProcessStatus indicates rejection.
     /// </summary>
     public string? GetFailureReason() =>
-        ProcessStatus == 2 ? (ResultMessage ?? $"MISA rejection code {ResultCode}") : null;
+        ProcessStatus == 2
+            ? (FailureReason ?? ResultMessage ?? $"MISA rejection code {ResultCode}")
+            : null;
 }
