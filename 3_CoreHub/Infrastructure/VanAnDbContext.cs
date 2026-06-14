@@ -4,12 +4,13 @@ using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Domain;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Infrastructure
 {
-    public class VanAnDbContext(DbContextOptions<VanAnDbContext> options, ITenantProvider tenantProvider = null!) : DbContext(options), IVanAnDbContext
+    public class VanAnDbContext(DbContextOptions<VanAnDbContext> options, ITenantProvider tenantProvider = null!) : BaseVanAnDbContext(options), IVanAnDbContext
     {
         private readonly ITenantProvider _tenantProvider = tenantProvider;
 
@@ -53,54 +54,19 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<JournalTemplate> JournalTemplates { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
 
+        // E-Invoice (Sprint 3 — persisted state for atomic transaction with Outbox)
+        public DbSet<ElectronicInvoice> ElectronicInvoices { get; set; }
+        public DbSet<InvoiceItem> InvoiceItems { get; set; }
+
+        // E-Invoice Webhook Idempotency — durable deduplication store (Finding #5 fix)
+        public DbSet<ProcessedWebhookKey> ProcessedWebhookKeys { get; set; }
+
+        // UC1: Pending Invoice Queue - Batch processing for anonymous retail invoices
+        public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
+
         // PHASE 2.9.4: Audit Trail - Immutable append-only logs
         public DbSet<AuditLog> AuditLogs { get; set; }
 
-        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-        {
-            // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
-            // All converters now use separate classes for consistency
-
-            _ = configurationBuilder.Properties<TenantId>()
-                .HaveConversion<TenantIdConverter>();
-
-            _ = configurationBuilder.Properties<AccountingBookType>()
-                .HaveConversion<AccountingBookTypeConverter>();
-
-            // Keep existing converters for other entities (not AccountingEntry)
-            _ = configurationBuilder.Properties<LeadId>()
-                .HaveConversion<LeadIdConverter>();
-
-            _ = configurationBuilder.Properties<CustomerId>()
-                .HaveConversion<CustomerIdConverter>();
-
-            _ = configurationBuilder.Properties<ProductId>()
-                .HaveConversion<ProductIdConverter>();
-
-            _ = configurationBuilder.Properties<IngredientId>()
-                .HaveConversion<IngredientIdConverter>();
-
-            _ = configurationBuilder.Properties<RecipeId>()
-                .HaveConversion<RecipeIdConverter>();
-
-            _ = configurationBuilder.Properties<InventoryId>()
-                .HaveConversion<InventoryIdConverter>();
-
-            _ = configurationBuilder.Properties<OrderId>()
-                .HaveConversion<OrderIdConverter>();
-
-            _ = configurationBuilder.Properties<OrderStatusId>()
-                .HaveConversion<OrderStatusIdConverter>();
-
-            _ = configurationBuilder.Properties<ShopId>()
-                .HaveConversion<ShopIdConverter>();
-
-            _ = configurationBuilder.Properties<OrderItemId>()
-                .HaveConversion<OrderItemIdConverter>();
-
-            _ = configurationBuilder.Properties<JournalEntryId>()
-                .HaveConversion<JournalEntryIdConverter>();
-        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -115,6 +81,16 @@ namespace VanAn.CoreHub.Infrastructure
             // It's not meant to be persisted as an entity
             _ = modelBuilder.Ignore<HKDBook>();
             _ = modelBuilder.Ignore<GenericHKDBook>();
+
+            // E-Invoice value objects — not entities, used as converted properties
+            _ = modelBuilder.Ignore<ProviderId>();
+            _ = modelBuilder.Ignore<InvoiceIdempotencyKey>();
+            _ = modelBuilder.Ignore<InvoiceAggregate>();
+            _ = modelBuilder.Ignore<SubmitAttempt>();
+
+            // OutboxEvent is a domain entity — persistence via OutboxMessage (OutboxRepository maps between them)
+            // Must be ignored to prevent EF from creating a duplicate OutboxEvent table
+            _ = modelBuilder.Ignore<OutboxEvent>();
 
             // === AUTO-DISCOVER ALL CONFIGURATIONS ===
             // Architect++: Use auto-discovery instead of manual registration
@@ -199,6 +175,27 @@ namespace VanAn.CoreHub.Infrastructure
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // 🛡️ E-Invoice: Configure InvoiceItem entity
+            _ = modelBuilder.Entity<InvoiceItem>(entity =>
+            {
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.Id).HasConversion(v => v.Value, v => new InvoiceItemId(v));
+                _ = entity.Property(e => e.ItemCode).IsRequired().HasMaxLength(50);
+                _ = entity.Property(e => e.ItemName).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.Unit).IsRequired().HasMaxLength(20);
+                _ = entity.Property(e => e.Quantity).HasPrecision(18, 4);
+                _ = entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
+                _ = entity.Property(e => e.VatRate).HasPrecision(5, 4);
+                _ = entity.Property(e => e.Amount).HasPrecision(18, 2);
+                _ = entity.Property(e => e.VatAmount).HasPrecision(18, 2);
+
+                _ = entity.HasOne(e => e.Invoice)
+                      .WithMany(i => i.Items)
+                      .HasForeignKey(e => e.InvoiceId)
+                      .HasPrincipalKey(i => i.InvoiceId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
             // Configure Shop entity
             _ = modelBuilder.Entity<Shop>(entity =>
             {
@@ -274,17 +271,17 @@ namespace VanAn.CoreHub.Infrastructure
                 {
                     System.Linq.Expressions.ParameterExpression parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
 
-                    // Use EF.Property<TenantId> to access the TenantId property with value converter
-                    // This allows EF Core to translate the filter correctly with the converter
+                    // Use EF.Property<Guid> to access the underlying storage type directly
+                    // This matches the repository pattern and avoids value object translation issues in LINQ expression trees
                     System.Reflection.MethodInfo propertyMethod = typeof(EF).GetMethod(nameof(EF.Property))!
-                        .MakeGenericMethod(typeof(TenantId));
+                        .MakeGenericMethod(typeof(Guid));
                     System.Linq.Expressions.MethodCallExpression tenantIdProperty = System.Linq.Expressions.Expression.Call(
                         propertyMethod,
                         parameter,
                         System.Linq.Expressions.Expression.Constant("TenantId"));
 
                     System.Linq.Expressions.ConstantExpression currentTenantIdValue = System.Linq.Expressions.Expression.Constant(
-                        new TenantId(currentTenantId));
+                        currentTenantId);
                     System.Linq.Expressions.BinaryExpression filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantIdValue);
 
                     // Use non-generic overload that infers delegate type automatically

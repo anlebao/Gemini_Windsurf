@@ -67,3 +67,68 @@ namespace VanAn.Shared.Domain.Common
         }
     }
 }
+
+namespace VanAn.Shared.Domain
+{
+    /// <summary>
+    /// Invoice recipient type for e-invoice generation
+    /// </summary>
+    public enum InvoiceRecipientType
+    {
+        /// <summary>
+        /// B2B invoice
+        /// </summary>
+        B2B,
+
+        /// <summary>
+        /// Retail member invoice
+        /// </summary>
+        RetailMember,
+
+        /// <summary>
+        /// Retail anonymous invoice
+        /// </summary>
+        RetailAnonymous,
+
+        /// <summary>
+        /// HKD Retail invoice
+        /// </summary>
+        HKDRetail,
+
+        /// <summary>
+        /// HKD Wholesale invoice
+        /// </summary>
+        HKDWholesale,
+
+        /// <summary>
+        /// E-invoice (electronic invoice)
+        /// </summary>
+        EInvoice
+    }
+
+    /// <summary>
+    /// Pending invoice status for batch processing
+    /// </summary>
+    public enum PendingInvoiceStatus
+    {
+        /// <summary>
+        /// Invoice is pending batch processing
+        /// </summary>
+        PendingInvoice = 0,
+
+        /// <summary>
+        /// Invoice is being processed
+        /// </summary>
+        Processing = 1,
+
+        /// <summary>
+        /// Invoice has been issued
+        /// </summary>
+        Invoiced = 2,
+
+        /// <summary>
+        /// Invoice processing failed
+        /// </summary>
+        Failed = 3
+    }
+}

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using VanAn.CoreHub.Services.Orchestration;
+using VanAn.Gateway.DTOs;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Controllers;
@@ -22,11 +24,56 @@ public class HKDElectronicInvoiceController : ControllerBase
     /// Create new electronic invoice
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateInvoice(
+        [FromBody] CreateInvoiceRequest request,
+        [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey,
+        CancellationToken cancellationToken)
     {
-        // Stub: Create invoice
-        // TODO: Implement with actual invoice creation
-        return Ok(new { InvoiceId = Guid.NewGuid() });
+        // Validate request
+        if (request == null)
+        {
+            return BadRequest(new { Error = "Request cannot be null" });
+        }
+
+        // Extract TenantId from HttpContext.User.Claims (Gateway boundary compliant)
+        var tenantIdClaim = User.FindFirst("tenant_id")?.Value;
+        if (string.IsNullOrEmpty(tenantIdClaim))
+        {
+            return Unauthorized(new { Error = "Tenant ID not found in claims" });
+        }
+        var tenantId = new TenantId(Guid.Parse(tenantIdClaim));
+        var orderId = new OrderId(request.OrderId);
+
+        // Generate or use provided idempotency key
+        var idempotencyKeyValue = !string.IsNullOrEmpty(idempotencyKey)
+            ? idempotencyKey
+            : Guid.NewGuid().ToString();
+        var idempotencyKeyObj = InvoiceIdempotencyKey.FromString(idempotencyKeyValue);
+
+        // Call orchestrator
+        var invoiceId = await _orchestrator.CreateInvoiceAsync(
+            tenantId,
+            orderId,
+            idempotencyKeyObj,
+            request.InvoiceType,
+            request.Amount,
+            request.VatAmount,
+            request.TotalAmount,
+            request.CustomerName,
+            request.CustomerTaxCode,
+            request.CustomerAddress,
+            cancellationToken);
+
+        // Return 201 Created with response DTO
+        var response = new CreateInvoiceResponseDto(
+            invoiceId.Value,
+            $"HD{DateTime.Now:yyyyMMddHHmmss}",
+            InvoiceStatus.Draft);
+
+        return CreatedAtAction(
+            nameof(GetInvoice),
+            new { id = invoiceId.Value },
+            response);
     }
 
     /// <summary>
@@ -35,9 +82,33 @@ public class HKDElectronicInvoiceController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetInvoice(Guid id, CancellationToken cancellationToken)
     {
-        // Stub: Get invoice
-        // TODO: Implement with actual invoice retrieval
-        return Ok(new { InvoiceId = id });
+        var invoiceId = new ElectronicInvoiceId(id);
+        var invoice = await _orchestrator.GetInvoiceAsync(invoiceId, cancellationToken);
+
+        if (invoice == null)
+        {
+            return NotFound(new { Error = $"Invoice with ID {id} not found" });
+        }
+
+        // Map to DTO
+        var response = new InvoiceDto(
+            invoice.InvoiceId.Value,
+            invoice.OrderId.Value.ToString(),
+            invoice.CustomerName,
+            invoice.CustomerTaxCode,
+            invoice.Items.Select(i => new InvoiceItemDto(
+                i.ItemCode,
+                i.ItemName,
+                i.Unit,
+                i.Quantity,
+                i.UnitPrice,
+                i.VatRate,
+                i.Amount,
+                i.VatAmount)).ToList(),
+            invoice.TotalAmount,
+            invoice.Status);
+
+        return Ok(response);
     }
 
     /// <summary>
@@ -57,9 +128,33 @@ public class HKDElectronicInvoiceController : ControllerBase
     [HttpGet("{id}/status")]
     public async Task<IActionResult> GetInvoiceStatus(Guid id, CancellationToken cancellationToken)
     {
-        // Stub: Get invoice status
-        // TODO: Implement with actual status retrieval
-        return Ok(new { InvoiceId = id, Status = "Draft" });
+        var invoiceId = new ElectronicInvoiceId(id);
+        var status = await _orchestrator.GetInvoiceStatusAsync(invoiceId, cancellationToken);
+
+        if (status == null)
+        {
+            return NotFound(new { Error = $"Invoice with ID {id} not found" });
+        }
+
+        // Map status to message
+        var message = GetStatusMessage(status.Value);
+
+        var response = new InvoiceStatusDto(id, status.Value, message);
+        return Ok(response);
+    }
+
+    private static string GetStatusMessage(InvoiceStatus status)
+    {
+        return status switch
+        {
+            InvoiceStatus.Draft => "Hóa đơn nháp",
+            InvoiceStatus.PendingSend => "Chờ gửi nhà cung cấp",
+            InvoiceStatus.SentToProvider => "Đã gửi, chờ phản hồi",
+            InvoiceStatus.TaxApproved => "CQT đã chấp nhận",
+            InvoiceStatus.Failed => "Gửi thất bại",
+            InvoiceStatus.Rejected => "CQT từ chối",
+            _ => "Unknown"
+        };
     }
 }
 
@@ -74,5 +169,7 @@ public record CreateInvoiceRequest(
     decimal TotalAmount,
     string CustomerName,
     string CustomerTaxCode,
-    string CustomerAddress
+    string CustomerAddress,
+    string? IdempotencyKey = null,
+    List<InvoiceItemDto>? Items = null
 );

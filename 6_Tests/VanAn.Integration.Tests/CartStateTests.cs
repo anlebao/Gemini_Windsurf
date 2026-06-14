@@ -1,4 +1,5 @@
 using VanAn.Shared.Domain;
+using VanAn.Shared.DTOs;
 using VanAn.KhachLink.Services;
 using VanAn.Integration.Tests.Infrastructure;
 using Xunit;
@@ -19,24 +20,31 @@ public class CartStateTests
         _tenantId = TestEntityBuilder.CreateTenantId();
     }
 
-    private Product MakeProduct(string name = "Test Product", decimal price = 25000m)
-        => TestEntityBuilder.CreateProduct(_tenantId, name, price);
+    private ProductDto MakeProductDto(string name = "Test Product", decimal price = 25000m)
+        => new ProductDto
+        {
+            ProductId = Guid.NewGuid(),
+            Name = name,
+            Description = "Test Description",
+            Price = price,
+            Category = "Test Category"
+        };
 
     [Fact(DisplayName = "AddItem — new product is added to cart with correct ProductId")]
     public void AddItem_NewProduct_AddsToCart()
     {
-        var product = MakeProduct();
+        var product = MakeProductDto();
 
         _cartState.AddItem(product);
 
         _cartState.Items.Should().HaveCount(1);
-        _cartState.Items[0].ProductId.Should().Be(product.Id);
+        _cartState.Items[0].ProductId.Should().Be(product.ProductId);
     }
 
     [Fact(DisplayName = "AddItem — same product increments Quantity, does NOT create duplicate line")]
     public void AddItem_SameProduct_IncrementsQuantity_NotDuplicates()
     {
-        var product = MakeProduct();
+        var product = MakeProductDto();
 
         _cartState.AddItem(product);
         _cartState.AddItem(product);
@@ -48,8 +56,8 @@ public class CartStateTests
     [Fact(DisplayName = "AddItem — different products both appear as separate lines")]
     public void AddItem_DifferentProducts_AddsBoth()
     {
-        _cartState.AddItem(MakeProduct("Product A", 10000m));
-        _cartState.AddItem(MakeProduct("Product B", 20000m));
+        _cartState.AddItem(MakeProductDto("Product A", 10000m));
+        _cartState.AddItem(MakeProductDto("Product B", 20000m));
 
         _cartState.Items.Should().HaveCount(2);
     }
@@ -57,10 +65,10 @@ public class CartStateTests
     [Fact(DisplayName = "RemoveItem — removes the correct line by ProductId")]
     public void RemoveItem_ByProductId_RemovesCorrectLine()
     {
-        var product = MakeProduct();
+        var product = MakeProductDto();
         _cartState.AddItem(product);
 
-        _cartState.RemoveItem(product.Id);
+        _cartState.RemoveItem(product.ProductId);
 
         _cartState.Items.Should().BeEmpty();
     }
@@ -68,10 +76,10 @@ public class CartStateTests
     [Fact(DisplayName = "UpdateQuantity — changes quantity of the correct line by ProductId")]
     public void UpdateQuantity_ByProductId_ChangesQuantity()
     {
-        var product = MakeProduct();
+        var product = MakeProductDto();
         _cartState.AddItem(product);
 
-        _cartState.UpdateQuantity(product.Id, 5);
+        _cartState.UpdateQuantity(product.ProductId, 5);
 
         _cartState.Items[0].Quantity.Should().Be(5);
     }
@@ -79,10 +87,10 @@ public class CartStateTests
     [Fact(DisplayName = "UpdateQuantity — zero quantity removes the item entirely")]
     public void UpdateQuantity_ZeroQuantity_RemovesItem()
     {
-        var product = MakeProduct();
+        var product = MakeProductDto();
         _cartState.AddItem(product);
 
-        _cartState.UpdateQuantity(product.Id, 0);
+        _cartState.UpdateQuantity(product.ProductId, 0);
 
         _cartState.Items.Should().BeEmpty();
     }
@@ -90,8 +98,8 @@ public class CartStateTests
     [Fact(DisplayName = "Clear — removes all items from the cart")]
     public void Clear_RemovesAllItems()
     {
-        _cartState.AddItem(MakeProduct("A"));
-        _cartState.AddItem(MakeProduct("B"));
+        _cartState.AddItem(MakeProductDto("A"));
+        _cartState.AddItem(MakeProductDto("B"));
 
         _cartState.Clear();
 
@@ -101,8 +109,8 @@ public class CartStateTests
     [Fact(DisplayName = "TotalAmount — sums TotalPrice (Quantity * UnitPrice) of all lines")]
     public void TotalAmount_SumsAllItemTotalPrices()
     {
-        _cartState.AddItem(MakeProduct("A", 10000m));
-        _cartState.AddItem(MakeProduct("B", 20000m));
+        _cartState.AddItem(MakeProductDto("A", 10000m));
+        _cartState.AddItem(MakeProductDto("B", 20000m));
 
         _cartState.TotalAmount.Should().Be(30000m);
     }

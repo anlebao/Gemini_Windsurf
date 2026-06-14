@@ -35,6 +35,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<HKDBook> HKDBooks { get; set; }
         public DbSet<JournalEntry> JournalEntries { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -89,6 +90,12 @@ namespace VanAn.ShopERP.Infrastructure
 
             _ = configurationBuilder.Properties<JournalEntryId>()
                 .HaveConversion<JournalEntryIdConverter>();
+
+            _ = configurationBuilder.Properties<ElectronicInvoiceId>()
+                .HaveConversion<ElectronicInvoiceIdConverter>();
+
+            _ = configurationBuilder.Properties<InvoiceItemId>()
+                .HaveConversion<InvoiceItemIdConverter>();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

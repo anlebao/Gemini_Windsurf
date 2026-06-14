@@ -1,6 +1,7 @@
 using Microsoft.JSInterop;
 using System.Text.Json;
 using VanAn.Shared.Domain;
+using VanAn.Shared.DTOs;
 
 namespace VanAn.KhachLink.Services
 {
@@ -52,7 +53,7 @@ namespace VanAn.KhachLink.Services
             }
         }
 
-        public async Task AddItemAsync(Product product, int quantity = 1)
+        public async Task AddItemAsync(ProductDto product, int quantity = 1)
         {
             _cartState.AddItem(product, quantity);
             await SaveCartToStorageAsync();
