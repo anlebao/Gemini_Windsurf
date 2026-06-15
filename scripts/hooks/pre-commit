@@ -1,0 +1,35 @@
+#!/bin/sh
+echo "?? RUNNING GUARD (PRE-COMMIT)..."
+
+# 0. Untracked source files check
+UNTRACKED=$(git ls-files --others --exclude-standard | grep -E '\.(cs|razor)$')
+if [ -n "$UNTRACKED" ]; then
+  echo "UNTRACKED SOURCE FILES DETECTED:"
+  echo "$UNTRACKED"
+  echo "These files are NOT tracked by git - run: git add --all"
+  echo "?? GUARD FAILED - Untracked source files must be committed."
+  exit 1
+fi
+echo "? Untracked source files: PASSED"
+
+# 1. Windsurf guard
+node windsurf-guard.js
+
+if [ $? -ne 0 ]; then
+  echo "?? GUARD FAILED - COMMIT BLOCKED"
+  exit 1
+fi
+
+echo "?? GUARD PASSED"
+
+# Documentation Automation (optional)
+if [ -f "scripts/doc_automation/change_detector.py" ]; then
+  echo "?? RUNNING DOC AUTOMATION..."
+  cd scripts/doc_automation
+  python change_detector.py --output change_report.json
+  python template_applier.py --change-report change_report.json --dry-run
+  cd ../..
+  echo "?? DOC AUTOMATION COMPLETE (dry-run)"
+fi
+
+exit 0
