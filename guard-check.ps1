@@ -11,7 +11,7 @@ $untrackedFiles = git ls-files --others --exclude-standard | Where-Object {
 }
 
 if ($untrackedFiles) {
-    Write-Host "`n❌ UNTRACKED SOURCE FILES DETECTED:" -ForegroundColor Red
+    Write-Host "`nâŒ UNTRACKED SOURCE FILES DETECTED:" -ForegroundColor Red
     $untrackedFiles | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
     Write-Host "`nThese files exist on disk but are NOT tracked by git." -ForegroundColor Yellow
     Write-Host "You will LOSE these files if you switch branches or the working tree is cleaned." -ForegroundColor Yellow
@@ -22,25 +22,25 @@ if ($untrackedFiles) {
     exit 1
 }
 
-Write-Host "✓ Untracked source files: PASSED" -ForegroundColor Green
+Write-Host "âœ“ Untracked source files: PASSED" -ForegroundColor Green
 
 # 1. Run windsurf-guard.js
 Write-Host "Running windsurf-guard.js v6.0..." -ForegroundColor Yellow
 node windsurf-guard.js
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "â WINDSURF GUARD FAILED" -ForegroundColor Red
+    Write-Host "Ã¢ WINDSURF GUARD FAILED" -ForegroundColor Red
     exit 1
 }
-Write-Host "â WINDSURF GUARD PASSED" -ForegroundColor Green
+Write-Host "Ã¢ WINDSURF GUARD PASSED" -ForegroundColor Green
 
 # 2. Run architecture-guard.ps1 (TEMPORARY - will be removed in Phase 3)
 Write-Host "Running architecture-guard.ps1..." -ForegroundColor Yellow
 .\architecture-guard.ps1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "â ARCHITECTURE GUARD FAILED" -ForegroundColor Red
+    Write-Host "Ã¢ ARCHITECTURE GUARD FAILED" -ForegroundColor Red
     exit 1
 }
-Write-Host "â ARCHITECTURE GUARD PASSED" -ForegroundColor Green
+Write-Host "Ã¢ ARCHITECTURE GUARD PASSED" -ForegroundColor Green
 
 # 2.5. Run Roslyn Analyzers (NEW - Phase 2.3)
 Write-Host "Running Roslyn Analyzers..." -ForegroundColor Yellow
@@ -63,7 +63,7 @@ Write-Host "Running dotnet build..." -ForegroundColor Yellow
 $buildOutput = dotnet build --verbosity normal --configuration Release 2>&1 | Tee-Object -FilePath "build.log"
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "â BUILD FAILED" -ForegroundColor Red
+    Write-Host "Ã¢ BUILD FAILED" -ForegroundColor Red
     exit 1
 }
 
@@ -123,7 +123,9 @@ if ($warningStats.Critical -gt 0) {
 # Prevents false-green: build pass alone does not guarantee correctness
 Write-Host "Running fast test gate (Domain + Architecture + Integration)..." -ForegroundColor Yellow
 
-dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj --verbosity quiet --configuration Release --filter "Category!=Performance&Category!=Integration&Category!=E2E" 2>&1 | Out-Null
+$amp = [char]38
+$coreTestFilter = "Category!=Performance$amp" + "Category!=Integration$amp" + "Category!=E2E"
+dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj --verbosity quiet --configuration Release --filter $coreTestFilter 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAST TEST GATE FAILED: Core.Tests" -ForegroundColor Red
     Write-Host "Run: dotnet test 6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj for details" -ForegroundColor Yellow
@@ -150,12 +152,12 @@ Write-Host "Fast test gate: PASSED" -ForegroundColor Green
 
 # 6. Summary
 $warningCount = ($buildOutput | Select-String -Pattern "warning").Count
-Write-Host "â BUILD SUCCEEDED - $warningCount warning(s)" -ForegroundColor Green
+Write-Host "Ã¢ BUILD SUCCEEDED - $warningCount warning(s)" -ForegroundColor Green
 
 if ($warningCount -gt 5) {
-    Write-Host "â  Warning count ($warningCount) is higher than target (<=5). Please review." -ForegroundColor Yellow
+    Write-Host "Ã¢  Warning count ($warningCount) is higher than target (<=5). Please review." -ForegroundColor Yellow
 } else {
-    Write-Host "â Excellent! Warning count is within target." -ForegroundColor Green
+    Write-Host "Ã¢ Excellent! Warning count is within target." -ForegroundColor Green
 }
 
 # 7. Generate guard report
@@ -202,4 +204,4 @@ Status: ALL CHECKS PASSED
 
 Write-Host "Report generated: $reportFile" -ForegroundColor Green
 
-Write-Host "✅ ALL CHECKS PASSED - Ready for review" -ForegroundColor Cyan
+Write-Host "âœ… ALL CHECKS PASSED - Ready for review" -ForegroundColor Cyan
