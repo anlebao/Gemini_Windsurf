@@ -35,6 +35,13 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             _ = builder.Property(e => e.DeviceId);
 
+            // CustomerId converter
+            _ = builder.Property(e => e.CustomerId)
+                .IsRequired()
+                .HasConversion(
+                    id => id.Value,
+                    value => new CustomerId(value));
+
             // TenantId converter
             _ = builder.Property(e => e.TenantId)
                 .IsRequired()

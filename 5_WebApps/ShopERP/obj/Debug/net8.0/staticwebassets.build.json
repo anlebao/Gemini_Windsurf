@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "2D9YOnOLgtIwOe5zcv3FkKtyhCBGMwvTejTAyPHG4A4=",
+  "Hash": "mG7zoAQTikR5ZSA+9d1udEuBeM51ui8rQ5WhpFY9rIY=",
   "Source": "VanAn.ShopERP",
   "BasePath": "_content/VanAn.ShopERP",
   "Mode": "Default",
@@ -11,11 +11,11 @@
       "Version": 2,
       "Source": "VanAn.UI.Platform",
       "GetPublishAssetsTargets": "ComputeReferencedStaticWebAssetsPublishManifest;GetCurrentProjectPublishStaticWebAssetItems",
-      "AdditionalPublishProperties": "",
-      "AdditionalPublishPropertiesToRemove": "WebPublishProfileFile;Configuration;Platform;TargetFramework;RuntimeIdentifier;SelfContained",
+      "AdditionalPublishProperties": "Configuration=Debug;Platform=AnyCPU",
+      "AdditionalPublishPropertiesToRemove": "WebPublishProfileFile;TargetFramework;RuntimeIdentifier;SelfContained",
       "GetBuildAssetsTargets": "GetCurrentProjectBuildStaticWebAssetItems",
-      "AdditionalBuildProperties": "",
-      "AdditionalBuildPropertiesToRemove": "WebPublishProfileFile;Configuration;Platform;TargetFramework;RuntimeIdentifier;SelfContained"
+      "AdditionalBuildProperties": "Configuration=Debug;Platform=AnyCPU",
+      "AdditionalBuildPropertiesToRemove": "WebPublishProfileFile;TargetFramework;RuntimeIdentifier;SelfContained"
     }
   ],
   "DiscoveryPatterns": [

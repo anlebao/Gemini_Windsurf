@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -51,6 +52,10 @@ public abstract class IntegrationTestBase : IDisposable
         // Add repository registrations
         services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ISocialCampaignRepository, SocialCampaignRepository>();
+        services.AddScoped<ILoyaltyRewardsRepository, LoyaltyRewardsRepository>();
 
         // Add core services (F4 — Real implementations, no stubs)
         services.AddScoped<IAccountingService, AccountingEntryService>();
@@ -70,6 +75,21 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<VanAn.CoreHub.Services.IFacebookLeadService, VanAn.CoreHub.Services.FacebookLeadService>();
         services.AddScoped<VanAn.CoreHub.Services.ICustomerOnboardingService, VanAn.CoreHub.Services.CustomerOnboardingService>();
         services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+
+        // FIX: Session 2 - Apply pattern from ShopERP/Program.cs for missing services
+        services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+        services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
+        services.AddScoped<CoreHub.Services.IDashboardService, CoreHub.Services.DashboardService>();
+        services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();
+        services.AddScoped<CoreHub.Services.IPeriodClosingService, CoreHub.Services.PeriodClosingService>();
+
+        // FIX: IConfiguration required by DashboardService
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Logging:LogLevel:Default"] = "Information"
+            })
+            .Build());
 
         _serviceProvider = services.BuildServiceProvider();
         _dbContext = _serviceProvider.GetRequiredService<VanAnDbContext>();
@@ -112,6 +132,10 @@ public abstract class IntegrationTestBase : IDisposable
         // Add repository registrations
         services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ISocialCampaignRepository, SocialCampaignRepository>();
+        services.AddScoped<ILoyaltyRewardsRepository, LoyaltyRewardsRepository>();
 
         // Add core services
         services.AddScoped<IAccountingService, AccountingEntryService>();
@@ -132,7 +156,22 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<VanAn.CoreHub.Services.ICustomerOnboardingService, VanAn.CoreHub.Services.CustomerOnboardingService>();
         services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
 
-        var serviceProvider = services.BuildServiceProvider();
+        // FIX: Session 2 - Apply pattern from ShopERP/Program.cs for missing services
+        services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+        services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
+        services.AddScoped<CoreHub.Services.IDashboardService, CoreHub.Services.DashboardService>();
+        services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();
+        services.AddScoped<CoreHub.Services.IPeriodClosingService, CoreHub.Services.PeriodClosingService>();
+
+        // FIX: IConfiguration required by DashboardService
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Logging:LogLevel:Default"] = "Information"
+            })
+            .Build());
+
+        IServiceProvider serviceProvider = services.BuildServiceProvider();
         return serviceProvider.CreateScope();
     }
 }

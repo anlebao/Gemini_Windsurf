@@ -33,8 +33,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Configure index for OrderDate for sorting
             _ = builder.HasIndex(o => o.OrderDate);
 
-            // Configure Status as required
-            _ = builder.Property(o => o.Status).IsRequired();
+            // Configure Status as required with value converter for OrderStatusId
+            _ = builder.Property(o => o.Status)
+                .HasConversion(id => id.Value, value => new OrderStatusId(value))
+                .IsRequired();
 
             // Configure OrderType with default value
             _ = builder.Property(o => o.OrderType)

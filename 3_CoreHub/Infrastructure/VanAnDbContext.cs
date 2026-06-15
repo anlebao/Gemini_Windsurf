@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Linq.Expressions;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
@@ -70,6 +71,23 @@ namespace VanAn.CoreHub.Infrastructure
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // KHÓA CHẶT: Chặn EF Core tự động quét và biến Strong-typed ID thành bảng độc lập
+            // Phải đặt TRƯỚC base.OnModelCreating để ngăn auto-discovery
+            modelBuilder.Ignore<OrderId>();
+            modelBuilder.Ignore<ElectronicInvoiceId>();
+            modelBuilder.Ignore<InvoiceItemId>();
+            modelBuilder.Ignore<TenantId>();
+            modelBuilder.Ignore<LeadId>();
+            modelBuilder.Ignore<CustomerId>();
+            modelBuilder.Ignore<ProductId>();
+            modelBuilder.Ignore<IngredientId>();
+            modelBuilder.Ignore<RecipeId>();
+            modelBuilder.Ignore<InventoryId>();
+            modelBuilder.Ignore<ShopId>();
+            modelBuilder.Ignore<JournalEntryId>();
+            modelBuilder.Ignore<OrderItemId>();
+            modelBuilder.Ignore<OrderStatusId>();
+
             base.OnModelCreating(modelBuilder);
 
             // === GLOBAL IGNORES ===
@@ -99,45 +117,11 @@ namespace VanAn.CoreHub.Infrastructure
             // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation
             // ApplyMultiTenancyFilters(modelBuilder);
 
-            // Configure Product entity
-            _ = modelBuilder.Entity<Product>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                _ = entity.Property(e => e.Description).HasMaxLength(500);
-                _ = entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
-                _ = entity.Property(e => e.Price).HasPrecision(18, 2);
-                _ = entity.Property(e => e.VatRate).HasPrecision(5, 4); // 0.0000 to 1.0000
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
-            // Configure Ingredient entity
-            _ = modelBuilder.Entity<Ingredient>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                _ = entity.Property(e => e.Unit).IsRequired().HasMaxLength(20);
-                _ = entity.Property(e => e.PricePerUnit).HasPrecision(18, 2);
-                _ = entity.Property(e => e.CurrentStock).HasPrecision(18, 4);
-                _ = entity.Property(e => e.MinStockThreshold).HasPrecision(18, 4);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
-            // Configure Recipe entity
-            _ = modelBuilder.Entity<Recipe>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.QuantityNeeded).HasPrecision(18, 4);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
-            // Configure Inventory entity
-            _ = modelBuilder.Entity<Inventory>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.Quantity).HasPrecision(18, 4);
-                _ = entity.Property(e => e.LastUpdated).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
+            // NOTE: Product, Ingredient, Recipe, Inventory configurations moved to
+            // dedicated IEntityTypeConfiguration files to support value object converters
+            // (ProductId, IngredientId, RecipeId, InventoryId, TenantId)
+            // Configurations: ProductConfiguration.cs, IngredientConfiguration.cs,
+            //                 RecipeConfiguration.cs, InventoryConfiguration.cs
 
             // Order entity is configured in OrderConfiguration.cs (OwnsOne for CustomerInfo, HasKey for OrderId)
 
@@ -153,27 +137,8 @@ namespace VanAn.CoreHub.Infrastructure
                 _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
-            // Configure OrderItem entity
-            _ = modelBuilder.Entity<OrderItem>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.Quantity);
-                _ = entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
-                _ = entity.Property(e => e.VatRate).HasPrecision(5, 4);
-                _ = entity.Property(e => e.Notes).HasMaxLength(500);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                // Navigation properties
-                _ = entity.HasOne(e => e.Order)
-                      .WithMany(o => o.Items)
-                      .HasForeignKey(e => e.OrderId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                _ = entity.HasOne(e => e.Product)
-                      .WithMany()
-                      .HasForeignKey(e => e.ProductId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
+            // NOTE: OrderItem configuration moved to OrderItemConfiguration.cs
+            // to support OrderItemId and TenantId value object converters
 
             // 🛡️ E-Invoice: Configure InvoiceItem entity
             _ = modelBuilder.Entity<InvoiceItem>(entity =>
@@ -196,52 +161,10 @@ namespace VanAn.CoreHub.Infrastructure
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Configure Shop entity
-            _ = modelBuilder.Entity<Shop>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-                _ = entity.Property(e => e.Address).HasMaxLength(500);
-                _ = entity.Property(e => e.Phone).HasMaxLength(20);
-                _ = entity.Property(e => e.Email).HasMaxLength(100);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-            });
-
-            // Configure DemoUser entity
-            _ = modelBuilder.Entity<DemoUser>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
-                _ = entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
-                _ = entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(200);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
-            // 🛡️ PHASE 2: Configure SocialCampaign entity
-            _ = modelBuilder.Entity<SocialCampaign>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.UtmSource).IsRequired().HasMaxLength(100);
-                _ = entity.Property(e => e.CampaignName).IsRequired().HasMaxLength(200);
-                _ = entity.Property(e => e.TrackingCode).IsRequired().HasMaxLength(50);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                // Navigation properties
-                _ = entity.HasOne(e => e.Shop)
-                      .WithMany(s => s.SocialCampaigns)
-                      .HasForeignKey(e => e.ShopId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // 🛡️ PHASE 2: Configure LoyaltyRewards entity
-            _ = modelBuilder.Entity<LoyaltyRewards>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.Property(e => e.History).HasMaxLength(2000);
-                _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-            });
+            // NOTE: Shop, DemoUser, SocialCampaign, LoyaltyRewards configurations moved to
+            // dedicated IEntityTypeConfiguration files to support TenantId value object converter
+            // Configurations: ShopConfiguration.cs, DemoUserConfiguration.cs,
+            //                 SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs
 
 
             // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation for other entities
@@ -266,84 +189,46 @@ namespace VanAn.CoreHub.Infrastructure
                 .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType) && e.ClrType != typeof(CoreAccountingEntry));
 
             // Resolve EF.Property<Guid> MethodInfo safely with explicit parameter types to avoid
-            // null-forgiving operator (!) and satisfy Nullable Static Analysis in Release build.
-            // EF.Property<TProperty>(object entity, string propertyName) - single generic overload in EF Core 8.
-            System.Reflection.MethodInfo? efPropertyOpenMethod = typeof(EF).GetMethod(
-                nameof(EF.Property),
-                new[] { typeof(object), typeof(string) });
+            // ambiguous match between different EF.Property<T> overloads.
+            System.Reflection.MethodInfo efPropertyMethod = typeof(EF)
+                .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                .Where(m => m.Name == "Property" && m.IsGenericMethod && m.GetParameters().Length == 2)
+                .Select(m => new { Method = m, Parameters = m.GetParameters() })
+                .Where(x => x.Parameters[0].ParameterType == typeof(object) && x.Parameters[1].ParameterType == typeof(string))
+                .Select(x => x.Method)
+                .FirstOrDefault()
+                ?.MakeGenericMethod(typeof(Guid)) ?? throw new InvalidOperationException("Unable to resolve EF.Property<Guid> method");
 
-            if (efPropertyOpenMethod == null)
+            foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType in entityTypes)
             {
-                // EF.Property method not found via reflection - this should never happen with EF Core 8.
-                // Guard defensively to prevent null-ref and to satisfy nullable analyzer in Release build.
-                System.Diagnostics.Trace.TraceError(
-                    "ApplyMultiTenancyFilters: Could not resolve EF.Property<TProperty> via reflection. Multi-tenancy query filters were NOT applied.");
-                return;
-            }
+                System.Type clrType = entityType.ClrType;
 
-            System.Reflection.MethodInfo genericPropertyMethod = efPropertyOpenMethod.MakeGenericMethod(typeof(Guid));
+                // Build query filter expression: e => EF.Property<Guid>(e, "TenantId") == currentTenantId
+                ParameterExpression parameter = System.Linq.Expressions.Expression.Parameter(clrType, "e");
+                System.Linq.Expressions.MethodCallExpression propertyCall = System.Linq.Expressions.Expression.Call(
+                    null, // static method
+                    efPropertyMethod,
+                    System.Linq.Expressions.Expression.Convert(parameter, typeof(object)),
+                    System.Linq.Expressions.Expression.Constant("TenantId", typeof(string))
+                );
+                System.Linq.Expressions.BinaryExpression comparison = System.Linq.Expressions.Expression.Equal(
+                    propertyCall,
+                    System.Linq.Expressions.Expression.Constant(currentTenantId, typeof(Guid))
+                );
+                LambdaExpression filterExpression = System.Linq.Expressions.Expression.Lambda(comparison, parameter);
 
-            foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType? entityType in entityTypes)
-            {
-                try
-                {
-                    System.Linq.Expressions.ParameterExpression parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
-
-                    // Use EF.Property<Guid> to access the underlying storage type directly.
-                    // This matches the repository pattern and avoids value object translation issues in LINQ expression trees.
-                    System.Linq.Expressions.MethodCallExpression tenantIdProperty = System.Linq.Expressions.Expression.Call(
-                        genericPropertyMethod,
-                        parameter,
-                        System.Linq.Expressions.Expression.Constant("TenantId"));
-
-                    // Explicitly typed Constant to ensure Roslyn/EF type inference is unambiguous in Release build.
-                    System.Linq.Expressions.ConstantExpression currentTenantIdValue = System.Linq.Expressions.Expression.Constant(
-                        currentTenantId, typeof(Guid));
-
-                    System.Linq.Expressions.BinaryExpression filter = System.Linq.Expressions.Expression.Equal(tenantIdProperty, currentTenantIdValue);
-
-                    // Use non-generic overload that infers delegate type automatically.
-                    System.Linq.Expressions.LambdaExpression lambda = System.Linq.Expressions.Expression.Lambda(filter, parameter);
-
-                    _ = modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-                }
-                catch (Exception ex)
-                {
-                    // Log error but continue - some entities may not have TenantId mapped as shadow property.
-                    System.Diagnostics.Trace.TraceError($"ApplyMultiTenancyFilters: Failed to apply tenant filter to {entityType.ClrType.Name}: {ex.Message}");
-                }
+                // Apply query filter
+                modelBuilder.Entity(clrType).HasQueryFilter(filterExpression);
             }
         }
 
-        // 🛡️ AUTO-INJECTION TENANT ID
-        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        // MOVED: All ValueConverter classes moved to separate files for consistency
+        // See: Infrastructure/ValueConverters/ directory
+
+        // Interface implementation for IVanAnDbContext
+        public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
         {
-            // Auto-set TenantId cho new entities
-            IEnumerable<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry> entries = ChangeTracker.Entries()
-                .Where(e => e.State == EntityState.Added && e.Entity is IMustHaveTenant);
-
-            foreach (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry? entry in entries)
-            {
-                IMustHaveTenant entity = (IMustHaveTenant)entry.Entity;
-                if (entity.TenantId.Value == Guid.Empty)
-                {
-                    if (entity is BaseEntity baseEntity)
-                    {
-                        baseEntity.SetTenantId(new TenantId(_tenantProvider?.TenantId ?? Guid.Empty));
-                    }
-                }
-            }
-
-            return await base.SaveChangesAsync(cancellationToken);
-        }
-
-        // IVanAnDbContext implementation
-        public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
-        {
-            return await Database.BeginTransactionAsync(cancellationToken);
+            return Database.BeginTransactionAsync(cancellationToken);
         }
     }
-
-    // MOVED: All ValueConverter classes moved to separate files for consistency
-    // See: Infrastructure/ValueConverters/ directory
 }

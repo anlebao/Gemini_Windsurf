@@ -1,6 +1,28 @@
-# guard-check.ps1 - Van An Strict Guard v7.1 (Updated May 2026)
+# guard-check.ps1 - Van An Strict Guard v7.2 (Updated June 2026)
 
-Write-Host "Running Van An Strict Guard v7.1..." -ForegroundColor Cyan
+Write-Host "Running Van An Strict Guard v7.2..." -ForegroundColor Cyan
+
+# 0. PRE-CHECK: Untracked source files (Local Developer Discipline)
+# Prevents "lost code" - files created but never git-added
+Write-Host "Checking for untracked source files..." -ForegroundColor Yellow
+
+$untrackedFiles = git ls-files --others --exclude-standard | Where-Object {
+    $_ -match '\.(cs|razor)$'
+}
+
+if ($untrackedFiles) {
+    Write-Host "`n❌ UNTRACKED SOURCE FILES DETECTED:" -ForegroundColor Red
+    $untrackedFiles | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
+    Write-Host "`nThese files exist on disk but are NOT tracked by git." -ForegroundColor Yellow
+    Write-Host "You will LOSE these files if you switch branches or the working tree is cleaned." -ForegroundColor Yellow
+    Write-Host "`nFIX: Run the following commands:" -ForegroundColor Cyan
+    Write-Host "   git add --all" -ForegroundColor White
+    Write-Host "   git commit --amend --no-edit   # or: git commit -m 'your message'" -ForegroundColor White
+    Write-Host "`nGuard check FAILED - Untracked source files must be committed." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "✓ Untracked source files: PASSED" -ForegroundColor Green
 
 # 1. Run windsurf-guard.js
 Write-Host "Running windsurf-guard.js v6.0..." -ForegroundColor Yellow
@@ -146,10 +168,11 @@ $reportFile = "guard-report-$timestamp.txt"
 Guard Check Report
 ==================
 Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-Version: v8.0 (Phase 2 Upgrade)
+Version: v8.1 (Phase 2 Upgrade + Source Control Guard)
 
 Component Results
 ------------------
+Untracked Files Check: PASSED
 Windsurf Guard: PASSED
 Architecture Guard: PASSED
 Roslyn Analyzers: PASSED
@@ -179,4 +202,4 @@ Status: ALL CHECKS PASSED
 
 Write-Host "Report generated: $reportFile" -ForegroundColor Green
 
-Write-Host "â ALL CHECKS PASSED - Ready for review" -ForegroundColor Cyan
+Write-Host "✅ ALL CHECKS PASSED - Ready for review" -ForegroundColor Cyan

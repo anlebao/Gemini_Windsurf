@@ -1,564 +1,1980 @@
-<testsuites id="" name="" tests="12" failures="12" skipped="0" errors="0" time="142.38974299999998">
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="e2e-tests" tests="2" failures="2" skipped="0" time="39.54" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="20.025">
+<testsuites id="" name="" tests="54" failures="12" skipped="0" errors="36" time="906.888003">
+<testsuite name="e2e-tests\qr-checkout-flow.spec.ts" timestamp="2026-06-11T17:51:43.653Z" hostname="e2e-tests" tests="9" failures="2" skipped="0" time="198.486" errors="6">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu" classname="e2e-tests\qr-checkout-flow.spec.ts" time="43.791">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\test-failed-1.png]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-e2e-tests\test-failed-1.png]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\video.webm]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-e2e-tests\video.webm]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\error-context.md]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-e2e-tests\error-context.md]]
 ]]>
 </system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [e2e-tests] › e2e-tests\expense-entry-flow.spec.ts:12:7 › Expense Entry Flow › should create expense entry with vendor info 
+<error message="page.waitForURL: Timeout 30000ms exceeded." type="TimeoutError">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:34:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu 
 
-    Error: expect(locator).toBeVisible() failed
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/menu**" until "load"
+    ============================================================
 
-    Locator: getByTestId('expense-success-alert')
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for getByTestId('expense-success-alert')
-
-
-      35 |     // Use data-testid for success alert
-      36 |     const successAlert = page.getByTestId('expense-success-alert');
-    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
-         |                                ^
-      38 |
-      39 |     await page.goto('/accounting/history');
-      40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
+      35 |     await page.goto(`${config.KHACHLINK_URL}/cart-checkout`);
+      36 |
+    > 37 |     await page.waitForURL('**/menu**');
+         |                ^
+      38 |     expect(page.url()).toContain('/menu');
+      39 |   });
+      40 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:37:16
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\test-failed-1.png
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-e2e-tests\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\video.webm
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-e2e-tests\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-e2e-tests\error-context.md
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-e2e-tests\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC1: Add 2 items → cart CTA shows count" classname="e2e-tests\qr-checkout-flow.spec.ts" time="3.484">
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.432">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:58:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-business"]')
+
+
+      59 |     await navigateToCart(page);
+      60 |
+    > 61 |     await page.locator('[data-testid="invoice-business"]').click();
+         |                                                            ^
+      62 |     await page.locator('[data-testid="checkout-cta"]').click();
+      63 |
+      64 |     await page.waitForURL('**/invoice-business');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:61:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-e2e-tests\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail" classname="e2e-tests\qr-checkout-flow.spec.ts" time="22.161">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:70:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-retail"]')
+
+
+      71 |     await navigateToCart(page);
+      72 |
+    > 73 |     await page.locator('[data-testid="invoice-retail"]').click();
+         |                                                          ^
+      74 |     await page.locator('[data-testid="checkout-cta"]').click();
+      75 |
+      76 |     await page.waitForURL('**/invoice-retail');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:73:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-e2e-tests\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.531">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:82:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      83 |     await navigateToCart(page);
+      84 |
+    > 85 |     await page.locator('[data-testid="checkout-cta"]').click();
+         |                                                        ^
+      86 |
+      87 |     await page.waitForURL('**/payment-success');
+      88 |     expect(page.url()).toContain('/payment-success');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:85:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-e2e-tests\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.789">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:93:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+       99 |
+      100 |     await navigateToCart(page);
+    > 101 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      102 |     await page.waitForURL('**/payment-success');
+      103 |
+      104 |     const orderId = page.locator('[data-testid="order-id"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:101:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-e2e-tests\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.524">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:113:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      118 |
+      119 |     await navigateToCart(page);
+    > 120 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      121 |     await page.waitForURL('**/payment-success');
+      122 |
+      123 |     const errorText = page.locator('[data-testid="error-text"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:120:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-e2e-tests\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable" classname="e2e-tests\qr-checkout-flow.spec.ts" time="17.187">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-e2e-tests\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-e2e-tests\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-e2e-tests\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:132:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      141 |     // Check sticky CTA visible and clickable
+      142 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 143 |     await expect(cta).toBeVisible();
+          |                       ^
+      144 |     await expect(cta).toBeEnabled();
+      145 |   });
+      146 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:143:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-e2e-tests\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-e2e-tests\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-e2e-tests\error-context.md
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.515">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow" classname="e2e-tests\qr-checkout-flow.spec.ts" time="17.587">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\test-failed-1.png]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-e2e-tests\test-failed-1.png]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\video.webm]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-e2e-tests\video.webm]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\error-context.md]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-e2e-tests\error-context.md]]
 ]]>
 </system-out>
 <failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [e2e-tests] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
+<![CDATA[  [e2e-tests] › e2e-tests\qr-checkout-flow.spec.ts:149:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow 
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+    Locator: locator('[data-testid="checkout-cta"]')
     Expected: visible
-    Timeout: 15000ms
+    Timeout: 10000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
 
 
-      64 |     await submitBtn.click();
-      65 |
-    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
-         |                                                                                                                                                                   ^
-      67 |   });
-      68 | });
-      69 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
+      158 |     // Check CTA visible
+      159 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 160 |     await expect(cta).toBeVisible();
+          |                       ^
+      161 |   });
+      162 | });
+      163 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:160:23
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\test-failed-1.png
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-e2e-tests\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\video.webm
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-e2e-tests\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-e2e-tests\error-context.md
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="chromium" tests="2" failures="2" skipped="0" time="39.725" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.744">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\test-failed-1.png]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\video.webm]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\error-context.md]]
-]]>
-</system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [chromium] › e2e-tests\expense-entry-flow.spec.ts:12:7 › Expense Entry Flow › should create expense entry with vendor info 
-
-    Error: expect(locator).toBeVisible() failed
-
-    Locator: getByTestId('expense-success-alert')
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for getByTestId('expense-success-alert')
-
-
-      35 |     // Use data-testid for success alert
-      36 |     const successAlert = page.getByTestId('expense-success-alert');
-    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
-         |                                ^
-      38 |
-      39 |     await page.goto('/accounting/history');
-      40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-chromium\error-context.md
-]]>
-</failure>
-</testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="19.981">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\test-failed-1.png]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\video.webm]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\error-context.md]]
-]]>
-</system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [chromium] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
-
-    Error: expect(locator).toBeVisible() failed
-
-    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
-
-
-      64 |     await submitBtn.click();
-      65 |
-    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
-         |                                                                                                                                                                   ^
-      67 |   });
-      68 | });
-      69 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-chromium\error-context.md
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="firefox" tests="2" failures="2" skipped="0" time="47.507" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="25.555">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\test-failed-1.png]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\video.webm]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\error-context.md]]
-]]>
-</system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [firefox] › e2e-tests\expense-entry-flow.spec.ts:12:7 › Expense Entry Flow › should create expense entry with vendor info 
-
-    Error: expect(locator).toBeVisible() failed
-
-    Locator: getByTestId('expense-success-alert')
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for getByTestId('expense-success-alert')
-
-
-      35 |     // Use data-testid for success alert
-      36 |     const successAlert = page.getByTestId('expense-success-alert');
-    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
-         |                                ^
-      38 |
-      39 |     await page.goto('/accounting/history');
-      40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-firefox\error-context.md
-]]>
-</failure>
-</testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="21.952">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\test-failed-1.png]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\video.webm]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\error-context.md]]
-]]>
-</system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [firefox] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
-
-    Error: expect(locator).toBeVisible() failed
-
-    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
-
-
-      64 |     await submitBtn.click();
-      65 |
-    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
-         |                                                                                                                                                                   ^
-      67 |   });
-      68 | });
-      69 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-firefox\error-context.md
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="webkit" tests="2" failures="2" skipped="0" time="53.665" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="30.122">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\test-failed-1.png]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\video.webm]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\error-context.md]]
-]]>
-</system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [webkit] › e2e-tests\expense-entry-flow.spec.ts:12:7 › Expense Entry Flow › should create expense entry with vendor info 
-
-    Error: expect(locator).toBeVisible() failed
-
-    Locator: getByTestId('expense-success-alert')
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for getByTestId('expense-success-alert')
-
-
-      35 |     // Use data-testid for success alert
-      36 |     const successAlert = page.getByTestId('expense-success-alert');
-    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
-         |                                ^
-      38 |
-      39 |     await page.goto('/accounting/history');
-      40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-webkit\error-context.md
-]]>
-</failure>
-</testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="23.543">
-<system-out>
-<![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\test-failed-1.png]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\video.webm]]
-
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\error-context.md]]
-]]>
-</system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [webkit] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
-
-    Error: expect(locator).toBeVisible() failed
-
-    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
-
-
-      64 |     await submitBtn.click();
-      65 |
-    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
-         |                                                                                                                                                                   ^
-      67 |   });
-      68 | });
-      69 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-webkit\error-context.md
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-e2e-tests\error-context.md
 ]]>
 </failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="Mobile Chrome" tests="2" failures="2" skipped="0" time="35.899" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="17.893">
+<testsuite name="e2e-tests\qr-checkout-flow.spec.ts" timestamp="2026-06-11T17:51:43.653Z" hostname="chromium" tests="9" failures="2" skipped="0" time="197.558" errors="6">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu" classname="e2e-tests\qr-checkout-flow.spec.ts" time="42.979">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\test-failed-1.png]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-chromium\test-failed-1.png]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\video.webm]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-chromium\video.webm]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\error-context.md]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-chromium\error-context.md]]
 ]]>
 </system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [Mobile Chrome] › e2e-tests\expense-entry-flow.spec.ts:12:7 › Expense Entry Flow › should create expense entry with vendor info 
+<error message="page.waitForURL: Timeout 30000ms exceeded." type="TimeoutError">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:34:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu 
 
-    Error: expect(locator).toBeVisible() failed
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/menu**" until "load"
+    ============================================================
 
-    Locator: getByTestId('expense-success-alert')
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for getByTestId('expense-success-alert')
-
-
-      35 |     // Use data-testid for success alert
-      36 |     const successAlert = page.getByTestId('expense-success-alert');
-    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
-         |                                ^
-      38 |
-      39 |     await page.goto('/accounting/history');
-      40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
+      35 |     await page.goto(`${config.KHACHLINK_URL}/cart-checkout`);
+      36 |
+    > 37 |     await page.waitForURL('**/menu**');
+         |                ^
+      38 |     expect(page.url()).toContain('/menu');
+      39 |   });
+      40 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:37:16
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\test-failed-1.png
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-chromium\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\video.webm
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-chromium\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Chrome\error-context.md
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-chromium\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC1: Add 2 items → cart CTA shows count" classname="e2e-tests\qr-checkout-flow.spec.ts" time="3.22">
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business" classname="e2e-tests\qr-checkout-flow.spec.ts" time="24.942">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-chromium\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:58:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-business"]')
+
+
+      59 |     await navigateToCart(page);
+      60 |
+    > 61 |     await page.locator('[data-testid="invoice-business"]').click();
+         |                                                            ^
+      62 |     await page.locator('[data-testid="checkout-cta"]').click();
+      63 |
+      64 |     await page.waitForURL('**/invoice-business');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:61:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-chromium\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail" classname="e2e-tests\qr-checkout-flow.spec.ts" time="22.203">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-chromium\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:70:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-retail"]')
+
+
+      71 |     await navigateToCart(page);
+      72 |
+    > 73 |     await page.locator('[data-testid="invoice-retail"]').click();
+         |                                                          ^
+      74 |     await page.locator('[data-testid="checkout-cta"]').click();
+      75 |
+      76 |     await page.waitForURL('**/invoice-retail');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:73:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-chromium\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.821">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-chromium\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:82:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      83 |     await navigateToCart(page);
+      84 |
+    > 85 |     await page.locator('[data-testid="checkout-cta"]').click();
+         |                                                        ^
+      86 |
+      87 |     await page.waitForURL('**/payment-success');
+      88 |     expect(page.url()).toContain('/payment-success');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:85:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-chromium\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered" classname="e2e-tests\qr-checkout-flow.spec.ts" time="21.734">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-chromium\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:93:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+       99 |
+      100 |     await navigateToCart(page);
+    > 101 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      102 |     await page.waitForURL('**/payment-success');
+      103 |
+      104 |     const orderId = page.locator('[data-testid="order-id"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:101:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-chromium\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.244">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-chromium\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:113:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      118 |
+      119 |     await navigateToCart(page);
+    > 120 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      121 |     await page.waitForURL('**/payment-success');
+      122 |
+      123 |     const errorText = page.locator('[data-testid="error-text"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:120:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-chromium\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable" classname="e2e-tests\qr-checkout-flow.spec.ts" time="17.041">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-chromium\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-chromium\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:132:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      141 |     // Check sticky CTA visible and clickable
+      142 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 143 |     await expect(cta).toBeVisible();
+          |                       ^
+      144 |     await expect(cta).toBeEnabled();
+      145 |   });
+      146 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:143:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-chromium\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-chromium\error-context.md
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.006">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow" classname="e2e-tests\qr-checkout-flow.spec.ts" time="18.374">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\test-failed-1.png]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-chromium\test-failed-1.png]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\video.webm]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-chromium\video.webm]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\error-context.md]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-chromium\error-context.md]]
 ]]>
 </system-out>
 <failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [Mobile Chrome] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
+<![CDATA[  [chromium] › e2e-tests\qr-checkout-flow.spec.ts:149:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow 
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+    Locator: locator('[data-testid="checkout-cta"]')
     Expected: visible
-    Timeout: 15000ms
+    Timeout: 10000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
 
 
-      64 |     await submitBtn.click();
-      65 |
-    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
-         |                                                                                                                                                                   ^
-      67 |   });
-      68 | });
-      69 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
+      158 |     // Check CTA visible
+      159 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 160 |     await expect(cta).toBeVisible();
+          |                       ^
+      161 |   });
+      162 | });
+      163 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:160:23
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\test-failed-1.png
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-chromium\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\video.webm
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-chromium\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Chrome\error-context.md
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-chromium\error-context.md
 ]]>
 </failure>
 </testcase>
 </testsuite>
-<testsuite name="e2e-tests\expense-entry-flow.spec.ts" timestamp="2026-06-03T17:51:19.096Z" hostname="Mobile Safari" tests="2" failures="2" skipped="0" time="36.618" errors="0">
-<testcase name="Expense Entry Flow › should create expense entry with vendor info" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.379">
+<testsuite name="e2e-tests\qr-checkout-flow.spec.ts" timestamp="2026-06-11T17:51:43.653Z" hostname="firefox" tests="9" failures="2" skipped="0" time="264.084" errors="6">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu" classname="e2e-tests\qr-checkout-flow.spec.ts" time="39.908">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\test-failed-1.png]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-firefox\test-failed-1.png]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\video.webm]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-firefox\video.webm]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\error-context.md]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-firefox\error-context.md]]
 ]]>
 </system-out>
-<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [Mobile Safari] › e2e-tests\expense-entry-flow.spec.ts:12:7 › Expense Entry Flow › should create expense entry with vendor info 
+<error message="page.waitForURL: Timeout 30000ms exceeded." type="TimeoutError">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:34:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu 
 
-    Error: expect(locator).toBeVisible() failed
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/menu**" until "load"
+    ============================================================
 
-    Locator: getByTestId('expense-success-alert')
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for getByTestId('expense-success-alert')
-
-
-      35 |     // Use data-testid for success alert
-      36 |     const successAlert = page.getByTestId('expense-success-alert');
-    > 37 |     await expect(successAlert).toBeVisible({ timeout: 15000 });
-         |                                ^
-      38 |
-      39 |     await page.goto('/accounting/history');
-      40 |     // Đảm bảo định dạng số tiền đúng chuẩn vi-VN (dấu chấm phân cách hàng nghìn)
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:37:32
+      35 |     await page.goto(`${config.KHACHLINK_URL}/cart-checkout`);
+      36 |
+    > 37 |     await page.waitForURL('**/menu**');
+         |                ^
+      38 |     expect(page.url()).toContain('/menu');
+      39 |   });
+      40 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:37:16
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\test-failed-1.png
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-firefox\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\video.webm
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-firefox\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-c9ec1-ense-entry-with-vendor-info-Mobile-Safari\error-context.md
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-firefox\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC1: Add 2 items → cart CTA shows count" classname="e2e-tests\qr-checkout-flow.spec.ts" time="18.42">
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.646">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-firefox\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-firefox\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:58:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-business"]')
+
+
+      59 |     await navigateToCart(page);
+      60 |
+    > 61 |     await page.locator('[data-testid="invoice-business"]').click();
+         |                                                            ^
+      62 |     await page.locator('[data-testid="checkout-cta"]').click();
+      63 |
+      64 |     await page.waitForURL('**/invoice-business');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:61:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-firefox\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail" classname="e2e-tests\qr-checkout-flow.spec.ts" time="31.006">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-firefox\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-firefox\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:70:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-retail"]')
+
+
+      71 |     await navigateToCart(page);
+      72 |
+    > 73 |     await page.locator('[data-testid="invoice-retail"]').click();
+         |                                                          ^
+      74 |     await page.locator('[data-testid="checkout-cta"]').click();
+      75 |
+      76 |     await page.waitForURL('**/invoice-retail');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:73:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-firefox\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success" classname="e2e-tests\qr-checkout-flow.spec.ts" time="31.342">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-firefox\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-firefox\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:82:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      83 |     await navigateToCart(page);
+      84 |
+    > 85 |     await page.locator('[data-testid="checkout-cta"]').click();
+         |                                                        ^
+      86 |
+      87 |     await page.waitForURL('**/payment-success');
+      88 |     expect(page.url()).toContain('/payment-success');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:85:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-firefox\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered" classname="e2e-tests\qr-checkout-flow.spec.ts" time="34.17">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-firefox\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-firefox\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:93:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+       99 |
+      100 |     await navigateToCart(page);
+    > 101 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      102 |     await page.waitForURL('**/payment-success');
+      103 |
+      104 |     const orderId = page.locator('[data-testid="order-id"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:101:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-firefox\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state" classname="e2e-tests\qr-checkout-flow.spec.ts" time="34.036">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-firefox\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-firefox\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:113:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      118 |
+      119 |     await navigateToCart(page);
+    > 120 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      121 |     await page.waitForURL('**/payment-success');
+      122 |
+      123 |     const errorText = page.locator('[data-testid="error-text"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:120:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-firefox\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable" classname="e2e-tests\qr-checkout-flow.spec.ts" time="29.537">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-firefox\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-firefox\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-firefox\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:132:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      141 |     // Check sticky CTA visible and clickable
+      142 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 143 |     await expect(cta).toBeVisible();
+          |                       ^
+      144 |     await expect(cta).toBeEnabled();
+      145 |   });
+      146 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:143:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-firefox\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-firefox\error-context.md
 ]]>
 </failure>
 </testcase>
-<testcase name="Expense Entry Flow › should require vendor when category is purchase" classname="e2e-tests\expense-entry-flow.spec.ts" time="18.239">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow" classname="e2e-tests\qr-checkout-flow.spec.ts" time="22.019">
 <system-out>
 <![CDATA[
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\test-failed-1.png]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-firefox\test-failed-1.png]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\video.webm]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-firefox\video.webm]]
 
-[[ATTACHMENT|test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\error-context.md]]
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-firefox\error-context.md]]
 ]]>
 </system-out>
 <failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
-<![CDATA[  [Mobile Safari] › e2e-tests\expense-entry-flow.spec.ts:47:7 › Expense Entry Flow › should require vendor when category is purchase 
+<![CDATA[  [firefox] › e2e-tests\qr-checkout-flow.spec.ts:149:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow 
 
     Error: expect(locator).toBeVisible() failed
 
-    Locator: locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+    Locator: locator('[data-testid="checkout-cta"]')
     Expected: visible
-    Timeout: 15000ms
+    Timeout: 10000ms
     Error: element(s) not found
 
     Call log:
-      - Expect "toBeVisible" with timeout 15000ms
-      - waiting for locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
 
 
-      64 |     await submitBtn.click();
-      65 |
-    > 66 |     await expect(page.locator('.vanan-alert__message').filter({ hasText: 'Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.' })).toBeVisible({ timeout: 15000 });
-         |                                                                                                                                                                   ^
-      67 |   });
-      68 | });
-      69 |
-        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\expense-entry-flow.spec.ts:66:163
+      158 |     // Check CTA visible
+      159 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 160 |     await expect(cta).toBeVisible();
+          |                       ^
+      161 |   });
+      162 | });
+      163 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:160:23
 
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\test-failed-1.png
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-firefox\test-failed-1.png
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
     attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\video.webm
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-firefox\video.webm
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
-    Error Context: reports\test-results\e2e-tests-expense-entry-fl-7c6d1-r-when-category-is-purchase-Mobile-Safari\error-context.md
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-firefox\error-context.md
+]]>
+</failure>
+</testcase>
+</testsuite>
+<testsuite name="e2e-tests\qr-checkout-flow.spec.ts" timestamp="2026-06-11T17:51:43.653Z" hostname="webkit" tests="9" failures="2" skipped="0" time="318.298" errors="6">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu" classname="e2e-tests\qr-checkout-flow.spec.ts" time="53.876">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-webkit\error-context.md]]
+]]>
+</system-out>
+<error message="page.waitForURL: Timeout 30000ms exceeded." type="TimeoutError">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:34:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/menu**" until "load"
+    ============================================================
+
+      35 |     await page.goto(`${config.KHACHLINK_URL}/cart-checkout`);
+      36 |
+    > 37 |     await page.waitForURL('**/menu**');
+         |                ^
+      38 |     expect(page.url()).toContain('/menu');
+      39 |   });
+      40 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:37:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-webkit\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC1: Add 2 items → cart CTA shows count" classname="e2e-tests\qr-checkout-flow.spec.ts" time="22.951">
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business" classname="e2e-tests\qr-checkout-flow.spec.ts" time="30.278">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-webkit\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:58:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-business"]')
+
+
+      59 |     await navigateToCart(page);
+      60 |
+    > 61 |     await page.locator('[data-testid="invoice-business"]').click();
+         |                                                            ^
+      62 |     await page.locator('[data-testid="checkout-cta"]').click();
+      63 |
+      64 |     await page.waitForURL('**/invoice-business');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:61:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-webkit\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail" classname="e2e-tests\qr-checkout-flow.spec.ts" time="41.194">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-webkit\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:70:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-retail"]')
+
+
+      71 |     await navigateToCart(page);
+      72 |
+    > 73 |     await page.locator('[data-testid="invoice-retail"]').click();
+         |                                                          ^
+      74 |     await page.locator('[data-testid="checkout-cta"]').click();
+      75 |
+      76 |     await page.waitForURL('**/invoice-retail');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:73:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-webkit\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success" classname="e2e-tests\qr-checkout-flow.spec.ts" time="39.967">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-webkit\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:82:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      83 |     await navigateToCart(page);
+      84 |
+    > 85 |     await page.locator('[data-testid="checkout-cta"]').click();
+         |                                                        ^
+      86 |
+      87 |     await page.waitForURL('**/payment-success');
+      88 |     expect(page.url()).toContain('/payment-success');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:85:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-webkit\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered" classname="e2e-tests\qr-checkout-flow.spec.ts" time="34.55">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-webkit\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:93:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+       99 |
+      100 |     await navigateToCart(page);
+    > 101 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      102 |     await page.waitForURL('**/payment-success');
+      103 |
+      104 |     const orderId = page.locator('[data-testid="order-id"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:101:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-webkit\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state" classname="e2e-tests\qr-checkout-flow.spec.ts" time="41.421">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-webkit\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:113:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      118 |
+      119 |     await navigateToCart(page);
+    > 120 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      121 |     await page.waitForURL('**/payment-success');
+      122 |
+      123 |     const errorText = page.locator('[data-testid="error-text"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:120:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-webkit\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable" classname="e2e-tests\qr-checkout-flow.spec.ts" time="18.646">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-webkit\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:132:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      141 |     // Check sticky CTA visible and clickable
+      142 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 143 |     await expect(cta).toBeVisible();
+          |                       ^
+      144 |     await expect(cta).toBeEnabled();
+      145 |   });
+      146 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:143:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-webkit\error-context.md
+]]>
+</failure>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow" classname="e2e-tests\qr-checkout-flow.spec.ts" time="35.415">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-webkit\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-webkit\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-webkit\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [webkit] › e2e-tests\qr-checkout-flow.spec.ts:149:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      158 |     // Check CTA visible
+      159 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 160 |     await expect(cta).toBeVisible();
+          |                       ^
+      161 |   });
+      162 | });
+      163 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:160:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-webkit\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-webkit\error-context.md
+]]>
+</failure>
+</testcase>
+</testsuite>
+<testsuite name="e2e-tests\qr-checkout-flow.spec.ts" timestamp="2026-06-11T17:51:43.653Z" hostname="Mobile Chrome" tests="9" failures="2" skipped="0" time="203.206" errors="6">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu" classname="e2e-tests\qr-checkout-flow.spec.ts" time="44.34">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<error message="page.waitForURL: Timeout 30000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:34:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/menu**" until "load"
+    ============================================================
+
+      35 |     await page.goto(`${config.KHACHLINK_URL}/cart-checkout`);
+      36 |
+    > 37 |     await page.waitForURL('**/menu**');
+         |                ^
+      38 |     expect(page.url()).toContain('/menu');
+      39 |   });
+      40 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:37:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Chrome\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC1: Add 2 items → cart CTA shows count" classname="e2e-tests\qr-checkout-flow.spec.ts" time="2.51">
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.339">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:58:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-business"]')
+
+
+      59 |     await navigateToCart(page);
+      60 |
+    > 61 |     await page.locator('[data-testid="invoice-business"]').click();
+         |                                                            ^
+      62 |     await page.locator('[data-testid="checkout-cta"]').click();
+      63 |
+      64 |     await page.waitForURL('**/invoice-business');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:61:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Chrome\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail" classname="e2e-tests\qr-checkout-flow.spec.ts" time="24.554">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:70:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-retail"]')
+
+
+      71 |     await navigateToCart(page);
+      72 |
+    > 73 |     await page.locator('[data-testid="invoice-retail"]').click();
+         |                                                          ^
+      74 |     await page.locator('[data-testid="checkout-cta"]').click();
+      75 |
+      76 |     await page.waitForURL('**/invoice-retail');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:73:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Chrome\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success" classname="e2e-tests\qr-checkout-flow.spec.ts" time="22.215">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:82:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      83 |     await navigateToCart(page);
+      84 |
+    > 85 |     await page.locator('[data-testid="checkout-cta"]').click();
+         |                                                        ^
+      86 |
+      87 |     await page.waitForURL('**/payment-success');
+      88 |     expect(page.url()).toContain('/payment-success');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:85:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Chrome\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered" classname="e2e-tests\qr-checkout-flow.spec.ts" time="21.899">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:93:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+       99 |
+      100 |     await navigateToCart(page);
+    > 101 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      102 |     await page.waitForURL('**/payment-success');
+      103 |
+      104 |     const orderId = page.locator('[data-testid="order-id"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:101:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Chrome\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state" classname="e2e-tests\qr-checkout-flow.spec.ts" time="22.296">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:113:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      118 |
+      119 |     await navigateToCart(page);
+    > 120 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      121 |     await page.waitForURL('**/payment-success');
+      122 |
+      123 |     const errorText = page.locator('[data-testid="error-text"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:120:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Chrome\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable" classname="e2e-tests\qr-checkout-flow.spec.ts" time="23.856">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:132:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      141 |     // Check sticky CTA visible and clickable
+      142 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 143 |     await expect(cta).toBeVisible();
+          |                       ^
+      144 |     await expect(cta).toBeEnabled();
+      145 |   });
+      146 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:143:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Chrome\error-context.md
+]]>
+</failure>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow" classname="e2e-tests\qr-checkout-flow.spec.ts" time="18.197">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Chrome\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Chrome\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Chrome\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [Mobile Chrome] › e2e-tests\qr-checkout-flow.spec.ts:149:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      158 |     // Check CTA visible
+      159 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 160 |     await expect(cta).toBeVisible();
+          |                       ^
+      161 |   });
+      162 | });
+      163 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:160:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Chrome\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Chrome\error-context.md
+]]>
+</failure>
+</testcase>
+</testsuite>
+<testsuite name="e2e-tests\qr-checkout-flow.spec.ts" timestamp="2026-06-11T17:51:43.653Z" hostname="Mobile Safari" tests="9" failures="2" skipped="0" time="209.249" errors="6">
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu" classname="e2e-tests\qr-checkout-flow.spec.ts" time="42.05">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<error message="page.waitForURL: Timeout 30000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:34:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC0: Empty cart at /cart-checkout → redirect to /menu 
+
+    TimeoutError: page.waitForURL: Timeout 30000ms exceeded.
+    =========================== logs ===========================
+    waiting for navigation to "**/menu**" until "load"
+    ============================================================
+
+      35 |     await page.goto(`${config.KHACHLINK_URL}/cart-checkout`);
+      36 |
+    > 37 |     await page.waitForURL('**/menu**');
+         |                ^
+      38 |     expect(page.url()).toContain('/menu');
+      39 |   });
+      40 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:37:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-697ff-checkout-→-redirect-to-menu-Mobile-Safari\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC1: Add 2 items → cart CTA shows count" classname="e2e-tests\qr-checkout-flow.spec.ts" time="8.51">
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business" classname="e2e-tests\qr-checkout-flow.spec.ts" time="25.416">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:58:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC2: Select B2B → navigate /invoice-business 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-business"]')
+
+
+      59 |     await navigateToCart(page);
+      60 |
+    > 61 |     await page.locator('[data-testid="invoice-business"]').click();
+         |                                                            ^
+      62 |     await page.locator('[data-testid="checkout-cta"]').click();
+      63 |
+      64 |     await page.waitForURL('**/invoice-business');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:61:60
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-e2263-→-navigate-invoice-business-Mobile-Safari\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail" classname="e2e-tests\qr-checkout-flow.spec.ts" time="24.134">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:70:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC3: Select Retail → navigate /invoice-retail 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="invoice-retail"]')
+
+
+      71 |     await navigateToCart(page);
+      72 |
+    > 73 |     await page.locator('[data-testid="invoice-retail"]').click();
+         |                                                          ^
+      74 |     await page.locator('[data-testid="checkout-cta"]').click();
+      75 |
+      76 |     await page.waitForURL('**/invoice-retail');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:73:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-9e087-l-→-navigate-invoice-retail-Mobile-Safari\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success" classname="e2e-tests\qr-checkout-flow.spec.ts" time="25.166">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:82:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC4: Anonymous (default) → navigate /payment-success 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      83 |     await navigateToCart(page);
+      84 |
+    > 85 |     await page.locator('[data-testid="checkout-cta"]').click();
+         |                                                        ^
+      86 |
+      87 |     await page.waitForURL('**/payment-success');
+      88 |     expect(page.url()).toContain('/payment-success');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:85:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-f96e0--→-navigate-payment-success-Mobile-Safari\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered" classname="e2e-tests\qr-checkout-flow.spec.ts" time="27.61">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:93:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC5: Order API success → order-id rendered 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+       99 |
+      100 |     await navigateToCart(page);
+    > 101 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      102 |     await page.waitForURL('**/payment-success');
+      103 |
+      104 |     const orderId = page.locator('[data-testid="order-id"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:101:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-25c94-success-→-order-id-rendered-Mobile-Safari\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state" classname="e2e-tests\qr-checkout-flow.spec.ts" time="24.246">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<error message="locator.click: Timeout 15000ms exceeded." type="TimeoutError">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:113:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC6: Order API 500 → error visible, no success state 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      118 |
+      119 |     await navigateToCart(page);
+    > 120 |     await page.locator('[data-testid="checkout-cta"]').click();
+          |                                                        ^
+      121 |     await page.waitForURL('**/payment-success');
+      122 |
+      123 |     const errorText = page.locator('[data-testid="error-text"]');
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:120:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-92a80-or-visible-no-success-state-Mobile-Safari\error-context.md
+]]>
+</error>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable" classname="e2e-tests\qr-checkout-flow.spec.ts" time="16.658">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:132:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC7: Android 360x800 — no overflow, CTA clickable 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      141 |     // Check sticky CTA visible and clickable
+      142 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 143 |     await expect(cta).toBeVisible();
+          |                       ^
+      144 |     await expect(cta).toBeEnabled();
+      145 |   });
+      146 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:143:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-6864f-—-no-overflow-CTA-clickable-Mobile-Safari\error-context.md
+]]>
+</failure>
+</testcase>
+<testcase name="QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow" classname="e2e-tests\qr-checkout-flow.spec.ts" time="15.459">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Safari\test-failed-1.png]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Safari\video.webm]]
+
+[[ATTACHMENT|test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Safari\error-context.md]]
+]]>
+</system-out>
+<failure message="expect(locator).toBeVisible() failed" type="expect.toBeVisible">
+<![CDATA[  [Mobile Safari] › e2e-tests\qr-checkout-flow.spec.ts:149:7 › QR Checkout Flow — KhachLink Màn 1→4 › TC8: iPhone 14 390x844 — no overflow 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="checkout-cta"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-testid="checkout-cta"]')
+
+
+      158 |     // Check CTA visible
+      159 |     const cta = page.locator('[data-testid="checkout-cta"]');
+    > 160 |     await expect(cta).toBeVisible();
+          |                       ^
+      161 |   });
+      162 | });
+      163 |
+        at C:\VibeCoding\Gemini_Windsurf\6_Testing\e2e-tests\qr-checkout-flow.spec.ts:160:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Safari\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: reports\test-results\e2e-tests-qr-checkout-flow-c25ff-ne-14-390x844-—-no-overflow-Mobile-Safari\error-context.md
 ]]>
 </failure>
 </testcase>

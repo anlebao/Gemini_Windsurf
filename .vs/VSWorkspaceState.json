@@ -1,11 +1,10 @@
 {
   "ExpandedNodes": [
     "",
-    "\\5_WebApps\\ShopERP",
-    "\\5_WebApps\\ShopERP\\Components",
-    "\\5_WebApps\\ShopERP\\Properties",
-    "\\6_Tests"
+    "\\docs",
+    "\\docs\\AI",
+    "\\docs\\AI\\tasks"
   ],
-  "SelectedNode": "\\6_Tests\\VanAn.Tests.sln",
+  "SelectedNode": "\\6_Tests",
   "PreviewInSolutionExplorer": false
 }

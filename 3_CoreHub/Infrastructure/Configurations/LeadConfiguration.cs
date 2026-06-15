@@ -19,7 +19,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasConversion(id => id.Value, value => new LeadId(value))
                 .IsRequired();
 
-            // TenantId converter (not inherited from BaseEntity in this entity)
+            // TenantId is Guid (not TenantId value object) in this entity
             _ = builder.Property(e => e.TenantId)
                 .IsRequired();
 
