@@ -18,10 +18,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasConversion(id => id.Value, value => new RecipeId(value))
                 .IsRequired();
 
-            // TenantId value object converter (from BaseEntity)
-            _ = builder.Property(e => e.TenantId)
-                .HasConversion(id => id.Value, value => new TenantId(value))
-                .IsRequired();
 
             // NOTE: ProductId and IngredientId are Guid (not value objects) per PHASE 3 FIX
             // See Domain.cs line 660-661: "Use Guid instead of ProductId/IngredientId"

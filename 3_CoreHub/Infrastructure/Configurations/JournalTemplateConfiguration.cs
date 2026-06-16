@@ -23,9 +23,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(500);
 
-            _ = builder.Property(e => e.TenantId)
-                .HasConversion<TenantIdConverter>()
-                .IsRequired();
 
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

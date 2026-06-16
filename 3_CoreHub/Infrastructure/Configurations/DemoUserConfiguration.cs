@@ -13,10 +13,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.Id);
 
-            // TenantId value object converter (from BaseEntity)
-            _ = builder.Property(e => e.TenantId)
-                .HasConversion(id => id.Value, value => new TenantId(value))
-                .IsRequired();
 
             _ = builder.Property(e => e.Username)
                 .IsRequired()

@@ -18,10 +18,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasConversion(id => id.Value, value => new ProductId(value))
                 .IsRequired();
 
-            // TenantId value object converter (from BaseEntity)
-            _ = builder.Property(e => e.TenantId)
-                .HasConversion(id => id.Value, value => new TenantId(value))
-                .IsRequired();
 
             _ = builder.Property(e => e.Name)
                 .IsRequired()

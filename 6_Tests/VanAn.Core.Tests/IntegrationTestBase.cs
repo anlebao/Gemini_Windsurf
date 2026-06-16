@@ -52,19 +52,35 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         protected async Task SetupBasicTestDataAsync()
         {
             await CreateContextAsync();
-            await SeedTestDataAsync(TestDataBuilder.CreateBasicScenario());
+            await SeedTestDataAsync(TestDataBuilder.CreateBasicScenario(Context.CurrentTenantId));
         }
 
         protected async Task SetupLargeTestDataAsync()
         {
             await CreateContextAsync();
-            await SeedTestDataAsync(TestDataBuilder.CreateLargeScenario());
+            await SeedTestDataAsync(TestDataBuilder.CreateLargeScenario(Context.CurrentTenantId));
         }
 
         protected async Task SetupEmptyDatabaseAsync()
         {
             await CreateContextAsync();
             await SeedTestDataAsync(TestDataBuilder.CreateEmptyScenario());
+        }
+
+        /// <summary>
+        /// Gets the active Tenant ID from the test context's tenant provider.
+        /// Use this as the shopId in kitchen tests so data seeded with this tenant
+        /// is visible through the global multi-tenancy query filter.
+        /// </summary>
+        protected Guid ActiveTenantId => ContextScope?.ActiveTenantId ?? Guid.Empty;
+
+        /// <summary>
+        /// Changes the active tenant for this test context.
+        /// Data must be seeded AFTER calling this for the global filter to include it.
+        /// </summary>
+        protected void SetActiveTenant(Guid tenantId)
+        {
+            ContextScope?.TenantProvider?.SetTenant(tenantId);
         }
 
         // Legacy method for backward compatibility

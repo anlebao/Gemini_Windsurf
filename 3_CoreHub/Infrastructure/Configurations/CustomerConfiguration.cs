@@ -44,10 +44,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             // TenantId converter
             _ = builder.Property(e => e.TenantId)
-                .IsRequired()
-                .HasConversion(
-                    id => id.Value,
-                    value => new TenantId(value));
+                .IsRequired();
 
             // Soft delete query filter
             _ = builder.HasQueryFilter(e => !e.IsDeleted);

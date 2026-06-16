@@ -24,7 +24,8 @@ namespace VanAn.CoreHub.Tests
         public async Task GetGroupedItems_Should_GroupIdenticalProducts_FromDifferentOrders()
         {
             // Arrange
-            Guid shopId = Guid.NewGuid();
+            // Use ActiveTenantId so data is visible through the global multi-tenancy query filter.
+            Guid shopId = ActiveTenantId;
             Guid customerId = Guid.NewGuid();
 
             // Create shop

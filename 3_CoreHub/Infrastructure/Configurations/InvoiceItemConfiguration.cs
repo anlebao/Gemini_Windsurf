@@ -54,6 +54,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                   .HasForeignKey(e => e.InvoiceId)
                   .HasPrincipalKey(i => i.InvoiceId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            // TenantId value object converter (inherited from BaseEntity)
+            _ = builder.Property(e => e.TenantId)
+                .IsRequired()
+                ;
         }
     }
 }

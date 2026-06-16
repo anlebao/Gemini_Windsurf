@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
 using VanAn.Shared.Domain.Common;
@@ -17,6 +17,15 @@ namespace VanAn.CoreHub.Infrastructure
 
         // 🛡️ PUBLIC PROPERTY FOR EF Core Query Filter
         public Guid CurrentTenantId => _tenantProvider?.TenantId ?? Guid.Empty;
+
+        // Used by global query filter: TenantId column is stored as TEXT (UUID string)
+        // Both SQLite and Npgsql can compare TEXT columns with string parameters.
+        public string CurrentTenantIdString => CurrentTenantId.ToString();
+
+        // TenantId value object — used by ApplyMultiTenancyFilters expression tree
+        // so EF Core can translate e.TenantId == CurrentTenantIdValue with the
+        // TenantId→string converter, emitting a properly parameterized SQL query.
+        public TenantId CurrentTenantIdValue => new TenantId(CurrentTenantId);
 
         // Domain Tables dengan Multi-tenancy
         public DbSet<Product> Products { get; set; }
@@ -180,50 +189,71 @@ namespace VanAn.CoreHub.Infrastructure
                 return;
             }
 
-            // Get current tenant dynamically from ITenantProvider
-            Guid currentTenantId = _tenantProvider.TenantId;
-
-            // Apply to all entities implement IMustHaveTenant (except AccountingEntry)
-            // AccountingEntry is excluded: special case for cross-tenant queries, audit/history, reconciliation
+            // Apply to all entities implementing IMustHaveTenant
+            // (AccountingEntry excluded: special cross-tenant audit/reconciliation queries).
             IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes()
                 .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType) && e.ClrType != typeof(CoreAccountingEntry));
 
-            // Resolve EF.Property<Guid> MethodInfo safely with explicit parameter types to avoid
-            // ambiguous match between different EF.Property<T> overloads.
-            System.Reflection.MethodInfo efPropertyMethod = typeof(EF)
-                .GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-                .Where(m => m.Name == "Property" && m.IsGenericMethod && m.GetParameters().Length == 2)
-                .Select(m => new { Method = m, Parameters = m.GetParameters() })
-                .Where(x => x.Parameters[0].ParameterType == typeof(object) && x.Parameters[1].ParameterType == typeof(string))
-                .Select(x => x.Method)
-                .FirstOrDefault()
-                ?.MakeGenericMethod(typeof(Guid)) ?? throw new InvalidOperationException("Unable to resolve EF.Property<Guid> method");
+            // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
+            // Using TenantId (model type) as RHS ensures:
+            //   Sanitize<TenantId>(TenantId_value) -> "value is TenantId" -> TRUE (no Convert.ChangeType)
+            // When reading from DB:
+            //   ConvertFromProvider(string_from_db) -> Sanitize<string>(string) -> "string is string" -> TRUE
+            VanAnDbContext capturedContext = this;
+
+            // Property: IMustHaveTenant.TenantId (CLR type: TenantId)
+            System.Reflection.PropertyInfo tenantIdProp =
+                typeof(IMustHaveTenant).GetProperty(nameof(IMustHaveTenant.TenantId))
+                ?? throw new InvalidOperationException("IMustHaveTenant.TenantId property not found");
+
+            // Property: VanAnDbContext.CurrentTenantIdValue (CLR type: TenantId)
+            System.Reflection.PropertyInfo currentTenantIdProp =
+                typeof(VanAnDbContext).GetProperty(nameof(CurrentTenantIdValue))
+                ?? throw new InvalidOperationException("VanAnDbContext.CurrentTenantIdValue not found");
+
+            System.Linq.Expressions.MemberExpression currentTenantIdExpr =
+                System.Linq.Expressions.Expression.Property(
+                    System.Linq.Expressions.Expression.Constant(capturedContext),
+                    currentTenantIdProp);
 
             foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType in entityTypes)
             {
                 System.Type clrType = entityType.ClrType;
 
-                // Build query filter expression: e => EF.Property<Guid>(e, "TenantId") == currentTenantId
+                // e => ((IMustHaveTenant)e).TenantId == capturedContext.CurrentTenantIdValue
+                // TenantId has ValueConverter<TenantId,string>: EF Core translates to
+                //   WHERE "TenantId" = @p0   (with @p0 built via Sanitize<TenantId>(TenantId_val) -> OK)
                 ParameterExpression parameter = System.Linq.Expressions.Expression.Parameter(clrType, "e");
-                System.Linq.Expressions.MethodCallExpression propertyCall = System.Linq.Expressions.Expression.Call(
-                    null, // static method
-                    efPropertyMethod,
-                    System.Linq.Expressions.Expression.Convert(parameter, typeof(object)),
-                    System.Linq.Expressions.Expression.Constant("TenantId", typeof(string))
-                );
-                System.Linq.Expressions.BinaryExpression comparison = System.Linq.Expressions.Expression.Equal(
-                    propertyCall,
-                    System.Linq.Expressions.Expression.Constant(currentTenantId, typeof(Guid))
-                );
-                LambdaExpression filterExpression = System.Linq.Expressions.Expression.Lambda(comparison, parameter);
 
-                // Apply query filter
+                System.Linq.Expressions.MemberExpression entityTenantId =
+                    System.Linq.Expressions.Expression.Property(
+                        System.Linq.Expressions.Expression.Convert(parameter, typeof(IMustHaveTenant)),
+                        tenantIdProp);
+
+                System.Linq.Expressions.BinaryExpression comparison =
+                    System.Linq.Expressions.Expression.Equal(entityTenantId, currentTenantIdExpr);
+
+                LambdaExpression filterExpression =
+                    System.Linq.Expressions.Expression.Lambda(comparison, parameter);
+
                 modelBuilder.Entity(clrType).HasQueryFilter(filterExpression);
             }
         }
 
+
         // MOVED: All ValueConverter classes moved to separate files for consistency
         // See: Infrastructure/ValueConverters/ directory
+
+        /// <summary>
+        /// Register TenantId global type converter via Conventions API (EF Core 6+).
+        /// This ensures ALL TenantId properties across all entities use ValueConverter<TenantId, string>,
+        /// fixing the SQLite IConvertible error that occurs with Guid as provider type.
+        /// </summary>
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            _ = configurationBuilder.Properties<TenantId>()
+                .HaveConversion<ValueConverters.TenantIdConverter>();
+        }
 
         // Interface implementation for IVanAnDbContext
         public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)

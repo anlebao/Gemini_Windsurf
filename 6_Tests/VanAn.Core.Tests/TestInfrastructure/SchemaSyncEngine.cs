@@ -126,7 +126,10 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             try
             {
-                builder ??= TestDataBuilder.CreateBasicScenario();
+                // Seed data using the context's current tenant so data is visible through
+                // the global query filter (which filters by CurrentTenantId).
+                Guid primaryTenantId = context.CurrentTenantId;
+                builder ??= TestDataBuilder.CreateBasicScenario(primaryTenantId);
                 await builder.BuildAsync(context);
                 return true;
             }

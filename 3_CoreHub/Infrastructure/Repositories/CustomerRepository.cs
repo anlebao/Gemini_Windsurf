@@ -16,30 +16,22 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<Customer?> GetByIdAsync(Guid id)
         {
-            Guid tenantId = _currentTenantId;
             return await _context.Customers
-                .Where(c => c.Id == id &&
-                           c.TenantId == new TenantId(tenantId) &&
-                           !c.IsDeleted)
+                .Where(c => c.Id == id && !c.IsDeleted)
                 .FirstOrDefaultAsync();
         }
 
         public async Task<Customer?> GetByDeviceIdAsync(Guid deviceId)
         {
-            Guid tenantId = _currentTenantId;
             return await _context.Customers
-                .Where(c => c.DeviceId == deviceId &&
-                           c.TenantId == new TenantId(tenantId) &&
-                           !c.IsDeleted)
+                .Where(c => c.DeviceId == deviceId && !c.IsDeleted)
                 .FirstOrDefaultAsync();
         }
 
         public async Task<IReadOnlyList<Customer>> GetAllActiveAsync()
         {
-            Guid tenantId = _currentTenantId;
             return await _context.Customers
-                .Where(c => c.TenantId == new TenantId(tenantId) &&
-                           !c.IsDeleted)
+                .Where(c => !c.IsDeleted)
                 .OrderBy(c => c.FullName)
                 .ToListAsync();
         }
@@ -87,31 +79,22 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<bool> ExistsByDeviceIdAsync(Guid deviceId)
         {
-            Guid tenantId = _currentTenantId;
             return await _context.Customers
-                .AnyAsync(c => c.DeviceId == deviceId &&
-                             c.TenantId == new TenantId(tenantId) &&
-                             !c.IsDeleted);
+                .AnyAsync(c => c.DeviceId == deviceId && !c.IsDeleted);
         }
 
         public async Task<Customer?> GetWithOrdersAsync(Guid id)
         {
-            Guid tenantId = _currentTenantId;
             return await _context.Customers
                 .Include(c => c.Orders)
-                .Where(c => c.Id == id &&
-                           c.TenantId == new TenantId(tenantId) &&
-                           !c.IsDeleted)
+                .Where(c => c.Id == id && !c.IsDeleted)
                 .FirstOrDefaultAsync();
         }
 
         public async Task<Customer?> GetByPhoneAsync(string phoneNumber)
         {
-            Guid tenantId = _currentTenantId;
             return await _context.Customers
-                .Where(c => c.PhoneNumber == phoneNumber &&
-                           c.TenantId == new TenantId(tenantId) &&
-                           !c.IsDeleted)
+                .Where(c => c.PhoneNumber == phoneNumber && !c.IsDeleted)
                 .FirstOrDefaultAsync();
         }
     }
