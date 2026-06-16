@@ -214,6 +214,7 @@ Temporary Items
 docker-compose.override.yml
 docker-compose.local.yml
 docker-compose.dev.yml
+.env
 .env.local
 .env.development
 .env.production
