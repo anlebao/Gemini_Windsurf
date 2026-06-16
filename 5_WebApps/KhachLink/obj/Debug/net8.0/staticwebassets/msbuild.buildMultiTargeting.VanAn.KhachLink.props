@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\build\VanAn.KhachLink.props" />
-</Project>

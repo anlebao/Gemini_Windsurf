@@ -1,0 +1,9 @@
+# ShopERP-specific Docker ignore
+bin/
+obj/
+publish/
+*.db
+*.db-wal
+*.db-shm
+appsettings.Development.json
+wwwroot/
