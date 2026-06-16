@@ -1,33 +1,51 @@
-# .NET Specific - Cực kỳ quan trọng
-[Bb]in/
-[Oo]bj/
-out/
-.library/
+# VanAn Ecosystem - Docker Ignore
+# Loại bỏ tất cả artifacts không cần thiết để giảm build context
 
-# User-specific files (Tránh ghi đè cấu hình cá nhân của bạn vào Container)
-*.user
-*.userosscache
-*.sln.doccache
+# .NET build artifacts
+**/bin/
+**/obj/
+**/publish/
 
-# Docker/System files
-.dockerignore
-Dockerfile*
-docker-compose*
+# Test projects
+6_Tests/
+6_Testing/
+
+# IDE và tools
+.vs/
+.vscode/
+.idea/
+.devin/
+.windsurf/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docs
+docs/
+*.md
+README*
+
+# Local config
+.env.local
+.env.test
+scripts/
+*.bat
+*.ps1
+guard-check.ps1
+
+# Node
 node_modules/
+6_Testing/node_modules/
+6_Testing/playwright-report/
+6_Testing/test-results/
 
-# Temporary files (Tránh kẹt do các ứng dụng đang mở)
-*.swp
-*~
-.DS_Store
-Thumbs.db
+# Logs
+*.log
+shoperp.log
 
-# Legacy rules (để tương thích)
-**/.bin
-**/.obj
-**/.vs
-**/.git
-**/.vscode
-**/dist
-**/publish
-docker-compose.override.yml
-.env
+# SQLite dev databases
+*.db
+*.db-wal
+*.db-shm

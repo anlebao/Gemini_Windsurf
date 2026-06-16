@@ -1,0 +1,5 @@
+# Gateway-specific Docker ignore
+bin/
+obj/
+publish/
+appsettings.Development.json
