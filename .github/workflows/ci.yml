@@ -7,12 +7,14 @@ on:
       - '**.md'
       - 'docs/**'
       - '.windsurf/**'
+      - '.devin/**'
   pull_request:
-    branches: [ main, develop, 'align-consumer-phase4' ]
+    branches: [ main, develop ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.windsurf/**'
+      - '.devin/**'
 
 env:
   DOTNET_VERSION: '8.0.x'
