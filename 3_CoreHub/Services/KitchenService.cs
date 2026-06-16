@@ -19,8 +19,10 @@ namespace VanAn.CoreHub.Services
         public async Task<List<KitchenItemGroupDto>> GetGroupedKitchenItemsAsync(Guid shopId)
         {
             // 🛡️ STEP 1: SQL Projection - Server-side filtering & flat projection
+            // Use TenantId strongly-typed comparison so EF Core Sanitize<TenantId>(TenantId) passes.
+            TenantId tenantId = new(shopId);
             var flatItems = await _context.OrderItems
-                .Where(oi => oi.Order.TenantId == new TenantId(shopId) &&
+                .Where(oi => oi.Order.TenantId == tenantId &&
                             (oi.KitchenStatus == KitchenStatus.Pending || oi.KitchenStatus == KitchenStatus.Preparing))
                 .Select(oi => new
                 {
@@ -152,14 +154,15 @@ namespace VanAn.CoreHub.Services
         {
             return await _context.OrderItems
                 .Include(oi => oi.Order)
-                .CountAsync(oi => oi.Order.TenantId == new TenantId(shopId) && oi.KitchenStatus == KitchenStatus.Pending);
+                .Where(oi => EF.Property<string>(oi.Order, "TenantId") == shopId.ToString())
+                .CountAsync(oi => oi.KitchenStatus == KitchenStatus.Pending);
         }
 
         public async Task<TimeSpan> GetAveragePreparationTimeAsync(Guid shopId, DateTime from)
         {
             List<OrderItem> completedItems = await _context.OrderItems
                 .Include(oi => oi.Order)
-                .Where(oi => oi.Order.TenantId == new TenantId(shopId) &&
+                .Where(oi => EF.Property<string>(oi.Order, "TenantId") == shopId.ToString() &&
                             oi.KitchenStatus == KitchenStatus.Completed &&
                             oi.Order.CompletedAt.HasValue &&
                             oi.Order.OrderDate >= from)
@@ -245,7 +248,7 @@ namespace VanAn.CoreHub.Services
         public async Task<KitchenAnalyticsDto> GetKitchenAnalyticsAsync(Guid shopId, DateTime from)
         {
             List<Order> orders = await _context.Orders
-                .Where(o => o.TenantId == new TenantId(shopId) && o.OrderDate >= from)
+                .Where(o => EF.Property<string>(o, "TenantId") == shopId.ToString() && o.OrderDate >= from)
                 .ToListAsync();
 
             List<Order> completedOrders = orders.Where(o => o.Status.Value == "Completed").ToList();

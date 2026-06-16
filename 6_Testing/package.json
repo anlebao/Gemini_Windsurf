@@ -27,12 +27,12 @@
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "@types/node": "^18.0.0",
+    "@types/node": "^18.19.130",
     "rimraf": "^5.0.0"
   },
   "dependencies": {
-    "dotenv": "^16.0.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0"
   },
   "engines": {
     "node": ">=18.0.0"

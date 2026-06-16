@@ -40,8 +40,6 @@ C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Ext
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.Abstractions.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.Binder.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.CommandLine.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.EnvironmentVariables.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.FileExtensions.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.Json.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Configuration.UserSecrets.dll
@@ -52,9 +50,6 @@ C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Ext
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Diagnostics.Abstractions.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Features.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.FileProviders.Abstractions.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.FileProviders.Physical.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.FileSystemGlobbing.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Hosting.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Hosting.Abstractions.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\Microsoft.Extensions.Http.dll
@@ -197,7 +192,6 @@ C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\win-
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\win-arm64\native\e_sqlite3.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\win-x64\native\e_sqlite3.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\win-x86\native\e_sqlite3.dll
-C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\win\lib\net8.0\System.Diagnostics.EventLog.Messages.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\win\lib\net8.0\System.Diagnostics.EventLog.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
 C:\VibeCoding\Gemini_Windsurf\5_WebApps\KhachLink\bin\Debug\net8.0\VanAn.Accounting.dll

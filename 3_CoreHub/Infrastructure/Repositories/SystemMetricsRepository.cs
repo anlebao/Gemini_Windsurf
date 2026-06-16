@@ -11,7 +11,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             return await _context.Orders
                 .IgnoreQueryFilters()
-                .Select(o => o.TenantId)
+                .Select(o => EF.Property<string>(o, "TenantId"))
                 .Distinct()
                 .CountAsync(cancellationToken);
         }
@@ -37,7 +37,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             return await _context.Orders
                 .IgnoreQueryFilters()
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
-                .Select(o => o.TenantId)
+                .Select(o => EF.Property<string>(o, "TenantId"))
                 .Distinct()
                 .CountAsync(cancellationToken);
         }

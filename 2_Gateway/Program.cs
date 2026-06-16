@@ -1,10 +1,12 @@
 using VanAn.Shared.Services;
+using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Domain.Repositories;
+using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.Gateway.Middleware;
 using VanAn.Gateway.Hubs;
-using Microsoft.EntityFrameworkCore;
+using VanAn.Gateway.Services;
 using Serilog;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
@@ -45,25 +47,13 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHttpClient<IVietQrService, VietQrService>();
             _ = builder.Services.AddScoped<IVietQrService, VietQrService>();
 
-            // Register Order Services - UPDATE to use CoreHub
-            _ = builder.Services.AddScoped<IOrderService, OrderService>();
-
-            // Register Build Service
-            _ = builder.Services.AddScoped<IBuildService, BuildService>();
-
-            // Register Customer Services (Domain-First Implementation)
-            _ = builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-            _ = builder.Services.AddScoped<ICustomerService, CustomerService>();
-
-            // Register Audit Trail Services (Phase 2.9.4)
-            _ = builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-            _ = builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
-
-            // Register Social Campaign Service
-            _ = builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
-
-            // Register Loyalty Rewards Service
-            _ = builder.Services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
+            // Register MST Lookup Service (Business Lookup Proxy for KhachLink)
+            _ = builder.Services.AddHttpClient("VietQR", client =>
+            {
+                client.BaseAddress = new Uri("https://api.vietqr.io/v2/");
+                client.Timeout = TimeSpan.FromSeconds(3);
+            });
+            _ = builder.Services.AddScoped<IMstLookupService, MstLookupService>();
 
             // Register Swagger for API documentation
             _ = builder.Services.AddSwaggerGen(c =>
@@ -75,11 +65,6 @@ namespace VanAn.Gateway
                     Description = "VanAn Ecosystem Gateway Service API Documentation"
                 });
             });
-
-            // Add DbContext (PostgreSQL for development)
-            string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-            _ = builder.Services.AddDbContext<CoreHub.Infrastructure.VanAnDbContext>(options =>
-                options.UseNpgsql(connectionString));
 
             // Register ShopConfig Service
             _ = builder.Services.AddScoped<IShopConfigService, ShopConfigService>();

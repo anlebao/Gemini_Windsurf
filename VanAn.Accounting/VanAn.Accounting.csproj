@@ -12,7 +12,7 @@
     <!-- Analyzer configuration -->
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CA1707;CA1848;CA1716</NoWarn>
+    <NoWarn>$(NoWarn);CA1707;CA1848;CA1716;RS2008</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

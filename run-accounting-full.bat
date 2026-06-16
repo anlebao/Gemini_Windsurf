@@ -7,20 +7,17 @@ echo ==========================================
 
 REM ===== STEP 1: UNIT/INTEGRATION TESTS =====
 echo 📦 Step 1: Unit/Integration Tests (6_Tests)...
-cd 6_Tests
-dotnet test --filter "FullyQualifiedName~Accounting"
+dotnet test "6_Tests\VanAn.Core.Tests\VanAn.Core.Tests.csproj" --configuration Release --filter "FullyQualifiedName~Accounting"
 if %errorlevel% neq 0 (
     echo ❌ Unit/Integration tests failed
-    cd ..
     exit /b 1
 )
 echo ✅ Unit/Integration tests passed
-cd ..
 
 REM ===== STEP 2: BUILD SHOPERP (bắt buộc để code changes có hiệu lực) =====
 echo 📦 Step 2: Build ShopERP...
 cd 5_WebApps\ShopERP
-dotnet build VanAn.ShopERP.csproj --configuration Debug -nologo -v q
+dotnet build VanAn.ShopERP.csproj --configuration Release -nologo -v q
 if %errorlevel% neq 0 (
     echo ❌ ShopERP build failed
     cd ..\.. 
@@ -33,7 +30,7 @@ REM ===== STEP 3: START SHOPERP APP =====
 REM NOTE: ShopERP uses SQLite with WAL mode (no PostgreSQL required)
 REM ShopERP Program.cs reads ASPNETCORE_URLS via Configuration
 echo 📦 Starting ShopERP app on http://localhost:5003 ...
-start "ShopERP" cmd /c "set ASPNETCORE_URLS=http://localhost:5003 && cd 5_WebApps\ShopERP && dotnet run --no-build --no-launch-profile > ..\..\shoperp.log 2>&1"
+start "ShopERP" cmd /c "set ASPNETCORE_URLS=http://localhost:5003 && cd 5_WebApps\ShopERP && dotnet run --no-build --no-launch-profile --configuration Release > ..\..\shoperp.log 2>&1"
 
 REM ===== STEP 4: WAIT FOR SHOPERP READY =====
 echo ⏳ Waiting for ShopERP to be ready (up to 60s)...

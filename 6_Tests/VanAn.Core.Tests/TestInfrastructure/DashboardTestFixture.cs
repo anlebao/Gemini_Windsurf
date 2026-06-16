@@ -24,7 +24,7 @@ namespace VanAn.Core.Tests.TestInfrastructure
             Context.SetupTestDatabaseAsync().Wait();
 
             // Setup test data using Test Harness extensions
-            Context.SeedTestDataAsync(TestDataBuilder.CreateBasicScenario()).Wait();
+            Context.SeedTestDataAsync(TestDataBuilder.CreateBasicScenario(Context.CurrentTenantId)).Wait();
 
             // Create mocks
             ConfigMock = new Mock<IConfiguration>();

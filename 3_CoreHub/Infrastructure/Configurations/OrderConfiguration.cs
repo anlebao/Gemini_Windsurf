@@ -27,14 +27,21 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Use BaseEntity.Id as primary key (Guid) - OrderItem.OrderId FK is Guid
             _ = builder.HasKey(o => o.Id);
 
+            // OrderId strongly-typed value object converter
+            _ = builder.Property(o => o.OrderId)
+                .IsRequired()
+                .HasConversion(id => id.Value, value => new OrderId(value));
+
             // Configure index for CustomerId for faster queries
             _ = builder.HasIndex(o => o.CustomerId);
 
             // Configure index for OrderDate for sorting
             _ = builder.HasIndex(o => o.OrderDate);
 
-            // Configure Status as required
-            _ = builder.Property(o => o.Status).IsRequired();
+            // Configure Status as required with value converter for OrderStatusId
+            _ = builder.Property(o => o.Status)
+                .HasConversion(id => id.Value, value => new OrderStatusId(value))
+                .IsRequired();
 
             // Configure OrderType with default value
             _ = builder.Property(o => o.OrderType)
@@ -65,7 +72,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                   .HasForeignKey(o => o.CustomerId)
                   .OnDelete(DeleteBehavior.SetNull);
 
-            // TenantId converter is configured globally in VanAnDbContext.ConfigureConventions
+            // TenantId value object converter
+            _ = builder.Property(o => o.TenantId)
+                .IsRequired();
         }
     }
 }

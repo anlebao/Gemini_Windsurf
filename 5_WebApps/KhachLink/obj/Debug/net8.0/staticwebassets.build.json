@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "Sv7sAO9qkSsn89T7sgIvnicCoST/Us3ursLiZF3gOPE=",
+  "Hash": "6Nmm4WpXlwTKGMoZlQGFWY799tYiRRdd1dD9W8+PkCY=",
   "Source": "VanAn.KhachLink",
   "BasePath": "_content/VanAn.KhachLink",
   "Mode": "Default",
@@ -11,11 +11,11 @@
       "Version": 2,
       "Source": "VanAn.UI.Platform",
       "GetPublishAssetsTargets": "ComputeReferencedStaticWebAssetsPublishManifest;GetCurrentProjectPublishStaticWebAssetItems",
-      "AdditionalPublishProperties": "",
-      "AdditionalPublishPropertiesToRemove": "WebPublishProfileFile;Configuration;Platform;TargetFramework;RuntimeIdentifier;SelfContained",
+      "AdditionalPublishProperties": "Configuration=Debug;Platform=AnyCPU",
+      "AdditionalPublishPropertiesToRemove": "WebPublishProfileFile;TargetFramework;RuntimeIdentifier;SelfContained",
       "GetBuildAssetsTargets": "GetCurrentProjectBuildStaticWebAssetItems",
-      "AdditionalBuildProperties": "",
-      "AdditionalBuildPropertiesToRemove": "WebPublishProfileFile;Configuration;Platform;TargetFramework;RuntimeIdentifier;SelfContained"
+      "AdditionalBuildProperties": "Configuration=Debug;Platform=AnyCPU",
+      "AdditionalBuildPropertiesToRemove": "WebPublishProfileFile;TargetFramework;RuntimeIdentifier;SelfContained"
     }
   ],
   "DiscoveryPatterns": [

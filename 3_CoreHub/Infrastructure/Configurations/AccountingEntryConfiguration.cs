@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VanAn.Shared.Domain;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
@@ -44,16 +44,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(500);
 
-            // Use inline TenantId conversion for SQLite compatibility
-            builder.Property(e => e.TenantId)
-                .IsRequired()
-                .HasConversion(
-                    id => id.Value,
-                    value => new TenantId(value))
-                .Metadata.SetValueComparer(new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<TenantId>(
-                    (c1, c2) => c1.Value == c2.Value,
-                    c => c.Value.GetHashCode(),
-                    c => new TenantId(c.Value)));
 
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

@@ -74,5 +74,15 @@ namespace VanAn.CoreHub.Repositories
             DateTime startDate,
             DateTime endDate,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gets orders by device ID with null customer (for guest merge)
+        /// </summary>
+        Task<IEnumerable<Order>> GetByDeviceIdAndNullCustomerAsync(string deviceId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Bulk assigns customer to orders by device ID
+        /// </summary>
+        Task<int> BulkAssignCustomerAsync(string deviceId, Guid customerId, CancellationToken cancellationToken = default);
     }
 }

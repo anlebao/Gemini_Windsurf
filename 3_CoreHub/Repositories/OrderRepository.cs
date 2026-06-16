@@ -183,5 +183,36 @@ namespace VanAn.CoreHub.Repositories
         {
             return await _context.BeginTransactionAsync(cancellationToken);
         }
+
+        /// <summary>
+        /// Gets orders by device ID with null customer (for guest merge)
+        /// Sprint 3 incomplete - stub implementation
+        /// </summary>
+        public async Task<IEnumerable<Order>> GetByDeviceIdAndNullCustomerAsync(string deviceId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await _context.Orders
+                    .Where(o => o.CustomerDeviceId == deviceId && o.CustomerId == null)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .ToListAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting orders by device ID {DeviceId} with null customer", deviceId);
+                return new List<Order>();
+            }
+        }
+
+        /// <summary>
+        /// Bulk assigns customer to orders by device ID
+        /// Sprint 3 incomplete - stub implementation
+        /// NOTE: Order.CustomerId has protected set (immutable domain), requires proper domain method
+        /// </summary>
+        public async Task<int> BulkAssignCustomerAsync(string deviceId, Guid customerId, CancellationToken cancellationToken = default)
+        {
+            _logger.LogWarning("BulkAssignCustomerAsync called but not implemented - Sprint 3 incomplete stub");
+            return 0;
+        }
     }
 }

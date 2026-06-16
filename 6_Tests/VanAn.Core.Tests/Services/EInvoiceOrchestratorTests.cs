@@ -1,4 +1,8 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Moq;
+using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services.Orchestration;
 using VanAn.Shared.Domain;
 using Xunit;
@@ -6,29 +10,49 @@ using FluentAssertions;
 
 namespace VanAn.Core.Tests.Services;
 
-public class EInvoiceOrchestratorTests
+public class EInvoiceOrchestratorTests : IDisposable
 {
+    private readonly SqliteConnection _connection;
+    private readonly VanAnDbContext _dbContext;
     private readonly Mock<IInvoicePolicyService> _policyServiceMock;
     private readonly Mock<IRetryPolicyService> _retryServiceMock;
     private readonly Mock<IFallbackService> _fallbackServiceMock;
     private readonly Mock<IComplianceService> _complianceServiceMock;
     private readonly Mock<IWebhookService> _webhookServiceMock;
+    private readonly Mock<IOutboxRepository> _outboxRepositoryMock;
     private readonly EInvoiceOrchestrator _orchestrator;
 
     public EInvoiceOrchestratorTests()
     {
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+        var options = new DbContextOptionsBuilder<VanAnDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+        _dbContext = new VanAnDbContext(options);
+        _dbContext.Database.EnsureCreated();
+
         _policyServiceMock = new Mock<IInvoicePolicyService>();
         _retryServiceMock = new Mock<IRetryPolicyService>();
         _fallbackServiceMock = new Mock<IFallbackService>();
         _complianceServiceMock = new Mock<IComplianceService>();
         _webhookServiceMock = new Mock<IWebhookService>();
+        _outboxRepositoryMock = new Mock<IOutboxRepository>();
 
         _orchestrator = new EInvoiceOrchestrator(
             _policyServiceMock.Object,
             _retryServiceMock.Object,
             _fallbackServiceMock.Object,
             _complianceServiceMock.Object,
-            _webhookServiceMock.Object);
+            _webhookServiceMock.Object,
+            _outboxRepositoryMock.Object,
+            _dbContext);
+    }
+
+    public void Dispose()
+    {
+        _dbContext?.Dispose();
+        _connection?.Dispose();
     }
 
     [Fact]
@@ -205,7 +229,9 @@ public class EInvoiceOrchestratorTests
             _retryServiceMock.Object,
             _fallbackServiceMock.Object,
             _complianceServiceMock.Object,
-            _webhookServiceMock.Object);
+            _webhookServiceMock.Object,
+            _outboxRepositoryMock.Object,
+            _dbContext);
 
         // Assert
         orchestrator.Should().NotBeNull();

@@ -63,3 +63,17 @@ ALWAYS use UI Platform components. NEVER bypass. Full reference: docs/UI_Platfor
 
 ## SPRINT TRACKING
 Sprint protocol: .windsurf/rules/sprint_tracking.rules.md
+
+## CRITICAL ARCHITECTURAL BOUNDARIES (HARD STOPS)
+
+### Layer Boundaries
+- 3_CoreHub MUST remain pure Class Library (.dll). NO <OutputType>Exe</OutputType> allowed.
+- Gateway MUST remain pure stateless Reverse Proxy (YARP). NO DbContext, NO EF Core namespaces, NO business logic/services.
+- 5_WebApps/KhachLink (Client UI) MUST NOT inject IVanAnDbContext or query local databases. Use HTTP via Gateway only.
+- NO new .csproj files (e.g., VanAn.CoreHub.Api). Use 5_WebApps/ShopERP as main Web API Host.
+
+### Data Flow
+KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
+     ↓                  ↓                  ↓
+  HttpClient   ProductsController   ProductsController
+                (forward)         (query IVanAnDbContext)

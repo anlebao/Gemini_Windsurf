@@ -9,9 +9,10 @@ namespace VanAn.CoreHub.Infrastructure.Messaging;
 public interface IOutboxRepository
 {
     /// <summary>
-    /// Add outbox event (must be in same transaction as Invoice)
+    /// Enqueue outbox event into change tracker (does NOT call SaveChangesAsync).
+    /// Caller owns the Unit of Work and must commit the transaction.
     /// </summary>
-    Task AddAsync(OutboxEvent outboxEvent, CancellationToken cancellationToken = default);
+    Task EnqueueAsync(OutboxEvent outboxEvent, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Get pending outbox events for processing

@@ -30,9 +30,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.ReferenceType)
                 .HasMaxLength(100);
 
-            _ = builder.Property(e => e.TenantId)
-                .HasConversion<TenantIdConverter>()
-                .IsRequired();
 
             _ = builder.Property(e => e.ReversedJournalId)
                 .HasConversion<JournalEntryIdConverter>();

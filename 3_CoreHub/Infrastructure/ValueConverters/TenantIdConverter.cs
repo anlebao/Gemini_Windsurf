@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+﻿using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.ValueConverters

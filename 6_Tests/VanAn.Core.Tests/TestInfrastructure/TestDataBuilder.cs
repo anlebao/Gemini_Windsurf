@@ -12,11 +12,14 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         private readonly List<Order> _orders = [];
         private readonly List<Customer> _customers = [];
 
-        public TestDataBuilder WithShops(int count)
+        public TestDataBuilder WithShops(int count, Guid? primaryTenantId = null)
         {
             for (int i = 1; i <= count; i++)
             {
-                TenantId tenantId = new(Guid.NewGuid());
+                // First shop uses primaryTenantId (if provided) so tests can seed data
+                // that is visible through the global query filter (which filters by current tenant).
+                Guid rawId = (i == 1 && primaryTenantId.HasValue) ? primaryTenantId.Value : Guid.NewGuid();
+                TenantId tenantId = new(rawId);
                 _shops.Add(new Shop(tenantId, $"Shop {i}", $"Address {i}", $"09{i:D8}", $"shop{i}@vanan.com"));
             }
             return this;
@@ -73,11 +76,13 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
             using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await context.Database.BeginTransactionAsync();
             try
             {
-                // Clear existing data
-                context.Orders.RemoveRange(context.Orders);
-                context.Shops.RemoveRange(context.Shops);
-                context.Customers.RemoveRange(context.Customers);
-                _ = await context.SaveChangesAsync();
+                // Clear existing data via raw SQL to avoid entity materialization.
+                // Materializing entities with custom value converters can throw on SQLite TEXT columns
+                // when EF Core internal Sanitize<T> calls Convert.ChangeType for non-IConvertible types.
+                _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM OrderItems");
+                _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM Orders");
+                _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM Customers");
+                _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM Shops");
 
                 _logger?.LogInformation("[TestDataBuilder] Cleared existing data. Shops: {ShopsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", _shops.Count, _orders.Count, _customers.Count);
 
@@ -111,18 +116,22 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         }
 
         // Static factory methods for common scenarios
-        public static TestDataBuilder CreateBasicScenario()
+        /// <param name="primaryTenantId">
+        /// If provided, the first shop will use this TenantId so that seeded data
+        /// is visible through the global query filter in tests.
+        /// </param>
+        public static TestDataBuilder CreateBasicScenario(Guid? primaryTenantId = null)
         {
             return new TestDataBuilder()
-                .WithShops(2)
+                .WithShops(2, primaryTenantId)
                 .WithOrders(4)
                 .WithMixedSyncStatus();
         }
 
-        public static TestDataBuilder CreateLargeScenario()
+        public static TestDataBuilder CreateLargeScenario(Guid? primaryTenantId = null)
         {
             return new TestDataBuilder()
-                .WithShops(5)
+                .WithShops(5, primaryTenantId)
                 .WithOrders(100)
                 .WithCustomers(50)
                 .WithMixedSyncStatus();

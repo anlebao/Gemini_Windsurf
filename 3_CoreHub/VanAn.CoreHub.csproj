@@ -17,6 +17,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -36,7 +37,12 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
-  
+  <!-- TODO: Phase 6 - Temporarily exclude Sprint 3 incomplete files to unblock migration -->
+  <ItemGroup>
+    <!-- REMOVED: GuestMergeService.cs and CheckoutCompletionService.cs now required for Gateway build -->
+    <!-- REMOVED: BatchInvoiceProcessor.cs - implementation complete, enabled for Phase 6 -->
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\1_Shared\VanAn.Shared.csproj" />
     <ProjectReference Include="..\VanAn.Accounting\VanAn.Accounting.csproj" />

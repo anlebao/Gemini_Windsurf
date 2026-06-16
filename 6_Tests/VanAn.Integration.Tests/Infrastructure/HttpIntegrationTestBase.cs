@@ -1,13 +1,8 @@
 using Xunit;
 using Xunit.Abstractions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net.Http.Json;
 using System.Text.Json;
-using VanAn.Shared.Domain;
-using VanAn.Shared.Domain.Common;
-using VanAn.CoreHub.Infrastructure;
 using VanAn.Integration.Tests.Infrastructure;
 using VanAn.KhachLink;
 
@@ -16,24 +11,19 @@ namespace VanAn.Integration.Tests.Infrastructure;
 /// <summary>
 /// HTTP Integration Test Base - standalone implementation
 /// Provides HTTP client functionality with ITestOutputHelper for debugging
-/// Manages its own DbContext cleanup
+/// KhachLink uses Gateway API, not direct DB access
 /// </summary>
 public abstract class HttpIntegrationTestBase : IDisposable
 {
     protected readonly HttpClient _client;
     protected readonly ITestOutputHelper _output;
     protected readonly CustomWebApplicationFactory _factory;
-    protected readonly VanAnDbContext _dbContext;
 
     protected HttpIntegrationTestBase(CustomWebApplicationFactory factory, ITestOutputHelper output)
     {
         _output = output;
         _factory = factory;
         _client = _factory.CreateClient();
-
-        // Setup DbContext for testing
-        var scope = _factory.Services.CreateScope();
-        _dbContext = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
     }
 
     /// <summary>
@@ -127,6 +117,5 @@ public abstract class HttpIntegrationTestBase : IDisposable
     public void Dispose()
     {
         _client?.Dispose();
-        _dbContext?.Dispose();
     }
 }

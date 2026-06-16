@@ -58,6 +58,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBY2NvdW50aW5nXFRyYW5zYWN0aW9uSGlzdG9yeS5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/VibeCoding/Gemini_Windsurf/5_WebApps/ShopERP/Components/Pages/Admin/AuditTrail.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xBZG1pblxBdWRpdFRyYWlsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/VibeCoding/Gemini_Windsurf/5_WebApps/ShopERP/Components/Pages/Counter.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDb3VudGVyLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
