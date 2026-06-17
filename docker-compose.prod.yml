@@ -18,9 +18,10 @@ services:
       - vanan-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vanan_admin} -d ${POSTGRES_DB:-VanAnCoreHub}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -57,9 +58,10 @@ services:
       - vanan-network
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -83,12 +85,6 @@ services:
         condition: service_healthy
       nats:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
     restart: unless-stopped
     deploy:
       resources:
@@ -117,14 +113,7 @@ services:
     networks:
       - vanan-network
     depends_on:
-      corehub:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - corehub
     restart: unless-stopped
     deploy:
       resources:
@@ -148,14 +137,7 @@ services:
     networks:
       - vanan-network
     depends_on:
-      corehub:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - corehub
     restart: unless-stopped
     deploy:
       resources:
@@ -179,14 +161,7 @@ services:
     networks:
       - vanan-network
     depends_on:
-      gateway:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - gateway
     restart: unless-stopped
     deploy:
       resources:
