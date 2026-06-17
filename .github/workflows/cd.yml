@@ -1,0 +1,183 @@
+name: CD
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.windsurf/**'
+      - '.devin/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  # ============================================================
+  # Job 1: Build & push Docker images to GHCR
+  # ============================================================
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push CoreHub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 3_CoreHub/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/vanan-corehub:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/vanan-corehub:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=corehub
+          cache-to: type=gha,mode=max,scope=corehub
+
+      - name: Build & push Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 2_Gateway/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/vanan-gateway:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/vanan-gateway:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=gateway
+          cache-to: type=gha,mode=max,scope=gateway
+
+      - name: Build & push ShopERP
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 5_WebApps/ShopERP/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/vanan-shoperp:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/vanan-shoperp:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=shoperp
+          cache-to: type=gha,mode=max,scope=shoperp
+
+      - name: Build & push KhachLink
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: 5_WebApps/KhachLink/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/vanan-khachlink:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}/vanan-khachlink:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=khachlink
+          cache-to: type=gha,mode=max,scope=khachlink
+
+  # ============================================================
+  # Job 2: Deploy to VPS
+  # ============================================================
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: http://${{ secrets.VPS_HOST }}:5000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy deploy files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,scripts/deploy.sh"
+          target: "/opt/vanan"
+          strip_components: 0
+
+      - name: Bootstrap & Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            # --- Bootstrap Docker (idempotent, skips if already installed) ---
+            if ! command -v docker &> /dev/null; then
+              echo "Installing Docker..."
+              curl -fsSL https://get.docker.com | sh
+              sudo usermod -aG docker $USER
+              newgrp docker
+            fi
+
+            if ! docker compose version &> /dev/null; then
+              echo "Installing Docker Compose plugin..."
+              sudo apt-get install -y docker-compose-plugin
+            fi
+
+            # --- Prepare working directory ---
+            sudo mkdir -p /opt/vanan
+            sudo chown $USER:$USER /opt/vanan
+            cd /opt/vanan
+
+            # --- Write .env from GitHub Secrets ---
+            cat > .env <<EOF
+            POSTGRES_DB=VanAnCoreHub
+            POSTGRES_USER=vanan_admin
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            PGADMIN_DEFAULT_EMAIL=admin@vanan.com
+            PGADMIN_DEFAULT_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            SEQ_ADMIN_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            IMAGE_PREFIX=ghcr.io/${{ github.repository_owner }}
+            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+            EOF
+
+            # --- Login to GHCR ---
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # --- Pull latest images & restart ---
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # --- Health check ---
+            echo "Waiting for services to be healthy..."
+            sleep 20
+            docker compose -f docker-compose.prod.yml ps
+            echo "Deploy complete!"

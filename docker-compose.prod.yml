@@ -1,0 +1,208 @@
+version: '3.8'
+
+# Production compose - pulls pre-built images from GHCR
+# Requires .env file with all variables set
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vanan-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-VanAnCoreHub}
+      - POSTGRES_USER=${POSTGRES_USER:-vanan_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vanan_admin} -d ${POSTGRES_DB:-VanAnCoreHub}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  seq:
+    image: datalust/seq:latest
+    container_name: vanan-seq
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_ADMIN_PASSWORD}
+    ports:
+      - "8081:80"
+    volumes:
+      - seq_data:/data
+    networks:
+      - vanan-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: vanan-nats
+    command: ["-js", "-sd", "/data/jetstream", "-m", "8222"]
+    volumes:
+      - nats_data:/data/jetstream
+    networks:
+      - vanan-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  corehub:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-corehub:${IMAGE_TAG:-latest}
+    container_name: vanan-corehub
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
+      - NATS__Url=nats://nats:4222
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    networks:
+      - vanan-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  gateway:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-gateway:${IMAGE_TAG:-latest}
+    container_name: vanan-gateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
+      - ConnectionStrings__Nats=nats://nats:4222
+      - Nats__Url=nats://nats:4222
+      - CoreHub__BaseUrl=http://corehub:80
+      - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    ports:
+      - "5000:80"
+    networks:
+      - vanan-network
+    depends_on:
+      corehub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  shoperp:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-shoperp:${IMAGE_TAG:-latest}
+    container_name: vanan-shoperp
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    ports:
+      - "5002:80"
+    networks:
+      - vanan-network
+    depends_on:
+      corehub:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  khachlink:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-khachlink:${IMAGE_TAG:-latest}
+    container_name: vanan-khachlink
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    ports:
+      - "5003:80"
+    networks:
+      - vanan-network
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  nats_data:
+  seq_data:
+
+networks:
+  vanan-network:
+    driver: bridge
