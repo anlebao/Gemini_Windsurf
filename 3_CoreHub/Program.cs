@@ -1,3 +1,4 @@
+// Build: 2026-06-17 (OutputType=Exe fix)
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -90,7 +91,7 @@ namespace VanAn.CoreHub
                     // Event handling services
                     _ = services.AddHostedService<SimpleAccountingEventHandler>();
 
-                    // E-Invoice Services (Sprint 3 — R4 DI wiring)
+                    // E-Invoice Services (Sprint 3 â€” R4 DI wiring)
                     _ = services.AddMemoryCache();
                     _ = services.AddScoped<IOutboxRepository, OutboxRepository>();
                     _ = services.AddScoped<IInvoicePolicyService, InvoicePolicyService>();
