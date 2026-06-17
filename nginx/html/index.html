@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="vi" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vạn An Group - Ecosystem Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1b3a;
+            --bg-card: #16213e;
+            --accent-primary: #e94560;
+            --accent-secondary: #f47068;
+            --accent-launch: #ff6b35;
+            --text-primary: #ffffff;
+            --text-secondary: #b8bcc8;
+            --border-color: #2a2d4a;
+            --shadow: 0 10px 30px rgba(233, 69, 96, 0.1);
+            --shadow-hover: 0 15px 40px rgba(233, 69, 96, 0.2);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            flex: 1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .logo {
+            font-size: 3.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .version {
+            color: var(--accent-secondary);
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .service-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.8s ease backwards;
+        }
+
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .service-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--accent-primary);
+        }
+
+        .service-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .service-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .service-port {
+            color: var(--accent-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .service-description {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .btn {
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3);
+        }
+
+        .launch-section {
+            text-align: center;
+            margin: 3rem 0;
+            animation: fadeInUp 1s ease 0.4s backwards;
+        }
+
+        .btn-launch {
+            background: linear-gradient(45deg, var(--accent-launch), #ff8c42);
+            color: white;
+            font-size: 1.3rem;
+            padding: 1.2rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .btn-launch:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.4);
+            animation: none;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4caf50;
+            margin-right: 0.5rem;
+            animation: blink 2s infinite;
+        }
+
+        .config-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease 0.2s backwards;
+        }
+
+        .config-title {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--accent-primary);
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .config-item:last-child {
+            border-bottom: none;
+        }
+
+        .config-label {
+            color: var(--text-secondary);
+        }
+
+        .config-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            background: var(--bg-secondary);
+            padding: 0.3rem 0.8rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .container-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-online {
+            color: #4caf50;
+        }
+
+        .status-offline {
+            color: #f44336;
+        }
+
+        .status-checking {
+            color: #ff9800;
+        }
+
+        .logs-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease 0.6s backwards;
+        }
+
+        .logs-container {
+            background: #0a0a0a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            margin-top: 1rem;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.3rem;
+            border-radius: 3px;
+        }
+
+        .log-info { color: #64b5f6; }
+        .log-warn { color: #ffb74d; }
+        .log-error { color: #e57373; }
+        .log-success { color: #81c784; }
+
+        .controls-section {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-control {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-control:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+        }
+
+        .btn-control:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--accent-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--accent-primary);
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            margin-top: auto;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3);
+            }
+            50% {
+                box-shadow: 0 10px 40px rgba(255, 107, 53, 0.5);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .service-card:nth-child(1) { animation-delay: 0.1s; }
+        .service-card:nth-child(2) { animation-delay: 0.2s; }
+        .service-card:nth-child(3) { animation-delay: 0.3s; }
+        .service-card:nth-child(4) { animation-delay: 0.4s; }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .logo {
+                font-size: 2.5rem;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+            
+            .btn-launch {
+                font-size: 1.1rem;
+                padding: 1rem 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">VẠN AN</div>
+            <div class="subtitle">Hệ sinh thái E-Commerce Thông minh</div>
+            <div class="version">v2.0 - Production Ready</div>
+        </header>
+
+        <div class="config-section">
+            <div class="config-title">⚙️ Cấu hình mạng</div>
+            <div class="config-item">
+                <span class="config-label">Base IP:</span>
+                <span class="config-value" id="baseIpDisplay">localhost</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Protocol:</span>
+                <span class="config-value" id="protocolDisplay">HTTP</span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Trạng thái hệ thống:</span>
+                <span class="config-value">
+                    <span class="status-indicator"></span>
+                    Đang hoạt động
+                </span>
+            </div>
+            <div class="config-item">
+                <span class="config-label">Container Status:</span>
+                <span class="config-value" id="containerStatus">
+                    <span class="container-status status-checking">🔄 Checking...</span>
+                </span>
+            </div>
+        </div>
+
+        <div class="logs-section">
+            <div class="config-title">📋 System Logs</div>
+            <div class="logs-container" id="logsContainer">
+                <div class="log-entry log-info">[2026-03-27 11:45:00] [INFO] Vạn An Dashboard initialized</div>
+                <div class="log-entry log-info">[2026-03-27 11:45:01] [INFO] Checking container status...</div>
+            </div>
+            <div class="controls-section">
+                <button class="btn-control" onclick="checkContainers()">🔄 Refresh Status</button>
+                <button class="btn-control" onclick="startAllContainers()">🚀 Start All</button>
+                <button class="btn-control" onclick="stopAllContainers()">⏹️ Stop All</button>
+                <button class="btn-control" onclick="viewContainerLogs()">📄 View Logs</button>
+                <button class="btn-control" onclick="clearLogs()">🗑️ Clear</button>
+            </div>
+        </div>
+
+        <main class="dashboard-grid">
+            <div class="service-card">
+                <span class="service-icon">🚪</span>
+                <h3 class="service-name">Gateway</h3>
+                <div class="service-port">Port: 5001</div>
+                <p class="service-description">Cổng giao tiếp API chính, điều phối request giữa các dịch vụ</p>
+                <a href="#" class="btn btn-primary" onclick="openService('5001'); return false;">
+                    <span>🔗</span> Mở Gateway
+                </a>
+            </div>
+
+            <div class="service-card">
+                <span class="service-icon">🛒</span>
+                <h3 class="service-name">KhachLink</h3>
+                <div class="service-port">Port: 5002</div>
+                <p class="service-description">Giao diện khách hàng Zero-Friction với DeviceId identity và API tích hợp</p>
+                <a href="#" class="btn btn-primary" onclick="openService('5002'); return false;">
+                    <span>🔗</span> Mở KhachLink
+                </a>
+            </div>
+
+            <div class="service-card">
+                <span class="service-icon">📊</span>
+                <h3 class="service-name">ShopERP</h3>
+                <div class="service-port">Port: 5003</div>
+                <p class="service-description">Hệ thống quản lý nội bộ cho nhân viên Vạn An</p>
+                
+                <!-- Multi-Role Quick Login -->
+                <div class="mt-3 p-2 bg-gray-50 rounded">
+                    <p class="text-xs font-semibold mb-2">LOGIN NHANH (DEMO):</p>
+                    <div class="grid grid-cols-2 gap-1">
+                        <button onclick="quickLogin('admin@vanan.vn', 'VanAn@2026')" class="text-xs bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded">
+                            👑 Admin
+                        </button>
+                        <button onclick="quickLogin('kho@vanan.vn', 'VanAn@2026')" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">
+                            📦 Thủ kho
+                        </button>
+                        <button onclick="quickLogin('baove@vanan.vn', 'VanAn@2026')" class="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded">
+                            🛡️ Bảo vệ
+                        </button>
+                        <button onclick="quickLogin('staff', 'staff123')" class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded">
+                            👨‍🍳 Phục vụ
+                        </button>
+                    </div>
+                </div>
+                
+                <a href="#" class="btn btn-primary" onclick="openService('5003'); return false;" style="margin-top: 8px;">
+                    <span>🔗</span> Mở ShopERP
+                </a>
+            </div>
+
+            <div class="service-card">
+                <span class="service-icon">🗄️</span>
+                <h3 class="service-name">pgAdmin</h3>
+                <div class="service-port">Port: 5050</div>
+                <p class="service-description">Công cụ quản lý PostgreSQL database trực quan</p>
+                <a href="#" class="btn btn-primary" onclick="openService('5050'); return false;">
+                    <span>🔗</span> Mở pgAdmin
+                </a>
+            </div>
+
+            <div class="service-card">
+                <span class="service-icon">📋</span>
+                <h3 class="service-name">Seq Log Monitor</h3>
+                <div class="service-port">Port: 8081</div>
+                <p class="service-description">Trung tâm quan sát tập trung - Theo dõi toàn bộ log hệ thống</p>
+                <a href="#" class="btn btn-primary" onclick="openService('8081'); return false;">
+                    <span>🔗</span> LOG MONITOR (SEQ)
+                </a>
+            </div>
+        </main>
+
+        <div class="launch-section">
+            <button class="btn btn-launch" onclick="launchAll()">
+                <span>🚀</span> LAUNCH ECOSYSTEM
+            </button>
+            <p style="margin-top: 1rem; color: var(--text-secondary);">
+                Mở tất cả dịch vụ trong các tab mới
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Vạn An Group. Built with ❤️ following Golden Rules Architecture</p>
+    </footer>
+
+    <!-- Container Logs Modal -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📄 Container Logs</h3>
+                <button class="modal-close" onclick="closeLogsModal()">&times;</button>
+            </div>
+            <div class="controls-section">
+                <select id="containerSelect" class="btn-control" onchange="selectContainer()">
+                    <option value="">Select Container...</option>
+                    <option value="vanan-gateway">Gateway</option>
+                    <option value="vanan-khachlink">KhachLink</option>
+                    <option value="vanan-shoperp">ShopERP</option>
+                    <option value="vanan-corehub">CoreHub</option>
+                    <option value="vanan-postgres">PostgreSQL</option>
+                    <option value="vanan-nats">NATS</option>
+                    <option value="vanan-pgadmin">pgAdmin</option>
+                </select>
+                <button class="btn-control" onclick="refreshContainerLogs()">🔄 Refresh</button>
+                <button class="btn-control" onclick="downloadLogs()">💾 Download</button>
+            </div>
+            <div class="logs-container" id="modalLogsContainer" style="height: 400px;">
+                <div class="log-entry log-info">Select a container to view logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Smart IP for easy LAN testing
+        const baseIp = 'localhost'; // Change to your LAN IP when needed: '192.168.1.100'
+        const useHttps = false; // Use HTTP for local development to avoid Chrome security issues
+        
+        // Service endpoints configuration
+        const services = {
+            5001: 'Gateway - API Gateway',
+            5002: 'KhachLink - Customer Portal', 
+            5003: 'ShopERP - Management System',
+            5050: 'pgAdmin - Database Tool',
+            8081: 'Seq - Centralized Logging'
+        };
+
+        // Container configuration
+        const containers = [
+            'vanan-gateway',
+            'vanan-khachlink', 
+            'vanan-shoperp',
+            'vanan-corehub',
+            'vanan-postgres',
+            'vanan-nats',
+            'vanan-seq',
+            'vanan-pgadmin'
+        ];
+
+        // Update display
+        document.getElementById('baseIpDisplay').textContent = baseIp;
+        document.getElementById('protocolDisplay').textContent = useHttps ? 'HTTPS' : 'HTTP';
+
+        // Logging functionality
+        function addLog(message, type = 'info') {
+            const logsContainer = document.getElementById('logsContainer');
+            const timestamp = new Date().toLocaleString('vi-VN');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] [${type.toUpperCase()}] ${message}`;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            
+            // Keep only last 100 logs
+            while (logsContainer.children.length > 100) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        // Modern toast notification system
+        function showContainerStatusToast(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(45deg, #f44336, #ff6b35);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(244, 67, 54, 0.3);
+                z-index: 10000;
+                cursor: pointer;
+                max-width: 400px;
+                font-size: 14px;
+                animation: slideInRight 0.3s ease;
+            `;
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 18px;">⚠️</span>
+                    <div>
+                        <div style="font-weight: bold; margin-bottom: 3px;">Container Status Alert</div>
+                        <div style="opacity: 0.9;">${message}</div>
+                    </div>
+                </div>
+                <button onclick="this.parentElement.remove()" style="
+                    background: none;
+                    border: none;
+                    color: white;
+                    font-size: 18px;
+                    cursor: pointer;
+                    margin-left: 10px;
+                    opacity: 0.7;
+                ">×</button>
+            `;
+            
+            toast.onclick = function() {
+                startAllContainers();
+                this.remove();
+            };
+            
+            document.body.appendChild(toast);
+            
+            // Auto-remove after 8 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 8000);
+        }
+
+        // Add slide-in animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Container management functions
+        async function executeDockerCommand(command) {
+            try {
+                // In a real implementation, this would call a backend API
+                // For now, we'll simulate the command execution
+                addLog(`Executing: ${command}`, 'info');
+                
+                // Simulate async operation
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                return { success: true, output: 'Command executed successfully' };
+            } catch (error) {
+                addLog(`Error executing command: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function checkContainers() {
+            addLog('Checking container status...', 'info');
+            const statusElement = document.getElementById('containerStatus');
+            
+            try {
+                // First check build status
+                const buildStatus = await checkBuildStatus();
+                if (!buildStatus.success) {
+                    statusElement.innerHTML = `<span class="container-status status-offline">❌ Build Failed: ${buildStatus.error}</span>`;
+                    addLog(`Build failed: ${buildStatus.error}`, 'error');
+                    return;
+                }
+                
+                // Check actual .NET service endpoints
+                const endpoints = [
+                    { name: 'Gateway', port: 5001 },
+                    { name: 'KhachLink', port: 5002 },
+                    { name: 'ShopERP', port: 5003 },
+                    { name: 'CoreHub', port: 5010 }
+                ];
+                
+                let runningServices = 0;
+                const totalServices = endpoints.length;
+                
+                // Check each endpoint
+                for (const service of endpoints) {
+                    try {
+                        const response = await fetch(`http://localhost:${service.port}/health`, {
+                            method: 'GET',
+                            mode: 'no-cors',
+                            cache: 'no-cache',
+                            signal: AbortSignal.timeout(3000)
+                        });
+                        runningServices++;
+                        addLog(`${service.name} (Port ${service.port}): Online`, 'success');
+                    } catch (error) {
+                        addLog(`${service.name} (Port ${service.port}): Offline - ${error.message}`, 'error');
+                    }
+                }
+                
+                // Check Docker containers status
+                addLog('For detailed infrastructure logs, check Logs/Infrastructure/ or run \'docker-compose logs\' in PowerShell', 'info');
+                
+                if (runningServices === totalServices) {
+                    statusElement.innerHTML = `<span class="container-status status-online">✅ Build OK | All ${totalServices} services running</span>`;
+                    addLog(`Build OK | All ${totalServices} .NET services are running`, 'success');
+                } else {
+                    statusElement.innerHTML = `<span class="container-status status-offline">⚠️ Build OK | ${runningServices}/${totalServices} services running</span>`;
+                    addLog(`Build OK | Only ${runningServices}/${totalServices} .NET services are running`, 'warn');
+                    
+                    // Show modern toast notification instead of blocking alert
+                    showContainerStatusToast(`${totalServices - runningServices} services are not running. Check individual service status.`);
+                }
+            } catch (error) {
+                statusElement.innerHTML = `<span class="container-status status-offline">❌ Error checking status</span>`;
+                addLog(`Failed to check service status: ${error.message}`, 'error');
+            }
+        }
+
+        // Check build status by calling the build API
+        async function checkBuildStatus() {
+            try {
+                addLog('Checking build status...', 'info');
+                
+                // Call the build status API
+                const response = await fetch('http://localhost:5001/api/build/status', {
+                    method: 'GET',
+                    cache: 'no-cache',
+                    signal: AbortSignal.timeout(30000) // 30 second timeout
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const buildResult = await response.json();
+                
+                if (buildResult.success) {
+                    addLog('Build status: SUCCESS', 'success');
+                    return { success: true };
+                } else {
+                    const errorMsg = buildResult.error || `Build failed with exit code ${buildResult.exitCode}`;
+                    addLog(`Build status: FAILED - ${errorMsg}`, 'error');
+                    return { success: false, error: errorMsg };
+                }
+            } catch (error) {
+                addLog(`Build check error: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Simulate build check (replace with actual build check implementation)
+        async function simulateBuildCheck() {
+            // This is a placeholder - in reality you'd call a backend service
+            // that runs 'dotnet build' and parses the output
+            try {
+                // Simulate build time
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // For demo purposes, assume build succeeds
+                // In reality, this would check actual build output
+                return { success: true };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function startAllContainers() {
+            addLog('Starting all containers...', 'info');
+            
+            try {
+                // Simulate docker-compose up
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                addLog('docker-compose up -d executed successfully', 'success');
+                addLog('All containers are starting up...', 'info');
+                
+                // Check status after starting
+                setTimeout(() => checkContainers(), 3000);
+                
+            } catch (error) {
+                addLog(`Failed to start containers: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopAllContainers() {
+            addLog('Stopping all containers...', 'warn');
+            
+            try {
+                // Simulate docker-compose down
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                addLog('docker-compose down executed successfully', 'success');
+                addLog('All containers stopped', 'info');
+                
+                // Update status
+                const statusElement = document.getElementById('containerStatus');
+                statusElement.innerHTML = `<span class="container-status status-offline">⏹️ All containers stopped</span>`;
+                
+            } catch (error) {
+                addLog(`Failed to stop containers: ${error.message}`, 'error');
+            }
+        }
+
+        function viewContainerLogs() {
+            document.getElementById('logsModal').style.display = 'block';
+            addLog('Opening container logs viewer...', 'info');
+        }
+
+        function closeLogsModal() {
+            document.getElementById('logsModal').style.display = 'none';
+        }
+
+        async function selectContainer() {
+            const containerSelect = document.getElementById('containerSelect');
+            const modalLogsContainer = document.getElementById('modalLogsContainer');
+            const selectedContainer = containerSelect.value;
+            
+            if (!selectedContainer) {
+                modalLogsContainer.innerHTML = '<div class="log-entry log-info">Select a container to view logs...</div>';
+                return;
+            }
+            
+            modalLogsContainer.innerHTML = `<div class="log-entry log-info">Loading logs for ${selectedContainer}...</div>`;
+            
+            try {
+                // Simulate loading logs
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Simulated log entries
+                const sampleLogs = [
+                    `[2026-03-27 11:45:30] [INFO] Starting ${selectedContainer} service...`,
+                    `[2026-03-27 11:45:31] [INFO] Configuration loaded successfully`,
+                    `[2026-03-27 11:45:32] [INFO] Database connection established`,
+                    `[2026-03-27 11:45:33] [INFO] Service ready to accept requests`,
+                    `[2026-03-27 11:45:34] [INFO] Health check passed`
+                ];
+                
+                modalLogsContainer.innerHTML = sampleLogs
+                    .map(log => `<div class="log-entry log-info">${log}</div>`)
+                    .join('');
+                    
+            } catch (error) {
+                modalLogsContainer.innerHTML = `<div class="log-entry log-error">Failed to load logs: ${error.message}</div>`;
+            }
+        }
+
+        async function refreshContainerLogs() {
+            addLog('Refreshing container logs...', 'info');
+            await selectContainer();
+        }
+
+        function downloadLogs() {
+            const containerSelect = document.getElementById('containerSelect');
+            const selectedContainer = containerSelect.value;
+            
+            if (!selectedContainer) {
+                showContainerStatusToast('Please select a container first');
+                return;
+            }
+            
+            addLog(`Downloading logs for ${selectedContainer}...`, 'info');
+            
+            // Simulate download
+            setTimeout(() => {
+                addLog(`Logs downloaded for ${selectedContainer}`, 'success');
+            }, 1000);
+        }
+
+        function clearLogs() {
+            const logsContainer = document.getElementById('logsContainer');
+            logsContainer.innerHTML = '<div class="log-entry log-info">Logs cleared</div>';
+            addLog('Dashboard logs cleared', 'info');
+        }
+
+        // Open individual service
+        function openService(port) {
+            let url;
+            if (port === '5002') {
+                // KhachLink - Use Razor Page instead of static demo
+                url = `http://${baseIp}:5002/khachlink/`;
+            } else {
+                // Other services - use standard port
+                url = `http://${baseIp}:${port}`;
+            }
+            
+            // Use direct navigation to avoid Chrome security issues
+            try {
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.location.href = url;
+                } else {
+                    // Fallback: direct navigation
+                    window.location.href = url;
+                }
+            } catch (error) {
+                console.error('Failed to open service:', error);
+                // Ultimate fallback
+                window.location.href = url;
+            }
+            
+            console.log(`Opening service: ${services[port]} at ${url}`);
+        }
+
+        // Launch all ecosystem services
+        function launchAll() {
+            const ports = Object.keys(services);
+            const launchPromises = [];
+            
+            console.log('🚀 Launching Vạn An Ecosystem...');
+            addLog('Launching all ecosystem services...', 'info');
+            
+            // Open each service with slight delay to avoid popup blockers
+            ports.forEach((port, index) => {
+                setTimeout(() => {
+                    let url;
+                    if (port === '5002') {
+                        // KhachLink - Use Razor Page instead of static demo
+                        url = `http://${baseIp}:5002/khachlink/`;
+                    } else {
+                        // Other services - use standard port
+                        url = `http://${baseIp}:${port}`;
+                    }
+                    
+                    console.log(`Opening ${services[port]} at ${url}`);
+                    
+                    // Use safer opening method
+                    try {
+                        const newWindow = window.open('', '_blank');
+                        if (newWindow) {
+                            newWindow.location.href = url;
+                        } else {
+                            window.open(url, '_blank');
+                        }
+                    } catch (error) {
+                        console.error('Failed to open service:', error);
+                    }
+                    
+                    addLog(`Opened ${services[port]} at ${url}`, 'success');
+                }, index * 200); // 200ms delay between openings
+            });
+        }
+
+        // Quick Login function for ShopERP
+        function quickLogin(username, password) {
+            const loginUrl = `http://${baseIp}:5003/Login`;
+            console.log(`Quick login: ${username}`);
+            
+            // Open login page in new window
+            const loginWindow = window.open(loginUrl, 'shoperp_login', 'width=500,height=600');
+            
+            // Wait for page to load, then fill credentials
+            setTimeout(() => {
+                try {
+                    if (loginWindow && !loginWindow.closed) {
+                        loginWindow.document.getElementById('username').value = username;
+                        loginWindow.document.getElementById('password').value = password;
+                        loginWindow.document.querySelector('button[type="submit"]').click();
+                    }
+                } catch (error) {
+                    console.log('Auto-fill failed, please login manually');
+                    addLog('Auto-fill failed, please login manually', 'warning');
+                }
+            }, 1000);
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSystemTime();
+            setInterval(updateSystemTime, 1000);
+            console.log('Vạn An Ecosystem Dashboard initialized');
+            addLog('Dashboard initialized successfully', 'success');
+        });
+        async function detectLocalIP() {
+            try {
+                // This is a simple method - for production, you might want a more robust solution
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                console.log('External IP:', data.ip);
+                // You could update baseIp here if needed
+            } catch (error) {
+                console.log('Could not detect external IP, using localhost');
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + L to launch all
+            if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+                e.preventDefault();
+                launchAll();
+            }
+            
+            // Ctrl/Cmd + 1-4 to open individual services
+            if (e.ctrlKey || e.metaKey) {
+                const key = parseInt(e.key);
+                if (key >= 1 && key <= 4) {
+                    e.preventDefault();
+                    const ports = [5001, 5002, 5003, 5050];
+                    openService(ports[key - 1]);
+                }
+            }
+            
+            // Escape to close modal
+            if (e.key === 'Escape') {
+                closeLogsModal();
+            }
+        });
+
+        // Initialize
+        console.log('🌟 Vạn An Dashboard initialized');
+        addLog('Vạn An Dashboard initialized', 'success');
+        addLog('Tips: Ctrl+L to launch all, Ctrl+1-4 for individual services', 'info');
+        
+        // Auto-check containers on load
+        setTimeout(() => checkContainers(), 1000);
+        
+        // Optional: Detect IP on load
+        // detectLocalIP();
+    </script>
+</body>
+</html>

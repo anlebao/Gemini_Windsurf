@@ -184,6 +184,8 @@ namespace VanAn.KhachLink
 
             _ = app.MapFallbackToPage("/Index"); // Proper fallback to Razor Page, not static HTML
 
+            _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn KhachLink", Timestamp = DateTime.UtcNow }));
+
 
 
             string urls = builder.Configuration["ASPNETCORE_URLS"] ?? "http://0.0.0.0:5002";

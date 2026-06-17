@@ -35,8 +35,6 @@ services:
     environment:
       - ACCEPT_EULA=Y
       - SEQ_FIRSTRUN_ADMINPASSWORD=${SEQ_ADMIN_PASSWORD}
-    ports:
-      - "8081:80"
     volumes:
       - seq_data:/data
     networks:
@@ -108,12 +106,16 @@ services:
       - CoreHub__BaseUrl=http://corehub:80
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
-    ports:
-      - "5000:80"
     networks:
       - vanan-network
     depends_on:
       - corehub
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
     deploy:
       resources:
@@ -132,12 +134,16 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
-    ports:
-      - "5002:80"
     networks:
       - vanan-network
     depends_on:
       - corehub
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
     deploy:
       resources:
@@ -156,12 +162,16 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
-    ports:
-      - "5003:80"
     networks:
       - vanan-network
     depends_on:
       - gateway
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
     deploy:
       resources:
@@ -173,10 +183,46 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: vanan-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_conf:/etc/letsencrypt:ro
+    networks:
+      - vanan-network
+    depends_on:
+      - gateway
+      - shoperp
+      - khachlink
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: vanan-certbot
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   nats_data:
   seq_data:
+  certbot_www:
+  certbot_conf:
 
 networks:
   vanan-network:
