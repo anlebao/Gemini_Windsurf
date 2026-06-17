@@ -124,8 +124,17 @@ namespace VanAn.Gateway
                 _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn Gateway", Timestamp = DateTime.UtcNow }));
 
                 // ÉP CỨNG BINDING - Fix 404
-                app.Urls.Add("http://0.0.0.0:5001");
-                app.Run("http://0.0.0.0:5001");
+                // Respect ASPNETCORE_URLS env (Docker: http://+:80). Fallback to 5001 for local dev.
+                var aspUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+                if (!string.IsNullOrEmpty(aspUrls))
+                {
+                    app.Run();
+                }
+                else
+                {
+                    app.Urls.Add("http://0.0.0.0:5001");
+                    app.Run("http://0.0.0.0:5001");
+                }
             }
             catch (Exception ex)
             {
