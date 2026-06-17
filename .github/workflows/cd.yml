@@ -134,17 +134,18 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG
           script: |
             set -e
 
             # Bootstrap Docker (idempotent)
-            if ! command -v docker &> /dev/null; then
+            if ! command -v docker > /dev/null 2>&1; then
               echo "Installing Docker..."
               curl -fsSL https://get.docker.com | sh
               sudo usermod -aG docker $USER
             fi
 
-            if ! docker compose version &> /dev/null 2>&1; then
+            if ! docker compose version > /dev/null 2>&1; then
               echo "Installing Docker Compose plugin..."
               sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
             fi
@@ -154,23 +155,23 @@ jobs:
             sudo chown $USER:$USER /opt/vanan
             cd /opt/vanan
 
-            # Write .env from secrets (passed as env vars by ssh-action)
-            cat > .env << 'ENVEOF'
-            POSTGRES_DB=VanAnCoreHub
-            POSTGRES_USER=vanan_admin
-            ENVEOF
-            echo "POSTGRES_PASSWORD=$DEPLOY_POSTGRES_PASSWORD" >> .env
-            echo "PGADMIN_DEFAULT_EMAIL=admin@vanan.com" >> .env
-            echo "PGADMIN_DEFAULT_PASSWORD=$DEPLOY_POSTGRES_PASSWORD" >> .env
-            echo "SEQ_ADMIN_PASSWORD=$DEPLOY_POSTGRES_PASSWORD" >> .env
-            echo "JWT_SECRET_KEY=$DEPLOY_JWT_SECRET_KEY" >> .env
-            echo "IMAGE_PREFIX=$DEPLOY_REGISTRY/$DEPLOY_REPO_OWNER" >> .env
-            echo "IMAGE_TAG=$DEPLOY_IMAGE_TAG" >> .env
+            # Write .env using printf (no heredoc)
+            printf '%s\n' \
+              "POSTGRES_DB=VanAnCoreHub" \
+              "POSTGRES_USER=vanan_admin" \
+              "POSTGRES_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
+              "PGADMIN_DEFAULT_EMAIL=admin@vanan.com" \
+              "PGADMIN_DEFAULT_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
+              "SEQ_ADMIN_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
+              "JWT_SECRET_KEY=${DEPLOY_JWT_SECRET_KEY}" \
+              "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
+              "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              > .env
 
             # Login to GHCR
-            echo "$DEPLOY_GITHUB_TOKEN" | docker login ghcr.io -u "$DEPLOY_GITHUB_ACTOR" --password-stdin
+            echo "${DEPLOY_GITHUB_TOKEN}" | docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
 
-            # Pull & restart
+            # Pull latest images & restart
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
