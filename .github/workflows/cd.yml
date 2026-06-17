@@ -110,9 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     timeout-minutes: 15
-    environment:
-      name: production
-      url: http://${{ secrets.VPS_HOST }}:5000
+    environment: production
 
     steps:
       - name: Checkout
