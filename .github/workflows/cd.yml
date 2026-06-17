@@ -153,7 +153,7 @@ jobs:
               sudo usermod -aG docker $USER
             fi
 
-            if ! docker compose version > /dev/null 2>&1; then
+            if ! sudo docker compose version > /dev/null 2>&1; then
               echo "Installing Docker Compose plugin..."
               sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
             fi
@@ -173,16 +173,16 @@ jobs:
               "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
               > .env
 
-            # Login to GHCR
-            echo "${DEPLOY_GITHUB_TOKEN}" | docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
+            # Login to GHCR (use sudo to ensure docker socket access)
+            echo "${DEPLOY_GITHUB_TOKEN}" | sudo docker login ghcr.io -u "${DEPLOY_GITHUB_ACTOR}" --password-stdin
 
             # Pull latest images & restart
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            sudo docker compose -f docker-compose.prod.yml pull
+            sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
             # Health check
             sleep 20
-            docker compose -f docker-compose.prod.yml ps
+            sudo docker compose -f docker-compose.prod.yml ps
             echo "Deploy complete!"
         env:
           DEPLOY_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
