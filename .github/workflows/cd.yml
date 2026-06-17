@@ -116,6 +116,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare deploy directory on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script: |
+            sudo mkdir -p /opt/vanan
+            sudo chown $USER:$USER /opt/vanan
+
       - name: Copy deploy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -148,9 +158,6 @@ jobs:
               sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
             fi
 
-            # Prepare working directory
-            sudo mkdir -p /opt/vanan
-            sudo chown $USER:$USER /opt/vanan
             cd /opt/vanan
 
             # Write .env using printf (no heredoc)
