@@ -11,7 +11,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   # ============================================================
@@ -39,7 +38,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
+      - name: Extract image tag (git SHA short)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -58,8 +57,8 @@ jobs:
           file: 3_CoreHub/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/vanan-corehub:${{ steps.meta.outputs.version }}
-            ${{ env.IMAGE_PREFIX }}/vanan-corehub:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-corehub:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-corehub:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=corehub
           cache-to: type=gha,mode=max,scope=corehub
@@ -71,8 +70,8 @@ jobs:
           file: 2_Gateway/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/vanan-gateway:${{ steps.meta.outputs.version }}
-            ${{ env.IMAGE_PREFIX }}/vanan-gateway:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=gateway
           cache-to: type=gha,mode=max,scope=gateway
@@ -84,8 +83,8 @@ jobs:
           file: 5_WebApps/ShopERP/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/vanan-shoperp:${{ steps.meta.outputs.version }}
-            ${{ env.IMAGE_PREFIX }}/vanan-shoperp:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=shoperp
           cache-to: type=gha,mode=max,scope=shoperp
@@ -97,8 +96,8 @@ jobs:
           file: 5_WebApps/KhachLink/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/vanan-khachlink:${{ steps.meta.outputs.version }}
-            ${{ env.IMAGE_PREFIX }}/vanan-khachlink:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=khachlink
           cache-to: type=gha,mode=max,scope=khachlink
@@ -138,46 +137,52 @@ jobs:
           script: |
             set -e
 
-            # --- Bootstrap Docker (idempotent, skips if already installed) ---
+            # Bootstrap Docker (idempotent)
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
               curl -fsSL https://get.docker.com | sh
               sudo usermod -aG docker $USER
-              newgrp docker
             fi
 
-            if ! docker compose version &> /dev/null; then
+            if ! docker compose version &> /dev/null 2>&1; then
               echo "Installing Docker Compose plugin..."
-              sudo apt-get install -y docker-compose-plugin
+              sudo apt-get update -qq && sudo apt-get install -y docker-compose-plugin
             fi
 
-            # --- Prepare working directory ---
+            # Prepare working directory
             sudo mkdir -p /opt/vanan
             sudo chown $USER:$USER /opt/vanan
             cd /opt/vanan
 
-            # --- Write .env from GitHub Secrets ---
-            cat > .env <<EOF
+            # Write .env from secrets (passed as env vars by ssh-action)
+            cat > .env << 'ENVEOF'
             POSTGRES_DB=VanAnCoreHub
             POSTGRES_USER=vanan_admin
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            PGADMIN_DEFAULT_EMAIL=admin@vanan.com
-            PGADMIN_DEFAULT_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            SEQ_ADMIN_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-            IMAGE_PREFIX=ghcr.io/${{ github.repository_owner }}
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-            EOF
+            ENVEOF
+            echo "POSTGRES_PASSWORD=$DEPLOY_POSTGRES_PASSWORD" >> .env
+            echo "PGADMIN_DEFAULT_EMAIL=admin@vanan.com" >> .env
+            echo "PGADMIN_DEFAULT_PASSWORD=$DEPLOY_POSTGRES_PASSWORD" >> .env
+            echo "SEQ_ADMIN_PASSWORD=$DEPLOY_POSTGRES_PASSWORD" >> .env
+            echo "JWT_SECRET_KEY=$DEPLOY_JWT_SECRET_KEY" >> .env
+            echo "IMAGE_PREFIX=$DEPLOY_REGISTRY/$DEPLOY_REPO_OWNER" >> .env
+            echo "IMAGE_TAG=$DEPLOY_IMAGE_TAG" >> .env
 
-            # --- Login to GHCR ---
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Login to GHCR
+            echo "$DEPLOY_GITHUB_TOKEN" | docker login ghcr.io -u "$DEPLOY_GITHUB_ACTOR" --password-stdin
 
-            # --- Pull latest images & restart ---
+            # Pull & restart
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # --- Health check ---
-            echo "Waiting for services to be healthy..."
+            # Health check
             sleep 20
             docker compose -f docker-compose.prod.yml ps
             echo "Deploy complete!"
+        env:
+          DEPLOY_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DEPLOY_JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          DEPLOY_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_GITHUB_ACTOR: ${{ github.actor }}
+          DEPLOY_REGISTRY: ${{ env.REGISTRY }}
+          DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
+          DEPLOY_IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
