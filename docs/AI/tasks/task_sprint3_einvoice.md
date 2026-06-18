@@ -1,5 +1,14 @@
 # TASK CARD: [SPRINT 3] - [PHASE 5] - E-Invoice Multi-Provider Integration
 
+> **⚠️ STATUS UPDATE (REVIEW 2026-06-18):** Card này là ANALYZE-phase gốc của Sprint 3. Implementation đã diễn ra và được theo dõi bởi card Sprint 3B (`task_sprint3b_provider_integration.md`). Card này **SUPERSEDED by Sprint 3B** cho phần backend/services. Các hạng mục UI/E2E/Controller CHƯA done — cần task card mới.
+>
+> **Tóm tắt thực trạng (verified 2026-06-18):**
+> - ✅ DONE: Domain models (6 entities + 4 enums), Provider interfaces (11 files), Circuit breaker, Outbox pattern, DI wiring
+> - ❌ MISSING: HKDElectronicInvoiceController (DELETED commit e89b6c6), 6 EInvoice Razor pages (0 exist), 3 E2E Playwright specs (0 exist)
+> - ⚠️ STUB: POS providers (KiotViet, Sapo) — deferred Sprint 4
+> - ❌ DEAD CODE: `EInvoiceE2ETests.cs` (5 tests gọi endpoints không tồn tại, disabled in CI)
+> - ⚠️ PARTIAL: Unit tests (xem Sprint 3B review)
+
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Implement E-Invoice multi-provider integration với domain models, provider interfaces, circuit breaker và outbox pattern cho hệ thống kế toán HKD.
 - **Nghiệp vụ áp dụng:** Hóa đơn điện tử theo Nghị định 70/2025/NĐ-CP và Thông tư 32/2025/TT-BTC.
@@ -26,12 +35,22 @@
 - [ ] **Legal Standards:** Nghị định 123/2020/NĐ-CP và Thông tư 78/2021/TT-BTC về hóa đơn điện tử.
 
 ## 5. SUCCESS CRITERIA (ĐO LƯỜNG ĐƯỢC)
-- [ ] Domain models cho E-Invoice được tạo trong `1_Shared/Domain.cs`
-- [ ] Provider interfaces được định nghĩa trong `3_CoreHub/Services/EInvoice/`
-- [ ] Circuit breaker pattern được implement
-- [ ] Outbox pattern được implement
-- [ ] Unit tests cho E-Invoice components pass
-- [ ] Chạy `guard-check.ps1` đạt kết quả 0 errors
+
+> **REVIEW 2026-06-18 — Updated với trạng thái thực tế:**
+
+- [x] Domain models cho E-Invoice được tạo trong `1_Shared/Domain.cs` ✅ (ElectronicInvoice:1436, InvoiceAggregate:1645, OutboxEvent:1717, SubmitAttempt:1770, HKDRevenueClassification:1820, ProviderConfiguration:1861 + enums InvoiceStatus:1358, InvoiceType:1371, HKDRevenueGroup:1382, ProviderStatus:1393)
+- [x] Provider interfaces được định nghĩa trong `3_CoreHub/Services/EInvoice/` ✅ (11 files: IEInvoiceProvider, Factory, Registry, Viettel+MISA providers + DTOs)
+- [x] Circuit breaker pattern được implement ✅ (`CircuitBreakerService.cs` + `ICircuitBreakerService.cs` — NHƯNG 0% test coverage)
+- [x] Outbox pattern được implement ✅ (`OutboxEvent` entity + `OutboxRepository` + `EInvoiceWorker.cs` BackgroundService)
+- [ ] **Unit tests cho E-Invoice components pass** ⚠️ PARTIAL/FAKE — xem Sprint 3B review: EInvoiceProviderTests không có HTTP mock, Core.Tests WebhookService stub, CircuitBreakerTests missing, EInvoiceOrchestratorTests thiếu CreateInvoiceAsync flow
+- [ ] Chạy `guard-check.ps1` đạt kết quả 0 errors ⚠️ CHƯA re-verify trong session này
+
+### Additional items phát hiện qua REVIEW (không có trong card gốc):
+- [ ] **HKDElectronicInvoiceController** ❌ — Card plan Day 11, nhưng file đã DELETE (commit `e89b6c6` "purge dead code"). Cần tạo lại hoặc quyết định architecture khác.
+- [ ] **6 EInvoice Razor pages** ❌ — EInvoiceDashboard, ProviderManagement, ProviderConfiguration, HealthMonitoring, InvoiceManagement, AlertManagement — 0 files exist.
+- [ ] **3 E2E Playwright specs** ❌ — einvoice-dashboard.spec.ts, provider-management.spec.ts, invoice-management.spec.ts — 0 files exist.
+- [ ] **POS providers (KiotViet, Sapo)** ⚠️ STUB — `Task.FromResult(Success: true)` hardcoded, deferred Sprint 4 (doc comment tự ghi).
+- [ ] **`EInvoiceE2ETests.cs` DEAD CODE** ❌ — 5 tests gọi `/api/einvoice*` endpoints không tồn tại (controller đã delete) + `/api/webhooks` (plural, mismatch với route `api/webhook` singular) + body shape mismatch. TC-E2E-04 là stub `OK || NotFound` always-pass. E2E tests disabled in CI (`if: false`).
 
 ## 6. ACTIVE SKILLS (MAX 3)
 - einvoice-integration
@@ -39,16 +58,28 @@
 - domain-integrity-validation
 
 ## 7. AI HEALTH CHECK MATRIX (INITIAL)
-- **Evidence Count:** 0
-- **Verified Facts:**
-  - Fact 1: File `1_Shared/Domain.cs` hiện chưa có Entity EInvoice
-  - Fact 2: Thư mục `3_CoreHub/Services/EInvoice/` chưa tồn tại
-  - Fact 3: RoadMap đã xác định Sprint 3 - Phase 5 với Design Reference và UI Reference
-  - Fact 4: Circuit breaker pattern và outbox pattern đã được thiết kế trong plan
-  - Fact 5: Legal requirements theo Nghị định 123/2020/NĐ-CP đã được xác định
+
+> **REVIEW 2026-06-18 — Rewrite với verified facts từ codebase thực tế:**
+
+- **Evidence Count:** 14 verified facts (đọc card + Domain.cs grep + 11 EInvoice files + 7 POS files + WebhookController + E2E test file + git log + CI workflows)
+- **Verified Facts (REVIEW 2026-06-18):**
+  - ~~Fact 1: Domain.cs chưa có EInvoice~~ → **OUTDATED**: Domain.cs:1358-1861 có đầy đủ 6 entities + 4 enums ✅
+  - ~~Fact 2: Thư mục EInvoice/ chưa tồn tại~~ → **OUTDATED**: `3_CoreHub/Services/Providers/EInvoice/` có 11 files ✅
+  - Fact 3: RoadMap xác định Sprint 3 Phase 5 ✅
+  - Fact 4: Circuit breaker + outbox pattern đã thiết kế → **ĐÃ IMPLEMENT**: `CircuitBreakerService.cs` + `OutboxEvent` + `EInvoiceWorker.cs` ✅
+  - Fact 5: Legal requirements NĐ 123/2020 ✅
+  - **Fact 6 (MỚI):** `HKDElectronicInvoiceController` đã DELETE — tạo commit `e4904a9`, xóa commit `e89b6c6` "purge dead code". `find_file_by_name` → No files found. ❌
+  - **Fact 7 (MỚI):** 6 EInvoice Razor pages — 0 files exist. `grep *.razor` cho "EInvoiceDashboard|ProviderManagement" → No matches. ❌
+  - **Fact 8 (MỚI):** 3 E2E Playwright specs — 0 files exist. `find_file_by_name **/einvoice*.spec.ts` → No files found. ❌
+  - **Fact 9 (MỚI):** POS providers (KiotViet, Sapo) — STUBS. Tất cả methods return `Task.FromResult(Success: true)` hardcoded. Doc comment: "HTTP client injection deferred to Sprint 4". ⚠️
+  - **Fact 10 (MỚI):** `EInvoiceE2ETests.cs` — 5 tests DEAD CODE. Gọi `/api/einvoice*` (controller đã delete) + `/api/webhooks` (route mismatch: controller là `api/webhook` singular) + body shape mismatch (controller expect `WebhookRequest` wrapper, tests gửi raw payload). TC-E2E-04 stub `OK || NotFound` always-pass. ❌
+  - **Fact 11 (MỚI):** E2E tests disabled in CI — `.github/workflows/e2e.yml:115` `if: false`, `pr-check.yml:159` filter `Category!=E2E` + `|| true`. ❌
+  - **Fact 12 (MỚI):** Sprint 3B card Fact 12 claim "HKDElectronicInvoiceController REAL" — **FALSE**, file đã delete. Cần update Sprint 3B card.
+  - **Fact 13 (MỚI):** WebhookController route mismatch — `[Route("api/[controller]")]` = `api/webhook` (singular) vs E2E tests `api/webhooks` (plural). ❌
+  - **Fact 14 (MỚI):** WebhookController body shape — expect `WebhookRequest(string ProviderInvoiceNumber, string CallbackData)` wrapper DTO, nhưng E2E tests gửi raw Viettel/MISA payload. ❌
 - **Assumptions:** 0
-- **Open Questions:** 0
-- **Recommended Action:** Continue — Start Sprint 3
+- **Open Questions:** 1 (guard-check.ps1 chưa verify — không chạy trong REVIEW_ONLY)
+- **Recommended Action:** Card này SUPERSEDED by Sprint 3B cho backend. Cần task card mới cho: (1) dead code cleanup EInvoiceE2ETests + WebhookController route, (2) EInvoice UI 6 Razor pages, (3) HKDElectronicInvoiceController tạo lại hoặc architecture decision, (4) POS providers Sprint 4.
 
 ---
 

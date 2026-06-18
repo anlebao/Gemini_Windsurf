@@ -1,61 +1,9 @@
-# =============================================
-# DEPRECATED LOCATION - NOT AUTO-LOADED
-# Devin/Windsurf does NOT auto-load rules from .devin/rules/.
-# The ACTIVE always-on copies now live at:
-#   .windsurf/rules/governance.md       (governance, trigger: always_on)
-#   .windsurf/rules/session-context.md  (session context loading, always_on)
-# Edit those files for any rule changes. This file is reference-only.
-# =============================================
-
-# =============================================
-# VẠN AN ECOSYSTEM - WINDSURF RULES v7.0
-# STREAMLINED - Effective Date: May 6, 2026
-# =============================================
-
-## AUTO-CONTEXT LOADING (MANDATORY)
-
-**When starting a new session for ANY implementation task, AI MUST:**
-
-1. **Read PROJECT_CONTEXT.md**
-   - Path: docs/knowledge-base/00-core/PROJECT_CONTEXT.md
-   - Purpose: Project overview, architecture, ADRs, tech stack, code patterns, hard stops
-
-2. **Read project_state.md**
-   - Path: docs/AI/project_state.md
-   - Purpose: Current objective, status, next actions, health check
-
-3. **Report Context Summary**
-   Current Objective: [from project_state.md]
-   Active Mode: [ANALYZE/IMPLEMENT/FIX_ONLY/REVIEW_ONLY]
-   Current Branch: [from git]
-   Key Constraints: [from PROJECT_CONTEXT.md and .windsurfrules]
-   Next Actions: [from project_state.md]
-
-**EXCEPTIONS - Skip auto-load only for:**
-- Simple read-only operations (file reading, grep, basic exploration)
-- User explicitly requests: skip context loading
-- Quick documentation lookups unrelated to implementation
-
-**AUTO-UPDATE TRIGGERS - AI MUST auto-update project_state.md when:**
-- 5+ files modified in session
-- 30+ minutes elapsed in session
-- Context length > 50% limit
-- Completed workflow phase
-- Context overflow imminent (>80%)
-
-**NATURAL LANGUAGE TRIGGERS - AI MUST respond to:**
-- update state or save progress -> Update project_state.md
-- load context or load project context -> Read PROJECT_CONTEXT.md and project_state.md
-
-**CONTEXT OVERFLOW PROTOCOL:**
-When context is near limit (>80%):
-1. STOP current work
-2. Update project_state.md
-3. Clear non-essential context
-4. Continue with fresh context
-5. Report summary
-
 ---
+description: "VanAn Ecosystem core governance: Domain integrity, workflow modes, UI Platform, hard stops"
+trigger: always_on
+---
+
+# VANAN ECOSYSTEM GOVERNANCE (v7.0)
 
 ## CORE PRINCIPLES (NON-NEGOTIABLE)
 

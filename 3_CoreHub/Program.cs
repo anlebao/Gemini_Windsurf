@@ -39,9 +39,13 @@ namespace VanAn.CoreHub
                 VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
                 _ = await context.Database.EnsureCreatedAsync();
 
-                // Phase 6: Apply Project Memory migrations
-                ProjectMemoryDbContext memoryContext = scope.ServiceProvider.GetRequiredService<ProjectMemoryDbContext>();
-                await memoryContext.Database.MigrateAsync();
+                // Phase 6: Project Memory migrations - Development only
+                var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+                if (env.IsDevelopment())
+                {
+                    ProjectMemoryDbContext memoryContext = scope.ServiceProvider.GetRequiredService<ProjectMemoryDbContext>();
+                    await memoryContext.Database.MigrateAsync();
+                }
             }
 
             await host.RunAsync();
