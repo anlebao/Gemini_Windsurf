@@ -14,38 +14,53 @@ namespace VanAn.KhachLink.Pages
         public string Code { get; set; } = string.Empty;
         public string TrackingCode { get; set; } = string.Empty;
         public string Keyframes { get; set; } = "fade-in";
-        public ShopConfig ShopConfig { get; set; } = new ShopConfig
-        {
-            ShopId = Guid.NewGuid()
-        };
+        public ShopConfig ShopConfig { get; set; } = new ShopConfig();
         public List<Product> Products { get; set; } = [];
+
+        [FromQuery(Name = "shopId")]
+        public Guid? ShopId { get; set; }
 
         public async Task<IActionResult> OnGetAsync(string trackingCode)
         {
             TrackingCode = trackingCode ?? string.Empty;
             Code = TrackingCode; // For backward compatibility
 
-            if (!string.IsNullOrEmpty(TrackingCode))
-            {
-                TenantId campaignTenantId = new(Guid.NewGuid()); // Demo tenant
-                Campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(TrackingCode) ??
-                    new SocialCampaign(campaignTenantId, Guid.NewGuid(), "default", "Mùa Hè Sôi Ðông", TrackingCode);
-            }
-            else
+            if (string.IsNullOrEmpty(TrackingCode))
             {
                 // Return 404 if no tracking code provided
                 return NotFound();
             }
 
-            // Fetch shop config
-            Guid defaultShopId = Guid.NewGuid(); // Generate shop ID for this session
-            ShopConfig = await _shopConfigService.GetShopConfigAsync(defaultShopId) ?? new ShopConfig
+            // Wave 3 Phase 3: Campaign tenant comes from URL ?shopId=xxx, not random Guid.NewGuid()
+            Guid resolvedShopId = ShopId ?? Guid.Empty;
+
+            Campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(TrackingCode)
+                ?? (resolvedShopId != Guid.Empty
+                    ? new SocialCampaign(new TenantId(resolvedShopId), resolvedShopId, "default", "Mùa Hè Sôi Ðộng", TrackingCode)
+                    : null!);
+
+            if (Campaign == null)
             {
-                ShopName = "Vạn An Group",
-                PrimaryColor = "#8B4513",
-                SecondaryColor = "#D2691E",
-                Theme = ThemeType.Classic
-            };
+                return NotFound();
+            }
+
+            // Fetch real shop config from service — no random ShopId
+            ShopConfig = resolvedShopId != Guid.Empty
+                ? (await _shopConfigService.GetShopConfigAsync(resolvedShopId) ?? new ShopConfig
+                {
+                    ShopId = resolvedShopId,
+                    ShopName = "Vạn An Group",
+                    PrimaryColor = "#8B4513",
+                    SecondaryColor = "#D2691E",
+                    Theme = ThemeType.Classic
+                })
+                : new ShopConfig
+                {
+                    ShopName = "Vạn An Group",
+                    PrimaryColor = "#8B4513",
+                    SecondaryColor = "#D2691E",
+                    Theme = ThemeType.Classic
+                };
 
             // Record click for analytics
             string? deviceId = Request.Cookies["customer_device_id"];
@@ -60,14 +75,8 @@ namespace VanAn.KhachLink.Pages
 
             _ = await _socialCampaignService.RecordClickAsync(TrackingCode);
 
-            // Initialize demo products with campaign pricing using constructor
-            TenantId tenantId = new(Guid.NewGuid()); // Demo tenant
-            Products =
-            [
-                new Product(tenantId, "Trà Sua Dau Do", "Dau do tu nhiên, béo ngây", 28000m, "Trà Sua", true, null, 0.10m),
-                new Product(tenantId, "Trà Sua Truyen Thong", "Huong vi co dien không the thieu", 25500m, "Trà Sua", true, null, 0.10m),
-                new Product(tenantId, "Trà Sua Matcha", "Matcha Nhat Ban nguyên chât", 30000m, "Trà Sua", true, null, 0.10m)
-            ];
+            // Products are loaded from Gateway API (not seeded here).
+            // Products stays empty until a real /api/products?shopId=... call is added.
 
             return Page();
         }

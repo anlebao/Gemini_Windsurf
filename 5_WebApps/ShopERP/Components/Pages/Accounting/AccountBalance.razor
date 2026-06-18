@@ -5,13 +5,13 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Components.Data
 @using VanAn.UI.Platform.Models
-@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @using VanAn.Shared.DTOs
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
-@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
 @inject ILogger<AccountBalance> Logger
 @inject NavigationManager NavigationManager
 
@@ -105,7 +105,6 @@
     private string revenueTrend = "+0%";
     private string expenseTrend = "+0%";
     private string profitTrend = "+0%";
-    private Guid _tenantId = Guid.Empty;
 
     private string TotalRevenueDisplay => totalRevenue.ToString("N0") + " ₫";
     private string TotalExpenseDisplay => totalExpense.ToString("N0") + " ₫";
@@ -115,19 +114,7 @@
     {
         try
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                var tenantIdClaim = user.FindFirst("TenantId");
-                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
-                {
-                    _tenantId = tenantId;
-                }
-            }
-
-            if (_tenantId != Guid.Empty)
+            if (TenantProvider.HasTenant)
             {
                 await LoadBalanceData();
             }
@@ -144,7 +131,7 @@
         {
             var currentDate = DateTime.Now;
             var currentPeriod = new AccountingPeriod(currentDate.Year, currentDate.Month);
-            var tenantId = new TenantId(_tenantId);
+            var tenantId = new TenantId(TenantProvider.TenantId);
 
             // Load current month data
             var currentEntries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, currentPeriod);
@@ -192,7 +179,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error loading balance data for tenant {TenantId}", _tenantId);
+            Logger.LogError(ex, "Error loading balance data for tenant {TenantId}", TenantProvider.TenantId);
         }
     }
 

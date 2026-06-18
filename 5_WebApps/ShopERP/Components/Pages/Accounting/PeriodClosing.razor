@@ -5,9 +5,11 @@
 @using VanAn.UI.Platform.Models
 @using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @using CoreServices = VanAn.CoreHub.Services
 @inject CoreServices.IPeriodClosingService PeriodClosingService
 @inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<PeriodClosing> Logger
 @inject NavigationManager NavigationManager
@@ -177,8 +179,6 @@
     private string errorMessage = string.Empty;
     private string successMessage = string.Empty;
 
-    private TenantId GetTenantId() => new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
-
     protected override async Task OnInitializedAsync()
     {
         await RefreshStatusAsync();
@@ -188,8 +188,9 @@
     {
         try
         {
+            if (!TenantProvider.HasTenant) return;
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            currentStatus = await PeriodClosingService.GetPeriodStatusAsync(period, GetTenantId());
+            currentStatus = await PeriodClosingService.GetPeriodStatusAsync(period, new TenantId(TenantProvider.TenantId));
         }
         catch (Exception ex)
         {
@@ -203,8 +204,13 @@
         ClearMessages();
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            validationResult = await PeriodClosingService.ValidatePeriodAsync(period, GetTenantId());
+            validationResult = await PeriodClosingService.ValidatePeriodAsync(period, new TenantId(TenantProvider.TenantId));
             currentStep = WizardStep.Validate;
         }
         catch (Exception ex)
@@ -222,10 +228,15 @@
         isLoading = true;
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid) ? uid : Guid.NewGuid();
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            closingEntry = await PeriodClosingService.ClosePeriodAsync(period, GetTenantId(), userId);
+            closingEntry = await PeriodClosingService.ClosePeriodAsync(period, new TenantId(TenantProvider.TenantId), userId);
             currentStep = WizardStep.Close;
             await RefreshStatusAsync();
         }
@@ -244,10 +255,15 @@
         isLoading = true;
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var userId = Guid.TryParse(authState.User.FindFirst("sub")?.Value, out var uid) ? uid : Guid.NewGuid();
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            await PeriodClosingService.ReopenPeriodAsync(period, GetTenantId(), userId, reopenReason);
+            await PeriodClosingService.ReopenPeriodAsync(period, new TenantId(TenantProvider.TenantId), userId, reopenReason);
             successMessage = $"Kỳ {selectedYear}-{selectedMonth:D2} đã được mở lại thành công.";
             showReopenDialog = false;
             reopenReason = string.Empty;

@@ -38,78 +38,26 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Wave 2 — EInvoice API Layer (P0-6a + P0-6b)**
+**Wave 3 — TenantId Completion (P0-1c Phase 3 + P0-1d Phase 4)**
 
-**Status:** ✅ **COMPLETED & MERGED to main** (2026-06-19)
+**Status:** 🔄 **IN PROGRESS** — Branch `fix/tenantid-wave3` (2026-06-19)
 
-**Summary:**
-- **Phase A (P0-6a):** DELETED `EInvoiceE2ETests.cs` (5 dead code tests), fixed `WebhookController` route to `api/webhooks` (plural), fixed body shape to accept raw provider payload
-- **Phase B (P0-6b):** Created `EInvoice/` Bounded Context trong ShopERP với `HKDElectronicInvoiceController` (4 endpoints) và 5 DTOs file-scoped types
+**Phase 3 (P0-1c) — KhachLink Tenant Context:**
+- ✅ `Index.cshtml.cs` — removed `Guid.NewGuid()` demo data; resolve shopId từ `?shopId=xxx` query param
+- ✅ `Campaign.cshtml.cs` — removed `Guid.NewGuid()` demo tenant; campaign tenant từ `?shopId=xxx`
+- ✅ `DashboardHub.JoinTenantGroup` — verify `tenantId` khớp JWT claim (`tenant_id`/`TenantId`), throw `HubException` nếu mismatch
+- ✅ `DashboardHub.JoinShopGroup` — verify `shopId` khớp JWT claim, throw `HubException` nếu mismatch
+- ✅ `OfflineOrderService.SyncSingleOrderAsync` — validate `ShopId` là valid non-empty Guid trước khi dùng làm tenant; reject nếu empty/invalid
 
-**Verification:**
-- Build: 0 errors ✅
-- Architecture tests: 11/11 PASS ✅
-- Guard-check: PASSED ✅
-- Merge: `fix/einvoice-cleanup` → `main` ✅
+**Phase 4 (P0-1d) — Accounting Razor Cleanup (IN PROGRESS):**
+- 🔄 `TransactionHistory.razor` — đang refactor: bỏ `AuthStateProvider` + `FindFirst("TenantId")`, dùng `@inject ITenantProvider`
+- ⏳ `ExpenseEntry.razor` — chưa làm
+- ⏳ `PeriodClosing.razor` — chưa làm (xóa `GetTenantId()` hardcode)
+- ⏳ `RevenueEntry.razor` — chưa làm
+- ⏳ `AccountingIndex.razor` — chưa làm
+- ⏳ `AccountBalance.razor` — chưa làm
 
-**Next:** Wave 3 — TenantId Completion (P0-1c Phase 3 + P0-1d Phase 4) HOẶC Wave 4 — EInvoice UI + E2E
-
-**Summary:**
-- P0-3: Removed `@inject IDashboardService` from `VanAnDashboard.razor` (line 3). Service was not registered in DI, causing runtime crash.
-- P0-7a: CircuitBreakerServiceTests already exists with comprehensive tests (Open/HalfOpen/Closed states, 16+ tests)
-- P0-7b: HTTP mock tests exist in ViettelEInvoiceProviderTests.cs (8 tests) and MisaEInvoiceProviderTests.cs (8 tests)
-- P0-7c: Added 6 new tests for CreateInvoiceAsync flow (DB write + Outbox enqueue verification)
-- P0-7d: Rewrote WebhookServiceTests.cs with real DbContext (18 tests vs 12 stub tests)
-
-**Verification:**
-- `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
-- Core.Tests: 38 tests passed (EInvoiceOrchestratorTests + WebhookServiceTests + CircuitBreakerServiceTests) ✅
-
-**Problem:** 89 integration tests failing due to EF Core mapping errors for strongly-typed ID value objects (ProductId, IngredientId, LeadId, etc.)
-
-**Solution:** Created 14 dedicated IEntityTypeConfiguration<T> files with proper HasConversion for all value objects
-
-**Entities Fixed (14 total):**
-- ElectronicInvoice, Order, Customer (Batch 0)
-- Product, Ingredient, Recipe, Inventory (Batch 1)
-- Lead, FacebookLead (Batch 2)
-- OrderItem (Batch 3)
-- Shop, DemoUser, SocialCampaign, LoyaltyRewards (Batch 4)
-
-**Pattern Applied:**
-```csharp
-builder.Property(e => e.ValueObjectId)
-    .HasConversion(id => id.Value, value => new TypeName(value))
-    .IsRequired();
-```
-
-**Final Architecture Flow:**
-```
-KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
-     ↓                  ↓                  ↓
-  HttpClient   ProductsController   ProductsController
-                (forward)         (query IVanAnDbContext)
-```
-
-**Completed Actions:**
-1. ✅ Rolled back QrMenu.razor to use Gateway API (HttpClient) instead of IVanAnDbContext
-2. ✅ Removed seed data from KhachLink Program.cs
-3. ✅ Removed seed data from CoreHub Program.cs (Class Library)
-4. ✅ Created ProductsController in ShopERP with IVanAnDbContext injection
-5. ✅ Added seed data (5 products) to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001
-6. ✅ Created Gateway ProductsController to forward requests to ShopERP via HttpClient
-7. ✅ Fixed ShopERP DI issues (IAuditTrailService, IAuditLogRepository, ITenantProvider)
-8. ✅ All services running: ShopERP (5003), Gateway (5001), KhachLink (5002)
-9. ✅ API verification: curl http://localhost:5001/api/products?tenantId=... returns 200 OK with 5 products
-10. ✅ Architecture tests: 7/7 PASS
-11. ✅ Playwright E2E tests: 15 passed, 2 skipped
-
-**Key Files Modified:**
-- `5_WebApps/ShopERP/Controllers/ProductsController.cs` - API endpoint with IVanAnDbContext
-- `5_WebApps/ShopERP/Program.cs` - Seed data + DI registrations
-- `5_WebApps/ShopERP/Services/TenantProvider.cs` - Local implementation
-- `2_Gateway/Controllers/ProductsController.cs` - HttpClient forward to ShopERP
-- `5_WebApps/KhachLink/Pages/QrMenu.razor` - HttpClient API calls
+**Next:** Hoàn thành Phase 4 → build + guard-check → commit → merge to main
 
 ## 3. Current Status
 
@@ -123,19 +71,19 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 - Sprint 3 E-Invoice Review Fix (F0–F4) ✅
 - **UC1 QR Checkout Completion — S1–S4 DONE, 22/22 tests PASS ✅** (2026-06-10)
 - **Value Object Mapping Fix — 14 EF Core Configuration files created ✅** (2026-06-15)
-  * Fixed: ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId converters
-  * Removed: Inline entity configurations from VanAnDbContext.cs
-  * Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
 - **Wave 0 — Quick Wins (P0-3 + P0-7) ✅** (2026-06-18)
-  * P0-3: Fixed VanAnDashboard.razor DI crash (removed `@inject IDashboardService`)
-  * P0-7: EInvoice test coverage completed (CircuitBreaker + Provider HTTP mocks + Orchestrator CreateInvoice + WebhookService real tests)
-- **Wave 1 Phase 1 — TenantId Stop the Bleeding (P0-1a) ✅** (2026-06-18)
-  * Fixed HttpContextTenantProvider claim name to read "TenantId" (PascalCase)
-  * Gateway OrdersController: Removed `Guid.NewGuid()`, now JWT claim-based
-  * Gateway AccountingEntriesController: Removed body/header TenantId, now JWT claim-based
-  * Gateway ProviderController: Removed query tenantId, now JWT claim-based
-  * VanAnDbContext: Throws if TenantId == Empty (fail-fast security)
-  * Fixed pre-existing test errors (EInvoiceOrchestratorTests property names, VanAnDashboard static calls)
+- **Wave 1 — TenantId Foundation (P0-1a + P0-1b) ✅** (2026-06-18) — MERGED to main
+- **Wave 2 — EInvoice API Layer (P0-6a + P0-6b) ✅** (2026-06-19) — MERGED to main
+- **Wave 3 Phase 3 — KhachLink Tenant Context ✅** (2026-06-19)
+  * `Index.cshtml.cs`, `Campaign.cshtml.cs`: Removed `Guid.NewGuid()` demo data, resolve từ `?shopId=xxx`
+  * `DashboardHub`: `JoinTenantGroup` + `JoinShopGroup` verify JWT claim, throw `HubException` nếu mismatch
+  * `OfflineOrderService`: Validate `ShopId` non-empty/valid trước khi dùng làm tenant
+
+### In Progress
+
+- **Wave 3 Phase 4 — Accounting Razor Cleanup** (P0-1d) — branch `fix/tenantid-wave3`
+  * Đang refactor 6 Razor pages: TransactionHistory, ExpenseEntry, PeriodClosing, RevenueEntry, AccountingIndex, AccountBalance
+  * Target: bỏ `FindFirst("TenantId")` + hardcoded `00000000-0000-0000-0000-000000000001`, dùng `@inject ITenantProvider`
 
 ### Blocked
 
@@ -157,14 +105,16 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 | ID | Task | Root cause / Notes |
 |---|---|---|
-| ~~P0-1a~~ | ✅ **DONE Wave 1** — Fix TenantId spoofing: HttpContextTenantProvider, OrdersController, AccountingEntriesController, ProviderController, VanAnDbContext throw | JWT claim-based tenant resolution, fail-fast on empty tenant. Build + arch tests pass. |
-| ~~P0-1b~~ | ✅ **DONE Wave 1** — UserTenant entity + Login DB lookup + `RequireTenantAccess` policy | User-Tenant mapping + auth policy enforcement. Build + arch tests pass. Merged to main. |
+| ~~P0-1a~~ | ✅ **DONE Wave 1** — Fix TenantId spoofing: HttpContextTenantProvider, OrdersController, AccountingEntriesController, ProviderController, VanAnDbContext throw | JWT claim-based tenant resolution. Merged to main. |
+| ~~P0-1b~~ | ✅ **DONE Wave 1** — UserTenant entity + Login DB lookup + `RequireTenantAccess` policy | Merged to main. |
+| ~~P0-1c~~ | ✅ **DONE Wave 3** — KhachLink tenant context: Index/Campaign ?shopId=xxx, DashboardHub authorization, OfflineOrderService validation | Branch `fix/tenantid-wave3`. |
+| **P0-1d** | 🔄 **IN PROGRESS Wave 3** — 6 Accounting Razor pages → `@inject ITenantProvider`, remove hardcoded fallbacks | Branch `fix/tenantid-wave3`. |
 | **P0-2** | Fix E2E false-positive specs (T-17/18/19/21) — replace `reporter.pass()` with `expect()` | 4 specs always green despite broken features. Quality assurance crisis. |
-| ~~P0-3~~ | ✅ **DONE Wave 0** — Fix `VanAnDashboard.razor` DI crash (T-01) — `@inject IDashboardService` removed | Runtime `InvalidOperationException` on navigate. Fixed 2026-06-18. |
+| ~~P0-3~~ | ✅ **DONE Wave 0** — Fix `VanAnDashboard.razor` DI crash (T-01) — `@inject IDashboardService` removed | Fixed 2026-06-18. |
 | **P0-4** | Fix AccountCode not saved on manual entry (§2.1) — wire UI → API → DB | Sổ sách sai. |
 | **P0-5** | Move accounting entry creation: `CreateOrder` → `PaymentWebhook` (§1.1) | Doanh thu ghi nhận trước thanh toán. |
-| ~~P0-6~~ | ✅ **DONE Wave 2** — EInvoice dead code cleanup + missing API/UI — see `task-einvoice-deadcode-cleanup.md` | Phase A: DELETE `EInvoiceE2ETests.cs`, fix `WebhookController` route/body. Phase B: Create `HKDElectronicInvoiceController` + DTOs. Merged to main. |
-| ~~P0-7~~ | ✅ **DONE Wave 0** — EInvoice test coverage — write missing tests | REVIEW 2026-06-18: HTTP mock tests exist in provider-specific files, added CreateInvoiceAsync flow tests, rewrote WebhookServiceTests with real DbContext. |
+| ~~P0-6~~ | ✅ **DONE Wave 2** — EInvoice dead code cleanup + missing API/UI | Merged to main. |
+| ~~P0-7~~ | ✅ **DONE Wave 0** — EInvoice test coverage — write missing tests | Fixed 2026-06-18. |
 
 #### P1 — High (Flow completion + E2E unblock)
 
@@ -485,6 +435,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
+* **Wave 3 Phase 3 — KhachLink Tenant Context (2026-06-19)** — Branch `fix/tenantid-wave3`. Removed all `Guid.NewGuid()` demo tenant data từ KhachLink: `Index.cshtml.cs` + `Campaign.cshtml.cs` resolve tenant từ `?shopId=xxx` query param thay vì random GUID. `DashboardHub.JoinTenantGroup` + `JoinShopGroup` verify JWT claim (`tenant_id`/`TenantId`), throw `HubException("Unauthorized: tenant mismatch.")` nếu client-requested tenantId không khớp claim — SC8 security test đáp ứng. `OfflineOrderService.SyncSingleOrderAsync` validate `ShopId` non-empty/valid Guid trước khi dùng làm tenant context; reject với error message rõ ràng nếu invalid.
 * **Wave 2 — EInvoice API Layer COMPLETED (2026-06-19)** — P0-6a Phase A + P0-6b Phase B. Phase A: DELETED `EInvoiceE2ETests.cs` (5 tests dead code), fixed `WebhookController` route from `api/webhook` (singular) to `api/webhooks` (plural), fixed body shape to accept raw provider payload (Viettel/MISA format) with automatic `invoiceNo` extraction. Phase B: Created `EInvoice/` Bounded Context trong `5_WebApps/ShopERP` với file-scoped types, `HKDElectronicInvoiceController` với 4 endpoints (`POST /api/einvoice`, `GET /api/einvoice/{id}`, `POST /api/einvoice/{id}/submit`, `GET /api/einvoice/{id}/status`), 5 DTOs (`CreateInvoiceRequest`, `InvoiceDto`, `InvoiceItemDto`, `SubmitInvoiceResponse`, `InvoiceStatusResponse`), tenant isolation via `ITenantProvider`, integration với `IEInvoiceOrchestrator`. Verification: build 0 errors, arch tests 11/11 PASS. Branch `fix/einvoice-cleanup`.
 * **Wave 1 — TenantId Foundation COMPLETED (2026-06-18)** — P0-1a Phase 1 + P0-1b Phase 2 merged to main. Phase 1: Fixed claim name mismatch (`HttpContextTenantProvider` reads "TenantId"), removed `Guid.NewGuid()` from `OrdersController.CreateOrder`, removed body/header TenantId from `AccountingEntriesController`, removed query tenantId from `ProviderController`, `VanAnDbContext` throws on empty TenantId. Phase 2: Created `UserTenant` entity (UserId, TenantId, Role, AssignedAt, IsActive), `UserTenantConfiguration.cs` with composite index, `UserTenants` DbSet, Login.cshtml.cs DB lookup with fallback, standardized claim name to `tenant_id` (snake_case), applied `[Authorize(Policy="RequireTenantAccess")]` to all Gateway controllers, registered `ITenantProvider` in Gateway. Verification: build 0 errors, arch tests 11/11 PASS. Branch `fix/tenantid-remediation` merged to `main`.
 * **EInvoice Task Card Review Audit** (2026-06-18) — COMPLETED (REVIEW_ONLY). Audited 2 task cards (`task_sprint3_einvoice.md` + `task_sprint3b_provider_integration.md`) vs codebase thực tế. Phát hiện:
@@ -519,9 +470,11 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 (Wave 2 COMPLETED & MERGED — EInvoice API Layer)
-* Current Branch: `main` (align-consumer-phase4) — Wave 2 merged
-* **Wave 2 MERGED:** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
+* Last Updated: 2026-06-19 (Wave 3 IN PROGRESS — Phase 3 ✅, Phase 4 🔄)
+* Current Branch: `fix/tenantid-wave3` (from `main`)
+* **Wave 3 Phase 3 COMPLETED (2026-06-19):** KhachLink tenant context hardened. Files modified: `Index.cshtml.cs` (shopId from ?shopId= query param), `Campaign.cshtml.cs` (same), `DashboardHub.cs` (JoinTenantGroup + JoinShopGroup JWT claim verification), `OfflineOrderService.cs` (ShopId validation guard).
+* **Wave 3 Phase 4 IN PROGRESS (2026-06-19):** Refactoring 6 Accounting Razor pages to use `@inject ITenantProvider` — removing `FindFirst("TenantId")` and hardcoded `00000000-0000-0000-0000-000000000001` fallbacks.
+* **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.
 * **Wave 0 Execution COMPLETED (2026-06-18):** Implemented P0-3 (fix VanAnDashboard.razor DI crash — removed `@inject IDashboardService`) and P0-7 (EInvoice test coverage). P0-7 scope: verified CircuitBreakerServiceTests exist (16+ tests), verified ViettelEInvoiceProviderTests/MisaEInvoiceProviderTests have HTTP mock tests (8 each), added 6 new CreateInvoiceAsync flow tests to EInvoiceOrchestratorTests.cs, rewrote WebhookServiceTests.cs with real DbContext (18 tests vs 12 stub tests). Build passes. 38 tests passed.
 * **EInvoice Task Card Review Audit (2026-06-18):** REVIEW_ONLY audit 2 Sprint 3 cards vs codebase. Update `task_sprint3_einvoice.md` (mark SUPERSEDED + update SC/Health Check với 14 verified facts), `task_sprint3b_provider_integration.md` (update SC + Health Check + fix Fact 12 false claim), `sprint3b_provider_detailed_plan.md` (update status tables + mark S1 DONE). Tạo `task-einvoice-deadcode-cleanup.md` (plan dọn dead code EInvoiceE2ETests + fix WebhookController route + tạo HKDElectronicInvoiceController + 6 Razor pages + 3 Playwright specs). Phát hiện chính: backend Sprint 3B đã done, nhưng API controller đã delete, UI/E2E chưa tồn tại, test coverage ảo (stub tests + missing tests + dead E2E tests).

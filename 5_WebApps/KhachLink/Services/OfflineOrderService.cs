@@ -104,9 +104,17 @@ namespace VanAn.KhachLink.Services
                     return result;
                 }
 
+                // Wave 3 Phase 3: Validate ShopId from shop context (set at order creation from URL ?shopId=xxx).
+                // Reject if ShopId is empty or invalid — do not allow client to inject arbitrary tenant.
+                if (!Guid.TryParse(offlineOrder.ShopId, out Guid tenantId) || tenantId == Guid.Empty)
+                {
+                    result.ErrorMessage = $"Invalid or missing ShopId on offline order {orderId}. Tenant context must be set from shop URL.";
+                    _logger.LogError("SyncSingleOrder rejected — invalid ShopId '{ShopId}' on order {OrderId}", offlineOrder.ShopId, orderId);
+                    return result;
+                }
+
                 // Convert to domain and sync
                 Shared.Domain.Order domainOrder = offlineOrder.ToDomain();
-                Guid tenantId = Guid.Parse(offlineOrder.ShopId);
 
                 try
                 {
