@@ -364,6 +364,12 @@ Phase 3 — Sprint 3 Recovery (IN PROGRESS)
 * File Path: `3_CoreHub/Program.cs`
 * Purpose: CoreHub DI composition root; E-Invoice service registrations cần được thêm tại đây.
 
+* File Path: `docs/AI/tasks/master-implementation-plan.md`
+* Purpose: Sequential wave-by-wave execution plan cho P0 items và TenantId remediation. 6 waves, branch strategy, session protocol.
+
+* File Path: `docs/AI/tasks/task-p0-3-dashboard-di-crash.md`
+* Purpose: Wave 0 task P0-3 — fix VanAnDashboard.razor DI crash (FIX_ONLY).
+
 ---
 
 ## 9. AI Health Check (Gate 6)
