@@ -112,33 +112,74 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: Architectural Rollback - ✅ COMPLETED
+### Completed (history, see §10 for full log)
+- ✅ Architectural Rollback (2026-06-12) — QrMenu → Gateway API, ProductsController, DI fixes
+- ✅ CD Pipeline + Nginx/SSL deploy (2026-06-18) — PR #29–#33 merged
 
-**Completed (2026-06-12):**
-- ✅ QrMenu.razor rolled back to use Gateway API (HttpClient)
-- ✅ Seed data removed from KhachLink and CoreHub Program.cs
-- ✅ ProductsController created in ShopERP with IVanAnDbContext
-- ✅ Seed data (5 products) added to ShopERP Program.cs
-- ✅ Gateway ProductsController created to forward to ShopERP
-- ✅ ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider)
-- ✅ All services running and verified
-- ✅ API endpoint verified (200 OK with 5 products)
-- ✅ Architecture tests: 7/7 PASS
-- ✅ Playwright E2E tests: 15 passed, 2 skipped
+### Consolidated Backlog (synced 2026-06-18)
 
-### Next Phase
+> Sources merged: project_state §4 (old) + phase-next-order-accounting-improvements.md + e2e-gap-backlog.md + FLAKY_TEST_FIX_PLAN.md + investigation_log.md Issue 5
 
-**Current:** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
-**Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
-  - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
-  - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
-  - Move accounting entry creation: CreateOrder → PaymentWebhook (sau khi bank confirm)
-**Pending Sprint B (P1):** Flow Completion
-  - Wire Vendor/Category/Reference fields xuống DB
-  - Webhook notify Kitchen via SignalR sau payment confirm
-  - Server-side duplicate detection cho accounting entries
-**Reference:** docs/AI/phase-next-order-accounting-improvements.md
-**Completed (2026-06-18):** CD Pipeline + Nginx/SSL deploy — PR #29–#33 merged
+#### P0 — Critical (Data integrity + Quality crisis)
+
+| ID | Task | Root cause / Notes |
+|---|---|---|
+| **P0-1** | Fix TenantId properly: throw if no JWT claim + dev login endpoint + JWT claim wiring | Root cause of 3 backlogs: Sprint A P0 + E2E auth (T-20) + manual test fail (§9). Fix once → unblocks 3. |
+| **P0-2** | Fix E2E false-positive specs (T-17/18/19/21) — replace `reporter.pass()` with `expect()` | 4 specs always green despite broken features. Quality assurance crisis. |
+| **P0-3** | Fix `VanAnDashboard.razor` DI crash (T-01) — `@inject IDashboardService` removed | Runtime `InvalidOperationException` on navigate. Production crash risk. |
+| **P0-4** | Fix AccountCode not saved on manual entry (§2.1) — wire UI → API → DB | Sổ sách sai. |
+| **P0-5** | Move accounting entry creation: `CreateOrder` → `PaymentWebhook` (§1.1) | Doanh thu ghi nhận trước thanh toán. |
+
+#### P1 — High (Flow completion + E2E unblock)
+
+| ID | Task | Depends on |
+|---|---|---|
+| **P1-1** | Fix E2E auth `global-setup.ts` (T-16) — replace `/login` form with auth bypass | P0-1 (dev login endpoint) |
+| **P1-2** | Wire Vendor/Category/Reference fields UI → DB (§2.2) | — |
+| **P1-3** | Webhook notify Kitchen via SignalR (§1.4) | — |
+| **P1-4** | KhachLink Architecture Debt (§6) — `GatewayCustomerService`, `GatewayLoyaltyRewardsService`, `Gateway/Controllers/CustomersController.cs` | — |
+| **P1-5** | E2E API routing fix (T-04, T-05, T-07) — CoreHub URL → Gateway URL + add accounting endpoints to Gateway | P0-2 |
+
+#### P2 — Medium (Stability + missing items)
+
+| ID | Task | Notes |
+|---|---|---|
+| **P2-1** | Server-side duplicate detection (§2.3) | Priority mismatch resolved: P2 (was P1 in old §4, P2 in phase-next) |
+| **P2-2** | Period closing block new entries at service layer (§2.4) | Missing from old §4 |
+| **P2-3** | COGS from `Product.CostPrice` instead of 70% hardcode (§1.2) | Missing from old §4 |
+| **P2-4** | Flaky tests 31+ (8 phases, ~4-5h) — `FLAKY_TEST_FIX_PLAN.md` | CI stability |
+| **P2-5** | Re-enable E2E in CI (`if: false` → conditional) — `investigation_log.md` Issue 5 | Needs P0-2, P1-1 done first |
+
+#### P3 — Low (Polish)
+
+| ID | Task | Notes |
+|---|---|---|
+| **P3-1** | `AccountBalance.razor` use `IHKDBookService` instead of in-memory grouping (§2.5) | Missing from old §4 |
+| **P3-2** | Export CSV/Excel in `TransactionHistory.razor` (§2.6) | Missing from old §4 |
+| **P3-3** | E2E missing pages: `/order-tracking/{orderId}` (T-02), QR Payment modal (T-03) | Nice-to-have |
+
+### Execution Order (recommended)
+
+```
+P0-1 (TenantId)  ──┬──→ P1-1 (E2E auth)  ──→ P2-5 (E2E in CI)
+                   │
+P0-2 (false-pos) ──┴──→ P1-5 (API routing) ──→ P2-5
+P0-3 (DI crash)
+P0-4 (AccountCode)
+P0-5 (Entry timing)
+                   ↓
+              P1-2, P1-3, P1-4 (parallel)
+                   ↓
+              P2-1 to P2-4 (parallel)
+                   ↓
+              P3-1, P3-2, P3-3
+```
+
+### References
+- `docs/AI/phase-next-order-accounting-improvements.md` — Order/Accounting detail
+- `docs/AI/e2e-gap-backlog.md` — E2E gaps (T-01 to T-21)
+- `docs/AI/FLAKY_TEST_FIX_PLAN.md` — Flaky test plan (8 phases)
+- `docs/AI/investigation_log.md` — Past issues (Issue 5: E2E disabled)
 
 ---
 
@@ -424,8 +465,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-15 03:20 UTC+7
-* Current Branch: `main`
+* Last Updated: 2026-06-18 (synced consolidated backlog from 5 sources into §4)
+* Current Branch: `fix/shoperp-audit-trail-di`
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().
