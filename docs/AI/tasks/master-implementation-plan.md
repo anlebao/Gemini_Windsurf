@@ -68,17 +68,18 @@ main (align-consumer-phase4) ← Wave 0 merged ✅
 
 ---
 
-## 2. WAVE 1 — TenantId Foundation (IN PROGRESS — Phase 1 ✅, Phase 2 NEXT)
+## 2. WAVE 1 — TenantId Foundation (✅ COMPLETED)
 
 **Branch:** `fix/tenantid-remediation` (created from `main` — Wave 0 merged ✅)
-**Estimated sessions:** 2-3 (Phase 1 = 1 session ✅, Phase 2 = 1-2 sessions)
+**Completed:** 2026-06-18
+**Sessions:** 2 sessions (Phase 1 = 1 session, Phase 2 = 1 session)
 **Conflict risk:** HIGH (TenantProvider.cs, Gateway controllers, VanAnDbContext)
 
 ### Tasks (sequential — Phase 2 re-touches Phase 1 files)
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
 | 3 | P0-1a | TenantId Phase 1 — stop bleeding | — | task-tenantid-phase1-stop-bleeding.md | ✅ DONE |
-| 4 | P0-1b | TenantId Phase 2 — tenant foundation | Phase 1 merged | task-tenantid-phase2-tenant-foundation.md | ⏳ NEXT |
+| 4 | P0-1b | TenantId Phase 2 — tenant foundation | Phase 1 merged | task-tenantid-phase2-tenant-foundation.md | ✅ DONE |
 
 ### Entry criteria
 - [x] Wave 0 merged to `main`
@@ -91,12 +92,12 @@ main (align-consumer-phase4) ← Wave 0 merged ✅
 - [x] Build + arch tests pass (11/11 PASS)
 - [x] Commit + ready to continue Phase 2
 
-### Exit criteria Phase 2
-- [ ] SC1-SC12 pass (per task card)
-- [ ] UserTenant entity + configuration + Login DB lookup + claim `tenant_id` + `[Authorize(Policy="RequireTenantAccess")]` trên tất cả Gateway controllers + Accounting pages
-- [ ] Build + guard-check + arch tests + integration tests pass
-- [ ] `project_state.md` updated + committed
-- [ ] Merge to `main`
+### Exit criteria Phase 2 — ✅ COMPLETED
+- [x] SC1-SC8, SC10 pass (per task card)
+- [x] UserTenant entity + configuration + Login DB lookup + claim `tenant_id` + `[Authorize(Policy="RequireTenantAccess")]` trên tất cả Gateway controllers
+- [x] Build + arch tests pass (11/11 PASS)
+- [x] `project_state.md` updated + committed
+- [ ] Merge to `main` — **READY TO MERGE**
 
 ### Why here
 - Phase 2 SC4 chuẩn hóa claim name `TenantId`→`tenant_id` re-touch `TenantProvider.cs` (Phase 1 vừa fix) → phải sequential

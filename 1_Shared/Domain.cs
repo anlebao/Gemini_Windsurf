@@ -887,6 +887,62 @@ namespace VanAn.Shared.Domain
         protected DemoUser() { }
     }
 
+    /// <summary>
+    /// User-Tenant mapping entity — Cross-tenant entity (không kế thừa BaseEntity để tránh query filter)
+    /// Domain Purity: NO EF Core, NO DataAnnotations
+    /// </summary>
+    public class UserTenant
+    {
+        public Guid Id { get; protected set; } = Guid.NewGuid();
+
+        // Reference to User (DemoUser)
+        public Guid UserId { get; protected set; }
+
+        // Reference to Tenant — cross-tenant entity nên dùng Guid thay vì TenantId strongly-typed
+        public Guid TenantId { get; protected set; }
+
+        // Role within this tenant (có thể khác với global role)
+        public string Role { get; protected set; } = string.Empty;
+
+        // Assignment timestamp
+        public DateTime AssignedAt { get; protected set; } = DateTime.UtcNow;
+
+        // Soft delete flag
+        public bool IsActive { get; protected set; } = true;
+
+        // EF Core constructor
+        protected UserTenant() { }
+
+        public UserTenant(Guid userId, Guid tenantId, string role)
+        {
+            if (userId == Guid.Empty) throw new ArgumentException("UserId cannot be empty", nameof(userId));
+            if (tenantId == Guid.Empty) throw new ArgumentException("TenantId cannot be empty", nameof(tenantId));
+            if (string.IsNullOrWhiteSpace(role)) throw new ArgumentException("Role cannot be empty", nameof(role));
+
+            UserId = userId;
+            TenantId = tenantId;
+            Role = role;
+            AssignedAt = DateTime.UtcNow;
+            IsActive = true;
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+        }
+
+        public void Reactivate()
+        {
+            IsActive = true;
+        }
+
+        public void ChangeRole(string newRole)
+        {
+            if (string.IsNullOrWhiteSpace(newRole)) throw new ArgumentException("Role cannot be empty", nameof(newRole));
+            Role = newRole;
+        }
+    }
+
     // Legacy record types cho compatibility - sẽ được migrate
     public record ProductLegacy
     {

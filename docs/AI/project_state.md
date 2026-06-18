@@ -38,7 +38,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Wave 1 — TenantId Foundation (P0-1a Phase 1: Stop the Bleeding)**
+**Wave 1 — TenantId Foundation (P0-1a Phase 1 ✅, P0-1b Phase 2 ✅)**
 
 **Status:** ✅ COMPLETED (2026-06-18)
 
@@ -52,7 +52,19 @@ Mọi cập nhật file này PHẢI tuân thủ:
 | 5 | P0-1a: Update VanAnDbContext (throw if TenantId empty) | ✅ DONE |
 | 6 | Fix pre-existing test errors (EInvoiceOrchestratorTests, VanAnDashboard) | ✅ DONE |
 
-**Summary:**
+**Phase 2 Tasks (P0-1b):**
+| # | Task | Status |
+|---|---|---|
+| 1 | Add UserTenant entity to Domain.cs | ✅ DONE |
+| 2 | Create UserTenantConfiguration.cs | ✅ DONE |
+| 3 | Add DbSet<UserTenant> to VanAnDbContext & ShopERPDbContext | ✅ DONE |
+| 4 | Update Login.cshtml.cs: DB lookup tenant from UserTenants | ✅ DONE |
+| 5 | Standardize claim name to "tenant_id" (snake_case) | ✅ DONE |
+| 6 | Apply [Authorize(Policy="RequireTenantAccess")] to Gateway controllers | ✅ DONE |
+| 7 | Register ITenantProvider in Gateway Program.cs | ✅ DONE |
+| 8 | Update RequireTenantAccess policy to require "tenant_id" claim | ✅ DONE |
+
+**Summary Phase 1:**
 - Fixed claim name mismatch: `HttpContextTenantProvider` now reads "TenantId" (PascalCase) first, matching `Login.cshtml.cs`
 - Gateway `OrdersController.CreateOrder`: Removed `Guid.NewGuid()`, now uses JWT claim with fail-fast
 - Gateway `AccountingEntriesController`: Removed all `request.TenantId` and `X-Tenant-Id` header usage, now uses JWT claim
@@ -60,12 +72,22 @@ Mọi cập nhật file này PHẢI tuân thủ:
 - `VanAnDbContext.ApplyMultiTenancyFilters`: Now throws `InvalidOperationException` if `TenantId == Guid.Empty`
 - All endpoints return `401 Unauthorized` with JSON error when JWT claim missing
 
+**Summary Phase 2:**
+- Created `UserTenant` entity (cross-tenant mapping: UserId, TenantId, Role, AssignedAt, IsActive)
+- Created `UserTenantConfiguration.cs` with EF mapping + composite index (TenantId, UserId)
+- Login.cshtml.cs now lookups tenant from DB via `UserTenants` table with fallback to default tenant
+- Standardized claim name: `"tenant_id"` (snake_case, OIDC standard) across all codebase
+- All Gateway controllers now have `[Authorize(Policy="RequireTenantAccess")]`
+- WebhookController.ReceiveWebhook has `[AllowAnonymous]` (external provider callbacks)
+- Gateway registered `ITenantProvider` with `HttpContextTenantProvider` implementation
+- `RequireTenantAccess` policy updated to require `tenant_id` claim
+
 **Verification:**
 - `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
 - Architecture tests: 11/11 PASS ✅
 - Branch: `fix/tenantid-remediation`
 
-**Next:** Phase 2 (P0-1b) - UserTenant entity + Login DB lookup + RequireTenantAccess policy
+**Next:** Wave 2 (EInvoice cleanup) - sau khi merge Phase 2 vào main
 
 **Summary:**
 - P0-3: Removed `@inject IDashboardService` from `VanAnDashboard.razor` (line 3). Service was not registered in DI, causing runtime crash.

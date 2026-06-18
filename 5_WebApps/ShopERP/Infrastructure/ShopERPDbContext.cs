@@ -37,6 +37,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
 
+        // Wave 1 Phase 2: User-Tenant mapping for multi-tenancy
+        public DbSet<UserTenant> UserTenants { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

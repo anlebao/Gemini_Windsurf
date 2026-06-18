@@ -1,0 +1,2 @@
+Test1 (GroupIdenticalProducts): replaced 1x
+Remaining Guid.NewGuid() for shopId: 0

@@ -1,0 +1,40 @@
+AccountingEntryConfiguration.cs: TenantIdConverter=False, id.Value=True
+AuditLogConfiguration.cs: TenantIdConverter=False, id.Value=True
+CustomerConfiguration.cs: TenantIdConverter=False, id.Value=True
+DemoUserConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L18:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+ElectronicInvoiceConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L19:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+IngredientConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+InventoryConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+InvoiceItemConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L61:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)));
+JournalEntryConfiguration.cs: TenantIdConverter=True, id.Value=False
+  L34:                 .HasConversion<TenantIdConverter>()
+JournalTemplateConfiguration.cs: TenantIdConverter=True, id.Value=False
+  L27:                 .HasConversion<TenantIdConverter>()
+LeadConfiguration.cs: TenantIdConverter=False, id.Value=True
+LoyaltyRewardsConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L18:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+OrderConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L73:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)));
+OrderItemConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L23:                 .HasConversion(id => id.Value, value => new TenantId(value))
+OutboxMessageConfiguration.cs: TenantIdConverter=True, id.Value=False
+  L43:                 .HasConversion(new TenantIdConverter())
+PendingInvoiceQueueConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L21:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+ProductConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+RecipeConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+ShopConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L18:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+SocialCampaignConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L18:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+TenantConfiguration.cs: TenantIdConverter=False, id.Value=True
+  L20:                 .HasConversion(id => id.Value, value => new TenantId(value))
+TenantIdConfiguration.cs: TenantIdConverter=True, id.Value=False
+  L20:                 .HasConversion<ValueConverters.TenantIdConverter>();

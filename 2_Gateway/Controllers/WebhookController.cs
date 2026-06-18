@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services.Orchestration;
 
@@ -6,9 +7,11 @@ namespace VanAn.Gateway.Controllers;
 /// <summary>
 /// WebhookController - REST API for provider webhook callbacks
 /// Idempotency enforcement
+/// Phase 2: Webhook callbacks from external providers use AllowAnonymous (no JWT)
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "RequireTenantAccess")]
 public class WebhookController : ControllerBase
 {
     private readonly IWebhookService _webhookService;
@@ -19,9 +22,10 @@ public class WebhookController : ControllerBase
     }
 
     /// <summary>
-    /// Receive webhook callback from provider
+    /// Receive webhook callback from provider (external - no JWT)
     /// </summary>
     [HttpPost("{provider}")]
+    [AllowAnonymous]
     public async Task<IActionResult> ReceiveWebhook(
         string provider,
         [FromBody] WebhookRequest request,

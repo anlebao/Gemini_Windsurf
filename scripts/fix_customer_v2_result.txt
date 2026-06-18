@@ -1,0 +1,4 @@
+CustomerRepository: replaced 6 occurrences of c.TenantId.Value == tenantId
+  Remaining: 0
+KitchenService: 4 occurrences of .TenantId.Value == shopId (nav property, keeping as-is)
+Done.

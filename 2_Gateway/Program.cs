@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using VanAn.Shared.Services;
 using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Services;
@@ -38,6 +39,23 @@ namespace VanAn.Gateway
             // Add services to the container.
             _ = builder.Services.AddControllers();
             _ = builder.Services.AddSignalR();
+
+            // Wave 1 Phase 2: Authentication & Authorization for RequireTenantAccess policy
+            _ = builder.Services.AddAuthentication()
+                .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+                {
+                    options.LoginPath = "/login";
+                    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                });
+
+            _ = builder.Services.AddAuthorizationBuilder()
+                .AddPolicy("RequireTenantAccess", policy =>
+                    policy.RequireAuthenticatedUser()
+                           .RequireClaim("tenant_id"));
+
+            // Wave 1 Phase 2: Register ITenantProvider for Gateway controllers
+            _ = builder.Services.AddHttpContextAccessor();
+            _ = builder.Services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
 
             // Add YARP Reverse Proxy
             _ = builder.Services.AddReverseProxy()
@@ -109,6 +127,10 @@ namespace VanAn.Gateway
                 // Local-First: DISABLE HTTPS REDIRECTION for development
                 // app.UseHttpsRedirection();
                 _ = app.UseCors("AllowAll");
+
+                // Wave 1 Phase 2: Authentication & Authorization middleware
+                _ = app.UseAuthentication();
+                _ = app.UseAuthorization();
 
                 // Add Localization Middleware
                 _ = app.UseMiddleware<LocalizationMiddleware>();

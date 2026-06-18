@@ -1,0 +1,6 @@
+Original has_crlf: True
+Has TenantId.Value: True
+Has Microsoft.EntityFrameworkCore using: True
+Count of pattern to replace: 2
+Remaining after replace: 0
+Done.

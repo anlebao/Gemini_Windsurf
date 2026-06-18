@@ -1,0 +1,5 @@
+GetGroupedKitchenItemsAsync (flatItems): replaced 0x
+GetPendingItemsCountAsync: replaced 0x
+GetAveragePreparationTimeAsync: replaced 0x
+GetKitchenAnalyticsAsync: replaced 0x
+Remaining .TenantId.Value == shopId: 0
