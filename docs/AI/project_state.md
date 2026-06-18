@@ -38,6 +38,28 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**T-20 — Dev Login Endpoint for E2E Auth (ShopERP + global-setup)**
+
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t20-dev-login`, merged to `main`
+
+**DevLoginController** (`5_WebApps/ShopERP/Controllers/DevLoginController.cs`):
+- `POST /dev/login` — signs in via `CookieAuthenticationDefaults`, injects claims: `tenant_id=11111111-...`, `TenantId=11111111-...`, `role=Owner`
+- `GET /dev/login` — smoke-check endpoint
+- `POST /dev/logout` — clears session
+- Registered ONLY when `app.Environment.IsDevelopment()` — absent in Production/Staging
+
+**global-setup.ts** (T-20d update):
+- Calls `POST /dev/login` → saves real `.VanAn.Auth` cookie to `auth/admin.json`
+- Fallback: empty storageState if ShopERP is not running (CI skip case)
+- All e2e-tests specs pick up session via `playwright.config.ts storageState: 'auth/admin.json'`
+
+**Verification:**
+- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+- `HttpContextTenantProvider.TenantId` sẽ trả `11111111-1111-1111-1111-111111111111` (không còn `Guid.Empty`)
+- `HandleSubmit` trên Accounting pages sẽ không còn fail với "Không xác định TenantId"
+
+---
+
 **P0-2 — Fix E2E False-Positive Specs (T-16, T-17, T-18, T-19, T-21)**
 
 **Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/e2e-false-positives`, merged to `main`
@@ -99,6 +121,10 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
   * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
   * Build: 0 errors ✅
+
+- **T-20 — Dev Login Endpoint (DevLoginController + global-setup) ✅** (2026-06-20) — MERGED to main
+  * `POST /dev/login` on ShopERP (Development-only) → Cookie auth với `tenant_id` claim
+  * `global-setup.ts` calls `/dev/login` → lưu `.VanAn.Auth` cookie vào `auth/admin.json`
 
 - **P0-2 — E2E False-Positive Spec Fix ✅** (2026-06-20) — MERGED to main
   * T-16: global-setup.ts — empty storageState bypass (OIDC không có /login form)
