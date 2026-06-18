@@ -128,9 +128,16 @@ else
             if (response.IsSuccessStatusCode)
             {
                 orderResponse = await response.Content.ReadFromJsonAsync<VietQrResponse>();
-                
+
                 // Clear cart after successful order creation
                 await CartService.ClearCartAsync();
+
+                // T-02c: Navigate to order tracking page so customer can track status
+                if (orderResponse != null && !string.IsNullOrEmpty(orderResponse.OrderId))
+                {
+                    NavigationManager.NavigateTo($"/order-tracking/{orderResponse.OrderId}");
+                    return;
+                }
             }
             else
             {

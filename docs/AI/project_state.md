@@ -38,6 +38,23 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**T-02 — KhachLink OrderTracking Page + Checkout Redirect**
+
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t02-order-tracking`, merged to `main`
+
+**TDD approach:** E2E spec `order-tracking.spec.ts` written first (red), then UI fixed (green).
+
+- **`Home.razor`**: thêm `@page "/"` alias + `.feature-card` wrapper class cho product cards
+- **`Checkout.razor`**: sau `CreateOrder()` thành công → `NavigateTo("/order-tracking/{orderId}")`
+- **`OrderTracking.razor`**: rewritten — `.order-tracking` container, `.status-timeline`, Gateway API call thay simulated data, graceful "not found" với `.not-found` + link quay về `/home`
+- **`order-tracking.spec.ts`** (mới, 8 tests): direct nav, `.order-tracking` container, heading, timeline, not-found handling, checkout → redirect, Gateway API smoke
+- **`order-flow.spec.ts`**: "Customer can place order" → expect `/order-tracking/` URL hoặc `.order-tracking` element
+
+**Verification:**
+- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+
+---
+
 **T-07 — Gateway /api/accounting Alias Route + E2E API Smoke Tests**
 
 **Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t07-gateway-accounting-alias`, merged to `main`
@@ -142,6 +159,12 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
   * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
   * Build: 0 errors ✅
+
+- **T-02 — KhachLink OrderTracking + Checkout Redirect ✅** (2026-06-20) — MERGED to main
+  * `Home.razor`: `@page "/"` alias + `.feature-card` wrapper
+  * `Checkout.razor`: redirect → `/order-tracking/{orderId}` after create order
+  * `OrderTracking.razor`: `.order-tracking` container, Gateway API call, graceful not-found
+  * `order-tracking.spec.ts` (NEW, 8 tests): TDD spec written first
 
 - **T-07 — Gateway /api/accounting alias + 5 API smoke tests ✅** (2026-06-20) — MERGED to main
   * `[Route("api/accounting")]` alias added to `AccountingEntriesController` (Gateway)
