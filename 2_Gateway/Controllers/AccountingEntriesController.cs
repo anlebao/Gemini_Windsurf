@@ -9,9 +9,15 @@ namespace VanAn.Gateway.Controllers
     /// <summary>
     /// API Controller for Accounting Entries - Week 1 implementation
     /// Implements 5-layer protection: Domain, EF Core, Repository, Service, API
+    ///
+    /// T-07: Dual-route registration:
+    ///   Primary  → /api/accounting-entries  (canonical REST name)
+    ///   Alias    → /api/accounting          (short alias for E2E specs + backward compat)
+    /// Both routes serve identical endpoints.
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/accounting-entries")]
+    [Route("api/accounting")]
     [Authorize(Policy = "RequireTenantAccess")]
     [Produces("application/json")]
     public class AccountingEntriesController(
