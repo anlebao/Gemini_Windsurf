@@ -38,6 +38,21 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**T-03 — KhachLink QR Payment Modal Integration**
+
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t03-qr-payment-modal`, merged to `main`
+
+**TDD approach:** `qr-payment-ui.spec.ts` written first (red), then UI fixed (green).
+
+- **`QrPaymentModal.razor`**: `FooterContent` → `<Footer>`, body in `<ChildContent>`, `IsOpen` param, `id="qrPaymentModal"` wrapper, `IHttpClientFactory` thay bare `HttpClient`
+- **`Checkout.razor`**: "📲 Thanh toán QR" trigger button, `showQrModal` state, `<QrPaymentModal>` integration
+- **`qr-payment-ui.spec.ts`** (NEW, 7 tests): trigger button, `#qrPaymentModal`, content states, close
+- **`qr-payment.spec.ts`**: Refactored → Gateway API contract tests only
+
+**Verification:** `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+
+---
+
 **T-02 — KhachLink OrderTracking Page + Checkout Redirect**
 
 **Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t02-order-tracking`, merged to `main`
@@ -159,6 +174,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
   * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
   * Build: 0 errors ✅
+
+- **T-03 — KhachLink QR Payment Modal ✅** (2026-06-20) — MERGED to main
+  * `QrPaymentModal.razor`: FooterContent→Footer, ChildContent wrap, IsOpen param, `id="qrPaymentModal"`, IHttpClientFactory
+  * `Checkout.razor`: "Thanh toán QR" button + showQrModal state + `<QrPaymentModal>`
+  * `qr-payment-ui.spec.ts` (NEW, 7 TDD tests)
 
 - **T-02 — KhachLink OrderTracking + Checkout Redirect ✅** (2026-06-20) — MERGED to main
   * `Home.razor`: `@page "/"` alias + `.feature-card` wrapper
