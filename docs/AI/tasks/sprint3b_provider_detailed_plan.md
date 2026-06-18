@@ -6,45 +6,55 @@
 
 ---
 
-## TRẠNG THÁI HIỆN TẠI (Verified từ codebase 2026-06-14, cập nhật 2026-06-14)
+## TRẠNG THÁI HIỆN TẠI (Verified từ codebase 2026-06-14, REVIEW_ONLY update 2026-06-18)
 
-### ✅ ĐÃ DONE — Code thực, không phải stub
+### ✅ ĐÃ DONE — Code thực, không phải stub (REVIEW 2026-06-18 confirmed)
 
 | File | Nội dung thực | Ghi chú |
 |------|--------------|---------|
-| `ViettelEInvoiceProvider.cs` | HTTP auth (JWT cache 55'), submit, status query, cancel, healthcheck | Endpoint: `InvoiceAPI/services/createInvoice` |
-| `MisaEInvoiceProvider.cs` | HTTP auth (JWT cache 55'), submit, status query, cancel, healthcheck | Endpoint: `einvoices` |
-| `EInvoiceOrchestrator.cs` | CreateInvoice (Outbox transaction), GetInvoice, GetInvoiceStatus, SubmitInvoice delegate chain, ProcessWebhook | REAL |
-| `InvoicePolicyService.cs` | ValidateInvoice, CanSubmit, B2B/B2C check, VAT calc (10%/8%), amount range, TT152-2025 | REAL |
-| `WebhookService.cs` | Idempotency L1 (ConcurrentDictionary) + L2 (DB), Viettel+MISA typed DTO parsing | REAL |
-| `CircuitBreakerService.cs` | Closed→Open (5 failures)→HalfOpen→Closed, 5' cooldown | REAL |
-| `RetryPolicyService.cs` | 3 lần retry, backoff 1s/2s/4s, logging đầy đủ | REAL |
-| `WebhookDtos.cs` | ViettelWebhookDto (Status int, IssueDate, BuyerTaxCode...) + MisaWebhookDto (ProcessStatus, TransactionId...) | Aligned với test |
-| `EInvoiceProviderFactory.cs` | Factory pattern lookup theo ProviderId | Cần verify DI |
-| `EInvoiceProviderRegistry.cs` | Registry đăng ký providers | Cần verify DI |
-| `WebhookController.cs` (Gateway) | Nhận callback POST, delegate tới `IEInvoiceOrchestrator` | REAL |
+| `ViettelEInvoiceProvider.cs` | HTTP auth (JWT cache 55'), submit, status query, cancel, healthcheck | Endpoint: `InvoiceAPI/services/createInvoice` ✅ |
+| `MisaEInvoiceProvider.cs` | HTTP auth (JWT cache 55'), submit, status query, cancel, healthcheck | Endpoint: `einvoices` ✅ |
+| `EInvoiceOrchestrator.cs` | CreateInvoice (Outbox transaction), GetInvoice, GetInvoiceStatus, SubmitInvoice delegate chain, ProcessWebhook | REAL ✅ |
+| `InvoicePolicyService.cs` | ValidateInvoice, CanSubmit, B2B/B2C check, VAT calc (10%/8%), amount range, TT152-2025 | REAL ✅ |
+| `WebhookService.cs` | Idempotency L1 (ConcurrentDictionary) + L2 (DB `ProcessedWebhookKeys`), Viettel+MISA typed DTO parsing | REAL ✅ |
+| `CircuitBreakerService.cs` | Closed→Open (5 failures)→HalfOpen→Closed, 5' cooldown | REAL ✅ (NHƯNG 0% test coverage) |
+| `RetryPolicyService.cs` | 3 lần retry, backoff 1s/2s/4s, logging đầy đủ | REAL ✅ |
+| `WebhookDtos.cs` | ViettelWebhookDto + MisaWebhookDto | ✅ CREATED 2026-06-14 |
+| `EInvoiceProviderFactory.cs` | Factory pattern lookup theo ProviderId | ✅ ĐÃ register DI (`Program.cs:128`) |
+| `EInvoiceProviderRegistry.cs` | Registry đăng ký providers | ✅ ĐÃ register DI (`Program.cs:121-127`) |
+| `WebhookController.cs` (Gateway) | Nhận callback POST, delegate tới `IEInvoiceOrchestrator` | REAL ✅ |
+| `3_CoreHub/Program.cs` DI | ViettelConfig/MisaConfig Configure + named HttpClients + Registry + Factory + RetryPolicyService wired + Orchestrator + CircuitBreaker + EInvoiceWorker | ✅ DONE (REVIEW 2026-06-18) |
+| `3_CoreHub/appsettings.json` | ViettelConfig + MisaConfig sections, `__PLACEHOLDER__` credentials | ✅ DONE (REVIEW 2026-06-18) |
+| `Integration.Tests/WebhookServiceTests.cs` | 6 test REAL với DB: Viettel Approved/Rejected, MISA Approved, invalid JSON, duplicate idempotency, non-existent invoice | ✅ REAL |
+| `Integration.Tests/InvoicePolicyServiceTests.cs` | 8 test REAL với DB: amount limit, VAT mismatch, TaxApproved, missing name, non-existent | ✅ REAL |
+| `EInvoiceDISmokeTests.cs` | DI smoke test | ✅ EXISTS |
 
-### ⚠️ CÒN LỖI / CHƯA WIRE
+### ❌ CÒN LỖI / CHƯA WIRE (REVIEW 2026-06-18 — đã update, xóa items đã done)
 
 | Vấn đề | File | Mô tả | Ưu tiên |
 |--------|------|-------|---------|
-| **TODO(F4)** | `3_CoreHub/Program.cs` | `RetryPolicyService` wire `submitAction = Task.CompletedTask` — chưa nối với provider thực | **P0** |
-| **Missing DTO** | `1_Shared/DTOs/WebhookDtos.cs` | ~~ViettelWebhookDto + MisaWebhookDto chưa có~~ → **✅ ĐÃ TẠO 2026-06-14** | DONE |
-| **TODO(F4)** | `3_CoreHub/Program.cs` | `RetryPolicyService` wire `submitAction = Task.CompletedTask` — chưa nối với provider thực | **P0** |
-| **Missing DI** | `3_CoreHub/Program.cs` | `ViettelConfig`, `MisaConfig` chưa được `Configure<T>()` | **P0** |
-| **Missing DI** | `3_CoreHub/Program.cs` | Named HttpClients `"viettel"` và `"misa"` chưa được `AddHttpClient()` với BaseAddress | **P0** |
-| **Missing DI** | `3_CoreHub/Program.cs` | `ViettelEInvoiceProvider` và `MisaEInvoiceProvider` chưa được register vào `IEInvoiceProviderRegistry` | **P0** |
-| **Config missing** | `3_CoreHub/appsettings.json` | Section `ViettelConfig` và `MisaConfig` chưa có (credentials placeholders) | **P1** |
-| **Test** | `EInvoiceProviderTests.cs` | Cần verify mock HTTP pass cho Viettel + MISA | **P1** |
-| **Test** | Circuit breaker — không có `CircuitBreakerTests.cs` riêng | Covered trong integration tests? Cần verify | **P2** |
+| ~~TODO(F4) RetryPolicyService `Task.CompletedTask`~~ | `Program.cs` | **ĐÃ FIX** — `Program.cs:132-183` wire submitAction tới real provider + circuit breaker | ~~P0~~ DONE |
+| ~~Missing DTO WebhookDtos.cs~~ | `1_Shared/DTOs/` | **ĐÃ TẠO 2026-06-14** | ~~P0~~ DONE |
+| ~~Missing DI ViettelConfig/MisaConfig Configure~~ | `Program.cs` | **ĐÃ FIX** — `Program.cs:103,112` | ~~P0~~ DONE |
+| ~~Missing DI named HttpClients~~ | `Program.cs` | **ĐÃ FIX** — `Program.cs:104,113` AddHttpClient "viettel"/"misa" | ~~P0~~ DONE |
+| ~~Missing DI providers vào Registry~~ | `Program.cs` | **ĐÃ FIX** — `Program.cs:124-125` RegisterProvider | ~~P0~~ DONE |
+| ~~Config missing appsettings.json~~ | `appsettings.json` | **ĐÃ FIX** — `appsettings.json:25-39` | ~~P1~~ DONE |
+| **MISSING TEST** | `EInvoiceProviderTests.cs` | KHÔNG có HTTP mock tests cho Viettel/MISA. File chỉ chứa Registry/Factory/DTO plumbing. 9 cases S2 plan CHƯA viết. 0 MockHttp/HttpMessageHandler. | **P0** |
+| **MISSING TEST** | `CircuitBreakerTests.cs` | FILE KHÔNG TỒN TẠI. `CircuitBreakerService.cs` 0% coverage. | **P0** |
+| **MISSING TEST** | `EInvoiceOrchestratorTests.cs` | KHÔNG có test `CreateInvoiceAsync` (DB write + Outbox enqueue) hay `GetInvoiceAsync` flow. Chỉ có delegation tests. | **P0** |
+| **STUB TEST** | `Core.Tests/WebhookServiceTests.cs` | STUB-VALIDATING — dùng `new WebhookService()` parameterless → L2 DB OFF. Test chỉ assert `Should not throw`. Comment author ghi "stub implementation". False confidence. | **P1** |
+| **PARTIAL TEST** | `Core.Tests/InvoicePolicyServiceTests.cs` | Chỉ test failure path + pure logic. KHÔNG test `ValidateInvoiceAsync` happy/sad path ở unit level (bù đắp Integration.Tests). | **P1** |
+| **VERIFY** | Build Release | Claim 0 errors 2026-06-14, CHƯA re-verify sau WebhookDtos.cs | **P2** |
 
 ---
 
 ## SESSION PLAN
 
-### Session S1 — DI Wiring (P0, ~45 phút)
+### Session S1 — DI Wiring (P0, ~45 phút) — ✅ DONE (REVIEW 2026-06-18)
 
 **Mục tiêu:** Wire đầy đủ ViettelProvider + MisaProvider vào DI container.
+
+> **STATUS: ĐÃ HOÀN THÀNH** — `Program.cs:103-192` đã wire đầy đủ: Configure<ViettelConfig/MisaConfig>, AddHttpClient named "viettel"/"misa", Registry+Factory, RetryPolicyService submitAction wired tới real provider (TODO F4 đã fix), Orchestrator, CircuitBreaker, EInvoiceWorker. `appsettings.json:25-39` đã có config placeholders. Session S1 KHÔNG cần làm lại.
 
 **Files cần sửa:**
 1. `3_CoreHub/Program.cs` — thêm:

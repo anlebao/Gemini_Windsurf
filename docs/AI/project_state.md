@@ -129,6 +129,8 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 | **P0-3** | Fix `VanAnDashboard.razor` DI crash (T-01) — `@inject IDashboardService` removed | Runtime `InvalidOperationException` on navigate. Production crash risk. |
 | **P0-4** | Fix AccountCode not saved on manual entry (§2.1) — wire UI → API → DB | Sổ sách sai. |
 | **P0-5** | Move accounting entry creation: `CreateOrder` → `PaymentWebhook` (§1.1) | Doanh thu ghi nhận trước thanh toán. |
+| **P0-6** | EInvoice dead code cleanup + missing API/UI — see `task-einvoice-deadcode-cleanup.md` | REVIEW 2026-06-18: `EInvoiceE2ETests.cs` 5 tests dead code (endpoints không tồn tại), `HKDElectronicInvoiceController` đã DELETE, 6 Razor pages + 3 Playwright specs không tồn tại, WebhookController route/body mismatch. |
+| **P0-7** | EInvoice test coverage ảo — write missing tests | REVIEW 2026-06-18: EInvoiceProviderTests 0 HTTP mock (9 cases S2 plan chưa viết), CircuitBreakerTests không tồn tại, Core.Tests WebhookService stub, EInvoiceOrchestratorTests thiếu CreateInvoiceAsync flow. |
 
 #### P1 — High (Flow completion + E2E unblock)
 
@@ -443,6 +445,16 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
+* **EInvoice Task Card Review Audit** (2026-06-18) — COMPLETED (REVIEW_ONLY). Audited 2 task cards (`task_sprint3_einvoice.md` + `task_sprint3b_provider_integration.md`) vs codebase thực tế. Phát hiện:
+  - **Sprint 3B card outdated:** 3 claims đã done (DI wiring, RetryPolicyService submitAction, config) nhưng card vẫn ghi `[ ]`. Đã update SC + Health Check.
+  - **Sprint 3B card false claim:** Fact 12 "HKDElectronicInvoiceController REAL" — FALSE, file đã DELETE commit `e89b6c6`. Đã update.
+  - **Sprint 3 card STALE:** vẫn ở ANALYZE mode dù implementation đã diễn ra. Đã mark SUPERSEDED by Sprint 3B + update SC/Health Check.
+  - **Test coverage ảo:** EInvoiceProviderTests 0 HTTP mock (9 cases S2 plan chưa viết), CircuitBreakerTests không tồn tại, Core.Tests WebhookService stub (comment author tự ghi "stub implementation"), EInvoiceOrchestratorTests thiếu CreateInvoiceAsync flow.
+  - **E2E dead code:** `EInvoiceE2ETests.cs` 5 tests gọi `/api/einvoice*` endpoints không tồn tại (controller đã delete) + `/api/webhooks` (plural, mismatch route `api/webhook` singular) + body shape mismatch. TC-E2E-04 stub `OK || NotFound` always-pass. E2E disabled in CI (`if: false`).
+  - **Missing UI:** 6 EInvoice Razor pages + 3 Playwright specs — 0 files exist.
+  - **POS stubs:** KiotViet, Sapo — `Task.FromResult(Success: true)` hardcoded, deferred Sprint 4.
+  - **Tạo task card mới:** `docs/AI/tasks/task-einvoice-deadcode-cleanup.md` — plan dọn dead code + tạo controller/UI/E2E.
+  - **Files updated:** `task_sprint3_einvoice.md`, `task_sprint3b_provider_integration.md`, `sprint3b_provider_detailed_plan.md`. **File created:** `task-einvoice-deadcode-cleanup.md`.
 * **Value Object Mapping Fix** (2026-06-15) — COMPLETED. Created 14 EF Core Configuration files for all entities with value objects. Fixed `requires a primary key` errors for ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId. Removed inline configurations from VanAnDbContext.cs. Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
 * **KhachLink E2E Regression Fix** (2026-06-11) — In Progress. Gateway DI fixed, ProductDto created with JsonPropertyName, CartService overload added, QrMenu updated to use IHttpClientFactory. Gateway (5001) and KhachLink (5002) running. E2E tests: 9/9 failing - products not rendering in UI despite API returning data correctly.
 * **S7 Responsive** (2026-06-11) — Playwright responsive tests. TC7: Android 360×800 (no overflow, CTA clickable). TC8: iPhone 14 390×844 (no overflow). 8/8 E2E tests listed, 54 total test configurations.
@@ -465,8 +477,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-18 (synced consolidated backlog from 5 sources into §4)
+* Last Updated: 2026-06-18 (EInvoice task card review audit — REVIEW_ONLY, 3 cards updated + 1 created)
 * Current Branch: `fix/shoperp-audit-trail-di`
+* **EInvoice Task Card Review Audit (2026-06-18):** REVIEW_ONLY audit 2 Sprint 3 cards vs codebase. Update `task_sprint3_einvoice.md` (mark SUPERSEDED + update SC/Health Check với 14 verified facts), `task_sprint3b_provider_integration.md` (update SC + Health Check + fix Fact 12 false claim), `sprint3b_provider_detailed_plan.md` (update status tables + mark S1 DONE). Tạo `task-einvoice-deadcode-cleanup.md` (plan dọn dead code EInvoiceE2ETests + fix WebhookController route + tạo HKDElectronicInvoiceController + 6 Razor pages + 3 Playwright specs). Phát hiện chính: backend Sprint 3B đã done, nhưng API controller đã delete, UI/E2E chưa tồn tại, test coverage ảo (stub tests + missing tests + dead E2E tests).
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().

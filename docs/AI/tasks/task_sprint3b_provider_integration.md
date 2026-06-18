@@ -63,16 +63,16 @@ Mỗi Session chạy 2 Micro-phases LIÊN TỤC trong 1 phiên:
 
 ### Done khi tất cả pass:
 - [x] `1_Shared/DTOs/WebhookDtos.cs` — `ViettelWebhookDto` + `MisaWebhookDto` ✅ CREATED 2026-06-14
-- [ ] `EInvoiceProviderTests.cs` — tất cả test mock HTTP pass (Viettel + MISA submit/status/cancel)
-- [ ] `EInvoiceOrchestratorTests.cs` — CreateInvoice, GetInvoice, SubmitInvoice flow pass
-- [ ] `InvoicePolicyServiceTests.cs` — ValidateInvoice, CanSubmit, B2B/B2C rules pass
-- [ ] `WebhookServiceTests.cs` (Core.Tests) — Viettel/MISA webhook idempotency pass
-- [ ] `WebhookServiceTests.cs` (Integration.Tests) — DB integration pass
-- [ ] `CircuitBreakerTests.cs` (nếu chưa có, tạo mới) — Open/HalfOpen/Closed transitions pass
-- [ ] `dotnet build VanAn.sln --configuration Release` → 0 errors
-- [ ] DI registration trong `3_CoreHub/Program.cs` đầy đủ (ViettelConfig, MisaConfig, named HttpClients)
-- [ ] `RetryPolicyService` submitAction wired với real provider (fix TODO F4)
-- [ ] Config placeholders trong `appsettings.json` (credentials = `__PLACEHOLDER__`, không commit secret)
+- [ ] **`EInvoiceProviderTests.cs` — VIETTEL/MISA HTTP MOCK TESTS KHÔNG TỒN TẠI** ❌ (REVIEW 2026-06-18: file chỉ chứa Registry/Factory/DTO plumbing tests + MockEInvoiceProvider helper; 0 MockHttp/HttpMessageHandler; 9 cases S2 plan chưa viết)
+- [ ] **`EInvoiceOrchestratorTests.cs` — PARTIAL** ⚠️ (REVIEW 2026-06-18: 9 test chỉ verify delegation/call-order/exception; KHÔNG có test `CreateInvoiceAsync` verify DB write + Outbox enqueue; KHÔNG có `GetInvoiceAsync` flow test)
+- [ ] **`InvoicePolicyServiceTests.cs` (Core.Tests) — PARTIAL/MISLEADING** ⚠️ (REVIEW 2026-06-18: chỉ test failure path `WithoutDbContext` + pure logic `DetermineRecipientType`/`IsEInvoiceRequired`/`ValidateBusinessPolicy`; KHÔNG test `ValidateInvoiceAsync` happy/sad path ở unit level — bù đắp ở Integration.Tests)
+- [ ] **`WebhookServiceTests.cs` (Core.Tests) — STUB/FALSE CONFIDENCE** ❌ (REVIEW 2026-06-18: dùng `new WebhookService()` parameterless → `_dbContext=null` → L2 DB idempotency OFF; test chỉ assert `Should not throw`; comment test author tự ghi "stub implementation"; KHÔNG test production path)
+- [x] **`WebhookServiceTests.cs` (Integration.Tests) — DB integration REAL** ✅ (REVIEW 2026-06-18: 6 test REAL với DB — Viettel Approved/Rejected, MISA Approved, invalid JSON, duplicate idempotency, non-existent invoice)
+- [ ] **`CircuitBreakerTests.cs` — KHÔNG TỒN TẠI** ❌ (REVIEW 2026-06-18: `find_file_by_name` → No files found; `CircuitBreakerService.cs` 0% test coverage)
+- [ ] `dotnet build VanAn.sln --configuration Release` → 0 errors (claim 2026-06-14, CHƯA re-verify sau WebhookDtos.cs)
+- [x] **DI registration trong `3_CoreHub/Program.cs` ĐỦ** ✅ (REVIEW 2026-06-18: `Program.cs:103-118` Configure<ViettelConfig/MisaConfig> + AddHttpClient named "viettel"/"misa"; `:121-128` Registry+Factory; `:190-192` Orchestrator+CircuitBreaker+Worker)
+- [x] **`RetryPolicyService` submitAction wired với real provider** ✅ (REVIEW 2026-06-18: `Program.cs:132-183` đã wire `submitAction` → `factory.CreateProvider` + `provider.SubmitInvoiceAsync` + `breaker.RecordSuccess/Failure`; TODO F4 ĐÃ FIX)
+- [x] **Config placeholders trong `appsettings.json`** ✅ (REVIEW 2026-06-18: `appsettings.json:25-39` ViettelConfig + MisaConfig sections, credentials = `__PLACEHOLDER__`)
 
 ## 6. ACTIVE SKILLS (MAX 3)
 - `einvoice-integration`
@@ -81,33 +81,37 @@ Mỗi Session chạy 2 Micro-phases LIÊN TỤC trong 1 phiên:
 
 ## 7. AI HEALTH CHECK MATRIX
 
-**Cập nhật lần cuối:** 2026-06-14 — Full codebase audit hoàn tất
+**Cập nhật lần cuối:** 2026-06-18 — REVIEW_ONLY audit (verify code thực tế vs claims cũ 2026-06-14)
 
-- **Evidence Count:** 20+ files đã đọc, audit đầy đủ tất cả layers
-- **Verified Facts:**
-  - Fact 1: `ViettelEInvoiceProvider.cs` — REAL: HTTP auth (JWT cache 55'), submit, status, cancel, healthcheck
-  - Fact 2: `MisaEInvoiceProvider.cs` — REAL: HTTP auth (JWT cache 55'), submit, status, cancel, healthcheck
-  - Fact 3: `EInvoiceOrchestrator.cs` — REAL: CreateInvoice (Outbox transaction), GetInvoice, SubmitInvoice, ProcessWebhook
-  - Fact 4: `InvoicePolicyService.cs` — REAL: amount (1K–100B VND), B2B/B2C check, VAT (10%/8%), TT152-2025
-  - Fact 5: `WebhookService.cs` — REAL: idempotency L1 (ConcurrentDictionary) + L2 (DB), Viettel/MISA typed parsing
-  - Fact 6: `CircuitBreakerService.cs` — REAL: Closed→Open (5 failures)→HalfOpen→Closed, 5' cooldown
-  - Fact 7: `RetryPolicyService.cs` — REAL: 3 retries, backoff 1s/2s/4s, logging. **Nhưng submitAction trong DI = Task.CompletedTask (TODO F4)**
-  - Fact 8: `ComplianceService.cs` — REAL: CustomerName, TaxCode ≥10, TotalAmount >0, TT152-2025
-  - Fact 9: `FallbackService.cs` — REAL: chọn provider không failed từ ProviderManager
-  - Fact 10: `EInvoiceProviderFactory.cs` / `EInvoiceProviderRegistry.cs` — REAL code, nhưng **chưa được register vào DI**
-  - Fact 11: `WebhookController.cs` — REAL: POST /api/webhook/{provider} endpoint
-  - Fact 12: `HKDElectronicInvoiceController.cs` — REAL: CRUD + submit endpoints
-  - Fact 13: `WebhookDtos.cs` (`1_Shared/DTOs/`) — **✅ CREATED 2026-06-14** — ViettelWebhookDto + MisaWebhookDto
-  - Fact 14: `ViettelDTOs.cs` / `MisaDTOs.cs` — tồn tại trong Providers/EInvoice/ — ViettelConfig, MisaConfig records
-  - Fact 15: `3_CoreHub/Program.cs` — **ViettelConfig/MisaConfig chưa Configure<T>(), named HttpClients chưa AddHttpClient()**
-  - Fact 16: `EInvoiceWorker.cs` — REAL: BackgroundService, 30s cycle, batch 50, dead-letter queue ≥5 retries
-  - Fact 17: Unit tests — 35+ cases across EInvoiceOrchestratorTests, InvoicePolicyServiceTests, WebhookServiceTests, EInvoiceProviderTests
-  - Fact 18: Integration tests — 12+ cases: WebhookServiceTests (Integration), EInvoiceDISmokeTests
-  - Fact 19: Build Release → 0 errors (confirmed 2026-06-14 trước khi tạo WebhookDtos.cs)
-  - Fact 20: Build Release cần verify lại sau khi tạo WebhookDtos.cs
+- **Evidence Count:** 12 verified facts (đọc 8 file code + 4 file test + Program.cs + appsettings.json)
+- **Verified Facts (REVIEW 2026-06-18):**
+  - Fact 1: `ViettelEInvoiceProvider.cs` — REAL: HTTP auth (JWT cache 55'), submit `createInvoice`, status, cancel, healthcheck ✅
+  - Fact 2: `MisaEInvoiceProvider.cs` — REAL: HTTP auth (JWT cache 55'), submit `einvoices`, status, cancel, healthcheck ✅
+  - Fact 3: `EInvoiceOrchestrator.cs` — REAL: CreateInvoice (transaction + Outbox), GetInvoice, SubmitInvoice (policy→compliance→retry), ProcessWebhook ✅
+  - Fact 4: `InvoicePolicyService.cs` — REAL: amount/B2B-B2C/VAT logic ✅
+  - Fact 5: `WebhookService.cs` — REAL: L1 ConcurrentDictionary + L2 DB `ProcessedWebhookKeys`, typed Viettel/MISA DTO parsing ✅
+  - Fact 6: `CircuitBreakerService.cs` — REAL code (3665 bytes) NHƯNG **0% test coverage** ❌
+  - Fact 7: ~~`RetryPolicyService submitAction = Task.CompletedTask` (TODO F4)~~ → **OUTDATED/ĐÃ FIX**: `Program.cs:132-183` đã wire submitAction tới real provider + circuit breaker ✅
+  - Fact 8: `ComplianceService.cs` — REAL ✅
+  - Fact 9: `FallbackService.cs` — REAL ✅
+  - Fact 10: ~~`Factory/Registry chưa register vào DI`~~ → **OUTDATED/ĐÃ FIX**: `Program.cs:121-128` đã register Registry (Singleton) + Factory (Scoped) + 2 providers ✅
+  - Fact 11: `WebhookController.cs` — REAL ✅
+  - ~~Fact 12: `HKDElectronicInvoiceController.cs` — REAL ✅~~ → **FALSE (REVIEW 2026-06-18 sprint3 card)**: File đã DELETE commit `e89b6c6` "purge dead code". `find_file_by_name **/HKDElectronicInvoiceController*` → No files found. Git log: tạo `e4904a9`, xóa `e89b6c6`. Endpoints `/api/einvoice*` không tồn tại — `EInvoiceE2ETests.cs` gọi endpoints này là DEAD CODE. ❌
+  - Fact 13: `WebhookDtos.cs` — ✅ CREATED 2026-06-14
+  - Fact 14: `ViettelDTOs.cs` / `MisaDTOs.cs` — tồn tại ✅
+  - Fact 15: ~~`ViettelConfig/MisaConfig chưa Configure<T>(), named HttpClients chưa AddHttpClient()`~~ → **OUTDATED/ĐÃ FIX**: `Program.cs:103-118` đã Configure + AddHttpClient named "viettel"/"misa" ✅
+  - Fact 16: `EInvoiceWorker.cs` — REAL, tồn tại tại `3_CoreHub/Infrastructure/Messaging/` ✅
+  - Fact 17: ~~"35+ unit tests"~~ → **MISLEADING**: số lượng đúng nhưng chất lượng ảo — xem Facts 21-24
+  - Fact 18: Integration tests — REAL: `Integration.Tests/WebhookServiceTests.cs` (6 test DB), `Integration.Tests/InvoicePolicyServiceTests.cs` (8 test DB), `EInvoiceDISmokeTests.cs` ✅
+  - Fact 19: Build Release → 0 errors (claim 2026-06-14, CHƯA re-verify sau WebhookDtos.cs) ⚠️
+  - **Fact 21 (MỚI):** `EInvoiceProviderTests.cs` — KHÔNG có HTTP mock tests cho Viettel/MISA. File chỉ chứa Registry/Factory/Capabilities/Request/Response DTO tests + MockEInvoiceProvider helper. 0 MockHttp/HttpMessageHandler. 9 cases S2 plan CHƯA viết. ❌
+  - **Fact 22 (MỚI):** `Core.Tests/WebhookServiceTests.cs` — STUB-VALIDATING. Dùng `new WebhookService()` parameterless → `_dbContext=null` → L2 DB idempotency OFF. Test chỉ assert `Should not throw`. Comment test author tự ghi "stub implementation" (line 78, 154). False confidence. ❌
+  - **Fact 23 (MỚI):** `EInvoiceOrchestratorTests.cs` — 9 test chỉ verify delegation/call-order/exception. KHÔNG có test `CreateInvoiceAsync` (DB write + Outbox enqueue) hay `GetInvoiceAsync` flow. ⚠️ PARTIAL
+  - **Fact 24 (MỚI):** `Core.Tests/InvoicePolicyServiceTests.cs` — chỉ test failure path (`WithoutDbContext`) + pure logic (`DetermineRecipientType`/`IsEInvoiceRequired`/`ValidateBusinessPolicy` via reflection). KHÔNG test `ValidateInvoiceAsync` happy/sad path ở unit level. ⚠️ PARTIAL (bù đắp ở Integration.Tests)
+  - **Fact 25 (MỚI):** `CircuitBreakerTests.cs` — KHÔNG TỒN TẠI (`find_file_by_name` → No files found). ❌
 - **Assumptions:** 0
-- **Open Questions:** 0
-- **Recommended Action:** Continue — Bắt đầu Session S1: DI Wiring (4 P0 items còn lại)
+- **Open Questions:** 1 (build Release chưa re-verify sau WebhookDtos.cs — không chạy trong REVIEW_ONLY)
+- **Recommended Action:** Code production đã done (DI/RetryPolicyService/config/providers/orchestrator/webhook REAL). **P0 tiếp theo là viết tests thật**: (1) EInvoiceProviderTests HTTP mock 9 cases, (2) CircuitBreakerTests, (3) EInvoiceOrchestratorTests.CreateInvoiceAsync flow. **P1 dọn false confidence**: xóa/rewrite Core.Tests/WebhookServiceTests stub, bổ sung Core.Tests/InvoicePolicyService happy path.
 
 ## 8. DETAILED PLAN (REFERENCE)
 - **Kế hoạch chi tiết:** [sprint3b_provider_detailed_plan.md](./sprint3b_provider_detailed_plan.md)
