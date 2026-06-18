@@ -218,6 +218,20 @@ namespace VanAn.ShopERP
 
             // PROPER RAZOR PAGES ROUTING - ANTI-CHEATING RULE #2
             _ = app.MapControllers(); // If you have API controllers in ShopERP
+
+            // T-20: Dev-only login endpoint for Playwright E2E tests.
+            // /dev/login is ONLY reachable in Development environment.
+            // In Production/Staging this branch is never entered — the route is not registered.
+            if (app.Environment.IsDevelopment())
+            {
+                _ = app.MapGet("/dev/login", () => Results.Ok(new
+                {
+                    available = true,
+                    env       = "Development",
+                    note      = "POST to /dev/login to create an auth session for E2E tests",
+                }));
+                app.Logger.LogInformation("DevLoginController registered at /dev/login (Development only)");
+            }
             _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn ShopERP", Timestamp = DateTime.UtcNow }));
             _ = app.MapRazorPages();
             _ = app.MapRazorComponents<Components.App>()
