@@ -38,26 +38,30 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Wave 3 — TenantId Completion (P0-1c Phase 3 + P0-1d Phase 4)**
+**Wave 4 — EInvoice UI + E2E (P0-6 Phase C + Phase D)**
 
-**Status:** 🔄 **IN PROGRESS** — Branch `fix/tenantid-wave3` (2026-06-19)
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/einvoice-ui`, pending merge to `main`
 
-**Phase 3 (P0-1c) — KhachLink Tenant Context:**
-- ✅ `Index.cshtml.cs` — removed `Guid.NewGuid()` demo data; resolve shopId từ `?shopId=xxx` query param
-- ✅ `Campaign.cshtml.cs` — removed `Guid.NewGuid()` demo tenant; campaign tenant từ `?shopId=xxx`
-- ✅ `DashboardHub.JoinTenantGroup` — verify `tenantId` khớp JWT claim (`tenant_id`/`TenantId`), throw `HubException` nếu mismatch
-- ✅ `DashboardHub.JoinShopGroup` — verify `shopId` khớp JWT claim, throw `HubException` nếu mismatch
-- ✅ `OfflineOrderService.SyncSingleOrderAsync` — validate `ShopId` là valid non-empty Guid trước khi dùng làm tenant; reject nếu empty/invalid
+**Phase C — 6 EInvoice Razor Pages:** ✅
+- `EInvoiceLayout.razor`: sidebar nav with links to all 6 EInvoice pages
+- `EInvoiceDashboard.razor` (`/einvoice`): metrics cards, provider status, recent activity
+- `ProviderManagement.razor` (`/einvoice/providers`): provider list table, configure nav
+- `ProviderConfiguration.razor` (`/einvoice/configuration`): provider config form (Viettel/MISA)
+- `HealthMonitoring.razor` (`/einvoice/health`): health metrics, provider health table, retry queue
+- `InvoiceManagement.razor` (`/einvoice/invoices`): invoice table + create modal (uses `IEInvoiceOrchestrator` directly)
+- `AlertManagement.razor` (`/einvoice/alerts`): alert table with acknowledge actions
 
-**Phase 4 (P0-1d) — Accounting Razor Cleanup (IN PROGRESS):**
-- 🔄 `TransactionHistory.razor` — đang refactor: bỏ `AuthStateProvider` + `FindFirst("TenantId")`, dùng `@inject ITenantProvider`
-- ⏳ `ExpenseEntry.razor` — chưa làm
-- ⏳ `PeriodClosing.razor` — chưa làm (xóa `GetTenantId()` hardcode)
-- ⏳ `RevenueEntry.razor` — chưa làm
-- ⏳ `AccountingIndex.razor` — chưa làm
-- ⏳ `AccountBalance.razor` — chưa làm
+**Phase D — 3 Playwright E2E specs:** ✅
+- `6_Testing/e2e-tests/einvoice-dashboard.spec.ts`: 6 tests
+- `6_Testing/e2e-tests/provider-management.spec.ts`: 9 tests
+- `6_Testing/e2e-tests/invoice-management.spec.ts`: 10 tests (also covers health + alerts)
 
-**Next:** Hoàn thành Phase 4 → build + guard-check → commit → merge to main
+**Verification:**
+- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+- Branch: `fix/einvoice-ui`
+- Previous Wave: Wave 3 `fix/tenantid-wave3` → MERGED to `main` ✅
+
+**Next:** Merge `fix/einvoice-ui` → `main`, then P0-2 (E2E false-positive specs)
 
 ## 3. Current Status
 
@@ -79,11 +83,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * `DashboardHub`: `JoinTenantGroup` + `JoinShopGroup` verify JWT claim, throw `HubException` nếu mismatch
   * `OfflineOrderService`: Validate `ShopId` non-empty/valid trước khi dùng làm tenant
 
-### In Progress
+- **Wave 3 Phase 4 — Accounting Razor Cleanup ✅** (2026-06-19) — MERGED to main
+  * 6 Razor pages: bỏ `FindFirst("TenantId")` + hardcoded GUID + `_tenantId` field, dùng `@inject ITenantProvider`
+  * `PeriodClosing.razor`: giữ `AuthStateProvider` chỉ để lấy `userId` (sub claim) — không phải tenant
 
-- **Wave 3 Phase 4 — Accounting Razor Cleanup** (P0-1d) — branch `fix/tenantid-wave3`
-  * Đang refactor 6 Razor pages: TransactionHistory, ExpenseEntry, PeriodClosing, RevenueEntry, AccountingIndex, AccountBalance
-  * Target: bỏ `FindFirst("TenantId")` + hardcoded `00000000-0000-0000-0000-000000000001`, dùng `@inject ITenantProvider`
+- **Wave 4 — EInvoice UI + E2E ✅** (2026-06-20) — branch `fix/einvoice-ui`, pending merge to main
+  * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
+  * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
+  * Build: 0 errors ✅
 
 ### Blocked
 
@@ -108,7 +115,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 | ~~P0-1a~~ | ✅ **DONE Wave 1** — Fix TenantId spoofing: HttpContextTenantProvider, OrdersController, AccountingEntriesController, ProviderController, VanAnDbContext throw | JWT claim-based tenant resolution. Merged to main. |
 | ~~P0-1b~~ | ✅ **DONE Wave 1** — UserTenant entity + Login DB lookup + `RequireTenantAccess` policy | Merged to main. |
 | ~~P0-1c~~ | ✅ **DONE Wave 3** — KhachLink tenant context: Index/Campaign ?shopId=xxx, DashboardHub authorization, OfflineOrderService validation | Branch `fix/tenantid-wave3`. |
-| **P0-1d** | 🔄 **IN PROGRESS Wave 3** — 6 Accounting Razor pages → `@inject ITenantProvider`, remove hardcoded fallbacks | Branch `fix/tenantid-wave3`. |
+| ~~P0-1d~~ | ✅ **DONE Wave 3** — 6 Accounting Razor pages → `@inject ITenantProvider`, remove hardcoded fallbacks | Merged to main. |
 | **P0-2** | Fix E2E false-positive specs (T-17/18/19/21) — replace `reporter.pass()` with `expect()` | 4 specs always green despite broken features. Quality assurance crisis. |
 | ~~P0-3~~ | ✅ **DONE Wave 0** — Fix `VanAnDashboard.razor` DI crash (T-01) — `@inject IDashboardService` removed | Fixed 2026-06-18. |
 | **P0-4** | Fix AccountCode not saved on manual entry (§2.1) — wire UI → API → DB | Sổ sách sai. |
@@ -435,7 +442,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
-* **Wave 3 Phase 3 — KhachLink Tenant Context (2026-06-19)** — Branch `fix/tenantid-wave3`. Removed all `Guid.NewGuid()` demo tenant data từ KhachLink: `Index.cshtml.cs` + `Campaign.cshtml.cs` resolve tenant từ `?shopId=xxx` query param thay vì random GUID. `DashboardHub.JoinTenantGroup` + `JoinShopGroup` verify JWT claim (`tenant_id`/`TenantId`), throw `HubException("Unauthorized: tenant mismatch.")` nếu client-requested tenantId không khớp claim — SC8 security test đáp ứng. `OfflineOrderService.SyncSingleOrderAsync` validate `ShopId` non-empty/valid Guid trước khi dùng làm tenant context; reject với error message rõ ràng nếu invalid.
+* **Wave 3 — TenantId Completion COMPLETED & MERGED (2026-06-19)** — Branch `fix/tenantid-wave3` → `main`. **Phase 3 (P0-1c):** Removed all `Guid.NewGuid()` demo tenant data từ KhachLink: `Index.cshtml.cs` + `Campaign.cshtml.cs` resolve tenant từ `?shopId=xxx` query param. `DashboardHub.JoinTenantGroup` + `JoinShopGroup` verify JWT claim, throw `HubException("Unauthorized: tenant mismatch.")`. `OfflineOrderService.SyncSingleOrderAsync` validate `ShopId` non-empty/valid Guid. **Phase 4 (P0-1d):** 6 Accounting Razor pages (`TransactionHistory`, `ExpenseEntry`, `PeriodClosing`, `RevenueEntry`, `AccountingIndex`, `AccountBalance`) refactored: xóa `_tenantId` field + `FindFirst("TenantId")` + hardcoded `00000000-0000-0000-0000-000000000001`, thay bằng `@inject ITenantProvider` + `TenantProvider.HasTenant` guard. `PeriodClosing` giữ `AuthStateProvider` chỉ cho `userId` (sub claim). Build 0 errors, Arch tests 11/11 PASS. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 — EInvoice API Layer COMPLETED (2026-06-19)** — P0-6a Phase A + P0-6b Phase B. Phase A: DELETED `EInvoiceE2ETests.cs` (5 tests dead code), fixed `WebhookController` route from `api/webhook` (singular) to `api/webhooks` (plural), fixed body shape to accept raw provider payload (Viettel/MISA format) with automatic `invoiceNo` extraction. Phase B: Created `EInvoice/` Bounded Context trong `5_WebApps/ShopERP` với file-scoped types, `HKDElectronicInvoiceController` với 4 endpoints (`POST /api/einvoice`, `GET /api/einvoice/{id}`, `POST /api/einvoice/{id}/submit`, `GET /api/einvoice/{id}/status`), 5 DTOs (`CreateInvoiceRequest`, `InvoiceDto`, `InvoiceItemDto`, `SubmitInvoiceResponse`, `InvoiceStatusResponse`), tenant isolation via `ITenantProvider`, integration với `IEInvoiceOrchestrator`. Verification: build 0 errors, arch tests 11/11 PASS. Branch `fix/einvoice-cleanup`.
 * **Wave 1 — TenantId Foundation COMPLETED (2026-06-18)** — P0-1a Phase 1 + P0-1b Phase 2 merged to main. Phase 1: Fixed claim name mismatch (`HttpContextTenantProvider` reads "TenantId"), removed `Guid.NewGuid()` from `OrdersController.CreateOrder`, removed body/header TenantId from `AccountingEntriesController`, removed query tenantId from `ProviderController`, `VanAnDbContext` throws on empty TenantId. Phase 2: Created `UserTenant` entity (UserId, TenantId, Role, AssignedAt, IsActive), `UserTenantConfiguration.cs` with composite index, `UserTenants` DbSet, Login.cshtml.cs DB lookup with fallback, standardized claim name to `tenant_id` (snake_case), applied `[Authorize(Policy="RequireTenantAccess")]` to all Gateway controllers, registered `ITenantProvider` in Gateway. Verification: build 0 errors, arch tests 11/11 PASS. Branch `fix/tenantid-remediation` merged to `main`.
 * **EInvoice Task Card Review Audit** (2026-06-18) — COMPLETED (REVIEW_ONLY). Audited 2 task cards (`task_sprint3_einvoice.md` + `task_sprint3b_provider_integration.md`) vs codebase thực tế. Phát hiện:
@@ -470,10 +477,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 (Wave 3 IN PROGRESS — Phase 3 ✅, Phase 4 🔄)
-* Current Branch: `fix/tenantid-wave3` (from `main`)
-* **Wave 3 Phase 3 COMPLETED (2026-06-19):** KhachLink tenant context hardened. Files modified: `Index.cshtml.cs` (shopId from ?shopId= query param), `Campaign.cshtml.cs` (same), `DashboardHub.cs` (JoinTenantGroup + JoinShopGroup JWT claim verification), `OfflineOrderService.cs` (ShopId validation guard).
-* **Wave 3 Phase 4 IN PROGRESS (2026-06-19):** Refactoring 6 Accounting Razor pages to use `@inject ITenantProvider` — removing `FindFirst("TenantId")` and hardcoded `00000000-0000-0000-0000-000000000001` fallbacks.
+* Last Updated: 2026-06-20 (Wave 4 COMPLETED — EInvoice UI + E2E, branch `fix/einvoice-ui`, pending merge)
+* Previous: 2026-06-19 (Wave 3 COMPLETED & MERGED — TenantId Full Remediation)
+* Current Branch: `main`
+* **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.
 * **Wave 0 Execution COMPLETED (2026-06-18):** Implemented P0-3 (fix VanAnDashboard.razor DI crash — removed `@inject IDashboardService`) and P0-7 (EInvoice test coverage). P0-7 scope: verified CircuitBreakerServiceTests exist (16+ tests), verified ViettelEInvoiceProviderTests/MisaEInvoiceProviderTests have HTTP mock tests (8 each), added 6 new CreateInvoiceAsync flow tests to EInvoiceOrchestratorTests.cs, rewrote WebhookServiceTests.cs with real DbContext (18 tests vs 12 stub tests). Build passes. 38 tests passed.

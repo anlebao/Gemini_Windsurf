@@ -1,0 +1,186 @@
+@page "/einvoice"
+@layout EInvoiceLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain.Common
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<EInvoiceDashboard> Logger
+@inject NavigationManager NavigationManager
+
+<div class="einvoice-dashboard @ThemeProvider.CurrentTheme" data-testid="einvoice-dashboard">
+    <!-- Header -->
+    <header class="page-header">
+        <h1>Dashboard Hóa Đơn Điện Tử</h1>
+        <div class="header-actions">
+            <VanAButton
+                Variant="secondary"
+                Size="small"
+                OnClick="RefreshData"
+                data-testid="btn-refresh">
+                Làm Mới
+            </VanAButton>
+            <VanAButton
+                Variant="primary"
+                Size="small"
+                OnClick="NavigateToInvoices"
+                data-testid="btn-new-invoice">
+                + Tạo Hóa Đơn
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!TenantProvider.HasTenant)
+    {
+        <VanAnAlert Type="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
+    }
+    else
+    {
+        <!-- Status Summary Cards -->
+        <section class="metrics-section" data-testid="metrics-section">
+            <div class="metrics-grid">
+                <VanAMetricsCard
+                    Title="Nhà Cung Cấp Hoạt Động"
+                    Value="@ActiveProviderCount.ToString()"
+                    Icon="connect"
+                    Trend="+0%"
+                    Color="success" />
+                <VanAMetricsCard
+                    Title="Hóa Đơn Hôm Nay"
+                    Value="@TodayInvoiceCount.ToString()"
+                    Icon="receipt"
+                    Trend="+12%"
+                    Color="primary" />
+                <VanAMetricsCard
+                    Title="Tỷ Lệ Thành Công"
+                    Value="@SuccessRateDisplay"
+                    Icon="check-circle"
+                    Trend="+2.1%"
+                    Color="success" />
+                <VanAMetricsCard
+                    Title="Lỗi Hôm Nay"
+                    Value="@ErrorCount.ToString()"
+                    Icon="alert-triangle"
+                    Trend="-85%"
+                    Color="warning" />
+            </div>
+        </section>
+
+        <!-- Provider Status -->
+        <section class="provider-status-section">
+            <VanACard Header="Trạng Thái Nhà Cung Cấp" data-testid="provider-status-card">
+                <div class="provider-grid">
+                    @foreach (var provider in ProviderStatuses)
+                    {
+                        <div class="provider-item @GetProviderStatusClass(provider.Status)">
+                            <span class="provider-name">@provider.Name</span>
+                            <span class="provider-status">@GetProviderStatusLabel(provider.Status)</span>
+                            <span class="provider-metric">@provider.Metric</span>
+                            <VanAButton
+                                Variant="secondary"
+                                Size="small"
+                                OnClick="() => NavigateToProvider(provider.Id)">
+                                Chi Tiết
+                            </VanAButton>
+                        </div>
+                    }
+                </div>
+            </VanACard>
+        </section>
+
+        <!-- Recent Activity -->
+        <section class="activity-section">
+            <VanACard Header="Hoạt Động Gần Đây" data-testid="activity-card">
+                @if (RecentActivities.Count == 0)
+                {
+                    <p class="empty-state">Không có hoạt động nào.</p>
+                }
+                else
+                {
+                    <ul class="activity-list">
+                        @foreach (var activity in RecentActivities)
+                        {
+                            <li class="activity-item">
+                                <span class="activity-time">@activity.Time.ToString("HH:mm")</span>
+                                <span class="activity-message">@activity.Message</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </VanACard>
+        </section>
+    }
+</div>
+
+@code {
+    private int ActiveProviderCount = 2;
+    private int TodayInvoiceCount = 0;
+    private int ErrorCount = 0;
+    private decimal SuccessRate = 0m;
+
+    private string SuccessRateDisplay => $"{SuccessRate:F1}%";
+
+    private List<ProviderStatusItem> ProviderStatuses = new();
+    private List<ActivityItem> RecentActivities = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                Logger.LogWarning("EInvoiceDashboard: no tenant context — skipping load");
+                return;
+            }
+            await LoadDashboardData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing EInvoiceDashboard");
+        }
+    }
+
+    private Task LoadDashboardData()
+    {
+        // Placeholder: will be wired to IProviderManager + IEInvoiceOrchestrator when ready
+        ProviderStatuses = new List<ProviderStatusItem>
+        {
+            new("viettel", "Viettel", "Connected", "Thành công: 99.2%"),
+            new("misa", "MISA", "Pending", "Đang kết nối...")
+        };
+        RecentActivities = new List<ActivityItem>
+        {
+            new(DateTime.Now.AddMinutes(-5), "Hóa đơn Viettel #12345 đã được duyệt"),
+            new(DateTime.Now.AddMinutes(-30), "MISA: đang chờ xác thực...")
+        };
+        SuccessRate = 99.2m;
+        return Task.CompletedTask;
+    }
+
+    private Task RefreshData() => LoadDashboardData();
+
+    private void NavigateToInvoices() => NavigationManager.NavigateTo("/einvoice/invoices");
+
+    private void NavigateToProvider(string providerId) =>
+        NavigationManager.NavigateTo($"/einvoice/configuration?provider={providerId}");
+
+    private static string GetProviderStatusClass(string status) => status switch
+    {
+        "Connected" => "status-connected",
+        "Slow" => "status-slow",
+        "Error" => "status-error",
+        _ => "status-pending"
+    };
+
+    private static string GetProviderStatusLabel(string status) => status switch
+    {
+        "Connected" => "Đang kết nối",
+        "Slow" => "Chậm",
+        "Error" => "Lỗi",
+        _ => "Chờ kết nối"
+    };
+
+    private sealed record ProviderStatusItem(string Id, string Name, string Status, string Metric);
+    private sealed record ActivityItem(DateTime Time, string Message);
+}

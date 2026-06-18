@@ -1,0 +1,23 @@
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@inherits LayoutComponentBase
+
+<VanALayout>
+    <VanANavigation MenuItems="@EInvoiceMenuItems" />
+    <main class="einvoice-content">
+        @Body
+    </main>
+</VanALayout>
+
+@code {
+    private List<NavigationItem> EInvoiceMenuItems = new()
+    {
+        new() { Title = "Dashboard", Icon = "dashboard", Url = "/einvoice" },
+        new() { Title = "Nhà Cung Cấp", Icon = "connect", Url = "/einvoice/providers" },
+        new() { Title = "Cấu Hình", Icon = "settings", Url = "/einvoice/configuration" },
+        new() { Title = "Giám Sát", Icon = "monitor-heart", Url = "/einvoice/health" },
+        new() { Title = "Hóa Đơn", Icon = "receipt", Url = "/einvoice/invoices" },
+        new() { Title = "Cảnh Báo", Icon = "alert", Url = "/einvoice/alerts" }
+    };
+}
