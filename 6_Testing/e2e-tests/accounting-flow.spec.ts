@@ -4,6 +4,7 @@ import { TestReporter } from '../utils/test-reporter';
 
 // T-17 FIX: Replaced all reporter.pass()-only assertions and if(isVisible)/else-bypass
 // patterns with mandatory expect() calls. Tests now fail if UI is broken.
+// T-07 ADD: Gateway API smoke tests using /api/accounting alias route.
 
 const config = loadEnvConfig();
 const reporter = new TestReporter('E2E Tests');
@@ -220,5 +221,83 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
     ).toBeVisible();
 
     reporter.pass('Accounting Navigation Links', { pageLoaded: true });
+  });
+});
+
+// ─── T-07: GATEWAY ACCOUNTING API SMOKE TESTS ────────────────────────────────
+// Verifies the /api/accounting alias route on Gateway (T-07).
+// These tests call Gateway directly — no UI involved.
+// Auth: storageState from global-setup (T-20) provides the .VanAn.Auth cookie.
+// Gateway reads tenant_id from the session cookie forwarded as JWT.
+// Accepts 200 (data returned) or 401/403 (auth required but endpoint exists).
+// A 404 means the route is NOT registered — test fails loudly.
+
+test.describe('Gateway Accounting API — /api/accounting alias (T-07)', () => {
+  test.describe.configure({ mode: isTierEnabled('e2e') ? 'parallel' : 'skip' });
+
+  test('GET /api/accounting-entries is reachable (canonical route)', async ({ request }) => {
+    const response = await request.get(`${config.GATEWAY_URL}/api/accounting-entries`);
+    // 200 = authenticated + data; 401/403 = endpoint exists but needs auth
+    // 404 = route NOT registered — hard failure
+    expect(response.status()).not.toBe(404);
+    expect([200, 401, 403]).toContain(response.status());
+
+    reporter.pass('GET /api/accounting-entries', { status: response.status() });
+  });
+
+  test('GET /api/accounting is reachable (T-07 alias route)', async ({ request }) => {
+    // This test SPECIFICALLY validates the T-07 alias is registered.
+    // If 404 → AccountingEntriesController is missing the [Route("api/accounting")] attribute.
+    const response = await request.get(`${config.GATEWAY_URL}/api/accounting`);
+    expect(response.status()).not.toBe(404);
+    expect([200, 401, 403]).toContain(response.status());
+
+    reporter.pass('GET /api/accounting alias', { status: response.status() });
+  });
+
+  test('POST /api/accounting/revenue is reachable via alias', async ({ request }) => {
+    // Verify the revenue sub-route resolves through the alias.
+    // With valid auth (from global-setup) this should return 201 or 400 (validation).
+    // 404 means alias is broken; 401/403 means route exists but auth is needed.
+    const response = await request.post(`${config.GATEWAY_URL}/api/accounting/revenue`, {
+      data: {
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        amount: 100000,
+        description: 'T-07 E2E smoke test',
+      },
+    });
+    // Accept any response except 404 (route not found) and 500 (server crash)
+    expect(response.status()).not.toBe(404);
+    expect(response.status()).not.toBe(500);
+
+    reporter.pass('POST /api/accounting/revenue alias', { status: response.status() });
+  });
+
+  test('POST /api/accounting/expense is reachable via alias', async ({ request }) => {
+    const response = await request.post(`${config.GATEWAY_URL}/api/accounting/expense`, {
+      data: {
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        amount: 50000,
+        description: 'T-07 E2E expense smoke test',
+      },
+    });
+    expect(response.status()).not.toBe(404);
+    expect(response.status()).not.toBe(500);
+
+    reporter.pass('POST /api/accounting/expense alias', { status: response.status() });
+  });
+
+  test('GET /api/accounting/revenue/summary is reachable via alias', async ({ request }) => {
+    const year  = new Date().getFullYear();
+    const month = new Date().getMonth() + 1;
+    const response = await request.get(
+      `${config.GATEWAY_URL}/api/accounting/revenue/summary?year=${year}&month=${month}`
+    );
+    expect(response.status()).not.toBe(404);
+    expect(response.status()).not.toBe(500);
+
+    reporter.pass('GET /api/accounting/revenue/summary alias', { status: response.status() });
   });
 });

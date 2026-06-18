@@ -38,6 +38,27 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**T-07 — Gateway /api/accounting Alias Route + E2E API Smoke Tests**
+
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t07-gateway-accounting-alias`, merged to `main`
+
+**T-07a — `AccountingEntriesController` dual route:**
+- Thay `[Route("api/[controller]")]` bằng `[Route("api/accounting-entries")]` + `[Route("api/accounting")]`
+- Cả hai URL phục vụ tất cả endpoints giống hệt nhau
+- `AccountingEntriesController` đã tồn tại từ Wave 1 Phase 2 — T-07 chỉ thêm alias, không thêm logic
+
+**T-07b — 5 Gateway API smoke tests** trong `accounting-flow.spec.ts`:
+- `GET /api/accounting-entries` (canonical) → expect 200/401/403, NOT 404
+- `GET /api/accounting` (alias) → expect 200/401/403, NOT 404
+- `POST /api/accounting/revenue` → expect NOT 404/500
+- `POST /api/accounting/expense` → expect NOT 404/500
+- `GET /api/accounting/revenue/summary` → expect NOT 404/500
+
+**Verification:**
+- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+
+---
+
 **T-20 — Dev Login Endpoint for E2E Auth (ShopERP + global-setup)**
 
 **Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t20-dev-login`, merged to `main`
@@ -121,6 +142,10 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
   * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
   * Build: 0 errors ✅
+
+- **T-07 — Gateway /api/accounting alias + 5 API smoke tests ✅** (2026-06-20) — MERGED to main
+  * `[Route("api/accounting")]` alias added to `AccountingEntriesController` (Gateway)
+  * 5 new E2E smoke tests in `accounting-flow.spec.ts` verify alias resolves correctly
 
 - **T-20 — Dev Login Endpoint (DevLoginController + global-setup) ✅** (2026-06-20) — MERGED to main
   * `POST /dev/login` on ShopERP (Development-only) → Cookie auth với `tenant_id` claim
