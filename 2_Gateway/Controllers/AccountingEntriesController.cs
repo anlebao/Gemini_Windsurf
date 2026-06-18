@@ -36,19 +36,27 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(ModelState);
                 }
 
-                TenantId tenantId = new(request.TenantId);
+                // Phase 1: Get tenant from JWT claim - fail fast if missing (ignore request.TenantId)
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
+                {
+                    _logger.LogWarning("CreateRevenueEntry rejected: missing TenantId claim");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
+
+                TenantId tenantId = new(tenantGuid);
                 AccountingPeriod period = new(request.Year, request.Month);
                 Money amount = new(request.Amount);
                 Shared.DTOs.AccountingEntryDto entry = await _accountingEntryService.CreateRevenueEntryAsync(tenantId, period, amount.Value, request.Description);
 
                 _logger.LogInformation("Revenue entry created: {EntryId} for tenant {TenantId}",
-                    entry.Id, request.TenantId);
+                    entry.Id, tenantGuid);
 
                 return CreatedAtAction(nameof(GetEntryById), new { id = entry.Id }, entry);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating revenue entry for tenant {TenantId}", request.TenantId);
+                _logger.LogError(ex, "Error creating revenue entry");
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -66,20 +74,28 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(ModelState);
                 }
 
-                TenantId tenantId = new(request.TenantId);
+                // Phase 1: Get tenant from JWT claim - fail fast if missing (ignore request.TenantId)
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
+                {
+                    _logger.LogWarning("CreateExpenseEntry rejected: missing TenantId claim");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
+
+                TenantId tenantId = new(tenantGuid);
                 AccountingPeriod period = new(request.Year, request.Month);
                 Money amount = new(request.Amount);
 
                 Shared.DTOs.AccountingEntryDto entry = await _accountingEntryService.CreateExpenseEntryAsync(tenantId, period, amount.Value, request.Description);
 
                 _logger.LogInformation("Expense entry created: {EntryId} for tenant {TenantId}",
-                    entry.Id, request.TenantId);
+                    entry.Id, tenantGuid);
 
                 return CreatedAtAction(nameof(GetEntryById), new { id = entry.Id }, entry);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating expense entry for tenant {TenantId}", request.TenantId);
+                _logger.LogError(ex, "Error creating expense entry");
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -92,11 +108,13 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                TenantId? tenantId = ExtractTenantIdFromRequest();
-                if (tenantId == null)
+                // Phase 1: Get tenant from JWT claim
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
                 {
-                    return Unauthorized("Tenant ID required");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
+                TenantId tenantId = new(tenantGuid);
 
                 // Use existing method to get entries by date range and filter by ID
                 IEnumerable<Shared.DTOs.AccountingEntryDto> entries = await _accountingEntryService.GetEntriesByDateRangeAsync(tenantId, DateTime.MinValue, DateTime.MaxValue);
@@ -119,11 +137,13 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                TenantId? tenantId = ExtractTenantIdFromRequest();
-                if (tenantId == null)
+                // Phase 1: Get tenant from JWT claim
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
                 {
-                    return Unauthorized("Tenant ID required");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
+                TenantId tenantId = new(tenantGuid);
 
                 IEnumerable<Shared.DTOs.AccountingEntryDto> entries = await _accountingEntryService.GetEntriesByDateRangeAsync(tenantId, DateTime.MinValue, DateTime.MaxValue);
                 return Ok(entries);
@@ -148,11 +168,13 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(ModelState);
                 }
 
-                TenantId? tenantId = ExtractTenantIdFromRequest();
-                if (tenantId == null)
+                // Phase 1: Get tenant from JWT claim
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
                 {
-                    return Unauthorized("Tenant ID required");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
+                TenantId tenantId = new(tenantGuid);
 
                 AccountingEntryId originalEntryId = new(id);
 
@@ -186,11 +208,13 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                TenantId? tenantId = ExtractTenantIdFromRequest();
-                if (tenantId == null)
+                // Phase 1: Get tenant from JWT claim
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
                 {
-                    return Unauthorized("Tenant ID required");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
+                TenantId tenantId = new(tenantGuid);
 
                 AccountingPeriod period = new(year, month);
                 decimal total = await _hkdBookService.GetRevenueTotalAsync(tenantId, period);
@@ -221,11 +245,13 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                TenantId? tenantId = ExtractTenantIdFromRequest();
-                if (tenantId == null)
+                // Phase 1: Get tenant from JWT claim
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
                 {
-                    return Unauthorized("Tenant ID required");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
+                TenantId tenantId = new(tenantGuid);
 
                 AccountingPeriod period = new(year, month);
                 decimal total = await _hkdBookService.GetExpenseTotalAsync(tenantId, period);
@@ -256,11 +282,13 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                TenantId? tenantId = ExtractTenantIdFromRequest();
-                if (tenantId == null)
+                // Phase 1: Get tenant from JWT claim
+                Guid tenantGuid = GetTenantIdFromClaim();
+                if (tenantGuid == Guid.Empty)
                 {
-                    return Unauthorized("Tenant ID required");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
+                TenantId tenantId = new(tenantGuid);
 
                 AccountingPeriod period = new(year, month);
                 decimal profit = await _hkdBookService.GetProfitAsync(tenantId, period);
@@ -282,20 +310,24 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
-        private TenantId? ExtractTenantIdFromRequest()
+        /// <summary>
+        /// Phase 1: Extract TenantId from JWT claim (fail-fast, no spoofable headers)
+        /// </summary>
+        private Guid GetTenantIdFromClaim()
         {
-            // For Week 1, we'll extract from header
-            // In production, this would come from JWT claims or other auth mechanism
-            if (Request.Headers.TryGetValue("X-Tenant-Id", out Microsoft.Extensions.Primitives.StringValues tenantIdValue))
-            {
-                if (Guid.TryParse(tenantIdValue, out Guid tenantId))
-                {
-                    return new TenantId(tenantId);
-                }
-            }
+            // Match claim names: "TenantId" (PascalCase from Login.cshtml.cs), "tenant_id", "tenantId"
+            string? tenantClaim = User.FindFirst("TenantId")?.Value
+                ?? User.FindFirst("tenant_id")?.Value
+                ?? User.FindFirst("tenantId")?.Value;
 
-            return null;
+            return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
         }
+
+        /// <summary>
+        /// Phase 1: Legacy method removed - now uses JWT claim via GetTenantIdFromClaim()
+        /// </summary>
+        [Obsolete("Use GetTenantIdFromClaim() instead - X-Tenant-Id header removed for security")]
+        private TenantId? ExtractTenantIdFromRequest() => null;
 
         // VI PHAM VA0003: Business logic in controller
         [HttpPost("calculate-tax")]

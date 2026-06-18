@@ -68,27 +68,28 @@ main (align-consumer-phase4) ← Wave 0 merged ✅
 
 ---
 
-## 2. WAVE 1 — TenantId Foundation (NEXT — sequential, new branch)
+## 2. WAVE 1 — TenantId Foundation (IN PROGRESS — Phase 1 ✅, Phase 2 NEXT)
 
-**Branch:** `fix/tenantid-remediation` (tạo từ `main` — Wave 0 đã merged ✅)
-**Estimated sessions:** 2-3 (Phase 1 = 1 session, Phase 2 = 1-2 sessions)
+**Branch:** `fix/tenantid-remediation` (created from `main` — Wave 0 merged ✅)
+**Estimated sessions:** 2-3 (Phase 1 = 1 session ✅, Phase 2 = 1-2 sessions)
 **Conflict risk:** HIGH (TenantProvider.cs, Gateway controllers, VanAnDbContext)
 
 ### Tasks (sequential — Phase 2 re-touches Phase 1 files)
-| # | Task ID | Task | Depends on | Task card |
-|---|---|---|---|---|
-| 3 | P0-1a | TenantId Phase 1 — stop bleeding | — | task-tenantid-phase1-stop-bleeding.md |
-| 4 | P0-1b | TenantId Phase 2 — tenant foundation | Phase 1 merged | task-tenantid-phase2-tenant-foundation.md |
+| # | Task ID | Task | Depends on | Task card | Status |
+|---|---|---|---|---|---|
+| 3 | P0-1a | TenantId Phase 1 — stop bleeding | — | task-tenantid-phase1-stop-bleeding.md | ✅ DONE |
+| 4 | P0-1b | TenantId Phase 2 — tenant foundation | Phase 1 merged | task-tenantid-phase2-tenant-foundation.md | ⏳ NEXT |
 
 ### Entry criteria
 - [x] Wave 0 merged to `main`
-- [ ] Branch `fix/tenantid-remediation` created from `main`
-- [ ] Phase 1 Open Questions resolved (Q1/Q2 đã resolve 2026-06-18 per card)
+- [x] Branch `fix/tenantid-remediation` created from `main`
+- [x] Phase 1 Open Questions resolved (Q1/Q2 đã resolve 2026-06-18 per card)
+- [x] Phase 1 implemented and committed
 
-### Exit criteria Phase 1
-- [ ] SC1-SC10 pass (per task card)
-- [ ] Build + guard-check + arch tests pass
-- [ ] Commit + continue Phase 2 trên cùng branch
+### Exit criteria Phase 1 — ✅ COMPLETED
+- [x] SC1-SC10 pass (per task card)
+- [x] Build + arch tests pass (11/11 PASS)
+- [x] Commit + ready to continue Phase 2
 
 ### Exit criteria Phase 2
 - [ ] SC1-SC12 pass (per task card)

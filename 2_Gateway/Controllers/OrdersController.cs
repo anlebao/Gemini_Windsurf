@@ -26,7 +26,13 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                Guid tenantId = Guid.NewGuid(); // TODO: Get from tenant provider
+                // Phase 1: Get tenant from JWT claim - fail fast if missing
+                Guid tenantId = GetTenantId();
+                if (tenantId == Guid.Empty)
+                {
+                    _logger.LogWarning("CreateOrder rejected: missing TenantId claim");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
 
                 // Delegate order creation to service layer - Clean Architecture
                 Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);

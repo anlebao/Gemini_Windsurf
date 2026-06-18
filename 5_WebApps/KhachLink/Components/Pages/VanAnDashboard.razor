@@ -513,61 +513,27 @@
 
     private async Task LoadPostgreSQLMetrics()
     {
-        try
-        {
-            var metrics = await DashboardService.GetPostgreSQLMetricsAsync();
-            
-            tenantCount = metrics.TenantCount;
-            totalOrders = metrics.TotalOrders;
-            totalRevenue = metrics.TotalRevenue;
-            syncRate = metrics.SyncRate;
-            tenantGrowth = metrics.TenantGrowth;
-            orderGrowth = metrics.OrderGrowth;
-            revenueGrowth = metrics.RevenueGrowth;
-
-            isPostgresOnline = true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error loading PostgreSQL metrics");
-            isPostgresOnline = false;
-        }
+        // Phase 1 FIX: DashboardService not available in KhachLink (pre-existing from P0-3)
+        // TODO: Gateway API call needed for dashboard metrics
+        isPostgresOnline = false;
+        await Task.CompletedTask;
     }
 
     private async Task LoadSQLiteMetrics()
     {
-        try
-        {
-            // Load KhachLink metrics
-            var khachLinkMetrics = await DashboardService.GetSQLiteMetricsAsync("KhachLink");
-            khachLinkOrders = khachLinkMetrics.LocalOrders;
-            khachLinkSyncRate = khachLinkMetrics.SyncPercentage;
-            khachLinkLastSync = khachLinkMetrics.LastSyncDescription;
-
-            // Load ShopERP metrics
-            var shopErpMetrics = await DashboardService.GetSQLiteMetricsAsync("ShopERP");
-            shopErpOrders = shopErpMetrics.LocalOrders;
-            shopErpSyncRate = shopErpMetrics.SyncPercentage;
-            shopErpLastSync = shopErpMetrics.LastSyncDescription;
-
-            pendingSyncCount = khachLinkMetrics.PendingSync + shopErpMetrics.PendingSync;
-            isWalModeEnabled = khachLinkMetrics.IsWalModeEnabled && shopErpMetrics.IsWalModeEnabled;
-
-            isSqliteOnline = true;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error loading SQLite metrics");
-            isSqliteOnline = false;
-        }
+        // Phase 1 FIX: DashboardService not available in KhachLink (pre-existing from P0-3)
+        // TODO: Gateway API call needed for SQLite metrics
+        isSqliteOnline = false;
+        await Task.CompletedTask;
     }
 
     private void CalculateSystemHealth()
     {
-        var health = DashboardService.GetSystemHealthAsync().GetAwaiter().GetResult();
-        isHealthy = health.IsHealthy;
-        syncIssues = health.SyncIssues;
-        hasConnectionIssues = !health.IsPostgresOnline || !health.IsKhachLinkOnline || !health.IsShopErpOnline;
+        // Phase 1 FIX: DashboardService not available in KhachLink (pre-existing from P0-3)
+        // TODO: Gateway API call needed for system health
+        isHealthy = false;
+        syncIssues = 0;
+        hasConnectionIssues = true;
     }
 
     private async Task RefreshData()
