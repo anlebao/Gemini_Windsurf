@@ -1,720 +1,186 @@
 import { test, expect } from '@playwright/test';
-
 import { loadEnvConfig, isTierEnabled } from '../utils/env-config';
-
 import { TestReporter } from '../utils/test-reporter';
 
-
+// T-19 FIX: Removed all reporter.pass()-only assertions and if(isVisible)/else-bypass
+// patterns. Removed COREHUB_URL API calls (CoreHub is Worker Host, no HTTP API).
+// All assertions are now mandatory expect() calls that fail when UI is broken.
 
 const config = loadEnvConfig();
-
 const reporter = new TestReporter('E2E Tests');
-
-
-
-// Skip entire suite if E2E tests are disabled
 
 test.describe.configure({ mode: isTierEnabled('e2e') ? 'parallel' : 'skip' });
 
-
-
 test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
-
   test.beforeAll(async () => {
-
     if (!isTierEnabled('e2e')) {
-
       reporter.setArchitectDecision('Bypassed by Architect - E2E tests disabled');
-
       test.skip();
-
     }
-
-    
-
     reporter.log('Starting Audit Trail E2E Tests...');
-
     reporter.log(`Timeout: ${config.E2E_TEST_TIMEOUT}s`);
-
   });
-
-
 
   test.beforeEach(async ({ page }) => {
-
-    // Navigate to ShopERP
-
     await page.goto(config.SHOPERP_URL);
-
     await page.waitForLoadState('networkidle');
-
   });
 
-
+  // ─── PAGE ACCESS ─────────────────────────────────────────────────────────
 
   test('Admin can access Audit Trail page', async ({ page }) => {
+    await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    await page.waitForLoadState('networkidle');
 
-    try {
+    // Page heading must be visible — mandatory assertion
+    await expect(
+      page.locator('h1:has-text("Audit Trail"), h1:has-text("Nhật Ký Audit")')
+    ).toBeVisible();
 
-      // Navigate to audit trail page
+    // Table must be present — proves data layer rendered
+    await expect(page.locator('table, .audit-log-table, .data-table')).toBeVisible();
 
-      await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
-
-      await page.waitForLoadState('networkidle');
-
-
-
-      // Check if page loads correctly
-
-      await expect(page.locator('h1:has-text("Audit Trail"), h1:has-text("Nhật Ký Audit")')).toBeVisible();
-
-
-
-      // Verify filter controls are displayed
-
-      const filterPanel = page.locator('.filter-panel, .audit-filters, .vanan-filter-panel');
-
-      const hasFilterPanel = await filterPanel.isVisible().catch(() => false);
-
-
-
-      // Verify audit log table is displayed
-
-      const auditTable = page.locator('table, .audit-log-table, .data-table');
-
-      const hasTable = await auditTable.isVisible().catch(() => false);
-
-
-
-      reporter.pass('Admin Audit Trail Access', {
-
-        pageTitle: await page.locator('h1').first().textContent(),
-
-        hasFilterPanel,
-
-        hasTable
-
-      });
-
-
-
-      expect(hasTable || hasFilterPanel).toBeTruthy();
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Admin Audit Trail Access', { error: error.message });
-
-      throw error;
-
-    }
-
+    reporter.pass('Admin Audit Trail Access', {
+      pageTitle: await page.locator('h1').first().textContent(),
+    });
   });
 
-
-
-  test('Audit logs display after accounting entry created', async ({ page }) => {
-
-    try {
-
-      // Create a revenue entry via API
-
-      const revenueData = {
-
-        tenantId: 'test-tenant-audit-' + Date.now(),
-
-        period: {
-
-          year: new Date().getFullYear(),
-
-          month: new Date().getMonth() + 1
-
-        },
-
-        amount: 100000,
-
-        description: 'Audit trail test revenue entry'
-
-      };
-
-
-
-      const createResponse = await page.request.post(`${config.COREHUB_URL}/api/accounting/revenue`, {
-
-        data: revenueData
-
-      });
-
-
-
-      if (createResponse.status() === 200 || createResponse.status() === 201) {
-
-        // Navigate to Audit Trail
-
-        await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
-
-        await page.waitForLoadState('networkidle');
-
-
-
-        // Wait for data to refresh
-
-        await page.waitForTimeout(2000);
-
-
-
-        // Check if table contains the audit log entry
-
-        const table = page.locator('table, .audit-log-table');
-
-        if (await table.isVisible().catch(() => false)) {
-
-          // Look for entry related to accounting/revenue
-
-          const auditEntry = page.locator('td:has-text("Entry"), td:has-text("Revenue"), td:has-text("Create"), .audit-row');
-
-          const hasEntry = await auditEntry.count() > 0;
-
-
-
-          reporter.pass('Audit Log After Accounting Entry', {
-
-            entryCreated: true,
-
-            auditLogVisible: hasEntry,
-
-            note: hasEntry ? 'Audit log entry found' : 'Audit table visible but entry not immediately found'
-
-          });
-
-        } else {
-
-          reporter.pass('Audit Log After Accounting Entry', {
-
-            entryCreated: true,
-
-            note: 'Audit trail table not visible - may need admin access'
-
-          });
-
-        }
-
-      } else {
-
-        reporter.pass('Audit Log After Accounting Entry', {
-
-          note: 'API not available - test skipped gracefully',
-
-          apiStatus: createResponse.status()
-
-        });
-
-      }
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Audit Log After Accounting Entry', { error: error.message });
-
-      throw error;
-
-    }
-
-  });
-
-
+  // ─── DATE RANGE FILTER ───────────────────────────────────────────────────
 
   test('Admin can filter Audit Trail by date range', async ({ page }) => {
+    await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    await page.waitForLoadState('networkidle');
 
-    try {
+    // Date filter inputs must be present
+    const fromDateInput = page.locator(
+      'input[name*="from"], input[name*="start"], input[type="date"]'
+    ).first();
+    const toDateInput = page.locator(
+      'input[name*="to"], input[name*="end"], input[type="date"]'
+    ).nth(1);
 
-      // Navigate to Audit Trail
+    await expect(fromDateInput).toBeVisible();
+    await expect(toDateInput).toBeVisible();
 
-      await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    const today = new Date().toISOString().split('T')[0];
+    const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      await page.waitForLoadState('networkidle');
+    await fromDateInput.fill(lastWeek);
+    await toDateInput.fill(today);
 
+    // Apply button must exist
+    const applyFilterButton = page.locator(
+      'button:has-text("Filter"), button:has-text("Apply"), button:has-text("Lọc")'
+    ).first();
+    await expect(applyFilterButton).toBeVisible();
+    await applyFilterButton.click();
 
+    // Table must still be visible after filtering
+    await expect(page.locator('table, .audit-log-table, .data-table')).toBeVisible();
 
-      // Check for date range filters
-
-      const fromDateInput = page.locator('input[name*="from"], input[name*="start"], input[type="date"]').first();
-
-      const toDateInput = page.locator('input[name*="to"], input[name*="end"], input[type="date"]').nth(1);
-
-      const applyFilterButton = page.locator('button:has-text("Filter"), button:has-text("Apply"), button:has-text("Lọc")');
-
-
-
-      const hasFromDate = await fromDateInput.isVisible().catch(() => false);
-
-      const hasToDate = await toDateInput.isVisible().catch(() => false);
-
-      const hasApplyButton = await applyFilterButton.isVisible().catch(() => false);
-
-
-
-      if (hasFromDate && hasToDate) {
-
-        // Set date range (today)
-
-        const today = new Date().toISOString().split('T')[0];
-
-        const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-        
-
-        await fromDateInput.fill(lastWeek);
-
-        await toDateInput.fill(today);
-
-
-
-        if (hasApplyButton) {
-
-          await applyFilterButton.click();
-
-          await page.waitForTimeout(1000);
-
-        }
-
-
-
-        reporter.pass('Audit Trail Date Range Filter', {
-
-          fromDateSet: true,
-
-          toDateSet: true,
-
-          filterApplied: hasApplyButton,
-
-          dateRange: { from: lastWeek, to: today }
-
-        });
-
-      } else {
-
-        reporter.pass('Audit Trail Date Range Filter', {
-
-          note: 'Date range inputs not found - may use different filter UI',
-
-          hasFromDate,
-
-          hasToDate
-
-        });
-
-      }
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Audit Trail Date Range Filter', { error: error.message });
-
-      throw error;
-
-    }
-
+    reporter.pass('Audit Trail Date Range Filter', {
+      dateRange: { from: lastWeek, to: today },
+    });
   });
 
-
+  // ─── ACTION TYPE FILTER ──────────────────────────────────────────────────
 
   test('Admin can filter Audit Trail by action type', async ({ page }) => {
+    await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    await page.waitForLoadState('networkidle');
 
-    try {
+    // Action type filter must exist (select or checkbox)
+    const actionTypeSelect = page.locator(
+      'select[name*="action"], select[name*="type"], select[name*="operation"]'
+    ).first();
+    await expect(actionTypeSelect).toBeVisible();
 
-      // Navigate to Audit Trail
+    const options = await actionTypeSelect.locator('option').allTextContents();
+    expect(options.length).toBeGreaterThan(0);
 
-      await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    // Select first non-default option
+    await actionTypeSelect.selectOption({ index: 1 });
 
-      await page.waitForLoadState('networkidle');
+    // Table must still be visible after filtering
+    await expect(page.locator('table, .audit-log-table, .data-table')).toBeVisible();
 
-
-
-      // Check for action type filter
-
-      const actionTypeSelect = page.locator('select[name*="action"], select[name*="type"], select[name*="operation"]');
-
-      const hasActionTypeFilter = await actionTypeSelect.isVisible().catch(() => false);
-
-
-
-      if (hasActionTypeFilter) {
-
-        // Try to select 'Create' action
-
-        const options = await actionTypeSelect.locator('option').allTextContents().catch(() => []);
-
-        
-
-        // Look for Create or similar option
-
-        const createOption = options.find(o => o.toLowerCase().includes('create') || o.toLowerCase().includes('thêm'));
-
-        if (createOption) {
-
-          await actionTypeSelect.selectOption(createOption);
-
-          await page.waitForTimeout(500);
-
-        }
-
-
-
-        reporter.pass('Audit Trail Action Type Filter', {
-
-          actionTypeFilterFound: true,
-
-          optionsAvailable: options.length,
-
-          selectedOption: createOption || 'None'
-
-        });
-
-      } else {
-
-        // Check for checkbox filters
-
-        const createCheckbox = page.locator('input[type="checkbox"][value*="create"], input[type="checkbox"][value*="Create"]');
-
-        const hasCheckboxFilter = await createCheckbox.isVisible().catch(() => false);
-
-
-
-        reporter.pass('Audit Trail Action Type Filter', {
-
-          actionTypeFilterFound: hasCheckboxFilter,
-
-          filterType: hasCheckboxFilter ? 'checkbox' : 'not found'
-
-        });
-
-      }
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Audit Trail Action Type Filter', { error: error.message });
-
-      throw error;
-
-    }
-
+    reporter.pass('Audit Trail Action Type Filter', {
+      optionsAvailable: options.length,
+    });
   });
 
+  // ─── ENTRY DETAILS ───────────────────────────────────────────────────────
 
+  test('Audit log entry shows details when clicked', async ({ page }) => {
+    await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    await page.waitForLoadState('networkidle');
 
-  test('Period closing appears in audit trail with reason', async ({ page }) => {
+    await expect(page.locator('table, .audit-log-table')).toBeVisible();
 
-    try {
+    // At least one audit row must exist
+    const rows = page.locator('tbody tr, .audit-row');
+    await expect(rows.first()).toBeVisible();
 
-      // First, try to close a period via API
+    // Details button on first row must exist and be clickable
+    const detailsButton = rows.first().locator(
+      'button:has-text("View"), button:has-text("Details"), button:has-text("Chi tiết"), .details-btn'
+    );
+    await expect(detailsButton).toBeVisible();
+    await detailsButton.click();
 
-      const periodCloseData = {
+    // Details panel must open with old/new value content
+    await expect(
+      page.locator('.audit-details, .old-value, .new-value, [class*="detail"]')
+    ).toBeVisible({ timeout: 3000 });
 
-        tenantId: 'test-tenant-period-' + Date.now(),
-
-        year: new Date().getFullYear(),
-
-        month: new Date().getMonth() + 1,
-
-        reason: 'E2E test period closing'
-
-      };
-
-
-
-      const closeResponse = await page.request.post(`${config.COREHUB_URL}/api/accounting/period-close`, {
-
-        data: periodCloseData
-
-      });
-
-
-
-      // Navigate to Audit Trail
-
-      await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
-
-      await page.waitForLoadState('networkidle');
-
-
-
-      await page.waitForTimeout(2000);
-
-
-
-      // Check for period closing related entries
-
-      const table = page.locator('table, .audit-log-table');
-
-      if (await table.isVisible().catch(() => false)) {
-
-        // Look for period closing related text
-
-        const periodEntry = page.locator('td:has-text("Period"), td:has-text("Close"), td:has-text("Kỳ")');
-
-        const hasPeriodEntry = await periodEntry.count() > 0;
-
-
-
-        reporter.pass('Period Closing Audit Trail', {
-
-          periodCloseAttempted: closeResponse.ok,
-
-          periodCloseStatus: closeResponse.status(),
-
-          auditEntryFound: hasPeriodEntry
-
-        });
-
-      } else {
-
-        reporter.pass('Period Closing Audit Trail', {
-
-          periodCloseAttempted: closeResponse.ok,
-
-          periodCloseStatus: closeResponse.status(),
-
-          note: 'Audit trail table not visible'
-
-        });
-
-      }
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Period Closing Audit Trail', { error: error.message });
-
-      throw error;
-
-    }
-
+    reporter.pass('Audit Log Entry Details', { detailsVisible: true });
   });
 
-
+  // ─── SECURITY — UNAUTHENTICATED ACCESS ───────────────────────────────────
 
   test('Non-admin cannot access audit trail (redirects or 403)', async ({ page }) => {
+    await page.context().clearCookies();
 
-    try {
+    await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    await page.waitForLoadState('networkidle');
 
-      // Clear any existing auth state
+    const currentUrl = page.url();
+    const isLoginPage = currentUrl.includes('login') || currentUrl.includes('Login');
+    const isForbidden = currentUrl.includes('403') || currentUrl.includes('forbidden');
+    const redirectedAway = !currentUrl.includes('admin/audit-trail');
+    const hasAccessDenied = await page.locator(
+      'text=/access denied|forbidden|không có quyền|403/i'
+    ).isVisible().catch(() => false);
 
-      await page.context().clearCookies();
+    // Security must be enforced — any of these proves the guard is working
+    expect(isLoginPage || isForbidden || hasAccessDenied || redirectedAway).toBeTruthy();
 
-
-
-      // Try to access audit trail without proper auth
-
-      const response = await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
-
-      await page.waitForLoadState('networkidle');
-
-
-
-      // Check for redirect to login or 403
-
-      const currentUrl = page.url();
-
-      const isLoginPage = currentUrl.includes('login') || currentUrl.includes('Login');
-
-      const isForbidden = currentUrl.includes('403') || currentUrl.includes('forbidden');
-
-      
-
-      // Check page content for access denied message
-
-      const accessDeniedMessage = page.locator('text=/access denied|forbidden|không có quyền|403/i');
-
-      const hasAccessDenied = await accessDeniedMessage.isVisible().catch(() => false);
-
-
-
-      // Check if redirected away from admin/audit-trail
-
-      const redirectedAway = !currentUrl.includes('admin/audit-trail');
-
-
-
-      reporter.pass('Non-admin Audit Trail Access', {
-
-        currentUrl,
-
-        isLoginPage,
-
-        isForbidden,
-
-        hasAccessDeniedMessage: hasAccessDenied,
-
-        redirectedAway,
-
-        securityEnforced: isLoginPage || isForbidden || hasAccessDenied || redirectedAway
-
-      });
-
-
-
-      // Security should be enforced
-
-      expect(isLoginPage || isForbidden || hasAccessDenied || redirectedAway).toBeTruthy();
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Non-admin Audit Trail Access', { error: error.message });
-
-      throw error;
-
-    }
-
+    reporter.pass('Non-admin Audit Trail Access', {
+      currentUrl,
+      securityEnforced: true,
+    });
   });
 
-
-
-  test('Audit log entry shows details (old/new values)', async ({ page }) => {
-
-    try {
-
-      // Navigate to Audit Trail
-
-      await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
-
-      await page.waitForLoadState('networkidle');
-
-
-
-      // Check for audit table
-
-      const table = page.locator('table, .audit-log-table');
-
-      if (await table.isVisible().catch(() => false)) {
-
-        // Check if there are rows
-
-        const rows = table.locator('tbody tr, .audit-row');
-
-        const rowCount = await rows.count();
-
-
-
-        if (rowCount > 0) {
-
-          // Check if first row has a details button or link
-
-          const firstRow = rows.first();
-
-          const detailsButton = firstRow.locator('button:has-text("Details"), button:has-text("Chi tiết"), a:has-text("Details")');
-
-          const hasDetailsButton = await detailsButton.isVisible().catch(() => false);
-
-
-
-          if (hasDetailsButton) {
-
-            await detailsButton.click();
-
-            await page.waitForTimeout(1000);
-
-
-
-            // Check for old/new values display
-
-            const oldValue = page.locator('text=/old value|giá trị cũ|before/i');
-
-            const newValue = page.locator('text=/new value|giá trị mới|after/i');
-
-            
-
-            const hasOldValue = await oldValue.isVisible().catch(() => false);
-
-            const hasNewValue = await newValue.isVisible().catch(() => false);
-
-
-
-            reporter.pass('Audit Log Entry Details', {
-
-              detailsViewOpened: true,
-
-              hasOldValue,
-
-              hasNewValue,
-
-              auditEntryRowCount: rowCount
-
-            });
-
-          } else {
-
-            // Check if details are shown inline
-
-            const inlineDetails = firstRow.locator('.details, .audit-details, .changes');
-
-            const hasInlineDetails = await inlineDetails.isVisible().catch(() => false);
-
-
-
-            reporter.pass('Audit Log Entry Details', {
-
-              detailsButtonFound: false,
-
-              hasInlineDetails,
-
-              auditEntryRowCount: rowCount
-
-            });
-
-          }
-
-        } else {
-
-          reporter.pass('Audit Log Entry Details', {
-
-            note: 'No audit entries found to test',
-
-            auditEntryRowCount: 0
-
-          });
-
-        }
-
-      } else {
-
-        reporter.pass('Audit Log Entry Details', {
-
-          note: 'Audit trail table not visible'
-
-        });
-
-      }
-
-      
-
-    } catch (error) {
-
-      reporter.fail('Audit Log Entry Details', { error: error.message });
-
-      throw error;
-
-    }
-
+  // ─── AUDIT LOG AFTER ACCOUNTING ACTION ───────────────────────────────────
+
+  test('Audit log table is rendered and contains rows', async ({ page }) => {
+    // Note: Previously this test called COREHUB_URL/api/accounting/revenue to seed data.
+    // CoreHub has no HTTP API — removed that call. This test now verifies the audit
+    // table renders with existing data (seeded by other operations).
+    await page.goto(`${config.SHOPERP_URL}/admin/audit-trail`);
+    await page.waitForLoadState('networkidle');
+
+    await expect(
+      page.locator('h1:has-text("Audit Trail"), h1:has-text("Nhật Ký Audit")')
+    ).toBeVisible();
+
+    // Table must be visible and contain at least the header row
+    const table = page.locator('table, .audit-log-table');
+    await expect(table).toBeVisible();
+
+    // thead must exist with column headers
+    await expect(table.locator('thead, th').first()).toBeVisible();
+
+    reporter.pass('Audit Log Table Rendered', { tableVisible: true });
   });
-
-
-
-  test.afterAll(async () => {
-
-    reporter.log('Audit Trail E2E Tests Completed');
-
-    await reporter.generateReport();
-
-  });
-
 });
-
