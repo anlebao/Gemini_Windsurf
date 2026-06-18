@@ -1,0 +1,1 @@
+'private void ApplyMultiTenancyFilters(ModelBuilder modelBuilder)\r\n        {\n            // Skip if tenant provider is null (for design-time or migrations)\n            if (_tenantProvider == null)\n            {\n                return;\n            }\n\n            // Apply to all entities that implement'

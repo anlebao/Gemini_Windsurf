@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
@@ -11,6 +12,7 @@ namespace VanAn.Gateway.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     [Produces("application/json")]
     public class AccountingEntriesController(
         IAccountingService accountingEntryService,
@@ -311,14 +313,14 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
-        /// Phase 1: Extract TenantId from JWT claim (fail-fast, no spoofable headers)
+        /// Wave 1 Phase 2: Extract TenantId from JWT claim (fail-fast, standardized claim name)
+        /// Standardized claim name: "tenant_id" (snake_case, OIDC standard)
         /// </summary>
         private Guid GetTenantIdFromClaim()
         {
-            // Match claim names: "TenantId" (PascalCase from Login.cshtml.cs), "tenant_id", "tenantId"
-            string? tenantClaim = User.FindFirst("TenantId")?.Value
-                ?? User.FindFirst("tenant_id")?.Value
-                ?? User.FindFirst("tenantId")?.Value;
+            // Support dual-read during migration: "tenant_id" first, then legacy "TenantId"
+            string? tenantClaim = User.FindFirst("tenant_id")?.Value
+                ?? User.FindFirst("TenantId")?.Value;
 
             return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
         }

@@ -1,0 +1,8 @@
+Fixed 1x: CustomerConfiguration.cs
+Fixed 0x: JournalEntryConfiguration.cs
+Fixed 0x: JournalTemplateConfiguration.cs
+Fixed 1x: AuditLogConfiguration.cs
+SKIP: UserConfiguration.cs
+Fixed 0x: LeadConfiguration.cs
+SKIP: SystemMetricsConfiguration.cs
+Fixed 0x: OutboxMessageConfiguration.cs

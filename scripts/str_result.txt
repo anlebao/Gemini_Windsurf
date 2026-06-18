@@ -1,0 +1,13 @@
+Fixed 0x: CustomerConfiguration.cs
+Fixed 1x: OrderConfiguration.cs
+Fixed 1x: InvoiceItemConfiguration.cs
+Fixed 1x: ShopConfiguration.cs
+Fixed 1x: DemoUserConfiguration.cs
+Fixed 1x: IngredientConfiguration.cs
+Fixed 1x: InventoryConfiguration.cs
+Fixed 1x: RecipeConfiguration.cs
+Fixed 1x: ProductConfiguration.cs
+Fixed 1x: ElectronicInvoiceConfiguration.cs
+Fixed 1x: LoyaltyRewardsConfiguration.cs
+Fixed 1x: SocialCampaignConfiguration.cs
+Fixed 1x: PendingInvoiceQueueConfiguration.cs

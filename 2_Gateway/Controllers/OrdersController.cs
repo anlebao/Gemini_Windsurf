@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using VanAn.CoreHub.Services;
@@ -10,6 +11,7 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     public class OrdersController(
         IOrderService orderService,
         IVietQrService vietQrService,
@@ -131,7 +133,10 @@ namespace VanAn.Gateway.Controllers
 
         private Guid GetTenantId()
         {
-            string? tenantClaim = User.FindFirst("TenantId")?.Value;
+            // Wave 1 Phase 2: Standardized claim name "tenant_id" (snake_case, OIDC standard)
+            // Support dual-read during migration: "tenant_id" first, then legacy "TenantId"
+            string? tenantClaim = User.FindFirst("tenant_id")?.Value
+                ?? User.FindFirst("TenantId")?.Value;
             return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
         }
     }

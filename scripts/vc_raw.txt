@@ -1,0 +1,76 @@
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using VanAn.Shared.Domain;
+
+namespace VanAn.CoreHub.Infrastructure.ValueConverters
+{
+    /// <summary>
+    /// Value converter: TenantId (model/CLR) to string UUID (provider/DB TEXT column).
+    ///
+    /// Overrides the protected Sanitize&lt;T&gt; method to bypass the default
+    /// Convert.ChangeType fallback which fails when EF Core SQLite reads a TEXT column
+    /// as a raw string and tries to coerce it to TenantId via
+    ///   Convert.ChangeType(string, typeof(TenantId))
+    /// — TenantId is a record and does not implement IConvertible.
+    ///
+    /// With string as the provider type:
+    ///   Sanitize&lt;string&gt;(string_from_db) → "string is string" → passes immediately.
+    ///   Sanitize&lt;TenantId&gt;(string_from_db) → our override handles string→TenantId directly.
+    /// </summary>
+    public sealed class TenantIdConverter : ValueConverter<TenantId, string>
+    {
+        private static readonly Expression<Func<TenantId, string>> _toProvider =
+            id => id.Value.ToString();
+
+        private static readonly Expression<Func<string, TenantId>> _fromProvider =
+            str => new TenantId(Guid.Parse(str));
+
+        public TenantIdConverter()
+            : base(_toProvider, _fromProvider)
+        {
+        }
+
+        /// <summary>
+        /// Override Sanitize to handle TenantId ↔ string conversion without
+        /// relying on Convert.ChangeType (which requires IConvertible).
+        /// </summary>
+        protected override T Sanitize<T>(object? value)
+        {
+            if (value is T typed)
+            {
+                return typed;
+            }
+
+            // Model type: string → TenantId
+            if (typeof(T) == typeof(TenantId))
+            {
+                TenantId result = value switch
+                {
+                    string s   => new TenantId(Guid.Parse(s)),
+                    Guid g     => new TenantId(g),
+                    TenantId t => t,
+                    null       => TenantId.Empty,
+                    _          => new TenantId(Guid.Parse(value.ToString()!))
+                };
+                return (T)(object)result;
+            }
+
+            // Provider type: TenantId → string
+            if (typeof(T) == typeof(string))
+            {
+                string result = value switch
+                {
+                    TenantId t => t.Value.ToString(),
+                    Guid g     => g.ToString(),
+                    string s   => s,
+                    null       => string.Empty,
+                    _          => value.ToString()!
+                };
+                return (T)(object)result;
+            }
+
+            return base.Sanitize<T>(value);
+        }
+    }
+}
+

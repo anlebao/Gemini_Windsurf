@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
@@ -7,21 +8,24 @@ namespace VanAn.Gateway.Controllers;
 /// <summary>
 /// ProviderController - REST API for provider management
 /// Phase 1: TenantId now from JWT claim, not query string
+/// Phase 2: RequireTenantAccess policy enforced
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "RequireTenantAccess")]
 public class ProviderController(IProviderManager providerManager) : ControllerBase
 {
     private readonly IProviderManager _providerManager = providerManager;
 
     /// <summary>
-    /// Get TenantId from JWT claim (Phase 1: fail-fast security)
+    /// Wave 1 Phase 2: Get TenantId from JWT claim (standardized claim name)
+    /// Standardized claim name: "tenant_id" (snake_case, OIDC standard)
     /// </summary>
     private Guid GetTenantIdFromClaim()
     {
-        string? tenantClaim = User.FindFirst("TenantId")?.Value
-            ?? User.FindFirst("tenant_id")?.Value
-            ?? User.FindFirst("tenantId")?.Value;
+        // Support dual-read during migration: "tenant_id" first, then legacy "TenantId"
+        string? tenantClaim = User.FindFirst("tenant_id")?.Value
+            ?? User.FindFirst("TenantId")?.Value;
         return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
     }
 

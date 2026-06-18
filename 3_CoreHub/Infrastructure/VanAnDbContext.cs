@@ -52,6 +52,9 @@ namespace VanAn.CoreHub.Infrastructure
         // HKD Business Tenants
         public DbSet<Tenant> Tenants { get; set; }
 
+        // Wave 1 Phase 2: User-Tenant mapping (cross-tenant entity)
+        public DbSet<UserTenant> UserTenants { get; set; }
+
         // PHASE 2: SOCIAL FLYWHEEL ENTITIES
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
         public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }

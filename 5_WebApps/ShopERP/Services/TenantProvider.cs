@@ -19,13 +19,12 @@ namespace VanAn.ShopERP.Services
                 if (_overrideTenantId != Guid.Empty)
                     return _overrideTenantId;
 
-                // Phase 1: Match claim name from Login.cshtml.cs which emits "TenantId"
+                // Wave 1 Phase 2: Standardized claim name "tenant_id" (snake_case, OIDC standard)
+                // Support dual-read during migration: "tenant_id" first, then legacy "TenantId"
                 string? claim = _httpContextAccessor.HttpContext?.User
-                    .FindFirstValue("TenantId")
-                    ?? _httpContextAccessor.HttpContext?.User
                     .FindFirstValue("tenant_id")
                     ?? _httpContextAccessor.HttpContext?.User
-                    .FindFirstValue("tenantId");
+                    .FindFirstValue("TenantId");
 
                 return claim != null && Guid.TryParse(claim, out Guid id) ? id : Guid.Empty;
             }

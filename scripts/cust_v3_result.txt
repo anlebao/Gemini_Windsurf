@@ -1,0 +1,10 @@
+Pattern found: 2, preview: '                .Where(c => c.Id == id &&\r\n       '
+Pattern found: 1, preview: '                .Where(c => c.DeviceId == deviceId'
+Pattern found: 1, preview: '                .Where(c => EF.Property<Guid>(c, "'
+Pattern found: 1, preview: '                .AnyAsync(c => c.DeviceId == devic'
+Pattern found: 0, preview: '                .Where(c => c.Id == id &&\r\n       '
+Pattern found: 1, preview: '                .Where(c => c.PhoneNumber == phone'
+tenantId var declarations to remove: 6
+Removed EF using (no longer needed)
+Done.
+Remaining EF.Property occurrences: 0

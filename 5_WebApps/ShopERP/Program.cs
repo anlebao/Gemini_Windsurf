@@ -162,7 +162,7 @@ namespace VanAn.ShopERP
                     policy.RequireAuthenticatedUser())
                 .AddPolicy("RequireTenantAccess", policy =>
                     policy.RequireAuthenticatedUser()
-                           .RequireClaim("TenantId"))
+                           .RequireClaim("tenant_id"))
                 .AddPolicy("OwnerOnly", policy => policy.RequireRole(UserRole.Owner.ToString()))
                 .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString()))
                 .AddPolicy("GuardOnly", policy => policy.RequireRole(UserRole.Guard.ToString()))
