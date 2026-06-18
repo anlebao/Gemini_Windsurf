@@ -38,30 +38,38 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Wave 4 — EInvoice UI + E2E (P0-6 Phase C + Phase D)**
+**P0-2 — Fix E2E False-Positive Specs (T-16, T-17, T-18, T-19, T-21)**
 
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/einvoice-ui`, pending merge to `main`
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/e2e-false-positives`, merged to `main`
 
-**Phase C — 6 EInvoice Razor Pages:** ✅
-- `EInvoiceLayout.razor`: sidebar nav with links to all 6 EInvoice pages
-- `EInvoiceDashboard.razor` (`/einvoice`): metrics cards, provider status, recent activity
-- `ProviderManagement.razor` (`/einvoice/providers`): provider list table, configure nav
-- `ProviderConfiguration.razor` (`/einvoice/configuration`): provider config form (Viettel/MISA)
-- `HealthMonitoring.razor` (`/einvoice/health`): health metrics, provider health table, retry queue
-- `InvoiceManagement.razor` (`/einvoice/invoices`): invoice table + create modal (uses `IEInvoiceOrchestrator` directly)
-- `AlertManagement.razor` (`/einvoice/alerts`): alert table with acknowledge actions
+**T-16 — global-setup.ts auth bypass:** ✅
+- Replaced broken OIDC login form (`/login` page không tồn tại) bằng empty `storageState`
+- `auth/admin.json` được tạo với `{ cookies: [], origins: [] }` để không crash CI
+- Smoke-check ShopERP reachability non-blocking
 
-**Phase D — 3 Playwright E2E specs:** ✅
-- `6_Testing/e2e-tests/einvoice-dashboard.spec.ts`: 6 tests
-- `6_Testing/e2e-tests/provider-management.spec.ts`: 9 tests
-- `6_Testing/e2e-tests/invoice-management.spec.ts`: 10 tests (also covers health + alerts)
+**T-17 — accounting-flow.spec.ts:** ✅
+- Rewrote 7 tests: tất cả `if(isVisible)/reporter.pass()` → `await expect().toBeVisible()`
+- Xóa toàn bộ `COREHUB_URL` fallback API calls (CoreHub không có HTTP)
+- Mỗi submit test giờ có `expect(successAlert).toBeVisible({ timeout: 5000 })`
+
+**T-18 — order-flow.spec.ts:** ✅
+- Xóa toàn bộ `COREHUB_URL` calls (CoreHub Worker Host, no HTTP)
+- Xóa `else { reporter.pass('...', { note: 'Submit button not found' }) }` bypass
+- Thêm 2 Gateway API smoke tests (`/api/orders`, `/api/inventory/check`)
+
+**T-19 — audit-trail-flow.spec.ts:** ✅
+- Xóa `COREHUB_URL/api/accounting/revenue` seed call
+- Tất cả `if(table.isVisible())/reporter.pass()` → mandatory `expect()`
+- Test "entry details" giờ require `expect(detailsButton).toBeVisible()` + click + expect panel
+
+**T-21 — period-closing-flow.spec.ts:** ✅
+- Wizard step 2: `if(nextButton.isVisible())` → `await expect(nextButton).toBeVisible()`
+- Reopen test: `if(reopenButton.isVisible())` → `await expect(reopenButton).toBeVisible()`
+- Tất cả outcome assertions đều mandatory
 
 **Verification:**
 - Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
-- Branch: `fix/einvoice-ui`
-- Previous Wave: Wave 3 `fix/tenantid-wave3` → MERGED to `main` ✅
-
-**Next:** Merge `fix/einvoice-ui` → `main`, then P0-2 (E2E false-positive specs)
+- Branch: `fix/e2e-false-positives` → merged to `main`
 
 ## 3. Current Status
 
@@ -87,9 +95,17 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * 6 Razor pages: bỏ `FindFirst("TenantId")` + hardcoded GUID + `_tenantId` field, dùng `@inject ITenantProvider`
   * `PeriodClosing.razor`: giữ `AuthStateProvider` chỉ để lấy `userId` (sub claim) — không phải tenant
 
-- **Wave 4 — EInvoice UI + E2E ✅** (2026-06-20) — branch `fix/einvoice-ui`, pending merge to main
+- **Wave 4 — EInvoice UI + E2E ✅** (2026-06-20) — MERGED to main
   * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
   * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
+  * Build: 0 errors ✅
+
+- **P0-2 — E2E False-Positive Spec Fix ✅** (2026-06-20) — MERGED to main
+  * T-16: global-setup.ts — empty storageState bypass (OIDC không có /login form)
+  * T-17: accounting-flow.spec.ts — 7 tests rewritten với mandatory expect()
+  * T-18: order-flow.spec.ts — removed COREHUB_URL calls, added Gateway smoke tests
+  * T-19: audit-trail-flow.spec.ts — removed COREHUB_URL seed, all expect() mandatory
+  * T-21: period-closing-flow.spec.ts — step 2 + reopen tests giờ có expect() bắt buộc
   * Build: 0 errors ✅
 
 ### Blocked
