@@ -4,13 +4,13 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Components.Data
 @using VanAn.UI.Platform.Models
-@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @using VanAn.Shared.DTOs
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
-@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
 @inject ILogger<TransactionHistory> Logger
 @inject NavigationManager NavigationManager
 
@@ -166,33 +166,10 @@
     private decimal? amountMax;
     private bool showDetailModal = false;
     private AccountingEntryDto? selectedTransaction;
-    private Guid _tenantId = Guid.Empty;
-
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                var tenantIdClaim = user.FindFirst("TenantId");
-                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
-                {
-                    _tenantId = tenantId;
-                }
-            }
-
-            // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
-            // Fallback tenant hardcode vì login demo không set TenantId claim.
-            // Sửa triệt để: thêm claim TenantId khi login, xóa fallback.
-            // Tier: 1 (Tenant - ưu tiên cao)
-            if (_tenantId == Guid.Empty)
-            {
-                _tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-            }
-
             await LoadTransactions();
         }
         catch (Exception ex)
@@ -205,19 +182,25 @@
     {
         try
         {
+            if (!TenantProvider.HasTenant)
+            {
+                Logger.LogWarning("TransactionHistory: no tenant context — skipping load");
+                return;
+            }
+
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            var tenantId = new TenantId(_tenantId);
+            var tenantId = new TenantId(TenantProvider.TenantId);
 
             var entries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, period);
 
             transactions = entries.ToList();
             Logger.LogInformation("LoadTransactions: tenant={TenantId}, period={Start}..{End}, count={Count}",
-                _tenantId, period.StartDate, period.EndDate, transactions.Count);
+                TenantProvider.TenantId, period.StartDate, period.EndDate, transactions.Count);
             ApplyFilters();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error loading transactions for tenant {TenantId}", _tenantId);
+            Logger.LogError(ex, "Error loading transactions for tenant {TenantId}", TenantProvider.TenantId);
         }
     }
 
@@ -336,6 +319,6 @@
     private void ExportToExcel()
     {
         Logger.LogInformation("Export to Excel requested for tenant {TenantId}, period {Year}/{Month}", 
-            _tenantId, selectedYear, selectedMonth);
+            TenantProvider.TenantId, selectedYear, selectedMonth);
     }
 }
