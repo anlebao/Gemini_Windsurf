@@ -19,7 +19,10 @@ namespace VanAn.ShopERP.Services
                 if (_overrideTenantId != Guid.Empty)
                     return _overrideTenantId;
 
+                // Phase 1: Match claim name from Login.cshtml.cs which emits "TenantId"
                 string? claim = _httpContextAccessor.HttpContext?.User
+                    .FindFirstValue("TenantId")
+                    ?? _httpContextAccessor.HttpContext?.User
                     .FindFirstValue("tenant_id")
                     ?? _httpContextAccessor.HttpContext?.User
                     .FindFirstValue("tenantId");

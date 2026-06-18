@@ -189,6 +189,12 @@ namespace VanAn.CoreHub.Infrastructure
                 return;
             }
 
+            // Phase 1: Fail-fast if TenantId is empty (security hardening)
+            if (_tenantProvider.TenantId == Guid.Empty)
+            {
+                throw new InvalidOperationException("TenantId is empty — cannot query tenant-scoped data. Ensure JWT claim 'TenantId' is set.");
+            }
+
             // Apply to all entities implementing IMustHaveTenant
             // (AccountingEntry excluded: special cross-tenant audit/reconciliation queries).
             IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes()

@@ -302,9 +302,9 @@ public class EInvoiceOrchestratorTests : IDisposable
         // Assert - Verify outbox event was enqueued
         capturedOutboxEvent.Should().NotBeNull();
         capturedOutboxEvent!.TenantId.Should().Be(tenantId);
-        capturedOutboxEvent.AggregateId.Should().Be(invoiceId.Value);
+        capturedOutboxEvent.InvoiceId.Value.Should().Be(invoiceId.Value);
         capturedOutboxEvent.EventType.Should().Be("InvoiceCreated");
-        capturedOutboxEvent.Payload.Should().Contain(invoiceId.Value.ToString());
+        capturedOutboxEvent.EventData.Should().Contain(invoiceId.Value.ToString());
     }
 
     [Fact]
