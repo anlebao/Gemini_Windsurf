@@ -128,8 +128,17 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ### Next Phase
 
-**Current:** Integration Test Verification — Run full test suite to verify 89 tests PASS
-**Pending:** Phase 2 — KhachLink Màn 1→4 Integration & Hardening
+**Current:** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
+**Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
+  - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
+  - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
+  - Move accounting entry creation: CreateOrder → PaymentWebhook (sau khi bank confirm)
+**Pending Sprint B (P1):** Flow Completion
+  - Wire Vendor/Category/Reference fields xuống DB
+  - Webhook notify Kitchen via SignalR sau payment confirm
+  - Server-side duplicate detection cho accounting entries
+**Reference:** docs/AI/phase-next-order-accounting-improvements.md
+**Completed (2026-06-18):** CD Pipeline + Nginx/SSL deploy — PR #29–#33 merged
 
 ---
 

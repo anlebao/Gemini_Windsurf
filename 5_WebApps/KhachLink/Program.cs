@@ -1,4 +1,4 @@
-using VanAn.Shared.Services;
+﻿using VanAn.Shared.Services;
 
 using VanAn.CoreHub.Services;
 
@@ -58,27 +58,17 @@ namespace VanAn.KhachLink
 
             _ = builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
 
-            _ = builder.Services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
 
             _ = builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
             _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
 
-            _ = builder.Services.AddScoped<ICustomerService, CustomerService>();
 
 
 
-            // Register Repositories
 
-            _ = builder.Services.AddScoped<CoreHub.Domain.Repositories.ICustomerRepository, CoreHub.Infrastructure.Repositories.CustomerRepository>();
 
-            _ = builder.Services.AddScoped<CoreHub.Repositories.IOrderRepository, CoreHub.Repositories.OrderRepository>();
 
-            _ = builder.Services.AddScoped<CoreHub.Repositories.ISocialCampaignRepository, CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
-
-            _ = builder.Services.AddScoped<CoreHub.Repositories.ILoyaltyRewardsRepository, CoreHub.Infrastructure.Repositories.LoyaltyRewardsRepository>();
-
-            _ = builder.Services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
 
 
 
