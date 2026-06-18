@@ -1,19 +1,19 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
-using VanAn.Shared.Services;
 
 namespace VanAn.KhachLink.Pages
 {
-    public class IndexModel(ILoyaltyRewardsService loyaltyRewardsService,
-                     IShopConfigService shopConfigService,
-                     ICustomerService customerService) : PageModel
+    // TECH DEBT: Loyalty and Customer data temporarily disabled.
+    // KhachLink must not access DB directly (VA-KHACHLINK-004).
+    // Fix: Create GatewayCustomerService + GatewayLoyaltyRewardsService
+    // that call /api/customers via HttpClient("gateway").
+    // Tracked: docs/AI/phase-next-order-accounting-improvements.md §6
+    public class IndexModel(IShopConfigService shopConfigService) : PageModel
     {
-        private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly IShopConfigService _shopConfigService = shopConfigService;
-        private readonly ICustomerService _customerService = customerService;
 
-        public LoyaltyRewards CustomerRewards { get; set; } = null!;
+        public LoyaltyRewards? CustomerRewards { get; set; }
         public ShopConfig ShopConfig { get; set; } = new ShopConfig
         {
             ShopId = Guid.NewGuid()
@@ -23,29 +23,8 @@ namespace VanAn.KhachLink.Pages
 
         public async Task OnGetAsync()
         {
-            // Get device ID from cookie or generate new one
-            string? deviceId = Request.Cookies["customer_device_id"];
-
-            // Handle old poisoned cookie format (e.g., "device_a1b2...")
-            if (string.IsNullOrEmpty(deviceId) || !Guid.TryParse(deviceId, out Guid parsedDeviceId))
-            {
-                // Generate fresh GUID and overwrite old cookie
-                parsedDeviceId = Guid.NewGuid();
-                deviceId = parsedDeviceId.ToString();
-                Response.Cookies.Append("customer_device_id", deviceId, new CookieOptions
-                {
-                    Expires = DateTime.UtcNow.AddYears(1)
-                });
-            }
-
-            // Get or create customer by device ID
-            Customer customer = await _customerService.GetOrCreateCustomerByDeviceIdAsync(parsedDeviceId);
-
-            // Fetch customer rewards using actual customer ID
-            CustomerRewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customer.CustomerId.Value);
-
             // Fetch shop config
-            Guid defaultShopId = Guid.NewGuid(); // Generate shop ID for this session
+            Guid defaultShopId = Guid.NewGuid();
             ShopConfig = await _shopConfigService.GetShopConfigAsync(defaultShopId) ?? new ShopConfig
             {
                 ShopName = "Vạn An Group",
@@ -54,8 +33,8 @@ namespace VanAn.KhachLink.Pages
                 Theme = ThemeType.Classic
             };
 
-            // Initialize demo products using service
-            TenantId tenantId = new(Guid.NewGuid()); // Demo tenant
+            // Initialize demo products
+            TenantId tenantId = new(Guid.NewGuid());
             FeaturedProducts = new List<Product>
             {
                 new(tenantId, "Trà Sua Dau Do", "Dau do tu nhiên, béo ngây", 35000m, "Trà Sua", true, null, 0.10m),
