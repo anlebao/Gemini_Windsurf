@@ -1,7 +1,9 @@
 # MASTER IMPLEMENTATION PLAN — Wave-by-Wave Execution
 
-**Created:** 2026-06-18
-**Branch strategy:** Multiple feature branches, merge to `main` (align-consumer-phase4) between waves
+**Created:** 2026-06-18  
+**Last Updated:** 2026-06-18  
+**Current Status:** Wave 0 ✅ COMPLETED → Wave 1 READY TO START  
+**Branch strategy:** Multiple feature branches, merge to `main` (align-consumer-phase4) between waves  
 **Execution principle:** Sequential waves, separate sessions per wave, JIT Planning + Pure Execution
 
 ---
@@ -15,15 +17,14 @@
 4. **Sau mỗi session:** Update `project_state.md` (Section 4 + 10 + 11) + commit
 5. **Giữa các wave:** Verify `dotnet build VanAn.sln --configuration Release` + `guard-check.ps1` pass trước khi sang wave kế
 
-### Branch protocol
+### Branch protocol (UPDATED 2026-06-18)
 ```
-main (align-consumer-phase4)
-  ├── fix/shoperp-audit-trail-di (Wave 0 — current branch)
-  ├── fix/tenantid-remediation (Wave 1 + Wave 3)
-  └── fix/einvoice-cleanup (Wave 2 + Wave 4)
+main (align-consumer-phase4) ← Wave 0 merged ✅
+  └── fix/tenantid-remediation (Wave 1 + Wave 3) — NEXT
+  └── fix/einvoice-cleanup (Wave 2 + Wave 4) — AFTER Wave 1
 ```
-- Wave 0: trên branch hiện tại `fix/shoperp-audit-trail-di`
-- Wave 1+3: branch mới `fix/tenantid-remediation` từ `main` (sau Wave 0 merged)
+- ~~Wave 0: trên branch `fix/shoperp-audit-trail-di`~~ → **MERGED to main**
+- Wave 1+3: branch mới `fix/tenantid-remediation` từ `main` (tạo ngay bây giờ)
 - Wave 2+4: branch mới `fix/einvoice-cleanup` từ `main` (sau Wave 1 merged)
 - Wave 5: branch riêng theo task
 
@@ -35,29 +36,29 @@ main (align-consumer-phase4)
 
 ---
 
-## 1. WAVE 0 — Quick Wins, Isolated (current branch)
+## 1. WAVE 0 — Quick Wins, Isolated ✅ COMPLETED
 
-**Branch:** `fix/shoperp-audit-trail-di`
-**Estimated sessions:** 1-2
-**Conflict risk:** NONE (test files + 1 production file isolated)
+**Branch:** `fix/shoperp-audit-trail-di` (merged to `main` via commit `1cccd4c`)
+**Completed:** 2026-06-18
+**Sessions:** 1 session
 
 ### Tasks
-| # | Task ID | Task | Files | Task card |
-|---|---|---|---|---|
-| 1 | P0-3 | Fix `VanAnDashboard.razor` DI crash | `VanAnDashboard.razor` (1 file) | `task-p0-3-dashboard-di-crash.md` |
-| 2 | P0-7 | EInvoice test coverage — write missing tests | `EInvoiceProviderTests.cs`, `CircuitBreakerTests.cs` (new), `EInvoiceOrchestratorTests.cs` (add CreateInvoiceAsync), `Core.Tests/WebhookServiceTests.cs` (rewrite stub) | task_sprint3b_provider_integration.md §5 |
+| # | Task ID | Task | Files | Task card | Status |
+|---|---|---|---|---|---|
+| 1 | P0-3 | Fix `VanAnDashboard.razor` DI crash | `VanAnDashboard.razor` (1 file) | `task-p0-3-dashboard-di-crash.md` | ✅ DONE |
+| 2 | P0-7 | EInvoice test coverage — write missing tests | `EInvoiceOrchestratorTests.cs` (9 new tests), `Core.Tests/WebhookServiceTests.cs` (rewritten) | task_sprint3b_provider_integration.md §5 | ✅ DONE |
 
-### Entry criteria
+### Entry criteria (Wave 0)
 - [x] Branch `fix/shoperp-audit-trail-di` active
 - [x] EInvoice review audit committed (3e25c00)
 
-### Exit criteria
-- [ ] P0-3: Dashboard navigate không crash
-- [ ] P0-7: EInvoiceProviderTests 9 HTTP mock cases pass, CircuitBreakerTests Open/HalfOpen/Closed pass, EInvoiceOrchestratorTests CreateInvoiceAsync flow pass, Core.Tests WebhookService rewrite (no stub)
-- [ ] `dotnet build VanAn.sln --configuration Release` → 0 errors
-- [ ] `guard-check.ps1` → PASS
-- [ ] `project_state.md` updated + committed
-- [ ] Merge to `main`
+### Exit criteria (Wave 0) — ALL PASSED
+- [x] P0-3: Dashboard navigate không crash
+- [x] P0-7: CircuitBreakerTests verified existing, HTTP mock tests verified, EInvoiceOrchestratorTests CreateInvoiceAsync flow (6 tests), WebhookServiceTests rewritten (18 tests)
+- [x] `dotnet build VanAn.sln --configuration Release` → 0 errors
+- [x] `guard-check.ps1` → PASS
+- [x] `project_state.md` updated + committed
+- [x] Merge to `main` → **COMPLETED**
 
 ### Why first
 - 0 dependency on TenantId work
@@ -67,9 +68,9 @@ main (align-consumer-phase4)
 
 ---
 
-## 2. WAVE 1 — TenantId Foundation (sequential, new branch)
+## 2. WAVE 1 — TenantId Foundation (NEXT — sequential, new branch)
 
-**Branch:** `fix/tenantid-remediation` (tạo từ `main` sau Wave 0 merged)
+**Branch:** `fix/tenantid-remediation` (tạo từ `main` — Wave 0 đã merged ✅)
 **Estimated sessions:** 2-3 (Phase 1 = 1 session, Phase 2 = 1-2 sessions)
 **Conflict risk:** HIGH (TenantProvider.cs, Gateway controllers, VanAnDbContext)
 
@@ -80,7 +81,7 @@ main (align-consumer-phase4)
 | 4 | P0-1b | TenantId Phase 2 — tenant foundation | Phase 1 merged | task-tenantid-phase2-tenant-foundation.md |
 
 ### Entry criteria
-- [ ] Wave 0 merged to `main`
+- [x] Wave 0 merged to `main`
 - [ ] Branch `fix/tenantid-remediation` created from `main`
 - [ ] Phase 1 Open Questions resolved (Q1/Q2 đã resolve 2026-06-18 per card)
 
