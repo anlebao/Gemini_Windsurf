@@ -39,13 +39,13 @@ After fix: Report new error count, domain integrity check
 
 **Goal:** Move from "fixing individual errors" to "fixing patterns" to increase speed and quality.
 
-**18 Main Patterns to Eliminate:**
+**31 Main Patterns to Eliminate:**
 - Pattern 1: Direct Entity Creation
 - Pattern 2: Incorrect Mock Setup  
-- Pattern 3: Service Method Mismatch
+- Pattern 3: Service Method Mismatch — ⚠️ OBSOLETE (2026-06-18)
 - Pattern 4: Missing Test Dependencies
 - Pattern 5: Type Mismatch Conversions
-- Pattern 6: Property Access Errors
+- Pattern 6: Property Access Errors — ⚠️ MISLEADING (2026-06-18)
 - Pattern 7: Extension Method Issues
 - Pattern 8: Constructor Parameter Mismatches
 - Pattern 9: UI Platform Component Parameter Mismatch
@@ -68,6 +68,9 @@ After fix: Report new error count, domain integrity check
 - Pattern 27: xUnit Test Improvements (NEW)
 - Pattern 28: Default Value Initializations (NEW)
 - Pattern 29: Null Reference Warnings (NEW)
+- Pattern 30: Duplicate Class/Type Definition (CS0101) (NEW)
+- Pattern 31: Razor Generated File Namespace Resolution (CS0246 in .g.cs) (NEW)
+- Pattern 32: Sync-over-Async Anti-Pattern (NEW 2026-06-18)
 
 **Application Process:**
 1. Choose 1 source file containing the error pattern.
@@ -99,13 +102,20 @@ var customer = await _dbContext.Customers.FirstAsync();
 Assert.Equal("Test Customer", customer.FullName);
 ```
 
-### Pattern 3: Service Method Mismatch (20+ errors)
+### Pattern 3: Service Method Mismatch (20+ errors) — ⚠️ OBSOLETE (2026-06-18)
+> **STATUS:** OBSOLETE. Cả `SendWelcomeMessageAsync` và `GetEntriesByPeriodAsync` đều là method **hợp lệ** trong interface hiện tại:
+> - `ICustomerOnboardingService.SendWelcomeMessageAsync(Guid)` — `3_CoreHub/Services/ICustomerOnboardingService.cs:39`
+> - `IAccountingService.GetEntriesByPeriodAsync(TenantId, AccountingPeriod)` — `1_Shared/Services/IAccountingService.cs:29`
+>
+> Pattern này dựa trên interface cũ đã được cập nhật. **KHÔNG áp dụng** để fix — có thể gây xóa method hợp lệ.
+> Giữ lại làm historical record. Nếu gặp CS1061 trên service method, inspect interface thực tế thay vì apply pattern này.
+
 ```
-// WRONG:
+// WRONG (historical — không còn đúng):
 SendWelcomeMessageAsync (không có trong interface)
 GetEntriesByPeriodAsync (method không exist)
 
-// CORRECT:
+// CORRECT (historical):
 StartOnboardingAsync (tôn tai trong interface)
 GetEntriesByTenantAndPeriodAsync (correct method name)
 ```
@@ -134,13 +144,23 @@ var dto = new AccountingEntryDto {
 };
 ```
 
-### Pattern 6: Property Access Errors (8+ errors)
+### Pattern 6: Property Access Errors (8+ errors) — ⚠️ MISLEADING (2026-06-18)
+> **STATUS:** MISLEADING. Pattern claim `BookType` luôn sai và phải thay bằng `BookTypeCode` — nhưng thực tế **cả 2 đều là property hợp lệ trên các type khác nhau**:
+> - `BookType` (AccountingBookType enum) — property trên 12 DTOs trong `IHKDTaxReportingService.cs:77`, `IHKDTaxClassificationService.cs:61`, `IHKDComplianceService.cs:69`
+> - `BookTypeCode` (string) — property trên `HKDBookService` result, dùng trong `HKDBookServiceTests.cs:60,87,174`
+>
+> **Nguyên nhân gốc:** Pattern được viết khi `BookType` chưa tồn tại trên DTOs. Giờ DTOs đã có `BookType` (enum) riêng.
+> **Áp dụng đúng:** Khi gặp CS1061 trên `.BookType` hoặc `.BookTypeCode`, **INSPECT type thực tế** trước khi fix. Đừng auto-rename.
+
 ```
-// WRONG:
+// WRONG (chỉ đúng khi type KHÔNG có property BookType):
 result.BookType.Should().Be(AccountingBookType.S1a_HKD);
 
-// CORRECT:
+// CORRECT (chỉ khi type có BookTypeCode, không có BookType):
 result.BookTypeCode.Should().Be("S1a_HKD"); // Use correct property name
+
+// CORRECT (khi type CÓ BookType enum — đừng đổi!):
+result.BookType.Should().Be(AccountingBookType.S1a_HKD);
 ```
 
 ### Pattern 7: Extension Method Issues (5+ errors)
@@ -446,13 +466,60 @@ return context?.Tenant?.Id ?? TenantId.Empty; // Provide fallback value
 - Verify _Imports.razor structure
 - Use centralized namespace management
 
+### Pattern 32: Sync-over-Async Anti-Pattern (24+ instances) (NEW 2026-06-18)
+**Detected via codebase scan:** 24 instances of `.Result`, `.Wait()`, or `GetAwaiter().GetResult()` in non-test code.
+
+```
+// WRONG — sync-over-async (deadlock risk, thread pool starvation):
+var result = _service.GetAsync(id).Result;
+_service.ProcessAsync(data).Wait();
+var value = _repository.GetValueAsync(key).GetAwaiter().GetResult();
+
+// CORRECT — propagate async:
+var result = await _service.GetAsync(id);
+await _service.ProcessAsync(data);
+var value = await _repository.GetValueAsync(key);
+```
+
+**Why it matters:**
+- **Deadlock risk:** In Blazor Server / ASP.NET Core sync context, `.Result`/`.Wait()` can deadlock
+- **Thread pool starvation:** Blocks a thread while waiting for async work
+- **Performance:** Wastes 1 thread per blocking call instead of releasing to pool
+
+**Fix Procedure:**
+1. Identify calling method signature
+2. If method is `async Task` → change to `await` (preferred)
+3. If method is `void` (event handler, constructor) → use one of:
+   - `async void` (only for event handlers, with try/catch)
+   - Fire-and-forget `_ = DoAsync()` (if caller doesn't need result)
+   - `Task.Run(async () => await ...)` (offload, last resort)
+4. If method is sync (legacy, cannot change) → wrap with `Task.Run(() => asyncOp).Result` to avoid sync context capture
+5. **NEVER** use `.Result` in Blazor Server lifecycle methods (`OnInitialized`, `OnAfterRender`)
+
+**Detection:**
+```bash
+# Find all sync-over-async instances
+grep -rn "\.Result\b\|\.Wait()\|GetAwaiter()\.GetResult()" --include="*.cs" \
+  | grep -v "Test" | grep -v "/bin/" | grep -v "/obj/"
+```
+
+**Exceptions (allowed sync-over-async):**
+- Test setup code (`[Fact]` methods can use `.Result` if test framework requires sync)
+- `Main(string[] args)` entry point (before C# 7.1 async Main)
+- Property getters that cannot be async (refactor to method instead)
+
+**Prevention:**
+- Enable analyzer CA1849 (or CA2007 for ConfigureAwait) in `.editorconfig`
+- Code review: reject any `.Result`/`.Wait()` in non-test code
+- Prefer `await` over blocking in all new code
+
 ## PRIORITY FIXING ORDER
 1. **Critical Build Blockers:** Patterns 15-16, 19, 22, 30, 31 (HTML Parsing, Event Handler Mismatch, Domain Entity Compilation, RenderFragment, Duplicate Class, Razor Namespace Resolution)
-2. **High Impact:** Patterns 1-3, 20-21 (Direct Entity, Mock Setup, Service Mismatch, Lambda Type, Missing DTO)
-3. **Security & Package:** Patterns 17-18 (Vulnerabilities, Duplicate Packages)
+2. **High Impact:** Patterns 1-2, 20-21 (Direct Entity, Mock Setup, Lambda Type, Missing DTO) — ~~P3~~ OBSOLETE
+3. **Security & Package:** Patterns 17-18, 32 (Vulnerabilities, Duplicate Packages, Sync-over-Async deadlock risk)
 4. **Medium Impact:** Patterns 4-5, 23-26 (Test Dependencies, Type Mismatch, Dispose, Static Methods, Performance, Culture)
 5. **UI/UX Impact:** Patterns 9-14 (UI Platform, Navigation, Razor, CSS, Static Methods)
-6. **Low Impact:** Patterns 6-8, 27-29 (Property Access, Extension Methods, Constructor, xUnit, Default Values, Null References)
+6. **Low Impact:** Patterns 7-8, 27-29 (Extension Methods, Constructor, xUnit, Default Values, Null References) — ~~P6~~ MISLEADING
 
 **Integration with RULE 6.1:**  
 RULE 6.1 focuses on **assessment & planning**, RULE 6.2 focuses on **pattern-based execution**.
@@ -465,7 +532,7 @@ RULE 6.1 focuses on **assessment & planning**, RULE 6.2 focuses on **pattern-bas
 ```
 CS0200: Property cannot be assigned to (read-only) -> Pattern 1
 CS1729: Constructor does not contain -> Pattern 8
-CS1061: Member not found -> Pattern 3, 6, 9, 12
+CS1061: Member not found -> Pattern 9, 12 (~~P3, P6~~ OBSOLETE/MISLEADING — inspect interface/type first)
 CS0246: Type not found -> Pattern 4, 7, 9, 31
 CS1503: Cannot convert from -> Pattern 5
 CS1950: Invalid collection initializer -> Pattern 1, 5
@@ -484,9 +551,9 @@ NU1506: Duplicate PackageVersion items found -> Pattern 18
 ### File Pattern Recognition
 ```
 *Tests.cs files -> Focus on Pattern 4 (Test Dependencies)
-*Service*.cs files -> Focus on Pattern 3 (Service Mismatch)
-*Repository*.cs files -> Focus on Pattern 5 (Type Conversions)
-*Controller*.cs files -> Focus on Pattern 8 (Constructor)
+*Service*.cs files -> Focus on Pattern 3 (~~Service Mismatch~~ OBSOLETE), Pattern 32 (Sync-over-Async)
+*Repository*.cs files -> Focus on Pattern 5 (Type Conversions), Pattern 32 (Sync-over-Async)
+*Controller*.cs files -> Focus on Pattern 8 (Constructor), Pattern 32 (Sync-over-Async)
 *.razor files -> Focus on Patterns 9-16, 31 (UI Platform, Navigation, Razor, HTML, Event Handlers, Namespace Resolution)
 *Layout*.razor files -> Focus on Patterns 10, 12, 13, 31 (Navigation, CSS, Static Methods, Namespace Resolution)
 *Pages/*.razor files -> Focus on Patterns 9, 11, 15, 16, 31 (UI Platform, Razor, HTML, Event Handlers, Namespace Resolution)
