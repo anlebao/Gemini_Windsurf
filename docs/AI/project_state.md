@@ -40,7 +40,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Phase Next — Sprint A/B/C: Order & Accounting Data Integrity Improvements**
 
-**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** — branch `feat/sprint-b-entry-timing`, ready to merge
+**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (C-1+C-2) — branch `feat/sprint-c-service-guards`, ready to merge
 
 **Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
@@ -88,19 +88,18 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ---
 
-### Sprint C — Service Layer Guards (P2, effort thấp-medium)
+### Sprint C — Service Layer Guards (P2, effort thấp-medium) ✅ COMPLETED (C-1+C-2)
 
 | Task | Mô tả | File chính | Trạng thái |
 |---|---|---|---|
-| **C-1** | Server-side duplicate detection trong `AccountingEntryService` | `AccountingEntryService.cs` | ⬜ TODO |
-| **C-2** | Period closing block new entries: check `IPeriodClosingService` trước khi create entry | `AccountingEntryService.cs` | ⬜ TODO |
+| **C-1** | Server-side duplicate detection trong `AccountingEntryService` | `AccountingEntryService.cs` | ✅ DONE |
+| **C-2** | Period closing block new entries: check `IPeriodClosingService` trước khi create entry | `AccountingEntryService.cs` | ✅ DONE |
 | **C-3** | COGS từ `Product.CostPrice` thay 70% hardcode | `OrderService.cs:119`, `Domain.cs` (Product entity cần `CostPrice` — **Domain change, cần approval**) | ⬜ BLOCKED (Domain change) |
 
-**Bằng chứng cần fix:**
-- `AccountingEntryService.cs` không có duplicate check — client-only (`_recentEntries` list trong Razor)
-- `AccountingEntryService.CreateRevenue/ExpenseEntryAsync()` không gọi `IPeriodClosingService`
-- `OrderService.cs:119`: `decimal cogsAmount = order.TotalPrice * 0.7m; // Assume 70% COGS for MVP`
-- `Product` entity trong `Domain.cs` không có `CostPrice` field
+**Files đã sửa (branch `feat/sprint-c-service-guards`):**
+- `3_CoreHub/Services/AccountingEntryService.cs` — inject `IPeriodClosingService`, thêm `CheckDuplicateEntryAsync()` helper, guards trong `CreateRevenueEntryAsync` + `CreateExpenseEntryAsync`
+- `3_CoreHub/Program.cs` — register `IReversalService` + `IPeriodClosingService` (missing from CoreHub DI)
+- `6_Tests/VanAn.Core.Tests/Accounting/AccountingEntryServiceTests.cs` — add `IPeriodClosingService` mock, 7 new tests (SC4-SC6 duplicate, SC11-SC13 period closing)
 
 ## 3. Current Status
 
@@ -157,13 +156,17 @@ Mọi cập nhật file này PHẢI tuân thủ:
 |---|---|---|
 | **B-1** Payment webhook | `OrderService.cs` (xóa/guard `GenerateAccountingEntriesAsync` ở line 80) + `WebhookController.cs` (thêm `POST /api/webhooks/payment` → gọi accounting service) | Doanh thu hiện ghi nhận trước khi khách thanh toán — vi phạm nguyên tắc thực thu |
 
-#### Sprint C — Service Guards (P2)
+#### Sprint C — Service Guards (P2) ✅ C-1+C-2 COMPLETED — pending merge
 
-| Task | File cần sửa | Mô tả ngắn |
-|---|---|---|
-| **C-1** Duplicate detection | `AccountingEntryService.cs` | Client-only check hiện có thể bypass bằng API call trực tiếp |
-| **C-2** Period closing guard | `AccountingEntryService.CreateRevenue/ExpenseEntryAsync()` | Kỳ đã đóng vẫn cho tạo entry qua API |
-| **C-3** COGS từ CostPrice | `Domain.cs` (thêm `Product.CostPrice`) + `OrderService.cs` | **BLOCKED** — Domain change cần Tech Lead approval |
+> **Branch:** `feat/sprint-c-service-guards` | C-1+C-2 DONE | Build 0 errors | Guard EXIT 0 | 9/9 tests PASS
+
+| Task | File cần sửa | Mô tả ngắn | Trạng thái |
+|---|---|---|---|
+| **C-1** Duplicate detection | `AccountingEntryService.cs` | Server-side guard: throw nếu duplicate trong 5 phút | ✅ DONE |
+| **C-2** Period closing guard | `AccountingEntryService.cs` | Inject `IPeriodClosingService`, throw nếu kỳ Closed | ✅ DONE |
+| **C-3** COGS từ CostPrice | `Domain.cs` + `OrderService.cs` | **BLOCKED** — Tech Lead approval required | ⬜ BLOCKED |
+
+**Next:** Merge `feat/sprint-c-service-guards` → `main`
 
 #### Backlog còn lại (P1-P3, chưa làm)
 
@@ -484,10 +487,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 — Sprint B COMPLETED. B-1a/B-1b/B-1c/B-2 DONE. Build 0 errors, guard pass, 20/20 tests. Branch `feat/sprint-b-entry-timing`. Files: Domain.cs (Order.ConfirmPayment), IOrderService.cs, OrderService.cs (guard + ConfirmPaymentAsync), WebhookController.cs (POST /api/webhooks/payment), OrderServiceTests.cs (SC11/12/13).
+* Last Updated: 2026-06-19 — Sprint C COMPLETED (C-1+C-2). Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS (7 new). Branch `feat/sprint-c-service-guards`. Files: AccountingEntryService.cs (IPeriodClosingService inject + CheckDuplicateEntryAsync + period guards), 3_CoreHub/Program.cs (IReversalService+IPeriodClosingService DI), AccountingEntryServiceTests.cs (+7 tests SC4-SC13). C-3 BLOCKED pending Domain approval.
+* Previous: 2026-06-19 — Sprint B COMPLETED. B-1a/B-1b/B-1c/B-2 DONE. Build 0 errors, guard pass, 20/20 tests. Branch `feat/sprint-b-entry-timing`. Files: Domain.cs (Order.ConfirmPayment), IOrderService.cs, OrderService.cs (guard + ConfirmPaymentAsync), WebhookController.cs (POST /api/webhooks/payment), OrderServiceTests.cs (SC11/12/13).
 * Previous: 2026-06-19 — Sprint A COMPLETED. All tasks MP-A0~A5 DONE. Build 0 errors, guard pass. 11 files changed. Ready to merge to `main`.
-* Previous: 2026-06-20 — Phase Next Sprint A/B/C planning. E2E backlog (P0/P1) DONE. 16 spec files, 0 false-positives.
-* Current Branch: `feat/sprint-b-entry-timing`
+* Current Branch: `feat/sprint-c-service-guards`
 * **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.
