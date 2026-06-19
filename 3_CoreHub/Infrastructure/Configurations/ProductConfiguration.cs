@@ -33,6 +33,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.Price)
                 .HasPrecision(18, 2);
 
+            _ = builder.Property(e => e.CostPrice)
+                .HasPrecision(18, 2)
+                .HasDefaultValue(0m); // DMD-2 fix — default 0 for backward compat
+
             _ = builder.Property(e => e.VatRate)
                 .HasPrecision(5, 4);
 

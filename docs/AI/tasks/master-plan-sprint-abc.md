@@ -2,8 +2,8 @@
 # Order & Accounting Data Integrity Improvements
 
 **Created:** 2026-06-20
-**Last Updated:** 2026-06-20
-**Current Status:** Sprint A ⬜ READY TO START
+**Last Updated:** 2026-06-19
+**Current Status:** Sprint A ✅ DONE | Sprint B ✅ DONE | Sprint C ✅ DONE (C-1+C-2+C-3) | Sprint D ✅ DONE
 **Branch strategy:** 1 branch per sprint, merge to `main` giữa các sprint
 **Execution principle:** Sequential sprints, JIT Planning + Pure Execution, verify build trước khi sang sprint kế
 **Nguồn phân tích:** `docs/AI/phase-next-order-accounting-improvements.md` (đã đối soát source code thực tế 2026-06-20)
@@ -169,7 +169,7 @@ Direct API call bypass hoàn toàn check này. `AccountingEntryService` không c
 |---|---|---|---|---|---|
 | 6 | C-1 | Server-side duplicate detection trong `AccountingEntryService` | `3_CoreHub/Services/AccountingEntryService.cs` | `task-sprint-c-service-guards.md §C-1` | ⬜ TODO |
 | 7 | C-2 | Period closing guard: check `GetPeriodStatusAsync()` trước khi create entry | `3_CoreHub/Services/AccountingEntryService.cs`, `3_CoreHub/Services/IAccountingService.cs` (inject `IPeriodClosingService`) | `task-sprint-c-service-guards.md §C-2` | ⬜ TODO |
-| 8 | C-3 | COGS từ `Product.CostPrice` thay 70% hardcode | `3_CoreHub/Services/OrderService.cs`, `1_Shared/Domain.cs` | `task-sprint-c-service-guards.md §C-3` | 🚫 BLOCKED |
+| 8 | C-3 | COGS từ `Product.CostPrice` thay 70% hardcode | `3_CoreHub/Services/OrderService.cs`, `1_Shared/Domain.cs` | `task-sprint-c-service-guards.md §C-3` | ✅ DONE (Sprint D) |
 
 ### Entry criteria
 - [ ] Sprint B merged to `main`
@@ -232,6 +232,15 @@ Sprint C (1 session):
   C-2: Period closing guard
   C-3: [BLOCKED] COGS từ CostPrice — await Domain approval
   ──→ Build + Guard + Unit tests pass ──→ Merge to main (C-1/C-2 only)
+          │
+Sprint D (C-3 unblock, 1 session):
+  [feat/sprint-d-cogs-costprice]
+  D-1: Add Product.CostPrice to Domain.cs (Tech Lead approved 2026-06-19)
+  D-2: EF config for CostPrice in ProductConfiguration.cs
+  D-3: Fix OrderService COGS — SUM(qty × CostPrice) with fallback to 70%
+  D-4: Reload order with includes in ConfirmPaymentAsync for nav property access
+  D-5: Unit tests SC14/SC15/SC16 (23/23 OrderServiceTests PASS)
+  ──→ Build 0 errors + Guard PASS + 23 tests pass ──→ Merge to main
 ```
 
 ---
@@ -241,7 +250,7 @@ Sprint C (1 session):
 | # | Defect | Entity | Blocking | Approval needed |
 |---|---|---|---|---|
 | DMD-1 | `AccountingEntry` không có `AccountCode` field | `AccountingEntry` | Sprint A A-1 (nếu chọn Domain approach) | Tech Lead |
-| DMD-2 | `Product` không có `CostPrice` field | `Product` | Sprint C C-3 | Tech Lead |
+| DMD-2 | `Product` không có `CostPrice` field | `Product` | Sprint D D-1 | ✅ RESOLVED (Tech Lead approved 2026-06-19) |
 
 **Workaround cho DMD-1 (Sprint A):**
 - Option X (Recommended): Store `AccountCode` trong `Description` với prefix convention `[511]` — không cần Domain change.

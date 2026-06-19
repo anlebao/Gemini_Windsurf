@@ -114,9 +114,9 @@ namespace VanAn.Core.Tests.TestInfrastructure
         /// <summary>
         /// Creates a test Product with proper tenant context
         /// </summary>
-        public static Product CreateProduct(TenantId tenantId, string name, decimal price, string category = "General")
+        public static Product CreateProduct(TenantId tenantId, string name, decimal price, string category = "General", decimal costPrice = 0m)
         {
-            return new Product(tenantId, name, price, category);
+            return new Product(tenantId, name, price, category, costPrice);
         }
 
         /// <summary>

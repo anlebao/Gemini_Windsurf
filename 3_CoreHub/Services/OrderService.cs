@@ -114,8 +114,15 @@ namespace VanAn.CoreHub.Services
                 await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2b_HKD); // Revenue book
                 await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2c_HKD); // Detailed book
 
-                // 3. COGS entry (simplified for MVP)
-                decimal cogsAmount = order.TotalPrice * 0.7m; // Assume 70% COGS for MVP
+                // 3. COGS entry — C-3 fix: use actual Product.CostPrice per item (fallback to 70% of UnitPrice if CostPrice not set)
+                decimal cogsAmount = order.Items.Any()
+                    ? order.Items.Sum(item =>
+                    {
+                        decimal costPrice = item.Product?.CostPrice ?? 0m;
+                        decimal effectiveCost = costPrice > 0 ? costPrice : item.UnitPrice * 0.7m; // Fallback for legacy products
+                        return item.Quantity * effectiveCost;
+                    })
+                    : order.TotalPrice * 0.7m; // Ultimate fallback when Items not loaded
                 if (cogsAmount > 0)
                 {
                     Shared.DTOs.AccountingEntryDto cogsEntry = await _accountingService.CreateExpenseEntryAsync(
@@ -456,6 +463,7 @@ namespace VanAn.CoreHub.Services
             TenantId tenantIdObj = new(tenantId);
             OrderId orderIdObj = new(orderId);
 
+            // Fast check with lightweight query (no includes) for idempotency guard
             Order? order = await _orderRepository.GetByIdAsync(orderIdObj, tenantIdObj);
 
             if (order == null)
@@ -476,8 +484,12 @@ namespace VanAn.CoreHub.Services
             await _orderRepository.UpdateAsync(order);
             await _orderRepository.SaveChangesAsync();
 
-            // 2. Generate accounting entries (Revenue + COGS) — only after payment confirmed
-            await GenerateAccountingEntriesAsync(order, tenantIdObj);
+            // 2. Reload order with Items + Product for COGS calculation (C-3: use actual CostPrice)
+            Order? orderWithItems = await _orderRepository.GetByIdWithIncludesAsync(orderId, cancellationToken);
+            Order accountingOrder = orderWithItems ?? order; // fallback to plain order if reload fails
+
+            // 3. Generate accounting entries (Revenue + COGS) — only after payment confirmed
+            await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
 
             _logger.LogInformation("ConfirmPaymentAsync: Payment confirmed for order {OrderId}, accounting entries generated", orderId);
         }
