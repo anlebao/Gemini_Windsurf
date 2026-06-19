@@ -19,11 +19,14 @@ namespace VanAn.ShopERP.Services.Accounting
             decimal amount = decimal.Parse(formData["amount"]);
             DateTime date = DateTime.Parse(formData["date"]);
             string description = formData.GetValueOrDefault("description") ?? string.Empty;
+            string? accountCode = formData.GetValueOrDefault("accountCode");
+            string? reference = formData.GetValueOrDefault("reference");
 
             AccountingPeriod period = new(date.Year, date.Month);
             TenantId tenant = new(tenantId);
 
-            return await _accountingService.CreateRevenueEntryAsync(tenant, period, amount, description);
+            return await _accountingService.CreateRevenueEntryAsync(tenant, period, amount, description,
+                accountCode: accountCode, reference: reference);
         }
 
         /// <summary>
@@ -34,11 +37,16 @@ namespace VanAn.ShopERP.Services.Accounting
             decimal amount = decimal.Parse(formData["amount"]);
             DateTime date = DateTime.Parse(formData["date"]);
             string description = formData.GetValueOrDefault("description") ?? string.Empty;
+            string? accountCode = formData.GetValueOrDefault("accountCode");
+            string? vendor = formData.GetValueOrDefault("vendor");
+            string? category = formData.GetValueOrDefault("category");
+            string? reference = formData.GetValueOrDefault("reference");
 
             AccountingPeriod period = new(date.Year, date.Month);
             TenantId tenant = new(tenantId);
 
-            return await _accountingService.CreateExpenseEntryAsync(tenant, period, amount, description);
+            return await _accountingService.CreateExpenseEntryAsync(tenant, period, amount, description,
+                accountCode: accountCode, vendor: vendor, category: category, reference: reference);
         }
 
         /// <summary>

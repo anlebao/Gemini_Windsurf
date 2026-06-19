@@ -72,7 +72,8 @@ namespace VanAn.Core.Tests.Accounting
             };
 
             _ = _mockAccountingService.Setup(s => s.CreateRevenueEntryAsync(
-                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
+                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync(expectedDto);
 
             // Set up tenant header
@@ -89,7 +90,8 @@ namespace VanAn.Core.Tests.Accounting
             Assert.Equal(expectedDto.Id, createdResult.RouteValues?["id"]);
 
             _mockAccountingService.Verify(s => s.CreateRevenueEntryAsync(
-                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Once);
+                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<string?>()), Times.Once);
         }
 
         [Fact]
@@ -116,7 +118,8 @@ namespace VanAn.Core.Tests.Accounting
             _ = Assert.IsType<BadRequestObjectResult>(result.Result);
 
             _mockAccountingService.Verify(s => s.CreateRevenueEntryAsync(
-                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Never);
+                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<string?>()), Times.Never);
         }
 
         [Fact]
@@ -155,7 +158,8 @@ namespace VanAn.Core.Tests.Accounting
             };
 
             _ = _mockAccountingService.Setup(s => s.CreateExpenseEntryAsync(
-                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
+                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync(expectedDto);
 
             // Set up tenant header
@@ -170,7 +174,8 @@ namespace VanAn.Core.Tests.Accounting
             Assert.Equal(expectedDto, createdResult.Value);
 
             _mockAccountingService.Verify(s => s.CreateExpenseEntryAsync(
-                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()), Times.Once);
+                It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()), Times.Once);
         }
 
         [Fact]

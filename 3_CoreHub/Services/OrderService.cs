@@ -106,7 +106,8 @@ namespace VanAn.CoreHub.Services
                     tenantId,
                     period,
                     order.TotalPrice,
-                    $"Doanh thu bán hàng #{order.Id}");
+                    $"Doanh thu bán hàng #{order.Id}",
+                    accountCode: "511");
 
                 // 2. Generate HKD books for revenue
                 // Note: For MVP, we'll create a simple journal entry for HKD books
@@ -123,7 +124,8 @@ namespace VanAn.CoreHub.Services
                         tenantId,
                         period,
                         cogsAmount,
-                        $"Giá vốn hàng bán #{order.Id}");
+                        $"Giá vốn hàng bán #{order.Id}",
+                        accountCode: "621");
 
                     // Create COGS journal entry for HKD books
                     JournalEntry? cogsJournalEntry = await CreateCOGSEntryAsync(order, tenantId, period);

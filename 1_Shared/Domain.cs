@@ -271,6 +271,16 @@ namespace VanAn.Shared.Domain
         public Guid? ReferenceId { get; }
         public string? ReferenceType { get; }
 
+        // DMD-1 fix (approved 2026-06-20): Accounting classification fields
+        // AccountCode: mã tài khoản kế toán (511, 621, 642...) — bắt buộc TT 152/2025/TT-BTC
+        // Vendor: nhà cung cấp (dùng cho bút toán chi phí)
+        // Category: danh mục chi phí/doanh thu (materials, utilities, services...)
+        // Reference: số hóa đơn/chứng từ tham chiếu
+        public string? AccountCode { get; }
+        public string? Vendor { get; }
+        public string? Category { get; }
+        public string? Reference { get; }
+
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
 
         // Navigation (read-only)
@@ -290,7 +300,11 @@ namespace VanAn.Shared.Domain
             int periodYear,
             int periodMonth,
             string description,
-            Guid? reversalEntryId = null)
+            Guid? reversalEntryId = null,
+            string? accountCode = null,
+            string? vendor = null,
+            string? category = null,
+            string? reference = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -302,19 +316,27 @@ namespace VanAn.Shared.Domain
             Description = description;
             ReversalEntryId = reversalEntryId;
             TransactionDate = DateTime.UtcNow;
+            AccountCode = accountCode;
+            Vendor = vendor;
+            Category = category;
+            Reference = reference;
         }
 
         // ====================== FACTORY METHODS ======================
-        public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description)
+        public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
+            string? accountCode = null, string? reference = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
-                                          AccountingBookType.RevenueBook, period.Year, period.Month, description);
+                AccountingBookType.RevenueBook, period.Year, period.Month, description,
+                reversalEntryId: null, accountCode: accountCode, reference: reference);
         }
 
-        public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description)
+        public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
+            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
-                                          AccountingBookType.ExpenseBook, period.Year, period.Month, description);
+                AccountingBookType.ExpenseBook, period.Year, period.Month, description,
+                reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
@@ -331,7 +353,8 @@ namespace VanAn.Shared.Domain
                 original.PeriodYear,
                 original.PeriodMonth,
                 $"Reversal of: {original.Description} - {reason}",
-                original.Id);
+                original.Id,
+                accountCode: original.AccountCode);
         }
 
         public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)
@@ -348,7 +371,8 @@ namespace VanAn.Shared.Domain
                 original.PeriodYear,
                 original.PeriodMonth,
                 $"Reversal of: {original.Description} - {reason}",
-                originalEntryId);
+                originalEntryId,
+                accountCode: original.AccountCode);
         }
     }
 

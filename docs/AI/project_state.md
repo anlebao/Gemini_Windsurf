@@ -40,23 +40,33 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Phase Next — Sprint A/B/C: Order & Accounting Data Integrity Improvements**
 
-**Status:** 🔵 **IN PROGRESS** — bắt đầu từ session 2026-06-20
+**Status:** ✅ **Sprint A COMPLETED** — branch `feat/sprint-a-accountcode-fields`, ready to merge
 
 **Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
-### Sprint A — Data Integrity (P0, effort thấp)
+### Sprint A — Data Integrity (P0, effort thấp) ✅ COMPLETED
 
 | Task | Mô tả | File chính | Trạng thái |
 |---|---|---|---|
-| **A-1** | Wire `AccountCode` từ UI → API DTO → `IAccountingService` → DB | `AccountingEntriesController.cs`, `IAccountingService.cs`, `AccountingEntryService.cs` | ⬜ TODO |
-| **A-2** | Wire `Vendor`, `Category`, `Reference` từ UI → `CreateExpenseEntryRequest` → DB | `AccountingEntriesController.cs`, `ExpenseEntry.razor` | ⬜ TODO |
+| **MP-A0** | JIT Planning — đọc call sites | `IAccountingService.cs`, `AccountingEntryService.cs`, `OrderService.cs` | ✅ DONE |
+| **MP-A1** | Domain fix — thêm `AccountCode`, `Vendor`, `Category`, `Reference` vào `AccountingEntry` entity + factory methods | `1_Shared/Domain.cs` | ✅ DONE |
+| **MP-A2** | Update `IAccountingService` + `AccountingEntryService` signatures | `3_CoreHub/Services/IAccountingService.cs`, `AccountingEntryService.cs` | ✅ DONE |
+| **MP-A3** | Update `AccountingEntriesController` request DTOs + call sites | `2_Gateway/Controllers/AccountingEntriesController.cs` | ✅ DONE |
+| **MP-A4** | Update `OrderService` + `AccountingUIService` call sites | `OrderService.cs`, `AccountingUIService.cs` | ✅ DONE |
+| **MP-A5** | EF Core config for new fields (no migration — uses `EnsureCreatedAsync`) | `AccountingEntryConfiguration.cs` | ✅ DONE |
+| **Verify** | `dotnet build` 0 errors + guard pass + commit | — | ✅ DONE |
 
-**Bằng chứng cần fix:**
-- `CreateRevenueEntryRequest` chỉ có `{TenantId, Year, Month, Amount, Currency, Description}` — thiếu `AccountCode`
-- `CreateExpenseEntryRequest` thiếu `Vendor`, `Category`, `Reference`
-- `IAccountingService.CreateRevenueEntryAsync(tenantId, period, amount, description)` — 4 params, không có `accountCode`
-- `RevenueEntry.razor` đọc `accountCode` từ form nhưng drop khi gọi service
-- `ExpenseEntry.razor` đọc `vendor/category/reference` từ form nhưng drop khi gọi service
+**Files đã sửa (branch `feat/sprint-a-accountcode-fields`):**
+- `1_Shared/Domain.cs` — `AccountingEntry`: thêm 4 properties + cập nhật constructor + 4 factory methods
+- `3_CoreHub/Services/IAccountingService.cs` — `CreateRevenueEntryAsync` / `CreateExpenseEntryAsync` có optional params mới
+- `3_CoreHub/Services/AccountingEntryService.cs` — map params xuống entity factory methods
+- `2_Gateway/Controllers/AccountingEntriesController.cs` — request DTOs + call sites wired
+- `3_CoreHub/Services/OrderService.cs` — call sites thêm `accountCode: "511"` / `"621"`
+- `5_WebApps/ShopERP/Services/Accounting/AccountingUIService.cs` — wire form fields through
+- `3_CoreHub/Infrastructure/Configurations/AccountingEntryConfiguration.cs` — EF config MaxLength
+- `6_Tests/VanAn.Core.Tests/Accounting/AccountingEntriesControllerTests.cs` — fix Moq CS0854
+- `6_Tests/VanAn.Integration.Tests/Accounting/AccountingUIServiceTests.cs` — fix Moq CS0854
+- `guard-check.ps1` — fix pre-existing PowerShell here-string syntax bug
 
 ---
 
@@ -128,12 +138,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 > Nguồn: `docs/AI/phase-next-order-accounting-improvements.md` (đã đối soát source code 2026-06-20)
 
-#### Sprint A — Data Integrity Fixes (P0, effort thấp, làm ngay)
+#### Sprint A — Data Integrity Fixes (P0) ✅ COMPLETED
 
-| Task | File cần sửa | Mô tả ngắn |
+> **Branch:** `feat/sprint-a-accountcode-fields` | All tasks DONE | Build 0 errors | Guard pass
+
+| Task | Mô tả ngắn | Trạng thái |
 |---|---|---|
-| **A-1** `AccountCode` | `AccountingEntriesController.cs` (thêm field vào `CreateRevenueEntryRequest`) → `IAccountingService.cs` (thêm param) → `AccountingEntryService.cs` (map xuống entity) | Sổ sách đang bỏ qua account code user chọn |
-| **A-2** `Vendor/Category/Reference` | `AccountingEntriesController.cs` (thêm 3 fields vào `CreateExpenseEntryRequest`) → `AccountingEntryService.cs` (map xuống) | UI nhập xong nhưng data bị drop trước khi lưu DB |
+| **MP-A1~A5** | Domain + Service + Controller + OrderService + EF Config | ✅ ALL DONE |
+| **Next:** | Merge to `main` → start Sprint B | ⬜ PENDING USER |
 
 #### Sprint B — Accounting Entry Timing (P0, effort medium)
 
@@ -468,9 +480,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-20 — Phase Next Sprint A/B/C planning. Section 2 (Current Objective) + Section 3 (Completed summary) + Section 4 (Next Actions) rewritten. Tất cả E2E backlog (P0/P1) DONE. 16 spec files, 0 false-positives.
-* Previous: 2026-06-20 (T-02/T-03/T-06/T-07/T-11/T-20/T-21 merged to main, e2e-gap-backlog cleared)
-* Current Branch: `main`
+* Last Updated: 2026-06-19 — Sprint A COMPLETED. All tasks MP-A0~A5 DONE. Build 0 errors, guard pass. 11 files changed (166 insertions, 81 deletions). Ready to merge to `main`.
+* Previous: 2026-06-19 — Sprint A in progress (MP-A1/A2 DONE, MP-A3 IN PROGRESS).
+* Previous: 2026-06-20 — Phase Next Sprint A/B/C planning. E2E backlog (P0/P1) DONE. 16 spec files, 0 false-positives.
+* Current Branch: `feat/sprint-a-accountcode-fields`
 * **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.

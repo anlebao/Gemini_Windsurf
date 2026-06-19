@@ -166,41 +166,33 @@ Write-Host "Generating guard report..." -ForegroundColor Yellow
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $reportFile = "guard-report-$timestamp.txt"
 
-@"
-Guard Check Report
-==================
-Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-Version: v8.1 (Phase 2 Upgrade + Source Control Guard)
-
-Component Results
-------------------
-Untracked Files Check: PASSED
-Windsurf Guard: PASSED
-Architecture Guard: PASSED
-Roslyn Analyzers: PASSED
-Build: SUCCEEDED
-Core Tests: PASSED
-Architecture Tests: PASSED
-Integration Tests: PASSED
-
-Warning Classification
-----------------------
-Critical: $($warningStats.Critical)
-Performance: $($warningStats.Performance)
-Security: $($warningStats.Security)
-Other: $($warningStats.Other)
-Total Warnings: $warningCount
-
-Analyzer Violations
--------------------
-VA1001 (Domain Entity Location): 0
-VA1002 (Dependency Direction): 0
-VA1003 (EF Core in Domain): 0
-VA1004 (Business Logic in Gateway): 0
-VA1005 (AccountingEntry Immutability): 0
-
-Status: ALL CHECKS PASSED
-"@ | Out-File $reportFile
+$reportContent = "Guard Check Report`n"
+$reportContent += "==================`n"
+$reportContent += "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
+$reportContent += "Version: v8.1 (Phase 2 Upgrade + Source Control Guard)`n`n"
+$reportContent += "Component Results`n"
+$reportContent += "  Untracked Files Check: PASSED`n"
+$reportContent += "  Windsurf Guard: PASSED`n"
+$reportContent += "  Architecture Guard: PASSED`n"
+$reportContent += "  Roslyn Analyzers: PASSED`n"
+$reportContent += "  Build: SUCCEEDED`n"
+$reportContent += "  Core Tests: PASSED`n"
+$reportContent += "  Architecture Tests: PASSED`n"
+$reportContent += "  Integration Tests: PASSED`n`n"
+$reportContent += "Warning Classification`n"
+$reportContent += "  Critical: $($warningStats.Critical)`n"
+$reportContent += "  Performance: $($warningStats.Performance)`n"
+$reportContent += "  Security: $($warningStats.Security)`n"
+$reportContent += "  Other: $($warningStats.Other)`n"
+$reportContent += "  Total Warnings: $warningCount`n`n"
+$reportContent += "Analyzer Violations`n"
+$reportContent += "  VA1001 (Domain Entity Location): 0`n"
+$reportContent += "  VA1002 (Dependency Direction): 0`n"
+$reportContent += "  VA1003 (EF Core in Domain): 0`n"
+$reportContent += "  VA1004 (Business Logic in Gateway): 0`n"
+$reportContent += "  VA1005 (AccountingEntry Immutability): 0`n`n"
+$reportContent += "Status: ALL CHECKS PASSED`n"
+$reportContent | Out-File $reportFile
 
 Write-Host "Report generated: $reportFile" -ForegroundColor Green
 

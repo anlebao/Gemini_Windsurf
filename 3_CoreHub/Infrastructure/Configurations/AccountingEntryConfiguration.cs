@@ -51,6 +51,19 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.ReversalEntryId);
             // Note: ReversalEntryId is already Guid?, no converter needed
 
+            // DMD-1 fix: Accounting classification fields
+            _ = builder.Property(e => e.AccountCode)
+                .HasMaxLength(20);
+
+            _ = builder.Property(e => e.Vendor)
+                .HasMaxLength(200);
+
+            _ = builder.Property(e => e.Category)
+                .HasMaxLength(100);
+
+            _ = builder.Property(e => e.Reference)
+                .HasMaxLength(100);
+
             // Indexes for performance with 4 HKD Books
             _ = builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
             _ = builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });
