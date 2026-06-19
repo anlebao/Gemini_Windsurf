@@ -55,7 +55,10 @@ namespace VanAn.Gateway.Controllers
                 TenantId tenantId = new(tenantGuid);
                 AccountingPeriod period = new(request.Year, request.Month);
                 Money amount = new(request.Amount);
-                Shared.DTOs.AccountingEntryDto entry = await _accountingEntryService.CreateRevenueEntryAsync(tenantId, period, amount.Value, request.Description);
+                Shared.DTOs.AccountingEntryDto entry = await _accountingEntryService.CreateRevenueEntryAsync(
+                    tenantId, period, amount.Value, request.Description,
+                    accountCode: request.AccountCode,
+                    reference: request.Reference);
 
                 _logger.LogInformation("Revenue entry created: {EntryId} for tenant {TenantId}",
                     entry.Id, tenantGuid);
@@ -94,7 +97,12 @@ namespace VanAn.Gateway.Controllers
                 AccountingPeriod period = new(request.Year, request.Month);
                 Money amount = new(request.Amount);
 
-                Shared.DTOs.AccountingEntryDto entry = await _accountingEntryService.CreateExpenseEntryAsync(tenantId, period, amount.Value, request.Description);
+                Shared.DTOs.AccountingEntryDto entry = await _accountingEntryService.CreateExpenseEntryAsync(
+                    tenantId, period, amount.Value, request.Description,
+                    accountCode: request.AccountCode,
+                    vendor: request.Vendor,
+                    category: request.Category,
+                    reference: request.Reference);
 
                 _logger.LogInformation("Expense entry created: {EntryId} for tenant {TenantId}",
                     entry.Id, tenantGuid);
@@ -384,6 +392,8 @@ namespace VanAn.Gateway.Controllers
         public decimal Amount { get; set; }
         public string Currency { get; set; } = "VND";
         public string Description { get; set; } = string.Empty;
+        public string? AccountCode { get; set; }
+        public string? Reference { get; set; }
     }
 
     public class CreateExpenseEntryRequest
@@ -394,6 +404,10 @@ namespace VanAn.Gateway.Controllers
         public decimal Amount { get; set; }
         public string Currency { get; set; } = "VND";
         public string Description { get; set; } = string.Empty;
+        public string? AccountCode { get; set; }
+        public string? Vendor { get; set; }
+        public string? Category { get; set; }
+        public string? Reference { get; set; }
     }
 
     public class CreateReversalEntryRequest

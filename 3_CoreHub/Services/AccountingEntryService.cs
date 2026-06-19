@@ -126,15 +126,17 @@ namespace VanAn.CoreHub.Services
             }
         }
 
-        public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
+        public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
+            string? accountCode = null, string? reference = null)
         {
             try
             {
-                CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description);
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
+                    accountCode: accountCode, reference: reference);
                 await _repository.AddAsync(entry);
 
                 // Audit log: Revenue entry creation
-                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Revenue" });
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Revenue", AccountCode = accountCode });
                 await _auditTrailService.LogCreateAsync(
                     AuditableEntityType.AccountingEntry,
                     entry.Id,
@@ -147,6 +149,8 @@ namespace VanAn.CoreHub.Services
                     TenantId = entry.TenantId.Value,
                     Amount = entry.Amount,
                     Description = entry.Description,
+                    AccountCode = entry.AccountCode,
+                    Reference = entry.Reference,
                     EntryType = entry.EntryType,
                     CreatedAt = entry.CreatedAt,
                     AccountingBookType = entry.AccountingBookType,
@@ -163,15 +167,17 @@ namespace VanAn.CoreHub.Services
             }
         }
 
-        public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
+        public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
+            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null)
         {
             try
             {
-                CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description);
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
+                    accountCode: accountCode, vendor: vendor, category: category, reference: reference);
                 await _repository.AddAsync(entry);
 
                 // Audit log: Expense entry creation
-                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Expense" });
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Expense", AccountCode = accountCode, Vendor = vendor, Category = category });
                 await _auditTrailService.LogCreateAsync(
                     AuditableEntityType.AccountingEntry,
                     entry.Id,
@@ -184,6 +190,10 @@ namespace VanAn.CoreHub.Services
                     TenantId = entry.TenantId.Value,
                     Amount = entry.Amount,
                     Description = entry.Description,
+                    AccountCode = entry.AccountCode,
+                    Vendor = entry.Vendor,
+                    Category = entry.Category,
+                    Reference = entry.Reference,
                     EntryType = entry.EntryType,
                     CreatedAt = entry.CreatedAt,
                     AccountingBookType = entry.AccountingBookType,

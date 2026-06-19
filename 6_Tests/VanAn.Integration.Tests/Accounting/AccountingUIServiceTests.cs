@@ -30,7 +30,8 @@ public class AccountingUIServiceTests
         };
 
         _mockCoreService
-            .Setup(s => s.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>()))
+            .Setup(s => s.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<string?>()))
             .ReturnsAsync(new AccountingEntryDto { Id = Guid.NewGuid() });
 
         // Act
@@ -41,7 +42,8 @@ public class AccountingUIServiceTests
             It.IsAny<TenantId>(),
             It.Is<AccountingPeriod>(p => p.Year == 2026 && p.Month == 5),
             1000000m,
-            "Doanh thu bán hàng"),
+            "Doanh thu bán hàng",
+            It.IsAny<string?>(), It.IsAny<string?>()),
             Times.Once);
     }
 
