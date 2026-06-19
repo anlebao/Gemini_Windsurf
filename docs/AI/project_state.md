@@ -38,6 +38,25 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**T-06/T-11/T-21 — Backlog Clearance (remaining P1/P2 items)**
+
+**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t06-t11-t21-remaining-backlog`, merged to `main`
+
+- **T-06 `balance-dashboard-flow.spec.ts`**: Xóa `beforeEach` fill `/login` form (Pattern C). Auth dùng `storageState` từ `playwright.config.ts` (auth/admin.json). Thêm `loadEnvConfig()`/`isTierEnabled()` + 4 hard `expect()` assertions
+- **T-11 `van-an-dashboard.spec.ts`** (NEW): 5 E2E tests cho `KhachLink /VanAnDashboard` — page load, `.dashboard-container`, header title, metrics/spinner/warning state, page title
+- **T-21 `period-closing-flow.spec.ts`**: Đã OK từ session trước — verified, no changes needed
+
+**Verification:** `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+
+**Backlog status sau session này:**
+- T-01: Verified OK (VanAnDashboard chỉ inject ILogger — không có IDashboardService)
+- T-08: Verified OK (OrdersController `[Route("api/[controller]")]` → `/api/orders`)
+- T-09: Verified OK (AccountBalance.razor có `.metrics-grid`, spec dùng `.metrics-grid`)
+- T-10: Verified OK (PeriodClosing.razor h1 = "Đóng Sổ Kỳ Kế Toán" khớp spec)
+- **All P0/P1 backlog items: COMPLETE** ✅
+
+---
+
 **T-03 — KhachLink QR Payment Modal Integration**
 
 **Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t03-qr-payment-modal`, merged to `main`
