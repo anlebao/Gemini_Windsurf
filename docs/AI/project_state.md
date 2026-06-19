@@ -40,7 +40,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Phase Next — Sprint A/B/C/D + Test Backlog Fixes**
 
-**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (merged) | ✅ **Sprint D COMPLETED** (merged) | ✅ **FIX-1 COMPLETED** (branch ready) | 🔧 **FIX-2** — task card created, awaiting implementation
+**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (merged) | ✅ **Sprint D COMPLETED** (merged) | ✅ **FIX-1 COMPLETED** (merged) | ✅ **FIX-2 COMPLETED** (branch ready)
 
 **Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
@@ -135,16 +135,17 @@ Mọi cập nhật file này PHẢI tuân thủ:
 **Branch:** `fix/test-jwt-tenantid-accounting-controller`  
 **Result:** 10/10 PASS. Không thay đổi production code. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0.
 
-### FIX-2 — WebhookService Null callbackData Guard ⬜ PENDING
+### FIX-2 — WebhookService Null callbackData Guard ✅ COMPLETED
 
 **Root cause (verified 2026-06-19):** `ProcessWebhookAsync()` không có null-guard cho `callbackData`. Null payload chạy vào `ParseWebhookPayload()`, bị `IsNullOrWhiteSpace` bắt silently → không throw. Test expect `ArgumentNullException`.
 
 | Task | Mô tả | File | Trạng thái |
 |---|---|---|---|
-| **Fix-2a** | Thêm `if (callbackData is null) throw new ArgumentNullException(...)` | `WebhookService.cs` | ⬜ TODO |
+| **Fix-2a** | Thêm `if (callbackData is null) throw new ArgumentNullException(...)` | `WebhookService.cs` | ✅ DONE |
 
 **Task card:** `docs/AI/tasks/task-fix2-webhook-null-guard.md`  
-**Expected result:** 18/18 PASS (hiện 17/18). 1 dòng thêm vào production code.
+**Branch:** `fix/webhook-null-callbackdata-guard`  
+**Result:** 18/18 PASS. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0. 1 dòng thêm vào production code.
 
 ---
 
@@ -158,6 +159,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 | Sprint 2 — Period Closing + Audit Trail | 2026-06-xx | main |
 | Sprint D — COGS CostPrice (C-3 unblock) | 2026-06-19 | feat/sprint-d-cogs-costprice |
 | FIX-1 — AccountingEntriesControllerTests JWT claim migration | 2026-06-19 | fix/test-jwt-tenantid-accounting-controller |
+| FIX-2 — WebhookService null callbackData guard | 2026-06-19 | fix/webhook-null-callbackdata-guard |
 | UC1 QR Checkout (22/22 tests) | 2026-06-10 | main |
 | Value Object Mapping (14 EF configs) | 2026-06-15 | main |
 | Wave 0 — Quick Wins (P0-3, P0-7) | 2026-06-18 | main |
@@ -189,9 +191,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 | Fix | Task Card | Branch | Effort | Trạng thái |
 |---|---|---|---|---|
 | **FIX-1** AccountingEntriesControllerTests JWT | `task-fix1-accounting-controller-tests.md` | `fix/test-jwt-tenantid-accounting-controller` | LOW | ✅ DONE |
-| **FIX-2** WebhookService null callbackData guard | `task-fix2-webhook-null-guard.md` | `fix/webhook-null-callbackdata-guard` | TRIVIAL | ⬜ TODO |
+| **FIX-2** WebhookService null callbackData guard | `task-fix2-webhook-null-guard.md` | `fix/webhook-null-callbackdata-guard` | TRIVIAL | ✅ DONE |
 
-**Target:** Sau FIX-1+FIX-2: `AccountingEntriesControllerTests` 10/10 PASS ✅ + `WebhookServiceTests` 18/18 PASS.
+**Target:** Sau FIX-1+FIX-2: `AccountingEntriesControllerTests` 10/10 PASS ✅ + `WebhookServiceTests` 18/18 PASS ✅.
 
 #### Backlog còn lại (P1-P3, chưa làm)
 
@@ -558,3 +560,11 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
   * Updated `AGENTS.md` với Project Memory Agent (v1.2)
   * Query patterns: GetWhatWeDidLastMonth, GenerateSprintRetrospective, FindSimilarPatterns
 * History (Sprint 3 F0–F4): xem Section 10.
+
+---
+
+## 11. Maintenance Log
+
+* **Last Updated:** 2026-06-19
+* **Current Branch:** fix/webhook-null-callbackdata-guard
+* **Session:** FIX-2 completed — added `ArgumentNullException` guard for `callbackData` in `WebhookService.ProcessWebhookAsync`; 18/18 `WebhookServiceTests` PASS; merged into local `main`.

@@ -51,6 +51,8 @@ public class WebhookService : IWebhookService
             throw new ArgumentException("ProviderId is required.", nameof(providerId));
         if (string.IsNullOrWhiteSpace(providerInvoiceNumber))
             throw new ArgumentException("ProviderInvoiceNumber is required.", nameof(providerInvoiceNumber));
+        if (callbackData is null)
+            throw new ArgumentNullException(nameof(callbackData), "CallbackData cannot be null.");
 
         var key = BuildKey(providerId, providerInvoiceNumber);
 
