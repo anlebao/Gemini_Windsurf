@@ -38,9 +38,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Phase Next — Sprint A/B/C: Order & Accounting Data Integrity Improvements**
+**Phase Next — Sprint A/B/C/D + Test Backlog Fixes**
 
-**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (C-1+C-2) — branch `feat/sprint-c-service-guards`, ready to merge
+**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (merged) | ✅ **Sprint D COMPLETED** (merged) | 🔧 **FIX-1 + FIX-2** — task cards created, awaiting implementation
 
 **Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
@@ -121,6 +121,32 @@ Mọi cập nhật file này PHẢI tuân thủ:
 - `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` — SC14/SC15/SC16 COGS tests
 - `6_Tests/VanAn.Core.Tests/TestInfrastructure/TestEntityBuilder.cs` — `CreateProduct` thêm `costPrice` param
 
+### FIX-1 — AccountingEntriesControllerTests JWT Migration Fix ⬜ PENDING
+
+**Root cause (verified 2026-06-19):** Wave 1 Phase 2 đã migrate controller sang JWT claim `tenant_id`, nhưng 9/10 tests vẫn dùng header `X-Tenant-Id` (deprecated). 1 test assert message sai.
+
+| Task | Mô tả | File | Trạng thái |
+|---|---|---|---|
+| **Fix-1a** | Thêm `SetTenantClaim()` helper dùng `ClaimsPrincipal` | `AccountingEntriesControllerTests.cs` | ⬜ TODO |
+| **Fix-1b** | Thay `Headers["X-Tenant-Id"]` → `SetTenantClaim()` trong 8 tests | `AccountingEntriesControllerTests.cs` | ⬜ TODO |
+| **Fix-1c** | Fix message assertion: `"Tenant ID required"` → `"Tenant ID required in JWT claim"` | `AccountingEntriesControllerTests.cs` | ⬜ TODO |
+
+**Task card:** `docs/AI/tasks/task-fix1-accounting-controller-tests.md`  
+**Expected result:** 10/10 PASS (hiện 1/10). Không thay đổi production code.
+
+### FIX-2 — WebhookService Null callbackData Guard ⬜ PENDING
+
+**Root cause (verified 2026-06-19):** `ProcessWebhookAsync()` không có null-guard cho `callbackData`. Null payload chạy vào `ParseWebhookPayload()`, bị `IsNullOrWhiteSpace` bắt silently → không throw. Test expect `ArgumentNullException`.
+
+| Task | Mô tả | File | Trạng thái |
+|---|---|---|---|
+| **Fix-2a** | Thêm `if (callbackData is null) throw new ArgumentNullException(...)` | `WebhookService.cs` | ⬜ TODO |
+
+**Task card:** `docs/AI/tasks/task-fix2-webhook-null-guard.md`  
+**Expected result:** 18/18 PASS (hiện 17/18). 1 dòng thêm vào production code.
+
+---
+
 ## 3. Current Status
 
 ### Completed (tóm tắt — chi tiết xem §10 History)
@@ -150,44 +176,20 @@ Mọi cập nhật file này PHẢI tuân thủ:
 - `global-setup.ts` — POST `/dev/login` → `auth/admin.json`
 - `playwright.config.ts` — `storageState: 'auth/admin.json'` global
 
-### Blocked
-
-- **C-3 (COGS từ CostPrice)**: cần thêm `CostPrice` vào `Product` entity trong `1_Shared/Domain.cs` → **Domain change cần Tech Lead approval** trước khi implement.
-
 ---
 
 ## 4. Next Actions
 
-### Phase Next — Execution Plan (Sprint A → B → C)
+### Immediate — Test Backlog Fixes (FIX-1 + FIX-2)
 
-> Nguồn: `docs/AI/phase-next-order-accounting-improvements.md` (đã đối soát source code 2026-06-20)
+> Sprints A/B/C/D đều DONE và merged. Current focus: sửa pre-existing test failures phát hiện 2026-06-19.
 
-#### Sprint A — Data Integrity Fixes (P0) ✅ COMPLETED
+| Fix | Task Card | Branch | Effort | Trạng thái |
+|---|---|---|---|---|
+| **FIX-1** AccountingEntriesControllerTests JWT | `task-fix1-accounting-controller-tests.md` | `fix/test-jwt-tenantid-accounting-controller` | LOW | ⬜ TODO |
+| **FIX-2** WebhookService null callbackData guard | `task-fix2-webhook-null-guard.md` | `fix/webhook-null-callbackdata-guard` | TRIVIAL | ⬜ TODO |
 
-> **Branch:** `feat/sprint-a-accountcode-fields` | All tasks DONE | Build 0 errors | Guard pass
-
-| Task | Mô tả ngắn | Trạng thái |
-|---|---|---|
-| **MP-A1~A5** | Domain + Service + Controller + OrderService + EF Config | ✅ ALL DONE |
-| **Next:** | Merge to `main` → start Sprint B | ⬜ PENDING USER |
-
-#### Sprint B — Accounting Entry Timing (P0, effort medium)
-
-| Task | File cần sửa | Mô tả ngắn |
-|---|---|---|
-| **B-1** Payment webhook | `OrderService.cs` (xóa/guard `GenerateAccountingEntriesAsync` ở line 80) + `WebhookController.cs` (thêm `POST /api/webhooks/payment` → gọi accounting service) | Doanh thu hiện ghi nhận trước khi khách thanh toán — vi phạm nguyên tắc thực thu |
-
-#### Sprint C — Service Guards (P2) ✅ C-1+C-2 COMPLETED — pending merge
-
-> **Branch:** `feat/sprint-c-service-guards` | C-1+C-2 DONE | Build 0 errors | Guard EXIT 0 | 9/9 tests PASS
-
-| Task | File cần sửa | Mô tả ngắn | Trạng thái |
-|---|---|---|---|
-| **C-1** Duplicate detection | `AccountingEntryService.cs` | Server-side guard: throw nếu duplicate trong 5 phút | ✅ DONE |
-| **C-2** Period closing guard | `AccountingEntryService.cs` | Inject `IPeriodClosingService`, throw nếu kỳ Closed | ✅ DONE |
-| **C-3** COGS từ CostPrice | `Domain.cs` + `OrderService.cs` | **BLOCKED** — Tech Lead approval required | ⬜ BLOCKED |
-
-**Next:** Merge `feat/sprint-c-service-guards` → `main`
+**Target:** Sau FIX-1+FIX-2: `AccountingEntriesControllerTests` 10/10 PASS + `WebhookServiceTests` 18/18 PASS.
 
 #### Backlog còn lại (P1-P3, chưa làm)
 
@@ -508,11 +510,12 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 — Sprint D COMPLETED (C-3 unblock: Product.CostPrice). Build 0 errors, guard EXIT 0, 23/23 OrderServiceTests PASS (3 new: SC14/SC15/SC16). Branch `feat/sprint-d-cogs-costprice`. Files: Domain.cs (Product.CostPrice + UpdateCostPrice()), ProductConfiguration.cs (EF HasPrecision+HasDefaultValue), OrderService.cs (COGS from CostPrice + ConfirmPaymentAsync reload with includes), OrderServiceTests.cs (+SC14/15/16), TestEntityBuilder.cs (costPrice param). DMD-2 resolved.
-* Previous: 2026-06-19 — Sprint C COMPLETED (C-1+C-2). Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS (7 new). Branch `feat/sprint-c-service-guards`. Files: AccountingEntryService.cs (IPeriodClosingService inject + CheckDuplicateEntryAsync + period guards), 3_CoreHub/Program.cs (IReversalService+IPeriodClosingService DI), AccountingEntryServiceTests.cs (+7 tests SC4-SC13).
-* Previous: 2026-06-19 — Sprint B COMPLETED. B-1a/B-1b/B-1c/B-2 DONE. Build 0 errors, guard pass, 20/20 tests. Branch `feat/sprint-b-entry-timing`. Files: Domain.cs (Order.ConfirmPayment), IOrderService.cs, OrderService.cs (guard + ConfirmPaymentAsync), WebhookController.cs (POST /api/webhooks/payment), OrderServiceTests.cs (SC11/12/13).
-* Previous: 2026-06-19 — Sprint A COMPLETED. All tasks MP-A0~A5 DONE. Build 0 errors, guard pass. 11 files changed. Ready to merge to `main`.
-* Current Branch: `feat/sprint-d-cogs-costprice`
+* Last Updated: 2026-06-19 — project_state.md updated: FIX-1 + FIX-2 task cards created. Root causes verified (AccountingEntriesControllerTests JWT migration mismatch + WebhookService null-guard missing). Section 2 + Section 4 updated. Current branch: `main`.
+* Previous: 2026-06-19 — Sprint D COMPLETED + merged to `main`. C-3 unblock (Product.CostPrice). Build 0 errors, guard EXIT 0, 23/23 OrderServiceTests PASS. Files: Domain.cs, ProductConfiguration.cs, OrderService.cs, OrderServiceTests.cs (+SC14/15/16), TestEntityBuilder.cs. DMD-2 resolved.
+* Previous: 2026-06-19 — Sprint C COMPLETED (C-1+C-2) + merged. Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS. Branch `feat/sprint-c-service-guards`.
+* Previous: 2026-06-19 — Sprint B COMPLETED + merged. 20/20 tests PASS. Branch `feat/sprint-b-entry-timing`.
+* Previous: 2026-06-19 — Sprint A COMPLETED + merged. Build 0 errors, guard pass. 11 files changed.
+* Current Branch: `main`
 * **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.
