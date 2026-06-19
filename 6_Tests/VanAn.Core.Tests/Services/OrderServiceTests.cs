@@ -412,5 +412,137 @@ namespace VanAn.Core.Tests.Services
                 Times.Never,
                 "Order must NOT be updated on idempotent noop call");
         }
+
+        // ============================================================================
+        // Sprint D (C-3) — COGS from Product.CostPrice Tests
+        // SC14: COGS uses actual Product.CostPrice when set (not 70% hardcode)
+        // SC15: COGS falls back to 70% of UnitPrice when CostPrice == 0 (legacy products)
+        // SC16: COGS = 0 when order.Items is empty (no negative entries)
+        // DMD-2 fix: Product.CostPrice added to Domain entity
+        // ============================================================================
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldUseCostPrice_ForCOGSCalculation_SC14()
+        {
+            // Arrange (SC14): Product has CostPrice set — COGS must use actual cost, not 70% hardcode
+            Guid orderId = Guid.NewGuid();
+            string transactionId = "TXN-SC14";
+
+            // Create product with known CostPrice (e.g., product costs 60, sells at 100)
+            Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test Product", price: 100m, costPrice: 60m);
+            Guid productId = product.ProductId.Value;
+
+            // Create OrderItem referencing that product (qty=2, unitPrice=100 → subtotal=200)
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, productId, quantity: 2, unitPrice: 100m);
+
+            // Wire the Product navigation property onto the OrderItem via reflection (simulates EF Include)
+            typeof(OrderItem).GetProperty("Product")!.SetValue(item, product);
+
+            // Create order with items
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 220m); // light version for idempotency check
+
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdAsync(It.IsAny<OrderId>(), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdWithIncludesAsync(orderId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderWithItems);
+            _ = _mockOrderRepository
+                .Setup(x => x.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            decimal capturedCogsAmount = 0m;
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue, Amount = 220m });
+            _ = _mockAccountingService
+                .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _) => capturedCogsAmount = amount)
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, transactionId);
+
+            // Assert: COGS = qty(2) × CostPrice(60) = 120, NOT qty(2) × unitPrice(100) × 0.7 = 140
+            _ = capturedCogsAmount.Should().Be(120m,
+                "COGS must use Product.CostPrice (2 × 60 = 120), not 70% hardcode (2 × 100 × 0.7 = 140)");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldFallbackTo70Percent_WhenCostPriceIsZero_SC15()
+        {
+            // Arrange (SC15): Product.CostPrice == 0 → fallback to 70% of UnitPrice (backward compat)
+            Guid orderId = Guid.NewGuid();
+            string transactionId = "TXN-SC15";
+
+            // Product with CostPrice = 0 (legacy product, no cost recorded)
+            Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Legacy Product", price: 100m, costPrice: 0m);
+            Guid productId = product.ProductId.Value;
+
+            // OrderItem: qty=1, unitPrice=100 → expected COGS = 100 × 0.7 = 70
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, productId, quantity: 1, unitPrice: 100m);
+            typeof(OrderItem).GetProperty("Product")!.SetValue(item, product);
+
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdAsync(It.IsAny<OrderId>(), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdWithIncludesAsync(orderId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderWithItems);
+            _ = _mockOrderRepository
+                .Setup(x => x.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            decimal capturedCogsAmount = 0m;
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+            _ = _mockAccountingService
+                .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _) => capturedCogsAmount = amount)
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, transactionId);
+
+            // Assert: COGS = 1 × 100 × 0.7 = 70 (fallback for legacy products with CostPrice=0)
+            _ = capturedCogsAmount.Should().Be(70m,
+                "When Product.CostPrice == 0, COGS must fall back to UnitPrice × 0.7 (backward compat)");
+        }
+
+        [Fact]
+        public async Task UpdateCostPrice_ShouldRejectNegativeValue_SC16()
+        {
+            // Arrange (SC16): Product.UpdateCostPrice() must reject negative values — domain validation
+            Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test Product", price: 100m, costPrice: 50m);
+
+            // Act & Assert: negative cost price is invalid
+            Action act = () => product.UpdateCostPrice(-10m);
+            _ = act.Should().Throw<ArgumentException>()
+                .WithMessage("*CostPrice cannot be negative*");
+
+            // Also verify valid update works
+            product.UpdateCostPrice(75m);
+            _ = product.CostPrice.Should().Be(75m, "UpdateCostPrice should update the value when valid");
+
+            await Task.CompletedTask; // Keep async signature consistent with other tests
+        }
     }
 }

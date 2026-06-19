@@ -88,18 +88,38 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ---
 
-### Sprint C — Service Layer Guards (P2, effort thấp-medium) ✅ COMPLETED (C-1+C-2)
+### Sprint C — Service Layer Guards (P2, effort thấp-medium) ✅ COMPLETED (C-1+C-2+C-3 via Sprint D)
 
 | Task | Mô tả | File chính | Trạng thái |
 |---|---|---|---|
 | **C-1** | Server-side duplicate detection trong `AccountingEntryService` | `AccountingEntryService.cs` | ✅ DONE |
 | **C-2** | Period closing block new entries: check `IPeriodClosingService` trước khi create entry | `AccountingEntryService.cs` | ✅ DONE |
-| **C-3** | COGS từ `Product.CostPrice` thay 70% hardcode | `OrderService.cs:119`, `Domain.cs` (Product entity cần `CostPrice` — **Domain change, cần approval**) | ⬜ BLOCKED (Domain change) |
+| **C-3** | COGS từ `Product.CostPrice` thay 70% hardcode | `OrderService.cs`, `Domain.cs`, `ProductConfiguration.cs` | ✅ DONE (Sprint D — DMD-2 resolved) |
 
 **Files đã sửa (branch `feat/sprint-c-service-guards`):**
 - `3_CoreHub/Services/AccountingEntryService.cs` — inject `IPeriodClosingService`, thêm `CheckDuplicateEntryAsync()` helper, guards trong `CreateRevenueEntryAsync` + `CreateExpenseEntryAsync`
 - `3_CoreHub/Program.cs` — register `IReversalService` + `IPeriodClosingService` (missing from CoreHub DI)
 - `6_Tests/VanAn.Core.Tests/Accounting/AccountingEntryServiceTests.cs` — add `IPeriodClosingService` mock, 7 new tests (SC4-SC6 duplicate, SC11-SC13 period closing)
+
+### Sprint D — COGS CostPrice (C-3 unblock) ✅ COMPLETED
+
+**Branch:** `feat/sprint-d-cogs-costprice`  
+**Approved:** Tech Lead approved `Product.CostPrice` Domain change 2026-06-19
+
+| Task | Mô tả | File chính | Trạng thái |
+|---|---|---|---|
+| **D-1** | Add `Product.CostPrice` + `UpdateCostPrice()` to Domain.cs | `1_Shared/Domain.cs` | ✅ DONE |
+| **D-2** | EF config `CostPrice` column (default 0) | `ProductConfiguration.cs` | ✅ DONE |
+| **D-3** | Fix `OrderService` COGS: `SUM(qty × CostPrice)` with 70% fallback | `OrderService.cs` | ✅ DONE |
+| **D-4** | `ConfirmPaymentAsync` reloads order with includes for nav access | `OrderService.cs` | ✅ DONE |
+| **D-5** | Unit tests SC14/SC15/SC16 — 23/23 OrderServiceTests PASS | `OrderServiceTests.cs`, `TestEntityBuilder.cs` | ✅ DONE |
+
+**Files đã sửa (branch `feat/sprint-d-cogs-costprice`):**
+- `1_Shared/Domain.cs` — `Product`: thêm `CostPrice`, `UpdateCostPrice()`, cập nhật constructors
+- `3_CoreHub/Infrastructure/Configurations/ProductConfiguration.cs` — EF `HasPrecision(18,2)` + `HasDefaultValue(0m)`
+- `3_CoreHub/Services/OrderService.cs` — COGS calculation + `ConfirmPaymentAsync` reloads with includes
+- `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` — SC14/SC15/SC16 COGS tests
+- `6_Tests/VanAn.Core.Tests/TestInfrastructure/TestEntityBuilder.cs` — `CreateProduct` thêm `costPrice` param
 
 ## 3. Current Status
 
@@ -109,6 +129,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 |---|---|---|
 | Sprint 1 — Accounting Module Frontend | 2026-06-xx | main |
 | Sprint 2 — Period Closing + Audit Trail | 2026-06-xx | main |
+| Sprint D — COGS CostPrice (C-3 unblock) | 2026-06-19 | feat/sprint-d-cogs-costprice |
 | UC1 QR Checkout (22/22 tests) | 2026-06-10 | main |
 | Value Object Mapping (14 EF configs) | 2026-06-15 | main |
 | Wave 0 — Quick Wins (P0-3, P0-7) | 2026-06-18 | main |
@@ -487,10 +508,11 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 — Sprint C COMPLETED (C-1+C-2). Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS (7 new). Branch `feat/sprint-c-service-guards`. Files: AccountingEntryService.cs (IPeriodClosingService inject + CheckDuplicateEntryAsync + period guards), 3_CoreHub/Program.cs (IReversalService+IPeriodClosingService DI), AccountingEntryServiceTests.cs (+7 tests SC4-SC13). C-3 BLOCKED pending Domain approval.
+* Last Updated: 2026-06-19 — Sprint D COMPLETED (C-3 unblock: Product.CostPrice). Build 0 errors, guard EXIT 0, 23/23 OrderServiceTests PASS (3 new: SC14/SC15/SC16). Branch `feat/sprint-d-cogs-costprice`. Files: Domain.cs (Product.CostPrice + UpdateCostPrice()), ProductConfiguration.cs (EF HasPrecision+HasDefaultValue), OrderService.cs (COGS from CostPrice + ConfirmPaymentAsync reload with includes), OrderServiceTests.cs (+SC14/15/16), TestEntityBuilder.cs (costPrice param). DMD-2 resolved.
+* Previous: 2026-06-19 — Sprint C COMPLETED (C-1+C-2). Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS (7 new). Branch `feat/sprint-c-service-guards`. Files: AccountingEntryService.cs (IPeriodClosingService inject + CheckDuplicateEntryAsync + period guards), 3_CoreHub/Program.cs (IReversalService+IPeriodClosingService DI), AccountingEntryServiceTests.cs (+7 tests SC4-SC13).
 * Previous: 2026-06-19 — Sprint B COMPLETED. B-1a/B-1b/B-1c/B-2 DONE. Build 0 errors, guard pass, 20/20 tests. Branch `feat/sprint-b-entry-timing`. Files: Domain.cs (Order.ConfirmPayment), IOrderService.cs, OrderService.cs (guard + ConfirmPaymentAsync), WebhookController.cs (POST /api/webhooks/payment), OrderServiceTests.cs (SC11/12/13).
 * Previous: 2026-06-19 — Sprint A COMPLETED. All tasks MP-A0~A5 DONE. Build 0 errors, guard pass. 11 files changed. Ready to merge to `main`.
-* Current Branch: `feat/sprint-c-service-guards`
+* Current Branch: `feat/sprint-d-cogs-costprice`
 * **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.

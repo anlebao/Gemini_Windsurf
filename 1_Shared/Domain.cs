@@ -511,6 +511,7 @@ namespace VanAn.Shared.Domain
         public string Name { get; protected set; } = string.Empty;
         public string Description { get; protected set; } = string.Empty;
         public decimal Price { get; protected set; }
+        public decimal CostPrice { get; protected set; } = 0m; // Giá vốn (cost of goods) — DMD-2 fix
         public string Category { get; protected set; } = string.Empty;
         public bool IsActive { get; protected set; } = true;
         public string? ImageUrl { get; protected set; }
@@ -518,15 +519,16 @@ namespace VanAn.Shared.Domain
 
         public Product() { } // Public constructor for UI layer
 
-        public Product(TenantId tenantId, string name, decimal price, string category)
+        public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m)
             : base(tenantId)
         {
             Name = name;
             Price = price;
             Category = category;
+            CostPrice = costPrice;
         }
 
-        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m)
+        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m)
             : base(tenantId)
         {
             Name = name;
@@ -536,6 +538,16 @@ namespace VanAn.Shared.Domain
             IsActive = isActive;
             ImageUrl = imageUrl;
             VatRate = vatRate;
+            CostPrice = costPrice;
+        }
+
+        /// <summary>
+        /// Update the cost price of the product (used by admin/procurement workflows).
+        /// </summary>
+        public void UpdateCostPrice(decimal costPrice)
+        {
+            if (costPrice < 0) throw new ArgumentException("CostPrice cannot be negative.", nameof(costPrice));
+            CostPrice = costPrice;
         }
     }
 
