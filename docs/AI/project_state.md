@@ -38,270 +38,132 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**T-06/T-11/T-21 — Backlog Clearance (remaining P1/P2 items)**
+**Phase Next — Sprint A/B/C: Order & Accounting Data Integrity Improvements**
 
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t06-t11-t21-remaining-backlog`, merged to `main`
+**Status:** 🔵 **IN PROGRESS** — bắt đầu từ session 2026-06-20
 
-- **T-06 `balance-dashboard-flow.spec.ts`**: Xóa `beforeEach` fill `/login` form (Pattern C). Auth dùng `storageState` từ `playwright.config.ts` (auth/admin.json). Thêm `loadEnvConfig()`/`isTierEnabled()` + 4 hard `expect()` assertions
-- **T-11 `van-an-dashboard.spec.ts`** (NEW): 5 E2E tests cho `KhachLink /VanAnDashboard` — page load, `.dashboard-container`, header title, metrics/spinner/warning state, page title
-- **T-21 `period-closing-flow.spec.ts`**: Đã OK từ session trước — verified, no changes needed
+**Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
-**Verification:** `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+### Sprint A — Data Integrity (P0, effort thấp)
 
-**Backlog status sau session này:**
-- T-01: Verified OK (VanAnDashboard chỉ inject ILogger — không có IDashboardService)
-- T-08: Verified OK (OrdersController `[Route("api/[controller]")]` → `/api/orders`)
-- T-09: Verified OK (AccountBalance.razor có `.metrics-grid`, spec dùng `.metrics-grid`)
-- T-10: Verified OK (PeriodClosing.razor h1 = "Đóng Sổ Kỳ Kế Toán" khớp spec)
-- **All P0/P1 backlog items: COMPLETE** ✅
+| Task | Mô tả | File chính | Trạng thái |
+|---|---|---|---|
+| **A-1** | Wire `AccountCode` từ UI → API DTO → `IAccountingService` → DB | `AccountingEntriesController.cs`, `IAccountingService.cs`, `AccountingEntryService.cs` | ⬜ TODO |
+| **A-2** | Wire `Vendor`, `Category`, `Reference` từ UI → `CreateExpenseEntryRequest` → DB | `AccountingEntriesController.cs`, `ExpenseEntry.razor` | ⬜ TODO |
 
----
-
-**T-03 — KhachLink QR Payment Modal Integration**
-
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t03-qr-payment-modal`, merged to `main`
-
-**TDD approach:** `qr-payment-ui.spec.ts` written first (red), then UI fixed (green).
-
-- **`QrPaymentModal.razor`**: `FooterContent` → `<Footer>`, body in `<ChildContent>`, `IsOpen` param, `id="qrPaymentModal"` wrapper, `IHttpClientFactory` thay bare `HttpClient`
-- **`Checkout.razor`**: "📲 Thanh toán QR" trigger button, `showQrModal` state, `<QrPaymentModal>` integration
-- **`qr-payment-ui.spec.ts`** (NEW, 7 tests): trigger button, `#qrPaymentModal`, content states, close
-- **`qr-payment.spec.ts`**: Refactored → Gateway API contract tests only
-
-**Verification:** `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+**Bằng chứng cần fix:**
+- `CreateRevenueEntryRequest` chỉ có `{TenantId, Year, Month, Amount, Currency, Description}` — thiếu `AccountCode`
+- `CreateExpenseEntryRequest` thiếu `Vendor`, `Category`, `Reference`
+- `IAccountingService.CreateRevenueEntryAsync(tenantId, period, amount, description)` — 4 params, không có `accountCode`
+- `RevenueEntry.razor` đọc `accountCode` từ form nhưng drop khi gọi service
+- `ExpenseEntry.razor` đọc `vendor/category/reference` từ form nhưng drop khi gọi service
 
 ---
 
-**T-02 — KhachLink OrderTracking Page + Checkout Redirect**
+### Sprint B — Accounting Entry Timing (P0, effort medium)
 
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t02-order-tracking`, merged to `main`
+| Task | Mô tả | File chính | Trạng thái |
+|---|---|---|---|
+| **B-1** | Move `GenerateAccountingEntriesAsync()` từ `CreateOrderFromCommandAsync()` sang Payment Webhook handler | `OrderService.cs:80`, `WebhookController.cs` | ⬜ TODO |
 
-**TDD approach:** E2E spec `order-tracking.spec.ts` written first (red), then UI fixed (green).
+**Bằng chứng cần fix:**
+- `OrderService.cs:80` gọi `GenerateAccountingEntriesAsync(newOrder, tenant)` ngay sau khi tạo order — trước bất kỳ payment confirmation nào
+- `WebhookController.cs` hiện chỉ xử lý e-invoice webhook (Viettel/MISA, trích xuất `invoiceNo`) — không có payment webhook, không gọi accounting service
 
-- **`Home.razor`**: thêm `@page "/"` alias + `.feature-card` wrapper class cho product cards
-- **`Checkout.razor`**: sau `CreateOrder()` thành công → `NavigateTo("/order-tracking/{orderId}")`
-- **`OrderTracking.razor`**: rewritten — `.order-tracking` container, `.status-timeline`, Gateway API call thay simulated data, graceful "not found" với `.not-found` + link quay về `/home`
-- **`order-tracking.spec.ts`** (mới, 8 tests): direct nav, `.order-tracking` container, heading, timeline, not-found handling, checkout → redirect, Gateway API smoke
-- **`order-flow.spec.ts`**: "Customer can place order" → expect `/order-tracking/` URL hoặc `.order-tracking` element
-
-**Verification:**
-- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
+**Hướng implement:** Thêm `POST /api/webhooks/payment` endpoint + gọi `GenerateAccountingEntriesAsync` sau khi payment confirmed. Hoặc thêm `OrderStatus.PaymentPending` → entry chỉ tạo khi status chuyển `Paid`.
 
 ---
 
-**T-07 — Gateway /api/accounting Alias Route + E2E API Smoke Tests**
+### Sprint C — Service Layer Guards (P2, effort thấp-medium)
 
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t07-gateway-accounting-alias`, merged to `main`
+| Task | Mô tả | File chính | Trạng thái |
+|---|---|---|---|
+| **C-1** | Server-side duplicate detection trong `AccountingEntryService` | `AccountingEntryService.cs` | ⬜ TODO |
+| **C-2** | Period closing block new entries: check `IPeriodClosingService` trước khi create entry | `AccountingEntryService.cs` | ⬜ TODO |
+| **C-3** | COGS từ `Product.CostPrice` thay 70% hardcode | `OrderService.cs:119`, `Domain.cs` (Product entity cần `CostPrice` — **Domain change, cần approval**) | ⬜ BLOCKED (Domain change) |
 
-**T-07a — `AccountingEntriesController` dual route:**
-- Thay `[Route("api/[controller]")]` bằng `[Route("api/accounting-entries")]` + `[Route("api/accounting")]`
-- Cả hai URL phục vụ tất cả endpoints giống hệt nhau
-- `AccountingEntriesController` đã tồn tại từ Wave 1 Phase 2 — T-07 chỉ thêm alias, không thêm logic
-
-**T-07b — 5 Gateway API smoke tests** trong `accounting-flow.spec.ts`:
-- `GET /api/accounting-entries` (canonical) → expect 200/401/403, NOT 404
-- `GET /api/accounting` (alias) → expect 200/401/403, NOT 404
-- `POST /api/accounting/revenue` → expect NOT 404/500
-- `POST /api/accounting/expense` → expect NOT 404/500
-- `GET /api/accounting/revenue/summary` → expect NOT 404/500
-
-**Verification:**
-- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
-
----
-
-**T-20 — Dev Login Endpoint for E2E Auth (ShopERP + global-setup)**
-
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/t20-dev-login`, merged to `main`
-
-**DevLoginController** (`5_WebApps/ShopERP/Controllers/DevLoginController.cs`):
-- `POST /dev/login` — signs in via `CookieAuthenticationDefaults`, injects claims: `tenant_id=11111111-...`, `TenantId=11111111-...`, `role=Owner`
-- `GET /dev/login` — smoke-check endpoint
-- `POST /dev/logout` — clears session
-- Registered ONLY when `app.Environment.IsDevelopment()` — absent in Production/Staging
-
-**global-setup.ts** (T-20d update):
-- Calls `POST /dev/login` → saves real `.VanAn.Auth` cookie to `auth/admin.json`
-- Fallback: empty storageState if ShopERP is not running (CI skip case)
-- All e2e-tests specs pick up session via `playwright.config.ts storageState: 'auth/admin.json'`
-
-**Verification:**
-- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
-- `HttpContextTenantProvider.TenantId` sẽ trả `11111111-1111-1111-1111-111111111111` (không còn `Guid.Empty`)
-- `HandleSubmit` trên Accounting pages sẽ không còn fail với "Không xác định TenantId"
-
----
-
-**P0-2 — Fix E2E False-Positive Specs (T-16, T-17, T-18, T-19, T-21)**
-
-**Status:** ✅ **COMPLETED** (2026-06-20) — branch `fix/e2e-false-positives`, merged to `main`
-
-**T-16 — global-setup.ts auth bypass:** ✅
-- Replaced broken OIDC login form (`/login` page không tồn tại) bằng empty `storageState`
-- `auth/admin.json` được tạo với `{ cookies: [], origins: [] }` để không crash CI
-- Smoke-check ShopERP reachability non-blocking
-
-**T-17 — accounting-flow.spec.ts:** ✅
-- Rewrote 7 tests: tất cả `if(isVisible)/reporter.pass()` → `await expect().toBeVisible()`
-- Xóa toàn bộ `COREHUB_URL` fallback API calls (CoreHub không có HTTP)
-- Mỗi submit test giờ có `expect(successAlert).toBeVisible({ timeout: 5000 })`
-
-**T-18 — order-flow.spec.ts:** ✅
-- Xóa toàn bộ `COREHUB_URL` calls (CoreHub Worker Host, no HTTP)
-- Xóa `else { reporter.pass('...', { note: 'Submit button not found' }) }` bypass
-- Thêm 2 Gateway API smoke tests (`/api/orders`, `/api/inventory/check`)
-
-**T-19 — audit-trail-flow.spec.ts:** ✅
-- Xóa `COREHUB_URL/api/accounting/revenue` seed call
-- Tất cả `if(table.isVisible())/reporter.pass()` → mandatory `expect()`
-- Test "entry details" giờ require `expect(detailsButton).toBeVisible()` + click + expect panel
-
-**T-21 — period-closing-flow.spec.ts:** ✅
-- Wizard step 2: `if(nextButton.isVisible())` → `await expect(nextButton).toBeVisible()`
-- Reopen test: `if(reopenButton.isVisible())` → `await expect(reopenButton).toBeVisible()`
-- Tất cả outcome assertions đều mandatory
-
-**Verification:**
-- Build: `dotnet build VanAn.sln --configuration Release` → 0 errors ✅
-- Branch: `fix/e2e-false-positives` → merged to `main`
+**Bằng chứng cần fix:**
+- `AccountingEntryService.cs` không có duplicate check — client-only (`_recentEntries` list trong Razor)
+- `AccountingEntryService.CreateRevenue/ExpenseEntryAsync()` không gọi `IPeriodClosingService`
+- `OrderService.cs:119`: `decimal cogsAmount = order.TotalPrice * 0.7m; // Assume 70% COGS for MVP`
+- `Product` entity trong `Domain.cs` không có `CostPrice` field
 
 ## 3. Current Status
 
-### Completed
+### Completed (tóm tắt — chi tiết xem §10 History)
 
-- Sprint 1 (Phase 2.6 Frontend Accounting Module) ✅
-- Sprint 2 (Period Closing Wizard + Audit Trail) — MERGED vào `main` ✅
-- CI pipeline stabilized + Flaky Test Fix Plan (31+ tests) ✅
-- Guard Check Upgrade Phase 2 (Roslyn Analyzers VA1001-VA1005 + Integration Tests) ✅
-- GitHub Actions free-tier optimization (PR #14, merged) ✅
-- Sprint 3 E-Invoice Review Fix (F0–F4) ✅
-- **UC1 QR Checkout Completion — S1–S4 DONE, 22/22 tests PASS ✅** (2026-06-10)
-- **Value Object Mapping Fix — 14 EF Core Configuration files created ✅** (2026-06-15)
-- **Wave 0 — Quick Wins (P0-3 + P0-7) ✅** (2026-06-18)
-- **Wave 1 — TenantId Foundation (P0-1a + P0-1b) ✅** (2026-06-18) — MERGED to main
-- **Wave 2 — EInvoice API Layer (P0-6a + P0-6b) ✅** (2026-06-19) — MERGED to main
-- **Wave 3 Phase 3 — KhachLink Tenant Context ✅** (2026-06-19)
-  * `Index.cshtml.cs`, `Campaign.cshtml.cs`: Removed `Guid.NewGuid()` demo data, resolve từ `?shopId=xxx`
-  * `DashboardHub`: `JoinTenantGroup` + `JoinShopGroup` verify JWT claim, throw `HubException` nếu mismatch
-  * `OfflineOrderService`: Validate `ShopId` non-empty/valid trước khi dùng làm tenant
+| Milestone | Date | Branch |
+|---|---|---|
+| Sprint 1 — Accounting Module Frontend | 2026-06-xx | main |
+| Sprint 2 — Period Closing + Audit Trail | 2026-06-xx | main |
+| UC1 QR Checkout (22/22 tests) | 2026-06-10 | main |
+| Value Object Mapping (14 EF configs) | 2026-06-15 | main |
+| Wave 0 — Quick Wins (P0-3, P0-7) | 2026-06-18 | main |
+| Wave 1 — TenantId Foundation (P0-1a/b) | 2026-06-18 | main |
+| Wave 2 — EInvoice API Layer (P0-6) | 2026-06-19 | main |
+| Wave 3 — KhachLink Tenant Context + Accounting Razor Cleanup | 2026-06-19 | main |
+| Wave 4 — EInvoice UI + E2E (6 pages, 3 specs) | 2026-06-20 | main |
+| P0-2 — E2E False-Positive Fix (T-16/17/18/19/21) | 2026-06-20 | main |
+| T-20 — Dev Login + global-setup auth | 2026-06-20 | main |
+| T-07 — Gateway /api/accounting alias | 2026-06-20 | main |
+| T-02 — KhachLink OrderTracking + Checkout | 2026-06-20 | main |
+| T-03 — KhachLink QR Payment Modal | 2026-06-20 | main |
+| T-06/T-11/T-21 — E2E Backlog Clearance (balance-dashboard, van-an-dashboard) | 2026-06-20 | main |
+| e2e-gap-backlog.md — All P0/P1 items verified OK or fixed | 2026-06-20 | — |
 
-- **Wave 3 Phase 4 — Accounting Razor Cleanup ✅** (2026-06-19) — MERGED to main
-  * 6 Razor pages: bỏ `FindFirst("TenantId")` + hardcoded GUID + `_tenantId` field, dùng `@inject ITenantProvider`
-  * `PeriodClosing.razor`: giữ `AuthStateProvider` chỉ để lấy `userId` (sub claim) — không phải tenant
-
-- **Wave 4 — EInvoice UI + E2E ✅** (2026-06-20) — MERGED to main
-  * Phase C: 6 EInvoice Razor pages (Layout + Dashboard + ProviderManagement + ProviderConfiguration + HealthMonitoring + InvoiceManagement + AlertManagement)
-  * Phase D: 3 Playwright E2E specs (einvoice-dashboard, provider-management, invoice-management)
-  * Build: 0 errors ✅
-
-- **T-03 — KhachLink QR Payment Modal ✅** (2026-06-20) — MERGED to main
-  * `QrPaymentModal.razor`: FooterContent→Footer, ChildContent wrap, IsOpen param, `id="qrPaymentModal"`, IHttpClientFactory
-  * `Checkout.razor`: "Thanh toán QR" button + showQrModal state + `<QrPaymentModal>`
-  * `qr-payment-ui.spec.ts` (NEW, 7 TDD tests)
-
-- **T-02 — KhachLink OrderTracking + Checkout Redirect ✅** (2026-06-20) — MERGED to main
-  * `Home.razor`: `@page "/"` alias + `.feature-card` wrapper
-  * `Checkout.razor`: redirect → `/order-tracking/{orderId}` after create order
-  * `OrderTracking.razor`: `.order-tracking` container, Gateway API call, graceful not-found
-  * `order-tracking.spec.ts` (NEW, 8 tests): TDD spec written first
-
-- **T-07 — Gateway /api/accounting alias + 5 API smoke tests ✅** (2026-06-20) — MERGED to main
-  * `[Route("api/accounting")]` alias added to `AccountingEntriesController` (Gateway)
-  * 5 new E2E smoke tests in `accounting-flow.spec.ts` verify alias resolves correctly
-
-- **T-20 — Dev Login Endpoint (DevLoginController + global-setup) ✅** (2026-06-20) — MERGED to main
-  * `POST /dev/login` on ShopERP (Development-only) → Cookie auth với `tenant_id` claim
-  * `global-setup.ts` calls `/dev/login` → lưu `.VanAn.Auth` cookie vào `auth/admin.json`
-
-- **P0-2 — E2E False-Positive Spec Fix ✅** (2026-06-20) — MERGED to main
-  * T-16: global-setup.ts — empty storageState bypass (OIDC không có /login form)
-  * T-17: accounting-flow.spec.ts — 7 tests rewritten với mandatory expect()
-  * T-18: order-flow.spec.ts — removed COREHUB_URL calls, added Gateway smoke tests
-  * T-19: audit-trail-flow.spec.ts — removed COREHUB_URL seed, all expect() mandatory
-  * T-21: period-closing-flow.spec.ts — step 2 + reopen tests giờ có expect() bắt buộc
-  * Build: 0 errors ✅
+**E2E infrastructure state (verified 2026-06-20):**
+- 16 spec files — tất cả dùng `expect()` thật, `storageState` auth, `GATEWAY_URL` thay `COREHUB_URL`
+- `global-setup.ts` — POST `/dev/login` → `auth/admin.json`
+- `playwright.config.ts` — `storageState: 'auth/admin.json'` global
 
 ### Blocked
 
-- Không có blockers.
+- **C-3 (COGS từ CostPrice)**: cần thêm `CostPrice` vào `Product` entity trong `1_Shared/Domain.cs` → **Domain change cần Tech Lead approval** trước khi implement.
 
 ---
 
 ## 4. Next Actions
 
-### Completed (history, see §10 for full log)
-- ✅ Architectural Rollback (2026-06-12) — QrMenu → Gateway API, ProductsController, DI fixes
-- ✅ CD Pipeline + Nginx/SSL deploy (2026-06-18) — PR #29–#33 merged
+### Phase Next — Execution Plan (Sprint A → B → C)
 
-### Consolidated Backlog (synced 2026-06-18)
+> Nguồn: `docs/AI/phase-next-order-accounting-improvements.md` (đã đối soát source code 2026-06-20)
 
-> Sources merged: project_state §4 (old) + phase-next-order-accounting-improvements.md + e2e-gap-backlog.md + FLAKY_TEST_FIX_PLAN.md + investigation_log.md Issue 5
+#### Sprint A — Data Integrity Fixes (P0, effort thấp, làm ngay)
 
-#### P0 — Critical (Data integrity + Quality crisis)
-
-| ID | Task | Root cause / Notes |
+| Task | File cần sửa | Mô tả ngắn |
 |---|---|---|
-| ~~P0-1a~~ | ✅ **DONE Wave 1** — Fix TenantId spoofing: HttpContextTenantProvider, OrdersController, AccountingEntriesController, ProviderController, VanAnDbContext throw | JWT claim-based tenant resolution. Merged to main. |
-| ~~P0-1b~~ | ✅ **DONE Wave 1** — UserTenant entity + Login DB lookup + `RequireTenantAccess` policy | Merged to main. |
-| ~~P0-1c~~ | ✅ **DONE Wave 3** — KhachLink tenant context: Index/Campaign ?shopId=xxx, DashboardHub authorization, OfflineOrderService validation | Branch `fix/tenantid-wave3`. |
-| ~~P0-1d~~ | ✅ **DONE Wave 3** — 6 Accounting Razor pages → `@inject ITenantProvider`, remove hardcoded fallbacks | Merged to main. |
-| **P0-2** | Fix E2E false-positive specs (T-17/18/19/21) — replace `reporter.pass()` with `expect()` | 4 specs always green despite broken features. Quality assurance crisis. |
-| ~~P0-3~~ | ✅ **DONE Wave 0** — Fix `VanAnDashboard.razor` DI crash (T-01) — `@inject IDashboardService` removed | Fixed 2026-06-18. |
-| **P0-4** | Fix AccountCode not saved on manual entry (§2.1) — wire UI → API → DB | Sổ sách sai. |
-| **P0-5** | Move accounting entry creation: `CreateOrder` → `PaymentWebhook` (§1.1) | Doanh thu ghi nhận trước thanh toán. |
-| ~~P0-6~~ | ✅ **DONE Wave 2** — EInvoice dead code cleanup + missing API/UI | Merged to main. |
-| ~~P0-7~~ | ✅ **DONE Wave 0** — EInvoice test coverage — write missing tests | Fixed 2026-06-18. |
+| **A-1** `AccountCode` | `AccountingEntriesController.cs` (thêm field vào `CreateRevenueEntryRequest`) → `IAccountingService.cs` (thêm param) → `AccountingEntryService.cs` (map xuống entity) | Sổ sách đang bỏ qua account code user chọn |
+| **A-2** `Vendor/Category/Reference` | `AccountingEntriesController.cs` (thêm 3 fields vào `CreateExpenseEntryRequest`) → `AccountingEntryService.cs` (map xuống) | UI nhập xong nhưng data bị drop trước khi lưu DB |
 
-#### P1 — High (Flow completion + E2E unblock)
+#### Sprint B — Accounting Entry Timing (P0, effort medium)
 
-| ID | Task | Depends on |
+| Task | File cần sửa | Mô tả ngắn |
 |---|---|---|
-| **P1-1** | Fix E2E auth `global-setup.ts` (T-16) — replace `/login` form with auth bypass | P0-1 (dev login endpoint) |
-| **P1-2** | Wire Vendor/Category/Reference fields UI → DB (§2.2) | — |
-| **P1-3** | Webhook notify Kitchen via SignalR (§1.4) | — |
-| **P1-4** | KhachLink Architecture Debt (§6) — `GatewayCustomerService`, `GatewayLoyaltyRewardsService`, `Gateway/Controllers/CustomersController.cs` | — |
-| **P1-5** | E2E API routing fix (T-04, T-05, T-07) — CoreHub URL → Gateway URL + add accounting endpoints to Gateway | P0-2 |
+| **B-1** Payment webhook | `OrderService.cs` (xóa/guard `GenerateAccountingEntriesAsync` ở line 80) + `WebhookController.cs` (thêm `POST /api/webhooks/payment` → gọi accounting service) | Doanh thu hiện ghi nhận trước khi khách thanh toán — vi phạm nguyên tắc thực thu |
 
-#### P2 — Medium (Stability + missing items)
+#### Sprint C — Service Guards (P2)
 
-| ID | Task | Notes |
+| Task | File cần sửa | Mô tả ngắn |
 |---|---|---|
-| **P2-1** | Server-side duplicate detection (§2.3) | Priority mismatch resolved: P2 (was P1 in old §4, P2 in phase-next) |
-| **P2-2** | Period closing block new entries at service layer (§2.4) | Missing from old §4 |
-| **P2-3** | COGS from `Product.CostPrice` instead of 70% hardcode (§1.2) | Missing from old §4 |
-| **P2-4** | Flaky tests 31+ (8 phases, ~4-5h) — `FLAKY_TEST_FIX_PLAN.md` | CI stability |
-| **P2-5** | Re-enable E2E in CI (`if: false` → conditional) — `investigation_log.md` Issue 5 | Needs P0-2, P1-1 done first |
+| **C-1** Duplicate detection | `AccountingEntryService.cs` | Client-only check hiện có thể bypass bằng API call trực tiếp |
+| **C-2** Period closing guard | `AccountingEntryService.CreateRevenue/ExpenseEntryAsync()` | Kỳ đã đóng vẫn cho tạo entry qua API |
+| **C-3** COGS từ CostPrice | `Domain.cs` (thêm `Product.CostPrice`) + `OrderService.cs` | **BLOCKED** — Domain change cần Tech Lead approval |
 
-#### P3 — Low (Polish)
+#### Backlog còn lại (P1-P3, chưa làm)
 
-| ID | Task | Notes |
+| ID | Task | Ghi chú |
 |---|---|---|
-| **P3-1** | `AccountBalance.razor` use `IHKDBookService` instead of in-memory grouping (§2.5) | Missing from old §4 |
-| **P3-2** | Export CSV/Excel in `TransactionHistory.razor` (§2.6) | Missing from old §4 |
-| **P3-3** | E2E missing pages: `/order-tracking/{orderId}` (T-02), QR Payment modal (T-03) | Nice-to-have |
-
-### Execution Order (recommended)
-
-```
-P0-1 (TenantId)  ──┬──→ P1-1 (E2E auth)  ──→ P2-5 (E2E in CI)
-                   │
-P0-2 (false-pos) ──┴──→ P1-5 (API routing) ──→ P2-5
-P0-3 (DI crash)
-P0-4 (AccountCode)
-P0-5 (Entry timing)
-                   ↓
-              P1-2, P1-3, P1-4 (parallel)
-                   ↓
-              P2-1 to P2-4 (parallel)
-                   ↓
-              P3-1, P3-2, P3-3
-```
+| P1-3 | Webhook notify Kitchen via SignalR sau payment confirm | `WebhookController.cs` + `OrderHub.cs` + `KitchenService.cs` |
+| P1-4 | KhachLink Architecture Debt — `GatewayCustomerService`, `GatewayLoyaltyRewardsService`, `CustomersController` | Fix tạm đã áp dụng (loyalty tắt). Fix triệt để cần Gateway endpoints mới |
+| P2-4 | Flaky tests 31+ — `FLAKY_TEST_FIX_PLAN.md` | CI stability |
+| P2-5 | Re-enable E2E in CI (`if: false` → conditional) | Cần P0-2 + P1-1 đã DONE ✅ → có thể làm ngay |
+| P3-1 | `AccountBalance.razor` dùng `IHKDBookService` thay in-memory grouping | Low priority |
+| P3-2 | Export CSV/Excel `TransactionHistory.razor` | Low priority |
 
 ### References
-- `docs/AI/phase-next-order-accounting-improvements.md` — Order/Accounting detail
-- `docs/AI/e2e-gap-backlog.md` — E2E gaps (T-01 to T-21)
+- `docs/AI/phase-next-order-accounting-improvements.md` — chi tiết Order/Accounting issues
+- `docs/AI/e2e-gap-backlog.md` — E2E gap audit (all P0/P1 items DONE ✅)
 - `docs/AI/FLAKY_TEST_FIX_PLAN.md` — Flaky test plan (8 phases)
-- `docs/AI/investigation_log.md` — Past issues (Issue 5: E2E disabled)
 
 ---
 
@@ -606,8 +468,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-20 (Wave 4 COMPLETED — EInvoice UI + E2E, branch `fix/einvoice-ui`, pending merge)
-* Previous: 2026-06-19 (Wave 3 COMPLETED & MERGED — TenantId Full Remediation)
+* Last Updated: 2026-06-20 — Phase Next Sprint A/B/C planning. Section 2 (Current Objective) + Section 3 (Completed summary) + Section 4 (Next Actions) rewritten. Tất cả E2E backlog (P0/P1) DONE. 16 spec files, 0 false-positives.
+* Previous: 2026-06-20 (T-02/T-03/T-06/T-07/T-11/T-20/T-21 merged to main, e2e-gap-backlog cleared)
 * Current Branch: `main`
 * **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
