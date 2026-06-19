@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Security.Claims;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
 using VanAn.Gateway.Controllers;
@@ -34,6 +35,20 @@ namespace VanAn.Core.Tests.Accounting
                 _mockReversalService.Object,
                 _mockHKDBookService.Object,
                 _mockLogger.Object);
+        }
+
+        /// <summary>
+        /// Sets up JWT tenant_id claim on the controller's HttpContext.
+        /// Replaces deprecated X-Tenant-Id header approach (Wave 1 Phase 2 migration).
+        /// </summary>
+        private void SetTenantClaim(Guid tenantId)
+        {
+            var claims = new[] { new Claim("tenant_id", tenantId.ToString()) };
+            var identity = new ClaimsIdentity(claims, "TestAuth");
+            _controller.ControllerContext.HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(identity)
+            };
         }
 
         [Fact]
@@ -76,9 +91,8 @@ namespace VanAn.Core.Tests.Accounting
                 It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync(expectedDto);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = request.TenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(request.TenantId);
 
             // Act
             ActionResult<CoreAccountingEntry> result = await _controller.CreateRevenueEntry(request);
@@ -162,9 +176,8 @@ namespace VanAn.Core.Tests.Accounting
                 It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
                 .ReturnsAsync(expectedDto);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = request.TenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(request.TenantId);
 
             // Act
             ActionResult<CoreAccountingEntry> result = await _controller.CreateExpenseEntry(request);
@@ -203,9 +216,8 @@ namespace VanAn.Core.Tests.Accounting
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
                 .ReturnsAsync(entriesList);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(tenantId);
 
             // Act
             ActionResult<CoreAccountingEntry> result = await _controller.GetEntryById(entryId);
@@ -232,7 +244,11 @@ namespace VanAn.Core.Tests.Accounting
 
             // Assert
             UnauthorizedObjectResult unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result.Result);
-            Assert.Equal("Tenant ID required", unauthorizedResult.Value);
+            object value = unauthorizedResult.Value!;
+            Assert.NotNull(value);
+            System.Reflection.PropertyInfo? errorProperty = value.GetType().GetProperty("error");
+            Assert.NotNull(errorProperty);
+            Assert.Equal("Tenant ID required in JWT claim", errorProperty.GetValue(value));
 
             _mockAccountingService.Verify(s => s.GetEntryByIdAsync(
                 It.IsAny<Guid>()), Times.Never);
@@ -250,9 +266,8 @@ namespace VanAn.Core.Tests.Accounting
                 It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
                 .ReturnsAsync(new List<AccountingEntryDto>());
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(tenantId);
 
             // Act
             ActionResult<CoreAccountingEntry> result = await _controller.GetEntryById(entryId);
@@ -291,9 +306,8 @@ namespace VanAn.Core.Tests.Accounting
                 It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(reversalEntry);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(tenantId);
 
             // Act
             ActionResult<CoreAccountingEntry> result = await _controller.CreateReversalEntry(originalEntryId, request);
@@ -325,9 +339,8 @@ namespace VanAn.Core.Tests.Accounting
                 It.IsAny<AccountingEntryId>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(false);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(tenantId);
 
             // Act
             ActionResult<CoreAccountingEntry> result = await _controller.CreateReversalEntry(originalEntryId, request);
@@ -362,9 +375,8 @@ namespace VanAn.Core.Tests.Accounting
             _ = _mockHKDBookService.Setup(s => s.GetRevenueEntriesAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(entries);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(tenantId);
 
             // Act
             ActionResult<RevenueSummaryResponse> result = await _controller.GetRevenueSummary(year, month);
@@ -400,9 +412,8 @@ namespace VanAn.Core.Tests.Accounting
             _ = _mockHKDBookService.Setup(s => s.GetExpenseTotalAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expense);
 
-            // Set up tenant header
-            _controller.ControllerContext.HttpContext = new DefaultHttpContext();
-            _controller.ControllerContext.HttpContext.Request.Headers["X-Tenant-Id"] = tenantId.ToString();
+            // Set up tenant claim
+            SetTenantClaim(tenantId);
 
             // Act
             ActionResult<ProfitSummaryResponse> result = await _controller.GetProfitSummary(year, month);

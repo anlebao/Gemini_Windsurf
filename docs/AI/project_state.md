@@ -40,7 +40,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Phase Next — Sprint A/B/C/D + Test Backlog Fixes**
 
-**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (merged) | ✅ **Sprint D COMPLETED** (merged) | 🔧 **FIX-1 + FIX-2** — task cards created, awaiting implementation
+**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (merged) | ✅ **Sprint D COMPLETED** (merged) | ✅ **FIX-1 COMPLETED** (branch ready) | 🔧 **FIX-2** — task card created, awaiting implementation
 
 **Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
@@ -121,18 +121,19 @@ Mọi cập nhật file này PHẢI tuân thủ:
 - `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` — SC14/SC15/SC16 COGS tests
 - `6_Tests/VanAn.Core.Tests/TestInfrastructure/TestEntityBuilder.cs` — `CreateProduct` thêm `costPrice` param
 
-### FIX-1 — AccountingEntriesControllerTests JWT Migration Fix ⬜ PENDING
+### FIX-1 — AccountingEntriesControllerTests JWT Migration Fix ✅ COMPLETED
 
 **Root cause (verified 2026-06-19):** Wave 1 Phase 2 đã migrate controller sang JWT claim `tenant_id`, nhưng 9/10 tests vẫn dùng header `X-Tenant-Id` (deprecated). 1 test assert message sai.
 
 | Task | Mô tả | File | Trạng thái |
 |---|---|---|---|
-| **Fix-1a** | Thêm `SetTenantClaim()` helper dùng `ClaimsPrincipal` | `AccountingEntriesControllerTests.cs` | ⬜ TODO |
-| **Fix-1b** | Thay `Headers["X-Tenant-Id"]` → `SetTenantClaim()` trong 8 tests | `AccountingEntriesControllerTests.cs` | ⬜ TODO |
-| **Fix-1c** | Fix message assertion: `"Tenant ID required"` → `"Tenant ID required in JWT claim"` | `AccountingEntriesControllerTests.cs` | ⬜ TODO |
+| **Fix-1a** | Thêm `SetTenantClaim()` helper dùng `ClaimsPrincipal` | `AccountingEntriesControllerTests.cs` | ✅ DONE |
+| **Fix-1b** | Thay `Headers["X-Tenant-Id"]` → `SetTenantClaim()` trong 8 tests | `AccountingEntriesControllerTests.cs` | ✅ DONE |
+| **Fix-1c** | Fix message assertion: `"Tenant ID required"` → `"Tenant ID required in JWT claim"` | `AccountingEntriesControllerTests.cs` | ✅ DONE |
 
 **Task card:** `docs/AI/tasks/task-fix1-accounting-controller-tests.md`  
-**Expected result:** 10/10 PASS (hiện 1/10). Không thay đổi production code.
+**Branch:** `fix/test-jwt-tenantid-accounting-controller`  
+**Result:** 10/10 PASS. Không thay đổi production code. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0.
 
 ### FIX-2 — WebhookService Null callbackData Guard ⬜ PENDING
 
@@ -156,6 +157,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 | Sprint 1 — Accounting Module Frontend | 2026-06-xx | main |
 | Sprint 2 — Period Closing + Audit Trail | 2026-06-xx | main |
 | Sprint D — COGS CostPrice (C-3 unblock) | 2026-06-19 | feat/sprint-d-cogs-costprice |
+| FIX-1 — AccountingEntriesControllerTests JWT claim migration | 2026-06-19 | fix/test-jwt-tenantid-accounting-controller |
 | UC1 QR Checkout (22/22 tests) | 2026-06-10 | main |
 | Value Object Mapping (14 EF configs) | 2026-06-15 | main |
 | Wave 0 — Quick Wins (P0-3, P0-7) | 2026-06-18 | main |
@@ -186,10 +188,10 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 | Fix | Task Card | Branch | Effort | Trạng thái |
 |---|---|---|---|---|
-| **FIX-1** AccountingEntriesControllerTests JWT | `task-fix1-accounting-controller-tests.md` | `fix/test-jwt-tenantid-accounting-controller` | LOW | ⬜ TODO |
+| **FIX-1** AccountingEntriesControllerTests JWT | `task-fix1-accounting-controller-tests.md` | `fix/test-jwt-tenantid-accounting-controller` | LOW | ✅ DONE |
 | **FIX-2** WebhookService null callbackData guard | `task-fix2-webhook-null-guard.md` | `fix/webhook-null-callbackdata-guard` | TRIVIAL | ⬜ TODO |
 
-**Target:** Sau FIX-1+FIX-2: `AccountingEntriesControllerTests` 10/10 PASS + `WebhookServiceTests` 18/18 PASS.
+**Target:** Sau FIX-1+FIX-2: `AccountingEntriesControllerTests` 10/10 PASS ✅ + `WebhookServiceTests` 18/18 PASS.
 
 #### Backlog còn lại (P1-P3, chưa làm)
 
@@ -510,7 +512,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 — project_state.md updated: FIX-1 + FIX-2 task cards created. Root causes verified (AccountingEntriesControllerTests JWT migration mismatch + WebhookService null-guard missing). Section 2 + Section 4 updated. Current branch: `main`.
+* Last Updated: 2026-06-19 — FIX-1 COMPLETED. `AccountingEntriesControllerTests.cs`: added `SetTenantClaim()` helper, replaced deprecated `X-Tenant-Id` header with JWT `tenant_id` claim in 8 tests, fixed unauthorized message assertion to match anonymous object `{ error = "Tenant ID required in JWT claim" }`. 10/10 tests PASS. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0. No production code changed. Branch: `fix/test-jwt-tenantid-accounting-controller`.
+* Previous: 2026-06-19 — project_state.md updated: FIX-1 + FIX-2 task cards created. Root causes verified (AccountingEntriesControllerTests JWT migration mismatch + WebhookService null-guard missing). Section 2 + Section 4 updated. Current branch: `main`.
 * Previous: 2026-06-19 — Sprint D COMPLETED + merged to `main`. C-3 unblock (Product.CostPrice). Build 0 errors, guard EXIT 0, 23/23 OrderServiceTests PASS. Files: Domain.cs, ProductConfiguration.cs, OrderService.cs, OrderServiceTests.cs (+SC14/15/16), TestEntityBuilder.cs. DMD-2 resolved.
 * Previous: 2026-06-19 — Sprint C COMPLETED (C-1+C-2) + merged. Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS. Branch `feat/sprint-c-service-guards`.
 * Previous: 2026-06-19 — Sprint B COMPLETED + merged. 20/20 tests PASS. Branch `feat/sprint-b-entry-timing`.
