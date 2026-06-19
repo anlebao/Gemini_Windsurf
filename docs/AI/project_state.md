@@ -40,7 +40,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Phase Next — Sprint A/B/C: Order & Accounting Data Integrity Improvements**
 
-**Status:** ✅ **Sprint A COMPLETED** — branch `feat/sprint-a-accountcode-fields`, ready to merge
+**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** — branch `feat/sprint-b-entry-timing`, ready to merge
 
 **Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
 
@@ -70,17 +70,21 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ---
 
-### Sprint B — Accounting Entry Timing (P0, effort medium)
+### Sprint B — Accounting Entry Timing (P0, effort medium) ✅ COMPLETED
 
 | Task | Mô tả | File chính | Trạng thái |
 |---|---|---|---|
-| **B-1** | Move `GenerateAccountingEntriesAsync()` từ `CreateOrderFromCommandAsync()` sang Payment Webhook handler | `OrderService.cs:80`, `WebhookController.cs` | ⬜ TODO |
+| **B-1a** | Guard `GenerateAccountingEntriesAsync` — xóa unconditional call khỏi `CreateOrderAsync` + `CreateOrderWithQueueAsync` | `OrderService.cs` | ✅ DONE |
+| **B-1b** | Thêm `ConfirmPayment()` vào `Order` entity (Domain method) + `ConfirmPaymentAsync()` vào `IOrderService` + implement | `1_Shared/Domain.cs`, `IOrderService.cs`, `OrderService.cs` | ✅ DONE |
+| **B-1c** | Thêm `POST /api/webhooks/payment` vào `WebhookController` — nhận payment confirm → gọi `ConfirmPaymentAsync` | `2_Gateway/Controllers/WebhookController.cs` | ✅ DONE |
+| **B-2** | Unit tests SC11/SC12/SC13 — 20/20 PASS | `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` | ✅ DONE |
 
-**Bằng chứng cần fix:**
-- `OrderService.cs:80` gọi `GenerateAccountingEntriesAsync(newOrder, tenant)` ngay sau khi tạo order — trước bất kỳ payment confirmation nào
-- `WebhookController.cs` hiện chỉ xử lý e-invoice webhook (Viettel/MISA, trích xuất `invoiceNo`) — không có payment webhook, không gọi accounting service
-
-**Hướng implement:** Thêm `POST /api/webhooks/payment` endpoint + gọi `GenerateAccountingEntriesAsync` sau khi payment confirmed. Hoặc thêm `OrderStatus.PaymentPending` → entry chỉ tạo khi status chuyển `Paid`.
+**Files đã sửa (branch `feat/sprint-b-entry-timing`):**
+- `1_Shared/Domain.cs` — `Order.ConfirmPayment(transactionId, paymentMethod)` domain method (idempotency guard)
+- `3_CoreHub/Services/IOrderService.cs` — thêm `ConfirmPaymentAsync(orderId, tenantId, transactionId, ct)`
+- `3_CoreHub/Services/OrderService.cs` — guard `CreateOrderAsync` + `CreateOrderWithQueueAsync` + implement `ConfirmPaymentAsync`
+- `2_Gateway/Controllers/WebhookController.cs` — thêm `POST /api/webhooks/payment` + `PaymentConfirmRequest` DTO + inject `IOrderService`
+- `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` — SC11 (no accounting at creation), SC12 (accounting after payment), SC13 (idempotency)
 
 ---
 
@@ -480,10 +484,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 — Sprint A COMPLETED. All tasks MP-A0~A5 DONE. Build 0 errors, guard pass. 11 files changed (166 insertions, 81 deletions). Ready to merge to `main`.
-* Previous: 2026-06-19 — Sprint A in progress (MP-A1/A2 DONE, MP-A3 IN PROGRESS).
+* Last Updated: 2026-06-19 — Sprint B COMPLETED. B-1a/B-1b/B-1c/B-2 DONE. Build 0 errors, guard pass, 20/20 tests. Branch `feat/sprint-b-entry-timing`. Files: Domain.cs (Order.ConfirmPayment), IOrderService.cs, OrderService.cs (guard + ConfirmPaymentAsync), WebhookController.cs (POST /api/webhooks/payment), OrderServiceTests.cs (SC11/12/13).
+* Previous: 2026-06-19 — Sprint A COMPLETED. All tasks MP-A0~A5 DONE. Build 0 errors, guard pass. 11 files changed. Ready to merge to `main`.
 * Previous: 2026-06-20 — Phase Next Sprint A/B/C planning. E2E backlog (P0/P1) DONE. 16 spec files, 0 false-positives.
-* Current Branch: `feat/sprint-a-accountcode-fields`
+* Current Branch: `feat/sprint-b-entry-timing`
 * **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
 * **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
 * **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.

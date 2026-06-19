@@ -64,8 +64,9 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
-        /// Create new order with accounting integration
-        /// Phase 2.2: Order to Accounting Integration
+        /// Create new order. Accounting entries are NOT generated here.
+        /// Sprint B: Accounting entries generated only after payment confirmed via ConfirmPaymentAsync().
+        /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis accounting).
         /// </summary>
         public async Task<Order> CreateOrderAsync(Order order, Guid tenantId)
         {
@@ -73,20 +74,17 @@ namespace VanAn.CoreHub.Services
 
             try
             {
-                // 1. Create order using repository
+                // 1. Create order using repository (NO accounting entries — see ConfirmPaymentAsync)
                 Order newOrder = await _orderRepository.AddAsync(order);
 
-                // 2. Generate accounting entries
-                await GenerateAccountingEntriesAsync(newOrder, tenant);
-
-                _logger.LogInformation("Created order {OrderId} with accounting integration for tenant {TenantId}",
+                _logger.LogInformation("Created order {OrderId} for tenant {TenantId}. Accounting pending payment confirmation.",
                     newOrder.Id, tenantId);
 
                 return newOrder;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating order with accounting integration for tenant {TenantId}", tenantId);
+                _logger.LogError(ex, "Error creating order for tenant {TenantId}", tenantId);
                 throw;
             }
         }
@@ -243,10 +241,11 @@ namespace VanAn.CoreHub.Services
 
                 Order savedOrder = await _orderRepository.AddAsync(order);
 
-                // Generate accounting entries
-                await GenerateAccountingEntriesAsync(savedOrder, tenant);
+                // Sprint B: Accounting entries removed from order creation.
+                // They are generated only after payment confirmed via ConfirmPaymentAsync().
+                // TT 152/2025/TT-BTC: cash-basis — doanh thu ghi nhận theo thực thu.
 
-                // Create HKD books
+                // Create HKD books (operational — not accounting, safe to generate here)
                 await GenerateHKDBooksAsync(savedOrder, tenant);
 
                 await transaction.CommitAsync();
@@ -444,6 +443,43 @@ namespace VanAn.CoreHub.Services
                 _logger.LogError(ex, "Error creating order from Gateway command");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Sprint B: Confirm payment and generate accounting entries.
+        /// Called by WebhookController after bank/VietQR confirms payment.
+        /// Idempotent: second call for same orderId returns without creating duplicate entries.
+        /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis accounting).
+        /// </summary>
+        public async Task ConfirmPaymentAsync(Guid orderId, Guid tenantId, string transactionId, CancellationToken cancellationToken = default)
+        {
+            TenantId tenantIdObj = new(tenantId);
+            OrderId orderIdObj = new(orderId);
+
+            Order? order = await _orderRepository.GetByIdAsync(orderIdObj, tenantIdObj);
+
+            if (order == null)
+            {
+                _logger.LogWarning("ConfirmPaymentAsync: Order {OrderId} not found for tenant {TenantId}", orderId, tenantId);
+                throw new KeyNotFoundException($"Order {orderId} not found for tenant {tenantId}");
+            }
+
+            // Idempotency guard: if already paid, do not create duplicate accounting entries
+            if (order.PaymentStatus == "Paid")
+            {
+                _logger.LogInformation("ConfirmPaymentAsync: Order {OrderId} already confirmed (idempotent noop)", orderId);
+                return;
+            }
+
+            // 1. Mark order as paid (Domain method — immutability of AccountingEntry is preserved)
+            order.ConfirmPayment(transactionId);
+            await _orderRepository.UpdateAsync(order);
+            await _orderRepository.SaveChangesAsync();
+
+            // 2. Generate accounting entries (Revenue + COGS) — only after payment confirmed
+            await GenerateAccountingEntriesAsync(order, tenantIdObj);
+
+            _logger.LogInformation("ConfirmPaymentAsync: Payment confirmed for order {OrderId}, accounting entries generated", orderId);
         }
     }
 }

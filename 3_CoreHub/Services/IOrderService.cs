@@ -48,5 +48,9 @@ namespace VanAn.CoreHub.Services
 
         // NEW METHODS - Gateway Command Support
         Task<Order> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId);
+
+        // Sprint B: Payment confirmation — triggers accounting entry generation
+        // TT 152/2025/TT-BTC: doanh thu chỉ ghi nhận sau khi thanh toán xác nhận
+        Task ConfirmPaymentAsync(Guid orderId, Guid tenantId, string transactionId, CancellationToken cancellationToken = default);
     }
 }

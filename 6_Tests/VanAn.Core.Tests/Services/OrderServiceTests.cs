@@ -292,5 +292,125 @@ namespace VanAn.Core.Tests.Services
                 x => x.GetByTenantAsync(_testTenantId, It.IsAny<CancellationToken>()),
                 Times.Once);
         }
+
+        // ============================================================================
+        // Sprint B — Accounting Entry Timing Tests
+        // SC11: CreateOrderAsync does NOT create accounting entries
+        // SC12: ConfirmPaymentAsync DOES create accounting entries (Revenue + COGS)
+        // SC13: ConfirmPaymentAsync is idempotent — second call is a noop
+        // TT 152/2025/TT-BTC: cash-basis accounting
+        // ============================================================================
+
+        [Fact]
+        public async Task CreateOrderAsync_ShouldNotCreateAccountingEntries_SC11()
+        {
+            // Arrange (SC11): Sprint B — order creation must NOT trigger accounting entries
+            Order order = TestEntityBuilder.CreateOrder(_testTenantId, 100.00m);
+
+            _ = _mockOrderRepository
+                .Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(order);
+
+            // Act
+            Order result = await _orderService.CreateOrderAsync(order, _testTenantId.Value);
+
+            // Assert: accounting service must NOT be called at order creation time
+            _ = result.Should().NotBeNull();
+            _mockAccountingService.Verify(
+                x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                Times.Never,
+                "Revenue entry must NOT be created at order creation — only after payment confirmation (TT 152/2025)");
+            _mockAccountingService.Verify(
+                x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                Times.Never,
+                "COGS entry must NOT be created at order creation — only after payment confirmation (TT 152/2025)");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldCreateAccountingEntries_SC12()
+        {
+            // Arrange (SC12): Sprint B — ConfirmPaymentAsync triggers accounting entries
+            Guid orderId = Guid.NewGuid();
+            string transactionId = "TXN-12345";
+            Order order = TestEntityBuilder.CreateOrder(_testTenantId, 200.00m);
+
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdAsync(It.IsAny<OrderId>(), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(order);
+            _ = _mockOrderRepository
+                .Setup(x => x.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(order);
+            _ = _mockOrderRepository
+                .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            var revenueDto = new VanAn.Shared.DTOs.AccountingEntryDto
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _testTenantId.Value,
+                EntryType = AccountingEntryType.Revenue,
+                Amount = 200.00m,
+                Description = "Doanh thu"
+            };
+            var cogsDto = new VanAn.Shared.DTOs.AccountingEntryDto
+            {
+                Id = Guid.NewGuid(),
+                TenantId = _testTenantId.Value,
+                EntryType = AccountingEntryType.Expense,
+                Amount = 140.00m,
+                Description = "COGS"
+            };
+
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync(revenueDto);
+            _ = _mockAccountingService
+                .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                .ReturnsAsync(cogsDto);
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, transactionId);
+
+            // Assert: accounting service MUST be called after payment confirmed
+            _mockAccountingService.Verify(
+                x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                Times.Once,
+                "Revenue entry MUST be created after payment confirmation");
+            _mockAccountingService.Verify(
+                x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                Times.Once,
+                "COGS entry MUST be created after payment confirmation");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldBeIdempotent_SC13()
+        {
+            // Arrange (SC13): Sprint B — second call for already-paid order is a noop
+            Guid orderId = Guid.NewGuid();
+            string transactionId = "TXN-99999";
+            Order alreadyPaidOrder = TestEntityBuilder.CreateOrder(_testTenantId, 150.00m);
+            // Simulate payment already confirmed
+            alreadyPaidOrder.ConfirmPayment(transactionId);
+
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdAsync(It.IsAny<OrderId>(), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(alreadyPaidOrder);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, transactionId);
+
+            // Assert: second call must NOT create duplicate entries (idempotency)
+            _mockAccountingService.Verify(
+                x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>()),
+                Times.Never,
+                "Revenue entry must NOT be created on second ConfirmPayment call (idempotency guard)");
+            _mockOrderRepository.Verify(
+                x => x.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()),
+                Times.Never,
+                "Order must NOT be updated on idempotent noop call");
+        }
     }
 }

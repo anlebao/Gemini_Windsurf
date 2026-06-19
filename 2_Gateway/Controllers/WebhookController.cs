@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Orchestration;
 
 namespace VanAn.Gateway.Controllers;
@@ -11,6 +12,7 @@ namespace VanAn.Gateway.Controllers;
 /// Idempotency enforcement
 /// Phase 2: Webhook callbacks from external providers use AllowAnonymous (no JWT)
 /// Body: Raw provider payload (Viettel/MISA format) with invoiceNo field
+/// Sprint B: Added POST /api/webhooks/payment — VietQR/bank payment confirmation endpoint
 /// </summary>
 [ApiController]
 [Route("api/webhooks")]
@@ -18,6 +20,7 @@ namespace VanAn.Gateway.Controllers;
 public class WebhookController : ControllerBase
 {
     private readonly IWebhookService _webhookService;
+    private readonly IOrderService _orderService;
     private readonly ILogger<WebhookController> _logger;
 
     // JSON options for parsing raw webhook payloads
@@ -28,9 +31,10 @@ public class WebhookController : ControllerBase
         ReadCommentHandling = JsonCommentHandling.Skip
     };
 
-    public WebhookController(IWebhookService webhookService, ILogger<WebhookController> logger)
+    public WebhookController(IWebhookService webhookService, IOrderService orderService, ILogger<WebhookController> logger)
     {
         _webhookService = webhookService;
+        _orderService = orderService;
         _logger = logger;
     }
 
@@ -101,6 +105,55 @@ public class WebhookController : ControllerBase
     }
 
     /// <summary>
+    /// Sprint B: Receive VietQR/bank payment confirmation.
+    /// Called by KhachLink (or bank callback) after payment is confirmed.
+    /// Triggers accounting entry generation (Revenue + COGS) for the order.
+    /// AllowAnonymous: bank callbacks do not carry JWT — validated via transactionId presence.
+    /// Idempotent: duplicate calls for same orderId return 200 without creating duplicate entries.
+    /// TT 152/2025/TT-BTC: doanh thu chỉ ghi nhận sau khi thanh toán xác nhận.
+    /// </summary>
+    [HttpPost("payment")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmPayment(
+        [FromBody] PaymentConfirmRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request == null || request.OrderId == Guid.Empty)
+        {
+            _logger.LogWarning("WebhookController.ConfirmPayment: Missing or invalid orderId");
+            return BadRequest(new { Error = "orderId is required" });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TransactionId))
+        {
+            _logger.LogWarning("WebhookController.ConfirmPayment: Missing transactionId for order {OrderId}", request.OrderId);
+            return BadRequest(new { Error = "transactionId is required" });
+        }
+
+        if (request.TenantId == Guid.Empty)
+        {
+            _logger.LogWarning("WebhookController.ConfirmPayment: Missing tenantId for order {OrderId}", request.OrderId);
+            return BadRequest(new { Error = "tenantId is required" });
+        }
+
+        _logger.LogInformation(
+            "WebhookController.ConfirmPayment: Received payment confirmation — orderId={OrderId} transactionId={TransactionId}",
+            request.OrderId, request.TransactionId);
+
+        try
+        {
+            await _orderService.ConfirmPaymentAsync(request.OrderId, request.TenantId, request.TransactionId, cancellationToken);
+
+            return Ok(new { Message = "Payment confirmed and accounting entries generated", OrderId = request.OrderId });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning("WebhookController.ConfirmPayment: {Message}", ex.Message);
+            return NotFound(new { Error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Extract invoice number from raw provider payload
     /// Viettel: invoiceNo field
     /// MISA: invoiceNo field
@@ -150,4 +203,16 @@ public class WebhookController : ControllerBase
             return null;
         }
     }
+}
+
+/// <summary>
+/// Sprint B: Request DTO for POST /api/webhooks/payment
+/// Payload sent by KhachLink (or bank callback) after VietQR/payment confirmed.
+/// </summary>
+public sealed record PaymentConfirmRequest
+{
+    public Guid OrderId { get; init; }
+    public Guid TenantId { get; init; }
+    public string TransactionId { get; init; } = string.Empty;
+    public DateTime ConfirmedAt { get; init; } = DateTime.UtcNow;
 }
