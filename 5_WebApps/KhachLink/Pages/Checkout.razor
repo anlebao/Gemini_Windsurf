@@ -1,8 +1,12 @@
 @page "/checkout"
+@using VanAn.KhachLink.Components
+@using VanAn.KhachLink.Models
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject NavigationManager NavigationManager
-@inject HttpClient HttpClient
+@inject IHttpClientFactory HttpClientFactory
 @implements IDisposable
+
+<PageTitle>KhachLink - Thanh toán đơn hàng</PageTitle>
 
 <h3>📱 Thanh toán đơn hàng</h3>
 
@@ -15,7 +19,7 @@
         <p class="mt-2">Đang tạo đơn hàng và mã QR thanh toán...</p>
     </div>
 }
-else if (orderResponse != null)
+else if (orderCreated && !string.IsNullOrEmpty(createdOrderId))
 {
     <div class="row">
         <div class="col-md-6">
@@ -24,49 +28,62 @@ else if (orderResponse != null)
                     <h5>📋 Chi tiết đơn hàng</h5>
                 </div>
                 <div class="card-body">
-                    <p><strong>Mã đơn hàng:</strong> @orderResponse.OrderId</p>
+                    <p><strong>Mã đơn hàng:</strong> @createdOrderId</p>
                     <p><strong>Trạng thái:</strong> <span class="badge bg-warning">Chờ thanh toán</span></p>
                     <hr />
-                    
-                    @foreach (var item in cartState.Items)
+
+                    @foreach (var item in cartSnapshot)
                     {
                         <div class="d-flex justify-content-between mb-2">
                             <span>@item.ProductName x @item.Quantity</span>
                             <span>@item.TotalPrice.ToString("N0") VNĐ</span>
                         </div>
                     }
-                    
+
                     <hr />
                     <div class="d-flex justify-content-between">
                         <h5 class="text-danger">Tổng cộng:</h5>
-                        <h5 class="text-danger">@cartState.TotalAmount.ToString("N0") VNĐ</h5>
+                        <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
+                    </div>
+
+                    <!-- T-03c: "Thanh toán QR" button — triggers #qrPaymentModal -->
+                    <div class="mt-3 d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="OpenQrModal">
+                            📲 Thanh toán QR
+                        </button>
+                        <a href="/order-tracking/@createdOrderId" class="btn btn-outline-secondary">
+                            Theo dõi đơn hàng
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5>📱 Quét mã QR để thanh toán</h5>
-                </div>
-                <div class="card-body text-center">
-                    <div class="mb-3">
-                        <img src="@orderResponse.QrImageUrl.ToString()" alt="VietQR Code" class="img-fluid" style="max-width: 300px;" />
+
+        @if (!string.IsNullOrEmpty(qrImageUrl))
+        {
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📱 Quét mã QR để thanh toán</h5>
                     </div>
-                    <div class="alert alert-info">
-                        <h6>📱 Hướng dẫn thanh toán</h6>
-                        <p>1. Mở ứng dụng ngân hàng hỗ trợ VietQR</p>
-                        <p>2. Quét mã QR bên trên</p>
-                        <p>3. Xác nhận thanh toán <strong>@cartState.TotalAmount.ToString("N0") VNĐ</strong></p>
+                    <div class="card-body text-center">
+                        <img src="@qrImageUrl" alt="VietQR Code" class="img-fluid" style="max-width: 300px;" />
+                        <div class="alert alert-info mt-3">
+                            <p class="mb-0">Mở ứng dụng ngân hàng và quét mã QR để thanh toán
+                                <strong>@orderTotal.ToString("N0") VNĐ</strong>
+                            </p>
+                        </div>
                     </div>
-                    <button class="btn btn-primary" @onclick="CheckPaymentStatus">
-                        <i class="bi bi-arrow-clockwise"></i> Kiểm tra trạng thái thanh toán
-                    </button>
                 </div>
             </div>
-        </div>
+        }
     </div>
+
+    @* T-03c: QrPaymentModal integration *@
+    <QrPaymentModal IsOpen="@showQrModal"
+                    Amount="@orderTotal"
+                    OrderId="@createdOrderId"
+                    OnPaymentCompleted="CloseQrModal" />
 }
 else
 {
@@ -78,15 +95,20 @@ else
 
 @code {
     private VanAn.KhachLink.Services.CartState cartState = new();
-    private bool isProcessing = false;
-    private VietQrResponse? orderResponse;
+    private bool isProcessing;
+    private bool orderCreated;
+    private bool showQrModal;
+    private string createdOrderId = string.Empty;
+    private string? qrImageUrl;
+    private decimal orderTotal;
+    private List<CartItem> cartSnapshot = new();
 
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
         CartService.OnCartChanged += StateHasChanged;
         await CartService.LoadCartFromStorageAsync();
-        
+
         if (cartState.GetTotalItems() == 0)
         {
             NavigationManager.NavigateTo("/cart");
@@ -96,7 +118,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && cartState.GetTotalItems() > 0 && orderResponse == null)
+        if (firstRender && cartState.GetTotalItems() > 0 && !orderCreated && !isProcessing)
         {
             await CreateOrder();
         }
@@ -107,43 +129,44 @@ else
         isProcessing = true;
         StateHasChanged();
 
+        // Snapshot cart before clearing
+        cartSnapshot = cartState.Items.ToList();
+        orderTotal   = cartState.TotalAmount;
+
         try
         {
             var orderRequest = new
             {
                 CustomerDeviceId = "web-client",
-                OrderType = "TAKEAWAY",
-                Items = cartState.Items.Select(i => new
+                OrderType        = "TAKEAWAY",
+                Items            = cartState.Items.Select(i => new
                 {
                     ProductId = i.ProductId,
-                    Quantity = i.Quantity,
+                    Quantity  = i.Quantity,
                     UnitPrice = i.UnitPrice,
-                    Notes = ""
+                    Notes     = "",
                 }).ToList(),
-                CustomerNotes = "Đặt hàng từ web KhachLink"
+                CustomerNotes = "Đặt hàng từ web KhachLink",
             };
 
-            var response = await HttpClient.PostAsJsonAsync("/api/orders", orderRequest);
-            
+            var http     = HttpClientFactory.CreateClient("gateway");
+            var response = await http.PostAsJsonAsync("api/orders", orderRequest);
+
             if (response.IsSuccessStatusCode)
             {
-                orderResponse = await response.Content.ReadFromJsonAsync<VietQrResponse>();
+                var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
+                createdOrderId = result?.OrderId ?? string.Empty;
+                qrImageUrl     = result?.QrImageUrl;
+                orderCreated   = true;
 
-                // Clear cart after successful order creation
                 await CartService.ClearCartAsync();
 
-                // T-02c: Navigate to order tracking page so customer can track status
-                if (orderResponse != null && !string.IsNullOrEmpty(orderResponse.OrderId))
+                // T-02c + T-03c: Navigate to tracking page; QR modal available via button
+                if (!string.IsNullOrEmpty(createdOrderId))
                 {
-                    NavigationManager.NavigateTo($"/order-tracking/{orderResponse.OrderId}");
+                    NavigationManager.NavigateTo($"/order-tracking/{createdOrderId}");
                     return;
                 }
-            }
-            else
-            {
-                // Handle error
-                var error = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error creating order: {error}");
             }
         }
         catch (Exception ex)
@@ -157,25 +180,18 @@ else
         }
     }
 
-    private async Task CheckPaymentStatus()
-    {
-        // TODO: Implement payment status checking
-        // For now, just show a message
-        await Task.Delay(1000);
-    }
+    private void OpenQrModal()  => showQrModal = true;
+    private void CloseQrModal() => showQrModal = false;
 
     public void Dispose()
     {
         CartService.OnCartChanged -= StateHasChanged;
     }
-}
 
-// DTO for response
-public class VietQrResponse
-{
-    public string OrderId { get; set; } = string.Empty;
-    public Uri QrImageUrl { get; set; } = null!;
-    public Uri PaymentUrl { get; set; } = null!;
-    public decimal Amount { get; set; }
-    public DateTime GeneratedAt { get; set; }
+    private record OrderCreatedResult(
+        string  OrderId,
+        string? QrImageUrl,
+        string? PaymentUrl,
+        decimal Amount
+    );
 }
