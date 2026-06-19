@@ -896,6 +896,22 @@ namespace VanAn.Shared.Domain
             VoiceNoteAudioBlob = voiceNoteAudioBlob;
             UpdateAudit();
         }
+
+        /// <summary>
+        /// Sprint B: Confirm payment — marks order as Paid and records transaction.
+        /// Accounting entries MUST only be generated AFTER this is called.
+        /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis).
+        /// </summary>
+        public void ConfirmPayment(string transactionId, string paymentMethod = "VIETQR")
+        {
+            if (PaymentStatus == "Paid")
+                throw new InvalidOperationException($"Order {Id} payment already confirmed. Idempotency guard.");
+
+            PaymentStatus = "Paid";
+            PaymentMethod = paymentMethod;
+            VietQR_TransactionId = transactionId;
+            UpdateAudit();
+        }
     }
 
     // Demo User cho ShopERP với Multi-tenancy
