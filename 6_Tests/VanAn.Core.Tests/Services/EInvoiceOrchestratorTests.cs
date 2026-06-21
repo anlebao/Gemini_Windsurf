@@ -405,7 +405,8 @@ public class EInvoiceOrchestratorTests : IDisposable
         var result = await _orchestrator.GetInvoiceStatusAsync(invoice.InvoiceId);
 
         // Assert
+        // A newly created invoice starts in Draft status (Submit() transitions to PendingSend)
         result.Should().NotBeNull();
-        result.Should().Be(InvoiceStatus.PendingSend);
+        result.Should().Be(InvoiceStatus.Draft);
     }
 }
