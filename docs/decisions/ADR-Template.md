@@ -44,7 +44,7 @@ Quyết định cuối cùng là gì? Rõ ràng, ngắn gọn.
 
 - Related ADRs
 - External docs
-- `.windsurf/skills/` liên quan
+- `.devin/skills/` liên quan
 
 ## Notes
 

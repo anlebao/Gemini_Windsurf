@@ -17,8 +17,8 @@ Fix failing tests only. No features, no architecture redesign, no unrelated refa
 ## Playwright Routing
 If failing tests are **Playwright E2E tests** (`.spec.ts` files in `6_Testing/`):
 - Do NOT use this workflow.
-- Route to `.windsurf/workflows/playwright_triage.md` for classification first.
-- Then use `.windsurf/workflows/playwright_fix.md` for fixes.
+- Route to `.devin/workflows/playwright_triage.md` for classification first.
+- Then use `.devin/workflows/playwright_fix.md` for fixes.
 - This workflow handles `dotnet test` failures ONLY.
 
 ## Objective
@@ -75,11 +75,11 @@ Group failures by:
 
 ## Active Skills (max 3)
 Default:
-1. `.windsurf/skills/build-error-analysis.md`
-2. `.windsurf/skills/pattern-based-fixing.md`
-3. `.windsurf/skills/test-system-upgrade.md`
+1. `.devin/skills/build-error-analysis.md`
+2. `.devin/skills/pattern-based-fixing.md`
+3. `.devin/skills/test-system-upgrade.md`
 
-Use `.windsurf/skills/domain-integrity-validation.md` instead of another skill when:
+Use `.devin/skills/domain-integrity-validation.md` instead of another skill when:
 - failing tests touch domain entities, value objects, AccountingEntry, or immutable constructors
 - test setup requires protected/private setters or object initializers
 - a test appears to require production Domain changes

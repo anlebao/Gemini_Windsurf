@@ -14,11 +14,16 @@ namespace VanAn.CoreHub.Services
     public class AccountingEntryService(
         IAccountingEntryRepository repository,
         IAuditTrailService auditTrailService,
+        IPeriodClosingService periodClosingService,
         ILogger<AccountingEntryService> logger) : IAccountingService
     {
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
+        private readonly IPeriodClosingService _periodClosingService = periodClosingService;
         private readonly ILogger<AccountingEntryService> _logger = logger;
+
+        // C-1: Duplicate detection window (configurable constant)
+        private const int DuplicateWindowMinutes = 5;
 
         public async Task<decimal> GetTodayRevenueAsync(Guid tenantId)
         {
@@ -126,15 +131,25 @@ namespace VanAn.CoreHub.Services
             }
         }
 
-        public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
+        public async Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
+            string? accountCode = null, string? reference = null)
         {
             try
             {
-                CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description);
+                // C-2: Period closing guard — block entries into a closed period
+                PeriodClosingStatus periodStatus = await _periodClosingService.GetPeriodStatusAsync(period, tenantId);
+                if (periodStatus == PeriodClosingStatus.Closed)
+                    throw new InvalidOperationException($"Kỳ kế toán {period.Year}/{period.Month:D2} đã đóng sổ. Không thể thêm bút toán mới.");
+
+                // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
+                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Revenue);
+
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
+                    accountCode: accountCode, reference: reference);
                 await _repository.AddAsync(entry);
 
                 // Audit log: Revenue entry creation
-                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Revenue" });
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Revenue", AccountCode = accountCode });
                 await _auditTrailService.LogCreateAsync(
                     AuditableEntityType.AccountingEntry,
                     entry.Id,
@@ -147,6 +162,8 @@ namespace VanAn.CoreHub.Services
                     TenantId = entry.TenantId.Value,
                     Amount = entry.Amount,
                     Description = entry.Description,
+                    AccountCode = entry.AccountCode,
+                    Reference = entry.Reference,
                     EntryType = entry.EntryType,
                     CreatedAt = entry.CreatedAt,
                     AccountingBookType = entry.AccountingBookType,
@@ -163,15 +180,25 @@ namespace VanAn.CoreHub.Services
             }
         }
 
-        public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description)
+        public async Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
+            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null)
         {
             try
             {
-                CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description);
+                // C-2: Period closing guard — block entries into a closed period
+                PeriodClosingStatus periodStatus = await _periodClosingService.GetPeriodStatusAsync(period, tenantId);
+                if (periodStatus == PeriodClosingStatus.Closed)
+                    throw new InvalidOperationException($"Kỳ kế toán {period.Year}/{period.Month:D2} đã đóng sổ. Không thể thêm bút toán mới.");
+
+                // C-1: Server-side duplicate detection — block identical entry within DuplicateWindowMinutes
+                await CheckDuplicateEntryAsync(tenantId, amount, accountCode, AccountingEntryType.Expense);
+
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
+                    accountCode: accountCode, vendor: vendor, category: category, reference: reference);
                 await _repository.AddAsync(entry);
 
                 // Audit log: Expense entry creation
-                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Expense" });
+                var newValues = System.Text.Json.JsonSerializer.Serialize(new { Amount = amount, Description = description, Period = period.ToString(), Type = "Expense", AccountCode = accountCode, Vendor = vendor, Category = category });
                 await _auditTrailService.LogCreateAsync(
                     AuditableEntityType.AccountingEntry,
                     entry.Id,
@@ -184,6 +211,10 @@ namespace VanAn.CoreHub.Services
                     TenantId = entry.TenantId.Value,
                     Amount = entry.Amount,
                     Description = entry.Description,
+                    AccountCode = entry.AccountCode,
+                    Vendor = entry.Vendor,
+                    Category = entry.Category,
+                    Reference = entry.Reference,
                     EntryType = entry.EntryType,
                     CreatedAt = entry.CreatedAt,
                     AccountingBookType = entry.AccountingBookType,
@@ -198,6 +229,27 @@ namespace VanAn.CoreHub.Services
                 _logger.LogError(ex, "Error creating expense entry for tenant {TenantId}", tenantId.Value);
                 throw;
             }
+        }
+
+        // C-1: Duplicate detection helper — throws if a matching entry exists within DuplicateWindowMinutes
+        private async Task CheckDuplicateEntryAsync(TenantId tenantId, decimal amount, string? accountCode, AccountingEntryType entryType)
+        {
+            DateTime windowStart = DateTime.UtcNow.AddMinutes(-DuplicateWindowMinutes);
+            DateTime windowEnd = DateTime.UtcNow.AddSeconds(1); // slight buffer for clock skew
+
+            IEnumerable<CoreAccountingEntry> recentEntries = await _repository.GetByTenantAndDateRangeAsync(
+                tenantId,
+                windowStart,
+                windowEnd,
+                CancellationToken.None);
+
+            bool duplicate = recentEntries.Any(e =>
+                e.EntryType == entryType &&
+                e.Amount == amount &&
+                (e.AccountCode ?? string.Empty) == (accountCode ?? string.Empty));
+
+            if (duplicate)
+                throw new InvalidOperationException("Bút toán trùng lặp trong 5 phút vừa qua. Vui lòng kiểm tra lại trước khi tạo mới.");
         }
 
         public async Task<IEnumerable<AccountingEntryDto>> GetEntriesByTenantAsync(TenantId tenantId)

@@ -427,10 +427,10 @@ docs/.cache/
 # ========================================
 # Windsurf Specific
 # ========================================
-# Keep windsurf rules
+# Keep devin rules
 !.windsurfrules
-.windsurf/cache/
-.windsurf/tmp/
+.devin/cache/
+.devin/tmp/
 
 # ========================================
 # Custom Exceptions (Files to Keep)
@@ -457,7 +457,7 @@ docs/.cache/
 
 # Keep rules
 !.rules/
-!.windsurf/
+!.devin/
 
 # ========================================
 # Playwright Auth State

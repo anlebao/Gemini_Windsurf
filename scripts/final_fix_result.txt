@@ -1,0 +1,26 @@
+Fixed (1ml+0il+0cls+0new=1): AccountingEntryConfiguration.cs
+WARN still has patterns: CustomerConfiguration.cs
+WARN still has patterns: ElectronicInvoiceConfiguration.cs
+  L19:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+WARN still has patterns: IngredientConfiguration.cs
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+WARN still has patterns: InventoryConfiguration.cs
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+WARN still has patterns: InvoiceItemConfiguration.cs
+  L61:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)));
+Fixed (0ml+0il+1cls+0new=1): JournalEntryConfiguration.cs
+Fixed (0ml+0il+1cls+0new=1): JournalTemplateConfiguration.cs
+WARN still has patterns: LeadConfiguration.cs
+WARN still has patterns: OrderConfiguration.cs
+  L73:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)));
+Fixed (0ml+1il+0cls+0new=1): OrderItemConfiguration.cs
+Fixed (0ml+0il+0cls+1new=1): OutboxMessageConfiguration.cs
+WARN still has patterns: PendingInvoiceQueueConfiguration.cs
+  L21:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+WARN still has patterns: ProductConfiguration.cs
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+WARN still has patterns: RecipeConfiguration.cs
+  L23:                 .HasConversion(id => id.Value.ToString(), value => new TenantId(Guid.Parse(value)))
+Fixed (0ml+1il+0cls+0new=1): TenantConfiguration.cs
+WARN still has patterns: TenantIdConfiguration.cs
+  L20:                 .HasConversion<ValueConverters.TenantIdConverter>();

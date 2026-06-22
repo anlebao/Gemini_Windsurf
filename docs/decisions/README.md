@@ -41,5 +41,5 @@
 
 ## References
 
-- `.windsurf/rules/.windsurfrules` - Core governance
+- `.devin/rules/.windsurfrules` - Core governance
 - `docs/knowledge-base/03-architecture/` - Architecture docs

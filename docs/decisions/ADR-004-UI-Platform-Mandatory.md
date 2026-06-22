@@ -175,8 +175,8 @@ public enum ThemeType
 - `UI.Platform/` - Implementation
 - `docs/LuuY_SuDungUI_Platform.txt` - Usage notes
 - `docs/UI_Platform_Implementation_Guide.md` - Guide
-- `.windsurf/skills/ui-platform-migration.md`
-- `.windsurf/skills/ui-platform-compliance-review.md`
+- `.devin/skills/ui-platform-migration.md`
+- `.devin/skills/ui-platform-compliance-review.md`
 
 ## Related
 

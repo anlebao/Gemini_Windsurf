@@ -52,6 +52,9 @@ namespace VanAn.CoreHub.Infrastructure
         // HKD Business Tenants
         public DbSet<Tenant> Tenants { get; set; }
 
+        // Wave 1 Phase 2: User-Tenant mapping (cross-tenant entity)
+        public DbSet<UserTenant> UserTenants { get; set; }
+
         // PHASE 2: SOCIAL FLYWHEEL ENTITIES
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
         public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }
@@ -187,6 +190,12 @@ namespace VanAn.CoreHub.Infrastructure
             if (_tenantProvider == null)
             {
                 return;
+            }
+
+            // Phase 1: Fail-fast if TenantId is empty (security hardening)
+            if (_tenantProvider.TenantId == Guid.Empty)
+            {
+                throw new InvalidOperationException("TenantId is empty — cannot query tenant-scoped data. Ensure JWT claim 'TenantId' is set.");
             }
 
             // Apply to all entities implementing IMustHaveTenant

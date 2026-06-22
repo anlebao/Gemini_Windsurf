@@ -24,7 +24,7 @@ Complete each phase before moving to next. Do not mix phases.
 - Playwright is DISABLED during Steps 1-6.
 - Active skill: `playwright_guard` (auto-activated for this workflow).
 - After Step 7 approval, activate `playwright_validation` workflow if E2E validation needed.
-- See `.windsurf/rules/playwright.rules.md` for full governance.
+- See `.devin/rules/playwright.rules.md` for full governance.
 
 ## Context Limits
 - Max 10 files per phase
@@ -39,7 +39,7 @@ Complete each phase before moving to next. Do not mix phases.
 ## Active Skills (max 3 per task)
 Select by feature type. State before coding. Deactivate when switching phases.
 
-| Feature Type | Skills (in `.windsurf/skills/`) |
+| Feature Type | Skills (in `.devin/skills/`) |
 |---|---|
 | Accounting UI | `accounting-ui-implementation`, `ui-platform-migration`, `domain-integrity-validation` |
 | UI Platform | `ui-platform-migration`, `ui-platform-compliance-review` |

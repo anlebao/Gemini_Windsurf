@@ -16,14 +16,34 @@ namespace VanAn.KhachLink.Hubs
         private readonly ILogger<DashboardHub> _logger = logger;
 
         /// <summary>
-        /// Join tenant-specific dashboard group
+        /// Join tenant-specific dashboard group.
+        /// Wave 3 Phase 3: Verify client-requested tenantId matches the shop context
+        /// from the JWT claim (tenant_id / TenantId). Reject if mismatch.
         /// </summary>
         public async Task JoinTenantGroup(string tenantId)
         {
             if (string.IsNullOrEmpty(tenantId))
             {
                 _logger.LogWarning("JoinTenantGroup called with null/empty tenantId");
-                return;
+                throw new HubException("tenantId is required.");
+            }
+
+            // Verify: the requested tenantId must match the authenticated user's tenant claim
+            string? claimTenantId = Context.User?.FindFirst("tenant_id")?.Value
+                ?? Context.User?.FindFirst("TenantId")?.Value;
+
+            if (string.IsNullOrEmpty(claimTenantId))
+            {
+                _logger.LogWarning("JoinTenantGroup rejected — no tenant claim on connection {ConnectionId}", Context.ConnectionId);
+                throw new HubException("Unauthorized: no tenant claim.");
+            }
+
+            if (!string.Equals(claimTenantId, tenantId, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "JoinTenantGroup rejected — tenant mismatch: requested={Requested}, claim={Claim}, ConnectionId={ConnectionId}",
+                    tenantId, claimTenantId, Context.ConnectionId);
+                throw new HubException("Unauthorized: tenant mismatch.");
             }
 
             string connectionId = Context.ConnectionId;
@@ -43,14 +63,34 @@ namespace VanAn.KhachLink.Hubs
         }
 
         /// <summary>
-        /// Join shop-specific dashboard group
+        /// Join shop-specific dashboard group.
+        /// Wave 3 Phase 3: Verify client-requested shopId matches the tenant claim.
+        /// KhachLink customer's shop context comes from URL ?shopId=xxx, not client-chosen value.
         /// </summary>
         public async Task JoinShopGroup(string shopId)
         {
             if (string.IsNullOrEmpty(shopId))
             {
                 _logger.LogWarning("JoinShopGroup called with null/empty shopId");
-                return;
+                throw new HubException("shopId is required.");
+            }
+
+            // Verify: shopId must match the authenticated user's tenant claim
+            string? claimTenantId = Context.User?.FindFirst("tenant_id")?.Value
+                ?? Context.User?.FindFirst("TenantId")?.Value;
+
+            if (string.IsNullOrEmpty(claimTenantId))
+            {
+                _logger.LogWarning("JoinShopGroup rejected — no tenant claim on connection {ConnectionId}", Context.ConnectionId);
+                throw new HubException("Unauthorized: no tenant claim.");
+            }
+
+            if (!string.Equals(claimTenantId, shopId, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "JoinShopGroup rejected — tenant mismatch: requested={Requested}, claim={Claim}, ConnectionId={ConnectionId}",
+                    shopId, claimTenantId, Context.ConnectionId);
+                throw new HubException("Unauthorized: shop/tenant mismatch.");
             }
 
             string connectionId = Context.ConnectionId;

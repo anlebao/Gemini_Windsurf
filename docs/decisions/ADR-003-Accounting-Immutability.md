@@ -175,8 +175,8 @@ var netRevenue = entries
 
 ## References
 
-- `.windsurf/rules/.windsurfrules` - AccountingEntry immutability section
-- `.windsurf/skills/domain-integrity-validation.md`
+- `.devin/rules/.windsurfrules` - AccountingEntry immutability section
+- `.devin/skills/domain-integrity-validation.md`
 - `1_Shared/Domain.cs` - AccountingEntry implementation
 - `6_Tests/VanAn.Core.Tests/Accounting/` - Immutability tests
 

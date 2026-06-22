@@ -31,7 +31,7 @@ c:\VibeCoding\Gemini_Windsurf\
 ├── docs/                  # Documentation
 │   ├── decisions/         # ADRs
 │   └── knowledge-base/    # Domain docs
-├── .windsurf/             # AI Knowledge Base
+├── .devin/                # AI Knowledge Base
 │   ├── rules/             # Governance rules
 │   ├── workflows/         # AI Workflows
 │   └── skills/            # Domain skills
@@ -102,8 +102,8 @@ Station (SQLite) → Outbox → NATS → PostgreSQL
 ## AI Knowledge Base
 
 ### Rules
-- `.windsurf/rules/.windsurfrules` - Core governance v7.0
-- `.windsurf/rules/playwright.rules.md` - E2E governance
+- `.devin/rules/.windsurfrules` - Core governance v7.0
+- `.devin/rules/playwright.rules.md` - E2E governance
 
 ### Workflows
 | Workflow | Purpose |
@@ -223,7 +223,7 @@ ShopERP sử dụng Model Context Protocol (MCP) để AI tương tác trực ti
 When starting new session:
 1. Read this file
 2. Read relevant ADRs
-3. Check `.windsurf/rules/.windsurfrules`
+3. Check `.devin/rules/.windsurfrules`
 4. Identify mode (ANALYZE/IMPLEMENT/FIX_ONLY/...)
 
 ---

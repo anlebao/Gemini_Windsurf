@@ -16,6 +16,7 @@ namespace VanAn.Core.Tests.Accounting
     {
         private readonly Mock<IAccountingEntryRepository> _mockRepository;
         private readonly Mock<IAuditTrailService> _mockAuditTrail;
+        private readonly Mock<IPeriodClosingService> _mockPeriodClosing;
         private readonly Mock<ILogger<AccountingEntryService>> _mockLogger;
         private readonly AccountingEntryService _service;
 
@@ -23,8 +24,20 @@ namespace VanAn.Core.Tests.Accounting
         {
             _mockRepository = new Mock<IAccountingEntryRepository>();
             _mockAuditTrail = new Mock<IAuditTrailService>();
+            _mockPeriodClosing = new Mock<IPeriodClosingService>();
             _mockLogger = new Mock<ILogger<AccountingEntryService>>();
-            _service = new AccountingEntryService(_mockRepository.Object, _mockAuditTrail.Object, _mockLogger.Object);
+
+            // Default: period is Open (no guard triggered)
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(It.IsAny<AccountingPeriod>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            // Default: no recent entries (no duplicate)
+            _mockRepository
+                .Setup(r => r.GetByTenantAndDateRangeAsync(It.IsAny<TenantId>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([]);
+
+            _service = new AccountingEntryService(_mockRepository.Object, _mockAuditTrail.Object, _mockPeriodClosing.Object, _mockLogger.Object);
         }
 
         [Fact]
@@ -230,6 +243,155 @@ namespace VanAn.Core.Tests.Accounting
                 () => _service.CreateRevenueEntryAsync(tenantId, period, amount, description));
 
             Assert.Equal("Database error", exception.Message);
+        }
+
+        // ===== Sprint C — C-1: Server-side Duplicate Detection =====
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SC4_ShouldThrow_WhenDuplicateEntryWithinWindow()
+        {
+            // Arrange — an identical entry already exists within the 5-minute window
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+            decimal amount = 1000m;
+            string? accountCode = "511";
+
+            CoreAccountingEntry existingEntry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), "Previous entry",
+                accountCode: accountCode);
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            _mockRepository
+                .Setup(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([existingEntry]);
+
+            // Act & Assert
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.CreateRevenueEntryAsync(tenantId, period, amount, "Duplicate entry", accountCode: accountCode));
+
+            Assert.Contains("Bút toán trùng lặp", ex.Message);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SC5_ShouldSucceed_WhenSameAmountButOutsideWindow()
+        {
+            // Arrange — identical amount + accountCode but CreatedAt > 5 minutes ago (simulated by no entry in window)
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+            decimal amount = 1000m;
+            string? accountCode = "511";
+
+            // Repository returns empty — simulates the old entry is outside the 5-minute window
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            _mockRepository
+                .Setup(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([]);
+
+            // Act — should NOT throw
+            VanAn.Shared.DTOs.AccountingEntryDto result = await _service.CreateRevenueEntryAsync(tenantId, period, amount, "Entry after window", accountCode: accountCode);
+
+            // Assert
+            Assert.NotNull(result);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SC6_ShouldSucceed_WhenSameAmountButDifferentAccountCode()
+        {
+            // Arrange — same amount but different accountCode → not a duplicate
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+            decimal amount = 1000m;
+
+            // Existing entry has accountCode "511"
+            CoreAccountingEntry existingEntry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), "Previous entry",
+                accountCode: "511");
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            _mockRepository
+                .Setup(r => r.GetByTenantAndDateRangeAsync(tenantId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync([existingEntry]);
+
+            // Act — new entry has accountCode "512" → should NOT throw
+            VanAn.Shared.DTOs.AccountingEntryDto result = await _service.CreateRevenueEntryAsync(tenantId, period, amount, "Different account entry", accountCode: "512");
+
+            // Assert
+            Assert.NotNull(result);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        // ===== Sprint C — C-2: Period Closing Guard =====
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SC11_ShouldThrow_WhenPeriodIsClosed()
+        {
+            // Arrange
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Closed);
+
+            // Act & Assert
+            InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => _service.CreateRevenueEntryAsync(tenantId, period, 1000m, "Should fail"));
+
+            Assert.Contains("đã đóng sổ", ex.Message);
+            Assert.Contains("2024/01", ex.Message);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SC12_ShouldSucceed_WhenPeriodIsOpen()
+        {
+            // Arrange
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod period = new(2024, 1);
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(period, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            // Act
+            VanAn.Shared.DTOs.AccountingEntryDto result = await _service.CreateRevenueEntryAsync(tenantId, period, 1000m, "Open period entry");
+
+            // Assert
+            Assert.NotNull(result);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateRevenueEntryAsync_SC13_ShouldSucceed_WhenTargetPeriodIsOpenButAnotherIsClosed()
+        {
+            // Arrange — period 2024/01 is Open, period 2024/02 is Closed
+            TenantId tenantId = new(Guid.NewGuid());
+            AccountingPeriod openPeriod = new(2024, 1);
+            AccountingPeriod closedPeriod = new(2024, 2);
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(openPeriod, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Open);
+
+            _mockPeriodClosing
+                .Setup(p => p.GetPeriodStatusAsync(closedPeriod, tenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(PeriodClosingStatus.Closed);
+
+            // Act — create entry into openPeriod → should succeed
+            VanAn.Shared.DTOs.AccountingEntryDto result = await _service.CreateRevenueEntryAsync(tenantId, openPeriod, 500m, "Entry in open period");
+
+            // Assert
+            Assert.NotNull(result);
+            _mockRepository.Verify(r => r.AddAsync(It.IsAny<CoreAccountingEntry>(), It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 }

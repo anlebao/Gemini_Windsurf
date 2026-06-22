@@ -4,13 +4,13 @@
 @using VanAn.UI.Platform.Components
 @using PlatformComposite = VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
-@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @using CoreAccountingService = VanAn.CoreHub.Services
 @using Microsoft.JSInterop
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
-@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
 @inject ILogger<ExpenseEntry> Logger
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -61,31 +61,11 @@
     private bool showSuccess = false;
     private bool showError = false;
     private string errorMessage = string.Empty;
-    private Guid _tenantId = Guid.Empty;
     private bool _isInteractive = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         InitializeFields();
-
-        try
-        {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                var tenantIdClaim = user.FindFirst("TenantId");
-                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
-                {
-                    _tenantId = tenantId;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error initializing ExpenseEntry");
-        }
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -208,16 +188,14 @@
             showError = false;
             Logger.LogInformation("Reset flags: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
 
-            // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
-            // Fallback tenant hardcode cho E2E testing vì login demo không set TenantId claim.
-            // Sửa triệt để: thêm claim TenantId khi login, xóa fallback.
-            // Tier: 1 (Tenant - ưu tiên cao)
-            if (_tenantId == Guid.Empty)
+            if (!TenantProvider.HasTenant)
             {
-                _tenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-                Logger.LogInformation("Using fallback tenant ID");
+                showError = true;
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                StateHasChanged();
+                return;
             }
-            Logger.LogInformation("TenantId: {TenantId}", _tenantId);
+            Logger.LogInformation("TenantId: {TenantId}", TenantProvider.TenantId);
 
             // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
             // Workaround JS Interop đọc DOM do rớt binding ranh giới Component.
@@ -326,7 +304,7 @@
 
             // Create accounting period
             var period = new AccountingPeriod(date.Year, date.Month);
-            var tenantId = new TenantId(_tenantId);
+            var tenantId = new TenantId(TenantProvider.TenantId);
             Logger.LogInformation("Calling AccountingService.CreateExpenseEntryAsync with Period={Period}, Amount={Amount}", period, amount);
 
             // Create accounting entry using IAccountingService
@@ -353,7 +331,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error saving expense entry for tenant {TenantId}", _tenantId);
+            Logger.LogError(ex, "Error saving expense entry for tenant {TenantId}", TenantProvider.TenantId);
             showError = true;
             errorMessage = $"Lỗi khi lưu: {ex.Message}";
             Logger.LogInformation("Setting error state: showError={showError}, errorMessage={errorMessage}", showError, errorMessage);

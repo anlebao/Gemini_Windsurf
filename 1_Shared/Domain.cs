@@ -271,6 +271,16 @@ namespace VanAn.Shared.Domain
         public Guid? ReferenceId { get; }
         public string? ReferenceType { get; }
 
+        // DMD-1 fix (approved 2026-06-20): Accounting classification fields
+        // AccountCode: mã tài khoản kế toán (511, 621, 642...) — bắt buộc TT 152/2025/TT-BTC
+        // Vendor: nhà cung cấp (dùng cho bút toán chi phí)
+        // Category: danh mục chi phí/doanh thu (materials, utilities, services...)
+        // Reference: số hóa đơn/chứng từ tham chiếu
+        public string? AccountCode { get; }
+        public string? Vendor { get; }
+        public string? Category { get; }
+        public string? Reference { get; }
+
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
 
         // Navigation (read-only)
@@ -290,7 +300,11 @@ namespace VanAn.Shared.Domain
             int periodYear,
             int periodMonth,
             string description,
-            Guid? reversalEntryId = null)
+            Guid? reversalEntryId = null,
+            string? accountCode = null,
+            string? vendor = null,
+            string? category = null,
+            string? reference = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -302,19 +316,27 @@ namespace VanAn.Shared.Domain
             Description = description;
             ReversalEntryId = reversalEntryId;
             TransactionDate = DateTime.UtcNow;
+            AccountCode = accountCode;
+            Vendor = vendor;
+            Category = category;
+            Reference = reference;
         }
 
         // ====================== FACTORY METHODS ======================
-        public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description)
+        public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
+            string? accountCode = null, string? reference = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
-                                          AccountingBookType.RevenueBook, period.Year, period.Month, description);
+                AccountingBookType.RevenueBook, period.Year, period.Month, description,
+                reversalEntryId: null, accountCode: accountCode, reference: reference);
         }
 
-        public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description)
+        public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
+            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
-                                          AccountingBookType.ExpenseBook, period.Year, period.Month, description);
+                AccountingBookType.ExpenseBook, period.Year, period.Month, description,
+                reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
@@ -331,7 +353,8 @@ namespace VanAn.Shared.Domain
                 original.PeriodYear,
                 original.PeriodMonth,
                 $"Reversal of: {original.Description} - {reason}",
-                original.Id);
+                original.Id,
+                accountCode: original.AccountCode);
         }
 
         public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)
@@ -348,7 +371,8 @@ namespace VanAn.Shared.Domain
                 original.PeriodYear,
                 original.PeriodMonth,
                 $"Reversal of: {original.Description} - {reason}",
-                originalEntryId);
+                originalEntryId,
+                accountCode: original.AccountCode);
         }
     }
 
@@ -487,6 +511,7 @@ namespace VanAn.Shared.Domain
         public string Name { get; protected set; } = string.Empty;
         public string Description { get; protected set; } = string.Empty;
         public decimal Price { get; protected set; }
+        public decimal CostPrice { get; protected set; } = 0m; // Giá vốn (cost of goods) — DMD-2 fix
         public string Category { get; protected set; } = string.Empty;
         public bool IsActive { get; protected set; } = true;
         public string? ImageUrl { get; protected set; }
@@ -494,15 +519,16 @@ namespace VanAn.Shared.Domain
 
         public Product() { } // Public constructor for UI layer
 
-        public Product(TenantId tenantId, string name, decimal price, string category)
+        public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m)
             : base(tenantId)
         {
             Name = name;
             Price = price;
             Category = category;
+            CostPrice = costPrice;
         }
 
-        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m)
+        public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m)
             : base(tenantId)
         {
             Name = name;
@@ -512,6 +538,16 @@ namespace VanAn.Shared.Domain
             IsActive = isActive;
             ImageUrl = imageUrl;
             VatRate = vatRate;
+            CostPrice = costPrice;
+        }
+
+        /// <summary>
+        /// Update the cost price of the product (used by admin/procurement workflows).
+        /// </summary>
+        public void UpdateCostPrice(decimal costPrice)
+        {
+            if (costPrice < 0) throw new ArgumentException("CostPrice cannot be negative.", nameof(costPrice));
+            CostPrice = costPrice;
         }
     }
 
@@ -872,6 +908,22 @@ namespace VanAn.Shared.Domain
             VoiceNoteAudioBlob = voiceNoteAudioBlob;
             UpdateAudit();
         }
+
+        /// <summary>
+        /// Sprint B: Confirm payment — marks order as Paid and records transaction.
+        /// Accounting entries MUST only be generated AFTER this is called.
+        /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis).
+        /// </summary>
+        public void ConfirmPayment(string transactionId, string paymentMethod = "VIETQR")
+        {
+            if (PaymentStatus == "Paid")
+                throw new InvalidOperationException($"Order {Id} payment already confirmed. Idempotency guard.");
+
+            PaymentStatus = "Paid";
+            PaymentMethod = paymentMethod;
+            VietQR_TransactionId = transactionId;
+            UpdateAudit();
+        }
     }
 
     // Demo User cho ShopERP với Multi-tenancy
@@ -885,6 +937,62 @@ namespace VanAn.Shared.Domain
 
         // EF Core constructor for materialization
         protected DemoUser() { }
+    }
+
+    /// <summary>
+    /// User-Tenant mapping entity — Cross-tenant entity (không kế thừa BaseEntity để tránh query filter)
+    /// Domain Purity: NO EF Core, NO DataAnnotations
+    /// </summary>
+    public class UserTenant
+    {
+        public Guid Id { get; protected set; } = Guid.NewGuid();
+
+        // Reference to User (DemoUser)
+        public Guid UserId { get; protected set; }
+
+        // Reference to Tenant — cross-tenant entity nên dùng Guid thay vì TenantId strongly-typed
+        public Guid TenantId { get; protected set; }
+
+        // Role within this tenant (có thể khác với global role)
+        public string Role { get; protected set; } = string.Empty;
+
+        // Assignment timestamp
+        public DateTime AssignedAt { get; protected set; } = DateTime.UtcNow;
+
+        // Soft delete flag
+        public bool IsActive { get; protected set; } = true;
+
+        // EF Core constructor
+        protected UserTenant() { }
+
+        public UserTenant(Guid userId, Guid tenantId, string role)
+        {
+            if (userId == Guid.Empty) throw new ArgumentException("UserId cannot be empty", nameof(userId));
+            if (tenantId == Guid.Empty) throw new ArgumentException("TenantId cannot be empty", nameof(tenantId));
+            if (string.IsNullOrWhiteSpace(role)) throw new ArgumentException("Role cannot be empty", nameof(role));
+
+            UserId = userId;
+            TenantId = tenantId;
+            Role = role;
+            AssignedAt = DateTime.UtcNow;
+            IsActive = true;
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+        }
+
+        public void Reactivate()
+        {
+            IsActive = true;
+        }
+
+        public void ChangeRole(string newRole)
+        {
+            if (string.IsNullOrWhiteSpace(newRole)) throw new ArgumentException("Role cannot be empty", nameof(newRole));
+            Role = newRole;
+        }
     }
 
     // Legacy record types cho compatibility - sẽ được migrate

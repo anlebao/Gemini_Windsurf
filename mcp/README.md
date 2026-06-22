@@ -94,7 +94,7 @@ secrets/       # Secret files
 
 **Auto-load on Startup**:
 - `docs/knowledge-base/00-core/PROJECT_CONTEXT.md`
-- `.windsurf/rules/.windsurfrules`
+- `.devin/rules/.windsurfrules`
 
 ## Workflows
 
@@ -187,7 +187,7 @@ npx @modelcontextprotocol/server-filesystem --help
 
 ### Windsurf Configuration
 
-Thêm vào Windsurf settings (`.windsurf/settings.json`):
+Thêm vào Windsurf settings (`.devin/settings.json`):
 
 ```json
 {

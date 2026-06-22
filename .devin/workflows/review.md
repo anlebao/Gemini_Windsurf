@@ -32,7 +32,7 @@ Activate only the relevant mode. Do not mix scopes.
 ## Active Skills (default 1, max 2)
 State review mode and active skill before reviewing. Deactivate when switching modes.
 
-| Review Mode | Skill (in `.windsurf/skills/`) |
+| Review Mode | Skill (in `.devin/skills/`) |
 |---|---|
 | review_security | `system-refactor-safety` |
 | review_sqlite | `sqlite-concurrency-analysis` |

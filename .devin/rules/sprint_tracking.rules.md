@@ -30,4 +30,4 @@ Khi người dùng gõ `audit-progress-sprint2`:
 ## ISOLATION RULES
 - File này chứa toàn bộ giao thức quét tiến độ kế toán
 - Khi kết thúc Sprint 2 và chuyển sang Sprint 3, chỉ cần sửa hoặc xóa file cục bộ này
-- Không động chạm vào xương sống của hệ thống quy tắc toàn cục (.windsurf/rules/.windsurfrules)
+- Không động chạm vào xương sống của hệ thống quy tắc toàn cục (.devin/rules/.windsurfrules)

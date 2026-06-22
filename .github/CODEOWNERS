@@ -10,7 +10,7 @@
 
 # Architecture and ADRs
 docs/decisions/ @anlebao
-.windsurf/rules/ @anlebao
+.devin/rules/ @anlebao
 
 # CI/CD Workflows
 .github/workflows/ @anlebao

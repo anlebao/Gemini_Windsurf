@@ -1,0 +1,189 @@
+@page "/einvoice/health"
+@layout EInvoiceLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain.Common
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<HealthMonitoring> Logger
+
+<div class="health-monitoring-page @ThemeProvider.CurrentTheme" data-testid="health-monitoring">
+    <header class="page-header">
+        <h1>Giám Sát Hệ Thống</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="RefreshHealth" data-testid="btn-refresh-health">
+                Làm Mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!TenantProvider.HasTenant)
+    {
+        <VanAnAlert Type="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
+    }
+    else
+    {
+        <section class="health-summary-section">
+            <div class="metrics-grid" data-testid="health-metrics">
+                <VanAMetricsCard Title="Hoạt Động" Value="@Summary.Healthy.ToString()"
+                    Icon="check-circle" Trend="+0%" Color="success" />
+                <VanAMetricsCard Title="Chậm" Value="@Summary.Slow.ToString()"
+                    Icon="clock" Trend="+0%" Color="warning" />
+                <VanAMetricsCard Title="Lỗi" Value="@Summary.Down.ToString()"
+                    Icon="x-circle" Trend="+0%" Color="danger" />
+                <VanAMetricsCard Title="Thời Gian Phản Hồi TB" Value="@($"{Summary.AvgResponseMs}ms")"
+                    Icon="zap" Trend="+0%" Color="info" />
+            </div>
+        </section>
+
+        <section class="provider-health-section">
+            <VanACard Header="Chi Tiết Sức Khoẻ Nhà Cung Cấp" data-testid="provider-health-card">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nhà Cung Cấp</th>
+                            <th>Trạng Thái</th>
+                            <th>Thời Gian Phản Hồi</th>
+                            <th>Uptime 24h</th>
+                            <th>Circuit Breaker</th>
+                            <th>Kiểm Tra Lần Cuối</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in ProviderHealthItems)
+                        {
+                            <tr>
+                                <td><strong>@h.ProviderName</strong></td>
+                                <td>
+                                    <span class="badge @GetHealthClass(h.Status)" data-testid="health-status">
+                                        @GetHealthLabel(h.Status)
+                                    </span>
+                                </td>
+                                <td>@($"{h.ResponseMs}ms")</td>
+                                <td>@($"{h.UptimePercent:F1}%")</td>
+                                <td>
+                                    <span class="badge @(h.CircuitOpen ? "badge-danger" : "badge-success")">
+                                        @(h.CircuitOpen ? "Mở (Tạm Ngưng)" : "Đóng (OK)")
+                                    </span>
+                                </td>
+                                <td>@h.LastChecked.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </VanACard>
+        </section>
+
+        <section class="retry-queue-section">
+            <VanACard Header="Hàng Đợi Thử Lại" data-testid="retry-queue-card">
+                @if (RetryQueueItems.Count == 0)
+                {
+                    <p class="empty-state">Không có mục nào trong hàng đợi thử lại.</p>
+                }
+                else
+                {
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Hóa Đơn</th>
+                                <th>Nhà Cung Cấp</th>
+                                <th>Lần Thử</th>
+                                <th>Lần Tiếp Theo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in RetryQueueItems)
+                            {
+                                <tr>
+                                    <td>@r.InvoiceId</td>
+                                    <td>@r.Provider</td>
+                                    <td>@r.AttemptCount</td>
+                                    <td>@r.NextRetry.ToString("HH:mm:ss")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </VanACard>
+        </section>
+    }
+</div>
+
+@code {
+    private sealed class HealthSummary
+    {
+        public int Healthy { get; set; }
+        public int Slow { get; set; }
+        public int Down { get; set; }
+        public int AvgResponseMs { get; set; }
+    }
+
+    private sealed record ProviderHealthItem(
+        string ProviderId, string ProviderName, string Status,
+        int ResponseMs, decimal UptimePercent, bool CircuitOpen, DateTime LastChecked);
+
+    private sealed record RetryItem(
+        string InvoiceId, string Provider, int AttemptCount, DateTime NextRetry);
+
+    private HealthSummary Summary = new();
+    private List<ProviderHealthItem> ProviderHealthItems = new();
+    private List<RetryItem> RetryQueueItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                Logger.LogWarning("HealthMonitoring: no tenant context — skipping load");
+                return;
+            }
+            await LoadHealthData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing HealthMonitoring");
+        }
+    }
+
+    private Task LoadHealthData()
+    {
+        // Placeholder: will be wired to IProviderManager.CheckProviderHealthAsync
+        ProviderHealthItems = new List<ProviderHealthItem>
+        {
+            new("viettel", "Viettel", "Healthy", 120, 99.8m, false, DateTime.Now),
+            new("misa", "MISA", "Pending", 0, 0m, false, DateTime.Now)
+        };
+        Summary = new HealthSummary
+        {
+            Healthy = ProviderHealthItems.Count(h => h.Status == "Healthy"),
+            Slow = ProviderHealthItems.Count(h => h.Status == "Slow"),
+            Down = ProviderHealthItems.Count(h => h.Status == "Error"),
+            AvgResponseMs = (int)ProviderHealthItems
+                .Where(h => h.Status == "Healthy")
+                .Select(h => h.ResponseMs)
+                .DefaultIfEmpty(0).Average()
+        };
+        RetryQueueItems = new List<RetryItem>();
+        return Task.CompletedTask;
+    }
+
+    private async Task RefreshHealth() => await LoadHealthData();
+
+    private static string GetHealthClass(string status) => status switch
+    {
+        "Healthy" => "badge-success",
+        "Slow" => "badge-warning",
+        "Error" => "badge-danger",
+        _ => "badge-secondary"
+    };
+
+    private static string GetHealthLabel(string status) => status switch
+    {
+        "Healthy" => "Hoạt Động",
+        "Slow" => "Chậm",
+        "Error" => "Lỗi",
+        _ => "Không Rõ"
+    };
+}

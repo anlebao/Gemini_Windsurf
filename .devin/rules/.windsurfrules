@@ -1,7 +1,60 @@
 # =============================================
+# MAIN GOVERNANCE FILE - REFERENCE COPY
+# The ACTIVE always-on copies live at:
+#   .devin/rules/governance.md       (governance, trigger: always_on)
+#   .devin/rules/session-context.md  (session context loading, always_on)
+# Edit those files for any rule changes. This file is reference-only.
+# =============================================
+
+# =============================================
 # VẠN AN ECOSYSTEM - WINDSURF RULES v7.0
 # STREAMLINED - Effective Date: May 6, 2026
 # =============================================
+
+## AUTO-CONTEXT LOADING (MANDATORY)
+
+**When starting a new session for ANY implementation task, AI MUST:**
+
+1. **Read PROJECT_CONTEXT.md**
+   - Path: docs/knowledge-base/00-core/PROJECT_CONTEXT.md
+   - Purpose: Project overview, architecture, ADRs, tech stack, code patterns, hard stops
+
+2. **Read project_state.md**
+   - Path: docs/AI/project_state.md
+   - Purpose: Current objective, status, next actions, health check
+
+3. **Report Context Summary**
+   Current Objective: [from project_state.md]
+   Active Mode: [ANALYZE/IMPLEMENT/FIX_ONLY/REVIEW_ONLY]
+   Current Branch: [from git]
+   Key Constraints: [from PROJECT_CONTEXT.md and .windsurfrules]
+   Next Actions: [from project_state.md]
+
+**EXCEPTIONS - Skip auto-load only for:**
+- Simple read-only operations (file reading, grep, basic exploration)
+- User explicitly requests: skip context loading
+- Quick documentation lookups unrelated to implementation
+
+**AUTO-UPDATE TRIGGERS - AI MUST auto-update project_state.md when:**
+- 5+ files modified in session
+- 30+ minutes elapsed in session
+- Context length > 50% limit
+- Completed workflow phase
+- Context overflow imminent (>80%)
+
+**NATURAL LANGUAGE TRIGGERS - AI MUST respond to:**
+- update state or save progress -> Update project_state.md
+- load context or load project context -> Read PROJECT_CONTEXT.md and project_state.md
+
+**CONTEXT OVERFLOW PROTOCOL:**
+When context is near limit (>80%):
+1. STOP current work
+2. Update project_state.md
+3. Clear non-essential context
+4. Continue with fresh context
+5. Report summary
+
+---
 
 ## CORE PRINCIPLES (NON-NEGOTIABLE)
 
@@ -81,25 +134,25 @@
 - guard-check.ps1 + dotnet build VanAn.sln MUST PASS before any submission
 
 ## WORKFLOW REFERENCES
-- **New Features:** `.windsurf/workflows/newfeaturebuild.md` (7-step ANALYZE → IMPLEMENT)
-- **Fix Errors:** `.windsurf/workflows/Fix_Errors.md` (pattern-based FIX_ONLY)
-- **Code Review:** `.windsurf/workflows/review.md` (REVIEW_ONLY)
-- **Technical Debt:** `.windsurf/workflows/technical_debt_packaging.md` (post-fix debt marking)
+- **New Features:** `.devin/workflows/newfeaturebuild.md` (7-step ANALYZE → IMPLEMENT)
+- **Fix Errors:** `.devin/workflows/Fix_Errors.md` (pattern-based FIX_ONLY)
+- **Code Review:** `.devin/workflows/review.md` (REVIEW_ONLY)
+- **Technical Debt:** `.devin/workflows/technical_debt_packaging.md` (post-fix debt marking)
 
 ## PLAYWRIGHT ISOLATION
 - Playwright is DISABLED during IMPLEMENT mode.
 - FIX_ONLY: Playwright allowed for single spec explicit validation only (max 1 per session).
 - Enable Playwright ONLY after: build passes AND implementation complete.
-- Playwright governance: `.windsurf/rules/playwright.rules.md`
-- Playwright triage: `.windsurf/workflows/playwright_triage.md`
-- Playwright validation: `.windsurf/workflows/playwright_validation.md`
-- Playwright fix: `.windsurf/workflows/playwright_fix.md`
-- Playwright fix (architectural): `.windsurf/workflows/playwright_fix_architectural.md`
+- Playwright governance: `.devin/rules/playwright.rules.md`
+- Playwright triage: `.devin/workflows/playwright_triage.md`
+- Playwright validation: `.devin/workflows/playwright_validation.md`
+- Playwright fix: `.devin/workflows/playwright_fix.md`
+- Playwright fix (architectural): `.devin/workflows/playwright_fix_architectural.md`
 
 ## ERROR HANDLING & FIXING
 
 ### **Critical Distinction**
-- **Compile Errors:** Classify by count and fix per `.windsurf/workflows/Fix_Errors.md`
+- **Compile Errors:** Classify by count and fix per `.devin/workflows/Fix_Errors.md`
 - **Architectural Violations:** ALWAYS trigger Hard Stop regardless of error count
 
 ### **Hard Stop Rules (Override All)**
@@ -109,7 +162,7 @@
 - AccountingEntry immutability violations
 - UI Platform bypass (using custom HTML/CSS instead of UI Platform components)
 
-> **Error classification, fixing protocol, fix budget:** See `.windsurf/workflows/Fix_Errors.md`
+> **Error classification, fixing protocol, fix budget:** See `.devin/workflows/Fix_Errors.md`
 
 ### **Domain Inspection Before Mapping**
 When compiler raises CS1061 (property not found on domain entity):
@@ -139,7 +192,7 @@ Example: `CartItem.Id` (PK) ≠ `CartItem.ProductId` (FK to Product). Mapping wr
 - Review findings must be tied to the changed code or active review target.
 - Pre-existing bugs: report only if they directly affect changed code or are security/data integrity risks.
 - No speculative or low-confidence issues.
-- **Review modes and output formats:** See `.windsurf/workflows/review.md`
+- **Review modes and output formats:** See `.devin/workflows/review.md`
 
 ## PROHIBITED BEHAVIORS
 - Do not create unnecessary interfaces or abstraction layers
@@ -176,9 +229,9 @@ Layer 3: Module-Specific (EmployeeForm, CustomerCard, JournalEntry, etc.)
 - Prioritize component reusability and separation of concerns
 
 ## SKILL REFERENCES
-- **Technical Debt Management:** `.windsurf/skills/technical_debt_management.md` (debt classification & remediation planning)
-- **Playwright Cost Optimizer:** `.windsurf/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
-- **Playwright Guard:** `.windsurf/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
+- **Technical Debt Management:** `.devin/skills/technical_debt_management.md` (debt classification & remediation planning)
+- **Playwright Cost Optimizer:** `.devin/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
+- **Playwright Guard:** `.devin/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
 
 ## GOAL
 Build a clean, stable, production-ready Core Accounting Engine.

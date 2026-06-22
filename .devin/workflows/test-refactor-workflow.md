@@ -30,7 +30,7 @@ Complete each phase before moving to next. Do not mix phases.
 ## Active Skills (max 3 per task)
 Select by refactor type. State before coding. Deactivate when switching phases.
 
-| Refactor Type | Skills (in `.windsurf/skills/`) |
+| Refactor Type | Skills (in `.devin/skills/`) |
 |---|---|
 | Test Strategy | `test-strategy-planning`, `test-refactor-cost-benefit` |
 | Component Tests | `test-strategy-planning`, `pattern-based-fixing` |

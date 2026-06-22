@@ -59,7 +59,7 @@ Read these files:
 - docs/knowledge-base/00-core/PROJECT_CONTEXT.md
 - docs/decisions/ADR-XXX (relevant)
 - docs/knowledge-base/02-domains/XXX.md (relevant)
-- .windsurf/rules/.windsurfrules
+- .devin/rules/.windsurfrules
 
 ## Expected Output
 
@@ -181,7 +181,7 @@ Order.Cancel() method:
 ## References
 
 - `docs/knowledge-base/08-ai/AGENTS.md` - Agent definition
-- `.windsurf/workflows/review.md` - Review workflow
+- `.devin/workflows/review.md` - Review workflow
 - `docs/knowledge-base/04-standards/ReviewChecklist.md` - Standards
 
 ---

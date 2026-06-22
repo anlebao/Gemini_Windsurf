@@ -174,5 +174,5 @@ return context?.Tenant?.Id ?? TenantId.Empty; // Provide fallback
 
 ## References
 - `docs/QuyTrinh/Refactor/18_Conflicts_System_Refactor_Plan.md`
-- `.windsurf/rules/.windsurfrules`
-- `.windsurf/workflows/newfeaturebuild.md`
+- `.devin/rules/.windsurfrules`
+- `.devin/workflows/newfeaturebuild.md`

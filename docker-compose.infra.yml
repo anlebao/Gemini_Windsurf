@@ -1,0 +1,48 @@
+# docker-compose.infra.yml
+# Infrastructure-only containers for local development
+# Usage: docker compose -f docker-compose.infra.yml up -d
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vanan-postgres-local
+    environment:
+      - POSTGRES_DB=VanAnLocal
+      - POSTGRES_USER=vanan_dev
+      - POSTGRES_PASSWORD=VanAnLocal@2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vanan_dev -d VanAnLocal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: vanan-nats-local
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js", "-sd", "/data/jetstream", "-m", "8222"]
+    volumes:
+      - nats_local_data:/data/jetstream
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_local_data:
+  nats_local_data:

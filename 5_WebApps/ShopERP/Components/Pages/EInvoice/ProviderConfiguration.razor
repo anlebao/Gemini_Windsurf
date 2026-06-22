@@ -1,0 +1,203 @@
+@page "/einvoice/configuration"
+@layout EInvoiceLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain.Common
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<ProviderConfiguration> Logger
+@inject NavigationManager NavigationManager
+
+<div class="provider-configuration-page @ThemeProvider.CurrentTheme" data-testid="provider-configuration">
+    <header class="page-header">
+        <h1>Cấu Hình Nhà Cung Cấp</h1>
+        <div class="header-actions">
+            <VanAButton
+                Variant="secondary"
+                Size="small"
+                OnClick="NavigateBack">
+                Quay Lại
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!TenantProvider.HasTenant)
+    {
+        <VanAnAlert Type="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <VanAnAlert Type="success" Message="@successMessage" data-testid="alert-success" />
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <VanAnAlert Type="danger" Message="@errorMessage" data-testid="alert-error" />
+        }
+
+        <!-- Provider Selector -->
+        <VanACard Header="Chọn Nhà Cung Cấp" data-testid="provider-selector-card">
+            <div class="form-group">
+                <label>Nhà Cung Cấp:</label>
+                <select class="form-select" @onchange="OnProviderChange" data-testid="provider-select">
+                    <option value="">-- Chọn nhà cung cấp --</option>
+                    <option value="viettel" selected="@(selectedProvider == "viettel")">Viettel</option>
+                    <option value="misa" selected="@(selectedProvider == "misa")">MISA</option>
+                </select>
+            </div>
+        </VanACard>
+
+        @if (!string.IsNullOrEmpty(selectedProvider))
+        {
+            <!-- Basic Configuration -->
+            <VanACard Header="Thông Tin Cơ Bản" data-testid="basic-config-card">
+                <div class="form-group">
+                    <label>Tên Hiển Thị:</label>
+                    <input class="form-control" @bind="ConfigModel.DisplayName"
+                           placeholder="Tên hiển thị" data-testid="input-display-name" />
+                </div>
+                <div class="form-group">
+                    <label>API Endpoint:</label>
+                    <input class="form-control" @bind="ConfigModel.ApiEndpoint"
+                           placeholder="https://api.provider.vn/..." data-testid="input-api-endpoint" />
+                </div>
+                <div class="form-group">
+                    <label>Username / Client ID:</label>
+                    <input class="form-control" @bind="ConfigModel.Username"
+                           placeholder="Username hoặc Client ID" data-testid="input-username" />
+                </div>
+                <div class="form-group">
+                    <label>Mã Số Thuế:</label>
+                    <input class="form-control" @bind="ConfigModel.TaxCode"
+                           placeholder="0123456789" data-testid="input-tax-code" />
+                </div>
+                <div class="form-group">
+                    <label>Mẫu Số Hóa Đơn:</label>
+                    <input class="form-control" @bind="ConfigModel.InvoiceTemplate"
+                           placeholder="01GTKT0/001" data-testid="input-invoice-template" />
+                </div>
+                <div class="form-actions">
+                    <VanAButton
+                        Variant="primary"
+                        OnClick="SaveConfiguration"
+                        data-testid="btn-save">
+                        Lưu Cấu Hình
+                    </VanAButton>
+                    <VanAButton
+                        Variant="secondary"
+                        OnClick="TestConnection"
+                        data-testid="btn-test">
+                        Kiểm Tra Kết Nối
+                    </VanAButton>
+                </div>
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? provider { get; set; }
+
+    private string selectedProvider = string.Empty;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private ProviderConfigModel ConfigModel = new();
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(provider))
+        {
+            selectedProvider = provider;
+            LoadProviderConfig(selectedProvider);
+        }
+    }
+
+    private void OnProviderChange(ChangeEventArgs e)
+    {
+        selectedProvider = e.Value?.ToString() ?? string.Empty;
+        if (!string.IsNullOrEmpty(selectedProvider))
+            LoadProviderConfig(selectedProvider);
+    }
+
+    private void LoadProviderConfig(string providerId)
+    {
+        // Placeholder: will be wired to IProviderManager when ready
+        ConfigModel = providerId switch
+        {
+            "viettel" => new ProviderConfigModel
+            {
+                DisplayName = "Viettel E-Invoice",
+                ApiEndpoint = "https://einvoice.viettel.vn/api",
+                Username = "",
+                TaxCode = "",
+                InvoiceTemplate = "01GTKT0/001"
+            },
+            "misa" => new ProviderConfigModel
+            {
+                DisplayName = "MISA E-Invoice",
+                ApiEndpoint = "https://einvoice.misa.vn/api",
+                Username = "",
+                TaxCode = "",
+                InvoiceTemplate = "01GTKT0/001"
+            },
+            _ => new ProviderConfigModel()
+        };
+    }
+
+    private async Task SaveConfiguration()
+    {
+        try
+        {
+            // Placeholder: will call API to save provider config
+            Logger.LogInformation(
+                "ProviderConfiguration: Saving config for provider={Provider}, tenant={Tenant}",
+                selectedProvider,
+                TenantProvider.TenantId);
+
+            successMessage = "Cấu hình đã được lưu thành công.";
+            errorMessage = string.Empty;
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving provider configuration");
+            errorMessage = "Lưu cấu hình thất bại. Vui lòng thử lại.";
+            successMessage = string.Empty;
+        }
+    }
+
+    private async Task TestConnection()
+    {
+        try
+        {
+            Logger.LogInformation(
+                "ProviderConfiguration: Testing connection for provider={Provider}",
+                selectedProvider);
+            // Placeholder: will call health check API
+            successMessage = "Kết nối thành công.";
+            errorMessage = string.Empty;
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error testing provider connection");
+            errorMessage = "Kiểm tra kết nối thất bại.";
+            successMessage = string.Empty;
+        }
+    }
+
+    private void NavigateBack() => NavigationManager.NavigateTo("/einvoice/providers");
+
+    private sealed class ProviderConfigModel
+    {
+        public string DisplayName { get; set; } = string.Empty;
+        public string ApiEndpoint { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string TaxCode { get; set; } = string.Empty;
+        public string InvoiceTemplate { get; set; } = string.Empty;
+    }
+}

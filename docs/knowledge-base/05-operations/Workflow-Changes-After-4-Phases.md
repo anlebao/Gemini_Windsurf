@@ -310,7 +310,7 @@ Trạng thái thực tế (cập nhật 2026-06-03):
 | Item | Trạng thái | Ghi chú |
 |------|-----------|---------|
 | Phase 1: Domain docs | ✅ Done | `docs/knowledge-base/` |
-| Phase 2: AGENTS.md | ✅ Done | `.windsurf/rules/` |
+| Phase 2: AGENTS.md | ✅ Done | `.devin/rules/` |
 | Phase 3: CI/CD GitHub Actions | ✅ Done | `ci.yml`, `e2e.yml`, `pr-check.yml` |
 | E2E trigger trên feature/** PR | ✅ Done | Fixed 2026-06-03 |
 | E2E block merge (quality-gate) | ⚠️ Partial | File fixed — cần bật Required Check trên GitHub Settings |

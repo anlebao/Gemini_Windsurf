@@ -14,7 +14,7 @@ ShopERP sử dụng Windsurf IDE với custom Knowledge Base để:
 ## Knowledge Base Structure
 
 ```
-.windsurf/                          # Windsurf-specific config
+.devin/                          # Windsurf-specific config
 ├── rules/
 │   ├── .windsurfrules              # Core governance v7.0
 │   └── playwright.rules.md         # E2E testing rules
@@ -59,7 +59,7 @@ docs/knowledge-base/                 # Project knowledge
 Khi Windsurf AI bắt đầu session:
 
 1. Read `docs/knowledge-base/00-core/PROJECT_CONTEXT.md`
-2. Load `.windsurf/rules/.windsurfrules`
+2. Load `.devin/rules/.windsurfrules`
 3. Identify active agent từ AGENTS.md
 4. Determine mode (ANALYZE, IMPLEMENT, FIX_ONLY, ...)
 
@@ -122,7 +122,7 @@ Execute or escalate
 
 ### .windsurfrules (Core)
 
-Located at: `.windsurf/rules/.windsurfrules`
+Located at: `.devin/rules/.windsurfrules`
 
 Contains:
 - Architecture boundaries
@@ -133,10 +133,10 @@ Contains:
 
 ### Custom Rules
 
-Extend by creating files in `.windsurf/rules/`:
+Extend by creating files in `.devin/rules/`:
 
 ```markdown
-# .windsurf/rules/custom.rules.md
+# .devin/rules/custom.rules.md
 
 ## Custom Rule
 
@@ -191,14 +191,14 @@ public class OrderDto : BaseEntity { }
 
 ### Adding New Skill
 
-1. Create `.windsurf/skills/{skill-name}.md`
+1. Create `.devin/skills/{skill-name}.md`
 2. Follow skill template
 3. Reference trong AGENTS.md
 4. Test với real task
 
 ### Adding New Workflow
 
-1. Create `.windsurf/workflows/{workflow-name}.md`
+1. Create `.devin/workflows/{workflow-name}.md`
 2. Define steps, inputs, outputs
 3. Map to agent trong AGENTS.md
 4. Document trong integration guide
@@ -214,8 +214,8 @@ public class OrderDto : BaseEntity { }
 
 - `docs/WINDSURF_USAGE_GUIDE.md` - User guide
 - `docs/decisions/ADR-001` through `ADR-005` - Architecture decisions
-- `.windsurf/rules/.windsurfrules` - Core governance
-- `.windsurf/workflows/*.md` - All workflows
+- `.devin/rules/.windsurfrules` - Core governance
+- `.devin/workflows/*.md` - All workflows
 
 ## Maintenance
 

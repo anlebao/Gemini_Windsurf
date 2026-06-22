@@ -1,0 +1,324 @@
+@page "/einvoice/invoices"
+@layout EInvoiceLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.EInvoice.Dtos
+@using VanAn.CoreHub.Services.Orchestration
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IEInvoiceOrchestrator EInvoiceOrchestrator
+@inject ILogger<InvoiceManagement> Logger
+@inject NavigationManager NavigationManager
+
+<div class="invoice-management-page @ThemeProvider.CurrentTheme" data-testid="invoice-management">
+    <header class="page-header">
+        <h1>Quản Lý Hóa Đơn Điện Tử</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="ShowCreateModal" data-testid="btn-create-invoice">
+                + Tạo Hóa Đơn
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadInvoices" data-testid="btn-refresh">
+                Làm Mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!TenantProvider.HasTenant)
+    {
+        <VanAnAlert Type="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <VanAnAlert Type="success" Message="@successMessage" data-testid="alert-success" />
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <VanAnAlert Type="danger" Message="@errorMessage" data-testid="alert-error" />
+        }
+
+        <VanACard Header="Bộ Lọc">
+            <div class="filter-row">
+                <label>Trạng Thái:</label>
+                <select class="form-select" @onchange="HandleStatusFilter" data-testid="status-filter">
+                    <option value="">-- Tất Cả --</option>
+                    <option value="Draft">Nháp</option>
+                    <option value="PendingSend">Đang Gửi</option>
+                    <option value="SentToProvider">Đã Gửi</option>
+                    <option value="Approved">Đã Duyệt</option>
+                    <option value="Rejected">Bị Từ Chối</option>
+                </select>
+            </div>
+        </VanACard>
+
+        <VanACard Header="Danh Sách Hóa Đơn" data-testid="invoice-list-card">
+            @if (isLoading)
+            {
+                <p>Đang tải hóa đơn...</p>
+            }
+            else if (FilteredInvoices.Count == 0)
+            {
+                <p class="empty-state">Không có hóa đơn nào.</p>
+            }
+            else
+            {
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Ngày Tạo</th>
+                            <th>Khách Hàng</th>
+                            <th>Tổng Tiền</th>
+                            <th>Loại</th>
+                            <th>Trạng Thái</th>
+                            <th>Nhà Cung Cấp</th>
+                            <th>Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var inv in FilteredInvoices)
+                        {
+                            <tr>
+                                <td>@inv.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                <td><span data-testid="invoice-customer">@inv.CustomerName</span></td>
+                                <td>@inv.TotalAmount.ToString("N0") ₫</td>
+                                <td>@inv.InvoiceType</td>
+                                <td>
+                                    <span class="badge @GetInvoiceStatusClass(inv.Status)" data-testid="invoice-status">
+                                        @GetInvoiceStatusLabel(inv.Status)
+                                    </span>
+                                </td>
+                                <td>@(inv.CurrentProvider ?? "—")</td>
+                                <td>
+                                    @if (inv.Status == "Draft")
+                                    {
+                                        <VanAButton Variant="primary" Size="small"
+                                            OnClick="() => SubmitInvoice(inv.InvoiceId)"
+                                            data-testid="btn-submit">
+                                            Gửi
+                                        </VanAButton>
+                                    }
+                                    <VanAButton Variant="secondary" Size="small"
+                                        OnClick="() => ViewInvoice(inv.InvoiceId)">
+                                        Chi Tiết
+                                    </VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </VanACard>
+    }
+
+    @if (showCreateModal)
+    {
+        <VanAModal Title="Tạo Hóa Đơn Điện Tử" OnClose="CloseCreateModal">
+            <div class="form-group">
+                <label>Mã Đơn Hàng:</label>
+                <input class="form-control" @bind="CreateModel.OrderId"
+                       placeholder="Mã đơn hàng" data-testid="input-order-id" />
+            </div>
+            <div class="form-group">
+                <label>Tên Khách Hàng:</label>
+                <input class="form-control" @bind="CreateModel.CustomerName"
+                       placeholder="Tên khách hàng" data-testid="input-customer-name" />
+            </div>
+            <div class="form-group">
+                <label>Mã Số Thuế Khách Hàng:</label>
+                <input class="form-control" @bind="CreateModel.CustomerTaxCode"
+                       placeholder="Mã số thuế" data-testid="input-tax-code" />
+            </div>
+            <div class="form-group">
+                <label>Địa Chỉ Khách Hàng:</label>
+                <input class="form-control" @bind="CreateModel.CustomerAddress"
+                       placeholder="Địa chỉ" data-testid="input-address" />
+            </div>
+            <div class="form-group">
+                <label>Số Tiền (chưa VAT):</label>
+                <input class="form-control" @bind="CreateModel.AmountText"
+                       placeholder="0" data-testid="input-amount" />
+            </div>
+            <div class="form-group">
+                <label>Tiền VAT:</label>
+                <input class="form-control" @bind="CreateModel.VatAmountText"
+                       placeholder="0" data-testid="input-vat" />
+            </div>
+            <div class="form-group">
+                <label>Loại Hóa Đơn:</label>
+                <select class="form-select" @bind="CreateModel.InvoiceType" data-testid="select-invoice-type">
+                    <option value="Goods">Hàng Hóa</option>
+                    <option value="Services">Dịch Vụ</option>
+                    <option value="HKD">Hộ Kinh Doanh</option>
+                    <option value="Mixed">Hỗn Hợp</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <VanAButton Variant="primary" OnClick="CreateInvoice" data-testid="btn-confirm-create">
+                    Tạo Hóa Đơn
+                </VanAButton>
+                <VanAButton Variant="secondary" OnClick="CloseCreateModal">Hủy</VanAButton>
+            </div>
+        </VanAModal>
+    }
+</div>
+
+@code {
+    private bool isLoading = false;
+    private bool showCreateModal = false;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private string statusFilter = string.Empty;
+    private List<InvoiceDto> Invoices = new();
+
+    private List<InvoiceDto> FilteredInvoices => string.IsNullOrEmpty(statusFilter)
+        ? Invoices
+        : Invoices.Where(i => i.Status == statusFilter).ToList();
+
+    private CreateInvoiceFormModel CreateModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                Logger.LogWarning("InvoiceManagement: no tenant context — skipping load");
+                return;
+            }
+            await LoadInvoices();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing InvoiceManagement");
+        }
+    }
+
+    private async Task LoadInvoices()
+    {
+        isLoading = true;
+        try
+        {
+            // Placeholder: will call list endpoint when added to IEInvoiceOrchestrator
+            Invoices = new List<InvoiceDto>();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading invoices");
+            errorMessage = "Không thể tải danh sách hóa đơn.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SubmitInvoice(Guid invoiceId)
+    {
+        try
+        {
+            await EInvoiceOrchestrator.SubmitInvoiceAsync(new ElectronicInvoiceId(invoiceId));
+            successMessage = "Hóa đơn đã được gửi thành công.";
+            errorMessage = string.Empty;
+            await LoadInvoices();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error submitting invoice {InvoiceId}", invoiceId);
+            errorMessage = "Gửi hóa đơn thất bại. Vui lòng thử lại.";
+        }
+    }
+
+    private void ViewInvoice(Guid invoiceId) =>
+        NavigationManager.NavigateTo($"/einvoice/invoices/{invoiceId}");
+
+    private async Task CreateInvoice()
+    {
+        try
+        {
+            if (!decimal.TryParse(CreateModel.AmountText, out var amount) ||
+                !decimal.TryParse(CreateModel.VatAmountText, out var vat))
+            {
+                errorMessage = "Số tiền không hợp lệ.";
+                return;
+            }
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không tìm thấy thông tin tenant.";
+                return;
+            }
+
+            var tenantId = new TenantId(TenantProvider.TenantId);
+            var orderId = new OrderId(Guid.TryParse(CreateModel.OrderId, out var oid) ? oid : Guid.NewGuid());
+            var idempotencyKey = new InvoiceIdempotencyKey(Guid.NewGuid().ToString("N"));
+            var invoiceType = CreateModel.InvoiceType.ToLowerInvariant() switch
+            {
+                "service" or "services" => InvoiceType.Services,
+                "mixed" => InvoiceType.Mixed,
+                "hkd" => InvoiceType.HKD,
+                _ => InvoiceType.Goods
+            };
+
+            await EInvoiceOrchestrator.CreateInvoiceAsync(
+                tenantId, orderId, idempotencyKey, invoiceType,
+                amount, vat, amount + vat,
+                CreateModel.CustomerName,
+                CreateModel.CustomerTaxCode,
+                CreateModel.CustomerAddress);
+
+            successMessage = "Hóa đơn đã được tạo thành công.";
+            errorMessage = string.Empty;
+            CloseCreateModal();
+            await LoadInvoices();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating invoice");
+            errorMessage = "Tạo hóa đơn thất bại. Vui lòng thử lại.";
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        CreateModel = new();
+        successMessage = string.Empty;
+        errorMessage = string.Empty;
+        showCreateModal = true;
+    }
+
+    private void CloseCreateModal() => showCreateModal = false;
+
+    private void HandleStatusFilter(ChangeEventArgs e) =>
+        statusFilter = e.Value?.ToString() ?? string.Empty;
+
+    private static string GetInvoiceStatusClass(string status) => status switch
+    {
+        "Approved" => "badge-success",
+        "SentToProvider" or "PendingSend" => "badge-warning",
+        "Rejected" => "badge-danger",
+        _ => "badge-secondary"
+    };
+
+    private static string GetInvoiceStatusLabel(string status) => status switch
+    {
+        "Draft" => "Nháp",
+        "PendingSend" => "Đang Gửi",
+        "SentToProvider" => "Đã Gửi",
+        "Approved" => "Đã Duyệt",
+        "Rejected" => "Bị Từ Chối",
+        _ => status
+    };
+
+    private sealed class CreateInvoiceFormModel
+    {
+        public string OrderId { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public string CustomerTaxCode { get; set; } = string.Empty;
+        public string CustomerAddress { get; set; } = string.Empty;
+        public string AmountText { get; set; } = "0";
+        public string VatAmountText { get; set; } = "0";
+        public string InvoiceType { get; set; } = "HKD";
+    }
+}

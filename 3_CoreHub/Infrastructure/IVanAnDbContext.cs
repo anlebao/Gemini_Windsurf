@@ -23,6 +23,9 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<AuditLog> AuditLogs { get; }
         DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; }
 
+        // Wave 1 Phase 2: User-Tenant mapping for multi-tenancy
+        DbSet<UserTenant> UserTenants { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

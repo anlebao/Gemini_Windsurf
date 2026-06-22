@@ -141,8 +141,8 @@ public async Task CannotAccessOtherTenantData()
 
 ## References
 
-- `.windsurf/rules/.windsurfrules` - Lines về domain purity
-- `.windsurf/skills/domain-integrity-validation.md`
+- `.devin/rules/.windsurfrules` - Lines về domain purity
+- `.devin/skills/domain-integrity-validation.md`
 - `1_Shared/Domain.cs` - Tenant implementation
 - `6_Tests/VanAn.Architecture.Tests/` - Isolation tests
 

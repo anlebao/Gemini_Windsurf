@@ -32,4 +32,4 @@ Implement or review Period Closing and Audit Trail features with accounting inte
 
 ## References
 - `docs/plan_MVP/sprint2-period-closing-audit-trail.md`
-- `.windsurf/rules/.windsurfrules`
+- `.devin/rules/.windsurfrules`

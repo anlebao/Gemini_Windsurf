@@ -1,90 +1,101 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 
-<VanAnModal IsOpen="true" 
-          Title="Thanh toán qua VietQR" 
-          OnClose="OnPaymentCompleted"
-          Closable="true">
-    <div class="qr-modal-content text-center">
-        @if (IsLoading)
-        {
-            <div class="loading-container">
-                <span class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Đang tạo mã QR...</span>
-                </span>
-                <p class="mt-3">Đang tạo mã QR thanh toán...</p>
+@* T-03b: Wrapper div with id="qrPaymentModal" — required by E2E selector contract.
+   VanAnModal renders its own <div class="modal"> but doesn't expose an id param.
+   Wrapping here ensures #qrPaymentModal is always in the DOM when IsOpen=true. *@
+@if (IsOpen)
+{
+    <div id="qrPaymentModal">
+        <VanAnModal IsOpen="true"
+                    Title="Thanh toán qua VietQR"
+                    OnClose="HandleClose"
+                    Closable="true">
+            <ChildContent>
+            <div class="qr-modal-content text-center">
+                @if (IsLoading)
+                {
+                    <div class="loading-container">
+                        <span class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tạo mã QR...</span>
+                        </span>
+                        <p class="mt-3">Đang tạo mã QR thanh toán...</p>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(QrImageUrl))
+                {
+                    <VanAnCard CssClass="qr-info-card" Shadow="true">
+                        <div class="qr-image-container">
+                            <img src="@QrImageUrl" alt="VietQR Payment Code" class="qr-image" />
+                        </div>
+                        <div class="qr-info mt-3">
+                            <h6>Thông tin thanh toán</h6>
+                            <p class="mb-1"><strong>Số tiền:</strong> @Amount.ToString("N0")đ</p>
+                            <p class="mb-1"><strong>Mã đơn hàng:</strong> @OrderId</p>
+                            <p class="mb-1"><strong>Ngân hàng:</strong> @BankName</p>
+                            <p class="mb-0"><small class="text-muted">Quét mã QR bằng ứng dụng ngân hàng để thanh toán</small></p>
+                        </div>
+                    </VanAnCard>
+                }
+                else if (Error != null)
+                {
+                    <VanAnCard CssClass="error-card" Shadow="true">
+                        <div class="text-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span class="ms-2">@Error</span>
+                        </div>
+                    </VanAnCard>
+                }
             </div>
-        }
-        else if (!string.IsNullOrEmpty(QrImageUrl))
-        {
-            <VanAnCard CssClass="qr-info-card" Shadow="true">
-                <div class="qr-image-container">
-                    <img src="@QrImageUrl" alt="VietQR Payment Code" class="qr-image" />
-                </div>
-                <div class="qr-info mt-3">
-                    <h6>Thông tin thanh toán</h6>
-                    <p class="mb-1"><strong>Số tiền:</strong> @Amount.ToString("N0")đ</p>
-                    <p class="mb-1"><strong>Mã đơn hàng:</strong> @OrderId</p>
-                    <p class="mb-1"><strong>Ngân hàng:</strong> @BankName</p>
-                    <p class="mb-0"><small class="text-muted">Quét mã QR bằng ứng dụng ngân hàng để thanh toán</small></p>
-                </div>
-            </VanAnCard>
-        }
-        else if (Error != null)
-        {
-            <VanAnCard CssClass="error-card" Shadow="true">
-                <div class="text-danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span class="ms-2">@Error</span>
-                </div>
-            </VanAnCard>
-        }
+            </ChildContent>
+
+            @* T-03b: FooterContent → Footer (correct VanAnModal RenderFragment parameter name) *@
+            <Footer>
+                <VanAnButton Variant="ButtonVariant.Secondary"
+                             OnClick="HandleClose">
+                    Đóng
+                </VanAnButton>
+                @if (!string.IsNullOrEmpty(QrImageUrl))
+                {
+                    <VanAnButton Variant="ButtonVariant.Primary"
+                                 Icon="download"
+                                 OnClick="DownloadQr">
+                        Lưu mã QR
+                    </VanAnButton>
+                }
+            </Footer>
+        </VanAnModal>
     </div>
-    
-    <FooterContent>
-        <VanAnButton Variant="ButtonVariant.Secondary" 
-                   OnClick="OnPaymentCompleted">
-            Đóng
-        </VanAnButton>
-        @if (!string.IsNullOrEmpty(QrImageUrl))
-        {
-            <VanAnButton Variant="ButtonVariant.Primary" 
-                       Icon="download"
-                       OnClick="DownloadQr">
-                Lưu mã QR
-            </VanAnButton>
-        }
-    </FooterContent>
-</VanAnModal>
+}
 
 <style>
     .qr-modal-content {
         padding: 20px;
     }
-    
+
     .loading-container {
         padding: 40px 20px;
     }
-    
+
     .qr-image {
         max-width: 300px;
         max-height: 300px;
         border: 2px solid #e9ecef;
         border-radius: 8px;
     }
-    
+
     .qr-info-card {
         background: #f8f9fa;
         padding: 20px;
     }
-    
+
     .qr-info-card ::deep .card-body {
         padding: 0;
     }
-    
+
     .error-card ::deep .card-body {
         padding: 20px;
         background: #f8d7da;
@@ -94,23 +105,19 @@
 </style>
 
 @code {
-    [Parameter]
-    public decimal Amount { get; set; }
-    
-    [Parameter]
-    public string OrderId { get; set; } = string.Empty;
-    
-    [Parameter]
-    public EventCallback OnPaymentCompleted { get; set; }
+    [Parameter] public decimal Amount     { get; set; }
+    [Parameter] public string  OrderId   { get; set; } = string.Empty;
+    [Parameter] public bool    IsOpen    { get; set; }
+    [Parameter] public EventCallback OnPaymentCompleted { get; set; }
 
-    private bool IsLoading { get; set; } = false;
+    private bool    IsLoading  { get; set; }
     private string? QrImageUrl { get; set; }
-    private string? BankName { get; set; }
-    private string? Error { get; set; }
+    private string? BankName   { get; set; }
+    private string? Error      { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Amount > 0 && !string.IsNullOrEmpty(OrderId))
+        if (IsOpen && Amount > 0 && !string.IsNullOrEmpty(OrderId))
         {
             await GenerateQrCode();
         }
@@ -118,34 +125,34 @@
 
     private async Task GenerateQrCode()
     {
-        IsLoading = true;
-        Error = null;
+        IsLoading  = true;
+        Error      = null;
         QrImageUrl = null;
 
         try
         {
-            // Default bank configuration (could be from shop settings)
-            var bankConfig = new
-            {
-                BankId = "970422", // Vietcombank
-                AccountNo = "1234567890",
-                AccountName = "VAN AN COFFEE"
-            };
+            // T-03b: use named client "gateway" instead of bare HttpClient
+            var http = HttpClientFactory.CreateClient("gateway");
 
             var request = new
             {
-                Amount = Amount,
+                Amount           = Amount,
                 OrderDescription = OrderId,
-                BankConfig = bankConfig
+                BankConfig       = new
+                {
+                    BankId      = "970422",   // Vietcombank default
+                    AccountNo   = "1234567890",
+                    AccountName = "VAN AN COFFEE",
+                },
             };
 
-            var response = await Http.PostAsJsonAsync("/api/v1/vietqr/generate", request);
-            
+            var response = await http.PostAsJsonAsync("api/v1/vietqr/generate", request);
+
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<VietQrResponse>();
+                var result = await response.Content.ReadFromJsonAsync<VietQrResult>();
                 QrImageUrl = result?.QrImageUrl;
-                BankName = "Vietcombank";
+                BankName   = "Vietcombank";
             }
             else
             {
@@ -162,19 +169,22 @@
         }
     }
 
+    private async Task HandleClose()
+    {
+        if (OnPaymentCompleted.HasDelegate)
+            await OnPaymentCompleted.InvokeAsync();
+    }
+
     private async Task DownloadQr()
     {
         if (!string.IsNullOrEmpty(QrImageUrl))
-        {
             await JSRuntime.InvokeVoidAsync("downloadImage", QrImageUrl, $"QR_{OrderId}.jpg");
-        }
     }
 
-    public class VietQrResponse
-    {
-        public string QrImageUrl { get; set; } = string.Empty;
-        public string PaymentUrl { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public string OrderId { get; set; } = string.Empty;
-    }
+    private record VietQrResult(
+        string  QrImageUrl,
+        string  PaymentUrl,
+        decimal Amount,
+        string  OrderId
+    );
 }

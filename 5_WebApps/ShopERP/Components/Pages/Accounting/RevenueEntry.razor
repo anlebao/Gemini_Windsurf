@@ -4,12 +4,12 @@
 @using VanAn.UI.Platform.Components
 @using PlatformComposite = VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
-@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
-@inject AuthenticationStateProvider AuthStateProvider
+@inject ITenantProvider TenantProvider
 @inject ILogger<RevenueEntry> Logger
 @inject NavigationManager NavigationManager
 
@@ -47,33 +47,10 @@
     private bool showSuccess = false;
     private bool showError = false;
     private string errorMessage = string.Empty;
-    private Guid _tenantId = Guid.Empty;
 
     protected override void OnInitialized()
     {
         InitializeFields();
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = authState.User;
-
-            if (user.Identity?.IsAuthenticated == true)
-            {
-                var tenantIdClaim = user.FindFirst("TenantId");
-                if (tenantIdClaim != null && Guid.TryParse(tenantIdClaim.Value, out var tenantId))
-                {
-                    _tenantId = tenantId;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error initializing RevenueEntry");
-        }
     }
 
     private void InitializeFields()
@@ -150,10 +127,10 @@
             showSuccess = false;
             showError = false;
 
-            if (_tenantId == Guid.Empty)
+            if (!TenantProvider.HasTenant)
             {
                 showError = true;
-                errorMessage = "Không xác định được Tenant ID";
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
                 return;
             }
 
@@ -197,7 +174,7 @@
 
             // Create accounting period
             var period = new AccountingPeriod(date.Year, date.Month);
-            var tenantId = new TenantId(_tenantId);
+            var tenantId = new TenantId(TenantProvider.TenantId);
 
             // Create accounting entry using IAccountingService
             await AccountingService.CreateRevenueEntryAsync(
@@ -218,7 +195,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error saving revenue entry for tenant {TenantId}", _tenantId);
+            Logger.LogError(ex, "Error saving revenue entry for tenant {TenantId}", TenantProvider.TenantId);
             showError = true;
             errorMessage = $"Lỗi khi lưu: {ex.Message}";
         }

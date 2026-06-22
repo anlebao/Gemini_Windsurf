@@ -31,4 +31,4 @@ Migrate custom UI code to VanAn UI Platform components while preserving behavior
 ## References
 - `docs/UI_Platform_Implementation_Guide.md`
 - `docs/plan_MVP/khachlink-ui-platform-migration-5432e4.md`
-- `.windsurf/rules/.windsurfrules`
+- `.devin/rules/.windsurfrules`

@@ -59,8 +59,8 @@ HARD STOPS (escalate to user):
 
 Read these files:
 - docs/knowledge-base/00-core/PROJECT_CONTEXT.md
-- .windsurf/rules/.windsurfrules
-- .windsurf/skills/pattern-based-fixing.md
+- .devin/rules/.windsurfrules
+- .devin/skills/pattern-based-fixing.md
 
 ## Expected Output
 
@@ -192,8 +192,8 @@ dotnet test 6_Tests/VanAn.Core.Tests/ --filter "FullyQualifiedName~{{TestClass}}
 ## References
 
 - `docs/knowledge-base/08-ai/AGENTS.md` - Agent definition
-- `.windsurf/workflows/Fix_Errors.md` - Full workflow
-- `.windsurf/skills/pattern-based-fixing.md` - Patterns
+- `.devin/workflows/Fix_Errors.md` - Full workflow
+- `.devin/skills/pattern-based-fixing.md` - Patterns
 
 ---
 
