@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
-**Current Status:** PENDING — Wave 0 not started
+**Current Status:** IN PROGRESS — Wave 0 complete (PR #38 open), Wave 1 pending merge
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -64,13 +64,13 @@ Không cần external Identity Server cho MVP — dùng `Microsoft.AspNetCore.Au
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 1 | W0-T1 | Thêm `Microsoft.AspNetCore.Authentication.JwtBearer` + `BCrypt.Net-Next` vào `Directory.Packages.props` + các `.csproj` liên quan | — | [W0-T1-card.md](#) | ⬜ PENDING |
-| 2 | W0-T2 | Implement `JwtTokenService` — issue JWT với claims: `sub`, `role`, `tenant_id`, `exp` | W0-T1 | [W0-T2-card.md](#) | ⬜ PENDING |
-| 3 | W0-T3 | Migrate `Login.cshtml.cs`: thay plain-text compare bằng BCrypt verify → issue JWT → set Cookie chứa JWT | W0-T2 | [W0-T3-card.md](#) | ⬜ PENDING |
-| 4 | W0-T4 | Add `AddJwtBearer` vào `2_Gateway/Program.cs` — validate JWT từ ShopERP | W0-T2 | [W0-T4-card.md](#) | ⬜ PENDING |
-| 5 | W0-T5 | Seed `DemoUser.PasswordHash` trong ShopERP `Program.cs` bằng BCrypt hash (thay Guid hardcode) | W0-T3 | [W0-T5-card.md](#) | ⬜ PENDING |
-| 6 | W0-T6 | Viết unit tests: `JwtTokenServiceTests` (valid/expired/tampered token), `LoginPasswordTests` (hash verify) | W0-T3 | [W0-T6-card.md](#) | ⬜ PENDING |
-| 7 | W0-T7 | Cập nhật E2E Playwright: `DevLoginController` giữ nguyên (Development only), update `dev/login` trả về JWT token để E2E tests dùng | W0-T4 | [W0-T7-card.md](#) | ⬜ PENDING |
+| 1 | W0-T1 | Thêm `Microsoft.AspNetCore.Authentication.JwtBearer` + `BCrypt.Net-Next` vào `Directory.Packages.props` + các `.csproj` liên quan | — | [W0-T1-card.md](#) | ✅ DONE |
+| 2 | W0-T2 | Implement `JwtTokenService` — issue JWT với claims: `sub`, `role`, `tenant_id`, `exp` | W0-T1 | [W0-T2-card.md](#) | ✅ DONE |
+| 3 | W0-T3 | Migrate `Login.cshtml.cs`: thay plain-text compare bằng BCrypt verify → issue JWT → set Cookie chứa JWT | W0-T2 | [W0-T3-card.md](#) | ✅ DONE |
+| 4 | W0-T4 | Add `AddJwtBearer` vào `2_Gateway/Program.cs` — validate JWT từ ShopERP | W0-T2 | [W0-T4-card.md](#) | ✅ DONE |
+| 5 | W0-T5 | Seed `DemoUser.PasswordHash` trong ShopERP `Program.cs` bằng BCrypt hash (thay Guid hardcode) | W0-T3 | [W0-T5-card.md](#) | ✅ DONE |
+| 6 | W0-T6 | Viết unit tests: `JwtTokenServiceTests` (valid/expired/tampered token), `LoginPasswordTests` (hash verify) | W0-T3 | [W0-T6-card.md](#) | ✅ DONE |
+| 7 | W0-T7 | Cập nhật E2E Playwright: `DevLoginController` giữ nguyên (Development only), update `dev/login` trả về JWT token để E2E tests dùng | W0-T4 | [W0-T7-card.md](#) | ✅ DONE |
 
 ### Entry criteria (Wave 0)
 - [ ] Branch `feature/wave0-jwt-auth` tạo từ `main` mới nhất
