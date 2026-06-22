@@ -7,17 +7,21 @@ using System.Security.Claims;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using Microsoft.EntityFrameworkCore;
+using BCrypt.Net;
 
 namespace VanAn.ShopERP.Pages
 {
     [ValidateAntiForgeryToken]
     public class LoginModel(
         IAntiforgery antiforgery,
-        IVanAnDbContext dbContext) : PageModel
+        IVanAnDbContext dbContext,
+        IJwtTokenService jwtTokenService) : PageModel
     {
         private readonly IAntiforgery _antiforgery = antiforgery;
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
 
         [BindProperty]
         public string Username { get; set; } = string.Empty;
@@ -32,70 +36,41 @@ namespace VanAn.ShopERP.Pages
                 return Page();
             }
 
-            // DEMO AUTHENTICATION - Multi-Role ShopERP Accounts
-            UserRole role;
-            Guid? userId = null;
-            bool isValid = true;
+            // Lookup user from database by username (case-insensitive)
+            var user = await _dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == Username.ToLower() && u.IsActive);
 
-            switch (Username.ToUpperInvariant())
-            {
-                case "ADMIN@VANAN.VN" when Password == "VanAn@2026":
-                    role = UserRole.Owner;
-                    userId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-                    break;
-                case "KHO@VANAN.VN" when Password == "VanAn@2026":
-                    role = UserRole.StoreKeeper;
-                    userId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-                    break;
-                case "BAOVE@VANAN.VN" when Password == "VanAn@2026":
-                    role = UserRole.Guard;
-                    userId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-                    break;
-                case "OWNER" when Password == "owner123":
-                    role = UserRole.Owner;
-                    userId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-                    break;
-                case "KEEPER" when Password == "keeper123":
-                    role = UserRole.StoreKeeper;
-                    userId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-                    break;
-                case "GUARD" when Password == "guard123":
-                    role = UserRole.Guard;
-                    userId = Guid.Parse("66666666-6666-6666-6666-666666666666");
-                    break;
-                case "STAFF" when Password == "staff123":
-                    role = UserRole.Staff;
-                    userId = Guid.Parse("77777777-7777-7777-7777-777777777777");
-                    break;
-                default:
-                    role = UserRole.Staff;
-                    isValid = false;
-                    break;
-            }
-
-            if (!isValid || userId == null)
+            // BCrypt verify: constant-time comparison, timing-attack resistant
+            if (user == null || !BCrypt.Net.BCrypt.Verify(Password, user.PasswordHash))
             {
                 ModelState.AddModelError(string.Empty, "Email hoặc password không đúng");
                 return Page();
             }
 
-            // Wave 1 Phase 2: Lookup tenant from UserTenant table
+            // Lookup tenant mapping from UserTenant table
             var userTenant = await _dbContext.UserTenants
                 .AsNoTracking()
-                .FirstOrDefaultAsync(ut => ut.UserId == userId.Value && ut.IsActive);
+                .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.IsActive);
 
-            // Fallback to default tenant if no mapping exists (E2E testing)
+            // Fallback to default tenant if no mapping exists (E2E testing / dev)
             Guid tenantId = userTenant?.TenantId ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
-            string tenantRole = userTenant?.Role ?? role.ToString();
 
-            // Tạo Claims cho authentication
-            // Wave 1 Phase 2: Standardized claim name "tenant_id" (snake_case, OIDC standard)
+            // Issue JWT token with full claims
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId: user.Id,
+                email: user.Username,
+                role: user.Role,
+                tenantId: tenantId);
+
+            // Cookie claims for Blazor Server-side UI
             List<Claim> claims =
             [
-                new Claim(ClaimTypes.Name, Username),
-                new Claim(ClaimTypes.Role, role.ToString()),
-                new Claim("DisplayName", GetDisplayName(role)),
-                new Claim("tenant_id", tenantId.ToString())
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim("DisplayName", user.DisplayName),
+                new Claim("tenant_id", tenantId.ToString()),
+                new Claim("TenantId", tenantId.ToString())
             ];
 
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -110,8 +85,17 @@ namespace VanAn.ShopERP.Pages
                 new ClaimsPrincipal(claimsIdentity),
                 authProperties);
 
+            // Set JWT in HttpOnly cookie (.VanAn.Jwt) for API calls via Bearer token
+            Response.Cookies.Append(".VanAn.Jwt", jwtToken, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict,
+                Secure = Request.IsHttps,
+                Expires = DateTimeOffset.UtcNow.AddHours(8)
+            });
+
             // Redirect based on role
-            return role switch
+            return user.Role switch
             {
                 UserRole.Guard => RedirectToPage("/Guard/Scan"),
                 UserRole.Owner => RedirectToPage("/Index"),
@@ -120,20 +104,6 @@ namespace VanAn.ShopERP.Pages
                 UserRole.Masterchef => RedirectToPage("/Index"),
                 UserRole.None => throw new NotImplementedException(),
                 _ => RedirectToPage("/Index")
-            };
-        }
-
-        private static string GetDisplayName(UserRole role)
-        {
-            return role switch
-            {
-                UserRole.Owner => "Chủ quán",
-                UserRole.StoreKeeper => "Thủ kho",
-                UserRole.Guard => "Bảo vệ",
-                UserRole.Staff => "Phục vụ",
-                UserRole.None => throw new NotImplementedException(),
-                UserRole.Masterchef => throw new NotImplementedException(),
-                _ => "Unknown"
             };
         }
     }

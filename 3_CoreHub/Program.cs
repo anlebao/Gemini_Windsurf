@@ -256,6 +256,9 @@ namespace VanAn.CoreHub
                     _ = services.AddSingleton<ISemanticSearchService, SemanticSearchService>();
                     _ = services.AddSingleton<IndexingPipeline>();
 
+                    // Wave 0: JWT Authentication Foundation
+                    _ = services.AddScoped<IJwtTokenService, JwtTokenService>();
+
                     // Logging
                     _ = services.AddLogging(builder => builder.AddConsole());
                 });

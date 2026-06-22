@@ -37,6 +37,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
 
+        // Wave 0: DemoUser for BCrypt authentication
+        public DbSet<DemoUser> Users { get; set; }
+
         // Wave 1 Phase 2: User-Tenant mapping for multi-tenancy
         public DbSet<UserTenant> UserTenants { get; set; }
 

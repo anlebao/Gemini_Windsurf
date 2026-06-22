@@ -38,6 +38,28 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**Security Compliance — Wave 0: JWT Authentication Foundation**
+
+**Status:** 🔄 IN REVIEW — PR #38 open on `feature/wave0-jwt-auth`, pending merge to `main`
+
+**Problem:** Plain-text password in Login.cshtml.cs, no JWT Bearer on Gateway, no BCrypt password hashing
+
+**Solution:** Stateless JWT (HS256, 8h), BCrypt work factor 12, dual-scheme auth (Cookie+JwtBearer)
+
+**Completed Actions:**
+1. ✅ W0-T1: JwtBearer 8.0.8 + BCrypt.Net-Next 4.0.3 added to Central Package Management
+2. ✅ W0-T2: IJwtTokenService + JwtTokenService created in 3_CoreHub/Services/
+3. ✅ W0-T3: Login.cshtml.cs migrated to BCrypt.Verify + JWT cookie issue
+4. ✅ W0-T4: AddJwtBearer added to Gateway/Program.cs (Cookie default + JwtBearer secondary)
+5. ✅ W0-T5: ShopERP seed data: 5 DemoUsers with BCrypt hash work factor 12
+6. ✅ W0-T6: 9 unit tests — JwtTokenServiceTests (5) + LoginPasswordTests (3) = 9/9 PASS
+7. ✅ W0-T7: DevLoginController returns JWT token in response for E2E Bearer tests
+
+**Next:** Merge PR #38 → start Wave 1 (Notification Integration)
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
 **Fix Integration Tests: Value Object Mapping (EF Core Configuration)**
 
 **Status:** ✅ COMPLETED (2026-06-15)
@@ -128,7 +150,9 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ### Next Phase
 
-**Current:** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
+**Current:** Security Compliance — Wave 0 PR #38 open (feature/wave0-jwt-auth), Wave 1 (Notifications) pending Wave 0 merge
+
+**Previous (archived):** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
 **Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
   - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
   - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
