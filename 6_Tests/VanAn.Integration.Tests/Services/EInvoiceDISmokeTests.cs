@@ -47,6 +47,8 @@ public class EInvoiceDISmokeTests
         services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IAuditTrailService, AuditTrailService>();
+        services.AddScoped<IReversalService, ReversalService>();
+        services.AddScoped<IPeriodClosingService, PeriodClosingService>();
         services.AddScoped<IAccountingService, AccountingEntryService>();
         services.AddScoped<IHKDRevenueClassificationService, HKDRevenueClassificationService>();
         services.AddScoped<ITenantProviderConfigurationService, TenantProviderConfigurationService>();
