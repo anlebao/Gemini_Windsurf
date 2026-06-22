@@ -1,0 +1,16 @@
+feat(security): Wave 0 [W0-S1] JWT Authentication Foundation
+
+W0-T1: Add JwtBearer 8.0.8 + BCrypt.Net-Next 4.0.3 to Central Package Management
+W0-T2: Implement IJwtTokenService + JwtTokenService in 3_CoreHub (HS256, 8h expiry)
+W0-T3: Migrate Login.cshtml.cs to BCrypt.Verify + JWT cookie issue
+W0-T4: Add AddJwtBearer dual-scheme to Gateway (Cookie default + JwtBearer secondary)
+W0-T5: Seed DemoUsers with BCrypt hashed passwords (work factor 12)
+W0-T6: Unit tests - JwtTokenServiceTests (5) + LoginPasswordTests (3) = 9/9 PASS
+W0-T7: DevLoginController returns JWT token in response for E2E tests
+
+Build: dotnet build VanAn.sln -> 0 errors
+Tests: Architecture 11/11 PASS, JWT+BCrypt 9/9 PASS
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
