@@ -38,178 +38,107 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Phase Next — Sprint A/B/C/D + Test Backlog Fixes**
+**Fix Integration Tests: Value Object Mapping (EF Core Configuration)**
 
-**Status:** ✅ **Sprint A COMPLETED** (merged) | ✅ **Sprint B COMPLETED** (merged) | ✅ **Sprint C COMPLETED** (merged) | ✅ **Sprint D COMPLETED** (merged) | ✅ **FIX-1 COMPLETED** (merged) | ✅ **FIX-2 COMPLETED** (branch ready)
+**Status:** ✅ COMPLETED (2026-06-15)
 
-**Nguồn:** `docs/AI/phase-next-order-accounting-improvements.md` — đã đối soát với source code thực tế (2026-06-20).
+**Problem:** 89 integration tests failing due to EF Core mapping errors for strongly-typed ID value objects (ProductId, IngredientId, LeadId, etc.)
 
-### Sprint A — Data Integrity (P0, effort thấp) ✅ COMPLETED
+**Solution:** Created 14 dedicated IEntityTypeConfiguration<T> files with proper HasConversion for all value objects
 
-| Task | Mô tả | File chính | Trạng thái |
-|---|---|---|---|
-| **MP-A0** | JIT Planning — đọc call sites | `IAccountingService.cs`, `AccountingEntryService.cs`, `OrderService.cs` | ✅ DONE |
-| **MP-A1** | Domain fix — thêm `AccountCode`, `Vendor`, `Category`, `Reference` vào `AccountingEntry` entity + factory methods | `1_Shared/Domain.cs` | ✅ DONE |
-| **MP-A2** | Update `IAccountingService` + `AccountingEntryService` signatures | `3_CoreHub/Services/IAccountingService.cs`, `AccountingEntryService.cs` | ✅ DONE |
-| **MP-A3** | Update `AccountingEntriesController` request DTOs + call sites | `2_Gateway/Controllers/AccountingEntriesController.cs` | ✅ DONE |
-| **MP-A4** | Update `OrderService` + `AccountingUIService` call sites | `OrderService.cs`, `AccountingUIService.cs` | ✅ DONE |
-| **MP-A5** | EF Core config for new fields (no migration — uses `EnsureCreatedAsync`) | `AccountingEntryConfiguration.cs` | ✅ DONE |
-| **Verify** | `dotnet build` 0 errors + guard pass + commit | — | ✅ DONE |
+**Entities Fixed (14 total):**
+- ElectronicInvoice, Order, Customer (Batch 0)
+- Product, Ingredient, Recipe, Inventory (Batch 1)
+- Lead, FacebookLead (Batch 2)
+- OrderItem (Batch 3)
+- Shop, DemoUser, SocialCampaign, LoyaltyRewards (Batch 4)
 
-**Files đã sửa (branch `feat/sprint-a-accountcode-fields`):**
-- `1_Shared/Domain.cs` — `AccountingEntry`: thêm 4 properties + cập nhật constructor + 4 factory methods
-- `3_CoreHub/Services/IAccountingService.cs` — `CreateRevenueEntryAsync` / `CreateExpenseEntryAsync` có optional params mới
-- `3_CoreHub/Services/AccountingEntryService.cs` — map params xuống entity factory methods
-- `2_Gateway/Controllers/AccountingEntriesController.cs` — request DTOs + call sites wired
-- `3_CoreHub/Services/OrderService.cs` — call sites thêm `accountCode: "511"` / `"621"`
-- `5_WebApps/ShopERP/Services/Accounting/AccountingUIService.cs` — wire form fields through
-- `3_CoreHub/Infrastructure/Configurations/AccountingEntryConfiguration.cs` — EF config MaxLength
-- `6_Tests/VanAn.Core.Tests/Accounting/AccountingEntriesControllerTests.cs` — fix Moq CS0854
-- `6_Tests/VanAn.Integration.Tests/Accounting/AccountingUIServiceTests.cs` — fix Moq CS0854
-- `guard-check.ps1` — fix pre-existing PowerShell here-string syntax bug
+**Pattern Applied:**
+```csharp
+builder.Property(e => e.ValueObjectId)
+    .HasConversion(id => id.Value, value => new TypeName(value))
+    .IsRequired();
+```
 
----
+**Final Architecture Flow:**
+```
+KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
+     ↓                  ↓                  ↓
+  HttpClient   ProductsController   ProductsController
+                (forward)         (query IVanAnDbContext)
+```
 
-### Sprint B — Accounting Entry Timing (P0, effort medium) ✅ COMPLETED
+**Completed Actions:**
+1. ✅ Rolled back QrMenu.razor to use Gateway API (HttpClient) instead of IVanAnDbContext
+2. ✅ Removed seed data from KhachLink Program.cs
+3. ✅ Removed seed data from CoreHub Program.cs (Class Library)
+4. ✅ Created ProductsController in ShopERP with IVanAnDbContext injection
+5. ✅ Added seed data (5 products) to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001
+6. ✅ Created Gateway ProductsController to forward requests to ShopERP via HttpClient
+7. ✅ Fixed ShopERP DI issues (IAuditTrailService, IAuditLogRepository, ITenantProvider)
+8. ✅ All services running: ShopERP (5003), Gateway (5001), KhachLink (5002)
+9. ✅ API verification: curl http://localhost:5001/api/products?tenantId=... returns 200 OK with 5 products
+10. ✅ Architecture tests: 7/7 PASS
+11. ✅ Playwright E2E tests: 15 passed, 2 skipped
 
-| Task | Mô tả | File chính | Trạng thái |
-|---|---|---|---|
-| **B-1a** | Guard `GenerateAccountingEntriesAsync` — xóa unconditional call khỏi `CreateOrderAsync` + `CreateOrderWithQueueAsync` | `OrderService.cs` | ✅ DONE |
-| **B-1b** | Thêm `ConfirmPayment()` vào `Order` entity (Domain method) + `ConfirmPaymentAsync()` vào `IOrderService` + implement | `1_Shared/Domain.cs`, `IOrderService.cs`, `OrderService.cs` | ✅ DONE |
-| **B-1c** | Thêm `POST /api/webhooks/payment` vào `WebhookController` — nhận payment confirm → gọi `ConfirmPaymentAsync` | `2_Gateway/Controllers/WebhookController.cs` | ✅ DONE |
-| **B-2** | Unit tests SC11/SC12/SC13 — 20/20 PASS | `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` | ✅ DONE |
-
-**Files đã sửa (branch `feat/sprint-b-entry-timing`):**
-- `1_Shared/Domain.cs` — `Order.ConfirmPayment(transactionId, paymentMethod)` domain method (idempotency guard)
-- `3_CoreHub/Services/IOrderService.cs` — thêm `ConfirmPaymentAsync(orderId, tenantId, transactionId, ct)`
-- `3_CoreHub/Services/OrderService.cs` — guard `CreateOrderAsync` + `CreateOrderWithQueueAsync` + implement `ConfirmPaymentAsync`
-- `2_Gateway/Controllers/WebhookController.cs` — thêm `POST /api/webhooks/payment` + `PaymentConfirmRequest` DTO + inject `IOrderService`
-- `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` — SC11 (no accounting at creation), SC12 (accounting after payment), SC13 (idempotency)
-
----
-
-### Sprint C — Service Layer Guards (P2, effort thấp-medium) ✅ COMPLETED (C-1+C-2+C-3 via Sprint D)
-
-| Task | Mô tả | File chính | Trạng thái |
-|---|---|---|---|
-| **C-1** | Server-side duplicate detection trong `AccountingEntryService` | `AccountingEntryService.cs` | ✅ DONE |
-| **C-2** | Period closing block new entries: check `IPeriodClosingService` trước khi create entry | `AccountingEntryService.cs` | ✅ DONE |
-| **C-3** | COGS từ `Product.CostPrice` thay 70% hardcode | `OrderService.cs`, `Domain.cs`, `ProductConfiguration.cs` | ✅ DONE (Sprint D — DMD-2 resolved) |
-
-**Files đã sửa (branch `feat/sprint-c-service-guards`):**
-- `3_CoreHub/Services/AccountingEntryService.cs` — inject `IPeriodClosingService`, thêm `CheckDuplicateEntryAsync()` helper, guards trong `CreateRevenueEntryAsync` + `CreateExpenseEntryAsync`
-- `3_CoreHub/Program.cs` — register `IReversalService` + `IPeriodClosingService` (missing from CoreHub DI)
-- `6_Tests/VanAn.Core.Tests/Accounting/AccountingEntryServiceTests.cs` — add `IPeriodClosingService` mock, 7 new tests (SC4-SC6 duplicate, SC11-SC13 period closing)
-
-### Sprint D — COGS CostPrice (C-3 unblock) ✅ COMPLETED
-
-**Branch:** `feat/sprint-d-cogs-costprice`  
-**Approved:** Tech Lead approved `Product.CostPrice` Domain change 2026-06-19
-
-| Task | Mô tả | File chính | Trạng thái |
-|---|---|---|---|
-| **D-1** | Add `Product.CostPrice` + `UpdateCostPrice()` to Domain.cs | `1_Shared/Domain.cs` | ✅ DONE |
-| **D-2** | EF config `CostPrice` column (default 0) | `ProductConfiguration.cs` | ✅ DONE |
-| **D-3** | Fix `OrderService` COGS: `SUM(qty × CostPrice)` with 70% fallback | `OrderService.cs` | ✅ DONE |
-| **D-4** | `ConfirmPaymentAsync` reloads order with includes for nav access | `OrderService.cs` | ✅ DONE |
-| **D-5** | Unit tests SC14/SC15/SC16 — 23/23 OrderServiceTests PASS | `OrderServiceTests.cs`, `TestEntityBuilder.cs` | ✅ DONE |
-
-**Files đã sửa (branch `feat/sprint-d-cogs-costprice`):**
-- `1_Shared/Domain.cs` — `Product`: thêm `CostPrice`, `UpdateCostPrice()`, cập nhật constructors
-- `3_CoreHub/Infrastructure/Configurations/ProductConfiguration.cs` — EF `HasPrecision(18,2)` + `HasDefaultValue(0m)`
-- `3_CoreHub/Services/OrderService.cs` — COGS calculation + `ConfirmPaymentAsync` reloads with includes
-- `6_Tests/VanAn.Core.Tests/Services/OrderServiceTests.cs` — SC14/SC15/SC16 COGS tests
-- `6_Tests/VanAn.Core.Tests/TestInfrastructure/TestEntityBuilder.cs` — `CreateProduct` thêm `costPrice` param
-
-### FIX-1 — AccountingEntriesControllerTests JWT Migration Fix ✅ COMPLETED
-
-**Root cause (verified 2026-06-19):** Wave 1 Phase 2 đã migrate controller sang JWT claim `tenant_id`, nhưng 9/10 tests vẫn dùng header `X-Tenant-Id` (deprecated). 1 test assert message sai.
-
-| Task | Mô tả | File | Trạng thái |
-|---|---|---|---|
-| **Fix-1a** | Thêm `SetTenantClaim()` helper dùng `ClaimsPrincipal` | `AccountingEntriesControllerTests.cs` | ✅ DONE |
-| **Fix-1b** | Thay `Headers["X-Tenant-Id"]` → `SetTenantClaim()` trong 8 tests | `AccountingEntriesControllerTests.cs` | ✅ DONE |
-| **Fix-1c** | Fix message assertion: `"Tenant ID required"` → `"Tenant ID required in JWT claim"` | `AccountingEntriesControllerTests.cs` | ✅ DONE |
-
-**Task card:** `docs/AI/tasks/task-fix1-accounting-controller-tests.md`  
-**Branch:** `fix/test-jwt-tenantid-accounting-controller`  
-**Result:** 10/10 PASS. Không thay đổi production code. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0.
-
-### FIX-2 — WebhookService Null callbackData Guard ✅ COMPLETED
-
-**Root cause (verified 2026-06-19):** `ProcessWebhookAsync()` không có null-guard cho `callbackData`. Null payload chạy vào `ParseWebhookPayload()`, bị `IsNullOrWhiteSpace` bắt silently → không throw. Test expect `ArgumentNullException`.
-
-| Task | Mô tả | File | Trạng thái |
-|---|---|---|---|
-| **Fix-2a** | Thêm `if (callbackData is null) throw new ArgumentNullException(...)` | `WebhookService.cs` | ✅ DONE |
-
-**Task card:** `docs/AI/tasks/task-fix2-webhook-null-guard.md`  
-**Branch:** `fix/webhook-null-callbackdata-guard`  
-**Result:** 18/18 PASS. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0. 1 dòng thêm vào production code.
-
----
+**Key Files Modified:**
+- `5_WebApps/ShopERP/Controllers/ProductsController.cs` - API endpoint with IVanAnDbContext
+- `5_WebApps/ShopERP/Program.cs` - Seed data + DI registrations
+- `5_WebApps/ShopERP/Services/TenantProvider.cs` - Local implementation
+- `2_Gateway/Controllers/ProductsController.cs` - HttpClient forward to ShopERP
+- `5_WebApps/KhachLink/Pages/QrMenu.razor` - HttpClient API calls
 
 ## 3. Current Status
 
-### Completed (tóm tắt — chi tiết xem §10 History)
+### Completed
 
-| Milestone | Date | Branch |
-|---|---|---|
-| Sprint 1 — Accounting Module Frontend | 2026-06-xx | main |
-| Sprint 2 — Period Closing + Audit Trail | 2026-06-xx | main |
-| Sprint D — COGS CostPrice (C-3 unblock) | 2026-06-19 | feat/sprint-d-cogs-costprice |
-| FIX-1 — AccountingEntriesControllerTests JWT claim migration | 2026-06-19 | fix/test-jwt-tenantid-accounting-controller |
-| FIX-2 — WebhookService null callbackData guard | 2026-06-19 | fix/webhook-null-callbackdata-guard |
-| UC1 QR Checkout (22/22 tests) | 2026-06-10 | main |
-| Value Object Mapping (14 EF configs) | 2026-06-15 | main |
-| Wave 0 — Quick Wins (P0-3, P0-7) | 2026-06-18 | main |
-| Wave 1 — TenantId Foundation (P0-1a/b) | 2026-06-18 | main |
-| Wave 2 — EInvoice API Layer (P0-6) | 2026-06-19 | main |
-| Wave 3 — KhachLink Tenant Context + Accounting Razor Cleanup | 2026-06-19 | main |
-| Wave 4 — EInvoice UI + E2E (6 pages, 3 specs) | 2026-06-20 | main |
-| P0-2 — E2E False-Positive Fix (T-16/17/18/19/21) | 2026-06-20 | main |
-| T-20 — Dev Login + global-setup auth | 2026-06-20 | main |
-| T-07 — Gateway /api/accounting alias | 2026-06-20 | main |
-| T-02 — KhachLink OrderTracking + Checkout | 2026-06-20 | main |
-| T-03 — KhachLink QR Payment Modal | 2026-06-20 | main |
-| T-06/T-11/T-21 — E2E Backlog Clearance (balance-dashboard, van-an-dashboard) | 2026-06-20 | main |
-| e2e-gap-backlog.md — All P0/P1 items verified OK or fixed | 2026-06-20 | — |
+- Sprint 1 (Phase 2.6 Frontend Accounting Module) ✅
+- Sprint 2 (Period Closing Wizard + Audit Trail) — MERGED vào `main` ✅
+- CI pipeline stabilized + Flaky Test Fix Plan (31+ tests) ✅
+- Guard Check Upgrade Phase 2 (Roslyn Analyzers VA1001-VA1005 + Integration Tests) ✅
+- GitHub Actions free-tier optimization (PR #14, merged) ✅
+- Sprint 3 E-Invoice Review Fix (F0–F4) ✅
+- **UC1 QR Checkout Completion — S1–S4 DONE, 22/22 tests PASS ✅** (2026-06-10)
+- **Value Object Mapping Fix — 14 EF Core Configuration files created ✅** (2026-06-15)
+  * Fixed: ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId converters
+  * Removed: Inline entity configurations from VanAnDbContext.cs
+  * Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
 
-**E2E infrastructure state (verified 2026-06-20):**
-- 16 spec files — tất cả dùng `expect()` thật, `storageState` auth, `GATEWAY_URL` thay `COREHUB_URL`
-- `global-setup.ts` — POST `/dev/login` → `auth/admin.json`
-- `playwright.config.ts` — `storageState: 'auth/admin.json'` global
+### Blocked
+
+- Không có blockers.
 
 ---
 
 ## 4. Next Actions
 
-### Immediate — Test Backlog Fixes (FIX-1 + FIX-2)
+### Current: Architectural Rollback - ✅ COMPLETED
 
-> Sprints A/B/C/D đều DONE và merged. Current focus: sửa pre-existing test failures phát hiện 2026-06-19.
+**Completed (2026-06-12):**
+- ✅ QrMenu.razor rolled back to use Gateway API (HttpClient)
+- ✅ Seed data removed from KhachLink and CoreHub Program.cs
+- ✅ ProductsController created in ShopERP with IVanAnDbContext
+- ✅ Seed data (5 products) added to ShopERP Program.cs
+- ✅ Gateway ProductsController created to forward to ShopERP
+- ✅ ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider)
+- ✅ All services running and verified
+- ✅ API endpoint verified (200 OK with 5 products)
+- ✅ Architecture tests: 7/7 PASS
+- ✅ Playwright E2E tests: 15 passed, 2 skipped
 
-| Fix | Task Card | Branch | Effort | Trạng thái |
-|---|---|---|---|---|
-| **FIX-1** AccountingEntriesControllerTests JWT | `task-fix1-accounting-controller-tests.md` | `fix/test-jwt-tenantid-accounting-controller` | LOW | ✅ DONE |
-| **FIX-2** WebhookService null callbackData guard | `task-fix2-webhook-null-guard.md` | `fix/webhook-null-callbackdata-guard` | TRIVIAL | ✅ DONE |
+### Next Phase
 
-**Target:** Sau FIX-1+FIX-2: `AccountingEntriesControllerTests` 10/10 PASS ✅ + `WebhookServiceTests` 18/18 PASS ✅.
-
-#### Backlog còn lại (P1-P3, chưa làm)
-
-| ID | Task | Ghi chú |
-|---|---|---|
-| P1-3 | Webhook notify Kitchen via SignalR sau payment confirm | `WebhookController.cs` + `OrderHub.cs` + `KitchenService.cs` |
-| P1-4 | KhachLink Architecture Debt — `GatewayCustomerService`, `GatewayLoyaltyRewardsService`, `CustomersController` | Fix tạm đã áp dụng (loyalty tắt). Fix triệt để cần Gateway endpoints mới |
-| P2-4 | Flaky tests 31+ — `FLAKY_TEST_FIX_PLAN.md` | CI stability |
-| P2-5 | Re-enable E2E in CI (`if: false` → conditional) | Cần P0-2 + P1-1 đã DONE ✅ → có thể làm ngay |
-| P3-1 | `AccountBalance.razor` dùng `IHKDBookService` thay in-memory grouping | Low priority |
-| P3-2 | Export CSV/Excel `TransactionHistory.razor` | Low priority |
-
-### References
-- `docs/AI/phase-next-order-accounting-improvements.md` — chi tiết Order/Accounting issues
-- `docs/AI/e2e-gap-backlog.md` — E2E gap audit (all P0/P1 items DONE ✅)
-- `docs/AI/FLAKY_TEST_FIX_PLAN.md` — Flaky test plan (8 phases)
+**Current:** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
+**Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
+  - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
+  - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
+  - Move accounting entry creation: CreateOrder → PaymentWebhook (sau khi bank confirm)
+**Pending Sprint B (P1):** Flow Completion
+  - Wire Vendor/Category/Reference fields xuống DB
+  - Webhook notify Kitchen via SignalR sau payment confirm
+  - Server-side duplicate detection cho accounting entries
+**Reference:** docs/AI/phase-next-order-accounting-improvements.md
+**Completed (2026-06-18):** CD Pipeline + Nginx/SSL deploy — PR #29–#33 merged
 
 ---
 
@@ -392,12 +321,6 @@ Phase 3 — Sprint 3 Recovery (IN PROGRESS)
 * File Path: `3_CoreHub/Program.cs`
 * Purpose: CoreHub DI composition root; E-Invoice service registrations cần được thêm tại đây.
 
-* File Path: `docs/AI/tasks/master-implementation-plan.md`
-* Purpose: Sequential wave-by-wave execution plan cho P0 items và TenantId remediation. 6 waves, branch strategy, session protocol.
-
-* File Path: `docs/AI/tasks/task-p0-3-dashboard-di-crash.md`
-* Purpose: Wave 0 task P0-3 — fix VanAnDashboard.razor DI crash (FIX_ONLY).
-
 ---
 
 ## 9. AI Health Check (Gate 6)
@@ -479,19 +402,6 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
-* **Wave 3 — TenantId Completion COMPLETED & MERGED (2026-06-19)** — Branch `fix/tenantid-wave3` → `main`. **Phase 3 (P0-1c):** Removed all `Guid.NewGuid()` demo tenant data từ KhachLink: `Index.cshtml.cs` + `Campaign.cshtml.cs` resolve tenant từ `?shopId=xxx` query param. `DashboardHub.JoinTenantGroup` + `JoinShopGroup` verify JWT claim, throw `HubException("Unauthorized: tenant mismatch.")`. `OfflineOrderService.SyncSingleOrderAsync` validate `ShopId` non-empty/valid Guid. **Phase 4 (P0-1d):** 6 Accounting Razor pages (`TransactionHistory`, `ExpenseEntry`, `PeriodClosing`, `RevenueEntry`, `AccountingIndex`, `AccountBalance`) refactored: xóa `_tenantId` field + `FindFirst("TenantId")` + hardcoded `00000000-0000-0000-0000-000000000001`, thay bằng `@inject ITenantProvider` + `TenantProvider.HasTenant` guard. `PeriodClosing` giữ `AuthStateProvider` chỉ cho `userId` (sub claim). Build 0 errors, Arch tests 11/11 PASS. 11 files, 218 insertions, 268 deletions.
-* **Wave 2 — EInvoice API Layer COMPLETED (2026-06-19)** — P0-6a Phase A + P0-6b Phase B. Phase A: DELETED `EInvoiceE2ETests.cs` (5 tests dead code), fixed `WebhookController` route from `api/webhook` (singular) to `api/webhooks` (plural), fixed body shape to accept raw provider payload (Viettel/MISA format) with automatic `invoiceNo` extraction. Phase B: Created `EInvoice/` Bounded Context trong `5_WebApps/ShopERP` với file-scoped types, `HKDElectronicInvoiceController` với 4 endpoints (`POST /api/einvoice`, `GET /api/einvoice/{id}`, `POST /api/einvoice/{id}/submit`, `GET /api/einvoice/{id}/status`), 5 DTOs (`CreateInvoiceRequest`, `InvoiceDto`, `InvoiceItemDto`, `SubmitInvoiceResponse`, `InvoiceStatusResponse`), tenant isolation via `ITenantProvider`, integration với `IEInvoiceOrchestrator`. Verification: build 0 errors, arch tests 11/11 PASS. Branch `fix/einvoice-cleanup`.
-* **Wave 1 — TenantId Foundation COMPLETED (2026-06-18)** — P0-1a Phase 1 + P0-1b Phase 2 merged to main. Phase 1: Fixed claim name mismatch (`HttpContextTenantProvider` reads "TenantId"), removed `Guid.NewGuid()` from `OrdersController.CreateOrder`, removed body/header TenantId from `AccountingEntriesController`, removed query tenantId from `ProviderController`, `VanAnDbContext` throws on empty TenantId. Phase 2: Created `UserTenant` entity (UserId, TenantId, Role, AssignedAt, IsActive), `UserTenantConfiguration.cs` with composite index, `UserTenants` DbSet, Login.cshtml.cs DB lookup with fallback, standardized claim name to `tenant_id` (snake_case), applied `[Authorize(Policy="RequireTenantAccess")]` to all Gateway controllers, registered `ITenantProvider` in Gateway. Verification: build 0 errors, arch tests 11/11 PASS. Branch `fix/tenantid-remediation` merged to `main`.
-* **EInvoice Task Card Review Audit** (2026-06-18) — COMPLETED (REVIEW_ONLY). Audited 2 task cards (`task_sprint3_einvoice.md` + `task_sprint3b_provider_integration.md`) vs codebase thực tế. Phát hiện:
-  - **Sprint 3B card outdated:** 3 claims đã done (DI wiring, RetryPolicyService submitAction, config) nhưng card vẫn ghi `[ ]`. Đã update SC + Health Check.
-  - **Sprint 3B card false claim:** Fact 12 "HKDElectronicInvoiceController REAL" — FALSE, file đã DELETE commit `e89b6c6`. Đã update.
-  - **Sprint 3 card STALE:** vẫn ở ANALYZE mode dù implementation đã diễn ra. Đã mark SUPERSEDED by Sprint 3B + update SC/Health Check.
-  - **Test coverage ảo:** EInvoiceProviderTests 0 HTTP mock (9 cases S2 plan chưa viết), CircuitBreakerTests không tồn tại, Core.Tests WebhookService stub (comment author tự ghi "stub implementation"), EInvoiceOrchestratorTests thiếu CreateInvoiceAsync flow.
-  - **E2E dead code:** `EInvoiceE2ETests.cs` 5 tests gọi `/api/einvoice*` endpoints không tồn tại (controller đã delete) + `/api/webhooks` (plural, mismatch route `api/webhook` singular) + body shape mismatch. TC-E2E-04 stub `OK || NotFound` always-pass. E2E disabled in CI (`if: false`).
-  - **Missing UI:** 6 EInvoice Razor pages + 3 Playwright specs — 0 files exist.
-  - **POS stubs:** KiotViet, Sapo — `Task.FromResult(Success: true)` hardcoded, deferred Sprint 4.
-  - **Tạo task card mới:** `docs/AI/tasks/task-einvoice-deadcode-cleanup.md` — plan dọn dead code + tạo controller/UI/E2E.
-  - **Files updated:** `task_sprint3_einvoice.md`, `task_sprint3b_provider_integration.md`, `sprint3b_provider_detailed_plan.md`. **File created:** `task-einvoice-deadcode-cleanup.md`.
 * **Value Object Mapping Fix** (2026-06-15) — COMPLETED. Created 14 EF Core Configuration files for all entities with value objects. Fixed `requires a primary key` errors for ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId. Removed inline configurations from VanAnDbContext.cs. Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
 * **KhachLink E2E Regression Fix** (2026-06-11) — In Progress. Gateway DI fixed, ProductDto created with JsonPropertyName, CartService overload added, QrMenu updated to use IHttpClientFactory. Gateway (5001) and KhachLink (5002) running. E2E tests: 9/9 failing - products not rendering in UI despite API returning data correctly.
 * **S7 Responsive** (2026-06-11) — Playwright responsive tests. TC7: Android 360×800 (no overflow, CTA clickable). TC8: iPhone 14 390×844 (no overflow). 8/8 E2E tests listed, 54 total test configurations.
@@ -514,18 +424,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-19 — FIX-1 COMPLETED. `AccountingEntriesControllerTests.cs`: added `SetTenantClaim()` helper, replaced deprecated `X-Tenant-Id` header with JWT `tenant_id` claim in 8 tests, fixed unauthorized message assertion to match anonymous object `{ error = "Tenant ID required in JWT claim" }`. 10/10 tests PASS. `dotnet build VanAn.sln --configuration Release` 0 errors. `guard-check.ps1` EXIT 0. No production code changed. Branch: `fix/test-jwt-tenantid-accounting-controller`.
-* Previous: 2026-06-19 — project_state.md updated: FIX-1 + FIX-2 task cards created. Root causes verified (AccountingEntriesControllerTests JWT migration mismatch + WebhookService null-guard missing). Section 2 + Section 4 updated. Current branch: `main`.
-* Previous: 2026-06-19 — Sprint D COMPLETED + merged to `main`. C-3 unblock (Product.CostPrice). Build 0 errors, guard EXIT 0, 23/23 OrderServiceTests PASS. Files: Domain.cs, ProductConfiguration.cs, OrderService.cs, OrderServiceTests.cs (+SC14/15/16), TestEntityBuilder.cs. DMD-2 resolved.
-* Previous: 2026-06-19 — Sprint C COMPLETED (C-1+C-2) + merged. Build 0 errors, guard EXIT 0, 9/9 AccountingEntryServiceTests PASS. Branch `feat/sprint-c-service-guards`.
-* Previous: 2026-06-19 — Sprint B COMPLETED + merged. 20/20 tests PASS. Branch `feat/sprint-b-entry-timing`.
-* Previous: 2026-06-19 — Sprint A COMPLETED + merged. Build 0 errors, guard pass. 11 files changed.
+* Last Updated: 2026-06-15 03:20 UTC+7
 * Current Branch: `main`
-* **Wave 3 MERGED (2026-06-19):** `fix/tenantid-wave3` → `main`. Phase 3 (KhachLink: Index/Campaign ?shopId, DashboardHub JWT verify, OfflineOrderService ShopId guard) + Phase 4 (6 Accounting Razor pages: replace FindFirst/hardcode with ITenantProvider). Build 0 errors, Arch tests 11/11 PASS, Guard PASSED. 11 files, 218 insertions, 268 deletions.
-* **Wave 2 MERGED (2026-06-19):** `fix/einvoice-cleanup` → `main`. Phase A (DELETE EInvoiceE2ETests.cs, fix WebhookController route/body) + Phase B (HKDElectronicInvoiceController with Bounded Context). Build 0 errors, Arch tests 11/11 PASS.
-* **Wave 1 Phase 1 COMPLETED (2026-06-18):** TenantId "Stop the Bleeding" security fixes. Files modified: `HttpContextTenantProvider.cs` (claim name fix), `OrdersController.cs` (removed Guid.NewGuid, JWT claim-based), `AccountingEntriesController.cs` (removed body/header TenantId, JWT claim-based), `ProviderController.cs` (removed query tenantId, JWT claim-based), `VanAnDbContext.cs` (throw if TenantId empty). Pre-existing issues fixed: `EInvoiceOrchestratorTests.cs` (corrected property names AggregateId→InvoiceId, Payload→EventData), `VanAnDashboard.razor` (commented out broken DashboardService calls). Build passes, Architecture tests 11/11 PASS.
-* **Wave 0 Execution COMPLETED (2026-06-18):** Implemented P0-3 (fix VanAnDashboard.razor DI crash — removed `@inject IDashboardService`) and P0-7 (EInvoice test coverage). P0-7 scope: verified CircuitBreakerServiceTests exist (16+ tests), verified ViettelEInvoiceProviderTests/MisaEInvoiceProviderTests have HTTP mock tests (8 each), added 6 new CreateInvoiceAsync flow tests to EInvoiceOrchestratorTests.cs, rewrote WebhookServiceTests.cs with real DbContext (18 tests vs 12 stub tests). Build passes. 38 tests passed.
-* **EInvoice Task Card Review Audit (2026-06-18):** REVIEW_ONLY audit 2 Sprint 3 cards vs codebase. Update `task_sprint3_einvoice.md` (mark SUPERSEDED + update SC/Health Check với 14 verified facts), `task_sprint3b_provider_integration.md` (update SC + Health Check + fix Fact 12 false claim), `sprint3b_provider_detailed_plan.md` (update status tables + mark S1 DONE). Tạo `task-einvoice-deadcode-cleanup.md` (plan dọn dead code EInvoiceE2ETests + fix WebhookController route + tạo HKDElectronicInvoiceController + 6 Razor pages + 3 Playwright specs). Phát hiện chính: backend Sprint 3B đã done, nhưng API controller đã delete, UI/E2E chưa tồn tại, test coverage ảo (stub tests + missing tests + dead E2E tests).
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().
@@ -560,11 +460,3 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
   * Updated `AGENTS.md` với Project Memory Agent (v1.2)
   * Query patterns: GetWhatWeDidLastMonth, GenerateSprintRetrospective, FindSimilarPatterns
 * History (Sprint 3 F0–F4): xem Section 10.
-
----
-
-## 11. Maintenance Log
-
-* **Last Updated:** 2026-06-19
-* **Current Branch:** fix/webhook-null-callbackdata-guard
-* **Session:** FIX-2 completed — added `ArgumentNullException` guard for `callbackData` in `WebhookService.ProcessWebhookAsync`; 18/18 `WebhookServiceTests` PASS; merged into local `main`.
