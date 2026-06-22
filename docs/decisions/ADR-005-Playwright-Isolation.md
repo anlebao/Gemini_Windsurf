@@ -60,7 +60,7 @@ Playwright E2E tests có xu hướng drive development → fragile tests, AI loo
 
 ## References
 
-- `.windsurf/rules/playwright.rules.md`
+- `.devin/rules/playwright.rules.md`
 - `6_Testing/reports/playwright-ledger.md`
 
 ## Notes

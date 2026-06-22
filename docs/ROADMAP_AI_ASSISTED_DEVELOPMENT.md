@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This roadmap builds upon the existing **Windsurf Knowledge Base** (`.windsurf/rules/`, `workflows/`, `skills/`) to create a complete AI-assisted development pipeline. We do NOT start from scratch—we **augment** what already works.
+This roadmap builds upon the existing **Windsurf Knowledge Base** (`.devin/rules/`, `workflows/`, `skills/`) to create a complete AI-assisted development pipeline. We do NOT start from scratch—we **augment** what already works.
 
 **Current State:** Giai đoạn 2-3 (Knowledge Base exists, need Domain Docs + AGENTS.md + CI/CD)  
 **Target State:** Giai đoạn 10 (Software Factory with Multi-Agent orchestration)
@@ -36,7 +36,7 @@ This roadmap builds upon the existing **Windsurf Knowledge Base** (`.windsurf/ru
 ## Phase 1: Knowledge Base Consolidation (1-2 tuần)
 
 ### Mục tiêu
-Biến kiến thức trong đầu người và chat history thành **tài sản dự án**. Tận dụng `.windsurf/` hiện tại.
+Biến kiến thức trong đầu người và chat history thành **tài sản dự án**. Tận dụng `.devin/` hiện tại.
 
 ### Deliverables
 
@@ -72,9 +72,9 @@ docs/
 │   │
 │   └── 08-ai/
 │       ├── AGENTS.md                       # Agent definitions
-│       └── windsurf-integration.md           # Link đến .windsurf/
+│       └── windsurf-integration.md           # Link đến .devin/
 │
-└── .windsurf/                              # GIỮ NGUYÊN - Đã tối ưu
+└── .devin/                              # GIỮ NGUYÊN - Đã tối ưu
     ├── rules/.windsurfrules                # Core governance v7.0
     ├── workflows/                          # 12 workflows
     └── skills/                             # 21 skills
@@ -107,7 +107,7 @@ docs/
 ### Success Criteria
 - [ ] 5 ADRs viết xong và được approve
 - [ ] Domain docs cover 4 core domains
-- [ ] PROJECT_CONTEXT.md reference đúng `.windsurf/` structure
+- [ ] PROJECT_CONTEXT.md reference đúng `.devin/` structure
 - [ ] User confirm: "AI hiểu domain, kiến trúc, business rules"
 
 ---
@@ -384,7 +384,7 @@ Commit code + docs together
 | New endpoint | API docs |
 | Business rule change | Domain docs + Changelog |
 | Architecture change | ADR mới hoặc update existing |
-| New error pattern | `.windsurf/skills/` update |
+| New error pattern | `.devin/skills/` update |
 | UI component change | Storybook/Docs |
 
 ### Week 5-6 Tasks
@@ -498,8 +498,8 @@ Answer
 |------------|---------|----------------|
 | adrs | ADR documents | Per ADR |
 | domains | Domain docs | Per entity |
-| workflows | .windsurf/workflows/ | Per workflow |
-| skills | .windsurf/skills/ | Per skill |
+| workflows | .devin/workflows/ | Per workflow |
+| skills | .devin/skills/ | Per skill |
 | codebase | Source code | Per file/class |
 | tasks | Task history | Per task |
 
@@ -731,7 +731,7 @@ Trạng thái cuối: Self-improving system.
 ### Windsurf Knowledge Base (Đã có, giữ nguyên)
 
 ```
-.windsurf/
+.devin/
 ├── rules/
 │   ├── .windsurfrules          # Core governance v7.0 ✅
 │   └── playwright.rules.md     # E2E governance ✅
@@ -776,10 +776,10 @@ UI.Platform/       # UI Components
 
 | New File | References | Purpose |
 |----------|------------|---------|
-| `docs/decisions/ADR-001` | `.windsurf/skills/nats-sqlite-deployment-validation.md` | Explain SQLite+NATS decision |
+| `docs/decisions/ADR-001` | `.devin/skills/nats-sqlite-deployment-validation.md` | Explain SQLite+NATS decision |
 | `docs/decisions/ADR-003` | `.windsurfrules` (AccountingEntry immutability) | Document business rule |
-| `docs/knowledge-base/08-ai/AGENTS.md` | All `.windsurf/workflows/*.md` | Map workflows to agents |
-| `docs/knowledge-base/00-core/PROJECT_CONTEXT.md` | `.windsurf/rules/.windsurfrules` | Provide context for AI |
+| `docs/knowledge-base/08-ai/AGENTS.md` | All `.devin/workflows/*.md` | Map workflows to agents |
+| `docs/knowledge-base/00-core/PROJECT_CONTEXT.md` | `.devin/rules/.windsurfrules` | Provide context for AI |
 | `.github/workflows/ci.yml` | `VanAn.sln`, `guard-check.ps1` | Automated CI |
 
 ---

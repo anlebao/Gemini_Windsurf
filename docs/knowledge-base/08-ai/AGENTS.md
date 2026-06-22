@@ -427,9 +427,9 @@ Before every action:
 
 ## References
 
-- `.windsurf/rules/.windsurfrules` - Core governance
-- `.windsurf/workflows/` - All workflows
-- `.windsurf/skills/` - All skills
+- `.devin/rules/.windsurfrules` - Core governance
+- `.devin/workflows/` - All workflows
+- `.devin/skills/` - All skills
 - `docs/knowledge-base/08-ai/prompts/developer-agent.md` - Developer Agent prompt template
 - `docs/knowledge-base/08-ai/prompts/qa-agent.md` - QA Agent prompt template
 - `docs/knowledge-base/08-ai/hand-off-protocol.md` - Hand-off protocol

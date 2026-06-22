@@ -170,5 +170,5 @@ Mandatory checks after any P19 fix:
 
 ## References
 - `docs/Implement/QuyTrinh/RULE_6_1_FullErrorInvestigation_Protocol.md` - P19 definition
-- `.windsurf/skills/domain-integrity-validation.md` - Validation checks
-- `.windsurf/rules/.windsurfrules` - Domain protection rules
+- `.devin/skills/domain-integrity-validation.md` - Validation checks
+- `.devin/rules/.windsurfrules` - Domain protection rules

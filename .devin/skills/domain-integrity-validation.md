@@ -30,6 +30,6 @@ Protect domain purity, immutability, and architecture boundaries during implemen
 - Business logic is moved into Controller/Gateway/Hub.
 
 ## References
-- `.windsurf/rules/.windsurfrules`
-- `.windsurf/workflows/Fix_Errors.md`
+- `.devin/rules/.windsurfrules`
+- `.devin/workflows/Fix_Errors.md`
 - `docs/QuyTrinh/Refactor/18_Conflicts_System_Refactor_Plan.md`

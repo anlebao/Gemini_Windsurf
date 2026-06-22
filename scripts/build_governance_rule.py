@@ -18,7 +18,7 @@ frontmatter = (
     '# VANAN ECOSYSTEM GOVERNANCE (v7.0)\n\n'
 )
 
-with open('.windsurf/rules/governance.md', 'w', encoding='utf-8') as f:
+with open('.devin/rules/governance.md', 'w', encoding='utf-8') as f:
     f.write(frontmatter + gov)
 
 print('governance.md created, governance chars:', len(gov))

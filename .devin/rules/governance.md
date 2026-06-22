@@ -7,6 +7,19 @@ trigger: always_on
 
 ## CORE PRINCIPLES (NON-NEGOTIABLE)
 
+## EXECUTIVE DIRECTIVES FOR RAPID EXECUTION (ANTI-BLOAT)
+
+1. ACTION-FIRST METHODOLOGY:
+   - For configuration changes, path replacements, file moves, or explicit script/CLI executions: DO NOT write structural analyses. Execute the terminal command or modification tool immediately.
+   - Limit to a maximum of 1-2 sentences of explanation BEFORE execution. Provide detailed logging or reporting only AFTER the action successfully concludes.
+
+2. PARALYSIS BY ANALYSIS ELIMINATION:
+   - If a task can be resolved via a direct `replace_all`, a quick custom script, or a single shell pipeline, bypass the 4-mode isolation logic entirely.
+   - Trust the user's explicit directive over the passive workflow constraints for environment, tooling, or quick-fix updates.
+
+3. CONTEXT THRESHOLD GUARD:
+   - You must not open or scan more than 3 files simultaneously for investigation of non-business-logic tasks.
+
 ## WORKFLOW PRECEDENCE
 - Global rules define non-negotiable constraints.
 - Workflow files define execution mode and operational steps.
@@ -92,7 +105,7 @@ trigger: always_on
 - Playwright is DISABLED during IMPLEMENT mode.
 - FIX_ONLY: Playwright allowed for single spec explicit validation only (max 1 per session).
 - Enable Playwright ONLY after: build passes AND implementation complete.
-- Playwright governance: `.windsurf/rules/playwright.rules.md`
+- Playwright governance: `.devin/rules/playwright.rules.md`
 - Playwright triage: `.devin/workflows/playwright_triage.md`
 - Playwright validation: `.devin/workflows/playwright_validation.md`
 - Playwright fix: `.devin/workflows/playwright_fix.md`
@@ -178,29 +191,10 @@ Layer 3: Module-Specific (EmployeeForm, CustomerCard, JournalEntry, etc.)
 - Prioritize component reusability and separation of concerns
 
 ## SKILL REFERENCES
-- **Technical Debt Management:** `.windsurf/skills/technical_debt_management.md` (debt classification & remediation planning)
-- **Playwright Cost Optimizer:** `.windsurf/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
-- **Playwright Guard:** `.windsurf/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
+- **Technical Debt Management:** `.devin/skills/technical_debt_management.md` (debt classification & remediation planning)
+- **Playwright Cost Optimizer:** `.devin/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
+- **Playwright Guard:** `.devin/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
 
 ## GOAL
 Build a clean, stable, production-ready Core Accounting Engine.
 Architectural integrity, immutability, and data correctness are NON-NEGOTIABLE.
-
-# === VẠN AN ACCOUNTING SPRINT TRACKING PROTOCOL ===
-- Apply this section ONLY when the user request is about Accounting MVP, Sprint 1, Sprint 2, `/audit-progress`, `audit-progress-sprint2`, or accounting progress/status.
-- Do NOT apply this sprint context to unrelated tasks, generic workflow editing, review workflows, or non-accounting modules.
-- When active, strictly execute the Vạn An Accounting MVP Plan.
-- When active, ALWAYS treat `docs/plan_MVP/sprint1-accounting-ui-detail-606838.md` and `docs/plan_MVP/vanan-accounting-implementation-606838.md` as the absolute SOURCE OF TRUTH.
-- BEFORE answering any question about "progress", "status", "what to do next", or "current state":
-  1. You MUST silently read the contents of `docs/plan_MVP/sprint1-accounting-ui-detail-606838.md`.
-  2. You MUST scan the actual project directory (e.g., `5_WebApps/ShopERP/Components/Pages/Accounting/`) to verify if the files mentioned in the plan actually exist and contain the correct implementations.
-  3. You MUST cross-reference the Plan vs. the Actual Source Code before outputting your response.
-- When the user types "/audit-progress", you must generate a strict Status Report by:
-  1. Reading `Vanan_Sprint_State.md`.
-  2. Scanning the Workspace to verify the files actually exist and match the UI Platform constraints.
-  3. Outputting a table showing: [Task Name] | [Status] | [Verification: Code Exists?] | [Next Action].
-- When the user types "audit-progress-sprint2", you must generate a strict Sprint 2 Status Report by:
-  1. Reading `docs/plan_MVP/sprint2-period-closing-audit-trail.md`.
-  2. Scanning the Workspace to verify the files mentioned in the plan actually exist.
-  3. Outputting a table showing: [Task Name] | [Status] | [Verification: Code Exists?] | [Next Action].
-  4. Include overall progress percentage and current day status.

@@ -29,6 +29,6 @@ Analyze build errors, classify severity, and identify root-cause patterns before
 - More than 3 files are needed in one fix batch.
 
 ## References
-- `.windsurf/workflows/Fix_Errors.md`
-- `.windsurf/rules/.windsurfrules`
+- `.devin/workflows/Fix_Errors.md`
+- `.devin/rules/.windsurfrules`
 - `docs/Implement/QuyTrinh/RULE_6_1_FullErrorInvestigation_Protocol.md`

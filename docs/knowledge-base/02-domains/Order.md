@@ -202,7 +202,7 @@ public record KitchenOrderReady(OrderId OrderId);
 
 - `1_Shared/Domain.cs` - Order entities
 - `1_Shared/DTOs/` - Order DTOs
-- `.windsurf/skills/domain-integrity-validation.md`
+- `.devin/skills/domain-integrity-validation.md`
 
 ---
 

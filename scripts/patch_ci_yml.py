@@ -8,13 +8,13 @@ old = """on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.windsurf/**'
+      - '.devin/**'
   pull_request:
     branches: [ main, develop, 'align-consumer-phase4' ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.windsurf/**'"""
+      - '.devin/**'"""
 
 new = """on:
   push:
@@ -22,14 +22,14 @@ new = """on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.windsurf/**'
+      - '.devin/**'
       - '.devin/**'
   pull_request:
     branches: [ main, develop ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.windsurf/**'
+      - '.devin/**'
       - '.devin/**'"""
 
 if old in content:

@@ -53,7 +53,7 @@ Pull Request / Push
 **Triggers:**
 - Push to `main` or `develop`
 - Pull request to `main` or `develop`
-- Ignores: `**.md`, `docs/**`, `.windsurf/**`
+- Ignores: `**.md`, `docs/**`, `.devin/**`
 
 **Jobs:**
 

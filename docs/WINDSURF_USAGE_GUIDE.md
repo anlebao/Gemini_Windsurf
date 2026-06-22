@@ -64,7 +64,7 @@ dùng workflow Fix_Errors
 dùng workflow newfeaturebuild
 ```
 
-Chỉ cần tên file, không cần path. AI tự tìm trong `.windsurf/workflows/`.
+Chỉ cần tên file, không cần path. AI tự tìm trong `.devin/workflows/`.
 
 ### Danh sách workflows
 

@@ -3,14 +3,15 @@ description: "Mandatory session context loading for ShopERP/VanAn project"
 trigger: always_on
 ---
 
-# SESSION CONTEXT LOADING (MANDATORY)
+# LIGHTWEIGHT CONTEXT LOADING (LAZY-LOADING)
 
-At the START of every session involving code work (implement, fix, review, plan), AI MUST read these two files before doing anything else:
+At the START of every session, you MUST ONLY read:
+1. `docs/AI/project_state.md` (To synchronize the current objective & next actions)
+2. `.devin/rules/governance.md` (To align with core constraints)
 
-1. `docs/knowledge-base/00-core/PROJECT_CONTEXT.md` — architecture, ADRs, tech stack, code patterns, hard stops
-2. `docs/AI/project_state.md` — current objective, status, next actions, history
-
-Then report a short context summary:
+CRITICAL RULES:
+- DO NOT read `docs/knowledge-base/00-core/PROJECT_CONTEXT.md` or any architectural knowledge-base files by default for micro-tasks, system configuration changes, environment updates, or bug-fixing batches.
+- `PROJECT_CONTEXT.md` is strictly LAZY-LOADED. Only read it when explicitly triggered by the user or during Phase 1-3 of a major Feature Build (`newfeaturebuild.md`).
 ```
 Context Loaded
 - Current Objective: <from project_state.md section 2>
@@ -34,4 +35,4 @@ When the user says "update state" / "save progress", or when a milestone/objecti
 Follow the Maintenance Rules in Section 0 of project_state.md (no duplicate sections, no contradictions, verify paths/branches against the real repo).
 
 ## FULL GOVERNANCE
-The complete VanAn governance (Domain rules, workflow modes, UI Platform, hard stops) is in `.windsurf/rules/governance.md` and is always-on.
+The complete VanAn governance (Domain rules, workflow modes, UI Platform, hard stops) is in `.devin/rules/governance.md` and is always-on.

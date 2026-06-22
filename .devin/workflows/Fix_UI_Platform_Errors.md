@@ -202,7 +202,7 @@ This workflow provides **concrete fix procedures** for orphan patterns:
 - [ ] No new warnings
 
 ## References
-- `.windsurf/rules/.windsurfrules` - UI Platform section
-- `.windsurf/skills/ui-platform-compliance-review.md` - For review mode
-- `.windsurf/skills/ui-platform-migration.md` - For component mapping
+- `.devin/rules/.windsurfrules` - UI Platform section
+- `.devin/skills/ui-platform-compliance-review.md` - For review mode
+- `.devin/skills/ui-platform-migration.md` - For component mapping
 - `docs/Implement/QuyTrinh/RULE_6_1_FullErrorInvestigation_Protocol.md` - Pattern definitions

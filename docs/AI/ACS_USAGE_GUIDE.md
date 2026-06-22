@@ -464,20 +464,20 @@ Với ACS:
 
 ### Smart Router Map v8.1
 - `.windsurfrules` - Smart Router Map v8.1 (gốc dự án) - **FILE CHÍNH**
-- `.windsurf/rules/.windsurfrules` - File cũ (đã deprecated)
-- `.windsurf/rules/sprint_tracking.rules.md` - Sprint tracking protocol
+- `.devin/rules/.windsurfrules` - Core governance v8.1
+- `.devin/rules/sprint_tracking.rules.md` - Sprint tracking protocol
 
 ### Workflow Files
-- `.windsurf/workflows/newfeaturebuild.md` - 7-step build new feature
-- `.windsurf/workflows/Fix_Errors.md` - Fix build errors
-- `.windsurf/workflows/Fix_Tests.md` - Fix failing C# tests
-- `.windsurf/workflows/playwright_triage.md` - Triage Playwright failures
-- `.windsurf/workflows/playwright_fix.md` - Fix classified Playwright failures
-- `.windsurf/workflows/playwright_fix_architectural.md` - Fix architectural Playwright failures
-- `.windsurf/workflows/blazor_interactivity_debug.md` - Debug Blazor Server interactivity (5 Category A-E)
-- `.windsurf/workflows/review.md` - Code review workflow
+- `.devin/workflows/newfeaturebuild.md` - 7-step build new feature
+- `.devin/workflows/Fix_Errors.md` - Fix build errors
+- `.devin/workflows/Fix_Tests.md` - Fix failing C# tests
+- `.devin/workflows/playwright_triage.md` - Triage Playwright failures
+- `.devin/workflows/playwright_fix.md` - Fix classified Playwright failures
+- `.devin/workflows/playwright_fix_architectural.md` - Fix architectural Playwright failures
+- `.devin/workflows/blazor_interactivity_debug.md` - Debug Blazor Server interactivity (5 Category A-E)
+- `.devin/workflows/review.md` - Code review workflow
 
 ### Skill Files
-- `.windsurf/skills/technical_debt_management.md` - Debt classification & remediation
-- `.windsurf/skills/playwright_cost_optimizer.md` - Deterministic cost tiers
-- `.windsurf/skills/playwright_guard.md` - Browser isolation during IMPLEMENT mode
+- `.devin/skills/technical_debt_management.md` - Debt classification & remediation
+- `.devin/skills/playwright_cost_optimizer.md` - Deterministic cost tiers
+- `.devin/skills/playwright_guard.md` - Browser isolation during IMPLEMENT mode

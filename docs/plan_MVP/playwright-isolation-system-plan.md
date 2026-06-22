@@ -11,15 +11,15 @@
 
 | # | Type | File | Action |
 |---|------|------|--------|
-| 1 | Rule | `.windsurf/rules/.windsurfrules` | UPDATE — add 6-line Playwright anchor |
-| 2 | Rule | `.windsurf/rules/playwright.rules.md` | CREATE — full governance + state mgmt + retry policy |
-| 3 | Workflow | `.windsurf/workflows/playwright_triage.md` | CREATE — collect → classify → route (no fix) |
-| 4 | Workflow | `.windsurf/workflows/playwright_validation.md` | CREATE — validate completed implementation |
-| 5 | Workflow | `.windsurf/workflows/playwright_fix.md` | CREATE — fix classified failures only |
-| 6 | Skill | `.windsurf/skills/playwright_cost_optimizer.md` | CREATE — deterministic cost tiers |
-| 7 | Skill | `.windsurf/skills/playwright_guard.md` | CREATE — disable browser during implement |
-| 8 | Workflow | `.windsurf/workflows/Fix_Tests.md` | UPDATE — add Playwright routing |
-| 9 | Workflow | `.windsurf/workflows/newfeaturebuild.md` | UPDATE — add Playwright guard reference |
+| 1 | Rule | `.devin/rules/.windsurfrules` | UPDATE — add 6-line Playwright anchor |
+| 2 | Rule | `.devin/rules/playwright.rules.md` | CREATE — full governance + state mgmt + retry policy |
+| 3 | Workflow | `.devin/workflows/playwright_triage.md` | CREATE — collect → classify → route (no fix) |
+| 4 | Workflow | `.devin/workflows/playwright_validation.md` | CREATE — validate completed implementation |
+| 5 | Workflow | `.devin/workflows/playwright_fix.md` | CREATE — fix classified failures only |
+| 6 | Skill | `.devin/skills/playwright_cost_optimizer.md` | CREATE — deterministic cost tiers |
+| 7 | Skill | `.devin/skills/playwright_guard.md` | CREATE — disable browser during implement |
+| 8 | Workflow | `.devin/workflows/Fix_Tests.md` | UPDATE — add Playwright routing |
+| 9 | Workflow | `.devin/workflows/newfeaturebuild.md` | UPDATE — add Playwright guard reference |
 
 | 10 | Ledger | `6_Testing/reports/playwright-ledger.md` | CREATE — execution tracking (append-only) |
 
@@ -39,7 +39,7 @@
 
 ## CHANGE #1 — Update `.windsurfrules`
 
-**File:** `.windsurf/rules/.windsurfrules`
+**File:** `.devin/rules/.windsurfrules`
 **Location:** Insert after line 86 (after `## WORKFLOW REFERENCES` section, before `## ERROR HANDLING`)
 **Rationale:** Minimal anchor — keeps `.windsurfrules` lean, delegates detail to `playwright.rules.md`
 
@@ -48,10 +48,10 @@
 - Playwright is DISABLED during IMPLEMENT mode.
 - FIX_ONLY: Playwright allowed for single spec explicit validation only (max 1 per session).
 - Enable Playwright ONLY after: build passes AND implementation complete.
-- Playwright governance: `.windsurf/rules/playwright.rules.md`
-- Playwright triage: `.windsurf/workflows/playwright_triage.md`
-- Playwright validation: `.windsurf/workflows/playwright_validation.md`
-- Playwright fix: `.windsurf/workflows/playwright_fix.md`
+- Playwright governance: `.devin/rules/playwright.rules.md`
+- Playwright triage: `.devin/workflows/playwright_triage.md`
+- Playwright validation: `.devin/workflows/playwright_validation.md`
+- Playwright fix: `.devin/workflows/playwright_fix.md`
 ```
 
 **Impact:** 7 lines added to `.windsurfrules`. No existing content modified.
@@ -60,7 +60,7 @@
 
 ## CHANGE #2 — Create `playwright.rules.md`
 
-**File:** `.windsurf/rules/playwright.rules.md`
+**File:** `.devin/rules/playwright.rules.md`
 **Rationale:** Full governance — always referenced by Playwright workflows, keeps detail out of `.windsurfrules`
 
 ```markdown
@@ -273,7 +273,7 @@ If test expectation conflicts with verified implementation → report as spec dr
 
 ## CHANGE #3 — Create `playwright_triage.md`
 
-**File:** `.windsurf/workflows/playwright_triage.md`
+**File:** `.devin/workflows/playwright_triage.md`
 **Rationale:** Collect and classify failures WITHOUT fixing. Routes to correct workflow. Saves tokens by preventing fix attempts on misclassified failures.
 
 ```markdown
@@ -283,7 +283,7 @@ description: Triage Playwright failures — collect, classify, route (no fix)
 
 # Playwright Triage Workflow
 
-> **Governance:** `.windsurf/rules/playwright.rules.md`
+> **Governance:** `.devin/rules/playwright.rules.md`
 
 ## Mode: TRIAGE_ONLY
 Collect failure data, classify root cause, route to correct workflow.
@@ -354,7 +354,7 @@ DO NOT proceed to fix. User must activate the appropriate workflow.
 
 ## CHANGE #4 — Create `playwright_validation.md`
 
-**File:** `.windsurf/workflows/playwright_validation.md`
+**File:** `.devin/workflows/playwright_validation.md`
 **Rationale:** Post-implementation validation with minimal execution cost. Step-by-step with STOP points.
 
 ```markdown
@@ -364,7 +364,7 @@ description: Validate completed implementation with Playwright — minimal execu
 
 # Playwright Validation Workflow
 
-> **Governance:** `.windsurf/rules/playwright.rules.md`
+> **Governance:** `.devin/rules/playwright.rules.md`
 
 ## Mode: VALIDATE_ONLY
 Validate implementation. Do NOT fix, refactor, or redesign.
@@ -446,7 +446,7 @@ DO NOT continue to implementation or fix mode.
 
 ## CHANGE #5 — Create `playwright_fix.md`
 
-**File:** `.windsurf/workflows/playwright_fix.md`
+**File:** `.devin/workflows/playwright_fix.md`
 **Rationale:** Fix classified Playwright failures with hard scope limits. Restore existing behavior only.
 
 ```markdown
@@ -456,7 +456,7 @@ description: Fix classified Playwright failures — restore existing behavior on
 
 # Playwright Fix Workflow
 
-> **Governance:** `.windsurf/rules/playwright.rules.md`
+> **Governance:** `.devin/rules/playwright.rules.md`
 
 ## Mode: FIX_PLAYWRIGHT
 Fix Playwright test failures. Restore existing behavior only.
@@ -529,7 +529,7 @@ After each iteration:
 
 ## CHANGE #6 — Create `playwright_cost_optimizer.md`
 
-**File:** `.windsurf/skills/playwright_cost_optimizer.md`
+**File:** `.devin/skills/playwright_cost_optimizer.md`
 **Rationale:** Deterministic cost control — no ambiguous "estimate cost" instructions.
 
 ```markdown
@@ -599,7 +599,7 @@ Stop at first confirmed cause. Do NOT investigate further categories.
 
 ## CHANGE #7 — Create `playwright_guard.md`
 
-**File:** `.windsurf/skills/playwright_guard.md`
+**File:** `.devin/skills/playwright_guard.md`
 **Rationale:** Hard boundary — prevents browser launch during implementation.
 
 ```markdown
@@ -658,7 +658,7 @@ acknowledge the override and run ONLY the specified test. Do NOT expand scope.
 
 ## CHANGE #8 — Update `Fix_Tests.md`
 
-**File:** `.windsurf/workflows/Fix_Tests.md`
+**File:** `.devin/workflows/Fix_Tests.md`
 **Location:** After line 15 (after "Test project has compile errors..." trigger), add Playwright routing block.
 **Rationale:** Route Playwright failures to dedicated workflow instead of mixing with dotnet test fixes.
 
@@ -669,8 +669,8 @@ acknowledge the override and run ONLY the specified test. Do NOT expand scope.
 ## Playwright Routing
 If failing tests are **Playwright E2E tests** (`.spec.ts` files in `6_Testing/`):
 - Do NOT use this workflow.
-- Route to `.windsurf/workflows/playwright_triage.md` for classification first.
-- Then use `.windsurf/workflows/playwright_fix.md` for fixes.
+- Route to `.devin/workflows/playwright_triage.md` for classification first.
+- Then use `.devin/workflows/playwright_fix.md` for fixes.
 - This workflow handles `dotnet test` failures ONLY.
 ```
 
@@ -680,7 +680,7 @@ If failing tests are **Playwright E2E tests** (`.spec.ts` files in `6_Testing/`)
 
 ## CHANGE #9 — Update `newfeaturebuild.md`
 
-**File:** `.windsurf/workflows/newfeaturebuild.md`
+**File:** `.devin/workflows/newfeaturebuild.md`
 **Location:** After line 21 (after "Do not mix phases."), add Playwright guard reference.
 **Rationale:** Explicit guard during implementation phases.
 
@@ -692,7 +692,7 @@ If failing tests are **Playwright E2E tests** (`.spec.ts` files in `6_Testing/`)
 - Playwright is DISABLED during Steps 1-6.
 - Active skill: `playwright_guard` (auto-activated for this workflow).
 - After Step 7 approval, activate `playwright_validation` workflow if E2E validation needed.
-- See `.windsurf/rules/playwright.rules.md` for full governance.
+- See `.devin/rules/playwright.rules.md` for full governance.
 ```
 
 **Impact:** 5 lines added. No existing content modified.

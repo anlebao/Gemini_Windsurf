@@ -52,7 +52,7 @@
 
 ### Bước 2.2: Thiết lập Luật Cứng tại .windsurfrules
 
-**Hành động trên Windsurf:** Mở file `.windsurf/rules/.windsurfrules` (hoặc vị trí cấu hình rules của anh).
+**Hành động trên Windsurf:** Mở file `.devin/rules/.windsurfrules` (hoặc vị trí cấu hình rules của anh).
 
 **Thêm quy tắc chặn dòng (Gate Rules):**
 ```plaintext

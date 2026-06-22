@@ -1,9 +1,8 @@
 # =============================================
-# DEPRECATED LOCATION - NOT AUTO-LOADED
-# Devin/Windsurf does NOT auto-load rules from .devin/rules/.
-# The ACTIVE always-on copies now live at:
-#   .windsurf/rules/governance.md       (governance, trigger: always_on)
-#   .windsurf/rules/session-context.md  (session context loading, always_on)
+# MAIN GOVERNANCE FILE - REFERENCE COPY
+# The ACTIVE always-on copies live at:
+#   .devin/rules/governance.md       (governance, trigger: always_on)
+#   .devin/rules/session-context.md  (session context loading, always_on)
 # Edit those files for any rule changes. This file is reference-only.
 # =============================================
 
@@ -144,7 +143,7 @@ When context is near limit (>80%):
 - Playwright is DISABLED during IMPLEMENT mode.
 - FIX_ONLY: Playwright allowed for single spec explicit validation only (max 1 per session).
 - Enable Playwright ONLY after: build passes AND implementation complete.
-- Playwright governance: `.windsurf/rules/playwright.rules.md`
+- Playwright governance: `.devin/rules/playwright.rules.md`
 - Playwright triage: `.devin/workflows/playwright_triage.md`
 - Playwright validation: `.devin/workflows/playwright_validation.md`
 - Playwright fix: `.devin/workflows/playwright_fix.md`
@@ -230,9 +229,9 @@ Layer 3: Module-Specific (EmployeeForm, CustomerCard, JournalEntry, etc.)
 - Prioritize component reusability and separation of concerns
 
 ## SKILL REFERENCES
-- **Technical Debt Management:** `.windsurf/skills/technical_debt_management.md` (debt classification & remediation planning)
-- **Playwright Cost Optimizer:** `.windsurf/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
-- **Playwright Guard:** `.windsurf/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
+- **Technical Debt Management:** `.devin/skills/technical_debt_management.md` (debt classification & remediation planning)
+- **Playwright Cost Optimizer:** `.devin/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
+- **Playwright Guard:** `.devin/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
 
 ## GOAL
 Build a clean, stable, production-ready Core Accounting Engine.

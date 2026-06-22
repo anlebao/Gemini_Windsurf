@@ -93,7 +93,7 @@ Sử dụng **SQLite local + NATS message bus + PostgreSQL cloud** architecture.
 
 - `docs/Implement/NATS_SQLite_Deployment_Guide.md`
 - `docs/Implement/Outbox_Pattern_Implementation_Guide.md`
-- `.windsurf/skills/nats-sqlite-deployment-validation.md`
+- `.devin/skills/nats-sqlite-deployment-validation.md`
 - `docs/Implement/SQLite_Concurrency_Architecture.md`
 
 ## Related

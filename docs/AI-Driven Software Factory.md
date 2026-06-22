@@ -38,7 +38,7 @@ Hệ thống Core Hub (`3_CoreHub/`) và Giao diện (`5_WebApps/`) phải đị
 *   **Thời gian:** Tuần 1  
 *   **Mục tiêu:** Cứu vớt 35 assets cũ (12 workflows, 21 skills) từ Windsurf sang Devin để không mất ngữ cảnh dự án.
 *   **Tác vụ chi tiết:**
-    *   Ép Devin đọc toàn bộ `.windsurf/` cũ, tổng hợp logic để tự viết vào cấu trúc `.devinrules`.
+    *   Ép Devin đọc toàn bộ `.devin/` cũ, tổng hợp logic để tự viết vào cấu trúc `.devinrules`.
     *   Tái cấu trúc thư mục tài liệu kiến trúc: `docs/decisions/` (Lưu 5 file ADRs nền tảng: SQLite+NATS Offline-First, Multi-Tenancy, Accounting Immutability, UI Platform, Playwright Isolation).
 *   **Tiêu chí thành công:** File `.devinrules` cấu hình xong. Devin nhận diện được 4 Core Domains (Order, Inventory, Payment, Accounting).
 
@@ -90,5 +90,5 @@ Hệ thống Core Hub (`3_CoreHub/`) và Giao diện (`5_WebApps/`) phải đị
 ## V. CÁC BƯỚC HÀNH ĐỘNG KHẨN CẤP (IMMEDIATE NEXT STEPS)
 
 - [ ] **Bước 1:** Khởi động Devin Desktop, tạo file `.devinrules` tại thư mục gốc với nội dung ở Mục I.
-- [ ] **Bước 2:** Di dời thư mục `.windsurf/` cũ vào thư mục tạm `docs/legacy-windsurf-assets/`.
+- [ ] **Bước 2:** Di dời thư mục `.devin/` cũ vào thư mục tạm `docs/legacy-windsurf-assets/`.
 - [ ] **Bước 3:** Ra lệnh cho Devin: *"Đọc toàn bộ file cũ trong `docs/legacy-windsurf-assets/`. Biên dịch và chuyển đổi toàn bộ quy tắc, kỹ năng cũ thành cấu trúc thực thi mới của mày, đảm bảo tuyệt đối tuân thủ ma trận kế toán 2026 tại Mục II."*

@@ -70,13 +70,13 @@
   "knowledge_base": {
     "index_paths": [
       "docs/knowledge-base",
-      ".windsurf/rules",
-      ".windsurf/workflows",
-      ".windsurf/skills"
+      ".devin/rules",
+      ".devin/workflows",
+      ".devin/skills"
     ],
     "auto_load_on_startup": [
       "docs/knowledge-base/00-core/PROJECT_CONTEXT.md",
-      ".windsurf/rules/.windsurfrules"
+      ".devin/rules/.windsurfrules"
     ]
   },
   "integrations": {

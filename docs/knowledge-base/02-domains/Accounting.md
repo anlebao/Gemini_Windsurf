@@ -305,7 +305,7 @@ public class AccountingEntryDto
 
 - `1_Shared/Domain.cs` - AccountingEntry implementation
 - `docs/decisions/ADR-003-Accounting-Immutability.md`
-- `.windsurf/skills/domain-integrity-validation.md`
+- `.devin/skills/domain-integrity-validation.md`
 - Thông tư 200/2014/TT-BTC
 - Thông tư 152/2025/TT-BTC
 

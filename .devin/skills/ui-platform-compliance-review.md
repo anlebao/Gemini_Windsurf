@@ -31,4 +31,4 @@ Review UI code for compliance with VanAn UI Platform rules without implementing 
 ## References
 - `docs/UI_Platform_Implementation_Guide.md`
 - `docs/plan_MVP/khachlink-ui-platform-migration-5432e4.md`
-- `.windsurf/workflows/review.md`
+- `.devin/workflows/review.md`

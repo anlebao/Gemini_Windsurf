@@ -188,7 +188,7 @@ Write-Section "PROJECT STRUCTURE"
 
 $requiredDirs = @(
     "docs/knowledge-base",
-    ".windsurf/rules",
+    ".devin/rules",
     "mcp"
 )
 
@@ -202,7 +202,7 @@ foreach ($dir in $requiredDirs) {
 
 $requiredFiles = @(
     "docs/knowledge-base/00-core/PROJECT_CONTEXT.md",
-    ".windsurf/rules/.windsurfrules",
+    ".devin/rules/.windsurfrules",
     "mcp/github-mcp/config.json",
     "mcp/filesystem-mcp/config.json"
 )

@@ -31,8 +31,8 @@ Answer
 |------------|---------|----------------|----------|
 | `adrs` | ADR documents | Per ADR | "Find ADRs about accounting" |
 | `domains` | Domain docs | Per entity | "How does Order domain work?" |
-| `workflows` | `.windsurf/workflows/` | Per workflow | "Show me bug fix workflow" |
-| `skills` | `.windsurf/skills/` | Per skill | "Find skills for build errors" |
+| `workflows` | `.devin/workflows/` | Per workflow | "Show me bug fix workflow" |
+| `skills` | `.devin/skills/` | Per skill | "Find skills for build errors" |
 | `codebase` | Source code | Per file/class | "Find InvoiceService implementation" |
 | `tasks` | Task history | Per task | "What did we do last month?" |
 

@@ -71,7 +71,7 @@ Default: `build-error-analysis`, `pattern-based-fixing`, `domain-integrity-valid
 | Tests | `test-system-upgrade` |
 
 ## Test Failures
-For failing tests, use `.windsurf/workflows/Fix_Tests.md` instead of this workflow.
+For failing tests, use `.devin/workflows/Fix_Tests.md` instead of this workflow.
 
 Use this workflow only when test failures are caused by build/compile errors and the immediate objective is zero-error build.
 

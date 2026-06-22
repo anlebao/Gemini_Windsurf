@@ -4,7 +4,7 @@ description: Fix failed E2E Playwright tests with systematic approach
 
 # Playwright E2E Fix Workflow
 
-> **Governance:** `.windsurf/rules/playwright.rules.md`
+> **Governance:** `.devin/rules/playwright.rules.md`
 
 ## Mode: FIX_ONLY
 Fix classified E2E test failures with systematic implementation and verification.

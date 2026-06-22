@@ -106,5 +106,5 @@ This skill provides **concrete fix procedures** for low-impact orphan patterns.
 5. Document: error count before/after per pattern
 
 ## References
-- `.windsurf/workflows/Fix_Errors.md`
+- `.devin/workflows/Fix_Errors.md`
 - `docs/Implement/QuyTrinh/RULE_6_1_FullErrorInvestigation_Protocol.md`

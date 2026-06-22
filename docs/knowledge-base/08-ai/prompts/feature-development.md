@@ -59,7 +59,7 @@ Read these files first:
 - docs/knowledge-base/00-core/PROJECT_CONTEXT.md
 - docs/decisions/ADR-XXX (relevant)
 - docs/knowledge-base/02-domains/XXX.md (relevant)
-- .windsurf/rules/.windsurfrules
+- .devin/rules/.windsurfrules
 
 ## Expected Output
 
@@ -156,7 +156,7 @@ VALIDATION PLAN:
 ## References
 
 - `docs/knowledge-base/08-ai/AGENTS.md` - Agent definition
-- `.windsurf/workflows/newfeaturebuild.md` - Full workflow
+- `.devin/workflows/newfeaturebuild.md` - Full workflow
 - `docs/decisions/ADR-004-UI-Platform-Mandatory.md` - UI constraints
 
 ---

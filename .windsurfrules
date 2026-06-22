@@ -62,7 +62,7 @@ NEVER modify Domain to fix UI/Service issues. AccountingEntry immutable in all m
 ALWAYS use UI Platform components. NEVER bypass. Full reference: docs/UI_Platform_Implementation_Guide.md
 
 ## SPRINT TRACKING
-Sprint protocol: .windsurf/rules/sprint_tracking.rules.md
+Sprint protocol: .devin/rules/sprint_tracking.rules.md
 
 ## CRITICAL ARCHITECTURAL BOUNDARIES (HARD STOPS)
 

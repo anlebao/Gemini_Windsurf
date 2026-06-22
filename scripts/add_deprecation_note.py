@@ -7,8 +7,8 @@ note = (
     '# DEPRECATED LOCATION - NOT AUTO-LOADED\n'
     '# Devin/Windsurf does NOT auto-load rules from .devin/rules/.\n'
     '# The ACTIVE always-on copies now live at:\n'
-    '#   .windsurf/rules/governance.md       (governance, trigger: always_on)\n'
-    '#   .windsurf/rules/session-context.md  (session context loading, always_on)\n'
+    '#   .devin/rules/governance.md       (governance, trigger: always_on)\n'
+    '#   .devin/rules/session-context.md  (session context loading, always_on)\n'
     '# Edit those files for any rule changes. This file is reference-only.\n'
     '# =============================================\n\n'
 )

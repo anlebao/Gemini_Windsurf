@@ -31,4 +31,4 @@ Implement or review Dynamic HKD Book formula, calculation, caching, and template
 
 ## References
 - `docs/plan_MVP/Dynamic_HKD_Books_Master_Plan_v3.0.md`
-- `.windsurf/rules/.windsurfrules`
+- `.devin/rules/.windsurfrules`

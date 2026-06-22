@@ -29,13 +29,13 @@ Giúp AI làm việc hiệu quả qua nhiều phiên chat mà không mất conte
 ├─────────────────────────────────────────────────────────────┤
 │  Tầng 4 — On-demand Docs & Workflows                        │
 │  • Roadmap, plan, fix plans (chỉ đọc khi cần)               │
-│  • Triggered Workflows (.windsurf/workflows/)                │
+│  • Triggered Workflows (.devin/workflows/)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tầng 1 — Always-on Rules (`.windsurf/rules/.windsurfrules`)
+## Tầng 1 — Always-on Rules (`.devin/rules/.windsurfrules`)
 
 ### Mục đích
 
@@ -215,7 +215,7 @@ Các tài liệu lớn chứa roadmap, architecture detail, fix history. **Khôn
 
 ---
 
-## Tầng 5 — Triggered Workflows (`.windsurf/workflows/`)
+## Tầng 5 — Triggered Workflows (`.devin/workflows/`)
 
 ### Mục đích
 
