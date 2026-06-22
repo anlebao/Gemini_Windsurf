@@ -94,9 +94,10 @@ public class JwtTokenServiceTests
         var svc = CreateService();
         var token = svc.GenerateToken(Guid.NewGuid(), "test@vanan.vn", UserRole.Owner, Guid.NewGuid());
 
-        // Tamper the signature: replace last char
+        // Tamper: replace the entire signature segment with a clearly invalid one
+        // (single-char flip is unreliable with base64url padding on different runtimes)
         var parts = token.Split('.');
-        parts[2] = parts[2][..^1] + (parts[2].Last() == 'A' ? 'B' : 'A');
+        parts[2] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
         var tamperedToken = string.Join('.', parts);
 
         // Act & Assert
