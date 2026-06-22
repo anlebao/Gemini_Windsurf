@@ -7,14 +7,13 @@ on:
       - '**.md'
       - 'docs/**'
       - '.devin/**'
-      - '.devin/**'
   pull_request:
     branches: [ main, develop ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.devin/**'
-      - '.devin/**'
+  workflow_dispatch:
 
 env:
   DOTNET_VERSION: '8.0.x'
