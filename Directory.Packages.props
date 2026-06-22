@@ -39,6 +39,8 @@
     <PackageVersion Include="System.Text.Json" Version="9.0.3" />
     
     <!-- Authentication Packages -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.8" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.9" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.8" />

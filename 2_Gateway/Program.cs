@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using VanAn.Shared.Services;
 using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Services;
@@ -40,12 +43,37 @@ namespace VanAn.Gateway
             _ = builder.Services.AddControllers();
             _ = builder.Services.AddSignalR();
 
-            // Wave 1 Phase 2: Authentication & Authorization for RequireTenantAccess policy
-            _ = builder.Services.AddAuthentication()
+            // Wave 0: JWT + Cookie dual-scheme authentication
+            // Cookie is default scheme (keeps Blazor UI working).
+            // JwtBearer is secondary scheme for API endpoints — validate tokens issued by ShopERP.
+            var jwtSecret = builder.Configuration["Jwt:Secret"]
+                ?? throw new InvalidOperationException("Jwt:Secret configuration is required in Gateway.");
+            var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VanAnShopERP";
+            var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "VanAnApi";
+
+            _ = builder.Services.AddAuthentication(options =>
+            {
+                // Cookie remains the default scheme — Blazor UI continues to work unchanged
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            })
                 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
                 {
                     options.LoginPath = "/login";
                     options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                })
+                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+                        ValidateIssuer = true,
+                        ValidIssuer = jwtIssuer,
+                        ValidateAudience = true,
+                        ValidAudience = jwtAudience,
+                        ValidateLifetime = true,
+                        ClockSkew = TimeSpan.Zero
+                    };
                 });
 
             _ = builder.Services.AddAuthorizationBuilder()

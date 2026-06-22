@@ -31,6 +31,8 @@
     <PackageReference Include="Serilog" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="NATS.Client" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Moq" />
