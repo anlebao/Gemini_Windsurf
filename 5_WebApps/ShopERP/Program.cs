@@ -1,11 +1,11 @@
 using VanAn.Shared.Domain;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
 using VanAn.UI.Platform.Services;
-using Microsoft.EntityFrameworkCore;
 using Serilog;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
@@ -121,6 +121,9 @@ namespace VanAn.ShopERP
             // Add Memory Cache for ShopConfigService
             _ = builder.Services.AddMemoryCache();
 
+            // Wave 0: JWT Authentication Foundation
+            _ = builder.Services.AddScoped<CoreHub.Services.IJwtTokenService, CoreHub.Services.JwtTokenService>();
+
             // ✅ FIXED: Enterprise authentication configuration
             _ = builder.Services.AddAuthentication(options =>
             {
@@ -197,6 +200,35 @@ namespace VanAn.ShopERP
                 _ = await context.Database.ExecuteSqlRawAsync("PRAGMA synchronous=NORMAL;");
 
                 Console.WriteLine("SQLite database optimized for concurrency");
+
+                // Wave 0 [W0-T5]: Seed DemoUsers with BCrypt hashed passwords (work factor 12)
+                // Only seeds if no users exist to avoid duplicate key errors
+                if (!await context.Users.AnyAsync())
+                {
+                    var passwordHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
+
+                    static DemoUser MakeDemoUser(string username, string hash, string displayName, UserRole role)
+                    {
+                        // Activator bypasses protected constructor visibility — needed because DemoUser()
+                        // is protected (EF Core materialization pattern). Seed-only usage.
+                        var u = (DemoUser)Activator.CreateInstance(typeof(DemoUser), nonPublic: true)!;
+                        u.Username = username;
+                        u.PasswordHash = hash;
+                        u.DisplayName = displayName;
+                        u.Role = role;
+                        return u;
+                    }
+
+                    context.Users.AddRange(
+                        MakeDemoUser("admin@vanan.vn", passwordHash, "Chủ Quán", UserRole.Owner),
+                        MakeDemoUser("kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper),
+                        MakeDemoUser("baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard),
+                        MakeDemoUser("staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff),
+                        MakeDemoUser("bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef)
+                    );
+                    _ = await context.SaveChangesAsync();
+                    Console.WriteLine("Wave 0: DemoUsers seeded with BCrypt hashed passwords.");
+                }
             }
 
             // Configure the HTTP request pipeline.

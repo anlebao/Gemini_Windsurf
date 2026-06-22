@@ -23,6 +23,9 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<AuditLog> AuditLogs { get; }
         DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; }
 
+        // Wave 0: Demo users for BCrypt authentication
+        DbSet<DemoUser> Users { get; }
+
         // Wave 1 Phase 2: User-Tenant mapping for multi-tenancy
         DbSet<UserTenant> UserTenants { get; }
 

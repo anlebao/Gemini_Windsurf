@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using VanAn.CoreHub.Services;
+using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Controllers
 {
@@ -10,20 +12,25 @@ namespace VanAn.ShopERP.Controllers
     /// Issues a real Cookie auth session with a fixed TenantId + role claims,
     /// bypassing OIDC (which requires an external identity server unavailable in test env).
     ///
+    /// Wave 0: Also issues JWT token in response body for E2E tests that need Bearer auth.
+    ///
     /// SECURITY: This controller ONLY registers in Development environment (Program.cs guard).
     /// It is completely absent from Production/Staging builds.
     /// </summary>
     [ApiController]
     [Route("dev")]
-    public class DevLoginController : ControllerBase
+    public class DevLoginController(IJwtTokenService jwtTokenService) : ControllerBase
     {
+        private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
+
         // Fixed test tenant — matches the seed tenant used by ShopERP dev SQLite DB
         private static readonly Guid TestTenantId = new("11111111-1111-1111-1111-111111111111");
+        private static readonly Guid TestUserId   = new("11111111-1111-1111-1111-111111111111");
         private const string TestUserEmail = "admin@vanan.vn";
         private const string TestUserName  = "Dev Admin";
         private const string TestRole      = "Owner";
 
-        /// <summary>POST /dev/login — issues Cookie auth session for E2E tests.</summary>
+        /// <summary>POST /dev/login — issues Cookie auth session + JWT token for E2E tests.</summary>
         [HttpPost("login")]
         public async Task<IActionResult> Login()
         {
@@ -55,13 +62,21 @@ namespace VanAn.ShopERP.Controllers
                 principal,
                 authProperties);
 
+            // Wave 0: Issue JWT token for E2E tests that call API endpoints via Bearer token
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId: TestUserId,
+                email: TestUserEmail,
+                role: UserRole.Owner,
+                tenantId: TestTenantId);
+
             return Ok(new
             {
                 success  = true,
                 tenantId = TestTenantId,
                 email    = TestUserEmail,
                 role     = TestRole,
-                message  = "Dev login successful — cookie issued",
+                token    = jwtToken,
+                message  = "Dev login successful — cookie and JWT issued",
             });
         }
 
@@ -72,7 +87,7 @@ namespace VanAn.ShopERP.Controllers
             {
                 available = true,
                 env       = "Development",
-                note      = "POST to /dev/login to create an auth session for E2E tests",
+                note      = "POST to /dev/login to create an auth session + get JWT token for E2E tests",
             });
 
         /// <summary>POST /dev/logout — clears the dev session cookie.</summary>

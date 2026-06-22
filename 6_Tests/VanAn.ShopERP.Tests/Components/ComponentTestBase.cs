@@ -8,6 +8,7 @@ using VanAn.UI.Platform.Adapters;
 using Microsoft.AspNetCore.Components;
 using Bunit.JSInterop;
 using VanAn.UI.Platform.Components;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.ShopERP.Tests.Components;
 
@@ -30,6 +31,13 @@ public class ComponentTestBase : TestContext
         
         // Register Core Services (mock by default, tests can override)
         Services.AddSingleton<IAccountingService>(sp => new Mock<IAccountingService>().Object);
+        
+        // Register ITenantProvider mock — required by Blazor components with [Inject] ITenantProvider
+        var mockTenantProvider = new Mock<ITenantProvider>();
+        mockTenantProvider.Setup(t => t.TenantId).Returns(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        mockTenantProvider.Setup(t => t.CurrentUser).Returns("test-user");
+        mockTenantProvider.Setup(t => t.HasTenant).Returns(true);
+        Services.AddSingleton(mockTenantProvider.Object);
         
         // Configure JSInterop for components with JavaScript interop
         JSInterop.Mode = JSRuntimeMode.Loose;

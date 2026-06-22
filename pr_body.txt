@@ -1,0 +1,20 @@
+## Summary
+- Migrate all governance rules/workflows/skills from .windsurf/ to .devin/ directory
+- Consolidate 3 Playwright workflows into single playwright_master.md (reduce cognitive overhead)
+- Add EXECUTIVE DIRECTIVES to governance.md for action-first methodology and anti-bloat enforcement
+- Change session-context.md to lazy-loading (only load project_state.md + governance.md by default)
+- Archive 18 completed task cards to archive_tasks.md (reduce active memory)
+- Create 2 template files (master implementation plan + phase task card) for reuse
+- Update all documentation references from .windsurf/ to .devin/ across codebase
+- Delete deprecated .windsurf/rules/ directory
+
+## Context
+This refactoring addresses analysis paralysis and context bloat by reducing file count from 63 to 2 templates + active tasks, enforcing action-first execution, and implementing lazy-loading for architectural context.
+
+#### Test plan
+- [x] guard-check.ps1: PASS
+- [x] dotnet build VanAn.sln: PASS
+- [ ] Remote CI: Pending
+- [ ] Remote CD: Pending (after CI passes)
+
+Generated with [Devin](https://devin.ai)
