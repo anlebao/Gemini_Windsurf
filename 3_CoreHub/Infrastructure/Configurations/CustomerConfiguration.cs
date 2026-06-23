@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VanAn.CoreHub.Infrastructure.DataProtection;
+using VanAn.CoreHub.Infrastructure.ValueConverters;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
@@ -19,12 +21,17 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(200);
 
+            // Wave 2: PII encryption for PhoneNumber and Email
             _ = builder.Property(e => e.PhoneNumber)
                 .IsRequired()
-                .HasMaxLength(20);
+                .HasMaxLength(500)
+                .HasConversion(new EncryptedStringConverter(
+                    DataProtectionProviderAccessor.CreateProtector("Customer.PhoneNumber")));
 
             _ = builder.Property(e => e.Email)
-                .HasMaxLength(100);
+                .HasMaxLength(500)
+                .HasConversion(new EncryptedStringConverter(
+                    DataProtectionProviderAccessor.CreateProtector("Customer.Email")));
 
             _ = builder.Property(e => e.CustomerTier)
                 .IsRequired()

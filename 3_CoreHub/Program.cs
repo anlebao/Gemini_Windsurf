@@ -1,4 +1,5 @@
 // Build: 2026-06-17 (OutputType=Exe fix)
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,6 +17,7 @@ using VanAn.CoreHub.Services.Resilience;
 using VanAn.CoreHub.Infrastructure.ProjectMemory;
 using VanAn.CoreHub.Infrastructure.SemanticSearch;
 using VanAn.CoreHub.Infrastructure.SemanticSearch.Services;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Agents;
 using VanAn.CoreHub.Services.Providers.EInvoice;
 using Microsoft.Extensions.Options;
@@ -36,6 +38,9 @@ namespace VanAn.CoreHub
 
             IHost host = CreateHostBuilder(args).Build();
 
+            // Wave 2: Initialize DataProtection provider for EF Core PII encryption
+            DataProtectionProviderAccessor.Initialize(host.Services.GetRequiredService<IDataProtectionProvider>());
+
             // Ensure database is created
             using (IServiceScope scope = host.Services.CreateScope())
             {
@@ -48,6 +53,10 @@ namespace VanAn.CoreHub
                 {
                     ProjectMemoryDbContext memoryContext = scope.ServiceProvider.GetRequiredService<ProjectMemoryDbContext>();
                     await memoryContext.Database.MigrateAsync();
+
+                    // Wave 2: Encrypt any pre-existing plaintext PII in dev DB
+                    var migrationService = scope.ServiceProvider.GetRequiredService<Services.DataProtection.PiiDataMigrationService>();
+                    await migrationService.MigrateAsync();
                 }
             }
 
@@ -65,6 +74,17 @@ namespace VanAn.CoreHub
 
                     _ = services.AddDbContext<VanAnDbContext>(options =>
                         options.UseNpgsql(connectionString));
+
+                    // Wave 2: Data Protection for PII field-level encryption
+                    string keyDirectory = context.Configuration.GetSection("DataProtection")["KeyDirectory"]
+                        ?? Path.Combine(AppContext.BaseDirectory, "keys", "corehub");
+                    _ = Directory.CreateDirectory(keyDirectory);
+                    _ = services.AddDataProtection()
+                        .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
+                        .SetApplicationName(context.Configuration.GetSection("DataProtection")["ApplicationName"] ?? "VanAnCoreHub");
+
+                    // Wave 2: PII data migration service
+                    _ = services.AddScoped<Services.DataProtection.PiiDataMigrationService>();
 
                     // Repository layer
                     _ = services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();

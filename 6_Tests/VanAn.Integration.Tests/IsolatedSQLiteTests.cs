@@ -1,7 +1,9 @@
 using Xunit;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.Shared.Domain;
 using VanAn.Integration.Tests.Infrastructure;
 using System;
@@ -24,11 +26,22 @@ public class IsolatedSQLiteTests : IDisposable
         // Configure DI with file-based SQLite
         var services = new ServiceCollection();
 
+        // Wave 2: Data Protection for PII field-level encryption
+        string keyDirectory = Path.Combine(Path.GetTempPath(), $"vanan-isolated-test-keys-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(keyDirectory);
+        services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
+            .SetApplicationName("VanAnIsolatedTest");
+
         services.AddDbContext<VanAnDbContext>(options =>
             options.UseSqlite($"DataSource={_dbPath}", sqliteOptions =>
                 sqliteOptions.CommandTimeout(30)));
 
         _serviceProvider = services.BuildServiceProvider();
+
+        // Wave 2: Initialize DataProtection provider for EF Core PII encryption
+        DataProtectionProviderAccessor.Initialize(_serviceProvider.GetRequiredService<IDataProtectionProvider>());
+
         _dbContext = _serviceProvider.GetRequiredService<VanAnDbContext>();
 
         // Ensure database is created

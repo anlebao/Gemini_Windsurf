@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using VanAn.CoreHub.Infrastructure.DataProtection;
+using VanAn.CoreHub.Infrastructure.ValueConverters;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
@@ -25,6 +27,12 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.DisplayName)
                 .IsRequired()
                 .HasMaxLength(200);
+
+            // Wave 2: PII encryption for Email
+            _ = builder.Property(e => e.Email)
+                .HasMaxLength(500)
+                .HasConversion(new EncryptedStringConverter(
+                    DataProtectionProviderAccessor.CreateProtector("DemoUser.Email")));
 
             // Enum conversion for UserRole
             _ = builder.Property(e => e.Role)

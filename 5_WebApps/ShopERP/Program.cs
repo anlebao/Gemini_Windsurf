@@ -1,8 +1,10 @@
 using VanAn.Shared.Domain;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
 using VanAn.UI.Platform.Services;
@@ -54,6 +56,17 @@ namespace VanAn.ShopERP
                 ?? $"Data Source={Path.Combine(AppContext.BaseDirectory, "vanan_shoperp.db")}";
             _ = builder.Services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseSqlite(connectionString));
+
+            // Wave 2: Data Protection for PII field-level encryption
+            string keyDirectory = builder.Configuration.GetSection("DataProtection")["KeyDirectory"]
+                ?? Path.Combine(AppContext.BaseDirectory, "keys", "shoperp");
+            _ = Directory.CreateDirectory(keyDirectory);
+            _ = builder.Services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
+                .SetApplicationName(builder.Configuration.GetSection("DataProtection")["ApplicationName"] ?? "VanAnShopERP");
+
+            // Wave 2: PII data migration service
+            _ = builder.Services.AddScoped<CoreHub.Services.DataProtection.PiiDataMigrationService>();
 
             // Register IVanAnDbContext with ShopERPDbContext for Offline-First architecture
             // This decouples services from VanAnDbContext (PostgreSQL) and allows SQLite usage
@@ -198,6 +211,9 @@ namespace VanAn.ShopERP
 
             WebApplication app = builder.Build();
 
+            // Wave 2: Initialize DataProtection provider for EF Core PII encryption
+            DataProtectionProviderAccessor.Initialize(app.Services.GetRequiredService<IDataProtectionProvider>());
+
             // Architect's Directive: Ensure SQLite schema exists and optimized for concurrency
             using (IServiceScope scope = app.Services.CreateScope())
             {
@@ -239,6 +255,13 @@ namespace VanAn.ShopERP
                     );
                     _ = await context.SaveChangesAsync();
                     Console.WriteLine("Wave 0: DemoUsers seeded with BCrypt hashed passwords.");
+                }
+
+                // Wave 2: Encrypt any pre-existing plaintext PII in dev DB
+                if (app.Environment.IsDevelopment())
+                {
+                    var migrationService = scope.ServiceProvider.GetRequiredService<CoreHub.Services.DataProtection.PiiDataMigrationService>();
+                    await migrationService.MigrateAsync();
                 }
             }
 

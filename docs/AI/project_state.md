@@ -56,14 +56,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 7. ✅ W3-T7: `export-excel-flow.spec.ts` updated — 3 E2E test cases (revenue, inventory, 403 for Staff)
 8. ✅ W3-T8: `ExcelExportServiceTests` — 6/6 PASS
 
-**Next:** Merge `feature/wave2-data-protection` into `main` (dependency), then push `feature/wave3-report-export` → PR → merge
+**Next:** Push `feature/wave3-report-export` → PR #41 → merge
 
 ---
 
 **PREVIOUS OBJECTIVE (archived)**
 **Security Compliance — Wave 2: Data Protection (Field-level Encryption)**
 
-**Status:** ✅ COMPLETED — Branch `feature/wave2-data-protection`, commit `d366523`
+**Status:** ✅ COMPLETED — Branch `feature/wave2-data-protection`, merged to `main`
 
 **Completed Actions:**
 1. ✅ W2-T1: `AddDataProtection()` registered in `3_CoreHub/Program.cs` + `5_WebApps/ShopERP/Program.cs`, keys persisted to `./keys/`
@@ -73,6 +73,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 5. ✅ W2-T5: EF Core Migration created — columns resized to `HasMaxLength(500)` for encrypted values
 6. ✅ W2-T6: Data migration script — existing plain-text PII encrypted in dev DB
 7. ✅ W2-T7: Integration tests — `CustomerEncryptionTests` 6+ cases PASS
+8. ✅ W2-T8: `appsettings.Production.json` updated — `DataProtection:KeyDirectory`, `DataProtection:ApplicationName`
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave1-notifications`, PR #39 merged to main
 8. ✅ W2-T8: `appsettings.Production.json` updated — `DataProtection:KeyDirectory`, `DataProtection:ApplicationName`
 
 ---
@@ -196,23 +204,21 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: Architectural Rollback - ✅ COMPLETED
+### Current: Wave 3 — Report Export
 
-**Completed (2026-06-12):**
-- ✅ QrMenu.razor rolled back to use Gateway API (HttpClient)
-- ✅ Seed data removed from KhachLink and CoreHub Program.cs
-- ✅ ProductsController created in ShopERP with IVanAnDbContext
-- ✅ Seed data (5 products) added to ShopERP Program.cs
-- ✅ Gateway ProductsController created to forward to ShopERP
-- ✅ ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider)
-- ✅ All services running and verified
-- ✅ API endpoint verified (200 OK with 5 products)
-- ✅ Architecture tests: 7/7 PASS
-- ✅ Playwright E2E tests: 15 passed, 2 skipped
+**Completed (2026-06-23):**
+- ✅ EPPlus 7.6.1 added to package management
+- ✅ IExcelExportService + ExcelExportService implemented
+- ✅ Revenue/Inventory/Customer Excel reports created
+- ✅ ReportController added at `/api/reports/export/excel`
+- ✅ ExcelExportServiceTests 6/6 PASS
+- ✅ E2E spec `export-excel-flow.spec.ts` updated
+- ✅ Architecture tests 11/11 PASS
+- ✅ `guard-check.ps1` PASSED
 
 ### Next Phase
 
-**Current:** Merge `feature/wave2-data-protection` into `main` (Wave 2 dependency), then push `feature/wave3-report-export` → PR #41 → merge
+**Current:** Push `feature/wave3-report-export` → PR #41 → merge
 
 **Next:** Security Compliance — Wave 4: RBAC Enforcement tại Blazor UI Layer (`feature/wave4-rbac-ui`)
 - Audit all `.razor` pages in `5_WebApps/ShopERP/Components/`
@@ -518,6 +524,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 * Last Updated: 2026-06-23 11:30 UTC+7
 * Current Branch: `feature/wave3-report-export`
 * **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS. Architecture tests 11/11 PASS. `guard-check.ps1` PASSED. E2E spec `export-excel-flow.spec.ts` updated.
+* **Wave 2 — Data Protection COMPLETED (2026-06-23):** Added AddDataProtection, EncryptedStringConverter, applied to Customer/Lead/FacebookLead PII. Migration + data migration script. CustomerEncryptionTests PASS.
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Repositories;
@@ -27,6 +29,10 @@ public class EInvoiceDISmokeTests
 
         services.AddLogging(b => b.AddConsole());
         services.AddMemoryCache();
+
+        // Wave 2: Data Protection for PII field-level encryption
+        services.AddDataProtection()
+            .SetApplicationName("VanAnEInvoiceTest");
 
         services.AddDbContext<VanAnDbContext>(options =>
             options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
@@ -58,7 +64,12 @@ public class EInvoiceDISmokeTests
         services.AddSingleton<ICircuitBreakerService, CircuitBreakerService>();
         services.AddHostedService<EInvoiceWorker>();
 
-        return services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
+
+        // Wave 2: Initialize DataProtection provider for EF Core PII encryption
+        DataProtectionProviderAccessor.Initialize(provider.GetRequiredService<IDataProtectionProvider>());
+
+        return provider;
     }
 
     [Fact]

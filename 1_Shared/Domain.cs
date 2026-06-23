@@ -932,6 +932,7 @@ namespace VanAn.Shared.Domain
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
+        public string? Email { get; set; }
         public UserRole Role { get; set; } = UserRole.Staff;
         public bool IsActive { get; set; } = true;
 
