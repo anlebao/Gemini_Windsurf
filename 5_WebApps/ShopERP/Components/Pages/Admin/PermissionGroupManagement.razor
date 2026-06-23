@@ -1,0 +1,116 @@
+@page "/admin/permission-groups"
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Aggregates.UserAggregate
+@using PermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.PermissionGroup
+@using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole
+@inject IPermissionGroupService GroupService
+@inject ITenantProvider TenantProvider
+@inject IThemeProvider ThemeProvider
+@inject ILogger<PermissionGroupManagement> Logger
+
+@attribute [Authorize(Policy = "OwnerOnly")]
+
+<div class="permission-group-management-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Quản lý nhóm quyền</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal" Text="+ Tạo nhóm quyền" />
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadGroups" Text="Làm mới" />
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" Dismissible="true" OnDismiss="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <p>Đang tải danh sách nhóm quyền...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_groups.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có nhóm quyền nào. Nhấn "+ Tạo nhóm quyền" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách nhóm quyền ({_groups.Count})")">
+            <VanAnDataGrid TItem="PermissionGroup" Items="@_groups" EmptyMessage="Không có nhóm quyền nào">
+                <Columns>
+                    <VanAnColumn TItem="PermissionGroup" Title="Tên nhóm" Width="2">
+                        <Template Context="g">
+                            <strong>@g.Name</strong>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="PermissionGroup" Title="Mô tả" Width="3">
+                        <Template Context="g">@(g.Description ?? "-")</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="PermissionGroup" Title="Vai trò" Width="4">
+                        <Template Context="g">
+                            @string.Join(", ", g.GetEffectiveRoles())
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="PermissionGroup" Title="Hành động" Width="2">
+                        <Template Context="g">
+                            <VanAButton Variant="outline" Size="small" OnClick="() => OpenEditRolesModal(g)" Text="Vai trò" />
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+
+    @if (_showCreateModal)
+    {
+        <VanAModal Title="Tạo nhóm quyền mới" IsVisible="true" OnClose="CloseCreateModal">
+            <Body>
+                <form @onsubmit="HandleCreateSubmit">
+                    <div class="form-group">
+                        <label>Tên nhóm *</label>
+                        <input class="vanan-input" @bind="_createForm.Name" placeholder="Nhập tên nhóm..." required />
+                    </div>
+                    <div class="form-group">
+                        <label>Mô tả</label>
+                        <input class="vanan-input" @bind="_createForm.Description" placeholder="Mô tả ngắn..." />
+                    </div>
+                </form>
+            </Body>
+            <Footer>
+                <VanAButton Variant="primary" Type="submit" Loading="@_isSaving" OnClick="HandleCreateSubmit" Text="Tạo" />
+                <VanAButton Variant="outline" OnClick="CloseCreateModal" Text="Huỷ" />
+            </Footer>
+        </VanAModal>
+    }
+
+    @if (_showRolesModal && _selectedGroup is not null)
+    {
+        <VanAModal Title="Vai trò trong nhóm" IsVisible="true" OnClose="CloseRolesModal">
+            <Body>
+                <p>Quản lý vai trò cho nhóm: <strong>@_selectedGroup.Name</strong></p>
+                <div class="form-group">
+                    @foreach (var role in UserRoleHelper.AssignableRoles)
+                    {
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked="@_selectedGroup.GetEffectiveRoles().Contains(role)" @onchange="(e) => ToggleRole(role, (bool)e.Value!)" />
+                            @role
+                        </label>
+                    }
+                </div>
+            </Body>
+            <Footer>
+                <VanAButton Variant="outline" OnClick="CloseRolesModal" Text="Đóng" />
+            </Footer>
+        </VanAModal>
+    }
+</div>

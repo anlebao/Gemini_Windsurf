@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using Xunit;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.Tests.Services;
 

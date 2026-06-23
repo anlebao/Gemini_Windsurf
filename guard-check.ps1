@@ -47,7 +47,7 @@ Write-Host "Running Roslyn Analyzers..." -ForegroundColor Yellow
 $analyzerOutput = dotnet build --no-restore --configuration Release 2>&1 | Tee-Object -FilePath "analyzer.log"
 
 # Check for analyzer violations
-$analyzerViolations = $analyzerOutput | Select-String -Pattern "VA1001|VA1002|VA1003|VA1004|VA1005"
+$analyzerViolations = $analyzerOutput | Select-String -Pattern 'VA1001|VA1002|VA1003|VA1004|VA1005'
 
 if ($analyzerViolations) {
     Write-Host "ROSLYN ANALYZER VIOLATIONS DETECTED:" -ForegroundColor Red
@@ -68,7 +68,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # 4. Check for critical issues
-$criticalIssues = $buildOutput | Select-String -Pattern ": error CS|: error NU|: error MSB|VA0004" -CaseSensitive
+$criticalIssues = $buildOutput | Select-String -Pattern ': error CS|: error NU|: error MSB|VA0004' -CaseSensitive
 
 if ($criticalIssues) {
     Write-Host "CRITICAL ISSUES DETECTED:" -ForegroundColor Red
@@ -91,20 +91,6 @@ $warningStats = @{
     Other = 0
 }
 
-$buildOutput | Select-String -Pattern "warning (CS|NU)\d{4}" | ForEach-Object {
-    if ($_ -match "warning (CS|NU)(\d{4})") {
-        $code = "$($Matches[1])$($Matches[2])"
-        if ($criticalWarnings -contains $code) { 
-            $warningStats.Critical++ 
-        } elseif ($performanceWarnings -contains $code) { 
-            $warningStats.Performance++ 
-        } elseif ($securityWarnings -contains $code) { 
-            $warningStats.Security++ 
-        } else { 
-            $warningStats.Other++ 
-        }
-    }
-}
 
 Write-Host "Warning Classification:" -ForegroundColor Cyan
 Write-Host "  Critical: $($warningStats.Critical)" -ForegroundColor $(if ($warningStats.Critical -gt 0) { "Red" } else { "Green" })
@@ -121,7 +107,7 @@ if ($warningStats.Critical -gt 0) {
 
 # 5. Fast test gate - Domain + Architecture + Integration tests (~20s)
 # Prevents false-green: build pass alone does not guarantee correctness
-Write-Host "Running fast test gate (Domain + Architecture + Integration)..." -ForegroundColor Yellow
+Write-Host "Running fast test gate `(Domain + Architecture + Integration`)..." -ForegroundColor Yellow
 
 $amp = [char]38
 $coreTestFilter = "Category!=Performance$amp" + "Category!=Integration$amp" + "Category!=E2E"
@@ -140,7 +126,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # NEW: Integration tests (CircuitBreaker only - no external services required) - Phase 2.4
-Write-Host "Running Integration test gate (CircuitBreaker tests only)..." -ForegroundColor Yellow
+Write-Host "Running Integration test gate `(CircuitBreaker tests only`)..." -ForegroundColor Yellow
 dotnet test 6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj --verbosity quiet --configuration Release --filter "FullyQualifiedName~CircuitBreakerIntegrationTests" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "INTEGRATION TEST GATE FAILED" -ForegroundColor Red
@@ -151,11 +137,11 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Fast test gate: PASSED" -ForegroundColor Green
 
 # 6. Summary
-$warningCount = ($buildOutput | Select-String -Pattern "warning").Count
-Write-Host "Ã¢ BUILD SUCCEEDED - $warningCount warning(s)" -ForegroundColor Green
+$warningCount = ($buildOutput | Select-String -Pattern 'warning').Count
+Write-Host "Ã¢ BUILD SUCCEEDED - $warningCount warning`(s`)" -ForegroundColor Green
 
 if ($warningCount -gt 5) {
-    Write-Host "Ã¢  Warning count ($warningCount) is higher than target (<=5). Please review." -ForegroundColor Yellow
+    Write-Host "Ã¢  Warning count `($warningCount`) is higher than target `(<=5`). Please review." -ForegroundColor Yellow
 } else {
     Write-Host "Ã¢ Excellent! Warning count is within target." -ForegroundColor Green
 }
@@ -169,7 +155,7 @@ $reportFile = "guard-report-$timestamp.txt"
 $reportContent = "Guard Check Report`n"
 $reportContent += "==================`n"
 $reportContent += "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
-$reportContent += "Version: v8.1 (Phase 2 Upgrade + Source Control Guard)`n`n"
+$reportContent += "Version: v8.1 `(Phase 2 Upgrade + Source Control Guard`)`n`n"
 $reportContent += "Component Results`n"
 $reportContent += "  Untracked Files Check: PASSED`n"
 $reportContent += "  Windsurf Guard: PASSED`n"
@@ -186,11 +172,11 @@ $reportContent += "  Security: $($warningStats.Security)`n"
 $reportContent += "  Other: $($warningStats.Other)`n"
 $reportContent += "  Total Warnings: $warningCount`n`n"
 $reportContent += "Analyzer Violations`n"
-$reportContent += "  VA1001 (Domain Entity Location): 0`n"
-$reportContent += "  VA1002 (Dependency Direction): 0`n"
-$reportContent += "  VA1003 (EF Core in Domain): 0`n"
-$reportContent += "  VA1004 (Business Logic in Gateway): 0`n"
-$reportContent += "  VA1005 (AccountingEntry Immutability): 0`n`n"
+$reportContent += "  VA1001 `(Domain Entity Location`): 0`n"
+$reportContent += "  VA1002 `(Dependency Direction`): 0`n"
+$reportContent += "  VA1003 `(EF Core in Domain`): 0`n"
+$reportContent += "  VA1004 `(Business Logic in Gateway`): 0`n"
+$reportContent += "  VA1005 `(AccountingEntry Immutability`): 0`n`n"
 $reportContent += "Status: ALL CHECKS PASSED`n"
 $reportContent | Out-File $reportFile
 

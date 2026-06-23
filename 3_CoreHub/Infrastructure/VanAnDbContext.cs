@@ -10,6 +10,10 @@ using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
+using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
+using PermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.PermissionGroup;
+using UserPermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.UserPermissionGroup;
 
 namespace VanAn.CoreHub.Infrastructure
 {
@@ -56,6 +60,10 @@ namespace VanAn.CoreHub.Infrastructure
 
         // Wave 1 Phase 2: User-Tenant mapping (cross-tenant entity)
         public DbSet<UserTenant> UserTenants { get; set; }
+
+        // Wave 6: Permission groups for bundle-based RBAC
+        public DbSet<PermissionGroup> PermissionGroups { get; set; }
+        public DbSet<UserPermissionGroup> UserPermissionGroups { get; set; }
 
         // PHASE 2: SOCIAL FLYWHEEL ENTITIES
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }

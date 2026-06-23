@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using VanAn.Shared.Domain;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.CoreHub.Services;
 
