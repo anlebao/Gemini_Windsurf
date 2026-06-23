@@ -94,14 +94,14 @@ namespace VanAn.ShopERP.Pages
                 Expires = DateTimeOffset.UtcNow.AddHours(8)
             });
 
-            // Redirect based on role
+            // Redirect based on role — role-specific landing pages [Wave4-T5]
             return user.Role switch
             {
                 UserRole.Guard => RedirectToPage("/Guard/Scan"),
                 UserRole.Owner => RedirectToPage("/Index"),
                 UserRole.StoreKeeper => RedirectToPage("/Index"),
-                UserRole.Staff => RedirectToPage("/Index"),
-                UserRole.Masterchef => RedirectToPage("/Index"),
+                UserRole.Staff => RedirectToPage("/Kitchen/Index"),
+                UserRole.Masterchef => RedirectToPage("/Kitchen/Index"),
                 UserRole.None => throw new NotImplementedException(),
                 _ => RedirectToPage("/Index")
             };

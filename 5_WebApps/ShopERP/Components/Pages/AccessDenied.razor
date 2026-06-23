@@ -1,0 +1,66 @@
+@page "/access-denied"
+@using VanAn.UI.Platform.Components
+@inject NavigationManager NavigationManager
+
+<PageTitle>403 - Không có quyền truy cập</PageTitle>
+
+<div class="access-denied-page">
+    <div class="access-denied-container">
+        <div class="access-denied-icon">🔒</div>
+        <h1 class="access-denied-title">403 — Không Có Quyền Truy Cập</h1>
+        <p class="access-denied-message">
+            Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên nếu bạn cho rằng đây là lỗi.
+        </p>
+        <div class="access-denied-actions">
+            <VanAButton Variant="primary" OnClick="GoHome">
+                ← Về Trang Chủ
+            </VanAButton>
+        </div>
+    </div>
+</div>
+
+<style>
+    .access-denied-page {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+        padding: 2rem;
+    }
+
+    .access-denied-container {
+        text-align: center;
+        max-width: 480px;
+    }
+
+    .access-denied-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .access-denied-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--color-danger, #dc3545);
+        margin-bottom: 1rem;
+    }
+
+    .access-denied-message {
+        color: var(--color-text-secondary, #6c757d);
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+
+    .access-denied-actions {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+    }
+</style>
+
+@code {
+    private void GoHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}
