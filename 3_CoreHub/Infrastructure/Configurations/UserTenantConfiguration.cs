@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using VanAn.Shared.Domain;
+using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
 {
@@ -31,7 +32,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             _ = builder.Property(e => e.Role)
                 .IsRequired()
-                .HasMaxLength(50);
+                .HasConversion<int>();
 
             _ = builder.Property(e => e.AssignedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");

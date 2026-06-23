@@ -466,5 +466,12 @@ docs/.cache/
 6_Testing/auth/
 
 # ========================================
+# Data Protection Keys
+# ========================================
+# Runtime-generated keys — must NOT be committed
+3_CoreHub/__REPLACE_DATA_PROTECTION_KEY_DIRECTORY__/
+5_WebApps/ShopERP/keys/
+
+# ========================================
 # End of VanAn Ecosystem .gitignore
 # ========================================
