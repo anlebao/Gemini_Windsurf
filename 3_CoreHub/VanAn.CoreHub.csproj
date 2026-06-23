@@ -34,6 +34,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="BCrypt.Net-Next" />
     <PackageReference Include="NATS.Client" />
+    <PackageReference Include="EPPlus" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
     <PackageReference Include="Moq" />
     <!-- ✅ FIXED: Add FrameworkReference for ASP.NET Core -->

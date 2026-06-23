@@ -31,6 +31,9 @@ namespace VanAn.CoreHub
     {
         public static async Task Main(string[] args)
         {
+            // Wave 3: EPPlus NonCommercial license context for Excel export
+            OfficeOpenXml.ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+
             IHost host = CreateHostBuilder(args).Build();
 
             // Ensure database is created
@@ -67,6 +70,7 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
                     _ = services.AddScoped<IJournalTemplateRepository, JournalTemplateRepository>();
                     _ = services.AddScoped<IOrderRepository, OrderRepository>();
+                    _ = services.AddScoped<ICustomerRepository, CustomerRepository>();
                     _ = services.AddScoped<IHKDBookRepository, HKDBookRepository>();
                     _ = services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
@@ -258,6 +262,9 @@ namespace VanAn.CoreHub
 
                     // Wave 0: JWT Authentication Foundation
                     _ = services.AddScoped<IJwtTokenService, JwtTokenService>();
+
+                    // Wave 3: Excel Export Service
+                    _ = services.AddScoped<IExcelExportService, ExcelExportService>();
 
                     // Logging
                     _ = services.AddLogging(builder => builder.AddConsole());

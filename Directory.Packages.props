@@ -38,6 +38,9 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.0" />
     <PackageVersion Include="System.Text.Json" Version="9.0.3" />
     
+    <!-- Reporting Packages -->
+    <PackageVersion Include="EPPlus" Version="7.6.1" />
+    
     <!-- Authentication Packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
