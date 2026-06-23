@@ -81,14 +81,6 @@ Mọi cập nhật file này PHẢI tuân thủ:
 **Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
 
 **Status:** ✅ COMPLETED — Branch `feature/wave1-notifications`, PR #39 merged to main
-8. ✅ W2-T8: `appsettings.Production.json` updated — `DataProtection:KeyDirectory`, `DataProtection:ApplicationName`
-
----
-
-**PREVIOUS OBJECTIVE (archived)**
-**Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
-
-**Status:** ✅ COMPLETED — Branch `feature/wave1-notifications`, PR #39 merged to main
 
 **Completed Actions:**
 1. ✅ W1-T1: HttpClient used directly (no SDK — Brevo REST v3 + ESMS v4)
