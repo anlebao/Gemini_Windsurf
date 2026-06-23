@@ -38,7 +38,18 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**No active objective — Wave 6 completed and merged to main**
+**Security Compliance — Wave 7: Production Hardening & Non-functional**
+
+**Status:** IN PROGRESS — Branch `feature/wave7-prod-hardening` created from `main` (commit `21968f2`)
+
+**Scope (from master plan):**
+1. W7-T1: HTTPS Enforcement in Gateway + ShopERP (Production only)
+2. W7-T2: CORS Hardening with whitelist domain in `appsettings.Production.json`
+3. W7-T3: SQLite backup script (`scripts/backup-db.sh`)
+4. W7-T4: Health checks (`/health/detail` endpoint, Owner-only)
+5. W7-T5: Rate limiting for login endpoint (5 req/minute per IP)
+6. W7-T6: Distributed cache migration (conditional Redis fallback Memory)
+7. W7-T7: WCAG basic fixes (`aria-label` on Login/Order/User/Tenant forms)
 
 ---
 
@@ -246,13 +257,19 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: No active objective
+### Current: Wave 7 — Production Hardening
 
-Wave 6 completed and merged to main. Ready for next wave.
+- [ ] W7-T1: HTTPS Enforcement in Gateway + ShopERP (Production only)
+- [ ] W7-T2: CORS Hardening with whitelist domain
+- [ ] W7-T3: SQLite backup script (`scripts/backup-db.sh`)
+- [ ] W7-T4: Health checks (`/health/detail` endpoint, Owner-only)
+- [ ] W7-T5: Rate limiting for login endpoint (5 req/minute per IP)
+- [ ] W7-T6: Distributed cache migration (conditional Redis fallback Memory)
+- [ ] W7-T7: WCAG basic fixes (`aria-label` on Login/Order/User/Tenant forms)
 
 ### Next Phase
 
-**Wave 7:** TBD — next security/compliance wave (audit logging hardening / session management / API rate-limiting)
+Implement Wave 7 tasks. Read task cards before coding.
 
 ---
 
@@ -540,8 +557,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 (Wave 6 merge to main)
-* Current Branch: `main`
+* Last Updated: 2026-06-23 (Wave 7 branch created: `feature/wave7-prod-hardening`)
+* Current Branch: `feature/wave7-prod-hardening`
+* **Wave 7 — Production Hardening & Non-functional (2026-06-23):** Branch `feature/wave7-prod-hardening` created from `main` (commit `21968f2`). Scope: HTTPS enforcement (Production), CORS hardening, SQLite backup script, health checks, login rate limiting, conditional Redis cache, WCAG `aria-label` fixes. No code changes yet; no build run per user request.
 * **Wave 6 — User Aggregate + RBAC Management (2026-06-23):** UserAggregate split from Domain.cs: DemoUser.cs (AggregateRoot with lifecycle methods), UserRole.cs, UserTenant.cs, UserPermissionGroup.cs, PermissionGroup.cs, UserEvents.cs. Old `DemoUser`, `UserTenant`, `UserRole` in Domain.cs marked `[Obsolete]`. EF configs added (PermissionGroupConfiguration, UserPermissionGroupConfiguration). IUserManagementService + UserManagementService, IRoleAssignmentService + RoleAssignmentService, IPermissionGroupService + PermissionGroupService. UserController + PermissionGroupController. UserManagement.razor + PermissionGroupManagement.razor + NavMenu entries. 29 unit tests PASS (UserDomainTests 7, UserManagementServiceTests 9, RoleAssignmentServiceTests 6, PermissionGroupServiceTests 7). `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED, commits `2fe0615` + `227ba1d`. `.gitignore` updated to exclude runtime data-protection keys. Merged to `main` (commit `2599c1b`). Fixed guard-check.ps1 PowerShell parsing issues (commit `735454e`).
 * **Wave 5 — Domain Refactor + Tenant Rich Domain + CRUD (2026-06-23):** DDD foundation (AggregateRoot, IDomainEvent) in Common.cs. TenantAggregate split from Domain.cs: Tenant.cs (Rich Domain), TenantStatus.cs, TenantSettings.cs, TenantEvents.cs. Old `record Tenant` in Domain.cs marked `[Obsolete]`. TenantConfiguration.cs, IVanAnDbContext, VanAnDbContext migrated. ITenantManagementService + TenantManagementService + TenantController + TenantManagement.razor + 23 unit tests. guard-check.ps1 PASSED, commit `301f141`.
 * **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS.
