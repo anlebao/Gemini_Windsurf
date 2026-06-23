@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Xunit;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Repositories;
@@ -40,6 +42,13 @@ public abstract class IntegrationTestBase : IDisposable
 
         // Add logging
         services.AddLogging(builder => builder.AddConsole());
+
+        // Wave 2: Data Protection for PII field-level encryption
+        string keyDirectory = Path.Combine(Path.GetTempPath(), $"vanan-test-keys-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(keyDirectory);
+        services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
+            .SetApplicationName("VanAnTest");
 
         // Add SQLite in-memory database for testing (real relational provider)
         services.AddDbContext<VanAnDbContext>(options =>
@@ -92,6 +101,10 @@ public abstract class IntegrationTestBase : IDisposable
             .Build());
 
         _serviceProvider = services.BuildServiceProvider();
+
+        // Wave 2: Initialize DataProtection provider for EF Core PII encryption
+        DataProtectionProviderAccessor.Initialize(_serviceProvider.GetRequiredService<IDataProtectionProvider>());
+
         _dbContext = _serviceProvider.GetRequiredService<VanAnDbContext>();
         _logger = _serviceProvider.GetRequiredService<ILogger<IntegrationTestBase>>();
 

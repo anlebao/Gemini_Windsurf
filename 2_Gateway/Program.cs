@@ -79,7 +79,15 @@ namespace VanAn.Gateway
             _ = builder.Services.AddAuthorizationBuilder()
                 .AddPolicy("RequireTenantAccess", policy =>
                     policy.RequireAuthenticatedUser()
-                           .RequireClaim("tenant_id"));
+                           .RequireClaim("tenant_id"))
+                .AddPolicy("RequireOwnerRole", policy =>
+                    policy.RequireAuthenticatedUser()
+                           .RequireClaim("tenant_id")
+                           .RequireRole("Owner"))
+                .AddPolicy("RequireStoreKeeperRole", policy =>
+                    policy.RequireAuthenticatedUser()
+                           .RequireClaim("tenant_id")
+                           .RequireRole("StoreKeeper"));
 
             // Wave 1 Phase 2: Register ITenantProvider for Gateway controllers
             _ = builder.Services.AddHttpContextAccessor();

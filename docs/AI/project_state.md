@@ -38,23 +38,57 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
+**Security Compliance — Wave 3: Report Export (Excel with EPPlus)**
 
-**Status:** 🔄 IN PROGRESS — Branch `feature/wave1-notifications`, Wave 0 merged (PR #38 ✅)
+**Status:** ✅ COMPLETED — Branch `feature/wave3-report-export`, commit `bdc1cf0`
 
-**Problem:** NotificationService.SendEmailAsync/SendSMSAsync are stubs (Task.Delay only) — no real delivery
+**Problem:** HKDTaxReportingService.ExportToExcelAsync returned mock bytes; no API endpoint exposed Excel export
 
-**Solution:** BrevoEmailService (REST API v3) + EsmsNotificationService (REST API v4) + CompositeNotificationService
+**Solution:** IExcelExportService + ExcelExportService with EPPlus 7.6.1; ReportController at `/api/reports/export/excel`
 
 **Completed Actions:**
-1. ✅ W1-T1: HttpClient used directly (no SDK needed — Brevo REST v3 + ESMS v4)
+1. ✅ W3-T1: EPPlus 7.6.1 added to `Directory.Packages.props` + `VanAn.CoreHub.csproj`
+2. ✅ W3-T2: `IExcelExportService` + `ExcelExportService` — Revenue, Inventory, Customer
+3. ✅ W3-T3: `RevenueExcelReport` — 2 sheets ("Tóm tắt", "Chi tiết đơn hàng"), VND format `#,##0 ₫`
+4. ✅ W3-T4: `InventoryExcelReport` — low-stock rows highlighted red
+5. ✅ W3-T5: `CustomerExcelReport` — loyalty tier color coding (Bronze/Silver/Gold/Platinum)
+6. ✅ W3-T6: `ReportController` — `GET /api/reports/export/excel?type={revenue|inventory|customer}&from=&to=`, JWT auth + tenant isolation, Owner/StoreKeeper roles
+7. ✅ W3-T7: `export-excel-flow.spec.ts` updated — 3 E2E test cases (revenue, inventory, 403 for Staff)
+8. ✅ W3-T8: `ExcelExportServiceTests` — 6/6 PASS
+
+**Next:** Push `feature/wave3-report-export` → PR #41 → merge
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Security Compliance — Wave 2: Data Protection (Field-level Encryption)**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave2-data-protection`, merged to `main`
+
+**Completed Actions:**
+1. ✅ W2-T1: `AddDataProtection()` registered in `3_CoreHub/Program.cs` + `5_WebApps/ShopERP/Program.cs`, keys persisted to `./keys/`
+2. ✅ W2-T2: `EncryptedStringConverter` — EF Core ValueConverter using `IDataProtector`
+3. ✅ W2-T3: `EncryptedStringConverter` applied to `CustomerConfiguration.cs` — PhoneNumber, Email
+4. ✅ W2-T4: `EncryptedStringConverter` applied to `LeadConfiguration.cs` + `FacebookLeadConfiguration.cs` — PhoneNumber, Email
+5. ✅ W2-T5: EF Core Migration created — columns resized to `HasMaxLength(500)` for encrypted values
+6. ✅ W2-T6: Data migration script — existing plain-text PII encrypted in dev DB
+7. ✅ W2-T7: Integration tests — `CustomerEncryptionTests` 6+ cases PASS
+8. ✅ W2-T8: `appsettings.Production.json` updated — `DataProtection:KeyDirectory`, `DataProtection:ApplicationName`
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave1-notifications`, PR #39 merged to main
+
+**Completed Actions:**
+1. ✅ W1-T1: HttpClient used directly (no SDK — Brevo REST v3 + ESMS v4)
 2. ✅ W1-T2: BrevoEmailService — IEmailService implementation, HTML support, error handling
 3. ✅ W1-T3: EsmsNotificationService — ISmsService implementation, Unicode, 1 retry
 4. ✅ W1-T4: CompositeNotificationService — INotificationService delegates to IEmailService + ISmsService
 5. ✅ W1-T5: appsettings.Production.json + appsettings.Development.json with __REPLACE__ placeholders
 6. ✅ W1-T6: 11/11 unit tests PASS (BrevoEmailServiceTests 5 + EsmsServiceTests 6)
-
-**Next:** Push feature/wave1-notifications → create PR → merge → start Wave 2
 
 ---
 
@@ -145,6 +179,14 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
   * Fixed: ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId converters
   * Removed: Inline entity configurations from VanAnDbContext.cs
   * Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
+- **Security Compliance — Wave 0: JWT Authentication Foundation ✅** (2026-06-23)
+  * Stateless JWT (HS256, 8h), BCrypt work factor 12, dual-scheme auth
+- **Security Compliance — Wave 1: Notification Integration (Brevo + ESMS) ✅** (2026-06-23)
+  * 11/11 unit tests PASS
+- **Security Compliance — Wave 2: Data Protection (Field-level Encryption) ✅** (2026-06-23)
+  * EncryptedStringConverter, PII encryption, CustomerEncryptionTests PASS
+- **Security Compliance — Wave 3: Report Export (Excel with EPPlus) ✅** (2026-06-23)
+  * IExcelExportService + 3 report generators + ReportController + 6/6 unit tests PASS
 
 ### Blocked
 
@@ -154,25 +196,28 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: Architectural Rollback - ✅ COMPLETED
+### Current: Wave 3 — Report Export
 
-**Completed (2026-06-12):**
-- ✅ QrMenu.razor rolled back to use Gateway API (HttpClient)
-- ✅ Seed data removed from KhachLink and CoreHub Program.cs
-- ✅ ProductsController created in ShopERP with IVanAnDbContext
-- ✅ Seed data (5 products) added to ShopERP Program.cs
-- ✅ Gateway ProductsController created to forward to ShopERP
-- ✅ ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider)
-- ✅ All services running and verified
-- ✅ API endpoint verified (200 OK with 5 products)
-- ✅ Architecture tests: 7/7 PASS
-- ✅ Playwright E2E tests: 15 passed, 2 skipped
+**Completed (2026-06-23):**
+- ✅ EPPlus 7.6.1 added to package management
+- ✅ IExcelExportService + ExcelExportService implemented
+- ✅ Revenue/Inventory/Customer Excel reports created
+- ✅ ReportController added at `/api/reports/export/excel`
+- ✅ ExcelExportServiceTests 6/6 PASS
+- ✅ E2E spec `export-excel-flow.spec.ts` updated
+- ✅ Architecture tests 11/11 PASS
+- ✅ `guard-check.ps1` PASSED
 
 ### Next Phase
 
-**Current:** Security Compliance — Wave 0 PR #38 open (feature/wave0-jwt-auth), Wave 1 (Notifications) pending Wave 0 merge
+**Current:** Push `feature/wave3-report-export` → PR #41 → merge
 
-**Previous (archived):** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
+**Next:** Security Compliance — Wave 4: RBAC Enforcement tại Blazor UI Layer (`feature/wave4-rbac-ui`)
+- Audit all `.razor` pages in `5_WebApps/ShopERP/Components/`
+- Add `[Authorize(Policy = ...)]` and `<AuthorizeView>` wrappers
+- Create 403-AccessDenied.razor page
+- E2E tests for Staff vs Owner access
+
 **Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
   - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
   - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
@@ -468,8 +513,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 05:30 UTC+7
-* Current Branch: `feature/wave1-notifications`
+* Last Updated: 2026-06-23 11:30 UTC+7
+* Current Branch: `feature/wave3-report-export`
+* **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS. Architecture tests 11/11 PASS. `guard-check.ps1` PASSED. E2E spec `export-excel-flow.spec.ts` updated.
+* **Wave 2 — Data Protection COMPLETED (2026-06-23):** Added AddDataProtection, EncryptedStringConverter, applied to Customer/Lead/FacebookLead PII. Migration + data migration script. CustomerEncryptionTests PASS.
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().
