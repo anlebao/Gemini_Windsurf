@@ -17,6 +17,7 @@ namespace VanAn.Core.Tests.Integration
     /// End-to-end integration tests for SQLite concurrency solution
     /// Tests the complete flow: Order → Queue → Outbox → Accounting
     /// </summary>
+    [Trait("Category", "Integration")]
     public class SQLiteConcurrencyIntegrationTests : IDisposable
     {
         private readonly IServiceProvider _serviceProvider;
