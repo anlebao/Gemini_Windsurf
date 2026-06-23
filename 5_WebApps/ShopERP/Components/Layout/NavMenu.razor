@@ -1,4 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.Shared.Domain
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">VanAn.ShopERP</a>
     </div>
@@ -8,23 +11,92 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+        @* Home: visible to all authenticated users *@
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+        @* Accounting: Owner only *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="accounting">
+                        <span class="bi bi-journal-text-nav-menu" aria-hidden="true"></span> Kế Toán
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="accounting/history">
+                        <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch Sử Giao Dịch
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="accounting/balance">
+                        <span class="bi bi-currency-exchange-nav-menu" aria-hidden="true"></span> Số Dư Tài Khoản
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="accounting/period-closing">
+                        <span class="bi bi-lock-fill-nav-menu" aria-hidden="true"></span> Đóng Kỳ Kế Toán
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* E-Invoice: Owner + StoreKeeper *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="einvoice">
+                        <span class="bi bi-file-earmark-text-nav-menu" aria-hidden="true"></span> Hóa Đơn Điện Tử
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="einvoice/invoices">
+                        <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Quản Lý Hóa Đơn
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* E-Invoice Provider Config: Owner only *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="einvoice/providers">
+                        <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Cấu Hình Provider
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Admin / Audit: Admin role *@
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/audit-trail">
+                        <span class="bi bi-shield-check-nav-menu" aria-hidden="true"></span> Nhật Ký Audit
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Guard section: Guard role only *@
+        <AuthorizeView Roles="Guard">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="guard/scan">
+                        <span class="bi bi-qr-code-scan-nav-menu" aria-hidden="true"></span> Quét QR Guard
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
     </nav>
 </div>
-

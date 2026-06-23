@@ -1,6 +1,8 @@
 @page "/accounting/period-closing"
 @rendermode InteractiveServer
 @layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Models
 @using Microsoft.AspNetCore.Components.Authorization
