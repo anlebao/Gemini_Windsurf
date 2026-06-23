@@ -38,13 +38,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**No active objective — Wave 6 completed and merged to main**
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
 **Security Compliance — Wave 6: User Aggregate + RBAC Management**
 
-**Status:** 🟡 IN PROGRESS — Branch `feature/wave6-user-rbac-mgmt`, commit `227ba1d`
-
-**Problem:** `DemoUser` and `UserTenant` live in `Domain.cs` (God File). `UserRole` is string, no lifecycle methods on `DemoUser`, no permission groups for role bundles.
-
-**Solution:** Split `UserAggregate` from `Domain.cs` → rich `DemoUser` lifecycle methods → `UserRole` enum → `PermissionGroup` + `UserPermissionGroup` → services → controllers → admin UI pages.
+**Status:** ✅ COMPLETED — Branch `feature/wave6-user-rbac-mgmt`, merged to `main` (commit `2599c1b`)
 
 **Completed Actions:**
 1. ✅ W6-T1: `1_Shared/Domain/Aggregates/UserAggregate/DemoUser.cs` (AggregateRoot lifecycle: Create, Deactivate, Reactivate, ChangePassword, AssignRole, UpdateProfile)
@@ -59,8 +60,6 @@ Mọi cập nhật file này PHẢI tuân thủ:
 10. ✅ W6-T10: `UserManagement.razor` at `/admin/users`
 11. ✅ W6-T11: `PermissionGroupManagement.razor` at `/admin/permission-groups` + NavMenu entries
 12. ✅ W6-T12: `UserDomainTests` (7 cases) + `UserManagementServiceTests` (9) + `RoleAssignmentServiceTests` (6) + `PermissionGroupServiceTests` (7) = 29/29 PASS
-
-**Next:** Open PR for Wave 6 → merge → start Wave 7 (Audit/Compliance next)
 
 ---
 
@@ -232,12 +231,12 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
   * IExcelExportService + 3 report generators + ReportController + 6/6 unit tests PASS
 - **Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer ✅** (2026-06-23)
   * AuthorizeRouteView, policy-gated pages, NavMenu role gates, AccessDenied.razor, 9 E2E tests
-- **Security Compliance — Wave 6: User Aggregate + RBAC Management 🟡 IN PROGRESS** (2026-06-23)
-  * W6-T1→T12 COMPLETE — Branch `feature/wave6-user-rbac-mgmt`, commit `227ba1d`
-  * UserAggregate split, PermissionGroup/UserPermissionGroup, UserManagementService, RoleAssignmentService, PermissionGroupService, UserController, PermissionGroupController, UserManagement.razor, PermissionGroupManagement.razor, 29 tests PASS
 - **Security Compliance — Wave 5: Domain Refactor + Tenant Rich Domain + CRUD ✅ COMPLETED** (2026-06-23)
   * W5-T1→T10 COMPLETE — Branch `feature/wave5-tenant-mgmt`
   * TenantAggregate (Rich Domain), ITenantManagementService, TenantController, TenantManagement.razor, 23 tests
+- **Security Compliance — Wave 6: User Aggregate + RBAC Management ✅ COMPLETED** (2026-06-23)
+  * W6-T1→T12 COMPLETE — Branch `feature/wave6-user-rbac-mgmt`, merged to `main` (commit `2599c1b`)
+  * UserAggregate split, PermissionGroup/UserPermissionGroup, UserManagementService, RoleAssignmentService, PermissionGroupService, UserController, PermissionGroupController, UserManagement.razor, PermissionGroupManagement.razor, 29 tests PASS
 
 ### Blocked
 
@@ -247,9 +246,9 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: Wave 6 — PR Open + Merge
+### Current: No active objective
 
-**Action:** Push `feature/wave6-user-rbac-mgmt` → open PR → merge vào `main`
+Wave 6 completed and merged to main. Ready for next wave.
 
 ### Next Phase
 
@@ -541,9 +540,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 (Wave 6 session)
-* Current Branch: `feature/wave6-user-rbac-mgmt`
-* **Wave 6 — User Aggregate + RBAC Management (2026-06-23):** UserAggregate split from Domain.cs: DemoUser.cs (AggregateRoot with lifecycle methods), UserRole.cs, UserTenant.cs, UserPermissionGroup.cs, PermissionGroup.cs, UserEvents.cs. Old `DemoUser`, `UserTenant`, `UserRole` in Domain.cs marked `[Obsolete]`. EF configs added (PermissionGroupConfiguration, UserPermissionGroupConfiguration). IUserManagementService + UserManagementService, IRoleAssignmentService + RoleAssignmentService, IPermissionGroupService + PermissionGroupService. UserController + PermissionGroupController. UserManagement.razor + PermissionGroupManagement.razor + NavMenu entries. 29 unit tests PASS (UserDomainTests 7, UserManagementServiceTests 9, RoleAssignmentServiceTests 6, PermissionGroupServiceTests 7). `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED, commits `2fe0615` + `227ba1d`. `.gitignore` updated to exclude runtime data-protection keys.
+* Last Updated: 2026-06-23 (Wave 6 merge to main)
+* Current Branch: `main`
+* **Wave 6 — User Aggregate + RBAC Management (2026-06-23):** UserAggregate split from Domain.cs: DemoUser.cs (AggregateRoot with lifecycle methods), UserRole.cs, UserTenant.cs, UserPermissionGroup.cs, PermissionGroup.cs, UserEvents.cs. Old `DemoUser`, `UserTenant`, `UserRole` in Domain.cs marked `[Obsolete]`. EF configs added (PermissionGroupConfiguration, UserPermissionGroupConfiguration). IUserManagementService + UserManagementService, IRoleAssignmentService + RoleAssignmentService, IPermissionGroupService + PermissionGroupService. UserController + PermissionGroupController. UserManagement.razor + PermissionGroupManagement.razor + NavMenu entries. 29 unit tests PASS (UserDomainTests 7, UserManagementServiceTests 9, RoleAssignmentServiceTests 6, PermissionGroupServiceTests 7). `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED, commits `2fe0615` + `227ba1d`. `.gitignore` updated to exclude runtime data-protection keys. Merged to `main` (commit `2599c1b`). Fixed guard-check.ps1 PowerShell parsing issues (commit `735454e`).
 * **Wave 5 — Domain Refactor + Tenant Rich Domain + CRUD (2026-06-23):** DDD foundation (AggregateRoot, IDomainEvent) in Common.cs. TenantAggregate split from Domain.cs: Tenant.cs (Rich Domain), TenantStatus.cs, TenantSettings.cs, TenantEvents.cs. Old `record Tenant` in Domain.cs marked `[Obsolete]`. TenantConfiguration.cs, IVanAnDbContext, VanAnDbContext migrated. ITenantManagementService + TenantManagementService + TenantController + TenantManagement.razor + 23 unit tests. guard-check.ps1 PASSED, commit `301f141`.
 * **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS.
 * **Wave 2 — Data Protection COMPLETED (2026-06-23):** Added AddDataProtection, EncryptedStringConverter, applied to Customer/Lead/FacebookLead PII. Migration + data migration script. CustomerEncryptionTests PASS.
