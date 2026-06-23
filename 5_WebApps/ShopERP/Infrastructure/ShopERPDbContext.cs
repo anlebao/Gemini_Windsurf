@@ -4,6 +4,7 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Configurations;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreOutboxMessage = VanAn.CoreHub.Infrastructure.OutboxMessage;
 
@@ -137,6 +138,24 @@ namespace VanAn.ShopERP.Infrastructure
                     _ = ci.Property(c => c.Address).HasMaxLength(500);
                     _ = ci.Property(c => c.Notes).HasMaxLength(1000);
                 });
+            });
+
+            // Wave 2: PII encryption for Customer inline config (ShopERP uses inline config instead of CustomerConfiguration)
+            _ = modelBuilder.Entity<Customer>(entity =>
+            {
+                _ = entity.HasKey(e => e.Id);
+                _ = entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
+                _ = entity.Property(e => e.PhoneNumber)
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasConversion(new EncryptedStringConverter(
+                        DataProtectionProviderAccessor.CreateProtector("Customer.PhoneNumber")));
+                _ = entity.Property(e => e.Email)
+                    .HasMaxLength(500)
+                    .HasConversion(new EncryptedStringConverter(
+                        DataProtectionProviderAccessor.CreateProtector("Customer.Email")));
+                _ = entity.Property(e => e.CustomerTier).IsRequired().HasMaxLength(20);
+                _ = entity.Property(e => e.TotalSpent).HasPrecision(18, 2);
             });
 
             // JournalEntry: OwnsMany for JournalEntryLine (Value Object)

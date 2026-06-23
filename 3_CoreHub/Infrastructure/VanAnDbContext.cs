@@ -5,6 +5,7 @@ using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Domain;
+using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
@@ -142,8 +143,18 @@ namespace VanAn.CoreHub.Infrastructure
             {
                 _ = entity.HasKey(e => e.Id);
                 _ = entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
-                _ = entity.Property(e => e.PhoneNumber).IsRequired().HasMaxLength(20);
-                _ = entity.Property(e => e.Email).HasMaxLength(100);
+
+                // Wave 2: PII encryption for PhoneNumber and Email
+                _ = entity.Property(e => e.PhoneNumber)
+                    .IsRequired()
+                    .HasMaxLength(500)
+                    .HasConversion(new EncryptedStringConverter(
+                        DataProtectionProviderAccessor.CreateProtector("Customer.PhoneNumber")));
+                _ = entity.Property(e => e.Email)
+                    .HasMaxLength(500)
+                    .HasConversion(new EncryptedStringConverter(
+                        DataProtectionProviderAccessor.CreateProtector("Customer.Email")));
+
                 _ = entity.Property(e => e.CustomerTier).IsRequired().HasMaxLength(20);
                 _ = entity.Property(e => e.TotalSpent).HasPrecision(18, 2);
                 _ = entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
