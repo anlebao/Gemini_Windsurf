@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
 {

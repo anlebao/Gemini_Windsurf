@@ -4,13 +4,12 @@ using System.Linq.Expressions;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
-using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
-using TenantAggregate = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.CoreHub.Infrastructure
 {
@@ -53,7 +52,7 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<Shop> Shops { get; set; }
 
         // HKD Business Tenants — Wave 5: now uses Rich Domain TenantAggregate.Tenant
-        public DbSet<TenantAggregate> Tenants { get; set; }
+        public DbSet<Tenant> Tenants { get; set; }
 
         // Wave 1 Phase 2: User-Tenant mapping (cross-tenant entity)
         public DbSet<UserTenant> UserTenants { get; set; }

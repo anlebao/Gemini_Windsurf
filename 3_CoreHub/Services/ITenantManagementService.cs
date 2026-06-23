@@ -1,5 +1,6 @@
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.CoreHub.Services
 {
