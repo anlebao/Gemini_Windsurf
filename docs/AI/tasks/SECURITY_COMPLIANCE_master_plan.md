@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
-**Current Status:** IN PROGRESS — Wave 0 complete (PR #38 open), Wave 1 pending merge
+**Current Status:** COMPLETED — Wave 0 merged (PR #38), Wave 1 in progress
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 

@@ -124,6 +124,17 @@ namespace VanAn.ShopERP
             // Wave 0: JWT Authentication Foundation
             _ = builder.Services.AddScoped<CoreHub.Services.IJwtTokenService, CoreHub.Services.JwtTokenService>();
 
+            // Wave 1: Notification Integration (Brevo Email + ESMS SMS)
+            _ = builder.Services.AddHttpClient<CoreHub.Services.IEmailService, CoreHub.Services.BrevoEmailService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+            _ = builder.Services.AddHttpClient<CoreHub.Services.ISmsService, CoreHub.Services.EsmsNotificationService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+            _ = builder.Services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
+
             // ✅ FIXED: Enterprise authentication configuration
             _ = builder.Services.AddAuthentication(options =>
             {
