@@ -1,6 +1,7 @@
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services.Cache;
 using VanAn.CoreHub.Infrastructure;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 

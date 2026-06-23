@@ -153,6 +153,11 @@ namespace VanAn.Shared.Domain
     /// <summary>
     /// Tenant with Business Type and HKD Classification
     /// </summary>
+    /// <remarks>
+    /// [Wave 5] OBSOLETE — use <see cref="VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant"/> (Rich Domain class).
+    /// This record is kept to avoid breaking existing EF mappings until TenantConfiguration.cs is migrated.
+    /// </remarks>
+    [Obsolete("Use VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant instead. Will be removed in Wave 6.")]
     public record Tenant
     {
         public TenantId Id { get; init; } = null!;

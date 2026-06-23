@@ -147,6 +147,8 @@ namespace VanAn.ShopERP
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
             _ = builder.Services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
+            // Wave 5: Tenant management
+            _ = builder.Services.AddScoped<CoreHub.Services.ITenantManagementService, CoreHub.Services.TenantManagementService>();
 
             // ✅ FIXED: Enterprise authentication configuration
             _ = builder.Services.AddAuthentication(options =>
@@ -193,7 +195,9 @@ namespace VanAn.ShopERP
                 .AddPolicy("OwnerOnly", policy => policy.RequireRole(UserRole.Owner.ToString()))
                 .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString()))
                 .AddPolicy("GuardOnly", policy => policy.RequireRole(UserRole.Guard.ToString()))
-                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()));
+                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()))
+                // Wave 5: SystemAdmin — cross-tenant Tenant CRUD
+                .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
 
             // ✅ FIXED: Add cascading authentication state
             _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>();
