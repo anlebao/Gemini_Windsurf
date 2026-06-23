@@ -17,6 +17,7 @@ namespace VanAn.Core.Tests.Performance
     /// Performance tests for SQLite concurrency solution
     /// Tests throughput, latency, and resource usage under load
     /// </summary>
+    [Trait("Category", "Performance")]
     public class SQLiteConcurrencyPerformanceTests : IDisposable
     {
         private readonly IServiceProvider _serviceProvider;
