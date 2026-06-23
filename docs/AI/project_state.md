@@ -38,9 +38,30 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
+
+**Status:** 🔄 IN PROGRESS — Branch `feature/wave1-notifications`, Wave 0 merged (PR #38 ✅)
+
+**Problem:** NotificationService.SendEmailAsync/SendSMSAsync are stubs (Task.Delay only) — no real delivery
+
+**Solution:** BrevoEmailService (REST API v3) + EsmsNotificationService (REST API v4) + CompositeNotificationService
+
+**Completed Actions:**
+1. ✅ W1-T1: HttpClient used directly (no SDK needed — Brevo REST v3 + ESMS v4)
+2. ✅ W1-T2: BrevoEmailService — IEmailService implementation, HTML support, error handling
+3. ✅ W1-T3: EsmsNotificationService — ISmsService implementation, Unicode, 1 retry
+4. ✅ W1-T4: CompositeNotificationService — INotificationService delegates to IEmailService + ISmsService
+5. ✅ W1-T5: appsettings.Production.json + appsettings.Development.json with __REPLACE__ placeholders
+6. ✅ W1-T6: 11/11 unit tests PASS (BrevoEmailServiceTests 5 + EsmsServiceTests 6)
+
+**Next:** Push feature/wave1-notifications → create PR → merge → start Wave 2
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
 **Security Compliance — Wave 0: JWT Authentication Foundation**
 
-**Status:** 🔄 IN REVIEW — PR #38 open on `feature/wave0-jwt-auth`, pending merge to `main`
+**Status:** ✅ COMPLETED (2026-06-23) — PR #38 merged to main
 
 **Problem:** Plain-text password in Login.cshtml.cs, no JWT Bearer on Gateway, no BCrypt password hashing
 
@@ -52,10 +73,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 3. ✅ W0-T3: Login.cshtml.cs migrated to BCrypt.Verify + JWT cookie issue
 4. ✅ W0-T4: AddJwtBearer added to Gateway/Program.cs (Cookie default + JwtBearer secondary)
 5. ✅ W0-T5: ShopERP seed data: 5 DemoUsers with BCrypt hash work factor 12
-6. ✅ W0-T6: 9 unit tests — JwtTokenServiceTests (5) + LoginPasswordTests (3) = 9/9 PASS
+6. ✅ W0-T6: 9 unit tests — JwtTokenServiceTests (6) + LoginPasswordTests (3) = 9/9 PASS
 7. ✅ W0-T7: DevLoginController returns JWT token in response for E2E Bearer tests
-
-**Next:** Merge PR #38 → start Wave 1 (Notification Integration)
+8. ✅ CI fixes: ITenantProvider mock in ComponentTestBase (26/26 ShopERP tests) + flaky TamperedSignature test
 
 ---
 
@@ -448,8 +468,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-15 03:20 UTC+7
-* Current Branch: `main`
+* Last Updated: 2026-06-23 05:30 UTC+7
+* Current Branch: `feature/wave1-notifications`
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().
