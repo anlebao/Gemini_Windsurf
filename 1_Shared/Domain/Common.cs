@@ -1,6 +1,39 @@
 namespace VanAn.Shared.Domain.Common
 {
     /// <summary>
+    /// Domain Event marker interface — Wave 5 DDD Foundation
+    /// </summary>
+    public interface IDomainEvent
+    {
+        Guid EventId { get; }
+        DateTime OccurredAt { get; }
+    }
+
+    /// <summary>
+    /// AggregateRoot base class — collects domain events, Wave 5 DDD Foundation
+    /// </summary>
+    public abstract class AggregateRoot : BaseEntity
+    {
+        private readonly List<IDomainEvent> _domainEvents = [];
+
+        public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+        protected AggregateRoot() { }
+
+        protected AggregateRoot(TenantId tenantId) : base(tenantId) { }
+
+        protected void AddDomainEvent(IDomainEvent domainEvent)
+        {
+            _domainEvents.Add(domainEvent);
+        }
+
+        public void ClearDomainEvents()
+        {
+            _domainEvents.Clear();
+        }
+    }
+
+    /// <summary>
     /// Contract cho Multi-tenancy - Bắt buộc mọi Entity phải có TenantId
     /// </summary>
     public interface IMustHaveTenant

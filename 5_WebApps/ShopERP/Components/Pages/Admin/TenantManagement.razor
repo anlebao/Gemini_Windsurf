@@ -1,0 +1,343 @@
+@page "/admin/tenants"
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Aggregates.TenantAggregate
+@inject ITenantManagementService TenantService
+@inject IThemeProvider ThemeProvider
+@inject ILogger<TenantManagement> Logger
+@inject NavigationManager NavigationManager
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="tenant-management-page @ThemeProvider.CurrentTheme">
+    <!-- Header -->
+    <header class="page-header">
+        <h1>Quản lý Tenant</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Tạo tenant mới
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadTenants">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    <!-- Alert -->
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <!-- Tenant list -->
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách tenant...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_tenants.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có tenant nào. Nhấn "+ Tạo tenant mới" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Danh sách Tenant (@_tenants.Count)">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Tên</th>
+                        <th>Loại hình</th>
+                        <th>Trạng thái</th>
+                        <th>Email liên hệ</th>
+                        <th>Ngày tạo</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in _tenants)
+                    {
+                        <tr>
+                            <td><strong>@t.Name</strong></td>
+                            <td>@(t.IsHouseholdBusiness() ? "Hộ kinh doanh" : "Công ty")</td>
+                            <td>
+                                <span class="status-badge status-@t.Status.ToString().ToLower()">
+                                    @StatusLabel(t.Status)
+                                </span>
+                            </td>
+                            <td>@(t.Settings.ContactEmail ?? "-")</td>
+                            <td>@t.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                            <td class="action-cell">
+                                @if (t.Status == TenantStatus.Active)
+                                {
+                                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenSuspendModal(t)">
+                                        Tạm ngưng
+                                    </VanAButton>
+                                }
+                                @if (t.Status == TenantStatus.Suspended)
+                                {
+                                    <VanAButton Variant="secondary" Size="small" OnClick="() => ReactivateTenant(t)">
+                                        Kích hoạt
+                                    </VanAButton>
+                                }
+                                @if (t.Status != TenantStatus.Inactive)
+                                {
+                                    <VanAButton Variant="danger" Size="small" OnClick="() => OpenDeactivateModal(t)">
+                                        Vô hiệu hoá
+                                    </VanAButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+
+    <!-- Create modal -->
+    @if (_showCreateModal)
+    {
+        <VanAModal Title="Tạo Tenant Mới" OnClose="CloseCreateModal">
+            <VanAForm OnValidSubmit="HandleCreateSubmit">
+                <div class="form-group">
+                    <label>Tên tenant *</label>
+                    <input class="vanan-input" @bind="_createForm.Name" placeholder="Nhập tên doanh nghiệp..." required />
+                </div>
+                <div class="form-group">
+                    <label>Loại hình *</label>
+                    <select class="vanan-select" @bind="_createForm.BusinessTypeStr">
+                        <option value="Company">Công ty</option>
+                        <option value="HouseholdBusiness">Hộ kinh doanh</option>
+                    </select>
+                </div>
+                @if (_createForm.BusinessTypeStr == "HouseholdBusiness")
+                {
+                    <div class="form-group">
+                        <label>Nhóm HKD *</label>
+                        <select class="vanan-select" @bind="_createForm.HKDGroupStr">
+                            <option value="Group1">Nhóm 1</option>
+                            <option value="Group2">Nhóm 2</option>
+                            <option value="Group3">Nhóm 3</option>
+                        </select>
+                    </div>
+                }
+                <div class="form-group">
+                    <label>Email liên hệ</label>
+                    <input class="vanan-input" type="email" @bind="_createForm.ContactEmail" placeholder="email@example.com" />
+                </div>
+                <div class="form-group">
+                    <label>Số điện thoại</label>
+                    <input class="vanan-input" @bind="_createForm.ContactPhone" placeholder="+84..." />
+                </div>
+                <div class="form-group">
+                    <label>Địa chỉ</label>
+                    <input class="vanan-input" @bind="_createForm.Address" />
+                </div>
+                <div class="form-group">
+                    <label>Mã số thuế</label>
+                    <input class="vanan-input" @bind="_createForm.TaxCode" />
+                </div>
+                <div class="modal-actions">
+                    <VanAButton Variant="primary" Type="submit" IsLoading="@_isSaving">Tạo</VanAButton>
+                    <VanAButton Variant="outline" OnClick="CloseCreateModal">Huỷ</VanAButton>
+                </div>
+            </VanAForm>
+        </VanAModal>
+    }
+
+    <!-- Suspend modal -->
+    @if (_showSuspendModal && _selectedTenant is not null)
+    {
+        <VanAModal Title="Tạm ngưng Tenant" OnClose="CloseSuspendModal">
+            <p>Tạm ngưng tenant: <strong>@_selectedTenant.Name</strong></p>
+            <div class="form-group">
+                <label>Lý do *</label>
+                <input class="vanan-input" @bind="_reasonInput" placeholder="Nhập lý do tạm ngưng..." />
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="warning" OnClick="ConfirmSuspend" IsLoading="@_isSaving">Xác nhận tạm ngưng</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseSuspendModal">Huỷ</VanAButton>
+            </div>
+        </VanAModal>
+    }
+
+    <!-- Deactivate modal -->
+    @if (_showDeactivateModal && _selectedTenant is not null)
+    {
+        <VanAModal Title="Vô hiệu hoá Tenant" OnClose="CloseDeactivateModal">
+            <VanAAlert Type="error" Message="Thao tác này không thể hoàn tác! Tenant sẽ bị vô hiệu hoá vĩnh viễn." />
+            <p>Vô hiệu hoá tenant: <strong>@_selectedTenant.Name</strong></p>
+            <div class="form-group">
+                <label>Lý do *</label>
+                <input class="vanan-input" @bind="_reasonInput" placeholder="Nhập lý do vô hiệu hoá..." />
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="danger" OnClick="ConfirmDeactivate" IsLoading="@_isSaving">Xác nhận vô hiệu hoá</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseDeactivateModal">Huỷ</VanAButton>
+            </div>
+        </VanAModal>
+    }
+</div>
+
+@code {
+    private List<Tenant> _tenants = [];
+    private bool _isLoading;
+    private bool _isSaving;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Create modal
+    private bool _showCreateModal;
+    private CreateForm _createForm = new();
+
+    // Suspend / deactivate modals
+    private bool _showSuspendModal;
+    private bool _showDeactivateModal;
+    private Tenant? _selectedTenant;
+    private string _reasonInput = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadTenants();
+
+    private async Task LoadTenants()
+    {
+        _isLoading = true;
+        try
+        {
+            var list = await TenantService.ListTenantsAsync();
+            _tenants = [.. list];
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenants");
+            ShowAlert("error", "Không thể tải danh sách tenant.");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    // ── Create ────────────────────────────────────────────────────────────────
+    private void OpenCreateModal() { _createForm = new(); _showCreateModal = true; }
+    private void CloseCreateModal() => _showCreateModal = false;
+
+    private async Task HandleCreateSubmit()
+    {
+        _isSaving = true;
+        try
+        {
+            var businessType = _createForm.BusinessTypeStr == "HouseholdBusiness"
+                ? BusinessType.HouseholdBusiness
+                : BusinessType.Company;
+
+            HKDGroup? hkdGroup = businessType == BusinessType.HouseholdBusiness
+                ? Enum.TryParse<HKDGroup>(_createForm.HKDGroupStr, out var g) ? g : HKDGroup.Group1
+                : null;
+
+            var request = new CreateTenantRequest(
+                _createForm.Name,
+                businessType,
+                hkdGroup,
+                _createForm.ContactEmail,
+                _createForm.ContactPhone,
+                _createForm.Address,
+                _createForm.TaxCode);
+
+            await TenantService.CreateTenantAsync(request);
+            _showCreateModal = false;
+            ShowAlert("success", $"Tenant '{_createForm.Name}' đã được tạo thành công.");
+            await LoadTenants();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create tenant");
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally { _isSaving = false; }
+    }
+
+    // ── Suspend ───────────────────────────────────────────────────────────────
+    private void OpenSuspendModal(Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showSuspendModal = true; }
+    private void CloseSuspendModal() => _showSuspendModal = false;
+
+    private async Task ConfirmSuspend()
+    {
+        if (_selectedTenant is null || string.IsNullOrWhiteSpace(_reasonInput)) return;
+        _isSaving = true;
+        try
+        {
+            await TenantService.SuspendAsync(_selectedTenant.Id, _reasonInput);
+            _showSuspendModal = false;
+            ShowAlert("success", $"Tenant '{_selectedTenant.Name}' đã được tạm ngưng.");
+            await LoadTenants();
+        }
+        catch (Exception ex) { ShowAlert("error", ex.Message); }
+        finally { _isSaving = false; }
+    }
+
+    // ── Reactivate ────────────────────────────────────────────────────────────
+    private async Task ReactivateTenant(Tenant t)
+    {
+        _isSaving = true;
+        try
+        {
+            await TenantService.ReactivateAsync(t.Id);
+            ShowAlert("success", $"Tenant '{t.Name}' đã được kích hoạt lại.");
+            await LoadTenants();
+        }
+        catch (Exception ex) { ShowAlert("error", ex.Message); }
+        finally { _isSaving = false; }
+    }
+
+    // ── Deactivate ────────────────────────────────────────────────────────────
+    private void OpenDeactivateModal(Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showDeactivateModal = true; }
+    private void CloseDeactivateModal() => _showDeactivateModal = false;
+
+    private async Task ConfirmDeactivate()
+    {
+        if (_selectedTenant is null || string.IsNullOrWhiteSpace(_reasonInput)) return;
+        _isSaving = true;
+        try
+        {
+            await TenantService.DeactivateAsync(_selectedTenant.Id, _reasonInput);
+            _showDeactivateModal = false;
+            ShowAlert("success", $"Tenant '{_selectedTenant.Name}' đã bị vô hiệu hoá.");
+            await LoadTenants();
+        }
+        catch (Exception ex) { ShowAlert("error", ex.Message); }
+        finally { _isSaving = false; }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private void ShowAlert(string type, string message) { _alertType = type; _alertMessage = message; }
+
+    private static string StatusLabel(TenantStatus status) => status switch
+    {
+        TenantStatus.Active => "Hoạt động",
+        TenantStatus.Suspended => "Tạm ngưng",
+        TenantStatus.Inactive => "Vô hiệu",
+        _ => status.ToString()
+    };
+
+    private sealed class CreateForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string BusinessTypeStr { get; set; } = "Company";
+        public string HKDGroupStr { get; set; } = "Group1";
+        public string? ContactEmail { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? Address { get; set; }
+        public string? TaxCode { get; set; }
+    }
+}

@@ -87,6 +87,17 @@
             </Authorized>
         </AuthorizeView>
 
+        @* Wave 5: Tenant Management — SystemAdmin only *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/tenants">
+                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Quản lý Tenant
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
         @* Guard section: Guard role only *@
         <AuthorizeView Roles="Guard">
             <Authorized>

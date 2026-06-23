@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 
 namespace VanAn.CoreHub.Infrastructure
 {
@@ -27,6 +28,9 @@ namespace VanAn.CoreHub.Infrastructure
 
         // Wave 0: Demo users for BCrypt authentication
         DbSet<DemoUser> Users { get; }
+
+        // Wave 5: Rich Domain Tenant aggregate
+        DbSet<Tenant> Tenants { get; }
 
         // Wave 1 Phase 2: User-Tenant mapping for multi-tenancy
         DbSet<UserTenant> UserTenants { get; }

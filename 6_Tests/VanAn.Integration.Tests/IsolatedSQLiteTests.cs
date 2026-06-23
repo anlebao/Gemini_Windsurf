@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.Shared.Domain;
+using TenantAggregate = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using VanAn.Integration.Tests.Infrastructure;
 using System;
 using System.IO;
@@ -55,7 +56,7 @@ public class IsolatedSQLiteTests : IDisposable
         var testTenantId = TestEntityBuilder.CreateTenantId();
 
         // Insert Tenant first to satisfy FOREIGN KEY constraint
-        var testTenant = VanAn.Shared.Domain.Tenant.CreateCompany(testTenantId, "Test Tenant");
+        var testTenant = TenantAggregate.CreateCompany(testTenantId, "Test Tenant");
         _dbContext.Tenants.Add(testTenant);
         await _dbContext.SaveChangesAsync();
 
@@ -126,8 +127,8 @@ public class IsolatedSQLiteTests : IDisposable
         var tenant2Id = Guid.NewGuid();
 
         // Create Tenants first to satisfy FK constraints (business flow)
-        var tenant1 = VanAn.Shared.Domain.Tenant.CreateCompany(new TenantId(tenant1Id), "Test Tenant 1");
-        var tenant2 = VanAn.Shared.Domain.Tenant.CreateCompany(new TenantId(tenant2Id), "Test Tenant 2");
+        var tenant1 = TenantAggregate.CreateCompany(new TenantId(tenant1Id), "Test Tenant 1");
+        var tenant2 = TenantAggregate.CreateCompany(new TenantId(tenant2Id), "Test Tenant 2");
         _dbContext.Tenants.AddRange(tenant1, tenant2);
         await _dbContext.SaveChangesAsync();
 
@@ -233,7 +234,7 @@ public class IsolatedSQLiteTests : IDisposable
         var testTenantId = TestEntityBuilder.CreateTenantId();
         
         // Create Tenant first to satisfy potential FK constraint
-        var tenant = VanAn.Shared.Domain.Tenant.CreateCompany(testTenantId, "Test Tenant");
+        var tenant = TenantAggregate.CreateCompany(testTenantId, "Test Tenant");
         _dbContext.Tenants.Add(tenant);
         await _dbContext.SaveChangesAsync();
         
