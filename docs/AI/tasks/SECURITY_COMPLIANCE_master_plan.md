@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
-**Current Status:** COMPLETED — Wave 2 merged (PR #40), Wave 3 ready to start
+**Current Status:** COMPLETED — Wave 3 merged (PR #40/#42), Wave 4 PR #42 open — ready for merge
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -279,12 +279,12 @@ Scope: **Column-level encryption với ASP.NET Core Data Protection API**
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 30 | W4-T1 | Audit tất cả `.razor` pages trong `5_WebApps/ShopERP/Components/` — map từng page với required role | — | [W4-T1-card.md](#) | ⬜ PENDING |
-| 31 | W4-T2 | Thêm `[Authorize(Policy = "OwnerOnly")]` vào accounting/report pages. Thêm `[Authorize(Policy = "StoreManagement")]` vào inventory pages | W4-T1 | — | ⬜ PENDING |
-| 32 | W4-T3 | Wrap navigation menu items bằng `<AuthorizeView Roles="Owner,StoreKeeper">` — ẩn menu theo role | W4-T1 | — | ⬜ PENDING |
-| 33 | W4-T4 | Tạo `403-AccessDenied.razor` page — hiện thông báo + link về home | W4-T2 | — | ⬜ PENDING |
-| 34 | W4-T5 | Cập nhật `Login.cshtml.cs` redirect logic: role-based redirect sau login (Staff → KDS, Owner → Dashboard) | W4-T1 | — | ⬜ PENDING |
-| 35 | W4-T6 | Viết E2E tests: login Staff → thử access Owner-only page → verify redirect 403. Login Owner → access OK | W4-T2 | [W4-T6-card.md](#) | ⬜ PENDING |
+| 30 | W4-T1 | Audit tất cả `.razor` pages trong `5_WebApps/ShopERP/Components/` — map từng page với required role | — | [W4-T1-card.md](#) | ✅ DONE |
+| 31 | W4-T2 | Thêm `[Authorize(Policy = "OwnerOnly")]` vào accounting/report pages. Thêm `[Authorize(Policy = "StoreManagement")]` vào EInvoice pages | W4-T1 | — | ✅ DONE |
+| 32 | W4-T3 | Wrap navigation menu items bằng `<AuthorizeView Roles="Owner,StoreKeeper">` — ẩn menu theo role | W4-T1 | — | ✅ DONE |
+| 33 | W4-T4 | Tạo `AccessDenied.razor` page + `RedirectToLogin` + `RedirectToAccessDenied` + nâng `Routes.razor` lên `AuthorizeRouteView` + `CascadingAuthenticationState` | W4-T2 | — | ✅ DONE |
+| 34 | W4-T5 | Cập nhật `Login.cshtml.cs` redirect logic: role-based redirect sau login (Staff → KDS, Owner → Dashboard) | W4-T1 | — | ✅ DONE |
+| 35 | W4-T6 | Viết E2E tests: login Staff → thử access Owner-only page → verify redirect 403. Login Owner → access OK | W4-T2 | [W4-T6-card.md](#) | ✅ DONE |
 
 ### Entry criteria
 - [ ] Wave 0 merged (JWT + role claims working)

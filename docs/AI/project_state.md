@@ -38,25 +38,33 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Security Compliance — Wave 3: Report Export (Excel with EPPlus)**
+**Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer**
 
-**Status:** ✅ COMPLETED — Branch `feature/wave3-report-export`, commit `bdc1cf0`
+**Status:** ✅ COMPLETED — Branch `feature/wave4-rbac-ui`, commit `0a8ab4d`, PR #42 open
 
-**Problem:** HKDTaxReportingService.ExportToExcelAsync returned mock bytes; no API endpoint exposed Excel export
+**Problem:** All Blazor pages had no `<AuthorizeView>` or `[Authorize]` — Staff could access Owner-only accounting/report pages; no 403 UI feedback
 
-**Solution:** IExcelExportService + ExcelExportService with EPPlus 7.6.1; ReportController at `/api/reports/export/excel`
+**Solution:** `AuthorizeRouteView` + `CascadingAuthenticationState` in Routes.razor; `[Authorize(Policy)]` on all sensitive pages; role-gated NavMenu; role-based post-login redirect; `AccessDenied.razor` 403 page
 
 **Completed Actions:**
-1. ✅ W3-T1: EPPlus 7.6.1 added to `Directory.Packages.props` + `VanAn.CoreHub.csproj`
-2. ✅ W3-T2: `IExcelExportService` + `ExcelExportService` — Revenue, Inventory, Customer
-3. ✅ W3-T3: `RevenueExcelReport` — 2 sheets ("Tóm tắt", "Chi tiết đơn hàng"), VND format `#,##0 ₫`
-4. ✅ W3-T4: `InventoryExcelReport` — low-stock rows highlighted red
-5. ✅ W3-T5: `CustomerExcelReport` — loyalty tier color coding (Bronze/Silver/Gold/Platinum)
-6. ✅ W3-T6: `ReportController` — `GET /api/reports/export/excel?type={revenue|inventory|customer}&from=&to=`, JWT auth + tenant isolation, Owner/StoreKeeper roles
-7. ✅ W3-T7: `export-excel-flow.spec.ts` updated — 3 E2E test cases (revenue, inventory, 403 for Staff)
-8. ✅ W3-T8: `ExcelExportServiceTests` — 6/6 PASS
+1. ✅ W4-T1: Audited all `.razor` pages — mapped each to required role
+2. ✅ W4-T2: `[Authorize(Policy="OwnerOnly")]` on 6 Accounting pages; `[Authorize(Policy="StoreManagement")]` on 4 EInvoice pages; `[Authorize(Policy="OwnerOnly")]` on 2 EInvoice Provider pages
+3. ✅ W4-T3: `NavMenu.razor` — `<AuthorizeView Roles="Owner">`, `<AuthorizeView Roles="Owner,StoreKeeper">`, `<AuthorizeView Roles="Guard">` etc.
+4. ✅ W4-T4: `AccessDenied.razor` 403 page + `RedirectToLogin` + `RedirectToAccessDenied` components; `Routes.razor` upgraded to `AuthorizeRouteView` + `CascadingAuthenticationState`
+5. ✅ W4-T5: `Login.cshtml.cs` — Staff/Masterchef → `/Kitchen/Index`, Guard → `/Guard/Scan`, Owner/StoreKeeper → `/Index`
+6. ✅ W4-T6: `rbac-enforcement.spec.ts` — 9 E2E test cases (Staff blocked, Owner allowed, StoreKeeper partial, Guard redirect, NavMenu visibility, unauthenticated redirect)
 
-**Next:** Push `feature/wave3-report-export` → PR #41 → merge
+**Next:** Merge PR #42 → start Wave 5 (Domain Refactor + Tenant CRUD)
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Security Compliance — Wave 3: Report Export (Excel with EPPlus)**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave3-report-export`, merged to `main` (PR #42 merged wave 3)
+
+**Completed Actions:**
+1. ✅ W3-T1 through W3-T8: EPPlus export, ReportController, E2E tests, unit tests
 
 ---
 
