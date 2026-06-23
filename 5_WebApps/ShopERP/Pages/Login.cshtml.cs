@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Interfaces;
@@ -15,6 +16,7 @@ using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 namespace VanAn.ShopERP.Pages
 {
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("LoginRateLimit")]
     public class LoginModel(
         IAntiforgery antiforgery,
         IVanAnDbContext dbContext,
