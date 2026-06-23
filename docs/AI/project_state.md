@@ -38,7 +38,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**No active objective — Wave 6 completed and merged to main**
+**No active objective — Wave 6 completed and merged to main. Ready for Wave 7 (Production Hardening).**
 
 ---
 
@@ -248,11 +248,20 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ### Current: No active objective
 
-Wave 6 completed and merged to main. Ready for next wave.
+Wave 6 completed and merged to main. Ready for Wave 7.
 
 ### Next Phase
 
-**Wave 7:** TBD — next security/compliance wave (audit logging hardening / session management / API rate-limiting)
+**Wave 7: Production Hardening & Non-functional**
+- HTTPS Enforcement (app.UseHttpsRedirection)
+- CORS Hardening (whitelist domains)
+- Backup script (SQLite WAL checkpoint)
+- Health checks (AddHealthChecks)
+- Rate limiting (login endpoint)
+- Distributed cache migration (Redis conditional)
+- WCAG basic fixes (aria-label)
+
+**Reference:** `docs/AI/tasks/SECURITY_COMPLIANCE_master_plan.md` — Wave 7 section
 
 ---
 
@@ -540,9 +549,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 (Wave 6 merge to main)
+* Last Updated: 2026-06-23 (Wave 6 merge to main, ready for Wave 7)
 * Current Branch: `main`
-* **Wave 6 — User Aggregate + RBAC Management (2026-06-23):** UserAggregate split from Domain.cs: DemoUser.cs (AggregateRoot with lifecycle methods), UserRole.cs, UserTenant.cs, UserPermissionGroup.cs, PermissionGroup.cs, UserEvents.cs. Old `DemoUser`, `UserTenant`, `UserRole` in Domain.cs marked `[Obsolete]`. EF configs added (PermissionGroupConfiguration, UserPermissionGroupConfiguration). IUserManagementService + UserManagementService, IRoleAssignmentService + RoleAssignmentService, IPermissionGroupService + PermissionGroupService. UserController + PermissionGroupController. UserManagement.razor + PermissionGroupManagement.razor + NavMenu entries. 29 unit tests PASS (UserDomainTests 7, UserManagementServiceTests 9, RoleAssignmentServiceTests 6, PermissionGroupServiceTests 7). `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED, commits `2fe0615` + `227ba1d`. `.gitignore` updated to exclude runtime data-protection keys. Merged to `main` (commit `2599c1b`). Fixed guard-check.ps1 PowerShell parsing issues (commit `735454e`).
+* **Wave 6 — User Aggregate + RBAC Management (2026-06-23):** UserAggregate split from Domain.cs: DemoUser.cs (AggregateRoot with lifecycle methods), UserRole.cs, UserTenant.cs, UserPermissionGroup.cs, PermissionGroup.cs, UserEvents.cs. Old `DemoUser`, `UserTenant`, `UserRole` in Domain.cs marked `[Obsolete]`. EF configs added (PermissionGroupConfiguration, UserPermissionGroupConfiguration). IUserManagementService + UserManagementService, IRoleAssignmentService + RoleAssignmentService, IPermissionGroupService + PermissionGroupService. UserController + PermissionGroupController. UserManagement.razor + PermissionGroupManagement.razor + NavMenu entries. 29 unit tests PASS (UserDomainTests 7, UserManagementServiceTests 9, RoleAssignmentServiceTests 6, PermissionGroupServiceTests 7). `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED, commits `2fe0615` + `227ba1d`. `.gitignore` updated to exclude runtime data-protection keys. Merged to `main` (commit `2599c1b`). Fixed guard-check.ps1 PowerShell parsing issues (commit `735454e`). Added Category=Performance trait to SQLiteConcurrencyPerformanceTests (commit `df18535`). Branch `wave6-user-rbac-mgmt-merge` pushed to GitHub for PR. Updated master plan for Wave 6 completion and Wave 7 readiness.
 * **Wave 5 — Domain Refactor + Tenant Rich Domain + CRUD (2026-06-23):** DDD foundation (AggregateRoot, IDomainEvent) in Common.cs. TenantAggregate split from Domain.cs: Tenant.cs (Rich Domain), TenantStatus.cs, TenantSettings.cs, TenantEvents.cs. Old `record Tenant` in Domain.cs marked `[Obsolete]`. TenantConfiguration.cs, IVanAnDbContext, VanAnDbContext migrated. ITenantManagementService + TenantManagementService + TenantController + TenantManagement.razor + 23 unit tests. guard-check.ps1 PASSED, commit `301f141`.
 * **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS.
 * **Wave 2 — Data Protection COMPLETED (2026-06-23):** Added AddDataProtection, EncryptedStringConverter, applied to Customer/Lead/FacebookLead PII. Migration + data migration script. CustomerEncryptionTests PASS.

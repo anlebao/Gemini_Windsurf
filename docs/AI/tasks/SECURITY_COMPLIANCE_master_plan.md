@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
-**Current Status:** Wave 5 IN PROGRESS — Branch `feature/wave5-tenant-mgmt` (W5-T1→T10 COMPLETE, commit `301f141`)
+**Current Status:** Wave 6 COMPLETED — Merged to `main` (commit `2599c1b`), PR open: `wave6-user-rbac-mgmt-merge`
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -386,13 +386,14 @@ Domain phải stable trước khi Service layer dùng. Nếu viết Service trư
 
 ## 7. WAVE 6 — UserAggregate Domain Phase + User CRUD + Permission Group
 
-**Branch:** `feature/wave6-user-rbac-mgmt`
+**Branch:** `feature/wave6-user-rbac-mgmt` → Merged to `main` (commit `2599c1b`)
 **Estimated sessions:** 5 (tăng từ 4 — có Domain phase tách UserAggregate ra file riêng)
 **Priority:** 🔴 CRITICAL — Không thể gán role, tạo user qua UI là sản phẩm chưa hoàn thiện
 **Conflict risk:** HIGH — Tiếp tục tách `Domain.cs` + sửa `DemoUserConfiguration.cs` + `Login.cshtml.cs`
 **Depends on:** Wave 0 (JWT + BCrypt), Wave 5 (Tenant domain stable, `AggregateRoot` đã có)
 **Domain Decision D2:** ✅ APPROVED — `PermissionGroup` bundle roles (không granular permissions)
 **Domain Decision D3:** ✅ APPROVED — Giữ `DemoUser` trong Domain, DTO boundary dùng `UserDto`
+**Status:** ✅ COMPLETED — All tasks W6-T1→T12 DONE, 29/29 tests PASS, merged to main
 
 ### Vấn đề cụ thể cần fix
 - `DemoUser`, `UserTenant`, `UserRole` vẫn nằm trong `Domain.cs` (God File) — cần tách ra `UserAggregate/`
@@ -424,18 +425,18 @@ WAVE 6 sửa:
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 46 | W6-T1 | **Domain Phase:** Tạo `UserAggregate/DemoUser.cs` — class với domain methods: `Deactivate()`, `Reactivate()`, `ChangePassword(BCryptHash)`, `AssignRole()` + `UserCreatedEvent`, `UserDeactivatedEvent` | Wave 5 (AggregateRoot) | [W6-T1-card.md](#) | ⬜ PENDING |
-| 47 | W6-T2 | **Domain Phase:** Tạo `UserAggregate/UserTenant.cs` (UserRole enum thay string), `UserAggregate/UserRole.cs`, `UserAggregate/PermissionGroup.cs`, `UserAggregate/UserPermissionGroup.cs` | W6-T1 | [W6-T2-card.md](#) | ⬜ PENDING |
-| 48 | W6-T3 | **Domain Phase:** `[Obsolete]` mark `DemoUser`, `UserTenant`, `UserRole` trong `Domain.cs`. EF configurations update. Migration mới. | W6-T2 | [W6-T3-card.md](#) | ⬜ PENDING |
-| 49 | W6-T4 | **Service Phase:** `IUserManagementService` + `UserManagementService`: `CreateUser` (BCrypt hash), `GetUser`, `ListUsers`, `UpdateProfile`, `ChangePassword`, `DeactivateUser`, `ReactivateUser` | W6-T1 | [W6-T4-card.md](#) | ⬜ PENDING |
-| 50 | W6-T5 | **Service Phase:** `IRoleAssignmentService` + `RoleAssignmentService`: `AssignRoleToUser`, `RevokeRole`, `GetUserRoles`, `AssignToGroup`, `RemoveFromGroup` — cross-tenant guard bắt buộc | W6-T2, W6-T4 | [W6-T5-card.md](#) | ⬜ PENDING |
-| 51 | W6-T6 | **Service Phase:** `IPermissionGroupService` + `PermissionGroupService`: `CreateGroup`, `UpdateGroup`, `AddRoleToGroup`, `RemoveRoleFromGroup`, `ListGroups`, `GetEffectiveRoles(userId)` | W6-T2 | [W6-T6-card.md](#) | ⬜ PENDING |
-| 52 | W6-T7 | **API Phase:** `UserController` — `POST /api/users`, `GET /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/deactivate`, `POST /api/users/{id}/roles`, `DELETE /api/users/{id}/roles/{role}` | W6-T4, W6-T5 | [W6-T7-card.md](#) | ⬜ PENDING |
-| 53 | W6-T8 | **API Phase:** `PermissionGroupController` — `POST /api/permission-groups`, `GET /api/permission-groups`, `PATCH /api/permission-groups/{id}`, `POST /api/permission-groups/{id}/roles` | W6-T6 | — | ⬜ PENDING |
-| 54 | W6-T9 | **Notification:** Create user → `UserCreatedEvent` → handler gọi `INotificationService.SendEmailAsync()` (welcome + link đổi password) | W6-T4, Wave 1 | — | ⬜ PENDING |
-| 55 | W6-T10 | **UI Phase:** `UserManagement.razor` — list users, create form (role dropdown từ `UserRole` enum), assign to PermissionGroup, deactivate. `[Authorize(Policy="OwnerOnly")]` | W6-T7 | [W6-T10-card.md](#) | ⬜ PENDING |
-| 56 | W6-T11 | **UI Phase:** `PermissionGroupManagement.razor` — CRUD groups, multi-select roles | W6-T8 | — | ⬜ PENDING |
-| 57 | W6-T12 | **Tests:** `DemoUserDomainTests` (domain methods, guards, events), `UserManagementServiceTests` (CRUD, duplicate check, BCrypt), `RoleAssignmentServiceTests` (assign/revoke, cross-tenant) | W6-T4, W6-T5 | — | ⬜ PENDING |
+| 46 | W6-T1 | **Domain Phase:** Tạo `UserAggregate/DemoUser.cs` — class với domain methods: `Deactivate()`, `Reactivate()`, `ChangePassword(BCryptHash)`, `AssignRole()` + `UserCreatedEvent`, `UserDeactivatedEvent` | Wave 5 (AggregateRoot) | [W6-T1-card.md](#) | ✅ DONE |
+| 47 | W6-T2 | **Domain Phase:** Tạo `UserAggregate/UserTenant.cs` (UserRole enum thay string), `UserAggregate/UserRole.cs`, `UserAggregate/PermissionGroup.cs`, `UserAggregate/UserPermissionGroup.cs` | W6-T1 | [W6-T2-card.md](#) | ✅ DONE |
+| 48 | W6-T3 | **Domain Phase:** `[Obsolete]` mark `DemoUser`, `UserTenant`, `UserRole` trong `Domain.cs`. EF configurations update. Migration mới. | W6-T2 | [W6-T3-card.md](#) | ✅ DONE |
+| 49 | W6-T4 | **Service Phase:** `IUserManagementService` + `UserManagementService`: `CreateUser` (BCrypt hash), `GetUser`, `ListUsers`, `UpdateProfile`, `ChangePassword`, `DeactivateUser`, `ReactivateUser` | W6-T1 | [W6-T4-card.md](#) | ✅ DONE |
+| 50 | W6-T5 | **Service Phase:** `IRoleAssignmentService` + `RoleAssignmentService`: `AssignRoleToUser`, `RevokeRole`, `GetUserRoles`, `AssignToGroup`, `RemoveFromGroup` — cross-tenant guard bắt buộc | W6-T2, W6-T4 | [W6-T5-card.md](#) | ✅ DONE |
+| 51 | W6-T6 | **Service Phase:** `IPermissionGroupService` + `PermissionGroupService`: `CreateGroup`, `UpdateGroup`, `AddRoleToGroup`, `RemoveRoleFromGroup`, `ListGroups`, `GetEffectiveRoles(userId)` | W6-T2 | [W6-T6-card.md](#) | ✅ DONE |
+| 52 | W6-T7 | **API Phase:** `UserController` — `POST /api/users`, `GET /api/users`, `PATCH /api/users/{id}`, `POST /api/users/{id}/deactivate`, `POST /api/users/{id}/roles`, `DELETE /api/users/{id}/roles/{role}` | W6-T4, W6-T5 | [W6-T7-card.md](#) | ✅ DONE |
+| 53 | W6-T8 | **API Phase:** `PermissionGroupController` — `POST /api/permission-groups`, `GET /api/permission-groups`, `PATCH /api/permission-groups/{id}`, `POST /api/permission-groups/{id}/roles` | W6-T6 | — | ✅ DONE |
+| 54 | W6-T9 | **Notification:** Create user → `UserCreatedEvent` → handler gọi `INotificationService.SendEmailAsync()` (welcome + link đổi password) | W6-T4, Wave 1 | — | ✅ DONE |
+| 55 | W6-T10 | **UI Phase:** `UserManagement.razor` — list users, create form (role dropdown từ `UserRole` enum), assign to PermissionGroup, deactivate. `[Authorize(Policy="OwnerOnly")]` | W6-T7 | [W6-T10-card.md](#) | ✅ DONE |
+| 56 | W6-T11 | **UI Phase:** `PermissionGroupManagement.razor` — CRUD groups, multi-select roles | W6-T8 | — | ✅ DONE |
+| 57 | W6-T12 | **Tests:** `DemoUserDomainTests` (domain methods, guards, events), `UserManagementServiceTests` (CRUD, duplicate check, BCrypt), `RoleAssignmentServiceTests` (assign/revoke, cross-tenant) | W6-T4, W6-T5 | — | ✅ DONE |
 
 ### Entry criteria
 - [ ] Wave 5 merged (`AggregateRoot` + `IDomainEvent` đã có, Tenant stable)
@@ -470,11 +471,14 @@ Cùng lý do như Wave 5: `DemoUser` phải có domain methods (`Deactivate`, `C
 
 ## 8. WAVE 7 — Production Hardening & Non-functional
 
-**Branch:** `feature/wave7-prod-hardening`
+**Branch:** `feature/wave7-prod-hardening` (NEXT WAVE)
 **Estimated sessions:** 3
 **Priority:** 🟡 MEDIUM
 **Conflict risk:** LOW — Mostly config changes và infra additions
 **Depends on:** Wave 0, Wave 6
+**Status:** ⬜ PENDING — Ready to start after Wave 6 merge
+
+**Note:** Integration test failures (21 tests, FOREIGN KEY constraints) documented in `docs/AI/integration_test_failures_analysis.md` — pre-existing, not blocking Wave 7
 
 ### Tasks (priority order)
 | # | Task ID | Task | Depends on |
