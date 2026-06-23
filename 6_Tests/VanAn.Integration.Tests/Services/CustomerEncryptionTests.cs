@@ -6,6 +6,7 @@ using VanAn.CoreHub.Services.DataProtection;
 using VanAn.Integration.Tests.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using TenantAggregate = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -22,7 +23,7 @@ namespace VanAn.Integration.Tests.Services
         {
             // Arrange
             var tenantId = Guid.NewGuid();
-            var tenant = Tenant.CreateCompany(new TenantId(tenantId), "Test Tenant");
+            var tenant = TenantAggregate.CreateCompany(new TenantId(tenantId), "Test Tenant");
             _dbContext.Tenants.Add(tenant);
             await _dbContext.SaveChangesAsync();
 
@@ -65,7 +66,7 @@ namespace VanAn.Integration.Tests.Services
         {
             // Arrange
             var tenantId = Guid.NewGuid();
-            var tenant = Tenant.CreateCompany(new TenantId(tenantId), "Test Tenant");
+            var tenant = TenantAggregate.CreateCompany(new TenantId(tenantId), "Test Tenant");
             _dbContext.Tenants.Add(tenant);
             await _dbContext.SaveChangesAsync();
 
@@ -147,7 +148,7 @@ namespace VanAn.Integration.Tests.Services
         {
             // Arrange: Insert a customer with raw plaintext values bypassing EF Core converters
             var tenantId = Guid.NewGuid();
-            var tenant = Tenant.CreateCompany(new TenantId(tenantId), "Test Tenant");
+            var tenant = TenantAggregate.CreateCompany(new TenantId(tenantId), "Test Tenant");
             _dbContext.Tenants.Add(tenant);
             await _dbContext.SaveChangesAsync();
 

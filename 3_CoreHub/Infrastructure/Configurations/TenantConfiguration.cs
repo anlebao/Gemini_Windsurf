@@ -1,48 +1,69 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
 {
     /// <summary>
-    /// EF Core configuration for Tenant entity
-    /// NOTE: Tenant is a record (not inheriting from BaseEntity) with TenantId as primary key
+    /// EF Core configuration for the Rich Domain Tenant aggregate (Wave 5).
+    /// Maps VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant to the "Tenants" table.
+    /// The old anemic record VanAn.Shared.Domain.Tenant is [Obsolete] and no longer mapped.
     /// </summary>
     public class TenantConfiguration : IEntityTypeConfiguration<Tenant>, IEntityConfiguration
     {
         public void Configure(EntityTypeBuilder<Tenant> builder)
         {
-            // Primary key: TenantId value object
-            _ = builder.HasKey(e => e.Id);
+            builder.ToTable("Tenants");
 
-            // TenantId value object converter (special case: Tenant itself uses TenantId as PK)
-            _ = builder.Property(e => e.Id)
+            // Primary key: TenantId value object (stored as TEXT/UUID)
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Id)
+                .HasColumnName("Id")
                 .HasConversion(id => id.Value, value => new TenantId(value))
                 .IsRequired();
 
-            // Name property
-            _ = builder.Property(e => e.Name)
+            builder.Property(e => e.Name)
                 .IsRequired()
                 .HasMaxLength(200);
 
-            // BusinessType enum conversion to int
-            _ = builder.Property(e => e.BusinessType)
+            // BusinessType enum → int
+            builder.Property(e => e.BusinessType)
                 .HasConversion<int>();
 
-            // HKDGroup nullable enum conversion to int?
-            _ = builder.Property(e => e.HKDGroup)
+            // HKDGroup nullable enum → int?
+            builder.Property(e => e.HKDGroup)
                 .HasConversion<int?>();
 
-            // CreatedAt with default value
-            _ = builder.Property(e => e.CreatedAt)
+            // Wave 5: TenantStatus enum → int (default Active=1)
+            builder.Property(e => e.Status)
+                .HasConversion<int>()
+                .HasDefaultValue(TenantStatus.Active)
+                .IsRequired();
+
+            // Wave 5: TenantSettings owned value object (flattened into Tenants table)
+            builder.OwnsOne(e => e.Settings, settings =>
+            {
+                settings.Property(s => s.ContactEmail).HasColumnName("Settings_ContactEmail").HasMaxLength(200);
+                settings.Property(s => s.ContactPhone).HasColumnName("Settings_ContactPhone").HasMaxLength(50);
+                settings.Property(s => s.Address).HasColumnName("Settings_Address").HasMaxLength(500);
+                settings.Property(s => s.LogoUrl).HasColumnName("Settings_LogoUrl").HasMaxLength(500);
+                settings.Property(s => s.TaxCode).HasColumnName("Settings_TaxCode").HasMaxLength(20);
+            });
+
+            // Audit fields from BaseEntity
+            builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            builder.Property(e => e.UpdatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            builder.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
 
-            // IsActive with default value
-            _ = builder.Property(e => e.IsActive)
-                .HasDefaultValue(true);
+            // Ignore domain events (not persisted)
+            builder.Ignore(e => e.DomainEvents);
 
-            // Index on Id (already has PK, but explicit for clarity)
-            _ = builder.HasIndex(e => e.Id);
+            builder.HasIndex(e => e.Id);
         }
     }
 }

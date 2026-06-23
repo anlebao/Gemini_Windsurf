@@ -3,6 +3,11 @@ using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Infrastructure;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
+using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
+using PermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.PermissionGroup;
+using UserPermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.UserPermissionGroup;
 using VanAn.CoreHub.Infrastructure.Configurations;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
@@ -40,11 +45,18 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
 
+        // Wave 5: Tenant management (required by IVanAnDbContext)
+        public DbSet<Tenant> Tenants { get; set; }
+
         // Wave 0: DemoUser for BCrypt authentication
         public DbSet<DemoUser> Users { get; set; }
 
         // Wave 1 Phase 2: User-Tenant mapping for multi-tenancy
         public DbSet<UserTenant> UserTenants { get; set; }
+
+        // Wave 6: Permission groups for bundle-based RBAC
+        public DbSet<PermissionGroup> PermissionGroups { get; set; }
+        public DbSet<UserPermissionGroup> UserPermissionGroups { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {

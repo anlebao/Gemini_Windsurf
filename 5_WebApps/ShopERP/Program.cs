@@ -9,6 +9,8 @@ using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
 using VanAn.UI.Platform.Services;
 using Serilog;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
 namespace VanAn.ShopERP
@@ -147,6 +149,12 @@ namespace VanAn.ShopERP
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
             _ = builder.Services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
+            // Wave 5: Tenant management
+            _ = builder.Services.AddScoped<CoreHub.Services.ITenantManagementService, CoreHub.Services.TenantManagementService>();
+            // Wave 6: User & permission group management
+            _ = builder.Services.AddScoped<CoreHub.Services.IUserManagementService, CoreHub.Services.UserManagementService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IRoleAssignmentService, CoreHub.Services.RoleAssignmentService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IPermissionGroupService, CoreHub.Services.PermissionGroupService>();
 
             // ✅ FIXED: Enterprise authentication configuration
             _ = builder.Services.AddAuthentication(options =>
@@ -193,7 +201,9 @@ namespace VanAn.ShopERP
                 .AddPolicy("OwnerOnly", policy => policy.RequireRole(UserRole.Owner.ToString()))
                 .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString()))
                 .AddPolicy("GuardOnly", policy => policy.RequireRole(UserRole.Guard.ToString()))
-                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()));
+                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()))
+                // Wave 5: SystemAdmin — cross-tenant Tenant CRUD
+                .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
 
             // ✅ FIXED: Add cascading authentication state
             _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>();
@@ -234,24 +244,15 @@ namespace VanAn.ShopERP
                 {
                     var passwordHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
 
-                    static DemoUser MakeDemoUser(string username, string hash, string displayName, UserRole role)
-                    {
-                        // Activator bypasses protected constructor visibility — needed because DemoUser()
-                        // is protected (EF Core materialization pattern). Seed-only usage.
-                        var u = (DemoUser)Activator.CreateInstance(typeof(DemoUser), nonPublic: true)!;
-                        u.Username = username;
-                        u.PasswordHash = hash;
-                        u.DisplayName = displayName;
-                        u.Role = role;
-                        return u;
-                    }
+                    // Dev seed tenant: 00000000-0000-0000-0000-000000000001
+                    var devTenantId = new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
 
                     context.Users.AddRange(
-                        MakeDemoUser("admin@vanan.vn", passwordHash, "Chủ Quán", UserRole.Owner),
-                        MakeDemoUser("kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper),
-                        MakeDemoUser("baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard),
-                        MakeDemoUser("staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff),
-                        MakeDemoUser("bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef)
+                        new DemoUser(devTenantId, "admin@vanan.vn", passwordHash, "Chủ Quán", UserRole.Owner),
+                        new DemoUser(devTenantId, "kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper),
+                        new DemoUser(devTenantId, "baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard),
+                        new DemoUser(devTenantId, "staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff),
+                        new DemoUser(devTenantId, "bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef)
                     );
                     _ = await context.SaveChangesAsync();
                     Console.WriteLine("Wave 0: DemoUsers seeded with BCrypt hashed passwords.");

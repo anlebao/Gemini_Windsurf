@@ -46,6 +46,17 @@
                         <span class="bi bi-lock-fill-nav-menu" aria-hidden="true"></span> Đóng Kỳ Kế Toán
                     </NavLink>
                 </div>
+                @* Wave 6: User & RBAC Management — Owner only *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Quản lý người dùng
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/permission-groups">
+                        <span class="bi bi-person-lock-nav-menu" aria-hidden="true"></span> Nhóm quyền
+                    </NavLink>
+                </div>
             </Authorized>
         </AuthorizeView>
 
@@ -82,6 +93,17 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/audit-trail">
                         <span class="bi bi-shield-check-nav-menu" aria-hidden="true"></span> Nhật Ký Audit
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Wave 5: Tenant Management — SystemAdmin only *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/tenants">
+                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Quản lý Tenant
                     </NavLink>
                 </div>
             </Authorized>

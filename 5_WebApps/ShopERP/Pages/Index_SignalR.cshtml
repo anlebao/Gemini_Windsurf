@@ -1,5 +1,6 @@
 @page "/signalr-dashboard"
 @using VanAn.Shared.Domain
+@using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @inject IServiceProvider ServiceProvider

@@ -38,23 +38,58 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer**
+**Security Compliance — Wave 6: User Aggregate + RBAC Management**
 
-**Status:** ✅ COMPLETED — Branch `feature/wave4-rbac-ui`, commit `0a8ab4d`, PR #42 open
+**Status:** 🟡 IN PROGRESS — Branch `feature/wave6-user-rbac-mgmt`, commit `227ba1d`
 
-**Problem:** All Blazor pages had no `<AuthorizeView>` or `[Authorize]` — Staff could access Owner-only accounting/report pages; no 403 UI feedback
+**Problem:** `DemoUser` and `UserTenant` live in `Domain.cs` (God File). `UserRole` is string, no lifecycle methods on `DemoUser`, no permission groups for role bundles.
 
-**Solution:** `AuthorizeRouteView` + `CascadingAuthenticationState` in Routes.razor; `[Authorize(Policy)]` on all sensitive pages; role-gated NavMenu; role-based post-login redirect; `AccessDenied.razor` 403 page
+**Solution:** Split `UserAggregate` from `Domain.cs` → rich `DemoUser` lifecycle methods → `UserRole` enum → `PermissionGroup` + `UserPermissionGroup` → services → controllers → admin UI pages.
 
 **Completed Actions:**
-1. ✅ W4-T1: Audited all `.razor` pages — mapped each to required role
-2. ✅ W4-T2: `[Authorize(Policy="OwnerOnly")]` on 6 Accounting pages; `[Authorize(Policy="StoreManagement")]` on 4 EInvoice pages; `[Authorize(Policy="OwnerOnly")]` on 2 EInvoice Provider pages
-3. ✅ W4-T3: `NavMenu.razor` — `<AuthorizeView Roles="Owner">`, `<AuthorizeView Roles="Owner,StoreKeeper">`, `<AuthorizeView Roles="Guard">` etc.
-4. ✅ W4-T4: `AccessDenied.razor` 403 page + `RedirectToLogin` + `RedirectToAccessDenied` components; `Routes.razor` upgraded to `AuthorizeRouteView` + `CascadingAuthenticationState`
-5. ✅ W4-T5: `Login.cshtml.cs` — Staff/Masterchef → `/Kitchen/Index`, Guard → `/Guard/Scan`, Owner/StoreKeeper → `/Index`
-6. ✅ W4-T6: `rbac-enforcement.spec.ts` — 9 E2E test cases (Staff blocked, Owner allowed, StoreKeeper partial, Guard redirect, NavMenu visibility, unauthenticated redirect)
+1. ✅ W6-T1: `1_Shared/Domain/Aggregates/UserAggregate/DemoUser.cs` (AggregateRoot lifecycle: Create, Deactivate, Reactivate, ChangePassword, AssignRole, UpdateProfile)
+2. ✅ W6-T2: `UserRole.cs`, `UserTenant.cs`, `PermissionGroup.cs`, `UserPermissionGroup.cs`, `UserEvents.cs`
+3. ✅ W6-T3: Legacy `DemoUser`, `UserTenant`, `UserRole` in `Domain.cs` marked `[Obsolete]`
+4. ✅ W6-T4: `IUserManagementService` + `UserManagementService` (Create/List/Get/Update/Deactivate/Reactivate/ChangePassword)
+5. ✅ W6-T5: `IRoleAssignmentService` + `RoleAssignmentService` (assign/revoke roles, group membership, effective roles)
+6. ✅ W6-T6: `IPermissionGroupService` + `PermissionGroupService` (create/update/list groups, add/remove roles)
+7. ✅ W6-T7: `UserController` in `ShopERP/Controllers/` — tenant-scoped CRUD endpoints
+8. ✅ W6-T8: `PermissionGroupController` in `ShopERP/Controllers/` — group CRUD endpoints
+9. ✅ W6-T9: `UserCreatedEvent` handler dispatches welcome email via `INotificationService`
+10. ✅ W6-T10: `UserManagement.razor` at `/admin/users`
+11. ✅ W6-T11: `PermissionGroupManagement.razor` at `/admin/permission-groups` + NavMenu entries
+12. ✅ W6-T12: `UserDomainTests` (7 cases) + `UserManagementServiceTests` (9) + `RoleAssignmentServiceTests` (6) + `PermissionGroupServiceTests` (7) = 29/29 PASS
 
-**Next:** Merge PR #42 → start Wave 5 (Domain Refactor + Tenant CRUD)
+**Next:** Open PR for Wave 6 → merge → start Wave 7 (Audit/Compliance next)
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Security Compliance — Wave 5: Domain Refactor (God File Split) + Tenant Rich Domain Model + Tenant CRUD**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave5-tenant-mgmt`, merged into `feature/wave6-user-rbac-mgmt` base
+
+**Completed Actions:**
+1. ✅ W5-T1: `AggregateRoot` base + `IDomainEvent` interface added to `Common.cs`
+2. ✅ W5-T2: `1_Shared/Domain/Aggregates/TenantAggregate/Tenant.cs` (Rich Domain) + `TenantStatus.cs` + `TenantSettings.cs`
+3. ✅ W5-T3: `TenantAggregate/TenantEvents.cs` — `TenantCreatedEvent`, `TenantSuspendedEvent`, `TenantDeactivatedEvent`
+4. ✅ W5-T4: `record Tenant` in `Domain.cs` marked `[Obsolete]`; `TenantConfiguration.cs` updated; `IVanAnDbContext` + `VanAnDbContext.Tenants` now typed to new aggregate; integration tests migrated
+5. ✅ W5-T5: `ITenantManagementService` + `TenantManagementService` (Create/List/Get/Update/Suspend/Reactivate/Deactivate)
+6. ✅ W5-T6: `TenantController` in `ShopERP/Controllers/` — 7 endpoints; `SystemAdmin` policy added to Gateway + ShopERP
+7. ✅ W5-T7: `TenantCreatedEvent` handler dispatches welcome email via `INotificationService`
+8. ✅ W5-T8: `3_CoreHub/EmailTemplates/TenantWelcomeEmail.html` (Vietnamese template)
+9. ✅ W5-T9: `TenantManagement.razor` at `/admin/tenants` — list/create/suspend/reactivate/deactivate; NavMenu entry for `SystemAdmin`
+10. ✅ W5-T10: `TenantDomainTests` (13 cases) + `TenantManagementServiceTests` (10 cases)
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave4-rbac-ui`, merged to `main` (commit `5a6b441`)
+
+**Completed Actions:**
+1. ✅ W4-T1 through W4-T6: AuthorizeRouteView, policy-gated pages, NavMenu role gates, AccessDenied.razor, role-based login redirect, E2E tests
 
 ---
 
@@ -195,6 +230,14 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
   * EncryptedStringConverter, PII encryption, CustomerEncryptionTests PASS
 - **Security Compliance — Wave 3: Report Export (Excel with EPPlus) ✅** (2026-06-23)
   * IExcelExportService + 3 report generators + ReportController + 6/6 unit tests PASS
+- **Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer ✅** (2026-06-23)
+  * AuthorizeRouteView, policy-gated pages, NavMenu role gates, AccessDenied.razor, 9 E2E tests
+- **Security Compliance — Wave 6: User Aggregate + RBAC Management 🟡 IN PROGRESS** (2026-06-23)
+  * W6-T1→T12 COMPLETE — Branch `feature/wave6-user-rbac-mgmt`, commit `227ba1d`
+  * UserAggregate split, PermissionGroup/UserPermissionGroup, UserManagementService, RoleAssignmentService, PermissionGroupService, UserController, PermissionGroupController, UserManagement.razor, PermissionGroupManagement.razor, 29 tests PASS
+- **Security Compliance — Wave 5: Domain Refactor + Tenant Rich Domain + CRUD ✅ COMPLETED** (2026-06-23)
+  * W5-T1→T10 COMPLETE — Branch `feature/wave5-tenant-mgmt`
+  * TenantAggregate (Rich Domain), ITenantManagementService, TenantController, TenantManagement.razor, 23 tests
 
 ### Blocked
 
@@ -204,38 +247,13 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: Wave 3 — Report Export
+### Current: Wave 6 — PR Open + Merge
 
-**Completed (2026-06-23):**
-- ✅ EPPlus 7.6.1 added to package management
-- ✅ IExcelExportService + ExcelExportService implemented
-- ✅ Revenue/Inventory/Customer Excel reports created
-- ✅ ReportController added at `/api/reports/export/excel`
-- ✅ ExcelExportServiceTests 6/6 PASS
-- ✅ E2E spec `export-excel-flow.spec.ts` updated
-- ✅ Architecture tests 11/11 PASS
-- ✅ `guard-check.ps1` PASSED
+**Action:** Push `feature/wave6-user-rbac-mgmt` → open PR → merge vào `main`
 
 ### Next Phase
 
-**Current:** Push `feature/wave3-report-export` → PR #41 → merge
-
-**Next:** Security Compliance — Wave 4: RBAC Enforcement tại Blazor UI Layer (`feature/wave4-rbac-ui`)
-- Audit all `.razor` pages in `5_WebApps/ShopERP/Components/`
-- Add `[Authorize(Policy = ...)]` and `<AuthorizeView>` wrappers
-- Create 403-AccessDenied.razor page
-- E2E tests for Staff vs Owner access
-
-**Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
-  - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
-  - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
-  - Move accounting entry creation: CreateOrder → PaymentWebhook (sau khi bank confirm)
-**Pending Sprint B (P1):** Flow Completion
-  - Wire Vendor/Category/Reference fields xuống DB
-  - Webhook notify Kitchen via SignalR sau payment confirm
-  - Server-side duplicate detection cho accounting entries
-**Reference:** docs/AI/phase-next-order-accounting-improvements.md
-**Completed (2026-06-18):** CD Pipeline + Nginx/SSL deploy — PR #29–#33 merged
+**Wave 7:** TBD — next security/compliance wave (audit logging hardening / session management / API rate-limiting)
 
 ---
 
@@ -499,6 +517,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
+* **Security Compliance — Wave 6: User Aggregate + RBAC Management** (2026-06-23) — IN PROGRESS (implementation complete, pending PR). UserAggregate split from Domain.cs, RBAC services, controllers, admin UI pages, 29/29 unit tests PASS, `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED. Branch `feature/wave6-user-rbac-mgmt`, commits `2fe0615` + `227ba1d`.
+* **Security Compliance — Wave 5: Domain Refactor + Tenant Rich Domain + CRUD** (2026-06-23) — COMPLETED. DDD foundation, TenantAggregate split, ITenantManagementService, TenantController, TenantManagement.razor, 23 unit tests PASS. Branch `feature/wave5-tenant-mgmt`, commit `301f141`.
 * **Value Object Mapping Fix** (2026-06-15) — COMPLETED. Created 14 EF Core Configuration files for all entities with value objects. Fixed `requires a primary key` errors for ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId. Removed inline configurations from VanAnDbContext.cs. Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
 * **KhachLink E2E Regression Fix** (2026-06-11) — In Progress. Gateway DI fixed, ProductDto created with JsonPropertyName, CartService overload added, QrMenu updated to use IHttpClientFactory. Gateway (5001) and KhachLink (5002) running. E2E tests: 9/9 failing - products not rendering in UI despite API returning data correctly.
 * **S7 Responsive** (2026-06-11) — Playwright responsive tests. TC7: Android 360×800 (no overflow, CTA clickable). TC8: iPhone 14 390×844 (no overflow). 8/8 E2E tests listed, 54 total test configurations.
@@ -521,9 +541,11 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 11:30 UTC+7
-* Current Branch: `feature/wave3-report-export`
-* **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS. Architecture tests 11/11 PASS. `guard-check.ps1` PASSED. E2E spec `export-excel-flow.spec.ts` updated.
+* Last Updated: 2026-06-23 (Wave 6 session)
+* Current Branch: `feature/wave6-user-rbac-mgmt`
+* **Wave 6 — User Aggregate + RBAC Management (2026-06-23):** UserAggregate split from Domain.cs: DemoUser.cs (AggregateRoot with lifecycle methods), UserRole.cs, UserTenant.cs, UserPermissionGroup.cs, PermissionGroup.cs, UserEvents.cs. Old `DemoUser`, `UserTenant`, `UserRole` in Domain.cs marked `[Obsolete]`. EF configs added (PermissionGroupConfiguration, UserPermissionGroupConfiguration). IUserManagementService + UserManagementService, IRoleAssignmentService + RoleAssignmentService, IPermissionGroupService + PermissionGroupService. UserController + PermissionGroupController. UserManagement.razor + PermissionGroupManagement.razor + NavMenu entries. 29 unit tests PASS (UserDomainTests 7, UserManagementServiceTests 9, RoleAssignmentServiceTests 6, PermissionGroupServiceTests 7). `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` PASSED, commits `2fe0615` + `227ba1d`. `.gitignore` updated to exclude runtime data-protection keys.
+* **Wave 5 — Domain Refactor + Tenant Rich Domain + CRUD (2026-06-23):** DDD foundation (AggregateRoot, IDomainEvent) in Common.cs. TenantAggregate split from Domain.cs: Tenant.cs (Rich Domain), TenantStatus.cs, TenantSettings.cs, TenantEvents.cs. Old `record Tenant` in Domain.cs marked `[Obsolete]`. TenantConfiguration.cs, IVanAnDbContext, VanAnDbContext migrated. ITenantManagementService + TenantManagementService + TenantController + TenantManagement.razor + 23 unit tests. guard-check.ps1 PASSED, commit `301f141`.
+* **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS.
 * **Wave 2 — Data Protection COMPLETED (2026-06-23):** Added AddDataProtection, EncryptedStringConverter, applied to Customer/Lead/FacebookLead PII. Migration + data migration script. CustomerEncryptionTests PASS.
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.

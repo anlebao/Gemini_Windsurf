@@ -6,6 +6,8 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.Tests;
 
@@ -48,18 +50,16 @@ public class OrderWorkflowServiceTests
         var testTenantId = Guid.NewGuid();
         _tenantProvider.SetTenant(testTenantId);
         
-        var customerId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         var productId = Guid.NewGuid();
 
         // Create customer
-        var customer = new DemoUser
-        {
-            Id = customerId,
-            TenantId = testTenantId,
-            Username = "test_customer",
-            DisplayName = "Test Customer"
-        };
+        var customer = new DemoUser(
+            new TenantId(testTenantId),
+            "test_customer",
+            "dummy_hash",
+            "Test Customer",
+            UserRole.Staff);
         _context.Users.Add(customer);
 
         // Create shop
@@ -175,17 +175,15 @@ public class OrderWorkflowServiceTests
         var testTenantId = Guid.NewGuid();
         _tenantProvider.SetTenant(testTenantId);
         
-        var customerId = Guid.NewGuid();
         var productId = Guid.NewGuid();
 
         // 🛡️ PHASE 3 FIX: Create customer for loyalty rewards
-        var customer = new DemoUser
-        {
-            Id = customerId,
-            TenantId = testTenantId,
-            Username = "test_customer",
-            DisplayName = "Test Customer"
-        };
+        var customer = new DemoUser(
+            new TenantId(testTenantId),
+            "test_customer",
+            "dummy_hash",
+            "Test Customer",
+            UserRole.Staff);
         _context.Users.Add(customer);
 
         // Create product

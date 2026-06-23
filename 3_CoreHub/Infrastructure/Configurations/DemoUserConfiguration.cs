@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
-using VanAn.Shared.Domain;
+using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.CoreHub.Infrastructure.Configurations
 {

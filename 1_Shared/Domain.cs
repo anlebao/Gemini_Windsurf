@@ -153,6 +153,11 @@ namespace VanAn.Shared.Domain
     /// <summary>
     /// Tenant with Business Type and HKD Classification
     /// </summary>
+    /// <remarks>
+    /// [Wave 5] OBSOLETE — use <see cref="VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant"/> (Rich Domain class).
+    /// This record is kept to avoid breaking existing EF mappings until TenantConfiguration.cs is migrated.
+    /// </remarks>
+    [Obsolete("Use VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant instead. Will be removed in Wave 6.")]
     public record Tenant
     {
         public TenantId Id { get; init; } = null!;
@@ -396,6 +401,7 @@ namespace VanAn.Shared.Domain
     public record ShopId(Guid Value);
 
     // Identity Schema - RBAC for ShopERP
+    [Obsolete("Use VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole instead.")]
     public enum UserRole
     {
         None = 0,
@@ -927,6 +933,7 @@ namespace VanAn.Shared.Domain
     }
 
     // Demo User cho ShopERP với Multi-tenancy
+    [Obsolete("Use VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser instead.")]
     public class DemoUser : BaseEntity
     {
         public string Username { get; set; } = string.Empty;
@@ -944,6 +951,7 @@ namespace VanAn.Shared.Domain
     /// User-Tenant mapping entity — Cross-tenant entity (không kế thừa BaseEntity để tránh query filter)
     /// Domain Purity: NO EF Core, NO DataAnnotations
     /// </summary>
+    [Obsolete("Use VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant instead.")]
     public class UserTenant
     {
         public Guid Id { get; protected set; } = Guid.NewGuid();

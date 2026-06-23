@@ -87,7 +87,11 @@ namespace VanAn.Gateway
                 .AddPolicy("RequireStoreKeeperRole", policy =>
                     policy.RequireAuthenticatedUser()
                            .RequireClaim("tenant_id")
-                           .RequireRole("StoreKeeper"));
+                           .RequireRole("StoreKeeper"))
+                // Wave 5: SystemAdmin — cross-tenant operations (Tenant CRUD)
+                .AddPolicy("SystemAdmin", policy =>
+                    policy.RequireAuthenticatedUser()
+                           .RequireRole("SystemAdmin"));
 
             // Wave 1 Phase 2: Register ITenantProvider for Gateway controllers
             _ = builder.Services.AddHttpContextAccessor();
