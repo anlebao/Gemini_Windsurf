@@ -91,22 +91,6 @@ $warningStats = @{
     Other = 0
 }
 
-$buildOutput | Select-String -Pattern 'warning (CS|NU)\d{4}' | ForEach-Object {
-    if ($_ -match 'warning (CS|NU)(\d{4})') {
-        if ($Matches.Count -ge 3) {
-            $code = "$($Matches[1])$($Matches[2])"
-            if ($criticalWarnings -contains $code) {
-                $warningStats.Critical++
-            } elseif ($performanceWarnings -contains $code) {
-                $warningStats.Performance++
-            } elseif ($securityWarnings -contains $code) {
-                $warningStats.Security++
-            } else {
-                $warningStats.Other++
-            }
-        }
-    }
-}
 
 Write-Host "Warning Classification:" -ForegroundColor Cyan
 Write-Host "  Critical: $($warningStats.Critical)" -ForegroundColor $(if ($warningStats.Critical -gt 0) { "Red" } else { "Green" })
@@ -153,7 +137,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Fast test gate: PASSED" -ForegroundColor Green
 
 # 6. Summary
-$warningCount = ($buildOutput | Select-String -Pattern "warning").Count
+$warningCount = ($buildOutput | Select-String -Pattern 'warning').Count
 Write-Host "Ã¢ BUILD SUCCEEDED - $warningCount warning`(s`)" -ForegroundColor Green
 
 if ($warningCount -gt 5) {
