@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
-**Current Status:** COMPLETED — Wave 3 merged (PR #40/#42), Wave 4 PR #42 open — ready for merge
+**Current Status:** Wave 5 IN PROGRESS — Branch `feature/wave5-tenant-mgmt` (W5-T1→T10 COMPLETE, commit `301f141`)
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -343,16 +343,16 @@ WAVE 5 sửa:
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 36 | W5-T1 | **Domain Phase:** Thêm `AggregateRoot` base + `IDomainEvent` interface vào `Common.cs` | — | [W5-T1-card.md](#) | ⬜ PENDING |
-| 37 | W5-T2 | **Domain Phase:** Tạo `TenantAggregate/Tenant.cs` (class, Rich Domain) + `TenantStatus.cs` + `TenantSettings.cs` | W5-T1 | [W5-T2-card.md](#) | ⬜ PENDING |
-| 38 | W5-T3 | **Domain Phase:** Tạo `TenantAggregate/TenantEvents.cs` — `TenantCreatedEvent`, `TenantDeactivatedEvent`, `TenantSuspendedEvent` | W5-T2 | — | ⬜ PENDING |
-| 39 | W5-T4 | **Domain Phase:** Mark `record Tenant` trong `Domain.cs` là `[Obsolete]` + EF mapping update `TenantConfiguration.cs` + EF migration (TenantStatus column) | W5-T2 | [W5-T4-card.md](#) | ⬜ PENDING |
-| 40 | W5-T5 | **Service Phase:** Implement `ITenantManagementService` + `TenantManagementService`: `CreateTenant`, `GetTenantById`, `ListTenants`, `UpdateProfile`, `Suspend`, `Deactivate` — dùng Tenant domain methods | W5-T4 | [W5-T5-card.md](#) | ⬜ PENDING |
-| 41 | W5-T6 | **API Phase:** Tạo `TenantController` — `POST /api/tenants`, `GET /api/tenants`, `GET /api/tenants/{id}`, `PATCH /api/tenants/{id}/profile`, `POST /api/tenants/{id}/deactivate` — `[Authorize(Policy="SystemAdmin")]` | W5-T5 | [W5-T6-card.md](#) | ⬜ PENDING |
-| 42 | W5-T7 | **Notification:** `TenantManagementService.CreateTenant()` → phát `TenantCreatedEvent` → handler gọi `INotificationService.SendEmailAsync()` (welcome email) | W5-T5, Wave 1 | [W5-T7-card.md](#) | ⬜ PENDING |
-| 43 | W5-T8 | Email template `TenantWelcomeEmail.html` — tên tenant, link login, support contact | W5-T7 | — | ⬜ PENDING |
-| 44 | W5-T9 | Blazor UI: `TenantManagement.razor` — list, create form, edit profile, deactivate/suspend buttons. `[Authorize(Policy="SystemAdmin")]` | W5-T6 | [W5-T9-card.md](#) | ⬜ PENDING |
-| 45 | W5-T10 | Unit tests: `TenantTests` (domain methods: lifecycle transitions, guard clauses, event emission), `TenantManagementServiceTests` (CRUD, notification trigger, cross-tenant isolation) | W5-T5 | — | ⬜ PENDING |
+| 36 | W5-T1 | **Domain Phase:** Thêm `AggregateRoot` base + `IDomainEvent` interface vào `Common.cs` | — | [W5-T1-card.md](#) | ✅ DONE |
+| 37 | W5-T2 | **Domain Phase:** Tạo `TenantAggregate/Tenant.cs` (class, Rich Domain) + `TenantStatus.cs` + `TenantSettings.cs` | W5-T1 | [W5-T2-card.md](#) | ✅ DONE |
+| 38 | W5-T3 | **Domain Phase:** Tạo `TenantAggregate/TenantEvents.cs` — `TenantCreatedEvent`, `TenantDeactivatedEvent`, `TenantSuspendedEvent` | W5-T2 | — | ✅ DONE |
+| 39 | W5-T4 | **Domain Phase:** Mark `record Tenant` trong `Domain.cs` là `[Obsolete]` + EF mapping update `TenantConfiguration.cs` + EF migration (TenantStatus column) | W5-T2 | [W5-T4-card.md](#) | ✅ DONE |
+| 40 | W5-T5 | **Service Phase:** Implement `ITenantManagementService` + `TenantManagementService`: `CreateTenant`, `GetTenantById`, `ListTenants`, `UpdateProfile`, `Suspend`, `Deactivate` — dùng Tenant domain methods | W5-T4 | [W5-T5-card.md](#) | ✅ DONE |
+| 41 | W5-T6 | **API Phase:** Tạo `TenantController` — `POST /api/tenants`, `GET /api/tenants`, `GET /api/tenants/{id}`, `PATCH /api/tenants/{id}/profile`, `POST /api/tenants/{id}/deactivate` — `[Authorize(Policy="SystemAdmin")]` | W5-T5 | [W5-T6-card.md](#) | ✅ DONE |
+| 42 | W5-T7 | **Notification:** `TenantManagementService.CreateTenant()` → phát `TenantCreatedEvent` → handler gọi `INotificationService.SendEmailAsync()` (welcome email) | W5-T5, Wave 1 | [W5-T7-card.md](#) | ✅ DONE |
+| 43 | W5-T8 | Email template `TenantWelcomeEmail.html` — tên tenant, link login, support contact | W5-T7 | — | ✅ DONE |
+| 44 | W5-T9 | Blazor UI: `TenantManagement.razor` — list, create form, edit profile, deactivate/suspend buttons. `[Authorize(Policy="SystemAdmin")]` | W5-T6 | [W5-T9-card.md](#) | ✅ DONE |
+| 45 | W5-T10 | Unit tests: `TenantTests` (domain methods: lifecycle transitions, guard clauses, event emission), `TenantManagementServiceTests` (CRUD, notification trigger, cross-tenant isolation) | W5-T5 | — | ✅ DONE |
 
 ### Entry criteria
 - [ ] Wave 0 merged (JWT + `SystemAdmin` role claim working)
