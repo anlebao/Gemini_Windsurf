@@ -238,7 +238,10 @@ namespace VanAn.ShopERP
                 {
                     var passwordHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
 
-                    static DemoUser MakeDemoUser(string username, string hash, string displayName, UserRole role)
+                    // Dev seed tenant: 00000000-0000-0000-0000-000000000001
+                    var devTenantId = new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+
+                    static DemoUser MakeDemoUser(string username, string hash, string displayName, UserRole role, TenantId tenantId)
                     {
                         // Activator bypasses protected constructor visibility — needed because DemoUser()
                         // is protected (EF Core materialization pattern). Seed-only usage.
@@ -247,15 +250,18 @@ namespace VanAn.ShopERP
                         u.PasswordHash = hash;
                         u.DisplayName = displayName;
                         u.Role = role;
+                        // TenantId has protected set — use reflection for seed-only usage
+                        typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("TenantId")!
+                            .SetValue(u, tenantId);
                         return u;
                     }
 
                     context.Users.AddRange(
-                        MakeDemoUser("admin@vanan.vn", passwordHash, "Chủ Quán", UserRole.Owner),
-                        MakeDemoUser("kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper),
-                        MakeDemoUser("baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard),
-                        MakeDemoUser("staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff),
-                        MakeDemoUser("bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef)
+                        MakeDemoUser("admin@vanan.vn", passwordHash, "Chủ Quán", UserRole.Owner, devTenantId),
+                        MakeDemoUser("kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper, devTenantId),
+                        MakeDemoUser("baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard, devTenantId),
+                        MakeDemoUser("staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff, devTenantId),
+                        MakeDemoUser("bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef, devTenantId)
                     );
                     _ = await context.SaveChangesAsync();
                     Console.WriteLine("Wave 0: DemoUsers seeded with BCrypt hashed passwords.");
