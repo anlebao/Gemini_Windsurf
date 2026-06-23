@@ -6,6 +6,7 @@ using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Tests.TestInfrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using Xunit;
 
 namespace VanAn.Tests.Services;

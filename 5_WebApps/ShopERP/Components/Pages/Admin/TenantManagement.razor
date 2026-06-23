@@ -53,7 +53,7 @@
     }
     else
     {
-        <VanACard Header="Danh sách Tenant (@_tenants.Count)">
+        <VanACard Header="@($"Danh sách Tenant ({_tenants.Count})")">
             <table class="vanan-table">
                 <thead>
                     <tr>
@@ -191,7 +191,9 @@
 </div>
 
 @code {
-    private List<Tenant> _tenants = [];
+#pragma warning disable CS0618 // Tenant obsolete — using new TenantAggregate.Tenant explicitly below
+    // Use FQN to disambiguate: both VanAn.Shared.Domain.Tenant and TenantAggregate.Tenant exist
+    private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = [];
     private bool _isLoading;
     private bool _isSaving;
     private string _alertMessage = string.Empty;
@@ -204,7 +206,7 @@
     // Suspend / deactivate modals
     private bool _showSuspendModal;
     private bool _showDeactivateModal;
-    private Tenant? _selectedTenant;
+    private VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant? _selectedTenant;
     private string _reasonInput = string.Empty;
 
     protected override async Task OnInitializedAsync() => await LoadTenants();
@@ -268,7 +270,7 @@
     }
 
     // ── Suspend ───────────────────────────────────────────────────────────────
-    private void OpenSuspendModal(Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showSuspendModal = true; }
+    private void OpenSuspendModal(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showSuspendModal = true; }
     private void CloseSuspendModal() => _showSuspendModal = false;
 
     private async Task ConfirmSuspend()
@@ -287,7 +289,7 @@
     }
 
     // ── Reactivate ────────────────────────────────────────────────────────────
-    private async Task ReactivateTenant(Tenant t)
+    private async Task ReactivateTenant(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t)
     {
         _isSaving = true;
         try
@@ -301,7 +303,7 @@
     }
 
     // ── Deactivate ────────────────────────────────────────────────────────────
-    private void OpenDeactivateModal(Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showDeactivateModal = true; }
+    private void OpenDeactivateModal(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showDeactivateModal = true; }
     private void CloseDeactivateModal() => _showDeactivateModal = false;
 
     private async Task ConfirmDeactivate()

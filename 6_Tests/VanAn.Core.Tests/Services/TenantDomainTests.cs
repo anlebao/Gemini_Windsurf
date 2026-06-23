@@ -1,6 +1,7 @@
 using FluentAssertions;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using Xunit;
 
 namespace VanAn.Tests.Services;

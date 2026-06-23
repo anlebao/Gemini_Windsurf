@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.CoreHub.Infrastructure;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using VanAn.CoreHub.Infrastructure.Configurations;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.ValueConverters;
@@ -39,6 +40,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<JournalEntry> JournalEntries { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
+
+        // Wave 5: Tenant management (required by IVanAnDbContext)
+        public DbSet<Tenant> Tenants { get; set; }
 
         // Wave 0: DemoUser for BCrypt authentication
         public DbSet<DemoUser> Users { get; set; }
