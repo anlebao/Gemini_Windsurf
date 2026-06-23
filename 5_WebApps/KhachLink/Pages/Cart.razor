@@ -41,9 +41,9 @@
                                         <div class="col-md-3">
                                             <div class="quantity-control">
                                                 <div class="input-group" style="width: 120px;">
-                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)">-</VanAnButton>
-                                                    <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" />
-                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)">+</VanAnButton>
+                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)" aria-label="Giảm số lượng @item.ProductName">-</VanAnButton>
+                                                    <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" aria-label="Số lượng @item.ProductName" />
+                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)" aria-label="Tăng số lượng @item.ProductName">+</VanAnButton>
                                                 </div>
                                             </div>
                                         </div>

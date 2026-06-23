@@ -137,14 +137,24 @@ namespace VanAn.Gateway
             _ = builder.Services.AddMemoryCache();
             _ = builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 
-            // CORS for frontend
+            // Wave 7: CORS hardening — whitelist from configuration
+            string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["*"];
             _ = builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
                 {
-                    _ = policy.AllowAnyOrigin()
-                          .AllowAnyMethod()
-                          .AllowAnyHeader();
+                    if (allowedOrigins.Contains("*"))
+                    {
+                        _ = policy.AllowAnyOrigin()
+                              .AllowAnyMethod()
+                              .AllowAnyHeader();
+                    }
+                    else
+                    {
+                        _ = policy.WithOrigins(allowedOrigins)
+                              .AllowAnyMethod()
+                              .AllowAnyHeader();
+                    }
                 });
             });
 
@@ -164,8 +174,12 @@ namespace VanAn.Gateway
                 // Add unified error handling middleware
                 _ = app.UseMiddleware<UnifiedErrorHandler>();
 
-                // Local-First: DISABLE HTTPS REDIRECTION for development
-                // app.UseHttpsRedirection();
+                // Wave 7: Enable HTTPS redirection only in Production
+                if (!app.Environment.IsDevelopment())
+                {
+                    _ = app.UseHttpsRedirection();
+                }
+
                 _ = app.UseCors("AllowAll");
 
                 // Wave 1 Phase 2: Authentication & Authorization middleware

@@ -90,22 +90,22 @@
     {
         <VanAModal Title="Tạo người dùng mới" IsVisible="true" OnClose="CloseCreateModal">
             <Body>
-                <form @onsubmit="HandleCreateSubmit">
+                <form @onsubmit="HandleCreateSubmit" aria-label="Tạo người dùng mới">
                     <div class="form-group">
-                        <label>Email đăng nhập *</label>
-                        <input class="vanan-input" type="email" @bind="_createForm.Username" placeholder="user@vanan.vn" required />
+                        <label for="user-username">Email đăng nhập *</label>
+                        <input id="user-username" class="vanan-input" type="email" @bind="_createForm.Username" placeholder="user@vanan.vn" aria-label="Email đăng nhập" required />
                     </div>
                     <div class="form-group">
-                        <label>Mật khẩu *</label>
-                        <input class="vanan-input" type="password" @bind="_createForm.Password" placeholder="Nhập mật khẩu..." required />
+                        <label for="user-password">Mật khẩu *</label>
+                        <input id="user-password" class="vanan-input" type="password" @bind="_createForm.Password" placeholder="Nhập mật khẩu..." aria-label="Mật khẩu" required />
                     </div>
                     <div class="form-group">
-                        <label>Tên hiển thị *</label>
-                        <input class="vanan-input" @bind="_createForm.DisplayName" placeholder="Nguyễn Văn A" required />
+                        <label for="user-displayname">Tên hiển thị *</label>
+                        <input id="user-displayname" class="vanan-input" @bind="_createForm.DisplayName" placeholder="Nguyễn Văn A" aria-label="Tên hiển thị" required />
                     </div>
                     <div class="form-group">
-                        <label>Vai trò *</label>
-                        <select class="vanan-select" @bind="_createForm.Role" required>
+                        <label for="user-role">Vai trò *</label>
+                        <select id="user-role" class="vanan-select" @bind="_createForm.Role" aria-label="Vai trò" required>
                             @foreach (var role in UserRoleHelper.AssignableRoles)
                             {
                                 <option value="@role">@role</option>
