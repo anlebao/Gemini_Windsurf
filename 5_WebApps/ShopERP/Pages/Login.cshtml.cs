@@ -10,6 +10,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.ShopERP.Pages
 {

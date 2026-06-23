@@ -1,5 +1,6 @@
 using Xunit;
 using VanAn.Shared.Domain;
+using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.Core.Tests
 {
