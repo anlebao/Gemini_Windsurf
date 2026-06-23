@@ -38,13 +38,26 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
+**Security Compliance — Wave 2: Data Protection (Field-level Encryption)**
+
+**Status:** ✅ COMPLETED — Branch `feature/wave2-data-protection`, commit `d366523`
+
+**Completed Actions:**
+1. ✅ W2-T1: `AddDataProtection()` registered in `3_CoreHub/Program.cs` + `5_WebApps/ShopERP/Program.cs`, keys persisted to `./keys/`
+2. ✅ W2-T2: `EncryptedStringConverter` — EF Core `ValueConverter<string, string>` using `IDataProtector`
+3. ✅ W2-T3: `EncryptedStringConverter` applied to `CustomerConfiguration.cs` — `PhoneNumber`, `Email`
+4. ✅ W2-T4: `EncryptedStringConverter` applied to `LeadConfiguration.cs` + `FacebookLeadConfiguration.cs` — `PhoneNumber`, `Email`
+5. ✅ W2-T5: EF Core Migration created — columns resized to `HasMaxLength(500)` for encrypted values
+6. ✅ W2-T6: Data migration script — existing plain-text PII encrypted in dev DB
+7. ✅ W2-T7: Integration tests — `CustomerEncryptionTests` 6+ cases PASS (raw DB ciphertext, API plain-text round-trip)
+8. ✅ W2-T8: `appsettings.Production.json` updated — `DataProtection:KeyDirectory`, `DataProtection:ApplicationName`
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
 **Security Compliance — Wave 1: Notification Integration (Brevo Email + ESMS SMS)**
 
-**Status:** 🔄 IN PROGRESS — Branch `feature/wave1-notifications`, Wave 0 merged (PR #38 ✅)
-
-**Problem:** NotificationService.SendEmailAsync/SendSMSAsync are stubs (Task.Delay only) — no real delivery
-
-**Solution:** BrevoEmailService (REST API v3) + EsmsNotificationService (REST API v4) + CompositeNotificationService
+**Status:** ✅ COMPLETED — Branch `feature/wave1-notifications`, Wave 0 merged (PR #38 ✅)
 
 **Completed Actions:**
 1. ✅ W1-T1: HttpClient used directly (no SDK needed — Brevo REST v3 + ESMS v4)
@@ -53,8 +66,6 @@ Mọi cập nhật file này PHẢI tuân thủ:
 4. ✅ W1-T4: CompositeNotificationService — INotificationService delegates to IEmailService + ISmsService
 5. ✅ W1-T5: appsettings.Production.json + appsettings.Development.json with __REPLACE__ placeholders
 6. ✅ W1-T6: 11/11 unit tests PASS (BrevoEmailServiceTests 5 + EsmsServiceTests 6)
-
-**Next:** Push feature/wave1-notifications → create PR → merge → start Wave 2
 
 ---
 
@@ -145,6 +156,7 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
   * Fixed: ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId converters
   * Removed: Inline entity configurations from VanAnDbContext.cs
   * Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
+- **Wave 2 Data Protection ✅** — field-level encryption on Customer/Lead/FacebookLead PII (PhoneNumber, Email), commit `d366523`
 
 ### Blocked
 
@@ -154,35 +166,13 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 
 ## 4. Next Actions
 
-### Current: Architectural Rollback - ✅ COMPLETED
+### Next: Start Wave 3 — Report Export
 
-**Completed (2026-06-12):**
-- ✅ QrMenu.razor rolled back to use Gateway API (HttpClient)
-- ✅ Seed data removed from KhachLink and CoreHub Program.cs
-- ✅ ProductsController created in ShopERP with IVanAnDbContext
-- ✅ Seed data (5 products) added to ShopERP Program.cs
-- ✅ Gateway ProductsController created to forward to ShopERP
-- ✅ ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider)
-- ✅ All services running and verified
-- ✅ API endpoint verified (200 OK with 5 products)
-- ✅ Architecture tests: 7/7 PASS
-- ✅ Playwright E2E tests: 15 passed, 2 skipped
-
-### Next Phase
-
-**Current:** Security Compliance — Wave 0 PR #38 open (feature/wave0-jwt-auth), Wave 1 (Notifications) pending Wave 0 merge
-
-**Previous (archived):** CD Pipeline Stabilization — Fix CoreHub/Gateway production crashes (PR #33 pending merge)
-**Pending Sprint A (P0):** Order & Accounting Data Integrity Fixes
-  - Fix TenantId hardcode fallback (throw nếu không có JWT claim)
-  - Fix AccountCode không được lưu khi manual entry (UI → API → DB)
-  - Move accounting entry creation: CreateOrder → PaymentWebhook (sau khi bank confirm)
-**Pending Sprint B (P1):** Flow Completion
-  - Wire Vendor/Category/Reference fields xuống DB
-  - Webhook notify Kitchen via SignalR sau payment confirm
-  - Server-side duplicate detection cho accounting entries
-**Reference:** docs/AI/phase-next-order-accounting-improvements.md
-**Completed (2026-06-18):** CD Pipeline + Nginx/SSL deploy — PR #29–#33 merged
+- Create branch `feature/wave3-report-export` from updated `main`
+- Add `EPPlus` to `Directory.Packages.props` + `VanAn.CoreHub.csproj`
+- Implement `IExcelExportService` + `ExcelExportService` (Revenue, Inventory, Customer reports)
+- Add `ReportController` to `2_Gateway/Controllers/` with JWT auth + tenant isolation
+- Write unit tests + update `export-excel-flow.spec.ts` E2E stub to real test
 
 ---
 
@@ -468,8 +458,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 05:30 UTC+7
-* Current Branch: `feature/wave1-notifications`
+* Last Updated: 2026-06-23
+* Current Branch: `feature/wave2-data-protection`
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
 * **SqliteException Fix COMPLETED (2026-06-12):** CustomerConfiguration.cs updated with BaseEntity audit properties (CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted). VanAnDbContext.cs Product entity configuration updated with same properties. Database recreated via EnsureCreatedAsync().

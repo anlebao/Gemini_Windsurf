@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-23
 **Last Updated:** 2026-06-23
-**Current Status:** COMPLETED — Wave 0 merged (PR #38), Wave 1 in progress
+**Current Status:** COMPLETED — Wave 2 merged (PR #40), Wave 3 ready to start
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -118,12 +118,12 @@ Không cần external Identity Server cho MVP — dùng `Microsoft.AspNetCore.Au
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 8 | W1-T1 | Thêm `Brevo.Api` (hoặc dùng `HttpClient` thuần vì Brevo có REST API đơn giản) vào `Directory.Packages.props` | — | — | ⬜ PENDING |
-| 9 | W1-T2 | Implement `BrevoEmailService` — gọi Brevo API, hỗ trợ HTML template, error handling, logging | W1-T1 | [W1-T2-card.md](#) | ⬜ PENDING |
-| 10 | W1-T3 | Implement `EsmsNotificationService` — gọi ESMS API, Unicode SMS, retry 1 lần khi fail | W1-T1 | [W1-T3-card.md](#) | ⬜ PENDING |
-| 11 | W1-T4 | Refactor `NotificationService` thành `CompositeNotificationService` — delegate sang Email/SMS service theo channel | W1-T2, W1-T3 | — | ⬜ PENDING |
-| 12 | W1-T5 | Thêm `appsettings.Production.json` template cho Brevo + ESMS keys (values là placeholder `__REPLACE__`) | W1-T2 | — | ⬜ PENDING |
-| 13 | W1-T6 | Viết unit tests với mock HttpClient: `BrevoEmailServiceTests` + `EsmsServiceTests` — verify request format, error path | W1-T2, W1-T3 | — | ⬜ PENDING |
+| 8 | W1-T1 | Thêm `Brevo.Api` (hoặc dùng `HttpClient` thuần vì Brevo có REST API đơn giản) vào `Directory.Packages.props` | — | — | ✅ DONE |
+| 9 | W1-T2 | Implement `BrevoEmailService` — gọi Brevo API, hỗ trợ HTML template, error handling, logging | W1-T1 | [W1-T2-card.md](#) | ✅ DONE |
+| 10 | W1-T3 | Implement `EsmsNotificationService` — gọi ESMS API, Unicode SMS, retry 1 lần khi fail | W1-T1 | [W1-T3-card.md](#) | ✅ DONE |
+| 11 | W1-T4 | Refactor `NotificationService` thành `CompositeNotificationService` — delegate sang Email/SMS service theo channel | W1-T2, W1-T3 | — | ✅ DONE |
+| 12 | W1-T5 | Thêm `appsettings.Production.json` template cho Brevo + ESMS keys (values là placeholder `__REPLACE__`) | W1-T2 | — | ✅ DONE |
+| 13 | W1-T6 | Viết unit tests với mock HttpClient: `BrevoEmailServiceTests` + `EsmsServiceTests` — verify request format, error path | W1-T2, W1-T3 | — | ✅ DONE |
 
 ### Entry criteria
 - [ ] Wave 0 merged + `dotnet build` → 0 errors
@@ -171,14 +171,14 @@ Scope: **Column-level encryption với ASP.NET Core Data Protection API**
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 14 | W2-T1 | `AddDataProtection()` vào `3_CoreHub/Program.cs` + `5_WebApps/ShopERP/Program.cs` — persist keys tới `./keys/` folder, configure application name | — | [W2-T1-card.md](#) | ⬜ PENDING |
-| 15 | W2-T2 | Tạo `EncryptedStringConverter` — EF Core `ValueConverter<string, string>` dùng `IDataProtector` | W2-T1 | [W2-T2-card.md](#) | ⬜ PENDING |
-| 16 | W2-T3 | Apply `EncryptedStringConverter` vào `CustomerConfiguration.cs`: `PhoneNumber`, `Email` | W2-T2 | [W2-T3-card.md](#) | ⬜ PENDING |
-| 17 | W2-T4 | Apply `EncryptedStringConverter` vào `LeadConfiguration.cs` + `FacebookLeadConfiguration.cs`: `PhoneNumber`, `Email` | W2-T2 | [W2-T3-card.md](#) | ⬜ PENDING |
-| 18 | W2-T5 | EF Core Migration: tạo migration mới để resize columns (encrypted values dài hơn — cần `HasMaxLength(500)`) | W2-T3, W2-T4 | — | ⬜ PENDING |
-| 19 | W2-T6 | Data migration script: encrypt existing plain-text data nếu có trong dev DB | W2-T5 | — | ⬜ PENDING |
-| 20 | W2-T7 | Viết integration tests: insert Customer với PII → verify raw DB value khác plain text → query trả về plain text đúng | W2-T3 | [W2-T7-card.md](#) | ⬜ PENDING |
-| 21 | W2-T8 | Cập nhật `appsettings.Production.json`: `DataProtection:KeyDirectory`, `DataProtection:ApplicationName` | W2-T1 | — | ⬜ PENDING |
+| 14 | W2-T1 | `AddDataProtection()` vào `3_CoreHub/Program.cs` + `5_WebApps/ShopERP/Program.cs` — persist keys tới `./keys/` folder, configure application name | — | [W2-T1-card.md](#) | ✅ DONE |
+| 15 | W2-T2 | Tạo `EncryptedStringConverter` — EF Core `ValueConverter<string, string>` dùng `IDataProtector` | W2-T1 | [W2-T2-card.md](#) | ✅ DONE |
+| 16 | W2-T3 | Apply `EncryptedStringConverter` vào `CustomerConfiguration.cs`: `PhoneNumber`, `Email` | W2-T2 | [W2-T3-card.md](#) | ✅ DONE |
+| 17 | W2-T4 | Apply `EncryptedStringConverter` vào `LeadConfiguration.cs` + `FacebookLeadConfiguration.cs`: `PhoneNumber`, `Email` | W2-T2 | [W2-T3-card.md](#) | ✅ DONE |
+| 18 | W2-T5 | EF Core Migration: tạo migration mới để resize columns (encrypted values dài hơn — cần `HasMaxLength(500)`) | W2-T3, W2-T4 | — | ✅ DONE |
+| 19 | W2-T6 | Data migration script: encrypt existing plain-text data nếu có trong dev DB | W2-T5 | — | ✅ DONE |
+| 20 | W2-T7 | Viết integration tests: insert Customer với PII → verify raw DB value khác plain text → query trả về plain text đúng | W2-T3 | [W2-T7-card.md](#) | ✅ DONE |
+| 21 | W2-T8 | Cập nhật `appsettings.Production.json`: `DataProtection:KeyDirectory`, `DataProtection:ApplicationName` | W2-T1 | — | ✅ DONE |
 
 ### Entry criteria
 - [ ] Wave 0 + Wave 1 merged
