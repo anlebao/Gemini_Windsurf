@@ -10,7 +10,7 @@ using Xunit;
 namespace VanAn.Tests
 {
     [Trait("Category", "Unit")]
-    [Trait("Category", "Production")]
+    [Trait("Category", "Performance")]
     [Trait("Category", "DataIntegrity")]
     public class ProductionDataTests : IDisposable
     {
