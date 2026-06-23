@@ -40,7 +40,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Security Compliance — Wave 3: Report Export (Excel with EPPlus)**
 
-**Status:** ✅ COMPLETED — Branch `feature/wave3-report-export`, commit `bdc1cf0`
+**Status:** ✅ MERGED — Branch `feature/wave3-report-export`, PR #40 merged to `main` (`942c54e`)
 
 **Problem:** HKDTaxReportingService.ExportToExcelAsync returned mock bytes; no API endpoint exposed Excel export
 
@@ -55,8 +55,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 6. ✅ W3-T6: `ReportController` — `GET /api/reports/export/excel?type={revenue|inventory|customer}&from=&to=`, JWT auth + tenant isolation, Owner/StoreKeeper roles
 7. ✅ W3-T7: `export-excel-flow.spec.ts` updated — 3 E2E test cases (revenue, inventory, 403 for Staff)
 8. ✅ W3-T8: `ExcelExportServiceTests` — 6/6 PASS
+9. ✅ PR #40 created and merged to `main` (all GitHub checks passed)
 
-**Next:** Push `feature/wave3-report-export` → PR #41 → merge
+**Next:** Review Security Compliance Master Plan for Wave 4 / next objective
 
 ---
 
@@ -207,12 +208,11 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 - ✅ E2E spec `export-excel-flow.spec.ts` updated
 - ✅ Architecture tests 11/11 PASS
 - ✅ `guard-check.ps1` PASSED
+- ✅ PR #40 created and merged to `main`
 
 ### Next Phase
 
-**Current:** Push `feature/wave3-report-export` → PR #41 → merge
-
-**Next:** Security Compliance — Wave 4: RBAC Enforcement tại Blazor UI Layer (`feature/wave4-rbac-ui`)
+**Current:** Security Compliance — Wave 4: RBAC Enforcement tại Blazor UI Layer (`feature/wave4-rbac-ui`)
 - Audit all `.razor` pages in `5_WebApps/ShopERP/Components/`
 - Add `[Authorize(Policy = ...)]` and `<AuthorizeView>` wrappers
 - Create 403-AccessDenied.razor page
@@ -513,9 +513,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-23 11:30 UTC+7
-* Current Branch: `feature/wave3-report-export`
-* **Wave 3 — Report Export COMPLETED (2026-06-23):** Added EPPlus 7.6.1, created IExcelExportService + ExcelExportService with Revenue/Inventory/Customer reports. Added ReportController at `/api/reports/export/excel` with JWT auth + tenant isolation + Owner/StoreKeeper role enforcement. 6/6 ExcelExportServiceTests PASS. Architecture tests 11/11 PASS. `guard-check.ps1` PASSED. E2E spec `export-excel-flow.spec.ts` updated.
+* Last Updated: 2026-06-23 16:05 UTC+7
+* Current Branch: `main`
+* **Wave 3 — Report Export MERGED (2026-06-23):** PR #40 merged to `main` (`942c54e`). All GitHub checks passed. Branch `feature/wave3-report-export` deleted. Local `main` updated from origin.
 * **Wave 2 — Data Protection COMPLETED (2026-06-23):** Added AddDataProtection, EncryptedStringConverter, applied to Customer/Lead/FacebookLead PII. Migration + data migration script. CustomerEncryptionTests PASS.
 * **Value Object Mapping Fix COMPLETED (2026-06-15):** Created 14 EF Core Configuration files (ElectronicInvoiceConfiguration.cs, OrderConfiguration.cs, CustomerConfiguration.cs, ProductConfiguration.cs, IngredientConfiguration.cs, RecipeConfiguration.cs, InventoryConfiguration.cs, LeadConfiguration.cs, FacebookLeadConfiguration.cs, OrderItemConfiguration.cs, ShopConfiguration.cs, DemoUserConfiguration.cs, SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs). All value objects now have proper HasConversion. Inline configs removed from VanAnDbContext.cs. Build passes with 0 errors.
 * **Architectural Rollback COMPLETED (2026-06-12):** QrMenu.razor rolled back to use Gateway API (HttpClient). Seed data removed from KhachLink and CoreHub Program.cs. ProductsController created in ShopERP with IVanAnDbContext injection. Seed data (5 products) added to ShopERP Program.cs with TenantId: 00000000-0000-0000-0000-000000000001. Gateway ProductsController created to forward requests to ShopERP via HttpClient. ShopERP DI issues fixed (IAuditTrailService, IAuditLogRepository, ITenantProvider). All services running: ShopERP (5003), Gateway (5001), KhachLink (5002). API verified: curl returns 200 OK with 5 products. Architecture tests: 7/7 PASS. Playwright E2E tests: 15 passed, 2 skipped.
