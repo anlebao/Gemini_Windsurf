@@ -41,31 +41,35 @@ main
 
 ---
 
-## 1. WAVE 8 — Cleanup Dashboard Security
+## 1. WAVE 8 — Upgrade Dashboard to Sitemap with Authentication
 
-**Branch:** `feature/wave8-cleanup-dashboard`
-**Estimated sessions:** 2
-**Priority:** 🔴 CRITICAL — Public dashboard với infrastructure control
-**Conflict risk:** LOW — Chỉ sửa static HTML file, không đụng core flow
+**Branch:** `feature/wave8-upgrade-dashboard`
+**Estimated sessions:** 5
+**Priority:** 🔴 CRITICAL — Dashboard cần authentication và sitemap functionality
+**Conflict risk:** MEDIUM — Sửa HTML + JavaScript, thêm authentication
 **Depends on:** Wave 7 (prod hardening) complete
 
 ### Vấn đề cụ thể cần fix
 - `VanAn_Dashboard.html`: Zero authentication, public access
 - `VanAn_Dashboard.html`: Hardcoded base IP `localhost`
-- `VanAn_Dashboard.html`: Simulated Docker commands, build checks
-- `VanAn_Dashboard.html`: Không có production security controls
+- `VanAn_Dashboard.html`: Chỉ là development tool, không có production value
+- **Mới:** Cần nâng cấp thành sitemap cho KhachLink, ShopERP, Account, EInvoice, LoyaltyReward
+- **Mới:** Cần bổ sung authentication/authorization (login page, permission checks)
 
 ### Quyết định kiến trúc
-- **Option 1 (Khuyên dùng):** Xóa hoàn toàn `VanAn_Dashboard.html` — không cần thiết cho production
-- **Option 2:** Move sang internal admin panel với proper authentication nếu cần
-- **Decision:** Xóa file vì nó là development-only tool, không có production value
+- **Decision:** Nâng cấp `VanAn_Dashboard.html` thành production-ready sitemap
+- **Authentication:** Tích hợp với ShopERP JWT authentication
+- **Authorization:** Role-based access control cho từng module
+- **Sitemap:** Links đến KhachLink, ShopERP, Account, EInvoice, LoyaltyReward
 
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 1 | W8-T1 | Xóa `VanAn_Dashboard.html` — development-only dashboard không phù hợp production | — | [W8-T1-card.md](#) | 📋 TODO |
-| 2 | W8-T2 | Verify không có references đến `VanAn_Dashboard.html` trong codebase | W8-T1 | [W8-T2-card.md](#) | 📋 TODO |
-| 3 | W8-T3 | Update documentation nếu có references đến dashboard | W8-T2 | [W8-T3-card.md](#) | 📋 TODO |
+| 1 | W8-T1 | Design sitemap structure với authentication | — | [W8-T1-card.md](#) | 📋 TODO |
+| 2 | W8-T2 | Implement login page với JWT authentication | W8-T1 | [W8-T2-card.md](#) | 📋 TODO |
+| 3 | W8-T3 | Implement role-based authorization checks | W8-T2 | [W8-T3-card.md](#) | 📋 TODO |
+| 4 | W8-T4 | Update dashboard thành sitemap với links | W8-T3 | [W8-T4-card.md](#) | 📋 TODO |
+| 5 | W8-T5 | Test authentication và authorization | W8-T4 | [W8-T5-card.md](#) | 📋 TODO |
 
 ### Entry criteria (Wave 8)
 - [ ] Branch `feature/wave8-cleanup-dashboard` tạo từ `main` mới nhất

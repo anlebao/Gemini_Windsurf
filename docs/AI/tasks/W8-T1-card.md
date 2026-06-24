@@ -1,76 +1,65 @@
-# TASK CARD: PRODUCTION_HYGIENE - WAVE8 - Delete Dashboard Security Risk
+# TASK CARD: PRODUCTION_HYGIENE - WAVE8 - Design Sitemap Structure with Authentication
 
 ## 1. GOAL & CONTEXT
-- **Mục tiêu cốt lõi:** Xóa VanAn_Dashboard.html - public infrastructure control dashboard không phù hợp production
-- **Nghiệp vụ áp dụng:** Security hardening - loại bỏ public access dashboard với Docker control commands
+- **Mục tiêu cốt lõi:** Design sitemap structure với authentication cho VanAn_Dashboard.html
+- **Nghiệp vụ áp dụng:** Security enhancement - upgrade dashboard thành production-ready sitemap
 
 ## 2. ACTIVE WORKFLOW ROUTING
-- **Target Workflow:** `Simple file deletion workflow`
-- **Execution Mode:** FIX_ONLY
+- **Target Workflow:** `Design workflow`
+- **Execution Mode:** ANALYZE
 
 ## 3. RELEVANT FILES (CONTEXT BOUNDARY)
 - **Files được phép đọc/sửa:**
   - `docs/AI/project_state.md` (Bắt buộc đọc đầu phiên)
-  - `VanAn_Dashboard.html` (xóa)
+  - `VanAn_Dashboard.html` (read only - analyze current structure)
   - `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` (cập nhật status)
 - **Boundary Rules (Nghiêm cấm):**
-  - KHÔNG sửa bất kỳ file nào khác ngoài những file được liệt kê
-  - KHÔNG sửa configuration files, Program.cs, hoặc bất kỳ runtime code
-  - KHÔNG tạo replacement dashboard
+  - KHÔNG sửa dashboard trong task này (đó là task W8-T4)
+  - KHÔNG sửa authentication logic trong task này (đó là task W8-T2, W8-T3)
+  - Chỉ design và document
 
 ## 4. TECHNICAL & REGULATORY CONSTRAINTS (HARDENING GATES)
-- [ ] **Security First:** Dashboard có public infrastructure control commands - không phù hợp production
-- [ ] **Zero Impact:** Xóa file không ảnh hưởng production flow vì dashboard không được sử dụng
-- [ ] **Clean Removal:** Đảm bảo không có broken references sau khi xóa
-- [ ] **Documentation Sync:** Cập nhật master plan status sau khi hoàn thành
-- [ ] **Build Verification:** `dotnet build VanAn.sln` phải PASS sau khi xóa
+- [ ] **Sitemap Structure:** Design links đến KhachLink, ShopERP, Account, EInvoice, LoyaltyReward
+- [ ] **Authentication Flow:** Design login page integration với ShopERP JWT
+- [ ] **Authorization Model:** Design role-based access control cho từng module
+- [ ] **UX Consistency:** Design consistent với existing UI Platform patterns
+- [ ] **Security First:** Ensure proper session management and token handling
 
 ## 5. SUCCESS CRITERIA (ĐO LƯỜNG ĐƯỢC)
-- [ ] **SC1:** VanAn_Dashboard.html đã xóa khỏi repository
-- [ ] **SC2:** Không có broken references đến VanAn_Dashboard.html trong codebase
-- [ ] **SC3:** `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
-- [ ] **SC4:** `guard-check.ps1` → PASS
-- [ ] **SC5:** `VanAn.Architecture.Tests`: 7/7 PASS
-- [ ] **SC6:** `VanAn.Integration.Tests`: không có test nào bị break
-- [ ] **SC7:** PRODUCTION_HYGIENE_master_plan.md updated với W8-T1 status = ✅ DONE
-- [ ] **SC8:** Verify không có HTML files khác với similar security issues
+- [ ] **SC1:** Sitemap structure documented
+- [ ] **SC2:** Authentication flow designed
+- [ ] **SC3:** Authorization model documented
+- [ ] **SC4:** UI/UX design documented
+- [ ] **SC5:** PRODUCTION_HYGIENE_master_plan.md updated với W8-T1 status = ✅ DONE
 
 **Implementation Date:** 2026-06-24
-**Branch:** feature/wave8-cleanup-dashboard
+**Branch:** feature/wave8-upgrade-dashboard
 
 ## 6. ACTIVE SKILLS (MAX 3)
-- `system-refactor-safety` — Đảm bảo xóa file không gây broken references
-- `domain-integrity-validation` — Verify không ảnh hưởng domain layer
-- `build-error-analysis` — Verify build passes sau deletion
+- `domain-integrity-validation` — Verify design consistent with architecture
+- `pattern-based-fixing` — Follow existing authentication patterns
 
 ## 7. AI HEALTH CHECK MATRIX (INITIAL)
-- **Evidence Count:** 5
+- **Evidence Count:** 3
 - **Verified Facts:**
-  - Fact 1: VanAn_Dashboard.html tồn tại ở root directory
-  - Fact 2: Dashboard có hardcoded baseIp = 'localhost'
-  - Fact 3: Dashboard có simulated Docker commands và build checks
-  - Fact 4: Dashboard không có authentication/authorization
-  - Fact 5: Dashboard không được production sử dụng
+  - Fact 1: VanAn_Dashboard.html exists as development tool
+  - Fact 2: ShopERP has JWT authentication (Wave 0 completed)
+  - Fact 3: System has RBAC (Waves 4-6 completed)
 - **Assumptions:**
-  - Dashboard là development-only tool
-  - Không có production dependencies vào dashboard
+  - Can integrate with existing ShopERP authentication
+  - Can use existing RBAC roles
 - **Open Questions:**
-  - Q1: Có bất kỳ scripts hay automation tools reference dashboard không?
-  - Q2: Có documentation references dashboard không?
-- **Recommended Action:** Delete file và verify no broken references
+  - Q1: Authentication flow should be redirect or modal?
+  - Q2: Which roles should access which modules?
+- **Recommended Action:** Design sitemap structure with authentication integration
 
 ## 8. REVERSE IMPACT ANALYSIS
 | File thay đổi | Reverse impact | Mitigation |
 |---|---|---|
-| VanAn_Dashboard.html (xóa) | Không có reverse impact - file không được sử dụng | Verify no references before deletion |
-| PRODUCTION_HYGIENE_master_plan.md (update status) | Không có reverse impact | Update task status to ✅ DONE |
+| N/A (design only) | Không có reverse impact | N/A |
 
 ## 9. TDD & E2E TESTING STRATEGY
-- **No new tests needed:** File deletion không cần test mới
-- **Verification only:** 
-  - Grep search cho references đến file name
-  - Build verification
-  - Architecture tests verification
+- **Design Strategy:** Document structure, flow, and authorization model
 - **Test boundary:**
   - Unit tests: N/A
   - Integration tests: N/A
@@ -80,22 +69,24 @@
 
 ### Chiến lược thực thi: JIT Planning + Pure Execution
 
-Simple file deletion task - verify references first, then delete file, then verify build.
+Analyze current dashboard, design sitemap structure, document authentication flow.
 
-### Micro-phase breakdown cho WAVE8 - Delete Dashboard
+### Micro-phase breakdown cho WAVE8 - Design Sitemap
 
 | Session | JIT Planning (chốt gì) | Pure Execution (viết gì) |
 |---|---|---|
-| **S1** | Verify no references to VanAn_Dashboard.html via grep search | Execute grep search, analyze results, confirm safe to delete |
-| **S2** | Delete VanAn_Dashboard.html file | Execute file deletion, verify file removed |
-| **S3** | Verify build and update documentation | Run dotnet build, update master plan status |
+| **S1** | Analyze current dashboard structure | Read VanAn_Dashboard.html, understand current UI |
+| **S2** | Design sitemap structure | Document links to KhachLink, ShopERP, Account, EInvoice, LoyaltyReward |
+| **S3** | Design authentication flow | Document login page integration with ShopERP JWT |
+| **S4** | Design authorization model | Document role-based access control for each module |
+| **S5** | Update documentation | Update master plan status |
 
 ### Rules
-- Verify references before deletion (safety first)
-- Update documentation immediately after completion
-- Run build verification after deletion
+- Design before implementation
+- Follow existing authentication patterns
+- Document all decisions clearly
 
 ## 11. ESTIMATED EFFORT
-- Low effort - simple file deletion with verification
-- 2 sessions theo JIT Planning
+- Medium effort - design and documentation
+- 3 sessions theo JIT Planning
 - **BLOCKER:** Không có blockers
