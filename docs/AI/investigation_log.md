@@ -123,3 +123,42 @@ Added `global-setup.ts` to git and committed.
 
 ### Status
 ✅ RESOLVED
+
+---
+
+## Issue 7: Integration Test Failures - Reproduction & Root Cause Analysis (2026-06-23)
+
+### Issue
+21 integration tests in `VanAn.Integration.Tests.csproj` fail. Original analysis (`docs/AI/integration_test_failures_analysis.md`) attributed all failures to `SQLite Error 19: FOREIGN KEY constraint failed`. Reproduction shows the actual root causes are split into two distinct groups.
+
+### Evidence
+* Full suite run: `dotnet test VanAn.Integration.Tests.csproj` → 21 failures, exit code 1.
+* **Group A (16 tests): CustomWebApplicationFactory / KhachLink DI validation failures**
+  * Affected: 8 Shop API tests, 7 Customer API tests, 1 Health Check test (`GoldenFlowSystemTests`).
+  * Error: `System.AggregateException : Some services are not able to be constructed`
+    * `IOrderWorkflowService` → requires `IOrderRepository`
+    * `ISocialCampaignService` → requires `ISocialCampaignRepository`
+    * `IDashboardService` → requires `ISystemMetricsRepository`
+  * Stack trace points to `VanAn.KhachLink.Program.Main(...)` at line 123, triggered by `CustomWebApplicationFactory.CreateHost`.
+  * Existing technical debt card: `docs/AI/tasks/TD-001_KhachLink_ArchitecturalViolation.md` already identified this exact architectural violation.
+* **Group B (5 tests): IntegrationTestBase DI + assertion failures**
+  * Affected: `LeadToCustomerConversionTests` (5 tests).
+  * `LeadConversion_Flow_ShouldCreateCustomerWithLoyalty` and `LeadConversion_Batch_ShouldProcessMultipleLeads` fail with: `Unable to resolve service for type 'VanAn.CoreHub.Services.INotificationService' while attempting to activate 'VanAn.CoreHub.Services.CustomerOnboardingService'`.
+  * `LeadConversion_Failed_ShouldRollbackChanges` fails assertion: `Assert.Contains()` sub-string `"already exists"` not found.
+  * `LeadConversion_ValidateLead_ShouldCheckQualification` fails assertion: `Assert.Contains()` sub-string `"unqualified"` not found.
+  * `LeadConversion_WithOrders_ShouldImportOrderHistory` fails with `SQLite Error 19: 'FOREIGN KEY constraint failed'` (the only true FK failure among the 21 tests).
+
+### Root Cause
+1. **KhachLink (Group A):** Direct injection of CoreHub services (`IOrderWorkflowService`, `ISocialCampaignService`, `IDashboardService`) into a Client UI layer that has no `IVanAnDbContext` or repository registrations. DI validation fails at startup when `WebApplicationFactory` spins up the KhachLink host.
+2. **IntegrationTestBase (Group B):** Missing `INotificationService` registration for `CustomerOnboardingService`. Additionally, 2 tests have stale assertion strings (`"already exists"`, `"unqualified"`) that do not match current exception/error messages.
+3. **LeadConversion_WithOrders:** A genuine FK constraint failure when importing order history during lead conversion (likely missing parent `Shop` or `Customer` before `Order` insert).
+
+### Fix Strategy
+* **Group A:** Resolve TD-001 architectural violation. Options:
+  * Option 1 (Correct): Remove CoreHub service registrations from KhachLink, create Gateway/ShopERP endpoints, and add HTTP client wrappers in KhachLink. (Large scope, separate TD sprint.)
+  * Option 2 (Temporary): Register missing repositories in KhachLink `Program.cs` to unblock tests. (Violates architecture; not recommended.)
+  * Option 3 (Test-only): In `CustomWebApplicationFactory`, replace violating services with stubs/mocks so tests can run without spinning up full CoreHub DI chain.
+* **Group B:** Add `INotificationService` registration to `IntegrationTestBase` (e.g., `CompositeNotificationService` with `BrevoEmailService`/`EsmsNotificationService` mocks, or a no-op stub). Update assertion strings in 2 failing tests to match current error messages. Fix `LeadConversion_WithOrders` parent entity setup.
+
+### Status
+🔄 IN PROGRESS — Wave 1 investigation complete; awaiting decision on Group A fix strategy before proceeding to Wave 2 implementation.
