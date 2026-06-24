@@ -21,4 +21,4 @@ Write-Host "`n[4/4] 🚀 Launching Van An Ecosystem in High-Performance Mode..."
 .\Start-VanAnEcosystem.ps1 -SeparateWindows
 
 Write-Host "`n✅ Restart sequence initiated! Please check your separate terminal windows." -ForegroundColor Cyan
-Write-Host "👉 Open VanAn_Dashboard.html in your browser to monitor real-time status." -ForegroundColor Cyan
+Write-Host "👉 Navigate to http://localhost:5003/sitemap in your browser (login required)." -ForegroundColor Cyan

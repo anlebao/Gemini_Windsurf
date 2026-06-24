@@ -315,8 +315,8 @@ foreach ($url in $urls) {
 }
 
 Write-ColorOutput "[DASHBOARD] Dashboard:" "Info"
-$dashboardUrl = "http://${BaseIP}/VanAn_Dashboard.html"
-Write-Host "[WEB] Ecosystem Dashboard: " -NoNewline
+$dashboardUrl = "http://${BaseIP}:5003/sitemap"
+Write-Host "[WEB] Ecosystem Sitemap (ShopERP): " -NoNewline
 Write-Host $dashboardUrl -ForegroundColor $Colors.URL
 Write-Host ""
 

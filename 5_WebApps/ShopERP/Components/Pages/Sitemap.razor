@@ -1,0 +1,252 @@
+@page "/sitemap"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using VanAn.UI.Platform.Components
+@inject IThemeProvider ThemeProvider
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Sitemap - Vạn An Ecosystem</PageTitle>
+
+<div class="sitemap-page @ThemeProvider.CurrentTheme" data-testid="sitemap-page">
+    <header class="sitemap-header">
+        <h1 data-testid="sitemap-title">Vạn An Ecosystem</h1>
+        <p class="sitemap-subtitle">Chào mừng, <strong>@_displayName</strong> (@_roleName)</p>
+        <div class="sitemap-header-actions">
+            <VanAButton
+                Variant="secondary"
+                Size="small"
+                OnClick="Logout"
+                data-testid="btn-logout">
+                Đăng xuất
+            </VanAButton>
+        </div>
+    </header>
+
+    <div class="sitemap-grid" data-testid="sitemap-grid">
+
+        @* ── ShopERP — visible to all authenticated users ── *@
+        <VanACard Header="ShopERP — Quản lý nội bộ" Hoverable="true" data-testid="card-shoperp">
+            <div class="sitemap-links">
+                <a href="/" class="sitemap-link" data-testid="link-shoperp-home">
+                    <span class="sitemap-link-icon">🏠</span>
+                    <span>Trang chủ ShopERP</span>
+                </a>
+                <AuthorizeView Roles="Owner,StoreKeeper">
+                    <Authorized>
+                        <a href="/accounting" class="sitemap-link" data-testid="link-accounting">
+                            <span class="sitemap-link-icon">📒</span>
+                            <span>Kế Toán</span>
+                        </a>
+                        <a href="/accounting/history" class="sitemap-link" data-testid="link-accounting-history">
+                            <span class="sitemap-link-icon">🕐</span>
+                            <span>Lịch Sử Giao Dịch</span>
+                        </a>
+                        <a href="/accounting/balance" class="sitemap-link" data-testid="link-accounting-balance">
+                            <span class="sitemap-link-icon">💰</span>
+                            <span>Số Dư Tài Khoản</span>
+                        </a>
+                        <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
+                            <span class="sitemap-link-icon">🔒</span>
+                            <span>Đóng Kỳ Kế Toán</span>
+                        </a>
+                    </Authorized>
+                </AuthorizeView>
+                <AuthorizeView Roles="Guard">
+                    <Authorized>
+                        <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
+                            <span class="sitemap-link-icon">📷</span>
+                            <span>Quét QR Guard</span>
+                        </a>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </VanACard>
+
+        @* ── E-Invoice — Owner + StoreKeeper ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized Context="einvoiceAuth">
+                <VanACard Header="Hóa Đơn Điện Tử" Hoverable="true" data-testid="card-einvoice">
+                    <div class="sitemap-links">
+                        <a href="/einvoice" class="sitemap-link" data-testid="link-einvoice-dashboard">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Dashboard Hóa Đơn</span>
+                        </a>
+                        <a href="/einvoice/invoices" class="sitemap-link" data-testid="link-einvoice-list">
+                            <span class="sitemap-link-icon">🧾</span>
+                            <span>Quản Lý Hóa Đơn</span>
+                        </a>
+                        <AuthorizeView Roles="Owner">
+                            <Authorized Context="ownerAuth">
+                                <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
+                                    <span class="sitemap-link-icon">⚙️</span>
+                                    <span>Cấu Hình Provider</span>
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Quản trị — Owner ── *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <VanACard Header="Quản Trị Hệ Thống" Hoverable="true" data-testid="card-admin">
+                    <div class="sitemap-links">
+                        <a href="/admin/users" class="sitemap-link" data-testid="link-admin-users">
+                            <span class="sitemap-link-icon">👥</span>
+                            <span>Quản lý Người Dùng</span>
+                        </a>
+                        <a href="/admin/permission-groups" class="sitemap-link" data-testid="link-admin-permissions">
+                            <span class="sitemap-link-icon">🔑</span>
+                            <span>Nhóm Quyền</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Audit — Admin ── *@
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <VanACard Header="Kiểm Toán" Hoverable="true" data-testid="card-audit">
+                    <div class="sitemap-links">
+                        <a href="/admin/audit-trail" class="sitemap-link" data-testid="link-audit-trail">
+                            <span class="sitemap-link-icon">🛡️</span>
+                            <span>Nhật Ký Audit</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Tenant Mgmt — SystemAdmin ── *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <VanACard Header="Quản Lý Tenant" Hoverable="true" data-testid="card-tenant">
+                    <div class="sitemap-links">
+                        <a href="/admin/tenants" class="sitemap-link" data-testid="link-tenants">
+                            <span class="sitemap-link-icon">🏢</span>
+                            <span>Quản lý Tenant</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── KhachLink (Customer Portal) — Owner + StoreKeeper ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized>
+                <VanACard Header="KhachLink — Cổng Khách Hàng" Hoverable="true" data-testid="card-khachlink">
+                    <div class="sitemap-links">
+                        <a href="http://localhost:5002/khachlink/" class="sitemap-link sitemap-link--external" target="_blank" rel="noopener noreferrer" data-testid="link-khachlink">
+                            <span class="sitemap-link-icon">🛍️</span>
+                            <span>Mở KhachLink PWA</span>
+                            <span class="sitemap-link-badge">Trang mới</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+    </div>
+</div>
+
+<style>
+    .sitemap-page {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .sitemap-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--vanan-border, #dee2e6);
+    }
+
+    .sitemap-header h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .sitemap-subtitle {
+        margin: 0;
+        color: var(--vanan-text-muted, #6c757d);
+        flex: 1;
+        padding-left: 1rem;
+    }
+
+    .sitemap-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .sitemap-links {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .sitemap-link {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.6rem 0.8rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--vanan-text, #212529);
+        transition: background-color 0.15s ease;
+    }
+
+    .sitemap-link:hover {
+        background-color: var(--vanan-hover-bg, #f0f4ff);
+        color: var(--vanan-primary, #0d6efd);
+    }
+
+    .sitemap-link-icon {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .sitemap-link--external .sitemap-link-badge {
+        font-size: 0.7rem;
+        background: var(--vanan-primary, #0d6efd);
+        color: white;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        margin-left: auto;
+    }
+</style>
+
+@code {
+    private string _displayName = string.Empty;
+    private string _roleName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        _displayName = user.FindFirst("DisplayName")?.Value
+            ?? user.FindFirst(ClaimTypes.Name)?.Value
+            ?? "Người dùng";
+
+        _roleName = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    }
+
+    private void Logout()
+    {
+        NavigationManager.NavigateTo("/Logout", forceLoad: true);
+    }
+}
