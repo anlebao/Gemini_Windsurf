@@ -136,6 +136,11 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
       - Authentication__Authority=https://api.vanantech.io.vn
+      - Seed__OwnerUsername=${SHOPERP_OWNER_USERNAME:-adminvanan1}
+      - Seed__OwnerPassword=${SHOPERP_OWNER_PASSWORD:-2026@vanan}
+      - Seed__TenantId=${SHOPERP_TENANT_ID:-00000000-0000-0000-0000-000000000001}
+    volumes:
+      - shoperp_data:/app
     networks:
       - vanan-network
     depends_on:
@@ -225,6 +230,7 @@ volumes:
   postgres_data:
   nats_data:
   seq_data:
+  shoperp_data:
   certbot_www:
   certbot_conf:
 
