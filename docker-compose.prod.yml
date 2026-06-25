@@ -111,7 +111,7 @@ services:
     depends_on:
       - corehub
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/80 && printf 'GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && head -n 1 <&3 | grep -q '200'"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -139,7 +139,7 @@ services:
     depends_on:
       - corehub
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/80 && printf 'GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && head -n 1 <&3 | grep -q '200'"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -167,7 +167,7 @@ services:
     depends_on:
       - gateway
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/80 && printf 'GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && head -n 1 <&3 | grep -q '200'"]
       interval: 30s
       timeout: 10s
       retries: 5
