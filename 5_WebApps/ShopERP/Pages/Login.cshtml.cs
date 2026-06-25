@@ -40,9 +40,11 @@ namespace VanAn.ShopERP.Pages
             }
 
             // Lookup user from database by username (case-insensitive)
+            // IgnoreQueryFilters: bypass global TenantId filter — login page has no JWT yet
             var user = await _dbContext.Users
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Username.ToLower() == Username.ToLower() && u.IsActive);
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == Username.ToLower() && u.IsActive && !u.IsDeleted);
 
             // BCrypt verify: constant-time comparison, timing-attack resistant
             if (user == null || !BCrypt.Net.BCrypt.Verify(Password, user.PasswordHash))
