@@ -11,8 +11,8 @@ namespace VanAn.CoreHub.Infrastructure.ValueConverters
     {
         public EncryptedStringConverter(IDataProtector protector)
             : base(
-                v => protector.Protect(v ?? string.Empty),
-                v => protector.Unprotect(v ?? string.Empty))
+                v => string.IsNullOrEmpty(v) ? string.Empty : protector.Protect(v),
+                v => string.IsNullOrEmpty(v) ? null! : protector.Unprotect(v))
         {
             ArgumentNullException.ThrowIfNull(protector);
         }
