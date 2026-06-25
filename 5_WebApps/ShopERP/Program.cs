@@ -276,22 +276,26 @@ namespace VanAn.ShopERP
 
                 // Wave 0 [W0-T5]: Seed DemoUsers with BCrypt hashed passwords (work factor 12)
                 // Only seeds if no users exist to avoid duplicate key errors
-                if (!await context.Users.AnyAsync())
+                if (!await context.Users.IgnoreQueryFilters().AnyAsync())
                 {
-                    var passwordHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
+                    string ownerPassword = builder.Configuration["Seed:OwnerPassword"] ?? "VanAn@2026";
+                    string ownerUsername = builder.Configuration["Seed:OwnerUsername"] ?? "admin@vanan.vn";
+                    var passwordHash = BCrypt.Net.BCrypt.HashPassword(ownerPassword, 12);
 
-                    // Dev seed tenant: 00000000-0000-0000-0000-000000000001
-                    var devTenantId = new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+                    // Production tenant: 00000000-0000-0000-0000-000000000001 (default)
+                    // Override via Seed:TenantId env var for multi-tenant setups
+                    string tenantIdStr = builder.Configuration["Seed:TenantId"] ?? "00000000-0000-0000-0000-000000000001";
+                    var seedTenantId = new TenantId(Guid.Parse(tenantIdStr));
 
                     context.Users.AddRange(
-                        new DemoUser(devTenantId, "admin@vanan.vn", passwordHash, "Chủ Quán", UserRole.Owner),
-                        new DemoUser(devTenantId, "kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper),
-                        new DemoUser(devTenantId, "baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard),
-                        new DemoUser(devTenantId, "staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff),
-                        new DemoUser(devTenantId, "bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef)
+                        new DemoUser(seedTenantId, ownerUsername, passwordHash, "Chủ Quán", UserRole.Owner),
+                        new DemoUser(seedTenantId, "kho@vanan.vn", passwordHash, "Thủ Kho", UserRole.StoreKeeper),
+                        new DemoUser(seedTenantId, "baove@vanan.vn", passwordHash, "Bảo Vệ", UserRole.Guard),
+                        new DemoUser(seedTenantId, "staff@vanan.vn", passwordHash, "Phục Vụ", UserRole.Staff),
+                        new DemoUser(seedTenantId, "bep@vanan.vn", passwordHash, "Bếp Trưởng", UserRole.Masterchef)
                     );
                     _ = await context.SaveChangesAsync();
-                    Console.WriteLine("Wave 0: DemoUsers seeded with BCrypt hashed passwords.");
+                    Console.WriteLine($"Wave 0: DemoUsers seeded — owner={ownerUsername}, tenant={tenantIdStr}");
                 }
 
                 // Wave 2: Encrypt any pre-existing plaintext PII in dev DB
