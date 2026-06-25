@@ -38,15 +38,15 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**No active objective** — All recent tasks completed
+**Production Hygiene — Wave 9: Cleanup Orphan Controller**
 
-**Status:** ✅ READY FOR NEW TASKS — Branch `feature/wave7-prod-hardening`
+**Status:** � TODO — Branch `feature/wave9-cleanup-controller` (to be created from `main` after Wave 8 merge)
+
+**Latest Commit (Wave 8):** `d088739 feat(wave8): implement Sitemap.razor with auth, remove VanAn_Dashboard.html`
 
 ---
 
-## 3. Current Status
-
-### In Progress
+*Note: Waves 0-7 have been archived to `docs/AI/project_state_archive.md` (2026-06-24)*
 
 - None
 
@@ -65,10 +65,35 @@ Mọi cập nhật file này PHẢI tuân thủ:
 - Sprint 3 E-Invoice Review Fix (F0–F4) ✅
 - **UC1 QR Checkout Completion — S1–S4 DONE, 22/22 tests PASS ✅** (2026-06-10)
 - **Value Object Mapping Fix — 14 EF Core Configuration files created ✅** (2026-06-15)
-- **Security Compliance — Wave 0-7: Complete RBAC + Production Hardening ✅** (2026-06-23)
-- **Integration Test Failures Fix — Wave 1: SQLite In-Memory Schema Root Cause ✅** (2026-06-24)
+  * Fixed: ProductId, IngredientId, RecipeId, InventoryId, OrderItemId, LeadId, OrderStatusId, CustomerId, TenantId converters
+  * Removed: Inline entity configurations from VanAnDbContext.cs
+  * Pattern: `HasConversion(id => id.Value, value => new TypeName(value))`
+- **Security Compliance — Wave 0: JWT Authentication Foundation ✅** (2026-06-23)
+  * Stateless JWT (HS256, 8h), BCrypt work factor 12, dual-scheme auth
+- **Security Compliance — Wave 1: Notification Integration (Brevo + ESMS) ✅** (2026-06-23)
+  * 11/11 unit tests PASS
+- **Security Compliance — Wave 2: Data Protection (Field-level Encryption) ✅** (2026-06-23)
+  * EncryptedStringConverter, PII encryption, CustomerEncryptionTests PASS
+- **Security Compliance — Wave 3: Report Export (Excel with EPPlus) ✅** (2026-06-23)
+  * IExcelExportService + 3 report generators + ReportController + 6/6 unit tests PASS
+- **Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer ✅** (2026-06-23)
+  * AuthorizeRouteView, policy-gated pages, NavMenu role gates, AccessDenied.razor, 9 E2E tests
+- **Security Compliance — Wave 5: Domain Refactor + Tenant Rich Domain + CRUD ✅ COMPLETED** (2026-06-23)
+  * W5-T1→T10 COMPLETE — Branch `feature/wave5-tenant-mgmt`
+  * TenantAggregate (Rich Domain), ITenantManagementService, TenantController, TenantManagement.razor, 23 tests
+- **Security Compliance — Wave 6: User Aggregate + RBAC Management ✅ COMPLETED** (2026-06-23)
+  * W6-T1→T12 COMPLETE — Branch `feature/wave6-user-rbac-mgmt`, merged to `main` (commit `2599c1b`)
+  * UserAggregate split, PermissionGroup/UserPermissionGroup, UserManagementService, RoleAssignmentService, PermissionGroupService, UserController, PermissionGroupController, UserManagement.razor, PermissionGroupManagement.razor, 29 tests PASS
+- **Production Hygiene — Wave 7: Production Hardening ✅ COMPLETED** (2026-06-24)
+  * W7-T1→T5 COMPLETE — Branch `feature/wave7-prod-hardening`, merged to base for Wave 8
+  * Production hardening tasks completed per PRODUCTION_HYGIENE_master_plan.md
+- **Production Hygiene — Wave 8: Upgrade Dashboard to Sitemap with Authentication ✅ COMPLETED** (2026-06-25)
+  * W8-T1→T5 COMPLETE — Branch `feature/wave8-upgrade-dashboard` (commit `d088739`)
+  * Sitemap.razor `[Authorize]` tại `/sitemap` với role-based module cards (AuthorizeView)
+  * Home.razor redirect sang `/sitemap`; VanAn_Dashboard.html xóa; ecosystem scripts cập nhật
+  * Build: 0 errors; guard-check: PASS
 
-### Blockers
+### Blocked
 
 - Không có blockers.
 
@@ -76,7 +101,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-None - Ready for new tasks
+### Current: Wave 9 - Cleanup Orphan Controller
+
+Tạo branch `feature/wave9-cleanup-controller` từ `main` sau khi Wave 8 merge.
+
+1. W9-T1: Xóa `ShopERP/Controllers/CustomersController.cs`
+2. W9-T2: Refactor `CustomerApiIntegrationTests` → test Gateway endpoints hoặc xóa
+3. W9-T3: Verify không có broken references
+4. W9-T4: Update project_state.md
 
 ---
 
@@ -358,7 +390,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-24 (Customer API Tests Fixed — 100% success rate)
-* Current Branch: `feature/wave7-prod-hardening`
-* **Customer API Integration Tests Fix (2026-06-24):** Fixed 21 Customer API integration tests using string assertion pattern. Root cause: Value Object JSON serialization + database context isolation. Pattern: HTTP API seeding + string assertions instead of JSON deserialization. Result: 129/130 tests pass (1 unrelated failure: Golden Flow Health Check).
-* **Wave 7 — Production Hardening & Non-functional (2026-06-23):** W7-T1→T7 implemented. HTTPS redirection in Gateway + ShopERP only for Production. CORS hardening via `Cors:AllowedOrigins` whitelist in `2_Gateway/appsettings.Production.json`. SQLite backup script `scripts/backup-db.sh` with WAL checkpoint and 7-day retention. Health checks in ShopERP with `AddDbContextCheck<ShopERPDbContext>` and `/health/detail` endpoint (Owner-only). Login rate limiting via `AddRateLimiter` with fixed window 5 req/min per IP. Conditional distributed cache: Redis when `ConnectionStrings:Redis` configured, otherwise `AddDistributedMemoryCache`. WCAG `aria-label` fixes on Login, Cart, UserManagement, TenantManagement forms. Commit `744b658`. `dotnet build VanAn.sln` 0 errors, `guard-check.ps1` ALL CHECKS PASSED.
+* Last Updated: 2026-06-24 (Wave 8 - Upgrade Dashboard to Sitemap)
+* Current Branch: `feature/wave8-upgrade-dashboard`
+* **Wave 8 — Upgrade Dashboard to Sitemap with Authentication (2026-06-24):** IN PROGRESS. Branch `feature/wave8-upgrade-dashboard` created from main. Tasks: W8-T1 through W8-T5 (sitemap design, authentication, authorization, implementation, testing). Latest commit: `572fbb2 Update Wave 8: Upgrade Dashboard to Sitemap with Authentication`. PRODUCTION_HYGIENE_master_plan.md created with Wave 8-13 task cards.
+
