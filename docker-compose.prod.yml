@@ -133,6 +133,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
       - Authentication__Authority=https://api.vanantech.io.vn
     networks:
