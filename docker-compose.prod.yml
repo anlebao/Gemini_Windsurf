@@ -134,6 +134,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      - Authentication__Authority=https://api.vanantech.io.vn
     networks:
       - vanan-network
     depends_on:
