@@ -175,10 +175,12 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IPermissionGroupService, CoreHub.Services.PermissionGroupService>();
 
             // ✅ FIXED: Enterprise authentication configuration
+            // DefaultChallengeScheme = Cookie so [Authorize] redirects to LoginPath (/Login)
+            // instead of triggering OIDC discovery (Gateway is not an identity server).
             _ = builder.Services.AddAuthentication(options =>
             {
                 options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             })
             .AddCookie(options =>
             {
