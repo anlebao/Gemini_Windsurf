@@ -38,17 +38,15 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 9: Cleanup Orphan Controller**
+**Production Hygiene — Wave 10: Cleanup Duplicate Interfaces**
 
-**Status:** � TODO — Branch `feature/wave9-cleanup-controller` (to be created from `main` after Wave 8 merge)
+**Status:** TODO — Branch `feature/wave10-cleanup-interfaces` (to be created from `main` after Wave 9 merge)
 
-**Latest Commit (Wave 8):** `d088739 feat(wave8): implement Sitemap.razor with auth, remove VanAn_Dashboard.html`
+**Latest Commit (Wave 9):** pending merge on `feature/wave9-cleanup-controller`
 
 ---
 
 *Note: Waves 0-7 have been archived to `docs/AI/project_state_archive.md` (2026-06-24)*
-
-- None
 
 ### Completed
 
@@ -93,6 +91,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Home.razor redirect sang `/sitemap`; VanAn_Dashboard.html xóa; ecosystem scripts cập nhật
   * Build: 0 errors; guard-check: PASS
 
+- **Production Hygiene — Wave 9: Cleanup Orphan Controller ✅ COMPLETED** (2026-06-25)
+  * W9-T1→T4 COMPLETE — Branch `feature/wave9-cleanup-controller`
+  * Xóa `ShopERP/Controllers/CustomersController.cs`; xóa `CustomerApiIntegrationTests` (không có Gateway endpoints tương đương)
+  * Verify: không còn references trong production code; build 0 errors; guard-check PASS
+
 ### Blocked
 
 - Không có blockers.
@@ -101,14 +104,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Current: Wave 9 - Cleanup Orphan Controller
+### Current: Wave 10 - Cleanup Duplicate Interfaces
 
-Tạo branch `feature/wave9-cleanup-controller` từ `main` sau khi Wave 8 merge.
+Tạo branch `feature/wave10-cleanup-interfaces` từ `main` sau khi Wave 9 merge.
 
-1. W9-T1: Xóa `ShopERP/Controllers/CustomersController.cs`
-2. W9-T2: Refactor `CustomerApiIntegrationTests` → test Gateway endpoints hoặc xóa
-3. W9-T3: Verify không có broken references
-4. W9-T4: Update project_state.md
+1. W10-T1: Xóa `ShopERP/Services/ISocialCampaignService.cs`
+2. W10-T2: Xóa `ShopERP/Services/ILoyaltyRewardsService.cs`
+3. W10-T3: Verify không có references đến duplicate interfaces
+4. W10-T4: Update `Program.cs` — remove DI registrations nếu có
 
 ---
 
@@ -364,6 +367,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
+* [2026-06-25] Production Hygiene — Wave 9: Cleanup Orphan Controller (Branch eature/wave9-cleanup-controller — pending merge)
 * [2026-06-23] Security Compliance — Wave 6: User Aggregate + RBAC Management (Merged to main - Commit 2599c1b)
 * [2026-06-23] Security Compliance — Wave 5: Domain Refactor + Tenant Rich Domain + CRUD (Merged to Wave 6 base)
 * [2026-06-23] Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer (Merged to main - Commit 5a6b441)
@@ -390,7 +394,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-24 (Wave 8 - Upgrade Dashboard to Sitemap)
-* Current Branch: `feature/wave8-upgrade-dashboard`
-* **Wave 8 — Upgrade Dashboard to Sitemap with Authentication (2026-06-24):** IN PROGRESS. Branch `feature/wave8-upgrade-dashboard` created from main. Tasks: W8-T1 through W8-T5 (sitemap design, authentication, authorization, implementation, testing). Latest commit: `572fbb2 Update Wave 8: Upgrade Dashboard to Sitemap with Authentication`. PRODUCTION_HYGIENE_master_plan.md created with Wave 8-13 task cards.
+* Last Updated: 2026-06-25 (Wave 9 - Cleanup Orphan Controller)
+* Current Branch: `feature/wave9-cleanup-controller`
+* **Wave 9 — Cleanup Orphan Controller (2026-06-25):** COMPLETED. Deleted `ShopERP/Controllers/CustomersController.cs` and `CustomerApiIntegrationTests.cs`. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W9-T1→T4 status.
+
+* **Wave 8 — Upgrade Dashboard to Sitemap with Authentication (2026-06-24):** COMPLETED. Branch `feature/wave8-upgrade-dashboard` merged to main. Tasks: W8-T1 through W8-T5. Latest commit: `d088739 feat(wave8): implement Sitemap.razor with auth, remove VanAn_Dashboard.html`.
 
