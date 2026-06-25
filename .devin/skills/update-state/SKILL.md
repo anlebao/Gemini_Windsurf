@@ -30,4 +30,10 @@ Steps:
    - Keep it concise (DRY) — each fact in exactly one place.
 5. Report a short summary of what was changed.
 
+6. Optional: Archive completed waves:
+   - After updating, check if there are completed waves in Section 2 (PREVIOUS OBJECTIVE archived sections)
+   - If completed waves exist, ask user: "Archive completed waves to project_state_archive.md? (y/n)"
+   - If user confirms, invoke `archive-completed-work` skill to move completed waves to archive file
+   - This keeps project_state.md focused on current work
+
 Note: if `edit` fails due to file encoding/whitespace, fall back to a small Python script (read with `encoding='utf-8', errors='ignore'`, modify, write back as UTF-8).
