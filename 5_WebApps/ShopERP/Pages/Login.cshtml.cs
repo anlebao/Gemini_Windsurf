@@ -20,13 +20,11 @@ namespace VanAn.ShopERP.Pages
     public class LoginModel(
         IAntiforgery antiforgery,
         IVanAnDbContext dbContext,
-        IJwtTokenService jwtTokenService,
-        ILogger<LoginModel> logger) : PageModel
+        IJwtTokenService jwtTokenService) : PageModel
     {
         private readonly IAntiforgery _antiforgery = antiforgery;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
-        private readonly ILogger<LoginModel> _logger = logger;
 
         [BindProperty]
         public string Username { get; set; } = string.Empty;
@@ -49,16 +47,7 @@ namespace VanAn.ShopERP.Pages
                 .FirstOrDefaultAsync(u => u.Username.ToLower() == Username.ToLower() && u.IsActive && !u.IsDeleted);
 
             // BCrypt verify: constant-time comparison, timing-attack resistant
-            _logger.LogInformation("[Login] user={User} found={Found}", Username, user != null);
-            if (user != null)
-            {
-                bool verified;
-                try { verified = BCrypt.Net.BCrypt.Verify(Password, user.PasswordHash); }
-                catch (Exception ex) { _logger.LogError(ex, "[Login] BCrypt.Verify threw"); verified = false; }
-                _logger.LogInformation("[Login] BCrypt.Verify={Result} hash={Hash}", verified, user.PasswordHash[..10]);
-                if (!verified) { ModelState.AddModelError(string.Empty, "Email hoặc password không đúng"); return Page(); }
-            }
-            else
+            if (user == null || !BCrypt.Net.BCrypt.Verify(Password, user.PasswordHash))
             {
                 ModelState.AddModelError(string.Empty, "Email hoặc password không đúng");
                 return Page();
