@@ -21,11 +21,14 @@
 ### Branch protocol
 ```
 main
-    └── feature/wave7-prod-hardening     (Wave 7 — IN PROGRESS)
-    └── feature/wave8-cleanup-dashboard   (Wave 8 — NEW)
-    └── feature/wave9-cleanup-controller  (Wave 9 — NEW)
-    └── feature/wave10-cleanup-interfaces (Wave 10 — NEW)
-    └── feature/wave11-cleanup-tests      (Wave 11 — NEW)
+    └── feature/wave7-prod-hardening       (Wave 7 — DONE)
+    └── feature/wave8-upgrade-dashboard    (Wave 8 — IN PROGRESS)
+    └── feature/wave9-cleanup-controller   (Wave 9 — NEW)
+    └── feature/wave10-cleanup-interfaces  (Wave 10 — NEW)
+    └── feature/wave11-cleanup-invalid-files (Wave 11 — NEW)
+    └── feature/wave12-api-authorization   (Wave 12 — NEW)
+    └── feature/wave13-replace-hardcoded-data (Wave 13 — NEW)
+    └── feature/wave14-api-request-signing (Wave 14 — NEW)
 ```
 - Mỗi wave tạo branch từ `main` (sau khi wave trước đã merge).
 - KHÔNG merge wave sau khi wave trước chưa pass exit criteria.
@@ -113,23 +116,23 @@ main
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 4 | W9-T1 | Xóa `ShopERP/Controllers/CustomersController.cs` | — | [W9-T1-card.md](#) | 📋 TODO |
-| 5 | W9-T2 | Refactor `CustomerApiIntegrationTests` — test Gateway endpoints hoặc xóa tests | W9-T1 | [W9-T2-card.md](#) | 📋 TODO |
-| 6 | W9-T3 | Verify không có references đến CustomersController trong codebase | W9-T1 | [W9-T3-card.md](#) | 📋 TODO |
-| 7 | W9-T4 | Update `project_state.md` — remove backlog item, add to history | W9-T3 | [W9-T4-card.md](#) | 📋 TODO |
+| 4 | W9-T1 | Xóa `ShopERP/Controllers/CustomersController.cs` | — | [W9-T1-card.md](#) | ✅ DONE |
+| 5 | W9-T2 | Refactor `CustomerApiIntegrationTests` — test Gateway endpoints hoặc xóa tests | W9-T1 | [W9-T2-card.md](#) | ✅ DONE |
+| 6 | W9-T3 | Verify không có references đến CustomersController trong codebase | W9-T1 | [W9-T3-card.md](#) | ✅ DONE |
+| 7 | W9-T4 | Update `project_state.md` — remove backlog item, add to history | W9-T3 | [W9-T4-card.md](#) | ✅ DONE |
 
 ### Entry criteria (Wave 9)
-- [ ] Wave 8 merged + `dotnet build` → 0 errors
-- [ ] Branch `feature/wave9-cleanup-controller` tạo từ updated `main`
-- [ ] Architecture tests: 7/7 PASS
+- [x] Wave 8 merged + `dotnet build` → 0 errors
+- [x] Branch `feature/wave9-cleanup-controller` tạo từ updated `main`
+- [x] Architecture tests: 7/7 PASS
 
 ### Exit criteria (Wave 9) — TẤT CẢ phải PASS
-- [ ] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
-- [ ] `guard-check.ps1` → PASS
-- [ ] `VanAn.Architecture.Tests`: 7/7 PASS
-- [ ] `VanAn.Integration.Tests`: tests updated hoặc removed, không có break
-- [ ] Verify: `CustomersController.cs` đã xóa
-- [ ] Verify: Không có broken references
+- [x] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
+- [x] `guard-check.ps1` → PASS
+- [x] `VanAn.Architecture.Tests`: 7/7 PASS
+- [x] `VanAn.Integration.Tests`: tests updated hoặc removed, không có break
+- [x] Verify: `CustomersController.cs` đã xóa
+- [x] Verify: Không có broken references
 
 ### Why second
 - High complexity với integration tests
@@ -325,33 +328,136 @@ main
 
 ---
 
-## 7. SUMMARY & EXIT CRITERIA FOR ALL WAVES
+## 7. WAVE 14 — Lightweight API Request Signing (HMAC)
+
+**Branch:** `feature/wave14-api-request-signing`
+**Estimated sessions:** 5
+**Priority:** 🟡 HIGH — Security hardening cho external API communication
+**Conflict risk:** MEDIUM — Thêm middleware vào Gateway pipeline, thêm service layer
+**Depends on:** Wave 13 (hardcoded data) complete
+**SRS Reference:** `docs/requirements/Van_An_Solution_SRS_Lightweight_Key_Management_Protocol.md`
+
+### Bối cảnh & Quyết định kiến trúc
+
+SRS gốc (VA-LKR) thiết kế cho hệ thống IoT/Mobile scale lớn với Ed25519 + Redis + Hardware Key Storage + Piggybacked Key Rotation. Sau review, kết luận **over-engineering** cho giai đoạn hiện tại (Blazor Server + SQLite, chưa có mobile native app, chưa có Redis infrastructure).
+
+**Decision:** Triển khai bản **Lightweight HMAC** — giữ lại các concept có giá trị thực, bỏ phần phức tạp không cần thiết.
+
+| Concept gốc (SRS) | Quyết định | Lý do |
+|---|---|---|
+| Ed25519 Asymmetric Crypto | **Thay bằng HMAC-SHA256** | Symmetric key đủ cho server-to-server & trusted client. Đơn giản, nhanh, .NET built-in |
+| Device Enrollment + Hardware Key | **Thay bằng API Key per-tenant** | Không có mobile native, không có Secure Enclave. API Key quản lý qua admin dashboard |
+| Piggybacked Key Rotation (VA-LKR) | **Thay bằng manual rotation qua admin** | Auto-rotation 90 ngày optional, không cần dual-signing complexity |
+| Redis cho Nonce validation | **Thay bằng IMemoryCache** | Single-server deployment, không thêm infrastructure dependency |
+| Public Key Compression | **Bỏ hoàn toàn** | Không dùng asymmetric crypto nên không cần |
+| Sliding Window 2 keys | **Bỏ** | Không cần vì key rotation là manual/scheduled, không piggybacked |
+
+### Scope cụ thể triển khai
+
+1. **HMAC Request Signing Middleware** (Gateway layer)
+   - Validate `X-VanAn-Timestamp`, `X-VanAn-Nonce`, `X-VanAn-Signature` headers
+   - Signing string: `HTTP_Method\nPath\nApiKeyId\nTimestamp\nNonce\nSHA256(Body)`
+   - HMAC-SHA256 verification dùng shared secret per API Key
+
+2. **Timestamp + Nonce Anti-Replay**
+   - Timestamp window: 60 seconds (giữ nguyên từ SRS)
+   - Nonce dedup: `IMemoryCache` với TTL 120s (đủ cover timestamp window)
+   - Key: `{ApiKeyId}:{Nonce}` — prevent replay per-client
+
+3. **API Key Management**
+   - Entity: `ApiKey { Id, TenantId, Name, SecretHash, IsActive, CreatedAt, ExpiresAt, LastUsedAt }`
+   - CRUD qua admin endpoint (ShopERP `[Authorize(Roles = "Admin")]`)
+   - Secret hiển thị 1 lần khi tạo (like GitHub PAT)
+   - Auto-expire sau 90 ngày (configurable)
+
+4. **Key Revocation & Rate Limiting**
+   - Revoke API Key qua admin endpoint → `IsActive = false`
+   - Rate limit: 5 failed signature attempts → auto-block ApiKeyId 15 phút
+   - Logging: Ghi log mọi failed attempt cho audit
+
+5. **Áp dụng cho endpoint nào**
+   - **Bắt buộc:** External-facing API endpoints (Gateway endpoints mà KhachLink gọi)
+   - **Không áp dụng:** Internal Blazor Server calls (ShopERP → CoreHub đã có JWT)
+   - **Tùy chọn:** Third-party webhook endpoints (có thể dùng separate validation)
+
+### Tasks
+| # | Task ID | Task | Depends on | Task card | Status |
+|---|---|---|---|---|---|
+| 26 | W14-T1 | Implement HMAC Signing Middleware tại Gateway | — | [W14-T1-card.md](#) | 📋 TODO |
+| 27 | W14-T2 | Implement Timestamp + Nonce Anti-Replay (IMemoryCache) | W14-T1 | [W14-T2-card.md](#) | 📋 TODO |
+| 28 | W14-T3 | Implement API Key entity + CRUD management endpoints | — | [W14-T3-card.md](#) | 📋 TODO |
+| 29 | W14-T4 | Implement Key Revocation + Rate Limiting (failed attempts) | W14-T1, W14-T3 | [W14-T4-card.md](#) | 📋 TODO |
+| 30 | W14-T5 | Integration Tests cho Request Signing pipeline | W14-T1, W14-T2, W14-T3 | [W14-T5-card.md](#) | 📋 TODO |
+
+### Entry criteria (Wave 14)
+- [ ] Wave 13 merged + `dotnet build` → 0 errors
+- [ ] Branch `feature/wave14-api-request-signing` tạo từ updated `main`
+- [ ] Architecture tests: 7/7 PASS
+- [ ] JWT authentication (Wave 0) đang hoạt động stable
+
+### Exit criteria (Wave 14) — TẤT CẢ phải PASS
+- [ ] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
+- [ ] `guard-check.ps1` → PASS
+- [ ] `VanAn.Architecture.Tests`: 7/7 PASS
+- [ ] `VanAn.Integration.Tests`: signing middleware tests PASS (minimum 8 tests)
+- [ ] Manual smoke: Request without valid signature → 401
+- [ ] Manual smoke: Request with valid signature → 200
+- [ ] Manual smoke: Replay request (same nonce) → 401
+- [ ] Manual smoke: Expired timestamp → 401
+- [ ] Manual smoke: Revoked API key → 401
+- [ ] Verify: Gateway pipeline order correct (signing middleware BEFORE business logic)
+
+### Why after Wave 13
+- Waves 8-13 focus on fixing existing security holes and cleanup
+- Wave 14 adds NEW security layer — only makes sense after foundation is clean
+- Requires stable JWT + authorization (Waves 0, 4, 12) to avoid conflicts
+- External API integration pattern needed for KhachLink real data (Wave 13)
+
+### Scalability path (future, NOT in scope)
+Khi hệ thống cần upgrade lên full VA-LKR:
+- Swap HMAC-SHA256 → Ed25519 (chỉ thay signing algorithm trong middleware)
+- Swap IMemoryCache → Redis IDistributedCache (khi multi-server)
+- Add device enrollment flow (khi có mobile native app)
+- Add piggybacked key rotation (khi có high-frequency device requests)
+
+---
+
+## 8. SUMMARY & EXIT CRITERIA FOR ALL WAVES (Updated)
 
 ### Overall Success Criteria
-- [ ] Tất cả waves (8-13) merged vào `main`
+- [ ] Tất cả waves (8-14) merged vào `main`
 - [ ] `dotnet build VanAn.sln` → 0 errors, 0 warnings
 - [ ] `guard-check.ps1` → PASS
 - [ ] `VanAn.Architecture.Tests`: 7/7 PASS
 - [ ] `VanAn.Integration.Tests`: không có test bị break
-- [ ] Manual smoke test: Verify security, data loading, API authorization
+- [ ] Manual smoke test: Verify security, data loading, API authorization, request signing
 - [ ] Documentation updated: `project_state.md`, architecture docs
 
 ### Risk Mitigation
 - **Low Risk Waves:** 8, 10, 11 (file deletions only)
-- **Medium Risk Waves:** 9, 13 (test refactoring, data implementation)
+- **Medium Risk Waves:** 9, 13, 14 (test refactoring, data implementation, new middleware)
 - **High Risk Waves:** 12 (authorization changes)
 
 ### Rollback Plan
 - Mỗi wave là independent PR → có thể rollback individual waves
 - Nếu wave fail exit criteria → investigate → fix → retry hoặc skip wave
 - Critical waves (8, 9, 12) must pass before production deployment
+- Wave 14 có thể skip nếu chưa có external API consumers — add khi có mobile app
 
 ---
 
-## 8. MAINTENANCE LOG
+## 9. MAINTENANCE LOG
 
 * **2026-06-24:** Plan created based on production hygiene analysis from chat session
 * **Issues identified:** 10 major issues across security, architecture, data, testing
 * **Planned waves:** 6 waves (8-13) to address all issues systematically
 * **Estimated total sessions:** 16 sessions across 6 waves
 * **Priority order:** Security → Architecture → Data → Testing
+* **2026-06-24:** Added Wave 14 — Lightweight API Request Signing (HMAC)
+  - Derived from VA-LKR SRS review (over-engineering assessment)
+  - Simplified: Ed25519 → HMAC-SHA256, Redis → IMemoryCache, Device Enrollment → API Key per-tenant
+  - 5 task cards created (W14-T1 through W14-T5)
+  - **Updated total:** 7 waves (8-14), estimated 21 sessions
+* **2026-06-24:** Added Wave 15 — KhachLink Page Cleanup
+  - **Moved to:** `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` (Wave 15 + Wave 16 KhachLink-specific plan)
+  - **Updated total:** 7 waves (8-14), estimated 21 sessions (Wave 15+ tracked in KhachLink plan)
