@@ -2,7 +2,10 @@ using VanAn.Shared.Domain;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.Threading.RateLimiting;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.ShopERP.Infrastructure;
@@ -70,6 +73,10 @@ namespace VanAn.ShopERP
             // Wave 2: PII data migration service
             _ = builder.Services.AddScoped<CoreHub.Services.DataProtection.PiiDataMigrationService>();
 
+            // Wave 7: Health checks with database validation
+            _ = builder.Services.AddHealthChecks()
+                .AddDbContextCheck<ShopERPDbContext>("shoperp_database");
+
             // Register IVanAnDbContext with ShopERPDbContext for Offline-First architecture
             // This decouples services from VanAnDbContext (PostgreSQL) and allows SQLite usage
             _ = builder.Services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
@@ -135,6 +142,17 @@ namespace VanAn.ShopERP
 
             // Add Memory Cache for ShopConfigService
             _ = builder.Services.AddMemoryCache();
+
+            // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
+            string? redisConnection = builder.Configuration.GetConnectionString("Redis");
+            if (!string.IsNullOrWhiteSpace(redisConnection))
+            {
+                _ = builder.Services.AddStackExchangeRedisCache(options => options.Configuration = redisConnection);
+            }
+            else
+            {
+                _ = builder.Services.AddDistributedMemoryCache();
+            }
 
             // Wave 0: JWT Authentication Foundation
             _ = builder.Services.AddScoped<CoreHub.Services.IJwtTokenService, CoreHub.Services.JwtTokenService>();
@@ -205,6 +223,22 @@ namespace VanAn.ShopERP
                 // Wave 5: SystemAdmin — cross-tenant Tenant CRUD
                 .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
 
+            // Wave 7: Rate limiting for login endpoint (5 requests per minute per IP)
+            _ = builder.Services.AddRateLimiter(options =>
+            {
+                options.AddPolicy("LoginRateLimit", context =>
+                {
+                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                    return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    });
+                });
+            });
+
             // ✅ FIXED: Add cascading authentication state
             _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>();
 
@@ -273,12 +307,16 @@ namespace VanAn.ShopERP
                 _ = app.UseHsts();
             }
 
-            // Local-First: DISABLE HTTPS REDIRECTION for development
-            // app.UseHttpsRedirection();
+            // Wave 7: Enable HTTPS redirection only in Production
+            if (!app.Environment.IsDevelopment())
+            {
+                _ = app.UseHttpsRedirection();
+            }
 
             // MIDDLEWARE ORDER COMPLIANCE - RULE #2: StaticFiles -> Routing -> Auth -> Antiforgery -> MapRazorPages
             _ = app.UseStaticFiles(); // MUST be first to serve wwwroot files
             _ = app.UseRouting();
+            _ = app.UseRateLimiter();
             _ = app.UseAuthentication();
             _ = app.UseAuthorization();
             _ = app.UseAntiforgery();
@@ -299,7 +337,27 @@ namespace VanAn.ShopERP
                 }));
                 app.Logger.LogInformation("DevLoginController registered at /dev/login (Development only)");
             }
-            _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn ShopERP", Timestamp = DateTime.UtcNow }));
+            _ = app.MapHealthChecks("/health");
+            _ = app.MapHealthChecks("/health/detail", new HealthCheckOptions
+            {
+                ResponseWriter = async (context, report) =>
+                {
+                    context.Response.ContentType = "application/json";
+                    var result = new
+                    {
+                        status = report.Status.ToString(),
+                        totalDuration = report.TotalDuration.TotalMilliseconds,
+                        entries = report.Entries.ToDictionary(e => e.Key, e => new
+                        {
+                            status = e.Value.Status.ToString(),
+                            duration = e.Value.Duration.TotalMilliseconds,
+                            exception = e.Value.Exception?.Message
+                        })
+                    };
+                    await context.Response.WriteAsJsonAsync(result);
+                }
+            }).RequireAuthorization("OwnerOnly");
+
             _ = app.MapRazorPages();
             _ = app.MapRazorComponents<Components.App>()
                 .AddInteractiveServerRenderMode();
