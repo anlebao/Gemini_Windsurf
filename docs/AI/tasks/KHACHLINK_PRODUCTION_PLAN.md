@@ -187,7 +187,7 @@ W16-T3 (VoiceCommand.razor) — độc lập, song song với T1/T2
 **Priority:** 🟡 HIGH
 **Depends on:** Wave 15 complete
 **Conflict risk:** HIGH — đụng cả `.cshtml` + `.cshtml.cs` + cần thêm Gateway endpoints
-**Task card:** [W16-T1-card.md](W16-T1-card.md) *(cần tạo)*
+**Task card:** [W16-T1-card.md](W16-T1-card.md)
 
 #### Vấn đề hiện tại
 | Vấn đề | Severity |
@@ -224,7 +224,7 @@ POST /api/campaigns/click/{code}       — record click
 **Priority:** 🟡 HIGH
 **Depends on:** W15-T1 (`Dashboard.razor` đã tồn tại)
 **Conflict risk:** LOW
-**Task card:** [W16-T2-card.md](W16-T2-card.md) *(cần tạo)*
+**Task card:** [W16-T2-card.md](W16-T2-card.md)
 
 #### Vấn đề duy nhất trong RealTimeDashboard
 ```csharp
@@ -257,7 +257,7 @@ var shopId = TenantService.GetCurrentTenantId().ToString();
 **Priority:** 🟢 MEDIUM — độc lập, không block các task khác
 **Depends on:** Không có
 **Conflict risk:** VERY LOW — 1 thay đổi nhỏ
-**Task card:** [W16-T3-card.md](W16-T3-card.md) *(cần tạo)*
+**Task card:** [W16-T3-card.md](W16-T3-card.md)
 
 #### Vấn đề
 ```csharp
