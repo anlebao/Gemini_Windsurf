@@ -38,21 +38,21 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Test Infrastructure — Wave 0: Test Infrastructure Setup ✅ COMPLETED**
+**Test Infrastructure — Wave 1: E2E Tests Fix (Playwright) ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/test-wave0-infrastructure` (2026-06-26)
+**Status:** DONE — Branch `feature/test-wave1-e2e-fix` (2026-06-26)
 
-**Wave 0 Summary:**
-- Testcontainers infrastructure setup with SQLite in-memory database
-- TestDatabaseFixture, TestDataSeeder, TestDbContextFactory created
-- appsettings.test.json configuration file with connection strings
-- Sample tests pass (5/5)
-- Documentation in 6_Tests/README.md
-- Connection pooling configured (Cache=Shared)
-- No hardcoded connection strings in code (reads from configuration)
-- Note: Testcontainers.Sqlite package does not exist on NuGet; used SQLite in-memory with Cache=Shared as alternative
+**Wave 1 Summary:**
+- Created docker-compose.test.yml for E2E test services (Gateway:5001, KhachLink:5002, ShopERP:5003)
+- Updated global-setup.ts with service health checks and startup timeout handling (2-minute total timeout)
+- Fixed accounting-entry-flow.spec.ts auth flow to use dev login endpoint instead of traditional login form
+- Updated selectors in accounting-entry-flow.spec.ts to match DynamicForm components
+- Added retry logic to playwright.config.ts for network-dependent tests (2 retries in CI, 1 locally)
+- Updated .env.test with service URLs and test credentials
+- Added comprehensive README.md for E2E testing infrastructure
+- All services have health check endpoints verified: Gateway (/health), KhachLink (/health), ShopERP (/health)
 
-**Next Wave:** Wave 1 — E2E Tests Fix (Playwright)
+**Next Wave:** Wave 2 — Convert Integration Tests to Real Database
 
 ### Completed
 
@@ -452,6 +452,15 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
+* [2026-06-26] Test Infrastructure — Wave 1: E2E Tests Fix (Playwright) (Branch `feature/test-wave1-e2e-fix` — commit `ebff121`)
+  * Created docker-compose.test.yml for E2E test services (Gateway:5001, KhachLink:5002, ShopERP:5003)
+  * Updated global-setup.ts with service health checks and startup timeout handling (2-minute total timeout)
+  * Fixed accounting-entry-flow.spec.ts auth flow to use dev login endpoint instead of traditional login form
+  * Updated selectors in accounting-entry-flow.spec.ts to match DynamicForm components
+  * Added retry logic to playwright.config.ts for network-dependent tests (2 retries in CI, 1 locally)
+  * Updated .env.test with service URLs and test credentials
+  * Added comprehensive README.md for E2E testing infrastructure
+  * All services have health check endpoints verified: Gateway (/health), KhachLink (/health), ShopERP (/health)
 * [2026-06-26] Test Infrastructure — Wave 0: Test Infrastructure Setup (Branch `feature/test-wave0-infrastructure` — ready for merge)
   * TestDatabaseFixture, TestDataSeeder, TestDbContextFactory created
   * appsettings.test.json configuration with connection strings
@@ -488,8 +497,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 0 - Test Infrastructure Setup; branch: feature/test-wave0-infrastructure)
-* Current Branch: `feature/test-wave0-infrastructure`
+* Last Updated: 2026-06-26 (Wave 1 - E2E Tests Fix; branch: feature/test-wave1-e2e-fix)
+* Current Branch: `feature/test-wave1-e2e-fix`
+* **Wave 1 — E2E Tests Fix (2026-06-26):** COMPLETED. Branch `feature/test-wave1-e2e-fix` (commit `ebff121`). Created docker-compose.test.yml for E2E test services (Gateway:5001, KhachLink:5002, ShopERP:5003). Updated global-setup.ts with service health checks and startup timeout handling (2-minute total timeout). Fixed accounting-entry-flow.spec.ts auth flow to use dev login endpoint instead of traditional login form. Updated selectors in accounting-entry-flow.spec.ts to match DynamicForm components. Added retry logic to playwright.config.ts for network-dependent tests (2 retries in CI, 1 locally). Updated .env.test with service URLs and test credentials. Added comprehensive README.md for E2E testing infrastructure. All services have health check endpoints verified: Gateway (/health), KhachLink (/health), ShopERP (/health). Build: 0 errors; guard-check: PASS.
 * **Wave 0 — Test Infrastructure Setup (2026-06-26):** COMPLETED. TestDatabaseFixture, TestDataSeeder, TestDbContextFactory created. appsettings.test.json configuration with connection strings (no hardcoding). SQLite in-memory with Cache=Shared for connection pooling. Sample tests pass (5/5). Documentation in 6_Tests/README.md. Note: Testcontainers.Sqlite package does not exist on NuGet; used SQLite in-memory with Cache=Shared as alternative. Build: 0 errors; guard-check: PASS.
 * **Wave 16 — KhachLink Production Flow Hardening (2026-06-27):** COMPLETED. Branch `feature/wave15-khachlink-page-cleanup` (commit `7bdf52b`), PR #64. Refactor Campaign.cshtml/Campaign.cshtml.cs, Fix RealTimeDashboard.razor, Fix VoiceCommand.razor. Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS.
 * **Wave 15 — KhachLink Page Cleanup + Routing Modernization (2026-06-26):** COMPLETED. Deleted 6 dead/demo pages; converted `Dashboard.cshtml` to `Dashboard.razor`; modernized `Program.cs` to Blazor Web App routing; rewrote `VoiceNote.razor` with `IHttpClientFactory("gateway")` and correct endpoint. Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS. Latest commit: `26abd83 feat(wave15): KhachLink page cleanup + Blazor Web App routing`.
