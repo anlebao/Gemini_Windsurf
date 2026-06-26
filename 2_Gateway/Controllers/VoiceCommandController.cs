@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
@@ -8,6 +9,7 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     public partial class VoiceCommandController(
         IVoiceCommandService voiceCommandService,
         IAudioStorageService audioStorageService,

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services;
 
@@ -5,6 +6,7 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     public class BuildController(IBuildService buildService) : ControllerBase
     {
         private readonly IBuildService _buildService = buildService;
