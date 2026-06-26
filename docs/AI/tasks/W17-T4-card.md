@@ -1,6 +1,7 @@
 # W17-T4 — PWA Bug Fixes + Push Subscription Endpoint
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T4
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🟡 HIGH — PWA install vô nghĩa nếu không push được notification
 **Conflict risk:** LOW-MEDIUM — sửa 2 file đã có, tạo 1 endpoint mới

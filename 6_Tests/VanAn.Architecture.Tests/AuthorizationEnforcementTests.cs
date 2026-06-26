@@ -117,9 +117,12 @@ public class AuthorizationEnforcementTests
     public void AllGatewayControllers_ExceptWebhook_MustHaveClassLevelAuthorize()
     {
         // Excluded: WebhookController uses [AllowAnonymous] on specific methods intentionally (external provider callbacks)
+        // Excluded: CampaignsController and PublicOrdersController use [AllowAnonymous] for public guest access (Wave 16)
         var exemptControllers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "WebhookController"
+            "WebhookController",
+            "CampaignsController",
+            "PublicOrdersController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

@@ -3,4 +3,10 @@
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
+    <NotFound>
+        <PageTitle>Không tìm thấy</PageTitle>
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <p role="alert">Xin lỗi, không có nội dung tại địa chỉ này.</p>
+        </LayoutView>
+    </NotFound>
 </Router>

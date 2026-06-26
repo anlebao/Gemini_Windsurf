@@ -1,7 +1,9 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using VanAn.Shared.Domain
+@using VanAn.UI.Platform.Services
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject ITenantService TenantService
 
 <div class="dashboard-container">
     <!-- Dashboard Header -->
@@ -595,8 +597,7 @@
     {
         if (_hubConnection != null && _isConnected)
         {
-            // In production, get actual shop ID from user context
-            var shopId = "demo-shop";
+            var shopId = TenantService.GetCurrentTenantId().ToString();
             await _hubConnection.InvokeAsync("JoinShopGroup", shopId);
         }
     }
@@ -622,7 +623,7 @@
             try
             {
                 // Request fresh data
-                await _hubConnection.InvokeAsync("RequestShopMetrics", "demo-shop");
+                await _hubConnection.InvokeAsync("RequestShopMetrics", TenantService.GetCurrentTenantId().ToString());
             }
             catch (Exception ex)
             {

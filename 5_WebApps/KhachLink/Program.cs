@@ -8,6 +8,8 @@ using VanAn.UI.Platform.Services;
 
 using VanAn.UI.Platform.Adapters;
 
+using VanAn.KhachLink.Components;
+
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Integration.Tests")]
@@ -34,7 +36,8 @@ namespace VanAn.KhachLink
 
             _ = builder.Services.AddRazorPages();
 
-            _ = builder.Services.AddServerSideBlazor();
+            _ = builder.Services.AddRazorComponents()
+                              .AddInteractiveServerComponents();
 
             _ = builder.Services.AddLogging();
 
@@ -62,13 +65,6 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 
             _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
-
-
-
-
-
-
-
 
 
 
@@ -107,6 +103,7 @@ namespace VanAn.KhachLink
 
 
             // Register Product Catalog Service (Wave 13: real API call replaces hardcoded data)
+
             _ = builder.Services.AddScoped<Services.Http.ProductHttpService>();
 
             // Register Dashboard Services
@@ -157,9 +154,14 @@ namespace VanAn.KhachLink
 
             _ = app.UseAuthorization();
 
+            _ = app.UseAntiforgery();
+
+
+
             _ = app.MapRazorPages();
 
-            _ = app.MapBlazorHub();
+            _ = app.MapRazorComponents<App>()
+                   .AddInteractiveServerRenderMode();
 
 
 
@@ -169,13 +171,7 @@ namespace VanAn.KhachLink
 
 
 
-            // PROPER RAZOR PAGES ROUTING - ANTI-CHEATING RULE #2
-
-            _ = app.UseDefaultFiles();
-
-            _ = app.MapRazorPages();
-
-            _ = app.MapFallbackToPage("/Index"); // Proper fallback to Razor Page, not static HTML
+            // Razor Pages fallback removed; Blazor Router handles unmatched routes.
 
             _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn KhachLink", Timestamp = DateTime.UtcNow }));
 
@@ -194,4 +190,3 @@ namespace VanAn.KhachLink
     public partial class Program { }
 
 }
-

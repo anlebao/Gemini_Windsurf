@@ -3,10 +3,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 80
 
-# Install ICU libraries for globalization support
+# Install ICU libraries for globalization support and curl for healthcheck
 RUN apt-get update && apt-get install -y \
     icu-devtools \
     libicu-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment variable for proper globalization

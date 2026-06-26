@@ -1,6 +1,7 @@
 # W17-T7 — Verify + E2E Retention Flow
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T7
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🔴 CRITICAL — gate bắt buộc trước khi merge Wave 17
 **Conflict risk:** NONE — chỉ chạy scripts, không sửa code

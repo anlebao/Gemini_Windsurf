@@ -55,7 +55,7 @@ services:
     networks:
       - vanan-network
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/varz"]
+      test: ["CMD", "curl", "-f", "http://localhost:8222/varz"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -111,7 +111,7 @@ services:
     depends_on:
       - corehub
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -145,7 +145,7 @@ services:
     depends_on:
       - corehub
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -173,7 +173,7 @@ services:
     depends_on:
       - gateway
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
