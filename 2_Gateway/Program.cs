@@ -11,6 +11,7 @@ using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.Gateway.Middleware;
 using VanAn.Gateway.Hubs;
 using VanAn.Gateway.Services;
+using VanAn.CoreHub.Infrastructure;
 using Serilog;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
@@ -137,6 +138,19 @@ namespace VanAn.Gateway
             _ = builder.Services.AddMemoryCache();
             _ = builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 
+            // Wave 14: HMAC Request Signing — register CoreHub repo + service + Gateway adapter
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IApiKeyRepository, VanAn.CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IApiKeyManagementService, VanAn.CoreHub.Services.ApiKeyManagementService>();
+            _ = builder.Services.AddScoped<IHmacApiKeyLookup, HmacApiKeyLookupAdapter>();
+
+            // Wave 14: Build HmacSigningOptions from configuration
+            var hmacOptions = new VanAn.Gateway.Middleware.HmacSigningOptions();
+            var protectedPaths = builder.Configuration
+                .GetSection("HmacSigning:ProtectedPaths")
+                .Get<string[]>() ?? [];
+            hmacOptions.ProtectedPaths = protectedPaths.Select(p => new PathString(p)).ToList();
+            _ = builder.Services.AddSingleton(hmacOptions);
+
             // Wave 7: CORS hardening — whitelist from configuration
             string[] allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["*"];
             _ = builder.Services.AddCors(options =>
@@ -185,6 +199,9 @@ namespace VanAn.Gateway
                 // Wave 1 Phase 2: Authentication & Authorization middleware
                 _ = app.UseAuthentication();
                 _ = app.UseAuthorization();
+
+                // Wave 14: HMAC Request Signing — validate signatures on protected paths
+                _ = app.UseMiddleware<VanAn.Gateway.Middleware.HmacSigningMiddleware>();
 
                 // Add Localization Middleware
                 _ = app.UseMiddleware<LocalizationMiddleware>();

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
+using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
 using VanAn.CoreHub.Infrastructure;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
@@ -57,6 +58,9 @@ namespace VanAn.ShopERP.Infrastructure
         // Wave 6: Permission groups for bundle-based RBAC
         public DbSet<PermissionGroup> PermissionGroups { get; set; }
         public DbSet<UserPermissionGroup> UserPermissionGroups { get; set; }
+
+        // Wave 14: API Keys for HMAC request signing
+        public DbSet<ApiKey> ApiKeys { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
