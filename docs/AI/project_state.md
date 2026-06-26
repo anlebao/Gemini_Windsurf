@@ -38,11 +38,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 11: Cleanup Invalid Framework Files ✅ COMPLETED**
+**Production Hygiene — Wave 13: Replace Hardcoded Data ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/wave11-cleanup-invalid-files` (commit `09ef54d`)
+**Status:** DONE — Branch `feature/wave13-replace-hardcoded-data` (commit `078ae76`), PR #62 open
 
-**Latest Commit (Wave 10):** `533d8f4` merged to `main`
+**Wave 12 PR:** #61 open — `feature/wave12-api-authorization` (commit `3f8d549`)
 
 ---
 
@@ -104,10 +104,23 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 - **Production Hygiene — Wave 11: Cleanup Invalid Framework Files ✅ COMPLETED** (2026-06-26)
   * W11-T1→T4 COMPLETE — Branch `feature/wave11-cleanup-invalid-files` (commit `09ef54d`)
-  * Xóa `ShopERP/Pages/SocialCampaignManager.cshtml` (invalid Razor + Blazor mix)
-  * Xóa `KhachLink/wwwroot/index.html` (unused demo); cập nhật `service-worker.js` bỏ `/index.html` khỏi cache list
-  * `demoIndex.html` đã không tồn tại trong repository; references chỉ còn trong task cards
+  * Xóa `ShopERP/Pages/SocialCampaignManager.cshtml`, `KhachLink/wwwroot/index.html`
   * Verify: không còn references trong production code; build 0 errors; guard-check PASS
+
+- **Production Hygiene — Wave 12: Fix API Authorization ✅ COMPLETED** (2026-06-26)
+  * W12-T1→T5 COMPLETE — Branch `feature/wave12-api-authorization` (commit `3f8d549`), PR #61
+  * Gateway: 6 controllers thêm `[Authorize(Policy="RequireTenantAccess")]`
+  * ShopERP: ShopsController POST/PUT/DELETE + OrderWorkflowController PUT thêm authorization
+  * KhachLink: VoiceNote.razor thêm `@attribute [Authorize]`
+  * Tests: 10 reflection-based authorization enforcement tests PASS
+
+- **Production Hygiene — Wave 13: Replace Hardcoded Data ✅ COMPLETED** (2026-06-26)
+  * W13-T1→T5 COMPLETE — Branch `feature/wave13-replace-hardcoded-data` (commit `078ae76`), PR #62
+  * ShopERP: `ProductsController` — public `GET /api/products?shopId=` endpoint cho KhachLink catalog
+  * KhachLink: `ProductHttpService` — HTTP client via Gateway YARP proxy đến ShopERP
+  * KhachLink/Home.razor: xóa 4 hardcoded products, thay bằng `await ProductService.GetProductsAsync()`
+  * Gateway/OnboardingController: xóa dead code `customizedTemplate` + stale comment
+  * Tests: 5 integration tests PASS; Architecture tests: 21/21 PASS
 
 ### Blocked
 
@@ -117,13 +130,13 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Next: Wave 12 — Fix API Authorization
+### Next: Wave 14 — Lightweight API Request Signing (HMAC)
 
-1. W12-T1: Audit tất cả API endpoints trong Gateway cho authorization
-2. W12-T2: Audit tất cả API endpoints trong ShopERP cho authorization
-3. W12-T3: Add `[Authorize]` hoặc policy-based auth cho voice note endpoint
-4. W12-T4: Fix bất kỳ endpoints thiếu authorization theo audit results
-5. W12-T5: Viết integration tests cho authorization enforcement
+1. W14-T1: Implement HMAC Signing Middleware tại Gateway
+2. W14-T2: Implement Timestamp + Nonce Anti-Replay (IMemoryCache)
+3. W14-T3: Implement API Key entity + CRUD management endpoints
+4. W14-T4: Implement Key Revocation + Rate Limiting
+5. W14-T5: Integration Tests cho Request Signing pipeline
 
 ---
 
@@ -406,7 +419,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 11 - Cleanup Invalid Framework Files; branch: feature/wave11-cleanup-invalid-files)
+* Last Updated: 2026-06-26 (Wave 13 - Replace Hardcoded Data; branch: feature/wave13-replace-hardcoded-data)
 * Current Branch: `feature/wave11-cleanup-invalid-files`
 * **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
 

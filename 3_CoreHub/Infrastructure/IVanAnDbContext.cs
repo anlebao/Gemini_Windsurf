@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
@@ -43,6 +44,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Wave 6: Permission groups for bundle-based RBAC
         DbSet<PermissionGroup> PermissionGroups { get; }
         DbSet<UserPermissionGroup> UserPermissionGroups { get; }
+
+        // Wave 14: API Keys for HMAC request signing
+        DbSet<ApiKey> ApiKeys { get; }
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
