@@ -27,37 +27,25 @@
 
     <div class="sitemap-grid" data-testid="sitemap-grid">
 
-        @* ── ShopERP — visible to all authenticated users ── *@
-        <VanACard Header="ShopERP — Quản lý nội bộ" Hoverable="true" data-testid="card-shoperp">
+        @* ── Luồng 1: Quản lý Đơn Hàng ── *@
+        <VanACard Header="📦 Quản lý Đơn Hàng" Hoverable="true" data-testid="card-orders">
             <div class="sitemap-links">
-                <a href="/" class="sitemap-link" data-testid="link-shoperp-home">
+                <a href="/" class="sitemap-link" data-testid="link-orders-home">
                     <span class="sitemap-link-icon">🏠</span>
-                    <span>Trang chủ ShopERP</span>
+                    <span>Dashboard Đơn Hàng</span>
                 </a>
                 <AuthorizeView Roles="Owner,StoreKeeper">
                     <Authorized>
-                        <a href="/accounting" class="sitemap-link" data-testid="link-accounting">
-                            <span class="sitemap-link-icon">📒</span>
-                            <span>Kế Toán</span>
-                        </a>
-                        <a href="/accounting/history" class="sitemap-link" data-testid="link-accounting-history">
-                            <span class="sitemap-link-icon">🕐</span>
-                            <span>Lịch Sử Giao Dịch</span>
-                        </a>
-                        <a href="/accounting/balance" class="sitemap-link" data-testid="link-accounting-balance">
-                            <span class="sitemap-link-icon">💰</span>
-                            <span>Số Dư Tài Khoản</span>
-                        </a>
-                        <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
-                            <span class="sitemap-link-icon">🔒</span>
-                            <span>Đóng Kỳ Kế Toán</span>
+                        <a href="/orders" class="sitemap-link" data-testid="link-orders-list">
+                            <span class="sitemap-link-icon">📋</span>
+                            <span>Danh Sách Đơn</span>
                         </a>
                     </Authorized>
                 </AuthorizeView>
                 <AuthorizeView Roles="Guard">
                     <Authorized>
                         <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
-                            <span class="sitemap-link-icon">📷</span>
+                            <span class="sitemap-link-icon">�</span>
                             <span>Quét QR Guard</span>
                         </a>
                     </Authorized>
@@ -65,10 +53,40 @@
             </div>
         </VanACard>
 
-        @* ── E-Invoice — Owner + StoreKeeper ── *@
+        @* ── Luồng 2: Kế Toán & Tài Chính ── *@
         <AuthorizeView Roles="Owner,StoreKeeper">
-            <Authorized Context="einvoiceAuth">
-                <VanACard Header="Hóa Đơn Điện Tử" Hoverable="true" data-testid="card-einvoice">
+            <Authorized>
+                <VanACard Header="💰 Kế Toán & Tài Chính" Hoverable="true" data-testid="card-accounting">
+                    <div class="sitemap-links">
+                        <a href="/accounting" class="sitemap-link" data-testid="link-accounting">
+                            <span class="sitemap-link-icon">�</span>
+                            <span>Nhập Chi Phí</span>
+                        </a>
+                        <a href="/accounting/revenue" class="sitemap-link" data-testid="link-accounting-revenue">
+                            <span class="sitemap-link-icon">�</span>
+                            <span>Nhập Doanh Thu</span>
+                        </a>
+                        <a href="/accounting/history" class="sitemap-link" data-testid="link-accounting-history">
+                            <span class="sitemap-link-icon">�</span>
+                            <span>Lịch Sử Giao Dịch</span>
+                        </a>
+                        <a href="/accounting/balance" class="sitemap-link" data-testid="link-accounting-balance">
+                            <span class="sitemap-link-icon">💰</span>
+                            <span>Số Dư Tài Khoản</span>
+                        </a>
+                        <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
+                            <span class="sitemap-link-icon">�</span>
+                            <span>Đóng Kỳ Kế Toán</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Luồng 3: Hóa Đơn Điện Tử ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized>
+                <VanACard Header="🧾 Hóa Đơn Điện Tử" Hoverable="true" data-testid="card-einvoice">
                     <div class="sitemap-links">
                         <a href="/einvoice" class="sitemap-link" data-testid="link-einvoice-dashboard">
                             <span class="sitemap-link-icon">📊</span>
@@ -79,7 +97,7 @@
                             <span>Quản Lý Hóa Đơn</span>
                         </a>
                         <AuthorizeView Roles="Owner">
-                            <Authorized Context="ownerAuth">
+                            <Authorized>
                                 <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
                                     <span class="sitemap-link-icon">⚙️</span>
                                     <span>Cấu Hình Provider</span>
@@ -91,17 +109,32 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Quản trị — Owner ── *@
+        @* ── Luồng 4: Cổng Khách Hàng (KhachLink) ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper">
+            <Authorized>
+                <VanACard Header="🛍️ Cổng Khách Hàng" Hoverable="true" data-testid="card-khachlink">
+                    <div class="sitemap-links">
+                        <a href="https://diemthuong.vanantech.io.vn" class="sitemap-link sitemap-link--external" target="_blank" rel="noopener noreferrer" data-testid="link-khachlink">
+                            <span class="sitemap-link-icon">�️</span>
+                            <span>Mở KhachLink PWA</span>
+                            <span class="sitemap-link-badge">Trang mới</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Quản trị Hệ Thống ── *@
         <AuthorizeView Roles="Owner">
             <Authorized>
-                <VanACard Header="Quản Trị Hệ Thống" Hoverable="true" data-testid="card-admin">
+                <VanACard Header="⚙️ Quản Trị Hệ Thống" Hoverable="true" data-testid="card-admin">
                     <div class="sitemap-links">
                         <a href="/admin/users" class="sitemap-link" data-testid="link-admin-users">
                             <span class="sitemap-link-icon">👥</span>
                             <span>Quản lý Người Dùng</span>
                         </a>
                         <a href="/admin/permission-groups" class="sitemap-link" data-testid="link-admin-permissions">
-                            <span class="sitemap-link-icon">🔑</span>
+                            <span class="sitemap-link-icon">�</span>
                             <span>Nhóm Quyền</span>
                         </a>
                     </div>
@@ -109,10 +142,10 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Audit — Admin ── *@
+        @* ── Audit Trail ── *@
         <AuthorizeView Roles="Admin">
             <Authorized>
-                <VanACard Header="Kiểm Toán" Hoverable="true" data-testid="card-audit">
+                <VanACard Header="🛡️ Kiểm Toán" Hoverable="true" data-testid="card-audit">
                     <div class="sitemap-links">
                         <a href="/admin/audit-trail" class="sitemap-link" data-testid="link-audit-trail">
                             <span class="sitemap-link-icon">🛡️</span>
@@ -123,29 +156,14 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Tenant Mgmt — SystemAdmin ── *@
+        @* ── Multi-Tenant ── *@
         <AuthorizeView Roles="SystemAdmin">
             <Authorized>
-                <VanACard Header="Quản Lý Tenant" Hoverable="true" data-testid="card-tenant">
+                <VanACard Header="🏢 Quản Lý Tenant" Hoverable="true" data-testid="card-tenant">
                     <div class="sitemap-links">
                         <a href="/admin/tenants" class="sitemap-link" data-testid="link-tenants">
                             <span class="sitemap-link-icon">🏢</span>
                             <span>Quản lý Tenant</span>
-                        </a>
-                    </div>
-                </VanACard>
-            </Authorized>
-        </AuthorizeView>
-
-        @* ── KhachLink (Customer Portal) — Owner + StoreKeeper ── *@
-        <AuthorizeView Roles="Owner,StoreKeeper">
-            <Authorized>
-                <VanACard Header="KhachLink — Cổng Khách Hàng" Hoverable="true" data-testid="card-khachlink">
-                    <div class="sitemap-links">
-                        <a href="http://localhost:5002/khachlink/" class="sitemap-link sitemap-link--external" target="_blank" rel="noopener noreferrer" data-testid="link-khachlink">
-                            <span class="sitemap-link-icon">🛍️</span>
-                            <span>Mở KhachLink PWA</span>
-                            <span class="sitemap-link-badge">Trang mới</span>
                         </a>
                     </div>
                 </VanACard>
