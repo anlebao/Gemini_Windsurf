@@ -38,10 +38,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 13: Replace Hardcoded Data ✅ COMPLETED**
+**Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/wave13-replace-hardcoded-data` (commit `078ae76`), PR #62 open
+**Status:** DONE — Branch `feature/wave14-api-request-signing` (commit `5462759`), PR #63 open
 
+**Wave 13 PR:** #62 open — `feature/wave13-replace-hardcoded-data` (commit `078ae76`)
 **Wave 12 PR:** #61 open — `feature/wave12-api-authorization` (commit `3f8d549`)
 
 ---
@@ -122,6 +123,17 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Gateway/OnboardingController: xóa dead code `customizedTemplate` + stale comment
   * Tests: 5 integration tests PASS; Architecture tests: 21/21 PASS
 
+- **Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED** (2026-06-26)
+  * W14-T1→T5 COMPLETE — Branch `feature/wave14-api-request-signing` (commit `5462759`), PR #63
+  * Gateway: `HmacSigningMiddleware` — validates `X-VanAn-KeyId/Timestamp/Nonce/Signature`
+  * Gateway: `IHmacApiKeyLookup` + `HmacApiKeyLookupAdapter` — decouples Gateway from CoreHub repos
+  * 1_Shared: `ApiKey` domain entity (per-tenant, IsActive, ExpiresAt, RevocationAt)
+  * CoreHub: `ApiKeyConfiguration` (EF), `IApiKeyRepository` + impl, `IApiKeyManagementService` + impl
+  * ShopERP: `ApiKeyController` — `POST/GET/DELETE /api/apikeys` (Admin/Owner only); one-time secret
+  * Anti-replay: timestamp window ±60s + nonce IMemoryCache TTL 120s
+  * Rate limit: 5 failures → 15-min block per KeyId
+  * Tests: 10/10 integration tests PASS (W14-S1→S10); Architecture tests: 21/21 PASS; guard-check: PASS
+
 ### Blocked
 
 - Không có blockers.
@@ -130,13 +142,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Next: Wave 14 — Lightweight API Request Signing (HMAC)
+### All Production Hygiene Waves (8–14) COMPLETE
 
-1. W14-T1: Implement HMAC Signing Middleware tại Gateway
-2. W14-T2: Implement Timestamp + Nonce Anti-Replay (IMemoryCache)
-3. W14-T3: Implement API Key entity + CRUD management endpoints
-4. W14-T4: Implement Key Revocation + Rate Limiting
-5. W14-T5: Integration Tests cho Request Signing pipeline
+Pending: Merge PRs #61, #62, #63 into main then close the Production Hygiene milestone.
 
 ---
 
@@ -419,8 +427,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 13 - Replace Hardcoded Data; branch: feature/wave13-replace-hardcoded-data)
-* Current Branch: `feature/wave11-cleanup-invalid-files`
+* Last Updated: 2026-06-26 (Wave 14 - HMAC Request Signing; branch: feature/wave14-api-request-signing)
+* Current Branch: `feature/wave14-api-request-signing`
+* **Wave 14 — HMAC Request Signing (2026-06-26):** COMPLETED. Commit `5462759`, PR #63. HmacSigningMiddleware + ApiKey entity + IApiKeyManagementService + ApiKeyController. 10/10 tests PASS. Build: 0 errors; guard-check: PASS.
 * **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
 
 * **Wave 9 — Cleanup Orphan Controller (2026-06-25):** COMPLETED. Deleted `ShopERP/Controllers/CustomersController.cs` and `CustomerApiIntegrationTests.cs`. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W9-T1→T4 status.

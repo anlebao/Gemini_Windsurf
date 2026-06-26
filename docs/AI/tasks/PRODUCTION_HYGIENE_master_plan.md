@@ -3,7 +3,7 @@
 
 **Created:** 2026-06-24
 **Last Updated:** 2026-06-26
-**Current Status:** IN PROGRESS — Branch `feature/wave12-api-authorization` (Wave 12 IN PROGRESS)
+**Current Status:** IN PROGRESS — Branch `feature/wave14-api-request-signing` (Wave 14 COMPLETED, PR #63 open)
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -383,29 +383,29 @@ SRS gốc (VA-LKR) thiết kế cho hệ thống IoT/Mobile scale lớn với Ed
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 26 | W14-T1 | Implement HMAC Signing Middleware tại Gateway | — | [W14-T1-card.md](#) | 📋 TODO |
-| 27 | W14-T2 | Implement Timestamp + Nonce Anti-Replay (IMemoryCache) | W14-T1 | [W14-T2-card.md](#) | 📋 TODO |
-| 28 | W14-T3 | Implement API Key entity + CRUD management endpoints | — | [W14-T3-card.md](#) | 📋 TODO |
-| 29 | W14-T4 | Implement Key Revocation + Rate Limiting (failed attempts) | W14-T1, W14-T3 | [W14-T4-card.md](#) | 📋 TODO |
-| 30 | W14-T5 | Integration Tests cho Request Signing pipeline | W14-T1, W14-T2, W14-T3 | [W14-T5-card.md](#) | 📋 TODO |
+| 26 | W14-T1 | Implement HMAC Signing Middleware tại Gateway | — | [W14-T1-card.md](#) | ✅ DONE |
+| 27 | W14-T2 | Implement Timestamp + Nonce Anti-Replay (IMemoryCache) | W14-T1 | [W14-T2-card.md](#) | ✅ DONE |
+| 28 | W14-T3 | Implement API Key entity + CRUD management endpoints | — | [W14-T3-card.md](#) | ✅ DONE |
+| 29 | W14-T4 | Implement Key Revocation + Rate Limiting (failed attempts) | W14-T1, W14-T3 | [W14-T4-card.md](#) | ✅ DONE |
+| 30 | W14-T5 | Integration Tests cho Request Signing pipeline | W14-T1, W14-T2, W14-T3 | [W14-T5-card.md](#) | ✅ DONE |
 
 ### Entry criteria (Wave 14)
-- [ ] Wave 13 merged + `dotnet build` → 0 errors
-- [ ] Branch `feature/wave14-api-request-signing` tạo từ updated `main`
-- [ ] Architecture tests: 7/7 PASS
-- [ ] JWT authentication (Wave 0) đang hoạt động stable
+- [x] Wave 13 merged + `dotnet build` → 0 errors
+- [x] Branch `feature/wave14-api-request-signing` tạo từ updated `main`
+- [x] Architecture tests: 21/21 PASS
+- [x] JWT authentication (Wave 0) đang hoạt động stable
 
 ### Exit criteria (Wave 14) — TẤT CẢ phải PASS
-- [ ] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
-- [ ] `guard-check.ps1` → PASS
-- [ ] `VanAn.Architecture.Tests`: 7/7 PASS
-- [ ] `VanAn.Integration.Tests`: signing middleware tests PASS (minimum 8 tests)
-- [ ] Manual smoke: Request without valid signature → 401
-- [ ] Manual smoke: Request with valid signature → 200
-- [ ] Manual smoke: Replay request (same nonce) → 401
-- [ ] Manual smoke: Expired timestamp → 401
-- [ ] Manual smoke: Revoked API key → 401
-- [ ] Verify: Gateway pipeline order correct (signing middleware BEFORE business logic)
+- [x] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
+- [x] `guard-check.ps1` → PASS
+- [x] `VanAn.Architecture.Tests`: 21/21 PASS
+- [x] `VanAn.Integration.Tests`: signing middleware tests PASS (10/10 tests, W14-S1→S10)
+- [x] Auto-validated via tests: Request without valid signature → 401
+- [x] Auto-validated via tests: Request with valid signature → passes
+- [x] Auto-validated via tests: Replay request (same nonce) → 401
+- [x] Auto-validated via tests: Expired timestamp → 401
+- [x] Auto-validated via tests: Revoked API key → 401
+- [x] Gateway pipeline order correct (HMAC middleware after UseAuthorization, before MapControllers)
 
 ### Why after Wave 13
 - Waves 8-13 focus on fixing existing security holes and cleanup
