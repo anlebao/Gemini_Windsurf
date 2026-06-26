@@ -1,6 +1,7 @@
 # W17-T2 — Loyalty Dashboard (Điểm + Lịch sử + Tier)
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T2
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🔴 HIGH — tính năng retention chính, lý do số 1 để giữ app
 **Conflict risk:** MEDIUM — tạo Gateway endpoint mới, 1 Razor page mới

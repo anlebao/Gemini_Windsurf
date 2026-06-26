@@ -1,9 +1,9 @@
-# TASK CARD: PRODUCTION_HYGIENE - WAVE15 - Update project_state.md
+# TASK CARD: W15-T5 — Update project_state.md
 
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Cập nhật `docs/AI/project_state.md` để phản ánh Wave 15 hoàn thành — đưa vào history, xóa khỏi backlog, cập nhật Next Actions
 - **Nghiệp vụ áp dụng:** Session state management — đảm bảo AI session tiếp theo biết Wave 15 đã done và không làm lại
-- **Master plan:** `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` § 9. WAVE 15 — task W15-T5
+- **Master plan:** `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` § Wave 15 — task W15-T5
 - **Depends on:** W15-T4 (verification gate pass)
 
 ## 2. ACTIVE WORKFLOW ROUTING
@@ -13,7 +13,7 @@
 ## 3. RELEVANT FILES (CONTEXT BOUNDARY)
 - **Files được phép đọc/sửa:**
   - `docs/AI/project_state.md` (SỬA — theo Maintenance Rules trong Section 0)
-  - `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` (SỬA — update W15-T5 = ✅ DONE + Last Updated)
+  - `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` (SỬA — update W15-T5 = ✅ DONE + Last Updated)
 - **KHÔNG được sửa bất kỳ file code nào trong task này**
 
 ## 4. NỘI DUNG CẦN CẬP NHẬT TRONG project_state.md
@@ -46,7 +46,7 @@ Nếu Wave 15 là objective hiện tại: update status thành COMPLETED, move v
   - Current branch: feature/wave15-khachlink-page-cleanup → PR → merge
 ```
 
-## 5. NỘI DUNG CẬP NHẬT TRONG PRODUCTION_HYGIENE_master_plan.md
+## 5. NỘI DUNG CẬP NHẬT TRONG KHACHLINK_PRODUCTION_PLAN.md
 
 Cập nhật header:
 ```markdown
@@ -100,7 +100,7 @@ S3: Cập nhật theo mục 4 ở trên
     → Cập nhật Next Actions
     → Cập nhật Maintenance Log với date thực
 
-S4: Cập nhật PRODUCTION_HYGIENE_master_plan.md
+S4: Cập nhật KHACHLINK_PRODUCTION_PLAN.md
     → Đánh dấu tất cả W15-T1 → W15-T5 = ✅ DONE
     → Update Last Updated date
     → Update Current Status
@@ -113,9 +113,9 @@ S5: Commit
 - [ ] **SC1:** `project_state.md` Section 3 có entry Wave 15 COMPLETED
 - [ ] **SC2:** `project_state.md` Section 4 không còn backlog items liên quan đến KhachLink dead pages
 - [ ] **SC3:** `project_state.md` Section 11 có log entry ngày hôm nay
-- [ ] **SC4:** `PRODUCTION_HYGIENE_master_plan.md` — W15-T1 → W15-T5 = ✅ DONE
-- [ ] **SC5:** `PRODUCTION_HYGIENE_master_plan.md` — Exit criteria Wave 15 tất cả checked
-- [ ] **SC6:** `PRODUCTION_HYGIENE_master_plan.md` header `Last Updated` = ngày hôm nay
+- [ ] **SC4:** `KHACHLINK_PRODUCTION_PLAN.md` — W15-T1 → W15-T5 = ✅ DONE
+- [ ] **SC5:** `KHACHLINK_PRODUCTION_PLAN.md` — Exit criteria Wave 15 tất cả checked
+- [ ] **SC6:** `KHACHLINK_PRODUCTION_PLAN.md` header `Last Updated` = ngày hôm nay
 - [ ] **SC7:** Không có duplicate sections hoặc contradictions trong `project_state.md`
 
 **Implementation Date:** TBD

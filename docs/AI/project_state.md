@@ -144,7 +144,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ### All Production Hygiene Waves (8–14) COMPLETE
 
-Pending: Merge PRs #61, #62, #63 into main then close the Production Hygiene milestone.
+1. Merge PRs #61, #62, #63 into main → close Production Hygiene milestone
+2. Tạo branch `feature/wave15-khachlink-page-cleanup` từ main mới nhất
+3. Bắt đầu W15-T1 — xóa 6 dead/demo pages + convert Dashboard.cshtml → Dashboard.razor
+4. Tiếp theo: W15-T2 — migrate Program.cs sang Blazor Web App routing (`AddRazorComponents`)
+5. Plan docs sẵn sàng: `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` (W15–16) + `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` (W17 DEFERRED)
 
 ---
 
@@ -427,8 +431,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 14 - HMAC Request Signing; branch: feature/wave14-api-request-signing)
+* Last Updated: 2026-06-26 (Wave 15 planning session; branch: feature/wave14-api-request-signing)
 * Current Branch: `feature/wave14-api-request-signing`
+* **Wave 15 Planning (2026-06-26):** KHACHLINK_PRODUCTION_PLAN.md rebuilt — scope W15-T1 cập nhật (xóa 6 files + convert Dashboard.cshtml→Dashboard.razor), W15-T2 cập nhật (Blazor Web App routing AddRazorComponents), W17 tách sang KHACHLINK_RETENTION_PLAN.md (DEFERRED), tất cả W15 + W17 task cards updated với đúng master plan reference.
 * **Wave 14 — HMAC Request Signing (2026-06-26):** COMPLETED. Commit `5462759`, PR #63. HmacSigningMiddleware + ApiKey entity + IApiKeyManagementService + ApiKeyController. 10/10 tests PASS. Build: 0 errors; guard-check: PASS.
 * **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
 
