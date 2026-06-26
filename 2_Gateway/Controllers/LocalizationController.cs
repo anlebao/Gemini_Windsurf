@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Services;
 
@@ -5,6 +6,7 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     public class LocalizationController : ControllerBase
     {
         private readonly ILocalizationService _localizationService;
