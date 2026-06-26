@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -82,6 +83,35 @@ public static class TestDbContextFactory
         var provider = services.BuildServiceProvider();
         var scope = provider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+
+        return new TestDbContextWrapper(provider, scope, context);
+    }
+
+    /// <summary>
+    /// Creates a SQLite in-memory VanAnDbContext for integration testing
+    /// Uses persistent connection for real relational behavior (transactions, FK constraints)
+    /// </summary>
+    /// <returns>TestDbContextWrapper that properly disposes resources</returns>
+    public static TestDbContextWrapper CreateSqliteInMemory()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        var services = new ServiceCollection();
+
+        services.AddDbContext<VanAnDbContext>(options =>
+            options.UseSqlite(connection)
+                .EnableSensitiveDataLogging()
+                .EnableDetailedErrors());
+
+        services.AddScoped<ITenantProvider, TestTenantProvider>();
+
+        var provider = services.BuildServiceProvider();
+        var scope = provider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+
+        // Ensure database schema is created
+        context.Database.EnsureCreated();
 
         return new TestDbContextWrapper(provider, scope, context);
     }
