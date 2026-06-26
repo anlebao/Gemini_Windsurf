@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Models;
 using VanAn.CoreHub.Services;
@@ -6,6 +7,7 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     public class OnboardingController(IOnboardingService onboardingService, ILogger<OnboardingController> logger) : ControllerBase
     {
         private readonly IOnboardingService _onboardingService = onboardingService;
@@ -104,17 +106,11 @@ namespace VanAn.Gateway.Controllers
             {
                 _logger.LogInformation("Starting quick setup for shop: {ShopId} with template: {TemplateType}", shopId, request.TemplateType);
 
-                // Get template
                 if (!Guid.TryParse(request.TemplateType, out Guid templateId))
                 {
                     return BadRequest(new { error = "Invalid template type format" });
                 }
-                OnboardingTemplate? template = await _onboardingService.GetTemplateAsync(templateId);
-
-                // Customize template with user input - simplified for dummy implementation
-                OnboardingTemplate? customizedTemplate = template;
-
-                // Apply template
+                // Apply template with shop-specific configuration
                 OnboardingTemplate applied = await _onboardingService.ApplyTemplateAsync(templateId, shopId);
 
                 if (applied != null)

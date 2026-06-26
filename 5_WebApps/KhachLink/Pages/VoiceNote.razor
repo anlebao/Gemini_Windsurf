@@ -1,4 +1,6 @@
 @page "/voice-note"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using VanAn.Shared.DTOs
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime

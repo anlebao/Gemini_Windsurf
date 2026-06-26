@@ -36,7 +36,7 @@ namespace VanAn.ShopERP.Controllers
         }
 
         [HttpPost]
-        [AllowAnonymous]
+        [Authorize(Policy = "RequireTenantAccess")]
         public async Task<ActionResult<Shop>> CreateShop([FromBody] CreateShopRequest request)
         {
             try
@@ -61,7 +61,7 @@ namespace VanAn.ShopERP.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        [AllowAnonymous]
+        [Authorize(Policy = "RequireTenantAccess")]
         public async Task<ActionResult<Shop>> UpdateShop(Guid id, [FromBody] UpdateShopRequest request)
         {
             try
@@ -85,7 +85,7 @@ namespace VanAn.ShopERP.Controllers
         }
 
         [HttpDelete("{id:guid}")]
-        [AllowAnonymous]
+        [Authorize(Policy = "RequireTenantAccess")]
         public async Task<ActionResult> DeleteShop(Guid id)
         {
             try

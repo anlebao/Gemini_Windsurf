@@ -52,7 +52,7 @@ namespace VanAn.ShopERP.Controllers
         }
 
         [HttpPut("{orderId:guid}/status")]
-        [AllowAnonymous]
+        [Authorize]
         public async Task<ActionResult<Order>> TransitionStatus(Guid orderId, [FromBody] TransitionStatusRequest request)
         {
             try

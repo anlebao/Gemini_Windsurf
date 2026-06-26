@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
@@ -6,6 +7,7 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize(Policy = "RequireTenantAccess")]
     public class ShopConfigController(IShopConfigService shopConfigService, ILogger<ShopConfigController> logger) : ControllerBase
     {
         private readonly IShopConfigService _shopConfigService = shopConfigService;
