@@ -38,11 +38,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 10: Cleanup Duplicate Interfaces ✅ COMPLETED**
+**Production Hygiene — Wave 11: Cleanup Invalid Framework Files ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/wave10-cleanup-interfaces` (commit `7174129`)
+**Status:** DONE — Branch `feature/wave11-cleanup-invalid-files` (commit `09ef54d`)
 
-**Latest Commit (Wave 9):** pending merge on `feature/wave9-cleanup-controller`
+**Latest Commit (Wave 10):** `533d8f4` merged to `main`
 
 ---
 
@@ -102,6 +102,13 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Fix `SocialCampaignManager.cshtml`: `@inject` đổi sang `VanAn.CoreHub.Services` namespace
   * Verify: 0 references đến ShopERP duplicates; build 0 errors; guard-check PASS
 
+- **Production Hygiene — Wave 11: Cleanup Invalid Framework Files ✅ COMPLETED** (2026-06-26)
+  * W11-T1→T4 COMPLETE — Branch `feature/wave11-cleanup-invalid-files` (commit `09ef54d`)
+  * Xóa `ShopERP/Pages/SocialCampaignManager.cshtml` (invalid Razor + Blazor mix)
+  * Xóa `KhachLink/wwwroot/index.html` (unused demo); cập nhật `service-worker.js` bỏ `/index.html` khỏi cache list
+  * `demoIndex.html` đã không tồn tại trong repository; references chỉ còn trong task cards
+  * Verify: không còn references trong production code; build 0 errors; guard-check PASS
+
 ### Blocked
 
 - Không có blockers.
@@ -110,9 +117,13 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Next: Wave 11 (TBD)
+### Next: Wave 12 — Fix API Authorization
 
-Wave 10 hoàn thành. Chờ định nghĩa Wave 11 từ PRODUCTION_HYGIENE_master_plan.md.
+1. W12-T1: Audit tất cả API endpoints trong Gateway cho authorization
+2. W12-T2: Audit tất cả API endpoints trong ShopERP cho authorization
+3. W12-T3: Add `[Authorize]` hoặc policy-based auth cho voice note endpoint
+4. W12-T4: Fix bất kỳ endpoints thiếu authorization theo audit results
+5. W12-T5: Viết integration tests cho authorization enforcement
 
 ---
 
@@ -395,8 +406,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 10 - Cleanup Duplicate Interfaces; branch: feature/wave10-cleanup-interfaces)
-* Current Branch: `feature/wave9-cleanup-controller`
+* Last Updated: 2026-06-26 (Wave 11 - Cleanup Invalid Framework Files; branch: feature/wave11-cleanup-invalid-files)
+* Current Branch: `feature/wave11-cleanup-invalid-files`
+* **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
+
 * **Wave 9 — Cleanup Orphan Controller (2026-06-25):** COMPLETED. Deleted `ShopERP/Controllers/CustomersController.cs` and `CustomerApiIntegrationTests.cs`. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W9-T1→T4 status.
 
 * **Wave 8 — Upgrade Dashboard to Sitemap with Authentication (2026-06-24):** COMPLETED. Branch `feature/wave8-upgrade-dashboard` merged to main. Tasks: W8-T1 through W8-T5. Latest commit: `d088739 feat(wave8): implement Sitemap.razor with auth, remove VanAn_Dashboard.html`.
