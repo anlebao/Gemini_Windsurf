@@ -2,9 +2,9 @@
 # Biến KhachLink từ Demo → Production-Ready
 
 **Created:** 2026-06-25
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-06-26
 **Scope:** `5_WebApps/KhachLink/` only
-**Waves:** 15 (Page Cleanup) → 16 (Real Production Flows)
+**Waves:** 15 (Page Cleanup) ✅ → 16 (Real Production Flows)
 
 ---
 
@@ -57,11 +57,11 @@
 
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---------|------|-----------|-----------|--------|
-| 1 | W15-T1 | Xóa 7 dead/demo pages: `Index.razor`, `IndexModern.cshtml`, `_Host.cshtml`, `Index.cshtml` + `.cs`, `Components/Pages/Home.razor`, `Pages/Dashboard.cshtml` | — | [W15-T1-card.md](W15-T1-card.md) | 📋 TODO |
-| 2 | W15-T2 | Fix `Program.cs` — xóa `MapFallbackToPage("/Index")` sau khi xóa pages | W15-T1 | [W15-T2-card.md](W15-T2-card.md) | 📋 TODO |
-| 3 | W15-T3 | Rewrite `VoiceNote.razor` — fix endpoint, inject `IHttpClientFactory`, xóa `<html>` tags, thay `alert()` bằng UI Platform | W15-T2 | [W15-T3-card.md](W15-T3-card.md) | 📋 TODO |
-| 4 | W15-T4 | Verify build 0 errors + E2E selector contract (`Home.razor` `.feature-card`, `Đặt ngay`) | W15-T3 | [W15-T4-card.md](W15-T4-card.md) | 📋 TODO |
-| 5 | W15-T5 | Update `project_state.md` — ghi nhận cleanup, cập nhật Next Actions | W15-T4 | [W15-T5-card.md](W15-T5-card.md) | 📋 TODO |
+| 1 | W15-T1 | Xóa 7 dead/demo pages + convert `Dashboard.cshtml` → `Dashboard.razor` | — | [W15-T1-card.md](W15-T1-card.md) | ✅ DONE |
+| 2 | W15-T2 | Modernize `Program.cs` — Blazor Web App routing (`AddRazorComponents` + `MapRazorComponents<App>`) | W15-T1 | [W15-T2-card.md](W15-T2-card.md) | ✅ DONE |
+| 3 | W15-T3 | Rewrite `VoiceNote.razor` — fix endpoint, inject `IHttpClientFactory`, xóa `<html>` tags, thay `alert()` bằng UI Platform | W15-T2 | [W15-T3-card.md](W15-T3-card.md) | ✅ DONE |
+| 4 | W15-T4 | Verify build 0 errors + E2E selector contract (`Home.razor` `.feature-card`, `Đặt ngay`) | W15-T3 | [W15-T4-card.md](W15-T4-card.md) | ✅ DONE |
+| 5 | W15-T5 | Update `project_state.md` — ghi nhận cleanup, cập nhật Next Actions | W15-T4 | [W15-T5-card.md](W15-T5-card.md) | ✅ DONE |
 
 ### Files được phép sửa/xóa (W15)
 
