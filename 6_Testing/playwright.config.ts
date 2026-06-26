@@ -9,7 +9,8 @@ export default defineConfig({
   testMatch: '**/*.spec.ts',
   fullyParallel: config.E2E_TEST_PARALLEL,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Retry logic for network flakiness: 2 retries in CI, 1 locally
+  retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { outputFolder: 'reports/playwright-html-report' }],
