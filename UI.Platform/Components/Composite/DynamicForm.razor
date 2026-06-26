@@ -12,7 +12,7 @@
 @inject ICssAdapter CssAdapter
 @inject ILogger<DynamicForm> Logger
 
-<form onsubmit="event.preventDefault(); return false;" @onsubmit="HandleSubmit" @onsubmit:preventDefault class="@GetFormClasses()" data-blazor-interactive="@IsInteractive.ToString().ToLower()" @attributes="GetMergedAttributes()">
+<form @onsubmit="HandleSubmit" @onsubmit:preventDefault class="@GetFormClasses()" data-blazor-interactive="@IsInteractive.ToString().ToLower()" @attributes="GetMergedAttributes()">
     @if (Fields != null)
     {
         @Fields
