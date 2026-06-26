@@ -15,7 +15,7 @@ using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.ShopERP.Pages
 {
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken]
     [EnableRateLimiting("LoginRateLimit")]
     public class LoginModel(
         IAntiforgery antiforgery,
