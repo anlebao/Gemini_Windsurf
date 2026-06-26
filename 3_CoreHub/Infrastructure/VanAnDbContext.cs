@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
+using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
@@ -64,6 +65,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Wave 6: Permission groups for bundle-based RBAC
         public DbSet<PermissionGroup> PermissionGroups { get; set; }
         public DbSet<UserPermissionGroup> UserPermissionGroups { get; set; }
+
+        // Wave 14: API Keys for HMAC request signing
+        public DbSet<ApiKey> ApiKeys { get; set; }
 
         // PHASE 2: SOCIAL FLYWHEEL ENTITIES
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
