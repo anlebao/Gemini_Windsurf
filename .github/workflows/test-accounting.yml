@@ -173,3 +173,4 @@ jobs:
           echo "- Unit test results: Available as artifact" >> $GITHUB_STEP_SUMMARY
           echo "- Integration test results: Available as artifact" >> $GITHUB_STEP_SUMMARY
           echo "- Coverage reports: Available as artifact" >> $GITHUB_STEP_SUMMARY
+# Wave 5: Trigger CD with this commit
