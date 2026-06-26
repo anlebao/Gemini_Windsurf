@@ -11,7 +11,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   // Retry logic for network flakiness: 2 retries in CI, 1 locally
   retries: process.env.CI ? 2 : 1,
-  workers: process.env.CI ? 1 : undefined,
+  // Wave 5: Optimize CI parallelization - use 4 workers in CI for faster execution
+  workers: process.env.CI ? 4 : undefined,
   reporter: [
     ['html', { outputFolder: 'reports/playwright-html-report' }],
     ['json', { outputFile: 'reports/playwright-report.json' }],
