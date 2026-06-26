@@ -5,7 +5,6 @@ const DYNAMIC_CACHE = 'vanan-dynamic-v2';
 // Core static assets to cache
 const staticUrlsToCache = [
   '/',
-  '/index.html',
   '/manifest.json',
   '/css/app.css',
   '/js/app.js',

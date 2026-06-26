@@ -2,8 +2,8 @@
 # VanAn Ecosystem — Real Production Readiness
 
 **Created:** 2026-06-24
-**Last Updated:** 2026-06-24
-**Current Status:** PLANNING — Branch `feature/wave7-prod-hardening` (Wave 7 IN PROGRESS)
+**Last Updated:** 2026-06-26
+**Current Status:** IN PROGRESS — Branch `feature/wave12-api-authorization` (Wave 12 IN PROGRESS)
 **Branch strategy:** feature branch per wave → PR → merge vào `main`
 **Execution principle:** Wave-by-wave sequential. Wave N không bắt đầu khi Wave N-1 chưa pass exit criteria. Mỗi wave là 1 PR độc lập.
 
@@ -209,23 +209,23 @@ main
 ### Tasks
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---|---|---|---|---|
-| 12 | W11-T1 | Xóa `ShopERP/Pages/SocialCampaignManager.cshtml` | — | [W11-T1-card.md](#) | 📋 TODO |
-| 13 | W11-T2 | Xóa `KhachLink/wwwroot/index.html` | — | [W11-T2-card.md](#) | 📋 TODO |
-| 14 | W11-T3 | Xóa `KhachLink/wwwroot/demoIndex.html` | — | [W11-T3-card.md](#) | 📋 TODO |
-| 15 | W11-T4 | Verify không có references đến deleted files | W11-T1, W11-T2, W11-T3 | [W11-T4-card.md](#) | 📋 TODO |
+| 12 | W11-T1 | Xóa `ShopERP/Pages/SocialCampaignManager.cshtml` | — | [W11-T1-card.md](#) | ✅ DONE |
+| 13 | W11-T2 | Xóa `KhachLink/wwwroot/index.html` | — | [W11-T2-card.md](#) | ✅ DONE |
+| 14 | W11-T3 | Xóa `KhachLink/wwwroot/demoIndex.html` | — | [W11-T3-card.md](#) | ✅ DONE (file already absent) |
+| 15 | W11-T4 | Verify không có references đến deleted files | W11-T1, W11-T2, W11-T3 | [W11-T4-card.md](#) | ✅ DONE |
 
 ### Entry criteria (Wave 11)
-- [ ] Wave 10 merged + `dotnet build` → 0 errors
-- [ ] Branch `feature/wave11-cleanup-invalid-files` tạo từ updated `main`
-- [ ] Architecture tests: 7/7 PASS
+- [x] Wave 10 merged + `dotnet build` → 0 errors
+- [x] Branch `feature/wave11-cleanup-invalid-files` tạo từ updated `main`
+- [x] Architecture tests: 7/7 PASS
 
 ### Exit criteria (Wave 11) — TẤT CẢ phải PASS
-- [ ] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
-- [ ] `guard-check.ps1` → PASS
-- [ ] `VanAn.Architecture.Tests`: 7/7 PASS
-- [ ] `VanAn.Integration.Tests`: không có test nào bị break
-- [ ] Verify: Invalid files đã xóa
-- [ ] Verify: Không có broken references
+- [x] `dotnet build VanAn.sln` → 0 errors, 0 warnings mới
+- [x] `guard-check.ps1` → PASS
+- [x] `VanAn.Architecture.Tests`: 7/7 PASS
+- [x] `VanAn.Integration.Tests`: không có test nào bị break
+- [x] Verify: Invalid files đã xóa
+- [x] Verify: Không có broken references
 
 ### Why fourth
 - Cleanup broken code that cannot run
