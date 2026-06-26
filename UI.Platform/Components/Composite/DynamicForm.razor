@@ -28,7 +28,7 @@
     }
     else
     {
-        <button type="submit" class="btn btn-primary" disabled="@(!IsInteractive)" data-testid="expense-submit">
+        <button type="submit" class="btn btn-primary" disabled="@(!IsInteractive)" data-testid="expense-submit" @onclick="HandleClick">
             @SubmitText
         </button>
     }
@@ -100,6 +100,15 @@
         return GetCombinedCssClass(baseClasses);
     }
     
+    /// <summary>
+    /// Handle button click (fallback for form submit)
+    /// </summary>
+    private async Task HandleClick()
+    {
+        Logger.LogInformation("DynamicForm HandleClick called");
+        await HandleSubmit();
+    }
+
     /// <summary>
     /// Handle form submission with double click prevention
     /// </summary>
