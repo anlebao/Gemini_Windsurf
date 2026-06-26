@@ -1,9 +1,9 @@
-# TASK CARD: PRODUCTION_HYGIENE - WAVE15 - Rewrite VoiceNote.razor
+# TASK CARD: W15-T3 — Rewrite VoiceNote.razor
 
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Rewrite `VoiceNote.razor` để fix 4 vi phạm kiến trúc đồng thời preserve toàn bộ business logic voice recognition — file giữ nghiệp vụ thật, chỉ sai implementation
 - **Nghiệp vụ áp dụng:** KDS Voice Note — `functional-requirements.md §1.3`: *"Ghi chú đơn hàng (text + voice)"* — cho phép staff/khách thêm ghi chú giọng nói vào đơn hàng
-- **Master plan:** `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` § 9. WAVE 15 — task W15-T3
+- **Master plan:** `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` § Wave 15 — task W15-T3
 - **Depends on:** W15-T2 (app phải khởi động clean)
 - **E2E contract:** `6_Testing/e2e-tests/voice-command.spec.ts` — TC_Voice_Flow, TC_Voice_TextCommand
 
@@ -80,7 +80,7 @@ private string? _errorMessage;
   - `5_WebApps/KhachLink/Pages/VoiceNote.razor` (REWRITE)
   - `5_WebApps/KhachLink/Program.cs` (đọc để confirm "gateway" named client tồn tại — line ~93)
   - `5_WebApps/KhachLink/_Imports.razor` (đọc để biết namespaces và @using đã có)
-  - `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` (cập nhật status)
+  - `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` (cập nhật status)
 - **Files đọc để hiểu UI Platform components:**
   - `UI.Platform/Components/Atomic/VanAnAlert.razor` (nếu cần xem interface)
 - **KHÔNG được sửa:**
@@ -271,7 +271,7 @@ S4: Commit
 - [ ] **SC4:** Không có `JSRuntime.InvokeVoidAsync("alert", ...)` — thay bằng `VanAnAlert`
 - [ ] **SC5:** `[JSInvokable] SetTranscriptionText()` vẫn tồn tại (E2E mock cần)
 - [ ] **SC6:** `dotnet build VanAn.sln` → 0 errors
-- [ ] **SC7:** `PRODUCTION_HYGIENE_master_plan.md` updated W15-T3 = ✅ DONE
+- [ ] **SC7:** `KHACHLINK_PRODUCTION_PLAN.md` updated W15-T3 = ✅ DONE
 
 **Implementation Date:** TBD
 **Branch:** `feature/wave15-khachlink-page-cleanup`

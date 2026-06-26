@@ -1,6 +1,7 @@
 # W17-T1 — Customer Identity (Phone OTP Login)
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T1
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🔴 CRITICAL — prerequisite của W17-T2, W17-T3
 **Conflict risk:** HIGH — thêm OTP service mới, 2 Gateway endpoints mới, 2 Razor pages mới

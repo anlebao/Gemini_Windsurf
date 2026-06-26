@@ -1,9 +1,9 @@
-# TASK CARD: PRODUCTION_HYGIENE - WAVE15 - Verify Build & E2E Entry Point Contract
+# TASK CARD: W15-T4 — Verify Build & E2E Entry Point Contract
 
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Verification gate toàn bộ Wave 15 — xác nhận build 0 errors, `Home.razor` serve đúng tại `/`, E2E selector contract từ `order-flow.spec.ts` còn nguyên, và không có broken references sau khi xóa files
 - **Nghiệp vụ áp dụng:** Quality gate trước khi commit wave hoàn tất — ngăn regression
-- **Master plan:** `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` § 9. WAVE 15 — task W15-T4
+- **Master plan:** `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` § Wave 15 — task W15-T4
 - **Depends on:** W15-T1 + W15-T2 + W15-T3 đều hoàn thành
 
 ## 2. ACTIVE WORKFLOW ROUTING
@@ -125,7 +125,7 @@ else { Write-Host "FAIL: JSInvokable missing" -ForegroundColor Red }
   - `5_WebApps/KhachLink/Pages/Home.razor` (đọc để verify selectors)
   - `5_WebApps/KhachLink/Pages/VoiceNote.razor` (đọc để verify rewrite)
   - `5_WebApps/KhachLink/Program.cs` (đọc để verify routing)
-  - `docs/AI/tasks/PRODUCTION_HYGIENE_master_plan.md` (cập nhật status)
+  - `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` (cập nhật status)
 - **Files được phép sửa (chỉ nếu phát hiện lỗi nhỏ < 3 errors):**
   - `5_WebApps/KhachLink/Pages/VoiceNote.razor` — fix compile error nhỏ nếu có
   - `5_WebApps/KhachLink/Program.cs` — fix routing nếu W15-T2 bỏ sót
@@ -158,7 +158,7 @@ S4: Commit verification
 - [ ] **SC6:** `MapFallbackToPage` không còn trong `Program.cs`
 - [ ] **SC7:** `Home.razor` có `.feature-card` và `Đặt ngay` (E2E selector contract)
 - [ ] **SC8:** `VoiceNote.razor` pass tất cả 5 arch checks
-- [ ] **SC9:** `PRODUCTION_HYGIENE_master_plan.md` updated W15-T4 = ✅ DONE
+- [ ] **SC9:** `KHACHLINK_PRODUCTION_PLAN.md` updated W15-T4 = ✅ DONE
 
 **Implementation Date:** TBD
 **Branch:** `feature/wave15-khachlink-page-cleanup`

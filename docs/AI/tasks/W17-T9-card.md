@@ -1,6 +1,7 @@
 # W17-T9 — KhachLink End-User Layout (Đẹp + Tùy biến theo ShopConfig)
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T9
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🟡 HIGH — ảnh hưởng toàn bộ UX end-user, là "mặt tiền" của app
 **Conflict risk:** MEDIUM — sửa `KhachLinkLayout.razor` ảnh hưởng tất cả pages

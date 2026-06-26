@@ -122,10 +122,16 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Gateway/OnboardingController: xóa dead code `customizedTemplate` + stale comment
   * Tests: 5 integration tests PASS; Architecture tests: 21/21 PASS
 
-- **Production Hygiene — Wave 14: HMAC-SHA256 API Request Signing ✅ COMPLETED** (2026-06-26)
+- **Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED** (2026-06-26)
   * W14-T1→T5 COMPLETE — Branch `feature/wave14-api-request-signing` (commit `5462759`), PR #63
-  * Gateway: HMAC-SHA256 signing middleware, API key entity + CRUD endpoints, key revocation
-  * Integration tests: HMAC request signing pipeline PASS
+  * Gateway: `HmacSigningMiddleware` — validates `X-VanAn-KeyId/Timestamp/Nonce/Signature`
+  * Gateway: `IHmacApiKeyLookup` + `HmacApiKeyLookupAdapter` — decouples Gateway from CoreHub repos
+  * 1_Shared: `ApiKey` domain entity (per-tenant, IsActive, ExpiresAt, RevocationAt)
+  * CoreHub: `ApiKeyConfiguration` (EF), `IApiKeyRepository` + impl, `IApiKeyManagementService` + impl
+  * ShopERP: `ApiKeyController` — `POST/GET/DELETE /api/apikeys` (Admin/Owner only); one-time secret
+  * Anti-replay: timestamp window ±60s + nonce IMemoryCache TTL 120s
+  * Rate limit: 5 failures → 15-min block per KeyId
+  * Tests: 10/10 integration tests PASS (W14-S1→S10); Architecture tests: 21/21 PASS; guard-check: PASS
 
 - **Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization ✅ COMPLETED** (2026-06-26)
   * W15-T1→T5 COMPLETE — Branch `feature/wave15-khachlink-page-cleanup` (commit `26abd83`)
@@ -436,7 +442,8 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 * Last Updated: 2026-06-26 (Wave 15 - KhachLink Page Cleanup; branch: feature/wave15-khachlink-page-cleanup)
 * Current Branch: `feature/wave15-khachlink-page-cleanup`
 * **Wave 15 — KhachLink Page Cleanup + Routing Modernization (2026-06-26):** COMPLETED. Deleted 6 dead/demo pages; converted `Dashboard.cshtml` to `Dashboard.razor`; modernized `Program.cs` to Blazor Web App routing; rewrote `VoiceNote.razor` with `IHttpClientFactory("gateway")` and correct endpoint. Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS. Latest commit: `26abd83 feat(wave15): KhachLink page cleanup + Blazor Web App routing`.
-
+* **Wave 15 Planning (2026-06-26):** KHACHLINK_PRODUCTION_PLAN.md rebuilt — scope W15-T1 cập nhật (xóa 6 files + convert Dashboard.cshtml→Dashboard.razor), W15-T2 cập nhật (Blazor Web App routing AddRazorComponents), W17 tách sang KHACHLINK_RETENTION_PLAN.md (DEFERRED), tất cả W15 + W17 task cards updated với đúng master plan reference.
+* **Wave 14 — HMAC Request Signing (2026-06-26):** COMPLETED. Commit `5462759`, PR #63. HmacSigningMiddleware + ApiKey entity + IApiKeyManagementService + ApiKeyController. 10/10 tests PASS. Build: 0 errors; guard-check: PASS.
 * **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
 
 * **Wave 9 — Cleanup Orphan Controller (2026-06-25):** COMPLETED. Deleted `ShopERP/Controllers/CustomersController.cs` and `CustomerApiIntegrationTests.cs`. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W9-T1→T4 status.
