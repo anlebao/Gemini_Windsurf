@@ -40,7 +40,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **Production Hygiene — Wave 16: KhachLink Production Flow Hardening ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/wave15-khachlink-page-cleanup` (commit `TBD`), PR #TBD
+**Status:** DONE — Branch `feature/wave15-khachlink-page-cleanup` (commit `7bdf52b`), PR #64
 
 **Wave 15:** COMPLETED — KhachLink Page Cleanup + Routing Modernization
 
@@ -134,7 +134,7 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Tests: 10/10 integration tests PASS (W14-S1→S10); Architecture tests: 21/21 PASS; guard-check: PASS
 
 - **Production Hygiene — Wave 16: KhachLink Production Flow Hardening ✅ COMPLETED** (2026-06-27)
-  * W16-T1→T5 COMPLETE — Branch `feature/wave15-khachlink-page-cleanup` (commit `TBD`)
+  * W16-T1→T5 COMPLETE — Branch `feature/wave15-khachlink-page-cleanup` (commit `7bdf52b`), PR #64
   * Refactor `Campaign.cshtml`/`Campaign.cshtml.cs`: xóa CoreHub inject, gọi Gateway endpoints `GET /api/campaigns/{code}` + `POST /api/campaigns/click/{code}`, xóa social proof giả + discount giả, `orderProduct()` gọi `POST /api/public/orders` thật qua `PublicOrdersController`
   * Fix `RealTimeDashboard.razor`: xóa `VanAnDashboard.razor`, thay `"demo-shop"` hardcode bằng `TenantService.GetCurrentTenantId().ToString()` trong `JoinShopGroup()` và `RequestShopMetrics`
   * Fix `VoiceCommand.razor`: thay `@inject HttpClient` bằng `IHttpClientFactory("gateway")`, endpoint `PUT /api/orders/{id}/note` thông qua `OrdersController.UpdateOrderNote`
