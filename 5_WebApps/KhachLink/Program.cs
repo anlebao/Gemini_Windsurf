@@ -106,6 +106,9 @@ namespace VanAn.KhachLink
 
 
 
+            // Register Product Catalog Service (Wave 13: real API call replaces hardcoded data)
+            _ = builder.Services.AddScoped<Services.Http.ProductHttpService>();
+
             // Register Dashboard Services
 
             _ = builder.Services.AddScoped<Services.Dashboard.RealTimeDashboardService>();
