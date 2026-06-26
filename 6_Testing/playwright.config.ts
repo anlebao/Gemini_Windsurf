@@ -57,6 +57,17 @@ export default defineConfig({
       }
     },
     {
+      name: 'accounting-e2e',
+      testMatch: 'e2e-tests/accounting*.spec.ts',
+      use: {
+        baseURL: config.SHOPERP_URL,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+        storageState: 'auth/admin.json'
+      }
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
