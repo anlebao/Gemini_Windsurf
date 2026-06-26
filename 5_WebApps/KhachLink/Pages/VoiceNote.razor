@@ -1,414 +1,410 @@
 @page "/voice-note"
-@attribute [Authorize]
-@using Microsoft.AspNetCore.Authorization
-@using VanAn.Shared.DTOs
-@inject HttpClient Http
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.UI.Platform.Tokens
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@implements IDisposable
 
 <PageTitle>Voice Note - Vạn An</PageTitle>
 
-<html lang="vi" class="notranslate" translate="no">
-<head>
-    <meta name="google" content="notranslate">
-    <meta http-equiv="Content-Language" content="vi">
-</head>
-<body>
-    <div class="voice-note-container" data-testid="voice-note-container">
-        <div class="voice-header">
-            <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
-            <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
-        </div>
+@* Alerts thay thế alert() native *@
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <VanAnAlert Variant="AlertVariant.Success" Message="@_successMessage" />
+}
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" />
+}
 
-        <div class="voice-controls">
-            <button class="record-btn" data-testid="record-button" @onclick="ToggleRecording" disabled="@isRecording">
-                @if (isRecording)
-                {
-                    <span>⏹️ Dừng ghi âm</span>
-                }
-                else
-                {
-                    <span>🎤 Bắt đầu ghi âm</span>
-                }
-            </button>
-            
-            <button class="clear-btn" @onclick="ClearRecording" disabled="@isRecording">
-                🗑️ Xóa
-            </button>
-        </div>
-
-        <div class="voice-status">
-            @if (isRecording)
-            {
-                <div class="recording-indicator">
-                    <span class="recording-dot"></span>
-                    <span>Đang ghi âm...</span>
-                </div>
-            }
-            
-            @if (!string.IsNullOrEmpty(transcriptionText))
-            {
-                <div class="transcription-result">
-                    <h4>Văn bản chuyển đổi:</h4>
-                    <p data-testid="transcription-text">@transcriptionText</p>
-                </div>
-            }
-        </div>
-
-        <div class="voice-actions">
-            <button class="submit-btn" data-testid="submit-voice-note" @onclick="SubmitVoiceNote" disabled="@string.IsNullOrEmpty(transcriptionText)">
-                📤 Gửi ghi chú
-            </button>
-            
-            <button class="cancel-btn" @onclick="Cancel">
-                ❌ Hủy
-            </button>
-        </div>
+<div class="voice-note-container" data-testid="voice-note-container">
+    <div class="voice-header">
+        <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
+        <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
     </div>
 
-    @code {
-        private bool isRecording = false;
-        private string transcriptionText = "";
-        private DotNetObjectReference<VoiceNote>? dotNetRef;
+    <div class="voice-controls">
+        <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
+            @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
+        </VanAnButton>
+        <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
+            🗑️ Xóa
+        </VanAnButton>
+    </div>
 
-        protected override void OnAfterRender(bool firstRender)
+    <div class="voice-status">
+        @if (isRecording)
         {
-            if (firstRender)
-            {
-                dotNetRef = DotNetObjectReference.Create(this);
-                
-                // Initialize Speech Recognition API
-                JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", dotNetRef);
-            }
+            <div class="recording-indicator">
+                <span class="recording-dot"></span>
+                <span>Đang ghi âm...</span>
+            </div>
         }
 
-        private async Task ToggleRecording()
+        @if (!string.IsNullOrEmpty(transcriptionText))
         {
-            if (!isRecording)
-            {
-                isRecording = true;
-                await JSRuntime.InvokeVoidAsync("startRecording");
-                StateHasChanged();
-            }
-            else
-            {
-                isRecording = false;
-                await JSRuntime.InvokeVoidAsync("stopRecording");
-                StateHasChanged();
-            }
+            <div class="transcription-result">
+                <h4>Văn bản chuyển đổi:</h4>
+                <p data-testid="transcription-text">@transcriptionText</p>
+            </div>
         }
+    </div>
 
-        [JSInvokable]
-        public void SetTranscriptionText(string text)
+    <div class="voice-actions">
+        <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
+            📤 Gửi ghi chú
+        </VanAnButton>
+        <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
+            ❌ Hủy
+        </VanAnButton>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? OrderId { get; set; }
+
+    private bool isRecording = false;
+    private string transcriptionText = "";
+    private string? _successMessage;
+    private string? _errorMessage;
+    private DotNetObjectReference<VoiceNote>? dotNetRef;
+
+    private HttpClient Http => HttpClientFactory.CreateClient("gateway");
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
         {
-            transcriptionText = text;
-            StateHasChanged();
-        }
-
-        private void ClearRecording()
-        {
-            transcriptionText = "";
-            StateHasChanged();
-        }
-
-        private async Task SubmitVoiceNote()
-        {
-            if (!string.IsNullOrEmpty(transcriptionText))
-            {
-                try
-                {
-                    var voiceNote = new VoiceNoteDto
-                    {
-                        Text = transcriptionText,
-                        AudioBlob = null, // 🛡️ ZERO-COST MVP: No audio storage
-                        TranscriptionSuccessful = true,
-                        RecordedAt = DateTime.UtcNow
-                    };
-
-                    // Send to API
-                    await Http.PostAsJsonAsync("/api/orders/voice-note", voiceNote);
-                    
-                    await JSRuntime.InvokeVoidAsync("alert", "Ghi chú đã được gửi thành công!");
-                    
-                    // Navigate back
-                    NavigationManager.NavigateTo("/");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error submitting voice note: {ex.Message}");
-                    await JSRuntime.InvokeVoidAsync("alert", "Lỗi khi gửi ghi chú. Vui lòng thử lại.");
-                }
-            }
-        }
-
-        private void Cancel()
-        {
-            NavigationManager.NavigateTo("/");
-        }
-
-        public void Dispose()
-        {
-            dotNetRef?.Dispose();
+            dotNetRef = DotNetObjectReference.Create(this);
+            JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", dotNetRef);
         }
     }
 
-    <script>
-        // 🎤 NATIVE BROWSER SPEECH RECOGNITION API (ZERO-COST)
-        let recognition = null;
-        let dotNetRef = null;
-
-        function initializeSpeechRecognition(dotNetReference) {
-            dotNetRef = dotNetReference;
-            
-            // Check browser support
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            
-            if (!SpeechRecognition) {
-                alert('Trình duyệt của bạn không hỗ trợ nhận dạng giọng nói. Vui lòng sử dụng Chrome.');
-                return;
-            }
-
-            recognition = new SpeechRecognition();
-            recognition.lang = 'vi-VN'; // 🇻🇳 Vietnamese language
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-
-            recognition.onresult = function(event) {
-                const transcript = event.results[0][0].transcript;
-                console.log('Transcription:', transcript);
-                dotNetRef.invokeMethodAsync('SetTranscriptionText', transcript);
-            };
-
-            recognition.onerror = function(event) {
-                console.error('Speech recognition error:', event.error);
-                let errorMessage = 'Lỗi nhận dạng giọng nói.';
-                
-                switch(event.error) {
-                    case 'no-speech':
-                        errorMessage = 'Không phát hiện giọng nói. Vui lòng thử lại.';
-                        break;
-                    case 'audio-capture':
-                        errorMessage = 'Không thể truy cập micro. Vui lòng cấp quyền micro.';
-                        break;
-                    case 'not-allowed':
-                        errorMessage = 'Quyền truy cập micro bị từ chối.';
-                        break;
-                    case 'network':
-                        errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối.';
-                        break;
-                }
-                
-                alert(errorMessage);
-            };
-
-            recognition.onend = function() {
-                // Auto-stop recording when done
-                if (window.isRecording) {
-                    window.isRecording = false;
-                    // Update UI via Blazor
-                    dotNetRef.invokeMethodAsync('SetTranscriptionText', 
-                        document.getElementById('transcription-text')?.value || '');
-                }
-            };
+    private async Task ToggleRecording()
+    {
+        if (!isRecording)
+        {
+            isRecording = true;
+            await JSRuntime.InvokeVoidAsync("startRecording");
         }
+        else
+        {
+            isRecording = false;
+            await JSRuntime.InvokeVoidAsync("stopRecording");
+        }
+        StateHasChanged();
+    }
 
-        function startRecording() {
-            if (recognition) {
-                window.isRecording = true;
-                recognition.start();
-                console.log('Started recording in Vietnamese...');
+    [JSInvokable]
+    public void SetTranscriptionText(string text)
+    {
+        transcriptionText = text;
+        StateHasChanged();
+    }
+
+    private void ClearRecording()
+    {
+        transcriptionText = "";
+        _successMessage = null;
+        _errorMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task SubmitVoiceNote()
+    {
+        if (string.IsNullOrEmpty(transcriptionText)) return;
+        try
+        {
+            var payload = new
+            {
+                CommandText = transcriptionText,
+                OrderId = OrderId ?? string.Empty,
+                Parameters = "voice_note"
+            };
+            var response = await Http.PostAsJsonAsync("/api/v1/voicecommand/text-command", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                _successMessage = "Ghi chú đã được gửi thành công!";
+                _errorMessage = null;
+                StateHasChanged();
+                await Task.Delay(1500);
+                NavigationManager.NavigateTo("/");
+            }
+            else
+            {
+                _errorMessage = $"Lỗi khi gửi ghi chú (HTTP {(int)response.StatusCode}). Vui lòng thử lại.";
+                StateHasChanged();
             }
         }
+        catch (Exception ex)
+        {
+            _errorMessage = "Lỗi kết nối. Vui lòng thử lại.";
+            Console.WriteLine($"VoiceNote submit error: {ex.Message}");
+            StateHasChanged();
+        }
+    }
 
-        function stopRecording() {
-            if (recognition && window.isRecording) {
+    private void Cancel() => NavigationManager.NavigateTo("/");
+
+    public void Dispose() => dotNetRef?.Dispose();
+}
+
+<script>
+    // 🎤 NATIVE BROWSER SPEECH RECOGNITION API (ZERO-COST)
+    let recognition = null;
+    let dotNetRef = null;
+
+    function initializeSpeechRecognition(dotNetReference) {
+        dotNetRef = dotNetReference;
+
+        // Check browser support
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert('Trình duyệt của bạn không hỗ trợ nhận dạng giọng nói. Vui lòng sử dụng Chrome.');
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'vi-VN'; // 🇻🇳 Vietnamese language
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            console.log('Transcription:', transcript);
+            dotNetRef.invokeMethodAsync('SetTranscriptionText', transcript);
+        };
+
+        recognition.onerror = function(event) {
+            console.error('Speech recognition error:', event.error);
+            let errorMessage = 'Lỗi nhận dạng giọng nói.';
+
+            switch(event.error) {
+                case 'no-speech':
+                    errorMessage = 'Không phát hiện giọng nói. Vui lòng thử lại.';
+                    break;
+                case 'audio-capture':
+                    errorMessage = 'Không thể truy cập micro. Vui lòng cấp quyền micro.';
+                    break;
+                case 'not-allowed':
+                    errorMessage = 'Quyền truy cập micro bị từ chối.';
+                    break;
+                case 'network':
+                    errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối.';
+                    break;
+            }
+
+            alert(errorMessage);
+        };
+
+        recognition.onend = function() {
+            // Auto-stop recording when done
+            if (window.isRecording) {
                 window.isRecording = false;
-                recognition.stop();
-                console.log('Stopped recording...');
+                // Update UI via Blazor
+                dotNetRef.invokeMethodAsync('SetTranscriptionText',
+                    document.getElementById('transcription-text')?.value || '');
             }
-        }
-    </script>
+        };
+    }
 
-    <style>
+    function startRecording() {
+        if (recognition) {
+            window.isRecording = true;
+            recognition.start();
+            console.log('Started recording in Vietnamese...');
+        }
+    }
+
+    function stopRecording() {
+        if (recognition && window.isRecording) {
+            window.isRecording = false;
+            recognition.stop();
+            console.log('Stopped recording...');
+        }
+    }
+</script>
+
+<style>
+    .voice-note-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 2rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .voice-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .voice-header h2 {
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .voice-header p {
+        color: #7f8c8d;
+        margin: 0;
+    }
+
+    .voice-controls {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .record-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .record-btn:hover:not(:disabled) {
+        background: #c0392b;
+        transform: scale(1.05);
+    }
+
+    .record-btn:disabled {
+        background: #95a5a6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .clear-btn {
+        background: #95a5a6;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .clear-btn:hover:not(:disabled) {
+        background: #7f8c8d;
+        transform: scale(1.05);
+    }
+
+    .voice-status {
+        background: #ecf0f1;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        min-height: 100px;
+    }
+
+    .recording-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        color: #e74c3c;
+        font-weight: bold;
+    }
+
+    .recording-dot {
+        width: 12px;
+        height: 12px;
+        background: #e74c3c;
+        border-radius: 50%;
+        animation: pulse 1.5s infinite;
+    }
+
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .transcription-result {
+        margin-top: 1rem;
+    }
+
+    .transcription-result h4 {
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+
+    .transcription-result p {
+        background: white;
+        padding: 1rem;
+        border-radius: 5px;
+        border-left: 4px solid #27ae60;
+        margin: 0;
+        font-size: 1.1rem;
+        line-height: 1.5;
+    }
+
+    .voice-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .submit-btn {
+        background: #27ae60;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .submit-btn:hover:not(:disabled) {
+        background: #219a52;
+        transform: scale(1.05);
+    }
+
+    .submit-btn:disabled {
+        background: #95a5a6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .cancel-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .cancel-btn:hover {
+        background: #c0392b;
+        transform: scale(1.05);
+    }
+
+    @@media (max-width: 768px) {
         .voice-note-container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 2rem;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .voice-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .voice-header h2 {
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-        }
-
-        .voice-header p {
-            color: #7f8c8d;
-            margin: 0;
+            padding: 1rem;
         }
 
         .voice-controls {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .record-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 50px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .record-btn:hover:not(:disabled) {
-            background: #c0392b;
-            transform: scale(1.05);
-        }
-
-        .record-btn:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .clear-btn {
-            background: #95a5a6;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 25px;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .clear-btn:hover:not(:disabled) {
-            background: #7f8c8d;
-            transform: scale(1.05);
-        }
-
-        .voice-status {
-            background: #ecf0f1;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            min-height: 100px;
-        }
-
-        .recording-indicator {
-            display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            color: #e74c3c;
-            font-weight: bold;
         }
 
-        .recording-dot {
-            width: 12px;
-            height: 12px;
-            background: #e74c3c;
-            border-radius: 50%;
-            animation: pulse 1.5s infinite;
+        .record-btn, .clear-btn, .submit-btn, .cancel-btn {
+            width: 100%;
+            max-width: 300px;
         }
-
-        @@keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .transcription-result {
-            margin-top: 1rem;
-        }
-
-        .transcription-result h4 {
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-        }
-
-        .transcription-result p {
-            background: white;
-            padding: 1rem;
-            border-radius: 5px;
-            border-left: 4px solid #27ae60;
-            margin: 0;
-            font-size: 1.1rem;
-            line-height: 1.5;
-        }
-
-        .voice-actions {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .submit-btn {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 25px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .submit-btn:hover:not(:disabled) {
-            background: #219a52;
-            transform: scale(1.05);
-        }
-
-        .submit-btn:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .cancel-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 25px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .cancel-btn:hover {
-            background: #c0392b;
-            transform: scale(1.05);
-        }
-
-        @@media (max-width: 768px) {
-            .voice-note-container {
-                padding: 1rem;
-            }
-
-            .voice-controls {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .record-btn, .clear-btn, .submit-btn, .cancel-btn {
-                width: 100%;
-                max-width: 300px;
-            }
-        }
-    </style>
-</body>
-</html>
+    }
+</style>
