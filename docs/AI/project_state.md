@@ -38,9 +38,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 10: Cleanup Duplicate Interfaces**
+**Production Hygiene — Wave 10: Cleanup Duplicate Interfaces ✅ COMPLETED**
 
-**Status:** TODO — Branch `feature/wave10-cleanup-interfaces` (to be created from `main` after Wave 9 merge)
+**Status:** DONE — Branch `feature/wave10-cleanup-interfaces` (commit `7174129`)
 
 **Latest Commit (Wave 9):** pending merge on `feature/wave9-cleanup-controller`
 
@@ -96,6 +96,12 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Xóa `ShopERP/Controllers/CustomersController.cs`; xóa `CustomerApiIntegrationTests` (không có Gateway endpoints tương đương)
   * Verify: không còn references trong production code; build 0 errors; guard-check PASS
 
+- **Production Hygiene — Wave 10: Cleanup Duplicate Interfaces ✅ COMPLETED** (2026-06-26)
+  * W10-T1→T4 COMPLETE — Branch `feature/wave10-cleanup-interfaces` (commit `7174129`)
+  * Xóa `ShopERP/Services/ISocialCampaignService.cs` và `ShopERP/Services/ILoyaltyRewardsService.cs` (duplicate của CoreHub)
+  * Fix `SocialCampaignManager.cshtml`: `@inject` đổi sang `VanAn.CoreHub.Services` namespace
+  * Verify: 0 references đến ShopERP duplicates; build 0 errors; guard-check PASS
+
 ### Blocked
 
 - Không có blockers.
@@ -104,14 +110,9 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Current: Wave 10 - Cleanup Duplicate Interfaces
+### Next: Wave 11 (TBD)
 
-Tạo branch `feature/wave10-cleanup-interfaces` từ `main` sau khi Wave 9 merge.
-
-1. W10-T1: Xóa `ShopERP/Services/ISocialCampaignService.cs`
-2. W10-T2: Xóa `ShopERP/Services/ILoyaltyRewardsService.cs`
-3. W10-T3: Verify không có references đến duplicate interfaces
-4. W10-T4: Update `Program.cs` — remove DI registrations nếu có
+Wave 10 hoàn thành. Chờ định nghĩa Wave 11 từ PRODUCTION_HYGIENE_master_plan.md.
 
 ---
 
@@ -394,7 +395,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-25 (Wave 9 - Cleanup Orphan Controller)
+* Last Updated: 2026-06-26 (Wave 10 - Cleanup Duplicate Interfaces; branch: feature/wave10-cleanup-interfaces)
 * Current Branch: `feature/wave9-cleanup-controller`
 * **Wave 9 — Cleanup Orphan Controller (2026-06-25):** COMPLETED. Deleted `ShopERP/Controllers/CustomersController.cs` and `CustomerApiIntegrationTests.cs`. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W9-T1→T4 status.
 
