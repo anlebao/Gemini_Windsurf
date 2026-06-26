@@ -232,6 +232,27 @@ namespace VanAn.CoreHub.Services
             return true;
         }
 
+        public async Task<bool> UpdateOrderVoiceNoteAsync(Guid orderId, string voiceNoteText, Guid tenantId)
+        {
+            OrderId orderIdObj = new(orderId);
+            TenantId tenantIdObj = new(tenantId);
+            Order? order = await _orderRepository.GetByIdAsync(orderIdObj, tenantIdObj);
+
+            if (order == null)
+            {
+                _logger.LogWarning("Order {OrderId} not found for tenant {TenantId}", orderId, tenantId);
+                return false;
+            }
+
+            order.UpdateVoiceNotes(voiceNoteText, null);
+
+            _ = await _orderRepository.UpdateAsync(order);
+            await _orderRepository.SaveChangesAsync();
+
+            _logger.LogInformation("Updated voice note for order {OrderId}", orderId);
+            return true;
+        }
+
         // NEW METHODS
 
         public async Task<Order> CreateOrderWithQueueAsync(Order order, Guid tenantId)

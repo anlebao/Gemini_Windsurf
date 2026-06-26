@@ -290,9 +290,9 @@ await Http.PutAsJsonAsync($"api/v1/orders/{currentOrderId}/note", updateData);
 | W15-T3 | `Pages/VoiceNote.razor` rewrite | W15-T2 | 📋 TODO |
 | W15-T4 | Verify build + E2E contract | W15-T3 | 📋 TODO |
 | W15-T5 | Update `project_state.md` | W15-T4 | 📋 TODO |
-| W16-T1 | `Pages/Campaign.cshtml` + `.cshtml.cs` + Gateway endpoints | W15 complete | 📋 TODO |
-| W16-T2 | `Components/Pages/VanAnDashboard.razor` (XÓA) + `Components/Dashboard/RealTimeDashboard.razor` (FIX) | W15-T1 | 📋 TODO |
-| W16-T3 | `Components/VoiceCommand.razor` | — | 📋 TODO |
+| W16-T1 | `Pages/Campaign.cshtml` + `.cshtml.cs` + Gateway endpoints | W15 complete | ✅ DONE |
+| W16-T2 | `Components/Pages/VanAnDashboard.razor` (XÓA) + `Components/Dashboard/RealTimeDashboard.razor` (FIX) | W15-T1 | ✅ DONE |
+| W16-T3 | `Components/VoiceCommand.razor` | — | ✅ DONE |
 
 ---
 

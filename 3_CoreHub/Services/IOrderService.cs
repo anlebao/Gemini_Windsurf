@@ -32,6 +32,7 @@ namespace VanAn.CoreHub.Services
         /// Update order status
         /// </summary>
         Task<bool> UpdateOrderStatusAsync(Guid orderId, string newStatus, Guid tenantId);
+        Task<bool> UpdateOrderVoiceNoteAsync(Guid orderId, string voiceNoteText, Guid tenantId);
 
         // NEW METHODS - Queue Support
         Task<Order> CreateOrderWithQueueAsync(Order order, Guid tenantId);

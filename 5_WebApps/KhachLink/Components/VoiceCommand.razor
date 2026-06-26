@@ -1,6 +1,6 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject ILocalizationService LocalizationService
 
@@ -119,6 +119,7 @@
     private string transcript = "";
     private string currentOrderId = "";
     private string selectedLanguage = "vi";
+    private HttpClient Http => HttpClientFactory.CreateClient("gateway");
 
     protected override async Task OnParametersSetAsync()
     {
@@ -189,7 +190,7 @@
             {
                 // Update order note via API
                 var updateData = new { OrderNote = note };
-                await Http.PutAsJsonAsync($"/api/v1/orders/{currentOrderId}/note", updateData);
+                await Http.PutAsJsonAsync($"api/orders/{currentOrderId}/note", updateData);
             }
         }
         catch (Exception ex)

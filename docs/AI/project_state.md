@@ -38,11 +38,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization ✅ COMPLETED**
+**Production Hygiene — Wave 16: KhachLink Production Flow Hardening ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/wave15-khachlink-page-cleanup` (commit `26abd83`), PR #TBD
+**Status:** DONE — Branch `feature/wave15-khachlink-page-cleanup` (commit `TBD`), PR #TBD
 
-**Wave 14:** COMPLETED — HMAC-SHA256 API Request Signing (#63)
+**Wave 15:** COMPLETED — KhachLink Page Cleanup + Routing Modernization
 
 ---
 
@@ -133,11 +133,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Rate limit: 5 failures → 15-min block per KeyId
   * Tests: 10/10 integration tests PASS (W14-S1→S10); Architecture tests: 21/21 PASS; guard-check: PASS
 
-- **Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization ✅ COMPLETED** (2026-06-26)
-  * W15-T1→T5 COMPLETE — Branch `feature/wave15-khachlink-page-cleanup` (commit `26abd83`)
-  * Xóa 6 dead/demo pages; `Dashboard.cshtml` → `Dashboard.razor` render `<RealTimeDashboard />`
-  * Modernize `Program.cs` sang Blazor Web App: `AddRazorComponents()` + `MapRazorComponents<App>()`; xóa `AddServerSideBlazor`, `MapBlazorHub`, `MapFallbackToPage("/Index")`
-  * Rewrite `VoiceNote.razor`: `IHttpClientFactory("gateway")`, endpoint `POST /api/v1/voicecommand/text-command`, `VanAnAlert` thay `alert()` native, không còn `<html>/<head>/<body>` tags
+- **Production Hygiene — Wave 16: KhachLink Production Flow Hardening ✅ COMPLETED** (2026-06-27)
+  * W16-T1→T5 COMPLETE — Branch `feature/wave15-khachlink-page-cleanup` (commit `TBD`)
+  * Refactor `Campaign.cshtml`/`Campaign.cshtml.cs`: xóa CoreHub inject, gọi Gateway endpoints `GET /api/campaigns/{code}` + `POST /api/campaigns/click/{code}`, xóa social proof giả + discount giả, `orderProduct()` gọi `POST /api/public/orders` thật qua `PublicOrdersController`
+  * Fix `RealTimeDashboard.razor`: xóa `VanAnDashboard.razor`, thay `"demo-shop"` hardcode bằng `TenantService.GetCurrentTenantId().ToString()` trong `JoinShopGroup()` và `RequestShopMetrics`
+  * Fix `VoiceCommand.razor`: thay `@inject HttpClient` bằng `IHttpClientFactory("gateway")`, endpoint `PUT /api/orders/{id}/note` thông qua `OrdersController.UpdateOrderNote`
   * Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS
 
 ### Blocked
@@ -148,13 +148,12 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Next: Wave 16 — KhachLink Production Flow Hardening
+### Next: Wave 17 — Retention & Promotion Features
 
-1. W16-T1: Refactor `Campaign.cshtml` — xóa CoreHub inject, gọi Gateway endpoints, xóa social proof giả
-2. W16-T2: Fix `RealTimeDashboard.razor` — thay `"demo-shop"` hardcode bằng `ITenantService.GetCurrentTenantId()`
-3. W16-T3: Fix `VoiceCommand.razor` — thay `@inject HttpClient` bằng `IHttpClientFactory("gateway")`
-4. W16-T4: Verify build 0 errors + E2E selector contract giữ nguyên
-5. W16-T5: Update `project_state.md` — ghi nhận Wave 16
+1. W17-T1: Implement abandoned-cart recovery email flow
+2. W17-T2: Add loyalty points accrual on order completion
+3. W17-T3: Coupon/promotion code validation endpoint
+4. W17-T4: Verify build + integration tests
 
 ---
 
@@ -439,7 +438,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 15 - KhachLink Page Cleanup; branch: feature/wave15-khachlink-page-cleanup)
+* Last Updated: 2026-06-27 (Wave 16 - KhachLink Production Flow Hardening; branch: feature/wave15-khachlink-page-cleanup)
 * Current Branch: `feature/wave15-khachlink-page-cleanup`
 * **Wave 15 — KhachLink Page Cleanup + Routing Modernization (2026-06-26):** COMPLETED. Deleted 6 dead/demo pages; converted `Dashboard.cshtml` to `Dashboard.razor`; modernized `Program.cs` to Blazor Web App routing; rewrote `VoiceNote.razor` with `IHttpClientFactory("gateway")` and correct endpoint. Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS. Latest commit: `26abd83 feat(wave15): KhachLink page cleanup + Blazor Web App routing`.
 * **Wave 15 Planning (2026-06-26):** KHACHLINK_PRODUCTION_PLAN.md rebuilt — scope W15-T1 cập nhật (xóa 6 files + convert Dashboard.cshtml→Dashboard.razor), W15-T2 cập nhật (Blazor Web App routing AddRazorComponents), W17 tách sang KHACHLINK_RETENTION_PLAN.md (DEFERRED), tất cả W15 + W17 task cards updated với đúng master plan reference.
