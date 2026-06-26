@@ -38,11 +38,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 13: Replace Hardcoded Data ✅ COMPLETED**
+**Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization ✅ COMPLETED**
 
-**Status:** DONE — Branch `feature/wave13-replace-hardcoded-data` (commit `078ae76`), PR #62 open
+**Status:** DONE — Branch `feature/wave15-khachlink-page-cleanup` (commit `26abd83`), PR #TBD
 
-**Wave 12 PR:** #61 open — `feature/wave12-api-authorization` (commit `3f8d549`)
+**Wave 14:** COMPLETED — HMAC-SHA256 API Request Signing (#63)
 
 ---
 
@@ -122,6 +122,18 @@ Mọi cập nhật file này PHẢI tuân thủ:
   * Gateway/OnboardingController: xóa dead code `customizedTemplate` + stale comment
   * Tests: 5 integration tests PASS; Architecture tests: 21/21 PASS
 
+- **Production Hygiene — Wave 14: HMAC-SHA256 API Request Signing ✅ COMPLETED** (2026-06-26)
+  * W14-T1→T5 COMPLETE — Branch `feature/wave14-api-request-signing` (commit `5462759`), PR #63
+  * Gateway: HMAC-SHA256 signing middleware, API key entity + CRUD endpoints, key revocation
+  * Integration tests: HMAC request signing pipeline PASS
+
+- **Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization ✅ COMPLETED** (2026-06-26)
+  * W15-T1→T5 COMPLETE — Branch `feature/wave15-khachlink-page-cleanup` (commit `26abd83`)
+  * Xóa 6 dead/demo pages; `Dashboard.cshtml` → `Dashboard.razor` render `<RealTimeDashboard />`
+  * Modernize `Program.cs` sang Blazor Web App: `AddRazorComponents()` + `MapRazorComponents<App>()`; xóa `AddServerSideBlazor`, `MapBlazorHub`, `MapFallbackToPage("/Index")`
+  * Rewrite `VoiceNote.razor`: `IHttpClientFactory("gateway")`, endpoint `POST /api/v1/voicecommand/text-command`, `VanAnAlert` thay `alert()` native, không còn `<html>/<head>/<body>` tags
+  * Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS
+
 ### Blocked
 
 - Không có blockers.
@@ -130,13 +142,13 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-### Next: Wave 14 — Lightweight API Request Signing (HMAC)
+### Next: Wave 16 — KhachLink Production Flow Hardening
 
-1. W14-T1: Implement HMAC Signing Middleware tại Gateway
-2. W14-T2: Implement Timestamp + Nonce Anti-Replay (IMemoryCache)
-3. W14-T3: Implement API Key entity + CRUD management endpoints
-4. W14-T4: Implement Key Revocation + Rate Limiting
-5. W14-T5: Integration Tests cho Request Signing pipeline
+1. W16-T1: Refactor `Campaign.cshtml` — xóa CoreHub inject, gọi Gateway endpoints, xóa social proof giả
+2. W16-T2: Fix `RealTimeDashboard.razor` — thay `"demo-shop"` hardcode bằng `ITenantService.GetCurrentTenantId()`
+3. W16-T3: Fix `VoiceCommand.razor` — thay `@inject HttpClient` bằng `IHttpClientFactory("gateway")`
+4. W16-T4: Verify build 0 errors + E2E selector contract giữ nguyên
+5. W16-T5: Update `project_state.md` — ghi nhận Wave 16
 
 ---
 
@@ -392,7 +404,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 10. History Log (Completed Initiatives)
 
-* [2026-06-25] Production Hygiene — Wave 9: Cleanup Orphan Controller (Branch eature/wave9-cleanup-controller — pending merge)
+* [2026-06-26] Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization (Branch `feature/wave15-khachlink-page-cleanup` — pending merge; commit `26abd83`)
+* [2026-06-26] Production Hygiene — Wave 14: HMAC-SHA256 API Request Signing (Branch `feature/wave14-api-request-signing` — PR #63; commit `5462759`)
+* [2026-06-25] Production Hygiene — Wave 9: Cleanup Orphan Controller (Branch `feature/wave9-cleanup-controller` — pending merge)
 * [2026-06-23] Security Compliance — Wave 6: User Aggregate + RBAC Management (Merged to main - Commit 2599c1b)
 * [2026-06-23] Security Compliance — Wave 5: Domain Refactor + Tenant Rich Domain + CRUD (Merged to Wave 6 base)
 * [2026-06-23] Security Compliance — Wave 4: RBAC Enforcement at Blazor UI Layer (Merged to main - Commit 5a6b441)
@@ -419,8 +433,10 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 13 - Replace Hardcoded Data; branch: feature/wave13-replace-hardcoded-data)
-* Current Branch: `feature/wave11-cleanup-invalid-files`
+* Last Updated: 2026-06-26 (Wave 15 - KhachLink Page Cleanup; branch: feature/wave15-khachlink-page-cleanup)
+* Current Branch: `feature/wave15-khachlink-page-cleanup`
+* **Wave 15 — KhachLink Page Cleanup + Routing Modernization (2026-06-26):** COMPLETED. Deleted 6 dead/demo pages; converted `Dashboard.cshtml` to `Dashboard.razor`; modernized `Program.cs` to Blazor Web App routing; rewrote `VoiceNote.razor` with `IHttpClientFactory("gateway")` and correct endpoint. Build: 0 errors; guard-check: PASS; Architecture tests: 21/21 PASS. Latest commit: `26abd83 feat(wave15): KhachLink page cleanup + Blazor Web App routing`.
+
 * **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
 
 * **Wave 9 — Cleanup Orphan Controller (2026-06-25):** COMPLETED. Deleted `ShopERP/Controllers/CustomersController.cs` and `CustomerApiIntegrationTests.cs`. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W9-T1→T4 status.
