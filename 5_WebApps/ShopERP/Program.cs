@@ -318,10 +318,13 @@ namespace VanAn.ShopERP
                 }
                 else if (existingOwner.Role != UserRole.Owner)
                 {
-                    // Fix owner role if incorrect
-                    existingOwner.Role = UserRole.Owner;
+                    // Fix owner role if incorrect - delete and recreate
+                    context.Users.Remove(existingOwner);
+                    context.Users.Add(
+                        new DemoUser(seedTenantId, ownerUsername, passwordHash, "Chủ Quán", UserRole.Owner)
+                    );
                     _ = await context.SaveChangesAsync();
-                    Console.WriteLine($"Wave 0: Owner role fixed — owner={ownerUsername}, oldRole={existingOwner.Role}");
+                    Console.WriteLine($"Wave 0: Owner role fixed by recreating user — owner={ownerUsername}, oldRole={existingOwner.Role}");
                 }
 
                 // Wave 2: Encrypt any pre-existing plaintext PII in dev DB
