@@ -85,7 +85,7 @@
 
         @* ── Luồng 3: Hóa Đơn Điện Tử ── *@
         <AuthorizeView Roles="Owner,StoreKeeper">
-            <Authorized>
+            <Authorized Context="einvoiceAuth">
                 <VanACard Header="🧾 Hóa Đơn Điện Tử" Hoverable="true" data-testid="card-einvoice">
                     <div class="sitemap-links">
                         <a href="/einvoice" class="sitemap-link" data-testid="link-einvoice-dashboard">
@@ -97,7 +97,7 @@
                             <span>Quản Lý Hóa Đơn</span>
                         </a>
                         <AuthorizeView Roles="Owner">
-                            <Authorized>
+                            <Authorized Context="ownerAuth">
                                 <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
                                     <span class="sitemap-link-icon">⚙️</span>
                                     <span>Cấu Hình Provider</span>
