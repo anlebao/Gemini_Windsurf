@@ -106,17 +106,11 @@ namespace VanAn.Gateway.Controllers
             {
                 _logger.LogInformation("Starting quick setup for shop: {ShopId} with template: {TemplateType}", shopId, request.TemplateType);
 
-                // Get template
                 if (!Guid.TryParse(request.TemplateType, out Guid templateId))
                 {
                     return BadRequest(new { error = "Invalid template type format" });
                 }
-                OnboardingTemplate? template = await _onboardingService.GetTemplateAsync(templateId);
-
-                // Customize template with user input - simplified for dummy implementation
-                OnboardingTemplate? customizedTemplate = template;
-
-                // Apply template
+                // Apply template with shop-specific configuration
                 OnboardingTemplate applied = await _onboardingService.ApplyTemplateAsync(templateId, shopId);
 
                 if (applied != null)
