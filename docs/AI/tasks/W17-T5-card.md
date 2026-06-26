@@ -1,6 +1,7 @@
 # W17-T5 — Store Finder (Fix Google Maps key + Multi-shop + Lat/Lng Domain)
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T5
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🟢 MEDIUM — độc lập, không block T1-T4
 **Conflict risk:** MEDIUM — Domain modification approved (Latitude/Longitude trên Shop entity)

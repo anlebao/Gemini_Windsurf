@@ -131,6 +131,35 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        [HttpPut("{id}/note")]
+        public async Task<ActionResult> UpdateOrderNote(Guid id, [FromBody] OrderNoteRequest request)
+        {
+            try
+            {
+                ArgumentNullException.ThrowIfNull(request);
+
+                Guid tenantId = GetTenantId();
+                if (tenantId == Guid.Empty)
+                {
+                    _logger.LogWarning("UpdateOrderNote rejected: missing TenantId claim");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
+
+                bool updated = await _orderService.UpdateOrderVoiceNoteAsync(id, request.Note, tenantId);
+                if (!updated)
+                {
+                    return NotFound(new { error = "Order not found" });
+                }
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order note {OrderId}", id);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         private Guid GetTenantId()
         {
             // Wave 1 Phase 2: Standardized claim name "tenant_id" (snake_case, OIDC standard)
@@ -156,5 +185,10 @@ namespace VanAn.Gateway.Controllers
         public decimal UnitPrice { get; set; }
         public decimal VatRate { get; set; }
         public string Notes { get; set; } = string.Empty;
+    }
+
+    public class OrderNoteRequest
+    {
+        public string Note { get; set; } = string.Empty;
     }
 }

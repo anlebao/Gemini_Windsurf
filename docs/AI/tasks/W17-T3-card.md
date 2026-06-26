@@ -1,6 +1,7 @@
 # W17-T3 — Lịch sử đơn hàng cá nhân
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T3
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🟡 HIGH
 **Conflict risk:** LOW — thêm 1 query param vào OrdersController đã có, 1 Razor page mới

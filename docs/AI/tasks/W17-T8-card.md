@@ -1,6 +1,7 @@
 # W17-T8 — Update project_state.md
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T8
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🟢 LOW — housekeeping, không block merge
 **Conflict risk:** NONE

@@ -1,6 +1,7 @@
 # W17-T6 — NavMenu Update (4 retention routes mới)
 
 **Wave:** 17 — KhachLink Retention & Loyalty
+**Master plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` § T6
 **Branch:** `feature/wave17-khachlink-retention`
 **Priority:** 🟢 MEDIUM — blocking UX nếu user không tìm được các tính năng mới
 **Conflict risk:** VERY LOW — chỉ sửa NavMenu.razor
