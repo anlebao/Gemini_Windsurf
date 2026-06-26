@@ -8,12 +8,18 @@ namespace VanAn.Integration.Tests.Infrastructure;
 /// </summary>
 public class TestTenantProvider : ITenantProvider
 {
-    private readonly TenantId _tenantId;
+    private TenantId _tenantId;
     private string? _currentUser;
 
     public TestTenantProvider()
     {
+        // Default tenant ID for backward compatibility
         _tenantId = new TenantId(Guid.Parse("12345678-1234-1234-1234-123456789abc"));
+    }
+
+    public TestTenantProvider(TenantId tenantId)
+    {
+        _tenantId = tenantId;
     }
 
     public Guid TenantId => _tenantId.Value;
@@ -24,8 +30,7 @@ public class TestTenantProvider : ITenantProvider
 
     public void SetTenant(Guid tenantId)
     {
-        // For testing, we don't allow changing the tenant
-        // This could be enhanced if needed for specific test scenarios
+        _tenantId = new TenantId(tenantId);
     }
 
     public TenantId GetCurrentTenantId()

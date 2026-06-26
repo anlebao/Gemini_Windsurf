@@ -31,6 +31,8 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="RichardSzalay.MockHttp" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="BCrypt.Net-Next" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,6 +41,12 @@
     <ProjectReference Include="..\..\3_CoreHub\VanAn.CoreHub.csproj" />
     <ProjectReference Include="..\..\5_WebApps\KhachLink\VanAn.KhachLink.csproj" />
     <ProjectReference Include="..\..\5_WebApps\ShopERP\VanAn.ShopERP.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.test.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

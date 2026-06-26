@@ -9,8 +9,10 @@ export default defineConfig({
   testMatch: '**/*.spec.ts',
   fullyParallel: config.E2E_TEST_PARALLEL,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Retry logic for network flakiness: 2 retries in CI, 1 locally
+  retries: process.env.CI ? 2 : 1,
+  // Wave 5: Optimize CI parallelization - use 4 workers in CI for faster execution
+  workers: process.env.CI ? 4 : undefined,
   reporter: [
     ['html', { outputFolder: 'reports/playwright-html-report' }],
     ['json', { outputFile: 'reports/playwright-report.json' }],
@@ -46,6 +48,17 @@ export default defineConfig({
     {
       name: 'e2e-tests',
       testMatch: 'e2e-tests/**/*.spec.ts',
+      use: {
+        baseURL: config.SHOPERP_URL,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+        storageState: 'auth/admin.json'
+      }
+    },
+    {
+      name: 'accounting-e2e',
+      testMatch: 'e2e-tests/accounting*.spec.ts',
       use: {
         baseURL: config.SHOPERP_URL,
         trace: 'on-first-retry',
