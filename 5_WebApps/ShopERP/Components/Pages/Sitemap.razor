@@ -8,6 +8,7 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration Configuration
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Sitemap - Vạn An Ecosystem</PageTitle>
 
@@ -268,8 +269,12 @@
         _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? "https://diemthuong.vanantech.io.vn";
     }
 
-    private void Logout()
-    {
-        NavigationManager.NavigateTo("/Logout", forceLoad: true);
-    }
+    private async Task Logout()
+{
+    // Clear authentication cookies using JavaScript
+    await JSRuntime.InvokeVoidAsync("eval", @"
+        document.cookie = '.VanAn.Auth=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure';
+        window.location.href = '/Login';
+    ");
+}
 }
