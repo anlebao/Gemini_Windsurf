@@ -28,9 +28,6 @@ RUN dotnet restore "5_WebApps/ShopERP/VanAn.ShopERP.csproj"
 
 # Copy everything else and build
 COPY . .
-
-# Explicitly copy the new Repositories directory to ensure it's included
-COPY ["1_Shared/Repositories/", "1_Shared/Repositories/"]
 WORKDIR "/src/5_WebApps/ShopERP"
 
 # TODO: Add tests back when test project is properly configured
