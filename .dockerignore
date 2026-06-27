@@ -48,3 +48,6 @@ shoperp.log
 *.db
 *.db-wal
 *.db-shm
+
+# IMPORTANT: Ensure new Shared/Repositories directory is included
+!1_Shared/Repositories/
