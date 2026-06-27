@@ -20,6 +20,9 @@ RUN dotnet restore "2_Gateway/VanAn.Gateway.csproj"
 
 # Copy everything else and build
 COPY . .
+
+# Explicitly copy the new Repositories directory to ensure it's included
+COPY ["1_Shared/Repositories/", "1_Shared/Repositories/"]
 WORKDIR "/src/2_Gateway"
 
 # TODO: Add tests back when test project is properly configured

@@ -26,6 +26,9 @@ RUN dotnet restore "3_CoreHub/VanAn.CoreHub.csproj"
 
 # Copy everything else and build
 COPY . .
+
+# Explicitly copy the new Repositories directory to ensure it's included
+COPY ["1_Shared/Repositories/", "1_Shared/Repositories/"]
 WORKDIR "/src/3_CoreHub"
 
 # TODO: Add tests back when test project is properly configured
