@@ -131,15 +131,35 @@
             Metrics.NetProfit = Metrics.MonthlyRevenue - Metrics.MonthlyExpense;
             Metrics.EntryCount = entries.Count();
 
-            // Calculate trends (placeholder - would compare with previous month)
-            Metrics.RevenueTrend = "+8%";
-            Metrics.ExpenseTrend = "+5%";
-            Metrics.ProfitTrend = "+12%";
+            // Calculate trends by comparing with previous month
+            var previousPeriod = new AccountingPeriod(
+                currentDate.Month == 1 ? currentDate.Year - 1 : currentDate.Year,
+                currentDate.Month == 1 ? 12 : currentDate.Month - 1
+            );
+
+            var previousEntries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, previousPeriod);
+            var previousRevenue = previousEntries.Where(e => e.EntryType == AccountingEntryType.Revenue).Sum(e => e.Amount);
+            var previousExpense = previousEntries.Where(e => e.EntryType == AccountingEntryType.Expense).Sum(e => e.Amount);
+            var previousProfit = previousRevenue - previousExpense;
+
+            Metrics.RevenueTrend = CalculateTrend(previousRevenue, Metrics.MonthlyRevenue);
+            Metrics.ExpenseTrend = CalculateTrend(previousExpense, Metrics.MonthlyExpense);
+            Metrics.ProfitTrend = CalculateTrend(previousProfit, Metrics.NetProfit);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error loading accounting metrics for tenant {TenantId}", TenantProvider.TenantId);
         }
+    }
+
+    private string CalculateTrend(decimal previous, decimal current)
+    {
+        if (previous == 0)
+        {
+            return current > 0 ? "+100%" : "0%";
+        }
+        var change = ((current - previous) / previous) * 100;
+        return (change >= 0 ? "+" : "") + change.ToString("F1") + "%";
     }
 
     private async Task RefreshData()

@@ -3,6 +3,7 @@
 @layout AccountingLayout
 @attribute [Authorize(Policy = "OwnerOnly")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using VanAn.UI.Platform.Components
 @using PlatformComposite = VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
@@ -40,21 +41,20 @@
 
     <VanACard Header="Thông Tin Chi Phí">
         @* HARDENING KIẾN TRÚC: Đưa Form về trang Host quản lý *@
-        <form @onsubmit="HandleSubmit" 
-              @onsubmit:preventDefault
-              data-blazor-interactive="@(_isInteractive.ToString().ToLower())">
-            
-            @* DynamicFormFields chỉ render fields, không giữ thẻ form, không giữ submit logic *@
-            <DynamicFormFields FieldDefinitions="@expenseFields" />
-
-            @* Nút bấm nằm tại trang Host sẽ nhận liên kết Interactive Server 100% chính xác *@
-            <button type="@(_isInteractive ? "submit" : "button")" 
-                    disabled="@(!_isInteractive)"
-                    data-testid="expense-submit"
-                    class="btn btn-primary">
-                Lưu Chi Phí
-            </button>
-        </form>
+        <EditForm Model="@formData" OnValidSubmit="HandleSubmit">
+            <DynamicFormFields 
+                FieldDefinitions="@expenseFields"
+                OnFieldChanged="HandleFieldChanged"
+                @ref="formFieldsRef" />
+            <div class="mt-3">
+                <button type="@(_isInteractive ? "submit" : "button")" 
+                        disabled="@(!_isInteractive)"
+                        data-testid="expense-submit"
+                        class="btn btn-primary">
+                    Lưu Chi Phí
+                </button>
+            </div>
+        </EditForm>
     </VanACard>
 </div>
 
@@ -64,10 +64,75 @@
     private bool showError = false;
     private string errorMessage = string.Empty;
     private bool _isInteractive = false;
+    private PlatformComposite.FormData formData = new();
+    private DynamicFormFields? formFieldsRef;
 
     protected override void OnInitialized()
     {
         InitializeFields();
+    }
+
+    private void HandleFieldChanged(PlatformComposite.FormField field)
+    {
+        formData.Values[field.Id] = field.Value?.ToString() ?? string.Empty;
+        
+        // Clear field error when value changes
+        if (formFieldsRef != null)
+        {
+            formFieldsRef.ClearFieldErrors();
+        }
+    }
+
+    private void ValidateForm()
+    {
+        if (formFieldsRef == null) return;
+
+        formFieldsRef.ClearFieldErrors();
+        bool hasErrors = false;
+
+        // Validate required fields
+        var requiredFields = expenseFields.Where(f => f.Required).ToList();
+        foreach (var field in requiredFields)
+        {
+            var value = formData.Values.GetValueOrDefault(field.Id) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                formFieldsRef.SetFieldError(field.Id, $"{field.Label} là bắt buộc");
+                hasErrors = true;
+            }
+        }
+
+        // Validate amount
+        if (decimal.TryParse(formData.Values.GetValueOrDefault("amount"), out var amount))
+        {
+            if (amount <= 0)
+            {
+                formFieldsRef.SetFieldError("amount", "Số tiền phải lớn hơn 0");
+                hasErrors = true;
+            }
+        }
+
+        // Validate date
+        if (!DateTime.TryParse(formData.Values.GetValueOrDefault("date"), out _))
+        {
+            formFieldsRef.SetFieldError("date", "Ngày không hợp lệ");
+            hasErrors = true;
+        }
+
+        // Validate vendor requirement for specific categories
+        var category = formData.Values.GetValueOrDefault("category") ?? string.Empty;
+        var vendor = formData.Values.GetValueOrDefault("vendor") ?? string.Empty;
+        if (VendorRequiredCategories.Contains(category) && string.IsNullOrWhiteSpace(vendor))
+        {
+            formFieldsRef.SetFieldError("vendor", "Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa");
+            hasErrors = true;
+        }
+
+        if (hasErrors)
+        {
+            showError = true;
+            errorMessage = "Vui lòng sửa các lỗi trước khi lưu";
+        }
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -182,163 +247,187 @@
     private static readonly HashSet<string> VendorRequiredCategories = new() { "materials", "maintenance" };
 
     private async Task HandleSubmit()
+{
+    Logger.LogInformation("ExpenseEntry HandleSubmit ENTERED");
+    try
     {
-        Logger.LogInformation("ExpenseEntry HandleSubmit ENTERED");
-        try
+        showSuccess = false;
+        showError = false;
+        Logger.LogInformation("Reset flags: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
+
+        if (!TenantProvider.HasTenant)
         {
-            showSuccess = false;
-            showError = false;
-            Logger.LogInformation("Reset flags: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
+            showError = true;
+            errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+            StateHasChanged();
+            return;
+        }
+        Logger.LogInformation("TenantId: {TenantId}", TenantProvider.TenantId);
 
-            if (!TenantProvider.HasTenant)
-            {
-                showError = true;
-                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
-                StateHasChanged();
-                return;
-            }
-            Logger.LogInformation("TenantId: {TenantId}", TenantProvider.TenantId);
+        // Client-side validation
+        ValidateForm();
+        if (showError)
+        {
+            StateHasChanged();
+            return;
+        }
 
-            // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
-            // Workaround JS Interop đọc DOM do rớt binding ranh giới Component.
-            // Sẽ refactor sang cơ chế Event Callback chuẩn sau khi Baseline E2E ổn định.
-            // Tier: 2 (Binding - ưu tiên sau Tenant)
-            // CRITICAL FIX: Always read DOM value for amount/category to ensure E2E fills are captured.
-            // Blazor @bind can drop events during fast Playwright fills; DOM is source of truth.
-            var formData = new PlatformComposite.FormData();
-            var criticalFields = new HashSet<string> { "amount", "category", "vendor", "description", "account", "date" };
-            foreach (var field in expenseFields)
+        // TODO: [TECH DEBT] [VẠN AN PLATFORM HARDENING]
+        // Workaround JS Interop đọc DOM do rớt binding ranh giới Component.
+        // Sẽ refactor sang cơ chế Event Callback chuẩn sau khi Baseline E2E ổn định.
+        // Tier: 2 (Binding - ưu tiên sau Tenant)
+        // CRITICAL FIX: Always read DOM value for amount/category to ensure E2E fills are captured.
+        // Blazor @bind can drop events during fast Playwright fills; DOM is source of truth.
+        var criticalFields = new HashSet<string> { "amount", "category", "vendor", "description", "account", "date" };
+        foreach (var field in expenseFields)
+        {
+            string value;
+            // Always read from DOM for critical fields to handle binding race conditions
+            if (criticalFields.Contains(field.Id))
             {
-                string value;
-                // Always read from DOM for critical fields to handle binding race conditions
-                if (criticalFields.Contains(field.Id))
+                try
                 {
-                    try
+                    value = await JSRuntime.InvokeAsync<string>("vananReadElementValue", field.Id) ?? string.Empty;
+                    // If DOM is empty, fall back to model value as safety net
+                    if (string.IsNullOrEmpty(value))
                     {
-                        value = await JSRuntime.InvokeAsync<string>("vananReadElementValue", field.Id) ?? string.Empty;
-                        // If DOM is empty, fall back to model value as safety net
-                        if (string.IsNullOrEmpty(value))
-                        {
-                            value = field.Value?.ToString() ?? string.Empty;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogWarning(ex, "JS interop read failed for critical field {FieldId}, using model fallback", field.Id);
                         value = field.Value?.ToString() ?? string.Empty;
                     }
                 }
-                else
+                catch (Exception ex)
                 {
+                    Logger.LogWarning(ex, "JS interop read failed for critical field {FieldId}, using model fallback", field.Id);
                     value = field.Value?.ToString() ?? string.Empty;
                 }
-                formData.Values[field.Id] = value;
-                Logger.LogInformation("Field {FieldId}: '{FieldValue}' (source: {Source})", field.Id, value, criticalFields.Contains(field.Id) ? "DOM" : "model");
             }
-
-            // Validate amount - support both raw and formatted numbers (500000 or 500.000)
-            Logger.LogInformation("Validating amount: {Amount}", formData.Values["amount"]);
-            var amountStr = formData.Values["amount"].Replace(".", "").Replace(",", "");
-            if (!decimal.TryParse(amountStr, out var amount) || amount <= 0)
+            else
             {
-                Logger.LogWarning("Amount validation failed for: {AmountStr}", amountStr);
-                showError = true;
-                errorMessage = "Số tiền phải lớn hơn 0";
-                StateHasChanged();
-                return;
+                value = field.Value?.ToString() ?? string.Empty;
             }
-            Logger.LogInformation("Amount validation passed: {Amount}", amount);
-
-            // Validate date
-            Logger.LogInformation("Validating date: {Date}", formData.Values["date"]);
-            if (!DateTime.TryParse(formData.Values["date"], out var date))
-            {
-                Logger.LogWarning("Date validation failed");
-                showError = true;
-                errorMessage = "Ngày không hợp lệ";
-                StateHasChanged();
-                return;
-            }
-            Logger.LogInformation("Date validation passed: {Date}", date);
-
-            // Validate account code format (must be 6xx for expense)
-            var accountCode = formData.Values.GetValueOrDefault("account") ?? string.Empty;
-            Logger.LogInformation("Validating account code: {AccountCode}", accountCode);
-            if (string.IsNullOrEmpty(accountCode) || !IsValidExpenseAccountCode(accountCode))
-            {
-                Logger.LogWarning("Account code validation failed");
-                showError = true;
-                errorMessage = "Mã tài khoản không hợp lệ. Chi phí phải thuộc nhóm 6xx.";
-                StateHasChanged();
-                return;
-            }
-            Logger.LogInformation("Account code validation passed");
-
-            // Vendor required for material/maintenance categories
-            var category = formData.Values.GetValueOrDefault("category") ?? string.Empty;
-            var vendor = formData.Values.GetValueOrDefault("vendor") ?? string.Empty;
-            Logger.LogInformation("Validating vendor: Category={Category}, Vendor={Vendor}", category, vendor);
-            if (VendorRequiredCategories.Contains(category) && string.IsNullOrWhiteSpace(vendor))
-            {
-                Logger.LogWarning("Vendor validation failed - vendor required for category {Category}", category);
-                showError = true;
-                errorMessage = "Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.";
-                StateHasChanged();
-                return;
-            }
-            Logger.LogInformation("Vendor validation passed");
-
-            // Duplicate check: same amount + date + account within 5 minutes
-            var now = DateTime.Now;
-            _recentEntries.RemoveAll(e => (now - e.SubmittedAt).TotalMinutes > 5);
-            var duplicate = _recentEntries.FirstOrDefault(e =>
-                e.Amount == amount && e.Date.Date == date.Date && e.AccountCode == accountCode);
-
-            if (duplicate != null)
-            {
-                Logger.LogWarning("Duplicate entry detected");
-                showError = true;
-                errorMessage = "Phát hiện bút toán trùng lặp (cùng số tiền, ngày, tài khoản trong 5 phút). Vui lòng kiểm tra lại.";
-                StateHasChanged();
-                return;
-            }
-            Logger.LogInformation("Duplicate check passed");
-
-            // Create accounting period
-            var period = new AccountingPeriod(date.Year, date.Month);
-            var tenantId = new TenantId(TenantProvider.TenantId);
-            Logger.LogInformation("Calling AccountingService.CreateExpenseEntryAsync with Period={Period}, Amount={Amount}", period, amount);
-
-            // Create accounting entry using IAccountingService
-            await AccountingService.CreateExpenseEntryAsync(
-                tenantId,
-                period,
-                amount,
-                formData.Values["description"]);
-
-            Logger.LogInformation("AccountingService.CreateExpenseEntryAsync completed successfully");
-
-            // Track for duplicate detection
-            _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
-
-            showSuccess = true;
-            showError = false;
-            errorMessage = string.Empty;
-            Logger.LogInformation("Setting success state: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
-            StateHasChanged();
-            Logger.LogInformation("StateHasChanged called");
-
-            // Reset form
-            InitializeFields();
+            formData.Values[field.Id] = value;
+            Logger.LogInformation("Field {FieldId}: '{FieldValue}' (source: {Source})", field.Id, value, criticalFields.Contains(field.Id) ? "DOM" : "model");
         }
-        catch (Exception ex)
+
+        // Validate amount - support both raw and formatted numbers (500000 or 500.000)
+        Logger.LogInformation("Validating amount: {Amount}", formData.Values["amount"]);
+        var amountStr = formData.Values["amount"].Replace(".", "").Replace(",", "");
+        if (!decimal.TryParse(amountStr, out var amount) || amount <= 0)
         {
-            Logger.LogError(ex, "Error saving expense entry for tenant {TenantId}", TenantProvider.TenantId);
+            Logger.LogWarning("Amount validation failed for: {AmountStr}", amountStr);
             showError = true;
-            errorMessage = $"Lỗi khi lưu: {ex.Message}";
-            Logger.LogInformation("Setting error state: showError={showError}, errorMessage={errorMessage}", showError, errorMessage);
+            errorMessage = "Số tiền phải lớn hơn 0";
+            if (formFieldsRef != null)
+            {
+                formFieldsRef.SetFieldError("amount", errorMessage);
+            }
             StateHasChanged();
+            return;
         }
+        Logger.LogInformation("Amount validation passed: {Amount}", amount);
+
+        // Validate date
+        Logger.LogInformation("Validating date: {Date}", formData.Values["date"]);
+        if (!DateTime.TryParse(formData.Values["date"], out var date))
+        {
+            Logger.LogWarning("Date validation failed");
+            showError = true;
+            errorMessage = "Ngày không hợp lệ";
+            if (formFieldsRef != null)
+            {
+                formFieldsRef.SetFieldError("date", errorMessage);
+            }
+            StateHasChanged();
+            return;
+        }
+        Logger.LogInformation("Date validation passed: {Date}", date);
+
+        // Validate account code format (must be 6xx for expense)
+        var accountCode = formData.Values.GetValueOrDefault("account") ?? string.Empty;
+        Logger.LogInformation("Validating account code: {AccountCode}", accountCode);
+        if (string.IsNullOrEmpty(accountCode) || !IsValidExpenseAccountCode(accountCode))
+        {
+            Logger.LogWarning("Account code validation failed");
+            showError = true;
+            errorMessage = "Mã tài khoản không hợp lệ. Chi phí phải thuộc nhóm 6xx.";
+            if (formFieldsRef != null)
+            {
+                formFieldsRef.SetFieldError("account", errorMessage);
+            }
+            StateHasChanged();
+            return;
+        }
+        Logger.LogInformation("Account code validation passed");
+
+        // Vendor required for material/maintenance categories
+        var category = formData.Values.GetValueOrDefault("category") ?? string.Empty;
+        var vendor = formData.Values.GetValueOrDefault("vendor") ?? string.Empty;
+        Logger.LogInformation("Validating vendor: Category={Category}, Vendor={Vendor}", category, vendor);
+        if (VendorRequiredCategories.Contains(category) && string.IsNullOrWhiteSpace(vendor))
+        {
+            Logger.LogWarning("Vendor validation failed - vendor required for category {Category}", category);
+            showError = true;
+            errorMessage = "Nhà cung cấp bắt buộc khi loại chi phí là Nguyên vật liệu hoặc Bảo trì & Sửa chữa.";
+            if (formFieldsRef != null)
+            {
+                formFieldsRef.SetFieldError("vendor", errorMessage);
+            }
+            StateHasChanged();
+            return;
+        }
+        Logger.LogInformation("Vendor validation passed");
+
+        // Duplicate check: same amount + date + account within 5 minutes
+        var now = DateTime.Now;
+        _recentEntries.RemoveAll(e => (now - e.SubmittedAt).TotalMinutes > 5);
+        var duplicate = _recentEntries.FirstOrDefault(e =>
+            e.Amount == amount && e.Date.Date == date.Date && e.AccountCode == accountCode);
+
+        if (duplicate != null)
+        {
+            Logger.LogWarning("Duplicate entry detected");
+            showError = true;
+            errorMessage = "Phát hiện bút toán trùng lặp (cùng số tiền, ngày, tài khoản trong 5 phút). Vui lòng kiểm tra lại.";
+            StateHasChanged();
+            return;
+        }
+        Logger.LogInformation("Duplicate check passed");
+
+        // Create accounting period
+        var period = new AccountingPeriod(date.Year, date.Month);
+        var tenantId = new TenantId(TenantProvider.TenantId);
+        Logger.LogInformation("Calling AccountingService.CreateExpenseEntryAsync with Period={Period}, Amount={Amount}", period, amount);
+
+        // Create accounting entry using IAccountingService
+        await AccountingService.CreateExpenseEntryAsync(
+            tenantId,
+            period,
+            amount,
+            formData.Values["description"]);
+
+        Logger.LogInformation("AccountingService.CreateExpenseEntryAsync completed successfully");
+
+        // Track for duplicate detection
+        _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));
+
+        showSuccess = true;
+        showError = false;
+        errorMessage = string.Empty;
+        Logger.LogInformation("Setting success state: showSuccess={showSuccess}, showError={showError}", showSuccess, showError);
+        StateHasChanged();
+        Logger.LogInformation("StateHasChanged called");
+
+        // Reset form
+        formData = new PlatformComposite.FormData();
+        InitializeFields();
+    }
+    catch (Exception ex)
+    {
+        Logger.LogError(ex, "Error saving expense entry for tenant {TenantId}", TenantProvider.TenantId);
+        showError = true;
+        errorMessage = $"Lỗi khi lưu: {ex.Message}";
+        Logger.LogInformation("Setting error state: showError={showError}, errorMessage={errorMessage}", showError, errorMessage);
+        StateHasChanged();
+    }
     }
 
     private static bool IsValidExpenseAccountCode(string code)

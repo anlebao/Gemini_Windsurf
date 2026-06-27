@@ -21,27 +21,35 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
     @foreach (var field in FieldDefinitions)
     {
         <div class="mb-3">
-            <label for="@field.Id" class="form-label">@field.Label</label>
+            <label for="@field.Id" class="form-label">
+                @field.Label
+                @if (field.Required)
+                {
+                    <span class="text-danger">*</span>
+                }
+            </label>
             
             @if (field.Type == FieldType.Text)
             {
                 <input type="text" 
-                       class="form-control" 
+                       class="form-control @(GetFieldValidationClass(field.Id))" 
                        id="@field.Id" 
                        @bind="field.Value"
                        @bind:event="oninput"
                        @bind:after="@(() => NotifyChanged(field))"
                        placeholder="@field.Placeholder"
-                       disabled="@State.IsDisabled" />
+                       disabled="@State.IsDisabled"
+                       required="@field.Required" />
             }
             else if (field.Type == FieldType.Select)
             {
-                <select class="form-select" 
+                <select class="form-select @(GetFieldValidationClass(field.Id))" 
                         id="@field.Id" 
                         disabled="@State.IsDisabled"
                         @bind="field.Value"
                         @bind:event="onchange"
-                        @bind:after="@(() => NotifyChanged(field))">
+                        @bind:after="@(() => NotifyChanged(field))"
+                        required="@field.Required">
                     @if (!string.IsNullOrEmpty(field.Placeholder))
                     {
                         <option value="">@field.Placeholder</option>
@@ -69,17 +77,18 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
             else if (field.Type == FieldType.Date)
             {
                 <input type="date"
-                       class="form-control"
+                       class="form-control @(GetFieldValidationClass(field.Id))"
                        id="@field.Id"
                        @bind="field.Value"
                        @bind:event="oninput"
                        @bind:after="@(() => NotifyChanged(field))"
-                       disabled="@State.IsDisabled" />
+                       disabled="@State.IsDisabled"
+                       required="@field.Required" />
             }
             else if (field.Type == FieldType.Currency)
             {
                 <input type="number"
-                       class="form-control"
+                       class="form-control @(GetFieldValidationClass(field.Id))"
                        id="@field.Id"
                        @bind="field.Value"
                        @bind:event="oninput"
@@ -87,18 +96,20 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
                        step="0.01"
                        min="0"
                        placeholder="@field.Placeholder"
-                       disabled="@State.IsDisabled" />
+                       disabled="@State.IsDisabled"
+                       required="@field.Required" />
             }
             else if (field.Type == FieldType.TextArea)
             {
-                <textarea class="form-control"
+                <textarea class="form-control @(GetFieldValidationClass(field.Id))"
                           id="@field.Id"
                           rows="3"
                           placeholder="@field.Placeholder"
                           disabled="@State.IsDisabled"
                           @bind="field.Value"
                           @bind:event="oninput"
-                          @bind:after="@(() => NotifyChanged(field))"></textarea>
+                          @bind:after="@(() => NotifyChanged(field))"
+                          required="@field.Required"></textarea>
             }
             else if (field.Type == FieldType.Number)
             {
@@ -138,6 +149,11 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
             {
                 <small class="form-text text-muted">@field.HelpText</small>
             }
+            
+            @if (GetFieldError(field.Id) != null)
+            {
+                <small class="text-danger field-error">@GetFieldError(field.Id)</small>
+            }
         </div>
     }
 }
@@ -162,13 +178,58 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
     public EventCallback<FormField> OnFieldChanged { get; set; }
 
     /// <summary>
+    /// Validation errors for fields
+    /// </summary>
+    private Dictionary<string, string> FieldErrors { get; set; } = new();
+
+    /// <summary>
     /// Notifies the parent host that the shared FormField reference was mutated by @bind
     /// </summary>
     private async Task NotifyChanged(FormField field)
     {
+        // Clear error when field changes
+        if (FieldErrors.ContainsKey(field.Id))
+        {
+            FieldErrors.Remove(field.Id);
+        }
+        
         if (OnFieldChanged.HasDelegate)
         {
             await OnFieldChanged.InvokeAsync(field);
         }
+    }
+
+    /// <summary>
+    /// Gets validation CSS class for a field
+    /// </summary>
+    private string GetFieldValidationClass(string fieldId)
+    {
+        return FieldErrors.ContainsKey(fieldId) ? "is-invalid" : "";
+    }
+
+    /// <summary>
+    /// Gets error message for a field
+    /// </summary>
+    private string? GetFieldError(string fieldId)
+    {
+        return FieldErrors.GetValueOrDefault(fieldId);
+    }
+
+    /// <summary>
+    /// Sets error message for a field
+    /// </summary>
+    public void SetFieldError(string fieldId, string errorMessage)
+    {
+        FieldErrors[fieldId] = errorMessage;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Clears all field errors
+    /// </summary>
+    public void ClearFieldErrors()
+    {
+        FieldErrors.Clear();
+        StateHasChanged();
     }
 }
