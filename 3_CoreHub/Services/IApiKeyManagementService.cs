@@ -1,4 +1,4 @@
-using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
+using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Services
 {

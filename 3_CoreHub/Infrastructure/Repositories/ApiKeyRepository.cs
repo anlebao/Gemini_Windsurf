@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Domain.Repositories;
-using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
+using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.Repositories
 {
