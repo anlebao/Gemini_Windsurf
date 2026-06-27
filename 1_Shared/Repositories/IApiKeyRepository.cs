@@ -1,6 +1,6 @@
 using VanAn.Shared.Domain;
 
-namespace VanAn.CoreHub.Domain.Repositories
+namespace VanAn.Shared.Repositories
 {
     /// <summary>
     /// Wave 14: Repository interface for ApiKey aggregate.

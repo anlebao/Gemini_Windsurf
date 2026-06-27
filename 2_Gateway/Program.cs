@@ -140,7 +140,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<ILocalizationService, LocalizationService>();
 
             // Wave 14: HMAC Request Signing — register CoreHub repo + service + Gateway adapter
-            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IApiKeyRepository, VanAn.CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, VanAn.CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IApiKeyManagementService, VanAn.CoreHub.Services.ApiKeyManagementService>();
             _ = builder.Services.AddScoped<IHmacApiKeyLookup, HmacApiKeyLookupAdapter>();
 
