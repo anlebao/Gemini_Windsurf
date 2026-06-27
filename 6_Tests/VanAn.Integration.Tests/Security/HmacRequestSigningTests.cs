@@ -9,7 +9,7 @@ using VanAn.Gateway.Services;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure.Repositories;
 using VanAn.CoreHub.Services;
-using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
+using VanAn.Shared.Domain;
 using VanAn.Integration.Tests.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;

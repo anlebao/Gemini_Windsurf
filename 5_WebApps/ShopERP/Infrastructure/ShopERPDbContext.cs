@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
-using VanAn.Shared.Domain.Aggregates.ApiKeyAggregate;
 using VanAn.CoreHub.Infrastructure;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
