@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
@@ -341,6 +342,17 @@ namespace VanAn.ShopERP
                 _ = app.UseExceptionHandler("/Error");
                 _ = app.UseHsts();
             }
+
+            // Forwarded headers for nginx reverse proxy (Docker networking)
+            _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                   ForwardedHeaders.XForwardedProto |
+                                   ForwardedHeaders.XForwardedHost,
+                // Clear loopback restrictions for Docker networking
+                KnownProxies = { },
+                KnownNetworks = { }
+            });
 
             // Wave 7: Enable HTTPS redirection only in Production
             if (!app.Environment.IsDevelopment())

@@ -10,6 +10,8 @@ using VanAn.UI.Platform.Adapters;
 
 using VanAn.KhachLink.Components;
 
+using Microsoft.AspNetCore.HttpOverrides;
+
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Integration.Tests")]
@@ -146,6 +148,16 @@ namespace VanAn.KhachLink
 
             // app.UseHttpsRedirection();
 
+            // Forwarded headers for nginx reverse proxy (Docker networking)
+            _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                   ForwardedHeaders.XForwardedProto |
+                                   ForwardedHeaders.XForwardedHost,
+                // Clear loopback restrictions for Docker networking
+                KnownProxies = { },
+                KnownNetworks = { }
+            });
 
 
             _ = app.UseStaticFiles();

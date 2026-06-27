@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using VanAn.Shared.Services;
@@ -193,6 +194,17 @@ namespace VanAn.Gateway
                 {
                     _ = app.UseHttpsRedirection();
                 }
+
+                // Forwarded headers for nginx reverse proxy (Docker networking)
+                _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
+                {
+                    ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                                       ForwardedHeaders.XForwardedProto |
+                                       ForwardedHeaders.XForwardedHost,
+                    // Clear loopback restrictions for Docker networking
+                    KnownProxies = { },
+                    KnownNetworks = { }
+                });
 
                 _ = app.UseCors("AllowAll");
 
