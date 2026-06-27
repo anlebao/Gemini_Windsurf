@@ -61,8 +61,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-corehub:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-corehub:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=corehub
-          cache-to: type=gha,mode=max,scope=corehub
 
       - name: Build & push Gateway
         uses: docker/build-push-action@v5
@@ -74,8 +72,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=gateway
-          cache-to: type=gha,mode=max,scope=gateway
 
       - name: Build & push ShopERP
         uses: docker/build-push-action@v5
@@ -87,8 +83,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=shoperp
-          cache-to: type=gha,mode=max,scope=shoperp
 
       - name: Build & push KhachLink
         uses: docker/build-push-action@v5
@@ -100,8 +94,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=khachlink
-          cache-to: type=gha,mode=max,scope=khachlink
 
   # ============================================================
   # Job 2: Deploy to VPS
