@@ -7,6 +7,7 @@
 @inject IThemeProvider ThemeProvider
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IConfiguration Configuration
 
 <PageTitle>Sitemap - Vạn An Ecosystem</PageTitle>
 
@@ -114,7 +115,7 @@
             <Authorized>
                 <VanACard Header="🛍️ Cổng Khách Hàng" Hoverable="true" data-testid="card-khachlink">
                     <div class="sitemap-links">
-                        <a href="https://diemthuong.vanantech.io.vn" class="sitemap-link sitemap-link--external" target="_blank" rel="noopener noreferrer" data-testid="link-khachlink">
+                        <a href="@_khachLinkUrl" class="sitemap-link sitemap-link--external" target="_blank" rel="noopener noreferrer" data-testid="link-khachlink">
                             <span class="sitemap-link-icon">�️</span>
                             <span>Mở KhachLink PWA</span>
                             <span class="sitemap-link-badge">Trang mới</span>
@@ -250,6 +251,7 @@
 @code {
     private string _displayName = string.Empty;
     private string _roleName = string.Empty;
+    private string _khachLinkUrl = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -261,6 +263,9 @@
             ?? "Người dùng";
 
         _roleName = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+        // Load KhachLink URL from configuration
+        _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? "https://diemthuong.vanantech.io.vn";
     }
 
     private void Logout()
