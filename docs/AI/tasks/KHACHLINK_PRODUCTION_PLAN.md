@@ -4,8 +4,7 @@
 **Created:** 2026-06-25
 **Last Updated:** 2026-06-26
 **Scope:** `5_WebApps/KhachLink/` production-readiness (Waves 15–16)
-**Waves:** 15 (Page Cleanup) ✅ COMPLETED → 16 (Real Production Flows)
-**Status:** Wave 15 completed; Wave 16 ready; Wave 17 moved to `KHACHLINK_RETENTION_PLAN.md`
+**Status:** Wave 15 in planning; Wave 16 partially complete; Wave 17 moved to `KHACHLINK_RETENTION_PLAN.md`
 
 ---
 
@@ -70,11 +69,11 @@ Do đó, các task W16-T1 và W16-T2 (Replace hardcoded products) **không còn 
 
 | # | Task ID | Task | Depends on | Task card | Status |
 |---|---------|------|-----------|-----------|--------|
-| 1 | W15-T1 | Xóa 6 dead/demo pages + convert `Dashboard.cshtml` → `Dashboard.razor` | — | [W15-T1-card.md](W15-T1-card.md) | ✅ DONE |
-| 2 | W15-T2 | Modernize `Program.cs` — Blazor Web App routing (`AddRazorComponents` + `MapRazorComponents<App>`) | W15-T1 | [W15-T2-card.md](W15-T2-card.md) | ✅ DONE |
-| 3 | W15-T3 | Rewrite `VoiceNote.razor` — fix endpoint, inject `IHttpClientFactory`, xóa `<html>` tags, thay `alert()` bằng UI Platform | W15-T2 | [W15-T3-card.md](W15-T3-card.md) | ✅ DONE |
-| 4 | W15-T4 | Verify build 0 errors + E2E selector contract (`Home.razor` `.feature-card`, `Đặt ngay`) | W15-T3 | [W15-T4-card.md](W15-T4-card.md) | ✅ DONE |
-| 5 | W15-T5 | Update `project_state.md` — ghi nhận cleanup, cập nhật Next Actions | W15-T4 | [W15-T5-card.md](W15-T5-card.md) | ✅ DONE |
+| 1 | W15-T1 | Xóa 6 dead/demo pages + convert `Dashboard.cshtml` → `Dashboard.razor` | — | [W15-T1-card.md](W15-T1-card.md) | 📋 TODO |
+| 2 | W15-T2 | Modernize `Program.cs` — Blazor Web App routing (`AddRazorComponents` + `MapRazorComponents<App>`) | W15-T1 | [W15-T2-card.md](W15-T2-card.md) | 📋 TODO |
+| 3 | W15-T3 | Rewrite `VoiceNote.razor` — fix endpoint, inject `IHttpClientFactory`, xóa `<html>` tags, thay `alert()` bằng UI Platform | W15-T2 | [W15-T3-card.md](W15-T3-card.md) | 📋 TODO |
+| 4 | W15-T4 | Verify build 0 errors + E2E selector contract (`Home.razor` `.feature-card`, `Đặt ngay`) | W15-T3 | [W15-T4-card.md](W15-T4-card.md) | 📋 TODO |
+| 5 | W15-T5 | Update `project_state.md` — ghi nhận cleanup, cập nhật Next Actions | W15-T4 | [W15-T5-card.md](W15-T5-card.md) | 📋 TODO |
 
 ### Files được phép sửa/xóa (W15)
 
@@ -290,9 +289,9 @@ await Http.PutAsJsonAsync($"api/v1/orders/{currentOrderId}/note", updateData);
 | W15-T3 | `Pages/VoiceNote.razor` rewrite | W15-T2 | 📋 TODO |
 | W15-T4 | Verify build + E2E contract | W15-T3 | 📋 TODO |
 | W15-T5 | Update `project_state.md` | W15-T4 | 📋 TODO |
-| W16-T1 | `Pages/Campaign.cshtml` + `.cshtml.cs` + Gateway endpoints | W15 complete | ✅ DONE |
-| W16-T2 | `Components/Pages/VanAnDashboard.razor` (XÓA) + `Components/Dashboard/RealTimeDashboard.razor` (FIX) | W15-T1 | ✅ DONE |
-| W16-T3 | `Components/VoiceCommand.razor` | — | ✅ DONE |
+| W16-T1 | `Pages/Campaign.cshtml` + `.cshtml.cs` + Gateway endpoints | W15 complete | 📋 TODO |
+| W16-T2 | `Components/Pages/VanAnDashboard.razor` (XÓA) + `Components/Dashboard/RealTimeDashboard.razor` (FIX) | W15-T1 | 📋 TODO |
+| W16-T3 | `Components/VoiceCommand.razor` | — | 📋 TODO |
 
 ---
 
