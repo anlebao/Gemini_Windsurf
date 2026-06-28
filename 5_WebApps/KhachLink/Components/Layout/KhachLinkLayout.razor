@@ -92,9 +92,8 @@
 </style>
 
 @code {
-    [Parameter]
-    public RenderFragment? ChildContent { get; set; }
-    
+    // ChildContent is inherited from BaseComponent - do not redeclare here
+
     [Inject]
     public NavigationManager Navigation { get; set; } = default!;
 

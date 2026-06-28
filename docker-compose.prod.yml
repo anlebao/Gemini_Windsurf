@@ -167,6 +167,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
+      - Gateway__BaseUrl=https://api.vanantech.io.vn
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
     networks:
       - vanan-network
