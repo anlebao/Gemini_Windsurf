@@ -49,19 +49,17 @@
 
 ## 3. Current Status
 
-- **Branch:** `feature/wave17-khachlink-retention` (verified 2026-06-29)
-- **Last commit:** Pending commit — Wave 17 implementation complete
+- **Branch:** `main` (verified 2026-06-29)
+- **Last commit:** `eea7c10` — feat(wave17): KhachLink Retention & Loyalty
 - **Build:** `dotnet build VanAn.sln` → 0 errors
-- **Tests:** 144/144 integration tests PASS (Wave 16 baseline)
-- **State:** Wave 17 COMPLETE — awaiting merge to main
+- **Tests:** Architecture tests 21/21 PASS; integration tests 144/144 PASS (Wave 16 baseline)
+- **State:** Wave 17 COMPLETE — merged to main
 
 ---
 
 ## 4. Next Actions
 
-1. **[PENDING]** User review & merge `feature/wave17-khachlink-retention` → `main`.
-2. **[After merge]** Update branch to `main` in Section 7.
-3. **[Future]** Awaiting next wave assignment.
+1. **[Future]** Awaiting next wave assignment.
 
 ---
 
@@ -95,6 +93,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Wave 17 implementation complete; architecture tests 21/21 PASS; build 0 errors; branch: `feature/wave17-khachlink-retention`
-* **Current Branch:** `feature/wave17-khachlink-retention`
-* **Wave 17 Complete (2026-06-29):** All 9 tasks implemented. Added customer-facing controller exemptions to authorization tests (Customers, Loyalty, CustomerOrders, Shops, Notifications). Build 0 errors. Architecture tests 21/21 PASS. Awaiting merge to main.
+* **Last Updated:** 2026-06-29 — Wave 17 merged to main (commit eea7c10); build 0 errors; architecture tests 21/21 PASS
+* **Current Branch:** `main`
+* **Wave 17 Complete (2026-06-29):** All 9 tasks implemented. Added customer-facing controller exemptions to authorization tests. Build 0 errors. Architecture tests 21/21 PASS. Merged to main via fast-forward.
