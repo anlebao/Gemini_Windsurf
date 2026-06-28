@@ -9,7 +9,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
     /// STEP 1: Fix EF Core Model - Use OwnsOne for Value Objects
     /// CustomerInfo is a Value Object that MUST be saved as columns within Order table
     /// </summary>
-    public class OrderConfiguration : IEntityTypeConfiguration<Order>
+    public class OrderConfiguration : IEntityTypeConfiguration<Order>, IEntityConfiguration
     {
         public void Configure(EntityTypeBuilder<Order> builder)
         {
