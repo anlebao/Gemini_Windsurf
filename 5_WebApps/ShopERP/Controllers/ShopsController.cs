@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using VanAn.CoreHub.Infrastructure;
+using VanAn.ShopERP.Infrastructure;
 using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Controllers
@@ -14,9 +14,9 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ShopsController(VanAnDbContext dbContext, ILogger<ShopsController> logger) : ControllerBase
+    public class ShopsController(ShopERPDbContext dbContext, ILogger<ShopsController> logger) : ControllerBase
     {
-        private readonly VanAnDbContext _dbContext = dbContext;
+        private readonly ShopERPDbContext _dbContext = dbContext;
         private readonly ILogger<ShopsController> _logger = logger;
 
         [HttpGet("{id:guid}")]
@@ -164,6 +164,80 @@ namespace VanAn.ShopERP.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        // W17-T5: Store Finder — find shops near a GPS location
+        [HttpGet("nearby")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<ShopNearbyDto>>> GetNearbyShops(
+            [FromQuery] double? lat,
+            [FromQuery] double? lng,
+            [FromQuery] double radiusKm = 10.0)
+        {
+            try
+            {
+                IQueryable<Shop> query = _dbContext.Shops.Where(s => !s.IsDeleted && s.IsActive);
+
+                if (lat.HasValue && lng.HasValue)
+                {
+                    // Filter only shops that have coordinates, then sort by distance client-side
+                    // (SQLite doesn't support spatial queries natively)
+                    query = query.Where(s => s.Latitude != null && s.Longitude != null);
+                }
+
+                List<Shop> shops = await query.ToListAsync();
+
+                IEnumerable<ShopNearbyDto> result = shops.Select(s => new ShopNearbyDto
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    Address = s.Address,
+                    Phone = s.Phone,
+                    Latitude = s.Latitude,
+                    Longitude = s.Longitude,
+                    DistanceKm = lat.HasValue && lng.HasValue && s.Latitude.HasValue && s.Longitude.HasValue
+                        ? CalculateDistanceKm(lat.Value, lng.Value, s.Latitude.Value, s.Longitude.Value)
+                        : null
+                });
+
+                if (lat.HasValue && lng.HasValue)
+                {
+                    result = result
+                        .Where(s => s.DistanceKm == null || s.DistanceKm <= radiusKm)
+                        .OrderBy(s => s.DistanceKm);
+                }
+
+                return Ok(result.ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting nearby shops");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        // Haversine formula for distance in km
+        private static double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371.0;
+            double dLat = (lat2 - lat1) * Math.PI / 180;
+            double dLon = (lon2 - lon1) * Math.PI / 180;
+            double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+                + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180)
+                * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+    }
+
+    public class ShopNearbyDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public double? DistanceKm { get; set; }
     }
 
     public class CreateShopRequest

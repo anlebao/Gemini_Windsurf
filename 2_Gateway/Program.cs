@@ -107,6 +107,14 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHttpClient<IVietQrService, VietQrService>();
             _ = builder.Services.AddScoped<IVietQrService, VietQrService>();
 
+            // W17: Named HttpClient to forward requests to ShopERP
+            _ = builder.Services.AddHttpClient("shoperp", client =>
+            {
+                client.BaseAddress = new Uri(
+                    builder.Configuration["ShopERP:BaseUrl"] ?? "http://shoperp:80/");
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+
             // Register MST Lookup Service (Business Lookup Proxy for KhachLink)
             _ = builder.Services.AddHttpClient("VietQR", client =>
             {

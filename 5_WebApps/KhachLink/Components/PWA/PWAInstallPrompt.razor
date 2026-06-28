@@ -1,6 +1,7 @@
 @using VanAn.KhachLink.Services.PWA
 @inject PWAService PWAService
 @inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 
 <div class="pwa-install-prompt" style="@GetDisplayStyle()">
     <div class="pwa-install-content">
@@ -207,6 +208,7 @@
     private bool _dismissed = false;
     private bool _isOnline = true;
     private bool _showOfflineIndicator = false;
+    private CancellationTokenSource _cts = new();
 
     public bool IsOnline => _isOnline;
     public bool ShowOfflineIndicator => _showOfflineIndicator;
@@ -224,18 +226,28 @@
         _isOnline = PWAService.IsOnline;
         _showOfflineIndicator = true;
         
+        // Check if previously dismissed (persisted in localStorage)
+        var dismissedFlag = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "pwa_dismissed");
+        _dismissed = dismissedFlag == "true";
+
         // Show install prompt if not installed and not dismissed
         if (!PWAService.IsInstalled && !_dismissed)
         {
-            // Show after a delay to be less intrusive
-            await Task.Delay(3000);
-            _showInstallPrompt = true;
+            // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
+            try
+            {
+                await Task.Delay(3000, _cts.Token);
+                _showInstallPrompt = true;
+                StateHasChanged();
+            }
+            catch (OperationCanceledException) { /* Component disposed */ }
         }
     }
 
     private string GetDisplayStyle()
     {
-        return _showInstallPrompt && !_dismissed ? "" : "display: none;";
+        if (!_showInstallPrompt || _dismissed) return "display: none;";
+        return "";
     }
 
     private async Task InstallApp()
@@ -248,10 +260,11 @@
         }
     }
 
-    private void DismissPrompt()
+    private async Task DismissPrompt()
     {
         _dismissed = true;
         _showInstallPrompt = false;
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "pwa_dismissed", "true");
     }
 
     private void HandleInstallStateChanged(bool installed)
@@ -271,8 +284,10 @@
         await PWAService.ShowNotificationAsync(title, message);
     }
 
-    public async void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        _cts.Cancel();
+        _cts.Dispose();
         if (PWAService != null)
         {
             PWAService.OnInstallStateChanged -= HandleInstallStateChanged;

@@ -1,0 +1,176 @@
+@page "/stores"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Tìm cửa hàng gần bạn</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4">
+        <h2 class="mb-4">
+            <i class="bi bi-geo-alt-fill text-primary"></i> Cửa hàng gần bạn
+        </h2>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Đang tải...</span>
+                </div>
+                <p class="mt-2">Đang tìm cửa hàng...</p>
+            </div>
+        }
+        else if (_error != null)
+        {
+            <VanAnAlert Variant="AlertVariant.Warning" Message="@_error" />
+            <div class="text-center mt-3">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadStores">Thử lại</VanAnButton>
+            </div>
+        }
+        else if (_stores.Count == 0)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center py-5">
+                <i class="bi bi-geo fa-3x text-muted mb-3 d-block" style="font-size:3rem;"></i>
+                <p class="text-muted">Không tìm thấy cửa hàng nào trong bán kính @_radiusKm km.</p>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="LoadAllStores">Xem tất cả cửa hàng</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <p class="text-muted mb-3">Tìm thấy @_stores.Count cửa hàng</p>
+            <div class="row g-3">
+                @foreach (var store in _stores)
+                {
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <VanAnCard Shadow="true" CssClass="h-100">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="store-icon">
+                                    <i class="bi bi-shop text-primary" style="font-size:2rem;"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-1">@store.Name</h5>
+                                    <p class="text-muted small mb-1">
+                                        <i class="bi bi-geo-alt"></i> @store.Address
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(store.Phone))
+                                    {
+                                        <p class="mb-1">
+                                            <a href="tel:@store.Phone" class="text-decoration-none">
+                                                <i class="bi bi-telephone"></i> @store.Phone
+                                            </a>
+                                        </p>
+                                    }
+                                    @if (store.DistanceKm.HasValue)
+                                    {
+                                        <span class="badge bg-primary">@store.DistanceKm.Value.ToString("F1") km</span>
+                                    }
+                                    @if (store.Latitude.HasValue && store.Longitude.HasValue)
+                                    {
+                                        <div class="mt-2">
+                                            <a href="https://maps.google.com/?q=@store.Latitude,@store.Longitude"
+                                               target="_blank" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-map"></i> Chỉ đường
+                                            </a>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private List<StoreDto> _stores = new();
+    private bool _loading = true;
+    private string? _error;
+    private double _radiusKm = 10.0;
+    private double? _userLat;
+    private double? _userLng;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStores();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var location = await JSRuntime.InvokeAsync<GeolocationResult>("vananPWA.getCurrentPosition");
+                if (location != null)
+                {
+                    _userLat = location.Latitude;
+                    _userLng = location.Longitude;
+                    await LoadStores();
+                    StateHasChanged();
+                }
+            }
+            catch
+            {
+                // User denied geolocation or not supported — show all stores
+            }
+        }
+    }
+
+    private async Task LoadStores()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("gateway");
+            var url = _userLat.HasValue && _userLng.HasValue
+                ? $"/api/shops/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_radiusKm}"
+                : "/api/shops/nearby";
+
+            var response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                _stores = await response.Content.ReadFromJsonAsync<List<StoreDto>>() ?? new();
+            }
+            else
+            {
+                _error = "Không thể tải danh sách cửa hàng. Vui lòng thử lại.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Lỗi kết nối: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadAllStores()
+    {
+        _userLat = null;
+        _userLng = null;
+        await LoadStores();
+    }
+
+    public class StoreDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public double? DistanceKm { get; set; }
+    }
+
+    public class GeolocationResult
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+}

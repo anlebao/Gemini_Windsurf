@@ -118,11 +118,18 @@ public class AuthorizationEnforcementTests
     {
         // Excluded: WebhookController uses [AllowAnonymous] on specific methods intentionally (external provider callbacks)
         // Excluded: CampaignsController and PublicOrdersController use [AllowAnonymous] for public guest access (Wave 16)
+        // Excluded: Wave 17 customer-facing controllers use [AllowAnonymous] with X-Customer-Token header auth
         var exemptControllers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "WebhookController",
             "CampaignsController",
-            "PublicOrdersController"
+            "PublicOrdersController",
+            // Wave 17: Customer retention endpoints (OTP, Loyalty, Orders, Stores, Notifications)
+            "CustomersController",
+            "LoyaltyController",
+            "CustomerOrdersController",
+            "ShopsController",
+            "NotificationsController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
@@ -187,9 +194,15 @@ public class AuthorizationEnforcementTests
     {
         // Excluded:
         // - DevLoginController: dev-only, guarded in Program.cs by environment check
+        // - Wave 17: Customer retention endpoints use [AllowAnonymous] with X-Customer-Token header auth
         var exemptControllers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "DevLoginController"
+            "DevLoginController",
+            // Wave 17: Customer retention endpoints (OTP, Loyalty, Orders, Notifications)
+            "CustomerIdentityController",
+            "CustomerOrdersController",
+            "LoyaltyController",
+            "NotificationsController"
         };
 
         var controllers = GetControllers(ShopErpAssembly)

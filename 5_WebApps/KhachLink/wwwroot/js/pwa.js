@@ -281,7 +281,30 @@ window.vananPWA = {
         if (this.dotNetRef) {
             this.dotNetRef.invokeMethodAsync('HandleServiceWorkerUpdated');
         }
+    },
+
+    // W17-T5: Get current GPS position for Store Finder
+    getCurrentPosition() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error('Geolocation not supported'));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                (err) => reject(err),
+                { timeout: 8000, maximumAge: 60000 }
+            );
+        });
     }
+};
+
+// Utility functions called from Blazor components
+window.updatePageTitle = (title) => { document.title = title; };
+window.applyThemeClass = (themeClass) => {
+    const body = document.body;
+    body.classList.forEach(c => { if (c.startsWith('theme-')) body.classList.remove(c); });
+    body.classList.add(themeClass);
 };
 
 // Initialize PWA on page load

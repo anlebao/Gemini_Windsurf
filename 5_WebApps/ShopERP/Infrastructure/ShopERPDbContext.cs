@@ -27,6 +27,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
 
+        // Shop entity (W17-T5: Store Finder)
+        public DbSet<Shop> Shops { get; set; }
+
         // Outbox pattern tables
         public DbSet<CoreOutboxMessage> OutboxMessages { get; set; }
 

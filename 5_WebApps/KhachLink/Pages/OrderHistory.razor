@@ -1,0 +1,206 @@
+@page "/my-orders"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Lịch sử đơn hàng</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-4">
+            <i class="bi bi-bag text-primary"></i> Đơn hàng của tôi
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-bag text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem đơn hàng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <!-- Filter tabs -->
+            <div class="d-flex gap-2 mb-4 flex-wrap">
+                @foreach (var tab in _statusTabs)
+                {
+                    <button class="btn btn-sm @(tab.Value == _activeStatus ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SetStatus(tab.Value)">
+                        @tab.Label
+                    </button>
+                }
+            </div>
+
+            @if (_orders.Count == 0)
+            {
+                <VanAnCard Shadow="true" CssClass="text-center p-5">
+                    <i class="bi bi-bag-x text-muted" style="font-size:3rem;"></i>
+                    <p class="mt-3 text-muted">Không có đơn hàng nào.</p>
+                </VanAnCard>
+            }
+            else
+            {
+                @foreach (var order in _orders)
+                {
+                    <VanAnCard Shadow="true" CssClass="mb-3 order-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-semibold mb-1">Đơn #@order.OrderId.ToString()[^8..]</div>
+                                <div class="text-muted small">@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                                <div class="text-muted small">@order.ItemCount sản phẩm</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge @GetStatusClass(order.Status) mb-1 d-block">@GetStatusLabel(order.Status)</span>
+                                <div class="fw-bold text-primary">@FormatVND(order.TotalPrice)</div>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <a href="/order-tracking/@order.OrderId" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-search"></i> Theo dõi
+                            </a>
+                        </div>
+                    </VanAnCard>
+                }
+
+                <!-- Pagination -->
+                @if (_totalPages > 1)
+                {
+                    <div class="d-flex justify-content-center gap-2 mt-3">
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     OnClick="PrevPage">
+                            <i class="bi bi-chevron-left"></i>
+                        </VanAnButton>
+                        <span class="align-self-center text-muted small">@_currentPage / @_totalPages</span>
+                        <VanAnButton Variant="ButtonVariant.Outline" Size="ButtonSize.Small"
+                                     OnClick="NextPage">
+                            <i class="bi bi-chevron-right"></i>
+                        </VanAnButton>
+                    </div>
+                }
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private List<OrderDto> _orders = new();
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private int _totalCount = 0;
+    private const int PageSize = 10;
+    private string? _activeStatus = null;
+
+    private static readonly List<(string Label, string? Value)> _statusTabs = new()
+    {
+        ("Tất cả", null),
+        ("Chờ xử lý", "pending"),
+        ("Đang làm", "processing"),
+        ("Hoàn thành", "completed"),
+        ("Đã hủy", "cancelled")
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadOrders();
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetStatus(string? status)
+    {
+        _activeStatus = status;
+        _currentPage = 1;
+        await LoadOrders();
+    }
+
+    private async Task LoadOrders()
+    {
+        _loading = true;
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token)) { _isLoggedIn = false; return; }
+
+            var client = HttpClientFactory.CreateClient("gateway");
+            client.DefaultRequestHeaders.Add("X-Customer-Token", token);
+            var url = $"/api/customerorders?page={_currentPage}&pageSize={PageSize}";
+            if (!string.IsNullOrEmpty(_activeStatus)) url += $"&status={_activeStatus}";
+
+            var resp = await client.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<OrdersResult>();
+                if (result != null)
+                {
+                    _orders = result.Orders;
+                    _totalCount = result.Total;
+                    _totalPages = (int)Math.Ceiling((double)_totalCount / PageSize);
+                }
+                _isLoggedIn = true;
+            }
+            else { _isLoggedIn = false; }
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task PrevPage()
+    {
+        if (_currentPage > 1) { _currentPage--; await LoadOrders(); }
+    }
+
+    private async Task NextPage()
+    {
+        if (_currentPage < _totalPages) { _currentPage++; await LoadOrders(); }
+    }
+
+    private static string GetStatusClass(string status) => status switch
+    {
+        "completed"  => "bg-success",
+        "cancelled"  => "bg-danger",
+        "processing" => "bg-primary",
+        _            => "bg-warning text-dark"
+    };
+
+    private static string GetStatusLabel(string status) => status switch
+    {
+        "completed"  => "Hoàn thành",
+        "cancelled"  => "Đã hủy",
+        "processing" => "Đang làm",
+        "pending"    => "Chờ xử lý",
+        _            => status
+    };
+
+    private static string FormatVND(decimal amount) => $"{amount:N0} ₫";
+
+    private class OrderDto
+    {
+        public Guid OrderId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public decimal TotalPrice { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public int ItemCount { get; set; }
+    }
+
+    private class OrdersResult
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<OrderDto> Orders { get; set; } = new();
+    }
+}

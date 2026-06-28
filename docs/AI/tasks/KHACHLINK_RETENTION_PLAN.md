@@ -8,6 +8,14 @@
 **Source:** Tách từ `KHACHLINK_PRODUCTION_PLAN.md` để giữ plan chính tập trung
 
 ---
+## 0. EXECUTION RULES
+
+### Session protocol
+1. **Đọc `docs/AI/project_state.md` + task card của wave đang active TRƯỚC KHI viết bất kỳ dòng code nào.**
+2. **Chạy `dotnet build VanAn.sln` trước khi bắt đầu và sau khi kết thúc session — 0 errors bắt buộc.**
+3. **Chỉ sửa files nằm trong "Files được phép" của task card đang active — không drift sang module khác.**
+4. **Sau mỗi micro-phase: commit intermediate, ghi rõ `[WaveX-SY]` trong commit message.**
+5. **Nếu phát sinh compile error > 5: STOP, ghi vào investigation_log.md, hỏi user trước khi tiếp tục.**
 
 ## Tại sao tách file riêng
 

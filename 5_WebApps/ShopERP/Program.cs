@@ -141,8 +141,12 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IPeriodClosingService, CoreHub.Services.PeriodClosingService>();
 
-            // Add Memory Cache for ShopConfigService
+            // Add Memory Cache for ShopConfigService + W17-T1 OTP
             _ = builder.Services.AddMemoryCache();
+
+            // W17-T1: Customer Identity services
+            _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IOtpService, VanAn.ShopERP.Services.OtpService>();
+            _ = builder.Services.AddScoped<VanAn.ShopERP.Services.ICustomerTokenService, VanAn.ShopERP.Services.CustomerTokenService>();
 
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");

@@ -54,7 +54,7 @@
 
     private async Task CheckInstallStatus()
     {
-        isInstalled = await JSRuntime.InvokeAsync<bool>("isAppInstalled");
+        isInstalled = await JSRuntime.InvokeAsync<bool>("vananPWA.checkInstallStatus");
         
         if (!isInstalled)
         {
@@ -67,7 +67,7 @@
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("installPWA");
+            await JSRuntime.InvokeAsync<bool>("vananPWA.showInstallPrompt");
             isInstalled = true;
             showInstallPrompt = false;
             StateHasChanged();

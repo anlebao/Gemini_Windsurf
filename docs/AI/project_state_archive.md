@@ -8,6 +8,29 @@
 ## Archived Waves
 
 **PREVIOUS OBJECTIVE (archived)**
+**Wave 8–16 Production Hygiene + Wave 16 Production Hardening + Pre-Wave 17 Fixes**
+
+**Status:** ✅ COMPLETED (2026-06-24 → 2026-06-28) — All merged to `main`
+
+**Completed Actions:**
+1. ✅ Wave 8: Upgrade Dashboard to Sitemap with Authentication (commit `d088739`)
+2. ✅ Wave 9: Cleanup Orphan Controller — deleted `ShopERP/Controllers/CustomersController.cs`
+3. ✅ Wave 10: Cleanup Duplicate Interfaces — deleted `ISocialCampaignService`/`ILoyaltyRewardsService` duplicates in ShopERP
+4. ✅ Wave 11: Cleanup Invalid Framework Files — deleted `SocialCampaignManager.cshtml`, `KhachLink/wwwroot/index.html`
+5. ✅ Wave 12: Fix API Authorization — `[Authorize(Policy="RequireTenantAccess")]` on Gateway + ShopERP endpoints
+6. ✅ Wave 13: Replace Hardcoded Data — public `GET /api/products?shopId=` + `ProductHttpService` via Gateway
+7. ✅ Wave 14: HMAC Request Signing — `HmacSigningMiddleware` + `ApiKey` entity + `IApiKeyManagementService`
+8. ✅ Wave 15: KhachLink Page Cleanup + Blazor Web App routing (commit `26abd83`)
+9. ✅ Wave 16: Production flow hardening — Campaign, Dashboard TenantId, VoiceCommand
+10. ✅ Production fixes: resolved 502 errors (ShopERP stale volume + KhachLink 502)
+11. ✅ Customer API Integration Tests Fix — 100% success rate (2026-06-24)
+12. ✅ All integration tests: 144/144 PASS (2026-06-28)
+
+**Archived:** 2026-06-28
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
 **Production Hygiene — Wave 7: Production Hardening**
 
 **Status:** ✅ COMPLETED — Branch `feature/wave7-prod-hardening`, merged to base for Wave 8

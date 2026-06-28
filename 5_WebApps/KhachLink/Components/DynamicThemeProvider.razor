@@ -1,4 +1,4 @@
-@inject HttpClient Http
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Extensions
@@ -114,7 +114,8 @@ else if (ShopConfig != null)
         {
             IsLoading = true;
             
-            var response = await Http.GetFromJsonAsync<ShopConfig>($"/api/v1/shopconfig/shops/{ShopId}/config");
+            var http = HttpClientFactory.CreateClient("gateway");
+            var response = await http.GetFromJsonAsync<ShopConfig>($"/api/v1/shopconfig/shops/{ShopId}/config");
             
             if (response != null)
             {

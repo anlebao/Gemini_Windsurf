@@ -18,20 +18,20 @@
                 case ThemeType.Teen:
                     <div class="teen-vibe">
                         <div class="row g-4">
-                            @foreach (var product in Products ?? new List<CartItem>())
+                            @foreach (var product in Products ?? new List<ProductDto>())
                             {
-                                <div class="col-md-6 col-lg-4" key="@product.Id">
+                                <div class="col-md-6 col-lg-4" key="@product.ProductId">
                                     <VanAnCard CssClass="teen-card" Shadow="true" Hoverable="true">
                                         <div class="teen-image">
-                                            <img src="/images/teen-product.jpg" alt="@(product?.ProductName ?? "Sản phẩm")" />
+                                            <img src="/images/teen-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
                                             <div class="teen-overlay">
                                                 <span class="teen-badge">HOT</span>
                                             </div>
                                         </div>
                                         <div class="teen-content">
-                                            <h4 class="neon-text">@(product?.ProductName ?? "Sản phẩm")</h4>
+                                            <h4 class="neon-text">@(product?.Name ?? "Sản phẩm")</h4>
                                             <p class="teen-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
-                                            <div class="teen-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</div>
+                                            <div class="teen-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</div>
                                             <VanAnButton Variant="ButtonVariant.Primary" 
                                                        Size="ButtonSize.Medium"
                                                        FullWidth="true"
@@ -49,17 +49,17 @@
                 case ThemeType.Lady:
                     <div class="lady-vibe">
                         <div class="row g-4">
-                            @foreach (var product in Products ?? new List<CartItem>())
+                            @foreach (var product in Products ?? new List<ProductDto>())
                             {
-                                <div class="col-md-6 col-lg-4" key="@product.Id">
+                                <div class="col-md-6 col-lg-4" key="@product.ProductId">
                                     <VanAnCard CssClass="lady-card" Shadow="true">
                                         <div class="lady-header">
-                                            <h4 class="elegant-title">@(product?.ProductName ?? "Sản phẩm")</h4>
+                                            <h4 class="elegant-title">@(product?.Name ?? "Sản phẩm")</h4>
                                             <div class="lady-icon">🌸</div>
                                         </div>
                                         <p class="lady-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                         <div class="lady-footer">
-                                            <span class="lady-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                            <span class="lady-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</span>
                                             <VanAnButton Variant="ButtonVariant.Secondary" 
                                                        Size="ButtonSize.Small"
                                                        OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
@@ -76,15 +76,15 @@
                 case ThemeType.Classic:
                     <div class="classic-vibe">
                         <div class="row">
-                            @foreach (var product in Products ?? new List<CartItem>())
+                            @foreach (var product in Products ?? new List<ProductDto>())
                             {
-                                <div class="col-md-6 mb-4" key="@product.Id">
+                                <div class="col-md-6 mb-4" key="@product.ProductId">
                                     <VanAnCard CssClass="classic-card" Shadow="true">
                                         <div class="classic-row">
                                             <div class="classic-info">
-                                                <h4>@(product?.ProductName ?? "Sản phẩm")</h4>
+                                                <h4>@(product?.Name ?? "Sản phẩm")</h4>
                                                 <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
-                                                <span class="classic-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                                <span class="classic-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</span>
                                             </div>
                                             <VanAnButton Variant="ButtonVariant.Primary" 
                                                        Size="ButtonSize.Small"
@@ -101,22 +101,22 @@
 
                 case ThemeType.Premium:
                     <div class="premium-vibe">
-                        @foreach (var product in Products ?? new List<CartItem>())
+                        @foreach (var product in Products ?? new List<ProductDto>())
                         {
-                            <div class="premium-card-wrapper mb-4" key="@product.Id">
+                            <div class="premium-card-wrapper mb-4" key="@product.ProductId">
                                 <VanAnCard CssClass="premium-card" Shadow="true">
                                     <div class="premium-layout">
                                         <div class="premium-image">
-                                            <img src="/images/premium-product.jpg" alt="@(product?.ProductName ?? "Sản phẩm")" />
+                                            <img src="/images/premium-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
                                         </div>
                                         <div class="premium-content">
                                             <div class="premium-header">
-                                                <h3 class="premium-title">@(product?.ProductName ?? "Sản phẩm")</h3>
+                                                <h3 class="premium-title">@(product?.Name ?? "Sản phẩm")</h3>
                                                 <div class="premium-badge">PREMIUM</div>
                                             </div>
                                             <p class="premium-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
                                             <div class="premium-footer">
-                                                <span class="premium-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</span>
+                                                <span class="premium-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</span>
                                                 <VanAnButton Variant="ButtonVariant.Success" 
                                                            Size="ButtonSize.Large"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
@@ -137,14 +137,14 @@
             // Default fallback using UI Platform
             <div class="default-vibe">
                 <div class="row">
-                    @foreach (var product in Products ?? new List<CartItem>())
+                    @foreach (var product in Products ?? new List<ProductDto>())
                     {
-                        <div class="col-md-4 mb-3" key="@product.Id">
+                        <div class="col-md-4 mb-3" key="@product.ProductId">
                             <VanAnCard CssClass="product-card" Shadow="true">
                                 <div class="product-info">
-                                    <h5>@(product?.ProductName ?? "Sản phẩm")</h5>
+                                    <h5>@(product?.Name ?? "Sản phẩm")</h5>
                                     <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
-                                    <p class="product-price">@CurrencyHelper.FormatVND(product?.UnitPrice ?? 0m)</p>
+                                    <p class="product-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</p>
                                     <VanAnButton Variant="ButtonVariant.Primary" 
                                                Size="ButtonSize.Medium"
                                                FullWidth="true"
@@ -285,10 +285,10 @@
     public ShopConfig? Config { get; set; }
     
     [Parameter]
-    public List<CartItem>? Products { get; set; }
+    public List<ProductDto>? Products { get; set; }
     
     private ShopConfig? ShopConfig => Config;
     
     [Parameter]
-    public Action<CartItem>? AddToCart { get; set; }
+    public Action<ProductDto>? AddToCart { get; set; }
 }

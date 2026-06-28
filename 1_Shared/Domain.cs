@@ -485,6 +485,10 @@ namespace VanAn.Shared.Domain
         public string Email { get; protected set; } = string.Empty;
         public bool IsActive { get; protected set; } = true;
 
+        // W17-T5: Store Finder — geographic coordinates (approved Domain change)
+        public double? Latitude { get; protected set; }
+        public double? Longitude { get; protected set; }
+
         // PHASE 2: Navigation Properties for Social Flywheel
         public virtual ICollection<SocialCampaign> SocialCampaigns { get; } = new Collection<SocialCampaign>();
 
@@ -507,6 +511,14 @@ namespace VanAn.Shared.Domain
             Phone = phone;
             Email = email;
             IsActive = isActive;
+            UpdateAudit();
+        }
+
+        // W17-T5: Set geographic coordinates for Store Finder
+        public void SetCoordinates(double latitude, double longitude)
+        {
+            Latitude = latitude;
+            Longitude = longitude;
             UpdateAudit();
         }
     }

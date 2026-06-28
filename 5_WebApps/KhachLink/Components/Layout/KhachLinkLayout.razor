@@ -1,106 +1,142 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
+@using VanAn.Shared.Domain
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
+@inject IShopConfigService ShopConfigService
+@inject NavigationManager Navigation
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
 
-<div class="khachlink-layout @ThemeProvider.CurrentTheme tenant-@_currentTenantId">
-    <VanAnLayout>
-        <div class="khachlink-header">
-            <VanAnCard CssClass="khachlink-nav">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-link-45deg me-2"></i>
-                        <h4 class="mb-0">KhachLink</h4>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <VanAnButton Size="ButtonSize.Small" Icon="cart" OnClick="@(() => Navigation.NavigateTo("/cart"))">
-                            Giỏ hàng
-                        </VanAnButton>
-                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" Icon="person" OnClick="@(() => Navigation.NavigateTo("/profile"))">
-                            Tài khoản
-                        </VanAnButton>
-                    </div>
-                </div>
-            </VanAnCard>
+<HeadContent>
+    <style>
+        :root {
+            --shop-primary: @(_shopConfig?.PrimaryColor ?? "#8B4513");
+            --shop-secondary: @(_shopConfig?.SecondaryColor ?? "#D2691E");
+        }
+    </style>
+</HeadContent>
+
+<div class="khachlink-layout theme-@GetThemeClass() tenant-@_currentTenantId">
+    <!-- Hero Header -->
+    <header class="khachlink-hero-header">
+        <div class="hero-content d-flex justify-content-between align-items-center px-3 py-2">
+            <div class="d-flex align-items-center gap-2">
+                @if (_shopConfig?.LogoUrl != null)
+                {
+                    <img src="@_shopConfig.LogoUrl" alt="@_shopConfig.ShopName" class="shop-logo" />
+                }
+                else
+                {
+                    <i class="bi bi-shop text-white" style="font-size:1.5rem;"></i>
+                }
+                <span class="shop-name fw-bold text-white">@(_shopConfig?.ShopName ?? "Vạn An")</span>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/cart" class="header-icon-btn" aria-label="Giỏ hàng">
+                    <i class="bi bi-cart3 text-white"></i>
+                </a>
+                <a href="/profile" class="header-icon-btn" aria-label="Tài khoản">
+                    <i class="bi bi-person text-white"></i>
+                </a>
+            </div>
         </div>
-        
-        <main class="khachlink-main">
-            @ChildContent
-        </main>
-        
-        <footer class="khachlink-footer">
-            <VanAnCard CssClass="text-center py-3">
-                <small class="text-muted">© 2026 Vạn An Group - KhachLink Platform</small>
-            </VanAnCard>
-        </footer>
-    </VanAnLayout>
+    </header>
+
+    <!-- Main Content -->
+    <main class="khachlink-main">
+        @ChildContent
+    </main>
+
+    <!-- Footer -->
+    <footer class="khachlink-footer mt-4">
+        <div class="text-center py-3 px-3">
+            <div class="fw-semibold">@(_shopConfig?.ShopName ?? "Vạn An Group")</div>
+            @if (!string.IsNullOrEmpty(_shopConfig?.Phone))
+            {
+                <div class="small"><a href="tel:@_shopConfig.Phone" class="footer-link">@_shopConfig.Phone</a></div>
+            }
+            @if (!string.IsNullOrEmpty(_shopConfig?.SocialLinksFb))
+            {
+                <a href="@_shopConfig.SocialLinksFb" target="_blank" class="footer-social me-2">
+                    <i class="bi bi-facebook"></i>
+                </a>
+            }
+            @if (!string.IsNullOrEmpty(_shopConfig?.SocialLinksTiktok))
+            {
+                <a href="@_shopConfig.SocialLinksTiktok" target="_blank" class="footer-social">
+                    <i class="bi bi-tiktok"></i>
+                </a>
+            }
+            <!-- Add bottom padding for mobile tab bar -->
+            <div style="height: 70px;" class="d-md-none"></div>
+        </div>
+    </footer>
 </div>
 
 <style>
-.khachlink-layout {
-    min-height: 100vh;
-    background: var(--color-neutral-50);
-}
-
-.khachlink-header {
+/* Hero header */
+.khachlink-hero-header {
+    background: var(--shop-primary, #8B4513);
     position: sticky;
     top: 0;
-    z-index: 1000;
-    background: var(--color-neutral-50);
-    border-bottom: 1px solid var(--color-neutral-200);
+    z-index: 900;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
+.shop-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+.shop-name { font-size: 1.1rem; color: white; }
+.header-icon-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+}
+.header-icon-btn:hover { background: rgba(255,255,255,0.25); }
 
-.khachlink-nav {
-    border-radius: 0;
-    box-shadow: none;
-    border: none;
-}
+/* Layout */
+.khachlink-layout { min-height: 100vh; background: var(--color-neutral-50, #f9f9f9); }
+.khachlink-main { padding: var(--spacing-4, 1rem); }
 
-.khachlink-main {
-    flex: 1;
-    padding: var(--spacing-4);
-}
+/* Footer */
+.khachlink-footer { background: #f5f5f5; border-top: 1px solid #e0e0e0; color: #555; }
+.footer-link { color: inherit; text-decoration: none; }
+.footer-social { color: var(--shop-primary, #8B4513); font-size: 1.2rem; }
 
-.khachlink-footer {
-    background: var(--color-neutral-100);
-    border-top: 1px solid var(--color-neutral-200);
-}
-
-/* Theme Variations */
-.khachlink-layout.dark {
-    background: var(--color-neutral-900);
-}
-
-.khachlink-layout.dark .khachlink-header {
-    background: var(--color-neutral-900);
-    border-bottom-color: var(--color-neutral-700);
-}
-
-.khachlink-layout.dark .khachlink-footer {
-    background: var(--color-neutral-800);
-    border-top-color: var(--color-neutral-700);
-}
-
-/* Responsive Design */
-@@media (max-width: 768px) {
-    .khachlink-nav .d-flex {
-        flex-direction: column;
-    }
-}
+/* Theme classes */
+.theme-teen     { background: linear-gradient(135deg, #ffe0f0, #e0e7ff); }
+.theme-lady     { background: linear-gradient(135deg, #fff8f9, #fce4ec); }
+.theme-premium  { background: #0a0a0a; color: #f0e68c; }
+.theme-modern   { background: #fafafa; }
+.theme-classic  { background: #fdf6ec; }
 </style>
 
 @code {
-    // ChildContent is inherited from BaseComponent - do not redeclare here
-
-    [Inject]
-    public NavigationManager Navigation { get; set; } = default!;
-
     private Guid _currentTenantId;
+    private ShopConfig? _shopConfig;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
+        _shopConfig = await ShopConfigService.GetShopConfigAsync(_currentTenantId);
     }
+
+    private string GetThemeClass() => (_shopConfig?.ActiveTheme ?? ThemeType.Classic) switch
+    {
+        ThemeType.Teen    => "teen",
+        ThemeType.Lady    => "lady",
+        ThemeType.Premium => "premium",
+        ThemeType.Modern  => "modern",
+        _                 => "classic"
+    };
 }

@@ -1,0 +1,180 @@
+@page "/login"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Đăng nhập</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:480px;">
+        <VanAnCard Shadow="true" CssClass="p-4">
+            <h3 class="text-center mb-4">
+                <i class="bi bi-person-circle text-primary"></i> Đăng nhập
+            </h3>
+
+            @if (_step == LoginStep.Phone)
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Số điện thoại</label>
+                    <input type="tel" class="form-control form-control-lg"
+                           placeholder="0901234567"
+                           @bind="_phone" @bind:event="oninput"
+                           @onkeyup="OnPhoneKeyUp" />
+                </div>
+                @if (_error != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
+                }
+                <VanAnButton Variant="ButtonVariant.Primary"
+                             FullWidth="true"
+                             OnClick="SendOtp">
+                    @(_loading ? "Đang gửi..." : "Gửi mã OTP")
+                </VanAnButton>
+            }
+            else if (_step == LoginStep.Otp)
+            {
+                <p class="text-muted text-center mb-3">
+                    Nhập mã OTP đã gửi đến <strong>@_phone</strong>
+                </p>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Mã OTP (6 chữ số)</label>
+                    <input type="number" class="form-control form-control-lg text-center"
+                           placeholder="123456" maxlength="6"
+                           @bind="_otp" @bind:event="oninput"
+                           @onkeyup="OnOtpKeyUp" />
+                </div>
+                @if (_error != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
+                }
+                <VanAnButton Variant="ButtonVariant.Primary"
+                             FullWidth="true"
+                             OnClick="VerifyOtp">
+                    @(_loading ? "Đang xác nhận..." : "Xác nhận")
+                </VanAnButton>
+                <div class="text-center mt-2">
+                    <button class="btn btn-link btn-sm" @onclick="() => { _step = LoginStep.Phone; _error = null; }">
+                        Đổi số điện thoại
+                    </button>
+                </div>
+            }
+            else if (_step == LoginStep.Success)
+            {
+                <div class="text-center py-3">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+                    <h5 class="mt-2">Đăng nhập thành công!</h5>
+                    <p class="text-muted">Chào mừng bạn trở lại.</p>
+                </div>
+            }
+        </VanAnCard>
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private enum LoginStep { Phone, Otp, Success }
+    private LoginStep _step = LoginStep.Phone;
+    private string _phone = "";
+    private string _otp = "";
+    private bool _loading = false;
+    private string? _error;
+
+    private async Task OnPhoneKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendOtp();
+    }
+
+    private async Task OnOtpKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await VerifyOtp();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // If already logged in, redirect to profile
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (!string.IsNullOrEmpty(token))
+                Navigation.NavigateTo("/profile");
+        }
+    }
+
+    private async Task SendOtp()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_phone))
+        {
+            _error = "Vui lòng nhập số điện thoại.";
+            return;
+        }
+        _loading = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("gateway");
+            var resp = await client.PostAsJsonAsync("/api/customers/otp/send", new { phoneNumber = _phone });
+            if (resp.IsSuccessStatusCode)
+            {
+                _step = LoginStep.Otp;
+            }
+            else
+            {
+                _error = "Không thể gửi OTP. Vui lòng thử lại.";
+            }
+        }
+        catch { _error = "Lỗi kết nối. Vui lòng thử lại."; }
+        finally { _loading = false; }
+    }
+
+    private async Task VerifyOtp()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_otp))
+        {
+            _error = "Vui lòng nhập mã OTP.";
+            return;
+        }
+        _loading = true;
+        try
+        {
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "device_id");
+            var client = HttpClientFactory.CreateClient("gateway");
+            var resp = await client.PostAsJsonAsync("/api/customers/otp/verify", new
+            {
+                phoneNumber = _phone,
+                otp = _otp,
+                deviceId = deviceId
+            });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<CustomerIdentityResult>();
+                if (result != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_token", result.CustomerToken);
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_id", result.CustomerId.ToString());
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_name", result.FullName);
+                }
+                _step = LoginStep.Success;
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/profile");
+            }
+            else
+            {
+                _error = "OTP không đúng hoặc đã hết hạn.";
+            }
+        }
+        catch { _error = "Lỗi kết nối. Vui lòng thử lại."; }
+        finally { _loading = false; }
+    }
+
+    private class CustomerIdentityResult
+    {
+        public Guid CustomerId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string CustomerToken { get; set; } = string.Empty;
+        public string Tier { get; set; } = "Bronze";
+        public int PointBalance { get; set; }
+    }
+}
