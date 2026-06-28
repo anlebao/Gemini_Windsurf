@@ -29,7 +29,7 @@ namespace VanAn.UI.Platform.Adapters
                 {
                     ButtonSize.Small => "btn-sm",
                     ButtonSize.Large => "btn-lg",
-                    ButtonSize.Medium => throw new NotImplementedException(),
+                    ButtonSize.Medium => "",
                     _ => ""
                 }
             };
