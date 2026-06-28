@@ -15,6 +15,11 @@ namespace VanAn.CoreHub.Repositories
         Task<LoyaltyRewards?> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Gets customer by ID (for tenant ID retrieval)
+        /// </summary>
+        Task<Customer?> GetCustomerByIdAsync(Guid customerId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets loyalty rewards by tenant ID
         /// </summary>
         Task<IEnumerable<LoyaltyRewards>> GetByTenantIdAsync(TenantId tenantId, CancellationToken cancellationToken = default);

@@ -13,8 +13,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.Id);
 
-
-            // Note: CustomerId is Guid (not value object)
+            // FK relationship to Customer (one-to-one)
+            _ = builder.HasOne(e => e.Customer)
+                .WithOne(c => c.LoyaltyRewards)
+                .HasForeignKey<LoyaltyRewards>(e => e.CustomerId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             _ = builder.Property(e => e.PointBalance)
                 .HasDefaultValue(0);

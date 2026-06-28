@@ -60,7 +60,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Relationship configuration moved to OrderConfiguration.cs to avoid duplicate EF Core configuration
             // OrderConfiguration defines the complete relationship with both navigation properties
             // (HasOne(o => o.Customer).WithMany(c => c.Orders))
-            // This prevents SQLite schema generation errors ("no such table: Orders")
+
+            // Navigation property: LoyaltyRewards - REMOVED
+            // Relationship configured in LoyaltyRewardsConfiguration.cs (one-to-one)
+            // This prevents SQLite schema generation errors
 
             // Indexes
             _ = builder.HasIndex(e => e.DeviceId);

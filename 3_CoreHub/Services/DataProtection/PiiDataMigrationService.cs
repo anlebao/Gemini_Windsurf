@@ -21,19 +21,12 @@ namespace VanAn.CoreHub.Services.DataProtection
     public class PiiDataMigrationService
     {
         private readonly IVanAnDbContext _context;
-        private readonly VanAnDbContext? _coreHubContext;
         private readonly ILogger<PiiDataMigrationService> _logger;
 
         public PiiDataMigrationService(IVanAnDbContext context, ILogger<PiiDataMigrationService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
-
-        public PiiDataMigrationService(VanAnDbContext context, ILogger<PiiDataMigrationService> logger)
-            : this((IVanAnDbContext)context, logger)
-        {
-            _coreHubContext = context;
         }
 
         public async Task MigrateAsync(CancellationToken cancellationToken = default)
@@ -61,14 +54,6 @@ namespace VanAn.CoreHub.Services.DataProtection
 
             await MigrateCustomersAsync(connection, customerPhoneConverter, customerEmailConverter, cancellationToken);
             await MigrateDemoUsersAsync(connection, cancellationToken);
-
-            if (_coreHubContext is not null)
-            {
-                var leadPhoneConverter = GetConverter(_coreHubContext, typeof(Lead), nameof(Lead.PhoneNumber));
-                var leadEmailConverter = GetConverter(_coreHubContext, typeof(Lead), nameof(Lead.Email));
-                var leadsConnection = _coreHubContext.Database.GetDbConnection();
-                await MigrateLeadsAsync(leadsConnection, leadPhoneConverter, leadEmailConverter, cancellationToken);
-            }
 
             _logger.LogInformation("PII data migration completed.");
         }

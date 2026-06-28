@@ -38,14 +38,22 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED**
+**CI DI Fix — GitHub Actions Integration Tests (IN PROGRESS)**
 
-**Status:** DONE — Branch `feature/wave14-api-request-signing` (commit `5462759`), PR #63 open
+**Status:** IN PROGRESS — Fixing 14/144 integration test failures on GitHub Actions CI
 
-**Wave 13 PR:** #62 open — `feature/wave13-replace-hardcoded-data` (commit `078ae76`)
-**Wave 12 PR:** #61 open — `feature/wave12-api-authorization` (commit `3f8d549`)
+**Root Causes Identified:**
+- Wave 1: `PiiDataMigrationService` ambiguous constructor (12 Shop API tests) ✅ FIXED
+- Wave 2: `INotificationService` missing DI registration (1 Lead conversion test) ✅ FIXED
+- Wave 3: LeadConversion FOREIGN KEY constraints (5 tests) 🔧 IN PROGRESS
 
-**Next Wave:** Wave 2 — Convert Integration Tests to Real Database
+**Progress:**
+- Wave 1 ✅ Complete: Removed constructor #2, 12/12 Shop API tests now pass
+- Wave 2 ✅ Complete: Added INotificationService + IEmailService + ISmsService registrations
+- Wave 3 🔧 In Progress: Build passes, 5 tests still fail at runtime — getting exact assertion errors
+
+**Previous Completed:**
+- Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED (commit `5462759`, PR #63)
 
 ### Completed
 
@@ -139,6 +147,11 @@ Mọi cập nhật file này PHẢI tuân thủ:
 ---
 
 ## 4. Next Actions
+
+- [ ] Get exact runtime assertion errors for all 5 LeadConversion failing tests
+- [ ] Fix remaining runtime assertion/logic failures
+- [ ] Run full integration test suite to verify 144/144 pass
+- [ ] Commit changes with message `[CI DI FIX] Wave 1-3: Fix DI, domain model, and FK constraints`
 
 ### All Production Hygiene Waves (8–14) COMPLETE
 
@@ -426,6 +439,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
   * Sample tests pass (5/5)
   * Documentation in 6_Tests/README.md
   * Note: Testcontainers.Sqlite package does not exist on NuGet; used SQLite in-memory with Cache=Shared as alternative
+* [2026-06-28] CI DI Fix — GitHub Actions Integration Tests (Wave 1-2 complete: PiiDataMigrationService DI ambiguity + INotificationService registration; Wave 3 FK constraints in progress)
 * [2026-06-26] Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization (Branch `feature/wave15-khachlink-page-cleanup` — pending merge; commit `26abd83`)
 * [2026-06-26] Production Hygiene — Wave 14: HMAC-SHA256 API Request Signing (Branch `feature/wave14-api-request-signing` — PR #63; commit `5462759`)
 * [2026-06-25] Production Hygiene — Wave 9: Cleanup Orphan Controller (Branch `feature/wave9-cleanup-controller` — pending merge)

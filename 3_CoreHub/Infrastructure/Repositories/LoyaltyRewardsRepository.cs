@@ -15,6 +15,12 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .FirstOrDefaultAsync(r => r.CustomerId == customerId, cancellationToken);
         }
 
+        public async Task<Customer?> GetCustomerByIdAsync(Guid customerId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Customers
+                .FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken);
+        }
+
         public async Task<IEnumerable<LoyaltyRewards>> GetByTenantIdAsync(TenantId tenantId, CancellationToken cancellationToken = default)
         {
             return await _context.LoyaltyRewards

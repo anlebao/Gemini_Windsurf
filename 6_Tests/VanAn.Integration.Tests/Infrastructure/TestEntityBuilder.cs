@@ -62,7 +62,7 @@ public static class TestEntityBuilder
     {
         return new Order(
             tenantId,
-            customerId ?? Guid.NewGuid(),
+            customerId, // Pass null for anonymous orders (no FK constraint violation)
             totalAmount
         );
     }

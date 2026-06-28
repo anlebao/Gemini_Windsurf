@@ -10,13 +10,12 @@ namespace VanAn.CoreHub.Services
         private readonly ILoyaltyRewardsRepository _repository = repository;
         private readonly ILogger<LoyaltyRewardsService> _logger = logger;
 
-        public async Task<LoyaltyRewards> GetOrCreateCustomerRewardsAsync(Guid customerId)
+        public async Task<LoyaltyRewards> GetOrCreateCustomerRewardsAsync(Guid customerId, TenantId tenantId)
         {
             LoyaltyRewards? rewards = await _repository.GetByCustomerIdAsync(customerId);
 
             if (rewards == null)
             {
-                TenantId tenantId = new(Guid.NewGuid()); // Will be set by repository
                 rewards = new LoyaltyRewards(tenantId, customerId);
                 rewards.UpdateHistory(JsonSerializer.Serialize(new List<LoyaltyHistoryEntry>()));
 
@@ -39,7 +38,14 @@ namespace VanAn.CoreHub.Services
             using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await _repository.BeginTransactionAsync();
             try
             {
-                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId);
+                // Get customer to retrieve tenant ID
+                Customer? customer = await _repository.GetCustomerByIdAsync(customerId);
+                if (customer == null)
+                {
+                    throw new ArgumentException($"Customer with ID {customerId} not found");
+                }
+                
+                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
 
                 rewards.AddPoints(points, reason);
 
@@ -81,7 +87,14 @@ namespace VanAn.CoreHub.Services
             using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await _repository.BeginTransactionAsync();
             try
             {
-                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId);
+                // Get customer to retrieve tenant ID
+                Customer? customer = await _repository.GetCustomerByIdAsync(customerId);
+                if (customer == null)
+                {
+                    throw new ArgumentException($"Customer with ID {customerId} not found");
+                }
+                
+                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
 
                 if (rewards.PointBalance < points)
                 {
@@ -166,8 +179,15 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogInformation("Activating loyalty program for customer {CustomerId}", customerId);
 
+                // Get customer to retrieve tenant ID
+                Customer? customer = await _repository.GetCustomerByIdAsync(customerId);
+                if (customer == null)
+                {
+                    throw new ArgumentException($"Customer with ID {customerId} not found");
+                }
+                
                 // Get or create customer rewards
-                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId);
+                LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
 
                 // Add welcome bonus points
                 _ = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");

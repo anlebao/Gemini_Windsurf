@@ -577,6 +577,7 @@ namespace VanAn.Shared.Domain
 
         // Navigation Properties
         public virtual ICollection<Order> Orders { get; } = new Collection<Order>();
+        public virtual LoyaltyRewards LoyaltyRewards { get; protected set; } = null!;
 
         protected Customer() { }
 
@@ -1206,7 +1207,7 @@ namespace VanAn.Shared.Domain
         public bool IsActive { get; protected set; } = true;
 
         // Navigation Properties
-        public virtual DemoUser Customer { get; protected set; } = null!;
+        public virtual Customer Customer { get; protected set; } = null!;
 
         protected LoyaltyRewards() { }
 

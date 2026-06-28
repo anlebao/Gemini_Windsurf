@@ -84,6 +84,12 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<VanAn.CoreHub.Services.IFacebookLeadService, VanAn.CoreHub.Services.FacebookLeadService>();
         services.AddScoped<VanAn.CoreHub.Services.ICustomerOnboardingService, VanAn.CoreHub.Services.CustomerOnboardingService>();
         services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+        
+        // Notification services (required by CompositeNotificationService)
+        services.AddHttpClient(); // Required by BrevoEmailService
+        services.AddScoped<CoreHub.Services.IEmailService, CoreHub.Services.BrevoEmailService>();
+        services.AddScoped<CoreHub.Services.ISmsService, CoreHub.Services.EsmsNotificationService>();
+        services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
 
         // FIX: Session 2 - Apply pattern from ShopERP/Program.cs for missing services
         services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
@@ -168,6 +174,12 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<VanAn.CoreHub.Services.IFacebookLeadService, VanAn.CoreHub.Services.FacebookLeadService>();
         services.AddScoped<VanAn.CoreHub.Services.ICustomerOnboardingService, VanAn.CoreHub.Services.CustomerOnboardingService>();
         services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
+        
+        // Notification services (required by CompositeNotificationService)
+        services.AddHttpClient(); // Required by BrevoEmailService
+        services.AddScoped<CoreHub.Services.IEmailService, CoreHub.Services.BrevoEmailService>();
+        services.AddScoped<CoreHub.Services.ISmsService, CoreHub.Services.EsmsNotificationService>();
+        services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
 
         // FIX: Session 2 - Apply pattern from ShopERP/Program.cs for missing services
         services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();

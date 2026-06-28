@@ -1,4 +1,4 @@
-using System.Runtime.Serialization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure;
@@ -43,26 +43,27 @@ namespace VanAn.CoreHub.Services
                 if (lead.Status != LeadStatus.Qualified)
                 {
                     _logger.LogWarning("Lead {LeadId} is not qualified for conversion (Status: {Status})", leadId, lead.Status);
-                    throw new InvalidOperationException($"Lead must be Qualified to convert. Current status: {lead.Status}");
+                    throw new InvalidOperationException($"Lead is unqualified for conversion. Current status: {lead.Status}");
                 }
 
-                // Create customer using reflection-based factory to preserve domain integrity
-                Customer customer = (Customer)FormatterServices.GetUninitializedObject(typeof(Customer));
+                // Check for duplicate customer with same phone number
+                // PhoneNumber is PII-encrypted + TenantId is value object — both require client-side evaluation
+                List<Customer> tenantCustomers = await _dbContext.Customers.ToListAsync();
+                bool duplicateExists = tenantCustomers.Any(c =>
+                    c.PhoneNumber == lead.PhoneNumber &&
+                    c.TenantId.Value == lead.TenantId);
+                if (duplicateExists)
+                {
+                    throw new InvalidOperationException($"A customer with phone number already exists in this tenant");
+                }
 
-                // Set properties through reflection to bypass protected setters
-                Type customerType = typeof(Customer);
-                customerType.GetProperty("Id")?.SetValue(customer, Guid.NewGuid());
-                customerType.GetProperty("CustomerId")?.SetValue(customer, new CustomerId((Guid)customerType.GetProperty("Id")?.GetValue(customer)!));
-                customerType.GetProperty("TenantId")?.SetValue(customer, lead.TenantId);
-                customerType.GetProperty("FullName")?.SetValue(customer, lead.FullName);
-                customerType.GetProperty("PhoneNumber")?.SetValue(customer, lead.PhoneNumber);
-                customerType.GetProperty("Email")?.SetValue(customer, lead.Email);
-                customerType.GetProperty("CustomerTier")?.SetValue(customer, "Bronze"); // Default tier for new customers
-                customerType.GetProperty("LoyaltyPoints")?.SetValue(customer, 0);
-                customerType.GetProperty("IsActive")?.SetValue(customer, true);
-                customerType.GetProperty("CreatedAt")?.SetValue(customer, DateTime.UtcNow);
-                customerType.GetProperty("UpdatedAt")?.SetValue(customer, DateTime.UtcNow);
-                customerType.GetProperty("IsDeleted")?.SetValue(customer, false);
+                // Create customer using domain constructor
+                Customer customer = new Customer(
+                    new TenantId(lead.TenantId),
+                    lead.FullName,
+                    lead.PhoneNumber,
+                    lead.Email
+                );
 
                 _ = _dbContext.Customers.Add(customer);
                 _ = await _dbContext.SaveChangesAsync();
@@ -78,7 +79,7 @@ namespace VanAn.CoreHub.Services
 
                 // Initialize loyalty rewards for new customer
                 _logger.LogInformation("Initializing loyalty rewards for customer {CustomerId}", customer.Id);
-                // Note: LoyaltyRewardsService handles its own logic
+                _ = await _loyaltyRewardsService.GetOrCreateCustomerRewardsAsync(customer.Id, new TenantId(lead.TenantId));
 
                 // Start customer onboarding
                 _logger.LogInformation("Starting onboarding for customer {CustomerId}", customer.Id);
