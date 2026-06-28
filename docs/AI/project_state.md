@@ -40,17 +40,19 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 **CI DI Fix — GitHub Actions Integration Tests (IN PROGRESS)**
 
-**Status:** IN PROGRESS — Fixing 14/144 integration test failures on GitHub Actions CI
+**Status:** IN PROGRESS — 143/144 pass. 1 pre-existing failure remains (Wave 4)
 
 **Root Causes Identified:**
 - Wave 1: `PiiDataMigrationService` ambiguous constructor (12 Shop API tests) ✅ FIXED
-- Wave 2: `INotificationService` missing DI registration (1 Lead conversion test) ✅ FIXED
-- Wave 3: LeadConversion FOREIGN KEY constraints (5 tests) 🔧 IN PROGRESS
+- Wave 2: `INotificationService` missing DI registration ✅ FIXED
+- Wave 3: LeadConversion FK + domain model + type shadowing (5 tests) ✅ FIXED (commit `ddd31ed`)
+- Wave 4: `GoldenFlow_HealthCheck_ReturnsHealthy` — pre-existing failure in `CustomWebApplicationFactory` 🔧 PENDING
 
 **Progress:**
 - Wave 1 ✅ Complete: Removed constructor #2, 12/12 Shop API tests now pass
-- Wave 2 ✅ Complete: Added INotificationService + IEmailService + ISmsService registrations
-- Wave 3 🔧 In Progress: Build passes, 5 tests still fail at runtime — getting exact assertion errors
+- Wave 2 ✅ Complete: Added INotificationService + IEmailService + ISmsService + HttpClient registrations
+- Wave 3 ✅ Complete: 5/5 LeadConversion tests pass — commit `ddd31ed`
+- Wave 4 🔧 Pending: `GoldenFlow_HealthCheck` fails at `CustomWebApplicationFactory.CreateHost` line 120 → `Program.cs` line 292
 
 **Previous Completed:**
 - Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED (commit `5462759`, PR #63)
@@ -148,10 +150,12 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-- [ ] Get exact runtime assertion errors for all 5 LeadConversion failing tests
-- [ ] Fix remaining runtime assertion/logic failures
-- [ ] Run full integration test suite to verify 144/144 pass
-- [ ] Commit changes with message `[CI DI FIX] Wave 1-3: Fix DI, domain model, and FK constraints`
+- [ ] Wave 4: Investigate `GoldenFlow_HealthCheck_ReturnsHealthy` failure
+  - File: `6_Tests/VanAn.Integration.Tests/GoldenFlowSystemTests.cs` line 76
+  - Root: `CustomWebApplicationFactory.CreateHost` line 120 → `Program.cs` line 292
+  - Files to read: `GoldenFlowSystemTests.cs`, `CustomWebApplicationFactory.cs`, `Program.cs` (line 292)
+- [ ] Fix Wave 4 → achieve 144/144 pass
+- [ ] Push to CI / create PR
 
 ### All Production Hygiene Waves (8–14) COMPLETE
 
@@ -469,8 +473,9 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-26 (Wave 15 planning session; branch: feature/wave14-api-request-signing)
-* Current Branch: `feature/wave14-api-request-signing`
+* Last Updated: 2026-06-28 (CI DI Fix Wave 1-3 complete; branch: main)
+* Current Branch: `main`
+* **CI DI Fix Wave 1-3 (2026-06-28):** COMPLETED. Commit `ddd31ed`. 143/144 tests pass. Remaining: Wave 4 `GoldenFlow_HealthCheck` (pre-existing).
 * **Wave 15 Planning (2026-06-26):** KHACHLINK_PRODUCTION_PLAN.md rebuilt — scope W15-T1 cập nhật (xóa 6 files + convert Dashboard.cshtml→Dashboard.razor), W15-T2 cập nhật (Blazor Web App routing AddRazorComponents), W17 tách sang KHACHLINK_RETENTION_PLAN.md (DEFERRED), tất cả W15 + W17 task cards updated với đúng master plan reference.
 * **Wave 14 — HMAC Request Signing (2026-06-26):** COMPLETED. Commit `5462759`, PR #63. HmacSigningMiddleware + ApiKey entity + IApiKeyManagementService + ApiKeyController. 10/10 tests PASS. Build: 0 errors; guard-check: PASS.
 * **Wave 11 — Cleanup Invalid Framework Files (2026-06-26):** COMPLETED. Deleted `ShopERP/Pages/SocialCampaignManager.cshtml` and `KhachLink/wwwroot/index.html`; updated `service-worker.js` cache list. Verified no production references. Build: 0 errors; guard-check: PASS. PRODUCTION_HYGIENE_master_plan.md updated W11-T1→T4 status.
