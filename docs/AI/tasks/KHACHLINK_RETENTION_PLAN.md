@@ -291,3 +291,24 @@ Footer: shop name · phone · social links
 * **2026-06-26:** File created — Wave 17 tách từ `KHACHLINK_PRODUCTION_PLAN.md` (DEFERRED)
   - Tất cả 9 task cards (W17-T1..T9) giữ nguyên nội dung chi tiết trong file card riêng
   - Master plan reference trong các task cards đã được cập nhật sang file này
+
+* **2026-06-28:** Code review `Components/` — phát hiện các dead/broken components cần xử lý trong Wave 17:
+
+  **DEAD CODE (không được mount ở đâu, cần xóa hoặc integrate):**
+  - `AppInstallPrompt.razor` — gọi `window.isAppInstalled` và `window.installPWA` không tồn tại; JS thật nằm trong `window.vananPWA.*`. Cần fix JS bridge + integrate vào App.razor hoặc MainLayout. Backlog: **W17-PWA-FIX**
+  - `VibeProductGrid.razor` — duplicate hoàn toàn của `VibeShowcase.razor` (cùng logic, cùng theme switch). Cần xóa 1 file. Backlog: **W17-CLEANUP-1**
+  - `VibeShowcase.razor` — nhận `List<CartItem>` thay vì `List<ProductDto>` (type sai); không được dùng ở đâu. Backlog: **W17-CLEANUP-1**
+  - `GoogleMaps.razor` — dùng `key=AIzaSyDummyKey` hardcode → map không load; chỉ hiện iframe 403. Cần real API key từ config. Backlog: **W17-MAPS**
+  - `SocialBridge.razor` — duplicate logic của `SocialHub.razor` (cùng Facebook/TikTok embed). Xóa `SocialBridge.razor`, giữ `SocialHub.razor`. Backlog: **W17-CLEANUP-2**
+  - `IdentityUpgradeModal.razor` — UI đúng, nhưng `OnUpgrade` callback trống (Wave 17 Identity chưa implement). Backlog: **W17-T2 (đã có)**
+
+  **BROKEN INJECT (vi phạm kiến trúc):**
+  - `DynamicThemeProvider.razor` — `@inject HttpClient Http` (direct inject, vi phạm VA-KHACHLINK-004). Cần đổi sang `IHttpClientFactory("gateway")`. Endpoint `/api/v1/shopconfig/shops/{id}/config` cũng chưa tồn tại ở Gateway. Backlog: **W17-THEME-FIX**
+
+  **PRODUCTION READY (không cần làm gì):**
+  - `CartDrawer.razor` — ✅ nhận params từ Home.razor, dùng CartService đúng cách
+  - `PWAInstallPrompt.razor` — ✅ dùng `PWAService` đúng cách, có offline indicator
+  - `SocialHub.razor` — ✅ conditional render khi ShopConfig có social links
+  - `QrPaymentModal.razor` — ✅ đã verify ở Wave 16
+  - `VoiceCommand.razor` — ✅ đã verify ở Wave 16
+  - `RealTimeDashboard.razor` — ✅ đã verify ở Wave 16

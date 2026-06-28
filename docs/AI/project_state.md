@@ -38,24 +38,23 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 2. Current Objective
 
-**CI DI Fix — GitHub Actions Integration Tests (IN PROGRESS)**
+**Wave 17 — KhachLink Retention & Loyalty (READY TO START)**
 
-**Status:** IN PROGRESS — 143/144 pass. 1 pre-existing failure remains (Wave 4)
+**Status:** NEXT — Wave 15 + Wave 16 + production fixes hoàn chỉnh. Môi trường production ổn định.
 
-**Root Causes Identified:**
-- Wave 1: `PiiDataMigrationService` ambiguous constructor (12 Shop API tests) ✅ FIXED
-- Wave 2: `INotificationService` missing DI registration ✅ FIXED
-- Wave 3: LeadConversion FK + domain model + type shadowing (5 tests) ✅ FIXED (commit `ddd31ed`)
-- Wave 4: `GoldenFlow_HealthCheck_ReturnsHealthy` — pre-existing failure in `CustomWebApplicationFactory` 🔧 PENDING
+**Prerequisites (tất cả DONE):**
+- Wave 15: KhachLink page cleanup + Blazor Web App routing ✅ (commit `26abd83`)
+- Wave 16: Production flow hardening — Campaign, Dashboard TenantId, VoiceCommand ✅ (verified 2026-06-28)
+- Production fixes: 502 errors resolved (ShopERP stale volume + KhachLink 502) ✅
+- All integration tests: 144/144 PASS ✅
 
-**Progress:**
-- Wave 1 ✅ Complete: Removed constructor #2, 12/12 Shop API tests now pass
-- Wave 2 ✅ Complete: Added INotificationService + IEmailService + ISmsService + HttpClient registrations
-- Wave 3 ✅ Complete: 5/5 LeadConversion tests pass — commit `ddd31ed`
-- Wave 4 🔧 Pending: `GoldenFlow_HealthCheck` fails at `CustomWebApplicationFactory.CreateHost` line 120 → `Program.cs` line 292
+**Scope (KHACHLINK_RETENTION_PLAN.md):**
+- W17-T1: Customer Identity (DeviceId → PhoneOTP upgrade)
+- W17-T2: Loyalty Dashboard (điểm thưởng, lịch sử đơn)
+- W17-T3..T9: PWA Push, Order History, Store Finder, End-User Layout
+- Backlog từ Components review (2026-06-28): PWA-FIX, THEME-FIX, CLEANUP-1/2, MAPS
 
-**Previous Completed:**
-- Production Hygiene — Wave 14: HMAC Request Signing ✅ COMPLETED (commit `5462759`, PR #63)
+**Plan:** `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md`
 
 ### Completed
 
@@ -150,20 +149,14 @@ Mọi cập nhật file này PHẢI tuân thủ:
 
 ## 4. Next Actions
 
-- [ ] Wave 4: Investigate `GoldenFlow_HealthCheck_ReturnsHealthy` failure
-  - File: `6_Tests/VanAn.Integration.Tests/GoldenFlowSystemTests.cs` line 76
-  - Root: `CustomWebApplicationFactory.CreateHost` line 120 → `Program.cs` line 292
-  - Files to read: `GoldenFlowSystemTests.cs`, `CustomWebApplicationFactory.cs`, `Program.cs` (line 292)
-- [ ] Fix Wave 4 → achieve 144/144 pass
-- [ ] Push to CI / create PR
-
-### All Production Hygiene Waves (8–14) COMPLETE
-
-1. Merge PRs #61, #62, #63 into main → close Production Hygiene milestone
-2. Tạo branch `feature/wave15-khachlink-page-cleanup` từ main mới nhất
-3. Bắt đầu W15-T1 — xóa 6 dead/demo pages + convert Dashboard.cshtml → Dashboard.razor
-4. Tiếp theo: W15-T2 — migrate Program.cs sang Blazor Web App routing (`AddRazorComponents`)
-5. Plan docs sẵn sàng: `docs/AI/tasks/KHACHLINK_PRODUCTION_PLAN.md` (W15–16) + `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` (W17 DEFERRED)
+1. **[NEXT]** Tạo branch `feature/wave17-khachlink-retention` từ `main`
+2. Bắt đầu W17 theo thứ tự dependency:
+   - W17-CLEANUP-1/2 trước (xóa duplicate components: VibeShowcase ≈ VibeProductGrid, SocialBridge ≈ SocialHub)
+   - W17-PWA-FIX: Fix `AppInstallPrompt.razor` — bridge tới `window.vananPWA.*` đúng cách
+   - W17-THEME-FIX: Fix `DynamicThemeProvider.razor` — đổi `@inject HttpClient` → `IHttpClientFactory("gateway")`
+   - W17-T1: Customer Identity (DeviceId → PhoneOTP upgrade flow)
+   - W17-T2..T9: Loyalty, PWA Push, Order History, Store Finder
+3. Đọc `docs/AI/tasks/KHACHLINK_RETENTION_PLAN.md` đầu session để lấy task cards chi tiết
 
 ---
 
@@ -443,8 +436,21 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
   * Sample tests pass (5/5)
   * Documentation in 6_Tests/README.md
   * Note: Testcontainers.Sqlite package does not exist on NuGet; used SQLite in-memory with Cache=Shared as alternative
-* [2026-06-28] CI DI Fix — GitHub Actions Integration Tests (Wave 1-2 complete: PiiDataMigrationService DI ambiguity + INotificationService registration; Wave 3 FK constraints in progress)
-* [2026-06-26] Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization (Branch `feature/wave15-khachlink-page-cleanup` — pending merge; commit `26abd83`)
+* [2026-06-28] Production fixes — 502 Bad Gateway resolved on production (vanantech.io.vn + diemthuong.vanantech.io.vn)
+  * ShopERP: stale Docker volume `/app` chứa DLL cũ → xóa volume, container pull từ image mới
+  * KhachLink: `Gateway__BaseUrl` missing env + duplicate `ChildContent` trong `KhachLinkLayout.razor` → fixed
+  * Nginx: không reload config sau CD → thêm `nginx -s reload` vào CD pipeline
+  * GoldenFlow: `OrderConfiguration` missing `IEntityConfiguration` + duplicate inline Order config trong `ShopERPDbContext` → fixed; 144/144 tests PASS
+* [2026-06-28] KhachLink cleanup — scaffold pages + NavMenu (commits `1d38988`, `8a44647`)
+  * Xóa `Components/Pages/Counter.razor`, `Weather.razor`, `Error.razor` (Blazor scaffold)
+  * Rewrite `NavMenu.razor`: bỏ /counter, /weather, /VanAnDashboard; thêm /home, /cart, /checkout, /voice-note, /dashboard
+  * Added `wwwroot/icons/` với 11 PWA icon files (manifest.json + service-worker references)
+* [2026-06-28] Wave 16 verify + Components review — happy path E2E confirmed production ready
+  * All 7 exit criteria PASS; 6/12 components production ready; 6 dead/broken ghi vào Wave 17 backlog
+* [2026-06-28] CI DI Fix — GitHub Actions Integration Tests ✅ COMPLETED (144/144 PASS)
+  * Wave 1-3: PiiDataMigrationService DI, INotificationService, LeadConversion FK (commit `ddd31ed`)
+  * Wave 4 (GoldenFlow): OrderConfiguration + ShopERPDbContext duplicate config (commit `884de3b`, `e4fc298`)
+* [2026-06-26] Production Hygiene — Wave 15: KhachLink Page Cleanup + Routing Modernization ✅ COMPLETED (commit `26abd83`)
 * [2026-06-26] Production Hygiene — Wave 14: HMAC-SHA256 API Request Signing (Branch `feature/wave14-api-request-signing` — PR #63; commit `5462759`)
 * [2026-06-25] Production Hygiene — Wave 9: Cleanup Orphan Controller (Branch `feature/wave9-cleanup-controller` — pending merge)
 * [2026-06-23] Security Compliance — Wave 6: User Aggregate + RBAC Management (Merged to main - Commit 2599c1b)
@@ -473,7 +479,7 @@ expect(bodyWidth).toBeLessThanOrEqual(361); // 360 + 1px tolerance
 
 ## 11. Maintenance Log
 
-* Last Updated: 2026-06-28 (CI DI Fix Wave 1-3 complete; branch: main)
+* Last Updated: 2026-06-28 (Wave 16 verified production-ready; production 502 fixes; KhachLink Components review; Wave 17 READY TO START; branch: main)
 * Current Branch: `main`
 * **CI DI Fix Wave 1-3 (2026-06-28):** COMPLETED. Commit `ddd31ed`. 143/144 tests pass. Remaining: Wave 4 `GoldenFlow_HealthCheck` (pre-existing).
 * **Wave 15 Planning (2026-06-26):** KHACHLINK_PRODUCTION_PLAN.md rebuilt — scope W15-T1 cập nhật (xóa 6 files + convert Dashboard.cshtml→Dashboard.razor), W15-T2 cập nhật (Blazor Web App routing AddRazorComponents), W17 tách sang KHACHLINK_RETENTION_PLAN.md (DEFERRED), tất cả W15 + W17 task cards updated với đúng master plan reference.
