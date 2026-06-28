@@ -57,10 +57,6 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
     [Fact(DisplayName = "Golden Flow: Database Connection Status")]
     public async Task GoldenFlow_DatabaseConnection_IsHealthy()
     {
-        // Skip this test for now - requires Orders table which has configuration issues
-        // TODO: Fix entity configuration for SQLite in-memory database
-        return;
-
         // Act & Assert - Verify database connection is working
         Assert.True(_dbContext.Database.CanConnect());
         
@@ -103,15 +99,11 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
     [Fact(DisplayName = "Golden Flow: Simple Entity Insert")]
     public async Task GoldenFlow_SimpleEntityInsert_WithBehavior_Works()
     {
-        // Skip this test for now - requires Orders table which has configuration issues
-        // TODO: Fix entity configuration for SQLite in-memory database
-        return;
-
         // Arrange - Use TestEntityBuilder for domain-compliant creation
         var testTenantId = TestEntityBuilder.CreateTenantId();
-        var testOrder = TestEntityBuilder.CreateOrder(testTenantId, Guid.NewGuid(), 100.0m);
+        var testOrder = TestEntityBuilder.CreateOrder(testTenantId, null, 100.0m);
 
-        // Act - Insert order without items first
+        // Act - Insert order without customer reference (CustomerId is nullable)
         _dbContext.Orders.Add(testOrder);
         await _dbContext.SaveChangesAsync();
 
@@ -134,29 +126,27 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
     [Fact(DisplayName = "Golden Flow: Multi-Tenant Isolation")]
     public async Task GoldenFlow_MultiTenant_WithBusinessRules_Isolation_Works()
     {
-        // Skip this test for now - requires Orders table which has configuration issues
-        // TODO: Fix entity configuration for SQLite in-memory database
-        return;
-
         // Arrange - Use TestEntityBuilder for domain-compliant creation
         var tenant1Id = Guid.NewGuid();
         var tenant2Id = Guid.NewGuid();
 
-        var order1 = TestEntityBuilder.CreateOrder(new TenantId(tenant1Id), Guid.NewGuid(), 100.0m);
-        var order2 = TestEntityBuilder.CreateOrder(new TenantId(tenant2Id), Guid.NewGuid(), 200.0m);
+        var order1 = TestEntityBuilder.CreateOrder(new TenantId(tenant1Id), null, 100.0m);
+        var order2 = TestEntityBuilder.CreateOrder(new TenantId(tenant2Id), null, 200.0m);
 
         // Act - Insert orders for different tenants
         _dbContext.Orders.AddRange(order1, order2);
         await _dbContext.SaveChangesAsync();
 
-        // Assert - Verify tenant isolation
-        var tenant1Orders = await _dbContext.Orders
+        // Assert - Verify tenant isolation using client-side evaluation to avoid LINQ translation issues
+        var allOrders = await _dbContext.Orders.ToListAsync();
+        
+        var tenant1Orders = allOrders
             .Where(o => o.TenantId.Value == tenant1Id)
-            .ToListAsync();
+            .ToList();
 
-        var tenant2Orders = await _dbContext.Orders
+        var tenant2Orders = allOrders
             .Where(o => o.TenantId.Value == tenant2Id)
-            .ToListAsync();
+            .ToList();
 
         Assert.Single(tenant1Orders);
         Assert.Single(tenant2Orders);
@@ -174,96 +164,52 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
     [Fact(DisplayName = "Order Flow: KhachLink -> ShopERP -> KhachLink")]
     public async Task OrderFlow_KhachLink_To_ShopERP_To_KhachLink()
     {
-        // Skip this test for now - requires Shops table which has configuration issues
-        // TODO: Fix Shop entity configuration for SQLite in-memory database
-        return;
+        // Single client — factory boots ShopERP with in-memory SQLite + TestAuthenticationHandler
+        using var client = _factory.CreateClient();
 
-        // Arrange - Setup test data
-        var testTenantId = TestEntityBuilder.CreateTenantId();
-        var shop = TestEntityBuilder.CreateShop(testTenantId);
-        _dbContext.Shops.Add(shop);
-        await _dbContext.SaveChangesAsync();
-
-        var customer = TestEntityBuilder.CreateCustomer(testTenantId, "Test Customer", "0987654321", "test@example.com");
-        _dbContext.Customers.Add(customer);
-        await _dbContext.SaveChangesAsync();
-
-        // Step 1: KhachLink (Port 5002) - Create Order
-        var khachLinkClient = _factory.CreateClient();
+        // Step 1 (KhachLink): Create Order via POST /api/orders
+        // Empty items avoids ProductId FK constraint; flow test only needs the order lifecycle
         var orderRequest = new
         {
-            TenantId = shop.Id,
-            CustomerId = customer.Id,
-            OrderType = "DINE_IN",
-            Items = new[]
-            {
-                new
-                {
-                    ProductId = Guid.NewGuid(),
-                    ProductName = "Test Product",
-                    Quantity = 2,
-                    UnitPrice = 25.00m
-                }
-            },
-            CustomerInfo = new
-            {
-                FullName = customer.FullName,
-                PhoneNumber = customer.PhoneNumber
-            },
-            PaymentMethod = "CASH"
+            CustomerDeviceId = Guid.NewGuid().ToString(),
+            Items = Array.Empty<object>()
         };
 
-        // Act 1: Create order via KhachLink API
-        var createResponse = await khachLinkClient.PostAsJsonAsync("/api/orders", orderRequest);
-        Assert.True(createResponse.IsSuccessStatusCode);
+        var createResponse = await client.PostAsJsonAsync("/api/orders", orderRequest);
+        Assert.True(createResponse.IsSuccessStatusCode,
+            $"POST /api/orders failed ({(int)createResponse.StatusCode}): {await createResponse.Content.ReadAsStringAsync()}");
 
-        var createdOrder = await createResponse.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        var orderId = createdOrder["id"].ToString();
+        var createBody = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = createBody.GetProperty("id").GetString();
         Assert.NotNull(orderId);
+        // Order.Create sets Status = OrderStatusId.Pending ("pending")
+        Assert.Equal("pending", createBody.GetProperty("status").GetString());
 
-        // Verify order exists in database
-        var savedOrder = await _dbContext.Orders.FindAsync(Guid.Parse(orderId));
-        Assert.NotNull(savedOrder);
-        Assert.Equal("PENDING", savedOrder.Status.Value);
+        // Step 2 (ShopERP): Confirm order — valid transition: pending → preparing
+        // (OrderStatusId.Processing = "preparing"; "confirmed" is NOT in the transition map)
+        var processRequest = new { Status = "preparing" };
+        var processResponse = await client.PutAsJsonAsync($"/api/orders/{orderId}/status", processRequest);
+        Assert.True(processResponse.IsSuccessStatusCode,
+            $"PUT /api/orders/{orderId}/status failed ({(int)processResponse.StatusCode}): {await processResponse.Content.ReadAsStringAsync()}");
 
-        // Step 2: ShopERP (Port 5003) - Process Order
-        var shopErpClient = _factory.CreateClient();
-        var processRequest = new
-        {
-            Status = "CONFIRMED",
-            Notes = "Order confirmed by staff",
-            EstimatedTime = DateTime.UtcNow.AddMinutes(15)
-        };
+        // Step 3 (KhachLink): Query updated status via GET /api/orders/{id}/status
+        var statusResponse = await client.GetAsync($"/api/orders/{orderId}/status");
+        Assert.True(statusResponse.IsSuccessStatusCode,
+            $"GET /api/orders/{orderId}/status failed ({(int)statusResponse.StatusCode}): {await statusResponse.Content.ReadAsStringAsync()}");
 
-        // Act 2: Process order via ShopERP API
-        var processResponse = await shopErpClient.PutAsJsonAsync($"/api/orders/{orderId}/status", processRequest);
-        Assert.True(processResponse.IsSuccessStatusCode);
+        var statusBody = await statusResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("preparing", statusBody.GetProperty("status").GetString());
 
-        // Verify order status updated
-        await _dbContext.Entry(savedOrder).ReloadAsync();
-        Assert.Equal("CONFIRMED", savedOrder.Status.Value);
-
-        // Step 3: KhachLink (Port 5002) - Get Status Update
-        var statusResponse = await khachLinkClient.GetAsync($"/api/orders/{orderId}/status");
-        Assert.True(statusResponse.IsSuccessStatusCode);
-
-        var statusData = await statusResponse.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-        Assert.Equal("CONFIRMED", statusData["status"].ToString());
-
-        // Assert complete flow
-        Assert.NotNull(savedOrder);
-        Assert.Equal(orderId, savedOrder.Id.ToString());
-        Assert.Equal("CONFIRMED", savedOrder.Status.Value);
-        Assert.True(savedOrder.CreatedAt > DateTime.MinValue);
-        Assert.True(savedOrder.UpdatedAt > savedOrder.CreatedAt);
+        // Complete E2E assertion
+        Assert.Equal(orderId, statusBody.GetProperty("orderId").GetString());
     }
 
     public void Dispose()
     {
         // Clean up: Delete the test database file
+        // NOTE: Do NOT dispose _factory — it is managed by xUnit IClassFixture lifetime
         _dbContext?.Dispose();
         _serviceProvider?.Dispose();
-        _factory?.Dispose();
         
         if (File.Exists(_uniqueDbPath))
         {

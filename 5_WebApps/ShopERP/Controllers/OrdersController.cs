@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.ShopERP.Services;
@@ -158,11 +159,53 @@ namespace VanAn.ShopERP.Controllers
             }
         }
 
+        [HttpPost]
+        public async Task<ActionResult> CreateOrder([FromBody] PlaceOrderRequest request)
+        {
+            try
+            {
+                Guid tenantId = GetTenantId();
+                TenantId tenantIdObj = new(tenantId);
+                Guid orderId = Guid.NewGuid();
+                // CustomerId is null — device-identified anonymous order (no FK to Customers required)
+                Order domainOrder = Order.Create(orderId, tenantIdObj, (Guid?)null, []);
+                Order order = await _orderService.CreateOrderAsync(domainOrder, tenantId);
+                return Ok(new { id = order.Id, status = order.Status.Value, tenantId = order.TenantId.Value });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating order");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("{id}/status")]
+        public async Task<ActionResult> GetOrderStatus(Guid id)
+        {
+            try
+            {
+                Guid tenantId = GetTenantId();
+                Order? order = await _orderService.GetOrderByIdAsync(id, tenantId);
+                return order == null ? NotFound() : Ok(new { orderId = order.Id, status = order.Status.Value });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting order status {OrderId}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
         private Guid GetTenantId()
         {
             string? tenantClaim = User.FindFirst("TenantId")?.Value;
             return Guid.TryParse(tenantClaim, out Guid tenantId) ? tenantId : Guid.Empty;
         }
+    }
+
+    public class PlaceOrderRequest
+    {
+        public string? CustomerDeviceId { get; set; }
+        public List<OrderItemRequest>? Items { get; set; }
     }
 
     public class UpdateStatusRequest

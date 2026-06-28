@@ -37,7 +37,7 @@ public class TestAuthenticationHandler : AuthenticationHandler<AuthenticationSch
         {
             new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Name, "Test User"),
-            new Claim("tenantId", "12345678-1234-1234-1234-123456789abc"),
+            new Claim("TenantId", "12345678-1234-1234-1234-123456789abc"),
             new Claim(ClaimTypes.Role, "Admin")
         };
 

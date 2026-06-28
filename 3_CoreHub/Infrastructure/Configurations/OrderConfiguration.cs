@@ -74,7 +74,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             // TenantId value object converter
             _ = builder.Property(o => o.TenantId)
-                .IsRequired();
+                .IsRequired()
+                .HasConversion(id => id.Value, value => new TenantId(value));
         }
     }
 }

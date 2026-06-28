@@ -20,7 +20,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
-                    .FirstOrDefaultAsync(o => o.Id == id.Value && EF.Property<Guid>(o, "TenantId") == tenantId.Value, cancellationToken);
+                    .FirstOrDefaultAsync(o => o.Id == id.Value && o.TenantId == tenantId, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -34,7 +34,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
-                    .Where(o => EF.Property<Guid>(o, "TenantId") == tenantId.Value)
+                    .Where(o => o.TenantId == tenantId)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
             }
@@ -54,7 +54,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
-                    .Where(o => EF.Property<Guid>(o, "TenantId") == tenantId.Value &&
+                    .Where(o => o.TenantId == tenantId &&
                                o.CreatedAt.Date >= startDate.Date &&
                                o.CreatedAt.Date <= endDate.Date)
                     .OrderByDescending(o => o.CreatedAt)
@@ -76,7 +76,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
-                    .Where(o => EF.Property<Guid>(o, "TenantId") == tenantId.Value && o.Status.Value == status)
+                    .Where(o => o.TenantId == tenantId && o.Status.Value == status)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
             }
@@ -93,7 +93,7 @@ namespace VanAn.CoreHub.Repositories
             {
                 DateTime today = DateTime.UtcNow.Date;
                 return await _context.Orders
-                    .Where(o => EF.Property<Guid>(o, "TenantId") == tenantId.Value && o.CreatedAt.Date == today)
+                    .Where(o => o.TenantId == tenantId && o.CreatedAt.Date == today)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
             }
@@ -145,7 +145,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
-                    .CountAsync(o => EF.Property<Guid>(o, "TenantId") == tenantId.Value &&
+                    .CountAsync(o => o.TenantId == tenantId &&
                                    o.CreatedAt.Date >= startDate.Date &&
                                    o.CreatedAt.Date <= endDate.Date, cancellationToken);
             }
