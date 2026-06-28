@@ -143,19 +143,8 @@ namespace VanAn.ShopERP.Infrastructure
                 t => t.Name.EndsWith("Configuration") && t.GetInterface(nameof(IEntityConfiguration)) != null);
 
             // === VALUE OBJECT CONFIGURATIONS ===
-            // Order: Use BaseEntity.Id as PK, OwnsOne for CustomerInfo
-            _ = modelBuilder.Entity<Order>(entity =>
-            {
-                _ = entity.HasKey(o => o.Id);
-                _ = entity.OwnsOne(o => o.CustomerInfo, ci =>
-                {
-                    _ = ci.Property(c => c.FullName).HasMaxLength(200);
-                    _ = ci.Property(c => c.PhoneNumber).HasMaxLength(50);
-                    _ = ci.Property(c => c.Email).HasMaxLength(200);
-                    _ = ci.Property(c => c.Address).HasMaxLength(500);
-                    _ = ci.Property(c => c.Notes).HasMaxLength(1000);
-                });
-            });
+            // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)
+            // Inline config removed to avoid duplicate OwnsOne conflict with OrderConfiguration
 
             // Wave 2: PII encryption for Customer inline config (ShopERP uses inline config instead of CustomerConfiguration)
             _ = modelBuilder.Entity<Customer>(entity =>
