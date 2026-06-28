@@ -177,6 +177,9 @@ jobs:
             sudo docker compose -f docker-compose.prod.yml pull
             sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
+            # Reload nginx config (picks up any conf.d changes without downtime)
+            sudo docker exec vanan-nginx nginx -s reload || true
+
             # Health check
             sleep 20
             sudo docker compose -f docker-compose.prod.yml ps
