@@ -1,8 +1,8 @@
 # UNIFIED MASTER PLAN — KhachLink O2O + ADR001 Edge Infrastructure
 
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (Wave 7 COMPLETE - ADR001-W4.3 Phased Migration Validation)
-**Status:** IN PROGRESS — Waves 1-7 COMPLETE, Wave 8 NEXT (7/10 waves = 70% complete)
+**Last Updated:** 2026-06-29 (Wave 8 COMPLETE - KhachLink-W3 Product Personalization)
+**Status:** IN PROGRESS — Waves 1-8 COMPLETE, Wave 9 NEXT (8/10 waves = 80% complete)
 **Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (v2 Hybrid Edge/Cloud design)
 **Supersedes:**
   - `docs/AI/tasks/khachlink_improvements_master_plan.md`
@@ -103,8 +103,8 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 | ✅ | ADR001-W4.1 | ADR001 | `feature/adr001-wave4-sqlite-sidecars` | SQLite Sidecar Infrastructure | 2-3h | 2 | ✅ COMPLETE |
 | ✅ | ADR001-W4.2 | ADR001 | `feature/adr001-wave4-sync-worker-mode` | NATS Sync Worker Mode | 2-3h | 2 | ✅ COMPLETE |
 | ✅ | ADR001-W4.3 | ADR001 | `feature/adr001-wave4-migration-validation` | Phased Migration Validation | 1-2h | 2 | ✅ COMPLETE |
-| **8** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | **NEXT** |
-| **9** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | PENDING |
+| ✅ | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | ✅ COMPLETE |
+| **9** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | **NEXT** |
 | **10** | **ADR001-W5** | ADR001 | `feature/adr001-wave5-ci-edge` | CI edge pipeline | 2-3h | 4 | PENDING |
 
 **Total estimated:** ~10-13 days (updated for ADR001-W4 split)
@@ -367,36 +367,38 @@ Flow 2 (Returning customer, app installed):
 
 ---
 
-### Wave 8 (KhachLink-W3): Product Personalization (Hybrid Option C)
+### Wave 8 (KhachLink-W3): Product Personalization (Hybrid Option C) ✅ COMPLETE
 
-**Branch:** `feature/khachlink-wave3-personalization`
+**Branch:** `feature/khachlink-wave3-personalization` → merged to main
 **Estimated:** 2-3 days
 **Risk:** 🟡 MEDIUM — new service + API + UI sections
 **Task Card:** `docs/AI/tasks/wave3_product_personalization_task_card.md`
+**Commit:** `f418bb3`
 
 **Goal:** Keep global product catalog + add "Frequently Bought" + "Recently Viewed" personalized sections.
 
 **Tasks:**
 | Task ID | Task | File | Status |
 |---------|------|------|--------|
-| W3-T1 | Create `CustomerRecommendationService` (frequency-based) | `3_CoreHub/Services/CustomerRecommendationService.cs` (NEW) | PENDING |
-| W3-T2 | Add `GET /api/products/recommended` endpoint | `5_WebApps/ShopERP/Controllers/ProductsController.cs` | PENDING |
-| W3-T3 | Add recently-viewed tracking (localStorage client-side) | `5_WebApps/KhachLink/Pages/Home.razor` | PENDING |
-| W3-T4 | Update `ProductHttpService.GetRecommendedProductsAsync()` | `5_WebApps/KhachLink/Services/Http/ProductHttpService.cs` | PENDING |
-| W3-T5 | Add "Frequently Bought" section to Home.razor | `5_WebApps/KhachLink/Pages/Home.razor` | PENDING |
-| W3-T6 | Add "Recently Viewed" section to Home.razor | `5_WebApps/KhachLink/Pages/Home.razor` | PENDING |
-| W3-T7 | Implement `IMemoryCache` caching (5-min TTL) | `3_CoreHub/Services/CustomerRecommendationService.cs` | PENDING |
+| W3-T1 | Create `CustomerRecommendationService` (frequency-based) | `3_CoreHub/Services/CustomerRecommendationService.cs` (NEW) | ✅ COMPLETE |
+| W3-T2 | Add `GET /api/products/recommended` endpoint | `5_WebApps/ShopERP/Controllers/ProductsController.cs` | ✅ COMPLETE |
+| W3-T3 | Add recently-viewed tracking (localStorage client-side) | `5_WebApps/KhachLink/Services/RecentlyViewedService.cs` (NEW) | ✅ COMPLETE |
+| W3-T4 | Update `ProductHttpService.GetRecommendedProductsAsync()` | `5_WebApps/KhachLink/Services/Http/ProductHttpService.cs` | ✅ COMPLETE |
+| W3-T5 | Add "Frequently Bought" section to Home.razor | `5_WebApps/KhachLink/Pages/Home.razor` | ✅ COMPLETE |
+| W3-T6 | Add "Recently Viewed" section to Home.razor | `5_WebApps/KhachLink/Pages/Home.razor` | ✅ COMPLETE |
+| W3-T7 | Implement `IMemoryCache` caching (5-min TTL) | `3_CoreHub/Services/CustomerRecommendationService.cs` | ✅ COMPLETE |
 
 **Entry criteria:**
 - [x] ADR001-W4.3 (Wave 7) merged to main — migration validation complete
-- [ ] Customer order history data verified available
+- [x] Customer order history data verified available
 
 **Exit criteria:**
-- [ ] "Frequently Bought" section shows accurate recommendations
-- [ ] "Recently Viewed" tracked via localStorage
-- [ ] Recommendations load < 500ms (cache hit)
-- [ ] Global product catalog unchanged
-- [ ] `dotnet build` 0 errors
+- [x] "Frequently Bought" section shows accurate recommendations
+- [x] "Recently Viewed" tracked via localStorage
+- [x] Recommendations load < 500ms (cache hit)
+- [x] Global product catalog unchanged
+- [x] `dotnet build` 0 errors
+- [x] guard-check ALL CHECKS PASSED
 
 ---
 
