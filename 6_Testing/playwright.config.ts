@@ -68,6 +68,21 @@ export default defineConfig({
       }
     },
     {
+      name: 'omnichannel-e2e',
+      testMatch: 'e2e-tests/omnichannel*.spec.ts',
+      use: {
+        baseURL: 'https://vanantech.io.vn',
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+        // HTTP Basic Auth credentials if staging site is protected
+        // httpCredentials: {
+        //   username: process.env.STAGING_USERNAME || '',
+        //   password: process.env.STAGING_PASSWORD || ''
+        // }
+      }
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },

@@ -76,6 +76,18 @@ interface TestConfig {
 
   SHOPERP_URL: string;
 
+  OMNICHANNEL_URL: string;
+
+  GATEWAY_PUBLIC_URL: string;
+
+  ADMIN_USERNAME: string;
+
+  ADMIN_PASSWORD: string;
+
+  KITCHEN_USERNAME: string;
+
+  KITCHEN_PASSWORD: string;
+
   
 
   // Test Data
@@ -218,6 +230,18 @@ export function loadEnvConfig(): TestConfig {
 
       SHOPERP_URL: config.SHOPERP_URL || 'http://localhost:5003',
 
+      OMNICHANNEL_URL: config.OMNICHANNEL_URL || 'https://vanantech.io.vn',
+
+      GATEWAY_PUBLIC_URL: config.GATEWAY_PUBLIC_URL || 'https://api.vanantech.io.vn',
+
+      ADMIN_USERNAME: config.ADMIN_USERNAME || 'admin',
+
+      ADMIN_PASSWORD: config.ADMIN_PASSWORD || 'admin123',
+
+      KITCHEN_USERNAME: config.KITCHEN_USERNAME || 'kitchen',
+
+      KITCHEN_PASSWORD: config.KITCHEN_PASSWORD || 'kitchen123',
+
       
 
       // Test Data
@@ -299,6 +323,18 @@ export function loadEnvConfig(): TestConfig {
       KHACHLINK_URL: 'http://localhost:5002',
 
       SHOPERP_URL: 'http://localhost:5003',
+
+      OMNICHANNEL_URL: 'https://vanantech.io.vn',
+
+      GATEWAY_PUBLIC_URL: 'https://api.vanantech.io.vn',
+
+      ADMIN_USERNAME: 'admin',
+
+      ADMIN_PASSWORD: 'admin123',
+
+      KITCHEN_USERNAME: 'kitchen',
+
+      KITCHEN_PASSWORD: 'kitchen123',
 
       TEST_TENANT_ID: '00000000-0000-0000-0000-000000000001',
 
