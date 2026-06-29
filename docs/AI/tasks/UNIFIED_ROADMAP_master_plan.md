@@ -2,7 +2,7 @@
 
 **Created:** 2026-06-29
 **Last Updated:** 2026-06-29
-**Status:** IN PROGRESS — Waves 1-2 COMPLETE, Wave 3 NEXT
+**Status:** IN PROGRESS — Waves 1-3 COMPLETE, Wave 4 NEXT
 **Supersedes:**
   - `docs/AI/tasks/khachlink_improvements_master_plan.md`
   - `docs/AI/tasks/fix_adr001_compliance_master_plan.md`
@@ -87,8 +87,8 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 | ✅ | ADR001-W1 | ADR001 | `main` (merged) | Architecture compliance test | Done | — | ✅ COMPLETE |
 | ✅ | ADR001-W2 | ADR001 | `main` (merged) | `docker-compose.edge.yml` (new file) | 2-3h | 0 | ✅ COMPLETE |
 | ✅ | ADR001-W3 | ADR001 | `main` (merged) | `NatsSyncWorker` + `NatsEventPublisher` | 1 day | 0 | ✅ COMPLETE |
-| **3** | **KhachLink-W1** | KhachLink | `feature/khachlink-wave1-pwa-install` | PWA Install Fix | 1-2h | 1 | **NEXT** |
-| **4** | **KhachLink-W2** | KhachLink | `feature/khachlink-wave2-qr-scanning` | QR Code Scanning (O2O) | 1-2d | 1 | PENDING |
+| ✅ | KhachLink-W1 | KhachLink | `main` (merged) | PWA Install Fix | 1-2h | 1 | ✅ COMPLETE |
+| **4** | **KhachLink-W2** | KhachLink | `feature/khachlink-wave2-qr-scanning` | QR Code Scanning (O2O) | 1-2d | 1 | **NEXT** |
 | **5** | **ADR001-W4** | ADR001 | `feature/adr001-wave4-sqlite-config` | ShopERP `--sync-worker` mode | 2-3h | 2 | PENDING |
 | **6** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | PENDING |
 | **7** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | PENDING |
@@ -165,32 +165,34 @@ This subject will be consumed by `PushNotificationService` in KhachLink-W4.
 
 ## 4. LAYER 1 — KhachLink UX Features
 
-### Wave 3 (KhachLink-W1): PWA Install Fix
+### Wave 3 (KhachLink-W1): PWA Install Fix ✅ COMPLETE
 
-**Branch:** `feature/khachlink-wave1-pwa-install`
+**Branch:** `main` (merged)
 **Estimated:** 1-2 hours
 **Risk:** 🟢 LOW — cleanup + config only
 **Task Card:** `docs/AI/tasks/wave1_pwa_install_fix_task_card.md`
+**Commit:** `b83eb84`
 
 **Goal:** Remove duplicate `AppInstallPrompt.razor`, activate `PWAInstallPrompt.razor`, fix VAPID placeholder.
 
 **Tasks:**
 | Task ID | Task | File | Status |
 |---------|------|------|--------|
-| W1-T1 | Remove duplicate `AppInstallPrompt.razor` | `5_WebApps/KhachLink/Components/AppInstallPrompt.razor` (DELETE) | PENDING |
-| W1-T2 | Ensure `PWAInstallPrompt.razor` active in `App.razor` | `5_WebApps/KhachLink/Components/App.razor` | PENDING |
-| W1-T3 | Disable push placeholder (VAPID configured in Wave 4) | `5_WebApps/KhachLink/wwwroot/js/pwa.js` | PENDING |
-| W1-T4 | Verify service worker registration | `5_WebApps/KhachLink/Components/App.razor` | PENDING |
+| W1-T1 | Remove duplicate `AppInstallPrompt.razor` | `5_WebApps/KhachLink/Components/AppInstallPrompt.razor` (DELETE) | ✅ COMPLETE |
+| W1-T2 | Ensure `PWAInstallPrompt.razor` active in `App.razor` | `5_WebApps/KhachLink/Components/App.razor` | ✅ COMPLETE |
+| W1-T3 | Disable push placeholder (VAPID configured in Wave 4) | `5_WebApps/KhachLink/wwwroot/js/pwa.js` | ✅ COMPLETE |
+| W1-T4 | Verify service worker registration | `5_WebApps/KhachLink/Components/App.razor` | ✅ COMPLETE |
 
 **Entry criteria:**
-- [ ] ADR001-W3 merged to main (NATS in place — Wave 3 can start independently)
-- [ ] Build clean
+- [x] ADR001-W3 merged to main (NATS in place — Wave 3 can start independently)
+- [x] Build clean
 
 **Exit criteria:**
-- [ ] No duplicate install prompt component
-- [ ] PWA install prompt shows on mobile
-- [ ] Service worker registered successfully
-- [ ] `dotnet build` 0 errors
+- [x] No duplicate install prompt component
+- [x] PWA install prompt shows on mobile
+- [x] Service worker registered successfully
+- [x] `dotnet build` 0 errors
+- [x] `guard-check.ps1` ALL CHECKS PASSED
 
 ---
 

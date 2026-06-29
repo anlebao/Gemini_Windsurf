@@ -51,14 +51,14 @@
 | ✅ | ADR001-W1: Architecture compliance test | — | Done | COMPLETE |
 | ✅ | ADR001-W2: `docker-compose.edge.yml` | Infra | 2-3h | COMPLETE |
 | ✅ | ADR001-W3: NatsSyncWorker + NatsEventPublisher | Infra | 1d | COMPLETE |
-| 3 | **KhachLink-W1: PWA Install Fix** | UX | 1-2h | **NEXT** |
-| 4 | KhachLink-W2: QR Code (URL-param scan-to-cart) | UX | 1-2d | PENDING |
+| ✅ | KhachLink-W1: PWA Install Fix | UX | 1-2h | COMPLETE |
+| 4 | **KhachLink-W2: QR Code (URL-param scan-to-cart)** | UX | 1-2d | **NEXT** |
 | 5 | ADR001-W4: ShopERP `--sync-worker` mode | Backend | 2-3h | PENDING |
 | 6 | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | PENDING |
 | 7 | KhachLink-W4: Real-time Order Status (Polling + NATS Push) | Integration | 1-2d | PENDING |
 | 8 | ADR001-W5: CI edge pipeline | CI | 2-3h | PENDING |
 
-**Progress:** 3/8 waves complete (37.5%), Layer 0 infrastructure foundation DONE
+**Progress:** 4/8 waves complete (50%), Layer 0-1 infrastructure + UX foundation DONE
 **Total estimate:** 7-10 days → ~5-7 days remaining
 **Open Decision (required before Wave 7):** Customer.PushSubscriptionJson → Domain entity OR separate table?
 
@@ -67,22 +67,21 @@
 ## 3. Current Status
 
 - **Branch:** `main` (verified 2026-06-29)
-- **Last commit:** `f7f4d3b` — Merge [WAVE 2/8] ADR001-W3: NatsEventPublisher + NatsSyncWorker (9/9 Nats tests, 23/23 arch tests)
+- **Last commit:** `b83eb84` — [WAVE 3/8] KhachLink-W1: PWA Install Fix - remove duplicate + activate PWAInstallPrompt
 - **Build:** `dotnet build VanAn.sln` → 0 errors
-- **Tests:** Architecture tests 23/23 PASS; Core tests (Nats*) 9/9 PASS; integration tests 144/144 PASS
-- **State:** Layer 0 (ADR001-W2, W3) complete → Layer 1 (KhachLink-W1: PWA Install Fix) next
+- **Tests:** Architecture tests 23/23 PASS; Core tests (Nats*) 9/9 PASS; integration tests 144/144 PASS; guard-check ALL CHECKS PASSED
+- **State:** Layer 0-1 (ADR001-W2, W3, KhachLink-W1) complete → Layer 1 (KhachLink-W2: QR Code Scanning) next
 
 ---
 
 ## 4. Next Actions
 
-1. **[NEXT — Start now]** KhachLink-W1: PWA Install Fix (branch: `feature/khachlink-wave1-pwa-install`)
-2. **[After W1]** KhachLink-W2: QR Code Scanning (URL-param approach — no camera library needed)
-3. **[After W2]** ADR001-W4: ShopERP `--sync-worker` mode
-4. **[After W5]** KhachLink-W3: Product Personalization Hybrid C
-5. **[After W6]** KhachLink-W4: Real-time Order Status (uses NATS from ADR001-W3)
-6. **[After W7]** ADR001-W5: CI edge pipeline
-7. **[Decision before W7]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
+1. **[NEXT — Start now]** KhachLink-W2: QR Code Scanning (branch: `feature/khachlink-wave2-qr-scanning`)
+2. **[After W2]** ADR001-W4: ShopERP `--sync-worker` mode
+3. **[After W4]** KhachLink-W3: Product Personalization Hybrid C
+4. **[After W5]** KhachLink-W4: Real-time Order Status (uses NATS from ADR001-W3)
+5. **[After W6]** ADR001-W5: CI edge pipeline
+6. **[Decision before W7]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
 
 ---
 
@@ -103,7 +102,7 @@
 
 ## 6. History Log
 
-* [2026-06-29] Unified Roadmap Waves 1-2 COMPLETE — ADR001-W2 (docker-compose.edge.yml, 23/23 arch tests) + ADR001-W3 (NatsEventPublisher + NatsSyncWorker, 9/9 Nats tests). Layer 0 infrastructure foundation DONE. Commits: `79486e4`, `f7f4d3b`. Branch: `main`.
+* [2026-06-29] Unified Roadmap Waves 1-3 COMPLETE — ADR001-W2 (docker-compose.edge.yml, 23/23 arch tests) + ADR001-W3 (NatsEventPublisher + NatsSyncWorker, 9/9 Nats tests) + KhachLink-W1 (PWA Install Fix). Layer 0-1 infrastructure + UX foundation DONE (50% complete). Commit: `b83eb84`. Branch: `main`.
 * [2026-06-29] UNIFIED ROADMAP — Merged ADR001 (5 waves) + KhachLink improvements (4 waves) into 8-wave unified plan (Option C, Layer-ordered). Zero code conflicts verified. KhachLink-W4 uses NATS from ADR001-W3 for event-driven push. Master plan: `UNIFIED_ROADMAP_master_plan.md`. Old plans marked superseded.
 * [2026-06-29] Production BootstrapAdapter Fix — Fixed ButtonSize.Medium NotImplementedException in BootstrapAdapter (changed to return empty string). Committed and pushed to trigger CD pipeline. Commit: `ae18a88`. Branch: `main`.
 * [2026-06-29] Wave 17 — KhachLink Retention & Loyalty COMPLETE. Implemented: Customer Identity (OTP login, DeviceId upgrade), Loyalty Dashboard, Order History, Store Finder, PWA bug fixes, NavMenu mobile tab bar, KhachLink Layout dynamic themes. Build 0 errors. Architecture tests 21/21 PASS. Branch: `feature/wave17-khachlink-retention`.
@@ -119,6 +118,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Unified Roadmap Waves 1-2 COMPLETE; Layer 0 DONE; build 0 errors; architecture tests 23/23 PASS; Nats tests 9/9 PASS
+* **Last Updated:** 2026-06-29 — Unified Roadmap Waves 1-3 COMPLETE; Layer 0-1 DONE (50%); build 0 errors; guard-check ALL CHECKS PASSED; architecture tests 23/23 PASS; Nats tests 9/9 PASS
 * **Current Branch:** `main`
-* **Unified Roadmap (2026-06-29):** 3/8 waves complete (37.5%). Layer 0 (ADR001-W2, W3) infrastructure foundation DONE. Next: KhachLink-W1 (PWA Install Fix). Open decision before Wave 7: PushSubscription storage strategy.
+* **Unified Roadmap (2026-06-29):** 4/8 waves complete (50%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1) infrastructure + UX foundation DONE. Next: KhachLink-W2 (QR Code Scanning). Open decision before Wave 7: PushSubscription storage strategy.
