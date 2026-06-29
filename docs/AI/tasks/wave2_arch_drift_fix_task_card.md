@@ -1,4 +1,7 @@
-# TASK CARD: ADR-001 - Wave 2 - Architecture Drift Fix
+# [SUPERSEDED] TASK CARD: ADR-001 - Wave 2 - Architecture Drift Fix
+
+> **SUPERSEDED 2026-06-29:** Replaced by W2-ADR-T1, W2-ADR-T2, W3-ADR-T1, W3-ADR-T2, W4-ADR-T1, W4-ADR-T2, W5-ADR-T1
+> See master plan: `docs/AI/tasks/fix_adr001_compliance_master_plan.md`
 
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Align production deployment với ADR-001 (SQLite + NATS + PostgreSQL)
