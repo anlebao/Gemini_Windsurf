@@ -619,6 +619,60 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    // Wave 9: Push Subscription Entity for Web Push Notifications
+    // Separate table (per user decision) to avoid Domain layer changes
+    public class PushSubscription : BaseEntity, IMustHaveTenant
+    {
+        public Guid PushSubscriptionId { get; protected set; } = Guid.NewGuid();
+        public Guid CustomerId { get; protected set; }
+        public string SubscriptionJson { get; protected set; } = string.Empty;
+        public string? UserAgent { get; protected set; } // Browser/device info
+        public bool IsActive { get; protected set; } = true;
+        public DateTime? LastUsedAt { get; protected set; }
+        public DateTime? ExpiresAt { get; protected set; } // Subscription expiration
+
+        protected PushSubscription() { }
+
+        public PushSubscription(TenantId tenantId, Guid customerId, string subscriptionJson, string? userAgent = null)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(subscriptionJson))
+                throw new ArgumentException("Subscription JSON cannot be empty", nameof(subscriptionJson));
+
+            CustomerId = customerId;
+            SubscriptionJson = subscriptionJson;
+            UserAgent = userAgent;
+            LastUsedAt = DateTime.UtcNow;
+            // Push subscriptions typically expire after subscription renewal period (e.g., 24 hours)
+            ExpiresAt = DateTime.UtcNow.AddDays(1);
+        }
+
+        public void UpdateSubscription(string subscriptionJson, string? userAgent = null)
+        {
+            if (string.IsNullOrWhiteSpace(subscriptionJson))
+                throw new ArgumentException("Subscription JSON cannot be empty", nameof(subscriptionJson));
+
+            SubscriptionJson = subscriptionJson;
+            UserAgent = userAgent;
+            LastUsedAt = DateTime.UtcNow;
+            ExpiresAt = DateTime.UtcNow.AddDays(1);
+            UpdateAudit();
+        }
+
+        public void MarkAsInactive()
+        {
+            IsActive = false;
+            UpdateAudit();
+        }
+
+        public void Renew()
+        {
+            ExpiresAt = DateTime.UtcNow.AddDays(1);
+            LastUsedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+    }
+
     public record OrderItemId(Guid Value);
 
     // OrderItem for Multi-item Order Support

@@ -68,6 +68,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Wave 14: API Keys for HMAC request signing
         public DbSet<ApiKey> ApiKeys { get; set; }
 
+        // Wave 9: Push Subscriptions for Web Push notifications
+        public DbSet<PushSubscription> PushSubscriptions { get; set; }
+
         // PHASE 2: SOCIAL FLYWHEEL ENTITIES
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
         public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }

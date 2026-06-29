@@ -64,6 +64,9 @@ namespace VanAn.ShopERP.Infrastructure
         // Wave 14: API Keys for HMAC request signing
         public DbSet<ApiKey> ApiKeys { get; set; }
 
+        // Wave 9: Push Subscriptions for Web Push notifications
+        public DbSet<PushSubscription> PushSubscriptions { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

@@ -3,6 +3,7 @@ using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
+using VanAn.CoreHub.Infrastructure.Messaging;
 
 namespace VanAn.CoreHub.Services
 {
@@ -11,13 +12,15 @@ namespace VanAn.CoreHub.Services
         ILogger<OrderWorkflowService> logger,
         ISocialCampaignService socialCampaignService,
         ILoyaltyRewardsService loyaltyRewardsService,
-        ICustomerRepository customerRepository) : IOrderWorkflowService
+        ICustomerRepository customerRepository,
+        INatsEventPublisher? natsEventPublisher) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
         private readonly ISocialCampaignService _socialCampaignService = socialCampaignService;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly ICustomerRepository _customerRepository = customerRepository;
+        private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
 
         public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
         {
@@ -50,6 +53,9 @@ namespace VanAn.CoreHub.Services
                 {
                     await HandleOrderCompletedAsync(order, transaction);
                 }
+
+                // 📡 Wave 9: Publish NATS event for push notifications (non-blocking)
+                await PublishOrderStatusChangedEventAsync(order, oldStatus, newStatus);
 
                 await transaction.CommitAsync();
 
@@ -202,6 +208,43 @@ namespace VanAn.CoreHub.Services
 
             return validTransitions.ContainsKey(currentStatus.Value) &&
                    validTransitions[currentStatus.Value].Contains(newStatus.Value);
+        }
+
+        /// <summary>
+        /// Wave 9: Publish order status change event to NATS for push notifications.
+        /// Non-blocking - wrapped in try/catch to prevent workflow failures.
+        /// </summary>
+        private async Task PublishOrderStatusChangedEventAsync(Order order, OrderStatusId oldStatus, OrderStatusId newStatus)
+        {
+            if (_natsEventPublisher == null)
+            {
+                _logger.LogDebug("NATS event publisher not available - skipping order status event publishing");
+                return;
+            }
+
+            try
+            {
+                var payload = new
+                {
+                    orderId = order.Id,
+                    tenantId = order.TenantId.Value,
+                    customerId = order.CustomerId,
+                    oldStatus = oldStatus.Value,
+                    newStatus = newStatus.Value,
+                    timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+
+                var payloadBytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(payload);
+                await _natsEventPublisher.PublishAsync("order.status.changed", payloadBytes);
+
+                _logger.LogInformation("Published order status changed event to NATS: OrderId={OrderId}, Status={Status}", 
+                    order.Id, newStatus.Value);
+            }
+            catch (Exception ex)
+            {
+                // Log but don't throw - NATS failures should not block order workflow
+                _logger.LogError(ex, "Failed to publish order status changed event to NATS for OrderId: {OrderId}", order.Id);
+            }
         }
     }
 }

@@ -1,26 +1,30 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.ShopERP.Services;
+using VanAn.CoreHub.Domain.Repositories;
+using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Controllers
 {
     /// <summary>
     /// W17-T4: Push Notification subscription endpoint.
-    /// Note: Customer.PushSubscriptionJson field deferred to Wave 18 — logs subscription only.
+    /// Wave 9: Now persists subscription to PushSubscription table (separate table per user decision).
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [AllowAnonymous]
     public class NotificationsController(
         ICustomerTokenService customerTokenService,
+        IPushSubscriptionRepository pushSubscriptionRepository,
         ILogger<NotificationsController> logger) : ControllerBase
     {
         private readonly ICustomerTokenService _customerTokenService = customerTokenService;
+        private readonly IPushSubscriptionRepository _pushSubscriptionRepository = pushSubscriptionRepository;
         private readonly ILogger<NotificationsController> _logger = logger;
 
-        /// <summary>POST /api/notifications/push/subscribe — log push subscription (Wave 18 will persist).</summary>
+        /// <summary>POST /api/notifications/push/subscribe — persist push subscription (Wave 9).</summary>
         [HttpPost("push/subscribe")]
-        public IActionResult Subscribe(
+        public async Task<IActionResult> Subscribe(
             [FromHeader(Name = "X-Customer-Token")] string? token,
             [FromBody] PushSubscriptionRequest request)
         {
@@ -28,13 +32,33 @@ namespace VanAn.ShopERP.Controllers
             if (!customerId.HasValue)
                 return Unauthorized(new { error = "Token không hợp lệ." });
 
-            // W17: Log only — Customer.PushSubscriptionJson field pending Wave 18 approval
-            _logger.LogInformation(
-                "Push subscription received for customer {CustomerId}, endpoint: {Endpoint}",
-                customerId.Value,
-                request.Endpoint?.Length > 20 ? request.Endpoint[..20] + "..." : request.Endpoint);
+            try
+            {
+                // Convert push subscription request to JSON format
+                var subscriptionJson = System.Text.Json.JsonSerializer.Serialize(request);
+                var userAgent = Request.Headers["User-Agent"].ToString();
 
-            return Ok(new { message = "Đã đăng ký nhận thông báo." });
+                // Use upsert pattern (get or create)
+                var subscription = await _pushSubscriptionRepository.GetOrCreateAsync(
+                    customerId.Value,
+                    subscriptionJson,
+                    userAgent);
+
+                _logger.LogInformation(
+                    "Push subscription persisted for customer {CustomerId}, subscription ID: {SubscriptionId}",
+                    customerId.Value,
+                    subscription.PushSubscriptionId);
+
+                return Ok(new { 
+                    message = "Đã đăng ký nhận thông báo.",
+                    subscriptionId = subscription.PushSubscriptionId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error persisting push subscription for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi khi đăng ký nhận thông báo." });
+            }
         }
     }
 

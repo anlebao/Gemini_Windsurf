@@ -47,6 +47,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Wave 14: API Keys for HMAC request signing
         DbSet<ApiKey> ApiKeys { get; }
 
+        // Wave 9: Push Subscriptions for Web Push notifications
+        DbSet<PushSubscription> PushSubscriptions { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

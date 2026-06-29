@@ -91,6 +91,7 @@ namespace VanAn.CoreHub
                     _ = services.AddScoped<IJournalTemplateRepository, JournalTemplateRepository>();
                     _ = services.AddScoped<IOrderRepository, OrderRepository>();
                     _ = services.AddScoped<ICustomerRepository, CustomerRepository>();
+                    _ = services.AddScoped<IPushSubscriptionRepository, PushSubscriptionRepository>();
                     _ = services.AddScoped<IHKDBookRepository, HKDBookRepository>();
                     _ = services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
