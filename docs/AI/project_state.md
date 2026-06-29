@@ -43,34 +43,47 @@
 
 ## 2. Current Objective
 
-**KhachLink Improvements — 4-wave implementation plan approved:**
-- Wave 1: PWA Install Fix (Quick Win - 1-2 hours)
-- Wave 2: QR Code Scanning — O2O scan-to-order (1-2 days)
-- Wave 3: Product Personalization Option C Hybrid (2-3 days)
-- Wave 4: Real-time Order Status — Short Polling + Web Push thay thế SignalR, scale đến 10,000+ users (1-2 days)
+**UNIFIED ROADMAP — 8 waves (ADR001 + KhachLink, Option C Merged, Layer-ordered)**
+**Master Plan:** `docs/AI/tasks/UNIFIED_ROADMAP_master_plan.md`
 
-**Status:** All 4 waves planned, awaiting approval to start Wave 1 implementation.
-**Documentation:** `docs/AI/tasks/khachlink_improvements_master_plan.md` + 4 task cards
+| # | Wave | Layer | Est. | Status |
+|---|------|-------|------|--------|
+| ✅ | ADR001-W1: Architecture compliance test | — | Done | COMPLETE |
+| 1 | **ADR001-W2**: `docker-compose.edge.yml` | Infra | 2-3h | **NEXT** |
+| 2 | ADR001-W3: NatsSyncWorker + NatsEventPublisher | Infra | 1d | PENDING |
+| 3 | KhachLink-W1: PWA Install Fix | UX | 1-2h | PENDING |
+| 4 | KhachLink-W2: QR Code (URL-param scan-to-cart) | UX | 1-2d | PENDING |
+| 5 | ADR001-W4: ShopERP `--sync-worker` mode | Backend | 2-3h | PENDING |
+| 6 | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | PENDING |
+| 7 | KhachLink-W4: Real-time Order Status (Polling + NATS Push) | Integration | 1-2d | PENDING |
+| 8 | ADR001-W5: CI edge pipeline | CI | 2-3h | PENDING |
+
+**Total estimate:** 7-10 days
+**Open Decision (required before Wave 7):** Customer.PushSubscriptionJson → Domain entity OR separate table?
 
 ---
 
 ## 3. Current Status
 
 - **Branch:** `main` (verified 2026-06-29)
-- **Last commit:** `e1e9fbd` — docs: Add Wave 4 - Real-time Order Status (Short Polling + Web Push)
+- **Last commit:** `997d02f` (pre-unification); unified plan being committed now
 - **Build:** `dotnet build VanAn.sln` → 0 errors
 - **Tests:** Architecture tests 21/21 PASS; integration tests 144/144 PASS
-- **State:** KhachLink improvements plan created, awaiting approval
+- **State:** Unified 8-wave roadmap approved (Option C). Next: ADR001-W2 (`docker-compose.edge.yml`)
 
 ---
 
 ## 4. Next Actions
 
-1. **[Ready]** Start Wave 1: PWA Install Fix (branch: `feature/khachlink-wave1-pwa-install`) — 1-2 hours, cleanup + config
-2. **[After Wave 1]** Wave 2: QR Code Scanning — O2O scan-to-order workflow
-3. **[After Wave 2]** Wave 3: Product Personalization (Option C Hybrid)
-4. **[After Wave 3]** Wave 4: Real-time Order Status — replace SignalR with Short Polling + Web Push
-5. **[Prerequisite Wave 4]** Decision needed: Customer.PushSubscriptionJson in Domain OR separate PushSubscription table?
+1. **[NEXT — Start now]** ADR001-W2: Create `docker-compose.edge.yml` (branch: `feature/adr001-wave2-edge-compose`)
+2. **[After W2]** ADR001-W3: NatsSyncWorker + NatsEventPublisher
+3. **[After W3]** KhachLink-W1: PWA Install Fix
+4. **[After W1]** KhachLink-W2: QR Code Scanning (URL-param approach — no camera library needed)
+5. **[After W2]** ADR001-W4: ShopERP `--sync-worker` mode
+6. **[After W5]** KhachLink-W3: Product Personalization Hybrid C
+7. **[After W6]** KhachLink-W4: Real-time Order Status (uses NATS from ADR001-W3)
+8. **[After W7]** ADR001-W5: CI edge pipeline
+9. **[Decision before W7]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
 
 ---
 
@@ -91,7 +104,7 @@
 
 ## 6. History Log
 
-* [2026-06-29] KhachLink Improvements Plan — Created 4-wave implementation plan. Wave 4 added: Short Polling + Web Push replaces SignalR in KhachLink for 10,000+ user scalability. Master plan + 4 task cards. Commits: `58f77e6`, `f2acbcc`, `e1e9fbd`. Branch: `main`.
+* [2026-06-29] UNIFIED ROADMAP — Merged ADR001 (5 waves) + KhachLink improvements (4 waves) into 8-wave unified plan (Option C, Layer-ordered). Zero code conflicts verified. KhachLink-W4 uses NATS from ADR001-W3 for event-driven push. Master plan: `UNIFIED_ROADMAP_master_plan.md`. Old plans marked superseded.
 * [2026-06-29] Production BootstrapAdapter Fix — Fixed ButtonSize.Medium NotImplementedException in BootstrapAdapter (changed to return empty string). Committed and pushed to trigger CD pipeline. Commit: `ae18a88`. Branch: `main`.
 * [2026-06-29] Wave 17 — KhachLink Retention & Loyalty COMPLETE. Implemented: Customer Identity (OTP login, DeviceId upgrade), Loyalty Dashboard, Order History, Store Finder, PWA bug fixes, NavMenu mobile tab bar, KhachLink Layout dynamic themes. Build 0 errors. Architecture tests 21/21 PASS. Branch: `feature/wave17-khachlink-retention`.
 * [2026-06-28] Wave 17 preparation — archived Waves 8–16 to `project_state_archive.md`; 144/144 tests PASS; branch `main`.
@@ -106,6 +119,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Added Wave 4 (Short Polling + Web Push) to KhachLink improvements plan (commit e1e9fbd); build 0 errors; architecture tests 21/21 PASS
+* **Last Updated:** 2026-06-29 — Unified 8-wave roadmap created (Option C Merged); build 0 errors; architecture tests 21/21 PASS
 * **Current Branch:** `main`
-* **KhachLink Improvements Plan (2026-06-29):** 4-wave plan complete. Wave 4 replaces SignalR at KhachLink with Short Polling + Web Push, targeting 10,000+ concurrent users with zero persistent connections. Decision pending: Customer.PushSubscriptionJson in Domain vs separate table.
+* **Unified Roadmap (2026-06-29):** Merged ADR001 (W2–W5) + KhachLink (W1–W4) into single layer-ordered plan. Next wave: ADR001-W2 (`docker-compose.edge.yml`). Open decision before Wave 7: PushSubscription storage strategy.

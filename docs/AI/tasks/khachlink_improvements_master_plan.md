@@ -1,10 +1,15 @@
 # MASTER IMPLEMENTATION PLAN — KhachLink Improvements (PWA + QR Scanning + Product Personalization + Real-time Order Status)
 
+> ⚠️ **SUPERSEDED (2026-06-29)**
+> This plan has been merged into the unified roadmap:
+> **`docs/AI/tasks/UNIFIED_ROADMAP_master_plan.md`** (Option C — Merged, Layer-ordered)
+> Do NOT use this file for implementation. Use the unified plan instead.
+
 **Created:** 2026-06-29
 **Last Updated:** 2026-06-29
-**Current Status:** PLANNING
-**Branch strategy:** feature/khachlink-improvements-waveX (per wave)
-**Execution principle:** Incremental validation - each wave must pass before next
+**Current Status:** ~~PLANNING~~ → SUPERSEDED
+**Branch strategy:** See unified plan
+**Execution principle:** See unified plan
 
 ---
 

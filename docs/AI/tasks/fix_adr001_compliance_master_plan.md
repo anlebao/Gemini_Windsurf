@@ -1,172 +1,171 @@
 # MASTER IMPLEMENTATION PLAN — Fix ADR-001 Compliance
 
+> ⚠️ **SUPERSEDED (2026-06-29)**
+> This plan has been merged into the unified roadmap:
+> **`docs/AI/tasks/UNIFIED_ROADMAP_master_plan.md`** (Option C — Merged, Layer-ordered)
+> Do NOT use this file for implementation. Use the unified plan instead.
+> ADR001-W1 is COMPLETE (commit `8863692`). Remaining waves W2–W5 are tracked in unified plan.
+
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29
-**Current Status:** PLANNING
-**Branch strategy:** feature/adr001-compliance (per wave)
-**Execution principle:** Incremental validation - each wave must pass before next
+**Last Updated:** 2026-06-29 (refactored: Wave 2 split into W2–W5; then merged into unified plan)
+**Current Status:** WAVE 1 COMPLETE → SUPERSEDED (W2–W5 in unified plan)
+**Branch strategy:** See unified plan
+**Execution principle:** See unified plan
 
 ---
 
 ## 0. EXECUTION RULES
 
-### JIT Planning Strategy (Áp dụng cho mọi wave)
-**Nguyên tắc cốt lõi:** KHÔNG code mò mẫm - Investigate trước, Implement sau
-
-**Bước 1: INVESTIGATE & ANALYZE (Planning Phase)**
-- Đọc ADR-001 để hiểu rõ requirements (SQLite local + NATS sync + PostgreSQL cloud)
-- Đọc production code để hiểu current deployment
-- Identify root cause: architecture drift vs ADR alignment
-- Lập detailed coding plan với specific steps
-- Chốt approach trước khi viết bất kỳ dòng code nào
-
-**Bước 2: IMPLEMENT (Execution Phase)**
-- Thực hiện viết code theo plan đã chốt ở Bước 1
-- KHÔNG thay đổi approach khi đang implement
-- Mỗi bước implement xong, run CI/test để verify
-- Nếu fail theo cách khác, DỪNG LẠI và quay lại Bước 1
-
 ### Session protocol
-1. **Mỗi session chỉ làm 1 wave** - không跳步
-2. **Bắt đầu mỗi session:** Planning Phase
-3. **Sau khi plan chốt:** Execution Phase
-4. **Trước khi session end**: Chạy CI tests, đảm bảo pass
-5. **Sau mỗi session**: Commit với message format `[WAVE X] Task description`
+1. **Mỗi session chỉ làm 1 wave** — không skip
+2. **Bắt đầu mỗi session:** Load context → đọc task card của wave → chốt plan
+3. **Trước khi session end:** Chạy `dotnet build` + architecture tests, đảm bảo pass
+4. **Sau mỗi session:** Commit `[WAVE N] <task description>`
 
 ### Branch protocol
 ```
 main
-  └── feature/adr001-wave1-ci-check (Wave 1)
-      └── feature/adr001-wave2-arch-drift (Wave 2)
+ └── feature/adr001-wave1-ci-check       ✅ MERGED
+ └── feature/adr001-wave2-edge-compose   (tạo docker-compose.edge.yml)
+ └── feature/adr001-wave3-nats-worker    (NatsSyncWorker service)
+ └── feature/adr001-wave4-sqlite-config  (ShopERP SQLite + feature flag)
+ └── feature/adr001-wave5-ci-edge        (CI edge pipeline + integration test)
 ```
 
 ### Hard rules (không violate)
-- **KHÔNG sửa Domain layer** trong Wave 2
-- **Test MUST fail initially** trong Wave 1 (drift detection)
-- **Wave 1 chỉ thêm tests**, không sửa production code
-- **Wave 2 test locally trước** production deployment
+- **KHÔNG sửa Domain layer** trong bất kỳ wave nào
+- **KHÔNG sửa docker-compose.prod.yml** — v1 SaaS không thay đổi
+- **Wave N+1 không bắt đầu** nếu Wave N chưa pass build + tests
 
 ---
 
-## 1. CURRENT ARCHITECTURE DRIFT
+## 1. ARCHITECTURE CONTEXT
 
-### ADR-001 Requirements
-- **SQLite local stations:** Mỗi station có SQLite local để offline operation
-- **NATS message broker:** Sync events giữa stations
-- **PostgreSQL cloud:** Central storage cho sync target
-- **Outbox pattern:** Events persisted trước NATS publish
-- **Conflict resolution:** Handle multi-station sync conflicts
+### Two-Version Strategy
+| Version | File | DB Strategy | NATS |
+|---------|------|-------------|------|
+| v1 SaaS Online | `docker-compose.prod.yml` | PostgreSQL | Không cần sync worker |
+| v2 Edge Offline | `docker-compose.edge.yml` | SQLite local + NATS + PostgreSQL | Required |
 
-### Current Production Deployment
-- **docker-compose.prod.yml:** PostgreSQL direct (KHÔNG SQLite stations)
-- **NATS:** Package installed nhưng KHÔNG sync workers deployed
-- **Outbox pattern:** Implemented nhưng KHÔNG dùng cho NATS sync
-- **CI/CD:** KHÔNG check ADR-001 compliance
-
-### Drift Summary
-| Requirement | ADR-001 | Current | Status |
-|-------------|---------|---------|--------|
-| SQLite local stations | Required | None | ❌ Missing |
-| NATS sync workers | Required | None | ❌ Missing |
-| PostgreSQL role | Sync target | Primary DB | ⚠️ Wrong purpose |
-| CI ADR check | Required | None | ❌ Missing |
+### Codebase hiện tại (đã verified)
+| Asset | Trạng thái |
+|-------|-----------|
+| `NATS.Client` package trong CoreHub | ✅ Đã cài |
+| `Microsoft.EntityFrameworkCore.Sqlite` trong ShopERP | ✅ Đã cài |
+| `IOutboxRepository` + `OutboxRepository` | ✅ Đã implement |
+| `OutboxMessage` entity với retry + exponential backoff | ✅ Đã implement |
+| `ShopERP/Program.cs` dùng SQLite (`vanan_shoperp.db`) | ✅ Đã dùng |
+| `docker-compose.edge.yml` | ❌ Chưa tồn tại |
+| `NatsSyncWorker` service | ❌ Chưa tồn tại |
+| CI edge pipeline | ❌ Chưa tồn tại |
 
 ---
 
-## 2. WAVE 1 — Fix CI Check (ADR-001 Compliance Test)
+## 2. WAVE 1 — Fix CI Check ✅ COMPLETE
 
-**Branch:** feature/adr001-wave1-ci-check
-**Estimated sessions:** 1-2
-**Conflict risk:** LOW (thêm tests, không sửa production code)
-**Priority:** HIGH (foundation cho Wave 2)
+**Status:** COMPLETE (commit `8863692`)
+**Branch:** `feature/adr001-wave1-ci-check` → merged to `main`
 **Task Card:** `docs/AI/tasks/wave1_ci_adr001_check_task_card.md`
 
-### Tasks
-| # | Task ID | Task | Files | Status |
-|---|---|---|---|---|
-| 1 | W1-T1 | Add ADR-001 compliance test to Architecture Tests | 6_Tests/VanAn.Architecture.Tests/ArchitectureRulesTests.cs | PENDING |
-| 2 | W1-T2 | Add docker-compose validation test | 6_Tests/VanAn.Architecture.Tests/ArchitectureRulesTests.cs | PENDING |
-| 3 | W1-T3 | Update architecture-guard.ps1 to check ADR-001 | architecture-guard.ps1 | PENDING |
-| 4 | W1-T4 | Run CI pipeline to verify ADR-001 test | .github/workflows/ci.yml | PENDING |
-
-### Entry criteria
-- [ ] Project builds successfully (`dotnet build`)
-- [ ] Git status clean (no uncommitted changes)
-- [ ] ADR-001 document reviewed
-
-### Exit criteria — ALL PASSED
-- [ ] ADR-001 compliance test added to Architecture Tests
-- [ ] Test validates docker-compose.prod.yml vs ADR-001 requirements
-- [ ] architecture-guard.ps1 updated to check ADR-001
-- [ ] CI pipeline passes with new ADR-001 test
-- [ ] Test should FAIL initially (since architecture drift exists)
-- [ ] Build: 0 errors
-
-### Why first
-- Low risk (thêm tests, không sửa production)
-- Foundation cho Wave 2 (test sẽ detect drift khi fix)
-- CI enforcement prevents future drift
+### Đã làm
+- [x] Thêm Rule H: ADR-001 compliance test vào `ArchitectureRulesTests.cs`
+- [x] Cập nhật `architecture-guard.ps1` để check ADR-001
 
 ---
 
-## 3. WAVE 2 — Fix Architecture Drift (Deployment Alignment)
+## 3. WAVE 2 — Create docker-compose.edge.yml
 
-**Branch:** feature/adr001-wave2-arch-drift
-**Estimated sessions:** 3-5
-**Conflict risk:** HIGH (sửa production deployment)
-**Priority:** HIGH (align với ADR-001)
-**Task Card:** `docs/AI/tasks/wave2_arch_drift_fix_task_card.md`
+**Branch:** `feature/adr001-wave2-edge-compose`
+**Estimated sessions:** 1
+**Conflict risk:** LOW (file mới, không đụng prod)
+**Dependency:** Wave 1 ✅
 
-### Tasks
-| # | Task ID | Task | Files | Status |
-|---|---|---|---|---|
-| 1 | W2-T1 | Design SQLite local station architecture | docs/Architecture/ADR001-Station-Architecture.md | PENDING |
-| 2 | W2-T2 | Create NATS sync worker service | 3_CoreHub/Services/NatsSyncWorker.cs | PENDING |
-| 3 | W2-T3 | Update docker-compose.prod.yml with SQLite stations | docker-compose.prod.yml | PENDING |
-| 4 | W2-T4 | Configure Outbox pattern for NATS publish | 3_CoreHub/Infrastructure/Outbox/NatsPublisher.cs | PENDING |
-| 5 | W2-T5 | Update ShopERP to use SQLite local in production | 5_WebApps/ShopERP/Program.cs | PENDING |
-| 6 | W2-T6 | Test deployment locally (docker-compose up) | docker-compose.prod.yml | PENDING |
-| 7 | W2-T7 | Run ADR-001 compliance test to verify fix | 6_Tests/VanAn.Architecture.Tests/ | PENDING |
+| Task ID | Task | File | Task Card |
+|---------|------|------|-----------|
+| W2-ADR-T1 | Tạo docker-compose.edge.yml với SQLite volumes + NATS | `docker-compose.edge.yml` | `W2-ADR-T1-card.md` |
+| W2-ADR-T2 | Thêm ADR-001 compliance test cho edge compose | `ArchitectureRulesTests.cs` | `W2-ADR-T2-card.md` |
 
-### Entry criteria
-- [ ] Wave 1 complete (CI ADR-001 test added)
-- [ ] ADR-001 test currently FAILING (drift confirmed)
-- [ ] Git status clean
-- [ ] NATS package installed (verified)
-
-### Exit criteria — ALL PASSED
-- [ ] SQLite local station architecture designed and documented
-- [ ] NATS sync worker service implemented
-- [ ] docker-compose.prod.yml includes SQLite stations
-- [ ] Outbox pattern configured for NATS publish
-- [ ] ShopERP configured to use SQLite local
-- [ ] Local deployment tested (docker-compose up)
-- [ ] ADR-001 compliance test PASSES
-- [ ] CI pipeline passes
-- [ ] Build: 0 errors
-
-### Why second
-- Wave 1 provides test foundation
-- High risk deployment changes need test coverage
-- Incremental validation prevents production breakage
+**Exit criteria:**
+- [ ] `docker-compose.edge.yml` tồn tại với đúng cấu trúc
+- [ ] Architecture test Rule I (edge compose) PASSES
+- [ ] `dotnet build` 0 errors
 
 ---
 
-## 4. SUCCESS CRITERIA (OVERALL)
+## 4. WAVE 3 — Implement NatsSyncWorker
 
-- [ ] ADR-001 compliance test added to CI pipeline
-- [ ] Test initially FAILS (detects drift)
-- [ ] Architecture drift fixed
-- [ ] Test PASSES after fix
-- [ ] Production deployment aligns with ADR-001
-- [ ] CI pipeline enforces ADR-001 compliance
-- [ ] No future architecture drift possible without test failure
+**Branch:** `feature/adr001-wave3-nats-worker`
+**Estimated sessions:** 2
+**Conflict risk:** MEDIUM (code mới trong CoreHub)
+**Dependency:** Wave 2 ✅
+
+| Task ID | Task | File | Task Card |
+|---------|------|------|-----------|
+| W3-ADR-T1 | Implement `INatsEventPublisher` + `NatsEventPublisher` | `3_CoreHub/Infrastructure/Messaging/NatsEventPublisher.cs` | `W3-ADR-T1-card.md` |
+| W3-ADR-T2 | Implement `NatsSyncWorker` BackgroundService | `3_CoreHub/Services/NatsSyncWorker.cs` | `W3-ADR-T2-card.md` |
+
+**Exit criteria:**
+- [ ] `NatsEventPublisher` implement đúng interface
+- [ ] `NatsSyncWorker` poll Outbox → publish → mark processed
+- [ ] Unit tests cho NatsSyncWorker pass
+- [ ] `dotnet build` 0 errors
 
 ---
 
-## 5. REFERENCES
+## 5. WAVE 4 — ShopERP SQLite + Feature Flag
 
-- ADR-001: SQLite + NATS Offline First (`docs/decisions/ADR-001-SQLite-Offline-First.md`)
-- Current docker-compose.prod.yml
-- CI workflow (`.github/workflows/ci.yml`)
-- Architecture Tests (`6_Tests/VanAn.Architecture.Tests/`)
+**Branch:** `feature/adr001-wave4-sqlite-config`
+**Estimated sessions:** 1
+**Conflict risk:** LOW (env-var controlled, không break v1)
+**Dependency:** Wave 3 ✅
+
+| Task ID | Task | File | Task Card |
+|---------|------|------|-----------|
+| W4-ADR-T1 | Add `--sync-worker` mode + conditional DI registration | `5_WebApps/ShopERP/Program.cs` | `W4-ADR-T1-card.md` |
+| W4-ADR-T2 | Add `appsettings.Edge.json` + SQLite volume config | `5_WebApps/ShopERP/appsettings.Edge.json` | `W4-ADR-T2-card.md` |
+
+**Exit criteria:**
+- [ ] `--sync-worker` arg activates NatsSyncWorker DI
+- [ ] SQLite path configurable via env var `SQLITE_DB_PATH`
+- [ ] Không ảnh hưởng v1 SaaS khi không có arg
+- [ ] `dotnet build` 0 errors
+
+---
+
+## 6. WAVE 5 — CI Edge Pipeline + Integration Test
+
+**Branch:** `feature/adr001-wave5-ci-edge`
+**Estimated sessions:** 1
+**Conflict risk:** LOW (CI config mới)
+**Dependency:** Wave 4 ✅
+
+| Task ID | Task | File | Task Card |
+|---------|------|------|-----------|
+| W5-ADR-T1 | Tạo `.github/workflows/ci-edge.yml` validate edge deploy | `.github/workflows/ci-edge.yml` | `W5-ADR-T1-card.md` |
+
+**Exit criteria:**
+- [ ] CI edge pipeline tồn tại và pass
+- [ ] Pipeline validate docker-compose.edge.yml structure
+- [ ] All architecture tests pass (21+ rules)
+- [ ] Toàn bộ ADR-001 compliance đạt
+
+---
+
+## 7. SUCCESS CRITERIA (OVERALL)
+
+- [ ] `docker-compose.edge.yml` tồn tại và đúng cấu trúc ADR-001
+- [ ] `NatsSyncWorker` implemented, unit tested
+- [ ] ShopERP hỗ trợ `--sync-worker` mode không break v1
+- [ ] Architecture tests cover cả v1 và v2 edge
+- [ ] CI edge pipeline (`ci-edge.yml`) pass
+- [ ] `docker-compose.prod.yml` KHÔNG thay đổi (v1 SaaS preserved)
+
+---
+
+## 8. REFERENCES
+
+- ADR-001: `docs/Architecture/ADR001-Station-Architecture.md`
+- Architecture Tests: `6_Tests/VanAn.Architecture.Tests/ArchitectureRulesTests.cs`
+- Outbox: `3_CoreHub/Infrastructure/Messaging/IOutboxRepository.cs`
+- CI: `.github/workflows/ci.yml` (v1), `.github/workflows/ci-edge.yml` (v2 - to create)
+- Superseded: `docs/AI/tasks/wave2_arch_drift_fix_task_card.md` (replaced by W2–W5)
