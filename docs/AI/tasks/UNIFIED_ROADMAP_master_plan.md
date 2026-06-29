@@ -2,7 +2,7 @@
 
 **Created:** 2026-06-29
 **Last Updated:** 2026-06-29
-**Status:** PLANNING — Approved (Option C: Merged, Layer-ordered)
+**Status:** IN PROGRESS — Waves 1-2 COMPLETE, Wave 3 NEXT
 **Supersedes:**
   - `docs/AI/tasks/khachlink_improvements_master_plan.md`
   - `docs/AI/tasks/fix_adr001_compliance_master_plan.md`
@@ -82,17 +82,17 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 
 ## 2. OVERVIEW TABLE
 
-| # | Wave ID | Plan | Branch | Scope | Est. | Layer |
-|---|---------|------|--------|-------|------|-------|
-| ✅ | ADR001-W1 | ADR001 | `main` (merged) | Architecture compliance test | Done | — |
-| **1** | **ADR001-W2** | ADR001 | `feature/adr001-wave2-edge-compose` | `docker-compose.edge.yml` (new file) | 2-3h | 0 |
-| **2** | **ADR001-W3** | ADR001 | `feature/adr001-wave3-nats-worker` | `NatsSyncWorker` + `NatsEventPublisher` | 1 day | 0 |
-| **3** | **KhachLink-W1** | KhachLink | `feature/khachlink-wave1-pwa-install` | PWA Install Fix | 1-2h | 1 |
-| **4** | **KhachLink-W2** | KhachLink | `feature/khachlink-wave2-qr-scanning` | QR Code Scanning (O2O) | 1-2d | 1 |
-| **5** | **ADR001-W4** | ADR001 | `feature/adr001-wave4-sqlite-config` | ShopERP `--sync-worker` mode | 2-3h | 2 |
-| **6** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 |
-| **7** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 |
-| **8** | **ADR001-W5** | ADR001 | `feature/adr001-wave5-ci-edge` | CI edge pipeline | 2-3h | 4 |
+| # | Wave ID | Plan | Branch | Scope | Est. | Layer | Status |
+|---|---------|------|--------|-------|------|-------|--------|
+| ✅ | ADR001-W1 | ADR001 | `main` (merged) | Architecture compliance test | Done | — | ✅ COMPLETE |
+| ✅ | ADR001-W2 | ADR001 | `main` (merged) | `docker-compose.edge.yml` (new file) | 2-3h | 0 | ✅ COMPLETE |
+| ✅ | ADR001-W3 | ADR001 | `main` (merged) | `NatsSyncWorker` + `NatsEventPublisher` | 1 day | 0 | ✅ COMPLETE |
+| **3** | **KhachLink-W1** | KhachLink | `feature/khachlink-wave1-pwa-install` | PWA Install Fix | 1-2h | 1 | **NEXT** |
+| **4** | **KhachLink-W2** | KhachLink | `feature/khachlink-wave2-qr-scanning` | QR Code Scanning (O2O) | 1-2d | 1 | PENDING |
+| **5** | **ADR001-W4** | ADR001 | `feature/adr001-wave4-sqlite-config` | ShopERP `--sync-worker` mode | 2-3h | 2 | PENDING |
+| **6** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | PENDING |
+| **7** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | PENDING |
+| **8** | **ADR001-W5** | ADR001 | `feature/adr001-wave5-ci-edge` | CI edge pipeline | 2-3h | 4 | PENDING |
 
 **Total estimated:** ~7-10 days
 
@@ -100,12 +100,13 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 
 ## 3. LAYER 0 — Infrastructure Foundation
 
-### Wave 1 (ADR001-W2): Create docker-compose.edge.yml
+### Wave 1 (ADR001-W2): Create docker-compose.edge.yml ✅ COMPLETE
 
-**Branch:** `feature/adr001-wave2-edge-compose`
+**Branch:** `feature/adr001-wave2-edge-compose` → merged to `main`
 **Estimated:** 2-3 hours
 **Risk:** 🟢 LOW — new file only, zero impact on production
 **Task Card:** `docs/AI/tasks/W2-ADR-T1-card.md`, `docs/AI/tasks/W2-ADR-T2-card.md`
+**Commit:** `ed4d340` → merge `79486e4`
 
 **Goal:** Create v2 Edge deployment config with SQLite volumes + NATS sync services.
 
@@ -127,12 +128,13 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 
 ---
 
-### Wave 2 (ADR001-W3): Implement NatsSyncWorker + NatsEventPublisher
+### Wave 2 (ADR001-W3): Implement NatsSyncWorker + NatsEventPublisher ✅ COMPLETE
 
-**Branch:** `feature/adr001-wave3-nats-worker`
+**Branch:** `feature/adr001-wave3-nats-worker` → merged to `main`
 **Estimated:** 1 day
 **Risk:** 🟡 MEDIUM — new code in CoreHub
 **Task Card:** `docs/AI/tasks/W3-ADR-T1-card.md`, `docs/AI/tasks/W3-ADR-T2-card.md`
+**Commit:** `0a7da55` → merge `f7f4d3b`
 
 **Goal:** Create NATS event infrastructure — foundation for KhachLink-W4 push notifications.
 
@@ -446,9 +448,9 @@ Customer closes app:
 | # | Wave | Sign-Off |
 |---|------|----------|
 | ✅ | ADR001-W1 | COMPLETE |
-| □ | ADR001-W2 | Approved ✅ — Ready to start |
-| □ | ADR001-W3 | Approved ✅ — After W2 |
-| □ | KhachLink-W1 | Approved ✅ — After W3 |
+| ✅ | ADR001-W2 | COMPLETE (commit 79486e4) |
+| ✅ | ADR001-W3 | COMPLETE (commit f7f4d3b) |
+| □ | KhachLink-W1 | Approved ✅ — NEXT |
 | □ | KhachLink-W2 | Approved ✅ — After W1 |
 | □ | ADR001-W4 | Approved ✅ — After W2 |
 | □ | KhachLink-W3 | Approved ✅ — After W5 |
