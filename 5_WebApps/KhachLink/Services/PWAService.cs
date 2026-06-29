@@ -39,20 +39,19 @@ namespace VanAn.KhachLink.Services.PWA
         {
             try
             {
-                // Check if app is already installed
+                // Try to call JS - will fail silently during prerendering
                 IsInstalled = await _jsRuntime.InvokeAsync<bool>("vananPWA.isInstalled");
-
-                // Check online status
                 IsOnline = await _jsRuntime.InvokeAsync<bool>("vananPWA.isOnline");
-
-                // Register service worker
                 await RegisterServiceWorkerAsync();
-
-                // Setup event listeners
                 await SetupEventListenersAsync();
 
                 _logger.LogInformation("PWA Service initialized. Installed: {Installed}, Online: {Online}",
                     IsInstalled, IsOnline);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("statically rendered"))
+            {
+                // Prerendering mode - JS not available yet, use defaults
+                _logger.LogDebug("PWA Service skipped during prerendering: {Message}", ex.Message);
             }
             catch (Exception ex)
             {

@@ -209,38 +209,47 @@
     private bool _isOnline = true;
     private bool _showOfflineIndicator = false;
     private CancellationTokenSource _cts = new();
+    private bool _isInitialized = false;
 
     public bool IsOnline => _isOnline;
     public bool ShowOfflineIndicator => _showOfflineIndicator;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        // Initialize PWA service
-        await PWAService.InitializeAsync();
-        
-        // Subscribe to events
+        // Subscribe to events (no JS interop here)
         PWAService.OnInstallStateChanged += HandleInstallStateChanged;
         PWAService.OnOnlineStateChanged += HandleOnlineStateChanged;
         
-        // Check initial state
+        // Check initial state from PWA service (no JS interop)
         _isOnline = PWAService.IsOnline;
         _showOfflineIndicator = true;
-        
-        // Check if previously dismissed (persisted in localStorage)
-        var dismissedFlag = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "pwa_dismissed");
-        _dismissed = dismissedFlag == "true";
+    }
 
-        // Show install prompt if not installed and not dismissed
-        if (!PWAService.IsInstalled && !_dismissed)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_isInitialized)
         {
-            // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
-            try
+            _isInitialized = true;
+            
+            // Initialize PWA service (JS interop only after render)
+            await PWAService.InitializeAsync();
+            
+            // Check if previously dismissed (persisted in localStorage)
+            var dismissedFlag = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "pwa_dismissed");
+            _dismissed = dismissedFlag == "true";
+
+            // Show install prompt if not installed and not dismissed
+            if (!PWAService.IsInstalled && !_dismissed)
             {
-                await Task.Delay(3000, _cts.Token);
-                _showInstallPrompt = true;
-                StateHasChanged();
+                // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
+                try
+                {
+                    await Task.Delay(3000, _cts.Token);
+                    _showInstallPrompt = true;
+                    StateHasChanged();
+                }
+                catch (OperationCanceledException) { /* Component disposed */ }
             }
-            catch (OperationCanceledException) { /* Component disposed */ }
         }
     }
 
