@@ -43,23 +43,33 @@
 
 ## 2. Current Objective
 
-**None — Awaiting next wave assignment.**
+**KhachLink Improvements — 3-wave implementation plan created:**
+- Wave 1: PWA Install Fix (Quick Win - 1-2 hours)
+- Wave 2: QR Code Scanning (New Feature - 1-2 days)
+- Wave 3: Product Personalization Option C Hybrid (Enhancement - 2-3 days)
+
+**Status:** Planning complete, awaiting approval to start Wave 1 implementation.
+**Documentation:** `docs/AI/tasks/khachlink_improvements_master_plan.md` + 3 task cards
 
 ---
 
 ## 3. Current Status
 
 - **Branch:** `main` (verified 2026-06-29)
-- **Last commit:** `eea7c10` — feat(wave17): KhachLink Retention & Loyalty
+- **Last commit:** `58f77e6` — docs: Add KhachLink improvements master plan and task cards
 - **Build:** `dotnet build VanAn.sln` → 0 errors
-- **Tests:** Architecture tests 21/21 PASS; integration tests 144/144 PASS (Wave 16 baseline)
-- **State:** Wave 17 COMPLETE — merged to main
+- **Tests:** Architecture tests 21/21 PASS; integration tests 144/144 PASS
+- **State:** KhachLink improvements plan created, awaiting approval
 
 ---
 
 ## 4. Next Actions
 
-1. **[Future]** Awaiting next wave assignment.
+1. **[Pending Approval]** Review and approve KhachLink improvements master plan (`docs/AI/tasks/khachlink_improvements_master_plan.md`)
+2. **[Pending Approval]** Review and approve Wave 1 task card (`docs/AI/tasks/wave1_pwa_install_fix_task_card.md`)
+3. **[Pending Approval]** Review and approve Wave 2 task card (`docs/AI/tasks/wave2_qr_scanning_task_card.md`)
+4. **[Pending Approval]** Review and approve Wave 3 task card (`docs/AI/tasks/wave3_product_personalization_task_card.md`)
+5. **[After Approval]** Start Wave 1: PWA Install Fix (branch: feature/khachlink-wave1-pwa-install)
 
 ---
 
@@ -80,6 +90,8 @@
 
 ## 6. History Log
 
+* [2026-06-29] KhachLink Improvements Plan — Created 3-wave implementation plan: Wave 1 (PWA Install Fix), Wave 2 (QR Code Scanning), Wave 3 (Product Personalization Option C Hybrid). Master plan + 3 task cards created. Commit: `58f77e6`. Branch: `main`.
+* [2026-06-29] Production BootstrapAdapter Fix — Fixed ButtonSize.Medium NotImplementedException in BootstrapAdapter (changed to return empty string). Committed and pushed to trigger CD pipeline. Commit: `ae18a88`. Branch: `main`.
 * [2026-06-29] Wave 17 — KhachLink Retention & Loyalty COMPLETE. Implemented: Customer Identity (OTP login, DeviceId upgrade), Loyalty Dashboard, Order History, Store Finder, PWA bug fixes, NavMenu mobile tab bar, KhachLink Layout dynamic themes. Build 0 errors. Architecture tests 21/21 PASS. Branch: `feature/wave17-khachlink-retention`.
 * [2026-06-28] Wave 17 preparation — archived Waves 8–16 to `project_state_archive.md`; 144/144 tests PASS; branch `main`.
 * [2026-06-28] CI DI Fix — 144/144 integration tests PASS (commits `ddd31ed`, `884de3b`, `e4fc298`).
@@ -93,6 +105,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Wave 17 merged to main (commit eea7c10); build 0 errors; architecture tests 21/21 PASS
+* **Last Updated:** 2026-06-29 — KhachLink improvements plan created (commit 58f77e6); BootstrapAdapter fix for production (commit ae18a88); build 0 errors; architecture tests 21/21 PASS
 * **Current Branch:** `main`
-* **Wave 17 Complete (2026-06-29):** All 9 tasks implemented. Added customer-facing controller exemptions to authorization tests. Build 0 errors. Architecture tests 21/21 PASS. Merged to main via fast-forward.
+* **KhachLink Improvements Plan (2026-06-29):** 3-wave implementation plan created with master plan and task cards. Awaiting approval to start Wave 1 (PWA Install Fix).
