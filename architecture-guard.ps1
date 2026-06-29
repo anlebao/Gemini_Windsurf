@@ -151,29 +151,51 @@ foreach ($file in $domainFiles) {
     }
 }
 
-# 6. Check ADR-001 Compliance
+# 6. Check ADR-001 Compliance (Two-Version Strategy)
 Write-Host "Checking ADR-001 compliance..." -ForegroundColor Yellow
 
-$dockerComposeFile = "docker-compose.prod.yml"
-if (Test-Path $dockerComposeFile) {
-    $dockerComposeContent = Get-Content $dockerComposeFile -Raw
-    
-    # ADR-001 requires SQLite local stations
-    $hasSQLiteStation = $dockerComposeContent -match "sqlite|SQLite|shoperp-sqlite|khachlink-sqlite"
-    $hasNatsWorker = $dockerComposeContent -match "nats-sync|nats_worker|sync-worker"
-    
-    if (-not $hasSQLiteStation) {
-        $violations += "ADR-001 violation: docker-compose.prod.yml must include SQLite local stations for offline capability"
-        $hasViolations = $true
-    }
-    
-    if (-not $hasNatsWorker) {
-        $violations += "ADR-001 violation: docker-compose.prod.yml must include NATS sync worker for event-driven sync"
+$prodComposeFile = "docker-compose.prod.yml"
+$edgeComposeFile = "docker-compose.edge.yml"
+
+if (Test-Path $prodComposeFile) {
+    $prodContent = Get-Content $prodComposeFile -Raw
+
+    # Rule H: v1 SaaS (prod) MUST use PostgreSQL for CoreHub (cloud accounting, always online)
+    $hasPostgresForCoreHub = $prodContent -match "Host=postgres" -or $prodContent -match "postgres:5432"
+    if (-not $hasPostgresForCoreHub) {
+        $violations += "ADR-001 v1 SaaS violation: docker-compose.prod.yml CoreHub must use PostgreSQL for cloud accounting"
         $hasViolations = $true
     }
 } else {
-    # Skip ADR-001 check if docker-compose.prod.yml not found (dev environment)
     Write-Host "  Skipped: docker-compose.prod.yml not found (dev environment)" -ForegroundColor Yellow
+}
+
+if (Test-Path $edgeComposeFile) {
+    $edgeContent = Get-Content $edgeComposeFile -Raw
+
+    # Rule I: v2 Edge MUST use SQLite + NATS sync worker for offline station capability
+    $hasSQLiteVolume = $edgeContent -match "shoperp_sqlite_data"
+    $hasNatsSyncWorker = $edgeContent -match "shoperp-nats-sync" -or $edgeContent -match "nats-sync"
+    $hasNatsBroker = $edgeContent -match "image:\s*nats:" -or $edgeContent -match "nats:2\.10"
+
+    if (-not $hasSQLiteVolume) {
+        $violations += "ADR-001 v2 Edge violation: docker-compose.edge.yml must declare 'shoperp_sqlite_data' volume for SQLite persistence"
+        $hasViolations = $true
+    }
+
+    if (-not $hasNatsSyncWorker) {
+        $violations += "ADR-001 v2 Edge violation: docker-compose.edge.yml must include 'shoperp-nats-sync' worker service"
+        $hasViolations = $true
+    }
+
+    if (-not $hasNatsBroker) {
+        $violations += "ADR-001 v2 Edge violation: docker-compose.edge.yml must include NATS broker for event-driven sync"
+        $hasViolations = $true
+    }
+} else {
+    # Edge compose is expected in ADR-001 v2 deployment; flag as violation if missing
+    $violations += "ADR-001 v2 Edge violation: docker-compose.edge.yml not found"
+    $hasViolations = $true
 }
 
 # 7. Report results
