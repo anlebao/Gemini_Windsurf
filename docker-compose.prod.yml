@@ -133,6 +133,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}  # v1 SaaS (default) or v2 hybrid
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
       - Authentication__Authority=https://api.vanantech.io.vn
       - Seed__OwnerUsername=${SHOPERP_OWNER_USERNAME:-adminvanan1}
@@ -144,6 +145,7 @@ services:
       - vanan-network
     depends_on:
       - corehub
+      # Sidecar dependency (v2 hybrid) - Phase 1: exists but not actively used
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
@@ -167,12 +169,14 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}  # v1 SaaS (default) or v2 hybrid
       - Gateway__BaseUrl=https://api.vanantech.io.vn
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
     networks:
       - vanan-network
     depends_on:
       - gateway
+      # Sidecar dependency (v2 hybrid) - Phase 1: exists but not actively used
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
@@ -184,6 +188,53 @@ services:
       resources:
         limits:
           memory: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # SQLite local databases for offline-first stations (v2 Hybrid Edge/Cloud)
+  # Phase 1: Sidecars added but not active in v1 SaaS
+  shoperp-sqlite:
+    image: alpine:3.19
+    container_name: vanan-shoperp-sqlite
+    command: ["sh", "-c", "mkdir -p /data && touch /data/shoperp.db && tail -f /dev/null"]
+    volumes:
+      - shoperp_sqlite_data:/data
+    networks:
+      - vanan-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  khachlink-sqlite:
+    image: alpine:3.19
+    container_name: vanan-khachlink-sqlite
+    command: ["sh", "-c", "mkdir -p /data && touch /data/khachlink.db && tail -f /dev/null"]
+    volumes:
+      - khachlink_sqlite_data:/data
+    networks:
+      - vanan-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  order-station-sqlite:
+    image: alpine:3.19
+    container_name: vanan-order-station-sqlite
+    command: ["sh", "-c", "mkdir -p /data && touch /data/order.db && tail -f /dev/null"]
+    volumes:
+      - order_sqlite_data:/data
+    networks:
+      - vanan-network
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
@@ -233,6 +284,13 @@ volumes:
   shoperp_data:
   certbot_www:
   certbot_conf:
+  # SQLite persistent volumes for v2 Hybrid Edge/Cloud (Phase 1: added, not active)
+  shoperp_sqlite_data:
+    driver: local
+  khachlink_sqlite_data:
+    driver: local
+  order_sqlite_data:
+    driver: local
 
 networks:
   vanan-network:
