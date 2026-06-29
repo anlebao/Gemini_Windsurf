@@ -1,4 +1,4 @@
-# MASTER IMPLEMENTATION PLAN — KhachLink Improvements (PWA + QR Scanning + Product Personalization)
+# MASTER IMPLEMENTATION PLAN — KhachLink Improvements (PWA + QR Scanning + Product Personalization + Real-time Order Status)
 
 **Created:** 2026-06-29
 **Last Updated:** 2026-06-29
@@ -49,6 +49,7 @@ main
   └── feature/khachlink-wave1-pwa-install (Wave 1)
       └── feature/khachlink-wave2-qr-scanning (Wave 2)
           └── feature/khachlink-wave3-product-personalization (Wave 3)
+              └── feature/khachlink-wave4-order-status-realtime (Wave 4)
 ```
 - Mỗi wave có branch riêng để dễ rollback
 - Merge wave vào branch trước đó (cherry-pick hoặc rebase)
@@ -282,31 +283,124 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 
 ---
 
-## 5. CROSS-WAVE CONSIDERATIONS
+## 5. WAVE 4 — Real-time Order Status Updates (Short Polling + Web Push)
+
+**Branch:** feature/khachlink-wave4-order-status-realtime
+**Estimated sessions:** 2-3
+**Conflict risk:** LOW (không thay đổi existing business logic, chỉ thêm transport layer)
+**Priority:** 4 (Scalability - 1-2 days)
+**Task Card:** `docs/AI/tasks/wave4_order_status_realtime_task_card.md`
+
+### Motivation: Tại sao KHÔNG dùng SignalR ở KhachLink
+
+```
+SignalR tại 10,000 users:
+  - 10,000 persistent WebSocket connections
+  - ~20GB RAM chỉ riêng connection state
+  - CPU: heartbeat + reconnect overhead liên tục
+  - Horizontal scaling: bắt buộc Redis backplane
+
+Short Polling + Web Push tại 10,000 users:
+  - 0 persistent connections
+  - ~500MB RAM
+  - CPU: thấp, stateless
+  - Horizontal scaling: tự do, không cần Redis
+```
+
+**GrabFood, Gojek, Shopee Food** dùng pattern này cho order tracking.
+**SignalR giữ lại** cho Kitchen Display (ShopERP) vì staff count << 10,000.
+
+### Architecture
+
+```
+Customer đang mở tracking page:
+  OrderTracking.razor ─ GET /api/orders/{id}/status (mỗi 5s) ─→ Gateway ─→ ShopERP ─→ SQLite/Cache
+  ← nhận status mới, cập nhật UI ngay lập tức
+
+Customer đóng app / minimise:
+  ShopERP PushNotificationService ─→ Web Push API ─→ Service Worker
+  Service Worker ─→ show notification "Đơn hàng #xxx đã sẵn sàng!"
+  Customer tap notification ─→ mở OrderTracking.razor
+```
+
+### Tasks (sequential)
+| # | Task ID | Task | Files | Status |
+|---|---|---|---|---|
+| 1 | W4-T1 | Generate + config VAPID keys | `5_WebApps/KhachLink/wwwroot/js/pwa.js`, `.env` production | PENDING |
+| 2 | W4-T2 | Persist `Customer.PushSubscriptionJson` vào Domain + DB | `1_Shared/Domain.cs`, `3_CoreHub/Infrastructure/Configurations/CustomerConfiguration.cs` | PENDING |
+| 3 | W4-T3 | Implement `PushNotificationService` (server-side sender) | `3_CoreHub/Services/PushNotificationService.cs`, `5_WebApps/ShopERP/Services/PushNotificationService.cs` | PENDING |
+| 4 | W4-T4 | Hook PushNotificationService vào OrderWorkflow (khi status thay đổi) | `3_CoreHub/Services/OrderWorkflowService.cs` | PENDING |
+| 5 | W4-T5 | Update `service-worker.js`: handle `push` event → show notification | `5_WebApps/KhachLink/wwwroot/service-worker.js` | PENDING |
+| 6 | W4-T6 | Add `PeriodicTimer` polling loop vào `OrderTracking.razor` (5s interval) | `5_WebApps/KhachLink/Pages/OrderTracking.razor` | PENDING |
+| 7 | W4-T7 | Add lightweight `/api/orders/{id}/status` endpoint (tránh load full order) | `5_WebApps/ShopERP/Controllers/OrdersController.cs`, `2_Gateway/Controllers/CustomerOrdersController.cs` | PENDING |
+| 8 | W4-T8 | Disable SignalR từ KhachLink (giữ cho Kitchen ShopERP) | `5_WebApps/KhachLink/Program.cs`, KhachLink components | PENDING |
+| 9 | W4-T9 | Load test polling: 10,000 concurrent GET /status | Load test script | PENDING |
+
+### Entry criteria
+- [ ] Wave 3 merged to main
+- [ ] Project builds successfully
+- [ ] Git status clean
+- [ ] VAPID key pair generated (offline tool)
+- [ ] Domain change approved (Customer.PushSubscriptionJson)
+
+### Exit criteria — ALL PASSED
+- [ ] VAPID keys configured in production
+- [ ] `Customer.PushSubscriptionJson` persisted to DB
+- [ ] `PushNotificationService` sends push when order status changes
+- [ ] `service-worker.js` handles push event and shows notification
+- [ ] `OrderTracking.razor` polls every 5s while page is open
+- [ ] Polling pauses when page is hidden (visibilitychange event)
+- [ ] `/api/orders/{id}/status` endpoint responds in < 50ms
+- [ ] Web Push notification appears when customer closes app
+- [ ] SignalR removed from KhachLink (no WebSocket connections)
+- [ ] Load test: 10,000 concurrent polling requests handled without errors
+- [ ] Build: 0 errors
+
+### Performance Budget
+| Metric | Target |
+|--------|--------|
+| Polling endpoint latency | < 50ms (p95) |
+| Push notification delivery | < 2s from status change |
+| Memory usage at 10,000 users | < 1GB (vs 20GB SignalR) |
+| CPU overhead at 10,000 users | < 20% (1 core) |
+
+### Dependencies
+- Wave 3 must complete first
+- Domain change (Customer.PushSubscriptionJson) requires approval
+- VAPID key pair must be generated before implementation
+- Production HTTPS required for Web Push (already configured)
+
+---
+
+## 6. CROSS-WAVE CONSIDERATIONS
 
 ### Testing Strategy
 - **Wave 1:** Test PWA installation on real devices (Android Chrome, iOS Safari)
 - **Wave 2:** Test QR scanning on real devices (camera permissions, QR detection)
 - **Wave 3:** Test personalization with real customer data, verify performance
+- **Wave 4:** Load test 10,000 concurrent polling; test Web Push on Android + iOS
 
 ### Performance Considerations
 - **Wave 1:** Service worker caching (already implemented)
 - **Wave 2:** QR scanning performance (camera initialization, detection speed)
 - **Wave 3:** Recommendation caching (5-10 minute TTL) to avoid performance impact
+- **Wave 4:** Short polling stateless — zero persistent connections, scales horizontally
 
 ### Security Considerations
 - **Wave 1:** VAPID key for push notifications (if enabled)
 - **Wave 2:** Camera permissions (user consent required)
 - **Wave 3:** Customer data privacy (order history access)
+- **Wave 4:** VAPID keys must be secret (server-side only), PushSubscription stored encrypted
 
 ### UI Platform Compliance
 - **All waves:** MUST use UI Platform components (VanAnButton, VanAnCard, VanAnModal, etc.)
 - **Wave 2:** QRScanner.razor should follow UI Platform patterns
 - **Wave 3:** New sections in Home.razor should use VanAnCard, VanAnButton
+- **Wave 4:** OrderTracking.razor polling status indicator should use VanAnSpinner
 
 ---
 
-## 6. SUCCESS METRICS
+## 7. SUCCESS METRICS
 
 ### Wave 1 (PWA Install)
 - PWA installation success rate > 90% on Android Chrome
@@ -326,9 +420,16 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 - "Recently Viewed" click-through rate > 15%
 - No performance degradation on main product catalog load
 
+### Wave 4 (Real-time Order Status)
+- Polling endpoint latency < 50ms (p95)
+- Push notification delivery < 2s from status change
+- Memory usage at 10,000 users < 1GB (vs ~20GB SignalR)
+- Zero WebSocket connections from KhachLink
+- Push notification shown to customer when app is closed
+
 ---
 
-## 7. RISK MITIGATION
+## 8. RISK MITIGATION
 
 ### Wave 1 Risks
 | Risk | Impact | Mitigation |
@@ -351,15 +452,23 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 | Inaccurate recommendations | MEDIUM | Start with simple frequency-based algorithm, iterate |
 | No customer order history | MEDIUM | Fallback to global catalog, show "New customer" message |
 
+### Wave 4 Risks
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| iOS Web Push not supported (iOS < 16.4) | HIGH | Polling is primary mechanism; Push is enhancement only |
+| VAPID key rotation | MEDIUM | Document key rotation procedure; all subscriptions re-subscribe |
+| SQLite query slow at high concurrency | HIGH | Add Redis cache for order status, TTL 30s |
+| Domain change rejected | MEDIUM | Store PushSubscription in separate table (not Customer entity) |
+
 ---
 
-## 8. FINAL DELIVERABLES
+## 9. FINAL DELIVERABLES
 
 ### Wave 1
 - [ ] Clean PWA install implementation (no duplicates)
 - [ ] Working PWA installation on Android Chrome
 - [ ] Working PWA installation on iOS Safari
-- [ ] Documentation for VAPID key setup (if push enabled)
+- [ ] Documentation for VAPID key setup
 
 ### Wave 2
 - [ ] QRScanner.razor component
@@ -376,9 +485,19 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 - [ ] "Recently Viewed" section
 - [ ] Caching implementation
 
+### Wave 4
+- [ ] VAPID keys configured (production)
+- [ ] Customer.PushSubscriptionJson persisted
+- [ ] PushNotificationService (server-side push sender)
+- [ ] service-worker.js push event handler
+- [ ] OrderTracking.razor polling loop (5s, pauses when hidden)
+- [ ] Lightweight /api/orders/{id}/status endpoint
+- [ ] SignalR removed from KhachLink
+- [ ] Load test results: 10,000 concurrent polling
+
 ---
 
-## 9. APPROVAL & SIGN-OFF
+## 10. APPROVAL & SIGN-OFF
 
 **Pre-Implementation Approval:**
 - [ ] Product Owner approves master plan
@@ -386,9 +505,10 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 - [ ] QA reviews test strategy
 
 **Wave-by-Wave Sign-Off:**
-- [ ] Wave 1: PWA Install — Approved □ / Rejected □
-- [ ] Wave 2: QR Scanning — Approved □ / Rejected □
-- [ ] Wave 3: Product Personalization — Approved □ / Rejected □
+- [ ] Wave 1: PWA Install — Approved ✅ / Rejected □
+- [ ] Wave 2: QR Scanning — Approved ✅ / Rejected □
+- [ ] Wave 3: Product Personalization — Approved ✅ / Rejected □
+- [ ] Wave 4: Real-time Order Status (Polling + Web Push) — Approved ✅ / Rejected □
 
 **Final Sign-Off:**
 - [ ] All waves completed
