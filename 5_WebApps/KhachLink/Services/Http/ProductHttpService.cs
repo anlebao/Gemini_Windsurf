@@ -1,4 +1,5 @@
 using VanAn.KhachLink.Models;
+using VanAn.Shared.DTOs;
 
 namespace VanAn.KhachLink.Services.Http
 {
@@ -28,6 +29,26 @@ namespace VanAn.KhachLink.Services.Http
             {
                 _logger.LogError(ex, "Error fetching products catalog from ShopERP");
                 return [];
+            }
+        }
+
+        public async Task<ProductDto?> GetProductByIdAsync(Guid productId, Guid? shopId = null)
+        {
+            try
+            {
+                string url = $"shoperp/api/products/{productId}";
+                if (shopId.HasValue)
+                {
+                    url += $"?shopId={shopId.Value}";
+                }
+
+                ProductDto? result = await _httpClient.GetFromJsonAsync<ProductDto>(url);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching product {ProductId} from ShopERP", productId);
+                return null;
             }
         }
     }

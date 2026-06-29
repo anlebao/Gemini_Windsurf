@@ -2,12 +2,11 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-  
   <ItemGroup>
     <PackageVersion Include="NATS.Client" Version="1.1.6" />
+    <PackageVersion Include="QRCoder" Version="1.8.0" />
     <PackageVersion Include="System.Data.SQLite" Version="1.0.118" />
     <PackageVersion Include="Moq" Version="4.20.70" />
-    
     <!-- Testing packages -->
     <PackageVersion Include="RichardSzalay.MockHttp" Version="7.0.0" />
     <PackageVersion Include="bunit" Version="1.28.9" />
@@ -19,10 +18,8 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.0" />
     <PackageVersion Include="Testcontainers" Version="3.9.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="3.9.0" />
-    
     <!-- Phase 7: Semantic Search -->
     <PackageVersion Include="Qdrant.Client" Version="1.12.0" />
-    
     <!-- Microsoft.Extensions - HYBRID (9.0.3 compatible, 8.0.x for incompatible) -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="9.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.3" />
@@ -40,10 +37,8 @@
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.0" />
     <PackageVersion Include="System.Text.Json" Version="9.0.3" />
-    
     <!-- Reporting Packages -->
     <PackageVersion Include="EPPlus" Version="7.6.1" />
-    
     <!-- Authentication Packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
@@ -51,7 +46,6 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.9" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.8" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="8.0.8" />
-    
     <!-- Required for Authentication.Cookies compatibility -->
     <PackageVersion Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
