@@ -57,33 +57,32 @@
 | ✅ | ADR001-W4.1: SQLite Sidecar Infrastructure | Backend | 2-3h | COMPLETE |
 | ✅ | ADR001-W4.2: NATS Sync Worker Mode | Backend | 2-3h | COMPLETE |
 | ✅ | ADR001-W4.3: Phased Migration Validation | Backend | 1-2h | COMPLETE |
-| 8 | **KhachLink-W3: Product Personalization Hybrid C** | Backend | 2-3d | **NEXT** |
-| 9 | KhachLink-W4: Real-time Order Status (Polling + NATS Push) | Integration | 1-2d | PENDING |
+| ✅ | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | COMPLETE |
+| 9 | **KhachLink-W4: Real-time Order Status (Polling + NATS Push)** | Integration | 1-2d | **NEXT** |
 | 10 | ADR001-W5: CI edge pipeline | CI | 2-3h | PENDING |
 
-**Progress:** 7/10 waves complete (70%), Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3) DONE
-**Total estimate:** ~10-13 days → ~3-6 days remaining
+**Progress:** 8/10 waves complete (80%), Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3 + KhachLink-W3) DONE
+**Total estimate:** ~10-13 days → ~2-4 days remaining
 **Open Decision (required before Wave 9):** Customer.PushSubscriptionJson → Domain entity OR separate table?
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/adr001-wave4-migration-validation` (verified 2026-06-29)
-- **Last commit:** `39685a2` — [WAVE 7/10] ADR001-W4.3: Phased Migration Validation - Phase 3 complete
+- **Branch:** `feature/khachlink-wave3-personalization` (verified 2026-06-29)
+- **Last commit:** `f418bb3` — [WAVE 8/10] KhachLink-W3: Product Personalization (Hybrid Option C) - Complete
 - **Build:** `dotnet build VanAn.sln` → 0 errors
-- **Tests:** Architecture tests 23/23 PASS; Core tests (Nats*) 9/9 PASS; integration tests 144/144 PASS; guard-check ALL CHECKS PASSED
-- **State:** Layer 2 Phase 3 (ADR001-W4.3: Phased Migration Validation) COMPLETE → Layer 2 Phase 3 (KhachLink-W3: Product Personalization Hybrid C) next
-- **Architecture Update:** ADR001-W4 split into 3 sub-waves per ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design). All 3 phases (W4.1, W4.2, W4.3) COMPLETE.
+- **Tests:** guard-check ALL CHECKS PASSED
+- **State:** KhachLink-W3 (Product Personalization Hybrid C) COMPLETE → KhachLink-W4 (Real-time Order Status) next
+- **Implementation:** Frequency-based recommendation algorithm with IMemoryCache (5-min TTL), localStorage tracking for recently viewed, UI Platform compliance (VanAnCard, VanAnButton).
 
 ---
 
 ## 4. Next Actions
 
-1. **[NEXT — Start now]** KhachLink-W3: Product Personalization Hybrid C (branch: `feature/khachlink-wave3-personalization`)
-2. **[After W8]** KhachLink-W4: Real-time Order Status (uses NATS from ADR001-W3)
-3. **[After W9]** ADR001-W5: CI edge pipeline
-4. **[Decision before W9]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
+1. **[NEXT — Start now]** KhachLink-W4: Real-time Order Status (Polling + NATS Push) (branch: `feature/khachlink-wave4-order-realtime`)
+2. **[After W9]** ADR001-W5: CI edge pipeline
+3. **[Decision before W9]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
 
 ---
 
@@ -104,6 +103,7 @@
 
 ## 6. History Log
 
+* [2026-06-29] Unified Roadmap Wave 8 COMPLETE — KhachLink-W3: Product Personalization (Hybrid Option C). Implemented: CustomerRecommendationService (frequency-based algorithm with IMemoryCache 5-min TTL), GET /api/products/recommended endpoint in ProductsController, ProductHttpService.GetRecommendedProductsAsync(), RecentlyViewedService (localStorage tracking), RecommendedProductDto (extends ProductDto with recommendation metadata), Home.razor "Frequently Bought" section, Home.razor "Recently Viewed" section, product view tracking on AddToCart. Hybrid approach: keeps global catalog + adds personalized sections. Fallback for new customers (no order history). UI Platform compliance: VanAnCard, VanAnButton used. dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `f418bb3`. Branch: `feature/khachlink-wave3-personalization`.
 * [2026-06-29] Unified Roadmap Wave 7 COMPLETE — ADR001-W4.3: Phased Migration Validation (Phase 3). Implemented: Phase 1 validation script (validate-phase1-sidecars.ps1) for sidecar-only deployment, Phase 2 validation script (validate-phase2-sync-workers.ps1) for sync worker dual-write mode, sync lag monitor placeholder (monitor-sync-lag.ps1), rollback documentation (ADR001-Rollback-Plan.md) with 3 rollback scenarios, rollback testing script (test-rollback.ps1) in simulation mode. All validation scripts executed successfully. Phase 1 validation: sidecars deployed, sync workers inactive, PostgreSQL primary. Phase 2 validation: sync workers configured with hybrid profile, NATS connectivity, volume mounts, dependencies. Rollback procedures documented for Phase 1 (sidecars only), Phase 2 (sync workers active), and Emergency scenarios. dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `39685a2`. Branch: `feature/adr001-wave4-migration-validation`.
 * [2026-06-29] Unified Roadmap Wave 6 COMPLETE — ADR001-W4.2: NATS Sync Worker Mode (Phase 2). Implemented: --sync-worker conditional DI registration in ShopERP/Program.cs (IOutboxRepository, INatsEventPublisher, NatsSyncWorker), SQLITE_DB_PATH env var override for Docker volume mounting, appsettings.Edge.json for local development testing, 3 NATS sync worker services in docker-compose.prod.yml (shoperp-nats-sync, khachlink-nats-sync, order-station-nats-sync) with hybrid profile, NATS dependencies, and resource limits. Phase 2: sync workers active when DEPLOYMENT_MODE=hybrid, v1 SaaS unchanged (sync workers disabled by default). dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `078ee6e`. Branch: `feature/adr001-wave4-sync-worker-mode`.
 * [2026-06-29] Unified Roadmap Wave 5 COMPLETE — ADR001-W4.1: SQLite Sidecar Infrastructure (Phase 1). Implemented: 3 SQLite sidecar containers (shoperp-sqlite, khachlink-sqlite, order-station-sqlite) with Alpine 3.19, 3 persistent Docker volumes (shoperp_sqlite_data, khachlink_sqlite_data, order_sqlite_data), DEPLOYMENT_MODE environment variable added to shoperp/khachlink services (default: saas), sidecar dependency comments added. Phase 1: sidecars exist but not actively used in v1 SaaS (PostgreSQL remains primary). docker-compose.prod.yml syntax validated, dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `07a5c14`. Branch: `feature/adr001-wave4-sqlite-sidecars`.
@@ -125,6 +125,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Wave 7 (ADR001-W4.3) COMPLETE: Phased Migration Validation Phase 3 done. Phase 1 validation script (validate-phase1-sidecars.ps1), Phase 2 validation script (validate-phase2-sync-workers.ps1), sync lag monitor placeholder (monitor-sync-lag.ps1), rollback documentation (ADR001-Rollback-Plan.md), rollback testing script (test-rollback.ps1). All validations passed. Build 0 errors, guard-check ALL CHECKS PASSED. 7/10 waves complete (70%).
-* **Current Branch:** `feature/adr001-wave4-migration-validation`
-* **Unified Roadmap (2026-06-29):** 7/10 waves complete (70%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) + Layer 2 Phase 1-3 (ADR001-W4.1, W4.2, W4.3) DONE. Next: KhachLink-W3 (Product Personalization Hybrid C). Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
+* **Last Updated:** 2026-06-29 — Wave 8 (KhachLink-W3) COMPLETE: Product Personalization (Hybrid Option C) done. CustomerRecommendationService (frequency-based algorithm with IMemoryCache 5-min TTL), GET /api/products/recommended endpoint, ProductHttpService.GetRecommendedProductsAsync(), RecentlyViewedService (localStorage tracking), RecommendedProductDto, Home.razor "Frequently Bought" and "Recently Viewed" sections. Hybrid approach: keeps global catalog + adds personalized sections. UI Platform compliance. Build 0 errors, guard-check ALL CHECKS PASSED. 8/10 waves complete (80%).
+* **Current Branch:** `feature/khachlink-wave3-personalization`
+* **Unified Roadmap (2026-06-29):** 8/10 waves complete (80%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) + Layer 2 Phase 1-3 (ADR001-W4.1, W4.2, W4.3) + KhachLink-W3 DONE. Next: KhachLink-W4 (Real-time Order Status). Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
