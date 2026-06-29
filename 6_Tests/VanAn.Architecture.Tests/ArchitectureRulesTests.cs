@@ -224,4 +224,41 @@ public class ArchitectureRulesTests
             Assert.Fail($"CartItem domain file not found: {cartItemFile}");
         }
     }
+
+    [Fact(DisplayName = "Rule H: ADR-001 Compliance - docker-compose.prod.yml must include SQLite stations")]
+    public void DockerComposeProd_MustInclude_SQLite_Stations()
+    {
+        // Arrange
+        var repoRoot = GetRepoRoot();
+        var dockerComposeFile = Path.Combine(repoRoot, "docker-compose.prod.yml");
+
+        // Act & Assert
+        if (File.Exists(dockerComposeFile))
+        {
+            var content = File.ReadAllText(dockerComposeFile);
+            
+            // ADR-001 requires SQLite local stations for offline capability
+            // Check for SQLite station service definitions
+            var hasSQLiteStation = content.Contains("sqlite") || 
+                                   content.Contains("SQLite") ||
+                                   content.Contains("shoperp-sqlite") ||
+                                   content.Contains("khachlink-sqlite");
+            
+            // Check for NATS sync worker
+            var hasNatsWorker = content.Contains("nats-sync") ||
+                                content.Contains("nats_worker") ||
+                                content.Contains("sync-worker");
+            
+            // For now, this test is EXPECTED TO FAIL because architecture drift exists
+            // This will be fixed in Wave 2
+            Assert.True(hasSQLiteStation, 
+                "ADR-001 violation: docker-compose.prod.yml must include SQLite local stations for offline capability");
+            Assert.True(hasNatsWorker,
+                "ADR-001 violation: docker-compose.prod.yml must include NATS sync worker for event-driven sync");
+        }
+        else
+        {
+            Assert.Fail($"docker-compose.prod.yml not found: {dockerComposeFile}");
+        }
+    }
 }

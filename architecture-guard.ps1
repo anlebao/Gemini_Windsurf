@@ -151,7 +151,32 @@ foreach ($file in $domainFiles) {
     }
 }
 
-# 6. Report results
+# 6. Check ADR-001 Compliance
+Write-Host "Checking ADR-001 compliance..." -ForegroundColor Yellow
+
+$dockerComposeFile = "docker-compose.prod.yml"
+if (Test-Path $dockerComposeFile) {
+    $dockerComposeContent = Get-Content $dockerComposeFile -Raw
+    
+    # ADR-001 requires SQLite local stations
+    $hasSQLiteStation = $dockerComposeContent -match "sqlite|SQLite|shoperp-sqlite|khachlink-sqlite"
+    $hasNatsWorker = $dockerComposeContent -match "nats-sync|nats_worker|sync-worker"
+    
+    if (-not $hasSQLiteStation) {
+        $violations += "ADR-001 violation: docker-compose.prod.yml must include SQLite local stations for offline capability"
+        $hasViolations = $true
+    }
+    
+    if (-not $hasNatsWorker) {
+        $violations += "ADR-001 violation: docker-compose.prod.yml must include NATS sync worker for event-driven sync"
+        $hasViolations = $true
+    }
+} else {
+    # Skip ADR-001 check if docker-compose.prod.yml not found (dev environment)
+    Write-Host "  Skipped: docker-compose.prod.yml not found (dev environment)" -ForegroundColor Yellow
+}
+
+# 7. Report results
 Write-Host "ARCHITECTURE VALIDATION RESULTS:" -ForegroundColor Cyan
 
 if ($hasViolations) {
@@ -168,4 +193,5 @@ if ($hasViolations) {
     Write-Host "Clean Architecture respected" -ForegroundColor Green
     Write-Host "Dependency directions correct" -ForegroundColor Green
     Write-Host "Domain layer purity maintained" -ForegroundColor Green
+    Write-Host "ADR-001 compliance verified" -ForegroundColor Green
 }
