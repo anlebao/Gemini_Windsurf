@@ -104,24 +104,26 @@ window.vananPWA = {
         return false;
     },
 
-    // Push Notifications - DISABLED in Wave 1 (will be configured in Wave 4)
-    // async subscribeToPush() {
-    //     if ('serviceWorker' in navigator && 'PushManager' in window) {
-    //         try {
-    //             const registration = await navigator.serviceWorker.ready;
-    //             const subscription = await registration.pushManager.subscribe({
-    //                 userVisibleOnly: true,
-    //                 applicationServerKey: this.urlB64ToUint8Array('YOUR_VAPID_PUBLIC_KEY')
-    //             });
-    //
-    //             return JSON.stringify(subscription);
-    //         } catch (error) {
-    //             console.error('Failed to subscribe to push:', error);
-    //             return null;
-    //         }
-    //     }
-    //     return null;
-    // },
+    // Push Notifications - ENABLED in Wave 9 (KhachLink-W4)
+    async subscribeToPush() {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this.urlB64ToUint8Array('BJIeg2XokT35UrNdXV26uTiMa0CxwbRI5Fmb9j4djeSdXO74U1wS6BD15MlnvYppLtDx2Rbm01TSkcVcf7p58RE')
+                });
+
+                console.log('Push subscription successful:', subscription);
+                return JSON.stringify(subscription);
+            } catch (error) {
+                console.error('Failed to subscribe to push:', error);
+                return null;
+            }
+        }
+        console.warn('Push notifications not supported in this browser');
+        return null;
+    },
 
     // Network status
     isOnline() {

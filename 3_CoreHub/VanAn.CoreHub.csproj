@@ -40,6 +40,7 @@
     <PackageReference Include="Moq" />
     <!-- ✅ FIXED: Add FrameworkReference for ASP.NET Core -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="WebPush" />
   </ItemGroup>
 
   <!-- TODO: Phase 6 - Temporarily exclude Sprint 3 incomplete files to unblock migration -->

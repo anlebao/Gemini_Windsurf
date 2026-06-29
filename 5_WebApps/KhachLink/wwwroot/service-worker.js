@@ -149,16 +149,18 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Push notification handler
+// Push notification handler - Wave 9: Enhanced with order-specific parsing
 self.addEventListener('push', event => {
-  const options = {
-    body: event.data ? event.data.text() : 'Bạn có thông báo mới từ Vạn An Group',
+  let notificationData = {
+    title: 'Vạn An Group',
+    body: 'Bạn có thông báo mới từ Vạn An Group',
     icon: '/images/icon-192x192.png',
     badge: '/images/badge-72x72.png',
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1
+      primaryKey: 1,
+      url: '/' // Default URL
     },
     actions: [
       {
@@ -174,20 +176,69 @@ self.addEventListener('push', event => {
     ]
   };
 
+  // Parse push payload for order-specific notifications
+  try {
+    if (event.data) {
+      const payload = event.data.json();
+      
+      if (payload && payload.type === 'order_status_changed') {
+        // Order status change notification
+        notificationData.title = '📦 Cập nhật đơn hàng';
+        notificationData.body = payload.message || `Trạng thái đơn hàng: ${payload.status}`;
+        notificationData.data.url = payload.actionUrl || `/order-tracking/${payload.orderId}`;
+        notificationData.data.orderId = payload.orderId;
+        notificationData.data.status = payload.status;
+        
+        console.log('Order status push notification:', payload);
+      } else if (payload && payload.message) {
+        // Generic notification with custom message
+        notificationData.body = payload.message;
+        if (payload.title) {
+          notificationData.title = payload.title;
+        }
+        if (payload.url) {
+          notificationData.data.url = payload.url;
+        }
+      } else {
+        // Fallback to text content
+        notificationData.body = event.data.text() || 'Bạn có thông báo mới từ Vạn An Group';
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing push payload:', error);
+    // Fallback to simple text
+    notificationData.body = event.data ? event.data.text() : 'Bạn có thông báo mới từ Vạn An Group';
+  }
+
   event.waitUntil(
-    self.registration.showNotification('Vạn An Group', options)
+    self.registration.showNotification(notificationData.title, notificationData)
   );
 });
 
-// Notification click handler
+// Notification click handler - Wave 9: Enhanced with order-specific URL handling
 self.addEventListener('notificationclick', event => {
-  console.log('Notification click received.');
+  console.log('Notification click received.', event);
 
   event.notification.close();
 
   if (event.action === 'explore') {
+    // Use the URL from notification data, or fallback to home
+    const targetUrl = event.notification.data?.url || '/';
+    const absoluteUrl = new URL(targetUrl, self.location.origin).href;
+    
     event.waitUntil(
-      clients.openWindow('https://localhost:5002')
+      clients.matchAll({ type: 'window' }).then(clientList => {
+        // Check if there's already a window open
+        for (const client of clientList) {
+          if (client.url === absoluteUrl && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // If no window found, open a new one
+        if (clients.openWindow) {
+          return clients.openWindow(absoluteUrl);
+        }
+      })
     );
   }
 });
