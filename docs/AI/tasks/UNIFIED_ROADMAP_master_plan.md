@@ -1,8 +1,8 @@
 # UNIFIED MASTER PLAN — KhachLink O2O + ADR001 Edge Infrastructure
 
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29 (Wave 6 COMPLETE - ADR001-W4.2 NATS Sync Worker Mode)
-**Status:** IN PROGRESS — Waves 1-5 COMPLETE, Wave 7 NEXT (6/10 waves = 60% complete)
+**Last Updated:** 2026-06-29 (Wave 7 COMPLETE - ADR001-W4.3 Phased Migration Validation)
+**Status:** IN PROGRESS — Waves 1-7 COMPLETE, Wave 8 NEXT (7/10 waves = 70% complete)
 **Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (v2 Hybrid Edge/Cloud design)
 **Supersedes:**
   - `docs/AI/tasks/khachlink_improvements_master_plan.md`
@@ -102,8 +102,8 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 | ✅ | KhachLink-W2 | KhachLink | `main` (merged) | QR Code Scanning (In-app Camera) | 1-2d | 1 | ✅ COMPLETE |
 | ✅ | ADR001-W4.1 | ADR001 | `feature/adr001-wave4-sqlite-sidecars` | SQLite Sidecar Infrastructure | 2-3h | 2 | ✅ COMPLETE |
 | ✅ | ADR001-W4.2 | ADR001 | `feature/adr001-wave4-sync-worker-mode` | NATS Sync Worker Mode | 2-3h | 2 | ✅ COMPLETE |
-| **7** | **ADR001-W4.3** | ADR001 | `feature/adr001-wave4-migration-validation` | Phased Migration Validation | 1-2h | 2 | **NEXT** |
-| **8** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | PENDING |
+| ✅ | ADR001-W4.3 | ADR001 | `feature/adr001-wave4-migration-validation` | Phased Migration Validation | 1-2h | 2 | ✅ COMPLETE |
+| **8** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | **NEXT** |
 | **9** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | PENDING |
 | **10** | **ADR001-W5** | ADR001 | `feature/adr001-wave5-ci-edge` | CI edge pipeline | 2-3h | 4 | PENDING |
 
@@ -331,13 +331,14 @@ Flow 2 (Returning customer, app installed):
 
 ---
 
-### Wave 7 (ADR001-W4.3): Phased Migration Validation
+### Wave 7 (ADR001-W4.3): Phased Migration Validation ✅ COMPLETE
 
-**Branch:** `feature/adr001-wave4-migration-validation`
+**Branch:** `feature/adr001-wave4-migration-validation` → commit `39685a2`
 **Estimated:** 1-2 hours
 **Risk:** 🟡 MEDIUM — validation of migration phases
 **Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (Migration Strategy)
 **Task Card:** `docs/AI/tasks/W4-3-T1-card.md`, `docs/AI/tasks/W4-3-T2-card.md`, `docs/AI/tasks/W4-3-T3-card.md`
+**Commit:** `39685a2`
 
 **Goal:** Validate phased migration approach (Phase 1: sidecars only, Phase 2: sync workers, Phase 3: PostgreSQL removal).
 
@@ -349,19 +350,20 @@ Flow 2 (Returning customer, app installed):
 **Tasks:**
 | Task ID | Task | File | Status |
 |---------|------|------|--------|
-| W4-3-T1 | Phase 1 validation — sidecars only (no sync workers) | Validation script | PENDING |
-| W4-3-T2 | Phase 2 validation — sync workers enabled (dual-write) | Validation script | PENDING |
-| W4-3-T3 | Rollback plan testing + documentation | `docs/Architecture/ADR001-Rollback-Plan.md` (NEW) | PENDING |
+| W4-3-T1 | Phase 1 validation — sidecars only (no sync workers) | `scripts/validate-phase1-sidecars.ps1` (NEW) | ✅ COMPLETE |
+| W4-3-T2 | Phase 2 validation — sync workers enabled (dual-write) | `scripts/validate-phase2-sync-workers.ps1` (NEW) | ✅ COMPLETE |
+| W4-3-T3 | Rollback plan testing + documentation | `docs/Architecture/ADR001-Rollback-Plan.md` (NEW) | ✅ COMPLETE |
 
 **Entry criteria:**
-- [ ] ADR001-W4.2 merged to main (sync workers implemented)
+- [x] ADR001-W4.2 merged to main (sync workers implemented)
 
 **Exit criteria:**
-- [ ] Phase 1 validation PASS (sidecars operational, no data loss)
-- [ ] Phase 2 validation PASS (sync workers operational, data consistency verified)
-- [ ] Rollback plan documented and tested
-- [ ] `dotnet build` 0 errors
-- [ ] Ready for production deployment (v2 hybrid)
+- [x] Phase 1 validation PASS (sidecars operational, no data loss)
+- [x] Phase 2 validation PASS (sync workers operational, data consistency verified)
+- [x] Rollback plan documented and tested
+- [x] `dotnet build` 0 errors
+- [x] guard-check ALL CHECKS PASSED
+- [x] Ready for production deployment (v2 hybrid)
 
 ---
 
@@ -386,7 +388,7 @@ Flow 2 (Returning customer, app installed):
 | W3-T7 | Implement `IMemoryCache` caching (5-min TTL) | `3_CoreHub/Services/CustomerRecommendationService.cs` | PENDING |
 
 **Entry criteria:**
-- [ ] ADR001-W4.3 (Wave 7) merged to main — migration validation complete
+- [x] ADR001-W4.3 (Wave 7) merged to main — migration validation complete
 - [ ] Customer order history data verified available
 
 **Exit criteria:**
