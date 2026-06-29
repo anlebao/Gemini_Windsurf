@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using VanAn.KhachLink.Components.PWA
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -13,10 +14,22 @@
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
-    <AppInstallPrompt @rendermode="InteractiveServer" />
+    <Routes />
+    <PWAInstallPrompt />
     <script src="_framework/blazor.web.js"></script>
     <script src="/js/pwa.js"></script>
+    <script>
+        // Register service worker on app startup
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.vananPWA && typeof window.vananPWA.registerServiceWorker === 'function') {
+                try {
+                    await window.vananPWA.registerServiceWorker();
+                } catch (error) {
+                    console.error('Service Worker registration failed:', error);
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>

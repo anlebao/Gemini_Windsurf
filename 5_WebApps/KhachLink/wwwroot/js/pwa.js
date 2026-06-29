@@ -104,24 +104,24 @@ window.vananPWA = {
         return false;
     },
 
-    // Push Notifications
-    async subscribeToPush() {
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
-            try {
-                const registration = await navigator.serviceWorker.ready;
-                const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: this.urlB64ToUint8Array('YOUR_VAPID_PUBLIC_KEY')
-                });
-                
-                return JSON.stringify(subscription);
-            } catch (error) {
-                console.error('Failed to subscribe to push:', error);
-                return null;
-            }
-        }
-        return null;
-    },
+    // Push Notifications - DISABLED in Wave 1 (will be configured in Wave 4)
+    // async subscribeToPush() {
+    //     if ('serviceWorker' in navigator && 'PushManager' in window) {
+    //         try {
+    //             const registration = await navigator.serviceWorker.ready;
+    //             const subscription = await registration.pushManager.subscribe({
+    //                 userVisibleOnly: true,
+    //                 applicationServerKey: this.urlB64ToUint8Array('YOUR_VAPID_PUBLIC_KEY')
+    //             });
+    //
+    //             return JSON.stringify(subscription);
+    //         } catch (error) {
+    //             console.error('Failed to subscribe to push:', error);
+    //             return null;
+    //         }
+    //     }
+    //     return null;
+    // },
 
     // Network status
     isOnline() {
