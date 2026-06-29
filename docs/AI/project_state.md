@@ -58,29 +58,29 @@
 | ✅ | ADR001-W4.2: NATS Sync Worker Mode | Backend | 2-3h | COMPLETE |
 | ✅ | ADR001-W4.3: Phased Migration Validation | Backend | 1-2h | COMPLETE |
 | ✅ | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | COMPLETE |
-| ✅ | **KhachLink-W4: Real-time Order Status (Polling + NATS Push)** | Integration | 1-2d | **COMPLETE** |
-| 10 | ADR001-W5: CI edge pipeline | CI | 2-3h | **NEXT** |
+| ✅ | **KhachLink-W4: Real-time Order Status (Polling + NATS Push)** | Integration | 1-2d | COMPLETE |
+| ✅ | **ADR001-W5: CI edge pipeline** | CI | 2-3h | **COMPLETE** |
 
-**Progress:** 9/10 waves complete (90%), Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3 + KhachLink-W3) + Layer 3 (KhachLink-W4) DONE
-**Total estimate:** ~10-13 days → ~1-2 days remaining
+**Progress:** 10/10 waves complete (100%), ALL LAYERS DONE — Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3 + KhachLink-W3) + Layer 3 (KhachLink-W4) + Layer 4 (CI Validation)
+**Total estimate:** ~10-13 days → COMPLETE
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/khachlink-wave4-order-realtime` (verified 2026-06-29)
-- **Last commit:** `49f9ac2` — [WAVE 9/10] KhachLink-W4 Session 4: SignalR Architecture Decision + Performance Benchmarks Complete
+- **Branch:** `feature/adr001-wave5-ci-edge` (verified 2026-06-30)
+- **Last commit:** `76d015c` — [WAVE 10/10] ADR001-W5: CI Edge Pipeline Complete
 - **Build:** `dotnet build VanAn.sln` → 0 errors
 - **Tests:** guard-check ALL CHECKS PASSED
-- **State:** KhachLink-W4 (Real-time Order Status - Polling + NATS Push) COMPLETE → ADR001-W5 (CI edge pipeline) next
-- **Implementation:** Short polling (5s PeriodicTimer with visibility-aware), Web Push notifications (VAPID + NATS), PushSubscription persistence (separate table per user decision), NATS event publishing in OrderWorkflowService, SignalR retained for ShopERP kitchen display (different use case), Performance benchmarks documented (scalability 10K users, battery 70-90% reduction).
+- **State:** ADR001-W5 (CI edge pipeline) COMPLETE → ALL 10 WAVES COMPLETE
+- **Implementation:** CI edge pipeline (.github/workflows/ci-edge.yml) with 4 jobs (build, architecture-tests, nats-sync-worker-tests, validate-edge-compose), triggers on feature/edge* and feature/adr001-wave* branches, validates docker-compose.edge.yml structure and docker-compose.prod.yml integrity, preserves v1 SaaS deployment unchanged.
 
 ---
 
 ## 4. Next Actions
 
-1. **[NEXT — Start now]** ADR001-W5: CI edge pipeline (branch: `feature/adr001-wave5-ci-edge`)
-2. **[After W10]** Merge all wave branches to main
+1. **[NEXT — Start now]** Merge all wave branches to main (feature/adr001-wave5-ci-edge and any remaining wave branches)
+2. **[After merge]** Update UNIFIED_ROADMAP_master_plan.md to mark all waves as COMPLETE
 3. **[Decision made]** Customer.PushSubscriptionJson → separate table (Option B, per user approval in Wave 9)
 
 ---
@@ -102,6 +102,7 @@
 
 ## 6. History Log
 
+* [2026-06-30] Unified Roadmap Wave 10 COMPLETE — ADR001-W5: CI Edge Pipeline. Implemented: .github/workflows/ci-edge.yml with 4 jobs (build, architecture-tests, nats-sync-worker-tests, validate-edge-compose), triggers on feature/edge* and feature/adr001-wave* branches plus manual dispatch, validates docker-compose.edge.yml structure (shoperp-nats-sync service, shoperp_sqlite_data volume, NATS broker), verifies docker-compose.prod.yml NOT modified with edge components (v1 SaaS preserved), runs VanAn.Architecture.Tests (Rule H + Rule I for ADR-001), filters NatsSyncWorker/NatsEventPublisher unit tests. Exit criteria: CI edge pipeline created and validated, YAML syntax verified, dotnet build 0 errors, guard-check ALL CHECKS PASSED. ALL 10 WAVES COMPLETE (100%) — Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3 + KhachLink-W3) + Layer 3 (KhachLink-W4) + Layer 4 (CI Validation) DONE. Commit: `76d015c`. Branch: `feature/adr001-wave5-ci-edge`.
 * [2026-06-29] Unified Roadmap Wave 9 COMPLETE — KhachLink-W4: Real-time Order Status (Polling + NATS Push). Session 1: Polling Infrastructure (Gateway /status forwarding, PeriodicTimer 5s polling in OrderTracking.razor, visibility-aware polling, IAsyncDisposable, VanAnSpinner). Session 2: Push Notification Infrastructure (VAPID key generation, WebPush library v1.0.13, PushNotificationService, pwa.js enablement, service-worker.js enhancement). Session 3: Push Subscription Persistence + NATS Integration (PushSubscription entity separate table, PushSubscriptionConfiguration, IPushSubscriptionRepository, NotificationsController persistence, PushNotificationService database integration, OrderWorkflowService NATS publishing). Session 4: Architecture Decision + Performance Benchmarks (SignalR retained for ShopERP kitchen display, performance analysis, scalability 10K users, battery 70-90% reduction). Architecture decision: KhachLink uses polling+push (customer-facing), ShopERP uses SignalR (staff-facing, sub-second updates needed). VAPID security: private key in environment variable, .gitignore configured. Build: dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commits: cc83107 (S1), df5e6c7 (S2), 6f855f1 (S3), 49f9ac2 (S4). Branch: `feature/khachlink-wave4-order-realtime`.
 * [2026-06-29] Unified Roadmap Wave 8 COMPLETE — KhachLink-W3: Product Personalization (Hybrid Option C). Implemented: CustomerRecommendationService (frequency-based algorithm with IMemoryCache 5-min TTL), GET /api/products/recommended endpoint in ProductsController, ProductHttpService.GetRecommendedProductsAsync(), RecentlyViewedService (localStorage tracking), RecommendedProductDto (extends ProductDto with recommendation metadata), Home.razor "Frequently Bought" section, Home.razor "Recently Viewed" section, product view tracking on AddToCart. Hybrid approach: keeps global catalog + adds personalized sections. Fallback for new customers (no order history). UI Platform compliance: VanAnCard, VanAnButton used. dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `f418bb3`. Branch: `feature/khachlink-wave3-personalization`.
 * [2026-06-29] Unified Roadmap Wave 7 COMPLETE — ADR001-W4.3: Phased Migration Validation (Phase 3). Implemented: Phase 1 validation script (validate-phase1-sidecars.ps1) for sidecar-only deployment, Phase 2 validation script (validate-phase2-sync-workers.ps1) for sync worker dual-write mode, sync lag monitor placeholder (monitor-sync-lag.ps1), rollback documentation (ADR001-Rollback-Plan.md) with 3 rollback scenarios, rollback testing script (test-rollback.ps1) in simulation mode. All validation scripts executed successfully. Phase 1 validation: sidecars deployed, sync workers inactive, PostgreSQL primary. Phase 2 validation: sync workers configured with hybrid profile, NATS connectivity, volume mounts, dependencies. Rollback procedures documented for Phase 1 (sidecars only), Phase 2 (sync workers active), and Emergency scenarios. dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `39685a2`. Branch: `feature/adr001-wave4-migration-validation`.
@@ -125,6 +126,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Wave 9 (KhachLink-W4) COMPLETE: Real-time Order Status (Polling + NATS Push) done. Session 1: Polling Infrastructure (Gateway /status, PeriodicTimer 5s, visibility-aware, IAsyncDisposable). Session 2: Push Notification Infrastructure (VAPID keys, WebPush library, PushNotificationService, pwa.js, service-worker.js). Session 3: Push Subscription Persistence (PushSubscription separate table, repository, NotificationsController, NATS integration). Session 4: Architecture Decision + Performance Benchmarks (SignalR retained for ShopERP, scalability 10K users, battery 70-90% reduction). Build 0 errors, guard-check ALL CHECKS PASSED. 9/10 waves complete (90%).
-* **Current Branch:** `feature/khachlink-wave4-order-realtime`
-* **Unified Roadmap (2026-06-29):** 9/10 waves complete (90%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) + Layer 2 Phase 1-3 (ADR001-W4.1, W4.2, W4.3) + KhachLink-W3 + KhachLink-W4 DONE. Next: ADR001-W5 (CI edge pipeline). Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
+* **Last Updated:** 2026-06-30 — Wave 10 (ADR001-W5) COMPLETE: CI Edge Pipeline done. Implemented .github/workflows/ci-edge.yml with 4 jobs (build, architecture-tests, nats-sync-worker-tests, validate-edge-compose), validates docker-compose.edge.yml and docker-compose.prod.yml integrity, runs architecture tests (Rule H + Rule I) and NatsSyncWorker tests. Build 0 errors, guard-check ALL CHECKS PASSED. ALL 10 WAVES COMPLETE (100%).
+* **Current Branch:** `feature/adr001-wave5-ci-edge`
+* **Unified Roadmap (2026-06-30):** 10/10 waves complete (100%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) + Layer 2 Phase 1-3 (ADR001-W4.1, W4.2, W4.3) + KhachLink-W3 + KhachLink-W4 + Layer 4 (ADR001-W5) ALL DONE. Next: Merge all wave branches to main. Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
