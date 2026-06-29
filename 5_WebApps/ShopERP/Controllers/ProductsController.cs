@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Controllers
@@ -13,10 +14,11 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ProductsController(VanAnDbContext dbContext, ILogger<ProductsController> logger) : ControllerBase
+    public class ProductsController(VanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService) : ControllerBase
     {
         private readonly VanAnDbContext _dbContext = dbContext;
         private readonly ILogger<ProductsController> _logger = logger;
+        private readonly CustomerRecommendationService _recommendationService = recommendationService;
 
         /// <summary>
         /// Get active products for a shop's public catalog (KhachLink).
@@ -94,6 +96,54 @@ namespace VanAn.ShopERP.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        /// <summary>
+        /// Get personalized product recommendations for a customer based on order history.
+        /// </summary>
+        [HttpGet("recommended")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<RecommendedProductItem>>> GetRecommendedProducts(
+            [FromQuery] Guid customerId,
+            [FromQuery] Guid tenantId,
+            [FromQuery] int topN = 10)
+        {
+            try
+            {
+                if (customerId == Guid.Empty || tenantId == Guid.Empty)
+                {
+                    return BadRequest("CustomerId and TenantId are required");
+                }
+
+                var recommendations = await _recommendationService.GetRecommendedProductsAsync(customerId, tenantId, topN);
+
+                // If no recommendations (new customer), return empty list
+                if (!recommendations.Any())
+                {
+                    return Ok(new List<RecommendedProductItem>());
+                }
+
+                var result = recommendations.Select(r => new RecommendedProductItem
+                {
+                    ProductId = r.ProductId,
+                    Name = r.Name,
+                    Description = r.Description,
+                    Price = r.Price,
+                    Category = r.Category,
+                    ImageUrl = r.ImageUrl,
+                    VatRate = r.VatRate,
+                    FrequencyScore = r.FrequencyScore,
+                    TotalSpent = r.TotalSpent,
+                    RecommendationReason = r.RecommendationReason
+                }).ToList();
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting recommended products for customer {CustomerId}", customerId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
     }
 
     public class ProductCatalogItem
@@ -105,5 +155,15 @@ namespace VanAn.ShopERP.Controllers
         public string? Category { get; set; }
         public string? ImageUrl { get; set; }
         public decimal VatRate { get; set; }
+    }
+
+    /// <summary>
+    /// Product catalog item with recommendation metadata
+    /// </summary>
+    public class RecommendedProductItem : ProductCatalogItem
+    {
+        public int FrequencyScore { get; set; }
+        public decimal TotalSpent { get; set; }
+        public string RecommendationReason { get; set; } = string.Empty;
     }
 }

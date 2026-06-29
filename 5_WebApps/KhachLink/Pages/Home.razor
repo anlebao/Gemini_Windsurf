@@ -1,6 +1,7 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
+@using VanAn.KhachLink.Models
 @page "/home"
 @page "/"
 @inject VanAn.KhachLink.Services.CartService CartService
@@ -8,6 +9,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
+@inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
 @implements IDisposable
 
 <PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
@@ -122,11 +124,86 @@
             </div>
         </div>
     </VanAnCard>
+
+    <!-- Frequently Bought Section -->
+    @if (recommendedProducts != null && recommendedProducts.Any())
+    {
+        <VanAnCard CssClass="recommendations-section mb-4">
+            <div class="container">
+                <h2 class="text-center mb-4">
+                    <i class="bi bi-star-fill text-warning"></i> Gợi Ý Dựa Trên Lịch Sử Mua Hàng
+                </h2>
+                <div class="row">
+                    @foreach (var item in recommendedProducts.Take(4))
+                    {
+                        <div class="col-md-3 mb-3">
+                            <VanAnCard CssClass="product-card h-100">
+                                <div class="product-image">
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                         class="card-img-top" 
+                                         alt="@item.Name" 
+                                         style="height: 180px; object-fit: cover;" />
+                                </div>
+                                <div class="product-info">
+                                    <h6>@item.Name</h6>
+                                    <small class="text-muted">@item.RecommendationReason</small>
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <span class="text-primary fw-bold">@item.Price.ToString("N0")đ</span>
+                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item))">
+                                            Mua
+                                        </VanAnButton>
+                                    </div>
+                                </div>
+                            </VanAnCard>
+                        </div>
+                    }
+                </div>
+            </div>
+        </VanAnCard>
+    }
+
+    <!-- Recently Viewed Section -->
+    @if (recentlyViewed != null && recentlyViewed.Any())
+    {
+        <VanAnCard CssClass="recently-viewed-section mb-4">
+            <div class="container">
+                <h2 class="text-center mb-4">
+                    <i class="bi bi-clock-history text-info"></i> Đã Xem Gần Đây
+                </h2>
+                <div class="row">
+                    @foreach (var item in recentlyViewed.Take(4))
+                    {
+                        <div class="col-md-3 mb-3">
+                            <VanAnCard CssClass="product-card h-100">
+                                <div class="product-image">
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
+                                         class="card-img-top" 
+                                         alt="@item.Name" 
+                                         style="height: 180px; object-fit: cover;" />
+                                </div>
+                                <div class="product-info">
+                                    <h6>@item.Name</h6>
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <span class="text-primary fw-bold">@item.Price.ToString("N0")đ</span>
+                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item))">
+                                            Mua
+                                        </VanAnButton>
+                                    </div>
+                                </div>
+                            </VanAnCard>
+                        </div>
+                    }
+                </div>
+            </div>
+        </VanAnCard>
+    }
 </KhachLinkLayout>
 
 @code {
     private VanAn.KhachLink.Services.CartState cartState = null!;
     private List<ProductDto> products = new();
+    private List<RecommendedProductDto> recommendedProducts = new();
+    private List<ProductDto> recentlyViewed = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,6 +211,8 @@
         CartService.OnCartChanged += StateHasChanged;
         await CartService.LoadCartFromStorageAsync();
         await LoadProductsAsync();
+        await LoadRecommendedProductsAsync();
+        await LoadRecentlyViewedAsync();
     }
 
     private async Task LoadProductsAsync()
@@ -141,9 +220,42 @@
         products = await ProductService.GetProductsAsync();
     }
 
+    private async Task LoadRecommendedProductsAsync()
+    {
+        try
+        {
+            // For MVP, we'll use a dummy customer ID. In production, this would come from authentication
+            var customerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+            var tenantId = await TenantService.GetCurrentTenantId();
+            recommendedProducts = await ProductService.GetRecommendedProductsAsync(customerId, tenantId.Value, 4);
+        }
+        catch (Exception ex)
+        {
+            // Silently fail - recommendations are optional
+            Console.WriteLine($"Error loading recommended products: {ex.Message}");
+        }
+    }
+
+    private async Task LoadRecentlyViewedAsync()
+    {
+        try
+        {
+            recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
+        }
+        catch (Exception ex)
+        {
+            // Silently fail - recently viewed is optional
+            Console.WriteLine($"Error loading recently viewed: {ex.Message}");
+        }
+    }
+
     private async Task AddToCart(ProductDto product)
     {
         await CartService.AddItemAsync(product, 1);
+        
+        // Track product view
+        await RecentlyViewedService.AddToRecentlyViewedAsync(product);
+        recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
         
         // Show notification
         await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng!", "success");

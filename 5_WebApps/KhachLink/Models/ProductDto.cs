@@ -11,3 +11,13 @@ public class ProductDto
     public decimal VatRate { get; set; }
     public string? ImageUrl { get; set; }
 }
+
+/// <summary>
+/// Product DTO with recommendation metadata for personalized sections
+/// </summary>
+public class RecommendedProductDto : ProductDto
+{
+    public int FrequencyScore { get; set; }
+    public decimal TotalSpent { get; set; }
+    public string RecommendationReason { get; set; } = string.Empty;
+}

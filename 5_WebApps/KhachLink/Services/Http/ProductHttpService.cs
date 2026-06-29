@@ -30,5 +30,23 @@ namespace VanAn.KhachLink.Services.Http
                 return [];
             }
         }
+
+        /// <summary>
+        /// Get personalized product recommendations for a customer
+        /// </summary>
+        public async Task<List<RecommendedProductDto>> GetRecommendedProductsAsync(Guid customerId, Guid tenantId, int topN = 10)
+        {
+            try
+            {
+                string url = $"shoperp/api/products/recommended?customerId={customerId}&tenantId={tenantId}&topN={topN}";
+                List<RecommendedProductDto>? result = await _httpClient.GetFromJsonAsync<List<RecommendedProductDto>>(url);
+                return result ?? [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching recommended products for customer {CustomerId}", customerId);
+                return [];
+            }
+        }
     }
 }
