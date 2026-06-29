@@ -43,8 +43,9 @@
 
 ## 2. Current Objective
 
-**UNIFIED ROADMAP — 8 waves (ADR001 + KhachLink, Option C Merged, Layer-ordered)**
+**UNIFIED ROADMAP — 10 waves (ADR001 + KhachLink, Option C Merged, Layer-ordered)**
 **Master Plan:** `docs/AI/tasks/UNIFIED_ROADMAP_master_plan.md`
+**Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (v2 Hybrid Edge/Cloud design)
 
 | # | Wave | Layer | Est. | Status |
 |---|------|-------|------|--------|
@@ -53,34 +54,38 @@
 | ✅ | ADR001-W3: NatsSyncWorker + NatsEventPublisher | Infra | 1d | COMPLETE |
 | ✅ | KhachLink-W1: PWA Install Fix | UX | 1-2h | COMPLETE |
 | ✅ | KhachLink-W2: QR Code (In-app Camera Scanning) | UX | 1-2d | COMPLETE |
-| 5 | **ADR001-W4: ShopERP `--sync-worker` mode** | Backend | 2-3h | **NEXT** |
-| 6 | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | PENDING |
-| 7 | KhachLink-W4: Real-time Order Status (Polling + NATS Push) | Integration | 1-2d | PENDING |
-| 8 | ADR001-W5: CI edge pipeline | CI | 2-3h | PENDING |
+| ✅ | ADR001-W4.1: SQLite Sidecar Infrastructure | Backend | 2-3h | COMPLETE |
+| 6 | **ADR001-W4.2: NATS Sync Worker Mode** | Backend | 2-3h | **NEXT** |
+| 7 | ADR001-W4.3: Phased Migration Validation | Backend | 1-2h | PENDING |
+| 8 | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | PENDING |
+| 9 | KhachLink-W4: Real-time Order Status (Polling + NATS Push) | Integration | 1-2d | PENDING |
+| 10 | ADR001-W5: CI edge pipeline | CI | 2-3h | PENDING |
 
-**Progress:** 5/8 waves complete (62.5%), Layer 0-1 infrastructure + UX foundation DONE
-**Total estimate:** 7-10 days → ~4-5 days remaining
-**Open Decision (required before Wave 7):** Customer.PushSubscriptionJson → Domain entity OR separate table?
+**Progress:** 6/10 waves complete (60%), Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1) DONE
+**Total estimate:** ~10-13 days → ~4-7 days remaining
+**Open Decision (required before Wave 9):** Customer.PushSubscriptionJson → Domain entity OR separate table?
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main` (verified 2026-06-29)
-- **Last commit:** `db80062` — [WAVE 4/8] KhachLink-W2: QR Code Scanning - In-app camera scanning per task card
+- **Branch:** `feature/adr001-wave4-sqlite-sidecars` (verified 2026-06-29)
+- **Last commit:** `07a5c14` — [WAVE 5/10] ADR001-W4.1: SQLite Sidecar Infrastructure - Phase 1 complete
 - **Build:** `dotnet build VanAn.sln` → 0 errors
 - **Tests:** Architecture tests 23/23 PASS; Core tests (Nats*) 9/9 PASS; integration tests 144/144 PASS; guard-check ALL CHECKS PASSED
-- **State:** Layer 1 (KhachLink-W2: QR Code Scanning) COMPLETE → Layer 2 (ADR001-W4: ShopERP sync-worker mode) next
+- **State:** Layer 2 Phase 1 (ADR001-W4.1: SQLite Sidecar Infrastructure) COMPLETE → Layer 2 Phase 2 (ADR001-W4.2: NATS Sync Worker Mode) next
+- **Architecture Update:** ADR001-W4 split into 3 sub-waves per ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design)
 
 ---
 
 ## 4. Next Actions
 
-1. **[NEXT — Start now]** ADR001-W4: ShopERP `--sync-worker` mode (branch: `feature/adr001-wave4-sqlite-config`)
-2. **[After W4]** KhachLink-W3: Product Personalization Hybrid C
-3. **[After W5]** KhachLink-W4: Real-time Order Status (uses NATS from ADR001-W3)
-4. **[After W6]** ADR001-W5: CI edge pipeline
-5. **[Decision before W7]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
+1. **[NEXT — Start now]** ADR001-W4.2: NATS Sync Worker Mode (branch: `feature/adr001-wave4-sync-worker-mode`)
+2. **[After W4.2]** ADR001-W4.3: Phased Migration Validation (branch: `feature/adr001-wave4-migration-validation`)
+3. **[After W4.3]** KhachLink-W3: Product Personalization Hybrid C
+4. **[After W8]** KhachLink-W4: Real-time Order Status (uses NATS from ADR001-W3)
+6. **[After W9]** ADR001-W5: CI edge pipeline
+7. **[Decision before W9]** Customer.PushSubscriptionJson → Domain entity (A) OR separate table (B)?
 
 ---
 
@@ -101,6 +106,8 @@
 
 ## 6. History Log
 
+* [2026-06-29] Unified Roadmap Wave 5 COMPLETE — ADR001-W4.1: SQLite Sidecar Infrastructure (Phase 1). Implemented: 3 SQLite sidecar containers (shoperp-sqlite, khachlink-sqlite, order-station-sqlite) with Alpine 3.19, 3 persistent Docker volumes (shoperp_sqlite_data, khachlink_sqlite_data, order_sqlite_data), DEPLOYMENT_MODE environment variable added to shoperp/khachlink services (default: saas), sidecar dependency comments added. Phase 1: sidecars exist but not actively used in v1 SaaS (PostgreSQL remains primary). docker-compose.prod.yml syntax validated, dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `07a5c14`. Branch: `feature/adr001-wave4-sqlite-sidecars`.
+* [2026-06-29] ADR001-W4 Task Cards Created — Split ADR001-W4 into 3 sub-waves per ADR001-Station-Architecture.md: W4.1 (SQLite Sidecar Infrastructure, 3 task cards), W4.2 (NATS Sync Worker Mode, 3 task cards), W4.3 (Phased Migration Validation, 3 task cards). Total 9 task cards created. Roadmap updated to 10 waves (50% complete). Design confirmed: manual deployment switch, no automatic failover. Branch: `main`.
 * [2026-06-29] Unified Roadmap Wave 4 COMPLETE — KhachLink-W2: QR Code Scanning (In-app camera scanning per task card). Implemented: html5-qrcode library integration, QRCodePayload format, QrCodeService (CoreHub + ShopERP), QRScanner.razor component with UI Platform, Scan.razor page, camera permission handling (iOS + Android), CartService.AddFromQrCodeAsync, navigation updates (desktop + mobile). Build 0 errors, guard-check ALL CHECKS PASSED. Commit: `db80062`. Branch: `main`.
 * [2026-06-29] Unified Roadmap Waves 1-3 COMPLETE — ADR001-W2 (docker-compose.edge.yml, 23/23 arch tests) + ADR001-W3 (NatsEventPublisher + NatsSyncWorker, 9/9 Nats tests) + KhachLink-W1 (PWA Install Fix). Layer 0-1 infrastructure + UX foundation DONE (50% complete). Commit: `b83eb84`. Branch: `main`.
 * [2026-06-29] UNIFIED ROADMAP — Merged ADR001 (5 waves) + KhachLink improvements (4 waves) into 8-wave unified plan (Option C, Layer-ordered). Zero code conflicts verified. KhachLink-W4 uses NATS from ADR001-W3 for event-driven push. Master plan: `UNIFIED_ROADMAP_master_plan.md`. Old plans marked superseded.
@@ -118,6 +125,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-29 — Unified Roadmap Wave 4 COMPLETE (KhachLink-W2: In-app QR scanning); Layer 1 DONE (62.5%); build 0 errors; guard-check ALL CHECKS PASSED; architecture tests 23/23 PASS; Nats tests 9/9 PASS
-* **Current Branch:** `main`
-* **Unified Roadmap (2026-06-29):** 5/8 waves complete (62.5%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) infrastructure + UX foundation DONE. Next: ADR001-W4 (ShopERP sync-worker mode). Open decision before Wave 7: PushSubscription storage strategy.
+* **Last Updated:** 2026-06-29 — Wave 5 (ADR001-W4.1) COMPLETE: SQLite Sidecar Infrastructure Phase 1 done. 3 sidecar containers + 3 volumes added to docker-compose.prod.yml, DEPLOYMENT_MODE env var added. Build 0 errors, guard-check ALL CHECKS PASSED. 6/10 waves complete (60%).
+* **Current Branch:** `feature/adr001-wave4-sqlite-sidecars`
+* **Unified Roadmap (2026-06-29):** 6/10 waves complete (60%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) + Layer 2 Phase 1 (ADR001-W4.1) DONE. Next: ADR001-W4.2 (NATS Sync Worker Mode). Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
