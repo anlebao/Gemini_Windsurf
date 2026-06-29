@@ -2,6 +2,7 @@
 @using VanAn.Shared.Domain
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
 
@@ -81,8 +82,14 @@
             else if (order != null)
             {
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">📋 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
+                        @if (isPolling && isTabVisible)
+                        {
+                            <div class="spinner-border spinner-border-sm text-light" role="status" title="Đang cập nhật...">
+                                <span class="visually-hidden">Đang cập nhật...</span>
+                            </div>
+                        }
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -176,6 +183,12 @@
     private List<TrackingStep> statusTimeline = new();
     private bool isLoading = true;
     private string? errorMessage;
+    
+    // Wave 9: Polling infrastructure for real-time order status updates
+    private PeriodicTimer? _pollingTimer;
+    private CancellationTokenSource? _pollingCts;
+    private bool isPolling = false;
+    private bool isTabVisible = true;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -184,6 +197,27 @@
         await LoadOrderFromGateway();
         BuildStatusTimeline();
         isLoading = false;
+        
+        // Wave 9: Start polling after initial load
+        StartPolling();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // No additional setup needed - visibility is checked in polling loop
+        await Task.CompletedTask;
+    }
+
+    // Wave 9: IAsyncDisposable implementation for proper cleanup
+    public async ValueTask DisposeAsync()
+    {
+        StopPolling();
+        if (_pollingCts != null)
+        {
+            await _pollingCts.CancelAsync();
+            _pollingCts.Dispose();
+        }
+        _pollingTimer?.Dispose();
     }
 
     // T-02d: Call Gateway API instead of simulated data
@@ -260,5 +294,98 @@
         public string DisplayName { get; init; } = "";
         public bool   IsCompleted { get; init; }
         public DateTime? Timestamp { get; init; }
+    }
+
+    // Wave 9: Polling methods for real-time order status updates
+    private void StartPolling()
+    {
+        if (_pollingTimer != null) return; // Prevent duplicate timers
+        
+        _pollingCts = new CancellationTokenSource();
+        _pollingTimer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        isPolling = true;
+        
+        _ = Task.Run(async () => await PollingLoopAsync(_pollingCts.Token));
+    }
+
+    private void StopPolling()
+    {
+        isPolling = false;
+        _pollingCts?.Cancel();
+        _pollingTimer?.Dispose();
+        _pollingTimer = null;
+    }
+
+    private async Task PollingLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (await _pollingTimer!.WaitForNextTickAsync(cancellationToken))
+            {
+                // Check visibility using JS interop for battery-friendly polling
+                var isVisible = await CheckTabVisibilityAsync();
+                if (!isVisible) continue; // Skip polling when tab is hidden
+                
+                await InvokeAsync(async () => 
+                {
+                    await PollOrderStatusAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected during shutdown
+        }
+        catch (Exception ex)
+        {
+            // Log polling errors but don't crash the component
+            Console.WriteLine($"Polling error: {ex.Message}");
+        }
+    }
+
+    private async Task<bool> CheckTabVisibilityAsync()
+    {
+        try
+        {
+            var isVisible = await JS.InvokeAsync<bool>("eval", "document.visibilityState === 'visible'");
+            return isVisible;
+        }
+        catch
+        {
+            // Fallback to assuming visible if JS interop fails
+            return true;
+        }
+    }
+
+    private async Task PollOrderStatusAsync()
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("gateway");
+            var response = await httpClient.GetAsync($"api/customerorders/{orderId}/status");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var statusData = await response.Content.ReadFromJsonAsync<OrderStatusDto>();
+                if (statusData != null && order != null && order.Status?.Value != statusData.Status)
+                {
+                    // Status changed, reload full order data
+                    await LoadOrderFromGateway();
+                    BuildStatusTimeline();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silent fail for polling errors - don't disrupt user experience
+            Console.WriteLine($"Polling order status error: {ex.Message}");
+        }
+    }
+
+    private record OrderStatusDto
+    {
+        public Guid OrderId { get; init; }
+        public string Status { get; init; } = string.Empty;
     }
 }

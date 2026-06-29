@@ -38,5 +38,37 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+
+        /// <summary>
+        /// Wave 9: Forward order status endpoint for polling.
+        /// Lightweight endpoint returns { orderId, status } for real-time updates.
+        /// </summary>
+        [HttpGet("{id}/status")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetOrderStatus(Guid id)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var reqMsg = new HttpRequestMessage(HttpMethod.Get, $"/api/orders/{id}/status");
+                
+                // Forward X-Customer-Token header for authentication (consistent with Wave 17 pattern)
+                if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
+                    reqMsg.Headers.Add("X-Customer-Token", token.ToString());
+
+                var response = await client.SendAsync(reqMsg);
+                var content = await response.Content.ReadAsStringAsync();
+                
+                _logger.LogDebug("Forwarded order status request for OrderId: {OrderId}, StatusCode: {StatusCode}", 
+                    id, response.StatusCode);
+                
+                return StatusCode((int)response.StatusCode, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forwarding GetOrderStatus to ShopERP for OrderId: {OrderId}", id);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
     }
 }

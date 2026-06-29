@@ -226,8 +226,8 @@
         {
             // For MVP, we'll use a dummy customer ID. In production, this would come from authentication
             var customerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-            var tenantId = await TenantService.GetCurrentTenantId();
-            recommendedProducts = await ProductService.GetRecommendedProductsAsync(customerId, tenantId.Value, 4);
+            var tenantId = TenantService.GetCurrentTenantId();
+            recommendedProducts = await ProductService.GetRecommendedProductsAsync(customerId, tenantId, 4);
         }
         catch (Exception ex)
         {
