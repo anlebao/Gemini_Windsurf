@@ -1,8 +1,9 @@
 # UNIFIED MASTER PLAN — KhachLink O2O + ADR001 Edge Infrastructure
 
 **Created:** 2026-06-29
-**Last Updated:** 2026-06-29
-**Status:** IN PROGRESS — Waves 1-3 COMPLETE, Wave 4 NEXT
+**Last Updated:** 2026-06-29 (Wave 6 COMPLETE - ADR001-W4.2 NATS Sync Worker Mode)
+**Status:** IN PROGRESS — Waves 1-5 COMPLETE, Wave 7 NEXT (6/10 waves = 60% complete)
+**Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (v2 Hybrid Edge/Cloud design)
 **Supersedes:**
   - `docs/AI/tasks/khachlink_improvements_master_plan.md`
   - `docs/AI/tasks/fix_adr001_compliance_master_plan.md`
@@ -13,6 +14,12 @@
 ---
 
 ## 0. WHY MERGED (Decision Record)
+
+### Architecture Reference
+**v2 Hybrid Edge/Cloud Design:** `docs/Architecture/ADR001-Station-Architecture.md`
+- Two-version system: v1 SaaS (PostgreSQL) vs v2 Hybrid (SQLite + NATS + PostgreSQL)
+- Phased migration: Phase 1 (sidecars), Phase 2 (sync workers), Phase 3 (PostgreSQL removal)
+- Station types: ShopERP, KhachLink, Order stations with local SQLite + NATS sync
 
 ### Conflict Analysis Result
 Zero code conflicts between ADR001 and KhachLink plans — they touch completely separate files.
@@ -64,19 +71,23 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
       └── feature/adr001-wave3-nats-worker    [Layer 0]
           └── feature/khachlink-wave1-pwa-install  [Layer 1]
               └── feature/khachlink-wave2-qr-scanning  [Layer 1]
-                  └── feature/adr001-wave4-sqlite-config  [Layer 2]
-                      └── feature/khachlink-wave3-personalization  [Layer 2]
-                          └── feature/khachlink-wave4-order-realtime  [Layer 3]
-                              └── feature/adr001-wave5-ci-edge  [Layer 4]
+                  └── feature/adr001-wave4-sqlite-sidecars   [Layer 2]
+                      └── feature/adr001-wave4-sync-worker-mode  [Layer 2]
+                          └── feature/adr001-wave4-migration-validation  [Layer 2]
+                              └── feature/khachlink-wave3-personalization  [Layer 2]
+                                  └── feature/khachlink-wave4-order-realtime  [Layer 3]
+                                      └── feature/adr001-wave5-ci-edge  [Layer 4]
 ```
 
 ### Hard rules (không violate)
-- **KHÔNG sửa `docker-compose.prod.yml`** — v1 SaaS không bao giờ thay đổi
+- **v1 SaaS `docker-compose.prod.yml` KHÔNG sửa** — v1 SaaS production unchanged
+- **v2 Hybrid `docker-compose.edge.yml` only** — ADR001-W4 modifications for edge deployment
 - **KHÔNG sửa Domain layer** trừ khi feature phase approved (Customer.PushSubscriptionJson)
 - **KHÔNG xóa `KitchenHub.cs`** — Kitchen vẫn dùng SignalR (staff count thấp)
 - **KHÔNG bypass UI Platform components** — VanAnButton, VanAnCard, VanAnModal mandatory
 - **VAPID private key KHÔNG ĐƯỢC trong source code** — environment variable only
 - **KhachLink CHỈ gọi Gateway** — không inject CoreHub trực tiếp
+- **PostgreSQL remains online for accounting** — v2 hybrid uses SQLite for order/loyalty only
 
 ---
 
@@ -89,12 +100,14 @@ main (ADR001 Wave 1 ✅ MERGED — commit 8863692)
 | ✅ | ADR001-W3 | ADR001 | `main` (merged) | `NatsSyncWorker` + `NatsEventPublisher` | 1 day | 0 | ✅ COMPLETE |
 | ✅ | KhachLink-W1 | KhachLink | `main` (merged) | PWA Install Fix | 1-2h | 1 | ✅ COMPLETE |
 | ✅ | KhachLink-W2 | KhachLink | `main` (merged) | QR Code Scanning (In-app Camera) | 1-2d | 1 | ✅ COMPLETE |
-| **5** | **ADR001-W4** | ADR001 | `feature/adr001-wave4-sqlite-config` | ShopERP `--sync-worker` mode | 2-3h | 2 | **NEXT** |
-| **6** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | PENDING |
-| **7** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | PENDING |
-| **8** | **ADR001-W5** | ADR001 | `feature/adr001-wave5-ci-edge` | CI edge pipeline | 2-3h | 4 | PENDING |
+| ✅ | ADR001-W4.1 | ADR001 | `feature/adr001-wave4-sqlite-sidecars` | SQLite Sidecar Infrastructure | 2-3h | 2 | ✅ COMPLETE |
+| ✅ | ADR001-W4.2 | ADR001 | `feature/adr001-wave4-sync-worker-mode` | NATS Sync Worker Mode | 2-3h | 2 | ✅ COMPLETE |
+| **7** | **ADR001-W4.3** | ADR001 | `feature/adr001-wave4-migration-validation` | Phased Migration Validation | 1-2h | 2 | **NEXT** |
+| **8** | **KhachLink-W3** | KhachLink | `feature/khachlink-wave3-personalization` | Product Personalization (Hybrid C) | 2-3d | 2 | PENDING |
+| **9** | **KhachLink-W4** | KhachLink | `feature/khachlink-wave4-order-realtime` | Real-time Order Status (Polling + Web Push via NATS) | 1-2d | 3 | PENDING |
+| **10** | **ADR001-W5** | ADR001 | `feature/adr001-wave5-ci-edge` | CI edge pipeline | 2-3h | 4 | PENDING |
 
-**Total estimated:** ~7-10 days
+**Total estimated:** ~10-13 days (updated for ADR001-W4 split)
 
 ---
 
@@ -250,34 +263,109 @@ Flow 2 (Returning customer, app installed):
 
 ## 5. LAYER 2 — Backend Features
 
-### Wave 5 (ADR001-W4): ShopERP Sync-Worker Mode
+### Wave 5 (ADR001-W4.1): SQLite Sidecar Infrastructure
 
-**Branch:** `feature/adr001-wave4-sqlite-config`
+**Branch:** `feature/adr001-wave4-sqlite-sidecars`
 **Estimated:** 2-3 hours
-**Risk:** 🟢 LOW — env-var controlled, v1 SaaS unaffected
-**Task Card:** `docs/AI/tasks/W4-ADR-T1-card.md`, `docs/AI/tasks/W4-ADR-T2-card.md`
+**Risk:** 🟡 MEDIUM — docker-compose.prod.yml modifications for v2 hybrid
+**Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (v2 Hybrid Edge/Cloud)
+**Task Card:** `docs/AI/tasks/W4-1-T1-card.md`, `docs/AI/tasks/W4-1-T2-card.md`, `docs/AI/tasks/W4-1-T3-card.md`
 
-**Goal:** Enable ShopERP to run as `--sync-worker` (background NATS sync) without changing web app behavior.
+**Goal:** Add SQLite sidecar containers + volume persistence to `docker-compose.prod.yml` for v2 hybrid deployment (v1 SaaS unchanged via feature flags).
+
+**v2 Hybrid Architecture:**
+- **ShopERP Station:** SQLite sidecar + NATS sync worker
+- **KhachLink Station:** SQLite sidecar + NATS sync worker (deferred to later wave)
+- **Order Station:** SQLite sidecar + NATS sync worker (optional)
+- **PostgreSQL:** Remains online for accounting, becomes sync target for order/loyalty data
 
 **Tasks:**
 | Task ID | Task | File | Status |
 |---------|------|------|--------|
-| W4-ADR-T1 | Add `--sync-worker` mode conditional DI registration | `5_WebApps/ShopERP/Program.cs` | PENDING |
-| W4-ADR-T2 | Add `appsettings.Edge.json` with SQLite path + NATS config | `5_WebApps/ShopERP/appsettings.Edge.json` (NEW) | PENDING |
+| W4-1-T1 | Add SQLite sidecar containers to docker-compose.prod.yml | `docker-compose.prod.yml` | PENDING |
+| W4-1-T2 | Add Docker volumes for SQLite persistence | `docker-compose.prod.yml` | PENDING |
+| W4-1-T3 | Update service dependencies for sidecars | `docker-compose.prod.yml` | PENDING |
 
 **Entry criteria:**
 - [ ] KhachLink-W2 merged to main
 - [ ] ADR001-W3 (NatsSyncWorker) merged and tested
 
 **Exit criteria:**
-- [ ] `--sync-worker` arg activates `NatsSyncWorker` DI
-- [ ] `SQLITE_DB_PATH` env var configures SQLite path
-- [ ] v1 SaaS behavior UNCHANGED (no arg = web app only)
+- [ ] SQLite sidecar containers defined (shoperp-sqlite, khachlink-sqlite, order-station-sqlite)
+- [ ] Docker volumes defined for SQLite data persistence
+- [ ] Service dependencies updated (main services depend on sidecars)
+- [ ] v1 SaaS behavior UNCHANGED (sidecars disabled via feature flag)
 - [ ] `dotnet build` 0 errors
 
 ---
 
-### Wave 6 (KhachLink-W3): Product Personalization (Hybrid Option C)
+### Wave 6 (ADR001-W4.2): NATS Sync Worker Mode ✅ COMPLETE
+
+**Branch:** `feature/adr001-wave4-sync-worker-mode` → commit `078ee6e`
+**Estimated:** 2-3 hours
+**Risk:** 🟢 LOW — env-var controlled, v1 SaaS unaffected
+**Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (Step 4: Configure ShopERP for SQLite)
+**Task Card:** `docs/AI/tasks/W4-2-T1-card.md`, `docs/AI/tasks/W4-2-T2-card.md`, `docs/AI/tasks/W4-2-T3-card.md`
+**Commit:** `078ee6e`
+
+**Goal:** Enable ShopERP/KhachLink to run as `--sync-worker` (background NATS sync) without changing web app behavior.
+
+**Tasks:**
+| Task ID | Task | File | Status |
+|---------|------|------|--------|
+| W4-2-T1 | Add `--sync-worker` mode conditional DI registration | `5_WebApps/ShopERP/Program.cs` | ✅ COMPLETE |
+| W4-2-T2 | Add `appsettings.Edge.json` with SQLite path + NATS config | `5_WebApps/ShopERP/appsettings.Edge.json` (NEW) | ✅ COMPLETE |
+| W4-2-T3 | Add sync worker service definitions to docker-compose.prod.yml | `docker-compose.prod.yml` | ✅ COMPLETE |
+
+**Entry criteria:**
+- [x] ADR001-W4.1 merged to main (SQLite sidecars in place)
+- [x] ADR001-W3 (NatsSyncWorker) merged and tested
+
+**Exit criteria:**
+- [x] `--sync-worker` arg activates `NatsSyncWorker` DI
+- [x] `SQLITE_DB_PATH` env var configures SQLite path
+- [x] Sync worker services defined in docker-compose (shoperp-nats-sync, khachlink-nats-sync, order-station-nats-sync)
+- [x] v1 SaaS behavior UNCHANGED (no arg = web app only)
+- [x] `dotnet build` 0 errors
+- [x] guard-check ALL CHECKS PASSED
+
+---
+
+### Wave 7 (ADR001-W4.3): Phased Migration Validation
+
+**Branch:** `feature/adr001-wave4-migration-validation`
+**Estimated:** 1-2 hours
+**Risk:** 🟡 MEDIUM — validation of migration phases
+**Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (Migration Strategy)
+**Task Card:** `docs/AI/tasks/W4-3-T1-card.md`, `docs/AI/tasks/W4-3-T2-card.md`, `docs/AI/tasks/W4-3-T3-card.md`
+
+**Goal:** Validate phased migration approach (Phase 1: sidecars only, Phase 2: sync workers, Phase 3: PostgreSQL removal).
+
+**Migration Phases:**
+- **Phase 1:** Deploy SQLite sidecars (no sync, PostgreSQL remains primary)
+- **Phase 2:** Enable NATS sync workers (dual-write: SQLite + PostgreSQL)
+- **Phase 3:** Remove PostgreSQL direct access (SQLite-only, PostgreSQL becomes sync target)
+
+**Tasks:**
+| Task ID | Task | File | Status |
+|---------|------|------|--------|
+| W4-3-T1 | Phase 1 validation — sidecars only (no sync workers) | Validation script | PENDING |
+| W4-3-T2 | Phase 2 validation — sync workers enabled (dual-write) | Validation script | PENDING |
+| W4-3-T3 | Rollback plan testing + documentation | `docs/Architecture/ADR001-Rollback-Plan.md` (NEW) | PENDING |
+
+**Entry criteria:**
+- [ ] ADR001-W4.2 merged to main (sync workers implemented)
+
+**Exit criteria:**
+- [ ] Phase 1 validation PASS (sidecars operational, no data loss)
+- [ ] Phase 2 validation PASS (sync workers operational, data consistency verified)
+- [ ] Rollback plan documented and tested
+- [ ] `dotnet build` 0 errors
+- [ ] Ready for production deployment (v2 hybrid)
+
+---
+
+### Wave 8 (KhachLink-W3): Product Personalization (Hybrid Option C)
 
 **Branch:** `feature/khachlink-wave3-personalization`
 **Estimated:** 2-3 days
@@ -298,7 +386,7 @@ Flow 2 (Returning customer, app installed):
 | W3-T7 | Implement `IMemoryCache` caching (5-min TTL) | `3_CoreHub/Services/CustomerRecommendationService.cs` | PENDING |
 
 **Entry criteria:**
-- [ ] ADR001-W4 merged to main
+- [ ] ADR001-W4.3 (Wave 7) merged to main — migration validation complete
 - [ ] Customer order history data verified available
 
 **Exit criteria:**
@@ -312,7 +400,7 @@ Flow 2 (Returning customer, app installed):
 
 ## 6. LAYER 3 — Integration (NATS + Push)
 
-### Wave 7 (KhachLink-W4): Real-time Order Status
+### Wave 9 (KhachLink-W4): Real-time Order Status
 
 **Branch:** `feature/khachlink-wave4-order-realtime`
 **Estimated:** 1-2 days
@@ -374,7 +462,7 @@ Customer closes app:
 
 ## 7. LAYER 4 — CI Validation
 
-### Wave 8 (ADR001-W5): CI Edge Pipeline
+### Wave 10 (ADR001-W5): CI Edge Pipeline
 
 **Branch:** `feature/adr001-wave5-ci-edge`
 **Estimated:** 2-3 hours
@@ -389,7 +477,8 @@ Customer closes app:
 | W5-ADR-T1 | Create `.github/workflows/ci-edge.yml` | `.github/workflows/ci-edge.yml` (NEW) | PENDING |
 
 **Entry criteria:**
-- [ ] KhachLink-W4 merged to main
+- [ ] KhachLink-W4 (Wave 9) merged to main
+- [ ] ADR001-W4.3 (Wave 7) migration validation complete
 - [ ] All previous waves PASS
 
 **Exit criteria:**
@@ -410,7 +499,9 @@ Customer closes app:
 | ADR001-W3 | `NatsEventPublisher.cs` (NEW), `NatsSyncWorker.cs` (NEW) | None |
 | KhachLink-W1 | `App.razor`, `AppInstallPrompt.razor` (DELETE), `pwa.js` | None |
 | KhachLink-W2 | `Home.razor` (URL params), `CartService.cs`, `NavMenu.razor` | None |
-| ADR001-W4 | `ShopERP/Program.cs` (--sync-worker), `appsettings.Edge.json` (NEW) | None |
+| ADR001-W4.1 | `docker-compose.prod.yml` (sidecars + volumes) | None |
+| ADR001-W4.2 | `ShopERP/Program.cs` (--sync-worker), `appsettings.Edge.json` (NEW), `docker-compose.prod.yml` (sync workers) | None |
+| ADR001-W4.3 | Validation scripts, rollback plan documentation | None |
 | KhachLink-W3 | `CustomerRecommendationService.cs` (NEW), `ProductsController.cs` (add endpoint), `ProductHttpService.cs` (add method), `Home.razor` (add sections) | None |
 | KhachLink-W4 | `OrderTracking.razor`, `service-worker.js`, `PushNotificationService.cs` (NEW), `OrderWorkflowService.cs` (hook), `OrdersController.cs` (add endpoint), `KhachLink/Program.cs`, `Domain.cs` (Customer) | None |
 | ADR001-W5 | `ci-edge.yml` (NEW) | None |
