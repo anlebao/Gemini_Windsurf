@@ -1,9 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using QRCoder;
-using System.Drawing;
-using System.Drawing.Imaging;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 
@@ -94,48 +91,6 @@ namespace VanAn.ShopERP.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting product {ProductId}", id);
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        /// <summary>
-        /// Generate QR code for a product (admin only).
-        /// QR URL format: https://diemthuong.vanantech.io.vn/menu?shopId={shopId}&productId={productId}
-        /// </summary>
-        [HttpGet("{id:guid}/qrcode")]
-        [Authorize]
-        public async Task<IActionResult> GenerateProductQrCode(Guid id, [FromQuery] Guid? shopId)
-        {
-            try
-            {
-                Product? product = await _dbContext.Products
-                    .FirstOrDefaultAsync(p => p.ProductId == new ProductId(id) && p.IsActive && !p.IsDeleted);
-
-                if (product == null)
-                {
-                    return NotFound();
-                }
-
-                // Use provided shopId or product's tenantId
-                Guid tenantId = shopId ?? product.TenantId.Value;
-
-                // Generate QR URL
-                string qrUrl = $"https://diemthuong.vanantech.io.vn/menu?shopId={tenantId}&productId={id}";
-
-                // Generate QR code
-                using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
-                {
-                    QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrUrl, QRCodeGenerator.ECCLevel.Q);
-                    using (PngByteQRCode qrCode = new PngByteQRCode(qrCodeData))
-                    {
-                        byte[] qrCodeBytes = qrCode.GetGraphic(20);
-                        return File(qrCodeBytes, "image/png");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating QR code for product {ProductId}", id);
                 return StatusCode(500, "Internal server error");
             }
         }

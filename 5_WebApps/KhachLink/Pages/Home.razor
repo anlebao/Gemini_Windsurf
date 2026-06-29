@@ -124,57 +124,13 @@
 @code {
     private VanAn.KhachLink.Services.CartState cartState = null!;
     private List<ProductDto> products = new();
-    private bool _isProcessingQrParams = false;
 
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
         CartService.OnCartChanged += StateHasChanged;
         await CartService.LoadCartFromStorageAsync();
-        
-        // Handle QR code URL parameters
-        await HandleQrParametersAsync();
-        
         await LoadProductsAsync();
-    }
-
-    private async Task HandleQrParametersAsync()
-    {
-        try
-        {
-            var uri = new Uri(Navigation.Uri);
-            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
-
-            if (query.TryGetValue("shopId", out var shopIdStr) && 
-                Guid.TryParse(shopIdStr, out var shopId) &&
-                query.TryGetValue("productId", out var productIdStr) && 
-                Guid.TryParse(productIdStr, out var productId))
-            {
-                _isProcessingQrParams = true;
-                
-                // Fetch product and add to cart
-                var product = await ProductService.GetProductByIdAsync(productId, shopId);
-                if (product != null)
-                {
-                    await CartService.AddItemAsync(product, 1);
-                    await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng từ mã QR!", "success");
-                    
-                    // Clear URL params to avoid re-adding on refresh
-                    Navigation.NavigateTo("/", forceLoad: false);
-                }
-                else
-                {
-                    await ShowNotification("Không tìm thấy sản phẩm từ mã QR.", "error");
-                }
-                
-                _isProcessingQrParams = false;
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error handling QR parameters: {ex.Message}");
-            _isProcessingQrParams = false;
-        }
     }
 
     private async Task LoadProductsAsync()
