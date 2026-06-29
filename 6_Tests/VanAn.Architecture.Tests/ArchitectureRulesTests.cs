@@ -225,40 +225,62 @@ public class ArchitectureRulesTests
         }
     }
 
-    [Fact(DisplayName = "Rule H: ADR-001 Compliance - docker-compose.prod.yml must include SQLite stations")]
-    public void DockerComposeProd_MustInclude_SQLite_Stations()
+    [Fact(DisplayName = "Rule H: ADR-001 v1 SaaS - docker-compose.prod.yml CoreHub MUST use PostgreSQL")]
+    public void DockerComposeProd_CoreHub_MustUse_PostgreSQL()
     {
         // Arrange
         var repoRoot = GetRepoRoot();
         var dockerComposeFile = Path.Combine(repoRoot, "docker-compose.prod.yml");
 
         // Act & Assert
-        if (File.Exists(dockerComposeFile))
-        {
-            var content = File.ReadAllText(dockerComposeFile);
-            
-            // ADR-001 requires SQLite local stations for offline capability
-            // Check for SQLite station service definitions
-            var hasSQLiteStation = content.Contains("sqlite") || 
-                                   content.Contains("SQLite") ||
-                                   content.Contains("shoperp-sqlite") ||
-                                   content.Contains("khachlink-sqlite");
-            
-            // Check for NATS sync worker
-            var hasNatsWorker = content.Contains("nats-sync") ||
-                                content.Contains("nats_worker") ||
-                                content.Contains("sync-worker");
-            
-            // For now, this test is EXPECTED TO FAIL because architecture drift exists
-            // This will be fixed in Wave 2
-            Assert.True(hasSQLiteStation, 
-                "ADR-001 violation: docker-compose.prod.yml must include SQLite local stations for offline capability");
-            Assert.True(hasNatsWorker,
-                "ADR-001 violation: docker-compose.prod.yml must include NATS sync worker for event-driven sync");
-        }
-        else
-        {
+        if (!File.Exists(dockerComposeFile))
             Assert.Fail($"docker-compose.prod.yml not found: {dockerComposeFile}");
-        }
+
+        var content = File.ReadAllText(dockerComposeFile);
+
+        // v1 SaaS: CoreHub MUST connect to PostgreSQL (not SQLite)
+        // Accounting data is always online — PostgreSQL is the source of truth
+        var hasPostgresForCoreHub = content.Contains("Host=postgres") ||
+                                    content.Contains("postgres:5432");
+
+        Assert.True(hasPostgresForCoreHub,
+            "ADR-001 v1 violation: docker-compose.prod.yml CoreHub must use PostgreSQL for cloud accounting. " +
+            "SQLite is only for v2 Edge deployment (docker-compose.edge.yml).");
+    }
+
+    [Fact(DisplayName = "Rule I: ADR-001 v2 Edge - docker-compose.edge.yml MUST include SQLite volume + NATS sync worker")]
+    public void DockerComposeEdge_MustInclude_SQLite_And_NatsSyncWorker()
+    {
+        // Arrange
+        var repoRoot = GetRepoRoot();
+        var edgeComposeFile = Path.Combine(repoRoot, "docker-compose.edge.yml");
+
+        // Act & Assert
+        if (!File.Exists(edgeComposeFile))
+            Assert.Fail($"docker-compose.edge.yml not found at: {edgeComposeFile}. " +
+                        "Create it as part of ADR001-W2 (Wave 1 of unified roadmap).");
+
+        var content = File.ReadAllText(edgeComposeFile);
+
+        // ADR-001 v2 Edge: Must have named SQLite volume for ShopERP persistence
+        var hasSQLiteVolume = content.Contains("shoperp_sqlite_data");
+
+        // ADR-001 v2 Edge: Must have NATS sync worker service
+        var hasNatsSyncWorker = content.Contains("shoperp-nats-sync") ||
+                                content.Contains("nats-sync");
+
+        // ADR-001 v2 Edge: Must still have NATS broker for event transport
+        var hasNatsBroker = content.Contains("image: nats:") ||
+                            content.Contains("nats:2.10");
+
+        Assert.True(hasSQLiteVolume,
+            "ADR-001 v2 Edge violation: docker-compose.edge.yml must declare 'shoperp_sqlite_data' volume " +
+            "for persisted SQLite DB on edge station.");
+        Assert.True(hasNatsSyncWorker,
+            "ADR-001 v2 Edge violation: docker-compose.edge.yml must include 'shoperp-nats-sync' worker service " +
+            "to publish Outbox events to NATS.");
+        Assert.True(hasNatsBroker,
+            "ADR-001 v2 Edge violation: docker-compose.edge.yml must include NATS broker (nats:2.10-alpine) " +
+            "for event-driven sync between stations.");
     }
 }
