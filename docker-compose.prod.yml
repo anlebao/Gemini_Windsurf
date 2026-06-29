@@ -241,6 +241,109 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # NATS sync workers for v2 Hybrid Edge/Cloud (Phase 2: active when DEPLOYMENT_MODE=hybrid)
+  shoperp-nats-sync:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-shoperp:${IMAGE_TAG:-latest}
+    container_name: vanan-shoperp-nats-sync
+    command: ["dotnet", "VanAn.ShopERP.dll", "--sync-worker"]
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - SQLITE_DB_PATH=/data/shoperp.db
+      - NATS__Url=nats://nats:4222
+      - Sync__PollIntervalMs=1000
+      - Sync__BatchSize=50
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    volumes:
+      - shoperp_sqlite_data:/data
+    networks:
+      - vanan-network
+    depends_on:
+      nats:
+        condition: service_healthy
+      shoperp-sqlite:
+        condition: service_started
+    profiles:
+      - hybrid
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  khachlink-nats-sync:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-khachlink:${IMAGE_TAG:-latest}
+    container_name: vanan-khachlink-nats-sync
+    command: ["dotnet", "VanAn.KhachLink.dll", "--sync-worker"]
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - SQLITE_DB_PATH=/data/khachlink.db
+      - NATS__Url=nats://nats:4222
+      - Sync__PollIntervalMs=1000
+      - Sync__BatchSize=50
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    volumes:
+      - khachlink_sqlite_data:/data
+    networks:
+      - vanan-network
+    depends_on:
+      nats:
+        condition: service_healthy
+      khachlink-sqlite:
+        condition: service_started
+    profiles:
+      - hybrid
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  order-station-nats-sync:
+    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-shoperp:${IMAGE_TAG:-latest}
+    container_name: vanan-order-station-nats-sync
+    command: ["dotnet", "VanAn.ShopERP.dll", "--sync-worker", "--station=order"]
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-saas}
+      - SQLITE_DB_PATH=/data/order.db
+      - NATS__Url=nats://nats:4222
+      - Sync__PollIntervalMs=1000
+      - Sync__BatchSize=50
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+    volumes:
+      - order_sqlite_data:/data
+    networks:
+      - vanan-network
+    depends_on:
+      nats:
+        condition: service_healthy
+      order-station-sqlite:
+        condition: service_started
+    profiles:
+      - hybrid
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
   nginx:
     image: nginx:1.25-alpine
     container_name: vanan-nginx

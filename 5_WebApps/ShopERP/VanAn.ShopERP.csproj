@@ -37,5 +37,11 @@
     <PackageReference Include="QRCoder" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="appsettings.Edge.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   
 </Project>

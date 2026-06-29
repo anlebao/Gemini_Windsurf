@@ -9,6 +9,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.DataProtection;
+using VanAn.CoreHub.Infrastructure.Messaging;
+using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
 using VanAn.UI.Platform.Services;
@@ -58,7 +60,10 @@ namespace VanAn.ShopERP
                 });
 
             // PHASE 5: SQLite with WAL Mode for Edge Node - Enhanced for concurrency
-            string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+            // ADR-001 Edge: Allow SQLITE_DB_PATH env var override for Docker volume mounting
+            string connectionString =
+                Environment.GetEnvironmentVariable("SQLITE_DB_PATH")
+                ?? builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? $"Data Source={Path.Combine(AppContext.BaseDirectory, "vanan_shoperp.db")}";
             _ = builder.Services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseSqlite(connectionString));
@@ -81,6 +86,21 @@ namespace VanAn.ShopERP
             // Register IVanAnDbContext with ShopERPDbContext for Offline-First architecture
             // This decouples services from VanAnDbContext (PostgreSQL) and allows SQLite usage
             _ = builder.Services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
+
+            // ADR-001 Edge: Conditional NATS sync worker (activated via --sync-worker arg)
+            if (args.Contains("--sync-worker"))
+            {
+                // Register Outbox for NATS sync (uses same SQLite ShopERPDbContext)
+                builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+
+                // Register NATS publisher as Singleton (holds NATS connection)
+                builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
+
+                // Register NatsSyncWorker as BackgroundService
+                builder.Services.AddHostedService<NatsSyncWorker>();
+
+                Log.Information("NatsSyncWorker registered — running in edge sync mode");
+            }
 
             // REMOVED: Queue and Outbox services for SQLite concurrency
             // builder.Services.AddSingleton<IOrderQueueService, OrderQueueService>();
