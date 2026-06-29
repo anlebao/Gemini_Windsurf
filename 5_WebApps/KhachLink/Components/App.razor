@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="VanAn.KhachLink.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <HeadOutlet />
 </head>
 
@@ -18,6 +19,7 @@
     <PWAInstallPrompt />
     <script src="_framework/blazor.web.js"></script>
     <script src="/js/pwa.js"></script>
+    <script src="/js/qr-scanner.js"></script>
     <script>
         // Register service worker on app startup
         document.addEventListener('DOMContentLoaded', async () => {

@@ -1,0 +1,125 @@
+@page "/scan"
+@using VanAn.KhachLink.Components
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.Shared.DTOs
+@inject NavigationManager Navigation
+@inject VanAn.KhachLink.Services.CartService CartService
+@inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
+
+<PageTitle>Quét Mã QR - KhachLink</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <VanAnCard CssClass="scan-page-card">
+                    <div class="card-body">
+                        <h3 class="text-center mb-4">
+                            <i class="bi bi-qr-code-scan text-primary"></i> Quét Mã QR
+                        </h3>
+                        
+                        <QRScanner OnQRCodeDetected="HandleQRCodeDetected" />
+                        
+                        @if (_scannedProduct != null)
+                        {
+                            <VanAnAlert Variant="AlertVariant.Success" 
+                                       Message="Đã quét thành công! Đang thêm sản phẩm vào giỏ hàng..." 
+                                       class="mt-4" />
+                            
+                            <VanAnCard CssClass="mt-3 product-result-card">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="product-image me-3">
+                                            <img src="@(_scannedProduct.ImageUrl ?? $"https://placehold.co/100x100?text={System.Uri.EscapeDataString(_scannedProduct.Name)}")"
+                                                 alt="@_scannedProduct.Name"
+                                                 class="rounded"
+                                                 style="width: 80px; height: 80px; object-fit: cover;" />
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h5 class="mb-1">@_scannedProduct.Name</h5>
+                                            <p class="text-muted small mb-2">@_scannedProduct.Description</p>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="h5 text-primary mb-0">@_scannedProduct.Price.ToString("N0")đ</span>
+                                                <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" 
+                                                           OnClick="@(() => Navigation.NavigateTo("/cart"))">
+                                                    Xem Giỏ Hàng
+                                                </VanAnButton>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </VanAnCard>
+                        }
+                        
+                        @if (_errorMessage != null)
+                        {
+                            <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" class="mt-4" />
+                            
+                            <div class="text-center mt-3">
+                                <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/"))">
+                                    Về Trang Chủ
+                                </VanAnButton>
+                            </div>
+                        }
+                    </div>
+                </VanAnCard>
+            </div>
+        </div>
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private ProductDto? _scannedProduct = null;
+    private string? _errorMessage = null;
+
+    private async Task HandleQRCodeDetected(string qrCodeText)
+    {
+        try
+        {
+            _errorMessage = null;
+            _scannedProduct = null;
+            StateHasChanged();
+
+            // Parse QR code data (JSON format)
+            var qrPayload = QRCodePayload.FromJson(qrCodeText);
+            
+            if (qrPayload == null)
+            {
+                _errorMessage = "Mã QR không hợp lệ. Vui lòng quét mã QR sản phẩm của Vạn An.";
+                StateHasChanged();
+                return;
+            }
+
+            // Validate QR code timestamp (prevent old QR codes from being used)
+            var qrTimestamp = DateTimeOffset.FromUnixTimeSeconds(qrPayload.Timestamp);
+            var maxAge = TimeSpan.FromDays(30); // QR codes valid for 30 days
+            
+            if (DateTimeOffset.UtcNow - qrTimestamp > maxAge)
+            {
+                _errorMessage = "Mã QR đã hết hạn. Vui lòng yêu cầu mã QR mới.";
+                StateHasChanged();
+                return;
+            }
+
+            // Fetch product from API
+            var products = await ProductService.GetProductsAsync(qrPayload.ShopId);
+            _scannedProduct = products.FirstOrDefault(p => p.ProductId == qrPayload.ProductId);
+
+            if (_scannedProduct == null)
+            {
+                _errorMessage = "Không tìm thấy sản phẩm từ mã QR. Sản phẩm có thể đã bị xóa hoặc không tồn tại.";
+                StateHasChanged();
+                return;
+            }
+
+            // Add to cart
+            await CartService.AddItemAsync(_scannedProduct, 1);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Lỗi khi xử lý mã QR: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+}

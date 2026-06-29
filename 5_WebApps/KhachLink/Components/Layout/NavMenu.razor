@@ -35,6 +35,11 @@
                 </NavLink>
             </div>
             <div class="nav-item">
+                <NavLink class="nav-link" href="/scan">
+                    <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
+                </NavLink>
+            </div>
+            <div class="nav-item">
                 <NavLink class="nav-link" href="@(_isLoggedIn ? "/profile" : "/login")">
                     <span class="bi bi-person me-2" aria-hidden="true"></span> Tài khoản
                 </NavLink>
@@ -73,6 +78,10 @@
     <a class="mobile-tab-item @IsActive("/stores")" href="/stores">
         <i class="bi bi-geo-alt"></i>
         <span>Cửa hàng</span>
+    </a>
+    <a class="mobile-tab-item @IsActive("/scan")" href="/scan">
+        <i class="bi bi-qr-code-scan"></i>
+        <span>Quét QR</span>
     </a>
     <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
         <i class="bi bi-person"></i>

@@ -1,0 +1,187 @@
+@using VanAn.UI.Platform.Components.Atomic
+@inject IJSRuntime JSRuntime
+
+<div class="qr-scanner-container">
+    <VanAnCard CssClass="qr-scanner-card">
+        <div class="card-body text-center">
+            @if (!_isScanning)
+            {
+                <div class="scanner-placeholder">
+                    <i class="bi bi-qr-code-scan display-1 text-primary mb-3"></i>
+                    <h5>Quét Mã QR Sản Phẩm</h5>
+                    <p class="text-muted mb-4">Định vị camera để quét mã QR sản phẩm</p>
+                    
+                    @if (!_hasCameraPermission)
+                    {
+                        <VanAnAlert Variant="AlertVariant.Warning" Message="Cần quyền truy cập camera để quét mã QR" />
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="@RequestCameraPermission">
+                            Cấp Quyền Camera
+                        </VanAnButton>
+                    }
+                    else
+                    {
+                        <VanAnButton Variant="ButtonVariant.Primary" Icon="camera" OnClick="@StartScanning">
+                            Bắt Đầu Quét
+                        </VanAnButton>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="scanner-active">
+                    <div id="qr-reader" class="qr-reader-container"></div>
+                    <VanAnButton Variant="ButtonVariant.Error" OnClick="@StopScanning" class="mt-3">
+                        Dừng Quét
+                    </VanAnButton>
+                </div>
+            }
+            
+            @if (_errorMessage != null)
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" class="mt-3" />
+            }
+        </div>
+    </VanAnCard>
+</div>
+
+@code {
+    private bool _isScanning = false;
+    private bool _hasCameraPermission = false;
+    private string? _errorMessage = null;
+    private IJSObjectReference? _html5QrCode;
+    private DotNetObjectReference<QRScanner>? _dotNetRef;
+
+    [Parameter]
+    public EventCallback<string> OnQRCodeDetected { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await CheckCameraPermission();
+        }
+    }
+
+    private async Task CheckCameraPermission()
+    {
+        try
+        {
+            var hasPermission = await JSRuntime.InvokeAsync<bool>("checkCameraPermission");
+            _hasCameraPermission = hasPermission;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking camera permission: {ex.Message}");
+        }
+    }
+
+    private async Task RequestCameraPermission()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("requestCameraPermission");
+            await CheckCameraPermission();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Không thể cấp quyền camera: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task StartScanning()
+    {
+        try
+        {
+            _isScanning = true;
+            _errorMessage = null;
+            StateHasChanged();
+
+            await JSRuntime.InvokeVoidAsync("startQRScanner", _dotNetRef);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Không thể khởi động camera: {ex.Message}";
+            _isScanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StopScanning()
+    {
+        try
+        {
+            _isScanning = false;
+            StateHasChanged();
+
+            await JSRuntime.InvokeVoidAsync("stopQRScanner");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Lỗi khi dừng quét: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnQRDetected(string qrCodeText)
+    {
+        await StopScanning();
+        await OnQRCodeDetected.InvokeAsync(qrCodeText);
+    }
+
+    [JSInvokable]
+    public void OnQRError(string errorMessage)
+    {
+        _errorMessage = $"Lỗi quét mã QR: {errorMessage}";
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isScanning)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("stopQRScanner");
+            }
+            catch { }
+        }
+        
+        _dotNetRef?.Dispose();
+    }
+}
+
+<style>
+    .qr-scanner-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .qr-scanner-card {
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .scanner-placeholder {
+        padding: 2rem;
+    }
+    
+    .scanner-active {
+        padding: 1rem;
+    }
+    
+    .qr-reader-container {
+        width: 100%;
+        min-height: 300px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    #qr-reader video {
+        width: 100% !important;
+        border-radius: 8px;
+    }
+</style>
