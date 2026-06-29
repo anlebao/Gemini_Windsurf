@@ -90,7 +90,7 @@ namespace VanAn.Gateway
                     policy.RequireAuthenticatedUser()
                            .RequireClaim("tenant_id")
                            .RequireRole("StoreKeeper"))
-                // Wave 5: SystemAdmin — cross-tenant operations (Tenant CRUD)
+                // Wave 5: SystemAdmin — cross-tenant operations (Tenant CRUD) - platform-level admin
                 .AddPolicy("SystemAdmin", policy =>
                     policy.RequireAuthenticatedUser()
                            .RequireRole("SystemAdmin"));

@@ -230,7 +230,7 @@ namespace VanAn.ShopERP
                 .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString()))
                 .AddPolicy("GuardOnly", policy => policy.RequireRole(UserRole.Guard.ToString()))
                 .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()))
-                // Wave 5: SystemAdmin — cross-tenant Tenant CRUD
+                // Wave 5: SystemAdmin — cross-tenant Tenant CRUD (platform-level admin)
                 .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
 
             // Wave 7: Rate limiting for login endpoint (5 requests per minute per IP)

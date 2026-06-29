@@ -31,6 +31,22 @@ namespace VanAn.Shared.Domain.Common
         {
             _domainEvents.Clear();
         }
+
+        protected void UpdateAudit()
+        {
+            UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Platform-level roles for system administration (cross-tenant operations).
+    /// Distinct from tenant-level UserRole (Owner, StoreKeeper, etc.).
+    /// Wave 5: SystemAdmin for Tenant Management.
+    /// </summary>
+    public enum PlatformRole
+    {
+        None = 0,
+        SystemAdmin = 1  // Platform-level admin, manages multi-tenant operations
     }
 
     /// <summary>

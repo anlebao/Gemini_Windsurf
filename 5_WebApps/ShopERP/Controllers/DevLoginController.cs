@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
+using VanAn.Shared.Domain.Common;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
 namespace VanAn.ShopERP.Controllers
@@ -13,6 +14,7 @@ namespace VanAn.ShopERP.Controllers
     /// bypassing OIDC (which requires an external identity server unavailable in test env).
     ///
     /// Wave 0: Also issues JWT token in response body for E2E tests that need Bearer auth.
+    /// Wave 5: Added SystemAdmin support for platform-level testing.
     ///
     /// SECURITY: This controller ONLY registers in Development environment (Program.cs guard).
     /// It is completely absent from Production/Staging builds.
@@ -96,6 +98,52 @@ namespace VanAn.ShopERP.Controllers
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return Ok(new { success = true });
+        }
+
+        /// <summary>POST /dev/login/systemadmin — SystemAdmin login for platform-level testing.</summary>
+        [HttpPost("login/systemadmin")]
+        public async Task<IActionResult> LoginAsSystemAdmin()
+        {
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name,  "System Admin"),
+                new(ClaimTypes.Email, "systemadmin@vanan.vn"),
+                new(ClaimTypes.Role,  PlatformRole.SystemAdmin.ToString()),
+                // SystemAdmin doesn't need tenant_id (cross-tenant)
+                new("sub", "systemadmin@vanan.vn"),
+                new("role", PlatformRole.SystemAdmin.ToString()),
+            };
+
+            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc   = DateTimeOffset.UtcNow.AddHours(8),
+                AllowRefresh = true,
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                authProperties);
+
+            // SystemAdmin JWT without tenant constraint
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId: Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                email: "systemadmin@vanan.vn",
+                role: PlatformRole.SystemAdmin.ToString(),
+                tenantId: Guid.Empty);  // SystemAdmin has no tenant
+
+            return Ok(new
+            {
+                success  = true,
+                email    = "systemadmin@vanan.vn",
+                role     = PlatformRole.SystemAdmin.ToString(),
+                token    = jwtToken,
+                message  = "SystemAdmin login successful — cross-tenant access granted",
+            });
         }
     }
 }

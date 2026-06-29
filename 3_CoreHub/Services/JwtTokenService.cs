@@ -67,6 +67,45 @@ public class JwtTokenService : IJwtTokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    /// <summary>
+    /// Generates JWT with string role (for platform-level roles like SystemAdmin).
+    /// Wave 5: Added for SystemAdmin cross-tenant access.
+    /// </summary>
+    public string GenerateToken(
+        Guid userId,
+        string email,
+        string role,
+        Guid tenantId,
+        IEnumerable<Claim>? additionalClaims = null)
+    {
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
+        var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Email, email),
+            // For SystemAdmin, tenant_id may be empty or special value
+            new("tenant_id", tenantId == Guid.Empty ? "system" : tenantId.ToString()),
+            new("TenantId", tenantId == Guid.Empty ? "system" : tenantId.ToString()),
+            // standard role claim compatible with RequireRole() policies
+            new(ClaimTypes.Role, role),
+        };
+
+        if (additionalClaims != null)
+            claims.AddRange(additionalClaims);
+
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.Add(_tokenExpiry),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
     public ClaimsPrincipal ValidateToken(string token)
     {
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));

@@ -26,6 +26,17 @@ public interface IJwtTokenService
         IEnumerable<Claim>? additionalClaims = null);
 
     /// <summary>
+    /// Generates a JWT access token with string role (for platform-level roles like SystemAdmin).
+    /// Wave 5: Added for SystemAdmin cross-tenant access.
+    /// </summary>
+    string GenerateToken(
+        Guid userId,
+        string email,
+        string role,
+        Guid tenantId,
+        IEnumerable<Claim>? additionalClaims = null);
+
+    /// <summary>
     /// Validates a JWT token and returns the ClaimsPrincipal if valid.
     /// Throws SecurityTokenException if invalid, expired, or tampered.
     /// </summary>

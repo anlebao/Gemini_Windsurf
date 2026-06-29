@@ -8,7 +8,7 @@ using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 namespace VanAn.ShopERP.Controllers
 {
     /// <summary>
-    /// Wave 5: Tenant lifecycle CRUD. Restricted to SystemAdmin role.
+    /// Wave 5: Tenant lifecycle CRUD. Platform-level SystemAdmin only (cross-tenant operations).
     /// POST   /api/tenants              → create tenant
     /// GET    /api/tenants              → list all tenants
     /// GET    /api/tenants/{id}         → get single tenant
