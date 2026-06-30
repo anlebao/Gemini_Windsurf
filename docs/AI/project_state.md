@@ -43,9 +43,27 @@
 
 ## 2. Current Objective
 
-**UNIFIED ROADMAP — 10 waves (ADR001 + KhachLink, Option C Merged, Layer-ordered)**
-**Master Plan:** `docs/AI/tasks/UNIFIED_ROADMAP_master_plan.md`
-**Architecture Reference:** `docs/Architecture/ADR001-Station-Architecture.md` (v2 Hybrid Edge/Cloud design)
+**[CURRENT] CI Gap Fix — Startup Tests for KhachLink & Gateway**
+
+**Background:** Production 500 errors occurred on diemthuong.vanantech.io.vn after CD pass. Root causes:
+1. KhachLink DI container never booted in CI (CustomWebApplicationFactory only boots ShopERP) → missing `AddScoped<RecentlyViewedService>()` not detected until VPS
+2. Gateway DI container never validated in CI → single point of entry risk for entire system
+3. Integration tests non-blocking in local CI pipeline
+4. Program.cs registered wrong implementations (CoreHub services instead of Http versions)
+
+**Scope:**
+- ✅ KhachLinkWebApplicationFactory + KhachLinkStartupTests (3 blocking tests: DI validation, /health, homepage SSR)
+- ✅ GatewayWebApplicationFactory + GatewayStartupTests (3 blocking tests: critical services, /health, protected endpoint auth)
+- ✅ ci-full.ps1 Step 2b (KhachLink) + Step 2c (Gateway) — both BLOCKING
+- ✅ ci.yml jobs: khachlink-startup + gateway-startup (parallel, needs: build)
+- ✅ KhachLink Program.cs fix: swap CoreHub implementations → Http implementations
+- ✅ governance.md: KhachLink Wave Development Checklist
+
+**Status:** Implementation complete, testing in progress before commit.
+
+---
+
+**[PREVIOUS] UNIFIED ROADMAP — 10 waves (ADR001 + KhachLink, Option C Merged, Layer-ordered) — COMPLETE**
 
 | # | Wave | Layer | Est. | Status |
 |---|------|-------|------|--------|
@@ -58,30 +76,41 @@
 | ✅ | ADR001-W4.2: NATS Sync Worker Mode | Backend | 2-3h | COMPLETE |
 | ✅ | ADR001-W4.3: Phased Migration Validation | Backend | 1-2h | COMPLETE |
 | ✅ | KhachLink-W3: Product Personalization Hybrid C | Backend | 2-3d | COMPLETE |
-| ✅ | **KhachLink-W4: Real-time Order Status (Polling + NATS Push)** | Integration | 1-2d | COMPLETE |
-| ✅ | **ADR001-W5: CI edge pipeline** | CI | 2-3h | **COMPLETE** |
+| ✅ | KhachLink-W4: Real-time Order Status (Polling + NATS Push) | Integration | 1-2d | COMPLETE |
+| ✅ | ADR001-W5: CI edge pipeline | CI | 2-3h | COMPLETE |
 
-**Progress:** 10/10 waves complete (100%), ALL LAYERS DONE — Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3 + KhachLink-W3) + Layer 3 (KhachLink-W4) + Layer 4 (CI Validation)
-**Total estimate:** ~10-13 days → COMPLETE
+**Progress:** 10/10 waves complete (100%)
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/adr001-wave5-ci-edge` (verified 2026-06-30)
-- **Last commit:** `76d015c` — [WAVE 10/10] ADR001-W5: CI Edge Pipeline Complete
-- **Build:** `dotnet build VanAn.sln` → 0 errors
-- **Tests:** guard-check ALL CHECKS PASSED
-- **State:** ADR001-W5 (CI edge pipeline) COMPLETE → ALL 10 WAVES COMPLETE
-- **Implementation:** CI edge pipeline (.github/workflows/ci-edge.yml) with 4 jobs (build, architecture-tests, nats-sync-worker-tests, validate-edge-compose), triggers on feature/edge* and feature/adr001-wave* branches, validates docker-compose.edge.yml structure and docker-compose.prod.yml integrity, preserves v1 SaaS deployment unchanged.
+- **Branch:** `main` (verified 2026-06-30)
+- **Last commit:** `eece4c1` — docs: Add KhachLink Wave Development Checklist to governance.md
+- **Build:** Pending test run before commit
+- **Tests:** Pending
+- **State:** CI Gap Fix in progress — startup tests implemented for KhachLink and Gateway
+- **Uncommitted changes:**
+  - NEW: `6_Tests/VanAn.Integration.Tests/Infrastructure/GatewayWebApplicationFactory.cs` (92 lines)
+  - NEW: `6_Tests/VanAn.Integration.Tests/GatewayStartupTests.cs` (114 lines)
+  - MODIFIED: `scripts/ci-full.ps1` (added Step 2c blocking, totalSteps +1)
+  - MODIFIED: `.github/workflows/ci.yml` (added gateway-startup job parallel to khachlink-startup)
+- **Previously committed (this session):**
+  - KhachLinkWebApplicationFactory + KhachLinkStartupTests
+  - KhachLink Program.cs DI fix (CoreHub → Http implementations)
+  - ci-full.ps1 Step 2b (KhachLink startup)
+  - ci.yml khachlink-startup job
+  - governance.md KhachLink Wave Development Checklist
 
 ---
 
 ## 4. Next Actions
 
-1. **[NEXT — Start now]** Merge all wave branches to main (feature/adr001-wave5-ci-edge and any remaining wave branches)
-2. **[After merge]** Update UNIFIED_ROADMAP_master_plan.md to mark all waves as COMPLETE
-3. **[Decision made]** Customer.PushSubscriptionJson → separate table (Option B, per user approval in Wave 9)
+1. **[NOW]** Build and test Gateway startup tests locally
+2. **[After tests pass]** Commit Gateway startup tests + CI updates
+3. **[After commit]** Push to main, monitor GitHub Actions (khachlink-startup + gateway-startup jobs)
+4. **[After CI pass]** Test diemthuong.vanantech.io.vn to verify 500 error resolved
+5. **[OPTIONAL — technical debt]** Fix CoreHub architectural violation: remove Program.cs, convert to Class Library, move background services to ShopERP hosted services
 
 ---
 
@@ -126,6 +155,6 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-30 — Wave 10 (ADR001-W5) COMPLETE: CI Edge Pipeline done. Implemented .github/workflows/ci-edge.yml with 4 jobs (build, architecture-tests, nats-sync-worker-tests, validate-edge-compose), validates docker-compose.edge.yml and docker-compose.prod.yml integrity, runs architecture tests (Rule H + Rule I) and NatsSyncWorker tests. Build 0 errors, guard-check ALL CHECKS PASSED. ALL 10 WAVES COMPLETE (100%).
-* **Current Branch:** `feature/adr001-wave5-ci-edge`
-* **Unified Roadmap (2026-06-30):** 10/10 waves complete (100%). Layer 0 (ADR001-W2, W3) + Layer 1 (KhachLink-W1, W2) + Layer 2 Phase 1-3 (ADR001-W4.1, W4.2, W4.3) + KhachLink-W3 + KhachLink-W4 + Layer 4 (ADR001-W5) ALL DONE. Next: Merge all wave branches to main. Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
+* **Last Updated:** 2026-06-30 — CI Gap Fix in progress: Startup tests for KhachLink and Gateway. Implemented KhachLinkWebApplicationFactory + KhachLinkStartupTests (3 blocking tests), GatewayWebApplicationFactory + GatewayStartupTests (3 blocking tests), ci-full.ps1 Step 2b+2c (both BLOCKING), ci.yml khachlink-startup + gateway-startup jobs (parallel). Fixed KhachLink Program.cs DI (CoreHub → Http implementations). Added governance.md KhachLink Wave Development Checklist. Pending test run and commit.
+* **Current Branch:** `main`
+* **Unified Roadmap (2026-06-30):** 10/10 waves complete (100%). All waves done. Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).

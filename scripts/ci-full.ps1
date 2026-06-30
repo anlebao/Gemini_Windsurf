@@ -90,7 +90,7 @@ function Wait-ForHealthCheck($url, $timeoutSec = 60, $label = "") {
     return $false
 }
 
-$totalSteps = if ($SkipE2E) { 4 } else { 6 }
+$totalSteps = if ($SkipE2E) { 5 } else { 7 }
 
 # ============================================================
 # STEP 1: BUILD
@@ -180,6 +180,36 @@ if (-not $startupOk) {
 }
 Write-Host "KhachLink Startup: OK ($([int]$sw.Elapsed.TotalSeconds)s)" -ForegroundColor Green
 Add-Result "KhachLink Startup" $true $sw.Elapsed
+
+# ============================================================
+# STEP 2c: GATEWAY STARTUP TESTS (blocking)
+#
+# WHY BLOCKING:
+#   Gateway is the single point of entry for the entire ecosystem.
+#   KhachLink (5002) → Gateway (5001) → ShopERP (5003)
+#   A missing AddScoped in Gateway/Program.cs → ALL services down on VPS.
+# ============================================================
+Write-Step "2c" $totalSteps "GATEWAY STARTUP TESTS (DI + Smoke)"
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+Write-Host "   Running GatewayStartupTests (BLOCKING)..." -ForegroundColor Gray
+dotnet test "6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj" --no-build --verbosity quiet `
+    --filter "Category=Startup&ClassName~GatewayStartupTests" `
+    --logger "console;verbosity=minimal" 2>&1 | ForEach-Object {
+        if ($_ -match "Passed|Failed|Skipped|Error") { Write-Host "   $_" -ForegroundColor Gray }
+    }
+$gatewayOk = ($LASTEXITCODE -eq 0)
+$sw.Stop()
+
+if (-not $gatewayOk) {
+    Add-Result "Gateway Startup" $false $sw.Elapsed
+    Write-Host "`n== PIPELINE FAILED at Step 2c (Gateway Startup) ==" -ForegroundColor Red
+    Write-Host "   Fix: kiểm tra Gateway/Program.cs AddScoped và DI chain." -ForegroundColor Yellow
+    Write-Host "   Lưu ý: ApiKeyRepository cần IVanAnDbContext — xem GatewayWebApplicationFactory." -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "Gateway Startup: OK ($([int]$sw.Elapsed.TotalSeconds)s)" -ForegroundColor Green
+Add-Result "Gateway Startup" $true $sw.Elapsed
 
 # ============================================================
 # STEP 3: ARCHITECTURE TESTS (blocking) + INTEGRATION (non-blocking)
