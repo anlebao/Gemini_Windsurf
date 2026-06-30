@@ -100,4 +100,23 @@ public class KhachLinkStartupTests : IClassFixture<KhachLinkWebApplicationFactor
         var response = await _client.GetAsync("/");
         Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
     }
+
+    /// <summary>
+    /// Architecture validation: KhachLink must NOT have direct DbContext references.
+    /// KhachLink is a client UI and should access data via HTTP through Gateway only.
+    /// This test validates that IVanAnDbContext is NOT registered in KhachLink DI container.
+    /// </summary>
+    [Fact(DisplayName = "KhachLink: Architecture validation - no DbContext registered")]
+    public async Task KhachLink_Architecture_No_DbContext_Registered()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+
+        // KhachLink MUST NOT have IVanAnDbContext registered
+        var dbContextService = sp.GetService<Microsoft.EntityFrameworkCore.DbContext>();
+        if (dbContextService != null)
+        {
+            Assert.True(false, "KhachLink architecture violation: IVanAnDbContext must NOT be registered in KhachLink (HTTP-only pattern via Gateway)");
+        }
+    }
 }

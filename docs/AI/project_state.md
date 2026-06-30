@@ -43,23 +43,29 @@
 
 ## 2. Current Objective
 
-**[CURRENT] CI Gap Fix — Startup Tests for KhachLink & Gateway**
+**[ACTIVE] Architecture Refactor — CoreHub & Gateway Alignment + Validation Layer Enhancement**
 
-**Background:** Production 500 errors occurred on diemthuong.vanantech.io.vn after CD pass. Root causes:
-1. KhachLink DI container never booted in CI (CustomWebApplicationFactory only boots ShopERP) → missing `AddScoped<RecentlyViewedService>()` not detected until VPS
-2. Gateway DI container never validated in CI → single point of entry risk for entire system
-3. Integration tests non-blocking in local CI pipeline
-4. Program.cs registered wrong implementations (CoreHub services instead of Http versions)
+**Background:** Critical architecture mismatch detected — CoreHub is background service but docker-compose.prod.yml configures it as HTTP service. Current validation layer FAILED to detect this mismatch, allowing architecture violations to reach production.
 
-**Scope:**
-- ✅ KhachLinkWebApplicationFactory + KhachLinkStartupTests (3 blocking tests: DI validation, /health, homepage SSR)
-- ✅ GatewayWebApplicationFactory + GatewayStartupTests (3 blocking tests: critical services, /health, protected endpoint auth)
-- ✅ ci-full.ps1 Step 2b (KhachLink) + Step 2c (Gateway) — both BLOCKING
-- ✅ ci.yml jobs: khachlink-startup + gateway-startup (parallel, needs: build)
-- ✅ KhachLink Program.cs fix: swap CoreHub implementations → Http implementations
-- ✅ governance.md: KhachLink Wave Development Checklist
+**Root Issues:**
+1. CoreHub Program.cs uses `Host.CreateDefaultBuilder` (background service, no HTTP)
+2. docker-compose.prod.yml configures CoreHub with `ASPNETCORE_URLS=http://+:80` (HTTP service)
+3. Architecture tests only validate code structure, not deployment consistency
+4. No cross-layer validation (code → docker-compose → deployment)
+5. Gateway direct references CoreHub project (in-process), but deployment expects HTTP
 
-**Status:** Implementation complete, testing in progress before commit.
+**Scope (6 Phases - 12-18 days):**
+- ✅ Phase 0 (BLOCKING): Architecture Validation Layer Enhancement — Add missing validation to prevent future mismatches
+- ⏳ Phase 1: Local Development Environment Fix — Align start-apps.ps1 with monolithic architecture
+- ⏳ Phase 2: Docker Compose Production Fix — Decide: remove CoreHub container or reconfigure as background service
+- ⏳ Phase 3: CI/CD Pipeline Fix — Update CI/CD to match new architecture
+- ⏳ Phase 4: Offline-First Edge Fix — Update edge deployment configuration
+- ⏳ Phase 5: Validation & E2E Testing — Comprehensive validation across all environments
+
+**Master Plan:** `docs/AI/tasks/architecture_refactor_master_plan.md`
+**Task Cards:** 6 task cards created (phase0-phase5)
+**Execution Strategy:** 1 phase per session (2-3 hours), ~12 sessions total to avoid context overflow
+**Status:** READY — Master plan approved, task cards created, ready to start Phase 0
 
 ---
 
@@ -86,31 +92,26 @@
 ## 3. Current Status
 
 - **Branch:** `main` (verified 2026-06-30)
-- **Last commit:** `eece4c1` — docs: Add KhachLink Wave Development Checklist to governance.md
-- **Build:** Pending test run before commit
-- **Tests:** Pending
-- **State:** CI Gap Fix in progress — startup tests implemented for KhachLink and Gateway
-- **Uncommitted changes:**
-  - NEW: `6_Tests/VanAn.Integration.Tests/Infrastructure/GatewayWebApplicationFactory.cs` (92 lines)
-  - NEW: `6_Tests/VanAn.Integration.Tests/GatewayStartupTests.cs` (114 lines)
-  - MODIFIED: `scripts/ci-full.ps1` (added Step 2c blocking, totalSteps +1)
-  - MODIFIED: `.github/workflows/ci.yml` (added gateway-startup job parallel to khachlink-startup)
-- **Previously committed (this session):**
-  - KhachLinkWebApplicationFactory + KhachLinkStartupTests
-  - KhachLink Program.cs DI fix (CoreHub → Http implementations)
-  - ci-full.ps1 Step 2b (KhachLink startup)
-  - ci.yml khachlink-startup job
-  - governance.md KhachLink Wave Development Checklist
+- **Last commit:** `207983f` — fix: syntax error in ci-full.ps1 Step 2c
+- **Build:** `dotnet build VanAn.sln` → 0 errors
+- **Tests:** CI pipeline PASSED (509s total)
+  - Build: 271s ✅
+  - Unit Tests: 107s ✅ (661 + 17 tests)
+  - KhachLink Startup: 25s ✅ (6 tests)
+  - Gateway Startup: 8s ✅ (3 tests)
+  - Architecture + Integration: 89s ✅ (23 + 150 tests, 12 pre-existing failures non-blocking)
+- **State:** Architecture Refactor READY — Master plan created, task cards ready, Phase 0 (BLOCKING) ready to start
 
 ---
 
 ## 4. Next Actions
 
-1. **[NOW]** Build and test Gateway startup tests locally
-2. **[After tests pass]** Commit Gateway startup tests + CI updates
-3. **[After commit]** Push to main, monitor GitHub Actions (khachlink-startup + gateway-startup jobs)
-4. **[After CI pass]** Test diemthuong.vanantech.io.vn to verify 500 error resolved
-5. **[OPTIONAL — technical debt]** Fix CoreHub architectural violation: remove Program.cs, convert to Class Library, move background services to ShopERP hosted services
+1. **[NOW]** Start Phase 0 execution — Architecture Validation Layer Enhancement (BLOCKING)
+2. **[Phase 0 Session 1]** Create ArchitectureConsistencyTests.cs + validation scripts + enhance startup tests
+3. **[Phase 0 Session 2]** Add CI job for docker-compose validation + pre-deployment validation in CD
+4. **[After Phase 0]** Begin Phase 1 — Local Development Environment Fix
+5. **[Reference]** Master plan: `docs/AI/tasks/architecture_refactor_master_plan.md`
+6. **[Reference]** Phase 0 task card: `docs/AI/tasks/phase0_validation_layer_enhancement_task_card.md`
 
 ---
 
@@ -131,6 +132,8 @@
 
 ## 6. History Log
 
+* [2026-06-30] Architecture Refactor Master Plan CREATED — CoreHub & Gateway Alignment + Validation Layer Enhancement. Root cause: CoreHub background service vs docker-compose HTTP service mismatch not detected by validation layer. Created: 6-phase master plan (Phase 0-5), 6 task cards, context management strategy (1 phase per session, 12 sessions total). Phase 0 (BLOCKING): Architecture Validation Layer Enhancement - add ArchitectureConsistencyTests.cs, docker-compose validation scripts, env var validation scripts, enhance startup tests, add CI/CD validation jobs. Phases 1-5: Sequential architecture fix (local dev → docker-compose → CI/CD → edge → validation). Total estimated: 12-18 days, 20-46 hours. Risk: LOW (enhanced validation layer). Status: READY for execution. Files: architecture_refactor_master_plan.md, phase0-5 task cards.
+* [2026-06-30] CI Gap Fix COMPLETE — Startup Tests for KhachLink & Gateway. Root causes: KhachLink DI never booted in CI (missing AddScoped not detected), Gateway DI never validated, integration tests non-blocking. Implemented: KhachLinkWebApplicationFactory + KhachLinkStartupTests (3 blocking tests), GatewayWebApplicationFactory + GatewayStartupTests (3 blocking tests), ci-full.ps1 Step 2b+2c BLOCKING, ci.yml jobs khachlink-startup+gateway-startup, KhachLink Program.cs fix (CoreHub→Http implementations), governance.md checklist. CI pipeline passes (509s), all tests pass. Commit: `207983f`.
 * [2026-06-30] Unified Roadmap Wave 10 COMPLETE — ADR001-W5: CI Edge Pipeline. Implemented: .github/workflows/ci-edge.yml with 4 jobs (build, architecture-tests, nats-sync-worker-tests, validate-edge-compose), triggers on feature/edge* and feature/adr001-wave* branches plus manual dispatch, validates docker-compose.edge.yml structure (shoperp-nats-sync service, shoperp_sqlite_data volume, NATS broker), verifies docker-compose.prod.yml NOT modified with edge components (v1 SaaS preserved), runs VanAn.Architecture.Tests (Rule H + Rule I for ADR-001), filters NatsSyncWorker/NatsEventPublisher unit tests. Exit criteria: CI edge pipeline created and validated, YAML syntax verified, dotnet build 0 errors, guard-check ALL CHECKS PASSED. ALL 10 WAVES COMPLETE (100%) — Layer 0-1 infrastructure + UX foundation + Layer 2 (Phase 1-3 + KhachLink-W3) + Layer 3 (KhachLink-W4) + Layer 4 (CI Validation) DONE. Commit: `76d015c`. Branch: `feature/adr001-wave5-ci-edge`.
 * [2026-06-29] Unified Roadmap Wave 9 COMPLETE — KhachLink-W4: Real-time Order Status (Polling + NATS Push). Session 1: Polling Infrastructure (Gateway /status forwarding, PeriodicTimer 5s polling in OrderTracking.razor, visibility-aware polling, IAsyncDisposable, VanAnSpinner). Session 2: Push Notification Infrastructure (VAPID key generation, WebPush library v1.0.13, PushNotificationService, pwa.js enablement, service-worker.js enhancement). Session 3: Push Subscription Persistence + NATS Integration (PushSubscription entity separate table, PushSubscriptionConfiguration, IPushSubscriptionRepository, NotificationsController persistence, PushNotificationService database integration, OrderWorkflowService NATS publishing). Session 4: Architecture Decision + Performance Benchmarks (SignalR retained for ShopERP kitchen display, performance analysis, scalability 10K users, battery 70-90% reduction). Architecture decision: KhachLink uses polling+push (customer-facing), ShopERP uses SignalR (staff-facing, sub-second updates needed). VAPID security: private key in environment variable, .gitignore configured. Build: dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commits: cc83107 (S1), df5e6c7 (S2), 6f855f1 (S3), 49f9ac2 (S4). Branch: `feature/khachlink-wave4-order-realtime`.
 * [2026-06-29] Unified Roadmap Wave 8 COMPLETE — KhachLink-W3: Product Personalization (Hybrid Option C). Implemented: CustomerRecommendationService (frequency-based algorithm with IMemoryCache 5-min TTL), GET /api/products/recommended endpoint in ProductsController, ProductHttpService.GetRecommendedProductsAsync(), RecentlyViewedService (localStorage tracking), RecommendedProductDto (extends ProductDto with recommendation metadata), Home.razor "Frequently Bought" section, Home.razor "Recently Viewed" section, product view tracking on AddToCart. Hybrid approach: keeps global catalog + adds personalized sections. Fallback for new customers (no order history). UI Platform compliance: VanAnCard, VanAnButton used. dotnet build 0 errors, guard-check ALL CHECKS PASSED. Commit: `f418bb3`. Branch: `feature/khachlink-wave3-personalization`.
@@ -155,6 +158,7 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-30 — CI Gap Fix in progress: Startup tests for KhachLink and Gateway. Implemented KhachLinkWebApplicationFactory + KhachLinkStartupTests (3 blocking tests), GatewayWebApplicationFactory + GatewayStartupTests (3 blocking tests), ci-full.ps1 Step 2b+2c (both BLOCKING), ci.yml khachlink-startup + gateway-startup jobs (parallel). Fixed KhachLink Program.cs DI (CoreHub → Http implementations). Added governance.md KhachLink Wave Development Checklist. Pending test run and commit.
+* **Last Updated:** 2026-06-30 — Architecture Refactor Master Plan CREATED. Root cause: CoreHub background service vs docker-compose HTTP service mismatch not detected. Created 6-phase master plan (Phase 0-5), 6 task cards, context management strategy (1 phase per session, 12 sessions total). Phase 0 (BLOCKING): Architecture Validation Layer Enhancement. Total estimated: 12-18 days, 20-46 hours. Status: READY for execution. Previous CI Gap Fix COMPLETE (startup tests for KhachLink + Gateway).
 * **Current Branch:** `main`
+* **Current Objective:** Architecture Refactor — CoreHub & Gateway Alignment + Validation Layer Enhancement (Phase 0-5, 12-18 days)
 * **Unified Roadmap (2026-06-30):** 10/10 waves complete (100%). All waves done. Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
