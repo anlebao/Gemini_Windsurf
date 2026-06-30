@@ -195,6 +195,37 @@ Layer 3: Module-Specific (EmployeeForm, CustomerCard, JournalEntry, etc.)
 - **Playwright Cost Optimizer:** `.devin/skills/playwright_cost_optimizer.md` (deterministic cost tiers)
 - **Playwright Guard:** `.devin/skills/playwright_guard.md` (browser isolation during IMPLEMENT mode)
 
+## KHACHLINK WAVE DEVELOPMENT CHECKLIST
+
+**BẮT BUỘC** khi thêm `@inject XxxService` vào bất kỳ component KhachLink nào:
+
+1. **Đăng ký DI trong `5_WebApps/KhachLink/Program.cs`:**
+   ```csharp
+   _ = builder.Services.AddScoped<XxxService>();
+   // hoặc interface:
+   _ = builder.Services.AddScoped<IXxxService, XxxHttpService>();
+   ```
+
+2. **Thêm assertion vào `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs`:**
+   ```csharp
+   Assert.NotNull(sp.GetRequiredService<XxxService>());
+   ```
+
+3. **Dùng Http implementation, không phải CoreHub trực tiếp:**
+   - KhachLink KHÔNG được inject CoreHub services có repository dependencies
+   - Nếu có `XxxHttpService` trong `Services/Http/` → dùng nó
+   - Nếu chưa có → tạo mới `XxxHttpService : IXxxService` gọi Gateway
+
+**Lý do:** Thiếu bước 1 gây 500 trên VPS mà CI không phát hiện được (đã xảy ra thực tế).
+`KhachLinkStartupTests` là tầng bảo vệ — nếu quên đăng ký, test BLOCKING sẽ fail tại local CI trước khi push.
+
+**Files tham chiếu:**
+- Factory: `6_Tests/VanAn.Integration.Tests/Infrastructure/KhachLinkWebApplicationFactory.cs`
+- Tests: `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs`
+- CI step: `scripts/ci-full.ps1` Step 2b (BLOCKING)
+
+---
+
 ## GOAL
 Build a clean, stable, production-ready Core Accounting Engine.
 Architectural integrity, immutability, and data correctness are NON-NEGOTIABLE.
