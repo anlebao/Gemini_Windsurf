@@ -55,7 +55,7 @@
 5. Gateway direct references CoreHub project (in-process), but deployment expects HTTP
 
 **Scope (6 Phases - 12-18 days):**
-- 🔄 Phase 0 (BLOCKING): Architecture Validation Layer Enhancement — Session 1 COMPLETE ✅, Session 2 PENDING
+- ✅ Phase 0 (BLOCKING): Architecture Validation Layer Enhancement — Session 1 COMPLETE ✅, Session 2 COMPLETE ✅
 - ⏳ Phase 1: Local Development Environment Fix — Align start-apps.ps1 with monolithic architecture
 - ⏳ Phase 2: Docker Compose Production Fix — Decide: remove CoreHub container or reconfigure as background service
 - ⏳ Phase 3: CI/CD Pipeline Fix — Update CI/CD to match new architecture
@@ -65,7 +65,7 @@
 **Master Plan:** `docs/AI/tasks/architecture_refactor_master_plan.md`
 **Task Cards:** 6 task cards created (phase0-phase5)
 **Execution Strategy:** 1 phase per session (2-3 hours), ~12 sessions total to avoid context overflow
-**Status:** Phase 0 Session 1 COMPLETE — Validation layer enhanced, ready for Session 2 (CI/CD integration)
+**Status:** Phase 0 COMPLETE — Validation layer fully enhanced with CI/CD integration. Ready for Phase 1 (Local Development Environment Fix)
 
 ---
 
@@ -91,27 +91,30 @@
 
 ## 3. Current Status
 
-- **Branch:** `feature/architecture-refactor-phase0-validation` (Phase 0 in progress)
-- **Last commit:** `2e017fc` — [ARCH-PHASE 0] Architecture Validation Layer Enhancement - Session 1 Complete
+- **Branch:** `feature/architecture-refactor-phase0-validation` (Phase 0 complete, ready to merge or proceed to Phase 1)
+- **Last commit:** `aef4836` — [ARCH-PHASE 0] Architecture Validation Layer Enhancement - Session 2 Complete
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
-- **Tests:** Phase 0 Session 1 tests
+- **Tests:** Phase 0 Complete
   - Architecture Consistency Tests: 4/5 passing ✅ (1 expected fail detecting actual bug)
   - VA-CONSISTENCY-002 correctly detects CoreHub HTTP service configuration in docker-compose.prod.yml
-- **State:** Phase 0 Session 1 COMPLETE — Validation layer enhanced, ready for Session 2 (CI/CD integration)
+  - Docker Compose Validation Script: Working, correctly detects CoreHub HTTP service bug
+  - Environment Variable Validation Script: Working
+  - CI/CD Integration: docker-compose-validation job added to CI, pre-deployment-validation job added to CD
+  - Documentation: Validation-Layer-Rules.md created
+- **State:** Phase 0 COMPLETE — Validation layer fully enhanced with CI/CD integration. CI pipeline will fail until Phase 2 fixes CoreHub configuration (expected behavior).
 
 ---
 
 ## 4. Next Actions
 
-1. **[NOW]** Phase 0 Session 2 — Add CI job for docker-compose validation + pre-deployment validation in CD
-2. **[Phase 0 Session 2 Tasks]**
-   - Add docker-compose validation job to .github/workflows/ci.yml
-   - Add pre-deployment validation to .github/workflows/cd.yml
-   - Test all validations in CI context
-   - Document validation rules in docs/Architecture/
-3. **[After Phase 0]** Begin Phase 1 — Local Development Environment Fix
+1. **[DECISION POINT]** Merge Phase 0 to main OR proceed to Phase 1 on current branch
+2. **[Phase 1]** Local Development Environment Fix — Align start-apps.ps1 with monolithic architecture
+3. **[Phase 1 Tasks]**
+   - Review start-apps.ps1 current implementation
+   - Update start-apps.ps1 to match monolithic architecture (CoreHub as background service)
+   - Test local development environment
 4. **[Reference]** Master plan: `docs/AI/tasks/architecture_refactor_master_plan.md`
-5. **[Reference]** Phase 0 task card: `docs/AI/tasks/phase0_validation_layer_enhancement_task_card.md`
+5. **[Reference]** Phase 1 task card: `docs/AI/tasks/phase1_local_dev_fix_task_card.md`
 
 ---
 
@@ -132,6 +135,7 @@
 
 ## 6. History Log
 
+* [2026-06-30] Phase 0 Session 2 COMPLETE — Architecture Validation Layer Enhancement CI/CD Integration. Implemented: Added docker-compose-validation job to CI pipeline (.github/workflows/ci.yml), added pre-deployment-validation job to CD pipeline (.github/workflows/cd.yml), fixed PowerShell script syntax errors in validate-docker-compose.ps1 (variable interpolation), simplified validation regex patterns for reliability, created comprehensive validation rules documentation (docs/Architecture/Validation-Layer-Rules.md). Validation correctly detects CoreHub HTTP service bug (expected failure). CI pipeline will fail until Phase 2 fixes CoreHub configuration. Commit: `aef4836`. Branch: `feature/architecture-refactor-phase0-validation`. Phase 0 COMPLETE. Next: Decision point - merge to main OR proceed to Phase 1 (Local Development Environment Fix).
 * [2026-06-30] Phase 0 Session 1 COMPLETE — Architecture Validation Layer Enhancement. Implemented: ArchitectureConsistencyTests.cs (5 tests: code vs docker-compose validation, 4/5 passing, 1 expected fail detecting CoreHub HTTP service bug), validate-docker-compose.ps1 script, validate-env-vars.ps1 script, enhanced GatewayStartupTests.cs and KhachLinkStartupTests.cs with architecture validation (no DbContext checks). Build: 0 errors. Critical test VA-CONSISTENCY-002 correctly detects CoreHub HTTP service configuration in docker-compose.prod.yml despite being background service in code. Commit: `2e017fc`. Branch: `feature/architecture-refactor-phase0-validation`. Next: Session 2 - CI/CD integration (docker-compose validation job, pre-deployment validation).
 * [2026-06-30] Architecture Refactor Master Plan CREATED — CoreHub & Gateway Alignment + Validation Layer Enhancement. Root cause: CoreHub background service vs docker-compose HTTP service mismatch not detected by validation layer. Created: 6-phase master plan (Phase 0-5), 6 task cards, context management strategy (1 phase per session, 12 sessions total). Phase 0 (BLOCKING): Architecture Validation Layer Enhancement - add ArchitectureConsistencyTests.cs, docker-compose validation scripts, env var validation scripts, enhance startup tests, add CI/CD validation jobs. Phases 1-5: Sequential architecture fix (local dev → docker-compose → CI/CD → edge → validation). Total estimated: 12-18 days, 20-46 hours. Risk: LOW (enhanced validation layer). Status: READY for execution. Files: architecture_refactor_master_plan.md, phase0-5 task cards.
 * [2026-06-30] CI Gap Fix COMPLETE — Startup Tests for KhachLink & Gateway. Root causes: KhachLink DI never booted in CI (missing AddScoped not detected), Gateway DI never validated, integration tests non-blocking. Implemented: KhachLinkWebApplicationFactory + KhachLinkStartupTests (3 blocking tests), GatewayWebApplicationFactory + GatewayStartupTests (3 blocking tests), ci-full.ps1 Step 2b+2c BLOCKING, ci.yml jobs khachlink-startup+gateway-startup, KhachLink Program.cs fix (CoreHub→Http implementations), governance.md checklist. CI pipeline passes (509s), all tests pass. Commit: `207983f`.
@@ -159,7 +163,7 @@
 
 ## 7. Maintenance Log
 
-* **Last Updated:** 2026-06-30 — Phase 0 Session 1 COMPLETE. Architecture Validation Layer Enhancement implemented: ArchitectureConsistencyTests.cs (5 tests, 4/5 passing, 1 expected fail detecting CoreHub HTTP service bug), validate-docker-compose.ps1, validate-env-vars.ps1, enhanced startup tests. Build: 0 errors. Critical test VA-CONSISTENCY-002 correctly detects CoreHub architecture mismatch. Commit: `2e017fc`. Next: Session 2 - CI/CD integration.
+* **Last Updated:** 2026-06-30 — Phase 0 Session 2 COMPLETE. Architecture Validation Layer Enhancement CI/CD Integration: Added docker-compose-validation job to CI, pre-deployment-validation job to CD, fixed PowerShell script syntax, simplified validation regex, created Validation-Layer-Rules.md documentation. Validation correctly detects CoreHub HTTP service bug (expected). CI will fail until Phase 2 fixes CoreHub config. Commit: `aef4836`. Phase 0 COMPLETE. Next: Decision point - merge to main OR proceed to Phase 1.
 * **Current Branch:** `feature/architecture-refactor-phase0-validation`
-* **Current Objective:** Architecture Refactor — CoreHub & Gateway Alignment + Validation Layer Enhancement (Phase 0 Session 1 COMPLETE, Session 2 PENDING)
+* **Current Objective:** Architecture Refactor — CoreHub & Gateway Alignment + Validation Layer Enhancement (Phase 0 COMPLETE, ready for Phase 1)
 * **Unified Roadmap (2026-06-30):** 10/10 waves complete (100%). All waves done. Architecture reference: docs/Architecture/ADR001-Station-Architecture.md (v2 Hybrid Edge/Cloud design).
