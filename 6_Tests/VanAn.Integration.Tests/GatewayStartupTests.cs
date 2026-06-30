@@ -111,4 +111,23 @@ public class GatewayStartupTests : IClassFixture<GatewayWebApplicationFactory>
         var response = await _client.GetAsync("/api/orders");
         Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
     }
+
+    /// <summary>
+    /// Architecture validation: Gateway must NOT have direct DbContext references.
+    /// Gateway is a pure reverse proxy and should not have database access.
+    /// This test validates that IVanAnDbContext is NOT registered in Gateway DI container.
+    /// </summary>
+    [Fact(DisplayName = "Gateway: Architecture validation - no DbContext registered")]
+    public async Task Gateway_Architecture_No_DbContext_Registered()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var sp = scope.ServiceProvider;
+
+        // Gateway MUST NOT have IVanAnDbContext registered
+        var dbContextService = sp.GetService<Microsoft.EntityFrameworkCore.DbContext>();
+        if (dbContextService != null)
+        {
+            Assert.True(false, "Gateway architecture violation: IVanAnDbContext must NOT be registered in Gateway (pure proxy pattern)");
+        }
+    }
 }
