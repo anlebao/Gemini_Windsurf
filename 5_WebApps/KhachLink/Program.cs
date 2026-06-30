@@ -108,6 +108,9 @@ namespace VanAn.KhachLink
 
             _ = builder.Services.AddScoped<Services.Http.ProductHttpService>();
 
+            // Register Recently Viewed Service (Wave 8: Product Personalization)
+            _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
+
             // Register Dashboard Services
 
             _ = builder.Services.AddScoped<Services.Dashboard.RealTimeDashboardService>();
