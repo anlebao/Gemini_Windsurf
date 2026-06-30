@@ -80,24 +80,36 @@ function Test-CoreHubConfiguration {
 
     $content = Get-Content $FilePath -Raw
 
-    # Check if CoreHub is configured as HTTP service (simple substring match)
-    if ($content -match "ASPNETCORE_URLS") {
-        Write-ValidationResult "CoreHub configured as HTTP service (ASPNETCORE_URLS found) - should be background service" -Type "Error"
-        $script:Errors += "CoreHub configured as HTTP service"
-        return $false
+    # Check if CoreHub service exists
+    if ($content -notmatch "^\s*corehub:") {
+        Write-ValidationResult "CoreHub service not found - valid for monolithic architecture (CoreHub runs in-process in Gateway)" -Type "Success"
+        return $true
     }
 
-    # Check if CoreHub has HTTP port exposure
-    if ($content -match "ports:") {
-        Write-ValidationResult "CoreHub has HTTP port exposed - should be background service" -Type "Error"
-        $script:Errors += "CoreHub has HTTP port exposed"
-        return $false
-    }
+    # CoreHub exists - validate it's configured as background service (not HTTP)
+    # Extract CoreHub service section for more accurate validation
+    if ($content -match "(?s)^\s*corehub:.*?(?=^\s*\w+:|\Z)") {
+        $coreHubSection = $matches[0]
 
-    # Check if CoreHub has healthcheck (background services don't typically have HTTP healthchecks)
-    if ($content -match "healthcheck:") {
-        Write-ValidationResult "CoreHub has healthcheck configured - background services typically don't need HTTP healthchecks" -Type "Warning"
-        $script:Warnings += "CoreHub has healthcheck configured"
+        # Check if CoreHub is configured as HTTP service
+        if ($coreHubSection -match "ASPNETCORE_URLS") {
+            Write-ValidationResult "CoreHub configured as HTTP service (ASPNETCORE_URLS found) - should be background service" -Type "Error"
+            $script:Errors += "CoreHub configured as HTTP service"
+            return $false
+        }
+
+        # Check if CoreHub has HTTP port exposure
+        if ($coreHubSection -match "ports:") {
+            Write-ValidationResult "CoreHub has HTTP port exposed - should be background service" -Type "Error"
+            $script:Errors += "CoreHub has HTTP port exposed"
+            return $false
+        }
+
+        # Check if CoreHub has healthcheck (background services don't typically have HTTP healthchecks)
+        if ($coreHubSection -match "healthcheck:") {
+            Write-ValidationResult "CoreHub has healthcheck configured - background services typically don't need HTTP healthchecks" -Type "Warning"
+            $script:Warnings += "CoreHub has healthcheck configured"
+        }
     }
 
     Write-ValidationResult "CoreHub configuration validation passed" -Type "Success"
