@@ -90,7 +90,7 @@ function Wait-ForHealthCheck($url, $timeoutSec = 60, $label = "") {
     return $false
 }
 
-$totalSteps = if ($SkipE2E) { 3 } else { 5 }
+$totalSteps = if ($SkipE2E) { 4 } else { 6 }
 
 # ============================================================
 # STEP 1: BUILD
@@ -146,6 +146,40 @@ if (-not $unitOk) {
 }
 Write-Host "Unit Tests: OK ($([int]$sw.Elapsed.TotalSeconds)s)" -ForegroundColor Green
 Add-Result "Unit Tests" $true $sw.Elapsed
+
+# ============================================================
+# STEP 2b: KHACHLINK STARTUP TESTS (blocking)
+#
+# WHY BLOCKING:
+#   CustomWebApplicationFactory only boots ShopERP. KhachLink's DI container was never
+#   validated in CI — missing AddScoped<X>() registrations silently passed all checks
+#   and only failed at runtime on VPS (500 error).
+#
+# WHAT IT CATCHES:
+#   - Missing service registrations in KhachLink Program.cs
+#   - JS interop calls in OnInitializedAsync (prerendering crash)
+# ============================================================
+Write-Step "2b" $totalSteps "KHACHLINK STARTUP TESTS (DI + Smoke)"
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+Write-Host "   Running KhachLinkStartupTests (BLOCKING)..." -ForegroundColor Gray
+dotnet test "6_Tests\VanAn.Integration.Tests\VanAn.Integration.Tests.csproj" --no-build --verbosity quiet `
+    --filter "Category=Startup" `
+    --logger "console;verbosity=minimal" 2>&1 | ForEach-Object {
+        if ($_ -match "Passed|Failed|Skipped|Error") { Write-Host "   $_" -ForegroundColor Gray }
+    }
+$startupOk = ($LASTEXITCODE -eq 0)
+$sw.Stop()
+
+if (-not $startupOk) {
+    Add-Result "KhachLink Startup" $false $sw.Elapsed
+    Write-Host "`n== PIPELINE FAILED at Step 2b (KhachLink Startup) ==" -ForegroundColor Red
+    Write-Host "   Fix: kiểm tra Program.cs đã AddScoped tất cả services dùng trong components." -ForegroundColor Yellow
+    Write-Host "   Xem KhachLinkStartupTests.cs để biết danh sách services cần đăng ký." -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "KhachLink Startup: OK ($([int]$sw.Elapsed.TotalSeconds)s)" -ForegroundColor Green
+Add-Result "KhachLink Startup" $true $sw.Elapsed
 
 # ============================================================
 # STEP 3: ARCHITECTURE TESTS (blocking) + INTEGRATION (non-blocking)

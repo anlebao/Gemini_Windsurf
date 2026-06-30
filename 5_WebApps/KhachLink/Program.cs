@@ -55,24 +55,16 @@ namespace VanAn.KhachLink
 
 
 
-            // Register CoreHub Services
+            // Register KhachLink HTTP-backed services (call Gateway, no direct DB access)
+            // ARCHITECTURAL NOTE: KhachLink MUST use HTTP via Gateway only — no CoreHub DI.
+            // IOnboardingService + IVoiceCommandService removed: not used in any component.
+            _ = builder.Services.AddScoped<IOrderWorkflowService, Services.Http.OrderWorkflowHttpService>();
+            _ = builder.Services.AddScoped<ISocialCampaignService, Services.Http.SocialCampaignHttpService>();
+            _ = builder.Services.AddScoped<IDashboardService, Services.Http.DashboardHttpService>();
 
-            _ = builder.Services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
-
+            // IShopConfigService: used by KhachLinkLayout for shop name/logo/theme.
+            // TODO: Replace ShopConfigService with ShopConfigHttpService calling GET /api/shopconfig
             _ = builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
-
-            _ = builder.Services.AddScoped<ISocialCampaignService, SocialCampaignService>();
-
-
-            _ = builder.Services.AddScoped<IOnboardingService, OnboardingService>();
-
-            _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();
-
-
-
-            // Register Dashboard Service
-
-            _ = builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 
 
