@@ -163,12 +163,12 @@ namespace VanAn.Architecture.Tests
             Assert.True(gatewaySection.Contains("depends_on:"),
                 "VA-CONSISTENCY-003: Gateway must have depends_on section in docker-compose.prod.yml");
 
-            // Gateway depends on CoreHub (this is the current architecture)
-            // Note: This test validates the CURRENT architecture, not whether it's correct
-            // Phase 2 will fix the actual architecture mismatch
-            var hasCoreHubDependency = gatewaySection.Contains("corehub");
-            Assert.True(hasCoreHubDependency,
-                "VA-CONSISTENCY-003: Gateway depends_on must include corehub in docker-compose.prod.yml");
+            // Gateway depends on postgres and nats (monolithic architecture - CoreHub is in-process)
+            // CoreHub services are loaded in-process by Gateway, no separate CoreHub container
+            var hasPostgresDependency = gatewaySection.Contains("postgres");
+            var hasNatsDependency = gatewaySection.Contains("nats");
+            Assert.True(hasPostgresDependency && hasNatsDependency,
+                "VA-CONSISTENCY-003: Gateway depends_on must include postgres and nats in docker-compose.prod.yml (monolithic architecture)");
         }
 
         /// <summary>
@@ -235,7 +235,8 @@ namespace VanAn.Architecture.Tests
             var content = File.ReadAllText(dockerComposePath);
 
             // Act & Assert - Check for logging configuration in main application services
-            var appServices = new[] { "corehub", "gateway", "shoperp", "khachlink" };
+            // Note: CoreHub is no longer a separate service (monolithic architecture - loaded in-process by Gateway)
+            var appServices = new[] { "gateway", "shoperp", "khachlink" };
             var servicesWithoutLogging = new System.Collections.Generic.List<string>();
 
             foreach (var serviceName in appServices)
