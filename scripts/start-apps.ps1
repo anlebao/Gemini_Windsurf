@@ -2,17 +2,17 @@
 .SYNOPSIS
     Start all Vạn An .NET applications in separate terminal windows
 .DESCRIPTION
-    Launches CoreHub, Gateway, ShopERP, and KhachLink in separate
+    Launches Gateway, ShopERP, and KhachLink in separate
     PowerShell windows for local development.
+    CoreHub runs as shared library in Gateway process (monolithic architecture).
 .EXAMPLE
     .\start-apps.ps1
 .EXAMPLE
-    .\start-apps.ps1 -CoreHubOnly
+    .\start-apps.ps1 -GatewayOnly
 #>
 
 [CmdletBinding()]
 param(
-    [switch]$CoreHubOnly,
     [switch]$GatewayOnly,
     [switch]$ShopERPOnly,
     [switch]$KhachLinkOnly
@@ -30,30 +30,15 @@ if (-not $infraRunning) {
 
 $rootDir = Split-Path -Parent $PSScriptRoot
 
-# Start CoreHub
-if (-not $GatewayOnly -and -not $ShopERPOnly -and -not $KhachLinkOnly) {
-    Write-Host "[App] Starting CoreHub on http://localhost:5010" -ForegroundColor Green
-    $coreHubDir = Join-Path $rootDir "3_CoreHub"
-    # CRITICAL: Use Single-Quote Here-String to prevent host variable interpolation
-    $coreHubEnv = @'
-$env:ASPNETCORE_ENVIRONMENT="Development"
-$env:ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=VanAnLocal;Username=vanan_dev;Password=VanAnLocal@2026"
-$env:NATS__Url="nats://localhost:4222"
-cd "REPLACE_COREHUB_DIR"
-dotnet run --urls "http://localhost:5010"
-'@
-    $coreHubEnv = $coreHubEnv.Replace("REPLACE_COREHUB_DIR", $coreHubDir)
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", $coreHubEnv
-}
-
 # Start Gateway
-if (-not $CoreHubOnly -and -not $ShopERPOnly -and -not $KhachLinkOnly) {
+if (-not $ShopERPOnly -and -not $KhachLinkOnly) {
     Write-Host "[App] Starting Gateway on http://localhost:5001" -ForegroundColor Green
     $gatewayDir = Join-Path $rootDir "2_Gateway"
     # CRITICAL: Use Single-Quote Here-String to prevent host variable interpolation
     $gatewayEnv = @'
 $env:ASPNETCORE_ENVIRONMENT="Development"
-$env:COREHUB_URL="http://localhost:5010"
+$env:Jwt__Secret="VanAnDevelopmentSecretKey2026!@#"
+$env:ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=VanAnLocal;Username=vanan_dev;Password=VanAnLocal@2026"
 $env:NATS__Url="nats://localhost:4222"
 cd "REPLACE_GATEWAY_DIR"
 dotnet run --urls "http://localhost:5001"
@@ -63,7 +48,7 @@ dotnet run --urls "http://localhost:5001"
 }
 
 # Start ShopERP
-if (-not $CoreHubOnly -and -not $GatewayOnly -and -not $KhachLinkOnly) {
+if (-not $GatewayOnly -and -not $KhachLinkOnly) {
     Write-Host "[App] Starting ShopERP on http://localhost:5003" -ForegroundColor Green
     $shopERPDir = Join-Path $rootDir "5_WebApps\ShopERP"
     # CRITICAL: Use Single-Quote Here-String to prevent host variable interpolation
@@ -79,7 +64,7 @@ dotnet run --urls "http://localhost:5003"
 }
 
 # Start KhachLink
-if (-not $CoreHubOnly -and -not $GatewayOnly -and -not $ShopERPOnly) {
+if (-not $GatewayOnly -and -not $ShopERPOnly) {
     Write-Host "[App] Starting KhachLink on http://localhost:5002" -ForegroundColor Green
     $khachLinkDir = Join-Path $rootDir "5_WebApps\KhachLink"
     # CRITICAL: Use Single-Quote Here-String to prevent host variable interpolation
@@ -99,7 +84,8 @@ Write-Host "[OK] Applications starting in separate windows..." -ForegroundColor 
 Write-Host "   Press Ctrl+C in each window to stop." -ForegroundColor Yellow
 Write-Host "" -ForegroundColor White
 Write-Host "Service URLs:" -ForegroundColor Cyan
-Write-Host "   CoreHub:  http://localhost:5010" -ForegroundColor Gray
-Write-Host "   Gateway:  http://localhost:5001" -ForegroundColor Gray
-Write-Host "   ShopERP:  http://localhost:5003" -ForegroundColor Gray
+Write-Host "   Gateway:   http://localhost:5001" -ForegroundColor Gray
+Write-Host "   ShopERP:   http://localhost:5003" -ForegroundColor Gray
 Write-Host "   KhachLink: http://localhost:5002" -ForegroundColor Gray
+Write-Host "" -ForegroundColor White
+Write-Host "Note: CoreHub runs as shared library in Gateway process (monolithic architecture)" -ForegroundColor Yellow

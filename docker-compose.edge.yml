@@ -1,7 +1,8 @@
 # Edge/Hybrid compose - v2 deployment for offline-capable stations
 # ADR-001: SQLite local + NATS sync + PostgreSQL cloud (accounting always online)
+# Architecture: Monolithic - CoreHub services loaded in-process by Gateway (no separate CoreHub container)
 # Usage: docker compose -f docker-compose.edge.yml up -d
-# NOTE: docker-compose.prod.yml (v1 SaaS) is NEVER modified by this file
+# NOTE: docker-compose.prod.yml (v1 SaaS) uses same monolithic architecture
 
 services:
   postgres:
@@ -66,33 +67,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  corehub:
-    image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-corehub:${IMAGE_TAG:-latest}
-    container_name: vanan-corehub
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
-      - NATS__Url=nats://nats:4222
-      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
-    networks:
-      - vanan-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   gateway:
     image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-gateway:${IMAGE_TAG:-latest}
     container_name: vanan-gateway
@@ -102,13 +76,15 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       - ConnectionStrings__Nats=nats://nats:4222
       - Nats__Url=nats://nats:4222
-      - CoreHub__BaseUrl=http://corehub:80
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
     networks:
       - vanan-network
     depends_on:
-      - corehub
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s
@@ -145,7 +121,10 @@ services:
     networks:
       - vanan-network
     depends_on:
-      - corehub
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
       interval: 30s

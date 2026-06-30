@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using VanAn.Shared.Services;
@@ -44,6 +45,12 @@ namespace VanAn.Gateway
             // Add services to the container.
             _ = builder.Services.AddControllers();
             _ = builder.Services.AddSignalR();
+
+            // Register CoreHub DbContext for monolithic architecture (in-process services)
+            string connectionString = builder.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
+                ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Gateway.");
+            _ = builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.IVanAnDbContext, VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
+                options.UseNpgsql(connectionString));
 
             // Wave 0: JWT + Cookie dual-scheme authentication
             // Cookie is default scheme (keeps Blazor UI working).

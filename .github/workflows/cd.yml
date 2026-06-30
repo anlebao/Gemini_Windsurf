@@ -51,19 +51,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & push CoreHub
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: 3_CoreHub/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-corehub:${{ steps.meta.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-corehub:latest
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Build & push Gateway
         uses: docker/build-push-action@v5
         with:
