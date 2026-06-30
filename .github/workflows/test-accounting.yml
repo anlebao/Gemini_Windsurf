@@ -53,7 +53,7 @@ jobs:
         run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration Release
 
       - name: Unit Tests - Accounting
-        run: dotnet test 6_Tests/VanAn.Core.Tests/ --no-build --configuration Release --verbosity normal --logger trx --filter "FullyQualifiedName~Accounting" --collect:"XPlat Code Coverage" --parallel
+        run: dotnet test 6_Tests/VanAn.Core.Tests/ --no-build --configuration Release --verbosity normal --logger trx --filter "FullyQualifiedName~Accounting" --collect:"XPlat Code Coverage"
         
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
@@ -101,7 +101,7 @@ jobs:
         run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore --configuration Release
 
       - name: Integration Tests - Accounting
-        run: dotnet test 6_Tests/VanAn.Integration.Tests/ --configuration Release --verbosity normal --logger trx --filter "FullyQualifiedName~Accounting" --collect:"XPlat Code Coverage" --parallel
+        run: dotnet test 6_Tests/VanAn.Integration.Tests/ --configuration Release --verbosity normal --logger trx --filter "FullyQualifiedName~Accounting" --collect:"XPlat Code Coverage"
         
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
