@@ -33,6 +33,11 @@ namespace VanAn.KhachLink.Services
                     }
                 }
             }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("statically rendered"))
+            {
+                // Prerendering mode - JS not available yet, cart will be loaded after hydration
+                Console.WriteLine("Cart storage skipped during prerendering");
+            }
             catch (Exception ex)
             {
                 // Handle storage errors gracefully
@@ -46,6 +51,11 @@ namespace VanAn.KhachLink.Services
             {
                 string cartJson = JsonSerializer.Serialize(_cartState);
                 await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "vanan_cart", cartJson);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("statically rendered"))
+            {
+                // Prerendering mode - JS not available yet
+                Console.WriteLine("Cart save skipped during prerendering");
             }
             catch (Exception ex)
             {

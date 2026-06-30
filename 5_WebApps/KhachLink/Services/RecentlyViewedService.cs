@@ -50,7 +50,7 @@ namespace VanAn.KhachLink.Services
             try
             {
                 var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", StorageKey);
-                
+
                 if (string.IsNullOrEmpty(json))
                 {
                     return new List<ProductDto>();
@@ -58,6 +58,12 @@ namespace VanAn.KhachLink.Services
 
                 var products = System.Text.Json.JsonSerializer.Deserialize<List<ProductDto>>(json);
                 return products ?? new List<ProductDto>();
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("statically rendered"))
+            {
+                // Prerendering mode - JS not available yet
+                Console.WriteLine("Recently viewed skipped during prerendering");
+                return new List<ProductDto>();
             }
             catch (Exception ex)
             {
@@ -90,6 +96,11 @@ namespace VanAn.KhachLink.Services
             {
                 var json = System.Text.Json.JsonSerializer.Serialize(products);
                 await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("statically rendered"))
+            {
+                // Prerendering mode - JS not available yet
+                Console.WriteLine("Recently viewed save skipped during prerendering");
             }
             catch (Exception ex)
             {
