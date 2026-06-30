@@ -6,25 +6,41 @@ import { Page, expect } from '@playwright/test';
  */
 export class KitchenPage {
   readonly page: Page;
-
-  // Selectors
-  readonly loginUsernameInput = this.page.locator('input[name="username"], input[type="text"]');
-  readonly loginPasswordInput = this.page.locator('input[name="password"], input[type="password"]');
-  readonly loginButton = this.page.locator('button:has-text("Đăng nhập"), button:has-text("Login")');
-  readonly kitchenOrdersList = this.page.locator('.kitchen-orders, .kds-orders, .order-station-list');
-  readonly orderCard = this.page.locator('.order-card, .kds-order-card, .station-order');
-  readonly preparingButton = this.page.locator('button:has-text("Đang chuẩn bị"), button:has-text("Preparing")');
-  readonly readyButton = this.page.locator('button:has-text("Sẵn sàng"), button:has-text("Ready")');
-  readonly completeButton = this.page.locator('button:has-text("Hoàn thành"), button:has-text("Complete")');
-  readonly orderStatusBadge = this.page.locator('.status-badge, .order-status, .kds-status');
-  readonly orderIdDisplay = this.page.locator('.order-id, .order-number');
-  readonly orderItems = this.page.locator('.order-items, .kds-items');
-  readonly orderTimer = this.page.locator('.order-timer, .prep-time');
-  readonly stationFilter = this.page.locator('.station-filter, .kitchen-station-select');
-  readonly refreshButton = this.page.locator('button:has-text("Làm mới"), button:has-text("Refresh")');
+  
+  // Selectors (initialized in constructor)
+  readonly loginUsernameInput: any;
+  readonly loginPasswordInput: any;
+  readonly loginButton: any;
+  readonly kitchenOrdersList: any;
+  readonly orderCard: any;
+  readonly preparingButton: any;
+  readonly readyButton: any;
+  readonly completeButton: any;
+  readonly orderStatusBadge: any;
+  readonly orderIdDisplay: any;
+  readonly orderItems: any;
+  readonly orderTimer: any;
+  readonly stationFilter: any;
+  readonly refreshButton: any;
 
   constructor(page: Page) {
     this.page = page;
+    
+    // Initialize selectors after page is set
+    this.loginUsernameInput = this.page.locator('input[name="username"], input[type="text"]');
+    this.loginPasswordInput = this.page.locator('input[name="password"], input[type="password"]');
+    this.loginButton = this.page.locator('button:has-text("Đăng nhập"), button:has-text("Login")');
+    this.kitchenOrdersList = this.page.locator('.kitchen-orders, .kds-orders, .order-station-list');
+    this.orderCard = this.page.locator('.order-card, .kds-order-card, .station-order');
+    this.preparingButton = this.page.locator('button:has-text("Đang chuẩn bị"), button:has-text("Preparing")');
+    this.readyButton = this.page.locator('button:has-text("Sẵn sàng"), button:has-text("Ready")');
+    this.completeButton = this.page.locator('button:has-text("Hoàn thành"), button:has-text("Complete")');
+    this.orderStatusBadge = this.page.locator('.status-badge, .order-status, .kds-status');
+    this.orderIdDisplay = this.page.locator('.order-id, .order-number');
+    this.orderItems = this.page.locator('.order-items, .kds-items');
+    this.orderTimer = this.page.locator('.order-timer, .prep-time');
+    this.stationFilter = this.page.locator('.station-filter, .kitchen-station-select');
+    this.refreshButton = this.page.locator('button:has-text("Làm mới"), button:has-text("Refresh")');
   }
 
   /**

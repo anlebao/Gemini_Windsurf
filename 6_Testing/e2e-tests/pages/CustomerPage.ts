@@ -6,27 +6,45 @@ import { Page, expect } from '@playwright/test';
  */
 export class CustomerPage {
   readonly page: Page;
-
-  // Selectors
-  readonly menuItems = this.page.locator('.feature-card, .product-card');
-  readonly addToCartButton = this.page.locator('button:has-text("Đặt ngay"), button:has-text("Add to Cart")');
-  readonly cartIcon = this.page.locator('.cart-icon, .shopping-cart');
-  readonly cartCount = this.page.locator('.cart-count, .badge');
-  readonly checkoutButton = this.page.locator('button:has-text("Thanh toán"), button:has-text("Checkout")');
-  readonly guestNameInput = this.page.locator('input[name="name"], input[placeholder*="tên"], input[placeholder*="name"]');
-  readonly guestPhoneInput = this.page.locator('input[name="phone"], input[placeholder*="số điện thoại"], input[placeholder*="phone"]');
-  readonly guestAddressInput = this.page.locator('input[name="address"], textarea[placeholder*="địa chỉ"], textarea[placeholder*="address"]');
-  readonly placeOrderButton = this.page.locator('button:has-text("Đặt hàng"), button:has-text("Place Order")');
-  readonly orderSuccessMessage = this.page.locator('.order-success, .order-confirmation, .alert-success');
-  readonly orderIdDisplay = this.page.locator('.order-id, .order-number');
-  readonly orderStatusDisplay = this.page.locator('.order-status, .status-badge');
-  readonly loyaltyPointsDisplay = this.page.locator('.loyalty-points, .points-balance');
-  readonly qrCodeContainer = this.page.locator('.qr-code, .payment-qr');
-  readonly loyaltyApplyButton = this.page.locator('button:has-text("Áp dụng điểm"), button:has-text("Apply Points")');
-  readonly loyaltyPointsInput = this.page.locator('input[name="points"], input[placeholder*="điểm"], input[placeholder*="points"]');
+  
+  // Selectors (initialized in constructor)
+  readonly menuItems: any;
+  readonly addToCartButton: any;
+  readonly cartIcon: any;
+  readonly cartCount: any;
+  readonly checkoutButton: any;
+  readonly guestNameInput: any;
+  readonly guestPhoneInput: any;
+  readonly guestAddressInput: any;
+  readonly placeOrderButton: any;
+  readonly orderSuccessMessage: any;
+  readonly orderIdDisplay: any;
+  readonly orderStatusDisplay: any;
+  readonly loyaltyPointsDisplay: any;
+  readonly qrCodeContainer: any;
+  readonly loyaltyApplyButton: any;
+  readonly loyaltyPointsInput: any;
 
   constructor(page: Page) {
     this.page = page;
+    
+    // Initialize selectors after page is set
+    this.menuItems = this.page.locator('.feature-card, .product-card');
+    this.addToCartButton = this.page.locator('button:has-text("Đặt ngay"), button:has-text("Add to Cart")');
+    this.cartIcon = this.page.locator('.cart-icon, .shopping-cart');
+    this.cartCount = this.page.locator('.cart-count, .badge');
+    this.checkoutButton = this.page.locator('button:has-text("Thanh toán"), button:has-text("Checkout")');
+    this.guestNameInput = this.page.locator('input[name="name"], input[placeholder*="tên"], input[placeholder*="name"]');
+    this.guestPhoneInput = this.page.locator('input[name="phone"], input[placeholder*="số điện thoại"], input[placeholder*="phone"]');
+    this.guestAddressInput = this.page.locator('input[name="address"], textarea[placeholder*="địa chỉ"], textarea[placeholder*="address"]');
+    this.placeOrderButton = this.page.locator('button:has-text("Đặt hàng"), button:has-text("Place Order")');
+    this.orderSuccessMessage = this.page.locator('.order-success, .order-confirmation, .alert-success');
+    this.orderIdDisplay = this.page.locator('.order-id, .order-number');
+    this.orderStatusDisplay = this.page.locator('.order-status, .status-badge');
+    this.loyaltyPointsDisplay = this.page.locator('.loyalty-points, .points-balance');
+    this.qrCodeContainer = this.page.locator('.qr-code, .payment-qr');
+    this.loyaltyApplyButton = this.page.locator('button:has-text("Áp dụng điểm"), button:has-text("Apply Points")');
+    this.loyaltyPointsInput = this.page.locator('input[name="points"], input[placeholder*="điểm"], input[placeholder*="points"]');
   }
 
   /**

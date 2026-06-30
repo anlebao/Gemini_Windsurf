@@ -71,7 +71,7 @@ export default defineConfig({
       name: 'omnichannel-e2e',
       testMatch: 'e2e-tests/omnichannel*.spec.ts',
       use: {
-        baseURL: 'https://vanantech.io.vn',
+        baseURL: config.OMNICHANNEL_URL,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',

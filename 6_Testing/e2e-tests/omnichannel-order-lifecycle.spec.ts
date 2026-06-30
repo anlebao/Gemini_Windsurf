@@ -100,8 +100,8 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
     await test.step('Admin: Login and navigate to order management', async () => {
       await adminPage.gotoLogin();
       await adminPage.login(
-        process.env.ADMIN_USERNAME || 'admin',
-        process.env.ADMIN_PASSWORD || 'admin123'
+        config.ADMIN_USERNAME,
+        config.ADMIN_PASSWORD
       );
       await adminPage.gotoOrderManagement();
     });
@@ -127,8 +127,8 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
     await test.step('Kitchen: Login and wait for order (NATS sync wait)', async () => {
       await kitchenPage.gotoLogin();
       await kitchenPage.login(
-        process.env.KITCHEN_USERNAME || 'kitchen',
-        process.env.KITCHEN_PASSWORD || 'kitchen123'
+        config.KITCHEN_USERNAME,
+        config.KITCHEN_PASSWORD
       );
       
       // Wait for order to appear in kitchen display - NATS sync timing
@@ -253,8 +253,8 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
     await test.step('Admin: Accept order (NATS sync wait)', async () => {
       await adminPage.gotoLogin();
       await adminPage.login(
-        process.env.ADMIN_USERNAME || 'admin',
-        process.env.ADMIN_PASSWORD || 'admin123'
+        config.ADMIN_USERNAME,
+        config.ADMIN_PASSWORD
       );
       await adminPage.gotoOrderManagement();
       
@@ -270,8 +270,8 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
     await test.step('Kitchen: Process order (NATS sync wait)', async () => {
       await kitchenPage.gotoLogin();
       await kitchenPage.login(
-        process.env.KITCHEN_USERNAME || 'kitchen',
-        process.env.KITCHEN_PASSWORD || 'kitchen123'
+        config.KITCHEN_USERNAME,
+        config.KITCHEN_PASSWORD
       );
       
       await kitchenPage.waitForOrderToAppear(testData.orderId, 5000);
@@ -369,8 +369,8 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
       
       await adminPage.gotoLogin();
       await adminPage.login(
-        process.env.ADMIN_USERNAME || 'admin',
-        process.env.ADMIN_PASSWORD || 'admin123'
+        config.ADMIN_USERNAME,
+        config.ADMIN_PASSWORD
       );
       await adminPage.gotoOrderManagement();
       

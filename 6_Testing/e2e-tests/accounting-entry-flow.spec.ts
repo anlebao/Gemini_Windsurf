@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { loadEnvConfig } from '../utils/env-config';
+
+const config = loadEnvConfig();
 
 test.describe('Accounting Entry Flow', () => {
   // AUTH_LIFECYCLE_TEST — uses dev login endpoint for E2E tests
   test.use({ storageState: { cookies: [], origins: [] } });
   test.beforeEach(async ({ page, request }) => {
     // Use dev login endpoint instead of traditional login form
-    const shopErpUrl = process.env.SHOPERP_URL || 'http://localhost:5003';
+    const shopErpUrl = config.SHOPERP_URL;
     const devLoginUrl = `${shopErpUrl}/dev/login`;
     
     const response = await request.post(devLoginUrl);
@@ -22,7 +25,7 @@ test.describe('Accounting Entry Flow', () => {
   });
 
   test('should create revenue entry and appear in history', async ({ page }) => {
-    const shopErpUrl = process.env.SHOPERP_URL || 'http://localhost:5003';
+    const shopErpUrl = config.SHOPERP_URL;
     
     // Navigate to revenue entry
     await page.goto(`${shopErpUrl}/accounting/revenue`);
@@ -54,7 +57,7 @@ test.describe('Accounting Entry Flow', () => {
   });
 
   test('should show validation error when amount is zero', async ({ page }) => {
-    const shopErpUrl = process.env.SHOPERP_URL || 'http://localhost:5003';
+    const shopErpUrl = config.SHOPERP_URL;
     
     await page.goto(`${shopErpUrl}/accounting/revenue`);
     await page.waitForLoadState('networkidle');
@@ -69,7 +72,7 @@ test.describe('Accounting Entry Flow', () => {
   });
 
   test('should show validation error when date is missing', async ({ page }) => {
-    const shopErpUrl = process.env.SHOPERP_URL || 'http://localhost:5003';
+    const shopErpUrl = config.SHOPERP_URL;
     
     await page.goto(`${shopErpUrl}/accounting/revenue`);
     await page.waitForLoadState('networkidle');
@@ -83,7 +86,7 @@ test.describe('Accounting Entry Flow', () => {
   });
 
   test('should detect duplicate entry within 5 minutes', async ({ page }) => {
-    const shopErpUrl = process.env.SHOPERP_URL || 'http://localhost:5003';
+    const shopErpUrl = config.SHOPERP_URL;
     
     await page.goto(`${shopErpUrl}/accounting/revenue`);
     await page.waitForLoadState('networkidle');

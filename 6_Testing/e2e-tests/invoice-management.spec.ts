@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
+import { loadEnvConfig } from '../utils/env-config';
+
+const config = loadEnvConfig();
 
 test.describe('EInvoice Invoice Management', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('#email', process.env.TEST_EMAIL || 'admin@vanan.com');
-    await page.fill('#password', process.env.TEST_PASSWORD || 'test123');
+    await page.fill('#email', config.TEST_EMAIL);
+    await page.fill('#password', config.TEST_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('/dashboard', { timeout: 10000 });
   });

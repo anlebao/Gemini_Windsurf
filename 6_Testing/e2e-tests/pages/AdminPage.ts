@@ -6,26 +6,43 @@ import { Page, expect } from '@playwright/test';
  */
 export class AdminPage {
   readonly page: Page;
-
-  // Selectors
-  readonly loginUsernameInput = this.page.locator('input[name="username"], input[placeholder*="tên đăng nhập"], input[type="text"]');
-  readonly loginPasswordInput = this.page.locator('input[name="password"], input[type="password"]');
-  readonly loginButton = this.page.locator('button:has-text("Đăng nhập"), button:has-text("Login")');
-  readonly orderManagementLink = this.page.locator('a:has-text("Quản lý đơn hàng"), a:has-text("Order Management"), .order-management');
-  readonly ordersList = this.page.locator('.order-list, .orders-table tbody tr, .order-card');
-  readonly searchOrderIdInput = this.page.locator('input[name="search"], input[placeholder*="tìm kiếm"], input[placeholder*="search"]');
-  readonly searchButton = this.page.locator('button:has-text("Tìm kiếm"), button:has-text("Search")');
-  readonly acceptOrderButton = this.page.locator('button:has-text("Chấp nhận"), button:has-text("Accept")');
-  readonly rejectOrderButton = this.page.locator('button:has-text("Từ chối"), button:has-text("Reject")');
-  readonly updateStatusButton = this.page.locator('button:has-text("Cập nhật trạng thái"), button:has-text("Update Status")');
-  readonly statusSelect = this.page.locator('select[name="status"], .status-select');
-  readonly confirmButton = this.page.locator('button:has-text("Xác nhận"), button:has-text("Confirm")');
-  readonly orderDetailsPanel = this.page.locator('.order-details, .order-info-panel');
-  readonly orderStatusBadge = this.page.locator('.status-badge, .order-status');
-  readonly customerInfo = this.page.locator('.customer-info, .customer-details');
+  
+  // Selectors (initialized in constructor)
+  readonly loginUsernameInput: any;
+  readonly loginPasswordInput: any;
+  readonly loginButton: any;
+  readonly orderManagementLink: any;
+  readonly ordersList: any;
+  readonly searchOrderIdInput: any;
+  readonly searchButton: any;
+  readonly acceptOrderButton: any;
+  readonly rejectOrderButton: any;
+  readonly updateStatusButton: any;
+  readonly statusSelect: any;
+  readonly confirmButton: any;
+  readonly orderDetailsPanel: any;
+  readonly orderStatusBadge: any;
+  readonly customerInfo: any;
 
   constructor(page: Page) {
     this.page = page;
+    
+    // Initialize selectors after page is set
+    this.loginUsernameInput = this.page.locator('input[name="username"], input[placeholder*="tên đăng nhập"], input[type="text"]');
+    this.loginPasswordInput = this.page.locator('input[name="password"], input[type="password"]');
+    this.loginButton = this.page.locator('button:has-text("Đăng nhập"), button:has-text("Login")');
+    this.orderManagementLink = this.page.locator('a:has-text("Quản lý đơn hàng"), a:has-text("Order Management"), .order-management');
+    this.ordersList = this.page.locator('.order-list, .orders-table tbody tr, .order-card');
+    this.searchOrderIdInput = this.page.locator('input[name="search"], input[placeholder*="tìm kiếm"], input[placeholder*="search"]');
+    this.searchButton = this.page.locator('button:has-text("Tìm kiếm"), button:has-text("Search")');
+    this.acceptOrderButton = this.page.locator('button:has-text("Chấp nhận"), button:has-text("Accept")');
+    this.rejectOrderButton = this.page.locator('button:has-text("Từ chối"), button:has-text("Reject")');
+    this.updateStatusButton = this.page.locator('button:has-text("Cập nhật trạng thái"), button:has-text("Update Status")');
+    this.statusSelect = this.page.locator('select[name="status"], .status-select');
+    this.confirmButton = this.page.locator('button:has-text("Xác nhận"), button:has-text("Confirm")');
+    this.orderDetailsPanel = this.page.locator('.order-details, .order-info-panel');
+    this.orderStatusBadge = this.page.locator('.status-badge, .order-status');
+    this.customerInfo = this.page.locator('.customer-info, .customer-details');
   }
 
   /**

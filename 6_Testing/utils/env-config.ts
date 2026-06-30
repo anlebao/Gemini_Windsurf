@@ -230,9 +230,9 @@ export function loadEnvConfig(): TestConfig {
 
       SHOPERP_URL: config.SHOPERP_URL || 'http://localhost:5003',
 
-      OMNICHANNEL_URL: config.OMNICHANNEL_URL || 'https://vanantech.io.vn',
+      OMNICHANNEL_URL: config.OMNICHANNEL_URL || 'http://localhost:5002',
 
-      GATEWAY_PUBLIC_URL: config.GATEWAY_PUBLIC_URL || 'https://api.vanantech.io.vn',
+      GATEWAY_PUBLIC_URL: config.GATEWAY_PUBLIC_URL || 'http://localhost:5001',
 
       ADMIN_USERNAME: config.ADMIN_USERNAME || 'admin',
 
