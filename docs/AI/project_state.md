@@ -44,38 +44,39 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — Wave 1 COMPLETE, Wave 2 Ready]**
+**[TENANT ONBOARDING F&B — Wave 3 COMPLETE, Wave 4 Ready]**
 
 Implement generic tenant onboarding system for F&B (Food & Beverage) first, designed to support future industries (SPA, Hotel, Barber, Clothes, Healthy, Pet Shop) via pluggable `IIndustrySeedStrategy` abstraction.
 
 Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md`  
 Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md`
 
-**Status:** Wave 1 COMPLETE ✅ (commit `66c6441` on `feature/tenant-onboarding-wave1-abstraction`). Ready for Wave 2.
+**Status:** Wave 3 COMPLETE ✅ (on `feature/tenant-onboarding-wave3-orchestrator`). Ready for Wave 4.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/tenant-onboarding-wave1-abstraction`
-- **Last commit:** `66c6441` — [WAVE 1] Tenant onboarding generic abstraction
+- **Branch:** `feature/tenant-onboarding-wave3-orchestrator`
+- **Last commit:** pending — [WAVE 3] Tenant onboarding orchestrator
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Architecture Tests:** 28/28 PASS ✅
-- **Unit Tests (Core):** 730/730 PASS ✅ (+42 new Wave 1 tests)
+- **Unit Tests (Core):** 773/773 PASS ✅ (+17 new Wave 3 tests)
 - **KhachLink Startup Tests:** 8/8 PASS ✅
 - **Gateway Startup Tests:** PASS ✅
 - **Codebase health:** Clean. No known compile errors. No known architecture violations.
 - **Wave 1:** COMPLETE ✅ — Interfaces + DTOs + 6 stub strategies + 42 unit tests
+- **Wave 2:** COMPLETE ✅ — FnbSeedStrategy (1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory) + 26 unit tests
+- **Wave 3:** COMPLETE ✅ — TenantOnboardingService (orchestrator: tenant → user → role → seed → 4 groups → group assign) + 17 unit tests
 
 ---
 
 ## 4. Next Actions
 
-1. **Start Wave 2** (`wave2_fnb_seed_strategy_task_card.md`) on `feature/tenant-onboarding-wave2-fnb-seed`.
-   - Implement `FnbSeedStrategy`: seeds Shop, Products (cafe/tea/food), Ingredients, Recipes, Inventory for a new F&B tenant.
-   - Entry criteria: Wave 1 merged (interfaces stable) ✅
-2. After Wave 2: proceed to Wave 3 (TenantOnboardingService orchestrator).
-3. Merge wave branches per plan: wave1 → wave2 → wave3 → ... → main.
+1. **Start Wave 4** (`wave4_tenant_onboarding_gateway_api_task_card.md`) on `feature/tenant-onboarding-wave4-gateway-api`.
+   - Update `OnboardingController` with `POST /api/onboarding/tenant` endpoint.
+   - Entry criteria: Wave 3 complete (TenantOnboardingService functional) ✅
+2. Merge wave branches per plan: wave3 → wave4 → wave5 → wave6 → main.
 
 ---
 
@@ -97,6 +98,10 @@ Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md
 ---
 
 ## 6. History Log
+
+* [2026-07-01] **Wave 3 COMPLETE — Tenant Onboarding Orchestrator** — Implemented `TenantOnboardingService`: single-call orchestration of tenant creation → owner user (BCrypt) → Owner role assignment → F&B seed → 4 default permission groups (Quản lý, Thu ngân, Bếp, Kho) → owner assigned to Quản lý group. Injects `IVanAnDbContext` directly to call `SaveChangesAsync` after seed strategy. 17 unit tests added (all pass). Build: 0 errors, 773/773 tests pass. Branch: `feature/tenant-onboarding-wave3-orchestrator`.
+
+* [2026-07-01] **Wave 2 COMPLETE — F&B Seed Strategy** — Implemented `FnbSeedStrategy`: 1 default shop, 8 products (drinks + food), 12 ingredients, 14 recipe mappings (FK→BaseEntity.Id), 12 inventory records. Added `DbSet<Recipe>` and `DbSet<Shop>` to `IVanAnDbContext` (and `DbSet<Recipe>` to `ShopERPDbContext`). 26 unit tests added (counts, TenantId isolation, FK linkage, VAT 10%, active status, categories). Build: 0 errors, 756/756 tests pass. Commit: `dcfc433` on `feature/tenant-onboarding-wave2-fnb-seed`.
 
 * [2026-07-01] **Wave 1 COMPLETE — Tenant Onboarding Generic Abstraction** — Created `IIndustrySeedStrategy`, `ITenantOnboardingService`, immutable DTOs (OnboardTenantRequest, TenantOnboardingResult, IndustrySeedResult), and 6 stub strategies (SPA, HOTEL, BARBER, CLOTHES, HEALTHY, PETSHOP). Added 42 unit tests (all pass). Build: 0 errors, 730/730 tests pass. Commit: `66c6441` on `feature/tenant-onboarding-wave1-abstraction`.
 
@@ -189,6 +194,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-01 — Wave 1 complete: generic abstraction (IIndustrySeedStrategy, ITenantOnboardingService, DTOs, 6 stubs, 42 tests). Commit 66c6441.
-* **Current Branch:** `feature/tenant-onboarding-wave1-abstraction`
-* **Current Objective:** Tenant Onboarding F&B — Wave 1 COMPLETE, ready for Wave 2 (FnbSeedStrategy).
+* **Last Updated:** 2026-07-01 — Wave 3 complete: TenantOnboardingService orchestrator (tenant → user → role → seed → 4 groups → group assignment, 17 tests). 773/773 tests pass. 0 build errors.
+* **Current Branch:** `feature/tenant-onboarding-wave3-orchestrator`
+* **Current Objective:** Tenant Onboarding F&B — Wave 3 COMPLETE, ready for Wave 4 (Gateway API endpoint).
