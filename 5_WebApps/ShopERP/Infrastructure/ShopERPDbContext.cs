@@ -38,6 +38,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Product> Products { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<Ingredient> Ingredients { get; set; }
+        public DbSet<Recipe> Recipes { get; set; }
 
         // Additional tables required by IVanAnDbContext (for Offline Mode)
         public DbSet<AccountingEntry> AccountingEntries { get; set; }
