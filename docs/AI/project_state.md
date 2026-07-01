@@ -44,9 +44,9 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — Wave 4 IN PROGRESS]**
+**[TENANT ONBOARDING F&B — Wave 4 COMPLETE ✅]**
 
-Implement Gateway API endpoint for external callers to onboard tenants (`POST /api/onboarding/tenants`). Requires SystemAdmin JWT authorization. Integration tests must cover: anonymous → 401, wrong role → 403, SystemAdmin → 201, invalid industry → 400.
+Wave 4 delivered: `POST /api/v1/onboarding/tenants` Gateway endpoint with SystemAdmin Bearer JWT authorization. Integration tests 4/4 PASS: anonymous → 401, wrong role → 403, SystemAdmin → 201, invalid industry → 400. Next: Wave 5 (validation/docs) per master plan.
 
 Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md`  
 Task card: `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md`
@@ -56,23 +56,23 @@ Task card: `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md`
 ## 3. Current Status
 
 - **Branch:** `feature/tenant-onboarding-wave4-gateway-api`
-- **Last commit:** `061022a` — docs(state): Wave 3 complete - update project_state.md
+- **Last commit:** `7aabe7c` — [WAVE 4] Gateway API tenant onboarding endpoint + integration tests
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
-- **Wave 4 status:** IN PROGRESS — Gateway endpoint added, DI registrations added, integration tests created.
-- **Integration Tests (TenantOnboardingApiTests):** 1/4 PASS ✅, 3/4 FAIL ❌ — authorization issue: class-level `[Authorize(Policy="RequireTenantAccess")]` on `OnboardingController` conflicts with method-level SystemAdmin JWT policy.
-- **Codebase health:** Clean build. No compile errors. Known test failure under investigation.
+- **Wave 4 status:** COMPLETE ✅
+- **Integration Tests (TenantOnboardingApiTests):** 4/4 PASS ✅
+- **Architecture Tests:** 28/28 PASS ✅ (W12-G7 exemption added for TenantOnboardingController)
+- **All Integration Tests:** 156/156 PASS ✅
 - **Wave 1:** COMPLETE ✅ — Interfaces + DTOs + 6 stub strategies + 42 unit tests
 - **Wave 2:** COMPLETE ✅ — FnbSeedStrategy (1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory) + 26 unit tests
 - **Wave 3:** COMPLETE ✅ — TenantOnboardingService (orchestrator: tenant → user → role → seed → 4 groups → group assign) + 17 unit tests
+- **Wave 4:** COMPLETE ✅ — TenantOnboardingController (SystemAdmin Bearer JWT), 4 integration tests passing
 
 ---
 
 ## 4. Next Actions
 
-1. **Fix Wave 4 authorization conflict** — move `POST /api/onboarding/tenants` (and its stub GET) out of `OnboardingController` (which has class-level `RequireTenantAccess`) into a new `TenantOnboardingController` with method-level `SystemAdmin` JWT policy only.
-2. **Re-run integration tests** until `TenantOnboardingApiTests` 4/4 PASS.
-3. **Run `guard-check.ps1`** and `dotnet build VanAn.sln` to verify clean build.
-4. **Commit** `[WAVE 4] Gateway API tenant onboarding endpoint + integration tests`.
+1. **Wave 5** — Request validation (FluentValidation or DataAnnotations for `OnboardTenantRequest`) + OpenAPI docs for the onboarding endpoint.
+2. **Wave 6** — Cleanup deprecated `Tenant` entity usage (CS0618 warnings in tests).
 
 ---
 
@@ -94,6 +94,8 @@ Task card: `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md`
 ---
 
 ## 6. History Log
+
+* [2026-07-01] **Wave 4 COMPLETE — Gateway API Tenant Onboarding** — Created `TenantOnboardingController` (no class-level Authorize, method-level SystemAdmin Bearer JWT). Fixed IndustryCode `FNB`→`F&B` in integration tests. Added to W12-G7 arch test exemption. 4/4 integration tests PASS, 28/28 arch tests PASS, 156/156 integration tests PASS. Guard-check PASSED. Commit: `7aabe7c` on `feature/tenant-onboarding-wave4-gateway-api`.
 
 * [2026-07-01] **Wave 3 COMPLETE — Tenant Onboarding Orchestrator** — Implemented `TenantOnboardingService`: single-call orchestration of tenant creation → owner user (BCrypt) → Owner role assignment → F&B seed → 4 default permission groups (Quản lý, Thu ngân, Bếp, Kho) → owner assigned to Quản lý group. Injects `IVanAnDbContext` directly to call `SaveChangesAsync` after seed strategy. 17 unit tests added (all pass). Build: 0 errors, 773/773 tests pass. Branch: `feature/tenant-onboarding-wave3-orchestrator`.
 
