@@ -23,6 +23,11 @@ namespace VanAn.Gateway
     {
         public static void Main(string[] args)
         {
+            // Wave 4: Clear the default inbound claim type map so JWT short-form claims ("role", "sub")
+            // are NOT silently remapped to long Microsoft schema URLs at runtime.
+            // This ensures RoleClaimType = "role" matches exactly what arrives in the JWT payload.
+            System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             // Architect: Dynamic file logging configuration
@@ -72,6 +77,9 @@ namespace VanAn.Gateway
                 })
                 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
                 {
+                    // Wave 4: DefaultInboundClaimTypeMap is cleared at startup so claims stay as short-form.
+                    // RoleClaimType = "role" and NameClaimType = "sub" must match the JWT payload keys exactly.
+                    options.MapInboundClaims = false;
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuerSigningKey = true,
@@ -81,7 +89,9 @@ namespace VanAn.Gateway
                         ValidateAudience = true,
                         ValidAudience = jwtAudience,
                         ValidateLifetime = true,
-                        ClockSkew = TimeSpan.Zero
+                        ClockSkew = TimeSpan.Zero,
+                        RoleClaimType = "role",
+                        NameClaimType = "sub"
                     };
                 });
 
@@ -147,6 +157,33 @@ namespace VanAn.Gateway
             // Register Onboarding Service
             _ = builder.Services.AddHttpClient<IOnboardingService, OnboardingService>();
             _ = builder.Services.AddScoped<IOnboardingService, OnboardingService>();
+
+            // Wave 4: Notification services (INotificationService required by TenantManagementService + UserManagementService)
+            _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.IEmailService, VanAn.CoreHub.Services.BrevoEmailService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+            _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.ISmsService, VanAn.CoreHub.Services.EsmsNotificationService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.INotificationService, VanAn.CoreHub.Services.CompositeNotificationService>();
+
+            // Wave 4: Register Tenant Onboarding Service dependencies (used by TenantOnboardingService orchestrator)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ITenantManagementService, VanAn.CoreHub.Services.TenantManagementService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IUserManagementService, VanAn.CoreHub.Services.UserManagementService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRoleAssignmentService, VanAn.CoreHub.Services.RoleAssignmentService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPermissionGroupService, VanAn.CoreHub.Services.PermissionGroupService>();
+
+            // Wave 4: Register Tenant Onboarding Service + industry seed strategies
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.SpaSeedStrategy>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.HotelSeedStrategy>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.BarberSeedStrategy>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.ClothesSeedStrategy>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.HealthySeedStrategy>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.PetShopSeedStrategy>();
 
             // Register Voice Command Services
             _ = builder.Services.AddScoped<IVoiceCommandService, VoiceCommandService>();

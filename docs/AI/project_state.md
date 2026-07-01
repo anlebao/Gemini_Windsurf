@@ -44,27 +44,23 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — Wave 3 COMPLETE, Wave 4 Ready]**
+**[TENANT ONBOARDING F&B — Wave 4 IN PROGRESS]**
 
-Implement generic tenant onboarding system for F&B (Food & Beverage) first, designed to support future industries (SPA, Hotel, Barber, Clothes, Healthy, Pet Shop) via pluggable `IIndustrySeedStrategy` abstraction.
+Implement Gateway API endpoint for external callers to onboard tenants (`POST /api/onboarding/tenants`). Requires SystemAdmin JWT authorization. Integration tests must cover: anonymous → 401, wrong role → 403, SystemAdmin → 201, invalid industry → 400.
 
 Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md`  
-Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md`
-
-**Status:** Wave 3 COMPLETE ✅ (on `feature/tenant-onboarding-wave3-orchestrator`). Ready for Wave 4.
+Task card: `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md`
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/tenant-onboarding-wave3-orchestrator`
-- **Last commit:** `b6454c3` — [WAVE 3] Tenant onboarding orchestrator
+- **Branch:** `feature/tenant-onboarding-wave4-gateway-api`
+- **Last commit:** `061022a` — docs(state): Wave 3 complete - update project_state.md
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
-- **Architecture Tests:** 28/28 PASS ✅
-- **Unit Tests (Core):** 773/773 PASS ✅ (+17 new Wave 3 tests)
-- **KhachLink Startup Tests:** 8/8 PASS ✅
-- **Gateway Startup Tests:** PASS ✅
-- **Codebase health:** Clean. No known compile errors. No known architecture violations.
+- **Wave 4 status:** IN PROGRESS — Gateway endpoint added, DI registrations added, integration tests created.
+- **Integration Tests (TenantOnboardingApiTests):** 1/4 PASS ✅, 3/4 FAIL ❌ — authorization issue: class-level `[Authorize(Policy="RequireTenantAccess")]` on `OnboardingController` conflicts with method-level SystemAdmin JWT policy.
+- **Codebase health:** Clean build. No compile errors. Known test failure under investigation.
 - **Wave 1:** COMPLETE ✅ — Interfaces + DTOs + 6 stub strategies + 42 unit tests
 - **Wave 2:** COMPLETE ✅ — FnbSeedStrategy (1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory) + 26 unit tests
 - **Wave 3:** COMPLETE ✅ — TenantOnboardingService (orchestrator: tenant → user → role → seed → 4 groups → group assign) + 17 unit tests
@@ -73,10 +69,10 @@ Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md
 
 ## 4. Next Actions
 
-1. **Start Wave 4** (`wave4_tenant_onboarding_gateway_api_task_card.md`) on `feature/tenant-onboarding-wave4-gateway-api`.
-   - Update `OnboardingController` with `POST /api/onboarding/tenant` endpoint.
-   - Entry criteria: Wave 3 complete (TenantOnboardingService functional) ✅
-2. Merge wave branches per plan: wave3 → wave4 → wave5 → wave6 → main.
+1. **Fix Wave 4 authorization conflict** — move `POST /api/onboarding/tenants` (and its stub GET) out of `OnboardingController` (which has class-level `RequireTenantAccess`) into a new `TenantOnboardingController` with method-level `SystemAdmin` JWT policy only.
+2. **Re-run integration tests** until `TenantOnboardingApiTests` 4/4 PASS.
+3. **Run `guard-check.ps1`** and `dotnet build VanAn.sln` to verify clean build.
+4. **Commit** `[WAVE 4] Gateway API tenant onboarding endpoint + integration tests`.
 
 ---
 
@@ -194,6 +190,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-01 — Wave 3 complete: TenantOnboardingService orchestrator (tenant → user → role → seed → 4 groups → group assignment, 17 tests). 773/773 tests pass. 0 build errors.
-* **Current Branch:** `feature/tenant-onboarding-wave3-orchestrator`
-* **Current Objective:** Tenant Onboarding F&B — Wave 3 COMPLETE, ready for Wave 4 (Gateway API endpoint).
+* **Last Updated:** 2026-07-01 — Wave 4 in progress: added `POST /api/onboarding/tenants` to `OnboardingController`, registered `ITenantOnboardingService` + seed strategies + dependencies in Gateway `Program.cs`, created `TenantOnboardingApiTests.cs`, updated `GatewayStartupTests.cs`. 1/4 integration tests pass; 3 fail due to auth policy conflict between class-level `RequireTenantAccess` and method-level `SystemAdmin` policy.
+* **Current Branch:** `feature/tenant-onboarding-wave4-gateway-api`
+* **Current Objective:** Tenant Onboarding F&B — Wave 4 IN PROGRESS (Gateway API endpoint).

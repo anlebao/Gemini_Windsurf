@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Onboarding;
 using VanAn.Gateway.Services;
 using VanAn.Integration.Tests.Infrastructure;
 using VanAn.Shared.Domain.Common;
@@ -84,6 +85,10 @@ public class GatewayStartupTests : IClassFixture<GatewayWebApplicationFactory>
         Assert.NotNull(sp.GetRequiredService<IMstLookupService>());
         Assert.NotNull(sp.GetRequiredService<IVoiceCommandService>());
         Assert.NotNull(sp.GetRequiredService<ILocalizationService>());
+
+        // Wave 4: Tenant Onboarding Service + seed strategies
+        Assert.NotNull(sp.GetRequiredService<ITenantOnboardingService>());
+        Assert.NotEmpty(sp.GetServices<IIndustrySeedStrategy>());
     }
 
     /// <summary>

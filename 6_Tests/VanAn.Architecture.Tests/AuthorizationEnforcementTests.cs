@@ -129,7 +129,9 @@ public class AuthorizationEnforcementTests
             "LoyaltyController",
             "CustomerOrdersController",
             "ShopsController",
-            "NotificationsController"
+            "NotificationsController",
+            // Wave 4: Platform-level SystemAdmin endpoint — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
+            "TenantOnboardingController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

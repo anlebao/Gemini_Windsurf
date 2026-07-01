@@ -2,15 +2,20 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Models;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Onboarding;
 
 namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
     [Authorize(Policy = "RequireTenantAccess")]
-    public class OnboardingController(IOnboardingService onboardingService, ILogger<OnboardingController> logger) : ControllerBase
+    public class OnboardingController(
+        IOnboardingService onboardingService,
+        ITenantOnboardingService tenantOnboardingService,
+        ILogger<OnboardingController> logger) : ControllerBase
     {
         private readonly IOnboardingService _onboardingService = onboardingService;
+        private readonly ITenantOnboardingService _tenantOnboardingService = tenantOnboardingService;
         private readonly ILogger<OnboardingController> _logger = logger;
 
         [HttpGet("templates")]
