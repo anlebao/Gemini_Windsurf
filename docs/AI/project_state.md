@@ -44,9 +44,14 @@
 
 ## 2. Current Objective
 
-**[IDLE — Chờ mission mới]**
+**[TENANT ONBOARDING F&B — Planning Complete, Awaiting Approval]**
 
-Không có objective đang active. Sẵn sàng nhận nhiệm vụ mới.
+Implement generic tenant onboarding system for F&B (Food & Beverage) first, designed to support future industries (SPA, Hotel, Barber, Clothes, Healthy, Pet Shop) via pluggable `IIndustrySeedStrategy` abstraction.
+
+Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md`  
+Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md`
+
+**Status:** Planning done. **WAITING FOR USER APPROVAL** to implement Wave 1.
 
 ---
 
@@ -60,12 +65,16 @@ Không có objective đang active. Sẵn sàng nhận nhiệm vụ mới.
 - **KhachLink Startup Tests:** 8/8 PASS ✅
 - **Gateway Startup Tests:** PASS ✅
 - **Codebase health:** Clean. No known compile errors. No known architecture violations.
+- **Documentation:** Added detailed module docs: `docs/KhachLink_Documentation.md` and `docs/ShopERP_Documentation.md` ✅
+- **Planning:** Tenant Onboarding F&B master plan + 6 wave task cards created ✅
 
 ---
 
 ## 4. Next Actions
 
-_(Trống — chờ mission mới từ user)_
+1. **WAIT FOR USER APPROVAL** to start implementing Wave 1 (`wave1_tenant_onboarding_abstraction_task_card.md`).
+2. After approval: commit planning files, then begin TDD implementation of Wave 1.
+3. No code changes until explicit approval.
 
 ---
 
@@ -87,6 +96,10 @@ _(Trống — chờ mission mới từ user)_
 ---
 
 ## 6. History Log
+
+* [2026-07-01] **Objective Transition: IDLE → Tenant Onboarding F&B** — Archived IDLE state. New active objective: implement generic tenant onboarding for F&B with multi-industry extensibility (SPA, Hotel, Barber, Clothes, Healthy, Pet Shop). Master plan + 6 wave task cards created and committed. Status: Planning complete, awaiting approval. On `main`.
+
+* [2026-07-01] **Documentation Added** — Created detailed module documentation: `docs/KhachLink_Documentation.md` (KhachLink PWA: 13 sections covering routes, services, HTTP integrations, PWA/offline, UI Platform) and `docs/ShopERP_Documentation.md` (ShopERP admin: 14 sections covering accounting, EInvoice, order management, admin, DI, SQLite edge architecture). No code changes. On `main`.
 
 * [2026-07-02] **Architecture Test Fixes COMPLETE** — Fixed 4 pre-existing architecture test failures (stale tests from before Phase 2 monolith migration): (1) VA-CONSISTENCY-005: removed "corehub" from logging check list; (2) VA-CONSISTENCY-003: replaced corehub dependency assertion with postgres+nats; (3) Rule C: removed Npgsql from ShopERP.csproj (SQLite-only edge node); (4) VA-GATEWAY-003: excluded Program.cs (DI root) and obj/ from Gateway purity scan. Result: 28/28 arch tests PASS. Commits: `ed442ce`, `e831972` on `main`.
 
@@ -142,6 +155,15 @@ _(Trống — chờ mission mới từ user)_
 | `scripts/validate-docker-compose.ps1` | Docker compose validation script |
 | `scripts/validate-env-vars.ps1` | Environment variable validation script |
 | `.env.test` | CI test environment values |
+| `docs/KhachLink_Documentation.md` | Detailed documentation for KhachLink PWA module |
+| `docs/ShopERP_Documentation.md` | Detailed documentation for ShopERP admin module |
+| `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` | Master plan for Tenant Onboarding F&B (multi-industry generic) |
+| `docs/AI/tasks/wave1_tenant_onboarding_abstraction_task_card.md` | Wave 1: Generic abstraction + DTOs |
+| `docs/AI/tasks/wave2_fnb_seed_strategy_task_card.md` | Wave 2: F&B seed strategy |
+| `docs/AI/tasks/wave3_tenant_onboarding_orchestrator_task_card.md` | Wave 3: Onboarding orchestrator |
+| `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md` | Wave 4: Gateway API |
+| `docs/AI/tasks/wave5_tenant_onboarding_shoperp_ui_task_card.md` | Wave 5: ShopERP admin UI |
+| `docs/AI/tasks/wave6_tenant_onboarding_validation_docs_task_card.md` | Wave 6: Validation + docs |
 
 ---
 
@@ -164,6 +186,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — Archive Architecture Refactor (Phase 0-5). Reset for new mission.
+* **Last Updated:** 2026-07-01 — Archived IDLE state; set active objective to Tenant Onboarding F&B; added master plan + 6 wave task cards.
 * **Current Branch:** `main`
-* **Current Objective:** IDLE — chờ mission mới.
+* **Current Objective:** Tenant Onboarding F&B — Planning complete, awaiting approval.
