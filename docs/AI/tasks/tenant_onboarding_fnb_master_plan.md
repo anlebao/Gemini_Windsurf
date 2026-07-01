@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — Tenant Onboarding for F&B (Generic Multi-Industry)
 
-> **Status:** PLANNING — Pending review & approval before implementation
+> **Status:** COMPLETE ✅ — All 6 waves delivered
 > **Created:** 2026-07-01
-> **Last Updated:** 2026-07-01
+> **Last Updated:** 2026-07-02
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** JIT Planning + Pure Execution
@@ -110,22 +110,22 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W1-T1 | Create `IIndustrySeedStrategy` interface | `3_CoreHub/Services/Onboarding/IIndustrySeedStrategy.cs` | PENDING |
-| 2 | W1-T2 | Create `ITenantOnboardingService` interface | `3_CoreHub/Services/Onboarding/ITenantOnboardingService.cs` | PENDING |
-| 3 | W1-T3 | Create onboarding DTOs | `3_CoreHub/Services/Onboarding/Dtos/` | PENDING |
-| 4 | W1-T4 | Create stub strategies for future industries | `3_CoreHub/Services/Onboarding/Strategies/` | PENDING |
-| 5 | W1-T5 | Add unit tests for interfaces/DTOs | `6_Tests/VanAn.Core.Tests/Services/Onboarding/` | PENDING |
+| 1 | W1-T1 | Create `IIndustrySeedStrategy` interface | `3_CoreHub/Services/Onboarding/IIndustrySeedStrategy.cs` | COMPLETE ✅ |
+| 2 | W1-T2 | Create `ITenantOnboardingService` interface | `3_CoreHub/Services/Onboarding/ITenantOnboardingService.cs` | COMPLETE ✅ |
+| 3 | W1-T3 | Create onboarding DTOs | `3_CoreHub/Services/Onboarding/Dtos/` | COMPLETE ✅ |
+| 4 | W1-T4 | Create stub strategies for future industries | `3_CoreHub/Services/Onboarding/Strategies/` | COMPLETE ✅ |
+| 5 | W1-T5 | Add unit tests for interfaces/DTOs | `6_Tests/VanAn.Core.Tests/Services/Onboarding/` | COMPLETE ✅ |
 
 ### Entry criteria
-- [ ] Project builds successfully
-- [ ] Git status clean
-- [ ] Existing domain entities understood
+- [x] Project builds successfully
+- [x] Git status clean
+- [x] Existing domain entities understood
 
 ### Exit criteria
-- [ ] Interfaces defined with clear contracts
-- [ ] DTOs immutable (records)
-- [ ] Build: 0 errors
-- [ ] Unit tests for DTOs pass
+- [x] Interfaces defined with clear contracts
+- [x] DTOs immutable (records)
+- [x] Build: 0 errors
+- [x] Unit tests for DTOs pass
 
 ### Why first
 - Làm nền tảng generic cho tất cả các wave sau
@@ -145,22 +145,22 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W2-T1 | Implement `FnbSeedStrategy` | `3_CoreHub/Services/Onboarding/Strategies/FnbSeedStrategy.cs` | PENDING |
-| 2 | W2-T2 | Seed default F&B shop | `Shop` entity | PENDING |
-| 3 | W2-T3 | Seed F&B products (cafe, tea, food) | `Product` entity | PENDING |
-| 4 | W2-T4 | Seed F&B ingredients | `Ingredient` entity | PENDING |
-| 5 | W2-T5 | Seed recipes (product ↔ ingredient mapping) | `Recipe` entity | PENDING |
-| 6 | W2-T6 | Add unit tests for FnbSeedStrategy | `6_Tests/VanAn.Core.Tests/Services/Onboarding/FnbSeedStrategyTests.cs` | PENDING |
+| 1 | W2-T1 | Implement `FnbSeedStrategy` | `3_CoreHub/Services/Onboarding/Strategies/FnbSeedStrategy.cs` | COMPLETE ✅ |
+| 2 | W2-T2 | Seed default F&B shop | `Shop` entity | COMPLETE ✅ |
+| 3 | W2-T3 | Seed F&B products (cafe, tea, food) | `Product` entity | COMPLETE ✅ |
+| 4 | W2-T4 | Seed F&B ingredients | `Ingredient` entity | COMPLETE ✅ |
+| 5 | W2-T5 | Seed recipes (product ↔ ingredient mapping) | `Recipe` entity | COMPLETE ✅ |
+| 6 | W2-T6 | Add unit tests for FnbSeedStrategy | `6_Tests/VanAn.Core.Tests/Services/Onboarding/FnbSeedStrategyTests.cs` | COMPLETE ✅ |
 
 ### Entry criteria
-- [ ] Wave 1 merged
-- [ ] `IIndustrySeedStrategy` interface stable
+- [x] Wave 1 merged
+- [x] `IIndustrySeedStrategy` interface stable
 
 ### Exit criteria
-- [ ] F&B seed strategy creates shop + products + ingredients + recipes
-- [ ] Seed data validated by unit tests
-- [ ] Build: 0 errors
-- [ ] No direct SQL — dùng DbContext
+- [x] F&B seed strategy creates shop + products + ingredients + recipes
+- [x] Seed data validated by unit tests
+- [x] Build: 0 errors
+- [x] No direct SQL — dùng DbContext
 
 ### Why second
 - Cần generic abstraction từ Wave 1
@@ -180,23 +180,23 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W3-T1 | Implement `TenantOnboardingService` | `3_CoreHub/Services/Onboarding/TenantOnboardingService.cs` | PENDING |
-| 2 | W3-T2 | Orchestrate tenant creation | Gọi `TenantManagementService` | PENDING |
-| 3 | W3-T3 | Create default owner user | Gọi `UserManagementService` | PENDING |
-| 4 | W3-T4 | Create default permission groups | Gọi `PermissionGroupService` | PENDING |
-| 5 | W3-T5 | Assign owner to manager group | Gọi `RoleAssignmentService` | PENDING |
-| 6 | W3-T6 | Add unit tests for orchestrator | `6_Tests/VanAn.Core.Tests/Services/Onboarding/TenantOnboardingServiceTests.cs` | PENDING |
+| 1 | W3-T1 | Implement `TenantOnboardingService` | `3_CoreHub/Services/Onboarding/TenantOnboardingService.cs` | COMPLETE ✅ |
+| 2 | W3-T2 | Orchestrate tenant creation | Gọi `TenantManagementService` | COMPLETE ✅ |
+| 3 | W3-T3 | Create default owner user | Gọi `UserManagementService` | COMPLETE ✅ |
+| 4 | W3-T4 | Create default permission groups | Gọi `PermissionGroupService` | COMPLETE ✅ |
+| 5 | W3-T5 | Assign owner to manager group | Gọi `RoleAssignmentService` | COMPLETE ✅ |
+| 6 | W3-T6 | Add unit tests for orchestrator | `6_Tests/VanAn.Core.Tests/Services/Onboarding/TenantOnboardingServiceTests.cs` | COMPLETE ✅ |
 
 ### Entry criteria
-- [ ] Wave 2 merged
-- [ ] F&B seed strategy functional
-- [ ] User/Role/Permission services understood
+- [x] Wave 2 merged
+- [x] F&B seed strategy functional
+- [x] User/Role/Permission services understood
 
 ### Exit criteria
-- [ ] One call creates tenant + owner + seed + groups + role assignment
-- [ ] Owner user có thể đăng nhập
-- [ ] Build: 0 errors
-- [ ] Unit tests pass
+- [x] One call creates tenant + owner + seed + groups + role assignment
+- [x] Owner user có thể đăng nhập
+- [x] Build: 0 errors
+- [x] Unit tests pass
 
 ### Why third
 - Tích hợp các service thành một flow duy nhất
@@ -215,21 +215,21 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W4-T1 | Update `OnboardingController` | `2_Gateway/Controllers/OnboardingController.cs` | PENDING |
-| 2 | W4-T2 | Add `POST /api/v1/onboarding/tenants` endpoint | `OnboardingController` | PENDING |
-| 3 | W4-T3 | Add request/response DTOs for controller | `2_Gateway/Controllers/OnboardingController.cs` | PENDING |
-| 4 | W4-T4 | Register DI in Gateway | `2_Gateway/Program.cs` | PENDING |
-| 5 | W4-T5 | Add integration tests | `6_Tests/VanAn.Integration.Tests/TenantOnboardingApiTests.cs` | PENDING |
+| 1 | W4-T1 | Update `OnboardingController` | `2_Gateway/Controllers/OnboardingController.cs` | COMPLETE ✅ |
+| 2 | W4-T2 | Add `POST /api/v1/onboarding/tenants` endpoint | `OnboardingController` | COMPLETE ✅ |
+| 3 | W4-T3 | Add request/response DTOs for controller | `2_Gateway/Controllers/OnboardingController.cs` | COMPLETE ✅ |
+| 4 | W4-T4 | Register DI in Gateway | `2_Gateway/Program.cs` | COMPLETE ✅ |
+| 5 | W4-T5 | Add integration tests | `6_Tests/VanAn.Integration.Tests/TenantOnboardingApiTests.cs` | COMPLETE ✅ |
 
 ### Entry criteria
-- [ ] Wave 3 merged
-- [ ] `TenantOnboardingService` functional
+- [x] Wave 3 merged
+- [x] `TenantOnboardingService` functional
 
 ### Exit criteria
-- [ ] API endpoint tạo tenant onboarding qua Gateway
-- [ ] Integration tests pass
-- [ ] Build: 0 errors
-- [ ] Gateway vẫn stateless (không business logic)
+- [x] API endpoint tạo tenant onboarding qua Gateway
+- [x] Integration tests pass
+- [x] Build: 0 errors
+- [x] Gateway vẫn stateless (không business logic)
 
 ### Why fourth
 - Cung cấp API surface cho external callers
@@ -248,21 +248,21 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W5-T1 | Add industry selection to TenantManagement | `5_WebApps/ShopERP/Components/Pages/Admin/TenantManagement.razor` | PENDING |
-| 2 | W5-T2 | Add owner credentials form | `TenantManagement.razor` | PENDING |
-| 3 | W5-T3 | Call onboarding API from UI | `TenantManagement.razor` + `HttpClient` | PENDING |
-| 4 | W5-T4 | Display onboarding result | `TenantManagement.razor` | PENDING |
-| 5 | W5-T5 | Add KhachLinkStartupTests assertion | `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` (nếu cần service mới) | PENDING |
+| 1 | W5-T1 | Add industry selection to TenantManagement | `5_WebApps/ShopERP/Components/Pages/Admin/TenantManagement.razor` | COMPLETE ✅ |
+| 2 | W5-T2 | Add owner credentials form | `TenantManagement.razor` | COMPLETE ✅ |
+| 3 | W5-T3 | Call onboarding API from UI | `TenantManagement.razor` + `HttpClient` | COMPLETE ✅ |
+| 4 | W5-T4 | Display onboarding result | `TenantManagement.razor` | COMPLETE ✅ |
+| 5 | W5-T5 | Add KhachLinkStartupTests assertion | `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` (nếu cần service mới) | COMPLETE ✅ |
 
 ### Entry criteria
-- [ ] Wave 4 merged
-- [ ] API endpoint functional
+- [x] Wave 4 merged
+- [x] API endpoint functional
 
 ### Exit criteria
-- [ ] SystemAdmin có thể tạo tenant với industry selection
-- [ ] UI hiển thị kết quả onboarding
-- [ ] Build: 0 errors
-- [ ] Sử dụng UI Platform components
+- [x] SystemAdmin có thể tạo tenant với industry selection
+- [x] UI hiển thị kết quả onboarding
+- [x] Build: 0 errors
+- [x] Sử dụng UI Platform components
 
 ### Why fifth
 - Cung cấp giao diện cho người dùng cuối
@@ -281,23 +281,25 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W6-T1 | Run `ci-local.ps1` | Local CI | PENDING |
-| 2 | W6-T2 | Fix any build/test failures | Various | PENDING |
-| 3 | W6-T3 | Add integration test for full onboarding flow | `6_Tests/VanAn.Integration.Tests/TenantOnboardingIntegrationTests.cs` | PENDING |
-| 4 | W6-T4 | Update `docs/ShopERP_Documentation.md` | `docs/ShopERP_Documentation.md` | PENDING |
-| 5 | W6-T5 | Update `project_state.md` | `docs/AI/project_state.md` | PENDING |
-| 6 | W6-T6 | Architecture test review | `6_Tests/VanAn.Architecture.Tests/` | PENDING |
+| 1 | W6-T1 | Run `ci-local.ps1` | Local CI | COMPLETE ✅ |
+| 2 | W6-T2 | Fix any build/test failures | Various | COMPLETE ✅ |
+| 3 | W6-T3 | Add integration test for full onboarding flow | `6_Tests/VanAn.Integration.Tests/TenantOnboardingIntegrationTests.cs` | COMPLETE ✅ |
+| 4 | W6-T4 | Update `docs/ShopERP_Documentation.md` | `docs/ShopERP_Documentation.md` | COMPLETE ✅ |
+| 5 | W6-T5 | Update `project_state.md` | `docs/AI/project_state.md` | COMPLETE ✅ |
+| 6 | W6-T6 | Architecture test review | `6_Tests/VanAn.Architecture.Tests/` | COMPLETE ✅ (28/28 PASS) |
 
 ### Entry criteria
-- [ ] All previous waves merged
-- [ ] Code complete
+- [x] All previous waves merged
+- [x] Code complete
 
 ### Exit criteria
-- [ ] `ci-local.ps1` pass
-- [ ] `dotnet build VanAn.sln` 0 errors
-- [ ] Architecture tests pass
-- [ ] Documentation updated
-- [ ] `project_state.md` updated
+- [x] `ci-local.ps1` pass
+- [x] `dotnet build VanAn.sln` 0 errors
+- [x] Architecture tests pass
+- [x] Documentation updated
+- [x] `project_state.md` updated
+
+**WAVE 6 STATUS: COMPLETE ✅**
 
 ### Why last
 - Đảm bảo toàn bộ feature hoạt động đúng

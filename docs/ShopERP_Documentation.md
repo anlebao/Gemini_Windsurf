@@ -155,7 +155,7 @@
 ### 3.5 Quản trị hệ thống (Admin)
 | Route | Tên | Mô tả | Phân quyền |
 |---|---|---|---|
-| `/admin/tenants` | **TenantManagement** | Quản lý tenant | SystemAdmin |
+| `/admin/tenants` | **TenantManagement** | Quản lý tenant + Onboarding | SystemAdmin |
 | `/admin/users` | **UserManagement** | Quản lý người dùng | Owner |
 | `/admin/permission-groups` | **PermissionGroupManagement** | Nhóm quyền | Owner |
 | `/admin/audit-trail` | **AuditTrail** | Nhật ký audit | Admin |
@@ -240,6 +240,24 @@
 - `NatsSyncWorker` — background service đồng bộ với NATS (kích hoạt bằng `--sync-worker`)
 - `SimpleOutboxProcessor` — đã tạm disable
 
+### 4.13 Tenant Onboarding (Multi-Industry)
+- **UI:** `TenantManagement.razor` — modal "+ Tạo Tenant + Onboarding" với industry selection (F&B enabled)
+- **Service:** `TenantOnboardingApiClient` — Gateway API client với SystemAdmin JWT minting
+- **Gateway API:** `POST /api/v1/onboarding/tenants` — SystemAdmin Bearer JWT required
+- **Orchestrator:** `TenantOnboardingService` (CoreHub) — single-call flow: tenant → owner → role → seed → groups → assignment
+- **Seed Strategy:** `FnbSeedStrategy` — 1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory
+- **Permission Groups:** 4 default groups (Quản lý, Thu ngân, Bếp, Kho) with Owner assigned to Quản lý
+- **Extensibility:** Generic `IIndustrySeedStrategy` interface for SPA, Hotel, Barber, Clothes, Healthy, Pet Shop
+- **Files:**
+  - `3_CoreHub/Services/Onboarding/IIndustrySeedStrategy.cs`, `ITenantOnboardingService.cs`
+  - `3_CoreHub/Services/Onboarding/TenantOnboardingService.cs`
+  - `3_CoreHub/Services/Onboarding/Strategies/FnbSeedStrategy.cs`
+  - `3_CoreHub/Services/Onboarding/Dtos/OnboardingDtos.cs`
+  - `2_Gateway/Controllers/TenantOnboardingController.cs`
+  - `5_WebApps/ShopERP/Services/TenantOnboardingApiClient.cs`
+  - `5_WebApps/ShopERP/Components/Pages/Admin/TenantManagement.razor`
+  - `6_Tests/VanAn.Integration.Tests/TenantOnboardingIntegrationTests.cs`
+
 ---
 
 ## 5. Dependency Injection (Program.cs)
@@ -269,6 +287,7 @@
 | `IApiKeyManagementService` | Scoped | API keys |
 | `IDashboardService` | Scoped | Dashboard metrics |
 | `ITenantManagementService` | Scoped | Tenant CRUD |
+| `ITenantOnboardingService` | Scoped | Tenant onboarding orchestrator |
 | `INatsEventPublisher` | Singleton | NATS event publishing |
 
 ### ShopERP-specific Services
