@@ -92,7 +92,7 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** (pending push — architecture test fixes)
+- **Last commit:** `ed442ce` — fix(arch-tests): fix 4 pre-existing architecture test failures
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Phase 0–4 Complete:** (see History Log)
 - **Architecture Test Fix Session COMPLETE:**
