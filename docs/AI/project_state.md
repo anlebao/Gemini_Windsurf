@@ -44,9 +44,9 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — COMPLETE ✅]**
+**[TENANT ONBOARDING F&B — COMPLETE & MERGED ✅]**
 
-All 6 waves delivered:
+All 6 waves delivered and merged to main:
 - Wave 1: Generic abstraction (interfaces, DTOs, stub strategies)
 - Wave 2: F&B seed strategy (1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory)
 - Wave 3: Orchestrator service (tenant → user → role → seed → groups → assignment)
@@ -54,18 +54,20 @@ All 6 waves delivered:
 - Wave 5: ShopERP Admin UI (onboarding modal with industry selection)
 - Wave 6: Validation, tests & documentation (integration tests, docs updated)
 
+Merge commit: `3123b6b` on main branch
+
 Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` (COMPLETE ✅)
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/tenant-onboarding-wave6-validation-docs`
-- **Last commit:** TBD — [WAVE 6] Tenant onboarding validation and docs
+- **Branch:** `main`
+- **Last commit:** `3123b6b` — [WAVE 6] Tenant onboarding validation, tests and documentation
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
 - **ci-local:** PASSED ✅ (131 integration tests, 28 architecture tests)
-- **Tenant Onboarding Feature:** COMPLETE ✅ — All 6 waves delivered
+- **Tenant Onboarding Feature:** COMPLETE & MERGED ✅ — All 6 waves on main
 - **Integration Tests:** 131/131 PASS ✅ (includes 2 new TenantOnboardingIntegrationTests)
 - **Architecture Tests:** 28/28 PASS ✅
 
@@ -73,9 +75,8 @@ Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` (COMPLETE ✅)
 
 ## 4. Next Actions
 
-1. **Commit Wave 6** — Finalize commit for Wave 6 validation & documentation.
-2. **Merge to main** — Merge feature branch to main after review.
-3. **Next Feature** — TBD (awaiting product owner direction)
+1. **Next Feature** — TBD (awaiting product owner direction)
+2. **Push to origin** — Push main branch to remote if needed
 
 ---
 
@@ -98,7 +99,7 @@ Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` (COMPLETE ✅)
 
 ## 6. History Log
 
-* [2026-07-02] **Tenant Onboarding Feature COMPLETE — All 6 Waves Delivered** — Wave 6: Added `TenantOnboardingIntegrationTests` with 2 E2E integration tests (full flow + multi-tenant isolation), fixed EF Core LINQ translation issue with strongly-typed TenantId, updated `docs/ShopERP_Documentation.md` with section 4.13 Tenant Onboarding. ci-local PASSED (131 integration tests, 28 architecture tests). Master plan marked COMPLETE. Branch: `feature/tenant-onboarding-wave6-validation-docs`.
+* [2026-07-02] **Tenant Onboarding Feature COMPLETE & MERGED — All 6 Waves on Main** — Wave 6: Added `TenantOnboardingIntegrationTests` with 2 E2E integration tests (full flow + multi-tenant isolation), fixed EF Core LINQ translation issue with strongly-typed TenantId, updated `docs/ShopERP_Documentation.md` with section 4.13 Tenant Onboarding. ci-local PASSED (131 integration tests, 28 architecture tests). Master plan marked COMPLETE. Fast-forward merged to main (commit 3123b6b). Feature branch deleted.
 
 * [2026-07-02] **Wave 5 COMPLETE — ShopERP Admin UI for Tenant Onboarding** — Updated `TenantManagement.razor` with “+ Tạo Tenant + Onboarding” modal: industry selection (F&B enabled), owner credentials, form validation, success/error feedback. Added `TenantOnboardingApiClient` in ShopERP that mints a SystemAdmin JWT for the current user and calls `POST /api/v1/onboarding/tenants`. Added missing UI Platform components: `VanAForm`, `VanAInput`, `VanASelect`, `VanASpinner`. Registered `GatewayClient` named HttpClient in `ShopERP/Program.cs`. `dotnet build VanAn.sln` 0 errors, guard-check PASSED. Branch: `feature/tenant-onboarding-wave5-shoperp-ui`.
 
@@ -199,6 +200,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — Tenant Onboarding Feature COMPLETE: all 6 waves delivered (abstraction, F&B seed, orchestrator, Gateway API, ShopERP UI, validation/docs). Added 2 E2E integration tests, fixed EF Core LINQ translation issue, updated documentation. ci-local PASSED (131 integration tests, 28 architecture tests).
-* **Current Branch:** `feature/tenant-onboarding-wave6-validation-docs`
-* **Current Objective:** Tenant Onboarding F&B — COMPLETE ✅ (awaiting commit & merge).
+* **Last Updated:** 2026-07-02 — Tenant Onboarding Feature COMPLETE & MERGED: all 6 waves delivered and merged to main (abstraction, F&B seed, orchestrator, Gateway API, ShopERP UI, validation/docs). Added 2 E2E integration tests, fixed EF Core LINQ translation issue, updated documentation. ci-local PASSED (131 integration tests, 28 architecture tests).
+* **Current Branch:** `main`
+* **Current Objective:** Tenant Onboarding F&B — COMPLETE & MERGED ✅.
