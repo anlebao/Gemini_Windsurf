@@ -44,37 +44,38 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — Planning Complete, Awaiting Approval]**
+**[TENANT ONBOARDING F&B — Wave 1 COMPLETE, Wave 2 Ready]**
 
 Implement generic tenant onboarding system for F&B (Food & Beverage) first, designed to support future industries (SPA, Hotel, Barber, Clothes, Healthy, Pet Shop) via pluggable `IIndustrySeedStrategy` abstraction.
 
 Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md`  
 Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md`
 
-**Status:** Planning done. **WAITING FOR USER APPROVAL** to implement Wave 1.
+**Status:** Wave 1 COMPLETE ✅ (commit `66c6441` on `feature/tenant-onboarding-wave1-abstraction`). Ready for Wave 2.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main`
-- **Last commit:** `e831972` — docs(state): update project_state.md with commit hash ed442ce
+- **Branch:** `feature/tenant-onboarding-wave1-abstraction`
+- **Last commit:** `66c6441` — [WAVE 1] Tenant onboarding generic abstraction
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Architecture Tests:** 28/28 PASS ✅
-- **Unit Tests:** 678/678 PASS ✅
+- **Unit Tests (Core):** 730/730 PASS ✅ (+42 new Wave 1 tests)
 - **KhachLink Startup Tests:** 8/8 PASS ✅
 - **Gateway Startup Tests:** PASS ✅
 - **Codebase health:** Clean. No known compile errors. No known architecture violations.
-- **Documentation:** Added detailed module docs: `docs/KhachLink_Documentation.md` and `docs/ShopERP_Documentation.md` ✅
-- **Planning:** Tenant Onboarding F&B master plan + 6 wave task cards created ✅
+- **Wave 1:** COMPLETE ✅ — Interfaces + DTOs + 6 stub strategies + 42 unit tests
 
 ---
 
 ## 4. Next Actions
 
-1. **WAIT FOR USER APPROVAL** to start implementing Wave 1 (`wave1_tenant_onboarding_abstraction_task_card.md`).
-2. After approval: commit planning files, then begin TDD implementation of Wave 1.
-3. No code changes until explicit approval.
+1. **Start Wave 2** (`wave2_fnb_seed_strategy_task_card.md`) on `feature/tenant-onboarding-wave2-fnb-seed`.
+   - Implement `FnbSeedStrategy`: seeds Shop, Products (cafe/tea/food), Ingredients, Recipes, Inventory for a new F&B tenant.
+   - Entry criteria: Wave 1 merged (interfaces stable) ✅
+2. After Wave 2: proceed to Wave 3 (TenantOnboardingService orchestrator).
+3. Merge wave branches per plan: wave1 → wave2 → wave3 → ... → main.
 
 ---
 
@@ -96,6 +97,8 @@ Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md
 ---
 
 ## 6. History Log
+
+* [2026-07-01] **Wave 1 COMPLETE — Tenant Onboarding Generic Abstraction** — Created `IIndustrySeedStrategy`, `ITenantOnboardingService`, immutable DTOs (OnboardTenantRequest, TenantOnboardingResult, IndustrySeedResult), and 6 stub strategies (SPA, HOTEL, BARBER, CLOTHES, HEALTHY, PETSHOP). Added 42 unit tests (all pass). Build: 0 errors, 730/730 tests pass. Commit: `66c6441` on `feature/tenant-onboarding-wave1-abstraction`.
 
 * [2026-07-01] **Objective Transition: IDLE → Tenant Onboarding F&B** — Archived IDLE state. New active objective: implement generic tenant onboarding for F&B with multi-industry extensibility (SPA, Hotel, Barber, Clothes, Healthy, Pet Shop). Master plan + 6 wave task cards created and committed. Status: Planning complete, awaiting approval. On `main`.
 
@@ -134,7 +137,7 @@ Task cards: Wave 1-6 trong `docs/AI/tasks/wave*_tenant_onboarding_*_task_card.md
 | Suite | Count | Status |
 |-------|-------|--------|
 | Architecture Tests | 28 | ✅ All PASS |
-| Unit Tests (Core) | 661 | ✅ All PASS |
+| Unit Tests (Core) | 703 (+42 Wave 1) | ✅ All PASS |
 | Unit Tests (Unit) | 17 | ✅ All PASS |
 | KhachLink Startup | 8 | ✅ All PASS |
 | Gateway Startup | ~5 | ✅ All PASS |
@@ -186,6 +189,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-01 — Archived IDLE state; set active objective to Tenant Onboarding F&B; added master plan + 6 wave task cards.
-* **Current Branch:** `main`
-* **Current Objective:** Tenant Onboarding F&B — Planning complete, awaiting approval.
+* **Last Updated:** 2026-07-01 — Wave 1 complete: generic abstraction (IIndustrySeedStrategy, ITenantOnboardingService, DTOs, 6 stubs, 42 tests). Commit 66c6441.
+* **Current Branch:** `feature/tenant-onboarding-wave1-abstraction`
+* **Current Objective:** Tenant Onboarding F&B — Wave 1 COMPLETE, ready for Wave 2 (FnbSeedStrategy).
