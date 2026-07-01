@@ -126,8 +126,13 @@ namespace VanAn.Architecture.Tests
                 return; // Skip if directory doesn't exist
             }
 
-            // Get all C# files in Gateway project
-            var gatewayFiles = Directory.GetFiles(gatewayPath, "*.cs", SearchOption.AllDirectories);
+            // Get all C# files in Gateway project.
+            // Exclude Program.cs (DI composition root — legitimately registers in-process CoreHub DbContext).
+            // Exclude obj/ directory (build-generated files, not source code).
+            var gatewayFiles = Directory.GetFiles(gatewayPath, "*.cs", SearchOption.AllDirectories)
+                .Where(f => !f.EndsWith("Program.cs", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+                .ToArray();
             
             // Act & Assert - Check for forbidden patterns
             var forbiddenPatterns = new[]

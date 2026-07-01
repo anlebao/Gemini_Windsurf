@@ -163,12 +163,14 @@ namespace VanAn.Architecture.Tests
             Assert.True(gatewaySection.Contains("depends_on:"),
                 "VA-CONSISTENCY-003: Gateway must have depends_on section in docker-compose.prod.yml");
 
-            // Gateway depends on CoreHub (this is the current architecture)
-            // Note: This test validates the CURRENT architecture, not whether it's correct
-            // Phase 2 will fix the actual architecture mismatch
-            var hasCoreHubDependency = gatewaySection.Contains("corehub");
-            Assert.True(hasCoreHubDependency,
-                "VA-CONSISTENCY-003: Gateway depends_on must include corehub in docker-compose.prod.yml");
+            // Phase 2 Complete: CoreHub is now in-process (monolith). Gateway depends on postgres + nats directly.
+            // Gateway MUST NOT depend on corehub (corehub is no longer a standalone Docker service).
+            Assert.False(gatewaySection.Contains("corehub"),
+                "VA-CONSISTENCY-003: Gateway must NOT depend on corehub — corehub is in-process (Phase 2 monolith)");
+            Assert.True(gatewaySection.Contains("postgres"),
+                "VA-CONSISTENCY-003: Gateway depends_on must include postgres in docker-compose.prod.yml");
+            Assert.True(gatewaySection.Contains("nats"),
+                "VA-CONSISTENCY-003: Gateway depends_on must include nats in docker-compose.prod.yml");
         }
 
         /// <summary>
@@ -235,7 +237,9 @@ namespace VanAn.Architecture.Tests
             var content = File.ReadAllText(dockerComposePath);
 
             // Act & Assert - Check for logging configuration in main application services
-            var appServices = new[] { "corehub", "gateway", "shoperp", "khachlink" };
+            // NOTE: corehub is NOT a standalone Docker service (Phase 2 — in-process monolith inside Gateway).
+            // Only validate services that actually exist in docker-compose.prod.yml.
+            var appServices = new[] { "gateway", "shoperp", "khachlink" };
             var servicesWithoutLogging = new System.Collections.Generic.List<string>();
 
             foreach (var serviceName in appServices)
