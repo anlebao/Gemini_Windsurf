@@ -483,3 +483,21 @@ docs/.cache/
 . v s / 
  
  
+# ========================================
+# SQLite WAL mode runtime files
+# ========================================
+*.db-shm
+*.db-wal
+
+# ========================================
+# Playwright generated reports (auto-generated on every test run)
+# ========================================
+6_Testing/reports/
+6_Testing/6_Testing/reports/
+
+# ========================================
+# Local debug / ops scripts (not part of source)
+# ========================================
+check-endpoints.ps1
+compose_history.txt
+deploy_log.txt
