@@ -4,9 +4,11 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Services.Onboarding
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @inject ITenantManagementService TenantService
+@inject TenantOnboardingApiClient OnboardingApiClient
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
 @inject NavigationManager NavigationManager
@@ -20,6 +22,9 @@
         <div class="header-actions">
             <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
                 + Tạo tenant mới
+            </VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="OpenOnboardingModal">
+                + Tạo Tenant + Onboarding
             </VanAButton>
             <VanAButton Variant="secondary" Size="small" OnClick="LoadTenants">
                 Làm mới
@@ -156,6 +161,103 @@
         </VanAModal>
     }
 
+    <!-- Onboarding modal -->
+    @if (_showOnboardingModal)
+    {
+        <VanAModal Title="Tạo Tenant + Onboarding" OnClose="CloseOnboardingModal" Size="large">
+            @if (_onboardingResult is not null)
+            {
+                <VanACard Header="Onboarding thành công">
+                    <VanAAlert Type="success" Message="Tenant và owner đã được tạo thành công." Dismissible="false" />
+                    <div class="onboarding-result">
+                        <p><strong>Tenant ID:</strong> @_onboardingResult.TenantId</p>
+                        <p><strong>Owner ID:</strong> @_onboardingResult.OwnerUserId</p>
+                        <p><strong>Shops:</strong> @_onboardingResult.ShopsCreated</p>
+                        <p><strong>Products:</strong> @_onboardingResult.ProductsCreated</p>
+                        <p><strong>Ingredients:</strong> @_onboardingResult.IngredientsCreated</p>
+                        <p><strong>Recipes:</strong> @_onboardingResult.RecipesCreated</p>
+                        <p><strong>Permission groups:</strong> @_onboardingResult.PermissionGroupsCreated</p>
+                    </div>
+                </VanACard>
+                <div class="modal-actions">
+                    <VanAButton Variant="primary" OnClick="CloseOnboardingModalAndRefresh">Đóng</VanAButton>
+                </div>
+            }
+            else
+            {
+                <VanAForm OnValidSubmit="HandleOnboardingSubmit" aria-label="Tạo tenant onboarding">
+                    <div class="form-row">
+                        <div class="form-group form-group-half">
+                            <label for="onboarding-name">Tên tenant *</label>
+                            <VanAInput Id="onboarding-name" @bind-Value="_onboardingForm.Name" Placeholder="Nhập tên doanh nghiệp..." AriaLabel="Tên tenant" Required="true" />
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="onboarding-businesstype">Loại hình *</label>
+                            <VanASelect Id="onboarding-businesstype" @bind-Value="_onboardingForm.BusinessTypeStr" Options="_businessTypeOptions" AriaLabel="Loại hình doanh nghiệp" />
+                        </div>
+                    </div>
+                    @if (_onboardingForm.BusinessTypeStr == "HouseholdBusiness")
+                    {
+                        <div class="form-group">
+                            <label for="onboarding-hkdgroup">Nhóm HKD *</label>
+                            <VanASelect Id="onboarding-hkdgroup" @bind-Value="_onboardingForm.HKDGroupStr" Options="_hkdGroupOptions" AriaLabel="Nhóm hộ kinh doanh" />
+                        </div>
+                    }
+                    <div class="form-row">
+                        <div class="form-group form-group-half">
+                            <label for="onboarding-email">Email liên hệ</label>
+                            <VanAInput Id="onboarding-email" Type="email" @bind-Value="_onboardingForm.ContactEmail" Placeholder="email@example.com" AriaLabel="Email liên hệ" />
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="onboarding-phone">Số điện thoại</label>
+                            <VanAInput Id="onboarding-phone" @bind-Value="_onboardingForm.ContactPhone" Placeholder="+84..." AriaLabel="Số điện thoại" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-address">Địa chỉ</label>
+                        <VanAInput Id="onboarding-address" @bind-Value="_onboardingForm.Address" AriaLabel="Địa chỉ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-taxcode">Mã số thuế</label>
+                        <VanAInput Id="onboarding-taxcode" @bind-Value="_onboardingForm.TaxCode" AriaLabel="Mã số thuế" />
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-industry">Ngành nghề *</label>
+                        <VanASelect Id="onboarding-industry" @bind-Value="_onboardingForm.IndustryCode" Options="_industryOptions" AriaLabel="Ngành nghề" />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group form-group-half">
+                            <label for="onboarding-ownerusername">Tên đăng nhập owner *</label>
+                            <VanAInput Id="onboarding-ownerusername" @bind-Value="_onboardingForm.OwnerUsername" Placeholder="owner@tenant.vn" AriaLabel="Tên đăng nhập owner" Required="true" />
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="onboarding-ownerpassword">Mật khẩu owner *</label>
+                            <VanAInput Id="onboarding-ownerpassword" Type="password" @bind-Value="_onboardingForm.OwnerPassword" Placeholder="Tối thiểu 8 ký tự" AriaLabel="Mật khẩu owner" Required="true" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="onboarding-ownerdisplayname">Tên hiển thị owner *</label>
+                        <VanAInput Id="onboarding-ownerdisplayname" @bind-Value="_onboardingForm.OwnerDisplayName" Placeholder="Chủ doanh nghiệp" AriaLabel="Tên hiển thị owner" Required="true" />
+                    </div>
+                    @if (_onboardingValidationErrors.Count > 0)
+                    {
+                        <VanAAlert Type="error" Message="@string.Join(" ", _onboardingValidationErrors)" Dismissible="false" />
+                    }
+                    <div class="modal-actions">
+                        <VanAButton Variant="primary" Type="submit" IsLoading="@_isOnboardingSaving">Tạo + Onboarding</VanAButton>
+                        <VanAButton Variant="outline" OnClick="CloseOnboardingModal">Huỷ</VanAButton>
+                    </div>
+                </VanAForm>
+                @if (_isOnboardingSaving)
+                {
+                    <div class="onboarding-loading">
+                        <VanASpinner Size="medium" Label="Đang tạo tenant..." />
+                    </div>
+                }
+            }
+        </VanAModal>
+    }
+
     <!-- Suspend modal -->
     @if (_showSuspendModal && _selectedTenant is not null)
     {
@@ -202,6 +304,37 @@
     // Create modal
     private bool _showCreateModal;
     private CreateForm _createForm = new();
+
+    // Onboarding modal
+    private bool _showOnboardingModal;
+    private bool _isOnboardingSaving;
+    private OnboardingForm _onboardingForm = new();
+    private TenantOnboardingResult? _onboardingResult;
+    private List<string> _onboardingValidationErrors = [];
+
+    private readonly List<VanASelect.SelectOption> _businessTypeOptions =
+    [
+        new("Company", "Công ty"),
+        new("HouseholdBusiness", "Hộ kinh doanh")
+    ];
+
+    private readonly List<VanASelect.SelectOption> _hkdGroupOptions =
+    [
+        new("Group1", "Nhóm 1"),
+        new("Group2", "Nhóm 2"),
+        new("Group3", "Nhóm 3")
+    ];
+
+    private readonly List<VanASelect.SelectOption> _industryOptions =
+    [
+        new("F&B", "F&B - Ăn uống"),
+        new("SPA", "SPA - Chưa triển khai"),
+        new("HOTEL", "HOTEL - Chưa triển khai"),
+        new("BARBER", "BARBER - Chưa triển khai"),
+        new("CLOTHES", "CLOTHES - Chưa triển khai"),
+        new("HEALTHY", "HEALTHY - Chưa triển khai"),
+        new("PETSHOP", "PETSHOP - Chưa triển khai")
+    ];
 
     // Suspend / deactivate modals
     private bool _showSuspendModal;
@@ -267,6 +400,74 @@
             ShowAlert("error", $"Lỗi: {ex.Message}");
         }
         finally { _isSaving = false; }
+    }
+
+    // ── Onboarding ────────────────────────────────────────────────────────────
+    private void OpenOnboardingModal() { _onboardingForm = new(); _onboardingResult = null; _onboardingValidationErrors = []; _showOnboardingModal = true; }
+    private void CloseOnboardingModal() => _showOnboardingModal = false;
+
+    private void CloseOnboardingModalAndRefresh()
+    {
+        _showOnboardingModal = false;
+        _ = LoadTenants();
+    }
+
+    private bool ValidateOnboardingForm()
+    {
+        _onboardingValidationErrors = [];
+        if (string.IsNullOrWhiteSpace(_onboardingForm.Name))
+            _onboardingValidationErrors.Add("Tên tenant là bắt buộc.");
+        if (string.IsNullOrWhiteSpace(_onboardingForm.OwnerUsername))
+            _onboardingValidationErrors.Add("Tên đăng nhập owner là bắt buộc.");
+        if (string.IsNullOrWhiteSpace(_onboardingForm.OwnerPassword) || _onboardingForm.OwnerPassword.Length < 8)
+            _onboardingValidationErrors.Add("Mật khẩu owner phải có ít nhất 8 ký tự.");
+        if (string.IsNullOrWhiteSpace(_onboardingForm.OwnerDisplayName))
+            _onboardingValidationErrors.Add("Tên hiển thị owner là bắt buộc.");
+        if (!string.IsNullOrWhiteSpace(_onboardingForm.ContactEmail) && !_onboardingForm.ContactEmail.Contains('@'))
+            _onboardingValidationErrors.Add("Email liên hệ không hợp lệ.");
+        if (_onboardingForm.BusinessTypeStr == "HouseholdBusiness" && string.IsNullOrWhiteSpace(_onboardingForm.HKDGroupStr))
+            _onboardingValidationErrors.Add("Nhóm HKD là bắt buộc khi chọn Hộ kinh doanh.");
+        return _onboardingValidationErrors.Count == 0;
+    }
+
+    private async Task HandleOnboardingSubmit()
+    {
+        if (!ValidateOnboardingForm())
+            return;
+
+        _isOnboardingSaving = true;
+        try
+        {
+            var businessType = _onboardingForm.BusinessTypeStr == "HouseholdBusiness"
+                ? BusinessType.HouseholdBusiness
+                : BusinessType.Company;
+
+            HKDGroup? hkdGroup = businessType == BusinessType.HouseholdBusiness
+                ? Enum.TryParse<HKDGroup>(_onboardingForm.HKDGroupStr, out var g) ? g : HKDGroup.Group1
+                : null;
+
+            var request = new OnboardTenantRequest(
+                _onboardingForm.Name,
+                businessType,
+                hkdGroup,
+                _onboardingForm.ContactEmail,
+                _onboardingForm.ContactPhone,
+                _onboardingForm.Address,
+                _onboardingForm.TaxCode,
+                _onboardingForm.IndustryCode,
+                _onboardingForm.OwnerUsername,
+                _onboardingForm.OwnerPassword,
+                _onboardingForm.OwnerDisplayName);
+
+            _onboardingResult = await OnboardingApiClient.OnboardAsync(request);
+            ShowAlert("success", $"Tenant onboarding '{_onboardingForm.Name}' thành công.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create tenant onboarding");
+            _onboardingValidationErrors = [ $"Lỗi: {ex.Message}" ];
+        }
+        finally { _isOnboardingSaving = false; }
     }
 
     // ── Suspend ───────────────────────────────────────────────────────────────
@@ -341,5 +542,20 @@
         public string? ContactPhone { get; set; }
         public string? Address { get; set; }
         public string? TaxCode { get; set; }
+    }
+
+    private sealed class OnboardingForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string BusinessTypeStr { get; set; } = "Company";
+        public string HKDGroupStr { get; set; } = "Group1";
+        public string? ContactEmail { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? Address { get; set; }
+        public string? TaxCode { get; set; }
+        public string IndustryCode { get; set; } = "F&B";
+        public string OwnerUsername { get; set; } = string.Empty;
+        public string OwnerPassword { get; set; } = string.Empty;
+        public string OwnerDisplayName { get; set; } = string.Empty;
     }
 }

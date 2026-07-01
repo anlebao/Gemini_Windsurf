@@ -49,3 +49,28 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Wave 5: Tenant onboarding form layout */
+.form-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.form-group-half {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 200px;
+}
+
+.onboarding-result {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+    margin-top: 1rem;
+}
+
+.onboarding-loading {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}

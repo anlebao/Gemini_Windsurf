@@ -1,0 +1,56 @@
+@* VanASelect Component - Wave 5: lightweight select wrapper for UI Platform *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<select id="@Id"
+        class="vanan-select @AdditionalClasses"
+        value="@Value"
+        disabled="@Disabled"
+        aria-label="@AriaLabel"
+        @onchange="HandleChange"
+        @attributes="AdditionalAttributes">
+    @foreach (var option in Options)
+    {
+        <option value="@option.Value">@option.Label</option>
+    }
+</select>
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<SelectOption> Options { get; set; } = [];
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string AdditionalClasses { get; set; } = string.Empty;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString() ?? string.Empty;
+        if (Value != newValue)
+        {
+            Value = newValue;
+            if (ValueChanged.HasDelegate)
+            {
+                await ValueChanged.InvokeAsync(newValue);
+            }
+        }
+    }
+
+    public sealed record SelectOption(string Value, string Label);
+}

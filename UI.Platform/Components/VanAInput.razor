@@ -1,0 +1,58 @@
+@* VanAInput Component - Wave 5: lightweight input wrapper for UI Platform *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<input id="@Id"
+       class="vanan-input @AdditionalClasses"
+       type="@Type"
+       value="@Value"
+       placeholder="@Placeholder"
+       disabled="@Disabled"
+       required="@Required"
+       aria-label="@AriaLabel"
+       @onchange="HandleChange"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Type { get; set; } = "text";
+
+    [Parameter]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool Required { get; set; }
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string AdditionalClasses { get; set; } = string.Empty;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString() ?? string.Empty;
+        if (Value != newValue)
+        {
+            Value = newValue;
+            if (ValueChanged.HasDelegate)
+            {
+                await ValueChanged.InvokeAsync(newValue);
+            }
+        }
+    }
+}

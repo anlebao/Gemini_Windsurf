@@ -44,35 +44,37 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — Wave 4 COMPLETE ✅]**
+**[TENANT ONBOARDING F&B — Wave 5 COMPLETE ✅]**
 
-Wave 4 delivered: `POST /api/v1/onboarding/tenants` Gateway endpoint with SystemAdmin Bearer JWT authorization. Integration tests 4/4 PASS: anonymous → 401, wrong role → 403, SystemAdmin → 201, invalid industry → 400. Next: Wave 5 (validation/docs) per master plan.
+Wave 5 delivered: ShopERP Admin UI for tenant onboarding. `TenantManagement.razor` now has a “+ Tạo Tenant + Onboarding” modal with industry selection (F&B enabled), owner credentials, form validation, and success/error feedback. Calls `POST /api/v1/onboarding/tenants` via `TenantOnboardingApiClient` using a SystemAdmin JWT minted for the current user. Added missing UI Platform components: `VanAForm`, `VanAInput`, `VanASelect`, `VanASpinner`. Next: Wave 6 (validation/docs) per master plan.
 
 Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md`  
-Task card: `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md`
+Task card: `docs/AI/tasks/wave5_tenant_onboarding_shoperp_ui_task_card.md`
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/tenant-onboarding-wave4-gateway-api`
-- **Last commit:** `7aabe7c` — [WAVE 4] Gateway API tenant onboarding endpoint + integration tests
+- **Branch:** `feature/tenant-onboarding-wave5-shoperp-ui`
+- **Last commit:** TBD — [WAVE 5] Tenant onboarding ShopERP UI
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
+- **Guard-check:** PASSED ✅
+- **Wave 5 status:** COMPLETE ✅
 - **Wave 4 status:** COMPLETE ✅
 - **Integration Tests (TenantOnboardingApiTests):** 4/4 PASS ✅
-- **Architecture Tests:** 28/28 PASS ✅ (W12-G7 exemption added for TenantOnboardingController)
+- **Architecture Tests:** 28/28 PASS ✅
 - **All Integration Tests:** 156/156 PASS ✅
 - **Wave 1:** COMPLETE ✅ — Interfaces + DTOs + 6 stub strategies + 42 unit tests
 - **Wave 2:** COMPLETE ✅ — FnbSeedStrategy (1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory) + 26 unit tests
 - **Wave 3:** COMPLETE ✅ — TenantOnboardingService (orchestrator: tenant → user → role → seed → 4 groups → group assign) + 17 unit tests
 - **Wave 4:** COMPLETE ✅ — TenantOnboardingController (SystemAdmin Bearer JWT), 4 integration tests passing
+- **Wave 5:** COMPLETE ✅ — ShopERP Admin UI: onboarding modal + Gateway API client + UI Platform components
 
 ---
 
 ## 4. Next Actions
 
-1. **Wave 5** — Request validation (FluentValidation or DataAnnotations for `OnboardTenantRequest`) + OpenAPI docs for the onboarding endpoint.
-2. **Wave 6** — Cleanup deprecated `Tenant` entity usage (CS0618 warnings in tests).
+1. **Wave 6** — Validation, tests & documentation per master plan: add request validation for `OnboardTenantRequest`, run full integration test for onboarding flow, update `docs/ShopERP_Documentation.md`, cleanup deprecated `Tenant` entity usage (CS0618 warnings in tests).
 
 ---
 
@@ -94,6 +96,8 @@ Task card: `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md`
 ---
 
 ## 6. History Log
+
+* [2026-07-02] **Wave 5 COMPLETE — ShopERP Admin UI for Tenant Onboarding** — Updated `TenantManagement.razor` with “+ Tạo Tenant + Onboarding” modal: industry selection (F&B enabled), owner credentials, form validation, success/error feedback. Added `TenantOnboardingApiClient` in ShopERP that mints a SystemAdmin JWT for the current user and calls `POST /api/v1/onboarding/tenants`. Added missing UI Platform components: `VanAForm`, `VanAInput`, `VanASelect`, `VanASpinner`. Registered `GatewayClient` named HttpClient in `ShopERP/Program.cs`. `dotnet build VanAn.sln` 0 errors, guard-check PASSED. Branch: `feature/tenant-onboarding-wave5-shoperp-ui`.
 
 * [2026-07-01] **Wave 4 COMPLETE — Gateway API Tenant Onboarding** — Created `TenantOnboardingController` (no class-level Authorize, method-level SystemAdmin Bearer JWT). Fixed IndustryCode `FNB`→`F&B` in integration tests. Added to W12-G7 arch test exemption. 4/4 integration tests PASS, 28/28 arch tests PASS, 156/156 integration tests PASS. Guard-check PASSED. Commit: `7aabe7c` on `feature/tenant-onboarding-wave4-gateway-api`.
 
@@ -192,6 +196,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-01 — Wave 4 in progress: added `POST /api/onboarding/tenants` to `OnboardingController`, registered `ITenantOnboardingService` + seed strategies + dependencies in Gateway `Program.cs`, created `TenantOnboardingApiTests.cs`, updated `GatewayStartupTests.cs`. 1/4 integration tests pass; 3 fail due to auth policy conflict between class-level `RequireTenantAccess` and method-level `SystemAdmin` policy.
-* **Current Branch:** `feature/tenant-onboarding-wave4-gateway-api`
-* **Current Objective:** Tenant Onboarding F&B — Wave 4 IN PROGRESS (Gateway API endpoint).
+* **Last Updated:** 2026-07-02 — Wave 5 complete: added onboarding modal to `TenantManagement.razor`, `TenantOnboardingApiClient` service, `VanAForm`/`VanAInput`/`VanASelect`/`VanASpinner` UI Platform components. `dotnet build VanAn.sln` 0 errors, guard-check PASSED.
+* **Current Branch:** `feature/tenant-onboarding-wave5-shoperp-ui`
+* **Current Objective:** Tenant Onboarding F&B — Wave 5 COMPLETE (ShopERP Admin UI).

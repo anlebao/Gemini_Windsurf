@@ -192,6 +192,10 @@ namespace VanAn.ShopERP
             {
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
+            _ = builder.Services.AddHttpClient("GatewayClient", client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
             _ = builder.Services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
             // Wave 5: Tenant management
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantManagementService, CoreHub.Services.TenantManagementService>();
@@ -199,6 +203,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IUserManagementService, CoreHub.Services.UserManagementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IRoleAssignmentService, CoreHub.Services.RoleAssignmentService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IPermissionGroupService, CoreHub.Services.PermissionGroupService>();
+            // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
+            _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
             // Wave 14: API Key management
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
             _ = builder.Services.AddScoped<CoreHub.Services.IApiKeyManagementService, CoreHub.Services.ApiKeyManagementService>();
