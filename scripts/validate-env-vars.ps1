@@ -198,31 +198,36 @@ function Test-SecretStrength {
     $content = Get-Content $FilePath -Raw
     $weakSecrets = @()
 
-    # Check for weak secrets (common default values)
+    # Check for weak secrets (common default values).
+    # Patterns use end-of-line anchor $ to avoid false positives on legitimate CI values
+    # that are prefixed with a weak word (e.g. "test-password-for-ci-only" must NOT match "=test$").
+    # The (?m) flag enables multiline mode so $ matches end of each line.
     $weakPatterns = @(
-        "password=password",
-        "password=123456",
-        "password=admin",
-        "password=test",
-        "password=changeme",
-        "secret=secret",
-        "secret=123456",
-        "secret=test",
-        "secret=changeme",
-        "JWT_SECRET_KEY=changeme",
-        "JWT_SECRET_KEY=secret",
-        "JWT_SECRET_KEY=test",
-        "POSTGRES_PASSWORD=changeme",
-        "POSTGRES_PASSWORD=secret",
-        "POSTGRES_PASSWORD=test",
-        "SEQ_ADMIN_PASSWORD=changeme",
-        "SEQ_ADMIN_PASSWORD=secret",
-        "SEQ_ADMIN_PASSWORD=test"
+        "(?m)password=password$",
+        "(?m)password=123456$",
+        "(?m)password=admin$",
+        "(?m)password=test$",
+        "(?m)password=changeme$",
+        "(?m)secret=secret$",
+        "(?m)secret=123456$",
+        "(?m)secret=test$",
+        "(?m)secret=changeme$",
+        "(?m)JWT_SECRET_KEY=changeme$",
+        "(?m)JWT_SECRET_KEY=secret$",
+        "(?m)JWT_SECRET_KEY=test$",
+        "(?m)POSTGRES_PASSWORD=changeme$",
+        "(?m)POSTGRES_PASSWORD=secret$",
+        "(?m)POSTGRES_PASSWORD=test$",
+        "(?m)SEQ_ADMIN_PASSWORD=changeme$",
+        "(?m)SEQ_ADMIN_PASSWORD=secret$",
+        "(?m)SEQ_ADMIN_PASSWORD=test$"
     )
 
     foreach ($pattern in $weakPatterns) {
         if ($content -imatch $pattern) {
-            $weakSecrets += $pattern
+            # Strip regex flags for readable output (e.g. "(?m)POSTGRES_PASSWORD=test$" → "POSTGRES_PASSWORD=test")
+            $readable = $pattern -replace '^\(\?[a-z]+\)', '' -replace '\$$', ''
+            $weakSecrets += $readable
         }
     }
 
