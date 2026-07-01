@@ -87,14 +87,15 @@ namespace VanAn.ShopERP
             // This decouples services from VanAnDbContext (PostgreSQL) and allows SQLite usage
             _ = builder.Services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
 
+            // Register NATS publisher as Singleton (holds NATS connection)
+            // Required by OrderWorkflowService even without --sync-worker mode
+            builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
+
             // ADR-001 Edge: Conditional NATS sync worker (activated via --sync-worker arg)
             if (args.Contains("--sync-worker"))
             {
                 // Register Outbox for NATS sync (uses same SQLite ShopERPDbContext)
                 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
-
-                // Register NATS publisher as Singleton (holds NATS connection)
-                builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
 
                 // Register NatsSyncWorker as BackgroundService
                 builder.Services.AddHostedService<NatsSyncWorker>();

@@ -78,7 +78,7 @@ function Test-RequiredVariables {
 
     Write-ValidationResult "Validating required environment variables..." -Type "Info"
 
-    $content = Get-Content $FilePath -Raw
+    $lines = Get-Content $FilePath
     $requiredVars = @(
         "POSTGRES_PASSWORD",
         "JWT_SECRET_KEY",
@@ -86,9 +86,21 @@ function Test-RequiredVariables {
     )
 
     $missingVars = @()
+    $placeholderPatterns = @("CHANGE_THIS", "YOUR_", "test-", "placeholder")
+    $foundVars = @{}
 
+    # Check each line for required variables
+    foreach ($line in $lines) {
+        foreach ($var in $requiredVars) {
+            if ($line -match "^\s*$var\s*=(.*)$") {
+                $foundVars[$var] = $matches[1].Trim()
+            }
+        }
+    }
+
+    # Check for missing variables
     foreach ($var in $requiredVars) {
-        if ($content -notmatch "^$var=") {
+        if (-not $foundVars.ContainsKey($var)) {
             $missingVars += $var
         }
     }
@@ -97,6 +109,14 @@ function Test-RequiredVariables {
         Write-ValidationResult "Missing required variables: $($missingVars -join ', ')" -Type "Error"
         $script:Errors += "Missing required variables: $($missingVars -join ', ')"
         return $false
+    }
+
+    # Check if using placeholder values (warning, not error)
+    foreach ($var in $requiredVars) {
+        if ($foundVars[$var] -match ($placeholderPatterns -join '|')) {
+            Write-ValidationResult "$var is using placeholder value - should be replaced in production" -Type "Warning"
+            $script:Warnings += "$var is using placeholder value"
+        }
     }
 
     Write-ValidationResult "Required variables validation passed" -Type "Success"
@@ -110,21 +130,21 @@ function Test-VariableNaming {
 
     Write-ValidationResult "Validating environment variable naming..." -Type "Info"
 
-    $content = Get-Content $FilePath -Raw
+    $lines = Get-Content $FilePath
     $invalidNames = @()
 
-    # Find all variable names
-    $matches = [regex]::Matches($content, "^([A-Z_][A-Z0-9_]*)=", [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    # Check each line for variable names
+    foreach ($line in $lines) {
+        if ($line -match "^\s*([A-Z_][A-Z0-9_]*)\s*=") {
+            $varName = $matches[1]
 
-    foreach ($match in $matches) {
-        $varName = $match.Groups[1].Value
-
-        # Check for invalid patterns
-        if ($varName -match "[a-z]") {
-            $invalidNames += "$varName (contains lowercase)"
-        }
-        if ($varName -match "__") {
-            $invalidNames += "$varName (double underscore - use single)"
+            # Check for invalid patterns (only check the variable name itself)
+            if ($varName -cmatch "[a-z]") {  # Use case-sensitive match
+                $invalidNames += "$varName (contains lowercase)"
+            }
+            if ($varName -match "__") {
+                $invalidNames += "$varName (double underscore - use single)"
+            }
         }
     }
 
@@ -183,10 +203,21 @@ function Test-SecretStrength {
         "password=password",
         "password=123456",
         "password=admin",
+        "password=test",
+        "password=changeme",
         "secret=secret",
         "secret=123456",
+        "secret=test",
+        "secret=changeme",
         "JWT_SECRET_KEY=changeme",
-        "JWT_SECRET_KEY=secret"
+        "JWT_SECRET_KEY=secret",
+        "JWT_SECRET_KEY=test",
+        "POSTGRES_PASSWORD=changeme",
+        "POSTGRES_PASSWORD=secret",
+        "POSTGRES_PASSWORD=test",
+        "SEQ_ADMIN_PASSWORD=changeme",
+        "SEQ_ADMIN_PASSWORD=secret",
+        "SEQ_ADMIN_PASSWORD=test"
     )
 
     foreach ($pattern in $weakPatterns) {
@@ -220,17 +251,24 @@ function Test-DockerComposeConsistency {
         return $true
     }
 
-    $envContent = Get-Content $EnvFilePath -Raw
     $dockerComposeContent = Get-Content $dockerComposePath -Raw
 
     # Extract environment variables referenced in docker-compose
     $dockerComposeVars = [regex]::Matches($dockerComposeContent, "\$\{([A-Z_][A-Z0-9_]*)")
     $referencedVars = $dockerComposeVars | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
 
+    # Build dictionary from env file using line-by-line parse (same as Test-RequiredVariables)
+    $envVars = @{}
+    foreach ($line in (Get-Content $EnvFilePath)) {
+        if ($line -match "^\s*([A-Z_][A-Z0-9_]*)\s*=") {
+            $envVars[$matches[1]] = $true
+        }
+    }
+
     # Check if referenced variables are defined in .env
     $missingInEnv = @()
     foreach ($var in $referencedVars) {
-        if ($envContent -notmatch "^$var=") {
+        if (-not $envVars.ContainsKey($var)) {
             $missingInEnv += $var
         }
     }

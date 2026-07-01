@@ -106,6 +106,7 @@ jobs:
       - name: Validate Environment Variables (using .env.example)
         run: |
           if [ -f .env.example ]; then
+            # Validate .env.example has required variables (placeholders allowed for example)
             pwsh -File scripts/validate-env-vars.ps1 -EnvFile .env.example
           else
             echo "Warning: .env.example not found, skipping env var validation"

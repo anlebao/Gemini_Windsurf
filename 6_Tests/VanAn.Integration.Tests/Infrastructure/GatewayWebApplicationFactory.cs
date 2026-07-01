@@ -63,14 +63,22 @@ public class GatewayWebApplicationFactory : WebApplicationFactory<VanAn.Gateway.
 
         builder.ConfigureServices(services =>
         {
-            // ApiKeyRepository(IVanAnDbContext) — Gateway does not register a DbContext normally.
-            // DI validation in Development mode catches this; we provide a SQLite in-memory
-            // VanAnDbContext so the container builds cleanly.
-            // TryAdd: non-destructive if Gateway ever adds its own DbContext in the future.
-            services.AddDbContext<VanAnDbContext>(options =>
+            // Remove ALL existing DbContext registrations so PostgreSQL is fully replaced by SQLite.
+            // SingleOrDefault is not sufficient — EF Core registers multiple descriptors
+            // (DbContextOptions<T>, the concrete type, and the interface). Remove all of them.
+            var toRemove = services
+                .Where(d => d.ServiceType == typeof(DbContextOptions<VanAnDbContext>)
+                         || d.ServiceType == typeof(VanAnDbContext)
+                         || d.ServiceType == typeof(IVanAnDbContext))
+                .ToList();
+            foreach (var descriptor in toRemove)
+                services.Remove(descriptor);
+
+            // Add SQLite in-memory VanAnDbContext on the shared open connection.
+            // The connection is kept open for the lifetime of the factory so EnsureCreated
+            // schema and all subsequent queries share the same in-memory database.
+            services.AddDbContext<IVanAnDbContext, VanAnDbContext>(options =>
                 options.UseSqlite(_connection));
-            services.TryAddScoped<IVanAnDbContext>(
-                provider => provider.GetRequiredService<VanAnDbContext>());
 
             // ITenantProvider needed by VanAnDbContext multi-tenancy filters.
             // Replace with test provider that returns a deterministic test tenant ID.

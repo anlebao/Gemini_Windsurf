@@ -250,12 +250,12 @@ jobs:
         run: |
           pwsh -File scripts/validate-docker-compose.ps1 -ComposeFile docker-compose.prod.yml
 
-      - name: Validate Environment Variables (using .env.example)
+      - name: Validate Environment Variables (using .env.test)
         run: |
-          if [ -f .env.example ]; then
-            pwsh -File scripts/validate-env-vars.ps1 -EnvFile .env.example
+          if [ -f .env.test ]; then
+            pwsh -File scripts/validate-env-vars.ps1 -EnvFile .env.test
           else
-            echo "Warning: .env.example not found, skipping env var validation"
+            echo "Warning: .env.test not found, skipping env var validation"
           fi
 
   # Job 3: Guard Check (stub — Windows runner disabled to save Actions minutes)

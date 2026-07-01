@@ -20,7 +20,8 @@ namespace VanAn.Integration.Tests.Infrastructure;
 ///   - Environment = Development: loads appsettings.Development.json. Avoids UseHsts().
 ///   - Gateway:BaseUrl overridden to unreachable addr: HTTP calls fail gracefully (try-catch).
 ///   - No service mocking: we test REAL registrations from Program.cs. Mocking defeats purpose.
-///     (ShopConfigService uses ILogger only — no DB dependency, no mock needed.)
+///     All Http services (ProductHttpService, etc.) already catch exceptions → return [].
+///     The "Connection refused" log lines are expected and harmless during startup tests.
 /// </summary>
 public class KhachLinkWebApplicationFactory : WebApplicationFactory<VanAn.KhachLink.Program>
 {
