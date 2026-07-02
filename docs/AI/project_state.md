@@ -41,7 +41,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 ### 6 Patterns (Waves)
 | Wave | Pattern | Description | Files | Status |
 |---|---|---|---|---|
-| 1 | P | UI.Platform infra: VanALayout CSS + slot + VanANavigation CSS + icons | 7 | PENDING |
+| 1 | P | UI.Platform infra: VanALayout CSS + slot + VanANavigation CSS + icons | 7 | ✅ COMPLETE (`3b893e8`) |
 | 2 | R | Add `@rendermode InteractiveServer` | 14 | PENDING |
 | 3 | C | Page CSS isolation (shared + per-page) | 19 | PENDING |
 | 4 | V | Component consolidation (VanAnX → VanX) | 7 | PENDING |
@@ -56,20 +56,21 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 3. Current Status
 
-- **Branch:** `main`
-- **Last commit:** `71d5e9d` [STATE] Update project_state.md
+- **Branch:** `feature/shoperp-ui-fix-wave1-platform-infra`
+- **Last commit:** `3b893e8` [UI-FIX WAVE 1] Pattern P: UI.Platform infra
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
 - **Uncommitted changes:** None
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix.
+- **In-progress (feature branch):** Wave 0 ✅ · Wave 1 ✅ · Wave 2-6 PENDING.
 
 ---
 
 ## 4. Next Actions
 
 **Stream C — ShopERP UI Fix (active):**
-1. **Wave 0 (pre-flight):** Verify build pass + git clean + UI.Platform structure.
-2. **Wave 1:** UI.Platform infra — VanALayout CSS + slot fix + VanANavigation CSS + icons (root cause).
+1. ~~Wave 0 (pre-flight)~~ ✅ — Build pass, git clean, UI.Platform 0 .razor.css confirmed.
+2. ~~Wave 1: UI.Platform infra~~ ✅ — VanALayout CSS + slot fix + VanANavigation CSS + Bootstrap Icons CDN. Commit `3b893e8`.
 3. **Wave 2:** Add `@rendermode InteractiveServer` (14 files, mechanical).
 4. **Wave 3:** Page CSS isolation (shared `pages.css` + 18 `.razor.css`).
 5. **Wave 4:** Component consolidation (VanAnAlert → VanAAlert, VanAnModal → VanAModal).
@@ -93,6 +94,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 6. History Log (compressed — see git log for details)
 
+* [2026-07-03] **Wave 0 + Wave 1 COMPLETE** — Pre-flight verified. Wave 1: VanALayout.razor.css + VanANavigation.razor.css (NEW), icon fix (`<i class="bi bi-@icon">`), Bootstrap Icons CDN, 3 layout files slot fix, VanADashboard emoji→BI icons. Commit `3b893e8` on `feature/shoperp-ui-fix-wave1-platform-infra`.
 * [2026-07-02] **ShopERP UI Fix + E2E Cleanup — PLANNING COMPLETE** — 2 master plans + 14 task cards (`51dd7ff`). UI: 23 files, 6 patterns (P/R/C/V/L/G). E2E: 20 spec files, 7 anti-patterns.
 * [2026-07-02] **EInvoice Provider Rewrite — PLANNING COMPLETE** — Master plan + 4 task cards (`59b60fe`). 20 Viettel + 10 MISA API spec mismatches. Wave 0 credential request parallel.
 * [2026-07-02] **ShopConfig Refactor — 3 PHASES COMPLETE** — Product→tenant refactor, KhachLink HTTP-only, merged to main.
@@ -142,6 +144,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Wave 0 pre-flight verification COMPLETE. Build 0 errors, git clean (only .vs cache), UI.Platform 0 .razor.css confirmed, Routes.razor DefaultLayout=MainLayout confirmed. Ready for Wave 1.
-* **Current Branch:** `main`
-* **Current Objective:** Stream C: ShopERP UI Fix — Wave 1 next (UI.Platform infra).
+* **Last Updated:** 2026-07-03 — Wave 0 + Wave 1 COMPLETE. Branch: `feature/shoperp-ui-fix-wave1-platform-infra`. 8 files changed (+213/-23). Build 0 errors, guard PASSED. Next: Wave 2 (rendermode).
+* **Current Branch:** `feature/shoperp-ui-fix-wave1-platform-infra`
+* **Current Objective:** Stream C: ShopERP UI Fix — Wave 2 next (add `@rendermode InteractiveServer` to 14 files).

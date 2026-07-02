@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — ShopERP UI Fix (Pattern-Based Batch)
 
-> **Status:** PENDING — Awaiting Approval
+> **Status:** IN PROGRESS — Wave 0+1 COMPLETE
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-02 (Review v1 — 6 waves, pattern-based)
+> **Last Updated:** 2026-07-03 (Wave 1 complete, reviewed)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix — phân loại theo pattern, KHÔNG fix case-by-case
@@ -76,10 +76,10 @@ main
 ### Tasks
 | # | Task | Owner | Status |
 |---|---|---|---|
-| 1 | Confirm `dotnet build VanAn.sln` pass trước khi bắt đầu | AI | PENDING |
-| 2 | Snapshot `git status` sạch | AI | PENDING |
-| 3 | Confirm UI.Platform project structure (Components folder, no .razor.css) | AI | PENDING |
-| 4 | Confirm `Routes.razor` DefaultLayout = MainLayout | AI | PENDING |
+| 1 | Confirm `dotnet build VanAn.sln` pass trước khi bắt đầu | AI | ✅ DONE |
+| 2 | Snapshot `git status` sạch | AI | ✅ DONE |
+| 3 | Confirm UI.Platform project structure (Components folder, no .razor.css) | AI | ✅ DONE (0 .razor.css confirmed) |
+| 4 | Confirm `Routes.razor` DefaultLayout = MainLayout | AI | ✅ DONE |
 
 ### Tracking
 - Update `project_state.md` Maintenance Log khi verify xong
@@ -177,27 +177,33 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W1-T1 | Fix VanALayout slot structure — thêm `Sidebar`/`ChildContent` RenderFragment usage rõ ràng | `VanALayout.razor` | PENDING |
-| 2 | W1-T2 | Create `VanALayout.razor.css` — CSS cho `vanan-layout`, sidebar (250px), main, content, responsive | `VanALayout.razor.css` (NEW) | PENDING |
-| 3 | W1-T3 | Fix VanANavigation icon rendering — đổi từ text sang `<i class="bi bi-@item.Icon">` | `VanANavigation.razor` | PENDING |
-| 4 | W1-T4 | Create `VanANavigation.razor.css` — CSS cho nav list, items, links, active state, submenu | `VanANavigation.razor.css` (NEW) | PENDING |
-| 5 | W1-T5 | Fix AccountingLayout — wrap VanANavigation trong `<Sidebar>` + bỏ nested `<main>` | `AccountingLayout.razor` | PENDING |
-| 6 | W1-T6 | Fix EInvoiceLayout — same pattern | `EInvoiceLayout.razor` | PENDING |
-| 7 | W1-T7 | Fix VanADashboard — same pattern | `VanADashboard.razor` | PENDING |
-| 8 | W1-T8 | Verify `dotnet build VanAn.sln` pass | Solution-wide | PENDING |
+| 1 | W1-T1 | Fix VanALayout slot structure — thêm `Sidebar`/`ChildContent` RenderFragment usage rõ ràng | `VanALayout.razor` | ✅ N/A (already correct) |
+| 2 | W1-T2 | Create `VanALayout.razor.css` — CSS cho `vanan-layout`, sidebar (250px), main, content, responsive | `VanALayout.razor.css` (NEW) | ✅ DONE |
+| 3 | W1-T3 | Fix VanANavigation icon rendering — đổi từ text sang `<i class="bi bi-@item.Icon">` | `VanANavigation.razor` | ✅ DONE |
+| 4 | W1-T4 | Create `VanANavigation.razor.css` — CSS cho nav list, items, links, active state, submenu | `VanANavigation.razor.css` (NEW) | ✅ DONE |
+| 5 | W1-T5 | Fix AccountingLayout — wrap VanANavigation trong `<Sidebar>` + bỏ nested `<main>` | `AccountingLayout.razor` | ✅ DONE |
+| 6 | W1-T6 | Fix EInvoiceLayout — same pattern | `EInvoiceLayout.razor` | ✅ DONE |
+| 7 | W1-T7 | Fix VanADashboard — same pattern | `VanADashboard.razor` | ✅ DONE (+ emoji→BI icons) |
+| 8 | W1-T8 | Verify `dotnet build VanAn.sln` pass | Solution-wide | ✅ DONE (0 errors) |
 
 ### Entry criteria
-- [ ] Wave 0 complete
-- [ ] Git status clean
-- [ ] `dotnet build VanAn.sln` pass trước khi sửa
+- [x] Wave 0 complete
+- [x] Git status clean
+- [x] `dotnet build VanAn.sln` pass trước khi sửa
 
 ### Exit criteria
-- [ ] VanALayout có `.razor.css` với sidebar 250px, main flex, responsive
-- [ ] VanANavigation có `.razor.css` với list styling, active state
-- [ ] VanANavigation render `<i class="bi bi-@icon">` thay vì text
-- [ ] 3 layout files dùng `<Sidebar>` slot đúng
-- [ ] 0 nested `<main>` (bỏ `<main>` trong layout files, chỉ giữ trong VanALayout)
-- [ ] `dotnet build VanAn.sln` 0 errors
+- [x] VanALayout có `.razor.css` với sidebar 250px, main flex, responsive
+- [x] VanANavigation có `.razor.css` với list styling, active state
+- [x] VanANavigation render `<i class="bi bi-@icon">` thay vì text
+- [x] 3 layout files dùng `<Sidebar>` slot đúng
+- [x] 0 nested `<main>` (bỏ `<main>` trong layout files, chỉ giữ trong VanALayout)
+- [x] `dotnet build VanAn.sln` 0 errors
+
+### Additional changes
+- Bootstrap Icons CDN added to `App.razor` (was missing entirely)
+- VanADashboard: emoji icons → Bootstrap Icon names (speedometer2, clipboard-data, calculator, graph-up, gear, people)
+
+### Commit: `3b893e8` on `feature/shoperp-ui-fix-wave1-platform-infra`
 
 ### Why first
 - Root cause cho 13/23 files — fix infrastructure trước thì các wave sau có base đúng
