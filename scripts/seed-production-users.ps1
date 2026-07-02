@@ -110,7 +110,7 @@ try {
         $insertTenantCmd.CommandText = @"
             INSERT INTO Tenants (Id, Name, BusinessType, Status, CreatedAt, UpdatedAt, TenantId)
             VALUES (@Id, @Name, @BusinessType, @Status, @CreatedAt, @UpdatedAt, @TenantId)
-        "@
+"@
         $insertTenantCmd.Parameters.AddWithValue("@Id", $defaultTenantId) | Out-Null
         $insertTenantCmd.Parameters.AddWithValue("@Name", "Default Shop") | Out-Null
         $insertTenantCmd.Parameters.AddWithValue("@BusinessType", 0) | Out-Null  # Company
@@ -148,7 +148,7 @@ try {
         $insertUserCmd.CommandText = @"
             INSERT INTO Users (Id, Username, PasswordHash, DisplayName, Email, Role, IsActive, TenantId, CreatedAt, UpdatedAt)
             VALUES (@Id, @Username, @PasswordHash, @DisplayName, @Email, @Role, @IsActive, @TenantId, @CreatedAt, @UpdatedAt)
-        "@
+"@
         $insertUserCmd.Parameters.AddWithValue("@Id", $userId) | Out-Null
         $insertUserCmd.Parameters.AddWithValue("@Username", $user.Username) | Out-Null
         $insertUserCmd.Parameters.AddWithValue("@PasswordHash", $passwordHash) | Out-Null
@@ -167,7 +167,7 @@ try {
             $insertUserTenantCmd.CommandText = @"
                 INSERT INTO UserTenants (Id, UserId, TenantId, Role, AssignedAt, IsActive, TenantIdValue)
                 VALUES (@Id, @UserId, @TenantId, @Role, @AssignedAt, @IsActive, @TenantIdValue)
-            "@
+"@
             $userTenantId = [Guid]::NewGuid()
             $insertUserTenantCmd.Parameters.AddWithValue("@Id", $userTenantId) | Out-Null
             $insertUserTenantCmd.Parameters.AddWithValue("@UserId", $userId) | Out-Null

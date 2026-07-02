@@ -1,0 +1,131 @@
+@page "/campaigns"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.Domain
+@inject SocialCampaignHttpService CampaignService
+@inject NavigationManager Navigation
+
+<PageTitle>Khuyến mãi</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:900px;">
+        <h2 class="mb-4">
+            <i class="bi bi-megaphone-fill text-primary"></i> Khuyến mãi
+        </h2>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Đang tải...</span>
+                </div>
+                <p class="mt-2">Đang tải khuyến mãi...</p>
+            </div>
+        }
+        else if (_error != null)
+        {
+            <VanAnAlert Variant="AlertVariant.Warning" Message="@_error" />
+            <div class="text-center mt-3">
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadCampaigns">Thử lại</VanAnButton>
+            </div>
+        }
+        else if (_campaigns.Count == 0)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center py-5">
+                <i class="bi bi-megaphone text-muted mb-3 d-block" style="font-size:3rem;"></i>
+                <p class="text-muted">Hiện chưa có chương trình khuyến mãi nào.</p>
+            </VanAnCard>
+        }
+        else
+        {
+            <p class="text-muted mb-3">@_campaigns.Count chương trình đang diễn ra</p>
+            <div class="row g-3">
+                @foreach (var campaign in _campaigns)
+                {
+                    <div class="col-12 col-md-6">
+                        <VanAnCard Shadow="true" CssClass="h-100 campaign-card">
+                            <div class="d-flex align-items-start gap-3">
+                                <div class="campaign-icon">
+                                    <i class="bi bi-tag-fill text-danger" style="font-size:2rem;"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-1">@campaign.CampaignName</h5>
+                                    @if (!string.IsNullOrEmpty(campaign.UtmSource))
+                                    {
+                                        <p class="text-muted small mb-2">
+                                            <i class="bi bi-share"></i> @campaign.UtmSource
+                                        </p>
+                                    }
+                                    <div class="d-flex gap-3 small text-muted mb-3">
+                                        <span>
+                                            <i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click
+                                        </span>
+                                        <span>
+                                            <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn
+                                        </span>
+                                    </div>
+                                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="() => OpenCampaign(campaign.TrackingCode)">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
+                                    </VanAnButton>
+                                </div>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+<style>
+    .campaign-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .campaign-card:hover {
+        transform: translateY(-2px);
+    }
+    .campaign-icon {
+        min-width: 48px;
+        text-align: center;
+    }
+</style>
+
+@code {
+    private List<SocialCampaign> _campaigns = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCampaigns();
+    }
+
+    private async Task LoadCampaigns()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var all = await CampaignService.GetAllCampaignsAsync();
+            _campaigns = all.Where(c => c.IsActive).ToList();
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Không tải được danh sách khuyến mãi: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenCampaign(string trackingCode)
+    {
+        Navigation.NavigateTo($"/c/{Uri.EscapeDataString(trackingCode)}");
+    }
+}

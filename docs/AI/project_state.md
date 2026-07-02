@@ -44,39 +44,50 @@
 
 ## 2. Current Objective
 
-**[TENANT ONBOARDING F&B — COMPLETE & MERGED ✅]**
+**[SHOPCONFIG PRODUCT→TENANT REFACTOR — PLANNING COMPLETE, READY TO IMPLEMENT]**
 
-All 6 waves delivered and merged to main:
-- Wave 1: Generic abstraction (interfaces, DTOs, stub strategies)
-- Wave 2: F&B seed strategy (1 shop, 8 products, 12 ingredients, 14 recipes, 12 inventory)
-- Wave 3: Orchestrator service (tenant → user → role → seed → groups → assignment)
-- Wave 4: Gateway API (SystemAdmin Bearer JWT endpoint)
-- Wave 5: ShopERP Admin UI (onboarding modal with industry selection)
-- Wave 6: Validation, tests & documentation (integration tests, docs updated)
+Refactor ShopConfig loading from hardcoded stub to real data via product-based TenantId derivation.
 
-Merge commit: `3123b6b` on main branch
+**Problem:**
+- `ShopConfigService` returns hardcoded values (no persistence, no real shop data)
+- KhachLink injects `IShopConfigService` directly from CoreHub (architectural violation)
+- `ProductCatalogItem` / `ProductDto` missing `TenantId` (multi-tenancy gap)
+- All shops see identical branding ("Vạn An Group", #8B4513)
 
-Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` (COMPLETE ✅)
+**Solution (Approach 2 — Product-based):**
+- Add `TenantId` to product DTOs → derive TenantId from products → load real Shop entity
+- Rewrite `ShopConfigHttpService` (HTTP via Gateway, no CoreHub direct)
+- Wire-up KhachLinkLayout + Home.razor (with SocialHub)
+- Domain layer NOT modified
+
+**Master plan:** `docs/AI/tasks/shopconfig_product_tenant_master_plan.md`
+**Phases:** 3 (Phase 1: Revert+DTO · Phase 2: HttpService · Phase 3: Wire-up+Tests)
+**Status:** Planning complete, awaiting implementation approval.
 
 ---
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `3123b6b` — [WAVE 6] Tenant onboarding validation, tests and documentation
+- **Last commit:** (pending — ShopConfig refactor planning docs)
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
 - **ci-local:** PASSED ✅ (131 integration tests, 28 architecture tests)
 - **Tenant Onboarding Feature:** COMPLETE & MERGED ✅ — All 6 waves on main
-- **Integration Tests:** 131/131 PASS ✅ (includes 2 new TenantOnboardingIntegrationTests)
+- **ShopConfig Refactor:** PLANNING COMPLETE — Master plan + 3 task cards created
+- **Integration Tests:** 131/131 PASS ✅
 - **Architecture Tests:** 28/28 PASS ✅
+- **Uncommitted changes:** NavMenu + Campaigns.razor (KhachLink menu additions), ShopERP/Gateway by-tenant endpoint, ShopConfigHttpService.cs (Approach 1 remnant — will be rewritten in Phase 2), planning docs
 
 ---
 
 ## 4. Next Actions
 
-1. **Next Feature** — TBD (awaiting product owner direction)
-2. **Push to origin** — Push main branch to remote if needed
+1. **Implement Phase 1** — Revert Approach 1 remnants + add TenantId to ProductCatalogItem & ProductDto
+2. **Implement Phase 2** — Rewrite ShopConfigHttpService (product-based) + update DI
+3. **Implement Phase 3** — Wire-up KhachLinkLayout + Home.razor + remove IShopConfigService + tests
+4. **Build verify + guard-check** after each phase
+5. **Update project_state.md** after each phase completion
 
 ---
 
@@ -98,6 +109,8 @@ Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` (COMPLETE ✅)
 ---
 
 ## 6. History Log
+
+* [2026-07-02] **ShopConfig Product→Tenant Refactor — PLANNING COMPLETE** — Investigated ShopConfig (hardcoded stub, no persistence), identified architectural violation (KhachLink→CoreHub direct inject), analyzed 2 approaches (order-based vs product-based). Decision: Approach 2 (product-based) — works for anonymous visitors, fixes multi-tenancy gap. Created master plan + 3 task cards (Phase 1: Revert+DTO, Phase 2: HttpService rewrite, Phase 3: Wire-up+Tests). Domain layer NOT modified. Also added KhachLink NavMenu entries (Campaigns, VoiceNote) + Campaigns.razor page + SocialHub integration (from earlier session). ShopERP/Gateway by-tenant endpoint added (kept for Approach 2).
 
 * [2026-07-02] **Tenant Onboarding Feature COMPLETE & MERGED — All 6 Waves on Main** — Wave 6: Added `TenantOnboardingIntegrationTests` with 2 E2E integration tests (full flow + multi-tenant isolation), fixed EF Core LINQ translation issue with strongly-typed TenantId, updated `docs/ShopERP_Documentation.md` with section 4.13 Tenant Onboarding. ci-local PASSED (131 integration tests, 28 architecture tests). Master plan marked COMPLETE. Fast-forward merged to main (commit 3123b6b). Feature branch deleted.
 
@@ -178,6 +191,10 @@ Master plan: `docs/AI/tasks/tenant_onboarding_fnb_master_plan.md` (COMPLETE ✅)
 | `docs/AI/tasks/wave4_tenant_onboarding_gateway_api_task_card.md` | Wave 4: Gateway API |
 | `docs/AI/tasks/wave5_tenant_onboarding_shoperp_ui_task_card.md` | Wave 5: ShopERP admin UI |
 | `docs/AI/tasks/wave6_tenant_onboarding_validation_docs_task_card.md` | Wave 6: Validation + docs |
+| `docs/AI/tasks/shopconfig_product_tenant_master_plan.md` | Master plan: ShopConfig product→tenant refactor (3 phases) |
+| `docs/AI/tasks/shopconfig_phase1_revert_dto_task_card.md` | Phase 1: Revert Approach 1 + add TenantId to product DTOs |
+| `docs/AI/tasks/shopconfig_phase2_http_service_task_card.md` | Phase 2: Rewrite ShopConfigHttpService (product-based) |
+| `docs/AI/tasks/shopconfig_phase3_wireup_tests_task_card.md` | Phase 3: Wire-up components + integration tests |
 
 ---
 
@@ -200,6 +217,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — Tenant Onboarding Feature COMPLETE & MERGED: all 6 waves delivered and merged to main (abstraction, F&B seed, orchestrator, Gateway API, ShopERP UI, validation/docs). Added 2 E2E integration tests, fixed EF Core LINQ translation issue, updated documentation. ci-local PASSED (131 integration tests, 28 architecture tests).
+* **Last Updated:** 2026-07-02 — ShopConfig Product→Tenant Refactor planning complete. Master plan + 3 task cards created. KhachLink NavMenu updated (Campaigns, VoiceNote). ShopERP/Gateway by-tenant endpoint added. Approach 1 remnants partially reverted (Program.cs, Home.razor restored; ShopConfigHttpService.cs kept for Phase 2 rewrite).
 * **Current Branch:** `main`
-* **Current Objective:** Tenant Onboarding F&B — COMPLETE & MERGED ✅.
+* **Current Objective:** ShopConfig Product→Tenant Refactor — PLANNING COMPLETE, ready to implement Phase 1.
