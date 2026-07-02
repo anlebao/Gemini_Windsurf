@@ -6,6 +6,13 @@
 **Branch strategy:** feature/shopconfig-product-tenant-phase[X]
 **Execution principle:** JIT Planning + Pure Execution
 
+### Progress Tracker
+| Phase | Branch | Status | Commit |
+|---|---|---|---|
+| 1 — Revert + DTO | feature/shopconfig-product-tenant-phase1-dto | ✅ COMPLETE (2026-07-02) | `5cb9bbd` |
+| 2 — ShopConfigHttpService | feature/shopconfig-product-tenant-phase2-service | ⏳ PENDING | — |
+| 3 — Wire-up + Tests | feature/shopconfig-product-tenant-phase3-wireup | ⏳ PENDING | — |
+
 ---
 
 ## 0. EXECUTION RULES
@@ -213,17 +220,20 @@ Revert the order-based Approach 1 remnants and add TenantId to product DTOs — 
 | 5 | P1-T5 | Build verify (0 errors) | All projects | DONE (0 errors) |
 
 ### Entry criteria
-- [ ] Project builds successfully
-- [ ] Approach 1 remnants identified
-- [ ] Domain layer NOT modified
+- [x] Project builds successfully
+- [x] Approach 1 remnants identified
+- [x] Domain layer NOT modified
 
 ### Exit criteria — ALL PASSED
-- [ ] CustomerOrderDto reverted to original (no TenantId)
-- [ ] ProductCatalogItem has TenantId field
-- [ ] ProductDto has TenantId field
-- [ ] GetProducts projection maps TenantId
-- [ ] Build: 0 errors
-- [ ] No Domain layer changes
+- [x] CustomerOrderDto reverted to original (no TenantId) — already clean, no-op
+- [x] ProductCatalogItem has TenantId field
+- [x] ProductDto has TenantId field
+- [x] GetProducts projection maps TenantId (also GetProduct single-item projection)
+- [x] Build: 0 errors (`dotnet build VanAn.sln`)
+- [x] No Domain layer changes (verified via `git diff --stat`)
+- [x] guard-check.ps1 PASSED
+
+**Commit:** `5cb9bbd` on `feature/shopconfig-product-tenant-phase1-dto`
 
 ---
 
@@ -247,9 +257,9 @@ Rewrite ShopConfigHttpService to load ShopConfig from product data: products →
 | 3 | P2-T3 | Build verify (0 errors) | All projects | PENDING |
 
 ### Entry criteria
-- [ ] Phase 1 complete (ProductDto has TenantId)
-- [ ] by-tenant endpoint exists (Gateway + ShopERP)
-- [ ] Domain layer NOT modified
+- [x] Phase 1 complete (ProductDto has TenantId) — DONE 2026-07-02
+- [x] by-tenant endpoint exists (Gateway + ShopERP) — kept from Approach 1
+- [x] Domain layer NOT modified — verified
 
 ### Exit criteria — ALL PASSED
 - [ ] ShopConfigHttpService loads from products → TenantId → shop data
