@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — ShopERP UI Fix (Pattern-Based Batch)
 
-> **Status:** IN PROGRESS — Wave 0+1+2+3 COMPLETE
+> **Status:** IN PROGRESS — Wave 0+1+2+3+4 COMPLETE
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 3 complete)
+> **Last Updated:** 2026-07-03 (Wave 4 complete)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix — phân loại theo pattern, KHÔNG fix case-by-case
@@ -288,10 +288,10 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W4-T1 | Replace all `VanAnAlert` → `VanAAlert` trong 6 EInvoice files (10 occurrences) | 6 EInvoice files | PENDING |
-| 2 | W4-T2 | Replace `VanAnModal` → `VanAModal` trong InvoiceManagement.razor (1 occurrence) — verify API compat (IsVisible, Body, Footer) | `InvoiceManagement.razor` | PENDING |
-| 3 | W4-T3 | Verify `VanAnAlert`/`VanAnModal` (cũ) không còn reference nào — nếu 0 reference, note để xóa trong debt cleanup | UI.Platform | PENDING |
-| 4 | W4-T4 | Verify `dotnet build VanAn.sln` pass | Solution-wide | PENDING |
+| 1 | W4-T1 | Replace all `VanAnAlert` → `VanAAlert` trong 6 EInvoice files (10 occurrences) | 6 EInvoice files | ✅ DONE |
+| 2 | W4-T2 | Replace `VanAnModal` → `VanAModal` trong InvoiceManagement.razor (1 occurrence) — verify API compat (IsVisible, Body, Footer) | `InvoiceManagement.razor` | ✅ N/A (0 occurrences in EInvoice — VanAnModal only in KhachLink, out of scope) |
+| 3 | W4-T3 | Verify `VanAnAlert`/`VanAnModal` (cũ) không còn reference nào — nếu 0 reference, note để xóa trong debt cleanup | UI.Platform | ✅ DONE (VanAnAlert: 0 in EInvoice; VanAnModal: still in KhachLink — debt cleanup candidate) |
+| 4 | W4-T4 | Verify `dotnet build VanAn.sln` pass | Solution-wide | ✅ DONE (0 errors) |
 
 ### Entry criteria
 - [ ] Wave 3 merged
