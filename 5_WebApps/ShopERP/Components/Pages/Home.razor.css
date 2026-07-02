@@ -1,0 +1,15 @@
+/* Home.razor — redirect loading state */
+
+.redirect-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    padding: var(--vanan-spacing-lg);
+    text-align: center;
+}
+
+.redirect-loading p {
+    color: var(--vanan-text-muted);
+    font-size: 1.1rem;
+}

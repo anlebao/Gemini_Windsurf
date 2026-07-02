@@ -2,6 +2,12 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject NavigationManager NavigationManager
 
+<PageTitle>Đang chuyển hướng...</PageTitle>
+
+<div class="redirect-loading" data-testid="redirect-loading">
+    <p>Đang chuyển hướng...</p>
+</div>
+
 @code {
     protected override void OnInitialized()
     {

@@ -9,7 +9,6 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration Configuration
-@inject IJSRuntime JSRuntime
 
 <PageTitle>Sitemap - Vạn An Ecosystem</PageTitle>
 
@@ -48,7 +47,7 @@
                 <AuthorizeView Roles="Guard">
                     <Authorized>
                         <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
-                            <span class="sitemap-link-icon">�</span>
+                            <span class="sitemap-link-icon">📷</span>
                             <span>Quét QR Guard</span>
                         </a>
                     </Authorized>
@@ -62,15 +61,15 @@
                 <VanACard Header="💰 Kế Toán & Tài Chính" Hoverable="true" data-testid="card-accounting">
                     <div class="sitemap-links">
                         <a href="/accounting" class="sitemap-link" data-testid="link-accounting">
-                            <span class="sitemap-link-icon">�</span>
+                            <span class="sitemap-link-icon">💸</span>
                             <span>Nhập Chi Phí</span>
                         </a>
                         <a href="/accounting/revenue" class="sitemap-link" data-testid="link-accounting-revenue">
-                            <span class="sitemap-link-icon">�</span>
+                            <span class="sitemap-link-icon">📈</span>
                             <span>Nhập Doanh Thu</span>
                         </a>
                         <a href="/accounting/history" class="sitemap-link" data-testid="link-accounting-history">
-                            <span class="sitemap-link-icon">�</span>
+                            <span class="sitemap-link-icon">📜</span>
                             <span>Lịch Sử Giao Dịch</span>
                         </a>
                         <a href="/accounting/balance" class="sitemap-link" data-testid="link-accounting-balance">
@@ -78,7 +77,7 @@
                             <span>Số Dư Tài Khoản</span>
                         </a>
                         <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
-                            <span class="sitemap-link-icon">�</span>
+                            <span class="sitemap-link-icon">📅</span>
                             <span>Đóng Kỳ Kế Toán</span>
                         </a>
                     </div>
@@ -118,7 +117,7 @@
                 <VanACard Header="🛍️ Cổng Khách Hàng" Hoverable="true" data-testid="card-khachlink">
                     <div class="sitemap-links">
                         <a href="@_khachLinkUrl" class="sitemap-link sitemap-link--external" target="_blank" rel="noopener noreferrer" data-testid="link-khachlink">
-                            <span class="sitemap-link-icon">�️</span>
+                            <span class="sitemap-link-icon">🌐</span>
                             <span>Mở KhachLink PWA</span>
                             <span class="sitemap-link-badge">Trang mới</span>
                         </a>
@@ -137,7 +136,7 @@
                             <span>Quản lý Người Dùng</span>
                         </a>
                         <a href="/admin/permission-groups" class="sitemap-link" data-testid="link-admin-permissions">
-                            <span class="sitemap-link-icon">�</span>
+                            <span class="sitemap-link-icon">🔑</span>
                             <span>Nhóm Quyền</span>
                         </a>
                     </div>
@@ -176,80 +175,6 @@
     </div>
 </div>
 
-<style>
-    .sitemap-page {
-        padding: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .sitemap-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-bottom: 2rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid var(--vanan-border, #dee2e6);
-    }
-
-    .sitemap-header h1 {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 0;
-    }
-
-    .sitemap-subtitle {
-        margin: 0;
-        color: var(--vanan-text-muted, #6c757d);
-        flex: 1;
-        padding-left: 1rem;
-    }
-
-    .sitemap-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .sitemap-links {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .sitemap-link {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 0.6rem 0.8rem;
-        border-radius: 6px;
-        text-decoration: none;
-        color: var(--vanan-text, #212529);
-        transition: background-color 0.15s ease;
-    }
-
-    .sitemap-link:hover {
-        background-color: var(--vanan-hover-bg, #f0f4ff);
-        color: var(--vanan-primary, #0d6efd);
-    }
-
-    .sitemap-link-icon {
-        font-size: 1.1rem;
-        flex-shrink: 0;
-    }
-
-    .sitemap-link--external .sitemap-link-badge {
-        font-size: 0.7rem;
-        background: var(--vanan-primary, #0d6efd);
-        color: white;
-        padding: 0.15rem 0.4rem;
-        border-radius: 4px;
-        margin-left: auto;
-    }
-</style>
-
 @code {
     private string _displayName = string.Empty;
     private string _roleName = string.Empty;
@@ -270,12 +195,9 @@
         _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? "https://diemthuong.vanantech.io.vn";
     }
 
-    private async Task Logout()
+    private void Logout()
 {
-    // Clear authentication cookies using JavaScript
-    await JSRuntime.InvokeVoidAsync("eval", @"
-        document.cookie = '.VanAn.Auth=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict; Secure';
-        window.location.href = '/Login';
-    ");
+    // Server-side logout via /Logout endpoint (Pages/Logout.cshtml — SignOutAsync + redirect)
+    NavigationManager.NavigateTo("/Logout", forceLoad: true);
 }
 }
