@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — E2E Test Cleanup (Anti-Pattern Removal)
 
-> **Status:** ACTIVE — Wave 0+1+2 COMPLETE, Wave 3 NEXT
+> **Status:** ACTIVE — Wave 0+1+2+3 COMPLETE, Wave 4 NEXT
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 2 complete — 6 auth pattern fixes, commit `b40b640`)
+> **Last Updated:** 2026-07-03 (Wave 3 complete — 5 anti-schema tests deleted, commit `5f57179`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix (không case-by-case)
@@ -259,25 +259,28 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W3-T1 | Xóa test `TC_Voice_TextCommand` trong `voice-command.spec.ts` — schema mismatch (`result.Command.CommandText` vs `{ Success }`) | `voice-command.spec.ts` | PENDING |
-| 2 | W3-T2 | Xóa test `TC_Voice_TTS` trong `voice-command.spec.ts` — fabricated URL `tts-api.example.com` (API trả `/audio/speech.mp3`) | `voice-command.spec.ts` | PENDING |
-| 3 | W3-T3 | Xóa test `TC_Voice_StatusUpdate` trong `voice-command.spec.ts` — schema mismatch (`result.Command.CommandType`) | `voice-command.spec.ts` | PENDING |
-| 4 | W3-T4 | Xóa test `TC_Voice_AudioStorage` trong `voice-command.spec.ts` — try/catch swallow, không verify thực | `voice-command.spec.ts` | PENDING |
-| 5 | W3-T5 | Xóa test `TC_i18n_VoiceLanguage` trong `i18n.spec.ts` — schema mismatch (`viResult.Executed`) | `i18n.spec.ts` | PENDING |
-| 6 | W3-T6 | Giữ lại `TC_Voice_Flow` (silent skip — sẽ fix Wave 6) + `TC_i18n_Switch/Vietnamese/Fallback` (có thể pass — Content-Language header có set) | — | N/A |
-| 7 | W3-T7 | Verify `npx playwright test --list` pass | Solution-wide | PENDING |
+| 1 | W3-T1 | Xóa test `TC_Voice_TextCommand` trong `voice-command.spec.ts` — schema mismatch (`result.Command.CommandText` vs `{ Success }`) | `voice-command.spec.ts` | ✅ DONE |
+| 2 | W3-T2 | Xóa test `TC_Voice_TTS` trong `voice-command.spec.ts` — fabricated URL `tts-api.example.com` (API trả `/audio/speech.mp3`) | `voice-command.spec.ts` | ✅ DONE |
+| 3 | W3-T3 | Xóa test `TC_Voice_StatusUpdate` trong `voice-command.spec.ts` — schema mismatch (`result.Command.CommandType`) | `voice-command.spec.ts` | ✅ DONE |
+| 4 | W3-T4 | Xóa test `TC_Voice_AudioStorage` trong `voice-command.spec.ts` — try/catch swallow, không verify thực | `voice-command.spec.ts` | ✅ DONE |
+| 5 | W3-T5 | Xóa test `TC_i18n_VoiceLanguage` trong `i18n.spec.ts` — schema mismatch (`viResult.Executed`) | `i18n.spec.ts` | ✅ DONE |
+| 6 | W3-T6 | Giữ lại `TC_Voice_Flow` (silent skip — sẽ fix Wave 6) + `TC_i18n_Switch/Vietnamese/Fallback/LocalizationService/ProductNames` (có thể pass) | — | ✅ DONE (5 i18n tests kept) |
+| 7 | W3-T7 | Verify `npx playwright test --list` pass | Solution-wide | ✅ DONE — 729 tests in 20 files (was 759; -30 = 5 × 6 project instances) |
 
 ### Entry criteria
-- [ ] Wave 2 merged
-- [ ] VoiceCommandController.cs confirmed return `{ Success: bool }` (L78, L112)
-- [ ] `tts-api.example.com` confirmed không có trong codebase (chỉ trong test)
+- [x] Wave 2 merged
+- [x] VoiceCommandController.cs confirmed return `{ Success: bool }` (L78, L112)
+- [x] `tts-api.example.com` confirmed không có trong codebase (chỉ trong test + docs)
 
 ### Exit criteria
-- [ ] 4 test trong `voice-command.spec.ts` đã xóa (giữ `TC_Voice_Flow`)
-- [ ] 1 test trong `i18n.spec.ts` đã xóa (`TC_i18n_VoiceLanguage`)
-- [ ] 0 reference đến `tts-api.example.com` còn lại
-- [ ] 0 reference đến `result.Command.CommandText` / `result.Command.CommandType` còn lại
-- [ ] `npx playwright test --list` pass
+- [x] 4 test trong `voice-command.spec.ts` đã xóa (giữ `TC_Voice_Flow`)
+- [x] 1 test trong `i18n.spec.ts` đã xóa (`TC_i18n_VoiceLanguage`)
+- [x] 0 reference đến `tts-api.example.com` còn lại (grep e2e-tests/ — no matches)
+- [x] 0 reference đến `result.Command.CommandText` / `result.Command.CommandType` / `viResult.Executed` còn lại (grep e2e-tests/ — no matches)
+- [x] `npx playwright test --list` pass — 729 tests in 20 files
+- [x] `dotnet build VanAn.sln` Release — 0 errors (1000 pre-existing warnings)
+- [x] windsurf-guard.js + architecture-guard.ps1 PASSED
+- [x] Committed `5f57179` on `feature/e2e-cleanup-wave3-delete-anti-schema-tests`
 
 ### Why third
 - Test đã verify SẼ FAIL nếu chạy — xóa ngay giảm noise
