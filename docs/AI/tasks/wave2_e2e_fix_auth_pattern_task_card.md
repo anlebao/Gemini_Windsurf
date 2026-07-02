@@ -3,7 +3,7 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Fix 6 spec files dùng login form không tồn tại (`#username`/`#email`/`#Username` + `waitForURL`) — chuyển sang dùng `storageState` global từ `auth/admin.json`
 - **Nghiệp vụ áp dụng:** E2E test auth — ShopERP dùng `/dev/login` (Cookie auth), không có form login trực tiếp
-- **Status:** PENDING — Planning & Approval
+- **Status:** ✅ COMPLETE — Commit `b40b640` on `feature/e2e-cleanup-wave2-fix-auth-pattern`
 - **Branch:** `feature/e2e-cleanup-wave2-fix-auth-pattern`
 - **Estimated Sessions:** 1
 
