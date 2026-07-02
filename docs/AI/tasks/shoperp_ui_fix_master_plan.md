@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — ShopERP UI Fix (Pattern-Based Batch)
 
-> **Status:** IN PROGRESS — Wave 0+1+2 COMPLETE
+> **Status:** IN PROGRESS — Wave 0+1+2+3 COMPLETE
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 2 complete)
+> **Last Updated:** 2026-07-03 (Wave 3 complete)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix — phân loại theo pattern, KHÔNG fix case-by-case
@@ -252,23 +252,23 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W3-T1 | Create shared CSS file `Components/Pages/_PagesShared.css` (hoặc `wwwroot/css/pages.css`) — define shared classes: `page-header`, `header-actions`, `metrics-grid`, `metrics-section`, `filter-grid`, `filter-group`, `filter-actions`, `loading-state`, `empty-state`, `form-group`, `form-actions`, `vanan-input`, `vanan-select`, `vanan-table`, `status-badge`, `action-badge`, `pagination`, `page-info` | Shared CSS (NEW) | PENDING |
-| 2 | W3-T2 | Link shared CSS in `App.razor` `<head>` | `App.razor` | PENDING |
-| 3 | W3-T3 | Create `.razor.css` per page cho page-specific classes (18 files) — chỉ classes riêng, shared classes ở file chung | 18 `.razor.css` files (NEW) | PENDING |
-| 4 | W3-T4 | Verify `dotnet build VanAn.sln` pass | Solution-wide | PENDING |
+| 1 | W3-T1 | Create shared CSS file `Components/Pages/_PagesShared.css` (hoặc `wwwroot/css/pages.css`) — define shared classes: `page-header`, `header-actions`, `metrics-grid`, `metrics-section`, `filter-grid`, `filter-group`, `filter-actions`, `loading-state`, `empty-state`, `form-group`, `form-actions`, `vanan-input`, `vanan-select`, `vanan-table`, `status-badge`, `action-badge`, `pagination`, `page-info` | Shared CSS (NEW) | ✅ DONE (`d2d058d`) |
+| 2 | W3-T2 | Link shared CSS in `App.razor` `<head>` | `App.razor` | ✅ DONE |
+| 3 | W3-T3 | Create `.razor.css` per page cho page-specific classes (18 files) — chỉ classes riêng, shared classes ở file chung | 18 `.razor.css` files (NEW) | ✅ DONE |
+| 4 | W3-T4 | Verify `dotnet build VanAn.sln` pass | Solution-wide | ✅ DONE (0 errors) |
 
 ### Entry criteria
-- [ ] Wave 2 merged
-- [ ] Build pass
+- [x] Wave 2 merged
+- [x] Build pass
 
 ### Exit criteria
-- [ ] 1 shared CSS file với tất cả common classes
-- [ ] 18 `.razor.css` files cho page-specific classes
-- [ ] `metrics-grid` render thành CSS Grid (auto-fill, minmax 280px)
-- [ ] `page-header` render flex (space-between)
-- [ ] `filter-grid` render CSS Grid
-- [ ] `vanan-table` có styling (border, padding, hover)
-- [ ] `dotnet build VanAn.sln` 0 errors
+- [x] 1 shared CSS file với tất cả common classes
+- [x] 18 `.razor.css` files cho page-specific classes
+- [x] `metrics-grid` render thành CSS Grid (auto-fill, minmax 280px)
+- [x] `page-header` render flex (space-between)
+- [x] `filter-grid` render CSS Grid
+- [x] `vanan-table` có styling (border, padding, hover)
+- [x] `dotnet build VanAn.sln` 0 errors
 
 ### Why third
 - Sau khi infrastructure (Wave 1) + interactivity (Wave 2) xong, CSS là layer cuối
