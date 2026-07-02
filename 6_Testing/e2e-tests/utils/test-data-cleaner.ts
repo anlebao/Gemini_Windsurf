@@ -169,19 +169,6 @@ export class TestDataGenerator {
   }
 
   /**
-   * Generate loyalty customer data
-   */
-  static generateLoyaltyCustomerData() {
-    return {
-      name: TestDataCleaner.generateTestName(),
-      phone: TestDataCleaner.generateTestPhoneNumber(),
-      email: TestDataCleaner.generateTestEmail(),
-      password: 'TestPassword123!',
-      initialPoints: 1000
-    };
-  }
-
-  /**
    * Generate order item data
    */
   static generateOrderItem(productId: string, quantity: number = 1) {
