@@ -44,58 +44,83 @@
 
 ## 2. Current Objective
 
-**[EINVOICE PROVIDER REWRITE — PLANNING COMPLETE, AWAITING IMPLEMENTATION]**
+**[MULTI-PLAN TRACKING — 4 PLANNING STREAMS COMPLETE, AWAITING IMPLEMENTATION]**
 
-Rewrite `ViettelEInvoiceProvider` + `MisaEInvoiceProvider` (currently stubs that will fail 100% on real API calls) to match Viettel S-Invoice API v2.0 + MISA meInvoice API spec thật.
+### Stream A: EInvoice Provider Rewrite (PLANNING COMPLETE)
+Rewrite `ViettelEInvoiceProvider` + `MisaEInvoiceProvider` (stubs fail 100% on real API) per Viettel S-Invoice v2.0 + MISA meInvoice API spec.
+- **Master plan:** `docs/AI/tasks/einvoice_provider_rewrite_master_plan.md`
+- **Waves:** 4 + Wave 0 parallel (credential request)
+- **Status:** PLANNING COMPLETE. Commit `59b60fe`. Awaiting approval for Wave 1.
+- **Blocker:** Wave 0 (Viettel + MISA sandbox credentials) — 1-2 tuần bottleneck, start immediately.
 
-**Problem:**
-- Gap analysis identified 20 Viettel + 10 MISA API spec mismatches
-- Current implementations: wrong endpoints, wrong auth (Bearer vs Cookie), flat payload vs nested, missing `transactionUuid`, missing line items, missing `GetInvoiceFileAsync`
-- Unit tests pass only because they mock the *incorrect* implementation, not the real API spec
-- `EInvoiceRequest` contract thiếu line items + `SupplierTaxCode` + `GetInvoiceFileAsync`
+### Stream B: E2E Test Cleanup (PLANNING COMPLETE)
+Fix ~60 fake/no-value E2E tests across 20 spec files. Pattern-based: 7 anti-patterns + 1 regression prevention wave.
+- **Master plan:** `docs/AI/tasks/e2e_test_cleanup_master_plan.md`
+- **Waves:** 8 (Pattern F/D/G1/G2/C/B/A + Wave 8 regression prevention)
+- **Status:** PLANNING COMPLETE. Commit `51dd7ff`. Awaiting approval for Wave 1.
+- **Target:** ~110 test cases (55% fake) → ~50 test cases (100% value).
 
-**Solution (4 waves + Wave 0 parallel credential request):**
-- Wave 0: Email Viettel + MISA xin sandbox credentials (parallel, 1-2 tuần bottleneck)
-- Wave 1: Update `EInvoiceRequest` contract + `IEInvoiceProvider` interface (add `GetInvoiceFileAsync`, `SupplierTaxCode`, `LineItems`)
-- Wave 2: Rewrite Viettel provider + DTOs + tests (merged for TDD compliance)
-- Wave 3: Rewrite MISA provider + DTOs + tests
-- Wave 4: Sandbox runtime verification (both providers)
-- Domain layer NOT modified (`InvoiceItem` entity đã tồn tại line 1752)
+### Stream C: ShopERP UI Fix (PLANNING COMPLETE)
+Fix 23 .razor files in `Components/Pages/` — 14 dead pages, 18 unstyled, 3 broken layouts. Pattern-based: 6 patterns.
+- **Master plan:** `docs/AI/tasks/shoperp_ui_fix_master_plan.md`
+- **Waves:** 6 (Pattern P/R/C/V/L/G)
+- **Status:** PLANNING COMPLETE. Commit `51dd7ff`. Awaiting approval for Wave 1.
+- **Root cause:** UI.Platform (VanALayout/VanANavigation) chưa hoàn thiện — zero CSS, sai slot structure.
+- **Target:** 23 files, 14 dead → 0, 18 unstyled → 0, 3 broken layouts → 0.
 
-**Master plan:** `docs/AI/tasks/einvoice_provider_rewrite_master_plan.md`
-**Waves:** 4 + Wave 0 parallel (Wave 1: Contract ✅-planned · Wave 2: Viettel ✅-planned · Wave 3: MISA ✅-planned · Wave 4: Sandbox ✅-planned)
-**Status:** PLANNING COMPLETE. Master plan + 4 task cards committed (`59b60fe`). Awaiting approval to start Wave 1. Wave 0 (credential request) should start immediately in parallel.
+### Stream D: ShopConfig Refactor (COMPLETE)
+All 3 phases merged to main. See Section 6.
 
 ---
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `59b60fe` [EINVOICE-PLAN] Master plan + 4 task cards for EInvoice provider rewrite
+- **Last commit:** `51dd7ff` [PLAN] E2E cleanup + ShopERP UI fix master plans + task cards
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅ (pre-existing, no code changes in planning)
 - **Guard-check:** PASSED ✅
 - **Tenant Onboarding Feature:** COMPLETE & MERGED ✅ — All 6 waves on main
 - **ShopConfig Refactor:** ALL 3 PHASES COMPLETE ✅ — merged to main
-- **EInvoice Provider Rewrite:** PLANNING COMPLETE —
-  - Master plan + 4 task cards committed (`59b60fe`)
-  - Gap analysis: 20 Viettel + 10 MISA API spec mismatches identified
-  - `InvoiceItem` entity confirmed in Domain.cs (line 1752) — no Domain change needed
-  - `EInvoiceRequest` construction location confirmed: `Program.cs` line 185 (not Orchestrator)
-  - `GetInvoiceFileAsync` missing from `IEInvoiceProvider` interface — to add in Wave 1
-  - `SupplierTaxCode` source candidate: `ProviderConfiguration.ConfigurationData` JSON (line 2045)
-  - Wave 2+3 merged (TDD compliance — impl + tests cùng wave)
-  - Phase 4 ↔ Phase 5 swapped (MISA rewrite before sandbox verify)
+- **EInvoice Provider Rewrite:** PLANNING COMPLETE — Master plan + 4 task cards (`59b60fe`)
+- **E2E Test Cleanup:** PLANNING COMPLETE — Master plan + 8 task cards (`51dd7ff`)
+  - Review: 20 spec files, ~60/110 test cases fake/no-value (55%)
+  - 7 anti-patterns classified: F (reporter.pass), D (auth), G1 (anti-schema), G2 (anti-UI), C (smoke), B (silent skip), A (OR-tautology)
+- **ShopERP UI Fix:** PLANNING COMPLETE — Master plan + 6 task cards (`51dd7ff`)
+  - Review: 23 .razor files in `Components/Pages/`, 13 issues classified into 6 patterns
+  - Pattern P (Platform infra): VanALayout/VanANavigation zero CSS + sai slot — root cause
+  - Pattern R (Rendermode): 14/23 files thiếu `@rendermode InteractiveServer` — dead buttons/forms
+  - Pattern C (CSS): 18/23 files unstyled — zero CSS cho custom classes
+  - Pattern V (Version): VanAnAlert/VanAnModal (cũ) vs VanAAlert/VanAModal (mới) — 11 occurrences
+  - Pattern L (Layout): Admin folder 4 files không có `@layout` — inconsistent
+  - Pattern G (Governance): inline `<style>`, `eval` logout, Counter.razor demo, Home naked redirect
 - **Uncommitted changes:** None (planning-only commit)
 
 ---
 
 ## 4. Next Actions
 
-1. **Start Wave 0 (parallel, non-code)** — Email Viettel Solution (`lienhe@viettelsolution.com.vn` / `1900.8119`) xin sandbox vinvoice 2.0 + Email MISA partnership request xin `appid` + sandbox `testapi.meinvoice.vn`. Register IP server vào Viettel whitelist. Contact MISA support confirm status/cancel endpoints.
-2. **Implement Wave 1** — Update `EInvoiceRequest` contract + `IEInvoiceProvider` interface (add `GetInvoiceFileAsync`, `SupplierTaxCode`, `LineItems`, `CurrencyCode`, `PaymentType`). Update `Program.cs` line 185. Update existing tests. Build + tests pass.
-3. **Implement Wave 2** — Rewrite Viettel provider + DTOs + tests per API spec v2.5 (auth Cookie, nested payload, `transactionUuid`, `searchInvoiceByTransactionUuid`, `cancelTransactionInvoice`, `getInvoiceRepresentationFile`).
-4. **Implement Wave 3** — Rewrite MISA provider + DTOs + tests per MISA meInvoice API (auth Bearer with `appid`, `SignType: 2`, token expiry 15 days).
-5. **Wave 4: Sandbox verification** — Verify both providers with real sandbox credentials (depends on Wave 0 complete).
+**3 streams awaiting approval — user chọn stream để implement:**
+
+### Stream A: EInvoice Provider Rewrite
+1. **Start Wave 0 (parallel, non-code)** — Email Viettel + MISA xin sandbox credentials (1-2 tuần bottleneck).
+2. **Implement Wave 1** — Update `EInvoiceRequest` contract + `IEInvoiceProvider` interface.
+3. **Implement Wave 2** — Rewrite Viettel provider + DTOs + tests.
+4. **Implement Wave 3** — Rewrite MISA provider + DTOs + tests.
+5. **Wave 4** — Sandbox verification (depends on Wave 0).
+
+### Stream B: E2E Test Cleanup
+1. **Implement Wave 1** — Remove `reporter.pass` (9 files, lowest risk, build momentum).
+2. **Implement Wave 2** — Fix auth pattern (6 files broken login).
+3. **Implement Wave 3-4** — Delete anti-schema + anti-UI tests.
+4. **Implement Wave 5-7** — Consolidate smoke, fix silent skip, fix OR-tautology.
+5. **Wave 8** — Regression prevention (helper + lint).
+
+### Stream C: ShopERP UI Fix
+1. **Implement Wave 1** — UI.Platform infra (VanALayout CSS + slot + VanANavigation CSS + icons) — root cause fix.
+2. **Implement Wave 2** — Add `@rendermode InteractiveServer` (14 files, mechanical).
+3. **Implement Wave 3** — Page CSS isolation (shared + per-page, 18 files).
+4. **Implement Wave 4** — Component consolidation (VanAnX → VanX).
+5. **Implement Wave 5-6** — Admin layout + governance cleanup.
 
 ---
 
@@ -117,6 +142,11 @@ Rewrite `ViettelEInvoiceProvider` + `MisaEInvoiceProvider` (currently stubs that
 ---
 
 ## 6. History Log
+
+* [2026-07-02] **E2E Test Cleanup + ShopERP UI Fix — PLANNING COMPLETE (2 streams)** —
+  - **E2E Test Cleanup:** Reviewed 20 spec files in `6_Testing/e2e-tests/`, identified ~60/110 test cases (55%) as fake/no-value. Classified into 7 anti-patterns: F (decorative `reporter.pass`, 9 files), D (wrong auth pattern, 6 files), G1 (anti-schema tests, 5 tests), G2 (anti-UI tests, 2 scenarios), C (low-value reachability smoke, 9 tests), B (silent skip, 6 tests), A (OR-tautology, 7 tests). Created master plan + 8 task cards (Wave 8 = regression prevention with helper + lint script). Target: ~110 → ~50 test cases, 100% value.
+  - **ShopERP UI Fix:** Reviewed 23 .razor files in `Components/Pages/` (5 root + 7 Accounting + 4 Admin + 7 EInvoice). Identified 13 issues classified into 6 patterns: P (UI.Platform infra — VanALayout/VanANavigation zero CSS + sai slot structure, root cause cho 13/23 files), R (14 files thiếu `@rendermode InteractiveServer` → dead buttons/forms), C (18 files unstyled — zero CSS cho custom classes), V (VanAnAlert/VanAnModal cũ vs VanAAlert/VanAModal mới — 11 occurrences), L (Admin folder 4 files không có `@layout`), G (inline `<style>`, `eval` logout, Counter.razor demo, Home naked redirect). Created master plan + 6 task cards. Target: 14 dead → 0, 18 unstyled → 0, 3 broken layouts → 0.
+  - Both plans use pattern-based batch fix approach (KHÔNG case-by-case). Commit: `51dd7ff` on `main`.
 
 * [2026-07-02] **EInvoice Provider Rewrite — PLANNING COMPLETE** — Gap analysis identified 20 Viettel + 10 MISA API spec mismatches in current provider implementations (stubs that will fail 100% on real API calls). Created master plan + 4 task cards (Wave 1: Contract+Interface, Wave 2: Viettel provider+tests, Wave 3: MISA provider+tests, Wave 4: Sandbox verify). Wave 0 (parallel credential request) tracked. Self-review fixed 10 issues: added `Program.cs` line 185 to Wave 1, added `GetInvoiceFileAsync` to interface, documented `SupplierTaxCode` source (`ProviderConfiguration.ConfigurationData`), merged Wave 2+3 for TDD compliance, swapped Phase 4↔5 (MISA before sandbox). `InvoiceItem` entity confirmed in Domain.cs (line 1752) — no Domain change needed. Commit: `59b60fe` on `main`.
 
@@ -216,6 +246,22 @@ Rewrite `ViettelEInvoiceProvider` + `MisaEInvoiceProvider` (currently stubs that
 | `docs/AI/tasks/wave2_einvoice_viettel_provider_task_card.md` | Wave 2: Rewrite Viettel provider + DTOs + tests (merged for TDD) |
 | `docs/AI/tasks/wave3_einvoice_misa_provider_task_card.md` | Wave 3: Rewrite MISA provider + DTOs + tests |
 | `docs/AI/tasks/wave4_einvoice_sandbox_verify_task_card.md` | Wave 4: Sandbox runtime verification (both providers) |
+| `docs/AI/tasks/e2e_test_cleanup_master_plan.md` | Master plan: E2E test cleanup (8 waves, 7 anti-patterns) |
+| `docs/AI/tasks/wave1_e2e_remove_reporter_pass_task_card.md` | E2E Wave 1: Remove decorative reporter.pass (Pattern F) |
+| `docs/AI/tasks/wave2_e2e_fix_auth_pattern_task_card.md` | E2E Wave 2: Fix auth pattern (Pattern D) |
+| `docs/AI/tasks/wave3_e2e_delete_anti_schema_tests_task_card.md` | E2E Wave 3: Delete anti-schema tests (Pattern G1) |
+| `docs/AI/tasks/wave4_e2e_delete_anti_ui_tests_task_card.md` | E2E Wave 4: Delete anti-UI tests (Pattern G2) |
+| `docs/AI/tasks/wave5_e2e_consolidate_smoke_tests_task_card.md` | E2E Wave 5: Consolidate smoke tests (Pattern C) |
+| `docs/AI/tasks/wave6_e2e_fix_silent_skip_task_card.md` | E2E Wave 6: Fix silent skip (Pattern B) |
+| `docs/AI/tasks/wave7_e2e_fix_or_tautology_task_card.md` | E2E Wave 7: Fix OR-tautology (Pattern A) |
+| `docs/AI/tasks/wave8_e2e_regression_prevention_task_card.md` | E2E Wave 8: Regression prevention (helper + lint) |
+| `docs/AI/tasks/shoperp_ui_fix_master_plan.md` | Master plan: ShopERP UI fix (6 waves, 6 patterns) |
+| `docs/AI/tasks/wave1_shoperp_ui_platform_infra_task_card.md` | UI Wave 1: UI.Platform infra — VanALayout/VanANavigation (Pattern P) |
+| `docs/AI/tasks/wave2_shoperp_rendermode_task_card.md` | UI Wave 2: Add @rendermode InteractiveServer (Pattern R) |
+| `docs/AI/tasks/wave3_shoperp_page_css_task_card.md` | UI Wave 3: Page CSS isolation (Pattern C) |
+| `docs/AI/tasks/wave4_shoperp_component_consolidation_task_card.md` | UI Wave 4: Component consolidation VanAnX→VanX (Pattern V) |
+| `docs/AI/tasks/wave5_shoperp_admin_layout_task_card.md` | UI Wave 5: Admin layout consistency (Pattern L) |
+| `docs/AI/tasks/wave6_shoperp_governance_cleanup_task_card.md` | UI Wave 6: Governance cleanup (Pattern G) |
 
 ---
 
@@ -238,6 +284,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — EInvoice Provider Rewrite PLANNING COMPLETE. Master plan + 4 task cards committed (`59b60fe`). Gap analysis: 20 Viettel + 10 MISA API spec mismatches. Self-review fixed 10 issues (Program.cs file list, GetInvoiceFileAsync interface, SupplierTaxCode source, Wave 2+3 merge for TDD, Phase 4↔5 swap). Wave 0 (credential request) parallel path identified. Awaiting approval to start Wave 1.
+* **Last Updated:** 2026-07-02 — E2E Test Cleanup + ShopERP UI Fix PLANNING COMPLETE. 2 master plans + 14 task cards committed (`51dd7ff`). E2E: 20 spec files reviewed, ~60/110 tests fake/no-value (55%), 7 anti-patterns classified. ShopERP UI: 23 .razor files reviewed, 13 issues classified into 6 patterns (P/R/C/V/L/G). Root cause: UI.Platform (VanALayout/VanANavigation) chưa hoàn thiện — zero CSS, sai slot. 3 streams now awaiting approval: EInvoice rewrite, E2E cleanup, ShopERP UI fix.
 * **Current Branch:** `main`
-* **Current Objective:** EInvoice Provider Rewrite — PLANNING COMPLETE, awaiting approval to implement Wave 1.
+* **Current Objective:** Multi-plan tracking — 3 streams (EInvoice rewrite, E2E cleanup, ShopERP UI fix) PLANNING COMPLETE, awaiting user approval to start implementation.
