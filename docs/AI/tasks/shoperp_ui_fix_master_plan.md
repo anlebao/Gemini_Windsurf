@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — ShopERP UI Fix (Pattern-Based Batch)
 
-> **Status:** IN PROGRESS — Wave 0+1 COMPLETE
+> **Status:** IN PROGRESS — Wave 0+1+2 COMPLETE
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 1 complete, reviewed)
+> **Last Updated:** 2026-07-03 (Wave 2 complete)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix — phân loại theo pattern, KHÔNG fix case-by-case
@@ -222,17 +222,17 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W2-T1 | Add `@rendermode InteractiveServer` to 14 files (batch operation) | 14 files (list trong task card) | PENDING |
-| 2 | W2-T2 | Verify `dotnet build VanAn.sln` pass | Solution-wide | PENDING |
+| 1 | W2-T1 | Add `@rendermode InteractiveServer` to 14 files (batch operation) | 14 files (list trong task card) | ✅ DONE (`79ec512`) |
+| 2 | W2-T2 | Verify `dotnet build VanAn.sln` pass | Solution-wide | ✅ DONE (0 errors) |
 
 ### Entry criteria
-- [ ] Wave 1 merged
-- [ ] Build pass
+- [x] Wave 1 merged
+- [x] Build pass
 
 ### Exit criteria
-- [ ] 14 files có `@rendermode InteractiveServer` ở line 2 (sau `@page`)
-- [ ] 0 interactive handler nào ở SSR mode
-- [ ] `dotnet build VanAn.sln` 0 errors
+- [x] 14 files có `@rendermode InteractiveServer` ở line 2 (sau `@page`)
+- [x] 0 interactive handler nào ở SSR mode
+- [x] `dotnet build VanAn.sln` 0 errors
 
 ### Why second
 - Thao tác cơ học nhất — chỉ thêm 1 line per file
