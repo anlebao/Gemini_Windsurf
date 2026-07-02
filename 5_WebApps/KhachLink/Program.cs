@@ -63,8 +63,15 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<IDashboardService, Services.Http.DashboardHttpService>();
 
             // IShopConfigService: used by KhachLinkLayout for shop name/logo/theme.
-            // TODO: Replace ShopConfigService with ShopConfigHttpService calling GET /api/shopconfig
+            // TODO (Phase 3): Remove this CoreHub direct inject once KhachLinkLayout switches to ShopConfigHttpService.
+            // Kept temporarily (Option A) so KhachLinkLayout.razor @inject IShopConfigService still resolves.
             _ = builder.Services.AddScoped<IShopConfigService, ShopConfigService>();
+
+            // ShopConfigHttpService (Phase 2 — product-based, HTTP via Gateway only).
+            // Loads real Shop data: products → TenantId → GET /api/shops/by-tenant/{tenantId}.
+            // No CoreHub dependency. Phase 3 will wire this into KhachLinkLayout + Home.razor
+            // and remove the IShopConfigService registration above.
+            _ = builder.Services.AddScoped<Services.Http.ShopConfigHttpService>();
 
 
 

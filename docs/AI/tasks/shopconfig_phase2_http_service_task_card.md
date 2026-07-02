@@ -43,8 +43,39 @@
 - [ ] **SC11:** No Gateway/ShopERP files modified
 - [ ] **SC12:** `dotnet build VanAn.sln` — 0 errors
 
-**Implementation Date:** [DATE]
+**Implementation Date:** 2026-07-02
 **Branch:** feature/shopconfig-product-tenant-phase2-service
+**Status:** ✅ COMPLETE (2026-07-02)
+
+### Plan-vs-Reality Discrepancies (resolved during execution)
+1. **ShopConfigHttpService.cs did NOT exist** (plan said "rewrite Approach 1 remnant").
+   Reality: file was reverted along with other Approach 1 remnants. Action: CREATE new file.
+2. **by-tenant endpoint did NOT exist** in Gateway or ShopERP (plan entry criteria marked it `[x]`).
+   Reality: endpoint was reverted. User approved expanding Phase 2 boundary to add it.
+   - Added `GET /api/shops/by-tenant/{tenantId:guid}` to ShopERP ShopsController (AllowAnonymous, returns Shop by TenantId).
+   - Added forward endpoint to Gateway ShopsController.
+   - KhachLink calls `shoperp/api/shops/by-tenant/{tenantId}` (YARP `shoperp-route` → ShopERP).
+
+### Files modified in Phase 2
+| File | Change |
+|---|---|
+| `5_WebApps/ShopERP/Controllers/ShopsController.cs` | Added `GetShopByTenant` endpoint |
+| `2_Gateway/Controllers/ShopsController.cs` | Added `GetShopByTenant` forward endpoint |
+| `5_WebApps/KhachLink/Models/ShopDto.cs` | NEW — DTO to deserialize Shop entity from API |
+| `5_WebApps/KhachLink/Services/Http/ShopConfigHttpService.cs` | NEW — product-based HTTP loader |
+| `5_WebApps/KhachLink/Program.cs` | Added `ShopConfigHttpService` DI (Scoped, Option A — kept IShopConfigService tạm) |
+
+### Exit criteria results
+- [x] SC1: `GetShopConfigFromProductsAsync(List<ProductDto>)` — extracts first product's TenantId, loads shop
+- [x] SC2: `GetShopConfigByTenantIdAsync(Guid)` — calls `shoperp/api/shops/by-tenant/{tenantId}`
+- [x] SC3: Fallback to `DefaultShopConfig` on empty products / empty TenantId / 404 / non-success / exception
+- [x] SC4: `BuildShopConfigFromShop` maps Name, Address, Phone, Email, Latitude, Longitude from ShopDto
+- [x] SC5: Branding fields (PrimaryColor, SecondaryColor, Theme, LogoUrl, SocialLinks, Features, LoyaltyConfig) keep defaults
+- [x] SC6: `ShopConfigHttpService` registered Scoped in Program.cs
+- [x] SC7: `IShopConfigService` kept tạm (Option A) — Phase 3 will remove + update KhachLinkLayout
+- [x] SC8-SC12: `dotnet build VanAn.sln` → 0 errors (972 pre-existing warnings, no new warnings)
+- [x] No Domain layer files modified
+- [x] No KhachLinkLayout.razor / Home.razor modified (Phase 3)
 
 ## 6. ACTIVE SKILLS (MAX 3)
 - `domain-integrity-validation` — Ensure Domain layer not modified

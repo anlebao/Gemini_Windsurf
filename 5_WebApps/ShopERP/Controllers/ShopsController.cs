@@ -165,6 +165,26 @@ namespace VanAn.ShopERP.Controllers
             }
         }
 
+        // ShopConfig Product→Tenant Refactor (Phase 2): get shop by TenantId.
+        // KhachLink derives TenantId from products, then calls this to load real Shop data
+        // for ShopConfig (name, address, phone, email, coordinates).
+        [HttpGet("by-tenant/{tenantId:guid}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<Shop>> GetShopByTenant(Guid tenantId)
+        {
+            try
+            {
+                Shop? shop = await _dbContext.Shops
+                    .FirstOrDefaultAsync(s => s.TenantId == new TenantId(tenantId) && !s.IsDeleted);
+                return shop == null ? NotFound() : Ok(shop);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting shop by tenant {TenantId}", tenantId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
         // W17-T5: Store Finder — find shops near a GPS location
         [HttpGet("nearby")]
         [AllowAnonymous]

@@ -54,5 +54,25 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+
+        // ShopConfig Product→Tenant Refactor (Phase 2): forward by-tenant lookup to ShopERP.
+        // KhachLink calls this with TenantId derived from products to load real Shop data.
+        [HttpGet("by-tenant/{tenantId:guid}")]
+        public async Task<IActionResult> GetShopByTenant(Guid tenantId)
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var url = $"/api/shops/by-tenant/{tenantId}";
+                var response = await client.GetAsync(url);
+                var content = await response.Content.ReadAsStringAsync();
+                return Content(content, "application/json");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forwarding GetShopByTenant to ShopERP");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
     }
 }

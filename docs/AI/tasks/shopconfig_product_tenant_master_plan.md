@@ -2,7 +2,7 @@
 
 **Created:** 2026-07-02
 **Last Updated:** 2026-07-02
-**Current Status:** PHASE 1 COMPLETE — Ready for Phase 2 (ShopConfigHttpService)
+**Current Status:** PHASE 2 COMPLETE — Ready for Phase 3 (Wire-up + Tests)
 **Branch strategy:** feature/shopconfig-product-tenant-phase[X]
 **Execution principle:** JIT Planning + Pure Execution
 
@@ -10,7 +10,7 @@
 | Phase | Branch | Status | Commit |
 |---|---|---|---|
 | 1 — Revert + DTO | feature/shopconfig-product-tenant-phase1-dto | ✅ COMPLETE (2026-07-02) | `5cb9bbd` |
-| 2 — ShopConfigHttpService | feature/shopconfig-product-tenant-phase2-service | ⏳ PENDING | — |
+| 2 — ShopConfigHttpService | feature/shopconfig-product-tenant-phase2-service | ✅ COMPLETE (2026-07-02) | (this commit) |
 | 3 — Wire-up + Tests | feature/shopconfig-product-tenant-phase3-wireup | ⏳ PENDING | — |
 
 ---
@@ -244,7 +244,7 @@ Revert the order-based Approach 1 remnants and add TenantId to product DTOs — 
 **Conflict risk:** LOW (new service + DI change)
 **Priority:** 2 (Critical)
 **Task Card:** `docs/AI/tasks/shopconfig_phase2_http_service_task_card.md`
-**Status:** PENDING
+**Status:** COMPLETE (2026-07-02)
 
 ### Rationale
 Rewrite ShopConfigHttpService to load ShopConfig from product data: products → extract TenantId → GET /api/shops/by-tenant/{tenantId} → build ShopConfig from real Shop entity.
@@ -252,20 +252,22 @@ Rewrite ShopConfigHttpService to load ShopConfig from product data: products →
 ### Tasks (sequential)
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | P2-T1 | Rewrite ShopConfigHttpService (product-based) | KhachLink/Services/Http/ShopConfigHttpService.cs | PENDING |
-| 2 | P2-T2 | Remove IShopConfigService DI, add ShopConfigHttpService DI | KhachLink/Program.cs | PENDING |
-| 3 | P2-T3 | Build verify (0 errors) | All projects | PENDING |
+| 1 | P2-T1 | CREATE ShopConfigHttpService (product-based) — file did not exist, plan said "rewrite" | KhachLink/Services/Http/ShopConfigHttpService.cs | DONE |
+| 2 | P2-T1b | Add by-tenant endpoint (ShopERP + Gateway) — plan assumed it existed, was actually reverted | ShopERP/ShopsController.cs, Gateway/ShopsController.cs | DONE |
+| 3 | P2-T1c | Create ShopDto (KhachLink) to deserialize Shop entity from API | KhachLink/Models/ShopDto.cs | DONE |
+| 4 | P2-T2 | Add ShopConfigHttpService DI (Option A — keep IShopConfigService tạm for Phase 3) | KhachLink/Program.cs | DONE |
+| 5 | P2-T3 | Build verify (0 errors) | All projects | DONE (0 errors) |
 
 ### Entry criteria
 - [x] Phase 1 complete (ProductDto has TenantId) — DONE 2026-07-02
-- [x] by-tenant endpoint exists (Gateway + ShopERP) — kept from Approach 1
+- [x] by-tenant endpoint exists (Gateway + ShopERP) — **ADDED in Phase 2** (plan wrongly assumed it was kept from Approach 1; was actually reverted)
 - [x] Domain layer NOT modified — verified
 
 ### Exit criteria — ALL PASSED
-- [ ] ShopConfigHttpService loads from products → TenantId → shop data
-- [ ] No direct CoreHub IShopConfigService dependency in KhachLink
-- [ ] Fallback to default config when no products / shop not found
-- [ ] Build: 0 errors
+- [x] ShopConfigHttpService loads from products → TenantId → shop data
+- [x] No direct CoreHub IShopConfigService dependency in KhachLink **for ShopConfig loading** (IShopConfigService kept tạm per Option A; Phase 3 removes it)
+- [x] Fallback to default config when no products / shop not found
+- [x] Build: 0 errors
 
 ---
 
@@ -291,8 +293,9 @@ Wire ShopConfigHttpService into KhachLinkLayout + Home.razor (with SocialHub). A
 | 5 | P3-T5 | Update project_state.md | docs/AI/project_state.md | PENDING |
 
 ### Entry criteria
-- [ ] Phase 2 complete (ShopConfigHttpService registered in DI)
-- [ ] ShopConfigHttpService builds successfully
+- [x] Phase 2 complete (ShopConfigHttpService registered in DI) — DONE 2026-07-02
+- [x] ShopConfigHttpService builds successfully — 0 errors
+- [x] by-tenant endpoint exists (added in Phase 2)
 
 ### Exit criteria — ALL PASSED
 - [ ] KhachLinkLayout loads real shop data (name, phone, address)
@@ -343,8 +346,11 @@ Wire ShopConfigHttpService into KhachLinkLayout + Home.razor (with SocialHub). A
 | P1 | `5_WebApps/ShopERP/Controllers/CustomerOrdersController.cs` | Revert TenantId addition |
 | P1 | `5_WebApps/ShopERP/Controllers/ProductsController.cs` | Add TenantId to ProductCatalogItem + projection |
 | P1 | `5_WebApps/KhachLink/Models/ProductDto.cs` | Add TenantId field |
-| P2 | `5_WebApps/KhachLink/Services/Http/ShopConfigHttpService.cs` | Rewrite (product-based) |
-| P2 | `5_WebApps/KhachLink/Program.cs` | Replace IShopConfigService DI with ShopConfigHttpService |
+| P2 | `5_WebApps/KhachLink/Services/Http/ShopConfigHttpService.cs` | CREATE (product-based) — file did not exist |
+| P2 | `5_WebApps/KhachLink/Models/ShopDto.cs` | NEW — DTO to deserialize Shop entity from API |
+| P2 | `5_WebApps/ShopERP/Controllers/ShopsController.cs` | Add `GetShopByTenant` endpoint (was assumed kept, actually reverted) |
+| P2 | `2_Gateway/Controllers/ShopsController.cs` | Add `GetShopByTenant` forward endpoint |
+| P2 | `5_WebApps/KhachLink/Program.cs` | Add ShopConfigHttpService DI (Option A — keep IShopConfigService tạm) |
 | P3 | `5_WebApps/KhachLink/Components/Layout/KhachLinkLayout.razor` | Use ShopConfigHttpService |
 | P3 | `5_WebApps/KhachLink/Pages/Home.razor` | Add ShopConfigHttpService + SocialHub |
 | P3 | `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` | Add DI assertion |

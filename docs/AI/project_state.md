@@ -44,7 +44,7 @@
 
 ## 2. Current Objective
 
-**[SHOPCONFIG PRODUCT→TENANT REFACTOR — PLANNING COMPLETE, READY TO IMPLEMENT]**
+**[SHOPCONFIG PRODUCT→TENANT REFACTOR — PHASE 2 COMPLETE, READY FOR PHASE 3]**
 
 Refactor ShopConfig loading from hardcoded stub to real data via product-based TenantId derivation.
 
@@ -56,28 +56,28 @@ Refactor ShopConfig loading from hardcoded stub to real data via product-based T
 
 **Solution (Approach 2 — Product-based):**
 - Add `TenantId` to product DTOs → derive TenantId from products → load real Shop entity
-- Rewrite `ShopConfigHttpService` (HTTP via Gateway, no CoreHub direct)
-- Wire-up KhachLinkLayout + Home.razor (with SocialHub)
+- `ShopConfigHttpService` (HTTP via Gateway, no CoreHub direct) — CREATED in Phase 2
+- Wire-up KhachLinkLayout + Home.razor (with SocialHub) — Phase 3
 - Domain layer NOT modified
 
 **Master plan:** `docs/AI/tasks/shopconfig_product_tenant_master_plan.md`
-**Phases:** 3 (Phase 1: Revert+DTO · Phase 2: HttpService · Phase 3: Wire-up+Tests)
-**Status:** Planning complete, awaiting implementation approval.
+**Phases:** 3 (Phase 1: Revert+DTO ✅ · Phase 2: HttpService ✅ · Phase 3: Wire-up+Tests ⏳)
+**Status:** Phase 2 complete. Next: Phase 3 (wire-up KhachLinkLayout + Home.razor, remove IShopConfigService DI, add KhachLinkStartupTests assertion).
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main`
-- **Last commit:** (pending — ShopConfig refactor planning docs)
+- **Branch:** `feature/shopconfig-product-tenant-phase2-service`
+- **Last commit:** (pending — Phase 2 ShopConfigHttpService + by-tenant endpoint)
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
 - **ci-local:** PASSED ✅ (131 integration tests, 28 architecture tests)
 - **Tenant Onboarding Feature:** COMPLETE & MERGED ✅ — All 6 waves on main
-- **ShopConfig Refactor:** PLANNING COMPLETE — Master plan + 3 task cards created
+- **ShopConfig Refactor:** PHASE 2 COMPLETE — ShopConfigHttpService created (product-based), by-tenant endpoint added (ShopERP + Gateway), ShopDto added, DI registered (Option A — IShopConfigService kept tạm for Phase 3)
 - **Integration Tests:** 131/131 PASS ✅
 - **Architecture Tests:** 28/28 PASS ✅
-- **Uncommitted changes:** NavMenu + Campaigns.razor (KhachLink menu additions), ShopERP/Gateway by-tenant endpoint, ShopConfigHttpService.cs (Approach 1 remnant — will be rewritten in Phase 2), planning docs
+- **Uncommitted changes:** Phase 2 (ShopConfigHttpService.cs, ShopDto.cs, Program.cs DI, by-tenant endpoints, planning docs)
 
 ---
 
