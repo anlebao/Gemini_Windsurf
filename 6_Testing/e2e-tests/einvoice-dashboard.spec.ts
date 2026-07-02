@@ -1,18 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { loadEnvConfig } from '../utils/env-config';
-
-const config = loadEnvConfig();
 
 test.describe('EInvoice Dashboard', () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#email', config.TEST_EMAIL);
-    await page.fill('#password', config.TEST_PASSWORD);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard', { timeout: 10000 });
-  });
+  // Auth: global storageState (auth/admin.json) applied via playwright.config.ts L34+L56.
+  // ShopERP uses Cookie auth via /dev/login — no login form exists.
 
   test('should render EInvoice Dashboard page', async ({ page }) => {
     await page.goto('/einvoice');

@@ -1,13 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Expense Entry Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#username', 'admin@vanan.vn');
-    await page.fill('#password', 'VanAn@2026');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('/');
-  });
+  // Auth: global storageState (auth/admin.json) applied via playwright.config.ts L34+L56.
+  // ShopERP uses Cookie auth via /dev/login — no login form exists.
 
   test('should create expense entry with vendor info', async ({ page }) => {
     await page.goto('/accounting/expenses');
