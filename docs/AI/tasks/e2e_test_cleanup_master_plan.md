@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — E2E Test Cleanup (Anti-Pattern Removal)
 
-> **Status:** PENDING — Awaiting Approval
+> **Status:** ACTIVE — Wave 0+1 COMPLETE, Wave 2 NEXT
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-02 (Review v1 — 8 waves, pattern-based batch fix)
+> **Last Updated:** 2026-07-03 (Wave 0 pre-flight PASSED + Wave 1 complete — 59 reporter.pass() removed, commit `0c7965e`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix (không case-by-case)
@@ -76,10 +76,10 @@ main
 ### Tasks
 | # | Task | Owner | Status |
 |---|---|---|---|
-| 1 | Confirm `auth/admin.json` được generate bởi `global-setup.ts` (chạy `npx playwright test --list` 1 lần) | AI | PENDING |
-| 2 | Confirm `playwright.config.ts` apply `storageState: 'auth/admin.json'` globally (L34, L56) | AI | PENDING |
-| 3 | Confirm `isTierEnabled('e2e')` mechanism — verify env-config.ts | AI | PENDING |
-| 4 | Snapshot `git status` sạch trước khi bắt đầu Wave 1 | AI | PENDING |
+| 1 | Confirm `auth/admin.json` được generate bởi `global-setup.ts` (chạy `npx playwright test --list` 1 lần) | AI | ✅ DONE — `global-setup.ts` L111-112 writes `auth/admin.json` via `context.storageState({ path })` |
+| 2 | Confirm `playwright.config.ts` apply `storageState: 'auth/admin.json'` globally (L34, L56) | AI | ✅ DONE — L34 (`use.storageState`) + L56 (`e2e-tests` project) confirmed |
+| 3 | Confirm `isTierEnabled('e2e')` mechanism — verify env-config.ts | AI | ✅ DONE — `env-config.ts` L359-389, returns `config.ENABLE_E2E` |
+| 4 | Snapshot `git status` sạch trước khi bắt đầu Wave 1 | AI | ✅ DONE — committed smoke test state (`797ce36`), tree clean (only pre-existing .vs/ + stray local files) |
 
 ### Tracking
 - Update `project_state.md` Maintenance Log khi verify xong
@@ -178,28 +178,30 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W1-T1 | Xóa tất cả `reporter.pass(...)` calls trong `accounting-flow.spec.ts` | `accounting-flow.spec.ts` | PENDING |
-| 2 | W1-T2 | Xóa tất cả `reporter.pass(...)` calls trong `audit-trail-flow.spec.ts` | `audit-trail-flow.spec.ts` | PENDING |
-| 3 | W1-T3 | Xóa tất cả `reporter.pass(...)` calls trong `balance-dashboard-flow.spec.ts` | `balance-dashboard-flow.spec.ts` | PENDING |
-| 4 | W1-T4 | Xóa tất cả `reporter.pass(...)` calls trong `order-flow.spec.ts` | `order-flow.spec.ts` | PENDING |
-| 5 | W1-T5 | Xóa tất cả `reporter.pass(...)` calls trong `order-tracking.spec.ts` | `order-tracking.spec.ts` | PENDING |
-| 6 | W1-T6 | Xóa tất cả `reporter.pass(...)` calls trong `qr-payment.spec.ts` | `qr-payment.spec.ts` | PENDING |
-| 7 | W1-T7 | Xóa tất cả `reporter.pass(...)` calls trong `qr-payment-ui.spec.ts` | `qr-payment-ui.spec.ts` | PENDING |
-| 8 | W1-T8 | Xóa tất cả `reporter.pass(...)` calls trong `van-an-dashboard.spec.ts` | `van-an-dashboard.spec.ts` | PENDING |
-| 9 | W1-T9 | Xóa tất cả `reporter.pass(...)` calls trong `period-closing-flow.spec.ts` | `period-closing-flow.spec.ts` | PENDING |
-| 10 | W1-T10 | Xóa unused `TestReporter` imports + constructor calls nếu không còn dùng | All 9 files | PENDING |
-| 11 | W1-T11 | Verify `npx playwright test --list` pass (no TS parse error) | Solution-wide | PENDING |
+| 1 | W1-T1 | Xóa tất cả `reporter.pass(...)` calls trong `accounting-flow.spec.ts` | `accounting-flow.spec.ts` | ✅ DONE (14 removed) |
+| 2 | W1-T2 | Xóa tất cả `reporter.pass(...)` calls trong `audit-trail-flow.spec.ts` | `audit-trail-flow.spec.ts` | ✅ DONE (6 removed) |
+| 3 | W1-T3 | Xóa tất cả `reporter.pass(...)` calls trong `balance-dashboard-flow.spec.ts` | `balance-dashboard-flow.spec.ts` | ✅ DONE (4 removed) |
+| 4 | W1-T4 | Xóa tất cả `reporter.pass(...)` calls trong `order-flow.spec.ts` | `order-flow.spec.ts` | ✅ DONE (7 removed) |
+| 5 | W1-T5 | Xóa tất cả `reporter.pass(...)` calls trong `order-tracking.spec.ts` | `order-tracking.spec.ts` | ✅ DONE (7 removed) |
+| 6 | W1-T6 | Xóa tất cả `reporter.pass(...)` calls trong `qr-payment.spec.ts` | `qr-payment.spec.ts` | ✅ DONE (4 removed) |
+| 7 | W1-T7 | Xóa tất cả `reporter.pass(...)` calls trong `qr-payment-ui.spec.ts` | `qr-payment-ui.spec.ts` | ✅ DONE (7 removed) |
+| 8 | W1-T8 | Xóa tất cả `reporter.pass(...)` calls trong `van-an-dashboard.spec.ts` | `van-an-dashboard.spec.ts` | ✅ DONE (5 removed) |
+| 9 | W1-T9 | Xóa tất cả `reporter.pass(...)` calls trong `period-closing-flow.spec.ts` | `period-closing-flow.spec.ts` | ✅ DONE (5 removed) |
+| 10 | W1-T10 | Xóa unused `TestReporter` imports + constructor calls nếu không còn dùng | All 9 files | ✅ DONE (0 removed — all 9 files still use `reporter.log`/`setArchitectDecision` in beforeAll) |
+| 11 | W1-T11 | Verify `npx playwright test --list` pass (no TS parse error) | Solution-wide | ✅ DONE — 759 tests in 20 files (unchanged) |
 
 ### Entry criteria
-- [ ] Wave 0 complete (verify môi trường)
-- [ ] Git status clean
-- [ ] `npx playwright test --list` pass trước khi sửa
+- [x] Wave 0 complete (verify môi trường)
+- [x] Git status clean
+- [x] `npx playwright test --list` pass trước khi sửa
 
 ### Exit criteria
-- [ ] 0 `reporter.pass(...)` calls còn lại trong 9 files
-- [ ] 0 unused `TestReporter` imports
-- [ ] `npx playwright test --list` pass
-- [ ] `dotnet build VanAn.sln` pass (verify không break C# — không nên ảnh hưởng nhưng check)
+- [x] 0 `reporter.pass(...)` calls còn lại trong 9 files (4 comment refs preserved — not calls)
+- [x] 0 unused `TestReporter` imports (none were unused — all 9 files still reference `reporter` for `.log`/`.setArchitectDecision`)
+- [x] `npx playwright test --list` pass — 759 tests in 20 files
+- [x] `dotnet build VanAn.sln` pass — 0 errors (.ts-only changes; C# unaffected)
+- [x] guard-check.ps1 PASSED
+- [x] Committed `0c7965e` on `feature/e2e-cleanup-wave1-remove-reporter-pass`
 
 ### Why first
 - Risk thấp nhất — chỉ xóa line decorative, không thay đổi assertion logic
