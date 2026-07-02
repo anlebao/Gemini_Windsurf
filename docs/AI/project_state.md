@@ -44,50 +44,50 @@
 
 ## 2. Current Objective
 
-**[SHOPCONFIG PRODUCT→TENANT REFACTOR — PHASE 2 COMPLETE, READY FOR PHASE 3]**
+**[SHOPCONFIG PRODUCT→TENANT REFACTOR — ALL 3 PHASES COMPLETE]**
 
 Refactor ShopConfig loading from hardcoded stub to real data via product-based TenantId derivation.
 
-**Problem:**
-- `ShopConfigService` returns hardcoded values (no persistence, no real shop data)
-- KhachLink injects `IShopConfigService` directly from CoreHub (architectural violation)
+**Problem (now resolved):**
+- `ShopConfigService` returned hardcoded values (no persistence, no real shop data)
+- KhachLink injected `IShopConfigService` directly from CoreHub (architectural violation)
 - `ProductCatalogItem` / `ProductDto` missing `TenantId` (multi-tenancy gap)
-- All shops see identical branding ("Vạn An Group", #8B4513)
+- All shops saw identical branding ("Vạn An Group", #8B4513)
 
 **Solution (Approach 2 — Product-based):**
 - Add `TenantId` to product DTOs → derive TenantId from products → load real Shop entity
 - `ShopConfigHttpService` (HTTP via Gateway, no CoreHub direct) — CREATED in Phase 2
-- Wire-up KhachLinkLayout + Home.razor (with SocialHub) — Phase 3
+- Wire-up KhachLinkLayout + Home.razor (with SocialHub) — DONE in Phase 3
 - Domain layer NOT modified
 
 **Master plan:** `docs/AI/tasks/shopconfig_product_tenant_master_plan.md`
-**Phases:** 3 (Phase 1: Revert+DTO ✅ · Phase 2: HttpService ✅ · Phase 3: Wire-up+Tests ⏳)
-**Status:** Phase 2 complete. Next: Phase 3 (wire-up KhachLinkLayout + Home.razor, remove IShopConfigService DI, add KhachLinkStartupTests assertion).
+**Phases:** 3 (Phase 1: Revert+DTO ✅ · Phase 2: HttpService ✅ · Phase 3: Wire-up+Tests ✅)
+**Status:** ALL PHASES COMPLETE. Architectural violation fixed (no IShopConfigService in KhachLink). Ready to merge to main.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/shopconfig-product-tenant-phase2-service`
-- **Last commit:** (pending — Phase 2 ShopConfigHttpService + by-tenant endpoint)
+- **Branch:** `feature/shopconfig-product-tenant-phase3-wireup`
+- **Last commit:** (pending — Phase 3 wire-up + tests)
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
-- **ci-local:** PASSED ✅ (131 integration tests, 28 architecture tests)
+- **KhachLinkStartupTests:** 4/4 PASS ✅ (includes new ShopConfigHttpService DI assertion)
 - **Tenant Onboarding Feature:** COMPLETE & MERGED ✅ — All 6 waves on main
-- **ShopConfig Refactor:** PHASE 2 COMPLETE — ShopConfigHttpService created (product-based), by-tenant endpoint added (ShopERP + Gateway), ShopDto added, DI registered (Option A — IShopConfigService kept tạm for Phase 3)
-- **Integration Tests:** 131/131 PASS ✅
-- **Architecture Tests:** 28/28 PASS ✅
-- **Uncommitted changes:** Phase 2 (ShopConfigHttpService.cs, ShopDto.cs, Program.cs DI, by-tenant endpoints, planning docs)
+- **ShopConfig Refactor:** ALL 3 PHASES COMPLETE —
+  - Phase 1: TenantId added to ProductCatalogItem + ProductDto (backward compatible)
+  - Phase 2: ShopConfigHttpService created (product-based), by-tenant endpoint (ShopERP + Gateway), ShopDto added
+  - Phase 3: KhachLinkLayout + Home.razor wired to ShopConfigHttpService, IShopConfigService DI removed, SocialHub rendered on Home, KhachLinkStartupTests assertion added
+- **Uncommitted changes:** Phase 3 (KhachLinkLayout.razor, Home.razor, Program.cs, KhachLinkStartupTests.cs)
 
 ---
 
 ## 4. Next Actions
 
-1. **Implement Phase 1** — Revert Approach 1 remnants + add TenantId to ProductCatalogItem & ProductDto
-2. **Implement Phase 2** — Rewrite ShopConfigHttpService (product-based) + update DI
-3. **Implement Phase 3** — Wire-up KhachLinkLayout + Home.razor + remove IShopConfigService + tests
-4. **Build verify + guard-check** after each phase
-5. **Update project_state.md** after each phase completion
+1. **Commit Phase 3** — wire-up changes on `feature/shopconfig-product-tenant-phase3-wireup`
+2. **Merge to main** — fast-forward merge phase3 branch to `align-consumer-phase4`
+3. **Optional: Run full ci-local** — verify all 131 integration tests + 28 architecture tests still pass
+4. **Optional: Playwright E2E** — verify KhachLinkLayout renders real shop data (deferred per governance — IMPLEMENT mode)
 
 ---
 
@@ -109,6 +109,12 @@ Refactor ShopConfig loading from hardcoded stub to real data via product-based T
 ---
 
 ## 6. History Log
+
+* [2026-07-02] **ShopConfig Product→Tenant Refactor — PHASE 3 COMPLETE (ALL PHASES DONE)** — Wired ShopConfigHttpService into KhachLinkLayout.razor (`@inject ShopConfigHttpService` + `GetShopConfigByTenantIdAsync`) and Home.razor (`@inject ShopConfigHttpService` + `GetShopConfigFromProductsAsync` + `<SocialHub ShopConfig="@_shopConfig" />` rendered before `</KhachLinkLayout>`). Removed `IShopConfigService` CoreHub direct DI from Program.cs (architectural violation fixed — KhachLink now uses HTTP via Gateway only for ShopConfig). Added `Assert.NotNull(sp.GetRequiredService<ShopConfigHttpService>())` to KhachLinkStartupTests. Build: 0 errors. guard-check PASSED. KhachLinkStartupTests 4/4 PASS. Branch: `feature/shopconfig-product-tenant-phase3-wireup`.
+
+* [2026-07-02] **ShopConfig Product→Tenant Refactor — PHASE 2 COMPLETE** — Created `ShopConfigHttpService` (product-based, HTTP via Gateway only): `GetShopConfigFromProductsAsync(List<ProductDto>)` extracts TenantId from first product → `GetShopConfigByTenantIdAsync(Guid)` calls `GET /api/shops/by-tenant/{tenantId}` → maps ShopDto → ShopConfig with real shop data (Name, Address, Phone, Email, Lat/Long). Falls back to DefaultShopConfig on any error/404/empty. Created `ShopDto` model. Added `GetShopByTenant` endpoint to ShopERP + Gateway ShopsController. Registered DI in KhachLink Program.cs (Option A — IShopConfigService kept tạm for Phase 3). Build: 0 errors. Branch: `feature/shopconfig-product-tenant-phase2-service`. Commit: `2389846`.
+
+* [2026-07-02] **ShopConfig Product→Tenant Refactor — PHASE 1 COMPLETE** — Reverted Approach 1 remnants (CustomerOrdersController TenantId addition). Added `TenantId` to `ProductCatalogItem` (ShopERP) + projection, and `ProductDto` (KhachLink). Backward compatible (new field). Multi-tenancy now enforced at DTO level. Build: 0 errors. Branch: `feature/shopconfig-product-tenant-phase1-dto`. Commit: `5cb9bbd`.
 
 * [2026-07-02] **ShopConfig Product→Tenant Refactor — PLANNING COMPLETE** — Investigated ShopConfig (hardcoded stub, no persistence), identified architectural violation (KhachLink→CoreHub direct inject), analyzed 2 approaches (order-based vs product-based). Decision: Approach 2 (product-based) — works for anonymous visitors, fixes multi-tenancy gap. Created master plan + 3 task cards (Phase 1: Revert+DTO, Phase 2: HttpService rewrite, Phase 3: Wire-up+Tests). Domain layer NOT modified. Also added KhachLink NavMenu entries (Campaigns, VoiceNote) + Campaigns.razor page + SocialHub integration (from earlier session). ShopERP/Gateway by-tenant endpoint added (kept for Approach 2).
 
@@ -217,6 +223,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — ShopConfig Product→Tenant Refactor planning complete. Master plan + 3 task cards created. KhachLink NavMenu updated (Campaigns, VoiceNote). ShopERP/Gateway by-tenant endpoint added. Approach 1 remnants partially reverted (Program.cs, Home.razor restored; ShopConfigHttpService.cs kept for Phase 2 rewrite).
-* **Current Branch:** `main`
-* **Current Objective:** ShopConfig Product→Tenant Refactor — PLANNING COMPLETE, ready to implement Phase 1.
+* **Last Updated:** 2026-07-02 — ShopConfig Product→Tenant Refactor ALL 3 PHASES COMPLETE. Phase 3 wired ShopConfigHttpService into KhachLinkLayout + Home.razor, removed IShopConfigService CoreHub direct DI, added KhachLinkStartupTests assertion. Build 0 errors, guard-check PASSED, KhachLinkStartupTests 4/4 PASS.
+* **Current Branch:** `feature/shopconfig-product-tenant-phase3-wireup`
+* **Current Objective:** ShopConfig Product→Tenant Refactor — ALL PHASES COMPLETE, ready to merge to main.

@@ -2,9 +2,10 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
+@using VanAn.KhachLink.Services.Http
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
-@inject IShopConfigService ShopConfigService
+@inject ShopConfigHttpService ShopConfigService
 @inject NavigationManager Navigation
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
 
@@ -128,7 +129,7 @@
     protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
-        _shopConfig = await ShopConfigService.GetShopConfigAsync(_currentTenantId);
+        _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_currentTenantId);
     }
 
     private string GetThemeClass() => (_shopConfig?.ActiveTheme ?? ThemeType.Classic) switch

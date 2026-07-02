@@ -2,7 +2,7 @@
 
 **Created:** 2026-07-02
 **Last Updated:** 2026-07-02
-**Current Status:** PHASE 2 COMPLETE — Ready for Phase 3 (Wire-up + Tests)
+**Current Status:** ALL 3 PHASES COMPLETE — Ready to merge to main
 **Branch strategy:** feature/shopconfig-product-tenant-phase[X]
 **Execution principle:** JIT Planning + Pure Execution
 
@@ -10,8 +10,8 @@
 | Phase | Branch | Status | Commit |
 |---|---|---|---|
 | 1 — Revert + DTO | feature/shopconfig-product-tenant-phase1-dto | ✅ COMPLETE (2026-07-02) | `5cb9bbd` |
-| 2 — ShopConfigHttpService | feature/shopconfig-product-tenant-phase2-service | ✅ COMPLETE (2026-07-02) | (this commit) |
-| 3 — Wire-up + Tests | feature/shopconfig-product-tenant-phase3-wireup | ⏳ PENDING | — |
+| 2 — ShopConfigHttpService | feature/shopconfig-product-tenant-phase2-service | ✅ COMPLETE (2026-07-02) | `2389846` |
+| 3 — Wire-up + Tests | feature/shopconfig-product-tenant-phase3-wireup | ✅ COMPLETE (2026-07-02) | (this commit) |
 
 ---
 
@@ -286,11 +286,11 @@ Wire ShopConfigHttpService into KhachLinkLayout + Home.razor (with SocialHub). A
 ### Tasks (sequential)
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | P3-T1 | Update KhachLinkLayout to use ShopConfigHttpService | KhachLink/Components/Layout/KhachLinkLayout.razor | PENDING |
-| 2 | P3-T2 | Re-apply Home.razor SocialHub + ShopConfig inject | KhachLink/Pages/Home.razor | PENDING |
-| 3 | P3-T3 | Add KhachLinkStartupTests assertion for ShopConfigHttpService | 6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs | PENDING |
-| 4 | P3-T4 | Build verify (0 errors) + guard-check | All projects | PENDING |
-| 5 | P3-T5 | Update project_state.md | docs/AI/project_state.md | PENDING |
+| 1 | P3-T1 | Update KhachLinkLayout to use ShopConfigHttpService | KhachLink/Components/Layout/KhachLinkLayout.razor | ✅ DONE |
+| 2 | P3-T2 | Re-apply Home.razor SocialHub + ShopConfig inject | KhachLink/Pages/Home.razor | ✅ DONE |
+| 3 | P3-T3 | Add KhachLinkStartupTests assertion for ShopConfigHttpService | 6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs | ✅ DONE |
+| 4 | P3-T4 | Build verify (0 errors) + guard-check | All projects | ✅ DONE |
+| 5 | P3-T5 | Update project_state.md | docs/AI/project_state.md | ✅ DONE |
 
 ### Entry criteria
 - [x] Phase 2 complete (ShopConfigHttpService registered in DI) — DONE 2026-07-02
@@ -298,13 +298,13 @@ Wire ShopConfigHttpService into KhachLinkLayout + Home.razor (with SocialHub). A
 - [x] by-tenant endpoint exists (added in Phase 2)
 
 ### Exit criteria — ALL PASSED
-- [ ] KhachLinkLayout loads real shop data (name, phone, address)
-- [ ] Home.razor renders SocialHub with real ShopConfig
-- [ ] KhachLinkStartupTests asserts ShopConfigHttpService DI
-- [ ] Build: 0 errors
-- [ ] guard-check.ps1 passes
-- [ ] No IShopConfigService (CoreHub) reference in KhachLink
-- [ ] project_state.md updated
+- [x] KhachLinkLayout loads real shop data (name, phone, address)
+- [x] Home.razor renders SocialHub with real ShopConfig
+- [x] KhachLinkStartupTests asserts ShopConfigHttpService DI
+- [x] Build: 0 errors
+- [x] guard-check.ps1 passes
+- [x] No IShopConfigService (CoreHub) reference in KhachLink (grep verify — only historical comment remains)
+- [x] project_state.md updated
 
 ---
 

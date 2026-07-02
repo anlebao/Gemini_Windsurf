@@ -2,6 +2,8 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
 @using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Components
+@using VanAn.KhachLink.Services.Http
 @page "/home"
 @page "/"
 @inject VanAn.KhachLink.Services.CartService CartService
@@ -9,6 +11,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
+@inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigService
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
 @implements IDisposable
 
@@ -197,6 +200,9 @@
             </div>
         </VanAnCard>
     }
+
+    <!-- Social Hub: render real shop social links from ShopConfig (Phase 3 wire-up) -->
+    <SocialHub ShopConfig="@_shopConfig" />
 </KhachLinkLayout>
 
 @code {
@@ -204,6 +210,7 @@
     private List<ProductDto> products = new();
     private List<RecommendedProductDto> recommendedProducts = new();
     private List<ProductDto> recentlyViewed = new();
+    private ShopConfig? _shopConfig;
 
     protected override async Task OnInitializedAsync()
     {
@@ -211,6 +218,7 @@
         CartService.OnCartChanged += StateHasChanged;
         await CartService.LoadCartFromStorageAsync();
         await LoadProductsAsync();
+        await LoadShopConfigAsync();
         await LoadRecommendedProductsAsync();
         await LoadRecentlyViewedAsync();
     }
@@ -218,6 +226,14 @@
     private async Task LoadProductsAsync()
     {
         products = await ProductService.GetProductsAsync();
+    }
+
+    // Phase 3: derive ShopConfig from products (Approach 2 — product-based TenantId).
+    // Anonymous visitors get correct branding without login. Falls back to DefaultShopConfig
+    // when no products or any API error (handled inside ShopConfigHttpService).
+    private async Task LoadShopConfigAsync()
+    {
+        _shopConfig = await ShopConfigService.GetShopConfigFromProductsAsync(products);
     }
 
     private async Task LoadRecommendedProductsAsync()

@@ -71,6 +71,10 @@ public class KhachLinkStartupTests : IClassFixture<KhachLinkWebApplicationFactor
         Assert.NotNull(sp.GetRequiredService<ProductHttpService>());
         Assert.NotNull(sp.GetRequiredService<CartService>());
         Assert.NotNull(sp.GetRequiredService<CheckoutFlowState>());
+
+        // Phase 3: ShopConfigHttpService — replaces former IShopConfigService (CoreHub direct inject).
+        // Architectural violation fix: KhachLink now loads ShopConfig via HTTP (Gateway → ShopERP).
+        Assert.NotNull(sp.GetRequiredService<ShopConfigHttpService>());
     }
 
     /// <summary>
