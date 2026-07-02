@@ -1,0 +1,90 @@
+.vanan-layout {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+}
+
+.vanan-layout__sidebar {
+    width: 250px;
+    min-width: 250px;
+    background-color: #1e293b;
+    color: #cbd5e1;
+    border-right: 1px solid #334155;
+    overflow-y: auto;
+    transition: width 0.2s ease, min-width 0.2s ease;
+}
+
+.vanan-layout__sidebar-placeholder {
+    padding: 1rem;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.vanan-layout__main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.vanan-layout__header {
+    min-height: 56px;
+    border-bottom: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+}
+
+.vanan-layout__header-placeholder {
+    padding: 0.75rem 1.5rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
+}
+
+.vanan-layout__content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-x: auto;
+}
+
+.vanan-layout__footer {
+    border-top: 1px solid #e2e8f0;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    background-color: #f8fafc;
+}
+
+/* Layout variants */
+.vanan-layout--compact .vanan-layout__sidebar {
+    width: 200px;
+    min-width: 200px;
+}
+
+.vanan-layout--wide .vanan-layout__sidebar {
+    width: 300px;
+    min-width: 300px;
+}
+
+.vanan-layout--fullscreen .vanan-layout__sidebar {
+    display: none;
+}
+
+/* Collapsible */
+.vanan-layout--sidebar-collapsed .vanan-layout__sidebar {
+    width: 60px;
+    min-width: 60px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .vanan-layout {
+        flex-direction: column;
+    }
+
+    .vanan-layout__sidebar {
+        width: 100%;
+        min-width: 100%;
+        max-height: 200px;
+        border-right: none;
+        border-bottom: 1px solid #334155;
+    }
+}

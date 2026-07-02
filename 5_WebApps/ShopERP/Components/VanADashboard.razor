@@ -20,9 +20,10 @@
 
 <div class="vanan-dashboard @ThemeProvider.CurrentTheme">
     <VanALayout>
-        <VanANavigation MenuItems="@GetDashboardMenu()" />
-        
-        <main class="dashboard-content">
+        <Sidebar>
+            <VanANavigation MenuItems="@GetDashboardMenu()" />
+        </Sidebar>
+        <ChildContent>
             <!-- Header -->
             <header class="dashboard-header">
                 <h1>ShopERP Dashboard</h1>
@@ -44,25 +45,25 @@
                     <VanAMetricsCard 
                         Title="Today's Orders" 
                         Value="@Metrics.TodayOrderCount.ToString()" 
-                        Icon="📋" 
+                        Icon="clipboard-data" 
                         Trend="+12%" 
                         Color="primary" />
                     <VanAMetricsCard 
                         Title="Revenue" 
                         Value="@Metrics.TodayRevenue.ToString()" 
-                        Icon="💰" 
+                        Icon="currency-dollar" 
                         Trend="+8%" 
                         Color="success" />
                     <VanAMetricsCard 
                         Title="Pending Orders" 
                         Value="@Metrics.PendingOrders.ToString()" 
-                        Icon="⏳" 
+                        Icon="hourglass-split" 
                         Trend="-5%" 
                         Color="warning" />
                     <VanAMetricsCard 
                         Title="Processing" 
                         Value="@Metrics.ProcessingOrders.ToString()" 
-                        Icon="🔥" 
+                        Icon="fire" 
                         Trend="+15%" 
                         Color="info" />
                 </div>
@@ -85,7 +86,7 @@
                     OnUpdateStatus="HandleStatusUpdate"
                     OnViewDetails="HandleViewDetails" />
             </section>
-        </main>
+        </ChildContent>
     </VanALayout>
 </div>
 
@@ -380,12 +381,12 @@
     {
         return new List<NavigationItem>
         {
-            new() { Title = "Dashboard", Icon = "📊", Url = "/dashboard", IsActive = true },
-            new() { Title = "Orders", Icon = "📋", Url = "/orders" },
-            new() { Title = "Staff", Icon = "👥", Url = "/staff" },
-            new() { Title = "Accounting", Icon = "💰", Url = "/accounting" },
-            new() { Title = "Reports", Icon = "📈", Url = "/reports" },
-            new() { Title = "Settings", Icon = "⚙️", Url = "/settings" }
+            new() { Title = "Dashboard", Icon = "speedometer2", Url = "/dashboard", IsActive = true },
+            new() { Title = "Orders", Icon = "clipboard-data", Url = "/orders" },
+            new() { Title = "Staff", Icon = "people", Url = "/staff" },
+            new() { Title = "Accounting", Icon = "calculator", Url = "/accounting" },
+            new() { Title = "Reports", Icon = "graph-up", Url = "/reports" },
+            new() { Title = "Settings", Icon = "gear", Url = "/settings" }
         };
     }
 

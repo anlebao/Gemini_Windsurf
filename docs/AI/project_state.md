@@ -142,6 +142,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — Stream C (ShopERP UI Fix) activated. project_state.md slimmed down (removed completed feature details, compressed history, dropped parked stream task card listings). 6 waves ready to implement, starting Wave 0 pre-flight.
+* **Last Updated:** 2026-07-03 — Wave 0 pre-flight verification COMPLETE. Build 0 errors, git clean (only .vs cache), UI.Platform 0 .razor.css confirmed, Routes.razor DefaultLayout=MainLayout confirmed. Ready for Wave 1.
 * **Current Branch:** `main`
-* **Current Objective:** Stream C: ShopERP UI Fix — Wave 0 pre-flight next.
+* **Current Objective:** Stream C: ShopERP UI Fix — Wave 1 next (UI.Platform infra).

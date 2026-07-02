@@ -4,10 +4,12 @@
 @inherits LayoutComponentBase
 
 <VanALayout>
-    <VanANavigation MenuItems="@AccountingMenuItems" />
-    <main class="accounting-content">
+    <Sidebar>
+        <VanANavigation MenuItems="@AccountingMenuItems" />
+    </Sidebar>
+    <ChildContent>
         @Body
-    </main>
+    </ChildContent>
 </VanALayout>
 
 @code {
