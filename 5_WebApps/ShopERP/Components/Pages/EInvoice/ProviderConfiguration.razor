@@ -27,17 +27,17 @@
 
     @if (!TenantProvider.HasTenant)
     {
-        <VanAnAlert Type="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
+        <VanAAlert Variant="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
     }
     else
     {
         @if (!string.IsNullOrEmpty(successMessage))
         {
-            <VanAnAlert Type="success" Message="@successMessage" data-testid="alert-success" />
+            <VanAAlert Variant="success" Message="@successMessage" data-testid="alert-success" />
         }
         @if (!string.IsNullOrEmpty(errorMessage))
         {
-            <VanAnAlert Type="danger" Message="@errorMessage" data-testid="alert-error" />
+            <VanAAlert Variant="error" Message="@errorMessage" data-testid="alert-error" />
         }
 
         <!-- Provider Selector -->
