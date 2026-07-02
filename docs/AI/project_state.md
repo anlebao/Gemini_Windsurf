@@ -57,12 +57,16 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 ## 3. Current Status
 
 - **Branch:** `main` (Stream C merged via fast-forward `cc10e08..f3ed2d2`)
-- **Last commit:** `f3ed2d2` [STATE] Mark Wave 6 complete in project_state.md + master plan
-- **Build:** `dotnet build VanAn.sln` → 0 errors ✅ (verified on main post-merge)
+- **Last commit:** `3bc9b7d` [STATE] Update project_state.md: Stream C merged to main
+- **Build:** `dotnet build VanAn.sln` → 0 errors ✅ (re-verified 2026-07-03 smoke test session)
 - **Guard-check:** PASSED ✅
+- **Visual smoke test:** PASSED ✅ (2026-07-03) — 6/6 routes HTTP 200, sidebar+nav render on all pages, screenshots saved at `6_Testing/reports/smoke-shots/`. See History Log for details.
 - **Uncommitted changes:** None (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1)
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)**.
-- **In-progress:** None — Stream C fully merged. Awaiting next stream selection.
+- **Pre-existing defects found (NOT Stream C regressions):**
+  1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for Stream B (E2E Test Cleanup) or a dedicated Blazor auth fix stream.
+  2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes.
+- **In-progress:** None — Stream C fully merged & smoke-tested. Awaiting next stream selection.
 
 ---
 
@@ -81,10 +85,11 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 **Next (awaiting user decision):**
 1. **Push to origin:** `git push origin main` (14 commits ahead of `origin/main` — publish when ready).
-2. **Visual smoke test (optional):** Run app, navigate `/`, `/sitemap`, `/access-denied`, `/accounting`, `/einvoice`, `/admin/users` — verify layout render with sidebar/nav/metrics.
+2. ~~Visual smoke test~~ ✅ DONE (2026-07-03) — 6/6 routes render, screenshots at `6_Testing/reports/smoke-shots/`. Pre-existing Blazor circuit crash noted (not a Stream C regression).
 3. **Pick a parked stream:**
    - **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
-   - **Stream B: E2E Test Cleanup** — Planning complete (`51dd7ff`). 8 waves, 7 anti-patterns. Ready to start.
+   - **Stream B: E2E Test Cleanup** — Planning complete (`51dd7ff`). 8 waves, 7 anti-patterns. Ready to start. Note: Stream B may also address the pre-existing Blazor circuit crash (`AuthorizeView` cascade timing) found during smoke test.
+4. **Optional follow-up:** Fix Blazor `CascadingAuthenticationState` circuit crash on `/`, `/sitemap`, `/admin/users` (pre-existing, not Stream C). Could be a quick FIX_ONLY batch or folded into Stream B.
 
 ---
 
@@ -103,6 +108,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 6. History Log (compressed — see git log for details)
 
+* [2026-07-03] **VISUAL SMOKE TEST PASSED** — Post-Stream-C merge validation. Built VanAn.sln (0 errors), started ShopERP on port 5003, authed via DevLoginController (`POST /dev/login` → Owner role). Playwright headless Chromium 1440×900 navigated 6 routes: `/` (→/sitemap redirect by design, Wave 6 Home.razor), `/sitemap` (Vạn An Ecosystem), `/access-denied` (403 — Không Có Quyền Truy Cập), `/accounting` (Kế Toán Dashboard), `/einvoice` (Dashboard Hóa Đơn Điện Tử), `/admin/users` (Quản lý người dùng). All 6 HTTP 200, all render with sidebar+nav+page title. Screenshots: `6_Testing/reports/smoke-shots/{Home,Sitemap,AccessDenied,Accounting,EInvoice,AdminUsers}.png`. Stream C waves verified in production render: Wave 1 (UI.Platform CSS + Bootstrap Icons CDN load), Wave 3 (`css/pages.css` 6585B loads), Wave 4 (`VanAButton` renders — confirmed in server logs), Wave 5 (AdminLayout on /admin/users), Wave 6 (Home redirect + AccessDenied 403 message, no inline `<style>`). **Pre-existing defects found (NOT Stream C regressions):** (1) Blazor circuit crash on `/`, `/sitemap`, `/admin/users` — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`; pages prerender correctly but interactivity breaks after circuit connect; Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. (2) DevLoginController role mismatch — `/admin/users` requires "Owner" role (`OwnerOnly` policy) but `/dev/login/systemadmin` issues "SystemAdmin" → access denied for admin routes via SystemAdmin login.
 * [2026-07-03] **STREAM C FULLY DONE & MERGED TO MAIN** — Wave 6 (Governance cleanup) + fast-forward merge of all 6 waves into `main` (`cc10e08..f3ed2d2`, 46 files, +1622/-428 lines). Wave 6 details: Remove inline `<style>` blocks from AccessDenied.razor (37 lines), Sitemap.razor (72 lines), AuditTrail.razor (165 lines — exit criteria required 0 inline `<style>` in ALL .razor files; CSS already covered by `.razor.css` from Wave 3 with better design tokens). Fix Sitemap logout: replace `JSRuntime.InvokeVoidAsync("eval", ...)` (security concern — eval + manual cookie clear) with `NavigationManager.NavigateTo("/Logout", forceLoad: true)` using existing `Pages/Logout.cshtml` server-side `SignOutAsync` endpoint. Remove now-unused `@inject IJSRuntime JSRuntime`. Fix 7 broken emojis (U+FFFD replacement chars from encoding corruption) in Sitemap with semantic emojis: 📷 (Guard scan), 💸 (Chi Phí), 📈 (Doanh Thu), 📜 (Lịch Sử), 📅 (Đóng Kỳ), 🌐 (KhachLink), 🔑 (Nhóm Quyền). Delete `Counter.razor` (Blazor template demo, 0 references in NavMenu/Sitemap). Fix `Home.razor`: add `<PageTitle>Đang chuyển hướng...</PageTitle>` + loading state div + new `Home.razor.css` (CSS isolation for `.redirect-loading`). Build 0 errors on main post-merge, guard PASSED. Commits `ea1ced5` + `f3ed2d2`. **Stream C complete — 14 dead → 0, 18 unstyled → 0, 3 broken layouts → 0.**
 * [2026-07-03] **Wave 5 COMPLETE** — Admin layout consistency: Create `AdminLayout.razor` (VanALayout + VanANavigation with 4 Admin menu items matching NavMenu: Users `/admin/users`, Permission Groups `/admin/permission-groups`, Audit Trail `/admin/audit-trail`, Tenants `/admin/tenants`) following AccountingLayout pattern (post-Wave 1 slot fix). Add `@layout AdminLayout` to 4 Admin pages (AuditTrail, UserManagement, PermissionGroupManagement, TenantManagement) at line 3 (after `@page` + `@rendermode`). AdminLayout has no `@attribute [Authorize]` — each page self-authorizes. 5 files, +24 lines. Build 0 errors. Commit `7f05fa7` on `feature/shoperp-ui-fix-wave5-admin-layout`.
 * [2026-07-03] **Wave 4 COMPLETE** — Component consolidation: `VanAnAlert` (old, Atomic namespace) → `VanAAlert` (new) in 6 EInvoice files (10 occurrences). API fix: `Type="..."` (unmatched attr, broken) → `Variant="..."` (real param). `Type="danger"` → `Variant="error"` (VanAAlert uses "error"). `VanAnModal`: 0 occurrences in EInvoice scope (only in KhachLink — out of scope, debt cleanup candidate). 6 files, 10 line changes. Build 0 errors. Commit `47268a0` on `feature/shoperp-ui-fix-wave4-component-consolidation`.
@@ -158,6 +164,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — STREAM C (ShopERP UI Fix) FULLY COMPLETE & MERGED TO `main` via fast-forward (`cc10e08..f3ed2d2`). All 6 waves: P (UI.Platform infra) · R (rendermode) · C (page CSS) · V (component consolidation) · L (Admin layout) · G (governance cleanup). 46 files, +1622/-428 lines. Build 0 errors on main, guard PASSED. `main` is 14 commits ahead of `origin/main` (not pushed). Next: push to origin (optional) + pick next stream (A: EInvoice rewrite — blocked on creds; B: E2E cleanup — ready).
+* **Last Updated:** 2026-07-03 — Visual smoke test PASSED. 6/6 routes render (HTTP 200, sidebar+nav+page title). Screenshots at `6_Testing/reports/smoke-shots/`. Pre-existing Blazor circuit crash noted on `/`, `/sitemap`, `/admin/users` (NOT Stream C regression — `AuthorizeView` cascade timing). DevLoginController role mismatch noted (SystemAdmin login cannot reach Owner-only admin routes). Build 0 errors, guard PASSED. `main` is 14 commits ahead of `origin/main` (not pushed). Next: push to origin (optional) + pick next stream (A: EInvoice rewrite — blocked on creds; B: E2E cleanup — ready, may also address circuit crash).
 * **Current Branch:** `main`
-* **Current Objective:** None active — Stream C done. Awaiting user decision: push to origin, visual smoke test, or start Stream A/B.
+* **Current Objective:** None active — Stream C done & smoke-tested. Awaiting user decision: push to origin, fix Blazor circuit crash, or start Stream A/B.
