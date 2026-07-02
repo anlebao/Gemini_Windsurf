@@ -45,7 +45,7 @@ Remove ~60 fake/low-value E2E test cases across 20 spec files in `6_Testing/e2e-
 | 1 | F | Remove decorative `reporter.pass()` calls | 9 | ✅ COMPLETE (`0c7965e`) |
 | 2 | D | Fix wrong auth pattern (fill login form → use global storageState) | 6 | ✅ COMPLETE (`b40b640`) |
 | 3 | G1 | Delete anti-schema tests (voice-command, i18n — hallucinated API schema) | 2 | ✅ COMPLETE (`5f57179`) |
-| 4 | G2 | Delete anti-UI tests (omnichannel loyalty/offline — no such UI) | 1 | PENDING |
+| 4 | G2 | Delete anti-UI tests (omnichannel loyalty/offline — no such UI) | 1 | ✅ COMPLETE (`c1e5c59`) |
 | 5 | C | Consolidate reachability smoke tests (9 → 2 in new gateway-smoke.spec.ts) | 5 | PENDING |
 | 6 | B | Fix silent-skip (`if(isVisible){}` no else → hard assert or `test.skip`) | 5 | PENDING |
 | 7 | A | Fix OR-tautology assertions (`a||b||c` always true → specific state) | 5 | PENDING |
@@ -59,18 +59,19 @@ Remove ~60 fake/low-value E2E test cases across 20 spec files in `6_Testing/e2e-
 
 ## 3. Current Status
 
-- **Branch:** `feature/e2e-cleanup-wave3-delete-anti-schema-tests` (off Wave 2 branch @ `b40b640`)
-- **Last commit:** `5f57179` [E2E-CLEANUP WAVE 3] Pattern G1: Delete anti-schema tests (voice-command + i18n)
+- **Branch:** `feature/e2e-cleanup-wave4-delete-anti-ui-tests` (off Wave 3 branch @ `1a32e68`)
+- **Last commit:** `c1e5c59` [E2E-CLEANUP WAVE 4] Pattern G2: Delete anti-UI tests (omnichannel loyalty + offline)
 - **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (1000 pre-existing warnings; .ts-only changes, C# unaffected)
-- **Guard-check:** PASSED ✅ (untracked files, windsurf-guard v6.0, architecture-guard v1.0, dotnet build)
-- **E2E parse check:** `npx playwright test --list` → 729 tests in 20 files ✅ (was 759; -30 = 5 deleted tests × 6 project instances; parse OK)
+- **Guard-check:** PASSED ✅ (untracked files, windsurf-guard v6.0, architecture-guard v1.0)
+- **E2E parse check:** `npx playwright test --list` → 715 tests in 20 files ✅ (was 729; -14 = 2 deleted scenarios × 7 project instances; parse OK)
 - **Visual smoke test:** PASSED ✅ (2026-07-03, pre-Stream-B) — 6/6 routes HTTP 200. Screenshots at `6_Testing/reports/smoke-shots/`.
-- **Uncommitted changes:** None on Wave 3 branch (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1)
+- **Uncommitted changes:** None on Wave 4 branch (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1)
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)**.
 - **Pre-existing defects found (NOT Stream C regressions):**
   1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream (out of Stream B scope — Stream B is .ts-only).
   2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes. **Relevant to Stream B Wave 2** (rbac-enforcement multi-role auth).
-- **In-progress:** Stream B Wave 3 complete; Wave 4 (delete anti-UI tests) ready to start next session.
+- **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Wave 4 SCENARIO 2 deletion. Out of Wave 4 scope (master plan W4-T4 only covers test-data-cleaner.ts). Candidate for future page-object cleanup.
+- **In-progress:** Stream B Wave 4 complete; Wave 5 (consolidate reachability smoke tests) ready to start next session.
 
 ---
 
@@ -81,13 +82,13 @@ Remove ~60 fake/low-value E2E test cases across 20 spec files in `6_Testing/e2e-
 2. ~~Wave 1: Remove decorative `reporter.pass()`~~ ✅ — 59 calls removed across 9 spec files via brace-balanced Node script (`6_Testing/scripts/wave1-remove-reporter-pass.js`). 4 comment refs preserved. Imports/decls kept (all 9 files still use `reporter.log`/`setArchitectDecision`). `npx playwright test --list` → 759 tests (unchanged). `dotnet build` 0 errors. guard PASSED. Commit `0c7965e` on `feature/e2e-cleanup-wave1-remove-reporter-pass`.
 3. ~~Wave 2: Fix auth pattern (Pattern D)~~ ✅ — 6 files fixed. Removed form-fill `beforeEach` (`#username`/`#email`/`#Username` + `waitForURL`) from 5 simple files → rely on global `storageState` (auth/admin.json). Removed `test.use({ storageState: { cookies: [], origins: [] } })` override from 3 einvoice files. `rbac-enforcement`: removed `loginAs` helper; Owner tests (2) use global storageState; 6 multi-role tests (Staff/StoreKeeper/Guard) skipped with note (need `auth/<role>.json` generation — separate task); unauthenticated test wrapped in `test.describe` with empty storageState. `export-excel-flow` staff-role test also skipped. 0 `fill('#username'…)` / 0 `VanAn@2026` / 0 broken `waitForURL` remaining. `npx playwright test --list` → 759 tests (unchanged). `dotnet build` 0 errors. guard PASSED. Commit `b40b640` on `feature/e2e-cleanup-wave2-fix-auth-pattern`.
 4. ~~Wave 3: Delete anti-schema tests (Pattern G1)~~ ✅ — 5 tests deleted across 2 files. `voice-command.spec.ts`: removed `TC_Voice_TextCommand` (asserts `result.Command.CommandText`/`CommandType`/`OrderId` but `VoiceCommandController.ProcessTextCommand` returns `{ Success: bool }` @ L78), `TC_Voice_TTS` (asserts fabricated `tts-api.example.com` — string not in codebase; controller returns `{ AudioUrl }` @ L112), `TC_Voice_AudioStorage` (asserts `CleanedFiles`/`TotalExpired`/`Timestamp` schema with try/catch swallow), `TC_Voice_StatusUpdate` (asserts `result.Executed` + `result.Command.CommandType` — same schema mismatch). `i18n.spec.ts`: removed `TC_i18n_VoiceLanguage` (asserts `viResult.Executed`/`enResult.Executed` on voicecommand endpoint returning `{ Success: bool }`). Kept `TC_Voice_Flow` (silent skip — Wave 6) + 5 i18n switch/locale/product tests. `npx playwright test --list` → 729 tests in 20 files (was 759; -30 = 5 × 6 project instances). `dotnet build` 0 errors. windsurf-guard + architecture-guard PASSED. Commit `5f57179` on `feature/e2e-cleanup-wave3-delete-anti-schema-tests`.
-5. **Wave 4: Delete anti-UI tests (Pattern G2)** — NEXT. `omnichannel-order-lifecycle.spec.ts` SCENARIO 2 (Loyalty) + SCENARIO 3 (Offline) — selectors don't exist. Branch: `feature/e2e-cleanup-wave4-delete-anti-ui-tests`.
-6. **Wave 5: Consolidate reachability smoke (Pattern C)** — 9 reachability tests in 4 files → 2 tests in new `gateway-smoke.spec.ts` using `test.step()`.
+5. ~~Wave 4: Delete anti-UI tests (Pattern G2)~~ ✅ — 2 scenarios deleted from `omnichannel-order-lifecycle.spec.ts`. Removed SCENARIO 2 (Returning Loyalty Customer Flow — uses `.loyalty-points`/`.points-balance` selectors + `applyLoyaltyPoints`/`getLoyaltyPoints` page-object methods; 0 matches for `loyalty-points`/`points-balance`/`applyLoyaltyPoints` in `5_WebApps/KhachLink` — no loyalty feature exists). Removed SCENARIO 3 (Network Interruption / Edge Offline Resiliency — asserts `.offline-indicator`/`.network-status` selectors; these strings only in `PWAInstallPrompt.razor` (install prompt, not offline indicator); `context.setOffline(true)` + `page.goto()` will fail since KhachLink is server-rendered Blazor WASM PWA without offline-first outbox). Kept SCENARIO 1 (First-Time Guest Omnichannel Order Flow — uses real CustomerPage selectors). Also removed `TestDataGenerator.generateLoyaltyCustomerData()` from `test-data-cleaner.ts` (only referenced by deleted SCENARIO 2). `npx playwright test --list` → 715 tests in 20 files (was 729; -14 = 2 × 7 project instances). windsurf-guard + architecture-guard PASSED. Commit `c1e5c59` on `feature/e2e-cleanup-wave4-delete-anti-ui-tests`. Dead code note: `CustomerPage.ts` loyalty methods now unreferenced (out of Wave 4 scope).
+6. **Wave 5: Consolidate reachability smoke (Pattern C)** — NEXT. 9 reachability tests in 4 files → 2 tests in new `gateway-smoke.spec.ts` using `test.step()`. Branch: `feature/e2e-cleanup-wave5-consolidate-smoke-tests`.
 7. **Wave 6: Fix silent-skip (Pattern B)** — 6 tests with `if(isVisible){...}` no else → hard assert or `test.skip(condition, reason)`.
 8. **Wave 7: Fix OR-tautology (Pattern A)** — 7 tests with `a||b||c` always-true → assert specific expected state.
 9. **Wave 8: Regression prevention** — `utils/strict-assert.ts` helper + `utils/anti-pattern-lint.ts` script + `npm run lint:e2e` + README update + smoke subset run + final state update.
 
-**Stream B — Wave 3 COMPLETE. Wave 4 next session.**
+**Stream B — Wave 4 COMPLETE. Wave 5 next session.**
 
 **Deferred (awaiting user decision):**
 1. **Push to origin:** `git push origin main` (15 commits ahead of `origin/main` — publish when ready; Stream B Wave 1 is on a feature branch, not yet merged to main).
@@ -169,6 +170,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Stream B Wave 3 COMPLETE (Pattern G1 — Delete anti-schema tests). 5 hallucinated-schema tests deleted across 2 files. `voice-command.spec.ts`: removed `TC_Voice_TextCommand`/`TC_Voice_TTS`/`TC_Voice_AudioStorage`/`TC_Voice_StatusUpdate` (assert `result.Command.CommandText`/`CommandType`/`OrderId`/`Executed` + fabricated `tts-api.example.com`, but `VoiceCommandController` returns `{ Success: bool }` @ L78 / `{ AudioUrl }` @ L112). `i18n.spec.ts`: removed `TC_i18n_VoiceLanguage` (asserts `viResult.Executed` on voicecommand endpoint). Kept `TC_Voice_Flow` (silent skip — Wave 6) + 5 i18n switch/locale/product tests. 0 references to `tts-api.example.com`/`result.Command.CommandText`/`result.Command.CommandType`/`viResult.Executed` remain in e2e-tests/. `npx playwright test --list` → 729 tests in 20 files (was 759; -30 = 5 × 6 project instances). `dotnet build` 0 errors. windsurf-guard + architecture-guard PASSED. Commit `5f57179` on `feature/e2e-cleanup-wave3-delete-anti-schema-tests`. Next: Wave 4 (delete anti-UI tests).
-* **Current Branch:** `feature/e2e-cleanup-wave3-delete-anti-schema-tests`
-* **Current Objective:** Stream B — E2E Test Cleanup. Wave 3 done, Wave 4 next.
+* **Last Updated:** 2026-07-03 — Stream B Wave 4 COMPLETE (Pattern G2 — Delete anti-UI tests). 2 anti-UI scenarios deleted from `omnichannel-order-lifecycle.spec.ts`. SCENARIO 2 (Returning Loyalty Customer Flow) — uses `.loyalty-points`/`.points-balance` selectors + `applyLoyaltyPoints`/`getLoyaltyPoints` page-object methods; 0 matches for `loyalty-points`/`points-balance`/`applyLoyaltyPoints` in `5_WebApps/KhachLink` (no loyalty feature exists). SCENARIO 3 (Network Interruption / Edge Offline Resiliency) — asserts `.offline-indicator`/`.network-status` selectors; only in `PWAInstallPrompt.razor` (install prompt, not offline indicator); `setOffline(true)` + `goto()` will fail (no offline-first outbox). Kept SCENARIO 1 (real CustomerPage selectors). Also removed `TestDataGenerator.generateLoyaltyCustomerData()` from `test-data-cleaner.ts` (only ref was SCENARIO 2). Dead code: `CustomerPage.ts` loyalty methods now unreferenced (out of Wave 4 scope). `npx playwright test --list` → 715 tests in 20 files (was 729; -14 = 2 × 7 project instances). windsurf-guard + architecture-guard PASSED. Commit `c1e5c59` on `feature/e2e-cleanup-wave4-delete-anti-ui-tests`. Next: Wave 5 (consolidate reachability smoke tests).
+* **Current Branch:** `feature/e2e-cleanup-wave4-delete-anti-ui-tests`
+* **Current Objective:** Stream B — E2E Test Cleanup. Wave 4 done, Wave 5 next.

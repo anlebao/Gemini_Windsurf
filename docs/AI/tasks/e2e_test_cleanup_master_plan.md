@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — E2E Test Cleanup (Anti-Pattern Removal)
 
-> **Status:** ACTIVE — Wave 0+1+2+3 COMPLETE, Wave 4 NEXT
+> **Status:** ACTIVE — Wave 0+1+2+3+4 COMPLETE, Wave 5 NEXT
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 3 complete — 5 anti-schema tests deleted, commit `5f57179`)
+> **Last Updated:** 2026-07-03 (Wave 4 complete — 2 anti-UI scenarios deleted, commit `c1e5c59`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix (không case-by-case)
@@ -300,21 +300,24 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W4-T1 | Xóa `SCENARIO 2: Returning Loyalty Customer Flow` trong `omnichannel-order-lifecycle.spec.ts` — selectors `.loyalty-points`, `.points-balance` không tồn tại | `omnichannel-order-lifecycle.spec.ts` | PENDING |
-| 2 | W4-T2 | Xóa `SCENARIO 3: Network Interruption / Edge Offline Resiliency` — `.offline-indicator` không có (chỉ PWAInstallPrompt), `setOffline(true)` + `goto()` sẽ fail | `omnichannel-order-lifecycle.spec.ts` | PENDING |
-| 3 | W4-T3 | Giữ lại `SCENARIO 1: First-Time Guest Omnichannel Order Flow` (có thể pass — dùng CustomerPage real selectors) | — | N/A |
-| 4 | W4-T4 | Xóa `TestDataGenerator.generateLoyaltyCustomerData` trong `test-data-cleaner.ts` nếu không còn dùng | `utils/test-data-cleaner.ts` | PENDING |
-| 5 | W4-T5 | Verify `npx playwright test --list` pass | Solution-wide | PENDING |
+| 1 | W4-T1 | Xóa `SCENARIO 2: Returning Loyalty Customer Flow` trong `omnichannel-order-lifecycle.spec.ts` — selectors `.loyalty-points`, `.points-balance` không tồn tại | `omnichannel-order-lifecycle.spec.ts` | ✅ DONE |
+| 2 | W4-T2 | Xóa `SCENARIO 3: Network Interruption / Edge Offline Resiliency` — `.offline-indicator` không có (chỉ PWAInstallPrompt), `setOffline(true)` + `goto()` sẽ fail | `omnichannel-order-lifecycle.spec.ts` | ✅ DONE |
+| 3 | W4-T3 | Giữ lại `SCENARIO 1: First-Time Guest Omnichannel Order Flow` (có thể pass — dùng CustomerPage real selectors) | — | ✅ DONE (SCENARIO 1 kept) |
+| 4 | W4-T4 | Xóa `TestDataGenerator.generateLoyaltyCustomerData` trong `test-data-cleaner.ts` nếu không còn dùng | `utils/test-data-cleaner.ts` | ✅ DONE (only ref was SCENARIO 2) |
+| 5 | W4-T5 | Verify `npx playwright test --list` pass | Solution-wide | ✅ DONE — 715 tests in 20 files (was 729; -14 = 2 × 7 project instances) |
 
 ### Entry criteria
-- [ ] Wave 3 merged
-- [ ] `loyalty-points`, `points-balance`, `applyLoyaltyPoints` confirmed 0 match trong `5_WebApps/KhachLink`
-- [ ] `offline-indicator`, `network-status` confirmed chỉ trong `PWAInstallPrompt.razor` (không phải offline indicator thật)
+- [x] Wave 3 merged
+- [x] `loyalty-points`, `points-balance`, `applyLoyaltyPoints` confirmed 0 match trong `5_WebApps/KhachLink`
+- [x] `offline-indicator`, `network-status` confirmed chỉ trong `PWAInstallPrompt.razor` (không phải offline indicator thật)
 
 ### Exit criteria
-- [ ] SCENARIO 2 + 3 đã xóa khỏi `omnichannel-order-lifecycle.spec.ts`
-- [ ] `generateLoyaltyCustomerData` đã xóa nếu không còn reference
-- [ ] `npx playwright test --list` pass
+- [x] SCENARIO 2 + 3 đã xóa khỏi `omnichannel-order-lifecycle.spec.ts`
+- [x] `generateLoyaltyCustomerData` đã xóa (0 reference còn lại)
+- [x] `npx playwright test --list` pass — 715 tests in 20 files
+- [x] windsurf-guard.js + architecture-guard.ps1 PASSED
+- [x] Committed `c1e5c59` on `feature/e2e-cleanup-wave4-delete-anti-ui-tests`
+- [ ] Dead code note: `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) now unreferenced — out of Wave 4 scope, candidate for future page-object cleanup
 
 ### Why fourth
 - 2 scenario đã verify SẼ FAIL — xóa giảm noise
