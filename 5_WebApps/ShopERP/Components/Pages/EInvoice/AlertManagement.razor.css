@@ -1,0 +1,49 @@
+/* AlertManagement.razor — Alert list with severity badges */
+
+.alert-management-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.alert-summary-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.alert-summary-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}
+
+.alert-list-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.alert-list-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}
+
+/* Custom badge variants (Bootstrap 5 uses bg-* not badge-*) */
+.badge-danger {
+    background-color: var(--vanan-danger);
+    color: #fff;
+}
+
+.badge-warning {
+    background-color: var(--vanan-warning);
+    color: #212529;
+}
+
+.badge-info {
+    background-color: var(--vanan-info);
+    color: #212529;
+}
+
+.badge-secondary {
+    background-color: var(--vanan-secondary);
+    color: #fff;
+}
+
+.badge-success {
+    background-color: var(--vanan-success);
+    color: #fff;
+}

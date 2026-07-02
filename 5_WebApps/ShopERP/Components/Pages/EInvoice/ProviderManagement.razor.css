@@ -1,0 +1,14 @@
+/* ProviderManagement.razor — Provider list */
+
+.provider-management-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.providers-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.providers-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}

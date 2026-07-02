@@ -1,0 +1,13 @@
+/* PermissionGroupManagement.razor — Permission group list */
+
+.permission-group-management-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vanan-spacing-sm);
+    cursor: pointer;
+    user-select: none;
+}

@@ -1,0 +1,23 @@
+/* UserManagement.razor — User list with modals */
+
+.user-management-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.status-active {
+    background-color: rgba(25, 135, 84, 0.15);
+    color: var(--vanan-success);
+}
+
+.status-inactive {
+    background-color: rgba(108, 117, 125, 0.15);
+    color: var(--vanan-secondary);
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vanan-spacing-sm);
+    cursor: pointer;
+    user-select: none;
+}

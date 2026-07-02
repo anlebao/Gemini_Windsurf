@@ -1,0 +1,32 @@
+/* HealthMonitoring.razor — Health monitoring dashboard */
+
+.health-monitoring-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.health-summary-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.health-summary-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}
+
+.provider-health-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.provider-health-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}
+
+.retry-queue-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.retry-queue-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}

@@ -1,0 +1,210 @@
+/* AuditTrail.razor — Audit log viewer with filters, pagination, detail modal */
+
+.audit-trail-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.audit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    margin-bottom: var(--vanan-spacing-lg);
+    padding-bottom: var(--vanan-spacing-md);
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.results-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.audit-table-container {
+    overflow-x: auto;
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+}
+
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.audit-table th,
+.audit-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--vanan-border);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.audit-table thead th {
+    background-color: var(--vanan-bg-alt);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+.audit-row:hover {
+    background-color: var(--vanan-hover-bg);
+    cursor: pointer;
+}
+
+.timestamp {
+    color: var(--vanan-text-muted);
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.action {
+    font-weight: 500;
+}
+
+.entity-type,
+.entity-id {
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.user-name {
+    font-weight: 500;
+}
+
+.reason-text {
+    color: var(--vanan-text-muted);
+    font-style: italic;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.actions {
+    white-space: nowrap;
+}
+
+/* Action badge color variants */
+.action-create {
+    background-color: rgba(25, 135, 84, 0.15);
+    color: var(--vanan-success);
+}
+
+.action-update {
+    background-color: rgba(13, 110, 253, 0.15);
+    color: var(--vanan-primary);
+}
+
+.action-delete {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: var(--vanan-danger);
+}
+
+.action-period-close,
+.action-period-reopen {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #b88600;
+}
+
+.action-correction,
+.action-reversal {
+    background-color: rgba(108, 117, 125, 0.15);
+    color: var(--vanan-secondary);
+}
+
+/* Detail modal */
+.detail-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: var(--vanan-spacing-md);
+}
+
+.detail-modal-content {
+    background-color: var(--vanan-bg);
+    border-radius: var(--vanan-border-radius);
+    box-shadow: var(--vanan-shadow-md);
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: var(--vanan-spacing-lg);
+}
+
+.detail-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    padding: var(--vanan-spacing-sm) 0;
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 600;
+    min-width: 140px;
+    color: var(--vanan-text);
+}
+
+.detail-value {
+    color: var(--vanan-text);
+}
+
+.detail-changes {
+    margin-top: var(--vanan-spacing-md);
+}
+
+.change-item {
+    padding: var(--vanan-spacing-sm) var(--vanan-spacing-md);
+    margin-bottom: var(--vanan-spacing-sm);
+    border-left: 3px solid var(--vanan-border);
+    background-color: var(--vanan-bg-alt);
+    border-radius: 0 var(--vanan-border-radius) var(--vanan-border-radius) 0;
+}
+
+.change-field {
+    font-weight: 600;
+    color: var(--vanan-text);
+    margin-bottom: 0.25rem;
+}
+
+.change-old {
+    color: var(--vanan-danger);
+    text-decoration: line-through;
+}
+
+.change-new {
+    color: var(--vanan-success);
+    font-weight: 500;
+}
+
+.change-added {
+    color: var(--vanan-success);
+}
+
+.change-removed {
+    color: var(--vanan-danger);
+    text-decoration: line-through;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    color: var(--vanan-secondary);
+    margin-bottom: var(--vanan-spacing-md);
+}
+
+@media (max-width: 640px) {
+    .audit-table {
+        font-size: 0.8rem;
+    }
+
+    .detail-label {
+        min-width: 100%;
+    }
+}

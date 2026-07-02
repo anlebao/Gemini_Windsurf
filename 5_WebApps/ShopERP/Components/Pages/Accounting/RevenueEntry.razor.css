@@ -1,0 +1,7 @@
+/* RevenueEntry.razor — Revenue entry form */
+
+.revenue-entry-page {
+    padding: var(--vanan-spacing-lg);
+    max-width: 800px;
+    margin: 0 auto;
+}

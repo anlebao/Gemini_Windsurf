@@ -1,0 +1,39 @@
+/* AccountingIndex.razor — Accounting dashboard */
+
+.accounting-dashboard {
+    padding: var(--vanan-spacing-lg);
+}
+
+.accounting-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    margin-bottom: var(--vanan-spacing-lg);
+    padding-bottom: var(--vanan-spacing-md);
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.quick-actions-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.quick-actions-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+    color: var(--vanan-text);
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+}
+
+@media (max-width: 640px) {
+    .accounting-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

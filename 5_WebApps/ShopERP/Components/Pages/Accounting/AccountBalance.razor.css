@@ -1,0 +1,5 @@
+/* AccountBalance.razor — Account balance view */
+
+.account-balance-page {
+    padding: var(--vanan-spacing-lg);
+}

@@ -1,0 +1,114 @@
+/* Sitemap.razor — Navigation hub */
+
+.sitemap-page {
+    padding: var(--vanan-spacing-lg);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.sitemap-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vanan-spacing-sm);
+    margin-bottom: var(--vanan-spacing-lg);
+    padding-bottom: var(--vanan-spacing-md);
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.sitemap-subtitle {
+    color: var(--vanan-text-muted);
+    font-size: 1rem;
+}
+
+.sitemap-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+    margin-top: var(--vanan-spacing-sm);
+}
+
+.sitemap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--vanan-spacing-lg);
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.sitemap-links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vanan-spacing-sm);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sitemap-link {
+    display: flex;
+    align-items: center;
+    gap: var(--vanan-spacing-sm);
+    padding: var(--vanan-spacing-md);
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+    text-decoration: none;
+    color: var(--vanan-text);
+    background-color: var(--vanan-bg);
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.sitemap-link:hover {
+    border-color: var(--vanan-primary);
+    background-color: var(--vanan-hover-bg);
+    text-decoration: none;
+}
+
+.sitemap-link-icon {
+    font-size: 1.25rem;
+    color: var(--vanan-primary);
+    flex-shrink: 0;
+}
+
+.sitemap-link--external .sitemap-link-icon {
+    color: var(--vanan-secondary);
+}
+
+.sitemap-link-badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background-color: var(--vanan-bg-alt);
+    color: var(--vanan-text-muted);
+}
+
+.sitemap-footer {
+    margin-top: var(--vanan-spacing-lg);
+    padding-top: var(--vanan-spacing-md);
+    border-top: 1px solid var(--vanan-border);
+}
+
+.sitemap-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sitemap-footer-link {
+    color: var(--vanan-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.sitemap-footer-link:hover {
+    color: var(--vanan-primary);
+    text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+    .sitemap-grid {
+        grid-template-columns: 1fr;
+    }
+}

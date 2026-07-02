@@ -1,0 +1,122 @@
+/* EInvoiceDashboard.razor — E-invoice dashboard */
+
+.einvoice-dashboard {
+    padding: var(--vanan-spacing-lg);
+}
+
+.provider-status-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.provider-status-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}
+
+.provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--vanan-spacing-md);
+}
+
+.provider-item {
+    padding: var(--vanan-spacing-md);
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+    background-color: var(--vanan-bg);
+    box-shadow: var(--vanan-shadow-sm);
+}
+
+.provider-name {
+    font-weight: 600;
+    color: var(--vanan-text);
+    margin-bottom: var(--vanan-spacing-sm);
+}
+
+.provider-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    margin-bottom: var(--vanan-spacing-sm);
+}
+
+.provider-status::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--vanan-secondary);
+}
+
+.status-connected::before { background-color: var(--vanan-success); }
+.status-slow::before { background-color: var(--vanan-warning); }
+.status-error::before { background-color: var(--vanan-danger); }
+.status-pending::before { background-color: var(--vanan-secondary); }
+
+.provider-metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+    color: var(--vanan-text-muted);
+}
+
+.provider-metric strong {
+    color: var(--vanan-text);
+}
+
+.activity-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.activity-section h3 {
+    margin-bottom: var(--vanan-spacing-md);
+    font-size: 1.1rem;
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vanan-spacing-sm);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.activity-item {
+    display: flex;
+    gap: var(--vanan-spacing-md);
+    padding: var(--vanan-spacing-sm) var(--vanan-spacing-md);
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-time {
+    flex-shrink: 0;
+    color: var(--vanan-text-muted);
+    font-size: 0.85rem;
+    min-width: 120px;
+}
+
+.activity-message {
+    color: var(--vanan-text);
+}
+
+@media (max-width: 640px) {
+    .provider-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .activity-item {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .activity-time {
+        min-width: 0;
+    }
+}

@@ -1,0 +1,276 @@
+/*
+ * pages.css — Shared page-level CSS for ShopERP Components/Pages
+ * Wave 3 (Pattern C): Common classes used across 18 pages.
+ * Page-specific classes live in per-page .razor.css (CSS isolation).
+ *
+ * Design tokens are defined here in :root so all pages and .razor.css
+ * files can reference them via var(--vanan-*).
+ */
+
+:root {
+    --vanan-primary: #0d6efd;
+    --vanan-primary-hover: #0b5ed7;
+    --vanan-text: #212529;
+    --vanan-text-muted: #6c757d;
+    --vanan-bg: #ffffff;
+    --vanan-bg-alt: #f8f9fa;
+    --vanan-border: #dee2e6;
+    --vanan-border-radius: 6px;
+    --vanan-hover-bg: #f0f4ff;
+    --vanan-danger: #dc3545;
+    --vanan-warning: #ffc107;
+    --vanan-success: #198754;
+    --vanan-info: #0dcaf0;
+    --vanan-secondary: #6c757d;
+    --vanan-spacing-sm: 0.5rem;
+    --vanan-spacing-md: 1rem;
+    --vanan-spacing-lg: 1.5rem;
+    --vanan-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --vanan-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Page header ===== */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    margin-bottom: var(--vanan-spacing-lg);
+    padding-bottom: var(--vanan-spacing-md);
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.page-header h1,
+.page-header h2,
+.page-header h3 {
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+}
+
+/* ===== Metrics grid ===== */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--vanan-spacing-lg);
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.metrics-section {
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+/* ===== Filter grid ===== */
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--vanan-spacing-md);
+    margin-bottom: var(--vanan-spacing-md);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vanan-spacing-sm);
+}
+
+.filter-section {
+    margin-bottom: var(--vanan-spacing-lg);
+    padding: var(--vanan-spacing-md);
+    background-color: var(--vanan-bg-alt);
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+}
+
+.filter-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+    margin-top: var(--vanan-spacing-md);
+}
+
+/* ===== Loading & empty states ===== */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--vanan-spacing-lg);
+    color: var(--vanan-text-muted);
+    text-align: center;
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--vanan-spacing-lg);
+    color: var(--vanan-text-muted);
+}
+
+.empty-state .empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--vanan-spacing-md);
+    color: var(--vanan-secondary);
+}
+
+/* ===== Form layout ===== */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vanan-spacing-sm);
+    margin-bottom: var(--vanan-spacing-md);
+}
+
+.form-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+    margin-top: var(--vanan-spacing-lg);
+}
+
+/* ===== VanAn-styled form controls ===== */
+.vanan-input,
+.vanan-select {
+    display: block;
+    width: 100%;
+    padding: var(--vanan-spacing-sm) 0.75rem;
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+    font-size: 1rem;
+    color: var(--vanan-text);
+    background-color: var(--vanan-bg);
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.vanan-input:focus,
+.vanan-select:focus {
+    border-color: var(--vanan-primary);
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* ===== VanAn-styled table ===== */
+.vanan-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--vanan-spacing-md);
+}
+
+.vanan-table th,
+.vanan-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--vanan-border);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.vanan-table thead th {
+    background-color: var(--vanan-bg-alt);
+    font-weight: 600;
+    color: var(--vanan-text);
+    border-bottom: 2px solid var(--vanan-border);
+}
+
+.vanan-table tbody tr:hover {
+    background-color: var(--vanan-hover-bg);
+}
+
+/* ===== Status & action badges ===== */
+.status-badge,
+.action-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.status-badge--active,
+.status-badge--success,
+.action-badge--success {
+    background-color: rgba(25, 135, 84, 0.15);
+    color: var(--vanan-success);
+}
+
+.status-badge--inactive,
+.status-badge--secondary,
+.action-badge--secondary {
+    background-color: rgba(108, 117, 125, 0.15);
+    color: var(--vanan-secondary);
+}
+
+.status-badge--warning,
+.action-badge--warning {
+    background-color: rgba(255, 193, 7, 0.15);
+    color: #b88600;
+}
+
+.status-badge--danger,
+.action-badge--danger {
+    background-color: rgba(220, 53, 69, 0.15);
+    color: var(--vanan-danger);
+}
+
+.status-badge--info,
+.action-badge--info {
+    background-color: rgba(13, 202, 240, 0.15);
+    color: #0a8ea8;
+}
+
+/* ===== Pagination ===== */
+.pagination {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+    margin-top: var(--vanan-spacing-md);
+    padding-top: var(--vanan-spacing-md);
+    border-top: 1px solid var(--vanan-border);
+}
+
+.page-info {
+    padding: 0 var(--vanan-spacing-sm);
+    color: var(--vanan-text-muted);
+    font-size: 0.9rem;
+}
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 640px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .form-actions .btn,
+    .form-actions button {
+        width: 100%;
+    }
+}

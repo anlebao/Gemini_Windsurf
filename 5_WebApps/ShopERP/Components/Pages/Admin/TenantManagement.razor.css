@@ -1,0 +1,72 @@
+/* TenantManagement.razor — Tenant management with onboarding modal */
+
+.tenant-management-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.action-cell {
+    white-space: nowrap;
+}
+
+.modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-sm);
+    justify-content: flex-end;
+    margin-top: var(--vanan-spacing-lg);
+    padding-top: var(--vanan-spacing-md);
+    border-top: 1px solid var(--vanan-border);
+}
+
+.onboarding-result {
+    margin-top: var(--vanan-spacing-md);
+    padding: var(--vanan-spacing-md);
+    background-color: var(--vanan-bg-alt);
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+}
+
+.onboarding-step {
+    display: flex;
+    align-items: center;
+    gap: var(--vanan-spacing-sm);
+    padding: var(--vanan-spacing-sm) 0;
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.onboarding-step:last-child {
+    border-bottom: none;
+}
+
+.onboarding-step::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--vanan-border);
+    flex-shrink: 0;
+}
+
+.onboarding-step-completed::before {
+    background-color: var(--vanan-success);
+}
+
+.onboarding-step-pending::before {
+    background-color: var(--vanan-border);
+}
+
+.onboarding-step-active::before {
+    background-color: var(--vanan-primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+}
+
+@media (max-width: 640px) {
+    .modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .modal-actions .btn,
+    .modal-actions button {
+        width: 100%;
+    }
+}

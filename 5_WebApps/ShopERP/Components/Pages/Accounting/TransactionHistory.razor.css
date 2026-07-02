@@ -1,0 +1,60 @@
+/* TransactionHistory.razor — Transaction list with filters */
+
+.transaction-history-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.filter-panel {
+    margin-bottom: var(--vanan-spacing-lg);
+    padding: var(--vanan-spacing-md);
+    background-color: var(--vanan-bg-alt);
+    border: 1px solid var(--vanan-border);
+    border-radius: var(--vanan-border-radius);
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    align-items: flex-end;
+}
+
+.filter-row > * {
+    flex: 1 1 180px;
+    min-width: 180px;
+}
+
+.transaction-detail {
+    margin-top: var(--vanan-spacing-md);
+    padding: var(--vanan-spacing-md);
+    background-color: var(--vanan-bg-alt);
+    border-radius: var(--vanan-border-radius);
+}
+
+.detail-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    padding: var(--vanan-spacing-sm) 0;
+    border-bottom: 1px solid var(--vanan-border);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row label {
+    font-weight: 600;
+    min-width: 140px;
+    color: var(--vanan-text);
+}
+
+@media (max-width: 640px) {
+    .filter-row > * {
+        flex: 1 1 100%;
+    }
+
+    .detail-row label {
+        min-width: 100%;
+    }
+}

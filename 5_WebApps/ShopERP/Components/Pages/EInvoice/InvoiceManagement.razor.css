@@ -1,0 +1,24 @@
+/* InvoiceManagement.razor — Invoice list with filter */
+
+.invoice-management-page {
+    padding: var(--vanan-spacing-lg);
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--vanan-spacing-md);
+    align-items: flex-end;
+    margin-bottom: var(--vanan-spacing-lg);
+}
+
+.filter-row > * {
+    flex: 1 1 200px;
+    min-width: 200px;
+}
+
+@media (max-width: 640px) {
+    .filter-row > * {
+        flex: 1 1 100%;
+    }
+}

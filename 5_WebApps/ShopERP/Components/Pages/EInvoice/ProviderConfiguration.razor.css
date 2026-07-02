@@ -1,0 +1,7 @@
+/* ProviderConfiguration.razor — Provider configuration form */
+
+.provider-configuration-page {
+    padding: var(--vanan-spacing-lg);
+    max-width: 700px;
+    margin: 0 auto;
+}
