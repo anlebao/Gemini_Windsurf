@@ -2,7 +2,7 @@
 
 **Created:** 2026-07-02
 **Last Updated:** 2026-07-02
-**Current Status:** PLANNING — Ready for Phase 1 (Revert + DTO)
+**Current Status:** PHASE 1 COMPLETE — Ready for Phase 2 (ShopConfigHttpService)
 **Branch strategy:** feature/shopconfig-product-tenant-phase[X]
 **Execution principle:** JIT Planning + Pure Execution
 
@@ -198,7 +198,7 @@ main (align-consumer-phase4)
 **Conflict risk:** LOW (DTO additions + revert)
 **Priority:** 1 (Blocking)
 **Task Card:** `docs/AI/tasks/shopconfig_phase1_revert_dto_task_card.md`
-**Status:** PENDING
+**Status:** COMPLETE (2026-07-02)
 
 ### Rationale
 Revert the order-based Approach 1 remnants and add TenantId to product DTOs — the foundation for product-based ShopConfig loading.
@@ -206,11 +206,11 @@ Revert the order-based Approach 1 remnants and add TenantId to product DTOs — 
 ### Tasks (sequential)
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | P1-T1 | Revert CustomerOrderDto TenantId addition | ShopERP/Controllers/CustomerOrdersController.cs | PENDING |
-| 2 | P1-T2 | Add TenantId to ProductCatalogItem (ShopERP) | ShopERP/Controllers/ProductsController.cs | PENDING |
-| 3 | P1-T3 | Map TenantId in GetProducts projection | ShopERP/Controllers/ProductsController.cs | PENDING |
-| 4 | P1-T4 | Add TenantId to ProductDto (KhachLink) | KhachLink/Models/ProductDto.cs | PENDING |
-| 5 | P1-T5 | Build verify (0 errors) | All projects | PENDING |
+| 1 | P1-T1 | Revert CustomerOrderDto TenantId addition | ShopERP/Controllers/CustomerOrdersController.cs | DONE (already reverted) |
+| 2 | P1-T2 | Add TenantId to ProductCatalogItem (ShopERP) | ShopERP/Controllers/ProductsController.cs | DONE |
+| 3 | P1-T3 | Map TenantId in GetProducts projection | ShopERP/Controllers/ProductsController.cs | DONE |
+| 4 | P1-T4 | Add TenantId to ProductDto (KhachLink) | KhachLink/Models/ProductDto.cs | DONE |
+| 5 | P1-T5 | Build verify (0 errors) | All projects | DONE (0 errors) |
 
 ### Entry criteria
 - [ ] Project builds successfully

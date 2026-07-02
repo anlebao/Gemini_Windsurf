@@ -45,6 +45,7 @@ namespace VanAn.ShopERP.Controllers
                 List<ProductCatalogItem> result = products.Select(p => new ProductCatalogItem
                 {
                     ProductId = p.ProductId.Value,
+                    TenantId = p.TenantId.Value,
                     Name = p.Name,
                     Description = p.Description,
                     Price = p.Price,
@@ -82,6 +83,7 @@ namespace VanAn.ShopERP.Controllers
                 return Ok(new ProductCatalogItem
                 {
                     ProductId = product.ProductId.Value,
+                    TenantId = product.TenantId.Value,
                     Name = product.Name,
                     Description = product.Description,
                     Price = product.Price,
@@ -149,6 +151,7 @@ namespace VanAn.ShopERP.Controllers
     public class ProductCatalogItem
     {
         public Guid ProductId { get; set; }
+        public Guid TenantId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public decimal Price { get; set; }
