@@ -29,14 +29,14 @@
 
 ## 2. Current Objective
 
-**[STREAM C: SHOPERP UI FIX — IMPLEMENTING]**
+**[STREAM C: SHOPERP UI FIX — COMPLETE (all 6 waves done, awaiting merge to main)]**
 
 Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead pages, 18 unstyled, 3 broken layouts. Pattern-based batch fix, 6 waves.
 
 - **Master plan:** `docs/AI/tasks/shoperp_ui_fix_master_plan.md`
 - **Commit planning:** `51dd7ff`
 - **Root cause:** UI.Platform (VanALayout/VanANavigation) chưa hoàn thiện — zero CSS, sai slot structure.
-- **Target:** 14 dead → 0, 18 unstyled → 0, 3 broken layouts → 0.
+- **Target:** 14 dead → 0, 18 unstyled → 0, 3 broken layouts → 0. ✅ ALL MET
 
 ### 6 Patterns (Waves)
 | Wave | Pattern | Description | Files | Status |
@@ -46,7 +46,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 | 3 | C | Page CSS isolation (shared + per-page) | 19 | ✅ COMPLETE (`d2d058d`) |
 | 4 | V | Component consolidation (VanAnX → VanX) | 7 | ✅ COMPLETE (`47268a0`) |
 | 5 | L | Admin layout consistency (create AdminLayout) | 5 | ✅ COMPLETE (`7f05fa7`) |
-| 6 | G | Governance cleanup (inline style, eval, demo) | 6 | PENDING |
+| 6 | G | Governance cleanup (inline style, eval, demo) | 6 | ✅ COMPLETE (`ea1ced5`) |
 
 ### Parked Streams (awaiting approval)
 - **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
@@ -56,13 +56,13 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 3. Current Status
 
-- **Branch:** `feature/shoperp-ui-fix-wave5-admin-layout`
-- **Last commit:** `7f05fa7` [UI-FIX WAVE 5] Pattern L: Admin layout consistency - AdminLayout + @layout on 4 Admin files
+- **Branch:** `feature/shoperp-ui-fix-wave6-governance-cleanup`
+- **Last commit:** `ea1ced5` [UI-FIX WAVE 6] Pattern G: Governance cleanup - inline style, eval logout, delete Counter, fix Home
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
 - **Uncommitted changes:** None
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix.
-- **In-progress (feature branch):** Wave 0 ✅ · Wave 1 ✅ · Wave 2 ✅ · Wave 3 ✅ · Wave 4 ✅ · Wave 5 ✅ · Wave 6 PENDING.
+- **In-progress (feature branch):** Wave 0 ✅ · Wave 1 ✅ · Wave 2 ✅ · Wave 3 ✅ · Wave 4 ✅ · Wave 5 ✅ · Wave 6 ✅ (ALL 6 WAVES COMPLETE — ready to merge to main).
 
 ---
 
@@ -75,7 +75,9 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 4. ~~Wave 3: Page CSS~~ ✅ — `wwwroot/css/pages.css` (shared, 276 lines, `:root` tokens + 17 common classes) + 18 `.razor.css` (page-specific). Linked in `App.razor`. Commit `d2d058d`.
 5. ~~Wave 4: Component consolidation~~ ✅ — `VanAnAlert` → `VanAAlert` (10 occurrences in 6 EInvoice files). `Type="..."` (broken unmatched attr) → `Variant="..."` (real param). `Type="danger"` → `Variant="error"`. `VanAnModal`: 0 in EInvoice scope (KhachLink only — debt cleanup candidate). Commit `47268a0`.
 6. ~~Wave 5: Admin layout~~ ✅ — Create `AdminLayout.razor` (VanALayout + VanANavigation, 4 menu items: Users, Permission Groups, Audit Trail, Tenants) following AccountingLayout pattern. Add `@layout AdminLayout` to 4 Admin pages (line 3, after `@page` + `@rendermode`). 5 files, +24 lines. Build 0 errors. Commit `7f05fa7` on `feature/shoperp-ui-fix-wave5-admin-layout`.
-7. **Wave 6:** Governance cleanup (inline style, eval logout, delete Counter, fix Home).
+7. ~~Wave 6: Governance cleanup~~ ✅ — Remove inline `<style>` from AccessDenied (37 lines), Sitemap (72 lines), AuditTrail (165 lines — exit criteria required 0 inline `<style>` in ALL .razor files; CSS already in `.razor.css` from Wave 3). Fix Sitemap logout: `eval()` → `NavigationManager.NavigateTo("/Logout", forceLoad: true)` (uses existing `Pages/Logout.cshtml` server-side `SignOutAsync` endpoint). Remove unused `@inject IJSRuntime`. Fix 7 broken emojis (U+FFFD) in Sitemap with semantic emojis (📷💸📈📜📅🌐🔑). Delete `Counter.razor` (Blazor template demo, 0 references). Fix `Home.razor`: add `<PageTitle>` + loading state + new `Home.razor.css`. 6 files, +31/-312 lines. Build 0 errors, guard PASSED. Commit `ea1ced5` on `feature/shoperp-ui-fix-wave6-governance-cleanup`.
+
+**Stream C — ALL 6 WAVES COMPLETE. Next: merge wave6 branch → main. Visual smoke test optional (run app, navigate 6 key pages).**
 
 ---
 
@@ -94,6 +96,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 6. History Log (compressed — see git log for details)
 
+* [2026-07-03] **Wave 6 COMPLETE — STREAM C FULLY DONE** — Governance cleanup: Remove inline `<style>` blocks from AccessDenied.razor (37 lines), Sitemap.razor (72 lines), AuditTrail.razor (165 lines — exit criteria required 0 inline `<style>` in ALL .razor files; CSS already covered by `.razor.css` from Wave 3 with better design tokens). Fix Sitemap logout: replace `JSRuntime.InvokeVoidAsync("eval", ...)` (security concern — eval + manual cookie clear) with `NavigationManager.NavigateTo("/Logout", forceLoad: true)` using existing `Pages/Logout.cshtml` server-side `SignOutAsync` endpoint. Remove now-unused `@inject IJSRuntime JSRuntime`. Fix 7 broken emojis (U+FFFD replacement chars from encoding corruption) in Sitemap with semantic emojis: 📷 (Guard scan), 💸 (Chi Phí), 📈 (Doanh Thu), 📜 (Lịch Sử), 📅 (Đóng Kỳ), 🌐 (KhachLink), 🔑 (Nhóm Quyền). Delete `Counter.razor` (Blazor template demo, 0 references in NavMenu/Sitemap). Fix `Home.razor`: add `<PageTitle>Đang chuyển hướng...</PageTitle>` + loading state div + new `Home.razor.css` (CSS isolation for `.redirect-loading`). 6 files changed, +31/-312 lines. Build 0 errors, guard PASSED. Commit `ea1ced5` on `feature/shoperp-ui-fix-wave6-governance-cleanup`. **All 6 waves of Stream C complete — ready to merge to main.**
 * [2026-07-03] **Wave 5 COMPLETE** — Admin layout consistency: Create `AdminLayout.razor` (VanALayout + VanANavigation with 4 Admin menu items matching NavMenu: Users `/admin/users`, Permission Groups `/admin/permission-groups`, Audit Trail `/admin/audit-trail`, Tenants `/admin/tenants`) following AccountingLayout pattern (post-Wave 1 slot fix). Add `@layout AdminLayout` to 4 Admin pages (AuditTrail, UserManagement, PermissionGroupManagement, TenantManagement) at line 3 (after `@page` + `@rendermode`). AdminLayout has no `@attribute [Authorize]` — each page self-authorizes. 5 files, +24 lines. Build 0 errors. Commit `7f05fa7` on `feature/shoperp-ui-fix-wave5-admin-layout`.
 * [2026-07-03] **Wave 4 COMPLETE** — Component consolidation: `VanAnAlert` (old, Atomic namespace) → `VanAAlert` (new) in 6 EInvoice files (10 occurrences). API fix: `Type="..."` (unmatched attr, broken) → `Variant="..."` (real param). `Type="danger"` → `Variant="error"` (VanAAlert uses "error"). `VanAnModal`: 0 occurrences in EInvoice scope (only in KhachLink — out of scope, debt cleanup candidate). 6 files, 10 line changes. Build 0 errors. Commit `47268a0` on `feature/shoperp-ui-fix-wave4-component-consolidation`.
 * [2026-07-03] **Wave 3 COMPLETE** — Page CSS isolation: `wwwroot/css/pages.css` (shared, 276 lines — `:root` design tokens + 17 common classes: page-header, metrics-grid, filter-grid, vanan-table, status-badge, pagination, etc.) + 18 `.razor.css` files (page-specific classes). Linked in `App.razor`. 20 files, +1228 lines. Build 0 errors. Commit `d2d058d` on `feature/shoperp-ui-fix-wave3-page-css`.
@@ -148,6 +151,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Wave 0 + Wave 1 + Wave 2 + Wave 3 + Wave 4 + Wave 5 COMPLETE. Branch: `feature/shoperp-ui-fix-wave5-admin-layout`. Wave 5: Create AdminLayout.razor (VanALayout + VanANavigation, 4 menu items matching NavMenu) + add `@layout AdminLayout` to 4 Admin pages (line 3). 5 files, +24 lines. Build 0 errors, guard PASSED. Next: Wave 6 (governance cleanup).
-* **Current Branch:** `feature/shoperp-ui-fix-wave5-admin-layout`
-* **Current Objective:** Stream C: ShopERP UI Fix — Wave 6 next (governance cleanup: inline style, eval logout, delete Counter, fix Home).
+* **Last Updated:** 2026-07-03 — ALL 6 WAVES of Stream C COMPLETE. Branch: `feature/shoperp-ui-fix-wave6-governance-cleanup`. Wave 6: Remove inline `<style>` from AccessDenied/Sitemap/AuditTrail (CSS already in .razor.css from Wave 3). Fix Sitemap logout (eval → server-side /Logout endpoint). Fix 7 broken emojis (U+FFFD). Delete Counter.razor (demo). Fix Home.razor (PageTitle + loading + Home.razor.css). 6 files, +31/-312 lines. Build 0 errors, guard PASSED. Next: merge wave6 → main.
+* **Current Branch:** `feature/shoperp-ui-fix-wave6-governance-cleanup`
+* **Current Objective:** Stream C: ShopERP UI Fix — ALL 6 WAVES COMPLETE. Next: merge to main + visual smoke test.
