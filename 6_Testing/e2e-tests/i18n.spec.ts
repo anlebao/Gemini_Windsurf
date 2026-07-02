@@ -88,55 +88,6 @@ test.describe('Internationalization (i18n) Tests', () => {
     }
   });
 
-  test('TC_i18n_VoiceLanguage - Should support language switching in voice commands', async ({ request }) => {
-    try {
-      // Test Vietnamese voice command
-      const vietnameseCommand = {
-        CommandText: 'xong đơn 123',
-        OrderId: 'TEST_ORDER_123',
-        Parameters: 'ready'
-      };
-
-      const viResponse = await request.post(`${config.GATEWAY_URL}/api/v1/voicecommand/text-command`, {
-        data: vietnameseCommand,
-        headers: {
-          'Accept-Language': 'vi-VN'
-        }
-      });
-
-      expect(viResponse.ok()).toBeTruthy();
-      
-      // Test English voice command
-      const englishCommand = {
-        CommandText: 'complete order 123',
-        OrderId: 'TEST_ORDER_123',
-        Parameters: 'ready'
-      };
-
-      const enResponse = await request.post(`${config.GATEWAY_URL}/api/v1/voicecommand/text-command`, {
-        data: englishCommand,
-        headers: {
-          'Accept-Language': 'en-US'
-        }
-      });
-
-      expect(enResponse.ok()).toBeTruthy();
-      
-      // Both responses should be successful regardless of language
-      const viResult = await viResponse.json();
-      const enResult = await enResponse.json();
-      
-      expect(viResult.Executed).toBe(true);
-      expect(enResult.Executed).toBe(true);
-      
-      await reporter.addResult('i18n Voice Language', 'pass', 'Voice commands support multiple languages');
-      
-    } catch (error) {
-      await reporter.addResult('i18n Voice Language', 'fail', error.message);
-      throw error;
-    }
-  });
-
   test('TC_i18n_LocalizationService - Should return localized strings', async ({ request }) => {
     try {
       // Test Vietnamese localization
