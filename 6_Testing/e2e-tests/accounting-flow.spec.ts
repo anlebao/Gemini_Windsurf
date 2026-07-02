@@ -42,9 +42,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
     const metricsCards = page.locator('.metrics-card, .vanan-metrics-card');
     await expect(metricsCards.first()).toBeVisible();
 
-    reporter.pass('Accounting Dashboard Access', {
-      pageTitle: await page.locator('h1').first().textContent(),
-    });
   });
 
   // ─── REVENUE ENTRY ───────────────────────────────────────────────────────
@@ -61,7 +58,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
     // Form must be present
     await expect(page.locator('form, .dynamic-form')).toBeVisible();
 
-    reporter.pass('Revenue Entry Navigation', { pageLoaded: true });
   });
 
   test('Staff can submit Revenue Entry', async ({ page }) => {
@@ -100,7 +96,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
       page.locator('.alert-success, .vanan-alert-success, [class*="alert-success"]')
     ).toBeVisible({ timeout: 5000 });
 
-    reporter.pass('Revenue Entry Submission', { formFilled: true, success: true });
   });
 
   // ─── EXPENSE ENTRY ───────────────────────────────────────────────────────
@@ -115,7 +110,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
 
     await expect(page.locator('form, .dynamic-form')).toBeVisible();
 
-    reporter.pass('Expense Entry Navigation', { pageLoaded: true });
   });
 
   test('Staff can submit Expense Entry', async ({ page }) => {
@@ -150,7 +144,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
       page.locator('.alert-success, .vanan-alert-success, [class*="alert-success"]')
     ).toBeVisible({ timeout: 5000 });
 
-    reporter.pass('Expense Entry Submission', { formFilled: true, success: true });
   });
 
   // ─── TRANSACTION HISTORY ─────────────────────────────────────────────────
@@ -166,7 +159,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
     // Table must be rendered — proves data layer responded
     await expect(page.locator('table, .transaction-list')).toBeVisible();
 
-    reporter.pass('Transaction History View', { pageLoaded: true });
   });
 
   test('Staff can filter Transaction History by month', async ({ page }) => {
@@ -181,7 +173,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
     // Page must still show table after filtering
     await expect(page.locator('table, .transaction-list')).toBeVisible();
 
-    reporter.pass('Transaction History Filter', { filtered: true });
   });
 
   // ─── ACCOUNT BALANCE ─────────────────────────────────────────────────────
@@ -199,7 +190,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
       page.locator('.balance-amount, .metrics-card, .vanan-metrics-card')
     ).toBeVisible();
 
-    reporter.pass('Account Balance View', { pageLoaded: true });
   });
 
   // ─── ACCOUNTING INDEX NAVIGATION ─────────────────────────────────────────
@@ -220,7 +210,6 @@ test.describe('VanAn Ecosystem - Accounting Flow E2E Tests', () => {
       ).first()
     ).toBeVisible();
 
-    reporter.pass('Accounting Navigation Links', { pageLoaded: true });
   });
 });
 
@@ -242,7 +231,6 @@ test.describe('Gateway Accounting API — /api/accounting alias (T-07)', () => {
     expect(response.status()).not.toBe(404);
     expect([200, 401, 403]).toContain(response.status());
 
-    reporter.pass('GET /api/accounting-entries', { status: response.status() });
   });
 
   test('GET /api/accounting is reachable (T-07 alias route)', async ({ request }) => {
@@ -252,7 +240,6 @@ test.describe('Gateway Accounting API — /api/accounting alias (T-07)', () => {
     expect(response.status()).not.toBe(404);
     expect([200, 401, 403]).toContain(response.status());
 
-    reporter.pass('GET /api/accounting alias', { status: response.status() });
   });
 
   test('POST /api/accounting/revenue is reachable via alias', async ({ request }) => {
@@ -271,7 +258,6 @@ test.describe('Gateway Accounting API — /api/accounting alias (T-07)', () => {
     expect(response.status()).not.toBe(404);
     expect(response.status()).not.toBe(500);
 
-    reporter.pass('POST /api/accounting/revenue alias', { status: response.status() });
   });
 
   test('POST /api/accounting/expense is reachable via alias', async ({ request }) => {
@@ -286,7 +272,6 @@ test.describe('Gateway Accounting API — /api/accounting alias (T-07)', () => {
     expect(response.status()).not.toBe(404);
     expect(response.status()).not.toBe(500);
 
-    reporter.pass('POST /api/accounting/expense alias', { status: response.status() });
   });
 
   test('GET /api/accounting/revenue/summary is reachable via alias', async ({ request }) => {
@@ -298,6 +283,5 @@ test.describe('Gateway Accounting API — /api/accounting alias (T-07)', () => {
     expect(response.status()).not.toBe(404);
     expect(response.status()).not.toBe(500);
 
-    reporter.pass('GET /api/accounting/revenue/summary alias', { status: response.status() });
   });
 });

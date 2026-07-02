@@ -36,9 +36,6 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     const firstProduct = page.locator('.feature-card').first();
     await expect(firstProduct.locator('h5')).toBeVisible();
 
-    reporter.pass('Product Catalog Display', {
-      productCount: await page.locator('.feature-card').count(),
-    });
   });
 
   test('Customer can add items to cart', async ({ page }) => {
@@ -52,7 +49,6 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     await expect(orderBtn).toBeVisible();
     await orderBtn.click();
 
-    reporter.pass('Add to Cart', { productName, action: 'add_attempted' });
   });
 
   test('Customer can place order', async ({ page }) => {
@@ -86,11 +82,6 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     // At least one of these must be true — proves order flow completed
     expect(isOnTrackingPage || hasTrackingOrConfirmation).toBeTruthy();
 
-    reporter.pass('Place Order', {
-      finalUrl,
-      redirectedToTracking: isOnTrackingPage,
-      hasConfirmationElement: hasTrackingOrConfirmation,
-    });
   });
 
   // ─── STAFF ORDER VIEW (ShopERP) ──────────────────────────────────────────
@@ -102,9 +93,6 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     // ShopERP home page must have a heading
     await expect(page.locator('h1, h2').first()).toBeVisible();
 
-    reporter.pass('ShopERP Page Load', {
-      pageTitle: await page.locator('h1, h2').first().textContent(),
-    });
   });
 
   test('Staff can update order status', async ({ page }) => {
@@ -129,7 +117,6 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     await expect(confirmButton).toBeVisible();
     await confirmButton.click();
 
-    reporter.pass('Update Order Status', { action: 'status_updated' });
   });
 
   // ─── ORDER TRACKING (Gateway API — not CoreHub) ──────────────────────────
@@ -140,7 +127,6 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     // Accepts 200 (list) or 401 (auth required) — both prove the endpoint exists
     expect([200, 401, 403]).toContain(response.status());
 
-    reporter.pass('Gateway Orders API Reachable', { status: response.status() });
   });
 
   test('Inventory check API is accessible via Gateway', async ({ page }) => {
@@ -150,6 +136,5 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     );
     expect([200, 400, 401, 404]).toContain(response.status());
 
-    reporter.pass('Gateway Inventory API Reachable', { status: response.status() });
   });
 });

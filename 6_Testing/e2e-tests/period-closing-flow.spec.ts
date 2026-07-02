@@ -35,7 +35,6 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
     await expect(page.locator('select')).toBeVisible();
     await expect(page.locator('button:has-text("Bắt Đầu Kiểm Tra")')).toBeVisible();
 
-    reporter.pass('Period Closing Wizard Accessible', { url: page.url() });
   });
 
   // ─── STEP 1: VALIDATION ──────────────────────────────────────────────────
@@ -57,10 +56,6 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
     const hasError = await page.locator('[class*="alert-error"], [class*="error"], [class*="alert-danger"]').count() > 0;
     expect(hasSuccess || hasError).toBeTruthy();
 
-    reporter.pass('Period Validation Executed', {
-      period: '2025-12',
-      hasValidationResult: hasSuccess || hasError,
-    });
   });
 
   // ─── NAVIGATION MENU ITEM ────────────────────────────────────────────────
@@ -73,7 +68,6 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
       page.locator('a[href="/accounting/period-closing"], nav :has-text("Đóng Sổ Kỳ")')
     ).toBeVisible({ timeout: 5000 });
 
-    reporter.pass('Period Closing Menu Item Visible', {});
   });
 
   // ─── STEP 2: REVIEW BEFORE CLOSE ─────────────────────────────────────────
@@ -99,7 +93,6 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
     // Confirm button must be present in step 2
     await expect(page.locator('button:has-text("Xác Nhận Đóng Sổ")')).toBeVisible();
 
-    reporter.pass('Period Closing Review Step', { stepped: true });
   });
 
   // ─── REOPEN: REASON FIELD REQUIRED ──────────────────────────────────────
@@ -122,6 +115,5 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
     await reasonInput.fill('Kiểm toán Q4 yêu cầu điều chỉnh');
     await expect(confirmReopenButton).not.toBeDisabled();
 
-    reporter.pass('Reopen Requires Reason', { reopenAvailable: true });
   });
 });

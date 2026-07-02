@@ -57,7 +57,6 @@ test.describe('VietQR Gateway API Tests', () => {
     expect(qrImageUrl).toContain('img.vietqr.io/image/970422-1234567890');
     expect(qrImageUrl).toContain('amount=50000');
 
-    reporter.pass('QR Generation API', { qrImageUrl, amount });
   });
 
   test('TC_QR_Validation - Gateway /api/v1/vietqr/validate-bank validates correctly', async ({ request }) => {
@@ -77,7 +76,6 @@ test.describe('VietQR Gateway API Tests', () => {
     const invalidResult = await invalidResponse.json();
     expect(invalidResult).toBe(false);
 
-    reporter.pass('Bank Validation', { validResult, invalidResult });
   });
 
   test('TC_QR_SupportedBanks - Gateway /api/v1/vietqr/supported-banks returns bank list', async ({ request }) => {
@@ -95,7 +93,6 @@ test.describe('VietQR Gateway API Tests', () => {
     expect(vietcombank).toBeTruthy();
     expect(vietcombank.Name ?? vietcombank.name).toBe('Vietcombank');
 
-    reporter.pass('Supported Banks', { count: banks.length });
   });
 
   // ─── UI SMOKE: QR button on checkout page ────────────────────────────────
@@ -117,6 +114,5 @@ test.describe('VietQR Gateway API Tests', () => {
     const qrButton = page.locator('button:has-text("Thanh toán QR")');
     await expect(qrButton).toBeVisible({ timeout: 8000 });
 
-    reporter.pass('QR Trigger Button', { visible: true });
   });
 });

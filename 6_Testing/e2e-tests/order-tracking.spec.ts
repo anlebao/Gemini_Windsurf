@@ -46,9 +46,6 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
       page.locator('.order-tracking, .card, .alert')
     ).toBeVisible();
 
-    reporter.pass('Order Tracking Page Renders', {
-      url: page.url(),
-    });
   });
 
   test('Order tracking page has .order-tracking container', async ({ page }) => {
@@ -58,7 +55,6 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     // .order-tracking container must exist — mandatory CSS class for E2E selector contract
     await expect(page.locator('.order-tracking')).toBeVisible();
 
-    reporter.pass('Order Tracking Container', { selector: '.order-tracking' });
   });
 
   test('Order tracking page shows order ID in heading', async ({ page }) => {
@@ -71,7 +67,6 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     const text = await heading.textContent();
     expect(text).toBeTruthy();
 
-    reporter.pass('Order Tracking Heading', { heading: text });
   });
 
   test('Order tracking page renders status timeline', async ({ page }) => {
@@ -83,7 +78,6 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
       page.locator('.timeline, .status-timeline, .order-status-list')
     ).toBeVisible();
 
-    reporter.pass('Status Timeline Rendered', { timelimeVisible: true });
   });
 
   test('Order tracking page shows "not found" gracefully for unknown order', async ({ page }) => {
@@ -101,7 +95,6 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
       page.locator('a[href="/"], a[href="/home"], a:has-text("Quay lại")')
     ).toBeVisible();
 
-    reporter.pass('Not Found Order Handled', { orderId: unknownId });
   });
 
   // ─── CHECKOUT → ORDER TRACKING REDIRECT ──────────────────────────────────
@@ -144,11 +137,6 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
     expect(isOnTrackingPage || hasTrackingLink).toBeTruthy();
 
-    reporter.pass('Checkout → Order Tracking Redirect', {
-      finalUrl: page.url(),
-      redirected: isOnTrackingPage,
-      hasTrackingElement: hasTrackingLink,
-    });
   });
 
   // ─── GATEWAY API SMOKE (order status endpoint) ───────────────────────────
@@ -163,6 +151,5 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     expect(response.status()).not.toBe(500);
     expect([200, 401, 403, 404]).toContain(response.status());
 
-    reporter.pass('Gateway Order Status API', { status: response.status() });
   });
 });

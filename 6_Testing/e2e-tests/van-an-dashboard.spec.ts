@@ -32,7 +32,6 @@ test.describe('KhachLink - VanAn Dashboard (T-11)', () => {
       page.locator('h1.dashboard-title, h1, h2').first()
     ).toBeVisible({ timeout: 10000 });
 
-    reporter.pass('VanAn Dashboard Page Load', { url: page.url() });
   });
 
   test('Dashboard has .dashboard-container', async ({ page }) => {
@@ -41,7 +40,6 @@ test.describe('KhachLink - VanAn Dashboard (T-11)', () => {
 
     await expect(page.locator('.dashboard-container')).toBeVisible({ timeout: 10000 });
 
-    reporter.pass('Dashboard Container', { visible: true });
   });
 
   test('Dashboard shows header with title', async ({ page }) => {
@@ -57,7 +55,6 @@ test.describe('KhachLink - VanAn Dashboard (T-11)', () => {
     const text = await title.textContent();
     expect(text).toBeTruthy();
 
-    reporter.pass('Dashboard Header', { title: text?.trim() });
   });
 
   test('Dashboard metrics grid renders (or shows loading state)', async ({ page }) => {
@@ -72,7 +69,6 @@ test.describe('KhachLink - VanAn Dashboard (T-11)', () => {
 
     expect(hasMetrics || hasSpinner || hasWarning).toBeTruthy();
 
-    reporter.pass('Dashboard Metrics State', { hasMetrics, hasSpinner, hasWarning });
   });
 
   test('Dashboard page title is correct', async ({ page }) => {
@@ -80,6 +76,5 @@ test.describe('KhachLink - VanAn Dashboard (T-11)', () => {
     // Page title set by <PageTitle> component
     await expect(page).toHaveTitle(/VanAn Dashboard|VanAn|Dashboard/, { timeout: 10000 });
 
-    reporter.pass('Dashboard Page Title', { title: await page.title() });
   });
 });

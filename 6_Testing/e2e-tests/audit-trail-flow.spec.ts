@@ -40,9 +40,6 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
     // Table must be present — proves data layer rendered
     await expect(page.locator('table, .audit-log-table, .data-table')).toBeVisible();
 
-    reporter.pass('Admin Audit Trail Access', {
-      pageTitle: await page.locator('h1').first().textContent(),
-    });
   });
 
   // ─── DATE RANGE FILTER ───────────────────────────────────────────────────
@@ -78,9 +75,6 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
     // Table must still be visible after filtering
     await expect(page.locator('table, .audit-log-table, .data-table')).toBeVisible();
 
-    reporter.pass('Audit Trail Date Range Filter', {
-      dateRange: { from: lastWeek, to: today },
-    });
   });
 
   // ─── ACTION TYPE FILTER ──────────────────────────────────────────────────
@@ -104,9 +98,6 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
     // Table must still be visible after filtering
     await expect(page.locator('table, .audit-log-table, .data-table')).toBeVisible();
 
-    reporter.pass('Audit Trail Action Type Filter', {
-      optionsAvailable: options.length,
-    });
   });
 
   // ─── ENTRY DETAILS ───────────────────────────────────────────────────────
@@ -133,7 +124,6 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
       page.locator('.audit-details, .old-value, .new-value, [class*="detail"]')
     ).toBeVisible({ timeout: 3000 });
 
-    reporter.pass('Audit Log Entry Details', { detailsVisible: true });
   });
 
   // ─── SECURITY — UNAUTHENTICATED ACCESS ───────────────────────────────────
@@ -155,10 +145,6 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
     // Security must be enforced — any of these proves the guard is working
     expect(isLoginPage || isForbidden || hasAccessDenied || redirectedAway).toBeTruthy();
 
-    reporter.pass('Non-admin Audit Trail Access', {
-      currentUrl,
-      securityEnforced: true,
-    });
   });
 
   // ─── AUDIT LOG AFTER ACCOUNTING ACTION ───────────────────────────────────
@@ -181,6 +167,5 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
     // thead must exist with column headers
     await expect(table.locator('thead, th').first()).toBeVisible();
 
-    reporter.pass('Audit Log Table Rendered', { tableVisible: true });
   });
 });

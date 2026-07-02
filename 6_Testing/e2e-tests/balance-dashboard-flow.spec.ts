@@ -37,7 +37,6 @@ test.describe('Balance Dashboard Flow', () => {
       page.locator('text=Tổng Doanh Thu, text=Tổng doanh thu, text=Doanh Thu').first()
     ).toBeVisible();
 
-    reporter.pass('Balance Metrics Grid', { metricsVisible: true });
   });
 
   test('should show warning when expenses exceed threshold', async ({ page }) => {
@@ -53,10 +52,6 @@ test.describe('Balance Dashboard Flow', () => {
     ).first();
     const isWarningVisible = await warning.isVisible().catch(() => false);
 
-    reporter.pass('Balance Warning Check', {
-      warningVisible: isWarningVisible,
-      note: 'Warning only shown with high expense data',
-    });
   });
 
   test('should display balance grid with account details', async ({ page }) => {
@@ -72,10 +67,6 @@ test.describe('Balance Dashboard Flow', () => {
     ).first();
     const hasDetail = await detailSection.isVisible().catch(() => false);
 
-    reporter.pass('Account Detail Section', {
-      hasDetail,
-      note: 'Detail section only rendered when accounting data is present',
-    });
   });
 
   test('AccountBalance page loads at /accounting/balance', async ({ page }) => {
@@ -89,9 +80,5 @@ test.describe('Balance Dashboard Flow', () => {
     // Some heading must be visible
     await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 10000 });
 
-    reporter.pass('Page Load', {
-      status: response?.status(),
-      url: page.url(),
-    });
   });
 });

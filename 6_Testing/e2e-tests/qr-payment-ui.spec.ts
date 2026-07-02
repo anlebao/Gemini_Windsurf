@@ -46,7 +46,6 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     const qrButton = page.locator('button:has-text("Thanh toán QR"), button:has-text("QR")').first();
     await expect(qrButton).toBeVisible({ timeout: 5000 });
 
-    reporter.pass('QR Trigger Button Visible', { buttonFound: true });
   });
 
   test('Clicking "Thanh toán QR" opens #qrPaymentModal', async ({ page }) => {
@@ -68,7 +67,6 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     // #qrPaymentModal must appear
     await expect(page.locator('#qrPaymentModal')).toBeVisible({ timeout: 5000 });
 
-    reporter.pass('QR Modal Opens', { modalVisible: true });
   });
 
   // ─── MODAL CONTENT ────────────────────────────────────────────────────────
@@ -93,7 +91,6 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     // At least one of these states must be rendered — proves modal is functional
     expect(hasQrImage || hasSpinner || hasError).toBeTruthy();
 
-    reporter.pass('QR Modal Content Rendered', { hasQrImage, hasSpinner, hasError });
   });
 
   test('QR modal shows payment info section', async ({ page }) => {
@@ -112,7 +109,6 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
       page.locator('#qrPaymentModal').locator('h5, .modal-title')
     ).toBeVisible();
 
-    reporter.pass('QR Modal Header', { headerVisible: true });
   });
 
   test('QR modal can be closed with Đóng button', async ({ page }) => {
@@ -136,7 +132,6 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     // Modal must disappear
     await expect(page.locator('#qrPaymentModal')).not.toBeVisible({ timeout: 3000 });
 
-    reporter.pass('QR Modal Closes', { closed: true });
   });
 
   // ─── GATEWAY API (kept from original qr-payment.spec.ts intent) ──────────
@@ -153,7 +148,6 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     expect(response.status()).not.toBe(404);
     expect(response.status()).not.toBe(500);
 
-    reporter.pass('Gateway VietQR Generate', { status: response.status() });
   });
 
   test('Gateway /api/v1/vietqr/supported-banks returns list', async ({ request }) => {
@@ -164,6 +158,5 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     expect(Array.isArray(banks)).toBeTruthy();
     expect(banks.length).toBeGreaterThan(0);
 
-    reporter.pass('Gateway Supported Banks', { count: banks.length });
   });
 });
