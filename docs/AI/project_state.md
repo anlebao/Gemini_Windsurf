@@ -44,50 +44,58 @@
 
 ## 2. Current Objective
 
-**[SHOPCONFIG PRODUCT→TENANT REFACTOR — ALL 3 PHASES COMPLETE]**
+**[EINVOICE PROVIDER REWRITE — PLANNING COMPLETE, AWAITING IMPLEMENTATION]**
 
-Refactor ShopConfig loading from hardcoded stub to real data via product-based TenantId derivation.
+Rewrite `ViettelEInvoiceProvider` + `MisaEInvoiceProvider` (currently stubs that will fail 100% on real API calls) to match Viettel S-Invoice API v2.0 + MISA meInvoice API spec thật.
 
-**Problem (now resolved):**
-- `ShopConfigService` returned hardcoded values (no persistence, no real shop data)
-- KhachLink injected `IShopConfigService` directly from CoreHub (architectural violation)
-- `ProductCatalogItem` / `ProductDto` missing `TenantId` (multi-tenancy gap)
-- All shops saw identical branding ("Vạn An Group", #8B4513)
+**Problem:**
+- Gap analysis identified 20 Viettel + 10 MISA API spec mismatches
+- Current implementations: wrong endpoints, wrong auth (Bearer vs Cookie), flat payload vs nested, missing `transactionUuid`, missing line items, missing `GetInvoiceFileAsync`
+- Unit tests pass only because they mock the *incorrect* implementation, not the real API spec
+- `EInvoiceRequest` contract thiếu line items + `SupplierTaxCode` + `GetInvoiceFileAsync`
 
-**Solution (Approach 2 — Product-based):**
-- Add `TenantId` to product DTOs → derive TenantId from products → load real Shop entity
-- `ShopConfigHttpService` (HTTP via Gateway, no CoreHub direct) — CREATED in Phase 2
-- Wire-up KhachLinkLayout + Home.razor (with SocialHub) — DONE in Phase 3
-- Domain layer NOT modified
+**Solution (4 waves + Wave 0 parallel credential request):**
+- Wave 0: Email Viettel + MISA xin sandbox credentials (parallel, 1-2 tuần bottleneck)
+- Wave 1: Update `EInvoiceRequest` contract + `IEInvoiceProvider` interface (add `GetInvoiceFileAsync`, `SupplierTaxCode`, `LineItems`)
+- Wave 2: Rewrite Viettel provider + DTOs + tests (merged for TDD compliance)
+- Wave 3: Rewrite MISA provider + DTOs + tests
+- Wave 4: Sandbox runtime verification (both providers)
+- Domain layer NOT modified (`InvoiceItem` entity đã tồn tại line 1752)
 
-**Master plan:** `docs/AI/tasks/shopconfig_product_tenant_master_plan.md`
-**Phases:** 3 (Phase 1: Revert+DTO ✅ · Phase 2: HttpService ✅ · Phase 3: Wire-up+Tests ✅)
-**Status:** ALL PHASES COMPLETE. Architectural violation fixed (no IShopConfigService in KhachLink). Ready to merge to main.
+**Master plan:** `docs/AI/tasks/einvoice_provider_rewrite_master_plan.md`
+**Waves:** 4 + Wave 0 parallel (Wave 1: Contract ✅-planned · Wave 2: Viettel ✅-planned · Wave 3: MISA ✅-planned · Wave 4: Sandbox ✅-planned)
+**Status:** PLANNING COMPLETE. Master plan + 4 task cards committed (`59b60fe`). Awaiting approval to start Wave 1. Wave 0 (credential request) should start immediately in parallel.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/shopconfig-product-tenant-phase3-wireup`
-- **Last commit:** (pending — Phase 3 wire-up + tests)
-- **Build:** `dotnet build VanAn.sln` → 0 errors ✅
+- **Branch:** `main`
+- **Last commit:** `59b60fe` [EINVOICE-PLAN] Master plan + 4 task cards for EInvoice provider rewrite
+- **Build:** `dotnet build VanAn.sln` → 0 errors ✅ (pre-existing, no code changes in planning)
 - **Guard-check:** PASSED ✅
-- **KhachLinkStartupTests:** 4/4 PASS ✅ (includes new ShopConfigHttpService DI assertion)
 - **Tenant Onboarding Feature:** COMPLETE & MERGED ✅ — All 6 waves on main
-- **ShopConfig Refactor:** ALL 3 PHASES COMPLETE —
-  - Phase 1: TenantId added to ProductCatalogItem + ProductDto (backward compatible)
-  - Phase 2: ShopConfigHttpService created (product-based), by-tenant endpoint (ShopERP + Gateway), ShopDto added
-  - Phase 3: KhachLinkLayout + Home.razor wired to ShopConfigHttpService, IShopConfigService DI removed, SocialHub rendered on Home, KhachLinkStartupTests assertion added
-- **Uncommitted changes:** Phase 3 (KhachLinkLayout.razor, Home.razor, Program.cs, KhachLinkStartupTests.cs)
+- **ShopConfig Refactor:** ALL 3 PHASES COMPLETE ✅ — merged to main
+- **EInvoice Provider Rewrite:** PLANNING COMPLETE —
+  - Master plan + 4 task cards committed (`59b60fe`)
+  - Gap analysis: 20 Viettel + 10 MISA API spec mismatches identified
+  - `InvoiceItem` entity confirmed in Domain.cs (line 1752) — no Domain change needed
+  - `EInvoiceRequest` construction location confirmed: `Program.cs` line 185 (not Orchestrator)
+  - `GetInvoiceFileAsync` missing from `IEInvoiceProvider` interface — to add in Wave 1
+  - `SupplierTaxCode` source candidate: `ProviderConfiguration.ConfigurationData` JSON (line 2045)
+  - Wave 2+3 merged (TDD compliance — impl + tests cùng wave)
+  - Phase 4 ↔ Phase 5 swapped (MISA rewrite before sandbox verify)
+- **Uncommitted changes:** None (planning-only commit)
 
 ---
 
 ## 4. Next Actions
 
-1. **Commit Phase 3** — wire-up changes on `feature/shopconfig-product-tenant-phase3-wireup`
-2. **Merge to main** — fast-forward merge phase3 branch to `align-consumer-phase4`
-3. **Optional: Run full ci-local** — verify all 131 integration tests + 28 architecture tests still pass
-4. **Optional: Playwright E2E** — verify KhachLinkLayout renders real shop data (deferred per governance — IMPLEMENT mode)
+1. **Start Wave 0 (parallel, non-code)** — Email Viettel Solution (`lienhe@viettelsolution.com.vn` / `1900.8119`) xin sandbox vinvoice 2.0 + Email MISA partnership request xin `appid` + sandbox `testapi.meinvoice.vn`. Register IP server vào Viettel whitelist. Contact MISA support confirm status/cancel endpoints.
+2. **Implement Wave 1** — Update `EInvoiceRequest` contract + `IEInvoiceProvider` interface (add `GetInvoiceFileAsync`, `SupplierTaxCode`, `LineItems`, `CurrencyCode`, `PaymentType`). Update `Program.cs` line 185. Update existing tests. Build + tests pass.
+3. **Implement Wave 2** — Rewrite Viettel provider + DTOs + tests per API spec v2.5 (auth Cookie, nested payload, `transactionUuid`, `searchInvoiceByTransactionUuid`, `cancelTransactionInvoice`, `getInvoiceRepresentationFile`).
+4. **Implement Wave 3** — Rewrite MISA provider + DTOs + tests per MISA meInvoice API (auth Bearer with `appid`, `SignType: 2`, token expiry 15 days).
+5. **Wave 4: Sandbox verification** — Verify both providers with real sandbox credentials (depends on Wave 0 complete).
 
 ---
 
@@ -109,6 +117,8 @@ Refactor ShopConfig loading from hardcoded stub to real data via product-based T
 ---
 
 ## 6. History Log
+
+* [2026-07-02] **EInvoice Provider Rewrite — PLANNING COMPLETE** — Gap analysis identified 20 Viettel + 10 MISA API spec mismatches in current provider implementations (stubs that will fail 100% on real API calls). Created master plan + 4 task cards (Wave 1: Contract+Interface, Wave 2: Viettel provider+tests, Wave 3: MISA provider+tests, Wave 4: Sandbox verify). Wave 0 (parallel credential request) tracked. Self-review fixed 10 issues: added `Program.cs` line 185 to Wave 1, added `GetInvoiceFileAsync` to interface, documented `SupplierTaxCode` source (`ProviderConfiguration.ConfigurationData`), merged Wave 2+3 for TDD compliance, swapped Phase 4↔5 (MISA before sandbox). `InvoiceItem` entity confirmed in Domain.cs (line 1752) — no Domain change needed. Commit: `59b60fe` on `main`.
 
 * [2026-07-02] **ShopConfig Product→Tenant Refactor — PHASE 3 COMPLETE (ALL PHASES DONE)** — Wired ShopConfigHttpService into KhachLinkLayout.razor (`@inject ShopConfigHttpService` + `GetShopConfigByTenantIdAsync`) and Home.razor (`@inject ShopConfigHttpService` + `GetShopConfigFromProductsAsync` + `<SocialHub ShopConfig="@_shopConfig" />` rendered before `</KhachLinkLayout>`). Removed `IShopConfigService` CoreHub direct DI from Program.cs (architectural violation fixed — KhachLink now uses HTTP via Gateway only for ShopConfig). Added `Assert.NotNull(sp.GetRequiredService<ShopConfigHttpService>())` to KhachLinkStartupTests. Build: 0 errors. guard-check PASSED. KhachLinkStartupTests 4/4 PASS. Branch: `feature/shopconfig-product-tenant-phase3-wireup`.
 
@@ -201,6 +211,11 @@ Refactor ShopConfig loading from hardcoded stub to real data via product-based T
 | `docs/AI/tasks/shopconfig_phase1_revert_dto_task_card.md` | Phase 1: Revert Approach 1 + add TenantId to product DTOs |
 | `docs/AI/tasks/shopconfig_phase2_http_service_task_card.md` | Phase 2: Rewrite ShopConfigHttpService (product-based) |
 | `docs/AI/tasks/shopconfig_phase3_wireup_tests_task_card.md` | Phase 3: Wire-up components + integration tests |
+| `docs/AI/tasks/einvoice_provider_rewrite_master_plan.md` | Master plan: EInvoice provider rewrite (4 waves + Wave 0 parallel) |
+| `docs/AI/tasks/wave1_einvoice_request_contract_task_card.md` | Wave 1: Update EInvoiceRequest contract + IEInvoiceProvider interface |
+| `docs/AI/tasks/wave2_einvoice_viettel_provider_task_card.md` | Wave 2: Rewrite Viettel provider + DTOs + tests (merged for TDD) |
+| `docs/AI/tasks/wave3_einvoice_misa_provider_task_card.md` | Wave 3: Rewrite MISA provider + DTOs + tests |
+| `docs/AI/tasks/wave4_einvoice_sandbox_verify_task_card.md` | Wave 4: Sandbox runtime verification (both providers) |
 
 ---
 
@@ -223,6 +238,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 11. Maintenance Log
 
-* **Last Updated:** 2026-07-02 — ShopConfig Product→Tenant Refactor ALL 3 PHASES COMPLETE. Phase 3 wired ShopConfigHttpService into KhachLinkLayout + Home.razor, removed IShopConfigService CoreHub direct DI, added KhachLinkStartupTests assertion. Build 0 errors, guard-check PASSED, KhachLinkStartupTests 4/4 PASS.
-* **Current Branch:** `feature/shopconfig-product-tenant-phase3-wireup`
-* **Current Objective:** ShopConfig Product→Tenant Refactor — ALL PHASES COMPLETE, ready to merge to main.
+* **Last Updated:** 2026-07-02 — EInvoice Provider Rewrite PLANNING COMPLETE. Master plan + 4 task cards committed (`59b60fe`). Gap analysis: 20 Viettel + 10 MISA API spec mismatches. Self-review fixed 10 issues (Program.cs file list, GetInvoiceFileAsync interface, SupplierTaxCode source, Wave 2+3 merge for TDD, Phase 4↔5 swap). Wave 0 (credential request) parallel path identified. Awaiting approval to start Wave 1.
+* **Current Branch:** `main`
+* **Current Objective:** EInvoice Provider Rewrite — PLANNING COMPLETE, awaiting approval to implement Wave 1.
