@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — ShopERP UI Fix (Pattern-Based Batch)
 
-> **Status:** IN PROGRESS — Wave 0+1+2+3+4 COMPLETE
+> **Status:** IN PROGRESS — Wave 0+1+2+3+4+5 COMPLETE
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 4 complete)
+> **Last Updated:** 2026-07-03 (Wave 5 complete)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix — phân loại theo pattern, KHÔNG fix case-by-case

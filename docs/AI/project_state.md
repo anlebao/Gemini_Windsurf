@@ -45,7 +45,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 | 2 | R | Add `@rendermode InteractiveServer` | 14 | ✅ COMPLETE (`79ec512`) |
 | 3 | C | Page CSS isolation (shared + per-page) | 19 | ✅ COMPLETE (`d2d058d`) |
 | 4 | V | Component consolidation (VanAnX → VanX) | 7 | ✅ COMPLETE (`47268a0`) |
-| 5 | L | Admin layout consistency (create AdminLayout) | 5 | PENDING |
+| 5 | L | Admin layout consistency (create AdminLayout) | 5 | ✅ COMPLETE (`7f05fa7`) |
 | 6 | G | Governance cleanup (inline style, eval, demo) | 6 | PENDING |
 
 ### Parked Streams (awaiting approval)
@@ -56,13 +56,13 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 3. Current Status
 
-- **Branch:** `feature/shoperp-ui-fix-wave4-component-consolidation`
-- **Last commit:** `47268a0` [UI-FIX WAVE 4] Pattern V: Component consolidation - VanAnAlert -> VanAAlert (6 EInvoice files)
+- **Branch:** `feature/shoperp-ui-fix-wave5-admin-layout`
+- **Last commit:** `7f05fa7` [UI-FIX WAVE 5] Pattern L: Admin layout consistency - AdminLayout + @layout on 4 Admin files
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅
 - **Guard-check:** PASSED ✅
 - **Uncommitted changes:** None
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix.
-- **In-progress (feature branch):** Wave 0 ✅ · Wave 1 ✅ · Wave 2 ✅ · Wave 3 ✅ · Wave 4 ✅ · Wave 5-6 PENDING.
+- **In-progress (feature branch):** Wave 0 ✅ · Wave 1 ✅ · Wave 2 ✅ · Wave 3 ✅ · Wave 4 ✅ · Wave 5 ✅ · Wave 6 PENDING.
 
 ---
 
@@ -74,7 +74,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 3. ~~Wave 2: @rendermode~~ ✅ — Add `@rendermode InteractiveServer` to 14 files (line 2, after `@page`). Commit `79ec512`.
 4. ~~Wave 3: Page CSS~~ ✅ — `wwwroot/css/pages.css` (shared, 276 lines, `:root` tokens + 17 common classes) + 18 `.razor.css` (page-specific). Linked in `App.razor`. Commit `d2d058d`.
 5. ~~Wave 4: Component consolidation~~ ✅ — `VanAnAlert` → `VanAAlert` (10 occurrences in 6 EInvoice files). `Type="..."` (broken unmatched attr) → `Variant="..."` (real param). `Type="danger"` → `Variant="error"`. `VanAnModal`: 0 in EInvoice scope (KhachLink only — debt cleanup candidate). Commit `47268a0`.
-6. **Wave 5:** Admin layout (create `AdminLayout.razor` + add `@layout` to 4 files).
+6. ~~Wave 5: Admin layout~~ ✅ — Create `AdminLayout.razor` (VanALayout + VanANavigation, 4 menu items: Users, Permission Groups, Audit Trail, Tenants) following AccountingLayout pattern. Add `@layout AdminLayout` to 4 Admin pages (line 3, after `@page` + `@rendermode`). 5 files, +24 lines. Build 0 errors. Commit `7f05fa7` on `feature/shoperp-ui-fix-wave5-admin-layout`.
 7. **Wave 6:** Governance cleanup (inline style, eval logout, delete Counter, fix Home).
 
 ---
@@ -94,6 +94,7 @@ Fix 23 .razor files trong `5_WebApps/ShopERP/Components/Pages/` — 14 dead page
 
 ## 6. History Log (compressed — see git log for details)
 
+* [2026-07-03] **Wave 5 COMPLETE** — Admin layout consistency: Create `AdminLayout.razor` (VanALayout + VanANavigation with 4 Admin menu items matching NavMenu: Users `/admin/users`, Permission Groups `/admin/permission-groups`, Audit Trail `/admin/audit-trail`, Tenants `/admin/tenants`) following AccountingLayout pattern (post-Wave 1 slot fix). Add `@layout AdminLayout` to 4 Admin pages (AuditTrail, UserManagement, PermissionGroupManagement, TenantManagement) at line 3 (after `@page` + `@rendermode`). AdminLayout has no `@attribute [Authorize]` — each page self-authorizes. 5 files, +24 lines. Build 0 errors. Commit `7f05fa7` on `feature/shoperp-ui-fix-wave5-admin-layout`.
 * [2026-07-03] **Wave 4 COMPLETE** — Component consolidation: `VanAnAlert` (old, Atomic namespace) → `VanAAlert` (new) in 6 EInvoice files (10 occurrences). API fix: `Type="..."` (unmatched attr, broken) → `Variant="..."` (real param). `Type="danger"` → `Variant="error"` (VanAAlert uses "error"). `VanAnModal`: 0 occurrences in EInvoice scope (only in KhachLink — out of scope, debt cleanup candidate). 6 files, 10 line changes. Build 0 errors. Commit `47268a0` on `feature/shoperp-ui-fix-wave4-component-consolidation`.
 * [2026-07-03] **Wave 3 COMPLETE** — Page CSS isolation: `wwwroot/css/pages.css` (shared, 276 lines — `:root` design tokens + 17 common classes: page-header, metrics-grid, filter-grid, vanan-table, status-badge, pagination, etc.) + 18 `.razor.css` files (page-specific classes). Linked in `App.razor`. 20 files, +1228 lines. Build 0 errors. Commit `d2d058d` on `feature/shoperp-ui-fix-wave3-page-css`.
 * [2026-07-03] **Wave 2 COMPLETE** — Add `@rendermode InteractiveServer` to 14 files (AccessDenied, Sitemap, AccountingIndex, TransactionHistory, 6 EInvoice, 4 Admin). 14 files, +14 lines. Build 0 errors. Commit `79ec512` on `feature/shoperp-ui-fix-wave2-rendermode`.
@@ -147,6 +148,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Wave 0 + Wave 1 + Wave 2 + Wave 3 + Wave 4 COMPLETE. Branch: `feature/shoperp-ui-fix-wave4-component-consolidation`. Wave 4: VanAnAlert → VanAAlert (10 occurrences in 6 EInvoice files, Type→Variant, danger→error). VanAnModal: 0 in EInvoice (KhachLink only — debt cleanup). Build 0 errors, guard PASSED. Next: Wave 5 (admin layout).
-* **Current Branch:** `feature/shoperp-ui-fix-wave4-component-consolidation`
-* **Current Objective:** Stream C: ShopERP UI Fix — Wave 5 next (admin layout: create AdminLayout.razor + add @layout to 4 Admin files).
+* **Last Updated:** 2026-07-03 — Wave 0 + Wave 1 + Wave 2 + Wave 3 + Wave 4 + Wave 5 COMPLETE. Branch: `feature/shoperp-ui-fix-wave5-admin-layout`. Wave 5: Create AdminLayout.razor (VanALayout + VanANavigation, 4 menu items matching NavMenu) + add `@layout AdminLayout` to 4 Admin pages (line 3). 5 files, +24 lines. Build 0 errors, guard PASSED. Next: Wave 6 (governance cleanup).
+* **Current Branch:** `feature/shoperp-ui-fix-wave5-admin-layout`
+* **Current Objective:** Stream C: ShopERP UI Fix — Wave 6 next (governance cleanup: inline style, eval logout, delete Counter, fix Home).
