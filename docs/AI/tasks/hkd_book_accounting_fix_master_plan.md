@@ -124,7 +124,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 **Estimated sessions:** 0.5-1 (ANALYZE — read + decision, no code change)
 **Conflict risk:** None (decision only)
 **Priority:** 0.5 (CRITICAL — block Wave 2 — quyết định kiến trúc dữ liệu)
-**Task Card:** `docs/AI/tasks/wave0p5_hkd_fix_arch_decision_data_source_task_card.md` (NEW)
+**Task Card:** `docs/AI/tasks/wave0p5_hkd_fix_arch_decision_data_source_task_card.md` ✅ CREATED
 
 ### Background — 3 Options
 
@@ -527,7 +527,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 **Estimated sessions:** 1-2
 **Conflict risk:** HIGH (thay đổi threshold + formula tính thuế — ảnh hưởng toàn bộ HKD tax calculation)
 **Priority:** 5c (CRITICAL — sai = báo cáo sai thuế + phạt hành chính)
-**Task Card:** `docs/AI/tasks/wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` (NEW)
+**Task Card:** `docs/AI/tasks/wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` ✅ CREATED
 
 > **[AMENDMENT 5c — v3] Phát hiện qua phản biện pháp lý:** `HKDRevenueClassificationService` hiện tại (L12-14) có threshold SAI hoàn toàn vs luật 2026. v2 plan hoàn toàn missing 2026 regulatory changes. Đây là bug pháp lý nghiêm trọng — không chỉ là industry-sector rates (Wave 5b).
 
@@ -906,17 +906,17 @@ Nếu wave fail không fix được:
 - **Outbox skill:** `.devin/skills/outbox-pattern-implementation.md` (Option B reference)
 - **Task cards (v3 — 12 cards):**
   - `wave0_hkd_fix_preflight_task_card.md` (expanded — 11 tasks)
-  - `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` (NEW — Option A vs B decision)
+  - `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` ✅ CREATED (Option A vs B decision)
   - `wave1_hkd_fix_encoding_mojibake_task_card.md`
   - `wave2_hkd_fix_data_source_bridge_task_card.md` (RENAMED + REWRITE per W0.5 — Option A or B)
   - `wave3_hkd_fix_wire_calc_engine_di_task_card.md` (W3-T8 demoted to verify-only)
   - `wave4_hkd_fix_route_through_generation_service_task_card.md` (added W4-T11 smoke test)
   - `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — split from wave5)
   - `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — split from wave5, conditional)
-  - `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` (NEW — 2026 regulatory fix)
+  - `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` ✅ CREATED (2026 regulatory fix)
   - `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`
   - `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md` (added W7-T6 multi-tenancy test)
   - `wave8_hkd_fix_ui_docx_export_regression_task_card.md`
 
-> **NOTE:** Wave 5 task card needs to be split into 5a + 5b + 5c cards (action item before Wave 5a starts). Old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` to be replaced. Wave 2 task card needs rename + rewrite per W0.5 decision.
+> **NOTE:** Wave 5 task card needs to be split into 5a + 5b + 5c cards (W5c card created; 5a + 5b still need creation before Wave 5a starts). Old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` to be replaced. Wave 2 task card needs rename + rewrite per W0.5 decision.
 - **Project state:** `docs/AI/project_state.md` (update sau mỗi wave)

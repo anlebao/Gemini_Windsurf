@@ -115,20 +115,20 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 3. ~~v3 plan optimization (2 phản biện + Amendment 4+5)~~ ✅ — Master plan v3 updated in-session (pending commit).
 4. **Commit v3 master plan** ⏳ PENDING — Commit optimized `hkd_book_accounting_fix_master_plan.md` + updated `project_state.md` on `main`.
 5. **Wave 0: Pre-flight verification (11 tasks)** ⏳ PENDING — Verify baseline build, grep DI/endpoint/UI, query `JournalEntries`, extract 7 docx layouts, **resolve 4 promoted architecture decisions** (W0-T8 `ITemplateFactory` conflict, W0-T9 docx/xlsx lib, W0-T10 `Tenant.IndustrySector`, W0-T11 double-write audit). Task card: `wave0_hkd_fix_preflight_task_card.md` (expanded).
-6. **Wave 0.5: Architecture Decision — HKD Data Source (A vs B, loại C)** ⏳ PENDING — **[v3] Chốt Option A (refactor SmartPreAggregationService query AccountingEntries) hoặc Option B (event-driven Outbox). LOẠI Option C (dual write).** Task card: `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` (NEW — needs creation).
+6. **Wave 0.5: Architecture Decision — HKD Data Source (A vs B, loại C)** ⏳ PENDING — **[v3] Chốt Option A (refactor SmartPreAggregationService query AccountingEntries) hoặc Option B (event-driven Outbox). LOẠI Option C (dual write).** Task card: `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` ✅ CREATED.
 7. **Wave 1: Fix UTF-8 mojibake** ⏳ PENDING — Fix `S1aHKDTemplateImpl` + `S2aHKDTemplateImpl` strings. Task card: `wave1_hkd_fix_encoding_mojibake_task_card.md`.
 8. **Wave 2: Data source bridge (Option A or B per W0.5)** ⏳ PENDING — Task card: `wave2_hkd_fix_data_source_bridge_task_card.md` (RENAMED + REWRITE per W0.5 decision).
 9. **Wave 3: Wire calc engine into DI** ⏳ PENDING — Conflict pre-resolved in W0-T8. Task card: `wave3_hkd_fix_wire_calc_engine_di_task_card.md`.
 10. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
 11. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — needs creation).
 12. **Wave 5b: Industry-sector tax rates** ⏳ CONDITIONAL — Depends on W0-T10. **W5b-T0 needs Tech Lead approval IF Tenant.IndustrySector missing.** Task card: `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — needs creation).
-13. **Wave 5c: 2026 Regulatory Compliance Fix** ⏳ PENDING — **[v3] CRITICAL pháp lý.** Fix threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished. **Legal review recommended.** Task card: `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` (NEW — needs creation).
+13. **Wave 5c: 2026 Regulatory Compliance Fix** ⏳ PENDING — **[v3] CRITICAL pháp lý.** Fix threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished. **Legal review recommended.** Task card: `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` ✅ CREATED.
 14. **Wave 6: Retrofit tests with numeric assertions** ⏳ PENDING — Update 3 + add 5 + 1 regression test. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
 15. **Wave 7: API endpoint + DI smoke + multi-tenancy test** ⏳ PENDING — Endpoint + W7-T6 isolation test. Task card: `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md`.
 16. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
-**Pre-Wave-5a action item:** Split old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` into `wave5a_..._pit_task_card.md` + `wave5b_..._industry_sector_task_card.md` + `wave5c_..._2026_regulatory_task_card.md`.
-**Pre-Wave-0.5 action item:** Create `wave0p5_hkd_fix_arch_decision_data_source_task_card.md`.
+**Pre-Wave-5a action item:** Split old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` into `wave5a_..._pit_task_card.md` + `wave5b_..._industry_sector_task_card.md` (W5c card ✅ created).
+**Pre-Wave-0.5 action item:** ✅ DONE — `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` created.
 **Pre-Wave-2 action item:** Rename + rewrite `wave2_hkd_fix_bridge_journal_persistence_task_card.md` → `wave2_hkd_fix_data_source_bridge_task_card.md` per W0.5 decision.
 
 **Deferred (awaiting user decision):**
