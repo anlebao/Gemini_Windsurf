@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 ✅ COMPLETE & merged; Wave 5c ✅ COMPLETE (branch `feature/hkd-fix-wave5c-2026-regulatory`, commit `a60d026`, awaiting merge); Wave 6 next
+> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 + 5c ✅ COMPLETE & merged; Wave 6 ✅ COMPLETE (branch `feature/hkd-fix-wave6-retrofit-numeric-tests`, awaiting merge); Wave 7 next
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (Wave 5c complete — 2026 Regulatory Compliance Fix: thresholds 1B/3B/50B + TNCN formulas Nhóm 1/2/3/4 + GTGT Nhóm 1 exemption + 10% TNCN bug fix)
+> **Last Updated:** 2026-07-03 (Wave 6 complete — Retrofit Tests with Numeric Assertions: 3 updated + 5 new numeric + 1 regression; Core.Tests Release 818/818 PASS)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -499,17 +499,24 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 **Summary:** Update 3 existing tests (S1a, S2a, S2b) + add 5 new tests (S2c, S2d, S2e, S3a, regression) — all assert `NumericValues` cụ thể (TotalRevenue, VatAmount, PIT, NetProfit...) thay vì chỉ metadata. 1 regression test verify `NumericValues` không rỗng (Issue 1 fix).
 
 ### Entry criteria
-- [ ] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates)
-- [ ] **Wave 5c merged** (2026 regulatory compliance) — ⏳ AWAITING MERGE (branch `feature/hkd-fix-wave5c-2026-regulatory`, commit `a60d026`)
+- [x] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates) ✅
+- [x] **Wave 5c merged** (2026 regulatory compliance) — merged to main `aa930dd` ✅
 - [x] Wave 4 merged (NumericValues có số liệu + smoke test pass) ✅
 - [x] Wave 2 merged (data source bridge) ✅
 
 ### Exit criteria
-- [ ] 7 test `GenerateS*BookAsync` assert `NumericValues` cụ thể
-- [ ] 1 regression test verify `NumericValues` không rỗng
-- [ ] Tất cả test pass (`dotnet test`)
-- [ ] `dotnet build VanAn.sln` Release — 0 errors
-- [ ] guard-check.ps1 PASSED
+- [x] 7 test `GenerateS*BookAsync` assert `NumericValues` cụ thể (3 updated + 4 new + 1 all-templates Theory×7)
+- [x] 1 regression test verify `NumericValues` không rỗng (W6-T8 — also asserts repo `Times.Never`)
+- [x] Tất cả test pass (`dotnet test` Core.Tests Release — 818/818 PASS)
+- [x] `dotnet build VanAn.sln` Release — 0 errors
+- [x] guard-check.ps1 PASSED (VA1003/VA1004/VA1005: 0)
+
+### Execution result (2026-07-03)
+- **Status:** ✅ COMPLETE on branch `feature/hkd-fix-wave6-retrofit-numeric-tests`
+- **Files changed:** `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` (+209 lines)
+- **Tests:** 3 updated (S1a, S2a, S2b — added `IHKDBookGenerationService.GenerateBookAsync` mock setup + numeric assertions + routing verify; removed obsolete `IAccountingEntryRepository.GetByPeriodAsync` setup/verify that was invalid after Wave 4) + 5 new numeric tests (S2c, S2d, S2e, S3a, all-templates Theory×7) + 1 regression test (W6-T8 Issue 1 tripwire — asserts `NumericValues` not empty + repo `Times.Never`).
+- **Pre-existing failures fixed:** 3 Release-config failures (`Expected result not to be <null>` — mock returned null because `IHKDBookGenerationService.GenerateBookAsync` was never set up before Wave 4 routing change).
+- **Verification:** Build 0 errors · Core.Tests Release 818/818 PASS (was 803/3 fail) · guard-check ALL CHECKS PASSED.
 
 ### Why sixth
 - Sau Wave 4+5 — logic đã đúng, giờ verify bằng test
@@ -713,12 +720,12 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 | Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium | ✅ COMPLETE (merged into Wave 5) |
 | Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High | ✅ COMPLETE (merged into Wave 5) |
 | Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) | ✅ COMPLETE (`a60d026`) — awaiting merge |
-| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ⏳ PENDING (next) |
+| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ✅ DONE — branch `feature/hkd-fix-wave6-retrofit-numeric-tests`. 3 updated + 5 new numeric + 1 regression. Core.Tests Release 818/818 PASS, guard PASSED. |
 | Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low | ⏳ PENDING |
 | Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium | ⏳ PENDING |
 | **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | | **9/12 complete** (Wave 5 merged 5a+5b+partial 5c; Wave 5c proper complete on branch) |
 
-**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → **merge 5c** → Wave 6 → Wave 7 → Wave 8
+**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → ~~Wave 6~~ ✅ → **merge Wave 6** → Wave 7 → Wave 8
 **Optional path:** Wave 5b (between 5a and 5c) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
 **Parallel path:** Wave 0 + Wave 0.5 + Wave 1 có thể cùng session (cả 3 non-code/low-risk, độc lập)
 **Descope path:** If Wave 5b descoped → use default rate, log technical debt, Wave 5c/6-8 proceed (5c uses default rate if 5b descoped)

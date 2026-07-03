@@ -3,7 +3,7 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Update 3 test `GenerateS*BookAsync` hiện có (chỉ assert metadata) + add 5 test mới — tất cả assert `result.NumericValues["<field>"]` cụ thể. Fix Issue 4 (test pass trắng, che lấp bug)
 - **Nghiệp vụ áp dụng:** Retrofit TDD per governance (EXISTING code: retrofit tests before completion)
-- **Status:** PENDING — Planning & Approval
+- **Status:** ✅ COMPLETE (2026-07-03) — 3 tests updated + 5 new numeric tests (S2c, S2d, S2e, S3a, all-templates Theory×7) + 1 regression test. Build 0 errors, Core.Tests 818/818 PASS (Release), guard PASSED.
 - **Branch:** `feature/hkd-fix-wave6-retrofit-numeric-tests`
 - **Estimated Sessions:** 1-2
 
@@ -47,17 +47,18 @@
 ---
 
 ## 5. SUCCESS CRITERIA (ĐO LƯỜNG ĐƯỢC)
-- [ ] **SC1:** `GenerateS1aBookAsync_ShouldGenerateBook_WhenTenantIsHKDGroup1` assert `NumericValues["TotalRevenue"]`, `["TotalExpense"]`, `["NetProfit"]`
-- [ ] **SC2:** `GenerateS2aBookAsync_ShouldGenerateBook_WhenTenantIsHKDGroup2` assert `NumericValues["TotalRevenue"]`, `["VatAmount"]`, `["PersonalIncomeTax"]`, `["NetRevenue"]`
-- [ ] **SC3:** `GenerateS2bBookAsync_ShouldGenerateRevenueBook_WhenTenantIsHKDGroup2` assert `NumericValues["SalesRevenue"]`, `["ServiceRevenue"]`, `["TotalRevenue"]`
-- [ ] **SC4:** New test `GenerateS2cBookAsync_ShouldCalculateGrossProfitAndNetProfit` pass
-- [ ] **SC5:** New test `GenerateS2dBookAsync_ShouldCalculateInventoryTotals` pass
-- [ ] **SC6:** New test `GenerateS2eBookAsync_ShouldCalculateCashTotals` pass
-- [ ] **SC7:** New test `GenerateS3aBookAsync_ShouldGenerateTrialBalanceBook` pass
-- [ ] **SC8:** New regression test `GenerateS1aBook_NumericValues_ShouldNotBeEmpty_AfterWave4Fix` pass
-- [ ] **SC9:** `dotnet build VanAn.sln` Release — 0 errors
-- [ ] **SC10:** `dotnet test` — all pass
-- [ ] **SC11:** guard-check.ps1 PASSED
+- [x] **SC1:** `GenerateS1aBookAsync_ShouldGenerateBook_WhenTenantIsHKDGroup1` assert `NumericValues["TotalRevenue"]`, `["TotalExpense"]`, `["NetProfit"]`
+- [x] **SC2:** `GenerateS2aBookAsync_ShouldGenerateBook_WhenTenantIsHKDGroup2` assert `NumericValues["TotalRevenue"]`, `["TotalVat"]`, `["TotalPIT"]`, `["NetRevenue"]` (actual field names from HKDTemplates.cs — task card's `VatAmount`/`PersonalIncomeTax` were assumptions; verified against code)
+- [x] **SC3:** `GenerateS2bBookAsync_ShouldGenerateRevenueBook_WhenTenantIsHKDGroup2` assert `NumericValues["Revenue_Distribution"]`, `["Revenue_Service"]`, `["TotalRevenue"]`, `["TotalVat"]` (industry-sector fields per Wave 5)
+- [x] **SC4:** New test `GenerateS2cBookAsync_ShouldCalculateGrossProfitAndNetProfit` pass
+- [x] **SC5:** New test `GenerateS2dBookAsync_ShouldCalculateInventoryTotals` pass
+- [x] **SC6:** New test `GenerateS2eBookAsync_ShouldCalculateCashTotals` pass
+- [x] **SC7:** New test `GenerateS3aBookAsync_ShouldGenerateTrialBalanceBook` pass
+- [x] **SC7a (5th numeric):** New Theory `GenerateBookAsync_ShouldReturnPopulatedNumericValues_ForAllTemplates` (7 iterations — S1a/S2a-S2e/S3a) pass
+- [x] **SC8:** New regression test `GenerateS1aBook_NumericValues_ShouldNotBeEmpty_AfterWave4Fix` pass (also asserts repo `Times.Never` — Wave 4 routing enforced)
+- [x] **SC9:** `dotnet build VanAn.sln` Release — 0 errors
+- [x] **SC10:** `dotnet test` Core.Tests Release — 818/818 PASS (was 803/3 fail; 3 pre-existing failures fixed + 12 new test cases)
+- [x] **SC11:** guard-check.ps1 PASSED (VA1003/VA1004/VA1005: 0)
 
 ---
 
