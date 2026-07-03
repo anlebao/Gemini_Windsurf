@@ -29,6 +29,19 @@
 
 ## 2. Current Objective
 
+**[STREAM F: VAS ENTERPRISE FINANCIAL REPORTS (TT 99/2025 + TT 133/2016 + TT 58/2026) — PLANNING COMPLETE, AWAITING W0 IMPLEMENT]**
+
+Build 4 BCTC VAS (Balance Sheet + Income Statement + Cash Flow + Trial Balance) cho doanh nghiệp, feature-flag module riêng (HKD giữ nguyên). 10-wave plan (W0→W9): Writer Fix → Seed → Domain → Account Map → 4 Services → API → UI → Tests → Feature Flag → Regression.
+
+- **Master plan:** `docs/AI/tasks/vas_enterprise_reports_master_plan.md` (v3 — slim, JIT Planning Strategy)
+- **Task cards:** `docs/AI/tasks/vas_wave{0-9}_task_card.md` (10 cards, detail coding plan per wave)
+- **Legal framework verified:** TT 99/2025 (thay TT 200, hiệu lực 01/01/2026) + TT 133/2016 (vẫn hiệu lực, DN vừa/nhỏ) + TT 58/2026 (thay TT 132, DN siêu nhỏ)
+- **Audits complete:** (1) 4 BCTC current state — 3/4 mock/stub, 1/4 query broken; (2) Order→Accounting data flow — 18 vấn đề (3C+5H+10M)
+- **Decisions approved (D1-D8):** 3 tầng chuẩn · VAS module riêng · 4 BCTC song song · Writer fix trước seed · Domain mod approved · Seed DN vừa TT 133 · JIT Planning
+- **Next:** W0 (Order→Accounting Writer Fix) — fix 18 vấn đề trước seed. Branch `feature/vas-wave0-order-accounting-writer-fix`.
+
+---
+
 **[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 8 🔄 IN PROGRESS (branch `feature/hkd-fix-wave8-ui-docx-export-regression`, Session 1 committed `c8eb819`, Session 2 in progress)]**
 
 Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 152 HKD book report generation. Dependency-ordered 12-wave fix (data → DI → routing → formulas → 2026 regulatory → tests → API → UI → export). **Wave 5c COMPLETE & MERGED (2026-07-03):** 2026 Regulatory Compliance Fix merged to main (`aa930dd`). Domain: fix `HKDRevenueClassification.CalculateGroup` thresholds 500M/1B/3B → 1B/3B/50B + add `CalculateTNCN` (Nhóm 1: 0, Nhóm 2: (Rev-1B)×rate, Nhóm 3: (Rev-Expense)×17%, Nhóm 4: (Rev-Expense)×20%) + `CalculateGTGT` (Nhóm 1 exemption). Service: fix `HKDRevenueClassificationService` thresholds + warnings. Template: S2a `CalculateAsync` override for Nhóm-aware TotalPIT + TotalExpense field + blended PIT rate. `HKDTaxClassificationService`: fix hardcoded 10% TNCN → `CalculateTNCN`. 20 unit tests (all PASS). Build 0 errors, guard PASSED. User-approved: legal review, Domain fix, 10% bug in scope, Nhóm 3/4 w/ warning.
@@ -114,6 +127,17 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
+- **Branch:** `main` (VAS planning committed here) · `feature/hkd-fix-wave8-ui-docx-export-regression` (Stream D Wave 8 Session 2)
+- **VAS Stream (Stream F) — PLANNING COMPLETE:**
+  - **Master plan v3:** `docs/AI/tasks/vas_enterprise_reports_master_plan.md` (197 dòng, slim — JIT Planning Strategy + 10 wave overview)
+  - **10 task cards:** `vas_wave{0-9}_task_card.md` (W0: 4.9KB, W1: 2.8KB, W2: 3.9KB, W3: 2.3KB, W4: 3.4KB, W5: 2.2KB, W6: 2.5KB, W7: 2.6KB, W8: 2.3KB, W9: 2.0KB)
+  - **Audit 1 (4 BCTC):** Balance Sheet=STUB, Income Statement=MOCK 120M/70M, Cash Flow=MOCK 150M/80M, Trial Balance=query broken (Pattern #1+#5)
+  - **Audit 2 (Order→Acc):** 18 vấn đề — C1 COGS mismatch, C2 PaymentMethod lost, C3 VAT không ghi, H1-H5 (cash hardcode, discount/shipping bỏ, UtcNow, no ref), M1-M10
+  - **Legal:** TT 99/2025 (DN lớn) + TT 133/2016 (DN vừa/nhỏ) + TT 58/2026 (DN siêu nhỏ) — user confirmed
+- **Stream D Wave 8:** Session 2 in progress (E2E + arch test + encoding lint)
+
+---
+
 - **Branch:** `feature/hkd-fix-wave8-ui-docx-export-regression`
 - **Last commit:** `c8eb819` Wave 8 S1: HKD Book UI page + DOCX/XLSX export + DI wiring
 - **Build:** `dotnet build VanAn.sln` → 0 errors ✅ (Architecture.Tests project build verified)
@@ -182,6 +206,13 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 ---
 
 ## 4. Next Actions
+
+**Stream F — VAS Enterprise Financial Reports (PLANNING COMPLETE, awaiting W0):**
+1. ~~Audit 4 BCTC + Order→Acc flow~~ ✅ DONE — 18 vấn đề + 6 blockers identified
+2. ~~Master plan v3 + 10 task cards~~ ✅ DONE — committed (this commit)
+3. **W0: Order→Accounting Writer Fix** ⏳ NEXT — fix 18 vấn đề (3C+5H+4M, defer 6M). Branch `feature/vas-wave0-order-accounting-writer-fix`. Task card: `vas_wave0_task_card.md`. JIT: INVESTIGATE (verify OrderService.cs:line refs) → PLAN → IMPLEMENT.
+4. W1: Data Audit + Seed — sau W0 merge
+5. W2-W9: theo dependency chain (see master plan Section 1)
 
 **Stream D — HKD Book Accounting Report Fix (active, Wave 0+0.5 in progress):**
 1. ~~Audit + master plan v1 + 9 task cards~~ ✅ — Committed `c4acb15`.
@@ -301,7 +332,8 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-04 — **WAVE 8 SESSION 2 IN PROGRESS** (branch `feature/hkd-fix-wave8-ui-docx-export-regression`). Session 1 committed `c8eb819`: HKD Book UI page (`HKDBooks.razor` list + `HKDBookDetail.razor` detail) + `HKDBookExportService` (DOCX via OpenXML + XLSX via EPPlus) + DI wiring in ShopERP `Program.cs` + `HKDBookGenerationService` changed to depend on `IVanAnDbContext` + `DocumentFormat.OpenXml` dependency added. Build 0 errors. Session 2: added `hkd-books.spec.ts` (6 E2E tests, 36 listed via `playwright --list`), `HKDBookTemplateArchitectureTests.cs` (3 regression tests for Issue 1 — all PASS), `check-encoding.ps1` (SC7 mojibake lint — fixed false-positive detection: now scans for 2-char lead+continuation sequences, not single Latin-1 chars; 923 files scanned, 0 mojibake), updated `docs/UI_Platform_Implementation_Guide.md` with Wave 8 HKD Book module reference. Architecture.Tests 3/3 PASS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
+* **Last Updated:** 2026-07-04 — **STREAM F (VAS) PLANNING COMPLETE**. Audited 4 BCTC (3/4 mock/stub, 1/4 query broken) + Order→Accounting flow (18 vấn đề: 3C+5H+10M). Verified legal: TT 99/2025 (thay TT 200) + TT 133/2016 + TT 58/2026 (thay TT 132, NOT TT 133). User approved: 3 tầng chuẩn, VAS module riêng (feature flag), 4 BCTC song song, writer fix trước seed, Domain mod approved, seed DN vừa TT 133, JIT Planning. Created master plan v3 (slim, 197 dòng, JIT Planning Strategy) + 10 task cards (W0-W9). 8 decisions approved (D1-D8). Next: W0 IMPLEMENT (Order→Accounting Writer Fix, branch `feature/vas-wave0-order-accounting-writer-fix`).
+* **Previous:** 2026-07-04 — **WAVE 8 SESSION 2 IN PROGRESS** (branch `feature/hkd-fix-wave8-ui-docx-export-regression`). Session 1 committed `c8eb819`: HKD Book UI page (`HKDBooks.razor` list + `HKDBookDetail.razor` detail) + `HKDBookExportService` (DOCX via OpenXML + XLSX via EPPlus) + DI wiring in ShopERP `Program.cs` + `HKDBookGenerationService` changed to depend on `IVanAnDbContext` + `DocumentFormat.OpenXml` dependency added. Build 0 errors. Session 2: added `hkd-books.spec.ts` (6 E2E tests, 36 listed via `playwright --list`), `HKDBookTemplateArchitectureTests.cs` (3 regression tests for Issue 1 — all PASS), `check-encoding.ps1` (SC7 mojibake lint — fixed false-positive detection: now scans for 2-char lead+continuation sequences, not single Latin-1 chars; 923 files scanned, 0 mojibake), updated `docs/UI_Platform_Implementation_Guide.md` with Wave 8 HKD Book module reference. Architecture.Tests 3/3 PASS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
 * **Previous:** 2026-07-17 — **WAVE 7 COMPLETE** (commit `76d2c11`). Created HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse (GetHashCode), BaseHKDBookTemplate null! logger (NullLogger), CalculateFormulaAsync legacy variables overload → FormulaContext (root cause of TotalRevenue=0). Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED.
-* **Current Branch:** `feature/hkd-fix-wave8-ui-docx-export-regression`
-* **Current Objective:** Stream D Wave 8 Session 2 (E2E + architecture test + encoding lint + docs) — IN PROGRESS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
+* **Current Branch:** `main` (VAS planning) · `feature/hkd-fix-wave8-ui-docx-export-regression` (Stream D W8 S2)
+* **Current Objective:** Stream F (VAS) planning complete — awaiting W0 IMPLEMENT. Stream D Wave 8 Session 2 in progress.
