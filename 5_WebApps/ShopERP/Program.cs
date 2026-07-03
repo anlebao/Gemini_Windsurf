@@ -165,6 +165,22 @@ namespace VanAn.ShopERP
             // Add Memory Cache for ShopConfigService + W17-T1 OTP
             _ = builder.Services.AddMemoryCache();
 
+            // Wave 8: HKD Book generation engine — required by /accounting/hkd-books UI page.
+            // Dependency order: IFormulaEngine -> IPreAggregationService -> IDataProvider
+            // -> IBookResultCache -> TemplateFactory (concrete) -> IHKDBookGenerationService
+            // Wave 7: Lazy<IFormulaEngine> breaks circular dependency (FormulaEngine -> DataProvider
+            // -> PreAggregation -> FormulaEngine). SmartPreAggregationService uses Lazy<IFormulaEngine>.
+            _ = builder.Services.AddScoped<Lazy<CoreHub.Services.Formula.IFormulaEngine>>(sp => new Lazy<CoreHub.Services.Formula.IFormulaEngine>(() => sp.GetRequiredService<CoreHub.Services.Formula.IFormulaEngine>()));
+            _ = builder.Services.AddScoped<CoreHub.Services.Formula.IFormulaEngine, CoreHub.Services.Formula.ProductionFormulaEngine>();
+            _ = builder.Services.AddScoped<CoreHub.Services.PreAggregation.IPreAggregationService, CoreHub.Services.PreAggregation.SmartPreAggregationService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Data.IDataProvider, CoreHub.Services.Data.ScopedDataProvider>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Cache.IBookResultCache, CoreHub.Services.Cache.BookResultCache>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Template.TemplateFactory>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Template.IHKDBookGenerationService, CoreHub.Services.Template.HKDBookGenerationService>();
+
+            // Wave 8: HKD Book export service (DOCX via OpenXML + XLSX via EPPlus)
+            _ = builder.Services.AddScoped<Services.IHKDBookExportService, Services.HKDBookExportService>();
+
             // W17-T1: Customer Identity services
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IOtpService, VanAn.ShopERP.Services.OtpService>();
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.ICustomerTokenService, VanAn.ShopERP.Services.CustomerTokenService>();

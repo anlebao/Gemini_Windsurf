@@ -1,0 +1,126 @@
+@page "/accounting/hkd-books"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using CoreHKD = VanAn.CoreHub.Services.Template
+@inject CoreHKD.IHKDBookGenerationService HKDBookService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<HKDBooks> Logger
+@inject NavigationManager NavigationManager
+
+<div class="hkd-books-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Kế Toán HKD</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="RefreshTemplates">
+                🔄 Refresh
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    @if (loading)
+    {
+        <VanACard Header="Danh mục sổ">
+            <p>Đang tải danh mục sổ kế toán...</p>
+        </VanACard>
+    }
+    else if (templates.Count == 0)
+    {
+        <VanACard Header="Danh mục sổ">
+            <p>Không có sổ kế toán nào cho nhóm HKD của bạn.</p>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Danh mục sổ kế toán HKD (TT 152/2025/TT-BTC)">
+            <VanAnDataGrid TItem="HKDBookTemplateDto" Items="@templates" EmptyMessage="Không có sổ nào">
+                <Columns>
+                    <VanAnColumn TItem="HKDBookTemplateDto" Title="Mã sổ" Width="2">
+                        <Template Context="t">
+                            @t.TemplateCode
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookTemplateDto" Title="Tên sổ" Width="5">
+                        <Template Context="t">
+                            @t.TemplateName
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookTemplateDto" Title="Nhóm HKD" Width="2">
+                        <Template Context="t">
+                            @t.TargetGroup
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookTemplateDto" Title="Phiên bản" Width="1">
+                        <Template Context="t">
+                            @t.TemplateVersion
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookTemplateDto" Title="Thao tác" Width="2">
+                        <Template Context="t">
+                            <VanAButton Variant="primary" Size="small" OnClick="() => OpenBook(t.TemplateCode)">
+                                📖 Mở sổ
+                            </VanAButton>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<HKDBookTemplateDto> templates = new();
+    private bool loading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshTemplates();
+    }
+
+    private async Task RefreshTemplates()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            List<HKDBookTemplate> domainTemplates = await HKDBookService.GetAvailableTemplatesAsync(tenantId);
+            templates = domainTemplates.Select(HKDBookTemplateDto.FromDomain).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading HKD book templates for tenant {TenantId}", TenantProvider.TenantId);
+            errorMessage = "Không thể tải danh mục sổ kế toán.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OpenBook(string templateCode)
+    {
+        NavigationManager.NavigateTo($"/accounting/hkd-books/{templateCode}");
+    }
+}

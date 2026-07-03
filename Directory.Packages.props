@@ -40,6 +40,8 @@
     <PackageVersion Include="System.Text.Json" Version="9.0.3" />
     <!-- Reporting Packages -->
     <PackageVersion Include="EPPlus" Version="7.6.1" />
+    <!-- Wave 8: DOCX export via Open XML SDK (user-approved 2026-07-03) -->
+    <PackageVersion Include="DocumentFormat.OpenXml" Version="3.0.1" />
     <!-- Authentication Packages -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />

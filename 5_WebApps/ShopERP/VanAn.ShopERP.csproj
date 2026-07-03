@@ -35,6 +35,9 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
     <PackageReference Include="QRCoder" />
+    <!-- Wave 8: Export libraries (EPPlus for XLSX via CoreHub transitive, OpenXML for DOCX) -->
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="EPPlus" />
   </ItemGroup>
 
   <ItemGroup>
