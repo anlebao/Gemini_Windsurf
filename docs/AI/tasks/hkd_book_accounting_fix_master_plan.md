@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** 📋 PLANNING — Awaiting user approval to start Wave 0
+> **Status:** ✅ APPROVED (v2) — Awaiting Wave 0 execution
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (v1 — 9 waves, 8 root-cause issues)
+> **Last Updated:** 2026-07-03 (v2 — 10 waves, 8 root-cause issues, 3 amendments + 5 concerns resolved)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -36,22 +36,24 @@ Wave 1 (encoding) là wave duy nhất có thể làm song song với Wave 0/2 (�
 4. **Trước khi session end:** `dotnet build VanAn.sln` Release pass + commit
 5. **Sau mỗi wave:** Commit với message format `[HKD-FIX WAVE X] <short description>`
 
-### Branch protocol
+### Branch protocol (v2 — per-wave merge to main, always-green)
 ```
-main
-  └── feature/hkd-fix-wave0-preflight
-      └── feature/hkd-fix-wave1-encoding-mojibake
-          └── feature/hkd-fix-wave2-bridge-journal-persistence
-              └── feature/hkd-fix-wave3-wire-calc-engine-di
-                  └── feature/hkd-fix-wave4-route-through-generation-service
-                      └── feature/hkd-fix-wave5-fix-account-mapping-tax-formulas
-                          └── feature/hkd-fix-wave6-retrofit-numeric-tests
-                              └── feature/hkd-fix-wave7-api-endpoint-di-smoke
-                                  └── feature/hkd-fix-wave8-ui-docx-export-regression
+main ← feature/hkd-fix-wave0-preflight          (merge after W0 verify pass)
+main ← feature/hkd-fix-wave1-encoding-mojibake  (merge after build+guard pass)
+main ← feature/hkd-fix-wave2-bridge-journal-persistence
+main ← feature/hkd-fix-wave3-wire-calc-engine-di
+main ← feature/hkd-fix-wave4-route-through-generation-service
+main ← feature/hkd-fix-wave5a-account-mapping-pit-fix
+main ← feature/hkd-fix-wave5b-industry-sector-tax-rates  (CONDITIONAL — may descope)
+main ← feature/hkd-fix-wave6-retrofit-numeric-tests
+main ← feature/hkd-fix-wave7-api-endpoint-di-smoke
+main ← feature/hkd-fix-wave8-ui-docx-export-regression
 ```
-- Mỗi wave có branch riêng
-- Merge wave vào branch trước đó
-- Final merge vào `main` khi tất cả waves complete
+- **Mỗi wave là branch riêng, branch từ `main` mới nhất, merge ngược về `main` sau khi pass** (build + guard + test)
+- **`main` luôn green** — không có long-lived branch 14-session
+- **Branch wave kế tiếp phải rebase/pull từ `main` trước khi bắt đầu** (đảm bảo có fix wave trước)
+- **Wave 5b có thể skip** (descope) mà không ảnh hưởng wave 6-8 (5b không block — 5a đã fix PIT + account mapping)
+- Nếu conflict khi merge wave → resolve trên feature branch, không force-push main
 
 ### Hard rules
 - **KHÔNG sửa Domain layer** (`1_Shared/Domain/*.cs`) trừ khi có Tech Lead approval (governance §Domain Modification By Mode). `HKDTemplates.cs`, `GenericHKDBook.cs`, `JournalEntry.cs` KHÔNG được sửa trong stream này.
@@ -81,7 +83,7 @@ main
 
 ## 0.5. WAVE 0 — Pre-flight Verification (Non-code, start immediately)
 
-> **Verify nhanh trước khi bắt đầu — đảm bảo baseline sạch + chốt data flow gap**
+> **Verify nhanh trước khi bắt đầu — đảm bảo baseline sạch + chốt data flow gap + resolve architecture decisions BEFORE IMPLEMENT mode**
 
 ### Tasks
 | # | Task | Owner | Status |
@@ -93,11 +95,18 @@ main
 | 5 | Verify `JournalEntries` table rỗng trong DB dev (query `SELECT COUNT(*) FROM JournalEntries`) — hoặc confirm không có code path nào persist JournalEntry từ AccountingEntry (trừ `HKDBookRepository.AddToBookAsync` không được ai gọi) | AI | ⏳ PENDING |
 | 6 | Snapshot `git status` sạch trước khi bắt đầu Wave 1 | AI | ⏳ PENDING |
 | 7 | Read 7 mẫu docx TT 152 (`docs/plan_MVP/HKD_BookAcc/*.docx`) — extract layout từng mẫu (header, bảng, footer) để chốt spec cho Wave 8 | AI | ⏳ PENDING |
+| 8 | **[AMENDMENT 1a] Resolve `ITemplateFactory` conflict (promoted from W3-T8)** — Read both `3_CoreHub/Services/TemplateFactory.cs` (old, for `OrderService`) and `3_CoreHub/Services/Template/TemplateFactory.cs` (new). Verify: (a) does new one implement `ITemplateFactory`? (b) what does `OrderService` depend on? (c) decide resolution: rename new class to `HKDTemplateFactory` OR keep both with distinct interfaces. Document decision in Wave 3 task card BEFORE Wave 3 starts. | AI | ⏳ PENDING |
+| 9 | **[AMENDMENT 1b] Verify docx/xlsx export library availability (promoted from W8-T3/T4 prereq)** — grep `5_WebApps/ShopERP/*.csproj` + `Directory.Packages.props` for `DocX`, `DocumentFormat.OpenXml`, `ClosedXML`, `EPPlus`. If none present → flag for dependency-add approval (governance: version ≥7 days old, no floating ranges). Document available library OR approval-needed status in Wave 8 task card. | AI | ⏳ PENDING |
+| 10 | **[AMENDMENT 1c] Verify `Tenant.IndustrySector` field exists (W5-T7 prereq)** — Read `1_Shared/Domain/Tenant.cs` (or wherever Tenant entity lives). If `IndustrySector`/`BusinessSector`/`NganhNghe` field missing → Wave 5b becomes Domain Modeling Defect (needs Tech Lead approval) OR descope W5-T7 (use single default rate). Document finding in Wave 5 task card. | AI | ⏳ PENDING |
+| 11 | **[Concern 1 prereq] Rigorous double-write audit** — grep ALL callers of `RecordRevenueAsync`/`RecordExpenseAsync` AND all persisters of `JournalEntry` (search `_context.JournalEntries.Add`, `_repo.AddToBookAsync`, `JournalEntry.Create`). Build a complete write-path map. If ANY existing path persists `JournalEntry` → Wave 2 must NOT double-write (skip bridge or deduplicate). Document the map + decision in Wave 2 task card. | AI | ⏳ PENDING |
 
 ### Tracking
 - Update `project_state.md` Maintenance Log khi verify xong
 - Nếu build baseline fail → STOP, báo user (cần fix build trước)
 - Nếu `JournalEntries` table có data → verify nguồn (có thể đã có code path ta chưa thấy)
+- **Nếu W0-T8 conflict không resolve được bằng rename → STOP, báo Tech Lead** (architecture decision không được tự quyết trong IMPLEMENT)
+- **Nếu W0-T9 không có library nào + user không approve thêm dependency → Wave 8 export descoped** (UI render-only, export deferred to follow-up stream)
+- **Nếu W0-T10 `Tenant.IndustrySector` missing + Tech Lead không approve Domain mod → Wave 5b descoped** (dùng default rate, ghi technical debt)
 
 ---
 
@@ -257,12 +266,26 @@ main
 ### Entry criteria
 - [ ] Wave 1 merged
 - [ ] `IHKDBookRepository.AddToBookAsync` confirmed persist JournalEntry (Wave 0 verify)
+- [ ] **W0-T11 double-write audit complete** — write-path map documented in Wave 2 task card
+
+### Double-write decision tree (Concern 1 resolution)
+Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
+
+| W0-T11 Finding | Decision | Action |
+|---|---|---|
+| **A.** No existing code persists `JournalEntry` (table empty, `AddToBookAsync` never called) | ✅ SAFE to bridge | Implement W2-T1/T2 as specified — add `JournalEntry` persistence in `RecordRevenue/Expense` |
+| **B.** Existing path persists `JournalEntry` from a DIFFERENT source (not `AccountingEntry`) | ✅ SAFE but verify no overlap | Implement W2-T1/T2, add guard: check if `JournalEntry` with same `ReferenceId` already exists before persisting (idempotent) |
+| **C.** Existing path persists `JournalEntry` from `AccountingEntry` (rare — would mean audit missed something) | ⚠️ STOP — potential double-write | Do NOT add new persistence. Instead, verify existing path produces correct double-entry lines. If lines are wrong (single-entry), fix existing path rather than adding new. Report to user before proceeding. |
+| **D.** `JournalEntries` table has data but source unknown | ⚠️ INVESTIGATE | Query sample rows, trace `TenantId` + `ReferenceId` back to source code. Resolve to A/B/C before proceeding. |
+
+**If decision = C or D → STOP and report to user.** Do not guess.
 
 ### Exit criteria
 - [ ] `RecordRevenueAsync` persist cả `AccountingEntry` (immutable) + `JournalEntry` (double-entry)
 - [ ] `RecordExpenseAsync` persist cả `AccountingEntry` + `JournalEntry`
 - [ ] `JournalEntry` có 2 lines: 1 Debit + 1 Credit, tổng Debit = tổng Credit = amount
 - [ ] Account numbers đúng: Revenue → Dr 111, Cr 511; Expense → Dr 611, Cr 111
+- [ ] **If W0-T11 = B: idempotent guard present** (no duplicate JournalEntry for same ReferenceId)
 - [ ] 2 unit test pass (verify double-entry lines)
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
 - [ ] guard-check.ps1 PASSED
@@ -271,6 +294,7 @@ main
 - Block tất cả wave sau — calc engine query `JournalEntries`, nếu bảng rỗng thì SUM_ACCOUNT = 0
 - Risk medium — thay đổi write path, cần đảm bảo không break `AccountingEntry` immutability
 - Phải làm trước Wave 3 (wire DI) để có data test
+- **Decision tree (W0-T11 prereq) loại bỏ risk double-write** — không guess, verify trước
 
 ---
 
@@ -334,6 +358,7 @@ main
 | 8 | W4-T8 | Rewrite `GenerateS3aBookAsync` — templateCode `"S3a_HKD"` | `3_CoreHub/Services/HKDBookService.cs` (L628-654) | ⏳ PENDING |
 | 9 | W4-T9 | Mark `ConvertToJournalEntries` as obsolete hoặc xóa nếu không còn dùng (grep verify) | `3_CoreHub/Services/HKDBookService.cs` (L718-751) | ⏳ PENDING |
 | 10 | W4-T10 | `dotnet build VanAn.sln` Release pass | Solution-wide | ⏳ PENDING |
+| 11 | W4-T11 | **[AMENDMENT 3] Add smoke test `GenerateS1aBook_NumericValues_ShouldNotBeEmpty_Tripwire`** — seed minimal JournalEntries (1 revenue entry), call `GenerateS1aBookAsync`, assert `result.NumericValues` NOT empty AND `result.NumericValues["TotalRevenue"] > 0`. This is a tripwire — if it fails, Wave 4 routing is broken and Wave 5/6 cannot proceed. Do NOT wait for Wave 6 full retrofit. | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` (NEW — minimal) | ⏳ PENDING |
 
 ### Entry criteria
 - [ ] Wave 3 merged (IHKDBookGenerationService đã đăng ký DI)
@@ -342,7 +367,7 @@ main
 ### Exit criteria
 - [ ] 7 method `GenerateS*BookAsync` gọi `_hkdBookGenerationService.GenerateBookAsync` thay vì `new S*HKDTemplate()`
 - [ ] `ConvertToJournalEntries` không còn dùng (hoặc xóa)
-- [ ] `book.NumericValues` sẽ có giá trị (verify ở Wave 6 — test)
+- [ ] **Smoke test W4-T11 pass** — `NumericValues` không rỗng cho S1a (tripwire before Wave 5)
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
 - [ ] guard-check.ps1 PASSED
 
@@ -350,49 +375,90 @@ main
 - Sau Wave 3 (DI) — `IHKDBookGenerationService` đã có sẵn để inject
 - Đây là wave fix Issue 1 cốt lõi — `NumericValues` sẽ có số liệu
 - Risk medium — thay đổi 7 method production, cần đảm bảo backward compat
+- **Smoke test (W4-T11) là tripwire** — phát hiện routing bug ngay, không đợi đến Wave 6 (governance retrofit-TDD: EXISTING code phải có test trước khi hoàn thành)
 
 ---
 
-## 6. WAVE 5 — Fix Account Mapping + Tax Formulas per TT 152
+## 6. WAVE 5a — Fix Account Mapping + PIT-on-Revenue (No Domain mod, no industry modeling)
 
-**Branch:** `feature/hkd-fix-wave5-fix-account-mapping-tax-formulas`
-**Estimated sessions:** 2-3
-**Conflict risk:** HIGH (thay đổi domain logic + cần modeling ngành nghề)
-**Priority:** 5 (High — compliance pháp lý)
-**Task Card:** `docs/AI/tasks/wave5_hkd_fix_account_mapping_tax_formulas_task_card.md`
+**Branch:** `feature/hkd-fix-wave5a-account-mapping-pit-fix`
+**Estimated sessions:** 1
+**Conflict risk:** MEDIUM (thay đổi service logic + 1 Domain account-number fix)
+**Priority:** 5a (High — compliance pháp lý, nhưng không cần modeling ngành nghề)
+**Task Card:** `docs/AI/tasks/wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — split from old wave5 card)
 
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W5-T1 | Fix `_vietnameseAccounts` dictionary — sửa 211, 811, 821, 841, 521; thêm 311 (vay ngắn hạn), 333 (thế phải nộp), 5118 (doanh thu dịch vụ) | `3_CoreHub/Services/HKDBookService.cs` (L22-41) | ⏳ PENDING |
-| 2 | W5-T2 | Verify `HKDRevenueClassificationService` + `IHKDTaxClassificationService` — đọc API, confirm có mapping suất thuế theo ngành nghề | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs`, `3_CoreHub/Services/IHKDTaxClassificationService.cs` (READ) | ⏳ PENDING |
-| 3 | W5-T3 | Nếu mapping suất thuế chưa có → tạo lookup table ngành nghề → (GTGT%, TNCN%) theo TT 152 (1%; 1,5%; 2%; 2,5%; 3%; 5% GTGT; 0,5%; 1%; 1,5%; 2% TNCN) | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs` (UPDATE) hoặc file mới | ⏳ PENDING |
-| 4 | W5-T4 | Sửa `S2aHKDTemplateImpl` (Services/Template/) — thay `VatAmount = TotalRevenue * 0.05` bằng gọi `HKDRevenueClassificationService.GetVatRate(industry)` + `PersonalIncomeTax` tính trên `TotalRevenue` (không phải VatAmount) | `3_CoreHub/Services/Template/TemplateFactory.cs` (L177-249) | ⏳ PENDING |
-| 5 | W5-T5 | Sửa `S2bHKDTemplateImpl` — thay account `"521"` (sai) bằng `"5118"` cho doanh thu dịch vụ | `3_CoreHub/Services/Template/TemplateFactory.cs` (L251-313) | ⏳ PENDING |
-| 6 | W5-T6 | Sửa `S2bHKDTemplate` (Domain) — cùng fix account `"512"` → `"5118"` | `1_Shared/Domain/HKDTemplates.cs` (L206-294) — **CẦN TECH LEAD APPROVAL** (Domain modification) | ⏳ PENDING |
-| 7 | W5-T7 | Thêm khái niệm "nhóm ngành nghề" vào template S2a — mỗi ngành có `Tổng cộng (n) / Thuế GTGT / Thuế TNCN` riêng (cần data industry sector của tenant) | `3_CoreHub/Services/Template/TemplateFactory.cs` (S2aHKDTemplateImpl) | ⏳ PENDING |
-| 8 | W5-T8 | Add unit test: `S2aBook_VatAmount_ShouldUseIndustryRate_NotHardcoded5Percent` — seed tenant với ngành nghề 1% GTGT, assert VatAmount = Revenue * 0.01 | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
-| 9 | W5-T9 | Add unit test: `S2aBook_PersonalIncomeTax_ShouldCalculateOnRevenue_NotOnVat` — assert PIT = Revenue * rate, không phải Vat * 0.1 | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
-| 10 | W5-T10 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
+| 1 | W5a-T1 | Fix `_vietnameseAccounts` dictionary — sửa 211, 811, 821, 841, 521; thêm 311 (vay ngắn hạn), 333 (thuế phải nộp), 5118 (doanh thu dịch vụ) | `3_CoreHub/Services/HKDBookService.cs` (L22-41) | ⏳ PENDING |
+| 2 | W5a-T2 | Sửa `S2aHKDTemplateImpl` — `PersonalIncomeTax` tính trên `TotalRevenue` (không phải `VatAmount`). Giữ `VatAmount = TotalRevenue * defaultRate` tạm thời (defaultRate = 5% hoặc rate từ W0-T10 finding) — industry-specific rates sang Wave 5b. | `3_CoreHub/Services/Template/TemplateFactory.cs` (L177-249) | ⏳ PENDING |
+| 3 | W5a-T3 | Sửa `S2bHKDTemplateImpl` — thay account `"521"` (sai) bằng `"5118"` cho doanh thu dịch vụ | `3_CoreHub/Services/Template/TemplateFactory.cs` (L251-313) | ⏳ PENDING |
+| 4 | W5a-T4 | Sửa `S2bHKDTemplate` (Domain) — cùng fix account `"512"` → `"5118"` | `1_Shared/Domain/HKDTemplates.cs` (L206-294) — **CẦN TECH LEAD APPROVAL** (Domain modification, account-number only — không thêm field) | ⏳ PENDING |
+| 5 | W5a-T5 | Add unit test: `S2aBook_PersonalIncomeTax_ShouldCalculateOnRevenue_NotOnVat` — assert PIT = Revenue * rate, không phải Vat * 0.1 | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
+| 6 | W5a-T6 | Add unit test: `S2bBook_ServiceRevenue_ShouldUseAccount5118_Not521` — assert account mapping | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
+| 7 | W5a-T7 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
 
 ### Entry criteria
 - [ ] Wave 4 merged (GenerateS*BookAsync dùng IHKDBookGenerationService)
-- [ ] **Tech Lead approval** cho W5-T6 (Domain modification — sửa account number trong HKDTemplates.cs)
+- [ ] **Tech Lead approval** cho W5a-T4 (Domain modification — account number `"512"` → `"5118"`, không thêm field)
+- [ ] W0-T10 result known (Tenant.IndustrySector exists or not — determines if 5b is in-scope)
 
 ### Exit criteria
 - [ ] `_vietnameseAccounts` sửa 5 entry sai + thêm entry mới
-- [ ] `S2aHKDTemplateImpl` dùng `HKDRevenueClassificationService` cho suất thuế (không cứng 5%/10%)
 - [ ] `PersonalIncomeTax` tính trên `TotalRevenue`, không phải `VatAmount`
 - [ ] Account `"521"`/`"512"` → `"5118"` (doanh thu dịch vụ)
-- [ ] S2a template có nhóm ngành nghề (nếu tenant có data industry sector)
 - [ ] 2 unit test pass
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
 - [ ] guard-check.ps1 PASSED
 
-### Why fifth
-- Sau Wave 4 (routing) — đã có đường tính, giờ sửa công thức
-- Risk cao nhất — cần modeling ngành nghề + Domain modification (cần approval)
-- Compliance pháp lý — sai = báo cáo sai thuế
+### Why fifth-a
+- Sau Wave 4 (routing) — đã có đường tính, giờ sửa 2 bug logic rõ ràng (PIT base + account mapping)
+- Risk medium — chỉ 1 Domain account-number fix (W5a-T4), không thêm field, không modeling
+- Có thể merge độc lập — không phụ thuộc W5b
+
+---
+
+## 6.5. WAVE 5b — Industry-Sector Tax Rates per TT 152 (Conditional — needs W0-T10 + Tech Lead approval)
+
+**Branch:** `feature/hkd-fix-wave5b-industry-sector-tax-rates`
+**Estimated sessions:** 1-2
+**Conflict risk:** HIGH (modeling ngành nghề + có thể cần Domain mod nếu Tenant.IndustrySector missing)
+**Priority:** 5b (High — full TT 152 compliance, nhưng có thể descope nếu W0-T10 fail)
+**Task Card:** `docs/AI/tasks/wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW)
+
+### Conditional execution
+- **IF W0-T10 confirms `Tenant.IndustrySector` exists** → proceed normally
+- **IF W0-T10 finds field missing AND Tech Lead approves Domain mod** → add `IndustrySector` enum/string to `Tenant` first (W5b-T0), then proceed
+- **IF W0-T10 finds field missing AND Tech Lead does NOT approve** → **DESCOPE Wave 5b**, use single default rate from W5a, log as technical debt (`docs/AI/technical_debt.md`), proceed to Wave 6
+
+### Tasks
+| # | Task ID | Task | Files | Status |
+|---|---|---|---|---|
+| 0 | W5b-T0 | (CONDITIONAL — only if Tenant.IndustrySector missing + approved) Add `IndustrySector` field to `Tenant` domain entity | `1_Shared/Domain/Tenant.cs` — **CẦN TECH LEAD APPROVAL** | ⏳ PENDING |
+| 1 | W5b-T1 | Verify `HKDRevenueClassificationService` + `IHKDTaxClassificationService` — đọc API, confirm có mapping suất thuế theo ngành nghề | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs`, `3_CoreHub/Services/IHKDTaxClassificationService.cs` (READ) | ⏳ PENDING |
+| 2 | W5b-T2 | Nếu mapping suất thuế chưa có → tạo lookup table ngành nghề → (GTGT%, TNCN%) theo TT 152 (1%; 1,5%; 2%; 2,5%; 3%; 5% GTGT; 0,5%; 1%; 1,5%; 2% TNCN) | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs` (UPDATE) hoặc file mới | ⏳ PENDING |
+| 3 | W5b-T3 | Sửa `S2aHKDTemplateImpl` — thay `VatAmount = TotalRevenue * defaultRate` (từ W5a) bằng gọi `HKDRevenueClassificationService.GetVatRate(industry)` | `3_CoreHub/Services/Template/TemplateFactory.cs` (L177-249) | ⏳ PENDING |
+| 4 | W5b-T4 | Thêm khái niệm "nhóm ngành nghề" vào template S2a — mỗi ngành có `Tổng cộng (n) / Thuế GTGT / Thuế TNCN` riêng | `3_CoreHub/Services/Template/TemplateFactory.cs` (S2aHKDTemplateImpl) | ⏳ PENDING |
+| 5 | W5b-T5 | Add unit test: `S2aBook_VatAmount_ShouldUseIndustryRate_NotHardcoded5Percent` — seed tenant với ngành nghề 1% GTGT, assert VatAmount = Revenue * 0.01 | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
+| 6 | W5b-T6 | Add unit test: `S2aBook_IndustryGrouping_ShouldSeparateBySector` — seed 2 ngành nghề, assert 2 group totals | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
+| 7 | W5b-T7 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
+
+### Entry criteria
+- [ ] Wave 5a merged (PIT fix + account mapping done)
+- [ ] W0-T10 result: `Tenant.IndustrySector` exists OR Tech Lead approval for W5b-T0
+- [ ] **If descope triggered** → skip this wave, document in `docs/AI/technical_debt.md`, proceed to Wave 6
+
+### Exit criteria (only if executed)
+- [ ] `S2aHKDTemplateImpl` dùng `HKDRevenueClassificationService` cho suất thuế (không cứng)
+- [ ] S2a template có nhóm ngành nghề (mỗi ngành có tổng cộng + GTGT + TNCN riêng)
+- [ ] 2 unit test pass
+- [ ] `dotnet build VanAn.sln` Release — 0 errors
+- [ ] guard-check.ps1 PASSED
+
+### Why fifth-b (separate from 5a)
+- Risk cao nhất — cần modeling ngành nghề + có thể cần Domain mod (Tenant.IndustrySector)
+- Tách ra để 5a có thể merge độc lập — 5b không block Wave 6 nếu descope
+- Compliance pháp lý đầy đủ — sai = báo cáo sai thuế, nhưng 5a đã fix 2 bug nghiêm trọng trước
 
 ---
 
@@ -418,8 +484,9 @@ main
 | 9 | W6-T9 | `dotnet build VanAn.sln` Release + `dotnet test` pass (tất cả test mới + cũ) | Solution-wide | ⏳ PENDING |
 
 ### Entry criteria
-- [ ] Wave 5 merged (formulas đúng)
-- [ ] Wave 4 merged (NumericValues có số liệu)
+- [ ] Wave 5a merged (account mapping + PIT fix)
+- [ ] Wave 5b merged OR descoped (W0-T10 result determines — if descoped, document in technical_debt.md)
+- [ ] Wave 4 merged (NumericValues có số liệu + smoke test pass)
 - [ ] Wave 2 merged (JournalEntries có data)
 
 ### Exit criteria
@@ -452,7 +519,8 @@ main
 | 3 | W7-T3 | Add endpoint `GET /api/hkd-books` — list all available templates for tenant's HKDGroup | Same controller | ⏳ PENDING |
 | 4 | W7-T4 | Add DI smoke test — assert `IHKDBookGenerationService`, `IFormulaEngine`, `IDataProvider`, `IPreAggregationService` resolvable từ DI container | `6_Tests/VanAn.Integration.Tests/` (NEW — `HKDBookDISmokeTests.cs`) | ⏳ PENDING |
 | 5 | W7-T5 | Add integration test `GET_hkd_books_S1a_ShouldReturnBookWithNumericValues` — seed data, call endpoint, assert response có NumericValues | `6_Tests/VanAn.Integration.Tests/` (NEW) | ⏳ PENDING |
-| 6 | W7-T6 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
+| 6 | W7-T6 | **[Concern 7] Add multi-tenancy isolation test `GET_hkd_books_ShouldNotLeakCrossTenantData`** — seed tenant A + tenant B with distinct JournalEntries, authenticate as tenant A, call `GET /api/hkd-books/S1a_HKD`, assert response ONLY contains tenant A's data (TotalRevenue matches tenant A, not A+B). Verify endpoint enforces `TenantId` filter. | `6_Tests/VanAn.Integration.Tests/` (NEW) | ⏳ PENDING |
+| 7 | W7-T7 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
 
 ### Entry criteria
 - [ ] Wave 6 merged (test pass)
@@ -463,6 +531,7 @@ main
 - [ ] Endpoint `GET /api/hkd-books` list templates theo HKDGroup
 - [ ] DI smoke test pass (4 service resolvable)
 - [ ] Integration test pass (endpoint return NumericValues)
+- [ ] **Multi-tenancy isolation test pass** (tenant A cannot read tenant B data — Concern 7 resolved)
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
 - [ ] guard-check.ps1 PASSED
 
@@ -519,36 +588,57 @@ main
 
 ---
 
-## 10. CROSS-WAVE CONCERNS
+## 10. CROSS-WAVE CONCERNS (v2 — all 8 review concerns resolved)
 
 ### Domain Protection
-- **KHÔNG sửa `1_Shared/Domain/*.cs`** trừ W5-T6 (cần Tech Lead approval)
+- **KHÔNG sửa `1_Shared/Domain/*.cs`** trừ W5a-T4 (account number, cần Tech Lead approval) và W5b-T0 (conditional, cần Tech Lead approval)
 - **`AccountingEntry` immutable** trong mọi wave — không thay đổi
 - **`HKDTemplates.cs`** (Domain) có no-op `CalculateAsync` — KHÔNG sửa, thay vào đó dùng `Services/Template/*TemplateImpl` (đã có calc thật)
-- Nếu W5-T6 cần sửa account number trong Domain → STOP, báo Tech Lead
+- Nếu W5a-T4/W5b-T0 cần sửa Domain → STOP, báo Tech Lead
 
-### Data Flow Integrity
+### Data Flow Integrity (Concern 1 — RESOLVED)
 - Wave 2 bridge AccountingEntry → JournalEntry là **critical path** — không skip
-- Nếu `JournalEntries` table đã có data (Wave 0 verify) → verify nguồn trước khi bridge (tránh double-write)
+- **W0-T11 double-write audit phải complete trước Wave 2** — build write-path map, select decision tree path (A/B/C/D)
+- **Decision tree trong Wave 2 section** — không guess, verify trước
 - Multi-tenancy: mọi query `JournalEntries` phải filter `TenantId` (đã có trong `SmartPreAggregationService` L164)
 
-### DI Conflict
+### DI Conflict (Concern 2 — RESOLVED, promoted to Wave 0)
 - `ITemplateFactory` hiện đăng ký bản cũ `Services/TemplateFactory.cs` (dùng cho `OrderService`)
 - Bản mới `Services/Template/TemplateFactory.cs` là class khác (không implement `ITemplateFactory`)
-- Wave 3 phải resolve: giữ bản cũ cho `OrderService`, đăng ký bản mới với tên riêng hoặc refactor
+- **W0-T8 resolve architecture decision BEFORE Wave 3** — rename new class to `HKDTemplateFactory` OR keep both with distinct interfaces. Document in Wave 3 task card.
 
-### Testing Strategy
-- **Unit test:** Wave 2 (double-entry), Wave 5 (tax formulas), Wave 6 (numeric assertions)
-- **Integration test:** Wave 7 (endpoint + DI smoke)
+### Testing Strategy (Concern 3 — RESOLVED, smoke test added)
+- **Unit test:** Wave 2 (double-entry), Wave 4 (smoke tripwire), Wave 5a (PIT + account), Wave 5b (industry rates), Wave 6 (numeric assertions)
+- **Integration test:** Wave 7 (endpoint + DI smoke + multi-tenancy isolation)
 - **Architecture test:** Wave 8 (no no-op CalculateAsync)
 - **E2E test:** Wave 8 (UI page) — chỉ parse check trong Wave 1-7, runtime sau Wave 8
 - **Playwright DISABLED** Wave 1-7 per governance (IMPLEMENT mode)
+- **Wave 4 smoke test (W4-T11)** — tripwire phát hiện routing bug ngay, không đợi Wave 6
 
-### TT 152 Compliance
+### TT 152 Compliance (Concern 4 — RESOLVED, Wave 5 split)
 - 7 mẫu báo cáo: S1a (Group 1), S2a-S2e (Group 2), S3a (Group 3)
 - Layout từng mẫu đã extract trong Wave 0 (docx → text)
 - Wave 8 phải match layout: header (HỘ/CÁ NHÂN KD + MST + địa chỉ + "Mẫu số X-HKD (Kèm theo TT 152/2025/TT-BTC)"), bảng (chứng từ + diễn giải + số tiền), footer (tổng thuế + chữ ký NGƯỜI ĐẠI DIỆN HKD)
-- Suất thuế theo ngành nghề (Wave 5) — không cứng
+- **Wave 5a fix PIT-on-revenue + account mapping** (logic bugs, không cần modeling)
+- **Wave 5b industry-sector rates** (full compliance, conditional — may descope if Tenant.IndustrySector missing)
+
+### Tenant Industry Sector (Concern 4 prereq — RESOLVED, promoted to Wave 0)
+- **W0-T10 verify `Tenant.IndustrySector` field exists** before Wave 5b
+- If missing → Wave 5b conditional: Tech Lead approval for W5b-T0 OR descope + technical debt
+
+### Export Library (Concern 6 — RESOLVED, promoted to Wave 0)
+- **W0-T9 verify docx/xlsx library availability** before Wave 8
+- If none present → flag for dependency-add approval (governance: version ≥7 days old)
+- If user does not approve → Wave 8 export descoped (UI render-only)
+
+### Multi-Tenancy Isolation (Concern 7 — RESOLVED, test added)
+- **W7-T6 multi-tenancy isolation test** — tenant A cannot read tenant B data via new endpoint
+- Cross-tenant leak = governance Hard Stop violation
+
+### Branch Strategy (Concern 8 — RESOLVED, per-wave merge)
+- **Per-wave merge to main** — `main` always green, no long-lived 14-session branch
+- Each wave branches from latest `main`, merges back after pass
+- Wave 5b optional — does not block Wave 6-8 if descoped
 
 ### UI Platform Compliance
 - Wave 8 UI page MUST dùng UI Platform components (VanAnCard, VanATable, VanAForm, VanAnButton)
@@ -557,64 +647,91 @@ main
 
 ---
 
-## 11. APPROVAL CHECKLIST
+## 11. APPROVAL CHECKLIST (v2)
 
-- [ ] Master plan reviewed (v1 — 9 waves, 8 root-cause issues)
-- [ ] 9 task cards reviewed (Wave 0-8)
+- [x] Master plan reviewed (v2 — 10 waves, 8 root-cause issues, 3 amendments + 5 concerns resolved)
+- [ ] 10 task cards reviewed (Wave 0-8, with Wave 5 split into 5a + 5b)
 - [ ] HKD Book report audit reviewed (8 issues — see Section 1)
-- [ ] Wave 0 pre-flight verification complete
+- [ ] Wave 0 pre-flight verification complete (11 tasks — including 4 promoted architecture decisions)
 - [ ] `dotnet build VanAn.sln` Release baseline pass
 - [ ] Data flow gap confirmed (JournalEntries table rỗng)
 - [ ] DI registrations confirmed (5 service chưa đăng ký)
-- [ ] Tech Lead approval cho W5-T6 (Domain modification — sửa account number trong HKDTemplates.cs) — **chỉ cần trước Wave 5**
-- [ ] Branch strategy confirmed (9 feature branches)
+- [ ] **W0-T8: `ITemplateFactory` conflict resolution documented** (promoted from W3-T8)
+- [ ] **W0-T9: docx/xlsx library availability confirmed OR dependency-add approved** (promoted from W8-T3/T4)
+- [ ] **W0-T10: `Tenant.IndustrySector` field existence confirmed** (determines Wave 5b scope)
+- [ ] **W0-T11: Double-write audit complete** (write-path map documented, decision tree path selected)
+- [ ] Tech Lead approval cho W5a-T4 (Domain modification — account number `"512"` → `"5118"`, no new field) — **chỉ cần trước Wave 5a**
+- [ ] Tech Lead approval cho W5b-T0 (conditional — add `IndustrySector` to `Tenant`) — **chỉ cần trước Wave 5b IF W0-T10 finds field missing**
+- [ ] Branch strategy confirmed (per-wave merge to main, always-green)
 - [ ] Sẵn sàng implement Wave 0 + Wave 1 (có thể cùng session)
 
 ---
 
-## 12. EFFORT SUMMARY
+## 12. EFFORT SUMMARY (v2)
 
 | Wave | Description | Sessions | Risk |
 |---|---|---|---|
-| Wave 0 | Pre-flight verification (parallel, non-code) | 0.5 | None |
+| Wave 0 | Pre-flight verification (11 tasks — baseline + 4 architecture decisions promoted) | 0.5-1 | None |
 | Wave 1 | Fix UTF-8 mojibake (mechanical) | 0.5 | Low |
-| Wave 2 | Bridge AccountingEntry → JournalEntry persistence | 1-2 | Medium |
-| Wave 3 | Wire calc engine into DI | 1 | Low |
-| Wave 4 | Route HKDBookService through IHKDBookGenerationService | 1 | Medium |
-| Wave 5 | Fix account mapping + tax formulas per TT 152 | 2-3 | High |
+| Wave 2 | Bridge AccountingEntry → JournalEntry persistence (with double-write decision tree) | 1-2 | Medium |
+| Wave 3 | Wire calc engine into DI (conflict pre-resolved in W0-T8) | 1 | Low |
+| Wave 4 | Route HKDBookService through IHKDBookGenerationService + smoke test tripwire | 1 | Medium |
+| Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium |
+| Wave 5b | Industry-sector tax rates per TT 152 (CONDITIONAL — may descope) | 1-2 | High |
 | Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low |
-| Wave 7 | API endpoint + DI smoke test | 1 | Low |
+| Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low |
 | Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium |
-| **Total** | | **10-14 sessions** | |
+| **Total** | | **10-15 sessions** (5b optional) | |
 
-**Critical path:** Wave 0 → Wave 1 → Wave 2 → Wave 3 → Wave 4 → Wave 5 → Wave 6 → Wave 7 → Wave 8
+**Critical path:** Wave 0 → Wave 1 → Wave 2 → Wave 3 → Wave 4 → Wave 5a → Wave 6 → Wave 7 → Wave 8
+**Optional path:** Wave 5b (between 5a and 6) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
 **Parallel path:** Wave 0 + Wave 1 có thể cùng session (cả 2 non-code/low-risk, độc lập)
+**Descope path:** If Wave 5b descoped → use default rate from 5a, log technical debt, Wave 6-8 proceed normally
 
-**Fix target:**
+**Fix target (v2):**
 - Before: 7 HKD book templates, `NumericValues` luôn rỗng, output plain text, không endpoint/UI, test pass trắng
-- After: 7 HKD book templates, `NumericValues` có số liệu thực, output docx/xlsx theo TT 152 layout, endpoint + UI page, test assert numeric values, regression prevention
-- Compliance: TT 152/2025/TT-BTC (suất thuế theo ngành nghề, layout mẫu, chữ ký)
+- After (full): 7 HKD book templates, `NumericValues` có số liệu thực, output docx/xlsx theo TT 152 layout, endpoint + UI page, test assert numeric values, regression prevention, multi-tenancy enforced
+- After (if 5b descoped): Same as full but tax rates use single default (not industry-specific) — technical debt logged
+- After (if export descoped): Same as full but UI render-only, no DOCX/XLSX export — technical debt logged
+- Compliance: TT 152/2025/TT-BTC (suất thuế theo ngành nghề nếu 5b executed, layout mẫu, chữ ký)
 
 ---
 
-## 13. ROLLBACK PLAN
+## 13. ROLLBACK PLAN (v2)
 
 Nếu wave fail không fix được:
 - **Wave 1-4:** Revert branch — không ảnh hưởng production (code cũ vẫn chạy, chỉ không có số liệu)
-- **Wave 5:** Revert branch — giữ công thức cứng 5%/10% (sai nhưng chạy được)
+- **Wave 5a:** Revert branch — giữ `_vietnameseAccounts` sai + PIT tính trên VAT (sai nhưng chạy được)
+- **Wave 5b:** Revert branch OR descope — giữ default rate từ 5a (sai về ngành nghề nhưng chạy được, log technical debt)
 - **Wave 6:** Revert test — giữ test cũ (pass trắng, không phát hiện bug)
 - **Wave 7:** Revert endpoint — không có API mới
-- **Wave 8:** Revert UI — không có page mới
+- **Wave 8:** Revert UI — không có page mới (hoặc descope export only, giữ UI render)
 
-**Không có wave nào break production** — tất cả là additive fix hoặc fix logic không ảnh hưởng existing flow (trừ Wave 2 thay đổi write path — cần rollback cẩn thận nếu double-write).
+**Không có wave nào break production** — tất cả là additive fix hoặc fix logic không ảnh hưởng existing flow (trừ Wave 2 thay đổi write path — cần rollback cẩn thận nếu double-write, decision tree W0-T11 loại bỏ risk này).
+
+**Per-wave merge to main** cho phép revert từng wave độc lập — không cần revert toàn bộ stream.
 
 ---
 
-## 14. REFERENCES
+## 14. REFERENCES (v2)
 
 - **Mẫu TT 152:** `docs/plan_MVP/HKD_BookAcc/*.docx` (7 files — S1a, S2a-S2e, S3a)
 - **Audit report:** Session 2026-07-03 (chat history — 8 root causes)
+- **v2 review:** Session 2026-07-03 (3 amendments + 5 concerns resolved)
 - **E2E cleanup master plan (template):** `docs/AI/tasks/e2e_test_cleanup_master_plan.md`
 - **Governance:** `.devin/rules/governance.md` (Domain protection, Hard Stops, UI Platform)
 - **Workflow:** `.devin/workflows/newfeaturebuild.md` (ANALYZE → IMPLEMENT)
+- **Task cards (v2 — 10 cards):**
+  - `wave0_hkd_fix_preflight_task_card.md` (expanded — 11 tasks)
+  - `wave1_hkd_fix_encoding_mojibake_task_card.md`
+  - `wave2_hkd_fix_bridge_journal_persistence_task_card.md` (added decision tree)
+  - `wave3_hkd_fix_wire_calc_engine_di_task_card.md` (W3-T8 demoted to verify-only)
+  - `wave4_hkd_fix_route_through_generation_service_task_card.md` (added W4-T11 smoke test)
+  - `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — split from wave5)
+  - `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — split from wave5, conditional)
+  - `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`
+  - `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md` (added W7-T6 multi-tenancy test)
+  - `wave8_hkd_fix_ui_docx_export_regression_task_card.md`
+
+> **NOTE:** Wave 5 task card needs to be split into 5a + 5b cards (action item before Wave 5a starts). Old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` to be replaced.
 - **Project state:** `docs/AI/project_state.md` (update sau mỗi wave)

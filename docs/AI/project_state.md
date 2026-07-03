@@ -29,72 +29,108 @@
 
 ## 2. Current Objective
 
-**[STREAM B: E2E TEST CLEANUP — ACTIVE]**
+**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC COMPLIANCE) — ACTIVE, PLAN v2 APPROVED, AWAITING WAVE 0 EXECUTION]**
 
-Remove ~60 fake/low-value E2E test cases across 20 spec files in `6_Testing/e2e-tests/`. Pattern-based batch fix, 8 waves, 7 anti-patterns. No C# code changes — only `.ts` files.
+Fix 8 root-cause issues preventing correct TT 152 HKD book report generation. Dependency-ordered 10-wave fix (data → DI → routing → formulas → tests → API → UI → export). Audit complete; v2 plan approved with 3 amendments + 5 concerns resolved; awaiting Wave 0 execution.
 
-- **Master plan:** `docs/AI/tasks/e2e_test_cleanup_master_plan.md`
-- **Commit planning:** `51dd7ff`
-- **Root cause:** ~55% of ~110 E2E test cases are decorative/silent-skip/tautology/anti-schema/anti-UI — false confidence.
-- **Target:** 0 decorative `reporter.pass()`, 0 broken auth patterns, 0 anti-schema/anti-UI tests, 9→2 smoke tests, 0 silent-skip, 0 OR-tautology, +regression-prevention lint.
+- **Master plan:** `docs/AI/tasks/hkd_book_accounting_fix_master_plan.md` (v2 — 10 waves, 8 root-cause issues, 3 amendments + 5 concerns resolved)
+- **Planning commit:** `c4acb15` (v1 — 10 files: master plan + 9 task cards) → **v2 update pending commit** (master plan optimized in-session)
+- **Task cards:** `docs/AI/tasks/wave0_hkd_fix_preflight_task_card.md` → `wave8_hkd_fix_ui_docx_export_regression_task_card.md` (Wave 5 card needs split into 5a + 5b before Wave 5a starts)
+- **v2 amendments (approved 2026-07-03):**
+  1. **Promote 4 architecture decisions to Wave 0** — W0-T8 (`ITemplateFactory` conflict), W0-T9 (docx/xlsx lib), W0-T10 (`Tenant.IndustrySector`), W0-T11 (double-write audit). Resolve BEFORE IMPLEMENT mode.
+  2. **Split Wave 5 into 5a + 5b** — 5a (account mapping + PIT-on-revenue, no industry modeling, 1 Domain account-number fix), 5b (industry-sector tax rates, CONDITIONAL — may descope if `Tenant.IndustrySector` missing).
+  3. **Add Wave 4 smoke test (W4-T11)** — `NumericValues` not-empty tripwire, catch routing bug before Wave 5/6.
+- **v2 concern resolutions:**
+  - Concern 1 (double-write): Wave 2 decision tree (A/B/C/D paths) + W0-T11 audit prereq
+  - Concern 2 (ITemplateFactory): promoted to W0-T8 (architecture decision in ANALYZE, not IMPLEMENT)
+  - Concern 3 (Wave 5 scope): split into 5a + 5b
+  - Concern 4 (Tenant.IndustrySector): promoted to W0-T10 (determines 5b scope)
+  - Concern 5 (test timing): W4-T11 smoke test tripwire added
+  - Concern 6 (export lib): promoted to W0-T9 (dependency approval before Wave 8)
+  - Concern 7 (multi-tenancy): W7-T6 isolation test added
+  - Concern 8 (branch strategy): per-wave merge to main (always-green, no long-lived branch)
+- **Root cause (8 issues):**
+  1. Production path `CalculateAsync` no-op → `NumericValues` always empty (Critical)
+  2. Calc engine exists (`Services/Template/`) but not wired in DI (Critical)
+  3. Data flow gap: `JournalEntries` table empty — no bridge from `AccountingEntry` (Critical)
+  4. Tests pass white (no numeric assertions) — bug hidden (Critical)
+  5. Tax formulas hardcoded 5%/10% — non-compliant vs TT 152 industry rates (High)
+  6. Output is plain text, not docx/xlsx TT 152 layout (High)
+  7. UTF-8 mojibake in `Services/Template/TemplateFactory.cs` (Medium)
+  8. Account mapping hallucinated (`_vietnameseAccounts` 211/811/821/841/521 wrong) (Medium)
+- **Target:** 7 HKD book templates (S1a, S2a-S2e, S3a) generate `NumericValues` with real data, output docx/xlsx per TT 152 layout, endpoint + UI page, tests assert numeric values, multi-tenancy enforced, regression prevention.
 
-### 8 Waves
-| Wave | Pattern | Description | Files | Status |
+### 10 Waves (v2 — dependency-ordered, per-wave merge to main)
+| Wave | Description | Sessions | Risk | Status |
 |---|---|---|---|---|
-| 0 | — | Pre-flight verification (auth/admin.json, config, env-config, git clean) | — | ✅ COMPLETE |
-| 1 | F | Remove decorative `reporter.pass()` calls | 9 | ✅ COMPLETE (`0c7965e`) |
-| 2 | D | Fix wrong auth pattern (fill login form → use global storageState) | 6 | ✅ COMPLETE (`b40b640`) |
-| 3 | G1 | Delete anti-schema tests (voice-command, i18n — hallucinated API schema) | 2 | ✅ COMPLETE (`5f57179`) |
-| 4 | G2 | Delete anti-UI tests (omnichannel loyalty/offline — no such UI) | 1 | ✅ COMPLETE (`c1e5c59`) |
-| 5 | C | Consolidate reachability smoke tests (9 → 2 in new gateway-smoke.spec.ts) | 5 | ✅ COMPLETE (`111197e`) |
-| 6 | B | Fix silent-skip (`if(isVisible){}` no else → hard assert or `test.skip`) | 5 | ✅ COMPLETE (`b893446`) |
-| 7 | A | Fix OR-tautology assertions (`a||b||c` always true → specific state) | 6 | ✅ COMPLETE (`108cc58`) |
-| 8 | — | Regression prevention (strict-assert helper + anti-pattern-lint + README) | 4 | ✅ COMPLETE (`ffe8607`) |
+| 0 | Pre-flight verification (11 tasks — baseline + 4 promoted architecture decisions + double-write audit) | 0.5-1 | None | ⏳ PENDING |
+| 1 | Fix UTF-8 mojibake in `Services/Template/TemplateFactory.cs` (S1a + S2a TemplateImpl) | 0.5 | Low | ⏳ PENDING |
+| 2 | Bridge `AccountingEntry` → `JournalEntry` persistence (double-entry Dr/Cr + decision tree) | 1-2 | Medium | ⏳ PENDING |
+| 3 | Wire 5 calc engine services into DI (conflict pre-resolved in W0-T8) | 1 | Low | ⏳ PENDING |
+| 4 | Route `HKDBookService.GenerateS*BookAsync` through `IHKDBookGenerationService` + smoke test tripwire (W4-T11) | 1 | Medium | ⏳ PENDING |
+| 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix W5a-T4) — **W5a-T4 needs Tech Lead approval** | 1 | Medium | ⏳ PENDING |
+| 5b | Industry-sector tax rates per TT 152 (CONDITIONAL — may descope if W0-T10 finds Tenant.IndustrySector missing) — **W5b-T0 needs Tech Lead approval IF executed** | 1-2 | High | ⏳ PENDING |
+| 6 | Retrofit tests with numeric assertions (3 update + 5 new + 1 regression) | 1-2 | Low | ⏳ PENDING |
+| 7 | API endpoint `GET /api/hkd-books/{templateCode}` + DI smoke + multi-tenancy isolation test (W7-T6) | 1 | Low | ⏳ PENDING |
+| 8 | UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint | 2-3 | Medium | ⏳ PENDING |
 
-### Parked Streams (awaiting approval)
+**Critical path:** Wave 0→1→2→3→4→5a→6→7→8 (sequential). **Optional:** Wave 5b (between 5a and 6, conditional). **Parallel:** Wave 0+1 có thể cùng session.
+**Branch strategy:** Per-wave merge to main (always-green, no long-lived branch).
+**Estimated total:** 10-15 sessions (5b optional).
+
+### Parked / Completed Streams
 - **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
+- **Stream B: E2E Test Cleanup** — ✅ COMPLETE (`ffe8607`). 8 waves, 7 anti-patterns, all merged-ready on `feature/e2e-cleanup-wave8-regression-prevention`. Awaiting merge to main.
 - **Stream C: ShopERP UI Fix** — ✅ COMPLETE & MERGED TO MAIN (`f3ed2d2`). 6 waves, 23 .razor files fixed.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/e2e-cleanup-wave8-regression-prevention` (off Wave 7 branch @ `6c4c3d0`)
-- **Last commit:** `ffe8607` [E2E-CLEANUP WAVE 8] Regression prevention: strict-assert helper + anti-pattern-lint + README docs
-- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (.ts-only changes, C# unaffected)
-- **Guard-check:** PASSED ✅ (untracked files, windsurf-guard v6.0, architecture-guard v1.0)
-- **E2E parse check:** `npx playwright test --list` → 668 tests in 21 files ✅ (unchanged — no tests added/removed; parse OK)
-- **E2E lint check:** `npm run lint:e2e` → 0 violations across 20 spec files ✅ (7 anti-pattern patterns scanned)
-- **Visual smoke test:** PASSED ✅ (2026-07-03, pre-Stream-B) — 6/6 routes HTTP 200. Screenshots at `6_Testing/reports/smoke-shots/`.
-- **Uncommitted changes:** None on Wave 8 branch (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1)
-- **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)**.
+- **Branch:** `main`
+- **Last commit:** `c4acb15` [HKD-FIX] Master plan v1 + 9 task cards (v2 master plan update pending commit)
+- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (planning docs only, no code change)
+- **Guard-check:** PASSED ✅ (windsurf-guard v6.0, untracked source files check)
+- **Uncommitted changes:** None (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1 — all ignored, not staged)
+- **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)**.
+- **Stream D planning artifacts (committed `c4acb15`):**
+  - `docs/AI/tasks/hkd_book_accounting_fix_master_plan.md` (620 lines)
+  - `docs/AI/tasks/wave0_hkd_fix_preflight_task_card.md` → `wave8_hkd_fix_ui_docx_export_regression_task_card.md` (9 task cards)
 - **Pre-existing defects found (NOT Stream C regressions):**
-  1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream (out of Stream B scope — Stream B is .ts-only).
-  2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes. **Relevant to Stream B Wave 2** (rbac-enforcement multi-role auth).
-- **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Wave 4 SCENARIO 2 deletion. Out of Wave 4 scope (master plan W4-T4 only covers test-data-cleaner.ts). Candidate for future page-object cleanup.
-- **In-progress:** Stream B Wave 8 complete. ALL 8 WAVES DONE — Stream B E2E Test Cleanup fully complete. Ready for merge to main.
+  1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream.
+  2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes.
+- **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Stream B Wave 4 SCENARIO 2 deletion. Candidate for future page-object cleanup.
+- **In-progress:** Stream D v2 plan approved (3 amendments + 5 concerns resolved). Master plan optimized in-session (pending commit). Awaiting Wave 0 execution (11 pre-flight tasks including 4 promoted architecture decisions).
 
 ---
 
 ## 4. Next Actions
 
-**Stream B — E2E Test Cleanup (active):**
-1. ~~Wave 0 (pre-flight)~~ ✅ — `auth/admin.json` generated by `global-setup.ts` (L111-112); `playwright.config.ts` L34+L56 apply `storageState` globally; `isTierEnabled('e2e')` in `env-config.ts` L359-389; git tree clean; `npx playwright test --list` → 759 tests in 20 files (parse OK).
-2. ~~Wave 1: Remove decorative `reporter.pass()`~~ ✅ — 59 calls removed across 9 spec files via brace-balanced Node script (`6_Testing/scripts/wave1-remove-reporter-pass.js`). 4 comment refs preserved. Imports/decls kept (all 9 files still use `reporter.log`/`setArchitectDecision`). `npx playwright test --list` → 759 tests (unchanged). `dotnet build` 0 errors. guard PASSED. Commit `0c7965e` on `feature/e2e-cleanup-wave1-remove-reporter-pass`.
-3. ~~Wave 2: Fix auth pattern (Pattern D)~~ ✅ — 6 files fixed. Removed form-fill `beforeEach` (`#username`/`#email`/`#Username` + `waitForURL`) from 5 simple files → rely on global `storageState` (auth/admin.json). Removed `test.use({ storageState: { cookies: [], origins: [] } })` override from 3 einvoice files. `rbac-enforcement`: removed `loginAs` helper; Owner tests (2) use global storageState; 6 multi-role tests (Staff/StoreKeeper/Guard) skipped with note (need `auth/<role>.json` generation — separate task); unauthenticated test wrapped in `test.describe` with empty storageState. `export-excel-flow` staff-role test also skipped. 0 `fill('#username'…)` / 0 `VanAn@2026` / 0 broken `waitForURL` remaining. `npx playwright test --list` → 759 tests (unchanged). `dotnet build` 0 errors. guard PASSED. Commit `b40b640` on `feature/e2e-cleanup-wave2-fix-auth-pattern`.
-4. ~~Wave 3: Delete anti-schema tests (Pattern G1)~~ ✅ — 5 tests deleted across 2 files. `voice-command.spec.ts`: removed `TC_Voice_TextCommand` (asserts `result.Command.CommandText`/`CommandType`/`OrderId` but `VoiceCommandController.ProcessTextCommand` returns `{ Success: bool }` @ L78), `TC_Voice_TTS` (asserts fabricated `tts-api.example.com` — string not in codebase; controller returns `{ AudioUrl }` @ L112), `TC_Voice_AudioStorage` (asserts `CleanedFiles`/`TotalExpired`/`Timestamp` schema with try/catch swallow), `TC_Voice_StatusUpdate` (asserts `result.Executed` + `result.Command.CommandType` — same schema mismatch). `i18n.spec.ts`: removed `TC_i18n_VoiceLanguage` (asserts `viResult.Executed`/`enResult.Executed` on voicecommand endpoint returning `{ Success: bool }`). Kept `TC_Voice_Flow` (silent skip — Wave 6) + 5 i18n switch/locale/product tests. `npx playwright test --list` → 729 tests in 20 files (was 759; -30 = 5 × 6 project instances). `dotnet build` 0 errors. windsurf-guard + architecture-guard PASSED. Commit `5f57179` on `feature/e2e-cleanup-wave3-delete-anti-schema-tests`.
-5. ~~Wave 4: Delete anti-UI tests (Pattern G2)~~ ✅ — 2 scenarios deleted from `omnichannel-order-lifecycle.spec.ts`. Removed SCENARIO 2 (Returning Loyalty Customer Flow — uses `.loyalty-points`/`.points-balance` selectors + `applyLoyaltyPoints`/`getLoyaltyPoints` page-object methods; 0 matches for `loyalty-points`/`points-balance`/`applyLoyaltyPoints` in `5_WebApps/KhachLink` — no loyalty feature exists). Removed SCENARIO 3 (Network Interruption / Edge Offline Resiliency — asserts `.offline-indicator`/`.network-status` selectors; these strings only in `PWAInstallPrompt.razor` (install prompt, not offline indicator); `context.setOffline(true)` + `page.goto()` will fail since KhachLink is server-rendered Blazor WASM PWA without offline-first outbox). Kept SCENARIO 1 (First-Time Guest Omnichannel Order Flow — uses real CustomerPage selectors). Also removed `TestDataGenerator.generateLoyaltyCustomerData()` from `test-data-cleaner.ts` (only referenced by deleted SCENARIO 2). `npx playwright test --list` → 715 tests in 20 files (was 729; -14 = 2 × 7 project instances). windsurf-guard + architecture-guard PASSED. Commit `c1e5c59` on `feature/e2e-cleanup-wave4-delete-anti-ui-tests`. Dead code note: `CustomerPage.ts` loyalty methods now unreferenced (out of Wave 4 scope).
-6. ~~Wave 5: Consolidate reachability smoke (Pattern C)~~ ✅ — 9 reachability tests across 4 files consolidated into 2 tests in new `gateway-smoke.spec.ts` using `test.step()`. Test 1: "Accounting API routes are reachable via Gateway (T-07 alias)" — 5 steps (GET /api/accounting-entries, GET /api/accounting, POST /api/accounting/revenue, POST /api/accounting/expense, GET /api/accounting/revenue/summary). Test 2: "Order, Inventory, and VietQR API routes are reachable via Gateway" — 4 steps (GET /api/orders, GET /api/inventory/check, GET /api/orders/{id}, POST /api/v1/vietqr/generate). Deleted from: `accounting-flow.spec.ts` (5 tests, entire "Gateway Accounting API" describe block), `order-flow.spec.ts` (2 tests: Order API + Inventory check), `order-tracking.spec.ts` (1 test: order status API), `qr-payment-ui.spec.ts` (1 test: VietQR generate; kept `supported-banks returns list` — validates response body, not just reachability). Each step asserts `status !== 404 && status !== 500`, preserving original strict assertions. `npx playwright test --list` → 668 tests in 21 files (was 715 in 20; +1 new file). windsurf-guard + architecture-guard PASSED. Commit `111197e` on `feature/e2e-cleanup-wave5-consolidate-smoke-tests`.
-7. ~~Wave 6: Fix silent-skip (Pattern B)~~ ✅ — 6 silent-skip tests fixed across 4 files. `invoice-management.spec.ts` (2 tests): `if(await btn.isVisible()){click+assert}` → `test.skip(!isVisible, reason)` + click + hard assert. `balance-dashboard-flow.spec.ts` (2 tests): unused `isWarningVisible`/`hasDetail` variables (assigned but never used — pure silent skip) → hard `expect().toBeVisible()` (test names say "should show"/"should display"). `voice-command.spec.ts` (1 test): `if(supportsSpeech){...}else{console.log}` → `test.skip(!supportsSpeech, 'Browser does not support SpeechRecognition API')` + mock + click + hard assert (removed else branch). `i18n.spec.ts` (1 test): `if(products.length > 0){assert}` (no else = silent pass when no products) → hard `expect(products.length).toBeGreaterThan(0)` + assert first product properties (both vi + en). `npx playwright test --list` → 668 tests in 21 files (unchanged — logic fixes only). windsurf-guard + architecture-guard PASSED. Commit `b893446` on `feature/e2e-cleanup-wave6-fix-silent-skip`.
-8. ~~Wave 7: Fix OR-tautology (Pattern A)~~ ✅ — 7 OR-tautology tests fixed across 6 files. Each `expect(a||b||c).toBeTruthy()` replaced with a specific, scoped assertion grounded in actual Razor UI code. `period-closing-flow.spec.ts` (1): `hasSuccess||hasError` (page-wide `[class*="success"]`/`[class*="error"]` match — tautology) → scoped `.alert-success, .alert-danger` inside validation card (PeriodClosing.razor L80/L96). `audit-trail-flow.spec.ts` (1): removed `redirectedAway` (true for ANY redirect including error pages) from `isLoginPage||isForbidden||hasAccessDenied||redirectedAway` → kept 3 specific security conditions (AuditTrail.razor L16 `@attribute [Authorize(Roles = "Admin")]`). `order-flow.spec.ts` (1): `isOnTrackingPage||hasTrackingOrConfirmation` → `toHaveURL(/\/order-tracking\//)` (Checkout.razor L167 redirect). `order-tracking.spec.ts` (2): "Checkout redirects" same URL assertion; "shows order ID in heading" `expect(text).toBeTruthy()` → `toMatch(/Theo dõi|Đơn hàng|order/i)` (OrderTracking.razor L86). `van-an-dashboard.spec.ts` (1): `hasMetrics||hasSpinner||hasWarning` → `.metrics-grid` visible (RealTimeDashboard.razor L30 always renders, no spinner/warning states in component). `qr-payment-ui.spec.ts` (1): `hasQrImage||hasSpinner||hasError` → `#qrPaymentModal .qr-image` visible (QrPaymentModal.razor L32; test flow already requires Gateway for order creation). `npx playwright test --list` → 668 tests in 21 files (unchanged). `dotnet build` 0 errors. guard PASSED. Commit `108cc58` on `feature/e2e-cleanup-wave7-fix-or-tautology`.
-9. ~~Wave 8: Regression prevention~~ ✅ — Created `utils/strict-assert.ts` (4 helpers: `assertOneOf`, `assertVisibleOrSkip`, `assertLocatorVisibleOrSkip`, `assertUrlMatches` — replaces Pattern A/B tautology/silent-skip). Created `utils/anti-pattern-lint.ts` (context-aware lint detecting 7 patterns: F/D×3/G1/B/A; skips comment lines; recognizes intentional patterns via preceding 5-line comment context with keywords: lint:allow, intentional, unauthenticated, AUTH_LIFECYCLE, Removed redirectedAway, security, dev login). Added `tsconfig.json` (minimal CommonJS for ts-node, no new deps). Added `lint:e2e` script to `package.json` (`npx ts-node e2e-tests/utils/anti-pattern-lint.ts`). Updated `README-OMNICHANNEL.md` with "Anti-Patterns (Stream B)" section: all 7 patterns documented with before/after examples, fix guidance, lint usage, strict-assert helper API. `npm run lint:e2e` → 0 violations across 20 spec files. `npx playwright test --list` → 668 tests in 21 files. guard PASSED. Commit `ffe8607` on `feature/e2e-cleanup-wave8-regression-prevention`.
+**Stream D — HKD Book Accounting Report Fix (active, v2 plan approved):**
+1. ~~Audit + master plan v1 + 9 task cards~~ ✅ — Committed `c4acb15` on `main`.
+2. ~~v2 plan optimization (3 amendments + 5 concerns resolved)~~ ✅ — Master plan updated in-session. Wave 5 split into 5a+5b, 4 architecture decisions promoted to Wave 0, smoke test + multi-tenancy test + double-write decision tree + per-wave merge strategy added.
+3. **Commit v2 master plan** ⏳ PENDING — Commit optimized `hkd_book_accounting_fix_master_plan.md` + updated `project_state.md` on `main`.
+4. **Wave 0: Pre-flight verification (11 tasks)** ⏳ PENDING — Verify baseline build, grep DI/endpoint/UI, query `JournalEntries`, extract 7 docx layouts, **resolve 4 promoted architecture decisions** (W0-T8 `ITemplateFactory` conflict, W0-T9 docx/xlsx lib, W0-T10 `Tenant.IndustrySector`, W0-T11 double-write audit). Task card: `wave0_hkd_fix_preflight_task_card.md` (needs expansion for T8-T11).
+5. **Wave 1: Fix UTF-8 mojibake** ⏳ PENDING — Fix `S1aHKDTemplateImpl` + `S2aHKDTemplateImpl` strings. Task card: `wave1_hkd_fix_encoding_mojibake_task_card.md`.
+6. **Wave 2: Bridge AccountingEntry → JournalEntry persistence** ⏳ PENDING — With double-write decision tree (W0-T11 prereq). Task card: `wave2_hkd_fix_bridge_journal_persistence_task_card.md`.
+7. **Wave 3: Wire calc engine into DI** ⏳ PENDING — Conflict pre-resolved in W0-T8. Task card: `wave3_hkd_fix_wire_calc_engine_di_task_card.md`.
+8. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
+9. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — needs creation, split from old wave5 card).
+10. **Wave 5b: Industry-sector tax rates** ⏳ CONDITIONAL — Depends on W0-T10. **W5b-T0 needs Tech Lead approval IF Tenant.IndustrySector missing.** Task card: `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — needs creation).
+11. **Wave 6: Retrofit tests with numeric assertions** ⏳ PENDING — Update 3 + add 5 + 1 regression test. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
+12. **Wave 7: API endpoint + DI smoke + multi-tenancy test** ⏳ PENDING — Endpoint + W7-T6 isolation test. Task card: `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md`.
+13. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
-**Stream B — ALL 8 WAVES COMPLETE. Ready for merge to main.**
+**Pre-Wave-5a action item:** Split old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` into `wave5a_..._pit_task_card.md` + `wave5b_..._industry_sector_task_card.md`.
+**Pre-Wave-0 action item:** Expand `wave0_hkd_fix_preflight_task_card.md` with T8-T11 (4 promoted architecture decisions).
 
 **Deferred (awaiting user decision):**
-1. **Push to origin:** `git push origin main` (15 commits ahead of `origin/main` — publish when ready; Stream B Wave 1 is on a feature branch, not yet merged to main).
-2. **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
-3. **Blazor `CascadingAuthenticationState` circuit crash** — pre-existing, out of Stream B scope (Stream B is .ts-only). Separate FIX_ONLY stream candidate.
+1. **Merge Stream B to main** — Stream B wave branches (`feature/e2e-cleanup-wave1-...` through `wave8-...`) await merge to main. All 8 waves complete, guard PASSED.
+2. **Push to origin** — `main` is 16 commits ahead of `origin/main` (15 Stream B + 1 Stream D planning).
+3. **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
+4. **Blazor `CascadingAuthenticationState` circuit crash** — pre-existing defect. Separate FIX_ONLY stream candidate.
+5. **Tech Lead approval for Stream D Wave 5a W5a-T4** — Domain modification (`HKDTemplates.cs` S2b account "512"→"5118", no new field). Needed before Wave 5a implementation.
+6. **Tech Lead approval for Stream D Wave 5b W5b-T0** (CONDITIONAL) — Add `IndustrySector` to `Tenant` entity. Only needed if W0-T10 finds field missing AND Wave 5b is not descoped.
 
 ---
 
@@ -171,6 +207,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Stream B Wave 8 COMPLETE (Regression Prevention). ALL 8 WAVES DONE. Created `utils/strict-assert.ts` (4 helpers: assertOneOf, assertVisibleOrSkip, assertLocatorVisibleOrSkip, assertUrlMatches). Created `utils/anti-pattern-lint.ts` (context-aware lint for 7 anti-patterns: F/D×3/G1/B/A; skips comments; recognizes intentional patterns via 5-line context with keywords). Added `tsconfig.json` (CommonJS for ts-node). Added `lint:e2e` to package.json. Updated README-OMNICHANNEL.md with anti-pattern docs. `npm run lint:e2e` → 0 violations across 20 spec files. `npx playwright test --list` → 668 tests in 21 files. guard PASSED. Commit `ffe8607` on `feature/e2e-cleanup-wave8-regression-prevention`. **Stream B E2E Test Cleanup FULLY COMPLETE — ready for merge to main.**
-* **Current Branch:** `feature/e2e-cleanup-wave8-regression-prevention`
-* **Current Objective:** Stream B — E2E Test Cleanup. ALL 8 WAVES COMPLETE. Ready for merge to main.
+* **Last Updated:** 2026-07-03 — Stream D v2 plan approved. Master plan optimized with 3 amendments + 5 concerns resolved: (1) promoted 4 architecture decisions to Wave 0 (ITemplateFactory conflict, docx/xlsx lib, Tenant.IndustrySector, double-write audit), (2) split Wave 5 into 5a (account mapping + PIT fix) + 5b (industry-sector rates, conditional), (3) added Wave 4 smoke test tripwire. Plus: Wave 2 double-write decision tree, Wave 7 multi-tenancy isolation test, per-wave merge to main branch strategy. Plan now 10 waves (5b optional), 10-15 sessions. v2 master plan + project_state update pending commit. Stream B (E2E Test Cleanup) fully complete — wave branches await merge to main.
+* **Current Branch:** `main`
+* **Current Objective:** Stream D — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance). Planning complete. Awaiting approval to start Wave 0.
