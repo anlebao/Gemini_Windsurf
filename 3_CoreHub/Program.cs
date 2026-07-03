@@ -20,6 +20,10 @@ using VanAn.CoreHub.Infrastructure.SemanticSearch.Services;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Agents;
 using VanAn.CoreHub.Services.Providers.EInvoice;
+using VanAn.CoreHub.Services.Formula;
+using VanAn.CoreHub.Services.Data;
+using VanAn.CoreHub.Services.PreAggregation;
+using VanAn.CoreHub.Services.Cache;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 
@@ -116,6 +120,18 @@ namespace VanAn.CoreHub
 
                     // Template factory (if not already registered)
                     _ = services.AddScoped<ITemplateFactory, TemplateFactory>();
+
+                    // Wave 3: HKD Book calc engine DI wiring (unblocks Wave 4 routing)
+                    // Dependency order: IFormulaEngine -> IPreAggregationService -> IDataProvider
+                    // -> IBookResultCache -> TemplateFactory (concrete) -> IHKDBookGenerationService
+                    // Note: New TemplateFactory (Services.Template namespace) registered as concrete,
+                    // NOT as ITemplateFactory — preserves old TemplateFactory for OrderService (W0-T8 decision).
+                    _ = services.AddScoped<IFormulaEngine, ProductionFormulaEngine>();
+                    _ = services.AddScoped<IPreAggregationService, SmartPreAggregationService>();
+                    _ = services.AddScoped<IDataProvider, ScopedDataProvider>();
+                    _ = services.AddScoped<IBookResultCache, BookResultCache>();
+                    _ = services.AddScoped<VanAn.CoreHub.Services.Template.TemplateFactory>();
+                    _ = services.AddScoped<VanAn.CoreHub.Services.Template.IHKDBookGenerationService, VanAn.CoreHub.Services.Template.HKDBookGenerationService>();
 
                     // Order hub
                     _ = services.AddScoped<OrderHub>();
