@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 + 5c ✅ COMPLETE & merged; Wave 6 ✅ COMPLETE (branch `feature/hkd-fix-wave6-retrofit-numeric-tests`, awaiting merge); Wave 7 next
+> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 + 5c + 6 ✅ COMPLETE & merged; Wave 7 next
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (Wave 6 complete — Retrofit Tests with Numeric Assertions: 3 updated + 5 new numeric + 1 regression; Core.Tests Release 818/818 PASS)
+> **Last Updated:** 2026-07-03 (Wave 6 merged to main `d6c3bb2` — Retrofit Tests with Numeric Assertions: 3 updated + 5 new numeric + 1 regression; Core.Tests Release 818/818 PASS)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -720,12 +720,12 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 | Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium | ✅ COMPLETE (merged into Wave 5) |
 | Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High | ✅ COMPLETE (merged into Wave 5) |
 | Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) | ✅ COMPLETE (`a60d026`) — awaiting merge |
-| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ✅ DONE — branch `feature/hkd-fix-wave6-retrofit-numeric-tests`. 3 updated + 5 new numeric + 1 regression. Core.Tests Release 818/818 PASS, guard PASSED. |
+| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ✅ DONE — merged to main `d6c3bb2` (branch `feature/hkd-fix-wave6-retrofit-numeric-tests` deleted after merge). 3 updated + 5 new numeric + 1 regression. Core.Tests Release 818/818 PASS, guard PASSED. |
 | Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low | ⏳ PENDING |
 | Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium | ⏳ PENDING |
 | **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | | **9/12 complete** (Wave 5 merged 5a+5b+partial 5c; Wave 5c proper complete on branch) |
 
-**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → ~~Wave 6~~ ✅ → **merge Wave 6** → Wave 7 → Wave 8
+**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → ~~Wave 6 (merged)~~ ✅ → Wave 7 → Wave 8
 **Optional path:** Wave 5b (between 5a and 5c) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
 **Parallel path:** Wave 0 + Wave 0.5 + Wave 1 có thể cùng session (cả 3 non-code/low-risk, độc lập)
 **Descope path:** If Wave 5b descoped → use default rate, log technical debt, Wave 5c/6-8 proceed (5c uses default rate if 5b descoped)
