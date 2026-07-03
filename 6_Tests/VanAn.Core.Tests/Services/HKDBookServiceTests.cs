@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Template;
 using VanAn.CoreHub.Repositories;
 using VanAn.Core.Tests.TestInfrastructure;
 using Xunit;
@@ -17,6 +18,7 @@ namespace VanAn.Core.Tests.Services
     {
         private readonly Mock<IHKDBookRepository> _mockHKDBookRepository;
         private readonly Mock<IAccountingEntryRepository> _mockAccountingEntryRepository;
+        private readonly Mock<IHKDBookGenerationService> _mockHKDBookGenerationService;
         private readonly HKDBookService _hkdBookService;
         private readonly TenantId _testTenantId = new(Guid.NewGuid());
         private readonly AccountingPeriod _testPeriod = new(2024, 1);
@@ -25,10 +27,12 @@ namespace VanAn.Core.Tests.Services
         {
             _mockHKDBookRepository = new Mock<IHKDBookRepository>();
             _mockAccountingEntryRepository = new Mock<IAccountingEntryRepository>();
+            _mockHKDBookGenerationService = new Mock<IHKDBookGenerationService>();
 
             _hkdBookService = new HKDBookService(
                 _mockAccountingEntryRepository.Object,
                 _mockHKDBookRepository.Object,
+                _mockHKDBookGenerationService.Object,
                 new NullLogger<HKDBookService>()
             );
         }
