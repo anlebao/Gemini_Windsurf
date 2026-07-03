@@ -160,16 +160,37 @@ namespace VanAn.CoreHub.Services.PreAggregation
         {
             try
             {
-                IQueryable<JournalEntry> query = _context.JournalEntries
-                    .Where(e => EF.Property<Guid>(e, "TenantId") == tenantId.Value &&
-                               e.Period.Year == period.Year &&
-                               e.Period.Month == period.Month &&
-                               e.Lines.Any(l => l.AccountNumber.StartsWith(accountPattern)));
+                // Wave 2 (Option A): Query AccountingEntries directly instead of JournalEntries.Lines.
+                // EntryType → side mapping: Revenue = Credit, Expense = Debit.
+                // AccountCode null heuristic: Revenue entries match "5" pattern, Expense entries match "6" pattern.
+                bool wantCredit = side.Equals("Credit", StringComparison.OrdinalIgnoreCase);
 
-                decimal sum = await query
-                    .SelectMany(e => e.Lines)
-                    .Where(l => l.AccountNumber.StartsWith(accountPattern))
-                    .SumAsync(l => side.Equals("Credit", StringComparison.OrdinalIgnoreCase) ? l.CreditAmount : l.DebitAmount);
+                // AccountingEntries is excluded from global query filter (VanAnDbContext L230),
+                // so we must filter by TenantId manually. Use direct TenantId comparison (EF Core
+                // applies TenantIdConverter automatically: TenantId → Guid in SQLite).
+                IQueryable<AccountingEntry> query = _context.AccountingEntries
+                    .Where(e => e.TenantId == tenantId &&
+                               e.PeriodYear == period.Year &&
+                               e.PeriodMonth == period.Month);
+
+                // Filter by AccountCode pattern (non-null) OR EntryType heuristic (null AccountCode)
+                query = query.Where(e =>
+                    (e.AccountCode != null && e.AccountCode.StartsWith(accountPattern)) ||
+                    (e.AccountCode == null &&
+                     ((wantCredit && e.EntryType == AccountingEntryType.Revenue && accountPattern == "5") ||
+                      (!wantCredit && e.EntryType == AccountingEntryType.Expense && accountPattern == "6"))));
+
+                // Sum Amount where EntryType matches the requested side
+                // Revenue → Credit, Expense → Debit, TaxPayment/Adjustment → use side filter via EntryType
+                // SQLite cannot apply aggregate 'Sum' on decimal server-side — materialize Amounts and sum on client
+                // to preserve decimal precision (see NotSupportedException from SqliteQueryableAggregateMethodTranslator).
+                List<decimal> amounts = await query
+                    .Where(e => wantCredit
+                        ? e.EntryType == AccountingEntryType.Revenue
+                        : e.EntryType == AccountingEntryType.Expense)
+                    .Select(e => e.Amount)
+                    .ToListAsync();
+                decimal sum = amounts.Count == 0 ? 0m : amounts.Sum();
 
                 _logger.LogDebug("Account sum for tenant {TenantId}, pattern {Pattern}, side {Side}: {Sum}",
                     tenantId.Value, accountPattern, side, sum);
