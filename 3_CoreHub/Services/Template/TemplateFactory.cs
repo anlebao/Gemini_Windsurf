@@ -119,7 +119,7 @@ namespace VanAn.CoreHub.Services.Template
             ILogger<S1aHKDTemplateImpl> logger) : base(formulaEngine, dataProvider, logger)
         {
             TemplateCode = "S1a_HKD";
-            TemplateName = "Sá» ké toÃ¡n cho há» kinh doanh khÃ´ng chá»u thuÃ© GTGT";
+            TemplateName = "Sổ kế toán cho hộ kinh doanh không chịu thuế GTGT";
             TargetGroup = HKDGroup.Group1;
 
             Fields =
@@ -127,7 +127,7 @@ namespace VanAn.CoreHub.Services.Template
                 new()
                 {
                     FieldName = "TotalRevenue",
-                    DisplayName = "Tá»ng doanh thu",
+                    DisplayName = "Tổng doanh thu",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""5"", ""Credit"")"
@@ -135,7 +135,7 @@ namespace VanAn.CoreHub.Services.Template
                 new()
                 {
                     FieldName = "TotalExpense",
-                    DisplayName = "Tá»ng chi phÃ­",
+                    DisplayName = "Tổng chi phí",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""6"", ""Debit"")"
@@ -143,7 +143,7 @@ namespace VanAn.CoreHub.Services.Template
                 new()
                 {
                     FieldName = "NetProfit",
-                    DisplayName = "Lá»i nhuáºn",
+                    DisplayName = "Lợi nhuận",
                     Type = FieldType.Decimal,
                     Formula = "TotalRevenue - TotalExpense"
                 }
@@ -152,22 +152,22 @@ namespace VanAn.CoreHub.Services.Template
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá» Káº¿ TOÃN S1a-HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há» kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ KẾ TOÁN S1a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("TotalRevenue", out decimal revenue))
             {
-                report += $"Tá»ng doanh thu: {revenue:N0} VNÄ\n";
+                report += $"Tổng doanh thu: {revenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalExpense", out decimal expense))
             {
-                report += $"Tá»ng chi phÃ­: {expense:N0} VNÄ\n";
+                report += $"Tổng chi phí: {expense:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetProfit", out decimal profit))
             {
-                report += $"Lá»i nhuáºn: {profit:N0} VNÄ\n";
+                report += $"Lợi nhuận: {profit:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -182,7 +182,7 @@ namespace VanAn.CoreHub.Services.Template
             ILogger<S2aHKDTemplateImpl> logger) : base(formulaEngine, dataProvider, logger)
         {
             TemplateCode = "S2a_HKD";
-            TemplateName = "Sá» ké toÃ¡n cho há» kinh doanh ná»p thuÃ© GTGT vÃ  TNCN";
+            TemplateName = "Sổ kế toán cho hộ kinh doanh nộp thuế GTGT và TNCN";
             TargetGroup = HKDGroup.Group2;
 
             Fields =
@@ -190,7 +190,7 @@ namespace VanAn.CoreHub.Services.Template
                 new()
                 {
                     FieldName = "TotalRevenue",
-                    DisplayName = "Tá»ng doanh thu",
+                    DisplayName = "Tổng doanh thu",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""5"", ""Credit"")"
@@ -198,21 +198,21 @@ namespace VanAn.CoreHub.Services.Template
                 new()
                 {
                     FieldName = "VatAmount",
-                    DisplayName = "Tiá»n thuÃ© GTGT",
+                    DisplayName = "Tiền thuế GTGT",
                     Type = FieldType.Decimal,
                     Formula = "TotalRevenue * 0.05"
                 },
                 new()
                 {
                     FieldName = "PersonalIncomeTax",
-                    DisplayName = "ThuÃ© TNCN",
+                    DisplayName = "Thuế TNCN",
                     Type = FieldType.Decimal,
                     Formula = "VatAmount * 0.1"
                 },
                 new()
                 {
                     FieldName = "NetRevenue",
-                    DisplayName = "Doanh thu sau thuÃ©",
+                    DisplayName = "Doanh thu sau thuế",
                     Type = FieldType.Decimal,
                     Formula = "TotalRevenue - VatAmount - PersonalIncomeTax"
                 }
@@ -221,27 +221,27 @@ namespace VanAn.CoreHub.Services.Template
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá» Káº¿ TOÃN S2a-HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há» kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ KẾ TOÁN S2a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("TotalRevenue", out decimal revenue))
             {
-                report += $"Tá»ng doanh thu: {revenue:N0} VNÄ\n";
+                report += $"Tổng doanh thu: {revenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("VatAmount", out decimal vat))
             {
-                report += $"ThuÃ© GTGT: {vat:N0} VNÄ\n";
+                report += $"Thuế GTGT: {vat:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("PersonalIncomeTax", out decimal pit))
             {
-                report += $"ThuÃ© TNCN: {pit:N0} VNÄ\n";
+                report += $"Thuế TNCN: {pit:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetRevenue", out decimal net))
             {
-                report += $"Doanh thu sau thuÃ©: {net:N0} VNÄ\n";
+                report += $"Doanh thu sau thuế: {net:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -590,7 +590,7 @@ namespace VanAn.CoreHub.Services.Template
             ILogger<S3aHKDTemplateImpl> logger) : base(formulaEngine, dataProvider, logger)
         {
             TemplateCode = "S3a_HKD";
-            TemplateName = "Sá» cho há» kinh doanh cÃ³ hoáº¡t Äá»ng thuá»c diá»n chá»u cÃ¡c loáº¡i thuÃ­ khÃ¡c";
+            TemplateName = "Sổ cho hộ kinh doanh có hoạt động thuộc diện chịu các loại thuế khác";
             TargetGroup = HKDGroup.Group3;
 
             Fields =
@@ -606,21 +606,21 @@ namespace VanAn.CoreHub.Services.Template
                 new()
                 {
                     FieldName = "SpecialTax",
-                    DisplayName = "ThuÃ© Äáº·c biá»t",
+                    DisplayName = "Thuế đặc biệt",
                     Type = FieldType.Decimal,
                     Formula = "Revenue * 0.1"
                 },
                 new()
                 {
                     FieldName = "OtherTax",
-                    DisplayName = "ThuÃ© khÃ¡c",
+                    DisplayName = "Thuế khác",
                     Type = FieldType.Decimal,
                     Formula = "Revenue * 0.05"
                 },
                 new()
                 {
                     FieldName = "NetRevenue",
-                    DisplayName = "Doanh thu sau thuÃ©",
+                    DisplayName = "Doanh thu sau thuế",
                     Type = FieldType.Decimal,
                     Formula = "Revenue - SpecialTax - OtherTax"
                 }
@@ -629,27 +629,27 @@ namespace VanAn.CoreHub.Services.Template
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá» THUáº KHÃC S3a-HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há» kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ THUẾ KHÁC S3a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("Revenue", out decimal revenue))
             {
-                report += $"Doanh thu: {revenue:N0} VNÄ\n";
+                report += $"Doanh thu: {revenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("SpecialTax", out decimal special))
             {
-                report += $"ThuÃ© Äáº·c biá»t: {special:N0} VNÄ\n";
+                report += $"Thuế đặc biệt: {special:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("OtherTax", out decimal other))
             {
-                report += $"ThuÃ© khÃ¡c: {other:N0} VNÄ\n";
+                report += $"Thuế khác: {other:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetRevenue", out decimal net))
             {
-                report += $"Doanh thu sau thuÃ©: {net:N0} VNÄ\n";
+                report += $"Doanh thu sau thuế: {net:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
