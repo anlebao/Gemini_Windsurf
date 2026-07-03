@@ -2,6 +2,7 @@ using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services.Formula;
 using VanAn.CoreHub.Services.Data;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace VanAn.CoreHub.Services.Template
 {
@@ -55,7 +56,7 @@ namespace VanAn.CoreHub.Services.Template
 
         public override async Task CalculateAsync(GenericHKDBook book)
         {
-            TemplateCalculationEngine calculationEngine = new(FormulaEngine, DataProvider, null!); // Logger will be created internally
+            TemplateCalculationEngine calculationEngine = new(FormulaEngine, DataProvider, NullLogger<TemplateCalculationEngine>.Instance);
 
             try
             {
@@ -155,7 +156,7 @@ namespace VanAn.CoreHub.Services.Template
         /// </summary>
         public async Task<List<string>> ValidateTemplateAsync()
         {
-            TemplateCalculationEngine calculationEngine = new(FormulaEngine, DataProvider, null!); // Logger will be created internally
+            TemplateCalculationEngine calculationEngine = new(FormulaEngine, DataProvider, NullLogger<TemplateCalculationEngine>.Instance);
             return await calculationEngine.ValidateTemplateAsync(this);
         }
     }

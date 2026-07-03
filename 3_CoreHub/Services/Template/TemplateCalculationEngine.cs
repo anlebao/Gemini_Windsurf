@@ -155,17 +155,31 @@ namespace VanAn.CoreHub.Services.Template
                 throw new InvalidOperationException($"Invalid formula: {formula}");
             }
 
+            // Wave 7: Use FormulaContext overload (not legacy variables overload) to pass
+            // the correct TenantId directly. The legacy Evaluate(formula, variables) path
+            // calls ExtractTenantId which tries to parse _TenantId decimal back as GUID —
+            // this fails because TenantId is a record (not IConvertible) and the decimal
+            // proxy (GetHashCode) cannot round-trip to the original GUID.
+            FormulaContext formulaContext = new FormulaContext(context.TenantId, context.Period)
+                .WithVariables(variables);
+
             // Evaluate formula
-            decimal result = _formulaEngine.Evaluate(formula, variables);
+            decimal result = _formulaEngine.Evaluate(formula, formulaContext);
 
             return await Task.FromResult(result);
         }
 
         private static Dictionary<string, decimal> CreateBaseVariables(TenantId tenantId, AccountingPeriod period)
         {
+            // Wave 7: Use GetHashCode() as numeric proxy for _TenantId.
+            // ExtractTenantId in ProductionFormulaEngine has a FormatException fallback (Guid.NewGuid),
+            // so round-trip precision is not required — _TenantId is only used for tenant context
+            // identification within a single formula evaluation, not for persistence.
+            // Previous code: decimal.Parse(tenantId.Value.ToString("N")) — crashes because GUID hex
+            // string contains non-numeric chars (a-f) that decimal.Parse cannot handle.
             return new Dictionary<string, decimal>
             {
-                ["_TenantId"] = decimal.Parse(tenantId.Value.ToString("N")),
+                ["_TenantId"] = tenantId.Value.GetHashCode(),
                 ["_PeriodYear"] = period.Year,
                 ["_PeriodMonth"] = period.Month,
                 ["_PeriodQuarter"] = (period.Month + 2) / 3,

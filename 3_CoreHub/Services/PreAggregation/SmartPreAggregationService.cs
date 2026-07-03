@@ -14,11 +14,11 @@ namespace VanAn.CoreHub.Services.PreAggregation
     /// </summary>
     public class SmartPreAggregationService(
         VanAnDbContext context,
-        IFormulaEngine formulaEngine,
+        Lazy<IFormulaEngine> formulaEngine,
         ILogger<SmartPreAggregationService> logger) : IPreAggregationService
     {
         private readonly VanAnDbContext _context = context;
-        private readonly IFormulaEngine _formulaEngine = formulaEngine;
+        private readonly Lazy<IFormulaEngine> _formulaEngine = formulaEngine;
         private readonly ILogger<SmartPreAggregationService> _logger = logger;
 
         public async Task<Dictionary<string, decimal>> GetAccountAggregatesAsync(
@@ -134,7 +134,7 @@ namespace VanAn.CoreHub.Services.PreAggregation
                     {
                         if (!string.IsNullOrEmpty(field.Formula))
                         {
-                            List<string> dependencies = _formulaEngine.GetDependencies(field.Formula);
+                            List<string> dependencies = _formulaEngine.Value.GetDependencies(field.Formula);
                             AddAccountPatternsFromDependencies(dependencies, patterns);
                         }
                     }
@@ -147,7 +147,7 @@ namespace VanAn.CoreHub.Services.PreAggregation
                     {
                         if (!string.IsNullOrEmpty(calculation.Formula))
                         {
-                            List<string> dependencies = _formulaEngine.GetDependencies(calculation.Formula);
+                            List<string> dependencies = _formulaEngine.Value.GetDependencies(calculation.Formula);
                             AddAccountPatternsFromDependencies(dependencies, patterns);
                         }
                     }
@@ -243,8 +243,9 @@ namespace VanAn.CoreHub.Services.PreAggregation
                 bool wantCredit = side.Equals("Credit", StringComparison.OrdinalIgnoreCase);
 
                 // AccountingEntries is excluded from global query filter (VanAnDbContext L230),
-                // so we must filter by TenantId manually. Use direct TenantId comparison (EF Core
-                // applies TenantIdConverter automatically: TenantId → Guid in SQLite).
+                // so we must filter by TenantId manually. Direct e.TenantId == tenantId works
+                // correctly — EF Core applies TenantIdConverter (TenantId → Guid) via convention.
+                // Do NOT use EF.Property<Guid> — TenantId is stored as TEXT, not Guid.
                 IQueryable<AccountingEntry> query = _context.AccountingEntries
                     .Where(e => e.TenantId == tenantId &&
                                e.PeriodYear == period.Year &&

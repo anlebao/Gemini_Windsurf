@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 + 5c + 6 ✅ COMPLETE & merged; Wave 7 next
+> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 + 5c + 6 + 7 ✅ COMPLETE; Wave 8 next
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (Wave 6 merged to main `d6c3bb2` — Retrofit Tests with Numeric Assertions: 3 updated + 5 new numeric + 1 regression; Core.Tests Release 818/818 PASS)
+> **Last Updated:** 2026-07-17 (Wave 7 committed `76d2c11` on branch `feature/hkd-fix-wave7-api-endpoint-di-smoke` — API endpoint + DI smoke + 4 endpoint tests (6/6 PASS) + 7 pre-existing bugs fixed; Core.Tests 818/818, Architecture.Tests 28/28, guard PASSED)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -525,33 +525,38 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ---
 
-## 8. WAVE 7 — API Endpoint + DI Smoke Test
+## 8. WAVE 7 — API Endpoint + DI Smoke Test ✅ COMPLETE
 
 **Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke`
-**Estimated sessions:** 1
+**Commit:** `76d2c11`
+**Estimated sessions:** 1 (actual: 2 — extra session for pre-existing bug fixes)
 **Conflict risk:** LOW (thêm endpoint mới, không break cũ)
 **Priority:** 7 (High — expose cho UI Wave 8)
 **Task Card:** `docs/AI/tasks/wave7_hkd_fix_api_endpoint_di_smoke_task_card.md` → **Full task details (W7-T1 to W7-T7, DTO spec, endpoint routes, DI smoke test, multi-tenancy isolation test)**
 
 **Summary:** Create `HKDBookDto` + 2 endpoints (`GET /api/hkd-books/{templateCode}?year=&month=`, `GET /api/hkd-books`). Add DI smoke test (4 service resolvable). Add integration test (endpoint return NumericValues). **[Concern 7] Add multi-tenancy isolation test** — tenant A cannot read tenant B data.
 
+**Execution results (2026-07-17):**
+- ✅ `HKDBookDto` created (1_Shared/DTOs)
+- ✅ `HKDBooksController` created (2 endpoints, JWT Bearer auth)
+- ✅ 2 DI smoke tests + 4 endpoint tests (6/6 PASS)
+- ✅ 7 pre-existing bugs fixed (Gateway DI, circular dependency, EntryDate mapping, Period query, CreateBaseVariables GUID parse, null logger, FormulaContext overload)
+- ✅ Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED
+- ✅ Root cause investigation log: `docs/AI/tasks/wave7_root_cause_investigation_log.md`
+- ✅ 2 new governance rules added: Known Error Pattern Registry + 3-Round Fix Limit
+
 ### Entry criteria
-- [ ] Wave 6 merged (test pass)
-- [ ] Wave 4 merged (GenerateS*BookAsync có số liệu)
+- [x] Wave 6 merged (test pass)
+- [x] Wave 4 merged (GenerateS*BookAsync có số liệu)
 
 ### Exit criteria
-- [ ] Endpoint `GET /api/hkd-books/{templateCode}` return `HKDBookDto` với NumericValues
-- [ ] Endpoint `GET /api/hkd-books` list templates theo HKDGroup
-- [ ] DI smoke test pass (4 service resolvable)
-- [ ] Integration test pass (endpoint return NumericValues)
-- [ ] **Multi-tenancy isolation test pass** (tenant A cannot read tenant B data — Concern 7 resolved)
-- [ ] `dotnet build VanAn.sln` Release — 0 errors
-- [ ] guard-check.ps1 PASSED
-
-### Why seventh
-- Sau Wave 6 (test pass) — logic ổn, expose API
-- UI Wave 8 cần endpoint để gọi
-- Risk thấp — endpoint mới, không break cũ
+- [x] Endpoint `GET /api/hkd-books/{templateCode}` return `HKDBookDto` với NumericValues
+- [x] Endpoint `GET /api/hkd-books` list templates theo HKDGroup
+- [x] DI smoke test pass (4 service resolvable)
+- [x] Integration test pass (endpoint return NumericValues)
+- [x] **Multi-tenancy isolation test pass** (tenant A cannot read tenant B data — Concern 7 resolved)
+- [x] `dotnet build VanAn.sln` Release — 0 errors
+- [x] guard-check.ps1 PASSED
 
 ---
 
@@ -721,11 +726,11 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 | Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High | ✅ COMPLETE (merged into Wave 5) |
 | Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) | ✅ COMPLETE (`a60d026`) — awaiting merge |
 | Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ✅ DONE — merged to main `d6c3bb2` (branch `feature/hkd-fix-wave6-retrofit-numeric-tests` deleted after merge). 3 updated + 5 new numeric + 1 regression. Core.Tests Release 818/818 PASS, guard PASSED. |
-| Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low | ⏳ PENDING |
+| Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low | ✅ DONE — Committed `76d2c11`, branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`. 6/6 tests PASS. 7 pre-existing bugs fixed. |
 | Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium | ⏳ PENDING |
 | **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | | **9/12 complete** (Wave 5 merged 5a+5b+partial 5c; Wave 5c proper complete on branch) |
 
-**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → ~~Wave 6 (merged)~~ ✅ → Wave 7 → Wave 8
+**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → ~~Wave 6 (merged)~~ ✅ → ~~Wave 7~~ ✅ → Wave 8
 **Optional path:** Wave 5b (between 5a and 5c) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
 **Parallel path:** Wave 0 + Wave 0.5 + Wave 1 có thể cùng session (cả 3 non-code/low-risk, độc lập)
 **Descope path:** If Wave 5b descoped → use default rate, log technical debt, Wave 5c/6-8 proceed (5c uses default rate if 5b descoped)

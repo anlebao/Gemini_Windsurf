@@ -179,10 +179,18 @@ namespace VanAn.CoreHub.Services.Template
 
         private async Task<List<JournalEntry>> GetJournalEntriesAsync(TenantId tenantId, AccountingPeriod period)
         {
+            // Wave 7: Filter by EntryDate range instead of Period.Year/Month —
+            // Period (AccountingPeriod record) is not mapped in EF Core configuration,
+            // so e.Period.Year/e.Period.Month cannot be translated to SQL.
+            // Use direct e.TenantId == tenantId (not EF.Property<Guid>) so EF Core
+            // uses the TenantIdConverter consistently, matching the query filter.
+            DateTime periodStart = new(period.Year, period.Month, 1);
+            DateTime periodEnd = periodStart.AddMonths(1);
+
             return await _context.JournalEntries
-                .Where(e => EF.Property<Guid>(e, "TenantId") == tenantId.Value &&
-                           e.Period.Year == period.Year &&
-                           e.Period.Month == period.Month)
+                .Where(e => e.TenantId == tenantId &&
+                           e.EntryDate >= periodStart &&
+                           e.EntryDate < periodEnd)
                 .OrderBy(e => e.EntryDate)
                 .ToListAsync();
         }
