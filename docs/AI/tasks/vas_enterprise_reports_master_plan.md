@@ -126,6 +126,7 @@ main ← feature/vas-wave9-regression-merge
 | D6 | Seed data | Sample DN vừa (TT 133), ~20 entries |
 | D7 | Order→Acc writer fix | W0 trước seed |
 | D8 | JIT Planning | Investigate trước, Implement sau (mỗi wave) |
+| D9 | HKD↔DN conversion | Option B (New Tenant + Link) · Read-only historical qua predecessor · Amend W2+W3+W8 (no new wave) |
 
 ---
 
@@ -163,6 +164,8 @@ main ← feature/vas-wave9-regression-merge
 | R9 | W0 PaymentMethod magic string | Define `PaymentMethodConstants` | W0 |
 | R10 | W0 discount/shipping accounting treatment | Net vs gross — quyết định trong W0, document lý do | W0 |
 | R11 | W0 COGS Path A/B sync cần refactor | Extract `CalculateCogsAmount(Order)` shared method | W0 |
+| R12 | HKD→DN conversion: opening balance mapping HKD single-entry → DN double-entry | W3 thêm HKD→DN account mapping · W1 seed 1 conversion scenario · W8 conversion service | W3+W1+W8 |
+| R13 | Historical HKD reports read-only sau conversion | W8 thêm PredecessorTenantId link + read-only gating | W8 |
 
 ---
 
