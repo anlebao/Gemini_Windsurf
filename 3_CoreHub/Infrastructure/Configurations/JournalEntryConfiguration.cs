@@ -23,6 +23,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(50);
 
+            // Wave 7: Map EntryDate — required for period-filtered queries in HKDBookGenerationService
+            _ = builder.Property(e => e.EntryDate).IsRequired();
+
             _ = builder.Property(e => e.Description)
                 .IsRequired()
                 .HasMaxLength(500);

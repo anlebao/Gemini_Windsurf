@@ -126,6 +126,9 @@ namespace VanAn.CoreHub
                     // -> IBookResultCache -> TemplateFactory (concrete) -> IHKDBookGenerationService
                     // Note: New TemplateFactory (Services.Template namespace) registered as concrete,
                     // NOT as ITemplateFactory — preserves old TemplateFactory for OrderService (W0-T8 decision).
+                    // Wave 7: Lazy<IFormulaEngine> breaks circular dependency (FormulaEngine -> DataProvider
+                    // -> PreAggregation -> FormulaEngine). SmartPreAggregationService uses Lazy<IFormulaEngine>.
+                    _ = services.AddScoped<Lazy<IFormulaEngine>>(sp => new Lazy<IFormulaEngine>(() => sp.GetRequiredService<IFormulaEngine>()));
                     _ = services.AddScoped<IFormulaEngine, ProductionFormulaEngine>();
                     _ = services.AddScoped<IPreAggregationService, SmartPreAggregationService>();
                     _ = services.AddScoped<IDataProvider, ScopedDataProvider>();

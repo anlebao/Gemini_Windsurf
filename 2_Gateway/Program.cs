@@ -196,6 +196,34 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IApiKeyManagementService, VanAn.CoreHub.Services.ApiKeyManagementService>();
             _ = builder.Services.AddScoped<IHmacApiKeyLookup, HmacApiKeyLookupAdapter>();
 
+            // Wave 7: HKD Book accounting services — register repositories + services + calc engine.
+            // PRIOR BUG: AccountingEntriesController injected IHKDBookService/IAccountingService/IReversalService
+            // but Gateway Program.cs never registered them → runtime 500 on any endpoint using them.
+            // Hidden because GatewayStartupTests only hit /health + auth-challenge routes.
+            // Repository layer
+            _ = builder.Services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
+            _ = builder.Services.AddScoped<IHKDBookRepository, HKDBookRepository>();
+            _ = builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+            // Core services
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAccountingService, VanAn.CoreHub.Services.AccountingEntryService>();
+            _ = builder.Services.AddScoped<IHKDBookService, HKDBookService>();
+            _ = builder.Services.AddScoped<IReversalService, ReversalService>();
+            _ = builder.Services.AddScoped<IPeriodClosingService, PeriodClosingService>();
+            _ = builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+            // Calc engine (Wave 3 wiring replicated for Gateway in-process host)
+            // Dependency order: IFormulaEngine -> IPreAggregationService -> IDataProvider
+            // -> IBookResultCache -> TemplateFactory (concrete) -> IHKDBookGenerationService
+            // Lazy<IFormulaEngine> breaks circular dependency: FormulaEngine -> DataProvider
+            // -> PreAggregation -> FormulaEngine (SmartPreAggregationService uses Lazy<IFormulaEngine>)
+            _ = builder.Services.AddScoped<Lazy<VanAn.CoreHub.Services.Formula.IFormulaEngine>>(
+                sp => new Lazy<VanAn.CoreHub.Services.Formula.IFormulaEngine>(() => sp.GetRequiredService<VanAn.CoreHub.Services.Formula.IFormulaEngine>()));
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Formula.IFormulaEngine, VanAn.CoreHub.Services.Formula.ProductionFormulaEngine>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.PreAggregation.IPreAggregationService, VanAn.CoreHub.Services.PreAggregation.SmartPreAggregationService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Data.IDataProvider, VanAn.CoreHub.Services.Data.ScopedDataProvider>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Cache.IBookResultCache, VanAn.CoreHub.Services.Cache.BookResultCache>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.TemplateFactory>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.IHKDBookGenerationService, VanAn.CoreHub.Services.Template.HKDBookGenerationService>();
+
             // Wave 14: Build HmacSigningOptions from configuration
             var hmacOptions = new VanAn.Gateway.Middleware.HmacSigningOptions();
             var protectedPaths = builder.Configuration
