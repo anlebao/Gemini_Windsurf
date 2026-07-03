@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — E2E Test Cleanup (Anti-Pattern Removal)
 
-> **Status:** ACTIVE — Wave 0+1+2+3+4+5+6 COMPLETE, Wave 7 NEXT
+> **Status:** ACTIVE — Wave 0+1+2+3+4+5+6+7 COMPLETE, Wave 8 NEXT
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 6 complete — 6 silent-skip tests fixed, commit `b893446`)
+> **Last Updated:** 2026-07-03 (Wave 7 complete — 7 OR-tautology tests fixed, commit `108cc58`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix (không case-by-case)
@@ -408,23 +408,23 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W7-T1 | Fix `period-closing-flow.spec.ts` — `validates period before closing`: bỏ `hasSuccess \|\| hasError`, assert cụ thể validation result card text | `period-closing-flow.spec.ts` | PENDING |
-| 2 | W7-T2 | Fix `audit-trail-flow.spec.ts` — `Non-admin cannot access`: bỏ `redirectedAway` (true cho mọi redirect), chỉ giữ `isLoginPage \|\| isForbidden \|\| hasAccessDenied` | `audit-trail-flow.spec.ts` | PENDING |
-| 3 | W7-T3 | Fix `order-flow.spec.ts` — `Customer can place order`: assert cụ thể URL `/order-tracking/{id}` hoặc success message text | `order-flow.spec.ts` | PENDING |
-| 4 | W7-T4 | Fix `order-tracking.spec.ts` — `Checkout redirects`: assert cụ thể URL hoặc tracking element | `order-tracking.spec.ts` | PENDING |
-| 5 | W7-T5 | Fix `order-tracking.spec.ts` — `shows order ID in heading`: assert `text?.includes(TEST_ORDER_ID) \|\| text?.includes('Theo dõi')` | `order-tracking.spec.ts` | PENDING |
-| 6 | W7-T6 | Fix `van-an-dashboard.spec.ts` — `metrics grid renders`: chọn 1 state cụ thể (metrics OR spinner), không OR 3 states | `van-an-dashboard.spec.ts` | PENDING |
-| 7 | W7-T7 | Fix `qr-payment-ui.spec.ts` — `QR modal contains .qr-image`: hard assert `.qr-image` visible (sau khi modal mở) | `qr-payment-ui.spec.ts` | PENDING |
-| 8 | W7-T8 | Verify `npx playwright test --list` pass | Solution-wide | PENDING |
+| 1 | W7-T1 | Fix `period-closing-flow.spec.ts` — `validates period before closing`: bỏ `hasSuccess \|\| hasError`, assert cụ thể validation result card text | `period-closing-flow.spec.ts` | ✅ DONE |
+| 2 | W7-T2 | Fix `audit-trail-flow.spec.ts` — `Non-admin cannot access`: bỏ `redirectedAway` (true cho mọi redirect), chỉ giữ `isLoginPage \|\| isForbidden \|\| hasAccessDenied` | `audit-trail-flow.spec.ts` | ✅ DONE |
+| 3 | W7-T3 | Fix `order-flow.spec.ts` — `Customer can place order`: assert cụ thể URL `/order-tracking/{id}` hoặc success message text | `order-flow.spec.ts` | ✅ DONE |
+| 4 | W7-T4 | Fix `order-tracking.spec.ts` — `Checkout redirects`: assert cụ thể URL hoặc tracking element | `order-tracking.spec.ts` | ✅ DONE |
+| 5 | W7-T5 | Fix `order-tracking.spec.ts` — `shows order ID in heading`: assert `text?.includes(TEST_ORDER_ID) \|\| text?.includes('Theo dõi')` | `order-tracking.spec.ts` | ✅ DONE |
+| 6 | W7-T6 | Fix `van-an-dashboard.spec.ts` — `metrics grid renders`: chọn 1 state cụ thể (metrics OR spinner), không OR 3 states | `van-an-dashboard.spec.ts` | ✅ DONE |
+| 7 | W7-T7 | Fix `qr-payment-ui.spec.ts` — `QR modal contains .qr-image`: hard assert `.qr-image` visible (sau khi modal mở) | `qr-payment-ui.spec.ts` | ✅ DONE |
+| 8 | W7-T8 | Verify `npx playwright test --list` pass | Solution-wide | ✅ DONE |
 
 ### Entry criteria
-- [ ] Wave 6 merged
-- [ ] Expected state cho mỗi test đã research (cần biết UI thực tế render gì)
+- [x] Wave 6 merged
+- [x] Expected state cho mỗi test đã research (đọc Razor files: PeriodClosing.razor, OrderTracking.razor, RealTimeDashboard.razor, QrPaymentModal.razor, Checkout.razor, AuditTrail.razor)
 
 ### Exit criteria
-- [ ] 0 `expect(a \|\| b \|\| c).toBeTruthy()` tautology còn lại
-- [ ] Mỗi test assert cụ thể 1 expected state (hoặc split thành 2 test nếu 2 states đều valid)
-- [ ] `npx playwright test --list` pass
+- [x] 0 `expect(a \|\| b \|\| c).toBeTruthy()` tautology còn lại (1 intentional OR remains: `isLoginPage \|\| isForbidden \|\| hasAccessDenied` — 3 specific security conditions, not a tautology per SC2)
+- [x] Mỗi test assert cụ thể 1 expected state (hoặc split thành 2 test nếu 2 states đều valid)
+- [x] `npx playwright test --list` pass (668 tests in 21 files)
 
 ### Why last (before regression prevention)
 - Risk cao nhất — cần biết expected state thực tế

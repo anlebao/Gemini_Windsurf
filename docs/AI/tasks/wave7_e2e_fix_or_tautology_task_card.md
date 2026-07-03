@@ -3,7 +3,7 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Fix 7 test cases dùng `expect(hasX || hasY || hasZ).toBeTruthy()` — chúng pass với bất cứ state nào. Chuyển sang assert cụ thể 1 expected state
 - **Nghiệp vụ áp dụng:** E2E test integrity — assertion phải verify state cụ thể, không tautology
-- **Status:** PENDING — Planning & Approval
+- **Status:** ✅ COMPLETE — Commit `108cc58` on `feature/e2e-cleanup-wave7-fix-or-tautology`
 - **Branch:** `feature/e2e-cleanup-wave7-fix-or-tautology`
 - **Estimated Sessions:** 1-2
 - **Risk:** HIGH — cần biết expected state thực tế
