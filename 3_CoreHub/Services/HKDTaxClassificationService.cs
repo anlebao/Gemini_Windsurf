@@ -311,6 +311,58 @@ namespace VanAn.CoreHub.Services
 
         #region Private Helper Methods
 
+        /// <summary>
+        /// Wave 5: 4-group VAT rate table per Luật Thuế GTGT sửa đổi 2025 + ND 117/2025.
+        /// Key: IndustrySector, Value: VAT rate as fraction (e.g., 0.01m = 1%).
+        /// </summary>
+        private static readonly Dictionary<IndustrySector, decimal> IndustryVatRates = new()
+        {
+            [IndustrySector.Distribution] = 0.01m,         // 1%
+            [IndustrySector.ProductionTransport] = 0.03m,  // 3%
+            [IndustrySector.Service] = 0.05m,              // 5%
+            [IndustrySector.OtherBusiness] = 0.02m         // 2%
+        };
+
+        /// <summary>
+        /// Wave 5: 4-group PIT rate table (HKD Nhóm 2) per Luật Thuế TNCN sửa đổi 2025 + ND 117/2025.
+        /// Key: IndustrySector, Value: PIT rate as fraction (e.g., 0.005m = 0.5%).
+        /// </summary>
+        private static readonly Dictionary<IndustrySector, decimal> IndustryPitRates = new()
+        {
+            [IndustrySector.Distribution] = 0.005m,         // 0.5%
+            [IndustrySector.ProductionTransport] = 0.015m,  // 1.5%
+            [IndustrySector.Service] = 0.02m,               // 2%
+            [IndustrySector.OtherBusiness] = 0.01m           // 1%
+        };
+
+        /// <summary>
+        /// Wave 5: Get VAT rate (fraction) for an industry sector.
+        /// Per Luật Thuế GTGT sửa đổi 2025 + ND 117/2025.
+        /// </summary>
+        public decimal GetVatRate(IndustrySector sector)
+        {
+            if (!IndustryVatRates.TryGetValue(sector, out decimal rate))
+            {
+                _logger.LogWarning("No VAT rate found for IndustrySector {Sector}, defaulting to OtherBusiness (2%)", sector);
+                return IndustryVatRates[IndustrySector.OtherBusiness];
+            }
+            return rate;
+        }
+
+        /// <summary>
+        /// Wave 5: Get PIT rate (fraction) for an industry sector (HKD Nhóm 2).
+        /// Per Luật Thuế TNCN sửa đổi 2025 + ND 117/2025.
+        /// </summary>
+        public decimal GetPitRate(IndustrySector sector)
+        {
+            if (!IndustryPitRates.TryGetValue(sector, out decimal rate))
+            {
+                _logger.LogWarning("No PIT rate found for IndustrySector {Sector}, defaulting to OtherBusiness (1%)", sector);
+                return IndustryPitRates[IndustrySector.OtherBusiness];
+            }
+            return rate;
+        }
+
         private static HKDGroup GetHKDGroupForBookType(AccountingBookType bookType)
         {
             return bookType switch

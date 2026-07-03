@@ -83,6 +83,23 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
+    /// 4 industry sector groups per Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025.
+    /// Determines VAT + PIT rate for HKD Group 2 businesses (TT 152/2025/TT-BTC S2a/S2b layout).
+    /// TT 152 allows up to 5 industry groups; the 5th group maps to <see cref="OtherBusiness"/>.
+    /// </summary>
+    public enum IndustrySector
+    {
+        /// <summary>Phân phối, cung cấp hàng hóa — GTGT 1%, TNCN 0.5%.</summary>
+        Distribution = 1,
+        /// <summary>Sản xuất, vận tải, dịch vụ gắn hàng hóa, xây dựng bao thầu NVL — GTGT 3%, TNCN 1.5%.</summary>
+        ProductionTransport = 2,
+        /// <summary>Dịch vụ, xây dựng không bao thầu NVL — GTGT 5%, TNCN 2%.</summary>
+        Service = 3,
+        /// <summary>Hoạt động kinh doanh khác — GTGT 2%, TNCN 1%. Also the fallback bucket for entries with NULL IndustrySector (ensures TotalRevenue = SUM(all sector revenues) always holds).</summary>
+        OtherBusiness = 4
+    }
+
+    /// <summary>
     /// Accounting Period for Household Business reporting
     /// </summary>
     public record AccountingPeriod(int Year, int Month)
@@ -166,6 +183,11 @@ namespace VanAn.Shared.Domain
         public HKDGroup? HKDGroup { get; init; } // Only for Household Business
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
         public bool IsActive { get; init; } = true;
+
+        // Wave 5 (approved 2026-07-03): Default industry sector for HKD Group 2 tenants.
+        // Nullable — existing tenants get NULL, must be set before generating S2a/S2b.
+        // Used as fallback when Order.IndustrySector is not set.
+        public IndustrySector? DefaultIndustrySector { get; init; }
 
         public static Tenant CreateCompany(TenantId id, string name)
         {
@@ -286,6 +308,11 @@ namespace VanAn.Shared.Domain
         public string? Category { get; }
         public string? Reference { get; }
 
+        // Wave 5 (approved 2026-07-03): Industry sector for TT 152 S2a/S2b industry-group split.
+        // Nullable for backward compatibility (existing entries get NULL → counted in OtherBusiness group).
+        // Immutable after creation (no setter) — preserves AccountingEntry immutability.
+        public IndustrySector? IndustrySector { get; }
+
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
 
         // Navigation (read-only)
@@ -309,7 +336,8 @@ namespace VanAn.Shared.Domain
             string? accountCode = null,
             string? vendor = null,
             string? category = null,
-            string? reference = null)
+            string? reference = null,
+            IndustrySector? industrySector = null)
         {
             TenantId = tenantId;
             Amount = amount;
@@ -325,23 +353,26 @@ namespace VanAn.Shared.Domain
             Vendor = vendor;
             Category = category;
             Reference = reference;
+            IndustrySector = industrySector;
         }
 
         // ====================== FACTORY METHODS ======================
         public static AccountingEntry CreateRevenue(TenantId tenantId, AccountingPeriod period, Money amount, string description,
-            string? accountCode = null, string? reference = null)
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Revenue, VatRate.Zero,
                 AccountingBookType.RevenueBook, period.Year, period.Month, description,
-                reversalEntryId: null, accountCode: accountCode, reference: reference);
+                reversalEntryId: null, accountCode: accountCode, reference: reference, industrySector: industrySector);
         }
 
         public static AccountingEntry CreateExpense(TenantId tenantId, AccountingPeriod period, Money amount, string description,
-            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null)
+            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
+            IndustrySector? industrySector = null)
         {
             return new(tenantId, amount.Value, AccountingEntryType.Expense, VatRate.Zero,
                 AccountingBookType.ExpenseBook, period.Year, period.Month, description,
-                reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference);
+                reversalEntryId: null, accountCode: accountCode, vendor: vendor, category: category, reference: reference,
+                industrySector: industrySector);
         }
 
         public static AccountingEntry CreateReversal(AccountingEntry original, string reason)
@@ -359,7 +390,8 @@ namespace VanAn.Shared.Domain
                 original.PeriodMonth,
                 $"Reversal of: {original.Description} - {reason}",
                 original.Id,
-                accountCode: original.AccountCode);
+                accountCode: original.AccountCode,
+                industrySector: original.IndustrySector);
         }
 
         public static AccountingEntry CreateReversalWithId(AccountingEntry original, string reason, Guid originalEntryId)
@@ -377,7 +409,8 @@ namespace VanAn.Shared.Domain
                 original.PeriodMonth,
                 $"Reversal of: {original.Description} - {reason}",
                 originalEntryId,
-                accountCode: original.AccountCode);
+                accountCode: original.AccountCode,
+                industrySector: original.IndustrySector);
         }
     }
 
@@ -857,6 +890,11 @@ namespace VanAn.Shared.Domain
         public string? TrackingCode { get; protected set; } // Social campaign tracking
         public bool IsSyncedToCoreHub { get; protected set; }
 
+        // Wave 5 (approved 2026-07-03): Industry sector override for this order.
+        // Nullable — existing orders get NULL, falls back to Tenant.DefaultIndustrySector.
+        // Per-order override: if set, takes precedence over Tenant default.
+        public IndustrySector? IndustrySector { get; protected set; }
+
         // Navigation Properties
         public Customer? Customer { get; protected set; }
         public virtual ICollection<OrderItem> Items { get; protected set; } = new List<OrderItem>();
@@ -972,6 +1010,16 @@ namespace VanAn.Shared.Domain
         public void SetCustomerDeviceId(string deviceFingerprint)
         {
             CustomerDeviceId = deviceFingerprint;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Wave 5: Set per-order industry sector override (TT 152 S2a/S2b).
+        /// If set, takes precedence over Tenant.DefaultIndustrySector when generating accounting entries.
+        /// </summary>
+        public void SetIndustrySector(IndustrySector? sector)
+        {
+            IndustrySector = sector;
             UpdateAudit();
         }
 

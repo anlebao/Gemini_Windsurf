@@ -11,11 +11,13 @@ namespace VanAn.CoreHub.Services
     public interface IHKDBookService
     {
         // Week 1: Basic Revenue/Expense operations
+        // Wave 5: industrySector optional parameter (backward compatible — TT 152 S2a/S2b)
         Task<CoreAccountingEntry> RecordRevenueAsync(
             TenantId tenantId,
             decimal amount,
             string description,
             DateTime? transactionDate = null,
+            IndustrySector? industrySector = null,
             CancellationToken cancellationToken = default);
 
         Task<CoreAccountingEntry> RecordExpenseAsync(
@@ -23,6 +25,7 @@ namespace VanAn.CoreHub.Services
             decimal amount,
             string description,
             DateTime? transactionDate = null,
+            IndustrySector? industrySector = null,
             CancellationToken cancellationToken = default);
 
         // Phase 2.3.4: 7 HKD Books Implementation (Thông tư 152/2025/TT-BTC)

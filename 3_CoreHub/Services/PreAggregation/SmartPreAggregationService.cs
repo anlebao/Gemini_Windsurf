@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Services.Formula;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -49,6 +50,28 @@ namespace VanAn.CoreHub.Services.PreAggregation
 
                 _logger.LogDebug("Aggregated pattern {Pattern}: Credit={Credit}, Debit={Debit}",
                     pattern, creditSum, debitSum);
+            }
+
+            // Wave 5: Also aggregate per-industry-sector for patterns used by SUM_ACCOUNT_BY_INDUSTRY.
+            // Produces keys: Account_{pattern}_{side}_{sector} for each of the 4 IndustrySector values.
+            // NULL IndustrySector entries are counted in the OtherBusiness bucket.
+            HashSet<string> sectorPatterns = ExtractSectorAccountPatterns(templates);
+            if (sectorPatterns.Count > 0)
+            {
+                foreach (string pattern in sectorPatterns)
+                {
+                    foreach (IndustrySector sector in Enum.GetValues<IndustrySector>())
+                    {
+                        decimal creditSum = await GetAccountSumAsync(tenantId, period, pattern, "Credit", sector);
+                        decimal debitSum = await GetAccountSumAsync(tenantId, period, pattern, "Debit", sector);
+
+                        aggregates[$"Account_{pattern}_Credit_{sector}"] = creditSum;
+                        aggregates[$"Account_{pattern}_Debit_{sector}"] = debitSum;
+
+                        _logger.LogDebug("Aggregated sector pattern {Pattern} {Sector}: Credit={Credit}, Debit={Debit}",
+                            pattern, sector, creditSum, debitSum);
+                    }
+                }
             }
 
             _logger.LogInformation("Smart pre-aggregation completed for tenant {TenantId}: {ValueCount} values",
@@ -152,11 +175,65 @@ namespace VanAn.CoreHub.Services.PreAggregation
             }
         }
 
+        /// <summary>
+        /// Wave 5: Extract account patterns referenced by SUM_ACCOUNT_BY_INDUSTRY formulas.
+        /// These patterns need per-sector aggregation (key: Account_{pattern}_{side}_{sector}).
+        /// </summary>
+        private HashSet<string> ExtractSectorAccountPatterns(List<HKDBookTemplate> templates)
+        {
+            HashSet<string> patterns = [];
+
+            foreach (HKDBookTemplate template in templates)
+            {
+                if (template.Fields != null)
+                {
+                    foreach (TemplateField field in template.Fields)
+                    {
+                        if (!string.IsNullOrEmpty(field.Formula))
+                        {
+                            AddSectorPatternsFromFormula(field.Formula, patterns);
+                        }
+                    }
+                }
+
+                if (template.Calculations != null)
+                {
+                    foreach (TemplateCalculation calc in template.Calculations)
+                    {
+                        if (!string.IsNullOrEmpty(calc.Formula))
+                        {
+                            AddSectorPatternsFromFormula(calc.Formula, patterns);
+                        }
+                    }
+                }
+            }
+
+            return patterns;
+        }
+
+        private static void AddSectorPatternsFromFormula(string formula, HashSet<string> patterns)
+        {
+            // Match SUM_ACCOUNT_BY_INDUSTRY("pattern", "side", "sector")
+            MatchCollection matches = Regex.Matches(
+                formula,
+                @"SUM_ACCOUNT_BY_INDUSTRY\(""([^""]*)"",\s*""([^""]*)"",\s*""([^""]*)""\)",
+                RegexOptions.IgnoreCase);
+
+            foreach (Match match in matches.Cast<Match>())
+            {
+                if (match.Success)
+                {
+                    patterns.Add(match.Groups[1].Value);
+                }
+            }
+        }
+
         private async Task<decimal> GetAccountSumAsync(
             TenantId tenantId,
             AccountingPeriod period,
             string accountPattern,
-            string side)
+            string side,
+            IndustrySector? industrySector = null)
         {
             try
             {
@@ -180,6 +257,15 @@ namespace VanAn.CoreHub.Services.PreAggregation
                      ((wantCredit && e.EntryType == AccountingEntryType.Revenue && accountPattern == "5") ||
                       (!wantCredit && e.EntryType == AccountingEntryType.Expense && accountPattern == "6"))));
 
+                // Wave 5: Industry sector filter — NULL IndustrySector counts in OtherBusiness bucket
+                if (industrySector.HasValue)
+                {
+                    IndustrySector effectiveSector = industrySector.Value;
+                    query = query.Where(e =>
+                        (e.IndustrySector == effectiveSector) ||
+                        (e.IndustrySector == null && effectiveSector == IndustrySector.OtherBusiness));
+                }
+
                 // Sum Amount where EntryType matches the requested side
                 // Revenue → Credit, Expense → Debit, TaxPayment/Adjustment → use side filter via EntryType
                 // SQLite cannot apply aggregate 'Sum' on decimal server-side — materialize Amounts and sum on client
@@ -192,15 +278,15 @@ namespace VanAn.CoreHub.Services.PreAggregation
                     .ToListAsync();
                 decimal sum = amounts.Count == 0 ? 0m : amounts.Sum();
 
-                _logger.LogDebug("Account sum for tenant {TenantId}, pattern {Pattern}, side {Side}: {Sum}",
-                    tenantId.Value, accountPattern, side, sum);
+                _logger.LogDebug("Account sum for tenant {TenantId}, pattern {Pattern}, side {Side}, sector {Sector}: {Sum}",
+                    tenantId.Value, accountPattern, side, industrySector?.ToString() ?? "ALL", sum);
 
                 return sum;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting account sum for tenant {TenantId}, pattern {Pattern}, side {Side}",
-                    tenantId.Value, accountPattern, side);
+                _logger.LogError(ex, "Error getting account sum for tenant {TenantId}, pattern {Pattern}, side {Side}, sector {Sector}",
+                    tenantId.Value, accountPattern, side, industrySector?.ToString() ?? "ALL");
                 return 0;
             }
         }

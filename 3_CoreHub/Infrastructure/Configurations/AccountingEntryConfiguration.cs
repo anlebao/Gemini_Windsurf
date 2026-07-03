@@ -64,6 +64,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.Reference)
                 .HasMaxLength(100);
 
+            // Wave 5 (approved 2026-07-03): Industry sector for TT 152 S2a/S2b industry-group split.
+            // Nullable int — NULL entries counted in OtherBusiness bucket at query time.
+            _ = builder.Property(e => e.IndustrySector)
+                .HasConversion<int?>();
+
             // Indexes for performance with 4 HKD Books
             _ = builder.HasIndex(e => new { e.TenantId, e.AccountingBookType });
             _ = builder.HasIndex(e => new { e.TenantId, e.PeriodYear, e.PeriodMonth });

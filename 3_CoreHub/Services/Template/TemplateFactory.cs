@@ -185,37 +185,36 @@ namespace VanAn.CoreHub.Services.Template
             TemplateName = "Sổ kế toán cho hộ kinh doanh nộp thuế GTGT và TNCN";
             TargetGroup = HKDGroup.Group2;
 
+            // Wave 5 (TT 152/2025/TT-BTC): 4 industry groups × 3 fields (Revenue, VatAmount, PIT per group).
+            // Tax rates per Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025:
+            //   Distribution:        GTGT 1% (0.01),  TNCN 0.5% (0.005)
+            //   ProductionTransport: GTGT 3% (0.03),  TNCN 1.5% (0.015)
+            //   Service:             GTGT 5% (0.05),  TNCN 2%   (0.02)
+            //   OtherBusiness:       GTGT 2% (0.02),  TNCN 1%   (0.01)
+            // NULL IndustrySector entries are counted in the OtherBusiness bucket (ensures TotalRevenue = SUM(all sectors)).
             Fields =
             [
-                new()
-                {
-                    FieldName = "TotalRevenue",
-                    DisplayName = "Tổng doanh thu",
-                    Type = FieldType.Decimal,
-                    IsRequired = true,
-                    Formula = @"SUM_ACCOUNT(""5"", ""Credit"")"
-                },
-                new()
-                {
-                    FieldName = "VatAmount",
-                    DisplayName = "Tiền thuế GTGT",
-                    Type = FieldType.Decimal,
-                    Formula = "TotalRevenue * 0.05"
-                },
-                new()
-                {
-                    FieldName = "PersonalIncomeTax",
-                    DisplayName = "Thuế TNCN",
-                    Type = FieldType.Decimal,
-                    Formula = "VatAmount * 0.1"
-                },
-                new()
-                {
-                    FieldName = "NetRevenue",
-                    DisplayName = "Doanh thu sau thuế",
-                    Type = FieldType.Decimal,
-                    Formula = "TotalRevenue - VatAmount - PersonalIncomeTax"
-                }
+                // ── Distribution (GTGT 1%, TNCN 0.5%) ──
+                new() { FieldName = "Revenue_Distribution", DisplayName = "Doanh thu — Phân phối", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Distribution"")" },
+                new() { FieldName = "VatAmount_Distribution", DisplayName = "Thuế GTGT — Phân phối", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.01" },
+                new() { FieldName = "PIT_Distribution", DisplayName = "Thuế TNCN — Phân phối", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.005" },
+                // ── ProductionTransport (GTGT 3%, TNCN 1.5%) ──
+                new() { FieldName = "Revenue_ProductionTransport", DisplayName = "Doanh thu — Sản xuất, vận tải", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""ProductionTransport"")" },
+                new() { FieldName = "VatAmount_ProductionTransport", DisplayName = "Thuế GTGT — Sản xuất, vận tải", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.03" },
+                new() { FieldName = "PIT_ProductionTransport", DisplayName = "Thuế TNCN — Sản xuất, vận tải", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.015" },
+                // ── Service (GTGT 5%, TNCN 2%) ──
+                new() { FieldName = "Revenue_Service", DisplayName = "Doanh thu — Dịch vụ", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Service"")" },
+                new() { FieldName = "VatAmount_Service", DisplayName = "Thuế GTGT — Dịch vụ", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.05" },
+                new() { FieldName = "PIT_Service", DisplayName = "Thuế TNCN — Dịch vụ", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.02" },
+                // ── OtherBusiness (GTGT 2%, TNCN 1%) — includes NULL IndustrySector entries ──
+                new() { FieldName = "Revenue_OtherBusiness", DisplayName = "Doanh thu — Hoạt động khác", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""OtherBusiness"")" },
+                new() { FieldName = "VatAmount_OtherBusiness", DisplayName = "Thuế GTGT — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.02" },
+                new() { FieldName = "PIT_OtherBusiness", DisplayName = "Thuế TNCN — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.01" },
+                // ── Totals ──
+                new() { FieldName = "TotalRevenue", DisplayName = "Tổng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
+                new() { FieldName = "TotalVat", DisplayName = "Tổng thuế GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" },
+                new() { FieldName = "TotalPIT", DisplayName = "Tổng thuế TNCN", Type = FieldType.Decimal, Formula = "PIT_Distribution + PIT_ProductionTransport + PIT_Service + PIT_OtherBusiness" },
+                new() { FieldName = "NetRevenue", DisplayName = "Doanh thu sau thuế", Type = FieldType.Decimal, Formula = "TotalRevenue - TotalVat - TotalPIT" }
             ];
         }
 
@@ -223,20 +222,28 @@ namespace VanAn.CoreHub.Services.Template
         {
             string report = $"SỔ KẾ TOÁN S2a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
             report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
+            report += "--- Phân phối (GTGT 1%, TNCN 0.5%) ---\n";
+            report += ReportSectorLine(book, "Distribution");
+            report += "--- Sản xuất, vận tải (GTGT 3%, TNCN 1.5%) ---\n";
+            report += ReportSectorLine(book, "ProductionTransport");
+            report += "--- Dịch vụ (GTGT 5%, TNCN 2%) ---\n";
+            report += ReportSectorLine(book, "Service");
+            report += "--- Hoạt động khác (GTGT 2%, TNCN 1%) ---\n";
+            report += ReportSectorLine(book, "OtherBusiness");
 
-            if (book.NumericValues.TryGetValue("TotalRevenue", out decimal revenue))
+            if (book.NumericValues.TryGetValue("TotalRevenue", out decimal totalRevenue))
             {
-                report += $"Tổng doanh thu: {revenue:N0} VNĐ\n";
+                report += $"Tổng doanh thu: {totalRevenue:N0} VNĐ\n";
             }
 
-            if (book.NumericValues.TryGetValue("VatAmount", out decimal vat))
+            if (book.NumericValues.TryGetValue("TotalVat", out decimal totalVat))
             {
-                report += $"Thuế GTGT: {vat:N0} VNĐ\n";
+                report += $"Tổng thuế GTGT: {totalVat:N0} VNĐ\n";
             }
 
-            if (book.NumericValues.TryGetValue("PersonalIncomeTax", out decimal pit))
+            if (book.NumericValues.TryGetValue("TotalPIT", out decimal totalPit))
             {
-                report += $"Thuế TNCN: {pit:N0} VNĐ\n";
+                report += $"Tổng thuế TNCN: {totalPit:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetRevenue", out decimal net))
@@ -245,6 +252,27 @@ namespace VanAn.CoreHub.Services.Template
             }
 
             return await Task.FromResult(report);
+        }
+
+        private static string ReportSectorLine(GenericHKDBook book, string sector)
+        {
+            string line = "";
+            if (book.NumericValues.TryGetValue($"Revenue_{sector}", out decimal revenue))
+            {
+                line += $"  Doanh thu: {revenue:N0} VNĐ\n";
+            }
+
+            if (book.NumericValues.TryGetValue($"VatAmount_{sector}", out decimal vat))
+            {
+                line += $"  Thuế GTGT: {vat:N0} VNĐ\n";
+            }
+
+            if (book.NumericValues.TryGetValue($"PIT_{sector}", out decimal pit))
+            {
+                line += $"  Thuế TNCN: {pit:N0} VNĐ\n";
+            }
+
+            return line;
         }
     }
 
@@ -256,59 +284,70 @@ namespace VanAn.CoreHub.Services.Template
             ILogger<S2bHKDTemplateImpl> logger) : base(formulaEngine, dataProvider, logger)
         {
             TemplateCode = "S2b_HKD";
-            TemplateName = "Số doanh thu bán hàng hóa, dịch vụ";
+            TemplateName = "Sổ doanh thu bán hàng hóa, dịch vụ";
             TargetGroup = HKDGroup.Group2;
 
+            // Wave 5 (TT 152/2025/TT-BTC): 4 industry groups × 2 fields (Revenue, VatAmount per group).
+            // Split by industry sector (NOT goods-vs-service — that was a TT 200 hallucination).
+            // VAT rates per Luật Thuế GTGT sửa đổi 2025 + ND 117/2025:
+            //   Distribution: 1%, ProductionTransport: 3%, Service: 5%, OtherBusiness: 2%
+            // NULL IndustrySector entries are counted in the OtherBusiness bucket.
             Fields =
             [
-                new()
-                {
-                    FieldName = "Revenue",
-                    DisplayName = "Doanh thu bán hàng hóa",
-                    Type = FieldType.Decimal,
-                    IsRequired = true,
-                    Formula = @"SUM_ACCOUNT(""511"", ""Credit"")"
-                },
-                new()
-                {
-                    FieldName = "ServiceRevenue",
-                    DisplayName = "Doanh thu dịch vụ",
-                    Type = FieldType.Decimal,
-                    IsRequired = true,
-                    Formula = @"SUM_ACCOUNT(""521"", ""Credit"")"
-                },
-                new()
-                {
-                    FieldName = "TotalRevenue",
-                    DisplayName = "Tổng doanh thu",
-                    Type = FieldType.Decimal,
-                    IsRequired = true,
-                    Formula = @"Revenue + ServiceRevenue"
-                }
+                // ── Distribution (GTGT 1%) ──
+                new() { FieldName = "Revenue_Distribution", DisplayName = "Doanh thu — Phân phối", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Distribution"")" },
+                new() { FieldName = "VatAmount_Distribution", DisplayName = "Thuế GTGT — Phân phối", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.01" },
+                // ── ProductionTransport (GTGT 3%) ──
+                new() { FieldName = "Revenue_ProductionTransport", DisplayName = "Doanh thu — Sản xuất, vận tải", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""ProductionTransport"")" },
+                new() { FieldName = "VatAmount_ProductionTransport", DisplayName = "Thuế GTGT — Sản xuất, vận tải", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.03" },
+                // ── Service (GTGT 5%) ──
+                new() { FieldName = "Revenue_Service", DisplayName = "Doanh thu — Dịch vụ", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Service"")" },
+                new() { FieldName = "VatAmount_Service", DisplayName = "Thuế GTGT — Dịch vụ", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.05" },
+                // ── OtherBusiness (GTGT 2%) — includes NULL IndustrySector entries ──
+                new() { FieldName = "Revenue_OtherBusiness", DisplayName = "Doanh thu — Hoạt động khác", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""OtherBusiness"")" },
+                new() { FieldName = "VatAmount_OtherBusiness", DisplayName = "Thuế GTGT — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.02" },
+                // ── Totals ──
+                new() { FieldName = "TotalRevenue", DisplayName = "Tổng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
+                new() { FieldName = "TotalVat", DisplayName = "Tổng thuế GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" }
             ];
         }
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"SỐ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ S2b-HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            string report = $"SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ S2b-HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
             report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
-
-            if (book.NumericValues.TryGetValue("Revenue", out decimal revenue))
-            {
-                report += $"Doanh thu bán hàng hóa: {revenue:N0} VNĐ\n";
-            }
-
-            if (book.NumericValues.TryGetValue("ServiceRevenue", out decimal serviceRevenue))
-            {
-                report += $"Doanh thu dịch vụ: {serviceRevenue:N0} VNĐ\n";
-            }
+            report += ReportS2bSectorLine(book, "Distribution", "Phân phối");
+            report += ReportS2bSectorLine(book, "ProductionTransport", "Sản xuất, vận tải");
+            report += ReportS2bSectorLine(book, "Service", "Dịch vụ");
+            report += ReportS2bSectorLine(book, "OtherBusiness", "Hoạt động khác");
 
             if (book.NumericValues.TryGetValue("TotalRevenue", out decimal totalRevenue))
             {
                 report += $"Tổng doanh thu: {totalRevenue:N0} VNĐ\n";
             }
 
+            if (book.NumericValues.TryGetValue("TotalVat", out decimal totalVat))
+            {
+                report += $"Tổng thuế GTGT: {totalVat:N0} VNĐ\n";
+            }
+
             return report;
+        }
+
+        private static string ReportS2bSectorLine(GenericHKDBook book, string sector, string label)
+        {
+            string line = "";
+            if (book.NumericValues.TryGetValue($"Revenue_{sector}", out decimal revenue))
+            {
+                line += $"Doanh thu — {label}: {revenue:N0} VNĐ\n";
+            }
+
+            if (book.NumericValues.TryGetValue($"VatAmount_{sector}", out decimal vat))
+            {
+                line += $"Thuế GTGT — {label}: {vat:N0} VNĐ\n";
+            }
+
+            return line;
         }
     }
 

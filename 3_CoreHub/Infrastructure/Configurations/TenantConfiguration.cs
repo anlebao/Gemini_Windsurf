@@ -36,6 +36,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.Property(e => e.HKDGroup)
                 .HasConversion<int?>();
 
+            // Wave 5 (approved 2026-07-03): Default industry sector for HKD Group 2 tenants.
+            // Nullable — existing tenants get NULL, must be set before generating S2a/S2b.
+            builder.Property(e => e.DefaultIndustrySector)
+                .HasConversion<int?>();
+
             // Wave 5: TenantStatus enum → int (default Active=1)
             builder.Property(e => e.Status)
                 .HasConversion<int>()

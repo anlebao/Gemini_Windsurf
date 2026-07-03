@@ -77,16 +77,20 @@ public static class TestDataSeeder
             
             if (i % 2 == 0)
             {
+                // Wave 5: assign industry sector cycling through 4 groups
+                IndustrySector sector = (IndustrySector)(i % 4);
                 entry = AccountingEntry.CreateRevenue(
-                    tenantId, 
-                    period, 
-                    amount, 
+                    tenantId,
+                    period,
+                    amount,
                     $"Test revenue entry {i + 1}",
                     accountCode: "511",
-                    reference: $"REF-{i + 1:000}");
+                    reference: $"REF-{i + 1:000}",
+                    industrySector: sector);
             }
             else
             {
+                IndustrySector sector = (IndustrySector)(i % 4);
                 entry = AccountingEntry.CreateExpense(
                     tenantId,
                     period,
@@ -95,7 +99,8 @@ public static class TestDataSeeder
                     accountCode: "621",
                     vendor: "Test Vendor",
                     category: "Test Category",
-                    reference: $"REF-{i + 1:000}");
+                    reference: $"REF-{i + 1:000}",
+                    industrySector: sector);
             }
 
             entries.Add(entry);

@@ -1,8 +1,11 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Interfaces;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Commands;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.CoreHub.Services
 {
@@ -18,7 +21,8 @@ namespace VanAn.CoreHub.Services
         ILogger<OrderService> logger,
         IInventoryService? inventoryService = null,
         ITemplateFactory? templateFactory = null,
-        IOrderHub? orderHub = null) : IOrderService
+        IOrderHub? orderHub = null,
+        VanAnDbContext? dbContext = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -31,6 +35,9 @@ namespace VanAn.CoreHub.Services
         private readonly IInventoryService _inventoryService = inventoryService;
         private readonly ITemplateFactory _templateFactory = templateFactory;
         private readonly IOrderHub _orderHub = orderHub;
+
+        // Wave 5: DbContext for Tenant.DefaultIndustrySector lookup (Order.IndustrySector ?? Tenant.DefaultIndustrySector)
+        private readonly VanAnDbContext? _dbContext = dbContext;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -92,6 +99,7 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Generate accounting entries for order
         /// Phase 2.2: Order to Accounting Integration
+        /// Wave 5: Pass IndustrySector (Order.IndustrySector ?? Tenant.DefaultIndustrySector) to accounting entries.
         /// </summary>
         private async Task GenerateAccountingEntriesAsync(Order order, TenantId tenantId)
         {
@@ -99,13 +107,23 @@ namespace VanAn.CoreHub.Services
 
             try
             {
+                // Wave 5: Resolve industry sector — per-order override falls back to Tenant default
+                IndustrySector? sector = order.IndustrySector;
+                if (sector == null && _dbContext != null)
+                {
+                    Tenant? tenant = await _dbContext.Tenants
+                        .FirstOrDefaultAsync(t => t.Id == tenantId);
+                    sector = tenant?.DefaultIndustrySector;
+                }
+
                 // 1. Revenue entry using IAccountingService
                 Shared.DTOs.AccountingEntryDto revenueEntry = await _accountingService.CreateRevenueEntryAsync(
                     tenantId,
                     period,
                     order.TotalPrice,
                     $"Doanh thu bán hàng #{order.Id}",
-                    accountCode: "511");
+                    accountCode: "511",
+                    industrySector: sector);
 
                 // 2. Generate HKD books for revenue
                 // Note: For MVP, we'll create a simple journal entry for HKD books
@@ -130,7 +148,8 @@ namespace VanAn.CoreHub.Services
                         period,
                         cogsAmount,
                         $"Giá vốn hàng bán #{order.Id}",
-                        accountCode: "621");
+                        accountCode: "621",
+                        industrySector: sector);
 
                     // Create COGS journal entry for HKD books
                     JournalEntry? cogsJournalEntry = await CreateCOGSEntryAsync(order, tenantId, period);
@@ -142,7 +161,7 @@ namespace VanAn.CoreHub.Services
                     }
                 }
 
-                _logger.LogInformation("Generated accounting entries for order {OrderId}", order.Id);
+                _logger.LogInformation("Generated accounting entries for order {OrderId} (IndustrySector: {Sector})", order.Id, sector?.ToString() ?? "NULL");
             }
             catch (Exception ex)
             {
