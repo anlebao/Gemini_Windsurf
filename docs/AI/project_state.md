@@ -91,7 +91,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `22d3976` [HKD-FIX WAVE 0] Expand pre-flight task card (v3 master plan update pending commit)
+- **Last commit:** `7fb6dec` [HKD-FIX] Complete task cards (5a + 5b) + slim master plan
 - **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (planning docs only, no code change)
 - **Guard-check:** PASSED ✅ (windsurf-guard v6.0, untracked source files check)
 - **Uncommitted changes:** None (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1 — all ignored, not staged)
@@ -216,6 +216,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Stream D v3 plan approved. v3 incorporates 2 phản biện (kiến trúc + pháp lý): (4) Add Wave 0.5 — Architecture Decision HKD Data Source (Option A refactor query / Option B event-driven Outbox, LOẠI Option C dual-write per phản biện), (5) Add HKD Accounting Regime Disclaimer (single-entry per TT 88/2021 + TT 152/2025, account mapping là Internal Synthetic Mapping) + Fix suất thuế (xóa "2,5%" fabricated, dùng 4 nhóm per Luật 2025 + ND 117/2025: 1%/0.5%, 3%/1.5%, 5%/2%, 2%/1%) + Add Wave 5c (2026 Regulatory Compliance Fix — threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished, lệ phí môn bài abolished — CRITICAL pháp lý). Plan now 12 waves (5b optional, 5c mandatory), 11-18 sessions. v3 master plan + project_state update pending commit. Stream B (E2E Test Cleanup) fully complete — wave branches await merge to main.
+* **Last Updated:** 2026-07-03 — Stream D v3 plan + all 12 task cards complete. v3 incorporates 2 phản biện (kiến trúc + pháp lý): (4) Add Wave 0.5 — Architecture Decision HKD Data Source (Option A refactor query / Option B event-driven Outbox, LOẠI Option C dual-write), (5) Add HKD Accounting Regime Disclaimer + Fix suất thuế (xóa "2,5%" fabricated, dùng 4 nhóm per Luật 2025 + ND 117/2025) + Add Wave 5c (2026 Regulatory Compliance Fix — CRITICAL pháp lý). All 12 task cards created (Wave 0, 0.5, 1-8, with Wave 5 split into 5a + 5b + 5c). Master plan slimmed — programming details moved from master plan Wave sections INTO task cards (master plan now high-level summaries + links). Old wave5 card superseded by 5a + 5b + 5c. Wave 2 task card needs rename + rewrite per W0.5 decision (after Option A or B chosen). Plan: 12 waves (5b optional, 5c mandatory), 11-18 sessions. Commits: `88e635a` (v3 plan) → `4b2f077` (W0.5 + W5c cards) → `7fb6dec` (W5a + W5b cards + slim master plan). Stream B (E2E Test Cleanup) fully complete — wave branches await merge to main.
 * **Current Branch:** `main`
 * **Current Objective:** Stream D — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance). Planning complete. Awaiting approval to start Wave 0.
