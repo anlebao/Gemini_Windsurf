@@ -54,8 +54,8 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 - **Mỗi wave là branch riêng, branch từ `main` mới nhất, merge ngược về `main` sau khi pass** (build + guard + test)
 - **`main` luôn green** — không có long-lived branch
 - **Branch wave kế tiếp phải rebase/pull từ `main` trước khi bắt đầu** (đảm bảo có fix wave trước)
-- **Wave 5b có thể skip** (descope) — không block 5c/6-8 (5c dùng default rate nếu 5b descoped)
-- **Wave 5c KHÔNG skip** — CRITICAL pháp lý, phải execute
+- **Wave 5 (merged) KHÔNG skip** — contains PIT fix (bug thật) + IndustrySector (needed for TT 152 S2a/S2b) + 4-group tax rates
+- **Wave 5c KHÔNG skip** — CRITICAL pháp lý, phải execute (threshold + TNCN formulas)
 - Nếu conflict khi merge wave → resolve trên feature branch, không force-push main
 
 ### Hard rules
@@ -112,7 +112,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 - Nếu `JournalEntries` table có data → verify nguồn (có thể đã có code path ta chưa thấy)
 - **Nếu W0-T8 conflict không resolve được bằng rename → STOP, báo Tech Lead** (architecture decision không được tự quyết trong IMPLEMENT)
 - **Nếu W0-T9 không có library nào + user không approve thêm dependency → Wave 8 export descoped** (UI render-only, export deferred to follow-up stream)
-- **Nếu W0-T10 `Tenant.IndustrySector` missing + Tech Lead không approve Domain mod → Wave 5b descoped** (dùng default rate, ghi technical debt)
+- ~~**Nếu W0-T10 `Tenant.IndustrySector` missing + Tech Lead không approve Domain mod → Wave 5b descoped**~~ ✅ RESOLVED 2026-07-03 — Tech Lead APPROVED Domain mod. Wave 5b merged into Wave 5. `IndustrySector` added to `AccountingEntry` + `Tenant` + `Order`.
 
 ---
 
@@ -391,62 +391,49 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ---
 
-## 6. WAVE 5a — Fix Account Mapping + PIT-on-Revenue (No Domain mod, no industry modeling)
+## 6. WAVE 5 (MERGED 5a+5b+partial 5c) — Industry Sector + PIT Fix + Account Mapping + 4-group Tax Rates
 
-**Branch:** `feature/hkd-fix-wave5a-account-mapping-pit-fix`
-**Estimated sessions:** 1
-**Conflict risk:** MEDIUM (thay đổi service logic + 1 Domain account-number fix)
-**Priority:** 5a (High — compliance pháp lý, nhưng không cần modeling ngành nghề)
-**Task Card:** `docs/AI/tasks/wave5a_hkd_fix_account_mapping_pit_task_card.md` ✅ CREATED → **Full task details (W5a-T1 to W5a-T7, account mapping table, PIT formula fix, S2b account fix, 2 unit test specs, micro-phase breakdown)**
+> **[v4 — 2026-07-03]** Wave 5a + 5b + partial 5c MERGED into single Wave 5. Investigation proved original W5a fix (521/512→5118) was based on false premise (TT 200 compliance — Amendment 5a says Internal Synthetic Mapping) + would not fix empty-result bug (no production write path writes 5118). TT 152 S2a/S2b split by **industry sector** (4-5 groups per Luật 2025), NOT goods-vs-service. Old wave5a/wave5b/wave5 task cards archived. New card: `wave5_hkd_fix_industry_sector_pit_task_card.md`.
 
-**Summary:** Fix `_vietnameseAccounts` dictionary (5 entry sai + 3 entry thiếu). Fix `PersonalIncomeTax` formula tính trên `TotalRevenue` (không phải `VatAmount`). Fix account `"521"`/`"512"` → `"5118"` cho doanh thu dịch vụ (Service + Domain layer). Default rate tạm thời (5% GTGT, 0.5% TNCN) — industry-specific rates sang Wave 5b.
+**Branch:** `feature/hkd-fix-wave5-industry-sector-pit`
+**Estimated sessions:** 3-4
+**Conflict risk:** HIGH (Domain mod: add `IndustrySector` to `AccountingEntry` + `Tenant` + `Order`; Formula Engine DSL extension; template redesign)
+**Priority:** 5 (High — TT 152 compliance + PIT formula bug fix + 2026 tax rates)
+**Task Card:** `docs/AI/tasks/wave5_hkd_fix_industry_sector_pit_task_card.md` ✅ CREATED → **Full task details (W5-T1 to W5-T10, IndustrySector enum, Formula Engine DSL extension, S2a/S2b redesign per TT 152, 4-group tax rate table, 4 unit test specs, micro-phase breakdown, NULL→OtherBusiness mapping)**
+**Tech Lead approval:** ✅ GRANTED 2026-07-03 (Domain modification: add `IndustrySector` field to `AccountingEntry` + `Tenant.DefaultIndustrySector` + `Order.IndustrySector`)
+
+**Summary:** Add `IndustrySector` enum (4 groups per Luật 2025 + ND 117/2025: Distribution 1%/0.5%, ProductionTransport 3%/1.5%, Service 5%/2%, OtherBusiness 2%/1%) + field to `AccountingEntry`/`Tenant`/`Order`. Extend Formula Engine DSL with `SUM_ACCOUNT_BY_INDUSTRY("5","Credit","Distribution")`. Redesign S2a/S2b templates per TT 152 industry-sector layout (4 groups × 3 fields for S2a, 4 groups × 2 fields for S2b). Fix PIT formula (`VatAmount*0.1` → `TotalRevenue*industryPitRate`). Fix `_vietnameseAccounts` labels (211/811/821/841) + stale "TT 200" comment. NULL IndustrySector → OtherBusiness group (backward compat).
 
 ### Entry criteria
 - [ ] Wave 4 merged (GenerateS*BookAsync dùng IHKDBookGenerationService)
-- [ ] **Tech Lead approval** cho W5a-T4 (Domain modification — account number `"512"` → `"5118"`, không thêm field)
-- [ ] W0-T10 result known (Tenant.IndustrySector exists or not — determines if 5b is in-scope)
+- [x] **Tech Lead approval** GRANTED 2026-07-03 (Domain mod: `IndustrySector` field)
+- [x] Stream E merged (EF Core Migrations enabled — needed for new column)
 
 ### Exit criteria
-- [ ] `_vietnameseAccounts` sửa 5 entry sai + thêm entry mới
-- [ ] `PersonalIncomeTax` tính trên `TotalRevenue`, không phải `VatAmount`
-- [ ] Account `"521"`/`"512"` → `"5118"` (doanh thu dịch vụ)
-- [ ] 2 unit test pass
+- [ ] `IndustrySector` enum + field on `AccountingEntry` + `Tenant.DefaultIndustrySector` + `Order.IndustrySector`
+- [ ] EF Core migration adds `IndustrySector` column to `AccountingEntries` + `Tenants` + `Orders`
+- [ ] `SUM_ACCOUNT_BY_INDUSTRY` DSL works in Formula Engine
+- [ ] `IDataProvider.GetAccountSum` has sector-filtered overload
+- [ ] S2a template: 4 industry groups × 3 fields (Revenue, VatAmount, PIT per group)
+- [ ] S2b template: 4 industry groups × 2 fields (Revenue, VatAmount per group)
+- [ ] PIT formula = `TotalRevenue * pitRate` (NOT `VatAmount * 0.1`)
+- [ ] `_vietnameseAccounts` labels fixed + stale "TT 200" comment corrected
+- [ ] 4 unit test pass
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
 - [ ] guard-check.ps1 PASSED
 
-### Why fifth-a
-- Sau Wave 4 (routing) — đã có đường tính, giờ sửa 2 bug logic rõ ràng (PIT base + account mapping)
-- Risk medium — chỉ 1 Domain account-number fix (W5a-T4), không thêm field, không modeling
-- Có thể merge độc lập — không phụ thuộc W5b
+### Why merged (v4)
+- Original W5a fix (521/512→5118) was wrong: 5118 ≠ service revenue per TT 200 (5118 = "Doanh thu khác", 5112 = "Doanh thu dịch vụ"); no production write path writes 5118 → query still = 0
+- TT 152 S2a/S2b split by industry sector, not goods-vs-service — the goods-vs-service split was a hallucination from TT 200 thinking
+- Industry sector split REQUIRES `IndustrySector` field on `AccountingEntry` (Domain mod) — this was originally Wave 5b's scope
+- Merging avoids 2 separate Domain modifications + 2 separate template redesigns
+- 4-group tax rates (originally 5b) are needed for S2a/S2b redesign — cannot defer
 
----
-
-## 6.5. WAVE 5b — Industry-Sector Tax Rates per TT 152 (Conditional — needs W0-T10 + Tech Lead approval)
-
-**Branch:** `feature/hkd-fix-wave5b-industry-sector-tax-rates`
-**Estimated sessions:** 1-2
-**Conflict risk:** HIGH (modeling ngành nghề + có thể cần Domain mod nếu Tenant.IndustrySector missing)
-**Priority:** 5b (High — full TT 152 compliance, nhưng có thể descope nếu W0-T10 fail)
-**Task Card:** `docs/AI/tasks/wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` ✅ CREATED → **Full task details (W5b-T0 to W5b-T7, 4 nhóm ngành nghề lookup table, industry grouping spec, 2 unit test specs, conditional execution paths)**
-
-**Summary:** Thay default rate cứng (từ Wave 5a) bằng suất thuế theo ngành nghề per Luật 2025 + ND 117/2025 (4 nhóm: Phân phối 1%/0.5%, Sản xuất 3%/1.5%, Dịch vụ 5%/2%, Khác 2%/1%). Thêm nhóm ngành nghề vào S2a template (mỗi ngành có Tổng cộng + GTGT + TNCN riêng). **CONDITIONAL** — may descope if W0-T10 finds `Tenant.IndustrySector` missing + Tech Lead doesn't approve Domain mod.
-
-### Conditional execution
-- **IF W0-T10 confirms `Tenant.IndustrySector` exists** → proceed normally
-- **IF W0-T10 finds field missing AND Tech Lead approves Domain mod** → add `IndustrySector` to `Tenant` first (W5b-T0), then proceed
-- **IF W0-T10 finds field missing AND Tech Lead does NOT approve** → **DESCOPE Wave 5b**, use default rate from W5a, log technical debt, proceed to Wave 5c
-
-### Entry criteria
-- [ ] Wave 5a merged (PIT fix + account mapping done)
-- [ ] W0-T10 result: `Tenant.IndustrySector` exists OR Tech Lead approval for W5b-T0
-- [ ] **If descope triggered** → skip this wave, document in `docs/AI/technical_debt.md`, proceed to Wave 5c
-
-### Exit criteria (only if executed)
-- [ ] `S2aHKDTemplateImpl` dùng `HKDRevenueClassificationService` cho suất thuế (không cứng)
-- [ ] S2a template có nhóm ngành nghề (mỗi ngành có tổng cộng + GTGT + TNCN riêng)
-- [ ] 2 unit test pass
-- [ ] `dotnet build VanAn.sln` Release — 0 errors
-- [ ] guard-check.ps1 PASSED
+### Deferred to Wave 5c proper (NOT in this wave)
+- Threshold 500M→1B in `HKDRevenueClassification.CalculateGroup` + `HKDRevenueClassificationService`
+- TNCN formulas Nhóm 2/3/4 (`(Doanh thu - 1B) × rate`, `(Doanh thu - chi phí) × 17%`, `(Doanh thu - chi phí) × 20%`)
+- Thuế khoán abolished declaration
+- Lệ phí môn bài abolished declaration
 
 ### Why fifth-b (separate from 5a)
 - Risk cao nhất — cần modeling ngành nghề + có thể cần Domain mod (Tenant.IndustrySector)
@@ -468,8 +455,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 **Summary:** Fix `HKDRevenueClassificationService` thresholds (500M→1B, 4 revenue groups mới: ≤1B / 1B-3B / 3B-50B / >50B). Add TNCN formulas per group (Nhóm 2: `(Doanh thu - 1B) × industryRate`, Nhóm 3: `(Doanh thu - chi phí) × 17%`, Nhóm 4: `(Doanh thu - chi phí) × 20%`). Add GTGT exemption Nhóm 1 (≤1B). Document thuế khoán + lệ phí môn bài abolished from 01/01/2026. 5 unit tests. **Legal review recommended.**
 
 ### Entry criteria
-- [ ] Wave 5a merged (account mapping + PIT-on-revenue fix)
-- [ ] Wave 5b merged OR descoped (W5c-T3 needs industryRate from W5b if executed; if descoped, use default rate + log technical debt)
+- [ ] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates)
 - [ ] **Legal review recommended** — confirm 2026 regulatory changes với bộ phận pháp lý/thuế
 
 ### Exit criteria
@@ -502,8 +488,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 **Summary:** Update 3 existing tests (S1a, S2a, S2b) + add 5 new tests (S2c, S2d, S2e, S3a, regression) — all assert `NumericValues` cụ thể (TotalRevenue, VatAmount, PIT, NetProfit...) thay vì chỉ metadata. 1 regression test verify `NumericValues` không rỗng (Issue 1 fix).
 
 ### Entry criteria
-- [ ] Wave 5a merged (account mapping + PIT fix)
-- [ ] Wave 5b merged OR descoped
+- [ ] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates)
 - [ ] **Wave 5c merged** (2026 regulatory compliance)
 - [ ] Wave 4 merged (NumericValues có số liệu + smoke test pass)
 - [ ] Wave 2 merged (data source bridge)
@@ -606,7 +591,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 - **W0-T8 resolve architecture decision BEFORE Wave 3** — rename new class to `HKDTemplateFactory` OR keep both with distinct interfaces. Document in Wave 3 task card.
 
 ### Testing Strategy (Concern 3 — RESOLVED, smoke test added)
-- **Unit test:** Wave 2 (double-entry), Wave 4 (smoke tripwire), Wave 5a (PIT + account), Wave 5b (industry rates), Wave 6 (numeric assertions)
+- **Unit test:** Wave 2 (double-entry), Wave 4 (smoke tripwire), Wave 5 (PIT + IndustrySector + account + industry rates), Wave 6 (numeric assertions)
 - **Integration test:** Wave 7 (endpoint + DI smoke + multi-tenancy isolation)
 - **Architecture test:** Wave 8 (no no-op CalculateAsync)
 - **E2E test:** Wave 8 (UI page) — chỉ parse check trong Wave 1-7, runtime sau Wave 8
@@ -617,8 +602,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 - 7 mẫu báo cáo: S1a (Group 1), S2a-S2e (Group 2), S3a (Group 3)
 - Layout từng mẫu đã extract trong Wave 0 (docx → text)
 - Wave 8 phải match layout: header (HỘ/CÁ NHÂN KD + MST + địa chỉ + "Mẫu số X-HKD (Kèm theo TT 152/2025/TT-BTC)"), bảng (chứng từ + diễn giải + số tiền), footer (tổng thuế + chữ ký NGƯỜI ĐẠI DIỆN HKD)
-- **Wave 5a fix PIT-on-revenue + account mapping** (logic bugs, không cần modeling)
-- **Wave 5b industry-sector rates** (4 nhóm ngành nghề per Luật 2025 + ND 117/2025, conditional — may descope if Tenant.IndustrySector missing)
+- **Wave 5 (merged) fix PIT-on-revenue + IndustrySector + account mapping + 4-group tax rates** (TT 152 industry-sector layout, Domain mod approved)
 - **Wave 5c 2026 regulatory compliance** (threshold 500M→1B, 4 revenue groups mới, TNCN formula Nhóm 2/3/4, thuế khoán abolished) — CRITICAL pháp lý
 
 ### HKD Accounting Regime Disclaimer (Amendment 5a — v3)
@@ -656,9 +640,8 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 > **Thuế khoán BÃI BỎ từ 01/01/2026** — tất cả kê khai + tự nộp (Nghị quyết 198/2025/QH15)
 > **Lệ phí môn bài BÃI BỎ từ 01/01/2026** (Điều 10, Nghị quyết 198/2025/QH15)
 
-### Tenant Industry Sector (Concern 4 prereq — RESOLVED, promoted to Wave 0)
-- **W0-T10 verify `Tenant.IndustrySector` field exists** before Wave 5b
-- If missing → Wave 5b conditional: Tech Lead approval for W5b-T0 OR descope + technical debt
+### Tenant Industry Sector (Concern 4 prereq — RESOLVED, merged into Wave 5)
+- ~~**W0-T10 verify `Tenant.IndustrySector` field exists** before Wave 5b~~ ✅ RESOLVED — W0-T10 confirmed MISSING. Tech Lead APPROVED Domain mod 2026-07-03. `IndustrySector` added to `AccountingEntry` + `Tenant.DefaultIndustrySector` + `Order.IndustrySector` in merged Wave 5.
 
 ### Export Library (Concern 6 — RESOLVED, promoted to Wave 0)
 - **W0-T9 verify docx/xlsx library availability** before Wave 8
@@ -672,7 +655,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 ### Branch Strategy (Concern 8 — RESOLVED, per-wave merge)
 - **Per-wave merge to main** — `main` always green, no long-lived 14-session branch
 - Each wave branches from latest `main`, merges back after pass
-- Wave 5b optional — does not block Wave 6-8 if descoped
+- ~~Wave 5b optional — does not block Wave 6-8 if descoped~~ ✅ Wave 5b merged into Wave 5 (mandatory)
 
 ### UI Platform Compliance
 - Wave 8 UI page MUST dùng UI Platform components (VanAnCard, VanATable, VanAForm, VanAnButton)
@@ -695,7 +678,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 - [ ] DI registrations confirmed (5 service chưa đăng ký)
 - [ ] **W0-T8: `ITemplateFactory` conflict resolution documented** (promoted from W3-T8)
 - [ ] **W0-T9: docx/xlsx library availability confirmed OR dependency-add approved** (promoted from W8-T3/T4)
-- [ ] **W0-T10: `Tenant.IndustrySector` field existence confirmed** (determines Wave 5b scope)
+- [x] **W0-T10: `Tenant.IndustrySector` field existence confirmed** ✅ MISSING — Tech Lead approved Domain mod, merged into Wave 5
 - [ ] **W0-T11: Double-write audit complete** (write-path map documented)
 - [ ] **W0.5-T4: HKD Data Source decision documented** (Option A or B — NOT C)
 - [ ] Tech Lead approval cho W5a-T4 (Domain modification — account number `"512"` → `"5118"`, no new field) — **chỉ cần trước Wave 5a**
