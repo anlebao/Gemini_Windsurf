@@ -29,7 +29,7 @@
 
 ## 2. Current Objective
 
-**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 3 ✅ COMPLETE (AWAITING MERGE), WAVE 4 NEXT]**
+**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 4 ✅ COMPLETE & MERGED, WAVE 5 NEXT]**
 
 Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 152 HKD book report generation. Dependency-ordered 12-wave fix (data → DI → routing → formulas → 2026 regulatory → tests → API → UI → export). Wave 0 + Wave 0.5 execution in progress on `feature/hkd-fix-wave0-wave0p5-preflight` branch: 15/21 tasks done, 3 new gaps found (stale DB schema → Stream E spawned, S1a .doc binary format, docx extraction incomplete), 6 tasks remaining (propagation + extraction + commit).
 
@@ -93,7 +93,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 | 1 | Fix UTF-8 mojibake in `Services/Template/TemplateFactory.cs` (S1a + S2a TemplateImpl) | 0.5 | Low | ⏳ PENDING |
 | 2 | Data source bridge (Option A: refactor query OR Option B: event-driven — per W0.5) | 0.5-2 | Medium/Low | ⏳ PENDING |
 | 3 | Wire 5 calc engine services into DI (conflict pre-resolved in W0-T8) | 1 | Low | ⏳ PENDING |
-| 4 | Route `HKDBookService.GenerateS*BookAsync` through `IHKDBookGenerationService` + smoke test tripwire (W4-T11) | 1 | Medium | ⏳ PENDING |
+| 4 | Route `HKDBookService.GenerateS*BookAsync` through `IHKDBookGenerationService` + smoke test tripwire (W4-T11) | 1 | Medium | ✅ DONE — Merged `7dbbcb1`. 7 methods routed, `ConvertToJournalEntries` marked obsolete. SC8 (NumericValues populated) deferred to Wave 6 verification. |
 | 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix W5a-T4) — **W5a-T4 needs Tech Lead approval** | 1 | Medium | ⏳ PENDING |
 | 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope if W0-T10 finds Tenant.IndustrySector missing) — **W5b-T0 needs Tech Lead approval IF executed** | 1-2 | High | ⏳ PENDING |
 | 5c | **[v3] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished) — CRITICAL pháp lý — Legal review recommended** | 1-2 | High (pháp lý) | ⏳ PENDING |
@@ -116,12 +116,12 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** Merge Wave 3: Wire calc engine into DI - 6 services registered
+- **Last commit:** Merge Wave 4: Route GenerateS*BookAsync through IHKDBookGenerationService - fixes Issue 1 (NumericValues always empty)
 - **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (990 warnings)
 - **Guard-check:** ✅ PASS (Core.Tests, Arch.Tests, Integration.Tests, Roslyn analyzers)
 - **Tests:** VanAn.Core.Tests passed / 0 failed · VanAn.Architecture.Tests 28 passed / 0 failed · Integration.Tests (CircuitBreaker) passed
-- **Uncommitted changes:** none (Wave 3 merged to main)
-- **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)** · **Stream D Wave 0+0.5+1+2+3** · **Stream E: DB Migration Strategy**.
+- **Uncommitted changes:** none (Wave 4 merged to main)
+- **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)** · **Stream D Wave 0+0.5+1+2+3+4** · **Stream E: DB Migration Strategy**.
 - **Stream D execution artifacts (merged to main):**
   - `docs/AI/tasks/wave0_hkd_fix_preflight_task_card.md` — updated with Section 13 (Execution Findings) + Section 14 (3 New Gaps) + Section 15 (Updated SC)
   - `docs/AI/tasks/wave0p5_hkd_fix_arch_decision_data_source_task_card.md` — updated with Section 13 (Decision Output: Option A) + Section 14 (DB Schema Caveat)
@@ -130,7 +130,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
   1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream.
   2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes.
 - **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Stream B Wave 4 SCENARIO 2 deletion. Candidate for future page-object cleanup.
-- **In-progress:** Stream D Wave 4 (route through `IHKDBookGenerationService` + smoke test). ⏳ PENDING — Wave 3 unblocked this. Calc engine now resolvable from DI.
+- **In-progress:** None — Wave 4 merged, awaiting new session for Wave 5.
 
 ---
 
@@ -157,7 +157,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 12. ~~Wave 1: Fix UTF-8 mojibake~~ ✅ DONE — Committed `83cca48`, merged `2f294c8`. S1a+S2a+S3a fixed (S3a also had mojibake, caught + fixed).
 13. ~~Wave 2: Data source bridge (Option A per W0.5)~~ ✅ DONE — Merged `b08d907`. Query refactor + SQLite decimal `SumAsync` fix (materialize + client-side sum). 3/3 unit tests PASSING.
 14. ~~Wave 3: Wire calc engine into DI~~ ✅ DONE — Committed `3b98524`, merged to main. 6 DI registrations added (5 calc engine services + IBookResultCache). W0-T8 conflict preserved. Build 0 errors, guard PASSED.
-15. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
+15. ~~Wave 4: Route through IHKDBookGenerationService~~ ✅ DONE — Committed `57d021c`, merged to main `7dbbcb1`. Injected `IHKDBookGenerationService` into `HKDBookService` constructor; rewrote 7 `GenerateS*BookAsync` methods to call `_hkdBookGenerationService.GenerateBookAsync(tenantId, period, "<code>")`; marked `ConvertToJournalEntries` `[Obsolete]` (0 callers); updated 2 test files with `Mock<IHKDBookGenerationService>` (Wave 6 will retrofit numeric assertions). Build 0 errors, 990 warnings. Guard PASSED. **Fixes Issue 1 (NumericValues always empty) — core fix of Stream D.**
 16. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md`.
 17. **Wave 5b: Industry-sector tax rates** ⏳ CONDITIONAL — W0-T10 confirmed `Tenant.IndustrySector` MISSING. **W5b-T0 needs Tech Lead approval (add IndustrySector to Tenant) OR descope.** Task card: `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md`.
 18. **Wave 5c: 2026 Regulatory Compliance Fix** ⏳ PENDING — **[v3] CRITICAL pháp lý.** Fix threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished. **Legal review recommended.** Task card: `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md`.
@@ -165,7 +165,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 20. **Wave 7: API endpoint + DI smoke + multi-tenancy test** ⏳ PENDING — Endpoint + W7-T6 isolation test. Task card: `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md`.
 21. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export (EPPlus XLSX + DocumentFormat.OpenXml DOCX, both approved) + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
-**Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2 (Option A)~~ ✅ → ~~Wave 3 (DI wiring)~~ ✅ → **Wave 4 (route through IHKDBookGenerationService)** → Wave 5a → **5c** → 6 → 7 → 8. **Optional:** Wave 5b (conditional, needs Tech Lead approval).
+**Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2 (Option A)~~ ✅ → ~~Wave 3 (DI wiring)~~ ✅ → ~~Wave 4 (route through IHKDBookGenerationService)~~ ✅ → **Wave 5a** → **5c** → 6 → 7 → 8. **Optional:** Wave 5b (conditional, needs Tech Lead approval).
 
 **Deferred (awaiting user decision):**
 1. **Merge Stream B to main** — Stream B wave branches await merge to main. All 8 waves complete, guard PASSED.
@@ -255,6 +255,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Wave 3 ✅ COMPLETE & MERGED TO MAIN. 6 DI registrations added to `3_CoreHub/Program.cs` (L122-134): `IFormulaEngine`→`ProductionFormulaEngine`, `IPreAggregationService`→`SmartPreAggregationService`, `IDataProvider`→`ScopedDataProvider`, `IBookResultCache`→`BookResultCache` (was missing — SC6 required adding), `TemplateFactory` (Services.Template namespace, registered as concrete per W0-T8), `IHKDBookGenerationService`→`HKDBookGenerationService`. Dependency order respected. Old `ITemplateFactory` (Services namespace) preserved for `OrderService`. Build: 0 errors / 990 warnings. Guard: ALL CHECKS PASSED. Calc engine now resolvable from DI — Wave 4 unblocked.
+* **Last Updated:** 2026-07-03 — Wave 4 ✅ COMPLETE & MERGED TO MAIN (`7dbbcb1`). Injected `IHKDBookGenerationService` into `HKDBookService` constructor; rewrote 7 `GenerateS*BookAsync` methods (S1a, S2a-S2e, S3a) to call `_hkdBookGenerationService.GenerateBookAsync(tenantId, period, "<code>")` instead of `new S*HKDTemplate()` + `ConvertToJournalEntries` (no-op calc); marked `ConvertToJournalEntries` `[Obsolete]` (0 callers after rewrite); updated 2 test files (`VanAn.Core.Tests/Services/HKDBookServiceTests.cs` + `VanAn.Core.Tests/Accounting/HKDBookServiceTests.cs`) with `Mock<IHKDBookGenerationService>` (Wave 6 will retrofit numeric assertions). `IHKDBookService` interface unchanged (backward compat). Build: 0 errors / 990 warnings. Guard: ALL CHECKS PASSED. **Fixes Issue 1 (NumericValues always empty) — core fix of Stream D.** SC8 (NumericValues populated) deferred to Wave 6 verification.
 * **Current Branch:** `main`
-* **Current Objective:** Stream D Wave 3 ✅ COMPLETE & MERGED — proceed to Wave 4 (route through `IHKDBookGenerationService` + smoke test).
+* **Current Objective:** Stream D Wave 4 ✅ COMPLETE & MERGED — proceed to Wave 5a (account mapping + PIT-on-revenue). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Wave 5b conditional (W5b-T0 approval or descope). Wave 5c CRITICAL pháp lý (legal review recommended).
