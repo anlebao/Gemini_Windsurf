@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — E2E Test Cleanup (Anti-Pattern Removal)
 
-> **Status:** ACTIVE — Wave 0+1+2+3+4 COMPLETE, Wave 5 NEXT
+> **Status:** ACTIVE — Wave 0+1+2+3+4+5 COMPLETE, Wave 6 NEXT
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 4 complete — 2 anti-UI scenarios deleted, commit `c1e5c59`)
+> **Last Updated:** 2026-07-03 (Wave 5 complete — 9 reachability tests consolidated into 2, commit `111197e`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix (không case-by-case)
@@ -336,23 +336,25 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W5-T1 | Tạo `gateway-smoke.spec.ts` mới — gộp 5 test Gateway Accounting API trong `accounting-flow.spec.ts` thành 1 test dùng `test.step()` | `gateway-smoke.spec.ts` (NEW) | PENDING |
-| 2 | W5-T2 | Thêm vào `gateway-smoke.spec.ts` — gộp 2 test `order-flow.spec.ts` (Order API, Inventory API) + 1 test `order-tracking.spec.ts` (Order Status API) + 1 test `qr-payment-ui.spec.ts` (VietQR Generate) | `gateway-smoke.spec.ts` | PENDING |
-| 3 | W5-T3 | Xóa 5 test Gateway Accounting API section trong `accounting-flow.spec.ts` (L235-303) | `accounting-flow.spec.ts` | PENDING |
-| 4 | W5-T4 | Xóa 2 test reachability trong `order-flow.spec.ts` (L137, L146) | `order-flow.spec.ts` | PENDING |
-| 5 | W5-T5 | Xóa 1 test reachability trong `order-tracking.spec.ts` (L156) | `order-tracking.spec.ts` | PENDING |
-| 6 | W5-T6 | Xóa 1 test reachability trong `qr-payment-ui.spec.ts` (L144) | `qr-payment-ui.spec.ts` | PENDING |
-| 7 | W5-T7 | Verify `npx playwright test --list` pass — confirm 9 test → 2 test | Solution-wide | PENDING |
+| 1 | W5-T1 | Tạo `gateway-smoke.spec.ts` mới — gộp 5 test Gateway Accounting API trong `accounting-flow.spec.ts` thành 1 test dùng `test.step()` | `gateway-smoke.spec.ts` (NEW) | ✅ DONE |
+| 2 | W5-T2 | Thêm vào `gateway-smoke.spec.ts` — gộp 2 test `order-flow.spec.ts` (Order API, Inventory API) + 1 test `order-tracking.spec.ts` (Order Status API) + 1 test `qr-payment-ui.spec.ts` (VietQR Generate) | `gateway-smoke.spec.ts` | ✅ DONE |
+| 3 | W5-T3 | Xóa 5 test Gateway Accounting API section trong `accounting-flow.spec.ts` (L235-303) | `accounting-flow.spec.ts` | ✅ DONE |
+| 4 | W5-T4 | Xóa 2 test reachability trong `order-flow.spec.ts` (L137, L146) | `order-flow.spec.ts` | ✅ DONE |
+| 5 | W5-T5 | Xóa 1 test reachability trong `order-tracking.spec.ts` (L156) | `order-tracking.spec.ts` | ✅ DONE |
+| 6 | W5-T6 | Xóa 1 test reachability trong `qr-payment-ui.spec.ts` (L144) | `qr-payment-ui.spec.ts` | ✅ DONE (kept `supported-banks returns list` — validates body) |
+| 7 | W5-T7 | Verify `npx playwright test --list` pass — confirm 9 test → 2 test | Solution-wide | ✅ DONE — 668 tests in 21 files (was 715 in 20; +1 new file) |
 
 ### Entry criteria
-- [ ] Wave 4 merged
-- [ ] Gateway routes confirmed tồn tại (LocalizationController, VoiceCommandController, AccountingEntriesController)
+- [x] Wave 4 merged
+- [x] Gateway routes confirmed tồn tại (LocalizationController, VoiceCommandController, AccountingEntriesController)
 
 ### Exit criteria
-- [ ] `gateway-smoke.spec.ts` tạo mới với 2 test (accounting routes, order/qr routes)
-- [ ] 9 test reachability cũ đã xóa khỏi 4 files
-- [ ] Mỗi smoke test dùng `test.step()` cho từng route, assert `status !== 404 && !== 500`
-- [ ] `npx playwright test --list` pass
+- [x] `gateway-smoke.spec.ts` tạo mới với 2 test (accounting routes, order/qr routes)
+- [x] 9 test reachability cũ đã xóa khỏi 4 files
+- [x] Mỗi smoke test dùng `test.step()` cho từng route, assert `status !== 404 && !== 500`
+- [x] `npx playwright test --list` pass — 668 tests in 21 files
+- [x] windsurf-guard.js + architecture-guard.ps1 PASSED
+- [x] Committed `111197e` on `feature/e2e-cleanup-wave5-consolidate-smoke-tests`
 
 ### Why fifth
 - Sau khi xóa test fake (Wave 3+4), gộp smoke để giảm trùng lặp
