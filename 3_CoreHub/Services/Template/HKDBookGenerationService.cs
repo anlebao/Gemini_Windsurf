@@ -12,12 +12,12 @@ namespace VanAn.CoreHub.Services.Template
     /// Main service for generating HKD books from templates
     /// </summary>
     public class HKDBookGenerationService(
-        VanAnDbContext context,
+        IVanAnDbContext context,
         TemplateFactory templateFactory,
         IBookResultCache cache,
         ILogger<HKDBookGenerationService> logger) : IHKDBookGenerationService
     {
-        private readonly VanAnDbContext _context = context;
+        private readonly IVanAnDbContext _context = context;
         private readonly TemplateFactory _templateFactory = templateFactory;
         private readonly IBookResultCache _cache = cache;
         private readonly ILogger<HKDBookGenerationService> _logger = logger;

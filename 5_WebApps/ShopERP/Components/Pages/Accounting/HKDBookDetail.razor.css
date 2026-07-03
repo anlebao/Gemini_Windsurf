@@ -1,0 +1,56 @@
+.hkd-book-detail-page .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.hkd-book-detail-page .header-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.hkd-book-detail-page .period-export-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.hkd-book-detail-page .period-export-row label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 500;
+}
+
+.hkd-book-detail-page .period-export-row input,
+.hkd-book-detail-page .period-export-row select {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--vanan-border, #ccc);
+    border-radius: 0.25rem;
+}
+
+.hkd-book-detail-page .tt152-header p,
+.hkd-book-detail-page .tt152-footer p {
+    margin: 0.25rem 0;
+}
+
+.hkd-book-detail-page .tt152-header {
+    margin-bottom: 1rem;
+}
+
+.hkd-book-detail-page .tt152-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+@media (max-width: 640px) {
+    .hkd-book-detail-page .period-export-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

@@ -1,0 +1,265 @@
+@page "/accounting/hkd-books/{TemplateCode}"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using CoreHKD = VanAn.CoreHub.Services.Template
+@inject CoreHKD.IHKDBookGenerationService HKDBookService
+@inject VanAn.ShopERP.Services.IHKDBookExportService ExportService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<HKDBookDetail> Logger
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="hkd-book-detail-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sổ Kế Toán HKD — @TemplateCode</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="GoBackToList">
+                ← Quay lại danh mục
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="GenerateBook">
+                🔄 Tạo lại
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tạo sổ">
+            <p>Đang tạo sổ kế toán cho kỳ @selectedMonth/@selectedYear...</p>
+        </VanACard>
+    }
+    else if (book != null)
+    {
+        <!-- Period selector + Export buttons -->
+        <VanACard Header="Kỳ kê khai & Xuất sổ">
+            <div class="period-export-row">
+                <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+                <label>Tháng:
+                    <select @bind="selectedMonth">
+                        @for (int m = 1; m <= 12; m++)
+                        {
+                            <option value="@m">@m</option>
+                        }
+                    </select>
+                </label>
+                <VanAButton Variant="primary" Size="small" OnClick="GenerateBook">Áp dụng kỳ</VanAButton>
+                <VanAButton Variant="success" Size="small" OnClick="ExportDocx" Disabled="@exporting">
+                    📄 Xuất DOCX
+                </VanAButton>
+                <VanAButton Variant="success" Size="small" OnClick="ExportXlsx" Disabled="@exporting">
+                    📊 Xuất XLSX
+                </VanAButton>
+            </div>
+        </VanACard>
+
+        <!-- TT 152 Layout: Header -->
+        <VanACard Header="Sổ kế toán (TT 152/2025/TT-BTC)">
+            <div class="tt152-header">
+                <p>HỘ, CÁ NHÂN KINH DOANH: @book.TenantId</p>
+                <p>Địa chỉ: .....................................</p>
+                <p>Mã số thuế: .....................................</p>
+                <p><strong>Mẫu số @book.BookTypeCode</strong> (Kèm theo Thông tư số 152/2025/TT-BTC)</p>
+                <p><strong>SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ</strong></p>
+                <p>Địa điểm kinh doanh: .....................................</p>
+                <p>Kỳ kê khai: @book.Month:D2/@book.Year</p>
+                <p>Đơn vị tính: VNĐ</p>
+            </div>
+
+            <!-- TT 152 Layout: Table (VanAnDataGrid — UI Platform compliance) -->
+            <VanAnDataGrid TItem="HKDBookRow" Items="@bookRows" EmptyMessage="Không có chứng từ trong kỳ này">
+                <Columns>
+                    <VanAnColumn TItem="HKDBookRow" Title="Số hiệu" Width="2">
+                        <Template Context="r">@r.JournalNo</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookRow" Title="Ngày, tháng" Width="2">
+                        <Template Context="r">@r.Date</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookRow" Title="Diễn giải" Width="5">
+                        <Template Context="r">
+                            <span style="@(r.IsTotal ? "font-weight:bold" : "")">@r.Description</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="HKDBookRow" Title="Số tiền" Width="3">
+                        <Template Context="r">
+                            <span style="@(r.IsTotal ? "font-weight:bold" : "")">@r.Amount.ToString("N0")</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+
+            <!-- TT 152 Layout: Footer -->
+            <div class="tt152-footer">
+                <p>Ngày ... tháng ... năm @book.Year</p>
+                <p><strong>NGƯỜI ĐẠI DIỆN HỘ KINH DOANH / CÁ NHÂN KINH DOANH</strong></p>
+                <p>(Ký, ghi rõ họ tên, đóng dấu (nếu có))</p>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    [Parameter] public string TemplateCode { get; set; } = string.Empty;
+
+    private HKDBookDto? book;
+    private bool loading = true;
+    private bool exporting = false;
+    private string? errorMessage;
+    private int selectedYear = DateTime.Now.Year;
+    private int selectedMonth = DateTime.Now.Month;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GenerateBook();
+    }
+
+    private void GoBackToList()
+    {
+        NavigationManager.NavigateTo("/accounting/hkd-books");
+    }
+
+    private async Task GenerateBook()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            AccountingPeriod period = new(selectedYear, selectedMonth);
+            GenericHKDBook domainBook = await HKDBookService.GenerateBookAsync(tenantId, period, TemplateCode);
+            book = HKDBookDto.FromDomain(domainBook);
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.LogWarning(ex, "Invalid template code or tenant: {TemplateCode}", TemplateCode);
+            errorMessage = $"Mẫu sổ không hợp lệ: {TemplateCode}";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating HKD book {TemplateCode}", TemplateCode);
+            errorMessage = $"Không thể tạo sổ kế toán: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ExportDocx()
+    {
+        if (book == null) return;
+        await DownloadFile(async () => await ExportService.ExportToDocxAsync(book), $"{TemplateCode}_{selectedYear}_{selectedMonth:D2}.docx");
+    }
+
+    private async Task ExportXlsx()
+    {
+        if (book == null) return;
+        await DownloadFile(async () => await ExportService.ExportToXlsxAsync(book), $"{TemplateCode}_{selectedYear}_{selectedMonth:D2}.xlsx");
+    }
+
+    private async Task DownloadFile(Func<Task<byte[]>> produce, string fileName)
+    {
+        exporting = true;
+        try
+        {
+            byte[] bytes = await produce();
+            string base64 = Convert.ToBase64String(bytes);
+            string mime = fileName.EndsWith(".docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, mime, fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting {FileName}", fileName);
+            errorMessage = $"Không thể xuất file: {ex.Message}";
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
+
+    private IEnumerable<KeyValuePair<string, decimal>> TotalFields =>
+        book?.NumericValues.Where(IsTotalField) ?? Enumerable.Empty<KeyValuePair<string, decimal>>();
+
+    private List<HKDBookRow> bookRows => BuildRows();
+
+    private List<HKDBookRow> BuildRows()
+    {
+        List<HKDBookRow> rows = new();
+        if (book == null) return rows;
+
+        foreach (HKDBookEntryDto entry in book.Entries)
+        {
+            rows.Add(new HKDBookRow
+            {
+                JournalNo = entry.JournalNo,
+                Date = entry.EntryDate.ToString("dd/MM/yyyy"),
+                Description = entry.Description,
+                Amount = SumEntryLines(entry),
+                IsTotal = false
+            });
+        }
+
+        foreach (KeyValuePair<string, decimal> kvp in TotalFields)
+        {
+            rows.Add(new HKDBookRow
+            {
+                JournalNo = string.Empty,
+                Date = string.Empty,
+                Description = DisplayTotalLabel(kvp.Key),
+                Amount = kvp.Value,
+                IsTotal = true
+            });
+        }
+
+        return rows;
+    }
+
+    private static decimal SumEntryLines(HKDBookEntryDto entry) =>
+        entry.Lines.Sum(l => l.DebitAmount > 0 ? l.DebitAmount : l.CreditAmount);
+
+    private static bool IsTotalField(KeyValuePair<string, decimal> kvp) =>
+        kvp.Key.StartsWith("Total", StringComparison.OrdinalIgnoreCase) ||
+        kvp.Key.Equals("NetRevenue", StringComparison.OrdinalIgnoreCase) ||
+        kvp.Key.Equals("NetProfit", StringComparison.OrdinalIgnoreCase);
+
+    private static string DisplayTotalLabel(string key) => key switch
+    {
+        "TotalRevenue" => "Tổng doanh thu",
+        "TotalExpense" => "Tổng chi phí",
+        "TotalVat" => "Tổng số thuế GTGT phải nộp",
+        "TotalPIT" => "Tổng số thuế TNCN phải nộp",
+        "NetRevenue" => "Doanh thu thuần",
+        "NetProfit" => "Lợi nhuận",
+        _ => key
+    };
+
+    public class HKDBookRow
+    {
+        public string JournalNo { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public bool IsTotal { get; set; }
+    }
+}

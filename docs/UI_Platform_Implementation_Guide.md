@@ -341,6 +341,58 @@ Modules/
    - Render optimization
 
 ---
+
+## 📒 HKD BOOK ACCOUNTING MODULE (Wave 8 — TT 152/2025/TT-BTC)
+
+Reference implementation of a TT 152-compliant accounting report module in ShopERP.
+
+### Pages
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/accounting/hkd-books` | `5_WebApps/ShopERP/Components/Pages/Accounting/HKDBooks.razor` | List of 7 HKD book templates (S1a, S2a-S2e, S3a) |
+| `/accounting/hkd-books/{templateCode}` | `HKDBookDetail.razor` | Detail view + DOCX/XLSX export buttons |
+
+### Services
+
+| Service | File | Purpose |
+|---------|------|---------|
+| `IHKDBookGenerationService` | `3_CoreHub/Services/Template/HKDBookGenerationService.cs` | Generates `GenericHKDBook` via `TemplateFactory` + formula engine. Depends on `IVanAnDbContext` (not concrete `VanAnDbContext`) so it can be injected directly into ShopERP. |
+| `HKDBookExportService` | `5_WebApps/ShopERP/Services/HKDBookExportService.cs` | DOCX export via `DocumentFormat.OpenXml`, XLSX export via `EPPlus`. Returns `(byte[], contentType, fileName)`. |
+
+### DI Wiring (ShopERP `Program.cs`)
+
+```csharp
+builder.Services.AddScoped<IVanAnDbContext, VanAnDbContext>();
+builder.Services.AddScoped<IHKDBookGenerationService, HKDBookGenerationService>();
+builder.Services.AddScoped<HKDBookExportService>();
+// + TemplateFactory, TemplateCalculationEngine, SmartPreAggregationService, etc.
+```
+
+### UI Platform Components Used
+
+- `VanACard` — page sections (header, table, footer)
+- `VanAButton` — export DOCX / XLSX actions
+- `VanAAlert` — empty/error state
+- Scoped CSS via `HKDBookDetail.razor.css` (design tokens only, no custom HTML)
+
+### Regression Prevention
+
+| Mechanism | File | Guards Against |
+|-----------|------|----------------|
+| Architecture test (SC6) | `6_Tests/VanAn.Architecture.Tests/HKDBookTemplateArchitectureTests.cs` | Issue 1: `HKDBookTemplate` subclass with no-op `CalculateAsync` → `NumericValues` empty |
+| Encoding lint (SC7) | `scripts/check-encoding.ps1` | Issue 7: UTF-8 mojibake in `.cs`/`.razor` files |
+| E2E test | `6_Testing/e2e-tests/hkd-books.spec.ts` | UI regression: list/detail/export buttons render |
+
+### Export Library Dependencies
+
+| Library | Version | Purpose | Package |
+|---------|---------|---------|---------|
+| `EPPlus` | 7.6.1 | XLSX export | `Directory.Packages.props` |
+| `DocumentFormat.OpenXml` | 3.0.1 | DOCX export | `Directory.Packages.props` |
+
+---
 **Created**: 3/5/2026
 **Next Review**: 3/6/2026
 **Owner**: UI Platform Team
+**Wave 8 Update**: 2026-07-04 — HKD Book accounting module added

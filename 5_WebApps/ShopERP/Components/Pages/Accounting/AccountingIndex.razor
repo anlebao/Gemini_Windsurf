@@ -78,10 +78,15 @@
                     OnClick="() => NavigateToHistory()">
                     📜 Lịch Sử Giao Dịch
                 </VanAButton>
-                <VanAButton 
-                    Variant="secondary" 
+                <VanAButton
+                    Variant="secondary"
                     OnClick="() => NavigateToBalance()">
                     💰 Số Dư Tài Khoản
+                </VanAButton>
+                <VanAButton
+                    Variant="secondary"
+                    OnClick="() => NavigateToHkdBooks()">
+                    📚 Sổ HKD (TT 152)
                 </VanAButton>
             </div>
         </VanACard>
@@ -186,6 +191,11 @@
     private void NavigateToBalance()
     {
         NavigationManager.NavigateTo("/accounting/balance");
+    }
+
+    private void NavigateToHkdBooks()
+    {
+        NavigationManager.NavigateTo("/accounting/hkd-books");
     }
 }
 
