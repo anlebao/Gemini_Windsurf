@@ -105,11 +105,11 @@ test.describe('EInvoice Invoice Management', () => {
     await page.waitForLoadState('networkidle');
 
     const acknowledgeBtn = page.locator('[data-testid="btn-acknowledge"]').first();
-    if (await acknowledgeBtn.isVisible()) {
-      await acknowledgeBtn.click();
-      // Alert row changes to acknowledged state
-      await expect(page.locator('.badge-success').first()).toBeVisible();
-    }
+    const isVisible = await acknowledgeBtn.isVisible();
+    test.skip(!isVisible, 'No unacknowledged alerts to acknowledge');
+    await acknowledgeBtn.click();
+    // Alert row changes to acknowledged state
+    await expect(page.locator('.badge-success').first()).toBeVisible();
   });
 
   test('should acknowledge all alerts', async ({ page }) => {
@@ -117,10 +117,10 @@ test.describe('EInvoice Invoice Management', () => {
     await page.waitForLoadState('networkidle');
 
     const acknowledgeAllBtn = page.locator('[data-testid="btn-acknowledge-all"]');
-    if (await acknowledgeAllBtn.isVisible()) {
-      await acknowledgeAllBtn.click();
-      // All acknowledge buttons gone
-      await expect(page.locator('[data-testid="btn-acknowledge"]')).toHaveCount(0);
-    }
+    const isVisible = await acknowledgeAllBtn.isVisible();
+    test.skip(!isVisible, 'No "acknowledge all" button — no pending alerts');
+    await acknowledgeAllBtn.click();
+    // All acknowledge buttons gone
+    await expect(page.locator('[data-testid="btn-acknowledge"]')).toHaveCount(0);
   });
 });

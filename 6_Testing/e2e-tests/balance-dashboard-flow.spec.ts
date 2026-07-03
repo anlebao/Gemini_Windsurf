@@ -46,12 +46,11 @@ test.describe('Balance Dashboard Flow', () => {
     // Metrics grid must be visible — hard assertion
     await expect(page.locator('.metrics-grid')).toBeVisible({ timeout: 10000 });
 
-    // Warning only appears when expense > 150% revenue — conditional, not mandatory
+    // Warning appears when expense > 150% revenue — hard assert (test name says "should show")
     const warning = page.locator(
       'text=Chi phí vượt 150% doanh thu, .alert-warning, .alert-danger'
     ).first();
-    const isWarningVisible = await warning.isVisible().catch(() => false);
-
+    await expect(warning).toBeVisible({ timeout: 10000 });
   });
 
   test('should display balance grid with account details', async ({ page }) => {
@@ -61,12 +60,11 @@ test.describe('Balance Dashboard Flow', () => {
     // Metrics grid must be visible — hard assertion
     await expect(page.locator('.metrics-grid')).toBeVisible({ timeout: 10000 });
 
-    // Account detail section — conditional (only when data exists)
+    // Account detail section — hard assert (test name says "should display")
     const detailSection = page.locator(
       'text=Chi Tiết Theo Tài Khoản, text=Chi tiết tài khoản, .account-detail'
     ).first();
-    const hasDetail = await detailSection.isVisible().catch(() => false);
-
+    await expect(detailSection).toBeVisible({ timeout: 10000 });
   });
 
   test('AccountBalance page loads at /accounting/balance', async ({ page }) => {

@@ -136,11 +136,10 @@ test.describe('Internationalization (i18n) Tests', () => {
       expect(viResponse.ok()).toBeTruthy();
       
       const viProducts = await viResponse.json();
-      if (viProducts.length > 0) {
-        const firstProduct = viProducts[0];
-        expect(firstProduct).toHaveProperty('Name');
-        expect(firstProduct.Name).toBeTruthy();
-      }
+      expect(viProducts.length).toBeGreaterThan(0);
+      const viFirstProduct = viProducts[0];
+      expect(viFirstProduct).toHaveProperty('Name');
+      expect(viFirstProduct.Name).toBeTruthy();
       
       // Test English product names
       const enResponse = await request.get(`${config.GATEWAY_URL}/api/v1/products`, {
@@ -152,11 +151,10 @@ test.describe('Internationalization (i18n) Tests', () => {
       expect(enResponse.ok()).toBeTruthy();
       
       const enProducts = await enResponse.json();
-      if (enProducts.length > 0) {
-        const firstProduct = enProducts[0];
-        expect(firstProduct).toHaveProperty('Name_EN');
-        expect(firstProduct.Name_EN).toBeTruthy();
-      }
+      expect(enProducts.length).toBeGreaterThan(0);
+      const enFirstProduct = enProducts[0];
+      expect(enFirstProduct).toHaveProperty('Name_EN');
+      expect(enFirstProduct.Name_EN).toBeTruthy();
       
       await reporter.addResult('i18n Product Names', 'pass', 'Product names available in multiple languages');
       

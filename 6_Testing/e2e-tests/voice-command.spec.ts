@@ -48,69 +48,63 @@ test.describe('Voice Command Tests', () => {
       const supportsSpeech = await page.evaluate(() => {
         return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
       });
-      
-      if (supportsSpeech) {
-        // Mock voice recognition for testing
-        await page.evaluate(() => {
-          // Mock the Web Speech API
-          const mockSpeechRecognition = class {
-            constructor() {
-              this.lang = 'vi-VN';
-              this.continuous = false;
-              this.interimResults = false;
-              this.maxAlternatives = 1;
-              
-              setTimeout(() => {
-                if (this.onresult) {
-                  this.onresult({
-                    results: [{
-                        0: {
-                          transcript: 'đơn hàng cần thêm đường ngọt',
-                          confidence: 0.9
-                        }
-                      }]
-                  });
-                }
-                if (this.onend) {
-                  this.onend();
-                }
-              }, 1000);
-            }
+      test.skip(!supportsSpeech, 'Browser does not support SpeechRecognition API');
+
+      // Mock voice recognition for testing
+      await page.evaluate(() => {
+        // Mock the Web Speech API
+        const mockSpeechRecognition = class {
+          constructor() {
+            this.lang = 'vi-VN';
+            this.continuous = false;
+            this.interimResults = false;
+            this.maxAlternatives = 1;
             
-            start() {
-              if (this.onstart) this.onstart();
-            }
-            
-            stop() {
-              if (this.onstop) this.onstop();
-            }
-          };
+            setTimeout(() => {
+              if (this.onresult) {
+                this.onresult({
+                  results: [{
+                      0: {
+                        transcript: 'đơn hàng cần thêm đường ngọt',
+                        confidence: 0.9
+                      }
+                    }]
+                });
+              }
+              if (this.onend) {
+                this.onend();
+              }
+            }, 1000);
+          }
           
-          // Replace the real SpeechRecognition
-          window.SpeechRecognition = mockSpeechRecognition;
-          window.webkitSpeechRecognition = mockSpeechRecognition;
-        });
+          start() {
+            if (this.onstart) this.onstart();
+          }
+          
+          stop() {
+            if (this.onstop) this.onstop();
+          }
+        };
         
-        // Click voice recording button
-        await voiceButton.click();
-        
-        // Wait for recording to complete
-        await page.waitForTimeout(2000);
-        
-        // Check if transcript is displayed
-        const transcript = page.locator('.transcript-text');
-        await expect(transcript).toBeVisible();
-        
-        const transcriptText = await transcript.textContent();
-        expect(transcriptText).toContain('đơn hàng cần thêm đường ngọt');
-        
-        await reporter.addResult('Voice Flow', 'pass', 'Voice command processed and transcript displayed');
-        
-      } else {
-        // Skip test if browser doesn't support speech recognition
-        console.log('Browser does not support speech recognition - skipping test');
-        await reporter.addResult('Voice Flow', 'skip', 'Browser does not support speech recognition');
-      }
+        // Replace the real SpeechRecognition
+        window.SpeechRecognition = mockSpeechRecognition;
+        window.webkitSpeechRecognition = mockSpeechRecognition;
+      });
+      
+      // Click voice recording button
+      await voiceButton.click();
+      
+      // Wait for recording to complete
+      await page.waitForTimeout(2000);
+      
+      // Check if transcript is displayed
+      const transcript = page.locator('.transcript-text');
+      await expect(transcript).toBeVisible();
+      
+      const transcriptText = await transcript.textContent();
+      expect(transcriptText).toContain('đơn hàng cần thêm đường ngọt');
+      
+      await reporter.addResult('Voice Flow', 'pass', 'Voice command processed and transcript displayed');
       
     } catch (error) {
       await reporter.addResult('Voice Flow', 'fail', error.message);
