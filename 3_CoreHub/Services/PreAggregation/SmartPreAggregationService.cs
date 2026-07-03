@@ -13,11 +13,11 @@ namespace VanAn.CoreHub.Services.PreAggregation
     /// Only aggregates what's actually needed by templates
     /// </summary>
     public class SmartPreAggregationService(
-        VanAnDbContext context,
+        IVanAnDbContext context,
         Lazy<IFormulaEngine> formulaEngine,
         ILogger<SmartPreAggregationService> logger) : IPreAggregationService
     {
-        private readonly VanAnDbContext _context = context;
+        private readonly IVanAnDbContext _context = context;
         private readonly Lazy<IFormulaEngine> _formulaEngine = formulaEngine;
         private readonly ILogger<SmartPreAggregationService> _logger = logger;
 
