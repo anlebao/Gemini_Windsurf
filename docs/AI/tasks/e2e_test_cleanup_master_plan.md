@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — E2E Test Cleanup (Anti-Pattern Removal)
 
-> **Status:** ACTIVE — Wave 0+1+2+3+4+5 COMPLETE, Wave 6 NEXT
+> **Status:** ACTIVE — Wave 0+1+2+3+4+5+6 COMPLETE, Wave 7 NEXT
 > **Created:** 2026-07-02
-> **Last Updated:** 2026-07-03 (Wave 5 complete — 9 reachability tests consolidated into 2, commit `111197e`)
+> **Last Updated:** 2026-07-03 (Wave 6 complete — 6 silent-skip tests fixed, commit `b893446`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** Pattern-Based Batch Fix (không case-by-case)
@@ -373,21 +373,23 @@ main
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W6-T1 | Fix `invoice-management.spec.ts` — `should acknowledge a single alert`: bỏ `if(isVisible)`, dùng `test.skip()` hoặc hard assert | `invoice-management.spec.ts` | PENDING |
-| 2 | W6-T2 | Fix `invoice-management.spec.ts` — `should acknowledge all alerts`: cùng pattern | `invoice-management.spec.ts` | PENDING |
-| 3 | W6-T3 | Fix `balance-dashboard-flow.spec.ts` — `should show warning when expenses exceed threshold`: hard assert warning hoặc `test.skip()` | `balance-dashboard-flow.spec.ts` | PENDING |
-| 4 | W6-T4 | Fix `balance-dashboard-flow.spec.ts` — `should display balance grid with account details`: hard assert detail section | `balance-dashboard-flow.spec.ts` | PENDING |
-| 5 | W6-T5 | Fix `voice-command.spec.ts` — `TC_Voice_Flow`: bỏ `if(supportsSpeech) else console.log`, dùng `test.skip(!supportsSpeech)` | `voice-command.spec.ts` | PENDING |
-| 6 | W6-T6 | Fix `i18n.spec.ts` — `TC_i18n_ProductNames`: bỏ `if(products.length > 0)`, hard assert hoặc `test.skip()` | `i18n.spec.ts` | PENDING |
-| 7 | W6-T7 | Verify `npx playwright test --list` pass | Solution-wide | PENDING |
+| 1 | W6-T1 | Fix `invoice-management.spec.ts` — `should acknowledge a single alert`: bỏ `if(isVisible)`, dùng `test.skip()` hoặc hard assert | `invoice-management.spec.ts` | ✅ DONE (test.skip(!isVisible) + hard assert) |
+| 2 | W6-T2 | Fix `invoice-management.spec.ts` — `should acknowledge all alerts`: cùng pattern | `invoice-management.spec.ts` | ✅ DONE (test.skip(!isVisible) + hard assert) |
+| 3 | W6-T3 | Fix `balance-dashboard-flow.spec.ts` — `should show warning when expenses exceed threshold`: hard assert warning hoặc `test.skip()` | `balance-dashboard-flow.spec.ts` | ✅ DONE (hard assert expect(warning).toBeVisible()) |
+| 4 | W6-T4 | Fix `balance-dashboard-flow.spec.ts` — `should display balance grid with account details`: hard assert detail section | `balance-dashboard-flow.spec.ts` | ✅ DONE (hard assert expect(detailSection).toBeVisible()) |
+| 5 | W6-T5 | Fix `voice-command.spec.ts` — `TC_Voice_Flow`: bỏ `if(supportsSpeech) else console.log`, dùng `test.skip(!supportsSpeech)` | `voice-command.spec.ts` | ✅ DONE (test.skip(!supportsSpeech) + removed else branch) |
+| 6 | W6-T6 | Fix `i18n.spec.ts` — `TC_i18n_ProductNames`: bỏ `if(products.length > 0)`, hard assert hoặc `test.skip()` | `i18n.spec.ts` | ✅ DONE (hard assert expect(products.length).toBeGreaterThan(0)) |
+| 7 | W6-T7 | Verify `npx playwright test --list` pass | Solution-wide | ✅ DONE — 668 tests in 21 files (unchanged — logic fixes only) |
 
 ### Entry criteria
-- [ ] Wave 5 merged
+- [x] Wave 5 merged
 
 ### Exit criteria
-- [ ] 0 `if(await x.isVisible()) { ... }` không có else/skip còn lại trong 6 test
-- [ ] Mỗi test hoặc hard assert (`expect.toBeVisible`) hoặc `test.skip(condition, reason)`
-- [ ] `npx playwright test --list` pass
+- [x] 0 `if(await x.isVisible()) { ... }` không có else/skip còn lại trong 6 test
+- [x] Mỗi test hoặc hard assert (`expect.toBeVisible`) hoặc `test.skip(condition, reason)`
+- [x] `npx playwright test --list` pass — 668 tests in 21 files
+- [x] windsurf-guard.js + architecture-guard.ps1 PASSED
+- [x] Committed `b893446` on `feature/e2e-cleanup-wave6-fix-silent-skip`
 
 ### Why sixth
 - Sau khi xóa fake + gộp smoke, fix silent skip để test còn lại có giá trị
