@@ -137,13 +137,14 @@ test.describe('VanAn Ecosystem - Audit Trail E2E Tests', () => {
     const currentUrl = page.url();
     const isLoginPage = currentUrl.includes('login') || currentUrl.includes('Login');
     const isForbidden = currentUrl.includes('403') || currentUrl.includes('forbidden');
-    const redirectedAway = !currentUrl.includes('admin/audit-trail');
     const hasAccessDenied = await page.locator(
       'text=/access denied|forbidden|không có quyền|403/i'
     ).isVisible().catch(() => false);
 
-    // Security must be enforced — any of these proves the guard is working
-    expect(isLoginPage || isForbidden || hasAccessDenied || redirectedAway).toBeTruthy();
+    // Security must be enforced — any of these proves the [Authorize] guard is working.
+    // Removed redirectedAway: true for ANY redirect (including error pages) — was a tautology.
+    // AuditTrail.razor L16: @attribute [Authorize(Roles = "Admin")]
+    expect(isLoginPage || isForbidden || hasAccessDenied).toBeTruthy();
 
   });
 

@@ -82,14 +82,12 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     await page.locator('button:has-text("Thanh toán QR"), button:has-text("QR")').first().click();
     await expect(page.locator('#qrPaymentModal')).toBeVisible({ timeout: 5000 });
 
-    // QR image must be present inside modal
-    // Accepts: actual image loaded OR loading spinner (Gateway may not be running)
-    const hasQrImage  = await page.locator('#qrPaymentModal .qr-image').isVisible();
-    const hasSpinner  = await page.locator('#qrPaymentModal .spinner-border').isVisible();
-    const hasError    = await page.locator('#qrPaymentModal .text-danger, #qrPaymentModal .error-card').isVisible();
-
-    // At least one of these states must be rendered — proves modal is functional
-    expect(hasQrImage || hasSpinner || hasError).toBeTruthy();
+    // QR image must be present inside modal after loading completes.
+    // QrPaymentModal.razor L32: <img class="qr-image" /> when QrImageUrl is set.
+    // Test flow already requires Gateway (order creation at Checkout.razor L153) —
+    // QR generation uses same Gateway, so .qr-image is the canonical success state.
+    // Previous OR (qr-image || spinner || error) was a tautology — passed in any modal state.
+    await expect(page.locator('#qrPaymentModal .qr-image')).toBeVisible({ timeout: 10000 });
 
   });
 

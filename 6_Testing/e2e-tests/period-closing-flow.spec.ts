@@ -51,10 +51,13 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
     });
     await expect(validationCard).toBeVisible({ timeout: 10000 });
 
-    // Must show either success or error state — both are valid outcomes
-    const hasSuccess = await page.locator('[class*="alert-success"], [class*="success"]').count() > 0;
-    const hasError = await page.locator('[class*="alert-error"], [class*="error"], [class*="alert-danger"]').count() > 0;
-    expect(hasSuccess || hasError).toBeTruthy();
+    // Validation card must contain a specific outcome alert (success or error).
+    // Scoped to validation card — NOT a page-wide tautology.
+    // PeriodClosing.razor L80: VanAAlert Type="success" | L96: VanAAlert Type="error"
+    // VanAAlert renders .alert-success or .alert-danger inside the "Kết Quả Kiểm Tra" card.
+    await expect(
+      validationCard.locator('.alert-success, .alert-danger')
+    ).toBeVisible();
 
   });
 

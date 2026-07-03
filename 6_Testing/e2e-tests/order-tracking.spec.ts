@@ -61,11 +61,12 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     await page.goto(`${config.KHACHLINK_URL}/order-tracking/${TEST_ORDER_ID}`);
     await page.waitForLoadState('networkidle');
 
-    // Heading must contain partial orderId or "Theo dõi" / "Đơn hàng"
+    // Heading must contain "Theo dõi" or "Đơn hàng" — not just any text.
+    // OrderTracking.razor L86: <h4>📋 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
     const heading = page.locator('h4, h3, h2').first();
     await expect(heading).toBeVisible();
     const text = await heading.textContent();
-    expect(text).toBeTruthy();
+    expect(text).toMatch(/Theo dõi|Đơn hàng|order/i);
 
   });
 
@@ -126,16 +127,14 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     await expect(placeOrderBtn).toBeVisible({ timeout: 5000 });
     await placeOrderBtn.click();
 
-    // After placing order: either redirected to /order-tracking/{id}
-    // OR success message + tracking link appears on page
-    await page.waitForLoadState('networkidle');
-
-    const isOnTrackingPage = page.url().includes('/order-tracking/');
-    const hasTrackingLink = await page.locator(
-      'a[href*="/order-tracking/"], .order-tracking, .order-confirmation'
-    ).isVisible();
-
-    expect(isOnTrackingPage || hasTrackingLink).toBeTruthy();
+    // After placing order: must redirect to /order-tracking/{id}.
+    // Checkout.razor L167: NavigationManager.NavigateTo($"/order-tracking/{createdOrderId}")
+    // Canonical success state — not an OR-tautology.
+    await page.waitForURL(
+      url => url.includes('/order-tracking/'),
+      { timeout: 10000 }
+    );
+    await expect(page).toHaveURL(/\/order-tracking\//);
 
   });
 

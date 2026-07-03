@@ -61,13 +61,11 @@ test.describe('KhachLink - VanAn Dashboard (T-11)', () => {
     await page.goto(`${config.KHACHLINK_URL}/VanAnDashboard`);
     await page.waitForLoadState('networkidle');
 
-    // Either metrics grid rendered OR loading spinner visible OR alert warning shown
-    // (StreamRendering page — metrics may take time to load)
-    const hasMetrics  = await page.locator('.metrics-grid').isVisible().catch(() => false);
-    const hasSpinner  = await page.locator('.loading-spinner, .spinner-border').isVisible().catch(() => false);
-    const hasWarning  = await page.locator('.alert-warning').isVisible().catch(() => false);
-
-    expect(hasMetrics || hasSpinner || hasWarning).toBeTruthy();
+    // Metrics grid must render — canonical state.
+    // RealTimeDashboard.razor L30: <div class="metrics-grid"> always renders (no @if guard).
+    // Spinner/warning states don't exist in this component — previous OR was a tautology
+    // that matched layout-level spinners/alerts from other page elements.
+    await expect(page.locator('.metrics-grid')).toBeVisible({ timeout: 10000 });
 
   });
 

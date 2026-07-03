@@ -64,23 +64,14 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     await page.goto(`${config.KHACHLINK_URL}/checkout`);
     await page.waitForLoadState('networkidle');
 
-    // T-02c: After checkout, either:
-    //   a) Redirected to /order-tracking/{id}  (if Gateway available + order created)
-    //   b) .order-tracking container present on page (same redirect target)
-    //   c) .order-confirmation element present (fallback if redirect delayed)
+    // T-02c: After checkout, must redirect to /order-tracking/{id}.
+    // Checkout.razor L167: NavigationManager.NavigateTo($"/order-tracking/{createdOrderId}")
+    // This is the canonical success state — not an OR-tautology.
     await page.waitForURL(
-      url => url.includes('/order-tracking/') || url.includes('/checkout'),
+      url => url.includes('/order-tracking/'),
       { timeout: 10000 }
     );
-
-    const finalUrl = page.url();
-    const isOnTrackingPage = finalUrl.includes('/order-tracking/');
-    const hasTrackingOrConfirmation = await page.locator(
-      '.order-tracking, .order-confirmation, .alert-success'
-    ).isVisible();
-
-    // At least one of these must be true — proves order flow completed
-    expect(isOnTrackingPage || hasTrackingOrConfirmation).toBeTruthy();
+    await expect(page).toHaveURL(/\/order-tracking\//);
 
   });
 
