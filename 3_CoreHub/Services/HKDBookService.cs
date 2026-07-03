@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Services.Template;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 
 namespace VanAn.CoreHub.Services
@@ -13,10 +14,12 @@ namespace VanAn.CoreHub.Services
     public class HKDBookService(
         IAccountingEntryRepository repository,
         IHKDBookRepository hkdBookRepository,
+        IHKDBookGenerationService hkdBookGenerationService,
         ILogger<HKDBookService> logger) : IHKDBookService
     {
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly IHKDBookRepository _hkdBookRepository = hkdBookRepository;
+        private readonly IHKDBookGenerationService _hkdBookGenerationService = hkdBookGenerationService;
         private readonly ILogger<HKDBookService> _logger = logger;
 
         // Vietnamese Account Mapping for HKD Books
@@ -467,11 +470,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S1a-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S1aHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S1a_HKD");
 
                 _logger.LogInformation("Successfully generated S1a-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -495,11 +495,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S2a-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S2aHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S2a_HKD");
 
                 _logger.LogInformation("Successfully generated S2a-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -523,11 +520,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S2b-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S2bHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S2b_HKD");
 
                 _logger.LogInformation("Successfully generated S2b-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -551,11 +545,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S2c-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S2cHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S2c_HKD");
 
                 _logger.LogInformation("Successfully generated S2c-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -579,11 +570,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S2d-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S2dHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S2d_HKD");
 
                 _logger.LogInformation("Successfully generated S2d-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -607,11 +595,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S2e-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S2eHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S2e_HKD");
 
                 _logger.LogInformation("Successfully generated S2e-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -635,11 +620,8 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Generating S3a-HKD Book for tenant {TenantId}, period {Period}",
                     tenantId.Value, period);
 
-                S3aHKDTemplate template = new();
-                IEnumerable<CoreAccountingEntry> accountingEntries = await _repository.GetByPeriodAsync(tenantId, period, cancellationToken);
-                List<JournalEntry> journalEntries = ConvertToJournalEntries(accountingEntries);
-
-                GenericHKDBook book = await template.CreateBookAsync(tenantId, period, journalEntries);
+                // Wave 4: Route through IHKDBookGenerationService (calc engine) — fixes Issue 1 (NumericValues always empty)
+                GenericHKDBook book = await _hkdBookGenerationService.GenerateBookAsync(tenantId, period, "S3a_HKD");
 
                 _logger.LogInformation("Successfully generated S3a-HKD Book for tenant {TenantId}", tenantId.Value);
 
@@ -715,6 +697,7 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        [Obsolete("Wave 4: Replaced by IHKDBookGenerationService.GenerateBookAsync which queries AccountingEntries directly. Do not use — will be removed in a future wave.")]
         private static List<JournalEntry> ConvertToJournalEntries(IEnumerable<CoreAccountingEntry> accountingEntries)
         {
             List<JournalEntry> journalEntries = [];

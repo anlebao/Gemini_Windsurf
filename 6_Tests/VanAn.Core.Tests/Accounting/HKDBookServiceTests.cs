@@ -3,6 +3,7 @@ using Moq;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Template;
 using CoreAccountingEntry = VanAn.Shared.Domain.AccountingEntry;
 using Xunit;
 
@@ -16,6 +17,7 @@ namespace VanAn.Core.Tests.Accounting
     {
         private readonly Mock<IAccountingEntryRepository> _mockRepository;
         private readonly Mock<IHKDBookRepository> _mockHKDBookRepository;
+        private readonly Mock<IHKDBookGenerationService> _mockHKDBookGenerationService;
         private readonly Mock<ILogger<HKDBookService>> _mockLogger;
         private readonly HKDBookService _service;
 
@@ -23,8 +25,9 @@ namespace VanAn.Core.Tests.Accounting
         {
             _mockRepository = new Mock<IAccountingEntryRepository>();
             _mockHKDBookRepository = new Mock<IHKDBookRepository>();
+            _mockHKDBookGenerationService = new Mock<IHKDBookGenerationService>();
             _mockLogger = new Mock<ILogger<HKDBookService>>();
-            _service = new HKDBookService(_mockRepository.Object, _mockHKDBookRepository.Object, _mockLogger.Object);
+            _service = new HKDBookService(_mockRepository.Object, _mockHKDBookRepository.Object, _mockHKDBookGenerationService.Object, _mockLogger.Object);
         }
 
         [Fact]
