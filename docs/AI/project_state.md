@@ -29,26 +29,24 @@
 
 ## 2. Current Objective
 
-**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC COMPLIANCE) — ACTIVE, PLAN v2 APPROVED, AWAITING WAVE 0 EXECUTION]**
+**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, PLAN v3 APPROVED, AWAITING WAVE 0 + WAVE 0.5 EXECUTION]**
 
-Fix 8 root-cause issues preventing correct TT 152 HKD book report generation. Dependency-ordered 10-wave fix (data → DI → routing → formulas → tests → API → UI → export). Audit complete; v2 plan approved with 3 amendments + 5 concerns resolved; awaiting Wave 0 execution.
+Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 152 HKD book report generation. Dependency-ordered 12-wave fix (data → DI → routing → formulas → 2026 regulatory → tests → API → UI → export). Audit complete; v3 plan approved with 5 amendments + 5 concerns resolved; awaiting Wave 0 + Wave 0.5 execution.
 
-- **Master plan:** `docs/AI/tasks/hkd_book_accounting_fix_master_plan.md` (v2 — 10 waves, 8 root-cause issues, 3 amendments + 5 concerns resolved)
-- **Planning commit:** `c4acb15` (v1 — 10 files: master plan + 9 task cards) → **v2 update pending commit** (master plan optimized in-session)
-- **Task cards:** `docs/AI/tasks/wave0_hkd_fix_preflight_task_card.md` → `wave8_hkd_fix_ui_docx_export_regression_task_card.md` (Wave 5 card needs split into 5a + 5b before Wave 5a starts)
+- **Master plan:** `docs/AI/tasks/hkd_book_accounting_fix_master_plan.md` (v3 — 12 waves, 8 root-cause issues + 2 architecture/legal findings, 5 amendments + 5 concerns resolved)
+- **Planning commits:** `c4acb15` (v1) → `c8d4a6c` (v2) → `22d3976` (W0 expand) → **v3 update pending commit**
+- **Task cards:** 12 cards (Wave 0, 0.5, 1-8, with Wave 5 split into 5a + 5b + 5c)
+- **v3 amendments (approved 2026-07-03, from phản biện kiến trúc + pháp lý):**
+  4. **Add Wave 0.5 — Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** — Option C (hardcode 2 lệnh ghi trong RecordRevenue) bị LOẠI per phản biện. Option A (refactor SmartPreAggregationService query AccountingEntries) hoặc Option B (event-driven Outbox). Codebase verify: AccountingEntry có đủ field, Outbox infrastructure đã có.
+  5. **Add HKD Accounting Regime Disclaimer + Fix suất thuế + Add Wave 5c** —
+     - 5a: HKD = single-entry per TT 88/2021 + TT 152/2025, account mapping là Internal Synthetic Mapping (KHÔNG phải TT 200/133)
+     - 5b: Sửa suất thuế — xóa "2,5%" fabricated, dùng đúng 4 nhóm per Luật 2025 + ND 117/2025 (1%/0.5%, 3%/1.5%, 5%/2%, 2%/1%)
+     - 5c: Add Wave 5c — 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished, lệ phí môn bài abolished) — CRITICAL pháp lý
 - **v2 amendments (approved 2026-07-03):**
   1. **Promote 4 architecture decisions to Wave 0** — W0-T8 (`ITemplateFactory` conflict), W0-T9 (docx/xlsx lib), W0-T10 (`Tenant.IndustrySector`), W0-T11 (double-write audit). Resolve BEFORE IMPLEMENT mode.
-  2. **Split Wave 5 into 5a + 5b** — 5a (account mapping + PIT-on-revenue, no industry modeling, 1 Domain account-number fix), 5b (industry-sector tax rates, CONDITIONAL — may descope if `Tenant.IndustrySector` missing).
-  3. **Add Wave 4 smoke test (W4-T11)** — `NumericValues` not-empty tripwire, catch routing bug before Wave 5/6.
-- **v2 concern resolutions:**
-  - Concern 1 (double-write): Wave 2 decision tree (A/B/C/D paths) + W0-T11 audit prereq
-  - Concern 2 (ITemplateFactory): promoted to W0-T8 (architecture decision in ANALYZE, not IMPLEMENT)
-  - Concern 3 (Wave 5 scope): split into 5a + 5b
-  - Concern 4 (Tenant.IndustrySector): promoted to W0-T10 (determines 5b scope)
-  - Concern 5 (test timing): W4-T11 smoke test tripwire added
-  - Concern 6 (export lib): promoted to W0-T9 (dependency approval before Wave 8)
-  - Concern 7 (multi-tenancy): W7-T6 isolation test added
-  - Concern 8 (branch strategy): per-wave merge to main (always-green, no long-lived branch)
+  2. **Split Wave 5 into 5a + 5b** — 5a (account mapping + PIT-on-revenue), 5b (industry-sector tax rates, CONDITIONAL).
+  3. **Add Wave 4 smoke test (W4-T11)** — `NumericValues` not-empty tripwire.
+- **v2 concern resolutions:** C1 (double-write tree), C2 (ITemplateFactory→W0-T8), C3 (Wave 5 split), C4 (Tenant.IndustrySector→W0-T10), C5 (smoke test), C6 (export lib→W0-T9), C7 (multi-tenancy test), C8 (per-wave merge).
 - **Root cause (8 issues):**
   1. Production path `CalculateAsync` no-op → `NumericValues` always empty (Critical)
   2. Calc engine exists (`Services/Template/`) but not wired in DI (Critical)
@@ -58,25 +56,30 @@ Fix 8 root-cause issues preventing correct TT 152 HKD book report generation. De
   6. Output is plain text, not docx/xlsx TT 152 layout (High)
   7. UTF-8 mojibake in `Services/Template/TemplateFactory.cs` (Medium)
   8. Account mapping hallucinated (`_vietnameseAccounts` 211/811/821/841/521 wrong) (Medium)
-- **Target:** 7 HKD book templates (S1a, S2a-S2e, S3a) generate `NumericValues` with real data, output docx/xlsx per TT 152 layout, endpoint + UI page, tests assert numeric values, multi-tenancy enforced, regression prevention.
+- **v3 findings (from phản biện):**
+  9. **Dual Write anti-pattern risk** — Option C (hardcode 2 ghi trong RecordRevenue) bị LOẠI, Wave 0.5 chốt A or B
+  10. **2026 regulatory non-compliance** — `HKDRevenueClassificationService` threshold 500M (sai, phải 1B), 4 groups sai, TNCN formula sai, missing thuế khoán abolished — Wave 5c fix
+- **Target:** 7 HKD book templates (S1a, S2a-S2e, S3a) generate `NumericValues` with real data, output docx/xlsx per TT 152 layout, endpoint + UI page, tests assert numeric values, multi-tenancy enforced, **2026 regulatory compliant** (threshold 1B, 4 revenue groups, TNCN formulas đúng), **no dual write** (Option A or B), regression prevention.
 
-### 10 Waves (v2 — dependency-ordered, per-wave merge to main)
+### 12 Waves (v3 — dependency-ordered, per-wave merge to main)
 | Wave | Description | Sessions | Risk | Status |
 |---|---|---|---|---|
 | 0 | Pre-flight verification (11 tasks — baseline + 4 promoted architecture decisions + double-write audit) | 0.5-1 | None | ⏳ PENDING |
+| 0.5 | **[v3] Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** | 0.5-1 | None (decision) | ⏳ PENDING |
 | 1 | Fix UTF-8 mojibake in `Services/Template/TemplateFactory.cs` (S1a + S2a TemplateImpl) | 0.5 | Low | ⏳ PENDING |
-| 2 | Bridge `AccountingEntry` → `JournalEntry` persistence (double-entry Dr/Cr + decision tree) | 1-2 | Medium | ⏳ PENDING |
+| 2 | Data source bridge (Option A: refactor query OR Option B: event-driven — per W0.5) | 0.5-2 | Medium/Low | ⏳ PENDING |
 | 3 | Wire 5 calc engine services into DI (conflict pre-resolved in W0-T8) | 1 | Low | ⏳ PENDING |
 | 4 | Route `HKDBookService.GenerateS*BookAsync` through `IHKDBookGenerationService` + smoke test tripwire (W4-T11) | 1 | Medium | ⏳ PENDING |
 | 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix W5a-T4) — **W5a-T4 needs Tech Lead approval** | 1 | Medium | ⏳ PENDING |
-| 5b | Industry-sector tax rates per TT 152 (CONDITIONAL — may descope if W0-T10 finds Tenant.IndustrySector missing) — **W5b-T0 needs Tech Lead approval IF executed** | 1-2 | High | ⏳ PENDING |
+| 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope if W0-T10 finds Tenant.IndustrySector missing) — **W5b-T0 needs Tech Lead approval IF executed** | 1-2 | High | ⏳ PENDING |
+| 5c | **[v3] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished) — CRITICAL pháp lý — Legal review recommended** | 1-2 | High (pháp lý) | ⏳ PENDING |
 | 6 | Retrofit tests with numeric assertions (3 update + 5 new + 1 regression) | 1-2 | Low | ⏳ PENDING |
 | 7 | API endpoint `GET /api/hkd-books/{templateCode}` + DI smoke + multi-tenancy isolation test (W7-T6) | 1 | Low | ⏳ PENDING |
 | 8 | UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint | 2-3 | Medium | ⏳ PENDING |
 
-**Critical path:** Wave 0→1→2→3→4→5a→6→7→8 (sequential). **Optional:** Wave 5b (between 5a and 6, conditional). **Parallel:** Wave 0+1 có thể cùng session.
+**Critical path:** Wave 0→0.5→1→2→3→4→5a→**5c**→6→7→8 (sequential). **Optional:** Wave 5b (between 5a and 5c, conditional). **Parallel:** Wave 0+0.5+1 có thể cùng session.
 **Branch strategy:** Per-wave merge to main (always-green, no long-lived branch).
-**Estimated total:** 10-15 sessions (5b optional).
+**Estimated total:** 11-18 sessions (5b optional, 5c mandatory).
 
 ### Parked / Completed Streams
 - **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
@@ -88,7 +91,7 @@ Fix 8 root-cause issues preventing correct TT 152 HKD book report generation. De
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `c4acb15` [HKD-FIX] Master plan v1 + 9 task cards (v2 master plan update pending commit)
+- **Last commit:** `22d3976` [HKD-FIX WAVE 0] Expand pre-flight task card (v3 master plan update pending commit)
 - **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (planning docs only, no code change)
 - **Guard-check:** PASSED ✅ (windsurf-guard v6.0, untracked source files check)
 - **Uncommitted changes:** None (only IDE .vs/ artifacts + stray local files: ci_local_output.txt, test_output*.txt, scripts/create-systemadmin.ps1 — all ignored, not staged)
@@ -100,37 +103,42 @@ Fix 8 root-cause issues preventing correct TT 152 HKD book report generation. De
   1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream.
   2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes.
 - **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Stream B Wave 4 SCENARIO 2 deletion. Candidate for future page-object cleanup.
-- **In-progress:** Stream D v2 plan approved (3 amendments + 5 concerns resolved). Master plan optimized in-session (pending commit). Awaiting Wave 0 execution (11 pre-flight tasks including 4 promoted architecture decisions).
+- **In-progress:** Stream D v3 plan approved (5 amendments + 5 concerns resolved + 2 phản biện kiến trúc/pháp lý incorporated). Master plan v3 optimized in-session (pending commit). Awaiting Wave 0 + Wave 0.5 execution (11 pre-flight tasks + 1 architecture decision).
 
 ---
 
 ## 4. Next Actions
 
-**Stream D — HKD Book Accounting Report Fix (active, v2 plan approved):**
-1. ~~Audit + master plan v1 + 9 task cards~~ ✅ — Committed `c4acb15` on `main`.
-2. ~~v2 plan optimization (3 amendments + 5 concerns resolved)~~ ✅ — Master plan updated in-session. Wave 5 split into 5a+5b, 4 architecture decisions promoted to Wave 0, smoke test + multi-tenancy test + double-write decision tree + per-wave merge strategy added.
-3. **Commit v2 master plan** ⏳ PENDING — Commit optimized `hkd_book_accounting_fix_master_plan.md` + updated `project_state.md` on `main`.
-4. **Wave 0: Pre-flight verification (11 tasks)** ⏳ PENDING — Verify baseline build, grep DI/endpoint/UI, query `JournalEntries`, extract 7 docx layouts, **resolve 4 promoted architecture decisions** (W0-T8 `ITemplateFactory` conflict, W0-T9 docx/xlsx lib, W0-T10 `Tenant.IndustrySector`, W0-T11 double-write audit). Task card: `wave0_hkd_fix_preflight_task_card.md` (needs expansion for T8-T11).
-5. **Wave 1: Fix UTF-8 mojibake** ⏳ PENDING — Fix `S1aHKDTemplateImpl` + `S2aHKDTemplateImpl` strings. Task card: `wave1_hkd_fix_encoding_mojibake_task_card.md`.
-6. **Wave 2: Bridge AccountingEntry → JournalEntry persistence** ⏳ PENDING — With double-write decision tree (W0-T11 prereq). Task card: `wave2_hkd_fix_bridge_journal_persistence_task_card.md`.
-7. **Wave 3: Wire calc engine into DI** ⏳ PENDING — Conflict pre-resolved in W0-T8. Task card: `wave3_hkd_fix_wire_calc_engine_di_task_card.md`.
-8. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
-9. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — needs creation, split from old wave5 card).
-10. **Wave 5b: Industry-sector tax rates** ⏳ CONDITIONAL — Depends on W0-T10. **W5b-T0 needs Tech Lead approval IF Tenant.IndustrySector missing.** Task card: `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — needs creation).
-11. **Wave 6: Retrofit tests with numeric assertions** ⏳ PENDING — Update 3 + add 5 + 1 regression test. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
-12. **Wave 7: API endpoint + DI smoke + multi-tenancy test** ⏳ PENDING — Endpoint + W7-T6 isolation test. Task card: `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md`.
-13. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
+**Stream D — HKD Book Accounting Report Fix (active, v3 plan approved):**
+1. ~~Audit + master plan v1 + 9 task cards~~ ✅ — Committed `c4acb15`.
+2. ~~v2 plan optimization (3 amendments + 5 concerns resolved)~~ ✅ — Committed `c8d4a6c` + `22d3976`.
+3. ~~v3 plan optimization (2 phản biện + Amendment 4+5)~~ ✅ — Master plan v3 updated in-session (pending commit).
+4. **Commit v3 master plan** ⏳ PENDING — Commit optimized `hkd_book_accounting_fix_master_plan.md` + updated `project_state.md` on `main`.
+5. **Wave 0: Pre-flight verification (11 tasks)** ⏳ PENDING — Verify baseline build, grep DI/endpoint/UI, query `JournalEntries`, extract 7 docx layouts, **resolve 4 promoted architecture decisions** (W0-T8 `ITemplateFactory` conflict, W0-T9 docx/xlsx lib, W0-T10 `Tenant.IndustrySector`, W0-T11 double-write audit). Task card: `wave0_hkd_fix_preflight_task_card.md` (expanded).
+6. **Wave 0.5: Architecture Decision — HKD Data Source (A vs B, loại C)** ⏳ PENDING — **[v3] Chốt Option A (refactor SmartPreAggregationService query AccountingEntries) hoặc Option B (event-driven Outbox). LOẠI Option C (dual write).** Task card: `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` (NEW — needs creation).
+7. **Wave 1: Fix UTF-8 mojibake** ⏳ PENDING — Fix `S1aHKDTemplateImpl` + `S2aHKDTemplateImpl` strings. Task card: `wave1_hkd_fix_encoding_mojibake_task_card.md`.
+8. **Wave 2: Data source bridge (Option A or B per W0.5)** ⏳ PENDING — Task card: `wave2_hkd_fix_data_source_bridge_task_card.md` (RENAMED + REWRITE per W0.5 decision).
+9. **Wave 3: Wire calc engine into DI** ⏳ PENDING — Conflict pre-resolved in W0-T8. Task card: `wave3_hkd_fix_wire_calc_engine_di_task_card.md`.
+10. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
+11. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — needs creation).
+12. **Wave 5b: Industry-sector tax rates** ⏳ CONDITIONAL — Depends on W0-T10. **W5b-T0 needs Tech Lead approval IF Tenant.IndustrySector missing.** Task card: `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — needs creation).
+13. **Wave 5c: 2026 Regulatory Compliance Fix** ⏳ PENDING — **[v3] CRITICAL pháp lý.** Fix threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished. **Legal review recommended.** Task card: `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` (NEW — needs creation).
+14. **Wave 6: Retrofit tests with numeric assertions** ⏳ PENDING — Update 3 + add 5 + 1 regression test. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
+15. **Wave 7: API endpoint + DI smoke + multi-tenancy test** ⏳ PENDING — Endpoint + W7-T6 isolation test. Task card: `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md`.
+16. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
-**Pre-Wave-5a action item:** Split old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` into `wave5a_..._pit_task_card.md` + `wave5b_..._industry_sector_task_card.md`.
-**Pre-Wave-0 action item:** Expand `wave0_hkd_fix_preflight_task_card.md` with T8-T11 (4 promoted architecture decisions).
+**Pre-Wave-5a action item:** Split old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` into `wave5a_..._pit_task_card.md` + `wave5b_..._industry_sector_task_card.md` + `wave5c_..._2026_regulatory_task_card.md`.
+**Pre-Wave-0.5 action item:** Create `wave0p5_hkd_fix_arch_decision_data_source_task_card.md`.
+**Pre-Wave-2 action item:** Rename + rewrite `wave2_hkd_fix_bridge_journal_persistence_task_card.md` → `wave2_hkd_fix_data_source_bridge_task_card.md` per W0.5 decision.
 
 **Deferred (awaiting user decision):**
-1. **Merge Stream B to main** — Stream B wave branches (`feature/e2e-cleanup-wave1-...` through `wave8-...`) await merge to main. All 8 waves complete, guard PASSED.
-2. **Push to origin** — `main` is 16 commits ahead of `origin/main` (15 Stream B + 1 Stream D planning).
+1. **Merge Stream B to main** — Stream B wave branches await merge to main. All 8 waves complete, guard PASSED.
+2. **Push to origin** — `main` is ahead of `origin/main` (Stream B + Stream D planning commits).
 3. **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
 4. **Blazor `CascadingAuthenticationState` circuit crash** — pre-existing defect. Separate FIX_ONLY stream candidate.
-5. **Tech Lead approval for Stream D Wave 5a W5a-T4** — Domain modification (`HKDTemplates.cs` S2b account "512"→"5118", no new field). Needed before Wave 5a implementation.
-6. **Tech Lead approval for Stream D Wave 5b W5b-T0** (CONDITIONAL) — Add `IndustrySector` to `Tenant` entity. Only needed if W0-T10 finds field missing AND Wave 5b is not descoped.
+5. **Tech Lead approval for Stream D Wave 5a W5a-T4** — Domain modification (`HKDTemplates.cs` S2b account "512"→"5118", no new field). Needed before Wave 5a.
+6. **Tech Lead approval for Stream D Wave 5b W5b-T0** (CONDITIONAL) — Add `IndustrySector` to `Tenant`. Only if W0-T10 finds field missing AND Wave 5b not descoped.
+7. **Legal review for Stream D Wave 5c** — Confirm 2026 regulatory changes (threshold 1B, 4 revenue groups, TNCN formulas, thuế khoán abolished) với bộ phận pháp lý/thuế. Recommended before Wave 5c implementation.
 
 ---
 
@@ -207,6 +215,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Stream D v2 plan approved. Master plan optimized with 3 amendments + 5 concerns resolved: (1) promoted 4 architecture decisions to Wave 0 (ITemplateFactory conflict, docx/xlsx lib, Tenant.IndustrySector, double-write audit), (2) split Wave 5 into 5a (account mapping + PIT fix) + 5b (industry-sector rates, conditional), (3) added Wave 4 smoke test tripwire. Plus: Wave 2 double-write decision tree, Wave 7 multi-tenancy isolation test, per-wave merge to main branch strategy. Plan now 10 waves (5b optional), 10-15 sessions. v2 master plan + project_state update pending commit. Stream B (E2E Test Cleanup) fully complete — wave branches await merge to main.
+* **Last Updated:** 2026-07-03 — Stream D v3 plan approved. v3 incorporates 2 phản biện (kiến trúc + pháp lý): (4) Add Wave 0.5 — Architecture Decision HKD Data Source (Option A refactor query / Option B event-driven Outbox, LOẠI Option C dual-write per phản biện), (5) Add HKD Accounting Regime Disclaimer (single-entry per TT 88/2021 + TT 152/2025, account mapping là Internal Synthetic Mapping) + Fix suất thuế (xóa "2,5%" fabricated, dùng 4 nhóm per Luật 2025 + ND 117/2025: 1%/0.5%, 3%/1.5%, 5%/2%, 2%/1%) + Add Wave 5c (2026 Regulatory Compliance Fix — threshold 500M→1B, 4 revenue groups mới, TNCN formulas Nhóm 2/3/4, thuế khoán abolished, lệ phí môn bài abolished — CRITICAL pháp lý). Plan now 12 waves (5b optional, 5c mandatory), 11-18 sessions. v3 master plan + project_state update pending commit. Stream B (E2E Test Cleanup) fully complete — wave branches await merge to main.
 * **Current Branch:** `main`
 * **Current Objective:** Stream D — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance). Planning complete. Awaiting approval to start Wave 0.

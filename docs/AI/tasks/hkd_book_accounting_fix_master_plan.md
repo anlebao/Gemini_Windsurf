@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** ✅ APPROVED (v2) — Awaiting Wave 0 execution
+> **Status:** ✅ APPROVED (v3) — Awaiting Wave 0 + Wave 0.5 execution
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (v2 — 10 waves, 8 root-cause issues, 3 amendments + 5 concerns resolved)
+> **Last Updated:** 2026-07-03 (v3 — 12 waves, 8 root-cause issues + 2 architecture/legal findings, 5 amendments + 5 concerns resolved)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -36,23 +36,26 @@ Wave 1 (encoding) là wave duy nhất có thể làm song song với Wave 0/2 (�
 4. **Trước khi session end:** `dotnet build VanAn.sln` Release pass + commit
 5. **Sau mỗi wave:** Commit với message format `[HKD-FIX WAVE X] <short description>`
 
-### Branch protocol (v2 — per-wave merge to main, always-green)
+### Branch protocol (v3 — per-wave merge to main, always-green)
 ```
 main ← feature/hkd-fix-wave0-preflight          (merge after W0 verify pass)
+main ← feature/hkd-fix-wave0p5-arch-decision-hkd-data-source  (merge after W0.5 decision)
 main ← feature/hkd-fix-wave1-encoding-mojibake  (merge after build+guard pass)
-main ← feature/hkd-fix-wave2-bridge-journal-persistence
+main ← feature/hkd-fix-wave2-data-source-bridge (Option A or B per W0.5)
 main ← feature/hkd-fix-wave3-wire-calc-engine-di
 main ← feature/hkd-fix-wave4-route-through-generation-service
 main ← feature/hkd-fix-wave5a-account-mapping-pit-fix
 main ← feature/hkd-fix-wave5b-industry-sector-tax-rates  (CONDITIONAL — may descope)
+main ← feature/hkd-fix-wave5c-2026-regulatory-compliance  (CRITICAL — pháp lý)
 main ← feature/hkd-fix-wave6-retrofit-numeric-tests
 main ← feature/hkd-fix-wave7-api-endpoint-di-smoke
 main ← feature/hkd-fix-wave8-ui-docx-export-regression
 ```
 - **Mỗi wave là branch riêng, branch từ `main` mới nhất, merge ngược về `main` sau khi pass** (build + guard + test)
-- **`main` luôn green** — không có long-lived branch 14-session
+- **`main` luôn green** — không có long-lived branch
 - **Branch wave kế tiếp phải rebase/pull từ `main` trước khi bắt đầu** (đảm bảo có fix wave trước)
-- **Wave 5b có thể skip** (descope) mà không ảnh hưởng wave 6-8 (5b không block — 5a đã fix PIT + account mapping)
+- **Wave 5b có thể skip** (descope) — không block 5c/6-8 (5c dùng default rate nếu 5b descoped)
+- **Wave 5c KHÔNG skip** — CRITICAL pháp lý, phải execute
 - Nếu conflict khi merge wave → resolve trên feature branch, không force-push main
 
 ### Hard rules
@@ -64,6 +67,9 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 - **TDD áp dụng từ Wave 6** — Wave 2-5 retrofit test sau khi logic ổn (Wave 6 gom lại).
 - **Playwright DISABLED** trong Wave 1-7 — chỉ chạy E2E sau Wave 8 (UI xong).
 - **Multi-tenancy phải enforce** ở mọi tầng mới (endpoint, UI, export).
+- **[AMENDMENT 4 — v3] KHÔNG dual-write trong `RecordRevenueAsync`/`RecordExpenseAsync`** — Option C (hardcode 2 lệnh ghi trong cùng method) bị LOẠI per phản biện kiến trúc. Wave 0.5 phải chốt Option A (refactor SmartPreAggregationService query AccountingEntries) hoặc Option B (event-driven Outbox) TRƯỚC khi Wave 2 bắt đầu.
+- **[AMENDMENT 5 — v3] HKD accounting regime = phương pháp đơn (single-entry)** theo TT 88/2021/TT-BTC + TT 152/2025/TT-BTC. Account mapping (111/511/611...) là **Internal Synthetic Mapping** để tận dụng chung Formula Engine — KHÔNG phải nghĩa vụ hạch toán kép theo TT 200/133. UI/UX + báo cáo pháp lý MUST tuân thủ chế độ HKD.
+- **[AMENDMENT 5 — v3] Suất thuế 2026 phải theo Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025** — 4 nhóm ngành nghề (1%/0.5%, 3%/1.5%, 5%/2%, 2%/1%). KHÔNG dùng "2,5%" (fabricated, không tồn tại trong luật). Threshold chịu thuế: 500M → **1 TỶ VND** từ 01/01/2026.
 
 ### Critical context
 - **7 HKD book templates** theo TT 152/2025/TT-BTC: S1a_HKD (Group 1), S2a-S2e_HKD (Group 2), S3a_HKD (Group 3)
@@ -110,7 +116,57 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ---
 
-## 1. CURRENT ISSUES SUMMARY (Root Causes)
+## 0.7. WAVE 0.5 — Architecture Decision: HKD Data Source (A vs B, loại C dual-write)
+
+> **[AMENDMENT 4 — v3] Resolve architecture decision BEFORE Wave 2.** Phản biện cảnh báo: Option C (hardcode 2 lệnh ghi AccountingEntry + JournalEntry trong cùng `RecordRevenueAsync`) là Dual Write anti-pattern — rủi ro mất đồng bộ dữ liệu, bẩn Service layer. Wave 0.5 chọn Option A hoặc B thay thế.
+
+**Branch:** `feature/hkd-fix-wave0p5-arch-decision-hkd-data-source`
+**Estimated sessions:** 0.5-1 (ANALYZE — read + decision, no code change)
+**Conflict risk:** None (decision only)
+**Priority:** 0.5 (CRITICAL — block Wave 2 — quyết định kiến trúc dữ liệu)
+**Task Card:** `docs/AI/tasks/wave0p5_hkd_fix_arch_decision_data_source_task_card.md` (NEW)
+
+### Background — 3 Options
+
+| Option | Mô tả | Ưu điểm | Nhược điểm | Khi nào chọn |
+|---|---|---|---|---|
+| **A: Refactor SmartPreAggregationService query AccountingEntries** | `GetAccountSumAsync` thay query `JournalEntries.Lines` bằng `AccountingEntries` (filter `AccountCode.StartsWith(pattern)` + `EntryType` làm sign thay Debit/Credit). **Skip Wave 2 entirely** — không cần JournalEntry cho HKD. | Single Source of Truth, không dual write, không cần JournalEntry, effort thấp nhất | Formula Engine không dùng chung được với khối Doanh nghiệp (Doanh nghiệp cần double-entry Debit/Credit) | **HKD-only product** — không có kế hoạch mở rộng Formula Engine cho Doanh nghiệp |
+| **B: Event-Driven / Outbox Pattern** | `RecordRevenueAsync` chỉ lưu `AccountingEntry` (immutable) + phát Domain Event `AccountingEntryRecorded`. Background handler (NATS subscriber hoặc Outbox worker) lắng nghe + sinh `JournalEntry` double-entry. **Wave 2 trở thành "add event handler" thay vì "modify RecordRevenue".** | Tách biệt write path, tận dụng Outbox infrastructure đã có (`OutboxRepository`, `NatsSyncWorker`, `NatsEventPublisher`), dùng chung Formula Engine với Doanh nghiệp, governance-compliant (event-driven) | Effort trung bình — thêm event + handler + idempotent guard | **Share Formula Engine với Doanh nghiệp** — có kế hoạch mở rộng |
+| ~~C: Hardcode dual write trong RecordRevenue~~ | ~~`RecordRevenueAsync` gọi cả `_repository.AddAsync(entry)` + `_hkdBookRepository.AddToBookAsync(journalEntry)`~~ | ~~Effort thấp nhất~~ | ~~Dual write anti-pattern, rủi ro mất đồng bộ, bẩn Service, vi phạm Single Responsibility~~ | **LOẠI — per phản biện kiến trúc** |
+
+### Codebase evidence (đã verify)
+- `AccountingEntry` có field `AccountCode` (DMD-1 fix 2026-06-20, `1_Shared/Domain.cs` L284) + `EntryType` + `Amount` + `PeriodYear/Month` + `TenantId` → **đủ thông tin cho Option A**
+- `SmartPreAggregationService.GetAccountSumAsync` (L155-185) query `_context.JournalEntries...Lines` → **refactor-able thành `_context.AccountingEntries`** cho Option A
+- `OutboxRepository` + `IOutboxRepository` + `NatsSyncWorker` + `NatsEventPublisher` + `OutboxNotificationService` đã tồn tại → **Option B không cần xây mới infrastructure**
+- `SimpleAccountingEventHandler` đã là NATS BackgroundService subscribe `vanan.events.ordercompleted` → **Option B thêm 1 subscription `vanan.events.accountingentryrecorded`**
+- Skill `.devin/skills/outbox-pattern-implementation.md` đã có → **Option B có guideline**
+
+### Tasks
+| # | Task ID | Task | Files | Status |
+|---|---|---|---|---|
+| 1 | W0.5-T1 | Verify `AccountingEntry.AccountCode` được populate cho mọi entry — grep tất cả caller của `AccountingEntry.CreateRevenue`/`CreateExpense`, confirm có truyền `AccountCode` không (nếu không → Option A cần thêm field population trước khi refactor) | `1_Shared/Domain.cs` (AccountingEntry factory), grep callers | ⏳ PENDING |
+| 2 | W0.5-T2 | Verify Formula Engine dependency — đọc `ProductionFormulaEngine.GetDependencies` + template formulas, confirm engine cần `Account_{pattern}_Credit/Debit` aggregates (có thể map từ `EntryType`) hay cần cứng `JournalEntries.Lines` structure | `3_CoreHub/Services/Formula/ProductionFormulaEngine.cs`, template formulas | ⏳ PENDING |
+| 3 | W0.5-T3 | Verify có kế hoạch mở rộng Formula Engine cho khối Doanh nghiệp không — đọc `docs/AI/project_state.md` Section 1 (Project Overview) + roadmap, confirm HKD-only hay share engine | `docs/AI/project_state.md`, roadmap docs | ⏳ PENDING |
+| 4 | W0.5-T4 | **DECISION:** Chọn Option A (refactor SmartPreAggregationService, skip Wave 2) HOẶC Option B (event-driven Outbox, Wave 2 = add event handler). Document rationale. **Option C LOẠI.** | Decision document | ⏳ PENDING |
+| 5 | W0.5-T5 | If Option A → update Wave 2 task card: replace "Bridge JournalEntry persistence" bằng "Refactor SmartPreAggregationService query AccountingEntries" + skip JournalEntry creation | `wave2_hkd_fix_bridge_journal_persistence_task_card.md` (REWRITE) | ⏳ PENDING |
+| 6 | W0.5-T6 | If Option B → update Wave 2 task card: replace "modify RecordRevenue/Expense" bằng "add Domain Event + NATS/Outbox handler sinh JournalEntry" + idempotent guard | `wave2_hkd_fix_bridge_journal_persistence_task_card.md` (REWRITE) | ⏳ PENDING |
+
+### Entry criteria
+- [ ] Wave 0 complete (baseline verified, T11 double-write audit done)
+
+### Exit criteria
+- [ ] **DECISION documented** (Option A or B, with rationale) — NOT Option C
+- [ ] Wave 2 task card updated to reflect chosen option
+- [ ] If Option A: Wave 2 scope changed to "refactor query" (no JournalEntry creation)
+- [ ] If Option B: Wave 2 scope changed to "add event handler" (no modify RecordRevenue)
+- [ ] `dotnet build VanAn.sln` Release — 0 errors (no code change, just decision)
+- [ ] guard-check.ps1 PASSED
+
+### Why between Wave 0 and Wave 1
+- **Block Wave 2** — quyết định kiến trúc dữ liệu phải chốt trước khi implement bridge
+- **Không block Wave 1** (encoding fix độc lập với data source)
+- **Read-only ANALYZE** — không code change, chỉ decision + task card update
+- **Phản biện kiến trúc cảnh báo: Option C là technical debt nguy hiểm** — không được default vào C vì "effort thấp nhất"
 
 ### Issue 1: Production path `CalculateAsync` no-op — `NumericValues` luôn rỗng (Critical)
 **Status:** ❌ BROKEN — Báo cáo chỉ in header, không in số liệu
@@ -160,7 +216,7 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 **Status:** ❌ NON-COMPLIANT — Cứng 5% GTGT + 10% TNCN, không phân ngành nghề
 **Priority:** 5 (High — sai về mặt pháp lý + logic)
 **Root cause:** `S2aHKDTemplate` (HKDTemplates.cs L119-140):
-- `VatAmount = TotalRevenue * 0.05` — cứng 5%. TT 152 có nhiều tỷ lệ GTGT theo ngành nghề (1%; 1,5%; 2%; 2,5%; 3%; 5%).
+- `VatAmount = TotalRevenue * 0.05` — cứng 5%. TT 152 + Luật 2025 có 4 tỷ lệ GTGT theo ngành nghề (1%; 3%; 5%; 2% — per ND 117/2025). KHÔNG có "2,5%".
 - `PersonalIncomeTax = VatAmount * 0.1` — sai logic: TNCN tính trên doanh thu, không tính trên GTGT; suất TNCN cũng theo ngành nghề (0,5%; 1%; 1,5%; 2%).
 - Không có khái niệm "nhóm ngành nghề" — mẫu S2a-HKD thật BẮT BUỘC phân chia theo ngành nghề, mỗi ngành có `Tổng cộng (n) / Thuế GTGT / Thuế TNCN` riêng.
 
@@ -244,57 +300,60 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ---
 
-## 3. WAVE 2 — Bridge AccountingEntry → JournalEntry Persistence
+## 3. WAVE 2 — Data Source Bridge (Option A: refactor query OR Option B: event-driven — per Wave 0.5 decision)
 
-**Branch:** `feature/hkd-fix-wave2-bridge-journal-persistence`
-**Estimated sessions:** 1-2
-**Conflict risk:** MEDIUM (thay đổi write path)
+**Branch:** `feature/hkd-fix-wave2-data-source-bridge` (renamed from `bridge-journal-persistence` — scope phụ thuộc W0.5)
+**Estimated sessions:** 1-2 (Option A: 0.5-1, Option B: 1-2)
+**Conflict risk:** MEDIUM (Option B thay đổi write path via event) / LOW (Option A chỉ refactor query)
 **Priority:** 2 (Critical — block Wave 3/4/5/6 — calc engine cần data)
-**Task Card:** `docs/AI/tasks/wave2_hkd_fix_bridge_journal_persistence_task_card.md`
+**Task Card:** `docs/AI/tasks/wave2_hkd_fix_data_source_bridge_task_card.md` (RENAMED + REWRITE per W0.5)
 
-### Tasks
+> **[AMENDMENT 4 — v3] Wave 2 scope phụ thuộc Wave 0.5 decision.** Option C (dual write trong RecordRevenue) bị LOẠI. Task card phải rewrite theo Option A hoặc B.
+
+### Tasks — Option A (refactor SmartPreAggregationService query AccountingEntries)
 | # | Task ID | Task | Files | Status |
 |---|---|---|---|---|
-| 1 | W2-T1 | Modify `HKDBookService.RecordRevenueAsync` — sau khi persist `AccountingEntry`, tạo + persist `JournalEntry` với double-entry lines (Dr 111/Cash, Cr 511/Revenue) dùng `IHKDBookRepository.AddToBookAsync` | `3_CoreHub/Services/HKDBookService.cs` (L43-71) | ⏳ PENDING |
-| 2 | W2-T2 | Modify `HKDBookService.RecordExpenseAsync` — cùng pattern (Dr 611/Expense, Cr 111/Cash) | `3_CoreHub/Services/HKDBookService.cs` (L73-101) | ⏳ PENDING |
-| 3 | W2-T3 | Verify `JournalEntry.AddLine(accountNumber, debit, credit, description)` API — confirm signature + immutability | `1_Shared/Domain/JournalEntry.cs` (READ) | ⏳ PENDING |
-| 4 | W2-T4 | Verify `IHKDBookRepository.AddToBookAsync` — confirm persist `JournalEntry` + assign `AccountingBookType` | `3_CoreHub/Repositories/HKDBookRepository.cs` (L135-154) | ⏳ PENDING |
-| 5 | W2-T5 | Add unit test: `RecordRevenueAsync_ShouldPersistJournalEntry_WithCorrectDoubleEntryLines` — assert JournalEntry có 2 lines, Dr 111 = Cr 511 = amount | `6_Tests/VanAn.Core.Tests/Accounting/HKDBookServiceTests.cs` | ⏳ PENDING |
-| 6 | W2-T6 | Add unit test: `RecordExpenseAsync_ShouldPersistJournalEntry_WithCorrectDoubleEntryLines` — assert Dr 611 = Cr 111 = amount | `6_Tests/VanAn.Core.Tests/Accounting/HKDBookServiceTests.cs` | ⏳ PENDING |
-| 7 | W2-T7 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
+| 1 | W2A-T1 | Refactor `SmartPreAggregationService.GetAccountSumAsync` — thay query `_context.JournalEntries...Lines` bằng `_context.AccountingEntries.Where(e => e.TenantId == tenantId && e.PeriodYear == period.Year && e.AccountCode.StartsWith(pattern))`. Map `EntryType.Revenue` → "Credit", `EntryType.Expense` → "Debit" (hoặc dùng `EntryType` trực tiếp thay Debit/Credit sign) | `3_CoreHub/Services/PreAggregation/SmartPreAggregationService.cs` (L155-185) | ⏳ PENDING |
+| 2 | W2A-T2 | Verify `AccountingEntry.AccountCode` được populate cho mọi entry — nếu caller nào không truyền AccountCode → fix caller (hoặc thêm default mapping Revenue→511, Expense→611) | grep callers of `AccountingEntry.CreateRevenue/CreateExpense` | ⏳ PENDING |
+| 3 | W2A-T3 | Add unit test: `GetAccountSumAsync_ShouldReturnRevenueFromAccountingEntries` — seed AccountingEntries với AccountCode "511", assert SUM_ACCOUNT("511","Credit") = total revenue | `6_Tests/VanAn.Core.Tests/` | ⏳ PENDING |
+| 4 | W2A-T4 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
+
+### Tasks — Option B (event-driven Outbox — add handler sinh JournalEntry)
+| # | Task ID | Task | Files | Status |
+|---|---|---|---|---|
+| 1 | W2B-T1 | Add Domain Event `AccountingEntryRecorded` — phát từ `RecordRevenueAsync`/`RecordExpenseAsync` sau khi persist `AccountingEntry` (KHÔNG modify write logic — chỉ thêm event publish) | `1_Shared/Domain/Events/` (NEW) + `3_CoreHub/Services/HKDBookService.cs` | ⏳ PENDING |
+| 2 | W2B-T2 | Add NATS/Outbox handler `AccountingEntryRecordedHandler` — subscribe `vanan.events.accountingentryrecorded`, sinh `JournalEntry` double-entry (Dr 111/Cr 511 cho Revenue; Dr 611/Cr 111 cho Expense), persist via `IHKDBookRepository.AddToBookAsync` | `3_CoreHub/Services/Events/AccountingEntryRecordedHandler.cs` (NEW) | ⏳ PENDING |
+| 3 | W2B-T3 | Add idempotent guard — handler check if `JournalEntry` with same `ReferenceId` (AccountingEntry.Id) already exists before persisting (tránh duplicate khi NATS redeliver) | Same handler | ⏳ PENDING |
+| 4 | W2B-T4 | Verify `JournalEntry.AddLine(accountNumber, debit, credit, description)` API — confirm signature + immutability | `1_Shared/Domain/JournalEntry.cs` (READ) | ⏳ PENDING |
+| 5 | W2B-T5 | Add unit test: `AccountingEntryRecordedHandler_ShouldGenerateDoubleEntryJournalEntry` — assert JournalEntry có 2 lines, Dr 111 = Cr 511 = amount | `6_Tests/VanAn.Core.Tests/` | ⏳ PENDING |
+| 6 | W2B-T6 | Add unit test: `AccountingEntryRecordedHandler_ShouldBeIdempotent_OnRedelivery` — send same event twice, assert only 1 JournalEntry persisted | `6_Tests/VanAn.Core.Tests/` | ⏳ PENDING |
+| 7 | W2B-T7 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
 
 ### Entry criteria
 - [ ] Wave 1 merged
-- [ ] `IHKDBookRepository.AddToBookAsync` confirmed persist JournalEntry (Wave 0 verify)
-- [ ] **W0-T11 double-write audit complete** — write-path map documented in Wave 2 task card
+- [ ] **Wave 0.5 decision documented** (Option A or B — NOT C)
+- [ ] Wave 2 task card rewritten per chosen option
 
-### Double-write decision tree (Concern 1 resolution)
-Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
+### Exit criteria — Option A
+- [ ] `SmartPreAggregationService.GetAccountSumAsync` query `AccountingEntries` (không còn query `JournalEntries`)
+- [ ] `AccountingEntry.AccountCode` populated cho mọi entry
+- [ ] Unit test pass (revenue sum from AccountingEntries)
+- [ ] `dotnet build VanAn.sln` Release — 0 errors
+- [ ] guard-check.ps1 PASSED
 
-| W0-T11 Finding | Decision | Action |
-|---|---|---|
-| **A.** No existing code persists `JournalEntry` (table empty, `AddToBookAsync` never called) | ✅ SAFE to bridge | Implement W2-T1/T2 as specified — add `JournalEntry` persistence in `RecordRevenue/Expense` |
-| **B.** Existing path persists `JournalEntry` from a DIFFERENT source (not `AccountingEntry`) | ✅ SAFE but verify no overlap | Implement W2-T1/T2, add guard: check if `JournalEntry` with same `ReferenceId` already exists before persisting (idempotent) |
-| **C.** Existing path persists `JournalEntry` from `AccountingEntry` (rare — would mean audit missed something) | ⚠️ STOP — potential double-write | Do NOT add new persistence. Instead, verify existing path produces correct double-entry lines. If lines are wrong (single-entry), fix existing path rather than adding new. Report to user before proceeding. |
-| **D.** `JournalEntries` table has data but source unknown | ⚠️ INVESTIGATE | Query sample rows, trace `TenantId` + `ReferenceId` back to source code. Resolve to A/B/C before proceeding. |
-
-**If decision = C or D → STOP and report to user.** Do not guess.
-
-### Exit criteria
-- [ ] `RecordRevenueAsync` persist cả `AccountingEntry` (immutable) + `JournalEntry` (double-entry)
-- [ ] `RecordExpenseAsync` persist cả `AccountingEntry` + `JournalEntry`
-- [ ] `JournalEntry` có 2 lines: 1 Debit + 1 Credit, tổng Debit = tổng Credit = amount
-- [ ] Account numbers đúng: Revenue → Dr 111, Cr 511; Expense → Dr 611, Cr 111
-- [ ] **If W0-T11 = B: idempotent guard present** (no duplicate JournalEntry for same ReferenceId)
-- [ ] 2 unit test pass (verify double-entry lines)
+### Exit criteria — Option B
+- [ ] `RecordRevenueAsync`/`RecordExpenseAsync` chỉ persist `AccountingEntry` + phát event (KHÔNG dual write)
+- [ ] Handler sinh `JournalEntry` double-entry (Dr/Cr balanced)
+- [ ] Idempotent guard present (no duplicate on redelivery)
+- [ ] 2 unit test pass (double-entry + idempotent)
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
 - [ ] guard-check.ps1 PASSED
 
 ### Why second
-- Block tất cả wave sau — calc engine query `JournalEntries`, nếu bảng rỗng thì SUM_ACCOUNT = 0
-- Risk medium — thay đổi write path, cần đảm bảo không break `AccountingEntry` immutability
-- Phải làm trước Wave 3 (wire DI) để có data test
-- **Decision tree (W0-T11 prereq) loại bỏ risk double-write** — không guess, verify trước
+- Block tất cả wave sau — calc engine cần data source
+- **Option A: Single Source of Truth, không cần JournalEntry cho HKD** — tối ưu nếu HKD-only
+- **Option B: Event-driven, tách biệt write path, share Formula Engine với Doanh nghiệp** — tối ưu nếu mở rộng
+- **Option C LOẠI** — dual write anti-pattern per phản biện kiến trúc
 
 ---
 
@@ -436,7 +495,7 @@ Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
 |---|---|---|---|---|
 | 0 | W5b-T0 | (CONDITIONAL — only if Tenant.IndustrySector missing + approved) Add `IndustrySector` field to `Tenant` domain entity | `1_Shared/Domain/Tenant.cs` — **CẦN TECH LEAD APPROVAL** | ⏳ PENDING |
 | 1 | W5b-T1 | Verify `HKDRevenueClassificationService` + `IHKDTaxClassificationService` — đọc API, confirm có mapping suất thuế theo ngành nghề | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs`, `3_CoreHub/Services/IHKDTaxClassificationService.cs` (READ) | ⏳ PENDING |
-| 2 | W5b-T2 | Nếu mapping suất thuế chưa có → tạo lookup table ngành nghề → (GTGT%, TNCN%) theo TT 152 (1%; 1,5%; 2%; 2,5%; 3%; 5% GTGT; 0,5%; 1%; 1,5%; 2% TNCN) | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs` (UPDATE) hoặc file mới | ⏳ PENDING |
+| 2 | W5b-T2 | Nếu mapping suất thuế chưa có → tạo lookup table 4 nhóm ngành nghề → (GTGT%, TNCN%) per Luật 2025 + ND 117/2025: Phân phối (1%/0.5%), Sản xuất (3%/1.5%), Dịch vụ (5%/2%), Khác (2%/1%). **KHÔNG dùng "2,5%" (fabricated).** | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs` (UPDATE) hoặc file mới | ⏳ PENDING |
 | 3 | W5b-T3 | Sửa `S2aHKDTemplateImpl` — thay `VatAmount = TotalRevenue * defaultRate` (từ W5a) bằng gọi `HKDRevenueClassificationService.GetVatRate(industry)` | `3_CoreHub/Services/Template/TemplateFactory.cs` (L177-249) | ⏳ PENDING |
 | 4 | W5b-T4 | Thêm khái niệm "nhóm ngành nghề" vào template S2a — mỗi ngành có `Tổng cộng (n) / Thuế GTGT / Thuế TNCN` riêng | `3_CoreHub/Services/Template/TemplateFactory.cs` (S2aHKDTemplateImpl) | ⏳ PENDING |
 | 5 | W5b-T5 | Add unit test: `S2aBook_VatAmount_ShouldUseIndustryRate_NotHardcoded5Percent` — seed tenant với ngành nghề 1% GTGT, assert VatAmount = Revenue * 0.01 | `6_Tests/VanAn.Core.Tests/Services/HKDBookServiceTests.cs` | ⏳ PENDING |
@@ -459,6 +518,78 @@ Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
 - Risk cao nhất — cần modeling ngành nghề + có thể cần Domain mod (Tenant.IndustrySector)
 - Tách ra để 5a có thể merge độc lập — 5b không block Wave 6 nếu descope
 - Compliance pháp lý đầy đủ — sai = báo cáo sai thuế, nhưng 5a đã fix 2 bug nghiêm trọng trước
+
+---
+
+## 6.7. WAVE 5c — 2026 Regulatory Compliance Fix (CRITICAL — pháp lý)
+
+**Branch:** `feature/hkd-fix-wave5c-2026-regulatory-compliance`
+**Estimated sessions:** 1-2
+**Conflict risk:** HIGH (thay đổi threshold + formula tính thuế — ảnh hưởng toàn bộ HKD tax calculation)
+**Priority:** 5c (CRITICAL — sai = báo cáo sai thuế + phạt hành chính)
+**Task Card:** `docs/AI/tasks/wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` (NEW)
+
+> **[AMENDMENT 5c — v3] Phát hiện qua phản biện pháp lý:** `HKDRevenueClassificationService` hiện tại (L12-14) có threshold SAI hoàn toàn vs luật 2026. v2 plan hoàn toàn missing 2026 regulatory changes. Đây là bug pháp lý nghiêm trọng — không chỉ là industry-sector rates (Wave 5b).
+
+### Codebase evidence (đã verify)
+- `HKDRevenueClassificationService` (L12-14): `Group1Threshold = 500_000_000m`, `Group2Threshold = 1_000_000_000m`, `Group3Threshold = 3_000_000_000m` — **SAI vs luật 2026** (phải là 1B / 3B / 50B)
+- Service hiện tại chia 4 groups: ≤500M / 500M-1B / 1B-3B / >3B — **SAI hoàn toàn** (phải là ≤1B / 1B-3B / 3B-50B / >50B)
+- TNCN formula hiện tại (plan v2 Wave 5b): `PIT = TotalRevenue * industryRate` — **SAI** (Nhóm 2 phải là `(Doanh thu - 1B) * industryRate`)
+- Plan v2 KHÔNG mention: thuế khoán abolished, lệ phí môn bài abolished, TNCN theo lợi nhuận (Nhóm 3/4)
+
+### 2026 Regulatory Changes (NGUỒN: Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025 + Nghị quyết 198/2025/QH15)
+| Thay đổi | Hiện tại (code/plan) | Sửa thành (luật 2026) |
+|---|---|---|
+| Ngưỡng chịu thuế | 500M | **1 TỶ VND** |
+| 4 revenue groups | ≤500M / 500M-1B / 1B-3B / >3B | **≤1B / 1B-3B / 3B-50B / >50B** |
+| TNCN Nhóm 1 | (not implemented) | **Không chịu thuế** |
+| TNCN Nhóm 2 | `Doanh thu × rate` (plan v2) | **`(Doanh thu - 1B) × industryRate`** OR `(Doanh thu - chi phí) × 15%` |
+| TNCN Nhóm 3 | (not implemented) | **`(Doanh thu - chi phí) × 17%`** (bắt buộc lợi nhuận) |
+| TNCN Nhóm 4 | (not implemented) | **`(Doanh thu - chi phí) × 20%`** (bắt buộc lợi nhuận) |
+| Thuế khoán | (assumed still active) | **BÃI BỎ từ 01/01/2026** — tất cả kê khai |
+| Lệ phí môn bài | (assumed still active) | **BÃI BỎ từ 01/01/2026** |
+| Khai thuế GTGT | (not specified) | **Theo quý** (Nhóm 2/3/4) |
+| Khai thuế TNCN | (not specified) | **Theo quý + quyết toán năm (31/1 năm sau)** |
+| Hóa đơn điện tử | (not specified) | **Bắt buộc nếu >1B** (Nhóm 2), bắt buộc (Nhóm 3/4) |
+
+### Tasks
+| # | Task ID | Task | Files | Status |
+|---|---|---|---|---|
+| 1 | W5c-T1 | Fix `HKDRevenueClassificationService` thresholds: `Group1Threshold = 1_000_000_000m`, `Group2Threshold = 3_000_000_000m`, `Group3Threshold = 50_000_000_000m`, thêm `Group4Threshold` (>50B) | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs` (L12-14) | ⏳ PENDING |
+| 2 | W5c-T2 | Fix `GetThresholdWarningsAsync` — update warning messages + thresholds per 4 nhóm mới (1B / 3B / 50B) | `3_CoreHub/Services/Orchestration/HKDRevenueClassificationService.cs` (L52-76) | ⏳ PENDING |
+| 3 | W5c-T3 | Add TNCN calculation method cho Nhóm 2: `(Doanh thu - 1_000_000_000) × industryRate` (từ W5b lookup) — KHÔNG phải `Doanh thu × rate` | `3_CoreHub/Services/Template/TemplateFactory.cs` (S2aHKDTemplateImpl) hoặc service mới | ⏳ PENDING |
+| 4 | W5c-T4 | Add TNCN calculation method cho Nhóm 3: `(Doanh thu - chi phí) × 17%` — cần chi phí data (từ AccountingEntries Expense) | Same | ⏳ PENDING |
+| 5 | W5c-T5 | Add TNCN calculation method cho Nhóm 4: `(Doanh thu - chi phí) × 20%` | Same | ⏳ PENDING |
+| 6 | W5c-T6 | Add GTGT exemption cho Nhóm 1 (≤1B): `VatAmount = 0` nếu totalRevenue ≤ 1B | Same | ⏳ PENDING |
+| 7 | W5c-T7 | Document thuế khoán abolished + lệ phí môn bài abolished — update UI/UX labels, remove "thuế khoán" references, add "kê khai + tự nộp" | UI labels, docs | ⏳ PENDING |
+| 8 | W5c-T8 | Add unit test: `RevenueGroup_ShouldUse2026Thresholds_1B_3B_50B` — assert Group1 ≤1B, Group2 1B-3B, Group3 3B-50B, Group4 >50B | `6_Tests/VanAn.Core.Tests/Services/HKDRevenueClassificationServiceTests.cs` (NEW or existing) | ⏳ PENDING |
+| 9 | W5c-T9 | Add unit test: `TNCN_Group2_ShouldSubtract1B_BeforeApplyingRate` — revenue 2B, rate 0.5%, assert PIT = (2B - 1B) × 0.5% = 5M (KHÔNG phải 2B × 0.5% = 10M) | `6_Tests/VanAn.Core.Tests/Services/` | ⏳ PENDING |
+| 10 | W5c-T10 | Add unit test: `TNCN_Group3_ShouldCalculateOnProfit_17Percent` — revenue 5B, chi phí 3B, assert PIT = (5B - 3B) × 17% = 340M | `6_Tests/VanAn.Core.Tests/Services/` | ⏳ PENDING |
+| 11 | W5c-T11 | Add unit test: `TNCN_Group4_ShouldCalculateOnProfit_20Percent` — revenue 60B, chi phí 40B, assert PIT = (60B - 40B) × 20% = 4B | `6_Tests/VanAn.Core.Tests/Services/` | ⏳ PENDING |
+| 12 | W5c-T12 | Add unit test: `GTGT_Group1_ShouldBeZero_WhenRevenueUnder1B` — revenue 800M, assert VatAmount = 0 | `6_Tests/VanAn.Core.Tests/Services/` | ⏳ PENDING |
+| 13 | W5c-T13 | `dotnet build VanAn.sln` Release + `dotnet test` pass | Solution-wide | ⏳ PENDING |
+
+### Entry criteria
+- [ ] Wave 5a merged (account mapping + PIT-on-revenue fix)
+- [ ] Wave 5b merged OR descoped (industry-sector rates — W5c-T3 needs industryRate from W5b if executed; if 5b descoped, use default rate + log technical debt)
+- [ ] **Legal review recommended** — confirm 2026 regulatory changes với bộ phận pháp lý/thuế (Nguồn: meinvoice.vn/MISA 14/04/2026, trích Luật 2025 + ND 117/2025 + Nghị quyết 198/2025/QH15)
+
+### Exit criteria
+- [ ] `HKDRevenueClassificationService` thresholds: 1B / 3B / 50B / >50B (4 groups mới)
+- [ ] TNCN Nhóm 2: `(Doanh thu - 1B) × industryRate` (not `Doanh thu × rate`)
+- [ ] TNCN Nhóm 3: `(Doanh thu - chi phí) × 17%`
+- [ ] TNCN Nhóm 4: `(Doanh thu - chi phí) × 20%`
+- [ ] GTGT Nhóm 1: 0 (exemption)
+- [ ] Thuế khoán + lệ phí môn bài abolished documented
+- [ ] 5 unit test pass (thresholds + 4 TNCN formulas + GTGT exemption)
+- [ ] `dotnet build VanAn.sln` Release — 0 errors
+- [ ] guard-check.ps1 PASSED
+
+### Why 5c (separate from 5b)
+- **CRITICAL pháp lý** — sai threshold = sai toàn bộ tax calculation = phạt hành chính
+- **Khác scope 5b** — 5b là industry-sector rates (suất thuế theo ngành), 5c là revenue-group thresholds + TNCN formula (theo nhóm doanh thu)
+- **Có thể chạy độc lập** — 5c không phụ thuộc 5b (dùng default rate nếu 5b descoped)
+- **Bối cảnh 2026:** Cơ quan thuế siết e-invoice từ máy tính tiền — phân loại sai nhóm = tính sai nghĩa vụ thuế = rủi ro phạt nặng cho khách hàng
 
 ---
 
@@ -486,8 +617,9 @@ Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
 ### Entry criteria
 - [ ] Wave 5a merged (account mapping + PIT fix)
 - [ ] Wave 5b merged OR descoped (W0-T10 result determines — if descoped, document in technical_debt.md)
+- [ ] **Wave 5c merged** (2026 regulatory compliance — thresholds + TNCN formulas)
 - [ ] Wave 4 merged (NumericValues có số liệu + smoke test pass)
-- [ ] Wave 2 merged (JournalEntries có data)
+- [ ] Wave 2 merged (data source bridge — Option A or B per W0.5)
 
 ### Exit criteria
 - [ ] 7 test `GenerateS*BookAsync` assert `NumericValues` cụ thể (không chỉ metadata)
@@ -615,12 +747,48 @@ Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
 - **Playwright DISABLED** Wave 1-7 per governance (IMPLEMENT mode)
 - **Wave 4 smoke test (W4-T11)** — tripwire phát hiện routing bug ngay, không đợi Wave 6
 
-### TT 152 Compliance (Concern 4 — RESOLVED, Wave 5 split)
+### TT 152 Compliance (Concern 4 — RESOLVED, Wave 5 split + 5c 2026 regulatory)
 - 7 mẫu báo cáo: S1a (Group 1), S2a-S2e (Group 2), S3a (Group 3)
 - Layout từng mẫu đã extract trong Wave 0 (docx → text)
 - Wave 8 phải match layout: header (HỘ/CÁ NHÂN KD + MST + địa chỉ + "Mẫu số X-HKD (Kèm theo TT 152/2025/TT-BTC)"), bảng (chứng từ + diễn giải + số tiền), footer (tổng thuế + chữ ký NGƯỜI ĐẠI DIỆN HKD)
 - **Wave 5a fix PIT-on-revenue + account mapping** (logic bugs, không cần modeling)
-- **Wave 5b industry-sector rates** (full compliance, conditional — may descope if Tenant.IndustrySector missing)
+- **Wave 5b industry-sector rates** (4 nhóm ngành nghề per Luật 2025 + ND 117/2025, conditional — may descope if Tenant.IndustrySector missing)
+- **Wave 5c 2026 regulatory compliance** (threshold 500M→1B, 4 revenue groups mới, TNCN formula Nhóm 2/3/4, thuế khoán abolished) — CRITICAL pháp lý
+
+### HKD Accounting Regime Disclaimer (Amendment 5a — v3)
+> **CRITICAL:** HKD theo TT 88/2021/TT-BTC + TT 152/2025/TT-BTC ghi sổ **phương pháp đơn (single-entry)** — Sổ theo dõi chi phí, doanh thu, dòng tiền. **KHÔNG có nghĩa vụ hạch toán định khoản kép (Nợ/Có) theo TT 200/2014/TT-BTC hay TT 133/2016/TT-BTC.**
+>
+> Account mapping (111/511/611/632/641/642/811/821...) trong `HKDBookService._vietnameseAccounts` là **Internal Synthetic Mapping** — ánh xạ giả lập nội bộ của CoreHub để tận dụng chung Formula Engine với khối Doanh nghiệp. **KHÔNG phải nghĩa vụ hạch toán kép theo TT 200/133.**
+>
+> **UI/UX + báo cáo pháp lý cho HKD MUST tuân thủ chế độ HKD:**
+> - KHÔNG render Bảng cân đối kế toán (Balance Sheet) chuẩn TT 200
+> - KHÔNG render Báo cáo kết quả hoạt động kinh doanh chuẩn TT 200
+> - Render sổ theo dõi doanh thu, chi phí, dòng tiền per TT 88/2021 + TT 152/2025
+> - Document này phải ghi rõ trong code comment + UI label + export template
+>
+> **Risk nếu không clarify:** Dev sau này lầm tưởng HKD phải lên Bảng cân đối / Báo cáo KQKD chuẩn TT 200 → thiết kế sai UI/UX + báo cáo pháp lý → khách hàng nộp sai báo cáo cho cơ quan thuế.
+
+### 2026 Tax Rate Lookup Table (Amendment 5b — v3, per Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025)
+> **CRITICAL:** Suất thuế HKD 2026 theo 4 nhóm ngành nghề (NGUỒN CHÍNH THỨC: meinvoice.vn/MISA 14/04/2026, trích Luật 2025 + ND 117/2025 + Nghị quyết 198/2025/QH15):
+>
+> | Nhóm ngành nghề | GTGT | TNCN (Nhóm 2, tính trên doanh thu) |
+> |---|---|---|
+> | Phân phối, cung cấp hàng hóa | **1%** | **0,5%** |
+> | Sản xuất, vận tải, dịch vụ có gắn với hàng hóa, xây dựng có bao thầu NVL | **3%** | **1,5%** |
+> | Dịch vụ, xây dựng không bao thầu nguyên vật liệu | **5%** | **2%** |
+> | Hoạt động kinh doanh khác | **2%** | **1%** |
+>
+> **KHÔNG có "2,5%"** — v2 plan có "1%; 1,5%; 2%; 2,5%; 3%; 5%" là FABRICATED. Sửa thành đúng 4 nhóm trên.
+>
+> **TNCN formula theo nhóm doanh thu (2026):**
+> - **Nhóm 1 (≤1B):** Không chịu thuế GTGT + TNCN
+> - **Nhóm 2 (1B-3B):** `(Doanh thu - 1_000_000_000) × industryRate` (KHÔNG phải `Doanh thu × rate`) — hoặc `(Doanh thu - chi phí) × 15%` nếu xác định được chi phí
+> - **Nhóm 3 (3B-50B):** `(Doanh thu - chi phí) × 17%` (bắt buộc theo lợi nhuận)
+> - **Nhóm 4 (>50B):** `(Doanh thu - chi phí) × 20%` (bắt buộc theo lợi nhuận)
+>
+> **Threshold chịu thuế: 500M → 1 TỶ VND từ 01/01/2026** (Luật Thuế GTGT/TNCN sửa đổi 2025)
+> **Thuế khoán BÃI BỎ từ 01/01/2026** — tất cả kê khai + tự nộp (Nghị quyết 198/2025/QH15)
+> **Lệ phí môn bài BÃI BỎ từ 01/01/2026** (Điều 10, Nghị quyết 198/2025/QH15)
 
 ### Tenant Industry Sector (Concern 4 prereq — RESOLVED, promoted to Wave 0)
 - **W0-T10 verify `Tenant.IndustrySector` field exists** before Wave 5b
@@ -647,91 +815,108 @@ Based on W0-T11 audit results, choose path BEFORE implementing W2-T1/T2:
 
 ---
 
-## 11. APPROVAL CHECKLIST (v2)
+## 11. APPROVAL CHECKLIST (v3)
 
-- [x] Master plan reviewed (v2 — 10 waves, 8 root-cause issues, 3 amendments + 5 concerns resolved)
-- [ ] 10 task cards reviewed (Wave 0-8, with Wave 5 split into 5a + 5b)
+- [x] Master plan reviewed (v3 — 12 waves, 8 root-cause issues + 2 architecture/legal findings, 5 amendments + 5 concerns resolved)
+- [ ] 12 task cards reviewed (Wave 0, 0.5, 1-8, with Wave 5 split into 5a + 5b + 5c)
 - [ ] HKD Book report audit reviewed (8 issues — see Section 1)
+- [ ] **Phản biện kiến trúc (Dual Write) reviewed** — Option C loại, Wave 0.5 chốt A or B
+- [ ] **Phản biện pháp lý (HKD regime + 2026 regulatory) reviewed** — Wave 5c added, suất thuế sửa, disclaimer thêm
 - [ ] Wave 0 pre-flight verification complete (11 tasks — including 4 promoted architecture decisions)
+- [ ] **Wave 0.5 architecture decision complete** (Option A or B documented — NOT C)
 - [ ] `dotnet build VanAn.sln` Release baseline pass
-- [ ] Data flow gap confirmed (JournalEntries table rỗng)
+- [ ] Data flow gap confirmed (JournalEntries table rỗng OR AccountingEntries đủ field cho Option A)
 - [ ] DI registrations confirmed (5 service chưa đăng ký)
 - [ ] **W0-T8: `ITemplateFactory` conflict resolution documented** (promoted from W3-T8)
 - [ ] **W0-T9: docx/xlsx library availability confirmed OR dependency-add approved** (promoted from W8-T3/T4)
 - [ ] **W0-T10: `Tenant.IndustrySector` field existence confirmed** (determines Wave 5b scope)
-- [ ] **W0-T11: Double-write audit complete** (write-path map documented, decision tree path selected)
+- [ ] **W0-T11: Double-write audit complete** (write-path map documented)
+- [ ] **W0.5-T4: HKD Data Source decision documented** (Option A or B — NOT C)
 - [ ] Tech Lead approval cho W5a-T4 (Domain modification — account number `"512"` → `"5118"`, no new field) — **chỉ cần trước Wave 5a**
 - [ ] Tech Lead approval cho W5b-T0 (conditional — add `IndustrySector` to `Tenant`) — **chỉ cần trước Wave 5b IF W0-T10 finds field missing**
+- [ ] **Legal review recommended cho Wave 5c** — confirm 2026 regulatory changes với bộ phận pháp lý/thuế
 - [ ] Branch strategy confirmed (per-wave merge to main, always-green)
-- [ ] Sẵn sàng implement Wave 0 + Wave 1 (có thể cùng session)
+- [ ] Sẵn sàng implement Wave 0 + Wave 0.5 + Wave 1 (có thể cùng session)
 
 ---
 
-## 12. EFFORT SUMMARY (v2)
+## 12. EFFORT SUMMARY (v3)
 
 | Wave | Description | Sessions | Risk |
 |---|---|---|---|
 | Wave 0 | Pre-flight verification (11 tasks — baseline + 4 architecture decisions promoted) | 0.5-1 | None |
+| Wave 0.5 | **[NEW] Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** | 0.5-1 | None (decision only) |
 | Wave 1 | Fix UTF-8 mojibake (mechanical) | 0.5 | Low |
-| Wave 2 | Bridge AccountingEntry → JournalEntry persistence (with double-write decision tree) | 1-2 | Medium |
+| Wave 2 | Data source bridge (Option A: refactor query OR Option B: event-driven — per W0.5) | 0.5-2 | Medium/Low |
 | Wave 3 | Wire calc engine into DI (conflict pre-resolved in W0-T8) | 1 | Low |
 | Wave 4 | Route HKDBookService through IHKDBookGenerationService + smoke test tripwire | 1 | Medium |
 | Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium |
-| Wave 5b | Industry-sector tax rates per TT 152 (CONDITIONAL — may descope) | 1-2 | High |
+| Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High |
+| Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) |
 | Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low |
 | Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low |
 | Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium |
-| **Total** | | **10-15 sessions** (5b optional) | |
+| **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | |
 
-**Critical path:** Wave 0 → Wave 1 → Wave 2 → Wave 3 → Wave 4 → Wave 5a → Wave 6 → Wave 7 → Wave 8
-**Optional path:** Wave 5b (between 5a and 6) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
-**Parallel path:** Wave 0 + Wave 1 có thể cùng session (cả 2 non-code/low-risk, độc lập)
-**Descope path:** If Wave 5b descoped → use default rate from 5a, log technical debt, Wave 6-8 proceed normally
+**Critical path:** Wave 0 → Wave 0.5 → Wave 1 → Wave 2 → Wave 3 → Wave 4 → Wave 5a → **Wave 5c** → Wave 6 → Wave 7 → Wave 8
+**Optional path:** Wave 5b (between 5a and 5c) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
+**Parallel path:** Wave 0 + Wave 0.5 + Wave 1 có thể cùng session (cả 3 non-code/low-risk, độc lập)
+**Descope path:** If Wave 5b descoped → use default rate, log technical debt, Wave 5c/6-8 proceed (5c uses default rate if 5b descoped)
+**Mandatory path:** Wave 5c KHÔNG skip — CRITICAL pháp lý (sai threshold = sai thuế = phạt hành chính)
 
-**Fix target (v2):**
-- Before: 7 HKD book templates, `NumericValues` luôn rỗng, output plain text, không endpoint/UI, test pass trắng
-- After (full): 7 HKD book templates, `NumericValues` có số liệu thực, output docx/xlsx theo TT 152 layout, endpoint + UI page, test assert numeric values, regression prevention, multi-tenancy enforced
-- After (if 5b descoped): Same as full but tax rates use single default (not industry-specific) — technical debt logged
+**Fix target (v3):**
+- Before: 7 HKD book templates, `NumericValues` luôn rỗng, output plain text, không endpoint/UI, test pass trắng, threshold sai (500M), TNCN formula sai, dual write risk
+- After (full): 7 HKD book templates, `NumericValues` có số liệu thực, output docx/xlsx theo TT 152 layout, endpoint + UI page, test assert numeric values, regression prevention, multi-tenancy enforced, **2026 regulatory compliant** (threshold 1B, 4 revenue groups, TNCN formulas đúng), **no dual write** (Option A or B per W0.5)
+- After (if 5b descoped): Same as full but tax rates use single default (not industry-specific) — technical debt logged, **5c still executes** (threshold + TNCN formula fix mandatory)
 - After (if export descoped): Same as full but UI render-only, no DOCX/XLSX export — technical debt logged
-- Compliance: TT 152/2025/TT-BTC (suất thuế theo ngành nghề nếu 5b executed, layout mẫu, chữ ký)
+- Compliance: TT 152/2025/TT-BTC + TT 88/2021/TT-BTC (HKD single-entry regime) + Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025 + Nghị quyết 198/2025/QH15 (2026 regulatory)
 
 ---
 
-## 13. ROLLBACK PLAN (v2)
+## 13. ROLLBACK PLAN (v3)
 
 Nếu wave fail không fix được:
 - **Wave 1-4:** Revert branch — không ảnh hưởng production (code cũ vẫn chạy, chỉ không có số liệu)
 - **Wave 5a:** Revert branch — giữ `_vietnameseAccounts` sai + PIT tính trên VAT (sai nhưng chạy được)
-- **Wave 5b:** Revert branch OR descope — giữ default rate từ 5a (sai về ngành nghề nhưng chạy được, log technical debt)
+- **Wave 5b:** Revert branch OR descope — giữ default rate (sai về ngành nghề nhưng chạy được, log technical debt)
+- **Wave 5c:** **KHÔNG recommend revert** — CRITICAL pháp lý. Nếu revert → threshold 500M sai + TNCN formula sai = báo cáo sai thuế = phạt hành chính. Nếu fail, fix-forward thay vì revert.
 - **Wave 6:** Revert test — giữ test cũ (pass trắng, không phát hiện bug)
 - **Wave 7:** Revert endpoint — không có API mới
 - **Wave 8:** Revert UI — không có page mới (hoặc descope export only, giữ UI render)
 
-**Không có wave nào break production** — tất cả là additive fix hoặc fix logic không ảnh hưởng existing flow (trừ Wave 2 thay đổi write path — cần rollback cẩn thận nếu double-write, decision tree W0-T11 loại bỏ risk này).
+**Không có wave nào break production** — tất cả là additive fix hoặc fix logic không ảnh hưởng existing flow.
+- **Wave 2 (Option A):** revert refactor query — quay lại query JournalEntries (rỗng, SUM=0, nhưng không crash)
+- **Wave 2 (Option B):** revert event handler — RecordRevenue không phát event, JournalEntries rỗng (như cũ)
 
 **Per-wave merge to main** cho phép revert từng wave độc lập — không cần revert toàn bộ stream.
+**Wave 5c là exception** — fix-forward thay vì revert (pháp lý critical).
 
 ---
 
-## 14. REFERENCES (v2)
+## 14. REFERENCES (v3)
 
 - **Mẫu TT 152:** `docs/plan_MVP/HKD_BookAcc/*.docx` (7 files — S1a, S2a-S2e, S3a)
 - **Audit report:** Session 2026-07-03 (chat history — 8 root causes)
 - **v2 review:** Session 2026-07-03 (3 amendments + 5 concerns resolved)
+- **v3 review:** Session 2026-07-03 (2 phản biện — Dual Write architecture + HKD legal regime + 2026 regulatory)
+- **Nguồn pháp lý 2026:** meinvoice.vn/MISA (14/04/2026) — trích Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025 + Nghị quyết 198/2025/QH15
 - **E2E cleanup master plan (template):** `docs/AI/tasks/e2e_test_cleanup_master_plan.md`
 - **Governance:** `.devin/rules/governance.md` (Domain protection, Hard Stops, UI Platform)
 - **Workflow:** `.devin/workflows/newfeaturebuild.md` (ANALYZE → IMPLEMENT)
-- **Task cards (v2 — 10 cards):**
+- **Outbox skill:** `.devin/skills/outbox-pattern-implementation.md` (Option B reference)
+- **Task cards (v3 — 12 cards):**
   - `wave0_hkd_fix_preflight_task_card.md` (expanded — 11 tasks)
+  - `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` (NEW — Option A vs B decision)
   - `wave1_hkd_fix_encoding_mojibake_task_card.md`
-  - `wave2_hkd_fix_bridge_journal_persistence_task_card.md` (added decision tree)
+  - `wave2_hkd_fix_data_source_bridge_task_card.md` (RENAMED + REWRITE per W0.5 — Option A or B)
   - `wave3_hkd_fix_wire_calc_engine_di_task_card.md` (W3-T8 demoted to verify-only)
   - `wave4_hkd_fix_route_through_generation_service_task_card.md` (added W4-T11 smoke test)
   - `wave5a_hkd_fix_account_mapping_pit_task_card.md` (NEW — split from wave5)
   - `wave5b_hkd_fix_industry_sector_tax_rates_task_card.md` (NEW — split from wave5, conditional)
+  - `wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` (NEW — 2026 regulatory fix)
   - `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`
   - `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md` (added W7-T6 multi-tenancy test)
   - `wave8_hkd_fix_ui_docx_export_regression_task_card.md`
 
-> **NOTE:** Wave 5 task card needs to be split into 5a + 5b cards (action item before Wave 5a starts). Old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` to be replaced.
+> **NOTE:** Wave 5 task card needs to be split into 5a + 5b + 5c cards (action item before Wave 5a starts). Old `wave5_hkd_fix_account_mapping_tax_formulas_task_card.md` to be replaced. Wave 2 task card needs rename + rewrite per W0.5 decision.
 - **Project state:** `docs/AI/project_state.md` (update sau mỗi wave)
