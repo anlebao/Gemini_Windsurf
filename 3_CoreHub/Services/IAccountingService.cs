@@ -33,17 +33,20 @@ namespace VanAn.CoreHub.Services
         /// Create revenue entry (VAT 2026 compliant)
         /// accountCode: mã tài khoản kế toán (511, 515...) — TT 152/2025/TT-BTC
         /// reference: số chứng từ/hóa đơn tham chiếu
+        /// industrySector: Wave 5 — ngành nghề kinh doanh (TT 152 S2a/S2b industry-group split)
         /// </summary>
         Task<AccountingEntryDto> CreateRevenueEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
-            string? accountCode = null, string? reference = null);
+            string? accountCode = null, string? reference = null, IndustrySector? industrySector = null);
 
         /// <summary>
         /// Create expense entry (VAT 2026 compliant)
         /// accountCode: mã tài khoản kế toán (621, 627, 642...) — TT 152/2025/TT-BTC
         /// vendor: nhà cung cấp; category: danh mục chi phí; reference: số chứng từ
+        /// industrySector: Wave 5 — ngành nghề kinh doanh (TT 152 S2a/S2b industry-group split)
         /// </summary>
         Task<AccountingEntryDto> CreateExpenseEntryAsync(TenantId tenantId, AccountingPeriod period, decimal amount, string description,
-            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null);
+            string? accountCode = null, string? vendor = null, string? category = null, string? reference = null,
+            IndustrySector? industrySector = null);
 
         /// <summary>
         /// Get entries by tenant

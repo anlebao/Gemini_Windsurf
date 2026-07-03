@@ -8,7 +8,8 @@ namespace VanAn.CoreHub.Services
 {
     /// <summary>
     /// Service implementation for 4 HKD Books - Phase 2.3 implementation
-    /// Implements Vietnamese Accounting Standard (Thông tư 200/2014/TT-BTC)
+    /// Implements TT 88/2021/TT-BTC + TT 152/2025/TT-BTC (HKD single-entry).
+    /// Account mapping is Internal Synthetic Mapping (KHÔNG phải TT 200/133).
     /// 5-layer protection: Domain, EF Core, Repository, Service, API
     /// </summary>
     public class HKDBookService(
@@ -22,25 +23,27 @@ namespace VanAn.CoreHub.Services
         private readonly IHKDBookGenerationService _hkdBookGenerationService = hkdBookGenerationService;
         private readonly ILogger<HKDBookService> _logger = logger;
 
-        // Vietnamese Account Mapping for HKD Books
+        // Vietnamese Account Mapping for HKD Books (Internal Synthetic Mapping — TT 88/2021 + TT 152/2025)
+        // Wave 5 (2026-07-03): Fixed hallucinated labels (211/811/821/841) + added 311/333.
         private readonly Dictionary<string, string> _vietnameseAccounts = new()
         {
             { "111", "Tiền mặt" },
             { "112", "Tiền gửi ngân hàng" },
             { "131", "Phải thu khách hàng" },
             { "156", "Hàng hóa" },
-            { "211", "Ngắn hạn vay ngân hàng" },
+            { "211", "Tài sản cố định hữu hình" },
+            { "311", "Vay ngắn hạn ngân hàng" },
             { "331", "Phải trả người bán" },
+            { "333", "Thuế và các khoản phải nộp nhà nước" },
             { "334", "Phải trả người lao động" },
             { "511", "Doanh thu bán hàng" },
             { "632", "Giá vốn hàng bán" },
             { "641", "Chi phí quản lý doanh nghiệp" },
             { "642", "Chi phí bán hàng" },
-            { "811", "Lợi nhuận gộp về bán hàng" },
-            { "821", "Chi phí tài chính" },
+            { "811", "Xác định kết quả kinh doanh" },
+            { "821", "Chi phí thuế TNDN" },
             { "822", "Thu nhập khác" },
-            { "831", "Lợi nhuận trước thuế" },
-            { "841", "Lợi nhuận sau thuế" }
+            { "831", "Lợi nhuận trước thuế" }
         };
 
         public async Task<CoreAccountingEntry> RecordRevenueAsync(
@@ -48,6 +51,7 @@ namespace VanAn.CoreHub.Services
             decimal amount,
             string description,
             DateTime? transactionDate = null,
+            IndustrySector? industrySector = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -56,12 +60,13 @@ namespace VanAn.CoreHub.Services
 
                 // Create immutable revenue entry using Factory
                 AccountingPeriod period = new(date.Year, date.Month);
-                CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description);
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateRevenue(tenantId, period, new Money(amount), description,
+                    industrySector: industrySector);
 
                 await _repository.AddAsync(entry, cancellationToken);
 
-                _logger.LogInformation("Recorded revenue entry {EntryId} for tenant {TenantId}, amount {Amount}",
-                    entry.Id, tenantId, amount);
+                _logger.LogInformation("Recorded revenue entry {EntryId} for tenant {TenantId}, amount {Amount}, sector {Sector}",
+                    entry.Id, tenantId, amount, industrySector?.ToString() ?? "NULL");
 
                 return entry;
             }
@@ -78,6 +83,7 @@ namespace VanAn.CoreHub.Services
             decimal amount,
             string description,
             DateTime? transactionDate = null,
+            IndustrySector? industrySector = null,
             CancellationToken cancellationToken = default)
         {
             try
@@ -86,12 +92,13 @@ namespace VanAn.CoreHub.Services
 
                 // Create immutable expense entry using Factory
                 AccountingPeriod period = new(date.Year, date.Month);
-                CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description);
+                CoreAccountingEntry entry = CoreAccountingEntry.CreateExpense(tenantId, period, new Money(amount), description,
+                    industrySector: industrySector);
 
                 await _repository.AddAsync(entry, cancellationToken);
 
-                _logger.LogInformation("Recorded expense entry {EntryId} for tenant {TenantId}, amount {Amount}",
-                    entry.Id, tenantId, amount);
+                _logger.LogInformation("Recorded expense entry {EntryId} for tenant {TenantId}, amount {Amount}, sector {Sector}",
+                    entry.Id, tenantId, amount, industrySector?.ToString() ?? "NULL");
 
                 return entry;
             }

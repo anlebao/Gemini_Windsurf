@@ -92,6 +92,71 @@ namespace VanAn.CoreHub.Services.Data
         }
 
         /// <summary>
+        /// Wave 5: Sector-filtered account sum (TT 152 S2a/S2b industry-group split).
+        /// Entries with NULL IndustrySector are counted in the OtherBusiness bucket.
+        /// </summary>
+        public decimal GetAccountSum(DataProviderContext context, string accountPattern, string side, IndustrySector? industrySector)
+        {
+            // NULL sector maps to OtherBusiness bucket per task card Section 5.4b
+            IndustrySector effectiveSector = industrySector ?? IndustrySector.OtherBusiness;
+            string cacheKey = context.GetCacheKey($"{ACCOUNT_SUM_PREFIX}_{accountPattern}_{side}_{effectiveSector}");
+
+            return _cache.GetOrCreate(cacheKey, entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+
+                try
+                {
+                    IQueryable<AccountingEntry> query = _context.AccountingEntries
+                        .Where(e => e.TenantId == context.TenantId &&
+                                   e.PeriodYear == context.Period.Year &&
+                                   e.PeriodMonth == context.Period.Month &&
+                                   !e.IsDeleted);
+
+                    // Apply account pattern filter based on EntryType
+                    if (accountPattern.Contains('*'))
+                    {
+                        string pattern = accountPattern.Replace("*", "");
+                        query = pattern switch
+                        {
+                            "5" => query.Where(e => e.EntryType == AccountingEntryType.Revenue),
+                            "6" => query.Where(e => e.EntryType == AccountingEntryType.Expense),
+                            _ => query
+                        };
+                    }
+
+                    // Apply side filter based on EntryType
+                    query = side.ToUpper(System.Globalization.CultureInfo.CurrentCulture) switch
+                    {
+                        "CREDIT" => query.Where(e => e.EntryType == AccountingEntryType.Revenue),
+                        "DEBIT" => query.Where(e => e.EntryType == AccountingEntryType.Expense),
+                        _ => throw new ArgumentException($"Invalid side: {side}")
+                    };
+
+                    // Wave 5: Industry sector filter — NULL IndustrySector counts in OtherBusiness bucket
+                    query = query.Where(e =>
+                        (e.IndustrySector == effectiveSector) ||
+                        (e.IndustrySector == null && effectiveSector == IndustrySector.OtherBusiness));
+
+                    // SQLite cannot SumAsync on decimal server-side — materialize then sum on client
+                    List<decimal> amounts = query.Select(e => e.Amount).ToList();
+                    decimal sum = amounts.Count == 0 ? 0m : amounts.Sum();
+
+                    _logger.LogDebug("Sector account sum: {Pattern} {Side} {Sector} = {Sum} for tenant {TenantId}",
+                        accountPattern, side, effectiveSector, sum, context.TenantId.Value);
+
+                    return sum;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error calculating sector account sum for pattern {Pattern} side {Side} sector {Sector} tenant {TenantId}",
+                        accountPattern, side, effectiveSector, context.TenantId.Value);
+                    return 0;
+                }
+            });
+        }
+
+        /// <summary>
         /// Get account balance (Debit - Credit) with multi-tenant isolation
         /// </summary>
         public decimal GetAccountBalance(DataProviderContext context, string accountPattern)

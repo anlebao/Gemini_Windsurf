@@ -101,6 +101,35 @@ namespace VanAn.CoreHub.Services.Data
             return value;
         }
 
+        /// <summary>
+        /// Wave 5: Sector-filtered account sum. Looks up sector-keyed pre-aggregated entry
+        /// (key format: Account_{pattern}_{side}_{sector}). NULL sector → OtherBusiness bucket.
+        /// </summary>
+        public decimal GetAccountSum(DataProviderContext context, string accountPattern, string side, IndustrySector? industrySector)
+        {
+            // NULL sector maps to OtherBusiness bucket per task card Section 5.4b
+            IndustrySector effectiveSector = industrySector ?? IndustrySector.OtherBusiness;
+            string sectorKey = $"Account_{accountPattern}_{side}_{effectiveSector}";
+            string cacheKey = context.GetCacheKey($"account_sum_{accountPattern}_{side}_{effectiveSector}");
+
+            if (_localCache.TryGetValue(cacheKey, out decimal cachedValue))
+            {
+                return cachedValue;
+            }
+
+            Dictionary<string, decimal> data = GetPreAggregatedDataAsync(context).GetAwaiter().GetResult();
+
+            if (!data.TryGetValue(sectorKey, out decimal value))
+            {
+                _logger.LogWarning("Sector account sum not found for pattern {Pattern} side {Side} sector {Sector}",
+                    accountPattern, side, effectiveSector);
+                return 0;
+            }
+
+            _ = _localCache.Set(cacheKey, value, TimeSpan.FromMinutes(5));
+            return value;
+        }
+
         public decimal GetAccountBalance(DataProviderContext context, string accountPattern)
         {
             string cacheKey = context.GetCacheKey($"account_balance_{accountPattern}");

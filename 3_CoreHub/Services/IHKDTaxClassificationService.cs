@@ -51,6 +51,19 @@ namespace VanAn.CoreHub.Services
         Task<HKDTaxReportingRequirements> GetReportingRequirementsAsync(
             AccountingBookType bookType,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Wave 5: Get VAT rate (fraction) for an industry sector per Luật Thuế GTGT sửa đổi 2025 + ND 117/2025.
+        /// Returns 0.01m (Distribution), 0.03m (ProductionTransport), 0.05m (Service), or 0.02m (OtherBusiness).
+        /// </summary>
+        decimal GetVatRate(IndustrySector sector);
+
+        /// <summary>
+        /// Wave 5: Get PIT rate (fraction) for an industry sector (HKD Group 2 — Nhóm 2) per
+        /// Luật Thuế TNCN sửa đổi 2025 + ND 117/2025.
+        /// Returns 0.005m (Distribution), 0.015m (ProductionTransport), 0.02m (Service), or 0.01m (OtherBusiness).
+        /// </summary>
+        decimal GetPitRate(IndustrySector sector);
     }
 
     /// <summary>

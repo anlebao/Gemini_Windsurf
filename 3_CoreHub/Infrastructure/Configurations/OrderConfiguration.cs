@@ -66,6 +66,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(o => o.TrackingCode).HasMaxLength(50);
             _ = builder.Property(o => o.OrderDate).HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+            // Wave 5 (approved 2026-07-03): Per-order industry sector override (TT 152 S2a/S2b).
+            // Nullable — existing orders get NULL, falls back to Tenant.DefaultIndustrySector.
+            _ = builder.Property(o => o.IndustrySector)
+                .HasConversion<int?>();
+
             // Navigation properties
             _ = builder.HasOne(o => o.Customer)
                   .WithMany(c => c.Orders)

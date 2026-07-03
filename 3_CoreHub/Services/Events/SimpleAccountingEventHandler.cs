@@ -102,7 +102,8 @@ namespace VanAn.CoreHub.Services.Events
                     coreEntry.Amount,
                     coreEntry.Description,
                     coreEntry.CreatedAt,
-                    cancellationToken);
+                    industrySector: coreEntry.IndustrySector,
+                    cancellationToken: cancellationToken);
 
                 _logger.LogInformation("Generated HKD books for order {OrderId}", orderEvent.OrderId);
 

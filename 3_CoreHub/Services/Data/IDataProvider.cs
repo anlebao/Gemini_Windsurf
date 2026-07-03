@@ -18,6 +18,18 @@ namespace VanAn.CoreHub.Services.Data
         decimal GetAccountSum(DataProviderContext context, string accountPattern, string side);
 
         /// <summary>
+        /// Wave 5: Get account sum filtered by industry sector (TT 152 S2a/S2b industry-group split).
+        /// Entries with NULL IndustrySector are counted in the <see cref="IndustrySector.OtherBusiness"/> group
+        /// (ensures TotalRevenue = SUM(all sector revenues) always holds).
+        /// </summary>
+        /// <param name="context">Data provider context with tenant and period</param>
+        /// <param name="accountPattern">Account pattern (e.g., "5", "611")</param>
+        /// <param name="side">Credit or Debit</param>
+        /// <param name="industrySector">Industry sector filter (NULL → OtherBusiness bucket)</param>
+        /// <returns>Sum of amounts for the specified industry sector</returns>
+        decimal GetAccountSum(DataProviderContext context, string accountPattern, string side, IndustrySector? industrySector);
+
+        /// <summary>
         /// Get account balance (Debit - Credit)
         /// </summary>
         /// <param name="context">Data provider context</param>

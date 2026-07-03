@@ -23,9 +23,18 @@ namespace VanAn.CoreHub.Services.Formula
                 _logger.LogDebug("Evaluating formula: {Formula} for tenant: {TenantId}", formula, context.TenantId);
 
                 // Handle complex formulas with mixed SUM_ACCOUNT calls and arithmetic operations
-                if (formula.Contains("SUM_ACCOUNT") && MyRegex().IsMatch(formula))
+                // (also handles SUM_ACCOUNT_BY_INDUSTRY — see EvaluateComplexFormula)
+                if ((formula.Contains("SUM_ACCOUNT") || formula.Contains("SUM_ACCOUNT_BY_INDUSTRY"))
+                    && MyRegex().IsMatch(formula))
                 {
                     return EvaluateComplexFormula(formula, context);
+                }
+
+                // Wave 5: Handle single SUM_ACCOUNT_BY_INDUSTRY (3-param) — check BEFORE SUM_ACCOUNT
+                // because SUM_ACCOUNT_BY_INDUSTRY also contains the substring "SUM_ACCOUNT"
+                if (formula.Contains("SUM_ACCOUNT_BY_INDUSTRY"))
+                {
+                    return EvaluateSumAccountByIndustry(formula, context);
                 }
 
                 // Handle single SUM_ACCOUNT with FINAL syntax
@@ -94,6 +103,42 @@ namespace VanAn.CoreHub.Services.Formula
             decimal result = _dataProvider.GetAccountSum(dataProviderContext, accountPattern, side);
 
             _logger.LogDebug("SUM_ACCOUNT result: {Result}", result);
+            return result;
+        }
+
+        /// <summary>
+        /// Wave 5: Evaluate SUM_ACCOUNT_BY_INDUSTRY("pattern", "side", "sectorName") —
+        /// sector-filtered account sum for TT 152 S2a/S2b industry-group split.
+        /// </summary>
+        private decimal EvaluateSumAccountByIndustry(string formula, FormulaContext context)
+        {
+            Match match = SumAccountByIndustryRegex().Match(formula);
+
+            if (!match.Success)
+            {
+                throw new InvalidOperationException(
+                    $"Invalid SUM_ACCOUNT_BY_INDUSTRY syntax: {formula}. " +
+                    "Expected format: SUM_ACCOUNT_BY_INDUSTRY(\"pattern\", \"side\", \"sectorName\")");
+            }
+
+            string accountPattern = match.Groups[1].Value;
+            string side = match.Groups[2].Value;
+            string sectorName = match.Groups[3].Value;
+
+            if (!Enum.TryParse<IndustrySector>(sectorName, ignoreCase: true, out IndustrySector sector))
+            {
+                throw new InvalidOperationException(
+                    $"Invalid IndustrySector '{sectorName}' in formula: {formula}. " +
+                    $"Valid values: {string.Join(", ", Enum.GetNames<IndustrySector>())}");
+            }
+
+            _logger.LogDebug("Parsed SUM_ACCOUNT_BY_INDUSTRY: pattern={Pattern}, side={Side}, sector={Sector}",
+                accountPattern, side, sector);
+
+            DataProviderContext dataProviderContext = new(context.TenantId, context.Period);
+            decimal result = _dataProvider.GetAccountSum(dataProviderContext, accountPattern, side, sector);
+
+            _logger.LogDebug("SUM_ACCOUNT_BY_INDUSTRY result: {Result}", result);
             return result;
         }
 
@@ -337,7 +382,28 @@ namespace VanAn.CoreHub.Services.Formula
 
             try
             {
-                // Extract SUM_ACCOUNT dependencies
+                // Wave 5: Extract SUM_ACCOUNT_BY_INDUSTRY dependencies FIRST (3-param, sector-keyed)
+                // Key format: Account_{pattern}_{side}_{sector} — must be extracted before SUM_ACCOUNT
+                // because SUM_ACCOUNT_BY_INDUSTRY contains the substring "SUM_ACCOUNT".
+                if (formula.Contains("SUM_ACCOUNT_BY_INDUSTRY"))
+                {
+                    MatchCollection sectorMatches = Regex.Matches(
+                        formula,
+                        @"SUM_ACCOUNT_BY_INDUSTRY\(""([^""]*)"",\s*""([^""]*)"",\s*""([^""]*)""\)",
+                        RegexOptions.IgnoreCase);
+                    foreach (Match match in sectorMatches.Cast<Match>())
+                    {
+                        if (match.Success)
+                        {
+                            string accountPattern = match.Groups[1].Value;
+                            string side = match.Groups[2].Value;
+                            string sectorName = match.Groups[3].Value;
+                            dependencies.Add($"Account_{accountPattern}_{side}_{sectorName}");
+                        }
+                    }
+                }
+
+                // Extract SUM_ACCOUNT dependencies (2-param — does NOT match SUM_ACCOUNT_BY_INDUSTRY 3-param)
                 if (formula.Contains("SUM_ACCOUNT"))
                 {
                     MatchCollection matches = Regex.Matches(formula, @"SUM_ACCOUNT\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
@@ -419,11 +485,14 @@ namespace VanAn.CoreHub.Services.Formula
                     _logger.LogDebug("Found variable: {Variable}, checking filters...", variable);
 
                     if (!variable.Equals("SUM_ACCOUNT", StringComparison.OrdinalIgnoreCase) &&
+                        !variable.Equals("SUM_ACCOUNT_BY_INDUSTRY", StringComparison.OrdinalIgnoreCase) &&
                         !variable.Equals("BALANCE_ACCOUNT", StringComparison.OrdinalIgnoreCase) &&
                         !variable.Equals("PERCENTAGE", StringComparison.OrdinalIgnoreCase) &&
                         !variable.Equals("RATIO", StringComparison.OrdinalIgnoreCase) &&
                         !variable.Equals("Credit", StringComparison.OrdinalIgnoreCase) &&
                         !variable.Equals("Debit", StringComparison.OrdinalIgnoreCase) &&
+                        // Wave 5: Exclude IndustrySector enum names used as DSL params (case-insensitive)
+                        !Enum.TryParse<IndustrySector>(variable, true, out _) &&
                         !Regex.IsMatch(variable, @"^\d+$") && // Exclude plain account numbers
                         !dependencies.Contains(variable))
                     {
@@ -451,9 +520,35 @@ namespace VanAn.CoreHub.Services.Formula
         {
             // Parse complex formula with mixed SUM_ACCOUNT calls and arithmetic operations
             // Example: SUM_ACCOUNT("5", "Credit") - SUM_ACCOUNT("6", "Debit")
+            // Wave 5: Also handles SUM_ACCOUNT_BY_INDUSTRY("5", "Credit", "Distribution")
 
             string expression = formula;
             _logger.LogDebug("Evaluating complex formula: {Formula}", formula);
+
+            // Wave 5: Replace SUM_ACCOUNT_BY_INDUSTRY calls FIRST (before SUM_ACCOUNT, since
+            // SUM_ACCOUNT_BY_INDUSTRY contains the substring "SUM_ACCOUNT")
+            MatchCollection sectorMatches = SumAccountByIndustryRegex().Matches(formula);
+            foreach (Match match in sectorMatches.Cast<Match>())
+            {
+                if (match.Success)
+                {
+                    string accountPattern = match.Groups[1].Value;
+                    string side = match.Groups[2].Value;
+                    string sectorName = match.Groups[3].Value;
+
+                    if (!Enum.TryParse<IndustrySector>(sectorName, ignoreCase: true, out IndustrySector sector))
+                    {
+                        throw new InvalidOperationException(
+                            $"Invalid IndustrySector '{sectorName}' in formula: {formula}.");
+                    }
+
+                    DataProviderContext dataProviderContext = new(context.TenantId, context.Period);
+                    decimal accountValue = _dataProvider.GetAccountSum(dataProviderContext, accountPattern, side, sector);
+
+                    _logger.LogDebug("SUM_ACCOUNT_BY_INDUSTRY match: {Match} -> {Value}", match.Value, accountValue);
+                    expression = expression.Replace(match.Value, accountValue.ToString());
+                }
+            }
 
             // Replace SUM_ACCOUNT calls with their actual values
             MatchCollection sumAccountMatches = Regex.Matches(formula, @"SUM_ACCOUNT\(""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase);
@@ -572,5 +667,9 @@ namespace VanAn.CoreHub.Services.Formula
         private static partial Regex MyRegex5();
         [GeneratedRegex(@"^\d+$")]
         private static partial Regex MyRegex6();
+
+        /// <summary>Wave 5: SUM_ACCOUNT_BY_INDUSTRY("pattern", "side", "sectorName") — 3-param sector-filtered sum.</summary>
+        [GeneratedRegex(@"SUM_ACCOUNT_BY_INDUSTRY\(""([^""]*)"",\s*""([^""]*)"",\s*""([^""]*)""\)", RegexOptions.IgnoreCase, "en-US")]
+        private static partial Regex SumAccountByIndustryRegex();
     }
 }

@@ -15,6 +15,11 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         public BusinessType BusinessType { get; private set; }
         public HKDGroup? HKDGroup { get; private set; }
 
+        // Wave 5 (approved 2026-07-03): Default industry sector for HKD Group 2 tenants.
+        // Nullable — existing tenants get NULL, must be set before generating S2a/S2b.
+        // Used as fallback when Order.IndustrySector is not set.
+        public IndustrySector? DefaultIndustrySector { get; private set; }
+
         // ── Lifecycle ─────────────────────────────────────────────────────────
         public TenantStatus Status { get; private set; } = TenantStatus.Active;
 
@@ -106,6 +111,18 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 
             Name = name;
             Settings = settings;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// Wave 5: Set default industry sector for HKD Group 2 reporting (TT 152 S2a/S2b).
+        /// Only meaningful for HouseholdBusiness tenants. Used as fallback when Order.IndustrySector is NULL.
+        /// </summary>
+        public void SetDefaultIndustrySector(IndustrySector? sector)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update industry sector of an inactive tenant.");
+            DefaultIndustrySector = sector;
             UpdateAudit();
         }
 

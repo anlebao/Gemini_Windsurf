@@ -24,6 +24,9 @@ namespace VanAn.Shared.DTOs
         public string? Category { get; set; }
         public string? Reference { get; set; }
 
+        // Wave 5 (approved 2026-07-03): Industry sector for TT 152 S2a/S2b industry-group split.
+        public IndustrySector? IndustrySector { get; set; }
+
         /// <summary>
         /// Alias for TransactionDate — used in form submission
         /// </summary>
