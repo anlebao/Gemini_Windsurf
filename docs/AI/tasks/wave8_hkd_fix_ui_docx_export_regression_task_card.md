@@ -170,3 +170,22 @@
 - 2-3 sessions (2 Razor pages + export service + E2E + architecture test + lint + docs)
 - **BLOCKER:** Wave 7 phải merged (endpoint có sẵn)
 - **VALUE:** Final wave — user request "xuất ra đúng mẫu" + regression prevention đảm bảo bug không tái xuất
+
+---
+
+## 12. Export Library Status (from Wave 0 T9 — propagated 2026-07-03, UPDATED with user approval)
+
+- DocX: **NOT FOUND**
+- DocumentFormat.OpenXml: **NOT FOUND** → **USER APPROVED adding this dependency (2026-07-03)**
+- ClosedXML: **NOT FOUND**
+- EPPlus: **FOUND** — Version 7.6.1 (`Directory.Packages.props` L42: `<PackageVersion Include="EPPlus" Version="7.6.1" />`)
+- **DECISION: Use EPPlus for XLSX + DocumentFormat.OpenXml for DOCX (BOTH approved)**
+  - EPPlus 7.6.1 handles `.xlsx` (Excel) — already in deps, no approval needed
+  - `DocumentFormat.OpenXml` for `.docx` (Word) — **user approved adding new dependency** (2026-07-03)
+  - Wave 8 implements BOTH XLSX + DOCX export
+- **Wave 8 action items:**
+  - Add `DocumentFormat.OpenXml` to `Directory.Packages.props` (PackageVersion) + to `5_WebApps/ShopERP/*.csproj` (PackageReference)
+  - SC3 ("Export DOCX") → **PROCEED** with `DocumentFormat.OpenXml`
+  - SC4 ("Export XLSX") → **PROCEED** with EPPlus 7.6.1
+  - E2E test 4: test BOTH DOCX + XLSX export buttons
+  - `HKDBookExportService` → implement XLSX via EPPlus + DOCX via DocumentFormat.OpenXml

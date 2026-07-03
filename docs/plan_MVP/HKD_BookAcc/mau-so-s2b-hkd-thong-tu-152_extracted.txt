@@ -1,0 +1,37 @@
+﻿HỘ, CÁ NHÂN KINH DOANH:........Địa chỉ:.................................Mã số thuế:..........................
+Mẫu số S2b-HKD(Kèm theo Thông tư số 152/2025/TT-BTCngày 31 tháng 12 năm 2025 của Bộ trưởngBộ Tài chính)
+SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ
+Địa điểm kinh doanh:.........................
+Kỳ kê khai:................................
+Đơn vị tính:
+Chứng từ
+Diễn giải
+Số tiền
+Số hiệu
+Ngày, tháng
+A
+B
+C
+1
+1. Ngành nghề ....
+......
+Tổng cộng (1)
+Thuế GTGT
+2. Ngành nghề….
+.....
+Tổng cộng (2)
+Thuế GTGT
+3. Ngành nghề ....
+.....
+Tổng cộng (3)
+Thuế GTGT
+4. Ngành nghề….
+......
+Tổng cộng (4)
+Thuế GTGT
+5. Ngành nghề....
+......
+Tổng cộng (5)
+Thuế GTGT
+Tổng số thuế GTGT phải nộp
+Ngày ... tháng ... năm ...NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH(Ký, ghi rõ họ tên và đóng dấu (nếu có))

@@ -162,3 +162,86 @@
 - **BLOCKER:** Wave 2 — không thể bắt đầu Wave 2 без decision này
 - **PARALLEL:** Có thể làm cùng session với Wave 0 + Wave 1 (cả 3 non-code/low-risk, độc lập)
 - **CRITICAL OUTPUT:** Decision propagates to Wave 2 task card — MUST complete before Wave 2 starts
+
+---
+
+## 13. DECISION OUTPUT (executed 2026-07-03, branch `feature/hkd-fix-wave0-wave0p5-preflight`)
+
+### W0.5-T1 Result: AccountingEntry.AccountCode populated for SOME entries
+- Factory signature: `CreateRevenue(tenantId, period, amount, description, string? accountCode = null, string? reference = null)` — `accountCode` is OPTIONAL, defaults to `null`
+- Production callers NOT passing AccountCode:
+  - `HKDBookService.RecordRevenueAsync` (L56) — `CreateRevenue(tenantId, period, new Money(amount), description)` → **AccountCode = null**
+  - `HKDBookService.RecordExpenseAsync` (L86) — same pattern → **AccountCode = null**
+  - `AccountingEntryService.CreateAsync` (L83-84) — `CreateRevenue/CreateExpense(tenantId, period, amount, description)` → **AccountCode = null**
+- Production callers PASSING AccountCode:
+  - `AccountingEntryService.CreateRevenueEntryAsync` (L147) — `CreateRevenue(..., accountCode: accountCode, reference: reference)` → populated
+  - `AccountingEntryService.CreateExpenseEntryAsync` (L196) — `CreateExpense(..., accountCode: accountCode, ...)` → populated
+  - `OrderService.GenerateAccountingEntriesAsync` (L103-108, L128-133) — calls `CreateRevenueEntryAsync(accountCode: "511")` / `CreateExpenseEntryAsync(accountCode: "621")` → **populated**
+- **Conclusion:** AccountCode is null for entries created via `HKDBookService.RecordRevenue/ExpenseAsync` (the NATS event handler path) and via `AccountingEntryService.CreateAsync`. AccountCode is populated for entries created via `AccountingEntryService.CreateRevenueEntryAsync/CreateExpenseEntryAsync` (the OrderService path). Option A needs an EntryType-based fallback heuristic for null AccountCode entries.
+
+### W0.5-T2 Result: Formula Engine CAN map EntryType → Credit/Debit sign
+- Template formulas use `SUM_ACCOUNT("5", "Credit")` / `SUM_ACCOUNT("6", "Debit")` → engine produces `Account_{pattern}_Credit` / `Account_{pattern}_Debit` aggregate keys
+- `SmartPreAggregationService.GetAccountSumAsync` (L155-185) currently queries `_context.JournalEntries...Lines.Where(AccountNumber.StartsWith(pattern))` and sums `CreditAmount` / `DebitAmount`
+- **For Option A:** Refactor `GetAccountSumAsync` to query `_context.AccountingEntries` directly:
+  - Map `EntryType.Revenue` → "Credit" side (revenue increases equity → credit)
+  - Map `EntryType.Expense` → "Debit" side (expense decreases equity → debit)
+  - Filter by `AccountCode.StartsWith(pattern)` when AccountCode is not null
+  - When AccountCode is null: use EntryType-based heuristic — Revenue entries match pattern "5" (doanh thu), Expense entries match pattern "6" (chi phí)
+- **Engine dependency:** `Account_{pattern}_Credit/Debit` aggregates are mappable from EntryType + AccountCode. NOT hardcoded to `JournalEntries.Lines` Debit/Credit structure. **Option A is FEASIBLE.**
+
+### W0.5-T3 Result: Product roadmap is HKD-ONLY
+- `project_state.md` Section 1: "Vạn An Accounting System MVP — giải pháp kế toán HKD theo TT 152/2025/TT-BTC"
+- No mention of Doanh nghiệp expansion or sharing Formula Engine with corporate accounting
+- **Conclusion:** HKD-only product → no need for double-entry JournalEntry structure (which is a Doanh nghiệp requirement per TT 200/133). HKD uses single-entry per TT 88/2021 + TT 152/2025.
+
+### W0.5-T4 DECISION: **Option A — refactor SmartPreAggregationService to query AccountingEntries directly**
+
+**Rationale:**
+1. **HKD-only product (T3)** → no need to share Formula Engine with Doanh nghiệp → no need for JournalEntry double-entry structure. HKD = single-entry per TT 88/2021 + TT 152/2025.
+2. **AccountingEntry is the immutable Single Source of Truth** (governance Hard Stop) → querying it directly is cleaner than maintaining a separate JournalEntry projection that must be kept in sync.
+3. **T11 finding (Wave 0):** `OrderService.GenerateAccountingEntriesAsync` ALREADY persists JournalEntry via `AddToBookAsync` (L114-141). Adding MORE JournalEntry writes via Option B would compound the existing write paths and risk double-write for the same business event (order completed → OrderService writes JournalEntry + NATS handler writes another via Option B). **Option A avoids this entirely** — no JournalEntry writing, just query AccountingEntries.
+4. **EntryType → Credit/Debit mapping is straightforward (T2)** — Revenue = Credit, Expense = Debit. Formula Engine's `Account_{pattern}_Credit/Debit` aggregates are mappable.
+5. **AccountCode populated for OrderService path (T1)** — entries from `OrderService` have AccountCode="511"/"621". For null AccountCode entries (from `RecordRevenueAsync`), EntryType-based heuristic works (Revenue → "5" pattern, Expense → "6" pattern).
+6. **Existing JournalEntries from OrderService** become irrelevant for HKD book calculation (can be deprecated or ignored). No migration needed — Option A queries AccountingEntries which already has all data.
+
+**Wave 2 scope (Option A):**
+- Refactor `SmartPreAggregationService.GetAccountSumAsync` (L155-185) to query `_context.AccountingEntries` instead of `_context.JournalEntries...Lines`
+- Map `EntryType.Revenue` → Credit side, `EntryType.Expense` → Debit side
+- Filter by `AccountCode.StartsWith(pattern)` when AccountCode is not null; when null, use EntryType-based heuristic (Revenue → "5", Expense → "6")
+- **NO JournalEntry writing** — no modification to `RecordRevenueAsync` / `RecordExpenseAsync`
+- **NO Domain modification** — `AccountingEntry` stays immutable, no new fields
+- Optionally (Wave 2 stretch): fix `RecordRevenueAsync` to pass AccountCode (minor Service-layer change, not Domain modification) — improves Option A query accuracy
+
+**Option B NOT chosen because:**
+- Adds event-driven JournalEntry writing → compounds existing OrderService JournalEntry writes (T11 double-write risk)
+- More complex (event + handler + idempotent guard) for a HKD-only product that doesn't need double-entry structure
+- AccountingEntry already has all needed data (AccountCode + EntryType + Amount + Period) — no need for a JournalEntry projection
+
+**Option C NOT chosen (LOẠI per phản biện):**
+- Dual write anti-pattern — rủi ro mất đồng bộ, bẩn Service layer, vi phạm Single Responsibility
+
+---
+
+## 14. POST-DECISION CAVEAT — Dev DB Schema STALE (discovered during Wave 0 T5 execution)
+
+**CRITICAL:** The W0.5-T4 decision (Option A) is architecturally sound, BUT execution revealed a **dev environment blocker**:
+
+- Dev DB (`5_WebApps/ShopERP/vanan_shoperp.db`) was created via `EnsureCreatedAsync()` BEFORE `AccountingEntryConfiguration.cs` was added with domain column mappings
+- `AccountingEntries` table in dev DB only has BaseEntity columns (Id, AccountingEntryId, TenantId, CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted)
+- **MISSING columns needed by Option A:** `AccountCode`, `EntryType`, `Amount`, `PeriodYear`, `PeriodMonth`, `AccountingBookType`, `VatRate`, `Description`
+- `EnsureCreatedAsync()` does NOT update existing DB schema — it only creates if DB doesn't exist
+- No Migrations folder (architecture decision: `EnsureCreated` strategy, Migrations forbidden per `VA-ARCH-001`)
+
+**Impact on Option A:**
+- Option A refactors `SmartPreAggregationService.GetAccountSumAsync` to query `AccountingEntries.AccountCode`, `EntryType`, `Amount`, `PeriodYear`, `PeriodMonth`
+- If these columns don't exist in the dev DB → **runtime SQLite error** when Wave 2 code is tested against dev DB
+- Tests using in-memory SQLite + `EnsureCreated()` will have correct schema (no issue)
+- **BLOCKER for Wave 2 manual/integration verification against dev DB**
+
+**Resolution (tracked as W0-T12 in Wave 0 task card):**
+- Delete stale dev DB files (`vanan_shoperp.db` + `bin/Debug/net8.0/vanan_shoperp.db`)
+- Run ShopERP once → `EnsureCreatedAsync()` regenerates schema with current EF Core model (including all `AccountingEntryConfiguration` domain columns)
+- Verify `PRAGMA table_info(AccountingEntries)` has all domain columns
+- **Needs user confirmation** before deleting dev DB files (environment reset, not production data)
+
+**Decision validity:** Option A is STILL the correct architecture decision. The stale DB is an environment issue, not an architecture issue. Once DB is recreated, Option A works as designed.

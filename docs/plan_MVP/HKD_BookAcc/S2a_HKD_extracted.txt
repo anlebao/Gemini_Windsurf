@@ -1,0 +1,61 @@
+﻿HỘ, CÁ NHÂN KINH DOANH: …..
+Địa chỉ: ……………………………..
+Mã số thuế: ………………………..
+Mẫu số S2a-HKD(Kèm theo Thông tư số 152/2025/TT-BTC ngày 31 tháng 12 năm 2025 của Bộ trưởng Bộ Tài chính)
+SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ
+Địa điểm kinh doanh: …………………….
+Kỳ kê khai: …………………………………
+Đơn vị tính:
+Chứng từ
+Diễn giải
+Số tiền
+Số hiệu
+Ngày, tháng
+A
+B
+C
+1
+1. Ngành nghề ....
+…..
+Tổng cộng (1)
+Thuế GTGT
+Thuế TNCN
+2. Ngành nghề....
+…..
+Tổng cộng (2)
+Thuế GTGT
+Thuế TNCN
+3. Ngành nghề ....
+…..
+Tổng cộng (3)
+Thuế GTGT
+Thuế TNCN
+Tổng số thuế GTGT phải nộp
+Tổng số thuế TNCN phải nộp
+Ngày ... tháng ... năm ...NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/ CÁ NHÂN KINH DOANH(Ký, ghi rõ họ tên và đóng dấu (nếu có))
+2.2. Phương pháp ghi sổ
+a) Sổ này được mở để ghi doanh thu bán hàng hóa, dịch vụ theo từng nhóm danh mục ngành nghề kinh doanh có cùng tỷ lệ % để tính thuế GTGT hoặc cùng mức thuế suất để tính thuế TNCN. Trường hợp hộ kinh doanh, cá nhân kinh doanh có nhiều nhóm ngành nghề khác nhau thì sổ này có thể mở cho từng ngành nghề có cùng tỷ lệ % để tính thuế GTGT hoặc cùng mức thuế suất để tính thuế TNCN. Trường hợp cơ quan thuế cung cấp dữ liệu nộp thuế GTGT, thuế TNCN thì hộ kinh doanh, cá nhân kinh doanh sử dụng sổ này để theo dõi, đối chiếu số thuế GTGT, thuế TNCN phải nộp với cơ quan thuế.
+b) Phương pháp ghi sổ
+- Cột A, B: Ghi số hiệu, ngày, tháng của chứng từ.
+- Cột C: Ghi diễn giải nội dung doanh thu bán hàng hóa, dịch vụ theo từng ngành nghề có cùng tỷ lệ % để tính thuế GTGT hoặc cùng mức thuế suất để tính thuế TNCN.
+- Cột 1: Ghi số tiền bán hàng hóa, dịch vụ có thể theo từng ngành nghề để làm căn cứ xác định doanh thu bán hàng hóa, dịch vụ có cùng tỷ lệ % để tính thuế GTGT hoặc cùng mức thuế suất để tính thuế TNCN. Trên cơ sở doanh thu được xác định, hộ kinh doanh, cá nhân kinh doanh tính ra số tiền thuế GTGT, thuế TNCN phải nộp theo từng ngành nghề có cùng tỷ lệ % hoặc cùng mức thuế suất. Dòng cuối cùng ghi tổng số thuế GTGT, thuế TNCN phải nộp.
+Điều 6. Trường hợp hộ kinh doanh, cá nhân kinh doanh nộp thuế GTGT theo tỷ lệ % trên doanh thu và thuế TNCN trên thu nhập tính thuế
+1. Chứng từ kế toán
+Hóa đơn, Bảng kê mua hàng hóa, dịch vụ (đối với trường hợp hộ kinh doanh, cá nhân kinh doanh mua hàng hóa, dịch vụ của người bán hàng không có hóa đơn GTGT hoặc hóa đơn bán hàng) và các chứng từ kế toán khác làm căn cứ để xác định doanh thu, thu nhập tính thuế theo quy định của pháp luật về thuế.
+2. Sổ kế toán
+2.1. Hộ kinh doanh, cá nhân kinh doanh sử dụng các sổ kế toán theo danh mục sau đây
+STT
+Tên sổ kế toán
+Ký hiệu
+1
+Sổ doanh thu bán hàng hóa, dịch vụ
+Mẫu số S2b-HKD
+2
+Sổ chi tiết doanh thu, chi phí
+Mẫu số S2c-HKD
+3
+Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa
+Mẫu số S2d-HKD
+4
+Sổ chi tiết tiền
+Mẫu số S2e-HKD

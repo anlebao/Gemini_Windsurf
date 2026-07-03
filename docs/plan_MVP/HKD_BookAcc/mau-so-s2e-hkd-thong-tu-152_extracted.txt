@@ -1,0 +1,35 @@
+﻿HỘ, CÁ NHÂN KINH DOANH:........Địa chỉ:.................................Mã số thuế:..........................
+Mẫu số S2e-HKD(Kèm theo Thông tư số 152/2025/TT-BTCngày 31 tháng 12 năm 2025 của Bộ trưởngBộ Tài chính)
+SỔ CHI TIẾT TIỀN
+Kỳ kê khai: ............
+Đơn vị tính:
+Chứng từ
+Diễn giải
+Số tiền
+Số hiệu
+Ngày tháng
+Thu/Gửi vào
+Chi/Rút ra
+A
+B
+C
+1
+2
+Tiền mặt
+Tiền mặt đầu kỳ
+....
+....
+Tổng tiền thu vào trong kỳ
+Tổng tiền chi ra trong kỳ
+Tiền mặt tồn cuối kỳ
+Tiền gửi không kỳ hạn
+Ngân hàng....
+Tiền gửi đầu kỳ
+....
+....
+Tổng gửi vào trong kỳ
+Tổng tiền rút ra trong kỳ
+Tiền gửi cuối kỳ
+Ngân hàng...
+....
+Ngày ... tháng ... năm ...NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH(Ký, ghi rõ họ tên và đóng dấu (nếu có))

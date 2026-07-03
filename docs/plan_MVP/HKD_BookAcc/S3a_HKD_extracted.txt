@@ -1,0 +1,49 @@
+﻿HỘ, CÁ NHÂN KINH DOANH: …..
+Địa chỉ: ……………………………..
+Mã số thuế: ………………………..
+Mẫu số S3a-HKD(Kèm theo Thông tư số 152/2025/TT-BTC ngày 31 tháng 12 năm 2025 của Bộ trưởng Bộ Tài chính)
+SỔ THEO DÕI NGHĨA VỤ THUẾ KHÁC
+Địa điểm kinh doanh: …………..
+Kỳ kê khai: ……………
+Đơn vị tính:
+Ngày tháng ghi sổ
+Diễn giải
+Lượng hàng hóa, dịch vụ chịu thuế
+Mức thuế tuyệt đối
+Giá tính thuế/01 đơn vị hàng hóa, dịch vụ
+Thuế suất
+Các loại thuế khác
+Thuế xuất khẩu, thuế nhập khẩu, thuế tiêu thụ đặc biệt
+Thuế bảo vệ môi trường
+Thuế tài nguyên
+Thuế sử dụng đất
+Áp dụng phương pháp tính thuế theo tỷ lệ %
+Áp dụng phương pháp tính thuế tuyệt đối (nếu có)
+Số thuế phải nộp
+A
+B
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+Tổng cộng
+Ngày ... tháng ... năm ...NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH(Ký, ghi rõ họ tên và đóng dấu (nếu có))
+Phương pháp ghi sổ:
+- Cột A: Ghi ngày, tháng ghi sổ.
+- Cột B: Ghi diễn giải nội dung nghiệp vụ phát sinh.
+- Cột 1: Ghi lượng hàng hóa, dịch vụ chịu thuế.
+- Cột 2: Ghi mức thuế tuyệt đối theo quy định của pháp luật về thuế xuất khẩu, thuế nhập khẩu, thuế tiêu thụ đặc biệt, thuế bảo vệ môi trường.
+- Cột 3: Giá tính thuế/01 đơn vị hàng hóa, dịch vụ thực hiện theo quy định của pháp luật về thuế.
+- Cột 4: Ghi mức thuế suất theo quy định của pháp luật về thuế xuất khẩu, thuế nhập khẩu, thuế tiêu thụ đặc biệt, thuế tài nguyên, thuế sử dụng đất.
+- Cột 5: Thuế xuất khẩu, thuế nhập khẩu, thuế tiêu thụ đặc biệt áp dụng phương pháp tính thuế theo tỷ lệ % (Cột 5 = Cột 1 x Cột 3 x Cột 4).
+- Cột 6: Tính thuế xuất khẩu, thuế nhập khẩu, thuế tiêu thụ đặc biệt áp dụng phương pháp tính thuế tuyệt đối (Cột 6 = Cột 1 x Cột 2).
+- Cột 7: Tính thuế xuất khẩu, thuế nhập khẩu, thuế tiêu thụ đặc biệt phải nộp (Cột 7= Cột 5+ Cột 6).
+- Cột 8: Tính thuế bảo vệ môi trường phải nộp (Cột 8 = Cột 1 x Cột 2).
+- Cột 9: Tính thuế tài nguyên phải nộp (Cột 9 = Cột 1x Cột 3 x Cột 4).
+- Cột 10: Tính thuế sử dụng đất phải nộp (Cột 10= Cột 1 x Cột 3 x Cột 4).

@@ -134,3 +134,42 @@
 - 1 session (5 DI registrations + verify deps + build)
 - **BLOCKER:** None — risk thấp, chỉ thêm DI
 - **CRITICAL:** Block Wave 4 (cần IHKDBookGenerationService resolvable)
+
+---
+
+## 12. ITemplateFactory Conflict Resolution (from Wave 0 T8 — propagated 2026-07-03)
+
+- **Old TemplateFactory:** `3_CoreHub/Services/TemplateFactory.cs`
+  - Implements `ITemplateFactory`: **YES** (L10: `public class TemplateFactory : ITemplateFactory`)
+  - Consumers: `OrderService.cs` (L20: `ITemplateFactory? templateFactory = null`, L32: field)
+  - DI: `3_CoreHub/Program.cs` L118: `services.AddScoped<ITemplateFactory, TemplateFactory>()`
+  - Namespace: `VanAn.CoreHub.Services`
+- **New TemplateFactory:** `3_CoreHub/Services/Template/TemplateFactory.cs`
+  - Implements `ITemplateFactory`: **NO** — uses primary constructor `(IFormulaEngine, IDataProvider, ILoggerFactory)`, no interface
+  - Class name: `TemplateFactory` (same name, different namespace `VanAn.CoreHub.Services.Template`)
+  - Creates `S1aHKDTemplateImpl`...`S3aHKDTemplateImpl` via `CreateTemplate(HKDGroup, templateCode)`
+- **DECISION: Keep both — register new as concrete `TemplateFactory` (no interface conflict)**
+  - Old `ITemplateFactory` → old `Services/TemplateFactory.cs` (for OrderService) — **UNCHANGED, do NOT remove**
+  - New `Services/Template/TemplateFactory.cs` → register as `AddScoped<TemplateFactory>()` (concrete, `HKDBookGenerationService` injects concrete, not interface)
+  - Different namespaces: `VanAn.CoreHub.Services` (old) vs `VanAn.CoreHub.Services.Template` (new) — no namespace collision
+- **Rationale:** New TemplateFactory does NOT implement `ITemplateFactory` → no DI conflict. Both can coexist. No rename needed. No Tech Lead escalation needed.
+- **Wave 3 action:** Register new `TemplateFactory` as `AddScoped<TemplateFactory>()` (concrete, NOT `AddScoped<ITemplateFactory, TemplateFactory>`). Keep old `AddScoped<ITemplateFactory, TemplateFactory>()` at L118 unchanged.
+
+---
+
+## 12. ITemplateFactory Conflict Resolution (from Wave 0 T8 — propagated 2026-07-03)
+
+- Old TemplateFactory: `3_CoreHub/Services/TemplateFactory.cs`
+  - Implements ITemplateFactory: **YES** (L10: `public class TemplateFactory : ITemplateFactory`)
+  - Consumers: `OrderService.cs` (L20: `ITemplateFactory? templateFactory = null`, L32: field)
+  - DI: `3_CoreHub/Program.cs` L118: `services.AddScoped<ITemplateFactory, TemplateFactory>()`
+- New TemplateFactory: `3_CoreHub/Services/Template/TemplateFactory.cs`
+  - Implements ITemplateFactory: **NO** — uses primary constructor `(IFormulaEngine, IDataProvider, ILoggerFactory)`, no interface
+  - Class name: `TemplateFactory` (same name, different namespace `VanAn.CoreHub.Services.Template`)
+  - Creates `S1aHKDTemplateImpl`...`S3aHKDTemplateImpl` via `CreateTemplate(HKDGroup, templateCode)`
+- **DECISION: Keep both — register new as concrete `TemplateFactory` (no interface conflict)**
+  - Old `ITemplateFactory` → old `Services/TemplateFactory.cs` (for OrderService) — **UNCHANGED, do NOT remove L118 registration**
+  - New `Services/Template/TemplateFactory.cs` → register as `AddScoped<TemplateFactory>()` (concrete, `HKDBookGenerationService` injects concrete)
+  - Different namespaces: `VanAn.CoreHub.Services` (old) vs `VanAn.CoreHub.Services.Template` (new) — no namespace collision
+- **Rationale:** New TemplateFactory does NOT implement `ITemplateFactory` → no DI conflict. Both can coexist. No rename needed. No Tech Lead escalation needed.
+- **Wave 3 implication for SC4:** Register new `TemplateFactory` as **self (concrete)** — `services.AddScoped<TemplateFactory>();` (use full namespace `VanAn.CoreHub.Services.Template.TemplateFactory` if ambiguity). **Do NOT register as `ITemplateFactory`** (would break OrderService).
