@@ -27,13 +27,16 @@ namespace VanAn.CoreHub.Services
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Calculate tax obligations for HKD book type
+        /// Calculate tax obligations for HKD book type.
+        /// Wave 5c (2026-07-03): 2026 regulatory compliance — TNCN per HKDRevenueClassification.CalculateTNCN,
+        /// GTGT per HKDRevenueClassification.CalculateGTGT (Nhóm 1 exemption).
         /// </summary>
         Task<HKDTaxCalculation> CalculateTaxAsync(
             TenantId tenantId,
             AccountingBookType bookType,
             decimal revenueAmount,
             decimal expenseAmount = 0,
+            IndustrySector? industrySector = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>

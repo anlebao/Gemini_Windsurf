@@ -4,14 +4,21 @@ namespace VanAn.CoreHub.Services.Orchestration;
 
 /// <summary>
 /// HKDRevenueClassificationService - HKD revenue classification implementation
-/// TT152-2025/TT-BTC: 4-level revenue group classification with threshold warnings.
-/// Group1: ≤500M | Group2: 500M–1B | Group3: 1B–3B | Group4: >3B
+/// 2026 Regulatory Compliance (Wave 5c): 4-level revenue group per Luật Thuế GTGT/TNCN sửa đổi 2025 +
+/// ND 117/2025/NĐ-CP + Nghị quyết 198/2025/QH15 (áp dụng từ 01/01/2026).
+///   Group1: ≤1B (không chịu thuế GTGT + TNCN)
+///   Group2: >1B - ≤3B (GTGT + TNCN theo tỷ lệ ngành nghề)
+///   Group3: >3B - ≤50B (TNCN bắt buộc theo lợi nhuận 17%)
+///   Group4: >50B (TNCN bắt buộc theo lợi nhuận 20%)
+/// 2026 changes: thuế khoán BÃI BỎ (NQ 198/2025/QH15), lệ phí môn bài BÃI BỎ (Điều 10 NQ 198/2025/QH15).
 /// </summary>
 public class HKDRevenueClassificationService : IHKDRevenueClassificationService
 {
-    private const decimal Group1Threshold = 500_000_000m;
-    private const decimal Group2Threshold = 1_000_000_000m;
-    private const decimal Group3Threshold = 3_000_000_000m;
+    // Wave 5c (2026-07-03): thresholds updated per 2026 regulatory compliance.
+    //   Old (pre-2026): 500M / 1B / 3B  →  New (2026): 1B / 3B / 50B
+    private const decimal Group1Threshold = 1_000_000_000m;    // ≤ 1B → Group1
+    private const decimal Group2Threshold = 3_000_000_000m;    // > 1B - ≤ 3B → Group2
+    private const decimal Group3Threshold = 50_000_000_000m;   // > 3B - ≤ 50B → Group3
     private const decimal WarningRatio = 0.90m;
 
     private readonly IAccountingService _accountingService;
@@ -64,13 +71,13 @@ public class HKDRevenueClassificationService : IHKDRevenueClassificationService
             .Sum(e => e.Amount);
 
         if (totalRevenue > Group1Threshold * WarningRatio && totalRevenue <= Group1Threshold)
-            warnings.Add($"TT152-2025 Cảnh báo: Doanh thu {totalRevenue:N0}₫ đang tiệm cận ngưỡng Nhóm 2 (500 triệu). Kiểm tra nghĩa vụ nộp thuế GTGT.");
+            warnings.Add($"2026 Cảnh báo: Doanh thu {totalRevenue:N0}₫ đang tiệm cận ngưỡng Nhóm 2 (1 tỷ). Vượt ngưỡng → phải nộp thuế GTGT + TNCN theo tỷ lệ ngành nghề (ND 117/2025).");
 
         if (totalRevenue > Group2Threshold * WarningRatio && totalRevenue <= Group2Threshold)
-            warnings.Add($"TT152-2025 Cảnh báo: Doanh thu {totalRevenue:N0}₫ đang tiệm cận ngưỡng Nhóm 3 (1 tỷ). Xem xét điều chỉnh phương pháp tính thuế.");
+            warnings.Add($"2026 Cảnh báo: Doanh thu {totalRevenue:N0}₫ đang tiệm cận ngưỡng Nhóm 3 (3 tỷ). Vượt ngưỡng → TNCN bắt buộc theo lợi nhuận (17%).");
 
         if (totalRevenue > Group3Threshold * WarningRatio && totalRevenue <= Group3Threshold)
-            warnings.Add($"TT152-2025 Cảnh báo: Doanh thu {totalRevenue:N0}₫ đang tiệm cận ngưỡng Nhóm 4 (3 tỷ). Bắt buộc chuyển sang phương pháp khấu trừ.");
+            warnings.Add($"2026 Cảnh báo: Doanh thu {totalRevenue:N0}₫ đang tiệm cận ngưỡng Nhóm 4 (50 tỷ). Vượt ngưỡng → TNCN bắt buộc theo lợi nhuận (20%).");
 
         return warnings;
     }

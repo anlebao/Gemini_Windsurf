@@ -1609,14 +1609,16 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// HKD Revenue Group - 4-level classification per TT152-2025/TT-BTC
+    /// HKD Revenue Group - 4-level classification per Luật Thuế GTGT/TNCN sửa đổi 2025 +
+    /// ND 117/2025/NĐ-CP + Nghị quyết 198/2025/QH15 (áp dụng từ 01/01/2026).
+    /// Wave 5c (2026-07-03): thresholds updated 500M/1B/3B → 1B/3B/50B per 2026 regulatory compliance.
     /// </summary>
     public enum HKDRevenueGroup
     {
-        Group1 = 1,  // ≤500M
-        Group2 = 2,  // >500M-1B
-        Group3 = 3,  // >1B-3B
-        Group4 = 4   // >3B
+        Group1 = 1,  // ≤1B (không chịu thuế GTGT + TNCN)
+        Group2 = 2,  // >1B - ≤3B (GTGT theo ngành nghề, TNCN theo doanh thu hoặc lợi nhuận)
+        Group3 = 3,  // >3B - ≤50B (TNCN bắt buộc theo lợi nhuận 17%)
+        Group4 = 4   // >50B (TNCN bắt buộc theo lợi nhuận 20%)
     }
 
     /// <summary>
@@ -2075,14 +2077,61 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Calculate revenue group based on TT152-2025 thresholds
+        /// Calculate revenue group based on 2026 regulatory thresholds
+        /// (Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025 + NQ 198/2025/QH15).
+        /// Wave 5c (2026-07-03): thresholds updated 500M/1B/3B → 1B/3B/50B.
+        ///   Group1: ≤ 1B (không chịu thuế)
+        ///   Group2: > 1B - ≤ 3B (GTGT + TNCN theo tỷ lệ ngành nghề)
+        ///   Group3: > 3B - ≤ 50B (TNCN bắt buộc theo lợi nhuận 17%)
+        ///   Group4: > 50B (TNCN bắt buộc theo lợi nhuận 20%)
         /// </summary>
         public static HKDRevenueGroup CalculateGroup(decimal totalRevenue)
         {
-            if (totalRevenue <= 500_000_000) return HKDRevenueGroup.Group1;
-            if (totalRevenue <= 1_000_000_000) return HKDRevenueGroup.Group2;
-            if (totalRevenue <= 3_000_000_000) return HKDRevenueGroup.Group3;
+            if (totalRevenue <= 1_000_000_000) return HKDRevenueGroup.Group1;
+            if (totalRevenue <= 3_000_000_000) return HKDRevenueGroup.Group2;
+            if (totalRevenue <= 50_000_000_000) return HKDRevenueGroup.Group3;
             return HKDRevenueGroup.Group4;
+        }
+
+        /// <summary>
+        /// Calculate TNCN (Thuế Thu nhập cá nhân) per 2026 regulatory formulas
+        /// (Luật Thuế TNCN sửa đổi 2025 + ND 117/2025 + NQ 198/2025/QH15).
+        /// Wave 5c (2026-07-03): replaces hardcoded 5%/10% + flat Revenue×rate formulas.
+        ///   Group1: 0 (không chịu thuế TNCN — doanh thu ≤ 1B)
+        ///   Group2: (totalRevenue - 1B) × industryRate  (trừ ngưỡng 1B trước khi áp suất thuế)
+        ///   Group3: (totalRevenue - totalExpense) × 17%  (bắt buộc theo lợi nhuận)
+        ///   Group4: (totalRevenue - totalExpense) × 20%  (bắt buộc theo lợi nhuận)
+        /// </summary>
+        /// <param name="group">Revenue group (determined by CalculateGroup)</param>
+        /// <param name="totalRevenue">Total annual revenue (doanh thu)</param>
+        /// <param name="totalExpense">Total annual deductible expense (chi phí) — used for Group3/4 profit-based formula</param>
+        /// <param name="industryRate">Industry-specific TNCN rate as fraction (e.g., 0.005m = 0.5%) — used for Group2 revenue-based formula (per ND 117/2025)</param>
+        /// <returns>TNCN amount in VND</returns>
+        public static decimal CalculateTNCN(HKDRevenueGroup group, decimal totalRevenue, decimal totalExpense, decimal industryRate)
+        {
+            return group switch
+            {
+                HKDRevenueGroup.Group1 => 0m,                                              // ≤1B: không chịu thuế
+                HKDRevenueGroup.Group2 => Math.Max(0m, totalRevenue - 1_000_000_000m) * industryRate,  // (Doanh thu - 1B) × rate
+                HKDRevenueGroup.Group3 => (totalRevenue - totalExpense) * 0.17m,          // (Doanh thu - chi phí) × 17%
+                HKDRevenueGroup.Group4 => (totalRevenue - totalExpense) * 0.20m,          // (Doanh thu - chi phí) × 20%
+                _ => 0m
+            };
+        }
+
+        /// <summary>
+        /// Calculate GTGT (Thuế Giá trị gia tăng) per 2026 regulatory formulas.
+        /// Wave 5c (2026-07-03): Group1 exemption (revenue ≤ 1B → GTGT = 0).
+        ///   Group1: 0 (exemption — không chịu thuế GTGT)
+        ///   Group2/3/4: totalRevenue × industryRate (theo suất thuế ngành nghề per ND 117/2025)
+        /// </summary>
+        /// <param name="group">Revenue group (determined by CalculateGroup)</param>
+        /// <param name="totalRevenue">Total annual revenue (doanh thu)</param>
+        /// <param name="industryRate">Industry-specific GTGT rate as fraction (e.g., 0.01m = 1%) — per ND 117/2025</param>
+        /// <returns>GTGT amount in VND</returns>
+        public static decimal CalculateGTGT(HKDRevenueGroup group, decimal totalRevenue, decimal industryRate)
+        {
+            return group == HKDRevenueGroup.Group1 ? 0m : totalRevenue * industryRate;
         }
     }
 
