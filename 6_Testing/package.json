@@ -9,6 +9,7 @@
     "test:all": "npm run test:e2e",
     "test:quality-gate": "node scripts/quality-gate.js",
     "test:quality-gate:full": "node scripts/quality-gate.js --full-audit",
+    "lint:e2e": "npx ts-node e2e-tests/utils/anti-pattern-lint.ts",
     "report": "node scripts/generate-reports.js",
     "dashboard": "open dashboard/index.html",
     "install:deps": "npm install",

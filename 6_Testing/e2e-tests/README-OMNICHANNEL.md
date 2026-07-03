@@ -285,3 +285,142 @@ For issues or questions:
 2. Review test execution logs in console
 3. Examine video recordings for failure scenarios
 4. Check network tab in browser for API failures
+
+---
+
+## Anti-Patterns (Stream B — E2E Test Cleanup)
+
+> **Status:** 7 anti-patterns identified and fixed across Waves 1-7 (2026-07-02 to 2026-07-03).
+> **Regression prevention:** `npm run lint:e2e` scans all `*.spec.ts` files for these patterns.
+> **Helper:** `utils/strict-assert.ts` provides safe alternatives.
+
+### Pattern A — OR-Tautology Assertions (Wave 7)
+
+**Anti-pattern:** `expect(hasX || hasY || hasZ).toBeTruthy()` — passes with ANY state, tests nothing.
+
+```typescript
+// ❌ BAD — passes if page renders anything at all
+const hasSuccess = await page.locator('[class*="success"]').count() > 0;
+const hasError = await page.locator('[class*="error"]').count() > 0;
+expect(hasSuccess || hasError).toBeTruthy();
+
+// ✅ GOOD — scoped to validation card, specific alert class
+await expect(
+  validationCard.locator('.alert-success, .alert-danger')
+).toBeVisible();
+```
+
+**Fix:** Read the Razor UI code to identify the canonical expected state. Assert that specific state. If two states are genuinely valid alternatives, use `assertOneOf(page, ['.x', '.y'])` from `strict-assert.ts`.
+
+**Exception:** Security tests may use `isLoginPage || isForbidden || hasAccessDenied` — each condition represents a distinct, valid access-control response. This is NOT a tautology because each condition is specific and security-relevant. Add a comment explaining the intentional OR.
+
+### Pattern B — Silent-Skip (Wave 6)
+
+**Anti-pattern:** `if (await element.isVisible()) { ...assert... }` with no `else` branch — passes vacuously when the element is absent.
+
+```typescript
+// ❌ BAD — passes without testing anything if button is absent
+if (await btn.isVisible()) {
+  await btn.click();
+  await expect(page.locator('.result')).toBeVisible();
+}
+
+// ✅ GOOD — explicit skip with reason
+const visible = await btn.isVisible();
+if (!visible) test.skip(true, 'Button not present on this page variant');
+await btn.click();
+await expect(page.locator('.result')).toBeVisible();
+```
+
+**Fix:** Add `test.skip(condition, reason)` or a hard `expect().toBeVisible()`. Use `assertVisibleOrSkip(page, selector, reason)` from `strict-assert.ts`.
+
+### Pattern C — Reachability Smoke Tests (Wave 5)
+
+**Anti-pattern:** Multiple tests that only check `response.status() !== 404` — low value, clutter the suite.
+
+**Fix:** Consolidate into `test.step()` within a single `gateway-smoke.spec.ts` file. Each step asserts `status !== 404 && status !== 500`, preserving strictness while reducing test count.
+
+### Pattern D — Wrong Auth Pattern (Wave 2)
+
+**Anti-pattern:** Filling a login form (`#username`/`#email`/`#password`) that doesn't exist, or overriding `storageState` with empty cookies in authenticated tests.
+
+```typescript
+// ❌ BAD — /login form doesn't exist in ShopERP (uses /dev/login)
+await page.fill('#username', 'admin');
+await page.fill('#password', 'VanAn@2026');
+await page.click('button[type="submit"]');
+await page.waitForURL('/dashboard');
+
+// ✅ GOOD — global storageState from auth/admin.json (playwright.config.ts L34, L56)
+// No explicit login needed — global-setup.ts handles it via /dev/login
+```
+
+**Fix:** Rely on global `storageState` (`auth/admin.json`) applied by `playwright.config.ts`. For unauthenticated tests, use `test.use({ storageState: { cookies: [], origins: [] } })` inside a named `test.describe('Unauthenticated access')` block with an explanatory comment.
+
+### Pattern F — Decorative `reporter.pass()` (Wave 1)
+
+**Anti-pattern:** Calling `reporter.pass()` after a conditional check — creates the illusion of verification without an actual `expect()` assertion.
+
+```typescript
+// ❌ BAD — reporter.pass() is decorative, not a real assertion
+if (await page.locator('.alert').isVisible()) {
+  reporter.pass('Alert displayed');
+}
+
+// ✅ GOOD — use expect() for real assertions
+await expect(page.locator('.alert')).toBeVisible();
+```
+
+**Fix:** Remove all `reporter.pass()` calls. Use `expect()` for real assertions. `reporter.log()` is fine for informational logging.
+
+### Pattern G1 — Anti-Schema Tests (Wave 3)
+
+**Anti-pattern:** Asserting API response fields that don't exist in the actual controller return type — hallucinated schema.
+
+```typescript
+// ❌ BAD — VoiceCommandController returns { Success: bool }, not { Command, Executed }
+expect(result.Command.CommandText).toBe('order');
+expect(result.Executed).toBe(true);
+
+// ✅ GOOD — verify against actual controller return type
+expect(result.Success).toBe(true);
+```
+
+**Fix:** Read the actual C# controller to verify the response schema before asserting. Delete tests that assert hallucinated fields.
+
+### Pattern G2 — Anti-UI Tests (Wave 4)
+
+**Anti-pattern:** Asserting selectors for UI features that don't exist in the codebase.
+
+```typescript
+// ❌ BAD — .loyalty-points selector doesn't exist in KhachLink
+await expect(page.locator('.loyalty-points')).toBeVisible();
+
+// ✅ GOOD — verify selector exists in Razor before using it
+// grep -r "loyalty-points" 5_WebApps/KhachLink/ → 0 matches → don't test it
+```
+
+**Fix:** Verify selectors exist in the Razor/UI code before writing tests. Delete tests for features that don't exist.
+
+### Lint Script
+
+Run `npm run lint:e2e` to scan all `*.spec.ts` files for these 7 anti-patterns:
+
+```bash
+npm run lint:e2e
+# ✅ No anti-pattern violations found across 20 spec file(s).
+```
+
+The lint script (`utils/anti-pattern-lint.ts`) uses regex patterns to detect violations and exits with code 1 if any are found. It is context-aware — it skips comment lines and recognizes intentional patterns marked with explanatory comments (e.g., "unauthenticated", "AUTH_LIFECYCLE_TEST", "Removed redirectedAway").
+
+### Strict Assert Helper
+
+`utils/strict-assert.ts` provides three helper functions:
+
+| Function | Replaces | Description |
+|---|---|---|
+| `assertOneOf(page, selectors, opts)` | Pattern A (OR-tautology) | Asserts at least one selector is visible; returns which one. Fails if NONE visible. |
+| `assertVisibleOrSkip(page, selector, reason)` | Pattern B (silent-skip) | Asserts visible or explicitly `test.skip()` with reason. |
+| `assertUrlMatches(page, pattern, message)` | Pattern A (URL OR-tautology) | Hard-asserts URL matches a regex. No fallback. |
+
+These helpers are **optional** — existing tests are not required to migrate. New tests should prefer them over hand-rolled OR-tautology or silent-skip patterns.
