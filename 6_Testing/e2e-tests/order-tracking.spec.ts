@@ -140,16 +140,5 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
   });
 
   // ─── GATEWAY API SMOKE (order status endpoint) ───────────────────────────
-
-  test('Gateway order status API is reachable for order lookup', async ({ request }) => {
-    // The tracking page calls Gateway to fetch order — verify endpoint exists
-    const response = await request.get(
-      `${config.GATEWAY_URL}/api/orders/${TEST_ORDER_ID}`
-    );
-    // 200 = found; 404 = not found (order doesn't exist in test DB — expected);
-    // 401/403 = auth required — endpoint exists; 500 = crash — fail
-    expect(response.status()).not.toBe(500);
-    expect([200, 401, 403, 404]).toContain(response.status());
-
-  });
+  // MOVED to gateway-smoke.spec.ts (Wave 5 Pattern C — consolidated reachability).
 });

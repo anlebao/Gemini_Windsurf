@@ -120,21 +120,5 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
   });
 
   // ─── ORDER TRACKING (Gateway API — not CoreHub) ──────────────────────────
-
-  test('Order API is accessible via Gateway', async ({ page }) => {
-    // Verify Gateway /api/orders endpoint (not COREHUB_URL which has no HTTP)
-    const response = await page.request.get(`${config.GATEWAY_URL}/api/orders`);
-    // Accepts 200 (list) or 401 (auth required) — both prove the endpoint exists
-    expect([200, 401, 403]).toContain(response.status());
-
-  });
-
-  test('Inventory check API is accessible via Gateway', async ({ page }) => {
-    // Verify Gateway inventory endpoint (not COREHUB_URL)
-    const response = await page.request.get(
-      `${config.GATEWAY_URL}/api/inventory/check?ingredientId=test&quantity=1`
-    );
-    expect([200, 400, 401, 404]).toContain(response.status());
-
-  });
+  // MOVED to gateway-smoke.spec.ts (Wave 5 Pattern C — consolidated reachability).
 });

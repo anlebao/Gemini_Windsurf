@@ -135,20 +135,7 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
   });
 
   // ─── GATEWAY API (kept from original qr-payment.spec.ts intent) ──────────
-
-  test('Gateway /api/v1/vietqr/generate is reachable', async ({ request }) => {
-    const response = await request.post(`${config.GATEWAY_URL}/api/v1/vietqr/generate`, {
-      data: {
-        Amount: 50000,
-        OrderDescription: 'T03-smoke-test',
-        BankConfig: { BankId: '970422', AccountNo: '1234567890', AccountName: 'TEST' },
-      },
-    });
-    // 200 = QR generated; 400 = validation error; 401 = auth needed — all prove endpoint exists
-    expect(response.status()).not.toBe(404);
-    expect(response.status()).not.toBe(500);
-
-  });
+  // VietQR generate reachability MOVED to gateway-smoke.spec.ts (Wave 5 Pattern C).
 
   test('Gateway /api/v1/vietqr/supported-banks returns list', async ({ request }) => {
     const response = await request.get(`${config.GATEWAY_URL}/api/v1/vietqr/supported-banks`);
