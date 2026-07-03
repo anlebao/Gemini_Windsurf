@@ -67,11 +67,13 @@ namespace VanAn.Architecture.Tests
             }
         }
 
-        [Fact(DisplayName = "VA-ARCH-001: Application Layer Should Not Contain Migration Classes")]
+        [Fact(DisplayName = "VA-ARCH-001: Application Layer Should Not Contain Migration Classes (Infrastructure layer ALLOWED)")]
         public void Application_Layer_Should_Not_Contain_Migration_Classes()
         {
             // Arrange
             var repoRoot = GetRepoRoot();
+            // Application-layer paths — Migrations STILL FORBIDDEN here
+            // Infrastructure layer (3_CoreHub/Infrastructure/Migrations) is ALLOWED per Stream E decision (2026-07-03)
             var applicationPaths = new[]
             {
                 Path.Combine(repoRoot, "5_WebApps", "KhachLink"),
@@ -79,7 +81,7 @@ namespace VanAn.Architecture.Tests
                 Path.Combine(repoRoot, "2_Gateway")
             };
 
-            // Act & Assert - Check for Migration classes or Migrations folder
+            // Act & Assert - Check for Migration classes or Migrations folder in APPLICATION layer only
             foreach (var appPath in applicationPaths)
             {
                 if (!Directory.Exists(appPath))
@@ -94,11 +96,11 @@ namespace VanAn.Architecture.Tests
                     var migrationFiles = Directory.GetFiles(migrationsFolder, "*.cs");
                     if (migrationFiles.Length > 0)
                     {
-                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration file phá vỡ Layer Boundary hoặc sai lệch chiến lược EnsureCreatedAsync của hệ thống! Migrations folder found in: {appPath}");
+                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration file trong Application Layer! Migrations chỉ được phép ở Infrastructure layer (3_CoreHub/Infrastructure/Migrations). Found in: {appPath}");
                     }
                 }
 
-                // Check for Migration class inheritance in C# files
+                // Check for Migration class inheritance in C# files (exclude DesignTimeDbContextFactory)
                 var csFiles = Directory.GetFiles(appPath, "*.cs", SearchOption.AllDirectories);
                 foreach (var file in csFiles)
                 {
@@ -108,10 +110,13 @@ namespace VanAn.Architecture.Tests
                     if (content.Contains(": Migration") || 
                         content.Contains(": Microsoft.EntityFrameworkCore.Migrations.Migration"))
                     {
-                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration file phá vỡ Layer Boundary hoặc sai lệch chiến lược EnsureCreatedAsync của hệ thống! Migration class found in: {file}");
+                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration class trong Application Layer! Migrations chỉ được phép ở Infrastructure layer. Found in: {file}");
                     }
                 }
             }
+
+            // NOTE: 3_CoreHub/Infrastructure/Migrations/ is ALLOWED (Infrastructure layer per Stream E decision).
+            // This test only checks Application layer (5_WebApps, 2_Gateway).
         }
 
         [Fact(DisplayName = "VA-GATEWAY-003: Gateway Should Not Contain DbContext Or Business Logic")]

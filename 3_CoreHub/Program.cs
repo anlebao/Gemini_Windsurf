@@ -41,11 +41,11 @@ namespace VanAn.CoreHub
             // Wave 2: Initialize DataProtection provider for EF Core PII encryption
             DataProtectionProviderAccessor.Initialize(host.Services.GetRequiredService<IDataProtectionProvider>());
 
-            // Ensure database is created
+            // Apply EF Core migrations (Stream E: replaced EnsureCreatedAsync with MigrateAsync for production-safe schema management)
             using (IServiceScope scope = host.Services.CreateScope())
             {
                 VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
-                _ = await context.Database.EnsureCreatedAsync();
+                await context.Database.MigrateAsync();
 
                 // Phase 6: Project Memory migrations - Development only
                 var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
