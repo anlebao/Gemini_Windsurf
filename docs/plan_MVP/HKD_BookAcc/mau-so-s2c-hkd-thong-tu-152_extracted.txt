@@ -1,0 +1,26 @@
+﻿HỘ, CÁ NHÂN KINH DOANH:........Địa chỉ:.................................Mã số thuế:..........................
+Mẫu số S2c-HKD(Kèm theo Thông tư số 152/2025/TT-BTCngày 31 tháng 12 năm 2025 của Bộ trưởngBộ Tài chính)
+SỔ CHI TIẾT DOANH THU, CHI PHÍ
+Tên địa điểm kinh doanh:...........
+Kỳ kê khai:.................
+Đơn vị tính:
+Chứng từ
+Diễn giải
+Số tiền
+Số hiệu
+Ngày, tháng
+A
+B
+C
+1
+1. Doanh thu bán hàng hóa, dịch vụ
+2. Chi phí hợp lý
+a) Chi phí nguyên liệu, vật liệu, nhiên liệu, năng lượng, hàng hóa sử dụng vào sản xuất, kinh doanh.
+b) Chi phí tiền lương, tiền công, các khoản phụ cấp, bảo hiểm bắt buộc và các khoản chi trả cho người lao động có đóng bảo hiểm bắt buộc theo quy định; chi phí tiền lương, tiền công, các khoản phụ cấp và các khoản chi trả cho người lao động dưới 01 tháng.
+c) Chi phí khấu hao tài sản cố định phục vụ cho hoạt động sản xuất, kinh doanh theo chế độ quản lý, sử dụng và trích khấu hao tài sản cố định (nếu có).
+d) Chi phí dịch vụ mua ngoài như điện, nước, điện thoại, internet, vận chuyển, thuê tài sản, sửa chữa, bảo dưỡng.
+đ) Chi phí trả lãi tiền vay vốn sản xuất, kinh doanh của tổ chức tín dụng theo lãi suất thực tế. Chi phí trả lãi tiền vay vốn sản xuất, kinh doanh của đối tượng không phải là tổ chức tín dụng không vượt quá mức quy định tại Bộ luật Dân sự.
+e) Các khoản chi khác phục vụ trực tiếp hoạt động sản xuất, kinh doanh...
+3. Chênh lệch {(3) = (1) - (2)}
+4. Tổng số thuế TNCN phải nộp {(4) = (3) x thuế suất}
+Ngày ... tháng ... năm ...NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH(Ký, ghi rõ họ tên và đóng dấu (nếu có))

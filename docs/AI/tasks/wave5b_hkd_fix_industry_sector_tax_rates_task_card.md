@@ -175,4 +175,36 @@ S2a template phải phân nhóm ngành nghề — mỗi ngành có:
 - **BLOCKER:** Wave 5c (2026 regulatory — uses industry rates if 5b executed; if descoped, 5c uses default rate + logs technical debt)
 - **CONDITIONAL:** W0-T10 result + Tech Lead approval determines execution
 - **Tech Lead approval required:** W5b-T0 (CONDITIONAL — only if W0-T10 finds `Tenant.IndustrySector` missing)
+
+---
+
+## 13. Tenant.IndustrySector Status (from Wave 0 T10 — propagated 2026-07-03)
+
+- **Field exists:** **NO** — `1_Shared/Domain/Aggregates/TenantAggregate/Tenant.cs` has:
+  - `Id` (TenantId), `Name` (string), `BusinessType` (enum), `HKDGroup?` (enum?), `Status` (TenantStatus), `Settings` (TenantSettings)
+  - **NO `IndustrySector`, NO `BusinessSector`, NO `NganhNghe` field**
+- **DECISION: Wave 5b CONDITIONAL — needs Tech Lead approval for W5b-T0 (add `IndustrySector` to `Tenant`) OR descope**
+  - Option A: Add `IndustrySector` enum + field to `Tenant` (Domain modification — needs Tech Lead approval per governance Hard Stop)
+  - Option B: **DESCOPE Wave 5b** — use default tax rate (e.g. 5%/2% per ND 117/2025 nhóm 3), log as technical debt, proceed to Wave 5c
+- **Wave 5b action:** Before starting Wave 5b, confirm with Tech Lead:
+  - If approved → execute W5b-T0 (add `IndustrySector` to `Tenant`) + W5b-T1-T7
+  - If not approved OR descoped → skip Wave 5b, log technical debt in project_state.md, proceed to Wave 5c with default rate
+- **Note:** Wave 5c (2026 Regulatory Compliance Fix) is MANDATORY and does NOT depend on Wave 5b. If 5b descoped, 5c uses default rate per ND 117/2025.
 - **PARALLEL:** Không — Wave 5b phải hoàn thành (hoặc descope) trước Wave 5c
+
+---
+
+## 13. Tenant.IndustrySector Status (from Wave 0 T10 — propagated 2026-07-03)
+
+- Field exists: **NO** — `1_Shared/Domain/Aggregates/TenantAggregate/Tenant.cs` has:
+  - `Id`, `Name`, `BusinessType`, `HKDGroup?`, `Status`, `Settings` (TenantSettings)
+  - **NO `IndustrySector`, NO `BusinessSector`, NO `NganhNghe` field**
+- **DECISION: Wave 5b CONDITIONAL — Tech Lead approval needed for W5b-T0 (add `IndustrySector` to `Tenant`)**
+  - Options:
+    - (a) Add `IndustrySector` enum + field to `Tenant` (Domain modification — needs Tech Lead approval per governance), OR
+    - (b) **DESCOPE Wave 5b** — use single default tax rate from Wave 5a, log as technical debt in `docs/AI/technical_debt.md`, proceed to Wave 5c
+  - Wave 5b **cannot proceed** without this decision
+- **Wave 5b implication:**
+  - Section 3 conditional table: **"Field missing" row is the active path** — either Tech Lead approves W5b-T0 OR descope
+  - If descoped: Wave 5c uses default rate (from Wave 5a) + logs technical debt for industry-specific rates
+  - **ACTION REQUIRED before Wave 5b:** User/Tech Lead must decide (a) approve Domain modification OR (b) descope Wave 5b

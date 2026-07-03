@@ -1,0 +1,43 @@
+﻿HỘ, CÁ NHÂN KINH DOANH:........Địa chỉ:.................................Mã số thuế:..........................
+Mẫu số S2d-HKD(Kèm theo Thông tư số 152/2025/TT-BTCngày 31 tháng 12 năm 2025 của Bộ trưởngBộ Tài chính)
+SỔ CHI TIẾT VẬT LIỆU, DỤNG CỤ, SẢN PHẨM, HÀNG HÓA
+Tên vật liệu, dụng cụ, sản phẩm, hàng hóa..................
+Kỳ kê khai..............................
+Chứng từ
+Diễn giải
+Đơnvịtính
+Đơngiá
+Nhập
+Xuất
+Tồn
+Ghi chú
+Sốhiệu
+Ngày,tháng
+Sốlượng
+Thànhtiền
+Sốlượng
+Thànhtiền
+Sốlượng
+Thànhtiền
+A
+B
+C
+D
+1
+2
+3
+4
+5
+6
+7
+8
+Số dư đầu kỳ
+Cộng phátsinh trong kỳ
+X
+X
+Số dư cuối kỳ
+X
+X
+X
+X
+Ngày ... tháng ... năm ...NGƯỜI ĐẠI DIỆN HỘ KINH DOANH/CÁ NHÂN KINH DOANH(Ký, ghi rõ họ tên và đóng dấu (nếu có))
