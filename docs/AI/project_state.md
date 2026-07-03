@@ -29,7 +29,7 @@
 
 ## 2. Current Objective
 
-**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 7 ✅ COMPLETE (branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`, commit `76d2c11`), WAVE 8 NEXT — PENDING]**
+**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 8 🔄 IN PROGRESS (branch `feature/hkd-fix-wave8-ui-docx-export-regression`, Session 1 committed `c8eb819`, Session 2 in progress)]**
 
 Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 152 HKD book report generation. Dependency-ordered 12-wave fix (data → DI → routing → formulas → 2026 regulatory → tests → API → UI → export). **Wave 5c COMPLETE & MERGED (2026-07-03):** 2026 Regulatory Compliance Fix merged to main (`aa930dd`). Domain: fix `HKDRevenueClassification.CalculateGroup` thresholds 500M/1B/3B → 1B/3B/50B + add `CalculateTNCN` (Nhóm 1: 0, Nhóm 2: (Rev-1B)×rate, Nhóm 3: (Rev-Expense)×17%, Nhóm 4: (Rev-Expense)×20%) + `CalculateGTGT` (Nhóm 1 exemption). Service: fix `HKDRevenueClassificationService` thresholds + warnings. Template: S2a `CalculateAsync` override for Nhóm-aware TotalPIT + TotalExpense field + blended PIT rate. `HKDTaxClassificationService`: fix hardcoded 10% TNCN → `CalculateTNCN`. 20 unit tests (all PASS). Build 0 errors, guard PASSED. User-approved: legal review, Domain fix, 10% bug in scope, Nhóm 3/4 w/ warning.
 
@@ -98,7 +98,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 | 5c | **[v3] 2026 Regulatory Compliance Fix (threshold 500M→1B in `HKDRevenueClassification.CalculateGroup` + `HKDRevenueClassificationService`, TNCN formulas Nhóm 2/3/4, thuế khoán abolished, lệ phí môn bài abolished) — CRITICAL pháp lý — Legal review recommended** | 1-2 | High (pháp lý) | ⏳ PENDING |
 | 6 | Retrofit tests with numeric assertions (3 update + 5 new + 1 regression) | 1-2 | Low | ✅ DONE — merged to main (`d6c3bb2`, branch `feature/hkd-fix-wave6-retrofit-numeric-tests` deleted after merge). 3 updated (S1a/S2a/S2b — added `IHKDBookGenerationService.GenerateBookAsync` mock + numeric asserts + routing verify, removed obsolete repo verify) + 5 new numeric (S2c/S2d/S2e/S3a + all-templates Theory×7) + 1 regression (W6-T8 Issue 1 tripwire — `NumericValues` not empty + repo `Times.Never`). Core.Tests Release 818/818 PASS (was 803/3 fail), guard PASSED. |
 | 7 | API endpoint `GET /api/hkd-books/{templateCode}` + DI smoke + multi-tenancy isolation test (W7-T6) | 1 | Low | ✅ DONE — Committed `76d2c11` on branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`. HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse, BaseHKDBookTemplate null! logger, CalculateFormulaAsync legacy variables overload → FormulaContext. Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED. |
-| 8 | UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint | 2-3 | Medium | ⏳ PENDING |
+| 8 | UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint | 2-3 | Medium | 🔄 IN PROGRESS — Session 1 committed `c8eb819` (UI + export + DI wiring). Session 2: E2E spec + architecture test + encoding lint + docs (in progress) |
 
 **Critical path:** Wave 0→0.5→1→2→3→4→~~5 (merged)~~ ✅→~~5c~~ ✅→~~6 (merged)~~ ✅→7→8 (sequential).
 **Branch strategy:** Per-wave merge to main (always-green, no long-lived branch).
@@ -114,12 +114,26 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
-- **Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke` (ready to merge to main)
-- **Last commit:** `76d2c11` Wave 7: API endpoint + DI smoke + multi-tenancy isolation test
-- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅
-- **Guard-check:** ✅ PASS (VA1003/VA1004/VA1005: 0 violations, ALL CHECKS PASSED)
-- **Tests:** Wave 7 integration tests 6/6 PASS · Core.Tests 818/818 PASS · Architecture.Tests 28/28 PASS
-- **Uncommitted changes:** `.devin/rules/governance.md` (Known Error Pattern Registry + 3-Round Fix Limit rule) + `docs/AI/project_state.md` (this update)
+- **Branch:** `feature/hkd-fix-wave8-ui-docx-export-regression`
+- **Last commit:** `c8eb819` Wave 8 S1: HKD Book UI page + DOCX/XLSX export + DI wiring
+- **Build:** `dotnet build VanAn.sln` → 0 errors ✅ (Architecture.Tests project build verified)
+- **Guard-check:** ✅ PASS (pending re-run after Session 2 commit)
+- **Tests:** Architecture.Tests 3/3 HKDBookTemplateArchitectureTests PASS · Playwright `--list` 36 tests in 1 file (hkd-books.spec.ts) · Encoding lint PASS (923 files, 0 mojibake)
+- **Uncommitted changes (Session 2):** `scripts/check-encoding.ps1` (fixed false-positive mojibake detection — now scans for 2-char lead+continuation sequences, not single Latin-1 chars) · `6_Testing/e2e-tests/hkd-books.spec.ts` (NEW — 6 E2E tests) · `6_Tests/VanAn.Architecture.Tests/HKDBookTemplateArchitectureTests.cs` (NEW — 3 regression tests for Issue 1) · `docs/UI_Platform_Implementation_Guide.md` (Wave 8 HKD Book module section) · `docs/AI/project_state.md` (this update)
+- **Wave 8 Session 1 artifacts (committed `c8eb819`):**
+  - **NEW** `5_WebApps/ShopERP/Components/Pages/Accounting/HKDBooks.razor` — List page (7 templates)
+  - **NEW** `5_WebApps/ShopERP/Components/Pages/Accounting/HKDBookDetail.razor` + `.razor.css` — Detail + export buttons
+  - **NEW** `5_WebApps/ShopERP/Services/HKDBookExportService.cs` — DOCX (OpenXML) + XLSX (EPPlus) export
+  - **MODIFIED** `5_WebApps/ShopERP/Program.cs` — DI registrations (IHKDBookGenerationService + dependencies)
+  - **MODIFIED** `3_CoreHub/Services/Template/HKDBookGenerationService.cs` — `VanAnDbContext` → `IVanAnDbContext`
+  - **MODIFIED** `5_WebApps/ShopERP/Components/Pages/Accounting/AccountingIndex.razor` — Link to HKD Books
+  - **MODIFIED** `5_WebApps/ShopERP/Components/Pages/Accounting/AccountingLayout.razor` — Nav item
+  - **MODIFIED** `Directory.Packages.props` + `5_WebApps/ShopERP/VanAn.ShopERP.csproj` — DocumentFormat.OpenXml dependency
+- **Wave 8 Session 2 artifacts (uncommitted):**
+  - **NEW** `6_Testing/e2e-tests/hkd-books.spec.ts` — 6 E2E tests (list, detail, TT 152 layout, export buttons, nav)
+  - **NEW** `6_Tests/VanAn.Architecture.Tests/HKDBookTemplateArchitectureTests.cs` — 3 regression tests (SC6: all HKDBookTemplate subclasses extend BaseHKDBookTemplate; 7 production templates present; CalculateAsync not abstract)
+  - **NEW** `scripts/check-encoding.ps1` — SC7 mojibake encoding lint (fixed false-positive detection)
+  - **MODIFIED** `docs/UI_Platform_Implementation_Guide.md` — Wave 8 HKD Book module reference
 - **Wave 7 artifacts (committed `76d2c11`):**
   - **NEW** `1_Shared/DTOs/HKDBookDto.cs` — DTO with `TenantId`, `Period`, `BookTypeCode`, `NumericValues`, `Entries`
   - **NEW** `2_Gateway/Controllers/HKDBooksController.cs` — `GET /api/hkd-books` + `GET /api/hkd-books/{templateCode}`. JWT Bearer auth.
@@ -195,7 +209,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 17. ~~Wave 5c: 2026 Regulatory Compliance Fix (threshold + TNCN formulas)~~ ✅ DONE & MERGED — Committed `a60d026` on branch `feature/hkd-fix-wave5c-2026-regulatory`, merged to main `aa930dd`. Domain `CalculateGroup` thresholds 1B/3B/50B + `CalculateTNCN` (Nhóm 1: 0, Nhóm 2: (Rev-1B)×rate, Nhóm 3: (Rev-Expense)×17%, Nhóm 4: (Rev-Expense)×20%) + `CalculateGTGT` (Nhóm 1 exemption). Service thresholds + warnings. S2a template `CalculateAsync` override (Nhóm-aware TotalPIT + TotalExpense + blended PIT rate). `HKDTaxClassificationService` 10% TNCN → `CalculateTNCN`. 20 unit tests PASS. Build 0 errors, guard PASSED.
 18. ~~Wave 6: Retrofit tests with numeric assertions~~ ✅ DONE & MERGED TO MAIN (`d6c3bb2`). 3 updated (S1a/S2a/S2b) + 5 new numeric (S2c/S2d/S2e/S3a + all-templates Theory×7) + 1 regression (W6-T8). Core.Tests Release 818/818 PASS, guard PASSED. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
 19. ~~Wave 7: API endpoint + DI smoke + multi-tenancy test~~ ✅ DONE & COMMITTED (`76d2c11`) — HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs. Core.Tests 818/818, Architecture.Tests 28/28, guard PASSED. Root cause investigation log: `docs/AI/tasks/wave7_root_cause_investigation_log.md`.
-20. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export (EPPlus XLSX + DocumentFormat.OpenXml DOCX, both approved) + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
+20. **Wave 8: UI page + DOCX/XLSX export + regression prevention** 🔄 IN PROGRESS — Session 1 committed `c8eb819` (UI + export + DI wiring). Session 2 in progress: E2E spec + architecture test + encoding lint + docs. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
 **Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2 (Option A)~~ ✅ → ~~Wave 3 (DI wiring)~~ ✅ → ~~Wave 4 (route through IHKDBookGenerationService)~~ ✅ → ~~Wave 5 (Industry Sector + PIT Fix)~~ ✅ → ~~Wave 5c (2026 Regulatory)~~ ✅ → ~~merge 5c~~ ✅ → ~~6~~ ✅ → ~~7~~ ✅ → **8**.
 
@@ -287,6 +301,7 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-17 — **WAVE 7 COMPLETE** (commit `76d2c11` on branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`). Created HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse (GetHashCode), BaseHKDBookTemplate null! logger (NullLogger), CalculateFormulaAsync legacy variables overload → FormulaContext (root cause of TotalRevenue=0). Used diagnostic test approach (Round 2 of 3-Round Fix Limit) to pinpoint root cause: `e.TenantId == tenantId` works (4 entries), `EF.Property<Guid>` throws IConvertible (TenantId stored as TEXT), legacy `Evaluate(formula, variables)` ExtractTenantId fails with GetHashCode proxy → wrong tenant → 0 results. Fix: use `Evaluate(formula, FormulaContext)` overload with correct TenantId from DataProviderContext. Added 2 new governance rules: Known Error Pattern Registry (6 patterns) + 3-Round Fix Limit. Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED. Next: merge to main, then Wave 8 (UI page + DOCX/XLSX export).
-* **Current Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke` (ready to merge to main)
-* **Current Objective:** Stream D Wave 8 (UI page + DOCX/XLSX export + regression prevention) — PENDING. Next: merge Wave 7 to main, create branch `feature/hkd-fix-wave8-ui-docx-export`, add UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint.
+* **Last Updated:** 2026-07-04 — **WAVE 8 SESSION 2 IN PROGRESS** (branch `feature/hkd-fix-wave8-ui-docx-export-regression`). Session 1 committed `c8eb819`: HKD Book UI page (`HKDBooks.razor` list + `HKDBookDetail.razor` detail) + `HKDBookExportService` (DOCX via OpenXML + XLSX via EPPlus) + DI wiring in ShopERP `Program.cs` + `HKDBookGenerationService` changed to depend on `IVanAnDbContext` + `DocumentFormat.OpenXml` dependency added. Build 0 errors. Session 2: added `hkd-books.spec.ts` (6 E2E tests, 36 listed via `playwright --list`), `HKDBookTemplateArchitectureTests.cs` (3 regression tests for Issue 1 — all PASS), `check-encoding.ps1` (SC7 mojibake lint — fixed false-positive detection: now scans for 2-char lead+continuation sequences, not single Latin-1 chars; 923 files scanned, 0 mojibake), updated `docs/UI_Platform_Implementation_Guide.md` with Wave 8 HKD Book module reference. Architecture.Tests 3/3 PASS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
+* **Previous:** 2026-07-17 — **WAVE 7 COMPLETE** (commit `76d2c11`). Created HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse (GetHashCode), BaseHKDBookTemplate null! logger (NullLogger), CalculateFormulaAsync legacy variables overload → FormulaContext (root cause of TotalRevenue=0). Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED.
+* **Current Branch:** `feature/hkd-fix-wave8-ui-docx-export-regression`
+* **Current Objective:** Stream D Wave 8 Session 2 (E2E + architecture test + encoding lint + docs) — IN PROGRESS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
