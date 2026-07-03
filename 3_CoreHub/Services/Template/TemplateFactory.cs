@@ -192,6 +192,16 @@ namespace VanAn.CoreHub.Services.Template
             //   Service:             GTGT 5% (0.05),  TNCN 2%   (0.02)
             //   OtherBusiness:       GTGT 2% (0.02),  TNCN 1%   (0.01)
             // NULL IndustrySector entries are counted in the OtherBusiness bucket (ensures TotalRevenue = SUM(all sectors)).
+            //
+            // Wave 5c (2026-07-03): 2026 Regulatory Compliance Fix.
+            //   Per-sector PIT fields below are the "TNCN theo doanh thu" display (Revenue × sectorRate)
+            //   for Nhóm 2 informational purposes. The OFFICIAL TotalPIT is computed in CalculateAsync
+            //   override using HKDRevenueClassification.CalculateTNCN per 2026 law:
+            //     Nhóm 1 (≤1B):       GTGT = 0, TNCN = 0 (exemption)
+            //     Nhóm 2 (>1B-≤3B):   TNCN = (TotalRevenue - 1B) × blendedIndustryRate
+            //     Nhóm 3 (>3B-≤50B):  TNCN = (TotalRevenue - TotalExpense) × 17%
+            //     Nhóm 4 (>50B):      TNCN = (TotalRevenue - TotalExpense) × 20%
+            //   2026: thuế khoán BÃI BỎ (NQ 198/2025/QH15), lệ phí môn bài BÃI BỎ (Điều 10 NQ 198/2025/QH15).
             Fields =
             [
                 // ── Distribution (GTGT 1%, TNCN 0.5%) ──
@@ -212,16 +222,110 @@ namespace VanAn.CoreHub.Services.Template
                 new() { FieldName = "PIT_OtherBusiness", DisplayName = "Thuế TNCN — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.01" },
                 // ── Totals ──
                 new() { FieldName = "TotalRevenue", DisplayName = "Tổng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
+                // Wave 5c: TotalExpense for Nhóm 3/4 profit-based TNCN formula (chi phí = account class 6 Debit)
+                new() { FieldName = "TotalExpense", DisplayName = "Tổng chi phí", Type = FieldType.Decimal, Formula = @"SUM_ACCOUNT(""6*"", ""Debit"")" },
                 new() { FieldName = "TotalVat", DisplayName = "Tổng thuế GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" },
+                // Wave 5c: TotalPIT formula below is the flat per-sector sum (Nhóm 2 display).
+                //   The OFFICIAL 2026 TotalPIT is overridden in CalculateAsync per HKDRevenueClassification.CalculateTNCN.
                 new() { FieldName = "TotalPIT", DisplayName = "Tổng thuế TNCN", Type = FieldType.Decimal, Formula = "PIT_Distribution + PIT_ProductionTransport + PIT_Service + PIT_OtherBusiness" },
                 new() { FieldName = "NetRevenue", DisplayName = "Doanh thu sau thuế", Type = FieldType.Decimal, Formula = "TotalRevenue - TotalVat - TotalPIT" }
             ];
+        }
+
+        /// <summary>
+        /// Wave 5c (2026-07-03): Override CalculateAsync to compute official 2026 Nhóm-aware TotalPIT.
+        /// Base CalculateAsync evaluates per-sector fields (Revenue, VatAmount, PIT) + flat TotalPIT.
+        /// This override then replaces TotalPIT (and TotalVat for Nhóm 1) with the correct 2026 formula
+        /// per HKDRevenueClassification.CalculateTNCN / CalculateGTGT.
+        /// </summary>
+        public override async Task CalculateAsync(GenericHKDBook book)
+        {
+            // 1. Base calculation: evaluates all field formulas (per-sector Revenue/VatAmount/PIT, TotalRevenue, TotalExpense, TotalVat, TotalPIT, NetRevenue)
+            await base.CalculateAsync(book);
+
+            // 2. Read computed totals
+            if (!book.NumericValues.TryGetValue("TotalRevenue", out decimal totalRevenue))
+            {
+                Logger.LogWarning("S2a CalculateAsync override: TotalRevenue missing, skipping 2026 TNCN recalculation");
+                return;
+            }
+
+            book.NumericValues.TryGetValue("TotalExpense", out decimal totalExpense);
+            book.NumericValues.TryGetValue("TotalVat", out decimal baseTotalVat);
+
+            // 3. Determine 2026 revenue group (Nhóm 1-4) from total revenue
+            HKDRevenueGroup group = HKDRevenueClassification.CalculateGroup(totalRevenue);
+
+            // 4. Compute blended PIT rate for Nhóm 2 (weighted by per-sector revenue share)
+            //    Per-sector rates per ND 117/2025: Distribution 0.5%, ProductionTransport 1.5%, Service 2%, OtherBusiness 1%
+            decimal blendedPitRate = ComputeBlendedPitRate(book, totalRevenue);
+
+            // 5. Compute official 2026 TotalPIT via Domain static method
+            decimal officialTotalPit = HKDRevenueClassification.CalculateTNCN(group, totalRevenue, totalExpense, blendedPitRate);
+            book.NumericValues["TotalPIT"] = officialTotalPit;
+
+            // 6. Nhóm 1 (≤1B): GTGT exemption — zero out TotalVat
+            if (group == HKDRevenueGroup.Group1)
+            {
+                book.NumericValues["TotalVat"] = 0m;
+            }
+
+            // 7. Warn if Nhóm 3/4 and no expense data recorded (PIT would be overstated)
+            if ((group == HKDRevenueGroup.Group3 || group == HKDRevenueGroup.Group4) && totalExpense == 0)
+            {
+                Logger.LogWarning(
+                    "S2a 2026 TNCN: Nhóm {Group} (revenue {Revenue:N0}₫) but TotalExpense = 0. " +
+                    "TNCN = (Revenue - 0) × {Rate}% = {Pit:N0}₫ (OVERSTATED — no chi phí recorded). " +
+                    "Record expense entries via RecordExpenseAsync for correct profit-based TNCN.",
+                    group, totalRevenue, group == HKDRevenueGroup.Group3 ? 17 : 20, officialTotalPit);
+            }
+
+            // 8. Recalculate NetRevenue with official 2026 totals
+            decimal officialTotalVat = book.NumericValues.TryGetValue("TotalVat", out decimal vat) ? vat : 0m;
+            book.NumericValues["NetRevenue"] = totalRevenue - officialTotalVat - officialTotalPit;
+
+            Logger.LogInformation(
+                "S2a 2026 TNCN override: Nhóm {Group}, TotalRevenue={Revenue:N0}₫, TotalExpense={Expense:N0}₫, " +
+                "TotalVat={Vat:N0}₫, TotalPIT={Pit:N0}₫ (blendedPitRate={Rate:P4})",
+                group, totalRevenue, totalExpense, officialTotalVat, officialTotalPit, blendedPitRate);
+
+            await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Compute blended PIT rate (weighted average of per-sector rates by revenue share).
+        /// Used for Nhóm 2 TNCN formula: (TotalRevenue - 1B) × blendedPitRate.
+        /// Per-sector rates per ND 117/2025: Distribution 0.5%, ProductionTransport 1.5%, Service 2%, OtherBusiness 1%.
+        /// </summary>
+        private static decimal ComputeBlendedPitRate(GenericHKDBook book, decimal totalRevenue)
+        {
+            if (totalRevenue == 0) return 0m;
+
+            decimal weightedSum = 0m;
+            if (book.NumericValues.TryGetValue("Revenue_Distribution", out decimal revDist))
+                weightedSum += revDist * 0.005m;
+            if (book.NumericValues.TryGetValue("Revenue_ProductionTransport", out decimal revProd))
+                weightedSum += revProd * 0.015m;
+            if (book.NumericValues.TryGetValue("Revenue_Service", out decimal revSvc))
+                weightedSum += revSvc * 0.02m;
+            if (book.NumericValues.TryGetValue("Revenue_OtherBusiness", out decimal revOther))
+                weightedSum += revOther * 0.01m;
+
+            return weightedSum / totalRevenue;
         }
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
             string report = $"SỔ KẾ TOÁN S2a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
             report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
+
+            // Wave 5c: Display 2026 revenue group (Nhóm) for transparency
+            if (book.NumericValues.TryGetValue("TotalRevenue", out decimal totalRevenueForGroup))
+            {
+                HKDRevenueGroup group = HKDRevenueClassification.CalculateGroup(totalRevenueForGroup);
+                report += $"Nhóm doanh thu 2026: {group} (per Luật GTGT/TNCN sửa đổi 2025 + ND 117/2025 + NQ 198/2025/QH15)\n";
+            }
+
             report += "--- Phân phối (GTGT 1%, TNCN 0.5%) ---\n";
             report += ReportSectorLine(book, "Distribution");
             report += "--- Sản xuất, vận tải (GTGT 3%, TNCN 1.5%) ---\n";
@@ -236,6 +340,11 @@ namespace VanAn.CoreHub.Services.Template
                 report += $"Tổng doanh thu: {totalRevenue:N0} VNĐ\n";
             }
 
+            if (book.NumericValues.TryGetValue("TotalExpense", out decimal totalExpense))
+            {
+                report += $"Tổng chi phí: {totalExpense:N0} VNĐ\n";
+            }
+
             if (book.NumericValues.TryGetValue("TotalVat", out decimal totalVat))
             {
                 report += $"Tổng thuế GTGT: {totalVat:N0} VNĐ\n";
@@ -243,7 +352,7 @@ namespace VanAn.CoreHub.Services.Template
 
             if (book.NumericValues.TryGetValue("TotalPIT", out decimal totalPit))
             {
-                report += $"Tổng thuế TNCN: {totalPit:N0} VNĐ\n";
+                report += $"Tổng thuế TNCN (2026): {totalPit:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetRevenue", out decimal net))

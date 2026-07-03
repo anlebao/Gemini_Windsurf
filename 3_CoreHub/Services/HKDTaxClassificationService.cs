@@ -92,52 +92,93 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
-        /// Calculate tax obligations for HKD book type
+        /// Calculate tax obligations for HKD book type.
+        /// Wave 5c (2026-07-03): 2026 regulatory compliance — replaces hardcoded 10% TNCN + flat VAT
+        /// with HKDRevenueClassification.CalculateTNCN / CalculateGTGT per Luật GTGT/TNCN sửa đổi 2025 +
+        /// ND 117/2025 + NQ 198/2025/QH15.
+        ///   Nhóm 1 (≤1B):       GTGT = 0, TNCN = 0 (exemption)
+        ///   Nhóm 2 (>1B-≤3B):   GTGT = Revenue × industryVatRate, TNCN = (Revenue - 1B) × industryPitRate
+        ///   Nhóm 3 (>3B-≤50B):  TNCN = (Revenue - Expense) × 17%
+        ///   Nhóm 4 (>50B):      TNCN = (Revenue - Expense) × 20%
         /// </summary>
         public async Task<HKDTaxCalculation> CalculateTaxAsync(
             TenantId tenantId,
             AccountingBookType bookType,
             decimal revenueAmount,
             decimal expenseAmount = 0,
+            IndustrySector? industrySector = null,
             CancellationToken cancellationToken = default)
         {
-            _logger.LogDebug("Calculating tax for tenant {TenantId}, book type {BookType}, revenue {Revenue}",
-                tenantId.Value, bookType, revenueAmount);
+            _logger.LogDebug("Calculating 2026 tax for tenant {TenantId}, book type {BookType}, revenue {Revenue}, expense {Expense}, sector {Sector}",
+                tenantId.Value, bookType, revenueAmount, expenseAmount, industrySector?.ToString() ?? "NULL");
 
             HKDGroup group = GetHKDGroupForBookType(bookType);
             TaxClassificationData classification = await GetTaxClassificationAsync(group, bookType);
+
+            // Wave 5c: Determine 2026 revenue group (Nhóm 1-4) from revenue amount
+            HKDRevenueGroup revenueGroup = HKDRevenueClassification.CalculateGroup(revenueAmount);
+
+            // Wave 5c: Resolve industry rates (default to OtherBusiness if sector not provided)
+            IndustrySector effectiveSector = industrySector ?? IndustrySector.OtherBusiness;
+            if (industrySector is null)
+            {
+                _logger.LogWarning("CalculateTaxAsync: industrySector not provided, defaulting to OtherBusiness (GTGT 2%, TNCN 1%)");
+            }
+            decimal industryVatRate = GetVatRate(effectiveSector);
+            decimal industryPitRate = GetPitRate(effectiveSector);
 
             decimal vatAmount = 0m;
             decimal personalIncomeTaxAmount = 0m;
             decimal specialTaxAmount = 0m;
             List<TaxBreakdown> taxBreakdowns = [];
 
-            // VAT calculation
+            // Wave 5c: VAT calculation per 2026 law (Nhóm 1 = 0 exemption, Nhóm 2/3/4 = Revenue × industryVatRate)
             if (classification.RequiresVatDeclaration)
             {
-                vatAmount = revenueAmount * (classification.TaxRate / 100);
+                vatAmount = HKDRevenueClassification.CalculateGTGT(revenueGroup, revenueAmount, industryVatRate);
                 taxBreakdowns.Add(new TaxBreakdown
                 {
                     TaxType = "VAT",
                     TaxableAmount = revenueAmount,
-                    TaxRate = classification.TaxRate,
+                    TaxRate = industryVatRate * 100m,
                     TaxAmount = vatAmount,
-                    Description = "Thuế GTGT theo Thông tư 152/2025/TT-BTC"
+                    Description = revenueGroup == HKDRevenueGroup.Group1
+                        ? "Thuế GTGT 2026: Miễn thuế (Nhóm 1, doanh thu ≤ 1 tỷ)"
+                        : $"Thuế GTGT 2026: Doanh thu × {industryVatRate:P1} (Nhóm {revenueGroup}, ND 117/2025)"
                 });
             }
 
-            // Personal Income Tax calculation
+            // Wave 5c: TNCN calculation per 2026 law (replaces hardcoded 10%)
             if (classification.RequiresPersonalIncomeTax)
             {
-                personalIncomeTaxAmount = revenueAmount * 0.1m; // 10% TNCN
+                personalIncomeTaxAmount = HKDRevenueClassification.CalculateTNCN(revenueGroup, revenueAmount, expenseAmount, industryPitRate);
+                string pitDescription = revenueGroup switch
+                {
+                    HKDRevenueGroup.Group1 => "Thuế TNCN 2026: Không chịu thuế (Nhóm 1, doanh thu ≤ 1 tỷ)",
+                    HKDRevenueGroup.Group2 => $"Thuế TNCN 2026: (Doanh thu - 1 tỷ) × {industryPitRate:P1} (Nhóm 2, ND 117/2025)",
+                    HKDRevenueGroup.Group3 => $"Thuế TNCN 2026: (Doanh thu - chi phí) × 17% (Nhóm 3, lợi nhuận)",
+                    HKDRevenueGroup.Group4 => $"Thuế TNCN 2026: (Doanh thu - chi phí) × 20% (Nhóm 4, lợi nhuận)",
+                    _ => "Thuế TNCN 2026"
+                };
                 taxBreakdowns.Add(new TaxBreakdown
                 {
                     TaxType = "TNCN",
                     TaxableAmount = revenueAmount,
-                    TaxRate = 10m,
+                    TaxRate = revenueGroup == HKDRevenueGroup.Group1 ? 0m :
+                              revenueGroup == HKDRevenueGroup.Group2 ? industryPitRate * 100m :
+                              revenueGroup == HKDRevenueGroup.Group3 ? 17m : 20m,
                     TaxAmount = personalIncomeTaxAmount,
-                    Description = "Thuế TNCN theo Thông tư 152/2025/TT-BTC"
+                    Description = pitDescription
                 });
+
+                // Warn if Nhóm 3/4 and no expense data (PIT overstated)
+                if ((revenueGroup == HKDRevenueGroup.Group3 || revenueGroup == HKDRevenueGroup.Group4) && expenseAmount == 0)
+                {
+                    _logger.LogWarning(
+                        "CalculateTaxAsync 2026: Nhóm {Group} (revenue {Revenue:N0}) but expenseAmount = 0. " +
+                        "TNCN = (Revenue - 0) × {Rate}% = {Pit:N0} (OVERSTATED — no chi phí provided).",
+                        revenueGroup, revenueAmount, revenueGroup == HKDRevenueGroup.Group3 ? 17 : 20, personalIncomeTaxAmount);
+                }
             }
 
             // Special Tax calculation
