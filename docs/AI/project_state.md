@@ -29,7 +29,7 @@
 
 ## 2. Current Objective
 
-**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 6 ✅ COMPLETE & MERGED TO MAIN (`d6c3bb2`), WAVE 7 🔄 IN PROGRESS (branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`)]**
+**[STREAM D: HKD BOOK ACCOUNTING REPORT FIX (TT 152/2025/TT-BTC + 2026 REGULATORY COMPLIANCE) — ACTIVE, WAVE 7 ✅ COMPLETE (branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`, commit `76d2c11`), WAVE 8 NEXT — PENDING]**
 
 Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 152 HKD book report generation. Dependency-ordered 12-wave fix (data → DI → routing → formulas → 2026 regulatory → tests → API → UI → export). **Wave 5c COMPLETE & MERGED (2026-07-03):** 2026 Regulatory Compliance Fix merged to main (`aa930dd`). Domain: fix `HKDRevenueClassification.CalculateGroup` thresholds 500M/1B/3B → 1B/3B/50B + add `CalculateTNCN` (Nhóm 1: 0, Nhóm 2: (Rev-1B)×rate, Nhóm 3: (Rev-Expense)×17%, Nhóm 4: (Rev-Expense)×20%) + `CalculateGTGT` (Nhóm 1 exemption). Service: fix `HKDRevenueClassificationService` thresholds + warnings. Template: S2a `CalculateAsync` override for Nhóm-aware TotalPIT + TotalExpense field + blended PIT rate. `HKDTaxClassificationService`: fix hardcoded 10% TNCN → `CalculateTNCN`. 20 unit tests (all PASS). Build 0 errors, guard PASSED. User-approved: legal review, Domain fix, 10% bug in scope, Nhóm 3/4 w/ warning.
 
@@ -97,7 +97,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 | 5 | **[v4 MERGED] Industry Sector + PIT Fix + Account Mapping + 4-group Tax Rates** — Add `IndustrySector` enum+field to `AccountingEntry`+`Tenant`+`Order` (Domain mod, Tech Lead APPROVED 2026-07-03), extend Formula Engine DSL (`SUM_ACCOUNT_BY_INDUSTRY`), redesign S2a/S2b per TT 152 industry-sector layout, fix PIT formula (`VatAmount*0.1`→`TotalRevenue*industryPitRate`), fix `_vietnameseAccounts` labels, 4-group rates per Luật 2025 + ND 117/2025. **Supersedes old 5a+5b.** Old cards archived. | 3-4 | High (Domain mod + Formula Engine DSL extension) | ✅ DONE — Committed `1ac8252`, merged to main. 6 micro-phases (S1-S6) complete. 29 files, +3203/-201. Build PASS, 10/10 Wave5 tests PASS. 3 pre-existing failures (unrelated HKDBookServiceTests). |
 | 5c | **[v3] 2026 Regulatory Compliance Fix (threshold 500M→1B in `HKDRevenueClassification.CalculateGroup` + `HKDRevenueClassificationService`, TNCN formulas Nhóm 2/3/4, thuế khoán abolished, lệ phí môn bài abolished) — CRITICAL pháp lý — Legal review recommended** | 1-2 | High (pháp lý) | ⏳ PENDING |
 | 6 | Retrofit tests with numeric assertions (3 update + 5 new + 1 regression) | 1-2 | Low | ✅ DONE — merged to main (`d6c3bb2`, branch `feature/hkd-fix-wave6-retrofit-numeric-tests` deleted after merge). 3 updated (S1a/S2a/S2b — added `IHKDBookGenerationService.GenerateBookAsync` mock + numeric asserts + routing verify, removed obsolete repo verify) + 5 new numeric (S2c/S2d/S2e/S3a + all-templates Theory×7) + 1 regression (W6-T8 Issue 1 tripwire — `NumericValues` not empty + repo `Times.Never`). Core.Tests Release 818/818 PASS (was 803/3 fail), guard PASSED. |
-| 7 | API endpoint `GET /api/hkd-books/{templateCode}` + DI smoke + multi-tenancy isolation test (W7-T6) | 1 | Low | 🔄 IN PROGRESS — DTO + Controller + DI smoke + endpoint tests created; 5/6 tests PASS; 1 pre-existing bug blocker (`TemplateCalculationEngine.CreateBaseVariables` GUID→decimal parse) |
+| 7 | API endpoint `GET /api/hkd-books/{templateCode}` + DI smoke + multi-tenancy isolation test (W7-T6) | 1 | Low | ✅ DONE — Committed `76d2c11` on branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`. HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse, BaseHKDBookTemplate null! logger, CalculateFormulaAsync legacy variables overload → FormulaContext. Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED. |
 | 8 | UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint | 2-3 | Medium | ⏳ PENDING |
 
 **Critical path:** Wave 0→0.5→1→2→3→4→~~5 (merged)~~ ✅→~~5c~~ ✅→~~6 (merged)~~ ✅→7→8 (sequential).
@@ -114,29 +114,34 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
-- **Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke`
-- **Last commit:** `a0b1ee3` [STATE] Update project_state.md + master plan - Wave 6 merged to main (d6c3bb2), Wave 7 next
+- **Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke` (ready to merge to main)
+- **Last commit:** `76d2c11` Wave 7: API endpoint + DI smoke + multi-tenancy isolation test
 - **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅
 - **Guard-check:** ✅ PASS (VA1003/VA1004/VA1005: 0 violations, ALL CHECKS PASSED)
-- **Tests:** Wave 7 integration tests — 5/6 PASS (DI smoke 2/2, endpoint 3/4). 1 failing: `GetHkdBook_S1a_ReturnsBookWithNumericValues` — pre-existing bug in `TemplateCalculationEngine.CreateBaseVariables` (`decimal.Parse(tenantId.Value.ToString("N"))` fails: GUID hex string not parseable as decimal). NOT caused by Wave 7.
-- **Uncommitted changes:** Wave 7 implementation (8 files: 4 new + 4 modified) — see Section 4 for details
-- **Wave 7 artifacts created/modified (uncommitted on branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`):**
-  - **NEW** `1_Shared/DTOs/HKDBookDto.cs` — DTO with `TenantId`, `Period`, `BookTypeCode`, `NumericValues` (Dictionary<string,decimal>), `Entries`
-  - **NEW** `2_Gateway/Controllers/HKDBooksController.cs` — `GET /api/hkd-books` (list templates) + `GET /api/hkd-books/{templateCode}` (generate book). JWT Bearer auth + `RequireTenantAccess` policy.
-  - **NEW** `6_Tests/VanAn.Integration.Tests/HKDBookDISmokeTests.cs` — 2 DI smoke tests (5 calc engine services + full dependency chain)
-  - **NEW** `6_Tests/VanAn.Integration.Tests/HKDBooksEndpointTests.cs` — 4 endpoint tests (list, generate S1a, invalid period 400, no-auth 401/302)
-  - **MODIFIED** `2_Gateway/Program.cs` — Added `IAuditLogRepository`, `IAuditTrailService`, `Lazy<IFormulaEngine>` + calc engine DI registrations (were missing — latent DI bug)
-  - **MODIFIED** `3_CoreHub/Program.cs` — Added `Lazy<IFormulaEngine>` registration to break circular dependency
-  - **MODIFIED** `3_CoreHub/Services/PreAggregation/SmartPreAggregationService.cs` — Changed `IFormulaEngine` → `Lazy<IFormulaEngine>` to break circular dependency (`IFormulaEngine` → `IDataProvider` → `IPreAggregationService` → `IFormulaEngine`)
-  - **MODIFIED** `3_CoreHub/Services/Template/HKDBookGenerationService.cs` — Fixed `GetJournalEntriesAsync`: filter by `EntryDate` range instead of unmapped `Period.Year/Month`; use `e.TenantId == tenantId` instead of `EF.Property<Guid>` for consistent converter usage
-  - **MODIFIED** `3_CoreHub/Infrastructure/Configurations/JournalEntryConfiguration.cs` — Added `EntryDate` property mapping (was missing — caused EF Core translation failure)
-  - **MODIFIED** `6_Tests/VanAn.Core.Tests/Services/SmartPreAggregationServiceWave2Tests.cs` — Updated `CreateService()` to pass `Lazy<IFormulaEngine>`
-- **Pre-existing bugs discovered during Wave 7 (NOT Wave 7 regressions):**
-  1. **Gateway missing DI registrations** — `IAuditTrailService`, `IAuditLogRepository`, and 5 calc engine services were only registered in CoreHub, not Gateway. Fixed in Wave 7.
-  2. **Circular dependency in calc engine** — `IFormulaEngine` → `IDataProvider` → `IPreAggregationService` → `IFormulaEngine`. Fixed via `Lazy<IFormulaEngine>` in `SmartPreAggregationService`.
-  3. **JournalEntryConfiguration missing EntryDate** — `EntryDate` property not mapped, causing EF Core query translation failure. Fixed.
-  4. **HKDBookGenerationService queried unmapped Period** — `e.Period.Year`/`e.Period.Month` not translatable (Period is unmapped AccountingPeriod record). Fixed to use `EntryDate` range.
-  5. **TemplateCalculationEngine.CreateBaseVariables GUID→decimal parse** (BLOCKER, UNFIXED) — `decimal.Parse(tenantId.Value.ToString("N"))` fails because GUID hex string (e.g. "12345678123412341234123456789abc") contains non-numeric chars. This blocks `GetHkdBook_S1a_ReturnsBookWithNumericValues` test. Fix needed: either use `tenantId.Value.GetHashCode()` as a numeric proxy, or pass tenant context out-of-band (not via `_TenantId` decimal variable).
+- **Tests:** Wave 7 integration tests 6/6 PASS · Core.Tests 818/818 PASS · Architecture.Tests 28/28 PASS
+- **Uncommitted changes:** `.devin/rules/governance.md` (Known Error Pattern Registry + 3-Round Fix Limit rule) + `docs/AI/project_state.md` (this update)
+- **Wave 7 artifacts (committed `76d2c11`):**
+  - **NEW** `1_Shared/DTOs/HKDBookDto.cs` — DTO with `TenantId`, `Period`, `BookTypeCode`, `NumericValues`, `Entries`
+  - **NEW** `2_Gateway/Controllers/HKDBooksController.cs` — `GET /api/hkd-books` + `GET /api/hkd-books/{templateCode}`. JWT Bearer auth.
+  - **NEW** `6_Tests/VanAn.Integration.Tests/HKDBookDISmokeTests.cs` — 2 DI smoke tests
+  - **NEW** `6_Tests/VanAn.Integration.Tests/HKDBooksEndpointTests.cs` — 4 endpoint tests (6/6 total PASS)
+  - **NEW** `docs/AI/tasks/wave7_root_cause_investigation_log.md` — Root cause investigation log
+  - **MODIFIED** `2_Gateway/Program.cs` — Added missing DI registrations (IAuditTrailService, IAuditLogRepository, calc engine, Lazy<IFormulaEngine>)
+  - **MODIFIED** `3_CoreHub/Program.cs` — Added `Lazy<IFormulaEngine>` registration
+  - **MODIFIED** `3_CoreHub/Services/PreAggregation/SmartPreAggregationService.cs` — `IFormulaEngine` → `Lazy<IFormulaEngine>` (circular dependency fix)
+  - **MODIFIED** `3_CoreHub/Services/Template/HKDBookGenerationService.cs` — `EntryDate` range filter (unmapped Period fix)
+  - **MODIFIED** `3_CoreHub/Services/Template/TemplateCalculationEngine.cs` — `CreateBaseVariables` GetHashCode fix + `CalculateFormulaAsync` FormulaContext overload fix
+  - **MODIFIED** `3_CoreHub/Services/Template/BaseHKDBookTemplate.cs` — `null!` logger → `NullLogger<TemplateCalculationEngine>.Instance`
+  - **MODIFIED** `3_CoreHub/Infrastructure/Configurations/JournalEntryConfiguration.cs` — Added `EntryDate` mapping
+  - **MODIFIED** `6_Tests/VanAn.Core.Tests/Services/SmartPreAggregationServiceWave2Tests.cs` — Updated for `Lazy<IFormulaEngine>`
+- **Pre-existing bugs fixed in Wave 7 (7 total):**
+  1. Gateway missing DI registrations (IAuditTrailService, IAuditLogRepository, calc engine)
+  2. Circular dependency IFormulaEngine→IDataProvider→IPreAggregationService→IFormulaEngine (Lazy<IFormulaEngine>)
+  3. JournalEntryConfiguration missing EntryDate mapping
+  4. HKDBookGenerationService queried unmapped Period.Year/Month → EntryDate range
+  5. TemplateCalculationEngine.CreateBaseVariables GUID→decimal parse (GetHashCode proxy)
+  6. BaseHKDBookTemplate null! logger (NullLogger fix)
+  7. CalculateFormulaAsync used legacy variables overload → FormulaContext overload (root cause of TotalRevenue=0)
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)** · **Stream D Wave 0+0.5+1+2+3+4+5+5c** · **Stream E: DB Migration Strategy**.
 - **Wave 5c execution artifacts (merged to main `aa930dd`):**
   - `1_Shared/Domain.cs` — `HKDRevenueClassification.CalculateGroup` thresholds 1B/3B/50B + `CalculateTNCN` + `CalculateGTGT` static methods + enum comments
@@ -189,10 +194,10 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 16. ~~Wave 5 (MERGED 5a+5b+partial 5c): Industry Sector + PIT Fix + Account Mapping + 4-group Tax Rates~~ ✅ DONE — Committed `1ac8252`, merged to main. 6 micro-phases (S1-S6): Domain (IndustrySector enum + fields), EF Migration (AddIndustrySector), Formula Engine (SUM_ACCOUNT_BY_INDUSTRY), Tax Rate Lookup (4 groups VAT/PIT), S2a/S2b Template Redesign (4 industry groups), Production Write Path (OrderService/AccountingEntryService/HKDBookService pass IndustrySector), Tests (10/10 PASS) + Seed Data update. 29 files, +3203/-201. Build PASS, guard PASS. 3 pre-existing failures (unrelated HKDBookServiceTests — missing mock setup for IHKDBookGenerationService.GenerateBookAsync, broken before Wave 5).
 17. ~~Wave 5c: 2026 Regulatory Compliance Fix (threshold + TNCN formulas)~~ ✅ DONE & MERGED — Committed `a60d026` on branch `feature/hkd-fix-wave5c-2026-regulatory`, merged to main `aa930dd`. Domain `CalculateGroup` thresholds 1B/3B/50B + `CalculateTNCN` (Nhóm 1: 0, Nhóm 2: (Rev-1B)×rate, Nhóm 3: (Rev-Expense)×17%, Nhóm 4: (Rev-Expense)×20%) + `CalculateGTGT` (Nhóm 1 exemption). Service thresholds + warnings. S2a template `CalculateAsync` override (Nhóm-aware TotalPIT + TotalExpense + blended PIT rate). `HKDTaxClassificationService` 10% TNCN → `CalculateTNCN`. 20 unit tests PASS. Build 0 errors, guard PASSED.
 18. ~~Wave 6: Retrofit tests with numeric assertions~~ ✅ DONE & MERGED TO MAIN (`d6c3bb2`). 3 updated (S1a/S2a/S2b) + 5 new numeric (S2c/S2d/S2e/S3a + all-templates Theory×7) + 1 regression (W6-T8). Core.Tests Release 818/818 PASS, guard PASSED. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
-19. **Wave 7: API endpoint + DI smoke + multi-tenancy test** 🔄 IN PROGRESS (branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`) — DTO + Controller (2 endpoints) + DI smoke (2 tests) + endpoint tests (4 tests) created. 5/6 PASS. **BLOCKER:** pre-existing `TemplateCalculationEngine.CreateBaseVariables` GUID→decimal parse bug. Next: fix `_TenantId` variable to use numeric proxy or out-of-band tenant context, then run full test suite + guard-check + commit.
+19. ~~Wave 7: API endpoint + DI smoke + multi-tenancy test~~ ✅ DONE & COMMITTED (`76d2c11`) — HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs. Core.Tests 818/818, Architecture.Tests 28/28, guard PASSED. Root cause investigation log: `docs/AI/tasks/wave7_root_cause_investigation_log.md`.
 20. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export (EPPlus XLSX + DocumentFormat.OpenXml DOCX, both approved) + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
-**Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2 (Option A)~~ ✅ → ~~Wave 3 (DI wiring)~~ ✅ → ~~Wave 4 (route through IHKDBookGenerationService)~~ ✅ → ~~Wave 5 (Industry Sector + PIT Fix)~~ ✅ → ~~Wave 5c (2026 Regulatory)~~ ✅ → ~~merge 5c~~ ✅ → ~~6~~ ✅ → **7 (IN PROGRESS)** → 8.
+**Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2 (Option A)~~ ✅ → ~~Wave 3 (DI wiring)~~ ✅ → ~~Wave 4 (route through IHKDBookGenerationService)~~ ✅ → ~~Wave 5 (Industry Sector + PIT Fix)~~ ✅ → ~~Wave 5c (2026 Regulatory)~~ ✅ → ~~merge 5c~~ ✅ → ~~6~~ ✅ → ~~7~~ ✅ → **8**.
 
 **Deferred (awaiting user decision):**
 1. **Merge Stream B to main** — Stream B wave branches await merge to main. All 8 waves complete, guard PASSED.
@@ -282,6 +287,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-17 — **WAVE 7 IN PROGRESS** (branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`). Created `HKDBookDto` + `HKDBooksController` (2 endpoints: `GET /api/hkd-books` + `GET /api/hkd-books/{templateCode}`) + `HKDBookDISmokeTests` (2 tests) + `HKDBooksEndpointTests` (4 tests). Fixed 4 pre-existing DI/EF bugs: (1) Gateway missing `IAuditTrailService`/`IAuditLogRepository`/calc engine DI registrations, (2) circular dependency `IFormulaEngine`→`IDataProvider`→`IPreAggregationService`→`IFormulaEngine` via `Lazy<IFormulaEngine>`, (3) `JournalEntryConfiguration` missing `EntryDate` mapping, (4) `HKDBookGenerationService` queried unmapped `Period.Year/Month` → switched to `EntryDate` range. 5/6 Wave 7 tests PASS. **BLOCKER:** pre-existing `TemplateCalculationEngine.CreateBaseVariables` bug — `decimal.Parse(tenantId.Value.ToString("N"))` fails (GUID hex not parseable as decimal). Next: fix `_TenantId` variable, run full test suite + guard-check, commit.
-* **Current Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke`
-* **Current Objective:** Stream D Wave 7 (API Endpoint + DI Smoke + Multi-tenancy Isolation Test) — IN PROGRESS. Next: fix `TemplateCalculationEngine.CreateBaseVariables` GUID→decimal parse bug → run full test suite → guard-check → commit on branch.
+* **Last Updated:** 2026-07-17 — **WAVE 7 COMPLETE** (commit `76d2c11` on branch `feature/hkd-fix-wave7-api-endpoint-di-smoke`). Created HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse (GetHashCode), BaseHKDBookTemplate null! logger (NullLogger), CalculateFormulaAsync legacy variables overload → FormulaContext (root cause of TotalRevenue=0). Used diagnostic test approach (Round 2 of 3-Round Fix Limit) to pinpoint root cause: `e.TenantId == tenantId` works (4 entries), `EF.Property<Guid>` throws IConvertible (TenantId stored as TEXT), legacy `Evaluate(formula, variables)` ExtractTenantId fails with GetHashCode proxy → wrong tenant → 0 results. Fix: use `Evaluate(formula, FormulaContext)` overload with correct TenantId from DataProviderContext. Added 2 new governance rules: Known Error Pattern Registry (6 patterns) + 3-Round Fix Limit. Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED. Next: merge to main, then Wave 8 (UI page + DOCX/XLSX export).
+* **Current Branch:** `feature/hkd-fix-wave7-api-endpoint-di-smoke` (ready to merge to main)
+* **Current Objective:** Stream D Wave 8 (UI page + DOCX/XLSX export + regression prevention) — PENDING. Next: merge Wave 7 to main, create branch `feature/hkd-fix-wave8-ui-docx-export`, add UI page `/accounting/hkd-books` + DOCX/XLSX export + architecture test + encoding lint.

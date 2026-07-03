@@ -126,6 +126,36 @@ trigger: always_on
 
 > **Error classification, fixing protocol, fix budget:** See `.devin/workflows/Fix_Errors.md`
 
+### **Known Error Pattern Registry (Apply Directly — No Workaround)**
+When encountering an error that matches a known pattern below, apply the documented fix IMMEDIATELY.
+Do NOT waste rounds on trial-and-error workarounds. If the fix does not resolve the issue, proceed to the 3-Round Rule below.
+
+| # | Pattern | Root Cause | Direct Fix | Source |
+|---|---|---|---|---|
+| 1 | `Object must implement IConvertible` in EF Core query with `TenantId` | `EF.Property<Guid>(e, "TenantId")` — TenantId stored as TEXT (string) via TenantIdConverter, not Guid. `EF.Property<Guid>` tries to cast string→Guid→IConvertible error. | Use `e.TenantId == tenantId` (direct property comparison). EF Core applies TenantIdConverter automatically. NEVER use `EF.Property<Guid>` for TenantId. | Wave 7 |
+| 2 | `decimal.Parse(tenantId.Value.ToString("N"))` throws FormatException | GUID hex string contains non-numeric chars (a-f) that decimal.Parse cannot handle. | Use `tenantId.Value.GetHashCode()` as numeric proxy. ExtractTenantId has FormatException fallback — round-trip precision not required. | Wave 7 |
+| 3 | `Value cannot be null. (Parameter 'logger')` in TemplateCalculationEngine | `BaseHKDBookTemplate` passed `null!` as logger to `new TemplateCalculationEngine(...)`. | Use `NullLogger<TemplateCalculationEngine>.Instance` (add `using Microsoft.Extensions.Logging.Abstractions`). | Wave 7 |
+| 4 | Formula `SUM_ACCOUNT` returns 0 but data exists | `CalculateFormulaAsync` called `Evaluate(formula, variables)` (legacy overload) → `ExtractTenantId` parses `_TenantId` decimal proxy back as GUID → fails → fallback `Guid.NewGuid()` → wrong tenant → 0 results. | Use `Evaluate(formula, FormulaContext)` overload with correct TenantId from DataProviderContext. NEVER use legacy variables overload when TenantId accuracy matters. | Wave 7 |
+| 5 | `Translation of member 'Period' on entity type 'JournalEntry' failed` | `AccountingPeriod` (record) is not mapped in EF Core configuration. `e.Period.Year`/`e.Period.Month` cannot translate to SQL. | Filter by `EntryDate` range: `e.EntryDate >= periodStart && e.EntryDate < periodEnd` where `periodStart = new DateTime(year, month, 1)`. | Wave 7 |
+| 6 | Circular dependency: `IFormulaEngine` → `IDataProvider` → `IPreAggregationService` → `IFormulaEngine` | Service A depends on Service B which depends on Service A. | Use `Lazy<T>` to break the cycle. Register `Lazy<IFormulaEngine>` in DI container. | Wave 7 |
+
+**Maintenance:** User decides when to add new patterns. Obsolete patterns (code removed, API changed) must be pruned to keep the registry lean. Do NOT let this table grow unbounded — each entry must remain actionable and current.
+
+### **3-Round Fix Limit (Test Failures & Errors)**
+When fixing test failures or errors, follow this protocol strictly:
+
+- **Round 1:** Apply the most likely fix based on error message + code inspection. Re-run test.
+- **Round 2:** If Round 1 failed, write a DIAGNOSTIC TEST (temporary `Assert.Fail` with diagnostic info: data counts, query results, EF model inspection) to gather evidence. Use evidence to fix. Re-run test.
+- **Round 3:** If Round 2 failed, apply fix based on diagnostic evidence. Re-run test.
+- **STOP:** If Round 3 failed → STOP. Do NOT attempt Round 4. Report to user:
+  - What was tried in each round
+  - What evidence was gathered
+  - Current error state
+  - Recommended next steps
+  - Ask user for decision (skip + debt, revert, continue debugging, or escalate)
+
+**Hard Rule:** NEVER exceed 3 rounds of fix attempts without user approval. Running more than 3 rounds blindly wastes time and context. The diagnostic test approach (Round 2) is MANDATORY — it converts guessing into evidence-based fixing.
+
 ### **Domain Inspection Before Mapping**
 When compiler raises CS1061 (property not found on domain entity):
 1. **STOP** — Do not guess or substitute another property
