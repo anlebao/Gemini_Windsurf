@@ -58,8 +58,8 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
   - **Gap-3 (Medium):** 6 .docx extraction script incomplete (PowerShell regex issue).
 - **Stream E: DB Migration Strategy (NEW — spawned from Wave 0 Gap-1):**
   - **Decision (user-approved 2026-07-03):** (1) Use EF Core Migrations as official schema management, (2) Remove `EnsureCreated()` from production, (3) Modify VA-ARCH-001 to allow Migrations at correct layer (Infrastructure) while still preventing other architecture violations.
-  - **Status:** ESCALATED — tách thành stream riêng, không sửa code trong Wave 0 session. Cần tạo task card + plan riêng.
-  - **Blocks:** Wave 2 verification (Option A query cần domain columns tồn tại trong DB), Wave 7 manual testing, Wave 8 manual testing.
+  - **Status:** ✅ COMPLETE & MERGED TO MAIN (`b2e0431`). InitialCreate migration created (6037 lines), DesignTimeDbContextFactory added, VA-ARCH-001 modified (allows Infrastructure Migrations, forbids Application Migrations), `EnsureCreatedAsync` → `MigrateAsync` in CoreHub/Program.cs, dev DB migrated (AccountingEntries has ALL domain columns). 28/28 architecture tests pass.
+  - **Blocks:** ~~Wave 2 verification~~ ✅ UNBLOCKED. ~~Wave 7 manual testing~~ ✅ UNBLOCKED. ~~Wave 8 manual testing~~ ✅ UNBLOCKED.
 - **v3 amendments (approved 2026-07-03, from phản biện kiến trúc + pháp lý):**
   4. **Add Wave 0.5 — Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** — Option C (hardcode 2 lệnh ghi trong RecordRevenue) bị LOẠI per phản biện. Option A (refactor SmartPreAggregationService query AccountingEntries) hoặc Option B (event-driven Outbox). Codebase verify: AccountingEntry có đủ field, Outbox infrastructure đã có.
   5. **Add HKD Accounting Regime Disclaimer + Fix suất thuế + Add Wave 5c** —
@@ -109,19 +109,19 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 - **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
 - **Stream B: E2E Test Cleanup** — ✅ COMPLETE (`ffe8607`). 8 waves, 7 anti-patterns, all merged-ready on `feature/e2e-cleanup-wave8-regression-prevention`. Awaiting merge to main.
 - **Stream C: ShopERP UI Fix** — ✅ COMPLETE & MERGED TO MAIN (`f3ed2d2`). 6 waves, 23 .razor files fixed.
-- **Stream E: DB Migration Strategy** — 🆕 SPAWNED from Wave 0 Gap-1 (2026-07-03). Decision: Enable EF Core Migrations, remove EnsureCreated from production, modify VA-ARCH-001 to allow Migrations at Infrastructure layer. Task card + plan PENDING (tách stream riêng, không sửa code trong Wave 0 session). BLOCKS: Wave 2 verification + Wave 7/8 manual testing.
+- **Stream E: DB Migration Strategy** — ✅ COMPLETE & MERGED TO MAIN (`b2e0431`). EF Core Migrations enabled, EnsureCreated replaced with MigrateAsync, VA-ARCH-001 modified. Unblocks Wave 2/7/8.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/hkd-fix-wave0-wave0p5-preflight`
-- **Last commit:** `dad3d76` [STATE] Update maintenance log (base) — Wave 0+0.5 execution commits pending
-- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (962 warnings, no code change in Wave 0/0.5 — ANALYZE mode only)
-- **Guard-check:** PENDING — will run before commit
-- **Uncommitted changes:** Wave 0 + Wave 0.5 task cards updated with execution findings + decisions (wave0 + wave0p5 task cards). project_state.md being updated. No code changes (ANALYZE mode).
-- **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)**.
-- **Stream D execution artifacts (on `feature/hkd-fix-wave0-wave0p5-preflight` branch):**
+- **Branch:** `main`
+- **Last commit:** `b2e0431` Merge Stream E: EF Core Migrations enabled (replaces EnsureCreated) - unblocks Wave 2
+- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (988 warnings, +26 from migration scaffolding)
+- **Guard-check:** PASSED ✅ (pre-commit hook on Stream E commit)
+- **Uncommitted changes:** project_state.md being updated (Stream E completion + Wave 2 unblocked)
+- **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)** · **Stream D Wave 0+0.5+1** · **Stream E: DB Migration Strategy**.
+- **Stream D execution artifacts (merged to main):**
   - `docs/AI/tasks/wave0_hkd_fix_preflight_task_card.md` — updated with Section 13 (Execution Findings) + Section 14 (3 New Gaps) + Section 15 (Updated SC)
   - `docs/AI/tasks/wave0p5_hkd_fix_arch_decision_data_source_task_card.md` — updated with Section 13 (Decision Output: Option A) + Section 14 (DB Schema Caveat)
   - `docs/AI/project_state.md` — being updated with Wave 0+0.5 results + Stream E
@@ -129,7 +129,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
   1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream.
   2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes.
 - **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Stream B Wave 4 SCENARIO 2 deletion. Candidate for future page-object cleanup.
-- **In-progress:** Stream D Wave 0 + Wave 0.5 execution ~70% complete on `feature/hkd-fix-wave0-wave0p5-preflight`. 15/21 tasks done. 3 new gaps found. Stream E (DB Migration Strategy) spawned from Gap-1. Remaining: propagate T8-T11 decisions to downstream task cards, rewrite Wave 2 task card (Option A), extract 7 docx layouts (install pandoc), commit.
+- **In-progress:** Stream D Wave 2 (Option A — refactor SmartPreAggregationService query AccountingEntries). UNBLOCKED by Stream E (DB schema migrated, all domain columns present). Wave 0+0.5+1 + Stream E all merged to main.
 
 ---
 
@@ -150,11 +150,11 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
    - e. W0-T7b: Install pandoc + extract S1a_HKD.doc layout
    - f. W0-T7c: Complete 6 .docx layout extraction
 8. **W0.5-T5: Rewrite Wave 2 task card per Option A** ⏳ PENDING — Replace "Bridge JournalEntry persistence" with "Refactor SmartPreAggregationService query AccountingEntries". Rename file `wave2_hkd_fix_bridge_journal_persistence_task_card.md` → `wave2_hkd_fix_data_source_bridge_task_card.md`.
-9. **Stream E: DB Migration Strategy** ⏳ PENDING — Create task card + plan. User decision: Enable EF Migrations, remove EnsureCreated from production, modify VA-ARCH-001. **BLOCKS Wave 2 verification.**
-10. **guard-check.ps1 + commit Wave 0+0.5** ⏳ PENDING — After all propagation + extraction complete.
-11. **Merge Wave 0+0.5 to main** ⏳ PENDING — Per-wave merge strategy.
-12. **Wave 1: Fix UTF-8 mojibake** ⏳ PENDING — Fix `S1aHKDTemplateImpl` + `S2aHKDTemplateImpl` strings. Task card: `wave1_hkd_fix_encoding_mojibake_task_card.md`.
-13. **Wave 2: Data source bridge (Option A per W0.5)** ⏳ PENDING — Task card needs rewrite per W0.5 decision. **BLOCKED by Stream E** (DB schema must be migrated first).
+9. ~~Stream E: DB Migration Strategy~~ ✅ DONE — Merged `b2e0431`. InitialCreate migration + DesignTimeDbContextFactory + VA-ARCH-001 modified + EnsureCreated→MigrateAsync. Dev DB migrated.
+10. ~~guard-check.ps1 + commit Wave 0+0.5~~ ✅ DONE — Committed `88a7fb4`, merged `06bfd44`.
+11. ~~Merge Wave 0+0.5 to main~~ ✅ DONE — Merged `06bfd44`.
+12. ~~Wave 1: Fix UTF-8 mojibake~~ ✅ DONE — Committed `83cca48`, merged `2f294c8`. S1a+S2a+S3a fixed (S3a also had mojibake, caught + fixed).
+13. **Wave 2: Data source bridge (Option A per W0.5)** ⏳ NEXT — Refactor `SmartPreAggregationService.GetAccountSumAsync` to query `AccountingEntries` directly. ✅ UNBLOCKED by Stream E. Task card: `wave2_hkd_fix_data_source_bridge_task_card.md`.
 14. **Wave 3: Wire calc engine into DI** ⏳ PENDING — Conflict pre-resolved in W0-T8. Task card: `wave3_hkd_fix_wire_calc_engine_di_task_card.md`.
 15. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
 16. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md`.
@@ -164,7 +164,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 20. **Wave 7: API endpoint + DI smoke + multi-tenancy test** ⏳ PENDING — Endpoint + W7-T6 isolation test. Task card: `wave7_hkd_fix_api_endpoint_di_smoke_task_card.md`.
 21. **Wave 8: UI page + DOCX/XLSX export + regression prevention** ⏳ PENDING — UI + export (EPPlus XLSX + DocumentFormat.OpenXml DOCX, both approved) + architecture test + encoding lint. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
 
-**Critical path updated:** Wave 0 (remaining) → commit → merge → **Stream E (DB Migrations)** → Wave 1 → Wave 2 (Option A, BLOCKED by Stream E) → Wave 3 → Wave 4 → Wave 5a → **5c** → 6 → 7 → 8. **Optional:** Wave 5b (conditional, needs Tech Lead approval).
+**Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → **Wave 2 (Option A, UNBLOCKED)** → Wave 3 → Wave 4 → Wave 5a → **5c** → 6 → 7 → 8. **Optional:** Wave 5b (conditional, needs Tech Lead approval).
 
 **Deferred (awaiting user decision):**
 1. **Merge Stream B to main** — Stream B wave branches await merge to main. All 8 waves complete, guard PASSED.
@@ -174,7 +174,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 5. **Tech Lead approval for Stream D Wave 5a W5a-T4** — Domain modification (`HKDTemplates.cs` S2b account "512"→"5118", no new field). Needed before Wave 5a.
 6. **Tech Lead approval for Stream D Wave 5b W5b-T0** — W0-T10 confirmed `Tenant.IndustrySector` MISSING. Add `IndustrySector` to `Tenant` OR descope Wave 5b (use default tax rate, log technical debt). Needed before Wave 5b (if not descoped).
 7. **Legal review for Stream D Wave 5c** — Confirm 2026 regulatory changes (threshold 1B, 4 revenue groups, TNCN formulas, thuế khoán abolished) với bộ phận pháp lý/thuế. Recommended before Wave 5c implementation.
-8. **Stream E: DB Migration Strategy** — User decision made (Enable EF Migrations, remove EnsureCreated from production, modify VA-ARCH-001). Task card + plan PENDING. Blocks Wave 2 verification.
+8. ~~Stream E: DB Migration Strategy~~ ✅ DONE — Merged `b2e0431`.
 
 ---
 
@@ -254,6 +254,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Wave 0 + Wave 0.5 execution ~70% complete on `feature/hkd-fix-wave0-wave0p5-preflight`. 15/21 tasks done: T1-T11 (Wave 0) + T1-T4 (Wave 0.5). 3 new gaps discovered: (1) Dev DB schema stale — `EnsureCreatedAsync()` không update schema, AccountingEntries missing ALL domain columns → **Stream E spawned** (EF Core Migrations strategy, user-approved: Enable Migrations, remove EnsureCreated from production, modify VA-ARCH-001), (2) S1a_HKD.doc binary format cần pandoc, (3) 6 .docx extraction script incomplete. Wave 0.5 decision: **Option A** (refactor `SmartPreAggregationService` query `AccountingEntries` directly, no JournalEntry writing). W0-T8: ITemplateFactory no conflict (new doesn't implement interface). W0-T9: EPPlus 7.6.1 (XLSX) + user approved DocumentFormat.OpenXml (DOCX). W0-T10: Tenant.IndustrySector MISSING → Wave 5b conditional. W0-T11: OrderService L114-141 already persists JournalEntry (Path B), but Option A avoids writing. Remaining: propagate T8-T11 to downstream task cards, rewrite Wave 2 task card (Option A), install pandoc + extract docx layouts, create Stream E task card, guard-check + commit.
-* **Current Branch:** `feature/hkd-fix-wave0-wave0p5-preflight`
-* **Current Objective:** Stream D — HKD Book Accounting Report Fix. Wave 0 + Wave 0.5 execution in progress. Stream E (DB Migration Strategy) spawned, awaiting task card creation.
+* **Last Updated:** 2026-07-03 — Stream E (DB Migration Strategy) COMPLETE & merged to main (`b2e0431`). EF Core Migrations enabled: InitialCreate migration created (6037 lines, all entities including AccountingEntries with domain columns), DesignTimeDbContextFactory added, VA-ARCH-001 modified (allows Infrastructure Migrations, forbids Application Migrations), `EnsureCreatedAsync` → `MigrateAsync` in CoreHub/Program.cs, dev DB migrated (PRAGMA confirms Amount/EntryType/AccountCode/PeriodYear/PeriodMonth/VatRate/AccountingBookType/Description/ReversalEntryId/Vendor/Reference all present). 28/28 architecture tests pass. Build 0 errors (988 warnings). Wave 1 (encoding) also complete & merged (`2f294c8`) — S1a+S2a+S3a mojibake fixed (S3a also had mojibake, caught + fixed). Wave 0+0.5 complete & merged (`06bfd44`). **Wave 2 UNBLOCKED** — next: refactor `SmartPreAggregationService.GetAccountSumAsync` to query `AccountingEntries` directly (Option A).
+* **Current Branch:** `main`
+* **Current Objective:** Stream D — HKD Book Accounting Report Fix. Wave 0+0.5+1 + Stream E complete. Next: Wave 2 (Option A — data source bridge).
