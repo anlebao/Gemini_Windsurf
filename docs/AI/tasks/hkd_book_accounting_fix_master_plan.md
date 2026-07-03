@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 ✅ COMPLETE & merged; Wave 3 next
+> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 + 3 + 4 + 5 ✅ COMPLETE & merged; Wave 5c ✅ COMPLETE (branch `feature/hkd-fix-wave5c-2026-regulatory`, commit `a60d026`, awaiting merge); Wave 6 next
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (Wave 2 complete — Option A implemented, SQLite decimal SumAsync fix)
+> **Last Updated:** 2026-07-03 (Wave 5c complete — 2026 Regulatory Compliance Fix: thresholds 1B/3B/50B + TNCN formulas Nhóm 1/2/3/4 + GTGT Nhóm 1 exemption + 10% TNCN bug fix)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -444,8 +444,8 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ## 6.7. WAVE 5c — 2026 Regulatory Compliance Fix (CRITICAL — pháp lý)
 
-**Branch:** `feature/hkd-fix-wave5c-2026-regulatory-compliance`
-**Estimated sessions:** 1-2
+**Branch:** `feature/hkd-fix-wave5c-2026-regulatory` ✅ COMPLETE (commit `a60d026`, awaiting merge to main)
+**Estimated sessions:** 1-2 (actual: 1)
 **Conflict risk:** HIGH (thay đổi threshold + formula tính thuế — ảnh hưởng toàn bộ HKD tax calculation)
 **Priority:** 5c (CRITICAL — sai = báo cáo sai thuế + phạt hành chính)
 **Task Card:** `docs/AI/tasks/wave5c_hkd_fix_2026_regulatory_compliance_task_card.md` ✅ CREATED → **Full task details (W5c-T1 to W5c-T13, codebase evidence, 2026 regulatory changes table, 4 revenue groups, TNCN formulas per group, 5 unit test specs, legal source references, micro-phase breakdown)**
@@ -454,20 +454,31 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 **Summary:** Fix `HKDRevenueClassificationService` thresholds (500M→1B, 4 revenue groups mới: ≤1B / 1B-3B / 3B-50B / >50B). Add TNCN formulas per group (Nhóm 2: `(Doanh thu - 1B) × industryRate`, Nhóm 3: `(Doanh thu - chi phí) × 17%`, Nhóm 4: `(Doanh thu - chi phí) × 20%`). Add GTGT exemption Nhóm 1 (≤1B). Document thuế khoán + lệ phí môn bài abolished from 01/01/2026. 5 unit tests. **Legal review recommended.**
 
+### ✅ EXECUTION RESULTS (2026-07-03, commit `a60d026`)
+- **ANALYZE phase:** Verified Q1 (`HKDRevenueGroup` enum has Group4 ✅), Q2 (TNCN in Template layer + `HKDTaxClassificationService` L132 hardcoded 10%), Q3 (Expense data available via `RecordExpenseAsync` but not automatic).
+- **User approvals:** Legal review approved · Domain fix approved · 10% TNCN bug included in scope · Nhóm 3/4 formula implemented with warning when no expense data.
+- **Domain (`1_Shared/Domain.cs`):** Fix `CalculateGroup` thresholds 500M/1B/3B → **1B/3B/50B**. Add `CalculateTNCN` static method (Nhóm 1: 0, Nhóm 2: (Rev−1B)×industryRate, Nhóm 3: (Rev−Expense)×17%, Nhóm 4: (Rev−Expense)×20%). Add `CalculateGTGT` static method (Nhóm 1: 0 exemption). Update `HKDRevenueGroup` enum comments.
+- **Service (`HKDRevenueClassificationService`):** Thresholds 1B/3B/50B + warning messages per 4 nhóm mới + thuế khoán/lệ phí môn bài abolished documented.
+- **Template (`S2aHKDTemplateImpl`):** `CalculateAsync` override — Nhóm-aware TotalPIT via `CalculateTNCN`, `TotalExpense` field (SUM_ACCOUNT 6* Debit), blended PIT rate for multi-sector Nhóm 2, GTGT Nhóm 1 exemption (zero TotalVat), warn if Nhóm 3/4 no expenses, display revenue group in report.
+- **Service (`HKDTaxClassificationService`):** Fix hardcoded 10% TNCN (L132) → `CalculateTNCN`. Fix VAT → `CalculateGTGT` (Nhóm 1 exemption). Add optional `IndustrySector` parameter to `CalculateTaxAsync` (backward-compatible).
+- **Tests:** 20 unit tests (Wave5cRegulatoryComplianceTests — 11 Theory + 9 Fact, all PASS). Covers 2026 thresholds, TNCN Nhóm 1/2/3/4, GTGT Nhóm 1 exemption, service warnings.
+- **Files changed:** 6 files, +485/-30.
+- **Build:** 0 errors ✅ · **Guard:** PASSED (VA1003/VA1004/VA1005: 0) ✅ · **Tests:** 803 passed / 3 failed (pre-existing `HKDBookServiceTests`, unrelated).
+
 ### Entry criteria
-- [ ] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates)
-- [ ] **Legal review recommended** — confirm 2026 regulatory changes với bộ phận pháp lý/thuế
+- [x] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates) ✅
+- [x] **Legal review** — user approved proceeding with task card's cited legal sources (Luật GTGT/TNCN 2025, ND 117/2025, NQ 198/2025/QH15, meinvoice.vn) ✅
 
 ### Exit criteria
-- [ ] `HKDRevenueClassificationService` thresholds: 1B / 3B / 50B / >50B (4 groups mới)
-- [ ] TNCN Nhóm 2: `(Doanh thu - 1B) × industryRate` (not `Doanh thu × rate`)
-- [ ] TNCN Nhóm 3: `(Doanh thu - chi phí) × 17%`
-- [ ] TNCN Nhóm 4: `(Doanh thu - chi phí) × 20%`
-- [ ] GTGT Nhóm 1: 0 (exemption)
-- [ ] Thuế khoán + lệ phí môn bài abolished documented
-- [ ] 5 unit test pass
-- [ ] `dotnet build VanAn.sln` Release — 0 errors
-- [ ] guard-check.ps1 PASSED
+- [x] `HKDRevenueClassificationService` thresholds: 1B / 3B / 50B / >50B (4 groups mới) ✅
+- [x] TNCN Nhóm 2: `(Doanh thu - 1B) × industryRate` (not `Doanh thu × rate`) ✅
+- [x] TNCN Nhóm 3: `(Doanh thu - chi phí) × 17%` ✅
+- [x] TNCN Nhóm 4: `(Doanh thu - chi phí) × 20%` ✅
+- [x] GTGT Nhóm 1: 0 (exemption) ✅
+- [x] Thuế khoán + lệ phí môn bài abolished documented ✅
+- [x] 5 unit test pass (20 tests — 5 required SC + 15 edge cases) ✅
+- [x] `dotnet build VanAn.sln` Release — 0 errors ✅
+- [x] guard-check.ps1 PASSED ✅
 
 ### Why 5c (separate from 5b)
 - **CRITICAL pháp lý** — sai threshold = sai toàn bộ tax calculation = phạt hành chính
@@ -489,9 +500,9 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ### Entry criteria
 - [ ] Wave 5 (merged) merged (IndustrySector + PIT fix + account mapping + 4-group tax rates)
-- [ ] **Wave 5c merged** (2026 regulatory compliance)
-- [ ] Wave 4 merged (NumericValues có số liệu + smoke test pass)
-- [ ] Wave 2 merged (data source bridge)
+- [ ] **Wave 5c merged** (2026 regulatory compliance) — ⏳ AWAITING MERGE (branch `feature/hkd-fix-wave5c-2026-regulatory`, commit `a60d026`)
+- [x] Wave 4 merged (NumericValues có số liệu + smoke test pass) ✅
+- [x] Wave 2 merged (data source bridge) ✅
 
 ### Exit criteria
 - [ ] 7 test `GenerateS*BookAsync` assert `NumericValues` cụ thể
@@ -697,17 +708,17 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 | Wave 0.5 | **[NEW] Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** | 0.5-1 | None (decision only) | ✅ COMPLETE (`88a7fb4`) |
 | Wave 1 | Fix UTF-8 mojibake (mechanical) | 0.5 | Low | ✅ COMPLETE (`83cca48`) |
 | Wave 2 | Data source bridge (Option A: refactor query OR Option B: event-driven — per W0.5) | 0.5-2 | Medium/Low | ✅ COMPLETE (`7269bc1`) — awaiting merge |
-| Wave 3 | Wire calc engine into DI (conflict pre-resolved in W0-T8) | 1 | Low | ⏳ PENDING (next) |
-| Wave 4 | Route HKDBookService through IHKDBookGenerationService + smoke test tripwire | 1 | Medium | ⏳ PENDING |
-| Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium | ⏳ PENDING |
-| Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High | ⏳ CONDITIONAL |
-| Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) | ⏳ PENDING (CRITICAL) |
-| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ⏳ PENDING |
+| Wave 3 | Wire calc engine into DI (conflict pre-resolved in W0-T8) | 1 | Low | ✅ COMPLETE (`3b98524`) — merged |
+| Wave 4 | Route HKDBookService through IHKDBookGenerationService + smoke test tripwire | 1 | Medium | ✅ COMPLETE (`57d021c`) — merged |
+| Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium | ✅ COMPLETE (merged into Wave 5) |
+| Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High | ✅ COMPLETE (merged into Wave 5) |
+| Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) | ✅ COMPLETE (`a60d026`) — awaiting merge |
+| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ⏳ PENDING (next) |
 | Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low | ⏳ PENDING |
 | Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium | ⏳ PENDING |
-| **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | | **4/12 complete** |
+| **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | | **9/12 complete** (Wave 5 merged 5a+5b+partial 5c; Wave 5c proper complete on branch) |
 
-**Critical path:** Wave 0 → Wave 0.5 → Wave 1 → Wave 2 → Wave 3 → Wave 4 → Wave 5a → **Wave 5c** → Wave 6 → Wave 7 → Wave 8
+**Critical path:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2~~ ✅ → ~~Wave 3~~ ✅ → ~~Wave 4~~ ✅ → ~~Wave 5 (5a+5b merged)~~ ✅ → ~~Wave 5c~~ ✅ → **merge 5c** → Wave 6 → Wave 7 → Wave 8
 **Optional path:** Wave 5b (between 5a and 5c) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
 **Parallel path:** Wave 0 + Wave 0.5 + Wave 1 có thể cùng session (cả 3 non-code/low-risk, độc lập)
 **Descope path:** If Wave 5b descoped → use default rate, log technical debt, Wave 5c/6-8 proceed (5c uses default rate if 5b descoped)
