@@ -115,11 +115,12 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
-- **Branch:** `main`
-- **Last commit:** `b2e0431` Merge Stream E: EF Core Migrations enabled (replaces EnsureCreated) - unblocks Wave 2
-- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (988 warnings, +26 from migration scaffolding)
-- **Guard-check:** PASSED ✅ (pre-commit hook on Stream E commit)
-- **Uncommitted changes:** project_state.md being updated (Stream E completion + Wave 2 unblocked)
+- **Branch:** `feature/hkd-fix-wave2-data-source-bridge-option-a`
+- **Last commit:** `042c5ef` [STATE] Update project_state.md - Stream E complete, Wave 2 unblocked
+- **Build:** `dotnet build VanAn.sln` Release → 0 errors ✅ (990 warnings)
+- **Guard-check:** ✅ PASS (after commit — untracked test file will be committed)
+- **Tests:** VanAn.Core.Tests 776 passed / 0 failed · VanAn.Architecture.Tests 28 passed / 0 failed · **Wave 2 targeted tests: 3/3 passed**
+- **Uncommitted changes:** `SmartPreAggregationService.cs` (query refactor + SQLite decimal fix L155-205) + `SmartPreAggregationServiceWave2Tests.cs` (3 new tests, PASSING) — on `feature/hkd-fix-wave2-data-source-bridge-option-a` branch
 - **Completed features (merged to main):** Tenant Onboarding (6 waves) · ShopConfig Refactor (3 phases) · Architecture Test Fixes · CI/CD Hotfix · **Stream C: ShopERP UI Fix (6 waves)** · **Stream B: E2E Test Cleanup (8 waves, planning merged; wave branches await merge)** · **Stream D Wave 0+0.5+1** · **Stream E: DB Migration Strategy**.
 - **Stream D execution artifacts (merged to main):**
   - `docs/AI/tasks/wave0_hkd_fix_preflight_task_card.md` — updated with Section 13 (Execution Findings) + Section 14 (3 New Gaps) + Section 15 (Updated SC)
@@ -129,7 +130,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
   1. **Blazor circuit crash on `/`, `/sitemap`, `/admin/users`** — `System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>` from `AuthorizeViewCore.OnParametersSetAsync()`. Pages prerender correctly (visual content visible) but interactivity breaks after circuit connect. Routes.razor has `<CascadingAuthenticationState>` + `<AuthorizeRouteView>` — cascade timing issue. Candidate for a dedicated Blazor auth fix stream.
   2. **DevLoginController role mismatch** — `/admin/users` uses `[Authorize(Policy = "OwnerOnly")]` (requires "Owner" role), but `POST /dev/login/systemadmin` issues "SystemAdmin" role → access denied. SystemAdmin dev login cannot reach admin pages. E2E tests must use Owner login for admin routes.
 - **Dead code note:** `CustomerPage.ts` loyalty methods (`loyaltyPointsDisplay` L44, `getLoyaltyPoints` L191, `applyLoyaltyPoints` L201) are now unreferenced after Stream B Wave 4 SCENARIO 2 deletion. Candidate for future page-object cleanup.
-- **In-progress:** Stream D Wave 2 (Option A — refactor SmartPreAggregationService query AccountingEntries). UNBLOCKED by Stream E (DB schema migrated, all domain columns present). Wave 0+0.5+1 + Stream E all merged to main.
+- **In-progress:** Stream D Wave 2 (Option A — refactor `SmartPreAggregationService.GetAccountSumAsync` to query `AccountingEntries` directly). ✅ COMPLETE — Query refactor DONE (L155-205), 3 unit tests PASSING. **Root cause of prior test failure:** NOT a `TenantId` translation issue — SQLite `SumAsync` on `decimal` throws `NotSupportedException` (`SqliteQueryableAggregateMethodTranslator`). Fix: materialize `Amount` values via `ToListAsync()` then `Sum()` client-side to preserve decimal precision. Branch: `feature/hkd-fix-wave2-data-source-bridge-option-a`.
 
 ---
 
@@ -154,7 +155,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 10. ~~guard-check.ps1 + commit Wave 0+0.5~~ ✅ DONE — Committed `88a7fb4`, merged `06bfd44`.
 11. ~~Merge Wave 0+0.5 to main~~ ✅ DONE — Merged `06bfd44`.
 12. ~~Wave 1: Fix UTF-8 mojibake~~ ✅ DONE — Committed `83cca48`, merged `2f294c8`. S1a+S2a+S3a fixed (S3a also had mojibake, caught + fixed).
-13. **Wave 2: Data source bridge (Option A per W0.5)** ⏳ NEXT — Refactor `SmartPreAggregationService.GetAccountSumAsync` to query `AccountingEntries` directly. ✅ UNBLOCKED by Stream E. Task card: `wave2_hkd_fix_data_source_bridge_task_card.md`.
+13. ~~Wave 2: Data source bridge (Option A per W0.5)~~ ✅ DONE — Query refactor + SQLite decimal `SumAsync` fix (materialize + client-side sum). 3/3 unit tests PASSING. Core.Tests 776/0, Arch.Tests 28/0. Branch: `feature/hkd-fix-wave2-data-source-bridge-option-a`. Awaiting user review before merge.
 14. **Wave 3: Wire calc engine into DI** ⏳ PENDING — Conflict pre-resolved in W0-T8. Task card: `wave3_hkd_fix_wire_calc_engine_di_task_card.md`.
 15. **Wave 4: Route through IHKDBookGenerationService + smoke test** ⏳ PENDING — Rewrite 7 methods + W4-T11 tripwire. Task card: `wave4_hkd_fix_route_through_generation_service_task_card.md`.
 16. **Wave 5a: Fix account mapping + PIT-on-revenue** ⏳ PENDING — Fix `_vietnameseAccounts`, PIT base, S2b account (521→5118). **W5a-T4 needs Tech Lead approval (Domain account-number fix).** Task card: `wave5a_hkd_fix_account_mapping_pit_task_card.md`.
@@ -254,6 +255,6 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-03 — Stream E (DB Migration Strategy) COMPLETE & merged to main (`b2e0431`). EF Core Migrations enabled: InitialCreate migration created (6037 lines, all entities including AccountingEntries with domain columns), DesignTimeDbContextFactory added, VA-ARCH-001 modified (allows Infrastructure Migrations, forbids Application Migrations), `EnsureCreatedAsync` → `MigrateAsync` in CoreHub/Program.cs, dev DB migrated (PRAGMA confirms Amount/EntryType/AccountCode/PeriodYear/PeriodMonth/VatRate/AccountingBookType/Description/ReversalEntryId/Vendor/Reference all present). 28/28 architecture tests pass. Build 0 errors (988 warnings). Wave 1 (encoding) also complete & merged (`2f294c8`) — S1a+S2a+S3a mojibake fixed (S3a also had mojibake, caught + fixed). Wave 0+0.5 complete & merged (`06bfd44`). **Wave 2 UNBLOCKED** — next: refactor `SmartPreAggregationService.GetAccountSumAsync` to query `AccountingEntries` directly (Option A).
-* **Current Branch:** `main`
-* **Current Objective:** Stream D — HKD Book Accounting Report Fix. Wave 0+0.5+1 + Stream E complete. Next: Wave 2 (Option A — data source bridge).
+* **Last Updated:** 2026-07-03 — Wave 2 (Option A) ✅ COMPLETE on `feature/hkd-fix-wave2-data-source-bridge-option-a`. `SmartPreAggregationService.GetAccountSumAsync` (L155-205) now queries `AccountingEntries` directly (Option A per W0.5). 3 unit tests written + PASSING (`SmartPreAggregationServiceWave2Tests.cs`). **Root cause of prior failure:** NOT `TenantId` translation — SQLite `SumAsync` on `decimal` throws `NotSupportedException` (`SqliteQueryableAggregateMethodTranslator`). Fix: materialize `Amount` via `ToListAsync()` + client-side `Sum()` to preserve decimal precision. Build: 0 errors / 990 warnings. Tests: Core 776/0, Arch 28/0. Awaiting user review before merge.
+* **Current Branch:** `feature/hkd-fix-wave2-data-source-bridge-option-a`
+* **Current Objective:** Stream D Wave 2 ✅ COMPLETE — awaiting user review, then merge + proceed to Wave 3 (wire calc engine into DI).

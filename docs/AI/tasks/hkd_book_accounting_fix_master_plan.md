@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — HKD Book Accounting Report Fix (TT 152/2025/TT-BTC Compliance)
 
-> **Status:** ✅ APPROVED (v3) — Awaiting Wave 0 + Wave 0.5 execution
+> **Status:** ✅ APPROVED (v3) — Wave 0 + 0.5 + 1 + 2 ✅ COMPLETE & merged; Wave 3 next
 > **Created:** 2026-07-03
-> **Last Updated:** 2026-07-03 (v3 — 12 waves, 8 root-cause issues + 2 architecture/legal findings, 5 amendments + 5 concerns resolved)
+> **Last Updated:** 2026-07-03 (Wave 2 complete — Option A implemented, SQLite decimal SumAsync fix)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave (sequential)
 > **Execution principle:** Dependency-ordered fix (data → DI → routing → formulas → tests → API → UI → export)
@@ -295,17 +295,25 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ## 3. WAVE 2 — Data Source Bridge (Option A: refactor query OR Option B: event-driven — per Wave 0.5 decision)
 
-**Branch:** `feature/hkd-fix-wave2-data-source-bridge` (renamed from `bridge-journal-persistence` — scope phụ thuộc W0.5)
+**Branch:** `feature/hkd-fix-wave2-data-source-bridge-option-a`
 **Estimated sessions:** 1-2 (Option A: 0.5-1, Option B: 1-2)
 **Conflict risk:** MEDIUM (Option B thay đổi write path via event) / LOW (Option A chỉ refactor query)
 **Priority:** 2 (Critical — block Wave 3/4/5/6 — calc engine cần data)
 **Task Card:** `docs/AI/tasks/wave2_hkd_fix_data_source_bridge_task_card.md` (RENAMED + REWRITE per W0.5) → **Full task details (W2A-T1 to W2A-T4 for Option A, W2B-T1 to W2B-T7 for Option B, file paths, line numbers, test specs, idempotent guard details)**
+**Status:** ✅ COMPLETE — Commit `7269bc1` on `feature/hkd-fix-wave2-data-source-bridge-option-a`. Option A implemented. Awaiting user review → merge to main.
 
 > **[AMENDMENT 4 — v3] Wave 2 scope phụ thuộc Wave 0.5 decision.** Option C (dual write trong RecordRevenue) bị LOẠI. Task card phải rewrite theo Option A hoặc B.
 
 **Summary:**
 - **Option A:** Refactor `SmartPreAggregationService.GetAccountSumAsync` query `AccountingEntries` (filter `AccountCode.StartsWith(pattern)` + `EntryType` làm sign). Skip JournalEntry creation entirely.
 - **Option B:** Add Domain Event `AccountingEntryRecorded` + NATS/Outbox handler sinh `JournalEntry` double-entry. `RecordRevenueAsync` chỉ persist `AccountingEntry` + phát event (no dual write).
+
+**Execution result (2026-07-03):**
+- **Chosen:** Option A (per W0.5-T4)
+- **Implementation:** `SmartPreAggregationService.GetAccountSumAsync` (L155-205) now queries `AccountingEntries` directly. `EntryType` → side mapping (Revenue=Credit, Expense=Debit). Null `AccountCode` uses `EntryType` heuristic (Revenue→"5", Expense→"6").
+- **Root cause fix:** SQLite cannot apply aggregate `Sum` on `decimal` server-side (`NotSupportedException` from `SqliteQueryableAggregateMethodTranslator`). Materialize `Amount` values via `ToListAsync()` then `Sum()` client-side to preserve decimal precision.
+- **Tests:** 3 new unit tests (`SmartPreAggregationServiceWave2Tests.cs`) — all passing (Revenue→Credit=1000, Expense→Debit=500, Null AccountCode→heuristic=2000).
+- **Verification:** Build 0 errors / 990 warnings · Core.Tests 776/0 · Architecture.Tests 28/0 · guard-check PASSED.
 
 ### Entry criteria
 - [ ] Wave 1 merged
@@ -700,21 +708,21 @@ main ← feature/hkd-fix-wave8-ui-docx-export-regression
 
 ## 12. EFFORT SUMMARY (v3)
 
-| Wave | Description | Sessions | Risk |
-|---|---|---|---|
-| Wave 0 | Pre-flight verification (11 tasks — baseline + 4 architecture decisions promoted) | 0.5-1 | None |
-| Wave 0.5 | **[NEW] Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** | 0.5-1 | None (decision only) |
-| Wave 1 | Fix UTF-8 mojibake (mechanical) | 0.5 | Low |
-| Wave 2 | Data source bridge (Option A: refactor query OR Option B: event-driven — per W0.5) | 0.5-2 | Medium/Low |
-| Wave 3 | Wire calc engine into DI (conflict pre-resolved in W0-T8) | 1 | Low |
-| Wave 4 | Route HKDBookService through IHKDBookGenerationService + smoke test tripwire | 1 | Medium |
-| Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium |
-| Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High |
-| Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) |
-| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low |
-| Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low |
-| Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium |
-| **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | |
+| Wave | Description | Sessions | Risk | Status |
+|---|---|---|---|---|
+| Wave 0 | Pre-flight verification (11 tasks — baseline + 4 architecture decisions promoted) | 0.5-1 | None | ✅ COMPLETE (`88a7fb4`) |
+| Wave 0.5 | **[NEW] Architecture Decision: HKD Data Source (A vs B, loại C dual-write)** | 0.5-1 | None (decision only) | ✅ COMPLETE (`88a7fb4`) |
+| Wave 1 | Fix UTF-8 mojibake (mechanical) | 0.5 | Low | ✅ COMPLETE (`83cca48`) |
+| Wave 2 | Data source bridge (Option A: refactor query OR Option B: event-driven — per W0.5) | 0.5-2 | Medium/Low | ✅ COMPLETE (`7269bc1`) — awaiting merge |
+| Wave 3 | Wire calc engine into DI (conflict pre-resolved in W0-T8) | 1 | Low | ⏳ PENDING (next) |
+| Wave 4 | Route HKDBookService through IHKDBookGenerationService + smoke test tripwire | 1 | Medium | ⏳ PENDING |
+| Wave 5a | Fix account mapping + PIT-on-revenue (no industry modeling, 1 Domain account-number fix) | 1 | Medium | ⏳ PENDING |
+| Wave 5b | Industry-sector tax rates per Luật 2025 + ND 117/2025 (CONDITIONAL — may descope) | 1-2 | High | ⏳ CONDITIONAL |
+| Wave 5c | **[NEW] 2026 Regulatory Compliance Fix (threshold 500M→1B, 4 revenue groups, TNCN formulas, thuế khoán abolished)** | 1-2 | High (pháp lý) | ⏳ PENDING (CRITICAL) |
+| Wave 6 | Retrofit tests with numeric assertions | 1-2 | Low | ⏳ PENDING |
+| Wave 7 | API endpoint + DI smoke + multi-tenancy isolation test | 1 | Low | ⏳ PENDING |
+| Wave 8 | UI page + DOCX export + regression prevention | 2-3 | Medium | ⏳ PENDING |
+| **Total** | | **11-18 sessions** (5b optional, 5c mandatory) | | **4/12 complete** |
 
 **Critical path:** Wave 0 → Wave 0.5 → Wave 1 → Wave 2 → Wave 3 → Wave 4 → Wave 5a → **Wave 5c** → Wave 6 → Wave 7 → Wave 8
 **Optional path:** Wave 5b (between 5a and 5c) — executes only if W0-T10 confirms `Tenant.IndustrySector` exists OR Tech Lead approves Domain mod
