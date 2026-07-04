@@ -1,9 +1,36 @@
 # TASK CARD — VAS Wave 0: Order→Accounting Data Flow Fix
 
-> **Status:** IN PROGRESS — IMPLEMENT (decisions resolved 2026-07-04)
+> **Status:** ✅ COMPLETE & MERGED — `be348ad` (2026-07-04)
 > **Prerequisite:** Master plan v3 approved
-> **Branch:** `feature/vas-wave0-order-accounting-writer-fix`
-> **Estimated sessions:** 1-2
+> **Branch:** `feature/vas-wave0-order-accounting-writer-fix` (merged to main)
+> **Estimated sessions:** 1-2 (actual: 1)
+
+## Verification Results (2026-07-04)
+- ✅ `dotnet build VanAn.sln` Release: 0 errors
+- ✅ Core.Tests: 828/828 PASS (was 818, +10 new tests SC17-SC23, 0 regressions)
+- ✅ Architecture.Tests: 31/31 PASS
+- ✅ OrderServiceTests: 33/33 PASS
+- ✅ guard-check.ps1: ALL 8 GATES PASSED
+- ✅ Pre-commit guard: PASSED
+
+## Implemented (9/18 issues)
+- C1 COGS sync (Path A == Path B via shared `CalculateCogsAmount`)
+- C2 PaymentMethod passed into `ConfirmPayment` (was lost)
+- C3 VAT split in BOTH paths (AccountingEntry 511 net + 3331; JournalEntry 3 lines)
+- H1 PaymentMethod → cash account map (111/112 via `PaymentMethodConstants`)
+- H2 Discount net revenue (credit 511 = SubTotal − DiscountAmount)
+- H4 OrderDate for AccountingPeriod + JournalEntry entryDate (was UtcNow)
+- H5 Order reference passed into AccountingEntry calls
+- M9 COGS removed from S2d_HKD (materials book)
+- B3 AccountCode 621 → 632
+
+## Deferred (per user decision 2026-07-04)
+- H3 Shipping — ambiguous nature (thu hộ vs doanh thu vs cộng giá bán); 515 = financial revenue. Pending BA/Kế toán.
+- M6 Reversal on cancel, M1 Product.Category→TK, M2-M5/M7/M8/M10 — later waves.
+- VAS Gross+521 discount path — W8 feature-flag (separate writer).
+
+## Known Semantic Limitation (documented)
+VAT liability entry (3331) uses `EntryType=Revenue` (no Liability factory in Domain — W0 is Service-only). VAS Wave 4 reports query by AccountCode, so aggregation is correct. Semantic refinement deferred (would require Domain mod + approval).
 
 ## Resolved Decisions (2026-07-04)
 - **VAT split scope:** BOTH paths — AccountingEntry (511 net + 3331 VAT liability) AND JournalEntry (3 lines). Ensures VAS Wave 4 reports have VAT liability data.
