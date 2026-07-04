@@ -219,6 +219,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IUserManagementService, CoreHub.Services.UserManagementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IRoleAssignmentService, CoreHub.Services.RoleAssignmentService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IPermissionGroupService, CoreHub.Services.PermissionGroupService>();
+            // W3: VAS Account Chart service + HKD→DN account mapper (D9)
+            _ = builder.Services.AddScoped<CoreHub.Services.IAccountChartService, CoreHub.Services.AccountChartService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IHkdToEnterpriseAccountMapper, CoreHub.Services.HkdToEnterpriseAccountMapper>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
             _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
             // Wave 14: API Key management
@@ -381,6 +384,14 @@ namespace VanAn.ShopERP
                     var migrationService = scope.ServiceProvider.GetRequiredService<CoreHub.Services.DataProtection.PiiDataMigrationService>();
                     await migrationService.MigrateAsync();
                 }
+
+                // W3: Seed AccountChart reference data (clear + reseed to ensure chart matches code).
+                // Reference data is NOT user-editable — clear+reseed propagates label fixes + account additions/removals.
+                // AccountCharts has no FK dependencies, safe to clear before HTTP requests start.
+                CoreHub.Infrastructure.IVanAnDbContext vanAnContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IVanAnDbContext>();
+                await CoreHub.Infrastructure.Seed.AccountChartSeeder.CleanupAsync(vanAnContext);
+                int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(vanAnContext);
+                Console.WriteLine($"W3: AccountChart reference data seeded — {accountChartCount} accounts across 2 standards (TT 133 + TT 99)");
             }
 
             // Configure the HTTP request pipeline.

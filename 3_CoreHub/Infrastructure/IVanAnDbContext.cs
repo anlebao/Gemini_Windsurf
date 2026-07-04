@@ -52,6 +52,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Wave 9: Push Subscriptions for Web Push notifications
         DbSet<PushSubscription> PushSubscriptions { get; }
 
+        // W3: VAS Account Chart reference data (NOT tenant-scoped)
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

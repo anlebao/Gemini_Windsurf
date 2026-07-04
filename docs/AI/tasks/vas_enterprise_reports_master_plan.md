@@ -1,7 +1,7 @@
 # MASTER PLAN — VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
 
-> **Status:** ✅ W0 MERGED · ✅ W1 COMPLETE (uncommitted) — 10 waves (W0→W9), W2 next
-> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (W1 complete on `feature/vas-wave1-data-audit-seed`)
+> **Status:** ✅ W0 MERGED · ✅ W1 COMPLETE · ✅ W2 COMPLETE · ✅ W3 COMPLETE — 10 waves (W0→W9), W4 next
+> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (W3 complete on `feature/vas-wave3-account-code-map`)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite audits:** Section 1 (4 BCTC) + Section 1.4 (Order→Accounting flow)
 
@@ -136,9 +136,9 @@ main ← feature/vas-wave9-regression-merge
 |------|-----|------|---------|-----------|--------|
 | W0 | Order→Accounting Writer Fix | IMPLEMENT | ❌ | `vas_wave0_task_card.md` | ✅ DONE — merged `be348ad` (9/18 issues: C1-C3, H1-H2, H4-H5, M9, B3) |
 | W1 | Data Audit + Seed | IMPLEMENT | ❌ | `vas_wave1_task_card.md` | ✅ DONE — schema fix + seeder + 5 account code fixes (311→411, 211→214, 521→511, 515→5113, 641→6421) |
-| W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` | ⏳ NEXT |
-| W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` | ⏳ |
-| W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ⏳ |
+| W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` | ✅ DONE — BCTC records restructured per VN law (5 AccountType, no Contra) |
+| W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` | ✅ DONE — 124 accounts (TT 133=51, TT 99=73, TT 58=0) + 15 unit tests + seeder startup hook |
+| W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ⏳ NEXT |
 | W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ⏳ |
 | W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ⏳ |
 | W7 | Tests with Numeric Assertions | IMPLEMENT | ❌ | `vas_wave7_task_card.md` | ⏳ |
@@ -153,7 +153,7 @@ W2 (review 2026-07-04) đã restructure BCTC records theo pháp luật VN. Các 
 
 | Wave | Impact | Note |
 |------|--------|------|
-| **W3** | 🟡 | `AccountType` bỏ `Contra` (5 values). Seed TK 214/229 dùng `Type=Asset, IsNormalCredit=true`. HKD→DN mapping table không đổi. |
+| **W3** | ✅ DONE | `AccountType` bỏ `Contra` (5 values). Seed TK 214/229 dùng `Type=Asset, IsNormalCredit=true`. HKD→DN mapping table không đổi. **Implemented:** 124 accounts (TT 133=51, TT 99=73, TT 58=0 — no chart), 15 unit tests, seeder startup hook (clear+reseed), IVanAnDbContext integration. |
 | **W4** | 🔴 | **Largest.** Services trả `FinancialStatementLine` (ReportItemCode + Ending/Opening + Level + IsNormalNegative). BS service enforce invariant (throw nếu không cân, không có `IsBalanced` flag). CF service trả detail lines per activity (không decimal totals). IS service 2-column. TB giữ nguyên. **+ M1/M2 deferred:** BS/IS/CF + FinancialStatementLine validation at service layer (records are pure, no constructor guards). |
 | **W5** | 🟢 | Controllers passthrough — response shape đổi, không logic mới. Note 2-column response. |
 | **W6** | 🟠 | Bỏ "IsBalanced indicator" UI. Render 2-column (Ending/Opening). Dùng `FinancialStatementLine.Level` cho hierarchy indent. Render theo ReportItemCode (không AccountCode). TB page không đổi. |
@@ -168,9 +168,9 @@ W2 (review 2026-07-04) đã restructure BCTC records theo pháp luật VN. Các 
 
 | # | Risk | Mitigation | Wave |
 |---|------|------------|------|
-| R1 | TT 99/2025 phụ lục TK chưa có trong codebase | W3 search web hoặc tạm dùng TK TT 200 + TODO | W3 |
+| R1 | TT 99/2025 phụ lục TK chưa có trong codebase | ✅ RESOLVED — W3 seeded 73 TT 99 accounts (verified via ketoan.vn, baocaotaichinh.vn) | W3 |
 | R2 | Opening balance accumulate phức tạp | W4 bắt đầu opening=0, thêm accumulate sau | W4 |
-| R3 | 3 standards = ×3 effort W3 | Ưu tiên TT 133 trước, TT 99/58 thêm sau | W3 |
+| R3 | 3 standards = ×3 effort W3 | ✅ RESOLVED — TT 133=51, TT 99=73, TT 58=0 (no chart — "bỏ hoàn toàn HTTK"). 2 standards only. | W3 |
 | R4 | Cash Flow indirect method phức tạp | W4-CF bắt đầu direct method, indirect sau | W4 |
 | R5 | JournalEntries empty → services empty | W1 seed bắt buộc trước W4 | W1→W4 |
 | R6 | Domain modification break architecture tests | W2-T4 verify arch tests pass | W2 |

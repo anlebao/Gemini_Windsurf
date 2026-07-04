@@ -84,11 +84,69 @@
 
 ---
 
+## Tier 3: Flaky Performance Tests (2026-07-04)
+
+| # | File | Test Method | Mô tả | Ghi chú |
+|---|------|-------------|-------|---------|
+| 5 | `6_Tests\VanAn.Core.Tests\ProductionDataTests.cs` | `Should_Handle_Production_Data_Volume_Spikes` (L280) | Stopwatch-based throughput ratio assert — flaky trên máy chậm/CI runner load cao | **Đã exclude khỏi CI** qua `Category=Performance` filter |
+| 6 | `6_Tests\VanAn.Core.Tests\ProductionDataTests.cs` | `Should_Handle_Large_Production_Dataset` (L40) | Stopwatch assert `< 30000ms` — phụ thuộc phần cứng | **Đã exclude khỏi CI** |
+| 7 | `6_Tests\VanAn.Core.Tests\ProductionDataTests.cs` | `Should_Handle_Production_Network_Conditions` (L208) | Stopwatch assert `< 60000ms` — phụ thuộc phần cứng | **Đã exclude khỏi CI** |
+| 8 | `6_Tests\VanAn.Core.Tests\ProductionDataTests.cs` | `Should_Handle_Production_Memory_Constraints` (L252) | `GC.GetTotalMemory` assert `< 100MB` — non-deterministic do GC timing | **Đã exclude khỏi CI** |
+| 9 | `6_Tests\VanAn.Core.Tests\ProductionDataTests.cs` | `Should_Handle_Production_Long_Running_Operations` (L320) | `Thread.Sleep(10)` + Stopwatch assert `< 120000ms` — phụ thuộc phần cứng | **Đã exclude khỏi CI** |
+
+### Trạng thái CI hiện tại
+
+**Tất cả 5 test trên ĐÃ được exclude khỏi CI** thông qua:
+- `guard-check.ps1` line 113: `--filter "Category!=Performance&Category!=Integration&Category!=E2E"`
+- `ci-full.ps1` line 131: `--filter "Category!=Performance&Category!=Integration&Category!=E2E"`
+- `ci-local.ps1` line 18: cùng filter
+
+`ProductionDataTests` class có `[Trait("Category", "Performance")]` ở class level → tất cả test trong class tự động bị exclude.
+
+### Kế hoạch sửa Tier 3 (REVIEW_ONLY — chưa implement)
+
+**Vấn đề root cause:** Unit test không nên đo absolute performance bằng `Stopwatch`/`GC.GetTotalMemory` — kết quả phụ thuộc phần cứng, load CPU, GC timing → flaky.
+
+**Đề xuất tách thành `VanAn.Benchmarks` project riêng:**
+
+1. **Tạo project mới:** `6_Tests\VanAn.Benchmarks\VanAn.Benchmarks.csproj`
+   - Type: Console app (không phải test project)
+   - Dependency: `BenchmarkDotNet` (industry standard cho .NET benchmarking)
+   - KHÔNG tham gia CI pipeline (không trong `ci-full.ps1`, `ci-local.ps1`, `guard-check.ps1`)
+   - Chạy manually: `dotnet run -c Release --project 6_Tests\VanAn.Benchmarks`
+
+2. **Di chuyển 5 flaky tests** thành BenchmarkDotNet benchmarks:
+   - `[Fact] Should_Handle_Large_Production_Dataset` → `[Benchmark] SyncLargeDataset_1000Orders`
+   - `[Fact] Should_Handle_Production_Data_Volume_Spikes` → `[Benchmark] SyncVolumeSpike_100To1000`
+   - `[Fact] Should_Handle_Production_Long_Running_Operations` → `[Benchmark] SyncLongRunning_500Orders`
+   - `[Fact] Should_Handle_Production_Network_Conditions` → giữ logic retry verify, bỏ Stopwatch assert
+   - `[Fact] Should_Handle_Production_Memory_Constraints` → `[Benchmark] MemoryUsage_Sync100Orders` (dùng BenchmarkDotNet memory diagnoser)
+
+3. **Giữ lại trong Core.Tests** (không phải flaky):
+   - `Should_Handle_Production_Order_Variety` — verify count, không dùng Stopwatch ✓
+   - `Should_Handle_Production_Error_Rates` — verify callCount + result, không dùng Stopwatch ✓
+   - `Should_Handle_Production_Concurrent_Load` — verify Times.AtLeast(500), không dùng Stopwatch ✓
+   - `Should_Handle_Production_Data_Corruption` — verify no crash, không dùng Stopwatch ✓
+   - `Should_Handle_Production_Data_Consistency` — verify data integrity, không dùng Stopwatch ✓
+
+4. **Xóa `[Trait("Category", "Performance")]`** khỏi các test GIỮ LẠI (chỉ giữ cho các test thực sự đo performance — nhưng tất cả đều đã di chuyển, nên xóa trait hoàn toàn khỏi class).
+
+**Lợi ích:**
+- CI chạy nhanh + deterministic (không flaky)
+- BenchmarkDotNet cung cấp statistical analysis (mean, median, stddev, outlier detection)
+- Benchmark chạy riêng, có thể schedule nightly hoặc manual trước release
+- Tách rõ: unit test = correctness, benchmark = performance
+
+**Priority:** Thấp — CI đã exclude, không block development. Implement khi có time hoặc khi cần baseline performance cho optimization.
+
+---
+
 ## Chú thích
 
 - **Fix (triệt để):** Đã sửa đúng root cause, không cần refactor sau
 - **Workaround (Tier 1):** Tạm thời, ưu tiên sửa trong Hardening GĐ 2 (Tenant)
 - **Workaround (Tier 2):** Tạm thời, ưu tiên sửa sau Tier 1 (Binding)
+- **Flaky (Tier 3):** Đã exclude khỏi CI, cần tách thành Benchmark project riêng
 
 ---
 
