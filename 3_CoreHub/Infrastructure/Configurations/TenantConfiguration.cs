@@ -68,6 +68,20 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Ignore domain events (not persisted)
             builder.Ignore(e => e.DomainEvents);
 
+            // C2 fix 2026-07-04: Explicitly ignore W2 conversion fields until W8 adds migration + full mapping.
+            // Without this, EF Core convention would attempt to map these nullable value objects/enums
+            // and fail at runtime (TenantId? is a record, not a primitive). W8 will:
+            //   1. Remove these Ignore() calls
+            //   2. Add HasConversion + HasColumnName for each field
+            //   3. Create migration adding columns to Tenants table
+            // Until then, conversion is Domain-only (no persistence) — safe because no conversion
+            // service exists yet (W8 scope).
+            builder.Ignore(e => e.PredecessorTenantId);
+            builder.Ignore(e => e.SuccessorTenantId);
+            builder.Ignore(e => e.ConvertedAt);
+            builder.Ignore(e => e.AccountingStandard);
+            builder.Ignore(e => e.Type);
+
             builder.HasIndex(e => e.Id);
         }
     }
