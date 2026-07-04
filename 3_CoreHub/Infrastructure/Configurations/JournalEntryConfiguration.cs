@@ -33,6 +33,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.ReferenceType)
                 .HasMaxLength(100);
 
+            // VAS W1: Map ReferenceId — W0 writer sets this to order.Id, must be persisted
+            _ = builder.Property(e => e.ReferenceId);
+
+            // VAS W1: Map IsReversal — required for reversal entry identification
+            _ = builder.Property(e => e.IsReversal);
 
             _ = builder.Property(e => e.ReversedJournalId)
                 .HasConversion<JournalEntryIdConverter>();
@@ -40,6 +45,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // OwnsMany: JournalEntryLine is a Value Object owned by JournalEntry
             _ = builder.OwnsMany(e => e.Lines, lineBuilder =>
             {
+                _ = lineBuilder.HasKey(l => new { l.JournalEntryId, l.Id });
+                _ = lineBuilder.Property(l => l.Id).ValueGeneratedNever(); // VAS W1: Id set by domain (sequential per entry)
                 _ = lineBuilder.WithOwner().HasForeignKey(l => l.JournalEntryId);
                 _ = lineBuilder.Property(l => l.AccountNumber).IsRequired().HasMaxLength(50);
                 _ = lineBuilder.Property(l => l.DebitAmount).HasPrecision(18, 2);
@@ -51,6 +58,8 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasIndex(e => e.JournalEntryId).IsUnique();
             _ = builder.HasIndex(e => e.JournalNo).IsUnique();
             _ = builder.HasIndex(e => e.TenantId);
+            // VAS W1: Index for period-filtered queries (EntryDate range scans)
+            _ = builder.HasIndex(e => new { e.TenantId, e.EntryDate });
         }
     }
 }

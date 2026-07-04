@@ -1,7 +1,7 @@
 # MASTER PLAN — VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
 
-> **Status:** ✅ W0 COMPLETE & MERGED — 10 waves (W0→W9), W1 next
-> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (W0 merged `be348ad` → main)
+> **Status:** ✅ W0 MERGED · ✅ W1 COMPLETE (uncommitted) — 10 waves (W0→W9), W2 next
+> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (W1 complete on `feature/vas-wave1-data-audit-seed`)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite audits:** Section 1 (4 BCTC) + Section 1.4 (Order→Accounting flow)
 
@@ -135,8 +135,8 @@ main ← feature/vas-wave9-regression-merge
 | Wave | Tên | Mode | Domain? | Task Card | Status |
 |------|-----|------|---------|-----------|--------|
 | W0 | Order→Accounting Writer Fix | IMPLEMENT | ❌ | `vas_wave0_task_card.md` | ✅ DONE — merged `be348ad` (9/18 issues: C1-C3, H1-H2, H4-H5, M9, B3) |
-| W1 | Data Audit + Seed | IMPLEMENT | ❌ | `vas_wave1_task_card.md` | ⏳ NEXT |
-| W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` | ⏳ |
+| W1 | Data Audit + Seed | IMPLEMENT | ❌ | `vas_wave1_task_card.md` | ✅ DONE — schema fix + seeder + 5 account code fixes (311→411, 211→214, 521→511, 515→5113, 641→6421) |
+| W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` | ⏳ NEXT |
 | W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` | ⏳ |
 | W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ⏳ |
 | W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ⏳ |
@@ -180,7 +180,14 @@ main ← feature/vas-wave9-regression-merge
 - ✅ AccountCode 632 (not 621), Discount net revenue, Order reference, COGS removed from S2d
 - ⏸ Deferred (per user decision 2026-07-04): H3 Shipping (pending BA/Kế toán), M1/M6/M2-M5/M7/M8/M10
 
-**W1-W9 (4 BCTC):**
+**W1 (Data Audit + Seed):** ✅ COMPLETE — branch `feature/vas-wave1-data-audit-seed` (2026-07-04)
+- ✅ Schema fix: JournalEntries missing EntryDate/ReferenceId/IsReversal columns (migration `AddJournalEntryMissingColumns`)
+- ✅ Modeling fix: JournalEntryLine.Id explicit property (SQLite can't auto-generate composite key int)
+- ✅ Seeder: 1 Enterprise tenant (DN vừa TT 133), 31 journal entries + ~50 AccountingEntries, 2 months, CASH+VIETQR
+- ✅ 5 account code fixes (after review against TT 133): 311→411, 211→214, 521→511, 515→5113, 641→6421
+- ✅ 15 seeder tests (all PASS), Core.Tests 843/843, guard PASSED
+
+**W2-W9 (4 BCTC):**
 - ✅ 4 BCTC render đúng số liệu từ seed (không mock)
 - ✅ Multi-tenant: tenant A không leak tenant B
 - ✅ HKD reports (S1a-S3a) vẫn hoạt động
