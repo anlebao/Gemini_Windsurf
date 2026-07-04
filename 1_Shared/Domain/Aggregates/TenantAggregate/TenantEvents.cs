@@ -35,4 +35,16 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
     {
         public Guid EventId { get; } = Guid.NewGuid();
     }
+
+    /// <summary>
+    /// Raised when an HKD tenant is converted to a DN tenant (D9 Option B).
+    /// Wave 2: Domain event only — outbox handler/consumer is W8 scope.
+    /// </summary>
+    public sealed record TenantConvertedEvent(
+        Guid TenantId,           // HKD tenant being converted
+        Guid SuccessorTenantId,  // New DN tenant created from conversion
+        DateTime OccurredAt) : IDomainEvent
+    {
+        public Guid EventId { get; } = Guid.NewGuid();
+    }
 }
