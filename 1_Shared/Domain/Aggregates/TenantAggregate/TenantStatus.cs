@@ -12,6 +12,9 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         Suspended = 2,
 
         /// <summary>Permanently deactivated — archived, no access</summary>
-        Inactive = 3
+        Inactive = 3,
+
+        /// <summary>HKD đã chuyển đổi thành DN — read-only, historical reports vẫn truy cập (D9 Option B).</summary>
+        Converted = 4
     }
 }

@@ -2321,4 +2321,93 @@ namespace VanAn.Shared.Domain
         public bool IsExpired() => DateTime.UtcNow > ExpiresAt;
         public bool IsValid() => IsActive && !IsExpired();
     }
+
+    // ====================== VAS ENTERPRISE REPORTS — Domain Records (Wave 2) ======================
+    // D5 approved: Domain modification for VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
+    // D9 approved: HKD↔DN conversion = Option B (New Tenant + Link)
+    // Review 2026-07-04: BCTC records use ReportItemCode (Mã chỉ tiêu) + 2-column comparative (Ending/Opening)
+    //   per Vietnamese accounting law (Mẫu B01-DN/B02-DN/B03-DN). NOT AccountCode-based (that's Trial Balance).
+    // Domain Purity: NO EF Core, NO DbContext, NO DataAnnotations — records only
+
+    /// <summary>
+    /// Tenant business type — determines which accounting standard applies.
+    /// Wave 2 (D9): drives feature flag routing in W8.
+    /// </summary>
+    public enum TenantType
+    {
+        HKD = 1,                    // Hộ kinh doanh (TT 152/2025/TT-BTC)
+        Enterprise_SuperSmall = 2,  // DN siêu nhỏ (TT 58/2026)
+        Enterprise_SME = 3,         // DN vừa và nhỏ (TT 133/2016)
+        Enterprise_Large = 4        // DN lớn (TT 99/2025)
+    }
+
+    /// <summary>
+    /// Account classification for chart-of-accounts mapping (W3).
+    /// Contra accounts (e.g., TK 214) are typed as their parent group (Asset) with IsNormalCredit=true on AccountChartEntry.
+    /// </summary>
+    public enum AccountType { Asset, Liability, Equity, Revenue, Expense }
+
+    /// <summary>Vietnamese accounting standards supported by VAS module (D1 approved scope).</summary>
+    public enum AccountingStandard { TT99_2025, TT133_2016, TT58_2026 }
+
+    /// <summary>
+    /// Chuẩn cấu trúc một dòng Chỉ tiêu Báo cáo Tài chính theo pháp luật Việt Nam.
+    /// Sử dụng Mã chỉ tiêu (ReportItemCode), KHÔNG dùng AccountCode.
+    /// Bắt buộc có 2 cột số liệu để đối chiếu thời kỳ (Số cuối kỳ / Số đầu năm).
+    /// </summary>
+    public record FinancialStatementLine(
+        string ReportItemCode,      // Mã chỉ tiêu (VD: "100", "110", "01", "20")
+        string ReportItemName,      // Tên chỉ tiêu (VD: "Tài sản ngắn hạn", "Doanh thu bán hàng")
+        decimal EndingAmount,       // Số cuối kỳ / Năm nay
+        decimal OpeningAmount,      // Số đầu năm / Năm trước (So sánh)
+        int Level,                  // Cấp bậc phân cấp cha-con trình bày UI
+        bool IsNormalNegative       // Hiển thị số âm trong ngoặc đơn VD: (20,000,000)
+    );
+
+    // ── 1. BẢNG CÂN ĐỐI KẾ TOÁN (Mẫu B01-DN / B01-DNN) ──────────────────────────────────
+    // Invariant: TotalAssetsEnding == TotalLiabilitiesAndEquityEnding (enforced at factory/service in W4).
+    // No IsBalanced flag — unbalanced data throws, never stored.
+    public record BalanceSheet(
+        TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
+        IEnumerable<FinancialStatementLine> Assets,
+        IEnumerable<FinancialStatementLine> Liabilities,
+        IEnumerable<FinancialStatementLine> Equity,
+        decimal TotalAssetsEnding, decimal TotalAssetsOpening,
+        decimal TotalLiabilitiesAndEquityEnding, decimal TotalLiabilitiesAndEquityOpening
+    );
+
+    // ── 2. BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH (Mẫu B02-DN / B02-DNN) ────────────────
+    public record IncomeStatement(
+        TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
+        decimal TotalRevenueEnding, decimal TotalRevenueOpening,
+        decimal NetProfitEnding, decimal NetProfitOpening,
+        IEnumerable<FinancialStatementLine> Lines
+    );
+
+    // ── 3. BÁO CÁO LƯU CHUYỂN TIỀN TỆ (Mẫu B03-DN / B03-DNN) ──────────────────────────
+    public record CashFlowStatement(
+        TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
+        decimal OpeningCash, decimal ClosingCash, decimal NetChange,
+        IEnumerable<FinancialStatementLine> OperatingActivities,
+        IEnumerable<FinancialStatementLine> InvestingActivities,
+        IEnumerable<FinancialStatementLine> FinancingActivities
+    );
+
+    // TrialBalance already exists above (Domain.cs ~line 1518) — keep as-is, W4 service wraps with TenantId.
+
+    // ── 4. SỐ DƯ ĐẦU KỲ (Mở sổ / Khởi tạo dữ liệu) ─────────────────────────────────────
+    public record OpeningBalance(
+        TenantId TenantId, AccountingPeriod Period,
+        IEnumerable<OpeningBalanceLine> Lines
+    );
+    public record OpeningBalanceLine(string AccountCode, decimal DebitOpening, decimal CreditOpening);
+
+    /// <summary>
+    /// In-memory chart-of-accounts entry. Storage decision (DB vs dictionary) deferred to W3.
+    /// IsNormalCredit: true for contra accounts (e.g., TK 214 Hao mòn TSCĐ) — normal credit balance.
+    /// </summary>
+    public record AccountChartEntry(
+        string AccountCode, string AccountName, AccountType Type,
+        AccountingStandard Standard, bool IsNormalCredit
+    );
 }

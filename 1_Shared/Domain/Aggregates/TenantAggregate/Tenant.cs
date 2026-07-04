@@ -20,6 +20,17 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         // Used as fallback when Order.IndustrySector is not set.
         public IndustrySector? DefaultIndustrySector { get; private set; }
 
+        // ── D9: HKD↔DN Conversion Link (Option B — New Tenant + Link) ─────────
+        // Predecessor: Tenant cũ (HKD) mà DN này được convert từ (set on new DN tenant).
+        public TenantId? PredecessorTenantId { get; private set; }
+        // Successor: Tenant mới (DN) mà HKD này đã convert sang (set on old HKD tenant).
+        public TenantId? SuccessorTenantId { get; private set; }
+        public DateTime? ConvertedAt { get; private set; }
+        // Accounting standard applies to ALL tenants (not just converted ones).
+        // HKD = null (TT 152 implied by TenantType=HKD). DN = TT99/133/58.
+        // Review 2026-07-04: replaced ConvertedToStandard with general AccountingStandard.
+        public AccountingStandard? AccountingStandard { get; private set; }
+
         // ── Lifecycle ─────────────────────────────────────────────────────────
         public TenantStatus Status { get; private set; } = TenantStatus.Active;
 
@@ -63,6 +74,35 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             };
             tenant.SetTenantId(id);
             tenant.AddDomainEvent(new TenantCreatedEvent(id.Value, name, settings?.ContactEmail, DateTime.UtcNow));
+            return tenant;
+        }
+
+        /// <summary>
+        /// D9 Option B: Create a new DN tenant from HKD conversion.
+        /// The new tenant links back to its HKD predecessor via PredecessorTenantId.
+        /// Raises TenantCreatedEvent (standard lifecycle) — successor link set by caller via MarkConvertedTo.
+        /// Note: SetTenantId sets BaseEntity.TenantId (Guid, for multi-tenancy filtering),
+        ///       distinct from Tenant.Id (TenantId, strongly-typed) — NOT redundant.
+        /// </summary>
+        public static Tenant CreateFromConversion(
+            TenantId newId, string name, TenantType newType,
+            TenantId predecessorTenantId, AccountingStandard standard,
+            TenantSettings? settings = null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+            var tenant = new Tenant
+            {
+                Id = newId,
+                Name = name,
+                BusinessType = BusinessType.Company,  // DN is always Company
+                Status = TenantStatus.Active,
+                Settings = settings ?? TenantSettings.Empty(),
+                PredecessorTenantId = predecessorTenantId,
+                ConvertedAt = DateTime.UtcNow,
+                AccountingStandard = standard
+            };
+            tenant.SetTenantId(newId); // sets BaseEntity.TenantId (multi-tenancy) — distinct from Tenant.Id
+            tenant.AddDomainEvent(new TenantCreatedEvent(newId.Value, name, settings?.ContactEmail, DateTime.UtcNow));
             return tenant;
         }
 
@@ -126,9 +166,28 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             UpdateAudit();
         }
 
+        /// <summary>
+        /// D9 Option B: Mark an HKD tenant as converted to a DN successor.
+        /// Sets Status=Converted (read-only historical) + links successor.
+        /// Raises TenantConvertedEvent. Cannot convert an inactive or already-converted tenant.
+        /// </summary>
+        public void MarkConvertedTo(TenantId successorTenantId)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot convert an inactive tenant.");
+            if (Status == TenantStatus.Converted)
+                throw new InvalidOperationException("Tenant is already converted.");
+            Status = TenantStatus.Converted;
+            SuccessorTenantId = successorTenantId;
+            UpdateAudit();
+            AddDomainEvent(new TenantConvertedEvent(Id.Value, successorTenantId.Value, DateTime.UtcNow));
+        }
+
         // ── Query helpers ─────────────────────────────────────────────────────
         public bool IsActive() => Status == TenantStatus.Active;
         public bool IsSuspended() => Status == TenantStatus.Suspended;
+        public bool IsConverted() => Status == TenantStatus.Converted;
+        public bool IsConversionOf(TenantId predecessor) => PredecessorTenantId == predecessor;
         public bool IsHouseholdBusiness() => BusinessType == BusinessType.HouseholdBusiness;
         public bool IsCompany() => BusinessType == BusinessType.Company;
     }

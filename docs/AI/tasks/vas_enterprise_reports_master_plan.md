@@ -147,6 +147,21 @@ main ← feature/vas-wave9-regression-merge
 
 **Chi tiết từng wave:** xem task card tương ứng. Master plan chỉ giữ overview.
 
+### 4.1. W2 Downstream Impact Notes (JIT — investigate khi đến lượt)
+
+W2 (review 2026-07-04) đã restructure BCTC records theo pháp luật VN. Các wave sau cần INVESTIGATE + update task card khi đến lượt (JIT, không update sớm):
+
+| Wave | Impact | Note |
+|------|--------|------|
+| **W3** | 🟡 | `AccountType` bỏ `Contra` (5 values). Seed TK 214/229 dùng `Type=Asset, IsNormalCredit=true`. HKD→DN mapping table không đổi. |
+| **W4** | 🔴 | **Largest.** Services trả `FinancialStatementLine` (ReportItemCode + Ending/Opening + Level + IsNormalNegative). BS service enforce invariant (throw nếu không cân, không có `IsBalanced` flag). CF service trả detail lines per activity (không decimal totals). IS service 2-column. TB giữ nguyên. |
+| **W5** | 🟢 | Controllers passthrough — response shape đổi, không logic mới. Note 2-column response. |
+| **W6** | 🟠 | Bỏ "IsBalanced indicator" UI. Render 2-column (Ending/Opening). Dùng `FinancialStatementLine.Level` cho hierarchy indent. Render theo ReportItemCode (không AccountCode). TB page không đổi. |
+| **W7** | 🟠 | Bỏ `Assert IsBalanced == true` → assert `TotalAssetsEnding == TotalLiabilitiesAndEquityEnding`. Thêm 2-column assertions. CF/TB tests không đổi. |
+| **W8** | 🟡 | Migration field: `AccountingStandard` (KHÔNG `ConvertedToStandard` — đổi tên ở W2). Conversion service reference field mới. Wizard không đổi. |
+
+**Quy tắc:** Mỗi wave INVESTIGATE phase phải re-read W2 task card + verify Domain records actual shape trước khi plan. Không assume spec cũ còn đúng.
+
 ---
 
 ## 5. RISK REGISTER
