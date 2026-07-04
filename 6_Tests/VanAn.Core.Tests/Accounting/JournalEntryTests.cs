@@ -126,7 +126,7 @@ namespace VanAn.Core.Tests.Accounting
             // Since Lines returns IReadOnlyCollection, adding to the returned list won't affect the original
             // Let's test that the original collection hasn't changed
             int originalCount = lines.Count;
-            lines.ToList().Add(new JournalEntryLine(journal, "112", 500m, 0m, "Test"));
+            lines.ToList().Add(new JournalEntryLine(journal, 1, "112", 500m, 0m, "Test"));
             _ = journal.Lines.Count.Should().Be(originalCount); // Original collection unchanged
         }
 

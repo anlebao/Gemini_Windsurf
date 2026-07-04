@@ -80,7 +80,7 @@ namespace VanAn.Core.Domain
                 throw new ArgumentException("Invalid Vietnamese account number", nameof(accountNumber));
             }
 
-            _lines.Add(new JournalEntryLine(this, accountNumber, debit, credit, desc));
+            _lines.Add(new JournalEntryLine(this, _lines.Count + 1, accountNumber, debit, credit, desc));
         }
 
         private static string GenerateJournalNo()
@@ -89,9 +89,10 @@ namespace VanAn.Core.Domain
         }
     }
 
-    public class JournalEntryLine(JournalEntry journal, string accountNumber,
+    public class JournalEntryLine(JournalEntry journal, int id, string accountNumber,
                           decimal debit, decimal credit, string? desc)
     {
+        public int Id { get; private set; } = id;
         public Guid JournalEntryId { get; private set; } = journal.Id;
         public string AccountNumber { get; private set; } = accountNumber;
         public decimal DebitAmount { get; private set; } = debit;

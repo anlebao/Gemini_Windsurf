@@ -86,7 +86,7 @@ namespace VanAn.Shared.Domain
                 throw new ArgumentException("Cannot have both debit and credit amounts greater than zero");
             }
 
-            _lines.Add(new JournalEntryLine(this, accountNumber, debitAmount, creditAmount, description));
+            _lines.Add(new JournalEntryLine(this, _lines.Count + 1, accountNumber, debitAmount, creditAmount, description));
         }
 
         public JournalEntry CreateReversal(string reason)
@@ -138,6 +138,10 @@ namespace VanAn.Shared.Domain
 
     public sealed class JournalEntryLine
     {
+        // VAS W1: Explicit Id for EF Core persistence (composite key: JournalEntryId + Id).
+        // SQLite cannot auto-generate int values for composite keys, so Id is set sequentially
+        // by JournalEntry.AddLine (1-based, per JournalEntry).
+        public int Id { get; private set; }
         public Guid JournalEntryId { get; private set; }
         public string AccountNumber { get; private set; } = string.Empty;
         public decimal DebitAmount { get; private set; }
@@ -147,8 +151,12 @@ namespace VanAn.Shared.Domain
         // EF Core constructor for materialization
         protected JournalEntryLine() { }
 
-        public JournalEntryLine(JournalEntry journal, string accountNumber, decimal debitAmount, decimal creditAmount, string? description)
+        public JournalEntryLine(JournalEntry journal, int id, string accountNumber, decimal debitAmount, decimal creditAmount, string? description)
         {
+            if (id < 1)
+            {
+                throw new ArgumentException("Line Id must be >= 1", nameof(id));
+            }
             if (debitAmount < 0 || creditAmount < 0)
             {
                 throw new ArgumentException("Amounts cannot be negative");
@@ -159,6 +167,7 @@ namespace VanAn.Shared.Domain
                 throw new ArgumentException("Cannot have both debit and credit amounts greater than zero");
             }
 
+            Id = id;
             JournalEntryId = journal.JournalEntryId.Value;
             AccountNumber = accountNumber;
             DebitAmount = debitAmount;
