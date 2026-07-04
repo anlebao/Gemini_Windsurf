@@ -25,6 +25,7 @@ namespace VanAn.CoreHub.Services
 
         // Vietnamese Account Mapping for HKD Books (Internal Synthetic Mapping — TT 88/2021 + TT 152/2025)
         // Wave 5 (2026-07-03): Fixed hallucinated labels (211/811/821/841) + added 311/333.
+        // W3-T6 (2026-07-04): Fixed 6 label bugs (F1-F6) — 641/642 swapped, 811→Chi phí khác, 822→711, 831 removed (fabricated), 311 label corrected per TT 133. Added 911.
         private readonly Dictionary<string, string> _vietnameseAccounts = new()
         {
             { "111", "Tiền mặt" },
@@ -32,18 +33,18 @@ namespace VanAn.CoreHub.Services
             { "131", "Phải thu khách hàng" },
             { "156", "Hàng hóa" },
             { "211", "Tài sản cố định hữu hình" },
-            { "311", "Vay ngắn hạn ngân hàng" },
+            { "311", "Vay và nợ thuê tài chính" },
             { "331", "Phải trả người bán" },
             { "333", "Thuế và các khoản phải nộp nhà nước" },
             { "334", "Phải trả người lao động" },
             { "511", "Doanh thu bán hàng" },
             { "632", "Giá vốn hàng bán" },
-            { "641", "Chi phí quản lý doanh nghiệp" },
-            { "642", "Chi phí bán hàng" },
-            { "811", "Xác định kết quả kinh doanh" },
+            { "641", "Chi phí bán hàng" },
+            { "642", "Chi phí quản lý doanh nghiệp" },
+            { "711", "Thu nhập khác" },
+            { "811", "Chi phí khác" },
             { "821", "Chi phí thuế TNDN" },
-            { "822", "Thu nhập khác" },
-            { "831", "Lợi nhuận trước thuế" }
+            { "911", "Xác định kết quả kinh doanh" }
         };
 
         public async Task<CoreAccountingEntry> RecordRevenueAsync(

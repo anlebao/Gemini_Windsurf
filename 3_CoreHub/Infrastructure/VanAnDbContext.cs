@@ -96,6 +96,9 @@ namespace VanAn.CoreHub.Infrastructure
         // PHASE 2.9.4: Audit Trail - Immutable append-only logs
         public DbSet<AuditLog> AuditLogs { get; set; }
 
+        // W3: VAS Account Chart reference data (global — NOT tenant-scoped, NOT IMustHaveTenant)
+        public DbSet<Entities.AccountChartEntity> AccountCharts { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -68,6 +68,9 @@ namespace VanAn.ShopERP.Infrastructure
         // Wave 9: Push Subscriptions for Web Push notifications
         public DbSet<PushSubscription> PushSubscriptions { get; set; }
 
+        // W3: VAS Account Chart reference data (NOT tenant-scoped)
+        public DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
