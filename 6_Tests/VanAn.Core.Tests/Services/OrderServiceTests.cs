@@ -3,6 +3,7 @@ using Moq;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Common;
 using VanAn.CoreHub.Repositories;
 using VanAn.Core.Tests.TestInfrastructure;
 using Xunit;
@@ -329,17 +330,26 @@ namespace VanAn.Core.Tests.Services
         [Fact]
         public async Task ConfirmPaymentAsync_ShouldCreateAccountingEntries_SC12()
         {
-            // Arrange (SC12): Sprint B — ConfirmPaymentAsync triggers accounting entries
+            // Arrange (SC12): Sprint B — ConfirmPaymentAsync triggers accounting entries.
+            // VAS Wave 0 (W0-T3): VAT split — CreateRevenueEntryAsync called Twice (511 net + 3331 VAT).
             Guid orderId = Guid.NewGuid();
             string transactionId = "TXN-12345";
-            Order order = TestEntityBuilder.CreateOrder(_testTenantId, 200.00m);
+
+            // Build order with items so SubTotal/TotalVatAmount are calculated by CalculateTotals().
+            // item: qty=2, unitPrice=100 → SubTotal=200, VatAmount=20 (10% default), TotalAmount=220.
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 2, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 220m); // light version for idempotency check
 
             _ = _mockOrderRepository
                 .Setup(x => x.GetByIdAsync(It.IsAny<OrderId>(), _testTenantId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(order);
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdWithIncludesAsync(orderId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderWithItems);
             _ = _mockOrderRepository
                 .Setup(x => x.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(order);
+                .ReturnsAsync(orderLight);
             _ = _mockOrderRepository
                 .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
@@ -374,11 +384,12 @@ namespace VanAn.Core.Tests.Services
             // Act
             await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, transactionId);
 
-            // Assert: accounting service MUST be called after payment confirmed
+            // Assert: accounting service MUST be called after payment confirmed.
+            // W0-T3: VAT split → CreateRevenueEntryAsync called Twice (511 net revenue + 3331 VAT liability).
             _mockAccountingService.Verify(
                 x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()),
-                Times.Once,
-                "Revenue entry MUST be created after payment confirmation");
+                Times.Exactly(2),
+                "Revenue entry MUST be called twice after payment confirmation (511 net + 3331 VAT) when VAT > 0");
             _mockAccountingService.Verify(
                 x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()),
                 Times.Once,
@@ -543,6 +554,270 @@ namespace VanAn.Core.Tests.Services
             _ = product.CostPrice.Should().Be(75m, "UpdateCostPrice should update the value when valid");
 
             await Task.CompletedTask; // Keep async signature consistent with other tests
+        }
+
+        // ============================================================================
+        // VAS Wave 0 — Order→Accounting Writer Fix Tests
+        // SC17: VAT split — JournalEntry has 3 lines when VAT > 0 (debit cash, credit 511, credit 3331)
+        // SC18: PaymentMethod mapping — CASH→111, VIETQR→112 (cash account in JE lines)
+        // SC19: COGS Path A (AccountingEntry) == Path B (JournalEntry) — shared CalculateCogsAmount
+        // SC20: AccountCode 632 (not 621) — COGS expense entry uses correct account
+        // SC21: OrderDate used for AccountingPeriod (not UtcNow)
+        // SC22: Discount net revenue — credit 511 = SubTotal - DiscountAmount
+        // SC23: No VAT call when TotalVatAmount = 0 — CreateRevenueEntryAsync called Once
+        // ============================================================================
+
+        /// <summary>Helper: set Order.PaymentMethod via reflection (protected setter).</summary>
+        private static void SetOrderPaymentMethod(Order order, string paymentMethod)
+        {
+            typeof(Order).GetProperty("PaymentMethod")!.SetValue(order, paymentMethod);
+        }
+
+        /// <summary>Helper: set Order.DiscountAmount via reflection (protected setter).</summary>
+        private static void SetOrderDiscount(Order order, decimal discount)
+        {
+            typeof(Order).GetProperty("DiscountAmount")!.SetValue(order, discount);
+        }
+
+        /// <summary>Helper: set Order.OrderDate via reflection (protected setter).</summary>
+        private static void SetOrderDate(Order order, DateTime orderDate)
+        {
+            typeof(Order).GetProperty("OrderDate")!.SetValue(order, orderDate);
+        }
+
+        /// <summary>Helper: wire up common mocks for ConfirmPaymentAsync-driven tests.</summary>
+        private void SetupConfirmPaymentMocks(Order orderLight, Order orderWithItems, Guid orderId)
+        {
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdAsync(It.IsAny<OrderId>(), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.GetByIdWithIncludesAsync(orderId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderWithItems);
+            _ = _mockOrderRepository
+                .Setup(x => x.UpdateAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(orderLight);
+            _ = _mockOrderRepository
+                .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+            _ = _mockAccountingService
+                .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldSplitVatInJournalEntry_3Lines_SC17()
+        {
+            // Arrange (SC17): W0-T3 — VAT > 0 → JournalEntry has 3 lines (debit cash, credit 511, credit 3331).
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            // item: SubTotal=100, VatAmount=10 (10% default) → netRevenue=100, VAT=10, cashDebit=110.
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            JournalEntry? capturedRevenueJe = null;
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()))
+                .Callback((JournalEntry je, AccountingBookType _, CancellationToken _) => capturedRevenueJe = je)
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC17");
+
+            // Assert: JE has 3 lines — debit cash(111) 110, credit 511 100, credit 3331 10.
+            _ = capturedRevenueJe.Should().NotBeNull();
+            _ = capturedRevenueJe!.Lines.Should().HaveCount(3, "VAT > 0 → 3 lines (cash, revenue, VAT liability)");
+            _ = capturedRevenueJe.Lines.ElementAt(0).AccountNumber.Should().Be("111");
+            _ = capturedRevenueJe.Lines.ElementAt(0).DebitAmount.Should().Be(110m);
+            _ = capturedRevenueJe.Lines.ElementAt(1).AccountNumber.Should().Be("511");
+            _ = capturedRevenueJe.Lines.ElementAt(1).CreditAmount.Should().Be(100m);
+            _ = capturedRevenueJe.Lines.ElementAt(2).AccountNumber.Should().Be("3331");
+            _ = capturedRevenueJe.Lines.ElementAt(2).CreditAmount.Should().Be(10m);
+        }
+
+        [Theory]
+        [InlineData("CASH", "111")]
+        [InlineData("VIETQR", "112")]
+        [InlineData("CREDIT_CARD", "112")]
+        [InlineData(null, "111")] // null → safe fallback to cash
+        public async Task ConfirmPaymentAsync_ShouldMapPaymentMethodToCashAccount_SC18(string? paymentMethod, string expectedAccount)
+        {
+            // Arrange (SC18): W0-T2 — PaymentMethod → cash account (111 cash, 112 bank).
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            if (paymentMethod != null)
+                SetOrderPaymentMethod(orderWithItems, paymentMethod);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+            if (paymentMethod != null)
+                SetOrderPaymentMethod(orderLight, paymentMethod);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            JournalEntry? capturedRevenueJe = null;
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), AccountingBookType.S2b_HKD, It.IsAny<CancellationToken>()))
+                .Callback((JournalEntry je, AccountingBookType _, CancellationToken _) => capturedRevenueJe = je)
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC18");
+
+            // Assert: first JE line (cash) uses expected account.
+            _ = capturedRevenueJe.Should().NotBeNull();
+            _ = capturedRevenueJe!.Lines.First().AccountNumber.Should().Be(expectedAccount,
+                $"PaymentMethod '{paymentMethod ?? "null"}' must map to cash account '{expectedAccount}'");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_CogsPathA_EqualsPathB_SC19()
+        {
+            // Arrange (SC19): W0-T4 — COGS Path A (AccountingEntry amount) == Path B (JournalEntry line amount).
+            Guid orderId = Guid.NewGuid();
+            Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test", price: 100m, costPrice: 60m);
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.ProductId.Value, quantity: 2, unitPrice: 100m);
+            typeof(OrderItem).GetProperty("Product")!.SetValue(item, product);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 220m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            decimal capturedPathACogs = 0m;
+            _ = _mockAccountingService
+                .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()))
+                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, string? _, string? _, IndustrySector? _) => capturedPathACogs = amount)
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+
+            JournalEntry? capturedCogsJe = null;
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), AccountingBookType.S2c_HKD, It.IsAny<CancellationToken>()))
+                .Callback((JournalEntry je, AccountingBookType bt, CancellationToken _) =>
+                {
+                    // Capture the COGS journal entry (has 632 debit line). Revenue JE also goes to S2c,
+                    // so filter by presence of 632 line.
+                    if (je.Lines.Any(l => l.AccountNumber == "632"))
+                        capturedCogsJe = je;
+                })
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC19");
+
+            // Assert: Path A (AccountingEntry) == Path B (JournalEntry 632 debit line).
+            _ = capturedPathACogs.Should().Be(120m, "Path A COGS = 2 × CostPrice(60) = 120");
+            _ = capturedCogsJe.Should().NotBeNull("Path B COGS JournalEntry must be generated");
+            decimal pathBCogs = capturedCogsJe!.Lines.First(l => l.AccountNumber == "632").DebitAmount;
+            _ = pathBCogs.Should().Be(capturedPathACogs, "Path B (JournalEntry) COGS must equal Path A (AccountingEntry) COGS");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldUseAccount632_Not621_SC20()
+        {
+            // Arrange (SC20): W0-T5 — COGS expense entry uses account 632 (not 621).
+            Guid orderId = Guid.NewGuid();
+            Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test", price: 100m, costPrice: 60m);
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.ProductId.Value, quantity: 1, unitPrice: 100m);
+            typeof(OrderItem).GetProperty("Product")!.SetValue(item, product);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            string? capturedAccountCode = null;
+            _ = _mockAccountingService
+                .Setup(x => x.CreateExpenseEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()))
+                .Callback((TenantId _, AccountingPeriod _, decimal _, string _, string? accountCode, string? _, string? _, string? _, IndustrySector? _) => capturedAccountCode = accountCode)
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Expense });
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC20");
+
+            // Assert: accountCode = 632 (Giá vốn hàng bán), NOT 621.
+            _ = capturedAccountCode.Should().Be("632", "COGS must use account 632 (Giá vốn hàng bán), not 621");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldUseOrderDate_ForPeriod_SC21()
+        {
+            // Arrange (SC21): W0-T6 — AccountingPeriod derived from OrderDate, not UtcNow.
+            Guid orderId = Guid.NewGuid();
+            DateTime fixedOrderDate = new(2026, 3, 15, 10, 0, 0, DateTimeKind.Utc);
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            SetOrderDate(orderWithItems, fixedOrderDate);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+            SetOrderDate(orderLight, fixedOrderDate);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            AccountingPeriod? capturedPeriod = null;
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()))
+                .Callback((TenantId _, AccountingPeriod period, decimal _, string _, string? _, string? _, IndustrySector? _) => capturedPeriod = period)
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC21");
+
+            // Assert: period year/month = OrderDate year/month (2026/03), not UtcNow.
+            _ = capturedPeriod.Should().NotBeNull();
+            _ = capturedPeriod!.Year.Should().Be(2026);
+            _ = capturedPeriod.Month.Should().Be(3);
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldApplyDiscountAsNetRevenue_SC22()
+        {
+            // Arrange (SC22): W0-T8 — Discount reduces revenue (net approach).
+            // SubTotal=200, DiscountAmount=50 → netRevenue=150. VAT on discounted: 150×10%=15. TotalAmount=165.
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 2, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            SetOrderDiscount(orderWithItems, 50m);
+            orderWithItems.CalculateTotals(); // recalc with discount
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, orderWithItems.TotalAmount);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            List<decimal> capturedRevenueAmounts = [];
+            _ = _mockAccountingService
+                .Setup(x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()))
+                .Callback((TenantId _, AccountingPeriod _, decimal amount, string _, string? _, string? _, IndustrySector? _) => capturedRevenueAmounts.Add(amount))
+                .ReturnsAsync(new VanAn.Shared.DTOs.AccountingEntryDto { Id = Guid.NewGuid(), TenantId = _testTenantId.Value, EntryType = AccountingEntryType.Revenue });
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC22");
+
+            // Assert: 511 entry amount = netRevenue = SubTotal - Discount = 200 - 50 = 150.
+            _ = capturedRevenueAmounts.Should().Contain(150m,
+                "Net revenue (511) must be SubTotal(200) - DiscountAmount(50) = 150");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_NoVatCall_WhenTotalVatZero_SC23()
+        {
+            // Arrange (SC23): W0-T3 — when TotalVatAmount = 0, only 1 CreateRevenueEntryAsync call (no 3331).
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            // Force VatRate = 0 via reflection.
+            typeof(OrderItem).GetProperty("VatRate")!.SetValue(item, 0m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            // Order.Create calls CalculateTotals, but VatRate=0 → TotalVatAmount=0.
+            // Recalculate to be safe (CalculateTotals reads item.VatRate which we just set).
+            orderWithItems.CalculateTotals();
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, orderWithItems.TotalAmount);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-SC23");
+
+            // Assert: CreateRevenueEntryAsync called Once (only 511, no 3331 since VAT=0).
+            _mockAccountingService.Verify(
+                x => x.CreateRevenueEntryAsync(It.IsAny<TenantId>(), It.IsAny<AccountingPeriod>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<IndustrySector?>()),
+                Times.Once,
+                "When TotalVatAmount = 0, only 1 revenue call (511 net) — no 3331 VAT liability call");
         }
     }
 }

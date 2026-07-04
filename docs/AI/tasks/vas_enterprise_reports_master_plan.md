@@ -1,7 +1,7 @@
 # MASTER PLAN — VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
 
-> **Status:** ✅ APPROVED v3 — 10 waves (W0→W9), awaiting W0 IMPLEMENT
-> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (v3 — JIT Planning Strategy + task cards + slim down)
+> **Status:** ✅ W0 COMPLETE & MERGED — 10 waves (W0→W9), W1 next
+> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (W0 merged `be348ad` → main)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite audits:** Section 1 (4 BCTC) + Section 1.4 (Order→Accounting flow)
 
@@ -132,18 +132,18 @@ main ← feature/vas-wave9-regression-merge
 
 ## 4. WAVE OVERVIEW (10 waves)
 
-| Wave | Tên | Mode | Domain? | Task Card |
-|------|-----|------|---------|-----------|
-| W0 | Order→Accounting Writer Fix | IMPLEMENT | ❌ | `vas_wave0_task_card.md` |
-| W1 | Data Audit + Seed | IMPLEMENT | ❌ | `vas_wave1_task_card.md` |
-| W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` |
-| W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` |
-| W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` |
-| W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` |
-| W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` |
-| W7 | Tests with Numeric Assertions | IMPLEMENT | ❌ | `vas_wave7_task_card.md` |
-| W8 | Feature Flag + TenantType | IMPLEMENT | ❌ | `vas_wave8_task_card.md` |
-| W9 | Regression + Merge | REVIEW | ❌ | `vas_wave9_task_card.md` |
+| Wave | Tên | Mode | Domain? | Task Card | Status |
+|------|-----|------|---------|-----------|--------|
+| W0 | Order→Accounting Writer Fix | IMPLEMENT | ❌ | `vas_wave0_task_card.md` | ✅ DONE — merged `be348ad` (9/18 issues: C1-C3, H1-H2, H4-H5, M9, B3) |
+| W1 | Data Audit + Seed | IMPLEMENT | ❌ | `vas_wave1_task_card.md` | ⏳ NEXT |
+| W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` | ⏳ |
+| W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` | ⏳ |
+| W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ⏳ |
+| W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ⏳ |
+| W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ⏳ |
+| W7 | Tests with Numeric Assertions | IMPLEMENT | ❌ | `vas_wave7_task_card.md` | ⏳ |
+| W8 | Feature Flag + TenantType | IMPLEMENT | ❌ | `vas_wave8_task_card.md` | ⏳ |
+| W9 | Regression + Merge | REVIEW | ❌ | `vas_wave9_task_card.md` | ⏳ |
 
 **Chi tiết từng wave:** xem task card tương ứng. Master plan chỉ giữ overview.
 
@@ -171,12 +171,14 @@ main ← feature/vas-wave9-regression-merge
 
 ## 6. SUCCESS CRITERIA
 
-**W0 (Writer Fix):**
-- ✅ Order confirm payment tạo JE có VAT tách (511 net + 3331)
-- ✅ PaymentMethod truyền đúng → 111 vs 112 map đúng
-- ✅ COGS Path A == Path B
+**W0 (Writer Fix):** ✅ COMPLETE — merged `be348ad` (2026-07-04)
+- ✅ Order confirm payment tạo JE có VAT tách (511 net + 3331) — both AccountingEntry + JournalEntry
+- ✅ PaymentMethod truyền đúng → 111 vs 112 map đúng (PaymentMethodConstants class)
+- ✅ COGS Path A == Path B (shared `CalculateCogsAmount(Order)`)
 - ✅ Period dùng OrderDate, không UtcNow
-- ✅ Existing OrderServiceTests pass (no regression)
+- ✅ Existing OrderServiceTests pass (no regression) — 828/828 Core.Tests, 31/31 Arch.Tests
+- ✅ AccountCode 632 (not 621), Discount net revenue, Order reference, COGS removed from S2d
+- ⏸ Deferred (per user decision 2026-07-04): H3 Shipping (pending BA/Kế toán), M1/M6/M2-M5/M7/M8/M10
 
 **W1-W9 (4 BCTC):**
 - ✅ 4 BCTC render đúng số liệu từ seed (không mock)

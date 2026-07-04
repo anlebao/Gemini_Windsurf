@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Common;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Commands;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -103,7 +104,9 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         private async Task GenerateAccountingEntriesAsync(Order order, TenantId tenantId)
         {
-            AccountingPeriod period = AccountingPeriod.Create(DateTime.UtcNow.Year, DateTime.UtcNow.Month);
+            // W0-T6 (H4): Use OrderDate (not UtcNow) — entry belongs to the period when order was placed.
+            AccountingPeriod period = AccountingPeriod.Create(order.OrderDate.Year, order.OrderDate.Month);
+            string orderRef = order.Id.ToString();
 
             try
             {
@@ -116,39 +119,54 @@ namespace VanAn.CoreHub.Services
                     sector = tenant?.DefaultIndustrySector;
                 }
 
-                // 1. Revenue entry using IAccountingService
-                Shared.DTOs.AccountingEntryDto revenueEntry = await _accountingService.CreateRevenueEntryAsync(
+                // W0-T3 (C3): Split VAT — net revenue on 511 + VAT liability on 3331 (if VAT > 0).
+                // W0-T8 (H2): Net revenue approach (HKD path) — credit 511 = SubTotal - DiscountAmount.
+                //   (Discount reduces revenue directly; VAS Gross+521 path deferred to W8 feature-flag.)
+                decimal netRevenue = order.SubTotal - order.DiscountAmount;
+                // W0-T7 (H5): Pass order reference for traceability.
+                _ = await _accountingService.CreateRevenueEntryAsync(
                     tenantId,
                     period,
-                    order.TotalPrice,
-                    $"Doanh thu bán hàng #{order.Id}",
+                    netRevenue,
+                    $"Doanh thu bán hàng (net) #{order.Id}",
                     accountCode: "511",
+                    reference: orderRef,
                     industrySector: sector);
 
-                // 2. Generate HKD books for revenue
-                // Note: For MVP, we'll create a simple journal entry for HKD books
+                if (order.TotalVatAmount > 0)
+                {
+                    // VAT output liability (thuế GTGT đầu ra) — account 3331.
+                    // NOTE: EntryType=Revenue (semantically imperfect — no Liability factory exists in Domain).
+                    // VAS Wave 4 reports query by AccountCode (3331), so aggregation is correct.
+                    // Semantic EntryType refinement deferred to a future wave (would require Domain mod + approval).
+                    _ = await _accountingService.CreateRevenueEntryAsync(
+                        tenantId,
+                        period,
+                        order.TotalVatAmount,
+                        $"Thuế GTGT đầu ra #{order.Id}",
+                        accountCode: "3331",
+                        reference: orderRef,
+                        industrySector: sector);
+                }
+
+                // 2. Generate HKD books for revenue (JournalEntry path — 3 lines if VAT, 2 if not)
                 JournalEntry revenueJournalEntry = await CreateRevenueEntryAsync(order, tenantId, period);
                 // Use appropriate HKD book types based on business type
                 await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2b_HKD); // Revenue book
                 await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2c_HKD); // Detailed book
 
-                // 3. COGS entry — C-3 fix: use actual Product.CostPrice per item (fallback to 70% of UnitPrice if CostPrice not set)
-                decimal cogsAmount = order.Items.Any()
-                    ? order.Items.Sum(item =>
-                    {
-                        decimal costPrice = item.Product?.CostPrice ?? 0m;
-                        decimal effectiveCost = costPrice > 0 ? costPrice : item.UnitPrice * 0.7m; // Fallback for legacy products
-                        return item.Quantity * effectiveCost;
-                    })
-                    : order.TotalPrice * 0.7m; // Ultimate fallback when Items not loaded
+                // 3. COGS entry — W0-T4 (C1): shared CalculateCogsAmount syncs Path A and Path B.
+                decimal cogsAmount = CalculateCogsAmount(order);
                 if (cogsAmount > 0)
                 {
+                    // W0-T5 (B3): Fix AccountCode 621→632 (Giá vốn hàng bán).
                     Shared.DTOs.AccountingEntryDto cogsEntry = await _accountingService.CreateExpenseEntryAsync(
                         tenantId,
                         period,
                         cogsAmount,
                         $"Giá vốn hàng bán #{order.Id}",
-                        accountCode: "621",
+                        accountCode: "632",
+                        reference: orderRef,
                         industrySector: sector);
 
                     // Create COGS journal entry for HKD books
@@ -157,7 +175,7 @@ namespace VanAn.CoreHub.Services
                     {
                         // Use appropriate HKD book types based on business type
                         await _hkdBookRepository.AddToBookAsync(cogsJournalEntry, AccountingBookType.S2c_HKD); // Detailed book
-                        await _hkdBookRepository.AddToBookAsync(cogsJournalEntry, AccountingBookType.S2d_HKD); // Materials book
+                        // W0-T10 (M9): Removed AddToBookAsync(S2d_HKD) — COGS does not belong in materials book.
                     }
                 }
 
@@ -171,6 +189,25 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
+        /// W0-T4 (C1): Shared COGS calculation — syncs Path A (AccountingEntry) and Path B (JournalEntry).
+        /// Uses actual Product.CostPrice per item; falls back to 70% of UnitPrice for legacy products
+        /// (CostPrice not set); ultimate fallback 70% of TotalPrice when Items not loaded.
+        /// </summary>
+        private static decimal CalculateCogsAmount(Order order)
+        {
+            if (order.Items.Any())
+            {
+                return order.Items.Sum(item =>
+                {
+                    decimal costPrice = item.Product?.CostPrice ?? 0m;
+                    decimal effectiveCost = costPrice > 0 ? costPrice : item.UnitPrice * 0.7m; // Fallback for legacy products
+                    return item.Quantity * effectiveCost;
+                });
+            }
+            return order.TotalPrice * 0.7m; // Ultimate fallback when Items not loaded
+        }
+
+        /// <summary>
         /// Create revenue accounting entry
         /// Phase 2.2: Order to Accounting Integration
         /// </summary>
@@ -178,21 +215,33 @@ namespace VanAn.CoreHub.Services
         {
             string description = $"Doanh thu bán hàng #{order.Id}";
 
-            // Create journal entry with revenue lines
+            // W0-T6 (H4): Use OrderDate (not UtcNow) — entry date = order date.
             JournalEntry journalEntry = new(
                 tenantId,
-                DateTime.UtcNow,
+                order.OrderDate,
                 description,
                 "Order",
                 order.Id
             );
 
-            // Add revenue line (debit cash/bank, credit revenue)
-            // Simplified for MVP - using standard Vietnamese accounts
-            journalEntry.AddLine("111", order.TotalPrice, 0, "Tiền mặt thu từ bán hàng"); // Cash
-            journalEntry.AddLine("511", 0, order.TotalPrice, "Doanh thu bán hàng"); // Revenue
+            // W0-T2 (C2+H1): Map PaymentMethod → cash account (111 cash, 112 bank).
+            string cashAccount = PaymentMethodConstants.MapCashAccount(order.PaymentMethod);
 
-            return journalEntry;
+            // W0-T3 (C3): Split VAT — debit cash (gross ex-shipping), credit 511 (net revenue), credit 3331 (VAT).
+            // W0-T8 (H2): Net revenue — credit 511 = SubTotal - DiscountAmount (discount reduces revenue).
+            // NOTE: Shipping deferred (W0-T9) — debit cash excludes ShippingFee to keep entry balanced.
+            //   When shipping accounting is added (future wave), debit will include ShippingFee + matching credit.
+            decimal netRevenue = order.SubTotal - order.DiscountAmount;
+            decimal cashDebit = netRevenue + order.TotalVatAmount; // excludes ShippingFee (deferred)
+
+            journalEntry.AddLine(cashAccount, cashDebit, 0, "Tiền thu từ bán hàng"); // Cash/Bank
+            journalEntry.AddLine("511", 0, netRevenue, "Doanh thu bán hàng (net)"); // Net revenue
+            if (order.TotalVatAmount > 0)
+            {
+                journalEntry.AddLine("3331", 0, order.TotalVatAmount, "Thuế GTGT đầu ra"); // VAT liability
+            }
+
+            return await Task.FromResult(journalEntry);
         }
 
         /// <summary>
@@ -201,9 +250,8 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         private static async Task<JournalEntry?> CreateCOGSEntryAsync(Order order, TenantId tenantId, AccountingPeriod period)
         {
-            // Simplified COGS calculation for MVP
-            // In real implementation, this would calculate based on actual inventory costs
-            decimal cogsAmount = order.TotalPrice * 0.7m; // Assume 70% COGS for MVP
+            // W0-T4 (C1): Use shared CalculateCogsAmount — syncs Path A (AccountingEntry) and Path B (JournalEntry).
+            decimal cogsAmount = CalculateCogsAmount(order);
 
             if (cogsAmount <= 0)
             {
@@ -212,9 +260,10 @@ namespace VanAn.CoreHub.Services
 
             string description = $"Giá vốn hàng bán #{order.Id}";
 
+            // W0-T6 (H4): Use OrderDate (not UtcNow).
             JournalEntry journalEntry = new(
                 tenantId,
-                DateTime.UtcNow,
+                order.OrderDate,
                 description,
                 "Order",
                 order.Id
@@ -224,7 +273,7 @@ namespace VanAn.CoreHub.Services
             journalEntry.AddLine("632", cogsAmount, 0, "Giá vốn hàng bán"); // COGS
             journalEntry.AddLine("156", 0, cogsAmount, "Giảm hàng tồn kho"); // Inventory
 
-            return journalEntry;
+            return await Task.FromResult(journalEntry);
         }
 
         /// <summary>
@@ -434,7 +483,7 @@ namespace VanAn.CoreHub.Services
                 return;
             }
 
-            AccountingPeriod period = AccountingPeriod.Create(DateTime.UtcNow.Year, DateTime.UtcNow.Month);
+            AccountingPeriod period = AccountingPeriod.Create(order.OrderDate.Year, order.OrderDate.Month);
 
             try
             {
@@ -520,7 +569,9 @@ namespace VanAn.CoreHub.Services
             }
 
             // 1. Mark order as paid (Domain method — immutability of AccountingEntry is preserved)
-            order.ConfirmPayment(transactionId);
+            // W0-T1 (C2): Pass PaymentMethod into ConfirmPayment so it is recorded on the order
+            //   (was previously lost — Domain default "VIETQR" was always used).
+            order.ConfirmPayment(transactionId, order.PaymentMethod ?? PaymentMethodConstants.Cash);
             await _orderRepository.UpdateAsync(order);
             await _orderRepository.SaveChangesAsync();
 

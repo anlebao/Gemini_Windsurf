@@ -1,9 +1,42 @@
 # TASK CARD — VAS Wave 0: Order→Accounting Data Flow Fix
 
-> **Status:** NOT STARTED | INVESTIGATE → PLAN → IMPLEMENT
+> **Status:** ✅ COMPLETE & MERGED — `be348ad` (2026-07-04)
 > **Prerequisite:** Master plan v3 approved
-> **Branch:** `feature/vas-wave0-order-accounting-writer-fix`
-> **Estimated sessions:** 1-2
+> **Branch:** `feature/vas-wave0-order-accounting-writer-fix` (merged to main)
+> **Estimated sessions:** 1-2 (actual: 1)
+
+## Verification Results (2026-07-04)
+- ✅ `dotnet build VanAn.sln` Release: 0 errors
+- ✅ Core.Tests: 828/828 PASS (was 818, +10 new tests SC17-SC23, 0 regressions)
+- ✅ Architecture.Tests: 31/31 PASS
+- ✅ OrderServiceTests: 33/33 PASS
+- ✅ guard-check.ps1: ALL 8 GATES PASSED
+- ✅ Pre-commit guard: PASSED
+
+## Implemented (9/18 issues)
+- C1 COGS sync (Path A == Path B via shared `CalculateCogsAmount`)
+- C2 PaymentMethod passed into `ConfirmPayment` (was lost)
+- C3 VAT split in BOTH paths (AccountingEntry 511 net + 3331; JournalEntry 3 lines)
+- H1 PaymentMethod → cash account map (111/112 via `PaymentMethodConstants`)
+- H2 Discount net revenue (credit 511 = SubTotal − DiscountAmount)
+- H4 OrderDate for AccountingPeriod + JournalEntry entryDate (was UtcNow)
+- H5 Order reference passed into AccountingEntry calls
+- M9 COGS removed from S2d_HKD (materials book)
+- B3 AccountCode 621 → 632
+
+## Deferred (per user decision 2026-07-04)
+- H3 Shipping — ambiguous nature (thu hộ vs doanh thu vs cộng giá bán); 515 = financial revenue. Pending BA/Kế toán.
+- M6 Reversal on cancel, M1 Product.Category→TK, M2-M5/M7/M8/M10 — later waves.
+- VAS Gross+521 discount path — W8 feature-flag (separate writer).
+
+## Known Semantic Limitation (documented)
+VAT liability entry (3331) uses `EntryType=Revenue` (no Liability factory in Domain — W0 is Service-only). VAS Wave 4 reports query by AccountCode, so aggregation is correct. Semantic refinement deferred (would require Domain mod + approval).
+
+## Resolved Decisions (2026-07-04)
+- **VAT split scope:** BOTH paths — AccountingEntry (511 net + 3331 VAT liability) AND JournalEntry (3 lines). Ensures VAS Wave 4 reports have VAT liability data.
+- **Q1 (R10) Discount:** Split by regime. **HKD path = Net Revenue (reduce 511)** — implemented in W0. VAS/Enterprise path = Gross + TK 521 — deferred to W8 feature-flag (separate writer).
+- **Q2 Shipping:** **DEFERRED** (out of W0 scope). Shipping nature ambiguous (thu hộ vs doanh thu vs cộng vào giá bán). 515 is for financial revenue (lãi tiền gửi, chênh lệch tỷ giá), NOT default for shipping. Pending BA/Kế toán confirmation → future "Shipping Accounting" wave.
+- **Q3 (R9) PaymentMethod:** Define `PaymentMethodConstants` static class (CASH/VIETQR/CREDIT_CARD + cash account map 111/112).
 
 ## Objective
 Fix 18 vấn đề Order→Payment→Accounting data flow (3C + 5H + 4M, defer 6M) để writer ghi dữ liệu đúng VAS trước khi seed.
@@ -79,17 +112,19 @@ Fix 18 vấn đề Order→Payment→Accounting data flow (3C + 5H + 4M, defer 6
 #### W0-T8 (H2): Discount entry
 - If `order.DiscountAmount > 0`: thêm entry debit 521/credit 111 (or net 511 approach — decide in session)
 
-#### W0-T9 (H3): Shipping entry
-- If `order.ShippingFee > 0`: thêm entry debit 111/credit 515
+#### W0-T9 (H3): Shipping entry — **DEFERRED (2026-07-04)**
+- Out of W0 scope. Shipping nature ambiguous (thu hộ vs doanh thu vs cộng vào giá bán).
+- 515 = Doanh thu HĐTC (lãi tiền gửi, chênh lệch tỷ giá) — NOT default for shipping.
+- Pending BA/Kế toán confirmation → future "Shipping Accounting" wave.
 
 ### Medium (làm nếu time)
 #### W0-T10 (M9): Bỏ COGS khỏi S2d
 - Line 160: xóa `AddToBookAsync(cogsJournalEntry, AccountingBookType.S2d_HKD)`
 
-#### W0-T11 (M6): Reversal khi cancel sau payment
+#### W0-T11 (M6): Reversal khi cancel sau payment — **DEFERRED**
 - Tạo reversal JournalEntry + AccountingEntry.CreateReversal
 
-#### W0-T12 (M1): Map Product.Category → TK tồn kho
+#### W0-T12 (M1): Map Product.Category → TK tồn kho — **DEFERRED**
 - 152 (Vật liệu), 153 (Dụng cụ), 155 (Sản phẩm), 156 (Hàng hóa)
 
 ### Defer sang wave sau
@@ -109,6 +144,6 @@ Fix 18 vấn đề Order→Payment→Accounting data flow (3C + 5H + 4M, defer 6
 - Existing data không ảnh hưởng (chỉ thay đổi writer logic cho order mới)
 
 ## Open Questions (resolve in INVESTIGATE phase)
-- Q1: Discount — net revenue (giảm 511) hay gross (debit 521)? (R10)
-- Q2: Shipping — 515 (Doanh thu HĐTC) hay 641...? 
-- Q3: Có cần PaymentMethodConstants class riêng hay dùng string?
+- ~~Q1: Discount — net revenue (giảm 511) hay gross (debit 521)? (R10)~~ ✅ RESOLVED — HKD: Net Revenue (reduce 511). VAS: Gross + 521 (W8 feature-flag).
+- ~~Q2: Shipping — 515 (Doanh thu HĐTC) hay 641...?~~ ✅ RESOLVED — DEFERRED out of W0 (pending BA/Kế toán).
+- ~~Q3: Có cần PaymentMethodConstants class riêng hay dùng string?~~ ✅ RESOLVED — PaymentMethodConstants class.
