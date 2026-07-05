@@ -1,7 +1,7 @@
 # MASTER PLAN — VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
 
-> **Status:** ✅ W0 MERGED · ✅ W1 COMPLETE · ✅ W2 COMPLETE · ✅ W3 COMPLETE — 10 waves (W0→W9), W4 next
-> **Created:** 2026-07-04 · **Last Updated:** 2026-07-04 (W3 complete on `feature/vas-wave3-account-code-map`)
+> **Status:** ✅ W0-W4 MERGED · ✅ W5 COMPLETE — 10 waves (W0→W9), W6 next
+> **Created:** 2026-07-04 · **Last Updated:** 2026-07-05 (W5 complete on `feature/vas-wave5-api-controllers`, pending merge)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite audits:** Section 1 (4 BCTC) + Section 1.4 (Order→Accounting flow)
 
@@ -138,9 +138,9 @@ main ← feature/vas-wave9-regression-merge
 | W1 | Data Audit + Seed | IMPLEMENT | ❌ | `vas_wave1_task_card.md` | ✅ DONE — schema fix + seeder + 5 account code fixes (311→411, 211→214, 521→511, 515→5113, 641→6421) |
 | W2 | Domain Records | IMPLEMENT | ✅ (D5) | `vas_wave2_task_card.md` | ✅ DONE — BCTC records restructured per VN law (5 AccountType, no Contra) |
 | W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` | ✅ DONE — 124 accounts (TT 133=51, TT 99=73, TT 58=0) + 15 unit tests + seeder startup hook |
-| W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ⏳ NEXT |
-| W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ⏳ |
-| W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ⏳ |
+| W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ✅ DONE — 4 services (BS+IS+CF+TB) + 25 unit tests + 2 bug fixes (IS sign inversion, BS residual plug). Merged `cbcc79d`. |
+| W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ✅ DONE — 4 controllers (BS+IS+CF+TB) + 5 endpoint tests + 2 config fixes (JournalEntryConfiguration +IEntityConfiguration, removed inline JE config). Pending merge. |
+| W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ⏳ NEXT |
 | W7 | Tests with Numeric Assertions | IMPLEMENT | ❌ | `vas_wave7_task_card.md` | ⏳ |
 | W8 | Feature Flag + TenantType | IMPLEMENT | ❌ | `vas_wave8_task_card.md` | ⏳ |
 | W9 | Regression + Merge | REVIEW | ❌ | `vas_wave9_task_card.md` | ⏳ |
