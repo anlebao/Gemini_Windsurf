@@ -56,16 +56,16 @@ Build 4 BCTC VAS (Balance Sheet + Income Statement + Cash Flow + Trial Balance) 
 
 Production readiness review (2026-07-05): 3 subagent audit + manual verify. **Verdict: NOT production ready for independent SaaS deploy.** Core accounting logic excellent (1114 tests, invariants verified), but 4 blockers + 5 high-priority + 7 tech debt in operations layer. 9-wave plan across 3 sprints to reach `saas-production-v1.0` tag.
 
-- **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (10 waves, 3 sprints)
-- **Task cards:** `docs/AI/tasks/saas_w0p5_task_card.md` + `docs/AI/tasks/saas_w{0-8}_task_card.md` (10 cards)
+- **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (9 waves, 3 sprints)
+- **Task cards:** `docs/AI/tasks/saas_w{0-8}_task_card.md` (9 cards)
 - **Source review:** 3 subagent audit (HKD module, VAS+infra, test coverage+integration) + manual verify of Gateway DbContext, CI `if: false`, secrets, .NET version
-- **W0.5 (Stream D gộp):** Cherry-pick 4 files từ Stream D Wave 8 S2 (`c387608`) — đóng Stream D (HKD Book Fix 12 waves hoàn tất)
+- **W0.5 CANCELLED:** Stream D Wave 8 Session 2 (`c387608`) **đã merged vào main** qua commit `68580bc` (2026-07-04). Project_state trước đây ghi sai "parked/in progress". Verify: `git merge-base --is-ancestor c387608 main` = 0 (c387608 IS ancestor). 4 files (HKDBooks.razor, HKDBookDetail.razor, HKDBookExportService.cs, hkd-books.spec.ts, HKDBookTemplateArchitectureTests.cs, check-encoding.ps1, UI_Platform_Implementation_Guide.md) đều đã trên main. **Stream D COMPLETE — không cần W0.5.**
 - **4 Blockers (Sprint 1):** B1 Gateway DbContext violation (`2_Gateway/Program.cs:54-58`) · B2 Hardcoded secrets (`ShopERP/Program.cs:261,341` + `appsettings.Production.json` 8 placeholders) · B3 .NET 8.0.100 outdated (CVEs) + auth packages 2.3.0 · B4 E2E+Integration CI disabled (`e2e.yml:115`, `ci.yml:198`)
 - **5 High-Priority (Sprint 2):** H1 10/14 Accounting pages thiếu bUnit tests · H2 PeriodClosing in-memory (mất khi restart) · H3 DevLoginController không guard · H4 JWT cookie thiếu HttpOnly · H5 E-Invoice unverified với real credentials
 - **7 Tech Debt (Sprint 3):** M1-M2 tenant fallback hardcode · M3-M4 JS interop workaround · M5-M7 obsolete methods · M8-M11 Docker hardening
 - **Decisions (D1-D10):** SaaS multi-tenant · Gateway fix = remove DbContext · Secrets = env vars · .NET 8.0.22 (stay LTS) · CI enable E2E+Integration · UI tests Accounting first · Period persist to DB · DevLogin `#if DEBUG` · E-Invoice staging verify · Tech debt Tier 1 before production
-- **Sprint mapping:** Sprint 1 (W0.5 → W0-W3 Blockers) → Sprint 2 (W4-W6 Hardening) → Sprint 3 (W7-W8 Cleanup+Tag)
-- **Next:** W0.5 (Stream D Completion) — branch `feature/saas-w0p5-stream-d-completion`
+- **Sprint mapping:** Sprint 1 (W0-W3 Blockers) → Sprint 2 (W4-W6 Hardening) → Sprint 3 (W7-W8 Cleanup+Tag)
+- **Next:** W0 (Gateway Architecture Fix) — branch `feature/saas-w0-gateway-architecture-fix`
 
 ---
 
@@ -148,6 +148,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 - **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
 - **Stream B: E2E Test Cleanup** — ✅ COMPLETE (`ffe8607`). 8 waves, 7 anti-patterns, all merged-ready on `feature/e2e-cleanup-wave8-regression-prevention`. Awaiting merge to main.
 - **Stream C: ShopERP UI Fix** — ✅ COMPLETE & MERGED TO MAIN (`f3ed2d2`). 6 waves, 23 .razor files fixed.
+- **Stream D: HKD Book Accounting Report Fix** — ✅ COMPLETE & MERGED TO MAIN (`68580bc`, 2026-07-04). 12 waves (W0-W8 + W0.5 + W5c). TT 152/2025/TT-BTC compliance + 2026 regulatory fix. All 7 HKD book templates (S1a, S2a-S2e, S3a) generate NumericValues, DOCX/XLSX export, E2E + arch tests. Project_state trước đây ghi sai "Wave 8 S2 parked" — verified `git merge-base --is-ancestor c387608 main` = 0 (c387608 IS ancestor of main via merge `68580bc`).
 - **Stream E: DB Migration Strategy** — ✅ COMPLETE & MERGED TO MAIN (`b2e0431`). EF Core Migrations enabled, EnsureCreated replaced with MigrateAsync, VA-ARCH-001 modified. Unblocks Wave 2/7/8.
 
 ---
@@ -170,13 +171,13 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
   - **W9 files modified (1):** `VasReportsEndpointTests.cs` (SetTenantType + 403 acceptable)
   - **W9 build:** 0 errors, guard ALL CHECKS PASSED, **1114/1114 tests PASS** (Core 910 + Arch 31 + Integration 173)
   - **VAS STREAM COMPLETE ✅** — 10 waves (W0-W9), all merged to main
-- **SaaS Stream (Stream G) — PLANNED, W0.5 next:**
-  - **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (10 waves, 3 sprints)
-  - **10 task cards:** `saas_w0p5_task_card.md` + `saas_w{0-8}_task_card.md`
-  - **W0.5:** Stream D gộp vào Stream G — cherry-pick 4 files từ `c387608`, đóng Stream D
-  - **Status:** Planning complete (commit `e986cbe`), W0.5 not started
+- **SaaS Stream (Stream G) — PLANNED, W0 next:**
+  - **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (9 waves, 3 sprints)
+  - **9 task cards:** `saas_w{0-8}_task_card.md`
+  - **W0.5 CANCELLED:** Stream D đã merged (`68580bc`, 2026-07-04) — verify `git merge-base --is-ancestor c387608 main` = 0
+  - **Status:** Planning complete (commit `e986cbe`), W0 not started
   - **Target:** `saas-production-v1.0` tag after W8
-- **Stream D Wave 8:** Gộp vào Stream G W0.5 (cherry-pick 4 files, branch parked sẽ delete sau)
+- **Stream D:** ✅ COMPLETE & MERGED (`68580bc`, 2026-07-04) — 12 waves all merged. Project_state trước ghi sai "parked" — đã verify c387608 is ancestor of main.
 
 ---
 
@@ -384,7 +385,8 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-05 — **STREAM G UPDATED — Stream D gộp vào W0.5**. Stream D (HKD Book Fix) Wave 8 Session 2 (commit `c387608`, 4 files: HKD E2E + arch tests + encoding lint + docs) gộp vào Stream G làm wave W0.5 (cherry-pick). Stream G: 10 waves (W0.5 + W0-W8), 3 sprints. Master plan + task cards updated. **NEXT:** W0.5 (Stream D Completion).
+* **Last Updated:** 2026-07-05 — **W0.5 CANCELLED — Stream D đã merged**. Review Stream D master plan + task card + reverse impact: phát hiện `git merge-base --is-ancestor c387608 main` = 0 (c387608 IS ancestor of main qua merge `68580bc` 2026-07-04). Tất cả 7 files Stream D Wave 8 (HKDBooks.razor, HKDBookDetail.razor, HKDBookExportService.cs, hkd-books.spec.ts, HKDBookTemplateArchitectureTests.cs, check-encoding.ps1, UI_Platform_Implementation_Guide.md) đều đã trên main. Project_state trước ghi sai "parked". Stream G trở lại 9 waves (W0-W8). W0.5 task card deleted. **NEXT:** W0 (Gateway Architecture Fix).
+* **Previous:** 2026-07-05 — **STREAM G UPDATED — Stream D gộp vào W0.5**. Stream D (HKD Book Fix) Wave 8 Session 2 (commit `c387608`, 4 files: HKD E2E + arch tests + encoding lint + docs) gộp vào Stream G làm wave W0.5 (cherry-pick). Stream G: 10 waves (W0.5 + W0-W8), 3 sprints. Master plan + task cards updated. **NEXT:** W0.5 (Stream D Completion).
 * **Previous:** 2026-07-05 — **STREAM G (SAAS PRODUCTION HARDENING) PLANNED**. Production readiness review: 3 subagent audit (HKD, VAS+infra, tests+integration) + manual verify. Verdict: NOT production ready for SaaS — 4 blockers (Gateway DbContext, hardcoded secrets, .NET CVEs, CI disabled) + 5 high-priority + 7 tech debt. Core accounting logic excellent (1114 tests). Created master plan + 9 task cards (W0-W8, 3 sprints). Commit `e986cbe`. **NEXT:** W0 (Gateway Architecture Fix).
 * **Previous:** 2026-07-05 — **STREAM F W9 COMPLETE & MERGED to main ✅ VAS STREAM COMPLETE**. Full regression: 1114/1114 tests PASS (Core 910 + Arch 31 + Integration 173). 45 regression tests (W7 numeric + W8 FF + W0 SC17-SC23) verify all invariants. Fix: VasReportsEndpointTests seeder SetTenantType + W5-AUTH 403 acceptable. Build 0 errors, guard ALL CHECKS PASSED. **ALL 10 WAVES (W0-W9) MERGED TO MAIN. VAS ENTERPRISE FINANCIAL REPORTS STREAM COMPLETE.**
 * **Previous:** 2026-07-05 — **STREAM F W8 COMPLETE & MERGED to main**. Feature Flag + TenantType + D9 HKD→DN Conversion Service. Migration AddTenantConversionFields (5 new columns). IVasFeatureFlagService (CanAccessVasReports, GetTenantType, IsReadOnly) + 4 BCTC controllers 403 if HKD. ITenantConversionService (ConvertHkdToEnterprise, GetPredecessor/Successor, MigrateOpeningBalance). AccountingLayout dynamic menu (VAS only for Enterprise). Tenant.SetTenantType() method (W2 H4). 15 tests (6 FF + 9 conversion), all PASS. Key fixes: IgnoreQueryFilters for cross-tenant, TenantSettings copy not share, SetTenantType for existing tenants. Build 0 errors, guard ALL CHECKS PASSED.
