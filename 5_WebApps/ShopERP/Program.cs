@@ -255,7 +255,11 @@ namespace VanAn.ShopERP
                 options.Cookie.Name = ".VanAn.Auth";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Strict;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                // Development: allow cookies over HTTP for local smoke test (no HTTPS cert needed).
+                // Production: Always (HTTPS only) — defense in depth.
+                options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                    ? CookieSecurePolicy.SameAsRequest
+                    : CookieSecurePolicy.Always;
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
                 options.LoginPath = "/Login";
