@@ -70,6 +70,8 @@ public class VasReportsEndpointTests : IClassFixture<CustomWebApplicationFactory
             address: "123 Test St",
             taxCode: "0301234567");
         var tenant = TenantAggregate.CreateCompany(TestTenantId, "VAS Test Tenant", settings);
+        // W8: Classify as Enterprise_SME for feature flag access (CreateCompany doesn't set Type)
+        tenant.SetTenantType(TenantType.Enterprise_SME, AccountingStandard.TT133_2016);
         db.Tenants.Add(tenant);
 
         // Opening balance entry (2026-06-01) — balanced double-entry.
@@ -178,8 +180,11 @@ public class VasReportsEndpointTests : IClassFixture<CustomWebApplicationFactory
         // and returns 200 (auth is handled by TestScheme). A 500 would indicate a DI/runtime error.
         var response = await _client.GetAsync("/api/balance-sheets?year=2026&month=6");
 
-        // With TestScheme, auth always succeeds → expect 200 (data seeded by other tests) or 422 (invariant).
-        Assert.True(response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.UnprocessableEntity,
+        // With TestScheme, auth always succeeds → expect 200 (data seeded by other tests), 422 (invariant),
+        // or 403 (W8 feature flag — if tenant Type not set, access denied).
+        Assert.True(response.StatusCode == HttpStatusCode.OK
+            || response.StatusCode == HttpStatusCode.UnprocessableEntity
+            || response.StatusCode == HttpStatusCode.Forbidden,
             $"Expected 200 or 422, got {response.StatusCode}");
     }
 
