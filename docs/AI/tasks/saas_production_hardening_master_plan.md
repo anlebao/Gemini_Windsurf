@@ -158,7 +158,7 @@ main ← feature/saas-w8-regression-production-tag
 
 | Wave | Tên | Mode | Sprint | Task Card | Status |
 |------|-----|------|--------|-----------|--------|
-| W0 | Gateway Architecture Fix | IMPLEMENT | 1 | `saas_w0_task_card.md` | ⏳ |
+| W0 | Gateway Architecture Fix | IMPLEMENT | 1 | `saas_w0_task_card.md` | ✅ DONE — Option B (monolithic mode) approved & merged `5ecbf5e`. Governance rule updated, arch test inverted. 1114/1114 tests PASS. |
 | W1 | Secrets + Production Config Hardening | IMPLEMENT | 1 | `saas_w1_task_card.md` | ⏳ |
 | W2 | .NET SDK Upgrade + Package Security | IMPLEMENT | 1 | `saas_w2_task_card.md` | ⏳ |
 | W3 | CI Pipeline Restore (E2E + Integration) | IMPLEMENT | 1 | `saas_w3_task_card.md` | ⏳ |
