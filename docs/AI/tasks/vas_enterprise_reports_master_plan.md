@@ -1,7 +1,7 @@
 # MASTER PLAN — VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
 
-> **Status:** ✅ W0-W7 MERGED · W8 next — 10 waves (W0→W9)
-> **Created:** 2026-07-04 · **Last Updated:** 2026-07-05 (W7 merged to main)
+> **Status:** ✅ W0-W8 MERGED · W9 next — 10 waves (W0→W9)
+> **Created:** 2026-07-04 · **Last Updated:** 2026-07-05 (W8 merged to main)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite audits:** Section 1 (4 BCTC) + Section 1.4 (Order→Accounting flow)
 
@@ -142,7 +142,7 @@ main ← feature/vas-wave9-regression-merge
 | W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ✅ DONE — 4 controllers (BS+IS+CF+TB) + 5 endpoint tests + 2 config fixes (JournalEntryConfiguration +IEntityConfiguration, removed inline JE config). Merged. |
 | W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ✅ DONE — 5 Blazor pages (BS+IS+CF+TB+Hub) + 29 bUnit tests (TDD). Merged. |
 | W7 | Tests with Numeric Assertions | IMPLEMENT | ❌ | `vas_wave7_task_card.md` | ✅ DONE — 29 numeric tests (20 Core + 5 Multi-tenant + 4 Integration). Key findings: T19/T20 date overflow, 6421/6422 not in chart. Merged. |
-| W8 | Feature Flag + TenantType | IMPLEMENT | ❌ | `vas_wave8_task_card.md` | ⏳ |
+| W8 | Feature Flag + TenantType | IMPLEMENT | ❌ | `vas_wave8_task_card.md` | ✅ DONE — Migration (5 columns), IVasFeatureFlagService (HKD→403), ITenantConversionService (D9), AccountingLayout dynamic menu, SetTenantType method. 15 tests. Merged. |
 | W9 | Regression + Merge | REVIEW | ❌ | `vas_wave9_task_card.md` | ⏳ |
 
 **Chi tiết từng wave:** xem task card tương ứng. Master plan chỉ giữ overview.
