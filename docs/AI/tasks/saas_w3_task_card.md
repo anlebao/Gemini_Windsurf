@@ -98,7 +98,7 @@ if: false  # Disabled to save GitHub Actions minutes
 - [x] Build 0 errors, guard pass, 1131/1133 tests PASS (2 pre-existing NATS failures — same on main)
 
 ## Implementation Summary (2026-07-05)
-**Approach:** Multi-role auth generation + CI job re-enablement.
+**Approach:** Multi-role auth generation + CI job re-enablement + GoldenFlow test fix.
 
 **Changes applied:**
 1. **`DevLoginController.cs`:** Added `POST /dev/login/{role}` endpoint supporting `owner`, `staff`, `storekeeper`, `guard` roles. Issues Cookie auth + JWT with correct role claims.
@@ -108,8 +108,10 @@ if: false  # Disabled to save GitHub Actions minutes
 5. **`ci.yml`:** Removed `if: false` from integration-tests job. Expanded filter from `CircuitBreakerIntegrationTests` only → full integration suite (WebApplicationFactory, in-process).
 6. **`e2e.yml`:** Removed `if: false` from e2e-tests job. Added KhachLink publish + start + health check. Added `ASPNETCORE_ENVIRONMENT=Development` + service URL env vars.
 
-**Pre-existing issues (not caused by W3):**
-- 2 GoldenFlow integration tests fail when NATS is not running locally (`NATSConnectionException: timeout`). Verified same failure on main. These tests pass in isolation (5/5) but fail in full suite due to NATS publisher degraded mode.
+**Sprint 1 Gap Fix (2026-07-05):**
+- **`pr-check.yml`:** Removed `if: false` from integration-tests job (was missed in original W3). Replaced non-existent `VanAn.E2E.Tests` / `VanAn.Load.Tests` project references with correct integration test command.
+- **`GoldenFlowSystemTests.cs`:** Fixed 2 pre-existing test failures (Simple Entity Insert + Multi-Tenant Isolation). Root cause: `ConfigureTestDatabase()` didn't register `ITenantProvider`, so `VanAnDbContext`'s global query filter used `Guid.Empty` as tenant → filtered out all inserted rows. Fix: (1) Register `TestTenantProvider` in test DI, (2) Add `IgnoreQueryFilters()` to test queries that use random tenant IDs.
+- **Result:** Integration tests now 173/173 PASS (was 171/173).
 
 ## Rollback
 - Git revert (restore `if: false`)

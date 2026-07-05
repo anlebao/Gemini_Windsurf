@@ -90,10 +90,10 @@ Upgrade .NET SDK 8.0.100 → 8.0.22+ to patch CVEs. Replace outdated auth packag
 - [x] Build 0 errors, guard pass, all tests pass
 
 ## Implementation Summary (2026-07-05)
-**Approach:** Package security cleanup (SDK upgrade deferred to user — requires manual installer).
+**Approach:** Package security cleanup + SDK upgrade.
 
 **Changes applied:**
-1. **`global.json` (NEW):** Pins SDK `8.0.100` with `rollForward: latestFeature` — auto-uses newer 8.0.x SDK once installed.
+1. **`global.json` (NEW):** Pins SDK `8.0.100` with `rollForward: latestFeature` — auto-uses newer 8.0.x SDK.
 2. **`Directory.Packages.props`:** Removed 9 legacy 2.3.0/2.3.9 packages:
    - `Microsoft.AspNetCore.Authentication` 2.3.0
    - `Microsoft.AspNetCore.Authentication.Core` 2.3.0
@@ -108,10 +108,13 @@ Upgrade .NET SDK 8.0.100 → 8.0.22+ to patch CVEs. Replace outdated auth packag
 3. **`ShopERP/VanAn.ShopERP.csproj`:** Removed `Microsoft.AspNetCore.Authentication.Cookies` PackageReference (part of .NET 8 shared framework via Web SDK).
 4. **`Core.Tests/VanAn.Core.Tests.csproj`:** Replaced `Microsoft.AspNetCore.Mvc` + `Http.Abstractions` PackageReferences with `FrameworkReference Microsoft.AspNetCore.App`.
 
-**Deferred to user:**
-- Install .NET SDK 8.0.22+ (download from https://dotnet.microsoft.com/download/dotnet/8.0). Current 8.0.100 has CVEs but `global.json` will auto-use newer SDK once installed — no code change needed.
+**Sprint 1 Gap Fix (2026-07-05):**
+- Installed .NET SDK 8.0.422 (latest .NET 8 LTS SDK) via dotnet-install script to `%LOCALAPPDATA%\dotnet`.
+- `global.json` `rollForward: latestFeature` auto-selects 8.0.422 (feature band 8.0.4xx > 8.0.1xx).
+- `dotnet --version` now shows `8.0.422` (was 8.0.100).
+- CVEs patched: DoS, RCE, Info Disclosure vulnerabilities in .NET 8.0.100 are resolved in 8.0.422.
 
-**Tests:** Core 910 + Arch 31 + Integration 173 = **1114/1114 PASS**.
+**Tests:** Core 929 + Arch 31 + Integration 173 = **1133/1133 PASS**.
 
 ## Rollback
 - Git revert (restore old package versions)
