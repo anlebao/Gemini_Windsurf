@@ -174,19 +174,9 @@ namespace VanAn.ShopERP.Infrastructure
                 _ = entity.Property(e => e.TotalSpent).HasPrecision(18, 2);
             });
 
-            // JournalEntry: OwnsMany for JournalEntryLine (Value Object)
-            _ = modelBuilder.Entity<JournalEntry>(entity =>
-            {
-                _ = entity.HasKey(e => e.Id);
-                _ = entity.OwnsMany(e => e.Lines, lineBuilder =>
-                {
-                    _ = lineBuilder.WithOwner().HasForeignKey(l => l.JournalEntryId);
-                    _ = lineBuilder.Property(l => l.AccountNumber).IsRequired().HasMaxLength(50);
-                    _ = lineBuilder.Property(l => l.DebitAmount).HasPrecision(18, 2);
-                    _ = lineBuilder.Property(l => l.CreditAmount).HasPrecision(18, 2);
-                    _ = lineBuilder.Property(l => l.Description).HasMaxLength(500);
-                });
-            });
+            // JournalEntry: Configured via JournalEntryConfiguration from CoreHub assembly
+            // (applied above via ApplyConfigurationsFromAssembly — implements IEntityConfiguration since W5).
+            // Inline config removed to avoid duplicate OwnsMany conflict + ensure Description/EntryDate/ReferenceId/IsReversal mapped.
 
             // JournalTemplate: OwnsMany for JournalTemplateLine + TemplateValidationRule
             _ = modelBuilder.Entity<JournalTemplate>(entity =>
