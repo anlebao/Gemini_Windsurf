@@ -116,4 +116,74 @@ public class CashFlowStatementServiceTests
             Assert.StartsWith("21", line.ReportItemCode);
         }
     }
+
+    // ── W7: Numeric Assertions ─────────────────────────────────────────────
+
+    // W7-CF1: OpeningCash = 172.5M for 2026-06.
+    // Opening = entries before 2026-06-01: 111 (50M + 0.5M May activity) + 112 (100M + 22M May) = 172.5M.
+    [Fact]
+    public async Task W7_CF1_OpeningCash_Equals172_5M()
+    {
+        var (_, svc) = await SetupAsync();
+        CashFlowStatement cf = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        Assert.Equal(172_500_000m, cf.OpeningCash, precision: 0);
+    }
+
+    // W7-CF2: ClosingCash = 209M for 2026-06.
+    // Closing = Opening 172.5M + June cash delta 36.5M = 209M.
+    // (T19/T20 in July — baseDate 06-15 + 16/18 days overflows.)
+    [Fact]
+    public async Task W7_CF2_ClosingCash_Equals209M()
+    {
+        var (_, svc) = await SetupAsync();
+        CashFlowStatement cf = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        Assert.Equal(209_000_000m, cf.ClosingCash, precision: 0);
+    }
+
+    // W7-CF3: NetChange = 36.5M for 2026-06 (ClosingCash - OpeningCash).
+    [Fact]
+    public async Task W7_CF3_NetChange_Equals36_5M()
+    {
+        var (_, svc) = await SetupAsync();
+        CashFlowStatement cf = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        Assert.Equal(36_500_000m, cf.NetChange, precision: 0);
+    }
+
+    // W7-CF4: NetChange formula — NetChange == ClosingCash - OpeningCash.
+    [Fact]
+    public async Task W7_CF4_NetChangeMatchesFormula_ClosingMinusOpening()
+    {
+        var (_, svc) = await SetupAsync();
+        CashFlowStatement cf = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        Assert.Equal(cf.ClosingCash - cf.OpeningCash, cf.NetChange, precision: 2);
+    }
+
+    // W7-CF5: Operating activities non-empty — June has sales (511) and expenses (6421, 6422).
+    [Fact]
+    public async Task W7_CF5_OperatingActivities_NonEmpty()
+    {
+        var (_, svc) = await SetupAsync();
+        CashFlowStatement cf = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        Assert.NotEmpty(cf.OperatingActivities);
+    }
 }
