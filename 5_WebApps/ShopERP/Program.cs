@@ -46,6 +46,12 @@ namespace VanAn.ShopERP
             });
 
             // Add services to the container.
+            // SaaS W1: Validate Production config — fail fast if __REPLACE_* sentinels remain
+            if (builder.Environment.IsProduction())
+            {
+                ValidateProductionConfig(builder.Configuration);
+            }
+
             _ = builder.Services.AddRazorPages();
             _ = builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
@@ -258,7 +264,10 @@ namespace VanAn.ShopERP
             {
                 options.Authority = builder.Configuration["Authentication:Authority"] ?? "https://localhost:5001";
                 options.ClientId = builder.Configuration["Authentication:ClientId"] ?? "VanAn.ShopERP";
-                options.ClientSecret = builder.Configuration["Authentication:ClientSecret"] ?? "your-secret-here";
+                options.ClientSecret = builder.Configuration["Authentication:ClientSecret"]
+                    ?? (builder.Environment.IsProduction()
+                        ? throw new InvalidOperationException("Authentication:ClientSecret configuration is required in Production.")
+                        : "your-secret-here");
                 options.ResponseType = "code";
                 options.Scope.Add("openid");
                 options.Scope.Add("profile");
@@ -338,7 +347,10 @@ namespace VanAn.ShopERP
 
                 // Wave 0 [W0-T5]: Seed DemoUsers with BCrypt hashed passwords (work factor 12)
                 // Always ensure owner user exists with Owner role (fix for config changes)
-                string ownerPassword = builder.Configuration["Seed:OwnerPassword"] ?? "VanAn@2026";
+                string ownerPassword = builder.Configuration["Seed:OwnerPassword"]
+                    ?? (builder.Environment.IsProduction()
+                        ? throw new InvalidOperationException("Seed:OwnerPassword configuration is required in Production.")
+                        : "VanAn@2026");
                 string ownerUsername = builder.Configuration["Seed:OwnerUsername"] ?? "admin@vanan.vn";
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(ownerPassword, 12);
 
@@ -478,6 +490,50 @@ namespace VanAn.ShopERP
 
             string urls = builder.Configuration["ASPNETCORE_URLS"] ?? "http://0.0.0.0:5003";
             await app.RunAsync(urls);
+        }
+
+        /// <summary>
+        /// SaaS W1: Validate Production configuration — fail fast if __REPLACE_* sentinels remain
+        /// or required secrets are missing. Prevents accidental deployment with placeholder config.
+        /// </summary>
+        private static void ValidateProductionConfig(ConfigurationManager configuration)
+        {
+            var failures = new List<string>();
+
+            // Check for __REPLACE_* sentinels — signals appsettings.Production.json not overridden by env vars
+            string[] sentinelKeys =
+            [
+                "Jwt:Secret",
+                "DataProtection:KeyDirectory",
+                "Brevo:ApiKey",
+                "Brevo:SenderEmail",
+                "Esms:ApiKey",
+                "Esms:SecretKey",
+                "Esms:BrandName",
+                "ConnectionStrings:Redis"
+            ];
+
+            foreach (var key in sentinelKeys)
+            {
+                string? value = configuration[key];
+                if (string.IsNullOrWhiteSpace(value) || value.Contains("__REPLACE_", StringComparison.Ordinal))
+                {
+                    failures.Add($"Config '{key}' is missing or still has __REPLACE_* sentinel. Set via env var (e.g. Jwt__Secret).");
+                }
+            }
+
+            // JWT secret length check
+            string? jwtSecret = configuration["Jwt:Secret"];
+            if (!string.IsNullOrWhiteSpace(jwtSecret) && !jwtSecret.Contains("__REPLACE_", StringComparison.Ordinal) && jwtSecret.Length < 32)
+            {
+                failures.Add("Jwt:Secret must be at least 32 characters for HS256 security.");
+            }
+
+            if (failures.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Production configuration validation failed:\n" + string.Join("\n", failures.Select(f => $"  - {f}")));
+            }
         }
     }
 }

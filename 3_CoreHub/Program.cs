@@ -74,7 +74,9 @@ namespace VanAn.CoreHub
                 {
                     // Database configuration
                     string connectionString = context.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
-                        ?? "Host=localhost;Database=VanAnCoreHub;Username=vanan_admin;Password=VanAn@2024!";
+                        ?? (context.HostingEnvironment.IsProduction()
+                            ? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Production.")
+                            : "Host=localhost;Database=VanAnCoreHub;Username=vanan_admin;Password=VanAn@2024!");
 
                     _ = services.AddDbContext<VanAnDbContext>(options =>
                         options.UseNpgsql(connectionString));
@@ -254,7 +256,9 @@ namespace VanAn.CoreHub
                     // Phase 6: Project Memory (PostgreSQL with SQLite fallback)
                     var dbProvider = context.Configuration["ProjectMemory:DatabaseProvider"] ?? "PostgreSQL";
                     var projectMemoryConnectionString = context.Configuration["ProjectMemory:ConnectionString"]
-                        ?? "Host=localhost;Port=5432;Database=vanan_project_memory;Username=vanan;Password=VanAn@2024!";
+                        ?? (context.HostingEnvironment.IsProduction()
+                            ? throw new InvalidOperationException("ProjectMemory:ConnectionString configuration is required in Production.")
+                            : "Host=localhost;Port=5432;Database=vanan_project_memory;Username=vanan;Password=VanAn@2024!");
 
                     if (dbProvider.Equals("SQLite", StringComparison.OrdinalIgnoreCase))
                     {

@@ -16,8 +16,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$DatabasePath,
 
-    [Parameter(Mandatory = $false)]
-    [string]$DefaultPassword = "VanAn@2026"
+    [Parameter(Mandatory = $true)]
+    [string]$DefaultPassword
 )
 
 # Load BCrypt

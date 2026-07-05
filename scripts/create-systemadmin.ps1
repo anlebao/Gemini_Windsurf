@@ -11,12 +11,12 @@
 param(
     [Parameter(Mandatory = $false)]
     [string]$DatabasePath = "5_WebApps/ShopERP/bin/Debug/net8.0/vanan_shoperp.db",
-    
+
     [Parameter(Mandatory = $false)]
     [string]$Username = "systemadmin@vanan.vn",
-    
-    [Parameter(Mandatory = $false)]
-    [string]$Password = "VanAn@2026"
+
+    [Parameter(Mandatory = $true)]
+    [string]$Password
 )
 
 # Load BCrypt
