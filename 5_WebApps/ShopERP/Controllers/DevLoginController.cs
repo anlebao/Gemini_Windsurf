@@ -214,6 +214,73 @@ namespace VanAn.ShopERP.Controllers
                 message  = "SystemAdmin login successful — cross-tenant access granted",
             });
         }
+
+        /// <summary>POST /dev/login/vas — issues Cookie auth session for the VAS Enterprise seed tenant.</summary>
+        /// <remarks>
+        /// W8 smoke-test convenience: the default <c>/dev/login</c> endpoint issues a session for
+        /// tenant <c>11111111-1111-1111-1111-111111111111</c>, which has NO VAS seed data. The VAS
+        /// sample data seeder (<see cref="CoreHub.Infrastructure.Seed.VasSampleDataSeeder"/>) seeds
+        /// 31 journal entries + ~50 AccountingEntries for tenant
+        /// <c>a5b6c7d8-1234-5678-9abc-def012345678</c> (Enterprise_SME, TT 133/2016).
+        /// This endpoint lets a developer log in as that tenant to verify the 4 BCTC reports
+        /// (Balance Sheet, Income Statement, Cash Flow, Trial Balance) against real seeded data
+        /// without needing to wire up a second seed tenant.
+        /// </remarks>
+        [HttpPost("login/vas")]
+        public async Task<IActionResult> LoginAsVasTenant()
+        {
+            // VAS Enterprise seed tenant — matches VasSampleDataSeeder.VasEnterpriseTenantGuid
+            var vasTenantId = new Guid("a5b6c7d8-1234-5678-9abc-def012345678");
+            var vasUserId   = new Guid("a5b6c7d8-1234-5678-9abc-def012345678");
+            const string vasUserEmail = "vas-admin@vanan.vn";
+            const string vasUserName  = "VAS Dev Admin";
+            const string vasRole      = "Owner";
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name,  vasUserName),
+                new(ClaimTypes.Email, vasUserEmail),
+                new(ClaimTypes.Role,  vasRole),
+                new("tenant_id",      vasTenantId.ToString()),
+                new("TenantId",       vasTenantId.ToString()),
+                new("sub",            vasUserEmail),
+                new("role",           vasRole),
+            };
+
+            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc   = DateTimeOffset.UtcNow.AddHours(8),
+                AllowRefresh = true,
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                authProperties);
+
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId:   vasUserId,
+                email:    vasUserEmail,
+                role:     UserRole.Owner,
+                tenantId: vasTenantId);
+
+            return Ok(new
+            {
+                success    = true,
+                tenantId   = vasTenantId,
+                tenantName = "Vạn An Trading Co. (DN vừa TT 133)",
+                tenantType = "Enterprise_SME",
+                standard   = "TT133_2016",
+                email      = vasUserEmail,
+                role       = vasRole,
+                token      = jwtToken,
+                message    = "VAS Enterprise tenant dev login successful — cookie and JWT issued (seed data available for 4 BCTC reports)",
+            });
+        }
     }
 }
 #endif
