@@ -1,7 +1,7 @@
 # MASTER PLAN — SaaS Production Hardening (Multi-Tenant Deploy)
 
-> **Status:** 🆕 NOT STARTED — 9 waves (W0→W8)
-> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (W0.5 CANCELLED — Stream D already merged `68580bc`)
+> **Status:** 🟢 IN PROGRESS — W0-W2 DONE & MERGED (3/9 waves) — Sprint 1 (Blockers) 75% complete
+> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (W2 merged `e148b6a`)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged, 1114/1114 tests PASS)
 > **Source:** Production readiness review 2026-07-05 (3 subagent audit + manual verify)

@@ -473,8 +473,16 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("Id");
 
+                    b.Property<int?>("AccountingStandard")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("AccountingStandard");
+
                     b.Property<int>("BusinessType")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ConvertedAt")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("ConvertedAt");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -500,13 +508,25 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("PredecessorTenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("PredecessorTenantId");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(1);
 
+                    b.Property<Guid?>("SuccessorTenantId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("SuccessorTenantId");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("Type")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("Type");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
