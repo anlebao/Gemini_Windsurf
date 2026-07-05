@@ -18,9 +18,11 @@ namespace VanAn.ShopERP.Controllers;
 [Produces("application/json")]
 public class BalanceSheetsController(
     IBalanceSheetService balanceSheetService,
+    IVasFeatureFlagService featureFlagService,
     ILogger<BalanceSheetsController> logger) : ControllerBase
 {
     private readonly IBalanceSheetService _balanceSheetService = balanceSheetService;
+    private readonly IVasFeatureFlagService _featureFlagService = featureFlagService;
     private readonly ILogger<BalanceSheetsController> _logger = logger;
 
     /// <summary>
@@ -39,6 +41,14 @@ public class BalanceSheetsController(
         try
         {
             TenantId tenantId = GetCurrentTenantId();
+
+            // W8 feature flag: HKD tenants cannot access VAS reports (403 Forbidden).
+            if (!await _featureFlagService.CanAccessVasReportsAsync(tenantId, ct))
+            {
+                _logger.LogWarning("VAS access denied for tenant {TenantId} (HKD tenant — feature flag blocked)", tenantId.Value);
+                return Forbid("VAS reports are only available for Enterprise tenants. HKD tenants use the HKD Book module.");
+            }
+
             var period = new AccountingPeriod(year, month);
 
             BalanceSheet bs = await _balanceSheetService.GenerateAsync(tenantId, period, standard, ct);

@@ -40,6 +40,8 @@ public static class VasSampleDataSeeder
             address: "123 Le Loi, Q.1, TP.HCM",
             taxCode: "0301234567");
         var tenant = TenantAggregate.CreateCompany(VasEnterpriseTenantId, "Vạn An Trading Co. (DN vừa TT 133)", settings);
+        // W8: Classify tenant as Enterprise_SME with TT 133 standard (for feature flag routing)
+        tenant.SetTenantType(TenantType.Enterprise_SME, AccountingStandard.TT133_2016);
         dbContext.Tenants.Add(tenant);
         await dbContext.SaveChangesAsync(ct);
         logger?.LogInformation("VAS W1: Created Enterprise tenant {TenantId}", VasEnterpriseTenantGuid);

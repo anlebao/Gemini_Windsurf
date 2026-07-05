@@ -227,6 +227,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IIncomeStatementService, CoreHub.Services.IncomeStatementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ICashFlowStatementService, CoreHub.Services.CashFlowStatementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ITrialBalanceService, CoreHub.Services.TrialBalanceService>();
+            // W8: VAS feature flag + tenant conversion services
+            _ = builder.Services.AddScoped<CoreHub.Services.IVasFeatureFlagService, CoreHub.Services.VasFeatureFlagService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.ITenantConversionService, CoreHub.Services.TenantConversionService>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
             _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
             // Wave 14: API Key management

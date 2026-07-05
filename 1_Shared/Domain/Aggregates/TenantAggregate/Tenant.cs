@@ -169,6 +169,24 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         }
 
         /// <summary>
+        /// W8 (H4 deferred from W2): Set TenantType + AccountingStandard for feature flag routing.
+        /// Used to classify existing tenants created via CreateCompany (which doesn't set Type).
+        /// Cannot change Type of an already-classified tenant (one-way classification).
+        /// </summary>
+        public void SetTenantType(TenantType type, AccountingStandard? standard = null)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update tenant type of an inactive tenant.");
+            if (Type is not null && Type != type)
+                throw new InvalidOperationException($"Tenant is already classified as {Type}. Cannot change to {type}.");
+
+            Type = type;
+            if (standard is not null)
+                AccountingStandard = standard;
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set default industry sector for HKD Group 2 reporting (TT 152 S2a/S2b).
         /// Only meaningful for HouseholdBusiness tenants. Used as fallback when Order.IndustrySector is NULL.
         /// </summary>
