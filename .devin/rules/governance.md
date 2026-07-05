@@ -67,7 +67,7 @@ trigger: always_on
 - Domain layer must remain pure: NO EF Core, NO DbContext, NO DataAnnotations
 - Single Source of Truth: ALL domain entities MUST exist only in 1_Shared/Domain.cs
 - Multi-tenancy must be enforced at every layer
-- No business logic allowed in Controllers, Gateway, or Hubs
+- No business logic allowed in Controllers or Hubs (NOTE: Gateway hosts in-process CoreHub services per Option B approved 2026-07-05 — see saas_w0_task_card.md. Prior "pure proxy" rule rescinded.)
 - Layers (inner → outer): Domain → Infrastructure → Services → API. Dependencies point INWARD (API → Services → Domain)
 
 ### **Domain Layer Protection**

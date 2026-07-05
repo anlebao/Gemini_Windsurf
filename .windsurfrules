@@ -68,7 +68,7 @@ Sprint protocol: .devin/rules/sprint_tracking.rules.md
 
 ### Layer Boundaries
 - 3_CoreHub MUST remain pure Class Library (.dll). NO <OutputType>Exe</OutputType> allowed.
-- Gateway MUST remain pure stateless Reverse Proxy (YARP). NO DbContext, NO EF Core namespaces, NO business logic/services.
+- Gateway operates in MONOLITHIC MODE (Option B approved 2026-07-05 — see saas_w0_task_card.md): hosts in-process CoreHub services + IVanAnDbContext (Npgsql) for low-latency access. YARP remains configured for forwarding select traffic (e.g., static assets, KhachLink PWA). Prior "pure proxy" rule rescinded as aspirational-not-implemented.
 - 5_WebApps/KhachLink (Client UI) MUST NOT inject IVanAnDbContext or query local databases. Use HTTP via Gateway only.
 - NO new .csproj files (e.g., VanAn.CoreHub.Api). Use 5_WebApps/ShopERP as main Web API Host.
 

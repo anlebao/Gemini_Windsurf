@@ -118,21 +118,18 @@ public class GatewayStartupTests : IClassFixture<GatewayWebApplicationFactory>
     }
 
     /// <summary>
-    /// Architecture validation: Gateway must NOT have direct DbContext references.
-    /// Gateway is a pure reverse proxy and should not have database access.
-    /// This test validates that IVanAnDbContext is NOT registered in Gateway DI container.
+    /// Architecture validation: Gateway operates in monolithic mode (SaaS W0, Option B approved 2026-07-05).
+    /// Gateway hosts in-process CoreHub services + DbContext (Npgsql) for low-latency access.
+    /// This test verifies DbContext IS registered and functional.
+    /// See: docs/AI/tasks/saas_w0_task_card.md + .windsurfrules CRITICAL ARCHITECTURAL BOUNDARIES amendment.
     /// </summary>
-    [Fact(DisplayName = "Gateway: Architecture validation - no DbContext registered")]
-    public async Task Gateway_Architecture_No_DbContext_Registered()
+    [Fact(DisplayName = "Gateway: DbContext registered (monolithic mode - Option B approved)")]
+    public async Task Gateway_Architecture_DbContext_Registered_Monolithic_Mode()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var sp = scope.ServiceProvider;
 
-        // Gateway MUST NOT have IVanAnDbContext registered
-        var dbContextService = sp.GetService<Microsoft.EntityFrameworkCore.DbContext>();
-        if (dbContextService != null)
-        {
-            Assert.True(false, "Gateway architecture violation: IVanAnDbContext must NOT be registered in Gateway (pure proxy pattern)");
-        }
+        var dbContextService = sp.GetService<VanAn.CoreHub.Infrastructure.IVanAnDbContext>();
+        Assert.NotNull(dbContextService);
     }
 }

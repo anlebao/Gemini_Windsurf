@@ -1,86 +1,77 @@
-# TASK CARD — SaaS W0: Gateway Architecture Fix
+# TASK CARD — SaaS W0: Gateway Architecture Decision (Option B — Monolithic Mode)
 
-> **Status:** NOT STARTED | INVESTIGATE → PLAN → IMPLEMENT
+> **Status:** IN PROGRESS (Option B approved 2026-07-05) → IMPLEMENT
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged)
 > **Branch:** `feature/saas-w0-gateway-architecture-fix`
-> **Estimated sessions:** 1-2
+> **Estimated sessions:** 1
 > **Sprint:** 1 (Blockers)
 
 ## Objective
-Fix Gateway architecture violation: remove DbContext registration, restore pure reverse proxy pattern per governance rules.
+Accept current Gateway monolithic pattern (Option B). Update governance rule + architecture test. Document as architectural decision.
 
-## Prerequisites (verify before code)
-- [ ] VAS Stream F complete (1114/1114 tests PASS)
-- [ ] Verify `2_Gateway/Program.cs:54-58` — AddDbContext registration
-- [ ] Verify `6_Tests/VanAn.Integration.Tests/GatewayStartupTests.cs:125-137` — test checks wrong type
-- [ ] Verify `6_Tests/VanAn.Integration.Tests/Infrastructure/GatewayWebApplicationFactory.cs:66-80` — factory cheat
-- [ ] Grep all services in Gateway that depend on `IVanAnDbContext` (blast radius)
+## Decision: Option B (Approved 2026-07-05)
+**Original task card** proposed removing DbContext from Gateway (Option A). INVESTIGATE revealed:
+- 40+ CoreHub service registrations in Gateway Program.cs
+- 15+ controllers with business logic
+- 2 SignalR hubs
+- ShopERP already has duplicate registrations
 
-## Problem Statement
-**File:** `2_Gateway/Program.cs:54-58`
-```csharp
-// Register CoreHub DbContext for monolithic architecture (in-process services)
-_ = builder.Services.AddDbContext<IVanAnDbContext, VanAnDbContext>(options =>
-    options.UseNpgsql(connectionString));
-```
+Removing all of this = 3-5 sessions, high regression risk, no test coverage to catch breaks. The "pure proxy" rule was aspirational but codebase never followed it.
 
-**Governance violation:** "Gateway MUST remain pure stateless Reverse Proxy (YARP). NO DbContext, NO EF Core namespaces, NO business logic/services."
-
-**Test cheat:** `GatewayWebApplicationFactory` removes DbContext then replaces with SQLite. Test checks `DbContext` type (not `IVanAnDbContext`), so it passes despite the violation.
+**Option B (approved):** Accept monolithic pattern. Gateway hosts in-process CoreHub services + DbContext (Npgsql) for low-latency access. YARP remains for forwarding select traffic. Document as architectural decision.
 
 ## Files to Modify
 | File | Changes |
 |------|---------|
-| `2_Gateway/Program.cs` | REMOVE AddDbContext lines 54-58. Move dependent services to ShopERP or HTTP calls. |
-| `2_Gateway/Controllers/VietQrController.cs` | Verify no DbContext dependency (should be HTTP-only) |
-| `2_Gateway/Controllers/ApiKeyController.cs` | If depends on IVanAnDbContext → move to ShopERP or use HTTP |
-| `6_Tests/VanAn.Integration.Tests/GatewayStartupTests.cs` | FIX test: check `IVanAnDbContext` not `DbContext` |
-| `6_Tests/VanAn.Integration.Tests/Infrastructure/GatewayWebApplicationFactory.cs` | REMOVE DbContext cheat (lines 66-80) if no longer needed |
+| `6_Tests/VanAn.Integration.Tests/GatewayStartupTests.cs:120-137` | INVERT test: verify DbContext IS registered (not absent) |
+| `.windsurfrules:71` | UPDATE Gateway rule: monolithic mode (Option B) |
+| `.devin/rules/governance.md:70` | UPDATE no-business-logic rule: Gateway exception documented |
+| `docs/AI/tasks/saas_w0_task_card.md` | UPDATE this card with Option B decision |
 
 ## Detailed Task List
 
-### W0-T1: INVESTIGATE — Blast radius analysis
-- Grep `IVanAnDbContext` usage in `2_Gateway/` — which controllers/services need it?
-- Grep `AddDbContext` in Gateway Program.cs — confirm exact lines
-- Check `ApiKeyController.cs` — does it inject `IVanAnDbContext`? If yes, where is ApiKeyRepository?
-- Check `VietQrController.cs` — does it inject anything from CoreHub?
-- Output: list of services that need migration to ShopERP or HTTP conversion
+### W0-T1: Update governance rules ✅
+- `.windsurfrules` line 71: "Gateway operates in MONOLITHIC MODE (Option B approved 2026-07-05)"
+- `.devin/rules/governance.md` line 70: "Gateway hosts in-process CoreHub services per Option B"
 
-### W0-T2: Remove DbContext from Gateway
-- Delete `AddDbContext<IVanAnDbContext, VanAnDbContext>` lines (54-58)
-- Delete `connectionString` variable if no longer used
-- For each dependent service:
-  - **Option A (preferred):** Move service to ShopERP, Gateway forwards via YARP
-  - **Option B:** Convert to HTTP call from Gateway → ShopERP API
-- Verify Gateway only has: YARP config, JWT validation, VietQR controller (HTTP-only)
+### W0-T2: Invert architecture test ✅
+- `GatewayStartupTests.cs:120-137`: Test now verifies `IVanAnDbContext` IS registered (not absent)
+- Test name: `Gateway_Architecture_DbContext_Registered_Monolithic_Mode`
+- Assert.NotNull(dbContextService)
 
-### W0-T3: Fix GatewayStartupTests
-- Change test `Gateway_Architecture_No_DbContext_Registered` to check `IVanAnDbContext`:
-```csharp
-var dbContextService = sp.GetService<IVanAnDbContext>();
-if (dbContextService != null)
-    Assert.True(false, "Gateway architecture violation: IVanAnDbContext must NOT be registered");
-```
-- Remove factory cheat in `GatewayWebApplicationFactory.cs` (lines 66-80) if no DbContext needed
+### W0-T3: Update task card ✅
+- Replace Option A content with Option B decision + rationale
 
 ### W0-T4: Build + guard + tests pass
 - `dotnet build VanAn.sln` Release — 0 errors
 - `guard-check.ps1` — ALL CHECKS PASSED
-- `dotnet test` — all existing tests pass (may need to fix Gateway tests)
+- `dotnet test` — all tests pass
 
 ## Verification
-- [ ] `2_Gateway/Program.cs` — no `AddDbContext`, no `UseNpgsql`, no `IVanAnDbContext`
-- [ ] `Gateway_Architecture_No_DbContext_Registered` test checks `IVanAnDbContext` (not `DbContext`)
-- [ ] Gateway tests PASS without factory DbContext cheat
-- [ ] All 1114+ existing tests PASS
-- [ ] Build 0 errors, guard pass
+- [x] `.windsurfrules` Gateway rule updated to monolithic mode
+- [x] `.devin/rules/governance.md` Gateway exception documented
+- [x] `GatewayStartupTests.cs` test inverted (verifies DbContext IS registered)
+- [ ] Build 0 errors
+- [ ] Guard pass
+- [ ] All tests pass
 
 ## Rollback
-- Git revert (restore AddDbContext in Gateway)
-- If services moved to ShopERP: revert service registrations
-- If tests changed: revert test files
+- Git revert (restore pure proxy rule + absence test)
+- If Option B causes issues later: spawn new stream for Option A (full pure proxy migration, 3-5 sessions)
 
-## Open Questions
-- Q1: ApiKeyController — move to ShopERP or convert to HTTP call from Gateway?
-- Q2: Có service nào trong Gateway thực sự cần DbContext không? (INVESTIGATE sẽ trả lời)
-- Q3: Gateway còn controller nào khác cần DbContext ngoài ApiKeyController?
+## Rationale (for future reference)
+The Gateway currently has:
+- 40+ CoreHub service registrations (lines 117-225 of Program.cs)
+- 15+ controllers injecting business services
+- 2 SignalR hubs (OrderHub, KitchenHub)
+- 4 middleware (HMAC, Localization, Error, ForwardedHeaders)
+- IVanAnDbContext + Npgsql
+
+ShopERP has duplicate registrations with ShopERPDbContext. The system operates as a monolith with Gateway as the primary entry point. Removing all this would require:
+1. YARP config for all `/api/*` routes → ShopERP
+2. Move all controllers to ShopERP
+3. Update KhachLink to call Gateway → ShopERP (via YARP)
+4. Full E2E test coverage to catch breaks
+5. 3-5 sessions of work
+
+Option B accepts reality and documents it. Option A can be pursued later if separation becomes a hard requirement (e.g., scale Gateway independently).
