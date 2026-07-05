@@ -138,5 +138,5 @@ SMOKE TEST QUICK REFERENCE
 ============================================================
 "@ -ForegroundColor White
 
-Write-Host "Note: First run will seed SQLite DB (vanan_shoperp.db) — may take 10-15s extra." -ForegroundColor Yellow
-Write-Host "Note: DevLogin endpoints only exist in Debug build (#if DEBUG guard, W5)." -ForegroundColor Yellow
+Write-Host "Note: First run will seed SQLite DB (vanan_shoperp.db) - may take 10-15s extra." -ForegroundColor Yellow
+Write-Host 'Note: DevLogin endpoints only exist in Debug build (#if DEBUG guard, W5).' -ForegroundColor Yellow
