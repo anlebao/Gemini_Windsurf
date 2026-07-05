@@ -38,9 +38,8 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     
-    <!-- MVC dependencies for API controller tests -->
-    <PackageReference Include="Microsoft.AspNetCore.Mvc" />
-    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" />
+    <!-- MVC dependencies for API controller tests — use FrameworkReference for .NET 8 shared framework -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     
     <!-- FluentAssertions for better test assertions -->
     <PackageReference Include="FluentAssertions" />
