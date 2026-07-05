@@ -1,6 +1,9 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @inherits LayoutComponentBase
 
 <VanALayout>
@@ -13,15 +16,48 @@
 </VanALayout>
 
 @code {
-    private List<NavigationItem> AccountingMenuItems = new()
+    [Inject] private IVasFeatureFlagService FeatureFlagService { get; set; } = null!;
+    [Inject] private ITenantProvider TenantProvider { get; set; } = null!;
+
+    private List<NavigationItem> AccountingMenuItems = new();
+    private bool _isEnterprise;
+    private bool _initialized;
+
+    protected override async Task OnInitializedAsync()
     {
-        new() { Title = "Dashboard", Icon = "dashboard", Url = "/accounting" },
-        new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
-        new() { Title = "Nhập Chi Phí", Icon = "minus-circle", Url = "/accounting/expenses" },
-        new() { Title = "Lịch Sử Giao Dịch", Icon = "history", Url = "/accounting/history" },
-        new() { Title = "Số Dư Tài Khoản", Icon = "account-balance", Url = "/accounting/balance" },
-        new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" },
-        new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" },
-        new() { Title = "Đóng Sổ Kỳ", Icon = "lock", Url = "/accounting/period-closing" }
-    };
+        // Build base menu (always visible — HKD + shared modules)
+        AccountingMenuItems = new()
+        {
+            new() { Title = "Dashboard", Icon = "dashboard", Url = "/accounting" },
+            new() { Title = "Nhập Doanh Thu", Icon = "plus-circle", Url = "/accounting/revenue" },
+            new() { Title = "Nhập Chi Phí", Icon = "minus-circle", Url = "/accounting/expenses" },
+            new() { Title = "Lịch Sử Giao Dịch", Icon = "history", Url = "/accounting/history" },
+            new() { Title = "Số Dư Tài Khoản", Icon = "account-balance", Url = "/accounting/balance" },
+            new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" },
+            new() { Title = "Đóng Sổ Kỳ", Icon = "lock", Url = "/accounting/period-closing" }
+        };
+
+        // W8 feature flag: only show VAS Financial Reports menu for Enterprise tenants
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenantId = new TenantId(TenantProvider.TenantId);
+                _isEnterprise = await FeatureFlagService.CanAccessVasReportsAsync(tenantId);
+                if (_isEnterprise)
+                {
+                    // Insert VAS menu before Đóng Sổ Kỳ
+                    AccountingMenuItems.Insert(AccountingMenuItems.Count - 1,
+                        new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" });
+                }
+            }
+            catch
+            {
+                // If feature flag check fails, default to NOT showing VAS menu (safe default)
+                _isEnterprise = false;
+            }
+        }
+
+        _initialized = true;
+    }
 }
