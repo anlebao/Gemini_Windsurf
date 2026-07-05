@@ -1,6 +1,6 @@
 # TASK CARD — SaaS W0: Gateway Architecture Decision (Option B — Monolithic Mode)
 
-> **Status:** IN PROGRESS (Option B approved 2026-07-05) → IMPLEMENT
+> **Status:** ✅ DONE & MERGED (Option B approved 2026-07-05)
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged)
 > **Branch:** `feature/saas-w0-gateway-architecture-fix`
 > **Estimated sessions:** 1
@@ -51,9 +51,9 @@ Removing all of this = 3-5 sessions, high regression risk, no test coverage to c
 - [x] `.windsurfrules` Gateway rule updated to monolithic mode
 - [x] `.devin/rules/governance.md` Gateway exception documented
 - [x] `GatewayStartupTests.cs` test inverted (verifies DbContext IS registered)
-- [ ] Build 0 errors
-- [ ] Guard pass
-- [ ] All tests pass
+- [x] Build 0 errors
+- [x] Guard pass
+- [x] All tests pass (1133/1133)
 
 ## Rollback
 - Git revert (restore pure proxy rule + absence test)

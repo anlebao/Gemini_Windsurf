@@ -29,9 +29,28 @@
 
 ## 2. Current Objective
 
-**[STREAM F: VAS ENTERPRISE FINANCIAL REPORTS (TT 99/2025 + TT 133/2016 + TT 58/2026) — W0-W9 ALL MERGED TO MAIN ✅ STREAM COMPLETE]**
+**[STREAM G: SAAS PRODUCTION HARDENING — SPRINT 1 COMPLETE, SPRINT 2 NEXT]**
 
-Build 4 BCTC VAS (Balance Sheet + Income Statement + Cash Flow + Trial Balance) cho doanh nghiệp, feature-flag module riêng (HKD giữ nguyên). 10-wave plan (W0→W9): Writer Fix → Seed → Domain → Account Map → 4 Services → API → UI → Tests → Feature Flag → Regression. **ALL 10 WAVES COMPLETE & MERGED.**
+Hardening the accounting software for independent multi-tenant SaaS deployment based on the Production Readiness Review. This stream addresses critical blockers, hardening measures, and technical debt.
+
+- **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (9 waves, 3 sprints)
+- **Task cards:** `docs/AI/tasks/saas_w{0-8}_task_card.md` (9 cards)
+
+- **Sprint 1 (Blockers) COMPLETE ✅ (W0-W3, all merged to main):**
+  - **W0:** Gateway Architecture Fix (Option B — monolithic mode accepted)
+  - **W1:** Secrets + Config Hardening (fail-fast + `${VAR}` env var references + ValidateProductionConfig)
+  - **W2:** .NET SDK 8.0.100 → 8.0.422 (CVEs patched) + 9 legacy auth packages removed
+  - **W3:** CI Pipeline Restore (3 workflows re-enabled + multi-role DevLogin + GoldenFlow fix)
+  - **1133/1133 tests PASS** (Core 929 + Arch 31 + Integration 173)
+
+- **Sprint 2 (Hardening) NEXT:**
+  - **W4:** UI Test Coverage (10 Accounting pages bUnit tests)
+  - **W5:** Period Closing Persist + Auth Hardening
+  - **W6:** E-Invoice Real Integration Verification
+
+- **Sprint 3 (Cleanup):**
+  - **W7:** Tech Debt Cleanup (Tier 1+2)
+  - **W8:** Final Regression + Production Tag
 
 - **Master plan:** `docs/AI/tasks/vas_enterprise_reports_master_plan.md` (W0-W9 ALL DONE+MERGED ✅)
 - **Task cards:** `docs/AI/tasks/vas_wave{0-9}_task_card.md` (10 cards, detail coding plan per wave)
@@ -158,29 +177,18 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
-- **Branch:** `main` (VAS Stream F complete + SaaS Stream G planned) · `feature/hkd-fix-wave8-ui-docx-export-regression` (Stream D Wave 8 Session 2 — parked)
-- **VAS Stream (Stream F) — W9 MERGED ✅ STREAM COMPLETE:**
-  - **Master plan:** `docs/AI/tasks/vas_enterprise_reports_master_plan.md` (W0-W9 ALL DONE+MERGED ✅)
-  - **Master plan:** `docs/AI/tasks/vas_enterprise_reports_master_plan.md` (W0-W9 ALL DONE+MERGED ✅)
-  - **10 task cards:** `vas_wave{0-9}_task_card.md` (W6 card updated with TDD details + 7 bugs fixed)
-  - **W6 files created (5 pages + 6 test files):** 5 Blazor pages in `5_WebApps/ShopERP/Components/Pages/Accounting/` + 6 bUnit test files in `6_Tests/VanAn.ShopERP.Tests/Components/VasReports/`
-  - **W6 files modified (1):** `AccountingLayout.razor` (added "Báo Cáo Tài Chính" menu entry)
-  - **W7 files modified (5):** +5 W7 numeric tests to existing BS/IS/CF/TB service tests + 4 W7 numeric API tests to integration tests
-  - **W7 files created (1):** `VasMultiTenantTests.cs` (5 multi-tenant isolation tests)
-  - **Build:** 0 errors, guard ALL CHECKS PASSED, W7 tests 29/29 PASS (20 Core + 5 Multi-tenant + 4 Integration)
-  - **W8 files created (3):** `VasFeatureFlagService.cs`, `ITenantConversionService.cs`, `TenantConversionService.cs`, `VasFeatureFlagTests.cs`, migration `AddTenantConversionFields`
-  - **W8 files modified (8):** TenantConfiguration, VasSampleDataSeeder, Tenant.cs (SetTenantType), 4 BCTC controllers (feature flag check), AccountingLayout.razor (dynamic menu), Program.cs (DI)
-  - **W8 build:** 0 errors, guard ALL CHECKS PASSED, W8 tests 15/15 PASS
-  - **W9 files modified (1):** `VasReportsEndpointTests.cs` (SetTenantType + 403 acceptable)
-  - **W9 build:** 0 errors, guard ALL CHECKS PASSED, **1114/1114 tests PASS** (Core 910 + Arch 31 + Integration 173)
-  - **VAS STREAM COMPLETE ✅** — 10 waves (W0-W9), all merged to main
-- **SaaS Stream (Stream G) — PLANNED, W0 next:**
-  - **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (9 waves, 3 sprints)
-  - **9 task cards:** `saas_w{0-8}_task_card.md`
-  - **W0.5 CANCELLED:** Stream D đã merged (`68580bc`, 2026-07-04) — verify `git merge-base --is-ancestor c387608 main` = 0
-  - **Status:** W0+W1+W2 COMPLETE & MERGED. W3 next.
-  - **Target:** `saas-production-v1.0` tag after W8
-- **Stream D:** ✅ COMPLETE & MERGED (`68580bc`, 2026-07-04) — 12 waves all merged. Project_state trước ghi sai "parked" — đã verify c387608 is ancestor of main.
+- **Branch:** `main` (SaaS Stream G Sprint 1 complete)
+- **.NET SDK:** 8.0.422 (upgraded from 8.0.100 — CVEs patched)
+- **SaaS Stream (Stream G) — SPRINT 1 COMPLETE ✅ (W0-W3 all merged):**
+  - **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (W0-W3 DONE+MERGED ✅, W4-W8 pending)
+  - **4 task cards:** `saas_w{0-3}_task_card.md` (all updated to DONE)
+  - **W0 files modified (3):** `GatewayStartupTests.cs`, `.windsurfrules`, `governance.md`
+  - **W1 files modified (9):** `ShopERP/Program.cs` (fail-fast + ValidateProductionConfig), `CoreHub/Program.cs`, `Gateway/Program.cs`, `appsettings.Production.json` (`${VAR}` env vars), 3 scripts (mandatory passwords)
+  - **W2 files modified (4):** `global.json` (new, SDK pin), `Directory.Packages.props` (9 packages removed), `ShopERP.csproj`, `Core.Tests.csproj` (FrameworkReference)
+  - **W3 files modified (6):** `DevLoginController.cs` (multi-role), `global-setup.ts` (4 auth files), `rbac-enforcement.spec.ts` (real tests), `export-excel-flow.spec.ts`, `ci.yml` + `e2e.yml` + `pr-check.yml` (re-enabled), `GoldenFlowSystemTests.cs` (ITenantProvider fix)
+  - **Build:** 0 errors, guard ALL CHECKS PASSED, **1133/1133 tests PASS** (Core 929 + Arch 31 + Integration 173)
+- **VAS Stream (Stream F) — COMPLETE ✅** (W0-W9 all merged, 10 waves)
+- **Stream D — COMPLETE ✅** (`68580bc`, 2026-07-04, 12 waves all merged)
 
 ---
 
@@ -253,61 +261,25 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 4. Next Actions
 
-**Stream F — VAS Enterprise Financial Reports (W3 IN PROGRESS):**
-1. ~~W0: Order→Accounting Writer Fix~~ ✅ DONE & MERGED (`be348ad`)
-2. ~~W1: Data Audit + Seed~~ ✅ DONE & MERGED (`93a5e7e`)
-3. ~~W2: Domain Records~~ ✅ DONE & MERGED (`fef8097`)
-4. **W3: Account Code Map** 🔄 IN PROGRESS (branch `feature/vas-wave3-account-code-map`)
-   - ~~INVESTIGATE~~ ✅ DONE — TT 99/2025 chart verified, F1-F9 findings, storage decision
-   - ~~W3-T1: IAccountChartService + AccountChartService~~ ✅ DONE
-   - ~~W3-T3: IHkdToEnterpriseAccountMapper + HkdToEnterpriseAccountMapper~~ ✅ DONE
-   - ~~W3-T4: Refactor HKDBookService.GetAccountName~~ ✅ SKIPPED (rec c — HKD uses TT 88/2021, not in enum)
-   - ~~W3-T6: Fix HKD dict F1-F6 label bugs~~ ✅ DONE (641/642 swap, 811→Chi phí khác, 822→711, 831 removed, 311 label, 911 added)
-   - **W3-T2 finish:** ⏳ NEXT — create EF migration for `AccountCharts` table + `AccountChartSeeder` (3 standards, TT 133 first per R3, include F8 TK 215 + 33x for TT 99, F9 521 IsNormalCredit=false)
-   - **DI registration:** ⏳ PENDING — add `IAccountChartService` + `IHkdToEnterpriseAccountMapper` to `5_WebApps/ShopERP/Program.cs`
-   - **W3-T5:** ⏳ PENDING — build + guard + Core.Tests + Arch.Tests pass
-   - **Commit + merge W3 to main** ⏳ PENDING
-5. W4: 4 Report Services (BS+IS+CF+TB parallel) — sau W3 merge
-6. W5-W9: theo dependency chain (see master plan Section 1)
+**Stream G — SaaS Production Hardening (Sprint 2 NEXT):**
 
-**Stream D — HKD Book Accounting Report Fix (active, Wave 0+0.5 in progress):**
-1. ~~Audit + master plan v1 + 9 task cards~~ ✅ — Committed `c4acb15`.
-2. ~~v2 plan optimization (3 amendments + 5 concerns resolved)~~ ✅ — Committed `c8d4a6c` + `22d3976`.
-3. ~~v3 plan optimization (2 phản biện + Amendment 4+5)~~ ✅ — Committed `88e635a` + `4b2f077` + `7fb6dec`.
-4. ~~Commit v3 master plan~~ ✅ — Committed `7fb6dec` + `dad3d76`.
-5. ~~Wave 0: Pre-flight verification (11 tasks)~~ 🔄 IN PROGRESS — 15/21 tasks done (T1-T11 + W0.5-T1-T4). 3 new gaps found. See execution findings in `wave0_hkd_fix_preflight_task_card.md` Section 13-15.
-6. ~~Wave 0.5: Architecture Decision~~ ✅ DONE — **Option A chosen** (refactor `SmartPreAggregationService` query `AccountingEntries` directly, no JournalEntry writing). See `wave0p5_hkd_fix_arch_decision_data_source_task_card.md` Section 13.
-7. **Wave 0 remaining (6 tasks):** ⏳ PENDING
-   - a. Propagate T8 decision → Wave 3 task card (ITemplateFactory: keep both, no conflict)
-   - b. Propagate T9 decision → Wave 8 task card (EPPlus XLSX + DocumentFormat.OpenXml DOCX approved)
-   - c. Propagate T10 decision → Wave 5b task card (IndustrySector MISSING, conditional)
-   - d. Propagate T11 decision → Wave 2 task card (Path B, but Option A avoids JournalEntry writing)
-   - e. W0-T7b: Install pandoc + extract S1a_HKD.doc layout
-   - f. W0-T7c: Complete 6 .docx layout extraction
-8. **W0.5-T5: Rewrite Wave 2 task card per Option A** ⏳ PENDING — Replace "Bridge JournalEntry persistence" with "Refactor SmartPreAggregationService query AccountingEntries". Rename file `wave2_hkd_fix_bridge_journal_persistence_task_card.md` → `wave2_hkd_fix_data_source_bridge_task_card.md`.
-9. ~~Stream E: DB Migration Strategy~~ ✅ DONE — Merged `b2e0431`. InitialCreate migration + DesignTimeDbContextFactory + VA-ARCH-001 modified + EnsureCreated→MigrateAsync. Dev DB migrated.
-10. ~~guard-check.ps1 + commit Wave 0+0.5~~ ✅ DONE — Committed `88a7fb4`, merged `06bfd44`.
-11. ~~Merge Wave 0+0.5 to main~~ ✅ DONE — Merged `06bfd44`.
-12. ~~Wave 1: Fix UTF-8 mojibake~~ ✅ DONE — Committed `83cca48`, merged `2f294c8`. S1a+S2a+S3a fixed (S3a also had mojibake, caught + fixed).
-13. ~~Wave 2: Data source bridge (Option A per W0.5)~~ ✅ DONE — Merged `b08d907`. Query refactor + SQLite decimal `SumAsync` fix (materialize + client-side sum). 3/3 unit tests PASSING.
-14. ~~Wave 3: Wire calc engine into DI~~ ✅ DONE — Committed `3b98524`, merged to main. 6 DI registrations added (5 calc engine services + IBookResultCache). W0-T8 conflict preserved. Build 0 errors, guard PASSED.
-15. ~~Wave 4: Route through IHKDBookGenerationService~~ ✅ DONE — Committed `57d021c`, merged to main `7dbbcb1`. Injected `IHKDBookGenerationService` into `HKDBookService` constructor; rewrote 7 `GenerateS*BookAsync` methods to call `_hkdBookGenerationService.GenerateBookAsync(tenantId, period, "<code>")`; marked `ConvertToJournalEntries` `[Obsolete]` (0 callers); updated 2 test files with `Mock<IHKDBookGenerationService>` (Wave 6 will retrofit numeric assertions). Build 0 errors, 990 warnings. Guard PASSED. **Fixes Issue 1 (NumericValues always empty) — core fix of Stream D.**
-16. ~~Wave 5 (MERGED 5a+5b+partial 5c): Industry Sector + PIT Fix + Account Mapping + 4-group Tax Rates~~ ✅ DONE — Committed `1ac8252`, merged to main. 6 micro-phases (S1-S6): Domain (IndustrySector enum + fields), EF Migration (AddIndustrySector), Formula Engine (SUM_ACCOUNT_BY_INDUSTRY), Tax Rate Lookup (4 groups VAT/PIT), S2a/S2b Template Redesign (4 industry groups), Production Write Path (OrderService/AccountingEntryService/HKDBookService pass IndustrySector), Tests (10/10 PASS) + Seed Data update. 29 files, +3203/-201. Build PASS, guard PASS. 3 pre-existing failures (unrelated HKDBookServiceTests — missing mock setup for IHKDBookGenerationService.GenerateBookAsync, broken before Wave 5).
-17. ~~Wave 5c: 2026 Regulatory Compliance Fix (threshold + TNCN formulas)~~ ✅ DONE & MERGED — Committed `a60d026` on branch `feature/hkd-fix-wave5c-2026-regulatory`, merged to main `aa930dd`. Domain `CalculateGroup` thresholds 1B/3B/50B + `CalculateTNCN` (Nhóm 1: 0, Nhóm 2: (Rev-1B)×rate, Nhóm 3: (Rev-Expense)×17%, Nhóm 4: (Rev-Expense)×20%) + `CalculateGTGT` (Nhóm 1 exemption). Service thresholds + warnings. S2a template `CalculateAsync` override (Nhóm-aware TotalPIT + TotalExpense + blended PIT rate). `HKDTaxClassificationService` 10% TNCN → `CalculateTNCN`. 20 unit tests PASS. Build 0 errors, guard PASSED.
-18. ~~Wave 6: Retrofit tests with numeric assertions~~ ✅ DONE & MERGED TO MAIN (`d6c3bb2`). 3 updated (S1a/S2a/S2b) + 5 new numeric (S2c/S2d/S2e/S3a + all-templates Theory×7) + 1 regression (W6-T8). Core.Tests Release 818/818 PASS, guard PASSED. Task card: `wave6_hkd_fix_retrofit_numeric_tests_task_card.md`.
-19. ~~Wave 7: API endpoint + DI smoke + multi-tenancy test~~ ✅ DONE & COMMITTED (`76d2c11`) — HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs. Core.Tests 818/818, Architecture.Tests 28/28, guard PASSED. Root cause investigation log: `docs/AI/tasks/wave7_root_cause_investigation_log.md`.
-20. **Wave 8: UI page + DOCX/XLSX export + regression prevention** 🔄 IN PROGRESS — Session 1 committed `c8eb819` (UI + export + DI wiring). Session 2 in progress: E2E spec + architecture test + encoding lint + docs. Task card: `wave8_hkd_fix_ui_docx_export_regression_task_card.md`.
+Sprint 1 (Blockers) COMPLETE ✅ — all 4 waves merged to main.
 
-**Critical path updated:** ~~Wave 0~~ ✅ → ~~Wave 0.5~~ ✅ → ~~commit~~ ✅ → ~~merge~~ ✅ → ~~Stream E~~ ✅ → ~~Wave 1~~ ✅ → ~~Wave 2 (Option A)~~ ✅ → ~~Wave 3 (DI wiring)~~ ✅ → ~~Wave 4 (route through IHKDBookGenerationService)~~ ✅ → ~~Wave 5 (Industry Sector + PIT Fix)~~ ✅ → ~~Wave 5c (2026 Regulatory)~~ ✅ → ~~merge 5c~~ ✅ → ~~6~~ ✅ → ~~7~~ ✅ → **8**.
+1. ~~W0: Gateway Architecture Fix (Option B)~~ ✅ DONE & MERGED
+2. ~~W1: Secrets + Config Hardening~~ ✅ DONE & MERGED
+3. ~~W2: .NET SDK 8.0.422 + Package Security~~ ✅ DONE & MERGED
+4. ~~W3: CI Pipeline Restore~~ ✅ DONE & MERGED
+5. **W4: UI Test Coverage (10 Accounting pages)** ⏳ NEXT — bUnit tests for Accounting pages
+6. W5: Period Closing Persist + Auth Hardening — sau W4
+7. W6: E-Invoice Real Integration Verification — sau W5
+8. W7: Tech Debt Cleanup (Tier 1+2) — sau Sprint 2
+9. W8: Final Regression + Production Tag — cuối cùng
+
+**Critical path:** ~~W0~~ ✅ → ~~W1~~ ✅ → ~~W2~~ ✅ → ~~W3~~ ✅ → **W4** → W5 → W6 → W7 → W8 → `saas-production-v1.0` tag
 
 **Deferred (awaiting user decision):**
-1. **Merge Stream B to main** — Stream B wave branches await merge to main. All 8 waves complete, guard PASSED.
-2. **Push to origin** — `main` is ahead of `origin/main` (Stream B + Stream D planning commits).
-3. **Stream A: EInvoice Provider Rewrite** — Planning complete (`59b60fe`). Blocker: Wave 0 sandbox credentials (1-2 tuần).
-4. **Blazor `CascadingAuthenticationState` circuit crash** — pre-existing defect. Separate FIX_ONLY stream candidate.
-5. ~~Tech Lead approval for Stream D Wave 5a W5a-T4~~ ✅ RESOLVED 2026-07-03 — Wave 5a superseded by merged Wave 5. Tech Lead approved Domain mod (add `IndustrySector` to `AccountingEntry` + `Tenant` + `Order`).
-6. ~~Tech Lead approval for Stream D Wave 5b W5b-T0~~ ✅ RESOLVED 2026-07-03 — Wave 5b merged into Wave 5. `Tenant.IndustrySector` addition approved.
-7. ~~Legal review for Stream D Wave 5c~~ ✅ RESOLVED 2026-07-03 — User approved proceeding with task card's cited legal sources (Luật GTGT/TNCN 2025, ND 117/2025, NQ 198/2025/QH15, meinvoice.vn) as basis. Domain fix approved. 10% TNCN bug included in scope. Nhóm 3/4 formula implemented with warning when no expense data.
+1. **Push to origin** — `main` is ahead of `origin/main` (Stream F + Stream G commits).
+2. **Stream A: EInvoice Provider Rewrite** — Planning complete. Blocker: sandbox credentials.
 8. ~~Stream E: DB Migration Strategy~~ ✅ DONE — Merged `b2e0431`.
 
 ---
