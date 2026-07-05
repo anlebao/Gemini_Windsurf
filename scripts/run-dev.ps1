@@ -70,6 +70,21 @@ foreach ($p in @($gatewayProj, $shopErpProj)) {
 # --- 4. Launch services ---
 $envScript = '$env:ASPNETCORE_ENVIRONMENT="Development"'
 
+# --- 4a. Pre-flight: remove stale SQLite DB if it predates W3 (missing AccountCharts table) ---
+$dbPath = Join-Path $rootDir "5_WebApps\ShopERP\vanan_shoperp.db"
+if (Test-Path $dbPath) {
+    $dbAge = (Get-Date) - (Get-Item $dbPath).LastWriteTime
+    if ($dbAge.TotalDays -gt 1) {
+        Write-Host "[DB] Found stale vanan_shoperp.db ($([int]$dbAge.TotalDays) days old) - removing to force fresh schema creation" -ForegroundColor Yellow
+        Remove-Item "$dbPath*", -Force -ErrorAction SilentlyContinue
+        Write-Host "[DB] Stale DB removed - EnsureCreatedAsync will recreate with all W3/W5 tables" -ForegroundColor Green
+    } else {
+        Write-Host "[DB] vanan_shoperp.db is recent (<1 day) - keeping" -ForegroundColor Green
+    }
+} else {
+    Write-Host "[DB] No vanan_shoperp.db found - will be created on first run" -ForegroundColor Green
+}
+
 # Gateway (5001) — monolithic mode, in-process CoreHub
 if (-not $ShopERPOnly) {
     Write-Host "`n[Gateway] Starting on http://localhost:5001 ..." -ForegroundColor Green
