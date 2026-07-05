@@ -1,0 +1,210 @@
+@page "/accounting/cash-flow-statement"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject VanAn.CoreHub.Services.ICashFlowStatementService CashFlowService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<CashFlowStatement> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Báo Cáo Lưu Chuyển Tiền Tệ</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">
+                🔄 Tạo báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <label>Chuẩn kế toán:
+                <select @bind="selectedStandard">
+                    <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
+                    <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tạo báo cáo">
+            <p>Đang tạo Báo Cáo Lưu Chuyển Tiền Tệ cho kỳ @selectedMonth/@selectedYear...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        <!-- Key metrics -->
+        <VanACard Header="Chỉ số chính">
+            <div class="metrics-row">
+                <div class="metric-item">
+                    <span class="metric-label">Tiền đầu kỳ:</span>
+                    <span class="metric-value">@FormatAmount(report.OpeningCash)</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Tiền cuối kỳ:</span>
+                    <span class="metric-value">@FormatAmount(report.ClosingCash)</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Lưu chuyển tiền thuần:</span>
+                    <span class="metric-value">@FormatAmount(report.NetChange)</span>
+                </div>
+            </div>
+        </VanACard>
+
+        <!-- Operating Activities -->
+        <VanACard Header="Lưu chuyển tiền từ hoạt động kinh doanh">
+            <VanAnDataGrid TItem="FinancialStatementLine" Items="@report.OperatingActivities" EmptyMessage="Không có hoạt động kinh doanh trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Mã chỉ tiêu" Width="2">
+                        <Template Context="line">
+                            <span style="padding-left:@(line.Level * 16)px">@line.ReportItemCode</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Tên chỉ tiêu" Width="6">
+                        <Template Context="line">
+                            <span style="padding-left:@(line.Level * 16)px; font-weight:@(line.Level == 1 ? "bold" : "normal")">@line.ReportItemName</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Số cuối kỳ" Width="2">
+                        <Template Context="line">
+                            <span>@FormatAmount(line.EndingAmount)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Số đầu năm" Width="2">
+                        <Template Context="line">
+                            <span>@FormatAmount(line.OpeningAmount)</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+
+        <!-- Investing Activities -->
+        <VanACard Header="Lưu chuyển tiền từ hoạt động đầu tư">
+            <VanAnDataGrid TItem="FinancialStatementLine" Items="@report.InvestingActivities" EmptyMessage="Không có hoạt động đầu tư trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Mã chỉ tiêu" Width="2">
+                        <Template Context="line">
+                            <span style="padding-left:@(line.Level * 16)px">@line.ReportItemCode</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Tên chỉ tiêu" Width="6">
+                        <Template Context="line">
+                            <span style="padding-left:@(line.Level * 16)px; font-weight:@(line.Level == 1 ? "bold" : "normal")">@line.ReportItemName</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Số cuối kỳ" Width="2">
+                        <Template Context="line">
+                            <span>@FormatAmount(line.EndingAmount)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Số đầu năm" Width="2">
+                        <Template Context="line">
+                            <span>@FormatAmount(line.OpeningAmount)</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+
+        <!-- Financing Activities -->
+        <VanACard Header="Lưu chuyển tiền từ hoạt động tài chính">
+            <VanAnDataGrid TItem="FinancialStatementLine" Items="@report.FinancingActivities" EmptyMessage="Không có hoạt động tài chính trong kỳ">
+                <Columns>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Mã chỉ tiêu" Width="2">
+                        <Template Context="line">
+                            <span style="padding-left:@(line.Level * 16)px">@line.ReportItemCode</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Tên chỉ tiêu" Width="6">
+                        <Template Context="line">
+                            <span style="padding-left:@(line.Level * 16)px; font-weight:@(line.Level == 1 ? "bold" : "normal")">@line.ReportItemName</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Số cuối kỳ" Width="2">
+                        <Template Context="line">
+                            <span>@FormatAmount(line.EndingAmount)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="FinancialStatementLine" Title="Số đầu năm" Width="2">
+                        <Template Context="line">
+                            <span>@FormatAmount(line.OpeningAmount)</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private VanAn.Shared.Domain.CashFlowStatement? report;
+    private bool loading = true;
+    private string? errorMessage;
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private AccountingStandard selectedStandard = AccountingStandard.TT133_2016;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GenerateReport();
+    }
+
+    private async Task GenerateReport()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            report = await CashFlowService.GenerateAsync(tenantId, period, selectedStandard, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating Cash Flow Statement for period {Year}-{Month}", selectedYear, selectedMonth);
+            errorMessage = "Không thể tạo Báo Cáo Lưu Chuyển Tiền Tệ. Vui lòng thử lại.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("N0");
+    }
+}

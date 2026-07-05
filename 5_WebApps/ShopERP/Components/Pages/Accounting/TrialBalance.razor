@@ -1,0 +1,156 @@
+@page "/accounting/trial-balance"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject VanAn.CoreHub.Services.ITrialBalanceService TrialBalanceService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject ILogger<TrialBalance> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Bảng Cân Đối Số Phát Sinh</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">
+                🔄 Tạo báo cáo
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <label>Chuẩn kế toán:
+                <select @bind="selectedStandard">
+                    <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
+                    <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tạo báo cáo">
+            <p>Đang tạo Bảng Cân Đối Số Phát Sinh cho kỳ @selectedMonth/@selectedYear...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        <!-- Balance status indicator -->
+        <VanAAlert Type="@BalanceAlertType" Message="@BalanceAlertMessage" />
+
+        <!-- Account details -->
+        <VanACard Header="Chi tiết tài khoản">
+            <VanAnDataGrid TItem="TrialBalanceAccount" Items="@report.Accounts" EmptyMessage="Không có dữ liệu">
+                <Columns>
+                    <VanAnColumn TItem="TrialBalanceAccount" Title="Số tài khoản" Width="2">
+                        <Template Context="acc">
+                            <span>@acc.AccountNumber</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="TrialBalanceAccount" Title="Tên tài khoản" Width="5">
+                        <Template Context="acc">
+                            <span>@acc.AccountName</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="TrialBalanceAccount" Title="Phát sinh Nợ" Width="2">
+                        <Template Context="acc">
+                            <span>@FormatAmount(acc.DebitTotal)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="TrialBalanceAccount" Title="Phát sinh Có" Width="2">
+                        <Template Context="acc">
+                            <span>@FormatAmount(acc.CreditTotal)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="TrialBalanceAccount" Title="Số dư" Width="1">
+                        <Template Context="acc">
+                            <span>@FormatAmount(acc.Balance)</span>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+            <div class="totals-row">
+                <strong>Tổng phát sinh Nợ:</strong>
+                <span>@FormatAmount(report.TotalDebit)</span>
+                <strong>Tổng phát sinh Có:</strong>
+                <span>@FormatAmount(report.TotalCredit)</span>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private VanAn.Shared.Domain.TrialBalance? report;
+    private bool loading = true;
+    private string? errorMessage;
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private AccountingStandard selectedStandard = AccountingStandard.TT133_2016;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GenerateReport();
+    }
+
+    private async Task GenerateReport()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            report = await TrialBalanceService.GenerateAsync(tenantId, period, selectedStandard, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating Trial Balance for period {Year}-{Month}", selectedYear, selectedMonth);
+            errorMessage = "Không thể tạo Bảng Cân Đối Số Phát Sinh. Vui lòng thử lại.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static string FormatAmount(decimal amount)
+    {
+        return amount.ToString("N0");
+    }
+
+    private string BalanceAlertType => report?.IsBalanced == true ? "success" : "warning";
+
+    private string BalanceAlertMessage => report?.IsBalanced == true
+        ? "Bảng cân đối số phát sinh: Cân bằng"
+        : "Bảng cân đối số phát sinh: Không cân bằng — kiểm tra dữ liệu nhập";
+}

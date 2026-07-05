@@ -1,0 +1,32 @@
+@page "/accounting/financial-reports"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@inject IThemeProvider ThemeProvider
+
+<div class="report-hub-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Báo Cáo Tài Chính</h1>
+    </header>
+
+    <VanACard Header="Danh mục báo cáo tài chính (VAS)">
+        <div class="report-links-grid">
+            <a href="/accounting/balance-sheet" class="report-link-card">
+                📊 Bảng Cân Đối Kế Toán
+            </a>
+            <a href="/accounting/income-statement" class="report-link-card">
+                📈 Báo Cáo Kết Quả Hoạt Động Kinh Doanh
+            </a>
+            <a href="/accounting/cash-flow-statement" class="report-link-card">
+                💰 Báo Cáo Lưu Chuyển Tiền Tệ
+            </a>
+            <a href="/accounting/trial-balance" class="report-link-card">
+                ⚖️ Bảng Cân Đối Số Phát Sinh
+            </a>
+        </div>
+    </VanACard>
+</div>
