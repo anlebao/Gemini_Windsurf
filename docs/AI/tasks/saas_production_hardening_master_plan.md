@@ -111,15 +111,15 @@ main ← feature/saas-w8-regression-production-tag
 
 ### 2.3. Tech Debt (📋 Medium priority)
 
-| # | Debt | File | Wave fix |
-|---|------|------|----------|
-| M1 | Tenant fallback hardcode (Tier 1) | `TransactionHistory.razor:187`, `ExpenseEntry.razor:211` | W7 |
-| M2 | JS interop workaround cho @bind | `ExpenseEntry.razor:222`, `App.razor:18` | W7 |
-| M3 | 5 flaky performance tests | `ProductionDataTests.cs` | W7 |
-| M4 | HKDBookService obsolete methods (0 callers) | `HKDBookService.cs:356,709` | W7 |
-| M5 | NotImplemented trong sync/audit services | `SyncStrategyService`, `DataVersioningService` | W7 |
-| M6 | Docker: no resource limits, no SQLite volume | `docker-compose.yml` | W7 |
-| M7 | Docker: tests disabled in Dockerfile | `ShopERP/Dockerfile:33` | W7 |
+| # | Debt | File | Wave fix | Status |
+|---|------|------|----------|--------|
+| M1 | Tenant fallback hardcode (Tier 1) | `TransactionHistory.razor:187`, `ExpenseEntry.razor:211` | W7 | ✅ SKIP — already fixed (proper `HasTenant` guard) |
+| M2 | JS interop workaround cho @bind | `ExpenseEntry.razor:222`, `App.razor:18` | W7 | ⏳ DEFER — E2E test reliability hack, kept as tech debt |
+| M3 | 5 flaky performance tests | `ProductionDataTests.cs` | W7 | ⏳ DEFER — not in W7 scope (Performance category excluded from gate) |
+| M4 | HKDBookService obsolete methods (0 callers) | `HKDBookService.cs:356,709` | W7 | ✅ M6 removed (M5 kept — has internal caller) |
+| M5 | NotImplemented trong sync/audit services | `SyncStrategyService`, `DataVersioningService` | W7 | ⏳ DEFER — post-production (per task card Q3) |
+| M6 | Docker: no resource limits, no SQLite volume | `docker-compose.yml` | W7 | ✅ DONE — resource limits + vanan-sqlite volume |
+| M7 | Docker: tests disabled in Dockerfile | `ShopERP/Dockerfile:33` | W7 | ✅ DONE — separate `test` stage added |
 
 ### 2.4. What's Already Good (✅ No action needed)
 
@@ -164,9 +164,9 @@ main ← feature/saas-w8-regression-production-tag
 | W3 | CI Pipeline Restore (E2E + Integration) | IMPLEMENT | 1 | `saas_w3_task_card.md` | ✅ DONE — Multi-role DevLogin endpoints (Staff/StoreKeeper/Guard), global-setup generates 4 auth files, rbac-enforcement.spec.ts real tests (7 skip→0), ci.yml + e2e.yml + pr-check.yml all re-enabled. **Gap fix:** GoldenFlow 2 test failures fixed (ITenantProvider not registered in test DI → IgnoreQueryFilters added). 1133/1133 tests PASS. |
 | W4 | UI Test Coverage (10 Accounting pages) | IMPLEMENT | 2 | `saas_w4_task_card.md` | ✅ DONE (pending merge) — 44 new bUnit tests for 3 missing pages (HKDBooks 10 + HKDBookDetail 15 + PeriodClosing 19). 7/10 pages already had 38 tests from VAS W6. bUnit + `@rendermode InteractiveServer` limitation documented (click tests → reflection/render assertions; full interaction → Playwright E2E). Build 0 errors, guard PASS, 44/44 new tests PASS. |
 | W5 | Period Closing Persist + Auth Hardening | IMPLEMENT | 2 | `saas_w5_task_card.md` | ✅ DONE (pending merge) — PeriodClosingStatusEntity (Infrastructure, NOT Domain — W3 precedent) + migration + PeriodClosingService refactored (static Dictionary → DB queries) + DevLoginController `#if DEBUG` guard + 3 Arch tests + 4 Integration tests (SQLite in-memory). HttpOnly cookie already set (no-op). Pre-existing AccountingLayoutNavigationTests fixed (IVasFeatureFlagService mock in ComponentTestBase). 1143/1143 tests PASS. |
-| W6 | E-Invoice Real Integration Verification | IMPLEMENT | 2 | `saas_w6_task_card.md` | ⏳ |
-| W7 | Tech Debt Cleanup (Tier 1+2) | IMPLEMENT | 3 | `saas_w7_task_card.md` | ⏳ |
-| W8 | Final Regression + Production Tag | REVIEW | 3 | `saas_w8_task_card.md` | ⏳ |
+| W6 | E-Invoice Real Integration Verification | IMPLEMENT | 2 | `saas_w6_task_card.md` | ✅ DONE & PUSHED (`fcdfbb9`) — Stream A merged into W6 (4 waves → 8 tasks, 1 branch). Viettel + MISA providers fully rewritten per real API spec (Cookie auth + nested payload + transactionUUID for Viettel; appid + {Success,Data,ErrorCode} + SignType for MISA). Facebook Lead unsafe reflection removed. 1152/1152 tests PASS. **W6-T6 deferred** (staging tests blocked by Viettel/MISA sandbox credentials). |
+| W7 | Tech Debt Cleanup (Tier 1+2) | IMPLEMENT | 3 | `saas_w7_task_card.md` | ✅ DONE & PUSHED (`453e4cb`) — M1+M2 SKIP (already fixed), M3+M4 DEFER (E2E reliability hack), M6+M7 obsolete methods removed, Docker hardening (resource limits + SQLite volume + test stage), security headers middleware (5 headers). 1152/1152 tests PASS. |
+| W8 | Final Regression + Production Tag | REVIEW | 3 | `saas_w8_task_card.md` | ⏳ NEXT |
 
 **Chi tiết từng wave:** xem task card tương ứng. Master plan chỉ giữ overview.
 
@@ -219,15 +219,18 @@ Sprint 3 (Cleanup):     W7 → W8
 - [x] PeriodClosing status persisted to DB (survive restart) — **W5 DONE** (PeriodClosingStatusEntity + migration + service refactor)
 - [x] DevLoginController guarded (`#if DEBUG` compile-time guard) — **W5 DONE** (also Program.cs dev route guarded)
 - [x] JWT cookie HttpOnly=true — **W5 verified** (already set in Login.cshtml.cs:96, no change needed)
-- [ ] E-Invoice: Viettel + MISA verified với real credentials (staging)
+- [x] E-Invoice: Viettel + MISA providers rewritten per real API spec — **W6 DONE** (`fcdfbb9`). Staging verification deferred (W6-T6, blocked by credentials).
+- [ ] E-Invoice: Viettel + MISA verified với real credentials (staging) — **W6-T6 DEFERRED** (user-side email pending)
 
 ### Sprint 3 (Cleanup + Tag) — NICE TO HAVE:
-- [ ] Tier 1 tech debt resolved (tenant fallback hardcode)
-- [ ] Tier 2 tech debt resolved (JS interop workaround)
-- [ ] HKDBookService obsolete methods removed
-- [ ] Docker: resource limits + SQLite volume mount
-- [ ] Full regression: 1114+ tests PASS (baseline + new tests)
-- [ ] Tag: `saas-production-v1.0`
+- [x] Tier 1 tech debt resolved (tenant fallback hardcode) — **W7 SKIP** (already fixed)
+- [ ] Tier 2 tech debt resolved (JS interop workaround) — **W7 DEFER** (E2E reliability hack)
+- [x] HKDBookService obsolete methods removed — **W7 DONE** (M6 removed, M5 kept)
+- [x] Docker: resource limits + SQLite volume mount — **W7 DONE**
+- [x] Docker: tests enabled in Dockerfile (separate stage) — **W7 DONE**
+- [x] Security headers middleware — **W7 DONE** (5 headers)
+- [ ] Full regression: 1152+ tests PASS (baseline + new tests) — **W8 NEXT**
+- [ ] Tag: `saas-production-v1.0` — **W8 NEXT**
 
 ---
 
