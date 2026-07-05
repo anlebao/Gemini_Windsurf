@@ -222,6 +222,11 @@ namespace VanAn.ShopERP
             // W3: VAS Account Chart service + HKD→DN account mapper (D9)
             _ = builder.Services.AddScoped<CoreHub.Services.IAccountChartService, CoreHub.Services.AccountChartService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IHkdToEnterpriseAccountMapper, CoreHub.Services.HkdToEnterpriseAccountMapper>();
+            // W4: VAS Enterprise Financial Report services (BS + IS + CF + TB)
+            _ = builder.Services.AddScoped<CoreHub.Services.IBalanceSheetService, CoreHub.Services.BalanceSheetService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IIncomeStatementService, CoreHub.Services.IncomeStatementService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.ICashFlowStatementService, CoreHub.Services.CashFlowStatementService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.ITrialBalanceService, CoreHub.Services.TrialBalanceService>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
             _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
             // Wave 14: API Key management

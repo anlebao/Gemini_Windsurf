@@ -353,6 +353,7 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        [Obsolete("Use ITrialBalanceService.GenerateAsync instead — VAS Wave 4 fixes Pattern #1 + #5 query violations.")]
         public async Task<TrialBalance> GenerateTrialBalanceAsync(
             TenantId tenantId,
             AccountingPeriod period,
