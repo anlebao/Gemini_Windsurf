@@ -160,7 +160,7 @@ main ← feature/saas-w8-regression-production-tag
 |------|-----|------|--------|-----------|--------|
 | W0 | Gateway Architecture Fix | IMPLEMENT | 1 | `saas_w0_task_card.md` | ✅ DONE — Option B (monolithic mode) approved & merged `5ecbf5e`. Governance rule updated, arch test inverted. 1114/1114 tests PASS. |
 | W1 | Secrets + Production Config Hardening | IMPLEMENT | 1 | `saas_w1_task_card.md` | ✅ DONE — fail-fast in Production (4 Program.cs locations) + mandatory script params (3 scripts) + config validation (ShopERP + Gateway). 1114/1114 tests PASS. |
-| W2 | .NET SDK Upgrade + Package Security | IMPLEMENT | 1 | `saas_w2_task_card.md` | ⏳ |
+| W2 | .NET SDK Upgrade + Package Security | IMPLEMENT | 1 | `saas_w2_task_card.md` | ✅ DONE — Removed 9 legacy 2.3.0 auth packages (Authentication, Authentication.Core, Authentication.Abstractions, Http, Http.Abstractions, Http.Extensions, DataProtection, Hosting.Abstractions, Authentication.Cookies 2.3.9). Added FrameworkReference Microsoft.AspNetCore.App to Core.Tests. global.json pins SDK 8.0.x with rollForward. 1114/1114 tests PASS. **SDK 8.0.100→8.0.22+ needs user manual install.** |
 | W3 | CI Pipeline Restore (E2E + Integration) | IMPLEMENT | 1 | `saas_w3_task_card.md` | ⏳ |
 | W4 | UI Test Coverage (10 Accounting pages) | IMPLEMENT | 2 | `saas_w4_task_card.md` | ⏳ |
 | W5 | Period Closing Persist + Auth Hardening | IMPLEMENT | 2 | `saas_w5_task_card.md` | ⏳ |
