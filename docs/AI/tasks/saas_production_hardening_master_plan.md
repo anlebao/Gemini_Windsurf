@@ -1,7 +1,7 @@
 # MASTER PLAN — SaaS Production Hardening (Multi-Tenant Deploy)
 
-> **Status:** 🟢 IN PROGRESS — W0-W2 DONE & MERGED (3/9 waves) — Sprint 1 (Blockers) 75% complete
-> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (W2 merged `e148b6a`)
+> **Status:** 🟢 IN PROGRESS — W0-W3 DONE & MERGED (4/9 waves) — Sprint 1 (Blockers) COMPLETE
+> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (W3 merged)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged, 1114/1114 tests PASS)
 > **Source:** Production readiness review 2026-07-05 (3 subagent audit + manual verify)
@@ -161,7 +161,7 @@ main ← feature/saas-w8-regression-production-tag
 | W0 | Gateway Architecture Fix | IMPLEMENT | 1 | `saas_w0_task_card.md` | ✅ DONE — Option B (monolithic mode) approved & merged `5ecbf5e`. Governance rule updated, arch test inverted. 1114/1114 tests PASS. |
 | W1 | Secrets + Production Config Hardening | IMPLEMENT | 1 | `saas_w1_task_card.md` | ✅ DONE — fail-fast in Production (4 Program.cs locations) + mandatory script params (3 scripts) + config validation (ShopERP + Gateway). 1114/1114 tests PASS. |
 | W2 | .NET SDK Upgrade + Package Security | IMPLEMENT | 1 | `saas_w2_task_card.md` | ✅ DONE — Removed 9 legacy 2.3.0 auth packages (Authentication, Authentication.Core, Authentication.Abstractions, Http, Http.Abstractions, Http.Extensions, DataProtection, Hosting.Abstractions, Authentication.Cookies 2.3.9). Added FrameworkReference Microsoft.AspNetCore.App to Core.Tests. global.json pins SDK 8.0.x with rollForward. 1114/1114 tests PASS. **SDK 8.0.100→8.0.22+ needs user manual install.** |
-| W3 | CI Pipeline Restore (E2E + Integration) | IMPLEMENT | 1 | `saas_w3_task_card.md` | ⏳ |
+| W3 | CI Pipeline Restore (E2E + Integration) | IMPLEMENT | 1 | `saas_w3_task_card.md` | ✅ DONE — Multi-role DevLogin endpoints (Staff/StoreKeeper/Guard), global-setup generates 4 auth files, rbac-enforcement.spec.ts real tests (7 skip→0), ci.yml integration job re-enabled (full suite), e2e.yml e2e job re-enabled + KhachLink. 1131/1133 tests PASS (2 pre-existing NATS failures). |
 | W4 | UI Test Coverage (10 Accounting pages) | IMPLEMENT | 2 | `saas_w4_task_card.md` | ⏳ |
 | W5 | Period Closing Persist + Auth Hardening | IMPLEMENT | 2 | `saas_w5_task_card.md` | ⏳ |
 | W6 | E-Invoice Real Integration Verification | IMPLEMENT | 2 | `saas_w6_task_card.md` | ⏳ |

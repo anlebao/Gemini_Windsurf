@@ -100,6 +100,71 @@ namespace VanAn.ShopERP.Controllers
             return Ok(new { success = true });
         }
 
+        /// <summary>POST /dev/login/{role} — issues Cookie auth session for a specific tenant role.</summary>
+        /// <remarks>SaaS W3: Enables multi-role RBAC E2E tests (Staff, StoreKeeper, Guard).</remarks>
+        [HttpPost("login/{role}")]
+        public async Task<IActionResult> LoginAsRole(string role)
+        {
+            // Map route slug → (UserRole enum, display name)
+            var (userRole, displayName) = role.ToLowerInvariant() switch
+            {
+                "staff"       => (UserRole.Staff,       "Dev Staff"),
+                "storekeeper" => (UserRole.StoreKeeper, "Dev StoreKeeper"),
+                "guard"       => (UserRole.Guard,       "Dev Guard"),
+                "owner"       => (UserRole.Owner,       "Dev Owner"),
+                _             => (UserRole.None,        "Unknown"),
+            };
+
+            if (userRole == UserRole.None)
+            {
+                return BadRequest(new { success = false, message = $"Unknown role '{role}'. Valid: owner, staff, storekeeper, guard." });
+            }
+
+            var roleString = userRole.ToString();
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name,  displayName),
+                new(ClaimTypes.Email, TestUserEmail),
+                new(ClaimTypes.Role,  roleString),
+                new("tenant_id",      TestTenantId.ToString()),
+                new("TenantId",       TestTenantId.ToString()),
+                new("sub",            TestUserEmail),
+                new("role",           roleString),
+            };
+
+            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc   = DateTimeOffset.UtcNow.AddHours(8),
+                AllowRefresh = true,
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                authProperties);
+
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId: TestUserId,
+                email: TestUserEmail,
+                role: userRole,
+                tenantId: TestTenantId);
+
+            return Ok(new
+            {
+                success  = true,
+                tenantId = TestTenantId,
+                email    = TestUserEmail,
+                role     = roleString,
+                token    = jwtToken,
+                message  = $"{roleString} dev login successful — cookie and JWT issued",
+            });
+        }
+
         /// <summary>POST /dev/login/systemadmin — SystemAdmin login for platform-level testing.</summary>
         [HttpPost("login/systemadmin")]
         public async Task<IActionResult> LoginAsSystemAdmin()

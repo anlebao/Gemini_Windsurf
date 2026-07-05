@@ -64,7 +64,6 @@ async function globalSetup(_config: FullConfig) {
   }
 
   const shopErpUrl = SERVICES.shoperp;
-  const devLoginUrl = `${shopErpUrl}/dev/login`;
 
   // Phase 1: Wait for all services to be healthy
   console.log('[global-setup] Phase 1: Checking service health...');
@@ -79,42 +78,50 @@ async function globalSetup(_config: FullConfig) {
     console.error('[global-setup] ShopERP:', shoperpHealthy ? '✓' : '✗');
   }
 
-  // Phase 2: Attempt login to ShopERP
+  // Phase 2: Generate auth files for each role
+  // SaaS W3: Multi-role RBAC E2E tests require per-role storageState files.
+  //   - admin.json      → Owner (full access)       [legacy, used by most specs]
+  //   - staff.json      → Staff (order management)  [RBAC denial tests]
+  //   - storekeeper.json → StoreKeeper (inventory)  [RBAC denial tests]
+  //   - guard.json      → Guard (check-in/out)      [RBAC redirect tests]
+  const roles = ['admin', 'staff', 'storekeeper', 'guard'] as const;
+  // admin → uses legacy POST /dev/login (Owner); others → POST /dev/login/{role}
+  const loginPathFor = (role: string) => role === 'admin' ? '/dev/login' : `/dev/login/${role}`;
+
   const browser = await chromium.launch();
-  const context = await browser.newContext();
-  const page    = await context.newPage();
 
-  let loginSucceeded = false;
+  for (const role of roles) {
+    const context = await browser.newContext();
+    const page    = await context.newPage();
+    const devLoginUrl = `${shopErpUrl}${loginPathFor(role)}`;
+    let loginSucceeded = false;
 
-  try {
-    // Step 1: Smoke-check ShopERP is running
-    await page.goto(shopErpUrl, { timeout: 15000, waitUntil: 'domcontentloaded' });
+    try {
+      await page.goto(shopErpUrl, { timeout: 15000, waitUntil: 'domcontentloaded' });
 
-    // Step 2: POST to /dev/login — issues real Cookie auth session with TenantId claim
-    const response = await context.request.post(devLoginUrl, {
-      timeout: 10000,
-    });
+      const response = await context.request.post(devLoginUrl, { timeout: 10000 });
 
-    if (response.ok()) {
-      const body = await response.json();
-      console.log(`[global-setup] Dev login OK — tenantId=${body.tenantId}, role=${body.role}`);
-      loginSucceeded = true;
-    } else {
-      console.warn(`[global-setup] /dev/login returned ${response.status()} — ShopERP may not be in Development mode`);
+      if (response.ok()) {
+        const body = await response.json();
+        console.log(`[global-setup] Dev login OK (${role}) — tenantId=${body.tenantId}, role=${body.role}`);
+        loginSucceeded = true;
+      } else {
+        console.warn(`[global-setup] /dev/login/${role === 'admin' ? '' : role} returned ${response.status()}`);
+      }
+    } catch (err) {
+      console.warn(`[global-setup] ${role} login failed: ${(err as Error).message}`);
     }
-  } catch (err) {
-    console.warn(`[global-setup] ShopERP not reachable or /dev/login failed: ${(err as Error).message}`);
-    console.warn('[global-setup] Writing empty storageState — E2E tests requiring auth will fail with clear errors');
-  }
 
-  // Phase 3: Save storageState (cookies) to auth/admin.json
-  const storageStatePath = path.join(authDir, 'admin.json');
-  await context.storageState({ path: storageStatePath });
+    const storageStatePath = path.join(authDir, `${role}.json`);
+    await context.storageState({ path: storageStatePath });
 
-  if (loginSucceeded) {
-    console.log(`[global-setup] auth/admin.json written with live session cookies`);
-  } else {
-    console.log(`[global-setup] auth/admin.json written as empty storageState (no session)`);
+    if (loginSucceeded) {
+      console.log(`[global-setup] auth/${role}.json written with live session cookies`);
+    } else {
+      console.log(`[global-setup] auth/${role}.json written as empty storageState (no session)`);
+    }
+
+    await context.close();
   }
 
   await browser.close();
