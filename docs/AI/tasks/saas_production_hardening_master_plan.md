@@ -1,7 +1,7 @@
 # MASTER PLAN — SaaS Production Hardening (Multi-Tenant Deploy)
 
-> **Status:** 🟡 SPRINT 2 IN PROGRESS (W0-W4, 5/9 waves) — Sprint 1 complete, W4 complete pending merge
-> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (Sprint 2 W4 complete — 44 new bUnit tests for 3 missing Accounting pages)
+> **Status:** 🟡 SPRINT 2 IN PROGRESS (W0-W5, 6/9 waves) — Sprint 1 complete, W4+W5 complete pending merge
+> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (Sprint 2 W5 complete — PeriodClosingStatusEntity + DB persist + DevLogin #if DEBUG guard + 7 new tests; pre-existing AccountingLayoutNavigationTests fixed)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged, 1114/1114 tests PASS)
 > **Source:** Production readiness review 2026-07-05 (3 subagent audit + manual verify)
@@ -163,7 +163,7 @@ main ← feature/saas-w8-regression-production-tag
 | W2 | .NET SDK Upgrade + Package Security | IMPLEMENT | 1 | `saas_w2_task_card.md` | ✅ DONE — Removed 9 legacy 2.3.0 auth packages + FrameworkReference for .NET 8 shared framework. **Gap fix:** SDK 8.0.100 → 8.0.422 installed (CVEs patched). global.json `rollForward: latestFeature` auto-selects 8.0.422. 1133/1133 tests PASS. |
 | W3 | CI Pipeline Restore (E2E + Integration) | IMPLEMENT | 1 | `saas_w3_task_card.md` | ✅ DONE — Multi-role DevLogin endpoints (Staff/StoreKeeper/Guard), global-setup generates 4 auth files, rbac-enforcement.spec.ts real tests (7 skip→0), ci.yml + e2e.yml + pr-check.yml all re-enabled. **Gap fix:** GoldenFlow 2 test failures fixed (ITenantProvider not registered in test DI → IgnoreQueryFilters added). 1133/1133 tests PASS. |
 | W4 | UI Test Coverage (10 Accounting pages) | IMPLEMENT | 2 | `saas_w4_task_card.md` | ✅ DONE (pending merge) — 44 new bUnit tests for 3 missing pages (HKDBooks 10 + HKDBookDetail 15 + PeriodClosing 19). 7/10 pages already had 38 tests from VAS W6. bUnit + `@rendermode InteractiveServer` limitation documented (click tests → reflection/render assertions; full interaction → Playwright E2E). Build 0 errors, guard PASS, 44/44 new tests PASS. |
-| W5 | Period Closing Persist + Auth Hardening | IMPLEMENT | 2 | `saas_w5_task_card.md` | ⏳ |
+| W5 | Period Closing Persist + Auth Hardening | IMPLEMENT | 2 | `saas_w5_task_card.md` | ✅ DONE (pending merge) — PeriodClosingStatusEntity (Infrastructure, NOT Domain — W3 precedent) + migration + PeriodClosingService refactored (static Dictionary → DB queries) + DevLoginController `#if DEBUG` guard + 3 Arch tests + 4 Integration tests (SQLite in-memory). HttpOnly cookie already set (no-op). Pre-existing AccountingLayoutNavigationTests fixed (IVasFeatureFlagService mock in ComponentTestBase). 1143/1143 tests PASS. |
 | W6 | E-Invoice Real Integration Verification | IMPLEMENT | 2 | `saas_w6_task_card.md` | ⏳ |
 | W7 | Tech Debt Cleanup (Tier 1+2) | IMPLEMENT | 3 | `saas_w7_task_card.md` | ⏳ |
 | W8 | Final Regression + Production Tag | REVIEW | 3 | `saas_w8_task_card.md` | ⏳ |
@@ -216,9 +216,9 @@ Sprint 3 (Cleanup):     W7 → W8
 
 ### Sprint 2 (Hardening) — SHOULD PASS:
 - [x] 10 Accounting pages có bUnit tests (BS, IS, CF, TB, HKDBooks, HKDBookDetail, PeriodClosing, FinancialReports, AccountingLayout, AccountingIndex) — **W4 DONE** (38 existing from W6 + 44 new = 82 total bUnit tests)
-- [ ] PeriodClosing status persisted to DB (survive restart)
-- [ ] DevLoginController guarded (`#if DEBUG` + env check)
-- [ ] JWT cookie HttpOnly=true
+- [x] PeriodClosing status persisted to DB (survive restart) — **W5 DONE** (PeriodClosingStatusEntity + migration + service refactor)
+- [x] DevLoginController guarded (`#if DEBUG` compile-time guard) — **W5 DONE** (also Program.cs dev route guarded)
+- [x] JWT cookie HttpOnly=true — **W5 verified** (already set in Login.cshtml.cs:96, no change needed)
 - [ ] E-Invoice: Viettel + MISA verified với real credentials (staging)
 
 ### Sprint 3 (Cleanup + Tag) — NICE TO HAVE:

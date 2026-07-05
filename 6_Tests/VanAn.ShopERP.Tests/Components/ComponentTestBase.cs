@@ -8,6 +8,7 @@ using VanAn.UI.Platform.Adapters;
 using Microsoft.AspNetCore.Components;
 using Bunit.JSInterop;
 using VanAn.UI.Platform.Components;
+using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 
 namespace VanAn.ShopERP.Tests.Components;
@@ -38,7 +39,15 @@ public class ComponentTestBase : TestContext
         mockTenantProvider.Setup(t => t.CurrentUser).Returns("test-user");
         mockTenantProvider.Setup(t => t.HasTenant).Returns(true);
         Services.AddSingleton(mockTenantProvider.Object);
-        
+
+        // Register IVasFeatureFlagService mock — required by AccountingLayout
+        // (Stream F W8 added [Inject] IVasFeatureFlagService to dynamically show/hide VAS menu).
+        // Default: return false (HKD tenant — no VAS menu). Tests needing Enterprise can override.
+        var mockFeatureFlag = new Mock<IVasFeatureFlagService>();
+        mockFeatureFlag.Setup(f => f.CanAccessVasReportsAsync(It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
+                       .ReturnsAsync(false);
+        Services.AddSingleton(mockFeatureFlag.Object);
+
         // Configure JSInterop for components with JavaScript interop
         JSInterop.Mode = JSRuntimeMode.Loose;
 

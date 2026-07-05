@@ -99,6 +99,10 @@ namespace VanAn.CoreHub.Infrastructure
         // W3: VAS Account Chart reference data (global — NOT tenant-scoped, NOT IMustHaveTenant)
         public DbSet<Entities.AccountChartEntity> AccountCharts { get; set; }
 
+        // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity).
+        // Replaces the previous in-memory static Dictionary in PeriodClosingService.
+        public DbSet<Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
