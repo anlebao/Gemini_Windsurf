@@ -124,6 +124,15 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # W7-T4 (2026-07-05): Resource limits for production safety
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   gateway:
     build:
@@ -158,6 +167,15 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # W7-T4 (2026-07-05): Resource limits for production safety
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   shoperp:
     build:
@@ -168,6 +186,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      # W7-T4 (2026-07-05): SQLite persistent volume path
+      - SQLITE_DB_PATH=/data/sqlite/vanan.db
     ports:
       - "${SHOPERP_PORT:-5002}:80"
     networks:
@@ -187,6 +207,17 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # W7-T4 (2026-07-05): SQLite persistent volume + resource limits
+    volumes:
+      - vanan-sqlite:/data/sqlite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   khachlink:
     build:
@@ -216,12 +247,23 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # W7-T4 (2026-07-05): Resource limits for production safety
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
 volumes:
   postgres_data:
   nats_data:
   pgadmin_data:
   seq_data:
+  # W7-T4 (2026-07-05): SQLite volume for ShopERP edge data persistence
+  vanan-sqlite:
 
 networks:
   vanan-network:

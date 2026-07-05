@@ -30,8 +30,10 @@ RUN dotnet restore "5_WebApps/ShopERP/VanAn.ShopERP.csproj"
 COPY . .
 WORKDIR "/src/5_WebApps/ShopERP"
 
-# TODO: Add tests back when test project is properly configured
-# RUN dotnet test "6_Tests/VanAn.Tests.csproj" --no-restore --logger "console;verbosity=detailed" --results-directory /test-results
+# W7-T4 (2026-07-05): Test stage (separate from final image — keeps runtime image lean)
+# Usage: docker build --target test -t vanan-shoperp-test .
+FROM build AS test
+RUN dotnet test "VanAn.ShopERP.csproj" -c Release --no-build --logger "console;verbosity=detailed" --results-directory /test-results
 
 # Build application
 RUN dotnet build "VanAn.ShopERP.csproj" -c Release -o /app/build

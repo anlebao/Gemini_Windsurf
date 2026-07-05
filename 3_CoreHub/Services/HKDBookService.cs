@@ -706,41 +706,7 @@ namespace VanAn.CoreHub.Services
             }
         }
 
-        [Obsolete("Wave 4: Replaced by IHKDBookGenerationService.GenerateBookAsync which queries AccountingEntries directly. Do not use — will be removed in a future wave.")]
-        private static List<JournalEntry> ConvertToJournalEntries(IEnumerable<CoreAccountingEntry> accountingEntries)
-        {
-            List<JournalEntry> journalEntries = [];
-
-            foreach (CoreAccountingEntry ae in accountingEntries)
-            {
-                // Create JournalEntry using proper constructor
-                JournalEntry journalEntry = new(
-                    tenantId: ae.TenantId,
-                    entryDate: ae.CreatedAt,
-                    description: ae.Description ?? "Accounting Entry",
-                    referenceType: "AccountingEntry",
-                    referenceId: ae.Id
-                );
-
-                // AccountingEntry doesn't have Lines property - create a simple line based on amount
-                // This is a simplified conversion for HKD book compatibility
-                string accountNumber = ae.EntryType == AccountingEntryType.Revenue ? "511" : "611"; // Revenue vs Expense
-                decimal amount = Math.Abs(ae.Amount);
-
-                if (ae.EntryType == AccountingEntryType.Revenue)
-                {
-                    journalEntry.AddLine(accountNumber, 0, amount, ae.Description);
-                }
-                else
-                {
-                    journalEntry.AddLine(accountNumber, amount, 0, ae.Description);
-                }
-
-                journalEntries.Add(journalEntry);
-            }
-
-            return journalEntries;
-        }
+        // W7-T3 (2026-07-05): Removed obsolete ConvertToJournalEntries (0 callers, replaced by IHKDBookGenerationService).
 
         private string GetAccountName(string accountNumber)
         {

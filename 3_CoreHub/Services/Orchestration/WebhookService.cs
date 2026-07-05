@@ -37,9 +37,7 @@ public class WebhookService : IWebhookService
         _logger = logger;
     }
 
-    [Obsolete("Use WebhookService(VanAnDbContext, ILogger) — outboxRepository param removed in F5")]
-    public WebhookService(VanAnDbContext? dbContext, IOutboxRepository? _, ILogger<WebhookService> logger)
-        : this(dbContext, logger) { }
+    // W7-T3 (2026-07-05): Removed obsolete 3-param constructor (outboxRepository param removed in F5, 0 callers).
 
     public async Task ProcessWebhookAsync(
         string providerId,

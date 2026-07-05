@@ -421,6 +421,17 @@ namespace VanAn.ShopERP
                 _ = app.UseHsts();
             }
 
+            // W7-T5 (2026-07-05): Security headers middleware — defense in depth
+            app.Use(async (context, next) =>
+            {
+                context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                context.Response.Headers["X-Frame-Options"] = "DENY";
+                context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+                context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+                context.Response.Headers["X-Permitted-Cross-Domain-Policies"] = "none";
+                await next();
+            });
+
             // Forwarded headers for nginx reverse proxy (Docker networking)
             _ = app.UseForwardedHeaders(new ForwardedHeadersOptions
             {
