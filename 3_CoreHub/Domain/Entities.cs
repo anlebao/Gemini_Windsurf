@@ -44,8 +44,9 @@ namespace VanAn.CoreHub.Domain
         public bool IsDeleted { get; set; }
         public Guid TenantId { get; set; }
 
-        // EF Core constructor for materialization
-        protected Lead() { }
+        // W6-T7 (2026-07-05): Public constructor for factory use (replaces FormatterServices.GetUninitializedObject).
+        // Field initializers above set safe defaults; callers set specific properties after construction.
+        public Lead() { }
     }
 
     /// <summary>
@@ -63,8 +64,8 @@ namespace VanAn.CoreHub.Domain
         public bool IsFacebookProcessed { get; set; }
         public DateTime? FacebookProcessedAt { get; set; }
 
-        // EF Core constructor for materialization
-        protected FacebookLead() { }
+        // W6-T7 (2026-07-05): Public constructor for factory use (replaces FormatterServices.GetUninitializedObject).
+        public FacebookLead() { }
     }
 
     /// <summary>

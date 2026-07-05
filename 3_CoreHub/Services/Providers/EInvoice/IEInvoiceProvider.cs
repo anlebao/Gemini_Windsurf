@@ -17,6 +17,12 @@ public record ProviderCapabilities(
 /// <summary>
 /// E-Invoice Request - Raw request structure for E-Invoice providers
 /// </summary>
+/// <remarks>
+/// W6-T3 (2026-07-05): Added SupplierTaxCode, LineItems, CurrencyCode, PaymentType
+/// to support real Viettel/MISA API payloads (nested itemInfo[] / OriginalInvoiceDetail[]).
+/// TransactionUuid derives from InvoiceId.Value.ToString("N") — providers map it to
+/// Viettel transactionUuid / MISA idempotency key.
+/// </remarks>
 public record EInvoiceRequest(
     TenantId TenantId,
     ElectronicInvoiceId InvoiceId,
@@ -29,20 +35,51 @@ public record EInvoiceRequest(
     string CustomerTaxCode,
     string CustomerAddress,
     DateTime InvoiceDate,
-    Dictionary<string, string> AdditionalData
-);
+    Dictionary<string, string> AdditionalData,
+    string SupplierTaxCode,
+    IReadOnlyList<InvoiceItem> LineItems,
+    string CurrencyCode,
+    string PaymentType
+)
+{
+    /// <summary>
+    /// Idempotency key derived from InvoiceId (Viettel transactionUUID / MISA idempotency key).
+    /// Format: 32-char hex (N format) of the InvoiceId Guid.
+    /// </summary>
+    public string TransactionUuid => InvoiceId.Value.ToString("N");
+}
 
 /// <summary>
 /// E-Invoice Response - Raw response structure from E-Invoice providers
 /// </summary>
+/// <remarks>
+/// W6-T3 (2026-07-05): Added TransactionUuid, ReservationCode for Viettel result fields.
+/// </remarks>
 public record EInvoiceResponse(
     bool Success,
     string? ProviderInvoiceNumber,
     string? TaxAuthorityInvoiceNumber,
     string? ErrorMessage,
     DateTime ProcessedAt,
-    Dictionary<string, string> Metadata
-);
+    Dictionary<string, string> Metadata,
+    string? TransactionUuid,
+    string? ReservationCode
+)
+{
+    /// <summary>
+    /// Back-compat constructor for callers that do not yet populate TransactionUuid/ReservationCode.
+    /// </summary>
+    public EInvoiceResponse(
+        bool Success,
+        string? ProviderInvoiceNumber,
+        string? TaxAuthorityInvoiceNumber,
+        string? ErrorMessage,
+        DateTime ProcessedAt,
+        Dictionary<string, string> Metadata)
+        : this(Success, ProviderInvoiceNumber, TaxAuthorityInvoiceNumber,
+            ErrorMessage, ProcessedAt, Metadata, TransactionUuid: null, ReservationCode: null)
+    { }
+}
 
 /// <summary>
 /// Invoice Status Response - Response for invoice status query
@@ -98,6 +135,21 @@ public interface IEInvoiceProvider
         TenantId tenantId,
         string providerInvoiceNumber,
         string reason,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get invoice file (PDF/XML) from provider.
+    /// W6-T3 (2026-07-05): Added for Viettel getInvoiceRepresentationFile / MISA download endpoints.
+    /// </summary>
+    /// <param name="tenantId">Tenant scope.</param>
+    /// <param name="providerInvoiceNumber">Provider-issued invoice number.</param>
+    /// <param name="fileFormat">"pdf" or "xml" (provider-specific).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>File bytes (non-empty on success).</returns>
+    Task<byte[]> GetInvoiceFileAsync(
+        TenantId tenantId,
+        string providerInvoiceNumber,
+        string fileFormat,
         CancellationToken cancellationToken = default);
 
     /// <summary>

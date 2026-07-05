@@ -213,6 +213,10 @@ public class EInvoiceRequestTests
         var tenantId = new TenantId(Guid.NewGuid());
         var invoiceId = new ElectronicInvoiceId(Guid.NewGuid());
         var orderId = new OrderId(Guid.NewGuid());
+        var lineItems = new List<InvoiceItem>
+        {
+            new(tenantId, invoiceId, "ITEM-001", "Test Item", "pcs", 2, 50000m, 10m)
+        };
 
         // Act
         var request = new EInvoiceRequest(
@@ -227,7 +231,11 @@ public class EInvoiceRequestTests
             "TaxCode",
             "Address",
             DateTime.UtcNow,
-            new Dictionary<string, string> { { "key", "value" } });
+            new Dictionary<string, string> { { "key", "value" } },
+            SupplierTaxCode: "0123456789",
+            LineItems: lineItems,
+            CurrencyCode: "VND",
+            PaymentType: "CASH");
 
         // Assert
         request.TenantId.Should().Be(tenantId);
@@ -241,6 +249,27 @@ public class EInvoiceRequestTests
         request.CustomerTaxCode.Should().Be("TaxCode");
         request.CustomerAddress.Should().Be("Address");
         request.AdditionalData.Should().ContainKey("key");
+        request.SupplierTaxCode.Should().Be("0123456789");
+        request.LineItems.Should().HaveCount(1);
+        request.CurrencyCode.Should().Be("VND");
+        request.PaymentType.Should().Be("CASH");
+    }
+
+    [Fact]
+    public void EInvoiceRequest_TransactionUuid_ShouldDeriveFromInvoiceId()
+    {
+        // Arrange
+        var invoiceId = new ElectronicInvoiceId(Guid.NewGuid());
+
+        // Act
+        var request = new EInvoiceRequest(
+            new TenantId(Guid.NewGuid()), invoiceId, new OrderId(Guid.NewGuid()),
+            InvoiceType.Goods, 100m, 10m, 110m, "C", "T", "A", DateTime.UtcNow,
+            new Dictionary<string, string>(), "SUP-TAX", new List<InvoiceItem>(), "VND", "CASH");
+
+        // Assert — TransactionUuid is 32-char hex (N format) of InvoiceId
+        request.TransactionUuid.Should().Be(invoiceId.Value.ToString("N"));
+        request.TransactionUuid.Should().HaveLength(32);
     }
 }
 
@@ -256,7 +285,9 @@ public class EInvoiceResponseTests
             "TAX-001",
             null,
             DateTime.UtcNow,
-            new Dictionary<string, string> { { "key", "value" } });
+            new Dictionary<string, string> { { "key", "value" } },
+            TransactionUuid: "abc123transactionuuid",
+            ReservationCode: "RES-001");
 
         // Assert
         response.Success.Should().BeTrue();
@@ -264,6 +295,8 @@ public class EInvoiceResponseTests
         response.TaxAuthorityInvoiceNumber.Should().Be("TAX-001");
         response.ErrorMessage.Should().BeNull();
         response.Metadata.Should().ContainKey("key");
+        response.TransactionUuid.Should().Be("abc123transactionuuid");
+        response.ReservationCode.Should().Be("RES-001");
     }
 
     [Fact]
@@ -281,6 +314,27 @@ public class EInvoiceResponseTests
         // Assert
         response.Success.Should().BeFalse();
         response.ErrorMessage.Should().Be("Validation failed");
+        response.TransactionUuid.Should().BeNull();
+        response.ReservationCode.Should().BeNull();
+    }
+
+    [Fact]
+    public void EInvoiceResponse_BackCompatConstructor_ShouldDefaultNewFieldsToNull()
+    {
+        // Arrange & Act — 6-arg back-compat constructor (callers not yet updated)
+        var response = new EInvoiceResponse(
+            true,
+            "INV-001",
+            null,
+            null,
+            DateTime.UtcNow,
+            new Dictionary<string, string>());
+
+        // Assert
+        response.Success.Should().BeTrue();
+        response.ProviderInvoiceNumber.Should().Be("INV-001");
+        response.TransactionUuid.Should().BeNull();
+        response.ReservationCode.Should().BeNull();
     }
 }
 
@@ -365,6 +419,11 @@ public class MockEInvoiceProvider : IEInvoiceProvider
             null,
             DateTime.UtcNow,
             new Dictionary<string, string>()));
+    }
+
+    public Task<byte[]> GetInvoiceFileAsync(TenantId tenantId, string providerInvoiceNumber, string fileFormat, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new byte[] { 0x25, 0x50, 0x44, 0x46 }); // "%PDF" stub
     }
 
     public Task<bool> HealthCheckAsync(CancellationToken cancellationToken = default)

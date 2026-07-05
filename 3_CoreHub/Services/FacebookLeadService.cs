@@ -1,4 +1,3 @@
-using System.Runtime.Serialization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -61,8 +60,9 @@ namespace VanAn.CoreHub.Services
                 return existingFacebookLead;
             }
 
-            // Create new lead using reflection-based factory to preserve domain integrity
-            Lead lead = (Lead)FormatterServices.GetUninitializedObject(typeof(Lead));
+            // W6-T7 (2026-07-05): Replaced FormatterServices.GetUninitializedObject with public constructor.
+            // Lead now has a public parameterless constructor — field initializers set safe defaults.
+            Lead lead = new Lead();
             lead.Id = Guid.NewGuid();
             lead.LeadId = new LeadId(lead.Id);
             lead.FullName = fullName;
@@ -80,8 +80,8 @@ namespace VanAn.CoreHub.Services
 
             Lead createdLead = await _leadManagementService.CreateLeadAsync(lead);
 
-            // Create Facebook-specific lead
-            FacebookLead facebookLead = (FacebookLead)FormatterServices.GetUninitializedObject(typeof(FacebookLead));
+            // W6-T7: FacebookLead also has public constructor now.
+            FacebookLead facebookLead = new FacebookLead();
             facebookLead.Id = Guid.NewGuid();
             facebookLead.LeadId = new LeadId(createdLead.Id);
             facebookLead.FacebookLeadId = payload.LeadId;

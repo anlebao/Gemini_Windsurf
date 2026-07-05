@@ -203,6 +203,13 @@ namespace VanAn.CoreHub
                                         "Circuit breaker OPEN for provider: " + providerId);
 
                                 var provider = factory.CreateProvider(providerId);
+
+                                // W6-T3: SupplierTaxCode from provider config, LineItems from invoice,
+                                // CurrencyCode="VND", PaymentType default "CASH" (no PaymentType field on invoice entity).
+                                var supplierTaxCode = providerId == "viettel"
+                                    ? context.Configuration["ViettelConfig:TaxCode"] ?? string.Empty
+                                    : context.Configuration["MisaConfig:CompanyCode"] ?? string.Empty;
+
                                 var request  = new EInvoiceRequest(
                                     invoice.TenantId,
                                     invoice.InvoiceId,
@@ -215,7 +222,11 @@ namespace VanAn.CoreHub
                                     invoice.CustomerTaxCode,
                                     invoice.CustomerAddress,
                                     invoice.SubmittedAt ?? DateTime.UtcNow,
-                                    new Dictionary<string, string>());
+                                    new Dictionary<string, string>(),
+                                    supplierTaxCode,
+                                    invoice.Items.ToList() as IReadOnlyList<VanAn.Shared.Domain.InvoiceItem>,
+                                    "VND",
+                                    "CASH");
 
                                 var response = await provider.SubmitInvoiceAsync(request, ct);
 
