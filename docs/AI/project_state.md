@@ -29,7 +29,7 @@
 
 ## 2. Current Objective
 
-**[STREAM G: SAAS PRODUCTION HARDENING — SPRINT 1 COMPLETE, SPRINT 2 NEXT]**
+**[STREAM G: SAAS PRODUCTION HARDENING — SPRINT 2 IN PROGRESS (W4 COMPLETE)]**
 
 Hardening the accounting software for independent multi-tenant SaaS deployment based on the Production Readiness Review. This stream addresses critical blockers, hardening measures, and technical debt.
 
@@ -43,9 +43,9 @@ Hardening the accounting software for independent multi-tenant SaaS deployment b
   - **W3:** CI Pipeline Restore (3 workflows re-enabled + multi-role DevLogin + GoldenFlow fix)
   - **1133/1133 tests PASS** (Core 929 + Arch 31 + Integration 173)
 
-- **Sprint 2 (Hardening) NEXT:**
-  - **W4:** UI Test Coverage (10 Accounting pages bUnit tests)
-  - **W5:** Period Closing Persist + Auth Hardening
+- **Sprint 2 (Hardening) IN PROGRESS:**
+  - **W4:** UI Test Coverage ✅ COMPLETE (branch `feature/saas-w4-ui-test-coverage`, pending merge) — 44 new bUnit tests for 3 missing pages (HKDBooks 10 + HKDBookDetail 15 + PeriodClosing 19); 7/10 pages already had 38 tests from W6. bUnit + `@rendermode InteractiveServer` limitation documented (click tests → reflection/render assertions; full interaction → Playwright E2E).
+  - **W5:** Period Closing Persist + Auth Hardening ⏳ NEXT
   - **W6:** E-Invoice Real Integration Verification
 
 - **Sprint 3 (Cleanup):**
@@ -177,16 +177,20 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
-- **Branch:** `main` (SaaS Stream G Sprint 1 complete)
+- **Branch:** `feature/saas-w4-ui-test-coverage` (SaaS Stream G Sprint 2 W4 complete, pending merge)
 - **.NET SDK:** 8.0.422 (upgraded from 8.0.100 — CVEs patched)
+- **SaaS Stream (Stream G) — SPRINT 2 W4 COMPLETE ✅ (pending merge):**
+  - **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (W0-W3 DONE+MERGED ✅, W4 COMPLETE pending merge, W5-W8 pending)
+  - **5 task cards:** `saas_w{0-4}_task_card.md` (W0-W3 DONE, W4 COMPLETE)
+  - **W4 files created (3):** `HKDBooksTests.cs` (10 tests), `HKDBookDetailTests.cs` (15 tests), `PeriodClosingTests.cs` (19 tests) — all in `6_Tests/VanAn.ShopERP.Tests/Components/Accounting/`
+  - **W4 key finding:** 7/10 pages already had 38 bUnit tests from VAS W6 (BS 6 + IS 6 + CF 6 + TB 6 + FinancialReports 5 + AccountingIndex 4 + AccountingLayout 5). W4 filled the 3-page gap (HKDBooks, HKDBookDetail, PeriodClosing).
+  - **W4 bUnit limitation:** `@rendermode InteractiveServer` causes bUnit to render in static mode → `@onclick` handlers not registered → `Click()` throws `MissingEventHandlerException`. Workaround: render/structure assertions + reflection for wizard step coverage (PeriodClosing). Full click interaction → Playwright E2E.
+  - **Build:** 0 errors, guard ALL CHECKS PASSED, **44/44 new tests PASS** (Core 910 + Arch 31 + Integration 173 + ShopERP 96/99 — 3 pre-existing AccountingLayoutNavigationTests failures unrelated to W4)
 - **SaaS Stream (Stream G) — SPRINT 1 COMPLETE ✅ (W0-W3 all merged):**
-  - **Master plan:** `docs/AI/tasks/saas_production_hardening_master_plan.md` (W0-W3 DONE+MERGED ✅, W4-W8 pending)
-  - **4 task cards:** `saas_w{0-3}_task_card.md` (all updated to DONE)
   - **W0 files modified (3):** `GatewayStartupTests.cs`, `.windsurfrules`, `governance.md`
   - **W1 files modified (9):** `ShopERP/Program.cs` (fail-fast + ValidateProductionConfig), `CoreHub/Program.cs`, `Gateway/Program.cs`, `appsettings.Production.json` (`${VAR}` env vars), 3 scripts (mandatory passwords)
   - **W2 files modified (4):** `global.json` (new, SDK pin), `Directory.Packages.props` (9 packages removed), `ShopERP.csproj`, `Core.Tests.csproj` (FrameworkReference)
   - **W3 files modified (6):** `DevLoginController.cs` (multi-role), `global-setup.ts` (4 auth files), `rbac-enforcement.spec.ts` (real tests), `export-excel-flow.spec.ts`, `ci.yml` + `e2e.yml` + `pr-check.yml` (re-enabled), `GoldenFlowSystemTests.cs` (ITenantProvider fix)
-  - **Build:** 0 errors, guard ALL CHECKS PASSED, **1133/1133 tests PASS** (Core 929 + Arch 31 + Integration 173)
 - **VAS Stream (Stream F) — COMPLETE ✅** (W0-W9 all merged, 10 waves)
 - **Stream D — COMPLETE ✅** (`68580bc`, 2026-07-04, 12 waves all merged)
 
@@ -261,7 +265,7 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 4. Next Actions
 
-**Stream G — SaaS Production Hardening (Sprint 2 NEXT):**
+**Stream G — SaaS Production Hardening (Sprint 2 IN PROGRESS):**
 
 Sprint 1 (Blockers) COMPLETE ✅ — all 4 waves merged to main.
 
@@ -269,13 +273,17 @@ Sprint 1 (Blockers) COMPLETE ✅ — all 4 waves merged to main.
 2. ~~W1: Secrets + Config Hardening~~ ✅ DONE & MERGED
 3. ~~W2: .NET SDK 8.0.422 + Package Security~~ ✅ DONE & MERGED
 4. ~~W3: CI Pipeline Restore~~ ✅ DONE & MERGED
-5. **W4: UI Test Coverage (10 Accounting pages)** ⏳ NEXT — bUnit tests for Accounting pages
-6. W5: Period Closing Persist + Auth Hardening — sau W4
+5. ~~W4: UI Test Coverage (10 Accounting pages)~~ ✅ COMPLETE (pending merge) — 44 new bUnit tests, 3 files
+6. **W5: Period Closing Persist + Auth Hardening** ⏳ NEXT — sau W4 merge
 7. W6: E-Invoice Real Integration Verification — sau W5
 8. W7: Tech Debt Cleanup (Tier 1+2) — sau Sprint 2
 9. W8: Final Regression + Production Tag — cuối cùng
 
-**Critical path:** ~~W0~~ ✅ → ~~W1~~ ✅ → ~~W2~~ ✅ → ~~W3~~ ✅ → **W4** → W5 → W6 → W7 → W8 → `saas-production-v1.0` tag
+**Critical path:** ~~W0~~ ✅ → ~~W1~~ ✅ → ~~W2~~ ✅ → ~~W3~~ ✅ → ~~W4~~ ✅ → **W5** → W6 → W7 → W8 → `saas-production-v1.0` tag
+
+**Immediate next steps:**
+1. Merge `feature/saas-w4-ui-test-coverage` → `main`
+2. Start W5: Period Closing Persist + Auth Hardening (read `saas_w5_task_card.md`)
 
 **Deferred (awaiting user decision):**
 1. **Push to origin** — `main` is ahead of `origin/main` (Stream F + Stream G commits).
@@ -360,7 +368,8 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **Last Updated:** 2026-07-05 — **SPRINT 1 GAP FIX COMPLETE**. All Sprint 1 gaps resolved: (1) W1 appsettings.Production.json `__REPLACE_*` sentinels → `${VAR}` env var references + ValidateProductionConfig detects unresolved `${VAR}`; (2) W2 .NET SDK 8.0.100 → 8.0.422 installed (CVEs patched); (3) W3 pr-check.yml `if:false` removed + GoldenFlow 2 test failures fixed (ITenantProvider not registered in test DI → query filter used Guid.Empty → IgnoreQueryFilters added). **1133/1133 tests PASS. Sprint 1 100% COMPLETE. NEXT:** W4 (UI Test Coverage).
+* **Last Updated:** 2026-07-05 — **STREAM G W4 COMPLETE (branch `feature/saas-w4-ui-test-coverage`, pending merge)**. UI Test Coverage: 44 new bUnit tests for 3 missing Accounting pages (HKDBooks 10 + HKDBookDetail 15 + PeriodClosing 19). 7/10 pages already had 38 tests from VAS W6. **bUnit + `@rendermode InteractiveServer` limitation discovered:** bUnit renders in static mode → `@onclick` handlers not registered → `MissingEventHandlerException` on `Click()`. Workaround: render/structure assertions + reflection for wizard step coverage (PeriodClosing private `currentStep` field). Full click interaction delegated to Playwright E2E. Build 0 errors, guard PASS, 44/44 new tests PASS, Core 910 + Arch 31 + Integration 173 PASS (ShopERP 96/99 — 3 pre-existing AccountingLayoutNavigationTests failures). **NEXT:** Merge W4 → start W5 (Period Closing Persist + Auth Hardening).
+* **Previous:** 2026-07-05 — **SPRINT 1 GAP FIX COMPLETE**. All Sprint 1 gaps resolved: (1) W1 appsettings.Production.json `__REPLACE_*` sentinels → `${VAR}` env var references + ValidateProductionConfig detects unresolved `${VAR}`; (2) W2 .NET SDK 8.0.100 → 8.0.422 installed (CVEs patched); (3) W3 pr-check.yml `if:false` removed + GoldenFlow 2 test failures fixed (ITenantProvider not registered in test DI → query filter used Guid.Empty → IgnoreQueryFilters added). **1133/1133 tests PASS. Sprint 1 100% COMPLETE. NEXT:** W4 (UI Test Coverage).
 * **Previous:** 2026-07-05 — **STREAM G W3 COMPLETE & MERGED**. CI Pipeline Restore: multi-role DevLogin endpoints (Staff/StoreKeeper/Guard), global-setup generates 4 auth files, rbac-enforcement.spec.ts real tests (7 skip→0), ci.yml integration job re-enabled (full suite), e2e.yml e2e job re-enabled + KhachLink. 1131/1133 tests PASS (2 pre-existing NATS failures — same on main). **Sprint 1 (Blockers) COMPLETE. NEXT:** W4 (UI Test Coverage).
 * **Previous:** 2026-07-05 — **STREAM G W2 COMPLETE & MERGED (`e148b6a`)**. Package security: removed 9 legacy 2.3.0 auth packages, FrameworkReference for .NET 8 shared framework, global.json SDK pin. SDK 8.0.100→8.0.22+ needs user manual install. 1114/1114 tests PASS. **NEXT:** W3 (CI Pipeline Restore).
 * **Previous:** 2026-07-05 — **STREAM G W1 COMPLETE & MERGED (`3bc9af0`)**. Secrets hardening: 4 Program.cs fail-fast in Production (ShopERP OIDC + Seed + CoreHub DefaultConnection + ProjectMemory), 3 scripts mandatory password params, config validation (detect `__REPLACE_*` sentinels + JWT length >= 32). 1114/1114 tests PASS. **NEXT:** W2 (.NET SDK Upgrade + Package Security).
