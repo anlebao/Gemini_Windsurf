@@ -48,6 +48,12 @@ namespace VanAn.Gateway
             });
 
             // Add services to the container.
+            // SaaS W1: Validate Production config — fail fast if __REPLACE_* sentinels remain
+            if (builder.Environment.IsProduction())
+            {
+                ValidateProductionConfig(builder.Configuration);
+            }
+
             _ = builder.Services.AddControllers();
             _ = builder.Services.AddSignalR();
 
@@ -328,6 +334,22 @@ namespace VanAn.Gateway
             finally
             {
                 Log.CloseAndFlush();
+            }
+        }
+
+        /// <summary>
+        /// SaaS W1: Validate Production configuration — fail fast if __REPLACE_* sentinels remain.
+        /// </summary>
+        private static void ValidateProductionConfig(ConfigurationManager configuration)
+        {
+            string? jwtSecret = configuration["Jwt:Secret"];
+            if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Contains("__REPLACE_", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Jwt:Secret is missing or still has __REPLACE_* sentinel. Set via Jwt__Secret env var.");
+            }
+            if (jwtSecret.Length < 32)
+            {
+                throw new InvalidOperationException("Jwt:Secret must be at least 32 characters for HS256 security.");
             }
         }
     }

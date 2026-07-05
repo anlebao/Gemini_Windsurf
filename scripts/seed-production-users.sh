@@ -7,7 +7,7 @@ set -e
 
 # Default values
 DATABASE_PATH="${1:-/app/data/vanan.db}"
-DEFAULT_PASSWORD="${2:-VanAn@2026}"
+DEFAULT_PASSWORD="${2:?ERROR: password argument required (usage: $0 <database_path> <password>)}"
 
 # Colors for output
 RED='\033[0;31m'
