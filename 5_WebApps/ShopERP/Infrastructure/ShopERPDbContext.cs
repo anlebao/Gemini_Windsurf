@@ -71,6 +71,9 @@ namespace VanAn.ShopERP.Infrastructure
         // W3: VAS Account Chart reference data (NOT tenant-scoped)
         public DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; set; }
 
+        // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity)
+        public DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

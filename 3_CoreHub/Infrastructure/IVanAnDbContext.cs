@@ -55,6 +55,9 @@ namespace VanAn.CoreHub.Infrastructure
         // W3: VAS Account Chart reference data (NOT tenant-scoped)
         DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; }
 
+        // W5: Period closing status persistence (tenant-scoped)
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

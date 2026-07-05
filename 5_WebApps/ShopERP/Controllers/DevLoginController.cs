@@ -6,6 +6,7 @@ using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain.Common;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 
+#if DEBUG
 namespace VanAn.ShopERP.Controllers
 {
     /// <summary>
@@ -16,8 +17,11 @@ namespace VanAn.ShopERP.Controllers
     /// Wave 0: Also issues JWT token in response body for E2E tests that need Bearer auth.
     /// Wave 5: Added SystemAdmin support for platform-level testing.
     ///
-    /// SECURITY: This controller ONLY registers in Development environment (Program.cs guard).
-    /// It is completely absent from Production/Staging builds.
+    /// SECURITY (W5 hardening): This controller is wrapped in <c>#if DEBUG</c> so the entire
+    /// class is compiled out of Release builds. This is a compile-time guarantee — the
+    /// controller cannot exist in any Production/Staging binary regardless of runtime
+    /// environment configuration. The <c>VanAn.Architecture.Tests</c> suite enforces this
+    /// via <c>DevLoginControllerReleaseBuildGuardTests</c>.
     /// </summary>
     [ApiController]
     [Route("dev")]
@@ -212,3 +216,4 @@ namespace VanAn.ShopERP.Controllers
         }
     }
 }
+#endif

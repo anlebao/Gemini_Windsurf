@@ -450,8 +450,10 @@ namespace VanAn.ShopERP
             _ = app.MapControllers(); // If you have API controllers in ShopERP
 
             // T-20: Dev-only login endpoint for Playwright E2E tests.
-            // /dev/login is ONLY reachable in Development environment.
-            // In Production/Staging this branch is never entered — the route is not registered.
+            // W5 hardening: Wrapped in #if DEBUG so the route is compiled out of Release builds.
+            // The DevLoginController class itself is also #if DEBUG-guarded (see Controllers/DevLoginController.cs).
+            // VanAn.Architecture.Tests enforces this via DevLoginControllerReleaseBuildGuardTests.
+#if DEBUG
             if (app.Environment.IsDevelopment())
             {
                 _ = app.MapGet("/dev/login", () => Results.Ok(new
@@ -462,6 +464,7 @@ namespace VanAn.ShopERP
                 }));
                 app.Logger.LogInformation("DevLoginController registered at /dev/login (Development only)");
             }
+#endif
             _ = app.MapHealthChecks("/health");
             _ = app.MapHealthChecks("/health/detail", new HealthCheckOptions
             {
