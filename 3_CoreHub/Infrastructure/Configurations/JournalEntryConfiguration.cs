@@ -9,7 +9,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
     /// EF Core Configuration for JournalEntry entity
     /// JournalEntryLine is a Value Object owned by JournalEntry (OwnsMany)
     /// </summary>
-    public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
+    public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>, IEntityConfiguration
     {
         public void Configure(EntityTypeBuilder<JournalEntry> builder)
         {
