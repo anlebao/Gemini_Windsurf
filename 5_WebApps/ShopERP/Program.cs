@@ -493,14 +493,19 @@ namespace VanAn.ShopERP
         }
 
         /// <summary>
-        /// SaaS W1: Validate Production configuration — fail fast if __REPLACE_* sentinels remain
-        /// or required secrets are missing. Prevents accidental deployment with placeholder config.
+        /// SaaS W1: Validate Production configuration — fail fast if env var references remain
+        /// unresolved or required secrets are missing. Prevents accidental deployment with placeholder config.
+        /// SaaS W3 fix: appsettings.Production.json now uses ${VAR} env var references (not __REPLACE_* sentinels).
+        /// .NET ConfigurationBinder does NOT auto-resolve ${VAR} — env vars must be set with __-separated keys
+        /// (e.g. Jwt__Secret, Brevo__ApiKey). This validator catches both unresolved ${VAR} placeholders
+        /// and missing env vars.
         /// </summary>
         private static void ValidateProductionConfig(ConfigurationManager configuration)
         {
             var failures = new List<string>();
 
-            // Check for __REPLACE_* sentinels — signals appsettings.Production.json not overridden by env vars
+            // Check for unresolved ${VAR} references or __REPLACE_* sentinels — both signal
+            // that the env var was not set. .NET config uses __-separated env var keys (e.g. Jwt__Secret).
             string[] sentinelKeys =
             [
                 "Jwt:Secret",
@@ -516,15 +521,20 @@ namespace VanAn.ShopERP
             foreach (var key in sentinelKeys)
             {
                 string? value = configuration[key];
-                if (string.IsNullOrWhiteSpace(value) || value.Contains("__REPLACE_", StringComparison.Ordinal))
+                if (string.IsNullOrWhiteSpace(value)
+                    || value.Contains("__REPLACE_", StringComparison.Ordinal)
+                    || (value.StartsWith("${", StringComparison.Ordinal) && value.EndsWith("}", StringComparison.Ordinal)))
                 {
-                    failures.Add($"Config '{key}' is missing or still has __REPLACE_* sentinel. Set via env var (e.g. Jwt__Secret).");
+                    failures.Add($"Config '{key}' is missing or unresolved. Set via env var (e.g. {key.Replace(":", "__", StringComparison.Ordinal)}).");
                 }
             }
 
             // JWT secret length check
             string? jwtSecret = configuration["Jwt:Secret"];
-            if (!string.IsNullOrWhiteSpace(jwtSecret) && !jwtSecret.Contains("__REPLACE_", StringComparison.Ordinal) && jwtSecret.Length < 32)
+            if (!string.IsNullOrWhiteSpace(jwtSecret)
+                && !jwtSecret.Contains("__REPLACE_", StringComparison.Ordinal)
+                && !(jwtSecret.StartsWith("${", StringComparison.Ordinal) && jwtSecret.EndsWith("}", StringComparison.Ordinal))
+                && jwtSecret.Length < 32)
             {
                 failures.Add("Jwt:Secret must be at least 32 characters for HS256 security.");
             }

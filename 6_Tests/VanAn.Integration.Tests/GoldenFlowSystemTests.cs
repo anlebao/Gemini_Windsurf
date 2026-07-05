@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 using VanAn.Integration.Tests.Infrastructure;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -36,7 +37,14 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
     {
         // Configure DI with isolated SQLite for testing
         var services = new ServiceCollection();
-        
+
+        // SaaS W3 fix: Register ITenantProvider so VanAnDbContext's global query filter
+        // (e.TenantId == CurrentTenantIdValue) has a valid tenant context. Without this,
+        // _tenantProvider defaults to null! and CurrentTenantId = Guid.Empty, causing
+        // the query filter to exclude all inserted rows → Assert.NotNull/Single failures.
+        // We use a "wildcard" tenant (Guid.Empty) and apply IgnoreQueryFilters() in
+        // test queries that need to see rows across tenants.
+        services.AddScoped<ITenantProvider, TestTenantProvider>();
         services.AddDbContext<VanAnDbContext>(options =>
         {
             options.UseSqlite("DataSource=:memory:");
@@ -46,10 +54,10 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
 
         _serviceProvider = services.BuildServiceProvider();
         _dbContext = _serviceProvider.GetRequiredService<VanAnDbContext>();
-        
+
         // Open connection before EnsureCreated for in-memory SQLite
         _dbContext.Database.OpenConnection();
-        
+
         // Ensure database is created and entity configurations are applied
         _dbContext.Database.EnsureCreated();
     }
@@ -107,8 +115,11 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
         _dbContext.Orders.Add(testOrder);
         await _dbContext.SaveChangesAsync();
 
-        // Assert - Verify order was saved
+        // Assert - Verify order was saved (use IgnoreQueryFilters: test uses random tenant
+        // that doesn't match TestTenantProvider's default, so the global query filter would
+        // exclude it)
         var savedOrder = await _dbContext.Orders
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(o => o.Id == testOrder.Id);
 
         Assert.NotNull(savedOrder);
@@ -119,7 +130,9 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
         Assert.True(savedOrder.OrderDate <= DateTime.UtcNow);
 
         // Verify database count increased by exactly 1
-        var orderCount = await _dbContext.Orders.CountAsync();
+        var orderCount = await _dbContext.Orders
+            .IgnoreQueryFilters()
+            .CountAsync();
         Assert.Equal(1, orderCount);
     }
 
@@ -138,7 +151,10 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
         await _dbContext.SaveChangesAsync();
 
         // Assert - Verify tenant isolation using client-side evaluation to avoid LINQ translation issues
-        var allOrders = await _dbContext.Orders.ToListAsync();
+        // (IgnoreQueryFilters: test uses random tenants that don't match TestTenantProvider's default)
+        var allOrders = await _dbContext.Orders
+            .IgnoreQueryFilters()
+            .ToListAsync();
         
         var tenant1Orders = allOrders
             .Where(o => o.TenantId.Value == tenant1Id)
