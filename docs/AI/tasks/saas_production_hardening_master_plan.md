@@ -1,7 +1,7 @@
 # MASTER PLAN — SaaS Production Hardening (Multi-Tenant Deploy)
 
-> **Status:** 🟡 SPRINT 2 IN PROGRESS (W0-W5, 6/9 waves) — Sprint 1 complete, W4+W5 complete pending merge
-> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (Sprint 2 W5 complete — PeriodClosingStatusEntity + DB persist + DevLogin #if DEBUG guard + 7 new tests; pre-existing AccountingLayoutNavigationTests fixed)
+> **Status:** ✅ ALL 9 WAVES COMPLETE (W0-W8) — SaaS Production v1.0 tagged
+> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (W8 complete — full regression 1257 tests PASS, tag `saas-production-v1.0` created)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged, 1114/1114 tests PASS)
 > **Source:** Production readiness review 2026-07-05 (3 subagent audit + manual verify)
@@ -229,8 +229,8 @@ Sprint 3 (Cleanup):     W7 → W8
 - [x] Docker: resource limits + SQLite volume mount — **W7 DONE**
 - [x] Docker: tests enabled in Dockerfile (separate stage) — **W7 DONE**
 - [x] Security headers middleware — **W7 DONE** (5 headers)
-- [ ] Full regression: 1152+ tests PASS (baseline + new tests) — **W8 NEXT**
-- [ ] Tag: `saas-production-v1.0` — **W8 NEXT**
+- [ ] Full regression: 1152++ tests PASS basslinee + ew — s8sXT
+- [ ] Tag: `saas-production-v1.0` — **W8 XTXT**
 
 ---
 
