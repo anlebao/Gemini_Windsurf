@@ -1,7 +1,7 @@
 # MASTER PLAN — VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
 
-> **Status:** ✅ W0-W5 MERGED · ✅ W6 COMPLETE — 10 waves (W0→W9), W7 next
-> **Created:** 2026-07-04 · **Last Updated:** 2026-07-05 (W6 complete on `feature/vas-wave6-ui-pages`, pending merge)
+> **Status:** ✅ W0-W6 MERGED · W7 next — 10 waves (W0→W9)
+> **Created:** 2026-07-04 · **Last Updated:** 2026-07-05 (W6 merged to main)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite audits:** Section 1 (4 BCTC) + Section 1.4 (Order→Accounting flow)
 
@@ -140,7 +140,7 @@ main ← feature/vas-wave9-regression-merge
 | W3 | Account Code Map | IMPLEMENT | ❌ | `vas_wave3_task_card.md` | ✅ DONE — 124 accounts (TT 133=51, TT 99=73, TT 58=0) + 15 unit tests + seeder startup hook |
 | W4 | 4 Report Services (parallel) | IMPLEMENT | ❌ | `vas_wave4_task_card.md` | ✅ DONE — 4 services (BS+IS+CF+TB) + 25 unit tests + 2 bug fixes (IS sign inversion, BS residual plug). Merged `cbcc79d`. |
 | W5 | API Endpoints | IMPLEMENT | ❌ | `vas_wave5_task_card.md` | ✅ DONE — 4 controllers (BS+IS+CF+TB) + 5 endpoint tests + 2 config fixes (JournalEntryConfiguration +IEntityConfiguration, removed inline JE config). Merged. |
-| W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ✅ DONE — 5 Blazor pages (BS+IS+CF+TB+Hub) + 29 bUnit tests (TDD). Pending merge. |
+| W6 | UI Pages | IMPLEMENT | ❌ | `vas_wave6_task_card.md` | ✅ DONE — 5 Blazor pages (BS+IS+CF+TB+Hub) + 29 bUnit tests (TDD). Merged. |
 | W7 | Tests with Numeric Assertions | IMPLEMENT | ❌ | `vas_wave7_task_card.md` | ⏳ NEXT |
 | W8 | Feature Flag + TenantType | IMPLEMENT | ❌ | `vas_wave8_task_card.md` | ⏳ |
 | W9 | Regression + Merge | REVIEW | ❌ | `vas_wave9_task_card.md` | ⏳ |
