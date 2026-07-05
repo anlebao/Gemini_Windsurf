@@ -1,7 +1,7 @@
 # MASTER PLAN — SaaS Production Hardening (Multi-Tenant Deploy)
 
-> **Status:** 🆕 NOT STARTED — 9 waves (W0→W8)
-> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05
+> **Status:** 🆕 NOT STARTED — 10 waves (W0→W8 + W0.5 Stream D Completion)
+> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05 (W0.5 added — Stream D gộp vào Stream G)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch, always-green main
 > **Prerequisite:** VAS Stream F complete (W0-W9 merged, 1114/1114 tests PASS)
 > **Source:** Production readiness review 2026-07-05 (3 subagent audit + manual verify)
@@ -52,13 +52,14 @@ Phase 3 (IMPLEMENT): Code + verify
 
 ### Dependency chain
 ```
-W0 (Gateway Fix) ─┐
-W1 (Secrets)     ─┤
-W2 (.NET Upgrade) ─┼→ W3 (CI Restore) → W7 (Tech Debt) → W8 (Regression + Tag)
-W4 (UI Tests)    ─┤
-W5 (Period+Auth) ─┤
-W6 (E-Invoice)   ─┘
+W0.5 (Stream D Completion) → W0 (Gateway Fix) ─┐
+                              W1 (Secrets)     ─┤
+                              W2 (.NET Upgrade) ─┼→ W3 (CI Restore) → W7 (Tech Debt) → W8 (Regression + Tag)
+                              W4 (UI Tests)    ─┤
+                              W5 (Period+Auth) ─┤
+                              W6 (E-Invoice)   ─┘
 ```
+- W0.5: Stream D Completion (cherry-pick 4 files, đóng Stream D) — làm ĐẦU TIÊN, nhỏ gọn
 - W0-W2: Blockers (Sprint 1) — có thể song song trong nhiều session
 - W3: CI Restore — phụ thuộc W0-W2 clean
 - W4-W6: Hardening (Sprint 2) — có thể song song
@@ -74,6 +75,7 @@ W6 (E-Invoice)   ─┘
 
 ### Branch protocol
 ```
+main ← feature/saas-w0p5-stream-d-completion
 main ← feature/saas-w0-gateway-architecture-fix
 main ← feature/saas-w1-secrets-config-hardening
 main ← feature/saas-w2-dotnet-upgrade-package-security
@@ -153,10 +155,11 @@ main ← feature/saas-w8-regression-production-tag
 
 ---
 
-## 4. WAVE OVERVIEW (9 waves)
+## 4. WAVE OVERVIEW (10 waves — W0.5 + W0-W8)
 
 | Wave | Tên | Mode | Sprint | Task Card | Status |
 |------|-----|------|--------|-----------|--------|
+| W0.5 | Stream D Completion (HKD Wave 8 S2 cherry-pick) | IMPLEMENT | 1 | `saas_w0p5_task_card.md` | ⏳ |
 | W0 | Gateway Architecture Fix | IMPLEMENT | 1 | `saas_w0_task_card.md` | ⏳ |
 | W1 | Secrets + Production Config Hardening | IMPLEMENT | 1 | `saas_w1_task_card.md` | ⏳ |
 | W2 | .NET SDK Upgrade + Package Security | IMPLEMENT | 1 | `saas_w2_task_card.md` | ⏳ |
@@ -172,12 +175,12 @@ main ← feature/saas-w8-regression-production-tag
 ### 4.1. Sprint Mapping
 
 ```
-Sprint 1 (Blockers):    W0 → W1 → W2 → W3
+Sprint 1 (Blockers):    W0.5 → W0 → W1 → W2 → W3
 Sprint 2 (Hardening):   W4 → W5 → W6
 Sprint 3 (Cleanup):     W7 → W8
 ```
 
-- Sprint 1: 4 waves, mỗi wave 1 session (~2-3 ngày)
+- Sprint 1: 5 waves (W0.5 nhỏ + 4 blockers), mỗi wave 1 session
 - Sprint 2: 3 waves, W4 có thể 2-3 session (10 trang UI)
 - Sprint 3: 2 waves, W7 cleanup + W8 regression
 
