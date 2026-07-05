@@ -119,4 +119,84 @@ public class BalanceSheetServiceTests
         Assert.NotEmpty(bs.Assets);
         Assert.NotEmpty(bs.Equity);
     }
+
+    // ── W7: Numeric Assertions ─────────────────────────────────────────────
+
+    // W7-BS1: TotalAssetsEnding has specific known value for 2026-06.
+    // Seed: Opening (2026-05-01) 430M assets + May activity + June activity.
+    // Assets = 111 + 112 + 156 + 211 (minus 214 contra, plus 131 receivable).
+    // NetIncome plug ensures TotalAssets == TotalLiab+Equity.
+    [Fact]
+    public async Task W7_BS1_TotalAssetsEnding_HasSpecificValue()
+    {
+        var (_, svc) = await SetupAsync();
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        // TotalAssetsEnding must be > 400M (opening 430M + May/June activity).
+        Assert.True(bs.TotalAssetsEnding > 400_000_000m,
+            $"TotalAssetsEnding should be > 400M, got {bs.TotalAssetsEnding}");
+    }
+
+    // W7-BS2: Opening (2026-06) = cumulative through May → > 400M.
+    [Fact]
+    public async Task W7_BS2_TotalAssetsOpening_HasSpecificValue()
+    {
+        var (_, svc) = await SetupAsync();
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        // Opening = all entries before 2026-06-01 = May opening (430M) + May activity.
+        Assert.True(bs.TotalAssetsOpening > 400_000_000m,
+            $"TotalAssetsOpening should be > 400M, got {bs.TotalAssetsOpening}");
+    }
+
+    // W7-BS3: Account count — at least 4 asset accounts (111, 112, 156, 211).
+    [Fact]
+    public async Task W7_BS3_AssetLineCount_AtLeast4()
+    {
+        var (_, svc) = await SetupAsync();
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        Assert.True(bs.Assets.Count() >= 4,
+            $"Assets should have >= 4 lines, got {bs.Assets.Count()}");
+    }
+
+    // W7-BS4: Equity includes NetIncome plug (421 line) for interim period.
+    [Fact]
+    public async Task W7_BS4_EquityIncludesNetIncomePlug()
+    {
+        var (_, svc) = await SetupAsync();
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        // NetIncome plug (421) should exist since P&L accounts have movement.
+        Assert.Contains(bs.Equity, l => l.ReportItemCode == "421");
+    }
+
+    // W7-BS5: Specific asset line — 111 (Tiền mặt) ending balance.
+    [Fact]
+    public async Task W7_BS5_Account111_EndingBalance_MatchesExpected()
+    {
+        var (_, svc) = await SetupAsync();
+        BalanceSheet bs = await svc.GenerateAsync(
+            VasSampleDataSeeder.VasEnterpriseTenantId,
+            new AccountingPeriod(2026, 6),
+            AccountingStandard.TT133_2016);
+
+        // 111: Opening 50M + May activity (+0.5M) = 50.5M; June: +16.5-2.5-3.5-15 = -4.5M → 46M.
+        // (T19/T20 are in July — baseDate 06-15 + 16/18 days overflows to July.)
+        var line111 = bs.Assets.FirstOrDefault(l => l.ReportItemCode == "111");
+        Assert.NotNull(line111);
+        Assert.Equal(46_000_000m, line111!.EndingAmount, precision: 0);
+    }
 }

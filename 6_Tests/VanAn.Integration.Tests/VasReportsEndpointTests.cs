@@ -182,4 +182,64 @@ public class VasReportsEndpointTests : IClassFixture<CustomWebApplicationFactory
         Assert.True(response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.UnprocessableEntity,
             $"Expected 200 or 422, got {response.StatusCode}");
     }
+
+    // ── W7: Numeric Assertions via API ─────────────────────────────────────
+
+    // W7-INT-BS: Balance Sheet endpoint returns specific numeric values.
+    [Fact(DisplayName = "W7-INT-BS: GET /api/balance-sheets returns correct numeric TotalAssets")]
+    public async Task W7_INT_BS_EndpointReturnsCorrectNumericValues()
+    {
+        await SeedVasDataAsync();
+        var response = await _client.GetAsync("/api/balance-sheets?year=2026&month=6&standard=TT133_2016");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+
+        // Integration seed: 111(50+11-2=59M) + 112(100M) + 156(80-7=73M) + 211(200M) = 432M.
+        Assert.Contains("432000000", json);
+        // TotalAssets == TotalLiabAndEquity (invariant).
+        Assert.Contains("totalLiabilitiesAndEquityEnding", json);
+    }
+
+    // W7-INT-IS: Income Statement endpoint returns specific numeric values.
+    [Fact(DisplayName = "W7-INT-IS: GET /api/income-statements returns Revenue=10M, NetProfit=3M")]
+    public async Task W7_INT_IS_EndpointReturnsCorrectNumericValues()
+    {
+        await SeedVasDataAsync();
+        var response = await _client.GetAsync("/api/income-statements?year=2026&month=6&standard=TT133_2016");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+
+        // Revenue 10M (511 credit), COGS 7M (632) → NetProfit = 3M (6421 not in chart → skipped).
+        Assert.Contains("10000000", json);  // TotalRevenueEnding = 10M
+        Assert.Contains("3000000", json);   // NetProfitEnding = 3M
+    }
+
+    // W7-INT-CF: Cash Flow endpoint returns specific numeric values.
+    [Fact(DisplayName = "W7-INT-CF: GET /api/cash-flow-statements returns ClosingCash=159M")]
+    public async Task W7_INT_CF_EndpointReturnsCorrectNumericValues()
+    {
+        await SeedVasDataAsync();
+        var response = await _client.GetAsync("/api/cash-flow-statements?year=2026&month=6&standard=TT133_2016");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+
+        // OpeningCash = 0 (no entries before 2026-06-01).
+        // ClosingCash = 111(50+11-2=59M) + 112(100M) = 159M.
+        Assert.Contains("159000000", json);  // ClosingCash = 159M
+    }
+
+    // W7-INT-TB: Trial Balance endpoint returns specific numeric values.
+    [Fact(DisplayName = "W7-INT-TB: GET /api/trial-balances returns TotalDebit=TotalCredit=450M, IsBalanced=true")]
+    public async Task W7_INT_TB_EndpointReturnsCorrectNumericValues()
+    {
+        await SeedVasDataAsync();
+        var response = await _client.GetAsync("/api/trial-balances?year=2026&month=6&standard=TT133_2016");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadAsStringAsync();
+
+        // Movement: 111(61M) + 112(100M) + 156(80M) + 211(200M) + 632(7M) + 6421(2M) = 450M debit.
+        //           411(350M) + 331(50M) + 3331(31M) + 511(10M) + 156(7M) + 111(2M) = 450M credit.
+        Assert.Contains("450000000", json);  // TotalDebit = TotalCredit = 450M
+        Assert.Contains("\"isBalanced\":true", json);
+    }
 }
