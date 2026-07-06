@@ -4,16 +4,22 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.DTOs;
 using VanAn.Shared.Services;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Interfaces;
 
 namespace VanAn.CoreHub.Services
 {
     /// <summary>
     /// Kitchen service implementation with FIFO grouping and defensive validation
     /// </summary>
-    public class KitchenService(VanAnDbContext context, ILogger<KitchenService> logger) : IKitchenService
+    public class KitchenService(
+        IVanAnDbContext context,
+        ILogger<KitchenService> logger,
+        IOrderNotificationService? orderNotificationService = null) : IKitchenService
     {
-        private readonly VanAnDbContext _context = context;
+        private readonly IVanAnDbContext _context = context;
         private readonly ILogger<KitchenService> _logger = logger;
+        // W1-T2: SignalR notification (nullable — null in ShopERP scope, real in Gateway scope)
+        private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
 
         // 🎯 CORE FIFO GROUPING LOGIC - ARCHITECT'S HYBRID APPROACH
         public async Task<List<KitchenItemGroupDto>> GetGroupedKitchenItemsAsync(Guid shopId)
@@ -107,8 +113,26 @@ namespace VanAn.CoreHub.Services
 
                 if (remainingItems.All(oi => oi.KitchenStatus == KitchenStatus.Completed))
                 {
+                    // W1-T1: All kitchen items done → transition OrderStatus to Ready (not Completed).
+                    // Ready = kitchen finished, waiting for pickup/delivery.
+                    // Completed = customer received order (manual transition, separate flow).
+                    string oldOrderStatus = orderItem.Order.Status.Value;
                     orderItem.Order.UpdateKitchenStatus(KitchenStatus.Completed);
-                    orderItem.Order.MarkAsCompleted();
+                    orderItem.Order.UpdateOrderStatus(OrderStatusId.Ready);
+
+                    _ = await _context.SaveChangesAsync();
+
+                    // W1-T2: Broadcast OrderStatusChanged via SignalR (best-effort, non-blocking)
+                    if (_orderNotificationService != null)
+                    {
+                        _ = _orderNotificationService.NotifyOrderStatusChangedAsync(
+                            orderItem.OrderId, orderItem.Order.TenantId.Value,
+                            oldStatus: oldOrderStatus, newStatus: "ready");
+                    }
+
+                    _logger.LogInformation("All kitchen items completed for order {OrderId} → status transitioned to Ready",
+                        orderItem.OrderId);
+                    return true;
                 }
             }
 
