@@ -34,6 +34,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# --- 0. Kill any running dotnet processes to avoid DLL lock (CS2012) ---
+$runningDotnet = Get-Process dotnet -ErrorAction SilentlyContinue
+if ($runningDotnet) {
+    Write-Host "[Cleanup] Killing $($runningDotnet.Count) running dotnet process(es) to avoid DLL lock" -ForegroundColor Yellow
+    $runningDotnet | Stop-Process -Force
+    Start-Sleep -Seconds 2
+}
+
 Write-Host ">> Vạn An Smoke Test Launcher (SQLite-only)" -ForegroundColor Cyan
 Write-Host "   SDK: 8.0.422+ | DB: SQLite | Mode: Development (Debug build)" -ForegroundColor DarkGray
 Write-Host ""
