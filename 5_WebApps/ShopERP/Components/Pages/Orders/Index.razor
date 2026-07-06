@@ -1,0 +1,292 @@
+@page "/orders"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<Index> Logger
+@inject NavigationManager NavigationManager
+@inject IThemeProvider ThemeProvider
+
+<div class="orders-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Danh sách đơn hàng</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="ReloadOrders">
+                🔄 Refresh
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Bộ lọc">
+        <div class="filter-row">
+            <label>Trạng thái:</label>
+            <select value="@selectedStatus" @onchange="OnStatusChanged" class="filter-select" data-testid="filter-status">
+                <option value="">Tất cả</option>
+                <option value="pending">Chờ xác nhận</option>
+                <option value="confirmed">Đã xác nhận</option>
+                <option value="preparing">Đang làm</option>
+                <option value="ready">Sẵn sàng</option>
+                <option value="completed">Hoàn thành</option>
+                <option value="cancelled">Đã hủy</option>
+            </select>
+
+            <label>Thời gian:</label>
+            <select value="@selectedDateRange" @onchange="OnDateRangeChanged" class="filter-select" data-testid="filter-date">
+                <option value="today">Hôm nay</option>
+                <option value="7days">7 ngày</option>
+                <option value="all">Tất cả</option>
+            </select>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Danh sách đơn hàng">
+            <p>Đang tải...</p>
+        </VanACard>
+    }
+    else if (orders.Count == 0)
+    {
+        <VanACard Header="Danh sách đơn hàng">
+            <p>Không có đơn hàng nào.</p>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách đơn hàng ({orders.Count})")">
+            <VanAnDataGrid TItem="OrderListItem" Items="@orders" EmptyMessage="Không có đơn hàng">
+                <Columns>
+                    <VanAnColumn TItem="OrderListItem" Title="Mã đơn" Width="2">
+                        <Template Context="o">
+                            <a href="@GetDetailUrl(o.Id)" data-testid="link-order-detail">@o.TrackingCode</a>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="OrderListItem" Title="Thời gian" Width="2">
+                        <Template Context="o">
+                            @o.OrderDate.ToString("HH:mm dd/MM")
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="OrderListItem" Title="Trạng thái" Width="2">
+                        <Template Context="o">
+                            <span class="status-badge status-@o.Status">@TranslateStatus(o.Status)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="OrderListItem" Title="Thanh toán" Width="2">
+                        <Template Context="o">
+                            <span class="payment-badge payment-@o.PaymentStatus.ToLower()">@(o.PaymentStatus)</span>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="OrderListItem" Title="Tổng tiền" Width="2">
+                        <Template Context="o">
+                            @o.TotalAmount.ToString("N0") đ
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="OrderListItem" Title="Hành động" Width="2">
+                        <Template Context="o">
+                            @if (o.Status == "pending")
+                            {
+                                <VanAButton Variant="primary" Size="small" OnClick="() => ConfirmOrder(o.Id)" data-testid="btn-confirm-order">
+                                    ✓ Xác nhận
+                                </VanAButton>
+                            }
+                            <VanAButton Variant="secondary" Size="small" OnClick="() => GoToDetail(o.Id)">
+                                Chi tiết
+                            </VanAButton>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private List<OrderListItem> orders = new();
+    private bool loading = true;
+    private string? errorMessage;
+    private string selectedStatus = "";
+    private string selectedDateRange = "today";
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadOrders();
+        await StartSignalRConnection();
+    }
+
+    private async Task OnStatusChanged(ChangeEventArgs e)
+    {
+        selectedStatus = e.Value?.ToString() ?? "";
+        await ReloadOrders();
+    }
+
+    private async Task OnDateRangeChanged(ChangeEventArgs e)
+    {
+        selectedDateRange = e.Value?.ToString() ?? "today";
+        await ReloadOrders();
+    }
+
+    private async Task ReloadOrders()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("gateway");
+            string query = BuildQuery();
+            var response = await httpClient.GetAsync($"api/orders{query}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var rawOrders = await response.Content.ReadFromJsonAsync<List<OrderDto>>();
+                orders = rawOrders?.Select(MapToListItem).ToList() ?? new();
+            }
+            else
+            {
+                errorMessage = $"Lỗi tải đơn hàng: {(int)response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading orders");
+            errorMessage = $"Không thể kết nối: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string BuildQuery()
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrEmpty(selectedStatus))
+            parts.Add($"status={selectedStatus}");
+        return parts.Count > 0 ? "?" + string.Join("&", parts) : "";
+    }
+
+    private string GetDetailUrl(Guid id) => $"/orders/{id}";
+
+    private void GoToDetail(Guid id) => NavigationManager.NavigateTo($"/orders/{id}");
+
+    private async Task ConfirmOrder(Guid orderId)
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("gateway");
+            var response = await httpClient.PutAsJsonAsync(
+                $"api/orders/{orderId}/status",
+                new { Status = "confirmed" });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ReloadOrders();
+            }
+            else
+            {
+                errorMessage = $"Không thể xác nhận đơn: {(int)response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error confirming order {OrderId}", orderId);
+            errorMessage = $"Lỗi: {ex.Message}";
+        }
+    }
+
+    private async Task StartSignalRConnection()
+    {
+        try
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/orderHub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<Guid, Guid, string, string>("OrderStatusChanged",
+                async (orderId, tenantId, oldStatus, newStatus) =>
+                {
+                    await InvokeAsync(async () => await ReloadOrders());
+                });
+
+            _hubConnection.On<Guid, Guid, string>("PaymentConfirmed",
+                async (orderId, tenantId, transactionId) =>
+                {
+                    await InvokeAsync(async () => await ReloadOrders());
+                });
+
+            await _hubConnection.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "SignalR connection failed — list will not auto-refresh");
+        }
+    }
+
+    private static string TranslateStatus(string status) => status switch
+    {
+        "pending" => "Chờ xác nhận",
+        "confirmed" => "Đã xác nhận",
+        "preparing" => "Đang làm",
+        "ready" => "Sẵn sàng",
+        "completed" => "Hoàn thành",
+        "cancelled" => "Đã hủy",
+        _ => status
+    };
+
+    private static OrderListItem MapToListItem(OrderDto o) => new()
+    {
+        Id = o.Id,
+        TrackingCode = o.TrackingCode ?? o.Id.ToString()[..8],
+        OrderDate = o.OrderDate,
+        Status = o.Status?.Value ?? "pending",
+        PaymentStatus = o.PaymentStatus ?? "Pending",
+        TotalAmount = o.TotalAmount
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+
+    private class OrderListItem
+    {
+        public Guid Id { get; set; }
+        public string TrackingCode { get; set; } = "";
+        public DateTime OrderDate { get; set; }
+        public string Status { get; set; } = "";
+        public string PaymentStatus { get; set; } = "";
+        public decimal TotalAmount { get; set; }
+    }
+
+    // Minimal DTO matching Order API response shape
+    private class OrderDto
+    {
+        public Guid Id { get; set; }
+        public string? TrackingCode { get; set; }
+        public DateTime OrderDate { get; set; }
+        public OrderStatusDto? Status { get; set; }
+        public string? PaymentStatus { get; set; }
+        public decimal TotalAmount { get; set; }
+    }
+
+    private class OrderStatusDto
+    {
+        public string Value { get; set; } = "";
+    }
+}
