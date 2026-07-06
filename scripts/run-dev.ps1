@@ -68,7 +68,7 @@ foreach ($p in @($gatewayProj, $shopErpProj)) {
 }
 
 # --- 4. Launch services ---
-$envScript = '$env:ASPNETCORE_ENVIRONMENT="Development"'
+$envScript = "`$env:ASPNETCORE_ENVIRONMENT='Development'"
 
 # --- 4a. Pre-flight: remove stale SQLite DB if it predates W3 (missing AccountCharts table) ---
 $dbPath = Join-Path $rootDir "5_WebApps\ShopERP\vanan_shoperp.db"
@@ -88,19 +88,22 @@ if (Test-Path $dbPath) {
 # Gateway (5001) — monolithic mode, in-process CoreHub
 if (-not $ShopERPOnly) {
     Write-Host "`n[Gateway] Starting on http://localhost:5001 ..." -ForegroundColor Green
-    $cmd = "$envScript; cd '$gatewayProj' | Out-Null; dotnet run --project '$gatewayProj' --configuration Debug --urls 'http://localhost:5001'"
+    $gatewayDir = Split-Path $gatewayProj -Parent
+    $cmd = "$envScript; Set-Location '$gatewayDir'; dotnet run --project '$gatewayProj' --configuration Debug --urls 'http://localhost:5001'"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 
 # ShopERP (5003) — Blazor Server + API controllers + DevLogin
 Write-Host "[ShopERP] Starting on http://localhost:5003 ..." -ForegroundColor Green
-$cmd = "$envScript; cd '$shopErpProj' | Out-Null; dotnet run --project '$shopErpProj' --configuration Debug --urls 'http://localhost:5003'"
+$shopErpDir = Split-Path $shopErpProj -Parent
+$cmd = "$envScript; Set-Location '$shopErpDir'; dotnet run --project '$shopErpProj' --configuration Debug --urls 'http://localhost:5003'"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 
 # KhachLink (5002) — optional PWA
 if (-not $NoKhachLink -and (Test-Path $khachLinkProj)) {
     Write-Host "[KhachLink] Starting on http://localhost:5002 ..." -ForegroundColor Green
-    $cmd = "$envScript; cd '$khachLinkProj' | Out-Null; dotnet run --project '$khachLinkProj' --configuration Debug --urls 'http://localhost:5002'"
+    $khachLinkDir = Split-Path $khachLinkProj -Parent
+    $cmd = "$envScript; Set-Location '$khachLinkDir'; dotnet run --project '$khachLinkProj' --configuration Debug --urls 'http://localhost:5002'"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 
