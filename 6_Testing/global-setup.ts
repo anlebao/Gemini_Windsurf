@@ -17,6 +17,9 @@ import * as path from 'path';
 //
 // TenantId injected by DevLoginController: 11111111-1111-1111-1111-111111111111
 // This matches the dev seed data in ShopERP SQLite DB.
+// W3: This is the dedicated Test Tenant — all E2E data is created under this tenant.
+// TestDataCleaner.cleanupTestTenant() deletes orders/customers for this tenant.
+// AccountingEntry is immutable — test tenant entries are accepted as test garbage.
 
 // Service health check configuration
 const SERVICES = {

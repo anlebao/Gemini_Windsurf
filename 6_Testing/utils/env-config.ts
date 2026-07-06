@@ -26,6 +26,11 @@ interface TestConfig {
   // 'smoke' = Tier 0 only, 'golden' = Tier 1 only, 'full' = Tier 2, 'all' = everything
   E2E_TIER: 'smoke' | 'golden' | 'full' | 'all';
 
+  // W3: Test Tenant ID — dedicated tenant for E2E tests (matches DevLoginController)
+  // All E2E test data is created under this tenant. Cleanup deletes by this tenant.
+  // AccountingEntry is immutable by design — test tenant entries are accepted as test garbage.
+  TEST_TENANT_ID: string;
+
   
 
   // Load Tests
@@ -186,6 +191,12 @@ export function loadEnvConfig(): TestConfig {
         || (config.E2E_TIER as 'smoke' | 'golden' | 'full' | 'all')
         || 'all',
 
+      // W3: Test Tenant ID — matches DevLoginController (11111111-1111-1111-1111-111111111111)
+      // Used for test data isolation and cleanup
+      TEST_TENANT_ID: process.env.TEST_TENANT_ID
+        || config.TEST_TENANT_ID
+        || '11111111-1111-1111-1111-111111111111',
+
       
 
       // Load Tests
@@ -302,6 +313,9 @@ export function loadEnvConfig(): TestConfig {
 
       // W0: Default to 'all' when no .env.test file found
       E2E_TIER: 'all' as const,
+
+      // W3: Test Tenant ID default (matches DevLoginController)
+      TEST_TENANT_ID: '11111111-1111-1111-1111-111111111111',
 
       ENABLE_LOAD_TEST: false,
 
