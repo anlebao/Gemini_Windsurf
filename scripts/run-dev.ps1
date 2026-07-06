@@ -34,12 +34,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# --- 0. Kill any running dotnet processes to avoid DLL lock (CS2012) ---
-$runningDotnet = Get-Process dotnet -ErrorAction SilentlyContinue
-if ($runningDotnet) {
-    Write-Host "[Cleanup] Killing $($runningDotnet.Count) running dotnet process(es) to avoid DLL lock" -ForegroundColor Yellow
-    $runningDotnet | Stop-Process -Force
-    Start-Sleep -Seconds 2
+# --- 0. Kill any running dotnet/VS processes to avoid DLL lock (CS2012) ---
+$processesToKill = Get-Process dotnet,devenv,ServiceHub,RoslynCodeAnalysis -ErrorAction SilentlyContinue
+if ($processesToKill) {
+    Write-Host "[Cleanup] Killing $($processesToKill.Count) process(es) to avoid DLL lock (CS2012)" -ForegroundColor Yellow
+    $processesToKill | Stop-Process -Force
+    Start-Sleep -Seconds 3
+}
+
+# Clear locked analyzer obj/bin (Roslyn analyzer DLLs are frequently locked by VS)
+$analyzerObj = Join-Path $rootDir "VanAn.Accounting\VanAn.Accounting.Analyzers\obj"
+$analyzerBin = Join-Path $rootDir "VanAn.Accounting\VanAn.Accounting.Analyzers\bin"
+foreach ($p in @($analyzerObj, $analyzerBin)) {
+    if (Test-Path $p) { Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host ">> Vạn An Smoke Test Launcher (SQLite-only)" -ForegroundColor Cyan
