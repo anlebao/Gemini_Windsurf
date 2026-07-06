@@ -34,16 +34,16 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
 
-    const productCard = page.locator('.feature-card').first();
+    const productCard = page.getByTestId('home-product-card').first();
     await expect(productCard).toBeVisible({ timeout: 10000 });
-    await productCard.locator('button:has-text("Đặt ngay")').click();
+    await productCard.getByTestId('home-btn-add-to-cart').click();
 
     // Go to checkout
     await page.goto(`${config.KHACHLINK_URL}/checkout`);
     await page.waitForLoadState('networkidle');
 
     // "Thanh toán QR" trigger button must be present
-    const qrButton = page.locator('button:has-text("Thanh toán QR"), button:has-text("QR")').first();
+    const qrButton = page.getByTestId('checkout-btn-qr-payment');
     await expect(qrButton).toBeVisible({ timeout: 5000 });
 
   });
@@ -52,9 +52,9 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
 
-    const productCard = page.locator('.feature-card').first();
+    const productCard = page.getByTestId('home-product-card').first();
     await expect(productCard).toBeVisible({ timeout: 10000 });
-    await productCard.locator('button:has-text("Đặt ngay")').click();
+    await productCard.getByTestId('home-btn-add-to-cart').click();
 
     await page.goto(`${config.KHACHLINK_URL}/checkout`);
     await page.waitForLoadState('networkidle');

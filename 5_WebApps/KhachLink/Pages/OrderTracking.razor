@@ -58,7 +58,7 @@
 </style>
 
 <!-- T-02d: .order-tracking container — required by E2E spec selector contract -->
-<div class="container order-tracking">
+<div class="container order-tracking" data-testid="order-tracking-container">
     <div class="row justify-content-center">
         <div class="col-md-8">
 
@@ -77,11 +77,11 @@
             {
                 <div class="card">
                     <div class="card-body">
-                        <div class="alert alert-warning not-found">
+                        <div class="alert alert-warning not-found" data-testid="order-tracking-not-found">
                             <h5>❌ Không tìm thấy đơn hàng</h5>
                             <p>Mã đơn hàng <strong>@orderId.ToString()[..8]…</strong> không tồn tại trong hệ thống.</p>
                             <p class="text-muted small">@errorMessage</p>
-                            <a href="/home" class="btn btn-primary">Quay lại trang chủ</a>
+                            <a href="/home" class="btn btn-primary" data-testid="order-tracking-btn-back-home">Quay lại trang chủ</a>
                         </div>
                     </div>
                 </div>
@@ -90,7 +90,7 @@
             {
                 <div class="card">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">📋 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
+                        <h4 class="mb-0" data-testid="order-tracking-heading">📋 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
                         @if (isPolling && isTabVisible)
                         {
                             <div class="spinner-border spinner-border-sm text-light" role="status" title="Đang cập nhật...">
@@ -104,7 +104,7 @@
                                 <h5>Trạng thái đơn hàng</h5>
 
                                 <!-- Status Timeline -->
-                                <div class="timeline status-timeline">
+                                <div class="timeline status-timeline" data-testid="order-tracking-timeline">
                                     @foreach (var step in statusTimeline)
                                     {
                                         <div class="timeline-item @(step.IsCompleted ? "completed" : "pending")">
@@ -135,7 +135,7 @@
                                 <div class="order-info">
                                     <p><strong>Mã đơn:</strong> #@order.Id.ToString()[..8]</p>
                                     <p><strong>Trạng thái:</strong>
-                                        <span class="badge bg-@GetStatusColor(order.Status?.Value ?? "")">
+                                        <span class="badge bg-@GetStatusColor(order.Status?.Value ?? "")" data-testid="order-tracking-status">
                                             @(order.Status?.Value ?? "—")
                                         </span>
                                     </p>
@@ -157,7 +157,7 @@
                                 </div>
 
                                 <div class="mt-3">
-                                    <a href="/home" class="btn btn-outline-primary w-100">
+                                    <a href="/home" class="btn btn-outline-primary w-100" data-testid="order-tracking-btn-back-home-success">
                                         Quay lại trang chủ
                                     </a>
                                 </div>

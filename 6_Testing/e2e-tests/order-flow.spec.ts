@@ -31,21 +31,21 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
 
   test('Customer can view product catalog @golden', async ({ page }) => {
     // Feature cards must be present — hard assertion, no silent skip
-    await expect(page.locator('.feature-card').first()).toBeVisible();
+    await expect(page.getByTestId('home-product-card').first()).toBeVisible();
 
-    const firstProduct = page.locator('.feature-card').first();
+    const firstProduct = page.getByTestId('home-product-card').first();
     await expect(firstProduct.locator('h5')).toBeVisible();
 
   });
 
   test('Customer can add items to cart @golden', async ({ page }) => {
-    const firstProduct = page.locator('.feature-card').first();
+    const firstProduct = page.getByTestId('home-product-card').first();
     await expect(firstProduct).toBeVisible();
 
     const productName = await firstProduct.locator('h5').textContent();
 
     // "Đặt ngay" button must be present on the product card
-    const orderBtn = firstProduct.locator('button:has-text("Đặt ngay")');
+    const orderBtn = firstProduct.getByTestId('home-btn-add-to-cart');
     await expect(orderBtn).toBeVisible();
     await orderBtn.click();
 
@@ -56,9 +56,9 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
 
-    const firstProduct = page.locator('.feature-card').first();
+    const firstProduct = page.getByTestId('home-product-card').first();
     await expect(firstProduct).toBeVisible({ timeout: 10000 });
-    await firstProduct.locator('button:has-text("Đặt ngay")').click();
+    await firstProduct.getByTestId('home-btn-add-to-cart').click();
 
     // Navigate to checkout directly (cart state is set)
     await page.goto(`${config.KHACHLINK_URL}/checkout`);

@@ -56,14 +56,16 @@
             @* T-03b: FooterContent → Footer (correct VanAnModal RenderFragment parameter name) *@
             <Footer>
                 <VanAnButton Variant="ButtonVariant.Secondary"
-                             OnClick="HandleClose">
+                             OnClick="HandleClose"
+                             data-testid="qr-modal-btn-close">
                     Đóng
                 </VanAnButton>
                 @if (!string.IsNullOrEmpty(QrImageUrl))
                 {
                     <VanAnButton Variant="ButtonVariant.Primary"
                                  Icon="download"
-                                 OnClick="DownloadQr">
+                                 OnClick="DownloadQr"
+                                 data-testid="qr-modal-btn-download">
                         Lưu mã QR
                     </VanAnButton>
                     @* W3-T2: Self-confirm payment — KhachLink sends POST api/webhooks/payment *@

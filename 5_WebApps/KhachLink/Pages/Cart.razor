@@ -16,7 +16,7 @@
         {
             <VanAnAlert Variant="AlertVariant.Info" Message="Giỏ hàng của bạn đang trống. Hãy thêm sản phẩm để tiếp tục!" />
             <div class="text-center mt-3">
-                <VanAnButton Icon="house" OnClick="@(() => Navigation.NavigateTo("/"))">
+                <VanAnButton Icon="house" OnClick="@(() => Navigation.NavigateTo("/"))" data-testid="cart-btn-back-home">
                     Quay lại trang chủ
                 </VanAnButton>
             </div>
@@ -41,14 +41,14 @@
                                         <div class="col-md-3">
                                             <div class="quantity-control">
                                                 <div class="input-group" style="width: 120px;">
-                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)" aria-label="@($"Giảm số lượng {item.ProductName}")">-</VanAnButton>
-                                                    <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" aria-label="@($"Số lượng {item.ProductName}")" />
-                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)" aria-label="@($"Tăng số lượng {item.ProductName}")">+</VanAnButton>
+                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)" aria-label="@($"Giảm số lượng {item.ProductName}")" data-testid="cart-btn-qty-decrease">-</VanAnButton>
+                                                    <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" aria-label="@($"Số lượng {item.ProductName}")" data-testid="cart-input-quantity" />
+                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)" aria-label="@($"Tăng số lượng {item.ProductName}")" data-testid="cart-btn-qty-increase">+</VanAnButton>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-md-3 text-end">
-                                            <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small" Icon="trash" OnClick="() => RemoveItem(item.ProductId)">
+                                            <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small" Icon="trash" OnClick="() => RemoveItem(item.ProductId)" data-testid="cart-btn-remove">
                                                 Xóa
                                             </VanAnButton>
                                         </div>
@@ -71,10 +71,10 @@
                                 <h5>Tổng cộng:</h5>
                                 <h5 class="text-danger">@cartState.TotalAmount.ToString("N0") VNĐ</h5>
                             </div>
-                            <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="qr-code" OnClick="ProceedToCheckout">
+                            <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="qr-code" OnClick="ProceedToCheckout" data-testid="cart-btn-checkout">
                                 Thanh toán
                             </VanAnButton>
-                            <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="mt-2" OnClick="ClearCart">
+                            <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="mt-2" OnClick="ClearCart" data-testid="cart-btn-clear">
                                 Xóa giỏ hàng
                             </VanAnButton>
                         </div>
@@ -87,12 +87,22 @@
 
 @code {
     private VanAn.KhachLink.Services.CartState cartState = new();
-    
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
         CartService.OnCartChanged += StateHasChanged;
-        await CartService.LoadCartFromStorageAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // JSRuntime is only available after hydration (not during static prerender).
+            // Load cart from localStorage here so items added on other pages persist.
+            await CartService.LoadCartFromStorageAsync();
+            StateHasChanged();
+        }
     }
 
     private async Task UpdateQuantity(Guid productId, int quantity)

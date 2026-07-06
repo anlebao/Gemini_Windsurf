@@ -37,13 +37,13 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
     // Page must not 404 — heading or page content must be visible
     await expect(
-      page.locator('h1, h2, h3, h4, .card-header')
+      page.getByTestId('order-tracking-container').locator('h1, h2, h3, h4, .card-header')
     ).toBeVisible({ timeout: 10000 });
 
     // The page must contain either order info or a "not found" message
     // Both are valid — proves the route is registered
     await expect(
-      page.locator('.order-tracking, .card, .alert')
+      page.getByTestId('order-tracking-container').locator('.card, .alert')
     ).toBeVisible();
 
   });
@@ -53,7 +53,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     await page.waitForLoadState('networkidle');
 
     // .order-tracking container must exist — mandatory CSS class for E2E selector contract
-    await expect(page.locator('.order-tracking')).toBeVisible();
+    await expect(page.getByTestId('order-tracking-container')).toBeVisible();
 
   });
 
@@ -63,7 +63,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
     // Heading must contain "Theo dõi" or "Đơn hàng" — not just any text.
     // OrderTracking.razor L86: <h4>📋 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
-    const heading = page.locator('h4, h3, h2').first();
+    const heading = page.getByTestId('order-tracking-heading');
     await expect(heading).toBeVisible();
     const text = await heading.textContent();
     expect(text).toMatch(/Theo dõi|Đơn hàng|order/i);
@@ -76,7 +76,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
     // Timeline or status list must be present
     await expect(
-      page.locator('.timeline, .status-timeline, .order-status-list')
+      page.getByTestId('order-tracking-timeline')
     ).toBeVisible();
 
   });
@@ -88,12 +88,12 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
     // Must show a "not found" alert — not a crash / blank page
     await expect(
-      page.locator('.alert-warning, .alert-danger, .not-found')
+      page.getByTestId('order-tracking-not-found')
     ).toBeVisible();
 
     // Must have a "back to home" link
     await expect(
-      page.locator('a[href="/"], a[href="/home"], a:has-text("Quay lại")')
+      page.getByTestId('order-tracking-btn-back-home')
     ).toBeVisible();
 
   });

@@ -48,10 +48,10 @@ else if (orderCreated && !string.IsNullOrEmpty(createdOrderId))
 
                     <!-- T-03c: "Thanh toán QR" button — triggers #qrPaymentModal -->
                     <div class="mt-3 d-flex gap-2">
-                        <button class="btn btn-primary" @onclick="OpenQrModal">
+                        <button class="btn btn-primary" @onclick="OpenQrModal" data-testid="checkout-btn-qr-payment">
                             📲 Thanh toán QR
                         </button>
-                        <a href="/order-tracking/@createdOrderId" class="btn btn-outline-secondary">
+                        <a href="/order-tracking/@createdOrderId" class="btn btn-outline-secondary" data-testid="checkout-link-tracking">
                             Theo dõi đơn hàng
                         </a>
                     </div>
