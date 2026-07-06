@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Start Vạn An apps for local smoke test (SQLite-only, no Docker required).
 .DESCRIPTION
@@ -100,7 +100,7 @@ if (Test-Path $dbPath) {
     Write-Host "[DB] No vanan_shoperp.db found - will be created on first run" -ForegroundColor Green
 }
 
-# Gateway (5001) — monolithic mode, in-process CoreHub
+# Gateway (5001) - monolithic mode, in-process CoreHub
 if (-not $ShopERPOnly) {
     Write-Host "`n[Gateway] Starting on http://localhost:5001 ..." -ForegroundColor Green
     $gatewayDir = Split-Path $gatewayProj -Parent
@@ -108,13 +108,13 @@ if (-not $ShopERPOnly) {
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 
-# ShopERP (5003) — Blazor Server + API controllers + DevLogin
+# ShopERP (5003) - Blazor Server + API controllers + DevLogin
 Write-Host "[ShopERP] Starting on http://localhost:5003 ..." -ForegroundColor Green
 $shopErpDir = Split-Path $shopErpProj -Parent
 $cmd = "$envScript; Set-Location '$shopErpDir'; dotnet run --project '$shopErpProj' --configuration Debug --urls 'http://localhost:5003'"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 
-# KhachLink (5002) — optional PWA
+# KhachLink (5002) - optional PWA
 if (-not $NoKhachLink -and (Test-Path $khachLinkProj)) {
     Write-Host "[KhachLink] Starting on http://localhost:5002 ..." -ForegroundColor Green
     $khachLinkDir = Split-Path $khachLinkProj -Parent
