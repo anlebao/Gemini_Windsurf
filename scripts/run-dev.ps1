@@ -34,6 +34,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# --- 1. Locate repo root (must be first - used by step 0 + 2) ---
+$rootDir = Split-Path -Parent $PSScriptRoot
+Set-Location $rootDir
+
+Write-Host ">> Vạn An Smoke Test Launcher (SQLite-only)" -ForegroundColor Cyan
+Write-Host "   SDK: 8.0.422+ | DB: SQLite | Mode: Development (Debug build)" -ForegroundColor DarkGray
+Write-Host ""
+
 # --- 0. Kill any running dotnet/VS processes to avoid DLL lock (CS2012) ---
 $processesToKill = Get-Process dotnet,devenv,ServiceHub,RoslynCodeAnalysis -ErrorAction SilentlyContinue
 if ($processesToKill) {
@@ -49,11 +57,7 @@ foreach ($p in @($analyzerObj, $analyzerBin)) {
     if (Test-Path $p) { Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
-Write-Host ">> Vạn An Smoke Test Launcher (SQLite-only)" -ForegroundColor Cyan
-Write-Host "   SDK: 8.0.422+ | DB: SQLite | Mode: Development (Debug build)" -ForegroundColor DarkGray
-Write-Host ""
-
-# --- 1. Ensure .NET SDK 8.0.422+ is on PATH ---
+# --- 2. Ensure .NET SDK 8.0.422+ is on PATH ---
 $dotnetVersion = & dotnet --version 2>$null
 if (-not $dotnetVersion -or [version]$dotnetVersion -lt [version]"8.0.400") {
     $userDotnet = Join-Path $env:LOCALAPPDATA "dotnet"
@@ -67,10 +71,6 @@ if (-not $dotnetVersion -or [version]$dotnetVersion -lt [version]"8.0.400") {
     }
 }
 Write-Host "[SDK] dotnet $dotnetVersion" -ForegroundColor Green
-
-# --- 2. Locate repo root ---
-$rootDir = Split-Path -Parent $PSScriptRoot
-Set-Location $rootDir
 Write-Host "[Repo] $rootDir" -ForegroundColor Green
 
 # --- 3. Verify projects exist ---
