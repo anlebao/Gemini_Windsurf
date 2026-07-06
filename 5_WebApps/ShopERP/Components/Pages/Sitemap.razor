@@ -34,16 +34,8 @@
             <div class="sitemap-links">
                 <a href="/" class="sitemap-link" data-testid="link-orders-home">
                     <span class="sitemap-link-icon">🏠</span>
-                    <span>Dashboard Đơn Hàng</span>
+                    <span>Dashboard</span>
                 </a>
-                <AuthorizeView Roles="Owner,StoreKeeper">
-                    <Authorized>
-                        <a href="/orders" class="sitemap-link" data-testid="link-orders-list">
-                            <span class="sitemap-link-icon">📋</span>
-                            <span>Danh Sách Đơn</span>
-                        </a>
-                    </Authorized>
-                </AuthorizeView>
                 <AuthorizeView Roles="Guard">
                     <Authorized>
                         <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
@@ -61,7 +53,11 @@
                 <VanACard Header="💰 Kế Toán & Tài Chính" Hoverable="true" data-testid="card-accounting">
                     <div class="sitemap-links">
                         <a href="/accounting" class="sitemap-link" data-testid="link-accounting">
-                            <span class="sitemap-link-icon">💸</span>
+                            <span class="sitemap-link-icon">📒</span>
+                            <span>Trang Kế Toán</span>
+                        </a>
+                        <a href="/accounting/expenses" class="sitemap-link" data-testid="link-accounting-expenses">
+                            <span class="sitemap-link-icon">�</span>
                             <span>Nhập Chi Phí</span>
                         </a>
                         <a href="/accounting/revenue" class="sitemap-link" data-testid="link-accounting-revenue">
@@ -79,6 +75,40 @@
                         <a href="/accounting/period-closing" class="sitemap-link" data-testid="link-period-closing">
                             <span class="sitemap-link-icon">📅</span>
                             <span>Đóng Kỳ Kế Toán</span>
+                        </a>
+                        <a href="/accounting/hkd-books" class="sitemap-link" data-testid="link-hkd-books">
+                            <span class="sitemap-link-icon">📚</span>
+                            <span>Sổ HKD (TT 152)</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Luồng 2b: BCTC VAS (Enterprise only) ── *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <VanACard Header="📊 Báo Cáo Tài Chính (VAS)" Hoverable="true" data-testid="card-vas-reports">
+                    <div class="sitemap-links">
+                        <a href="/accounting/financial-reports" class="sitemap-link" data-testid="link-financial-reports">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Tổng Hợp BCTC</span>
+                        </a>
+                        <a href="/accounting/balance-sheet" class="sitemap-link" data-testid="link-balance-sheet">
+                            <span class="sitemap-link-icon">📋</span>
+                            <span>Bảng Cân Đối Kế Toán (B01-DN)</span>
+                        </a>
+                        <a href="/accounting/income-statement" class="sitemap-link" data-testid="link-income-statement">
+                            <span class="sitemap-link-icon">📉</span>
+                            <span>Báo Cáo Kết Quả HĐ (B02-DN)</span>
+                        </a>
+                        <a href="/accounting/cash-flow-statement" class="sitemap-link" data-testid="link-cash-flow">
+                            <span class="sitemap-link-icon">💵</span>
+                            <span>Báo Cáo Lưu Chuyển Tiền (B03-DN)</span>
+                        </a>
+                        <a href="/accounting/trial-balance" class="sitemap-link" data-testid="link-trial-balance">
+                            <span class="sitemap-link-icon">⚖️</span>
+                            <span>Bảng Cân Đối Số Phát Sinh</span>
                         </a>
                     </div>
                 </VanACard>
@@ -98,10 +128,22 @@
                             <span class="sitemap-link-icon">🧾</span>
                             <span>Quản Lý Hóa Đơn</span>
                         </a>
+                        <a href="/einvoice/alerts" class="sitemap-link" data-testid="link-einvoice-alerts">
+                            <span class="sitemap-link-icon">🔔</span>
+                            <span>Quản Lý Cảnh Báo</span>
+                        </a>
+                        <a href="/einvoice/health" class="sitemap-link" data-testid="link-einvoice-health">
+                            <span class="sitemap-link-icon">❤️</span>
+                            <span>Health Monitoring</span>
+                        </a>
                         <AuthorizeView Roles="Owner">
                             <Authorized Context="ownerAuth">
                                 <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
                                     <span class="sitemap-link-icon">⚙️</span>
+                                    <span>Quản Lý Provider</span>
+                                </a>
+                                <a href="/einvoice/configuration" class="sitemap-link" data-testid="link-einvoice-configuration">
+                                    <span class="sitemap-link-icon">🔧</span>
                                     <span>Cấu Hình Provider</span>
                                 </a>
                             </Authorized>
