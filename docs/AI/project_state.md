@@ -29,6 +29,30 @@
 
 ## 2. Current Objective
 
+**[ORDER LIFECYCLE STREAM — COMPLETE ✅ ALL 7 WAVES (W-1→W5) + EDGE CASE TESTS MERGED]**
+
+Real-time order synchronization and notification system for Vạn An. Fixes 7 gaps (G1-G7) + 5 sync gaps (S1-S5) + 5 critical edge case scenarios (T1-T5).
+
+- **Master plan:** `docs/AI/tasks/order_lifecycle_master_plan.md` (7 waves: W-1→W0→W1-W5) — **COMPLETE**
+- **Task cards:** `docs/AI/tasks/order_w{(-1),0,1,2,3,4,5}_task_card.md` (7 cards) — **ALL COMPLETE**
+- **Edge case tests:** `6_Tests/VanAn.Core.Tests/Services/OrderLifecycleEdgeCaseTests.cs` — 8 tests, 5 scenarios (T1-T5) — **COMPLETE**
+
+**Commits (dependency order):**
+| Commit | Wave | Gap | Description |
+|--------|------|-----|-------------|
+| `d2bd398` | W-1 | S1-S5 | Sync Mechanism — SQLite→PostgreSQL via Outbox+NATS |
+| `d8d629e` | W0 | G3,G7 | SignalR Wiring — OrderHub broadcast for staff |
+| `045ddbf` | W1 | G2 | Kitchen → Ready transition (was MarkAsCompleted) |
+| `6a278cc` | W4 | G4 | KhachLink adaptive polling (65% request reduction) |
+| `d7b343f` | W2 | G1 | Admin Orders UI — list + confirm + detail pages |
+| `b6e3060` | W3 | G5,G6 | Payment Confirm UI — Admin + KhachLink self-confirm |
+| `26418e4` | W5 | — | Tests + Sitemap links |
+| `bf198e1` | — | T1-T5 | Critical edge case tests (idempotency, race condition, disconnected, partial completion, invalid payload) |
+
+**NEXT:** Stream complete — awaiting user direction for next stream or manual E2E verification.
+
+---
+
 **[STREAM G: SAAS PRODUCTION HARDENING — COMPLETE ✅ ALL 9 WAVES (W0-W8) MERGED, TAG `saas-production-v1.0` CREATED]**
 
 Hardening the accounting software for independent multi-tenant SaaS deployment based on the Production Readiness Review. This stream addresses critical blockers, hardening measures, and technical debt.
@@ -265,6 +289,24 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 4. Next Actions
 
+**Order Lifecycle Stream — COMPLETE ✅ (W-1→W5 + edge case tests all merged to main)**
+
+1. ~~W-1: Sync Mechanism Fix (Outbox+NATS)~~ ✅ DONE (`d2bd398`)
+2. ~~W0: SignalR Wiring (OrderHub broadcast)~~ ✅ DONE (`d8d629e`)
+3. ~~W1: Kitchen → OrderStatus Transition~~ ✅ DONE (`045ddbf`)
+4. ~~W2: Admin Orders UI~~ ✅ DONE (`d7b343f`)
+5. ~~W3: Payment Confirm UI~~ ✅ DONE (`b6e3060`)
+6. ~~W4: KhachLink Polling Optimize~~ ✅ DONE (`6a278cc`)
+7. ~~W5: Tests + Sitemap links~~ ✅ DONE (`26418e4`)
+8. ~~Edge Case Tests (T1-T5)~~ ✅ DONE (`bf198e1`)
+
+**Immediate next steps:**
+1. **Manual E2E verification** (optional) — run full order flow: Khách đặt hàng → Admin confirm → Kitchen complete → Payment confirm → KhachLink tracking updates
+2. **Cleanup junk files** — untracked truncated-name files from PowerShell `git add` bug (known issue from Stream F W7) — needs `git clean -fd` with user approval
+3. **Next stream** — awaiting user direction
+
+---
+
 **Stream G — SaaS Production Hardening (Sprint 2 IN PROGRESS):**
 
 Sprint 1 (Blockers) COMPLETE ✅ — all 4 waves merged to main.
@@ -373,6 +415,7 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
+* **2026-07-07 — ORDER LIFECYCLE EDGE CASE TESTS COMPLETE.** 8 tests covering 5 critical scenarios added in `OrderLifecycleEdgeCaseTests.cs` (commit `bf198e1`): T1 Idempotency (ConfirmPaymentAsync x2 → no duplicate entries), T2 Race Condition (3 events 1ms apart → NatsSyncWorker FIFO order via OrderBy CreatedAt), T3 Disconnected (2 tests: null notification service + throwing notification service → fire-and-forget swallows exception, order still saved), T4 Partial Completion (3 items, complete 2 → no Ready, no false StatusChanged broadcast; complete 3rd → Ready + broadcast exactly once), T5 Invalid Payload (3 tests: non-existent orderId → KeyNotFound, empty TenantId → KeyNotFound, empty TransactionId → no crash). **Build 0 errors. Tests: 8/8 PASS.** File: `6_Tests/VanAn.Core.Tests/Services/OrderLifecycleEdgeCaseTests.cs` (442 lines, new). **NEXT:** Stream complete — awaiting user direction for next stream or manual E2E verification.
 * **2026-07-07 — ORDER LIFECYCLE STREAM COMPLETE (W-1→W5).** All 7 waves merged. 7 gaps fixed: G1-G7 + S1-S5. Commits: d2bd398 (W-1 sync), d8d629e (W0 SignalR), 045ddbf (W1 Kitchen→Ready), 6a278cc (W4 polling), d7b343f (W2 Admin UI), b6e3060 (W3 payment UI), 26418e4 (W5 tests). **Build 0 errors. Tests: 8/8 Kitchen PASS, 44/44 order-related PASS.** Files: 15 modified + 4 created (DataSyncSubscriber, IOrderNotificationService, OrderNotificationService, Orders/Index.razor, Orders/Detail.razor). **NEXT:** Manual E2E verification or next stream.
 * **2026-07-07 — ORDER LIFECYCLE W-1 COMPLETE (Sync Mechanism Fix).** Activated SQLite→PostgreSQL sync via Outbox Pattern + NATS. 5 gaps fixed (S1-S5): (S1) `NatsSyncWorker` runs by default (config `Sync:Enabled`, was gated behind `--sync-worker` flag); (S2) removed `SimpleOutboxProcessor` comment (NatsSyncWorker is single processor); (S3) `OutboxRepository` injects `IVanAnDbContext` (was `VanAnDbContext` PostgreSQL — now resolves SQLite in ShopERP, PostgreSQL in Gateway); (S4) created `DataSyncSubscriber` BackgroundService in Gateway (subscribes `vanan.shoperp.>` → writes Order/Customer status to PostgreSQL); (S5) registered `SimpleAccountingEventHandler` in Gateway + fixed NATS subject (`vanan.events.ordercompleted` → `vanan.shoperp.ordercompleted`). Also: `OrderWorkflowService.RecordOrderCompletedEvent` now enqueues real `OutboxEvent` (was log-only). `OutboxRepository.ToMessage` generalized (removed `invoiceId` hardcode). Arch test `VA-GATEWAY-003` updated for Option B monolithic mode (DbContext allowed, only business logic forbidden). **Build 0 errors. Tests: 32/32 sync-related PASS, 951/952 Core.Tests PASS (1 pre-existing flaky perf test), 33/34 Arch.Tests PASS (1 pre-existing W12-G7 Authorize).** Files: 8 modified + 1 created (`2_Gateway/Services/DataSyncSubscriber.cs`). Master plan updated: 7 waves (W-1→W0→W1-W5). **NEXT:** W0 (SignalR OrderHub broadcast).
 * **Previous:** 2026-07-05 — **STREAM G WAP FIX COMPLETE**. All Sprint 1 gaps resolved: (1) W1 appsettings.Production.json `__REPLACE_*` sentinels → `${VAR}` env var references + ValidateProductionConfig detects unresolved `${VAR}`; (2) W2 .NET SDK 8.0.100 → 8.0.422 installed (CVEs patched); (3) W3 pr-check.yml `if:false` removed + GoldenFlow 2 test failures fixed (ITenantProvider not registered in test DI → query filter used Guid.Empty → IgnoreQueryFilters added). **1133/1133 tests PASS. Sprint 1 100% COMPLETE. NEXT:** W4 (UI Test Coverage).
