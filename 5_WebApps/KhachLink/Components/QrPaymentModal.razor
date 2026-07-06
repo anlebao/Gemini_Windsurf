@@ -1,6 +1,7 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
+@using System.Net.Http.Json
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 
@@ -65,6 +66,12 @@
                                  OnClick="DownloadQr">
                         Lưu mã QR
                     </VanAnButton>
+                    @* W3-T2: Self-confirm payment — KhachLink sends POST api/webhooks/payment *@
+                    <VanAnButton Variant="ButtonVariant.Success"
+                                 OnClick="ConfirmPayment"
+                                 data-testid="btn-confirm-payment">
+                        ✅ Tôi đã thanh toán
+                    </VanAnButton>
                 }
             </Footer>
         </VanAnModal>
@@ -107,6 +114,8 @@
 @code {
     [Parameter] public decimal Amount     { get; set; }
     [Parameter] public string  OrderId   { get; set; } = string.Empty;
+    // W3-T2: TenantId passed from parent (Checkout/OrderTracking) — from Order.TenantId.Value
+    [Parameter] public Guid    TenantId  { get; set; }
     [Parameter] public bool    IsOpen    { get; set; }
     [Parameter] public EventCallback OnPaymentCompleted { get; set; }
 
@@ -114,6 +123,7 @@
     private string? QrImageUrl { get; set; }
     private string? BankName   { get; set; }
     private string? Error      { get; set; }
+    private bool    _paymentConfirmed { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -179,6 +189,49 @@
     {
         if (!string.IsNullOrEmpty(QrImageUrl))
             await JSRuntime.InvokeVoidAsync("downloadImage", QrImageUrl, $"QR_{OrderId}.jpg");
+    }
+
+    /// <summary>
+    /// W3-T2: KhachLink self-confirm payment via POST api/webhooks/payment.
+    /// KhachLink has TenantId from Order.TenantId.Value (Order inherits from Product).
+    /// After confirm → OrderService.ConfirmPaymentAsync → OrderHub.PaymentConfirmed broadcast (W0).
+    /// </summary>
+    private async Task ConfirmPayment()
+    {
+        if (_paymentConfirmed) return; // Idempotent UI guard
+        if (TenantId == Guid.Empty)
+        {
+            Error = "Không xác định được cửa hàng (TenantId). Vui lòng liên hệ nhân viên.";
+            return;
+        }
+
+        try
+        {
+            var http = HttpClientFactory.CreateClient("gateway");
+            var request = new
+            {
+                OrderId = Guid.Parse(OrderId),
+                TenantId = TenantId,
+                TransactionId = $"KL_{OrderId}_{DateTime.UtcNow:yyyyMMddHHmmss}"
+            };
+
+            var response = await http.PostAsJsonAsync("api/webhooks/payment", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _paymentConfirmed = true;
+                if (OnPaymentCompleted.HasDelegate)
+                    await OnPaymentCompleted.InvokeAsync();
+            }
+            else
+            {
+                Error = $"Không thể xác nhận thanh toán: {(int)response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Lỗi kết nối: {ex.Message}";
+        }
     }
 
     private record VietQrResult(
