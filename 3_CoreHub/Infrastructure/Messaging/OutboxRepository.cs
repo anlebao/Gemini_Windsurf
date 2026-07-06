@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.Messaging;
@@ -7,12 +6,16 @@ namespace VanAn.CoreHub.Infrastructure.Messaging;
 /// <summary>
 /// OutboxRepository - EF Core implementation using OutboxMessage as persistence model
 /// Maps between OutboxEvent (domain) and OutboxMessage (EF entity)
+///
+/// W-1-T1: Inject IVanAnDbContext (not VanAnDbContext) so DI resolves correctly per scope:
+///   - ShopERP scope → ShopERPDbContext (SQLite) — Outbox lives in SQLite for offline-first
+///   - Gateway scope → VanAnDbContext (PostgreSQL) — for direct PostgreSQL access if needed
 /// </summary>
 public class OutboxRepository : IOutboxRepository
 {
-    private readonly VanAnDbContext _dbContext;
+    private readonly IVanAnDbContext _dbContext;
 
-    public OutboxRepository(VanAnDbContext dbContext)
+    public OutboxRepository(IVanAnDbContext dbContext)
     {
         _dbContext = dbContext;
     }
@@ -64,19 +67,18 @@ public class OutboxRepository : IOutboxRepository
         return message is null ? null : ToDomain(message);
     }
 
+    /// <summary>
+    /// W-1-T2: Generalized mapping — stores raw EventData without wrapping in {invoiceId, originalData}.
+    /// Works for any event type (Order, Invoice, Customer, etc.).
+    /// InvoiceId is preserved on the OutboxEvent domain side; persistence model only stores EventData.
+    /// </summary>
     private static OutboxMessage ToMessage(OutboxEvent e)
     {
-        var data = JsonSerializer.Serialize(new
-        {
-            invoiceId = e.InvoiceId.Value,
-            originalData = e.EventData
-        });
-
         return new OutboxMessage
         {
             Id = e.OutboxEventId,
             EventType = e.EventType,
-            EventData = data,
+            EventData = e.EventData,
             CreatedAt = DateTime.UtcNow,
             TenantId = e.TenantId,
             Status = MapToMessageStatus(e.Status),
@@ -86,11 +88,13 @@ public class OutboxRepository : IOutboxRepository
         };
     }
 
+    /// <summary>
+    /// W-1-T2: Reconstruct OutboxEvent from persistence model.
+    /// InvoiceId is set to Guid.Empty for non-invoice events — subscribers parse EventData for type-specific fields.
+    /// </summary>
     private static OutboxEvent ToDomain(OutboxMessage m)
     {
-        var invoiceId = ExtractInvoiceId(m.EventData);
-        var tenantId = m.TenantId;
-        var e = new OutboxEvent(tenantId, invoiceId, m.EventType, m.EventData);
+        var e = new OutboxEvent(m.TenantId, new ElectronicInvoiceId(Guid.Empty), m.EventType, m.EventData);
 
         if (m.Status == OutboxMessageStatus.Processed)
             e.MarkAsProcessed();
@@ -101,18 +105,6 @@ public class OutboxRepository : IOutboxRepository
         }
 
         return e;
-    }
-
-    private static ElectronicInvoiceId ExtractInvoiceId(string eventData)
-    {
-        try
-        {
-            var doc = JsonDocument.Parse(eventData);
-            if (doc.RootElement.TryGetProperty("invoiceId", out var idProp))
-                return new ElectronicInvoiceId(idProp.GetGuid());
-        }
-        catch { }
-        return new ElectronicInvoiceId(Guid.Empty);
     }
 
     private static OutboxMessageStatus MapToMessageStatus(EventStatus status) => status switch

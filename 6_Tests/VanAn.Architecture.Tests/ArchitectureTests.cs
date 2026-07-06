@@ -119,13 +119,13 @@ namespace VanAn.Architecture.Tests
             // This test only checks Application layer (5_WebApps, 2_Gateway).
         }
 
-        [Fact(DisplayName = "VA-GATEWAY-003: Gateway Should Not Contain DbContext Or Business Logic")]
+        [Fact(DisplayName = "VA-GATEWAY-003: Gateway Should Not Contain Business Logic (Monolithic Mode — DbContext allowed per Option B)")]
         public void Gateway_Should_Not_Contain_DbContext_Or_Business_Logic()
         {
             // Arrange
             var repoRoot = GetRepoRoot();
             var gatewayPath = Path.Combine(repoRoot, "2_Gateway");
-            
+
             if (!Directory.Exists(gatewayPath))
             {
                 return; // Skip if directory doesn't exist
@@ -138,25 +138,26 @@ namespace VanAn.Architecture.Tests
                 .Where(f => !f.EndsWith("Program.cs", StringComparison.OrdinalIgnoreCase)
                          && !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
                 .ToArray();
-            
-            // Act & Assert - Check for forbidden patterns
+
+            // Act & Assert - Check for forbidden business logic patterns.
+            // NOTE: DbContext / IVanAnDbContext / Microsoft.EntityFrameworkCore are ALLOWED in Gateway
+            // per Option B (monolithic mode approved 2026-07-05 — see saas_w0_task_card.md).
+            // Gateway hosts in-process CoreHub services + IVanAnDbContext (Npgsql) for low-latency access.
+            // W-1: DataSyncSubscriber legitimately uses IVanAnDbContext to write synced data to PostgreSQL.
             var forbiddenPatterns = new[]
             {
-                "DbContext",
-                "IVanAnDbContext",
-                "ProductService",
-                "Microsoft.EntityFrameworkCore"
+                "ProductService"  // Business logic should remain in CoreHub services, not Gateway
             };
 
             foreach (var file in gatewayFiles)
             {
                 var content = File.ReadAllText(file);
-                
+
                 foreach (var pattern in forbiddenPatterns)
                 {
                     if (content.Contains(pattern))
                     {
-                        Assert.Fail($"VA-GATEWAY-003: Gateway must remain pure proxy - found {pattern} in {Path.GetFileName(file)}");
+                        Assert.Fail($"VA-GATEWAY-003: Gateway must not contain business logic - found {pattern} in {Path.GetFileName(file)}");
                     }
                 }
             }

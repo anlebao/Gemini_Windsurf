@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Text.Json;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Events;
 using VanAn.CoreHub.Infrastructure.Messaging;
 
 namespace VanAn.CoreHub.Services
@@ -13,7 +15,8 @@ namespace VanAn.CoreHub.Services
         ISocialCampaignService socialCampaignService,
         ILoyaltyRewardsService loyaltyRewardsService,
         ICustomerRepository customerRepository,
-        INatsEventPublisher? natsEventPublisher) : IOrderWorkflowService
+        INatsEventPublisher? natsEventPublisher,
+        IOutboxRepository? outboxRepository = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -21,6 +24,14 @@ namespace VanAn.CoreHub.Services
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly ICustomerRepository _customerRepository = customerRepository;
         private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
+        // W-1-T7: Outbox repository for persisting events before NATS publish (reliable delivery)
+        private readonly IOutboxRepository? _outboxRepository = outboxRepository;
+
+        // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
+        private static readonly JsonSerializerOptions EventJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         public async Task<Order?> TransitionStatusAsync(Guid orderId, OrderStatusId newStatus, string? reason = null)
         {
@@ -95,32 +106,54 @@ namespace VanAn.CoreHub.Services
 
         private void RecordOrderCompletedEvent(Order order)
         {
-            // 📋 Outbox Pattern - Giả lập ghi vào Message Queue
-            var orderCompletedEvent = new
+            // W-1-T7: Persist OrderCompleted event to Outbox table for reliable async processing.
+            // NatsSyncWorker will poll Outbox and publish to NATS → SimpleAccountingEventHandler
+            // creates accounting entries + HKD books in PostgreSQL.
+            //
+            // OutboxEvent constructor requires ElectronicInvoiceId (domain modeling limitation — R14).
+            // For non-invoice events, pass Guid.Empty. Subscribers parse EventData for type-specific fields.
+            if (_outboxRepository == null)
+            {
+                // Fallback: log only (pre-W-1 behavior) — Outbox not registered in DI
+                _logger.LogWarning("OutboxRepository not available — OrderCompleted event for order {OrderId} not persisted to Outbox",
+                    order.Id);
+                return;
+            }
+
+            var orderCompletedEvent = new OrderCompletedEvent
             {
                 EventId = Guid.NewGuid(),
-                EventType = "OrderCompleted",
                 OrderId = order.Id,
-                order.CustomerDeviceId,
-                order.CustomerId,
-                Items = order.Items.Select(i => new
+                CustomerId = order.CustomerId,
+                CustomerDeviceId = order.CustomerDeviceId ?? string.Empty,
+                TenantId = order.TenantId,
+                TotalAmount = order.TotalAmount,
+                Items = order.Items.Select(i => new OrderItemEvent
                 {
-                    i.ProductId,
+                    ProductId = i.ProductId,
                     ProductName = i.Product?.Name ?? "Unknown",
-                    i.Quantity,
-                    i.UnitPrice,
-                    i.TotalAmount
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    TotalAmount = i.TotalAmount
                 }).ToList(),
-                order.SubTotal,
-                order.TotalVatAmount,
-                order.TotalAmount,
+                SubTotal = order.SubTotal,
+                TotalVatAmount = order.TotalVatAmount,
                 CompletedAt = DateTime.UtcNow,
-                order.TrackingCode
+                TrackingCode = order.TrackingCode
             };
 
-            // TODO: Thực tế sẽ đẩy vào NATS/RabbitMQ/Kafka
-            // Hiện tại chỉ log để giả lập
-            _logger.LogInformation("📋 OUTBOX EVENT: OrderCompleted - {@Event}", orderCompletedEvent);
+            string eventData = JsonSerializer.Serialize(orderCompletedEvent, EventJsonOptions);
+
+            var outboxEvent = new OutboxEvent(
+                order.TenantId,
+                new ElectronicInvoiceId(Guid.Empty), // R14: domain modeling limitation — non-invoice events use Guid.Empty
+                "OrderCompleted",
+                eventData);
+
+            // Enqueue to Outbox (added to EF change tracker — committed with the order transaction)
+            _ = _outboxRepository.EnqueueAsync(outboxEvent);
+            _logger.LogInformation("Enqueued OrderCompleted event to Outbox for order {OrderId} (EventId={EventId})",
+                order.Id, orderCompletedEvent.EventId);
         }
 
         private async Task ProcessSocialCampaignConversionAsync(string trackingCode)

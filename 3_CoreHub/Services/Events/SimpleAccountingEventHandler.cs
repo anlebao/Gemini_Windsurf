@@ -32,12 +32,15 @@ namespace VanAn.CoreHub.Services.Events
             {
                 using IConnection connection = CreateNatsConnection();
 
-                IAsyncSubscription subscription = connection.SubscribeAsync("vanan.events.ordercompleted", async (sender, args) =>
+                // W-1-T6: Subscribe to subject that matches NatsSyncWorker.BuildSubject output.
+                // NatsSyncWorker builds: "vanan.shoperp.{eventType.ToLowerInvariant().Replace('_', '.')}"
+                // For "OrderCompleted" → "vanan.shoperp.ordercompleted"
+                IAsyncSubscription subscription = connection.SubscribeAsync("vanan.shoperp.ordercompleted", async (sender, args) =>
                 {
                     await HandleOrderCompletedEventAsync(args.Message, stoppingToken);
                 });
 
-                _logger.LogInformation("Subscribed to OrderCompleted events");
+                _logger.LogInformation("Subscribed to OrderCompleted events (subject: vanan.shoperp.ordercompleted)");
 
                 // Keep running until cancellation
                 await Task.Delay(Timeout.Infinite, stoppingToken);

@@ -124,7 +124,7 @@ namespace VanAn.Gateway
 
             // Add YARP Reverse Proxy
             _ = builder.Services.AddReverseProxy()
-                .LoadFromConfig(builder.Configuration);
+                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
             // Register VietQR Service
             _ = builder.Services.AddHttpClient<IVietQrService, VietQrService>();
@@ -210,12 +210,26 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
             _ = builder.Services.AddScoped<IHKDBookRepository, HKDBookRepository>();
             _ = builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ISocialCampaignRepository, VanAn.CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ISocialCampaignService, VanAn.CoreHub.Services.SocialCampaignService>();
+            // P3 FIX: Register missing repositories needed by services
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IOrderRepository, VanAn.CoreHub.Repositories.OrderRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.ICustomerRepository, VanAn.CoreHub.Infrastructure.Repositories.CustomerRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Infrastructure.Repositories.ITenantProviderConfigurationService, VanAn.CoreHub.Infrastructure.Repositories.TenantProviderConfigurationService>();
             // Core services
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAccountingService, VanAn.CoreHub.Services.AccountingEntryService>();
             _ = builder.Services.AddScoped<IHKDBookService, HKDBookService>();
             _ = builder.Services.AddScoped<IReversalService, ReversalService>();
             _ = builder.Services.AddScoped<IPeriodClosingService, PeriodClosingService>();
             _ = builder.Services.AddScoped<IAuditTrailService, AuditTrailService>();
+            // P3 FIX: Register missing services referenced by Gateway controllers
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IBuildService, VanAn.CoreHub.Services.BuildService>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IKitchenService, VanAn.CoreHub.Services.KitchenService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IOrderService, VanAn.CoreHub.Services.OrderService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Orchestration.IWebhookService, VanAn.CoreHub.Services.Orchestration.WebhookService>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IInventoryService, VanAn.CoreHub.Services.InventoryService>();
             // Calc engine (Wave 3 wiring replicated for Gateway in-process host)
             // Dependency order: IFormulaEngine -> IPreAggregationService -> IDataProvider
             // -> IBookResultCache -> TemplateFactory (concrete) -> IHKDBookGenerationService
@@ -229,6 +243,14 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Cache.IBookResultCache, VanAn.CoreHub.Services.Cache.BookResultCache>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.TemplateFactory>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Template.IHKDBookGenerationService, VanAn.CoreHub.Services.Template.HKDBookGenerationService>();
+
+            // W-1-T5 (S4, S5): Register NATS subscribers for SQLite→PostgreSQL sync flow
+            // DataSyncSubscriber: subscribes vanan.shoperp.> → writes Order/Customer status to PostgreSQL
+            // SimpleAccountingEventHandler: subscribes vanan.shoperp.ordercompleted → creates accounting entries + HKD books
+            // Both run in Gateway scope (has VanAnDbContext = PostgreSQL).
+            // Degraded mode: if NATS unavailable, services log warning and skip events.
+            _ = builder.Services.AddHostedService<VanAn.Gateway.Services.DataSyncSubscriber>();
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.Events.SimpleAccountingEventHandler>();
 
             // Wave 14: Build HmacSigningOptions from configuration
             var hmacOptions = new VanAn.Gateway.Middleware.HmacSigningOptions();

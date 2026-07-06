@@ -1,0 +1,75 @@
+using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Services;
+using Xunit;
+
+namespace VanAn.Core.Tests.Services
+{
+    /// <summary>
+    /// FIX-BATCH-7: Unit tests for QrCodeService (CoreHub + ShopERP).
+    /// Verifies that GenerateProductQRCode returns a valid PNG byte array.
+    /// </summary>
+    public class QrCodeServiceTests
+    {
+        [Fact]
+        public void CoreHub_GenerateProductQRCode_ReturnsNonEmptyPngByteArray()
+        {
+            var service = new QrCodeService();
+            var productId = Guid.NewGuid();
+            var shopId = Guid.NewGuid();
+
+            byte[] result = service.GenerateProductQRCode(productId, shopId);
+
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // PNG signature: 0x89 0x50 0x4E 0x47 (‰PNG)
+            Assert.Equal(0x89, result[0]);
+            Assert.Equal(0x50, result[1]); // P
+            Assert.Equal(0x4E, result[2]); // N
+            Assert.Equal(0x47, result[3]); // G
+        }
+
+        [Fact]
+        public void ShopERP_GenerateProductQRCode_ReturnsNonEmptyPngByteArray()
+        {
+            var service = new ShopQrCodeService();
+            var productId = Guid.NewGuid();
+            var shopId = Guid.NewGuid();
+
+            byte[] result = service.GenerateProductQRCode(productId, shopId);
+
+            Assert.NotNull(result);
+            Assert.True(result.Length > 0);
+            // PNG signature check
+            Assert.Equal(0x89, result[0]);
+            Assert.Equal(0x50, result[1]);
+            Assert.Equal(0x4E, result[2]);
+            Assert.Equal(0x47, result[3]);
+        }
+
+        [Fact]
+        public void CoreHub_GenerateProductQRCode_DifferentInputs_ReturnDifferentQrCodes()
+        {
+            var service = new QrCodeService();
+
+            byte[] result1 = service.GenerateProductQRCode(Guid.NewGuid(), Guid.NewGuid());
+            byte[] result2 = service.GenerateProductQRCode(Guid.NewGuid(), Guid.NewGuid());
+
+            // Different inputs should produce different QR codes (different PNG bytes)
+            Assert.NotEqual(result1, result2);
+        }
+
+        [Fact]
+        public void CoreHub_GenerateProductQRCode_SameInputs_ReturnsSameQrCode()
+        {
+            var service = new QrCodeService();
+            var productId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+            var shopId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+
+            byte[] result1 = service.GenerateProductQRCode(productId, shopId);
+            byte[] result2 = service.GenerateProductQRCode(productId, shopId);
+
+            // Same inputs should produce identical QR codes (deterministic)
+            Assert.Equal(result1, result2);
+        }
+    }
+}

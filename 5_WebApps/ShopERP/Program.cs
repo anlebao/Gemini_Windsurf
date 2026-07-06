@@ -1,5 +1,6 @@
 using VanAn.Shared.Domain;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -97,22 +98,28 @@ namespace VanAn.ShopERP
             // Required by OrderWorkflowService even without --sync-worker mode
             builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
 
-            // ADR-001 Edge: Conditional NATS sync worker (activated via --sync-worker arg)
-            if (args.Contains("--sync-worker"))
+            // W-1-T3: Always register IOutboxRepository (uses IVanAnDbContext → ShopERPDbContext SQLite)
+            // Previously gated behind --sync-worker flag, which meant OrderWorkflowService could not enqueue events
+            builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+
+            // W-1-T3: NatsSyncWorker runs by default (configurable via Sync:Enabled, default true)
+            // Previously gated behind --sync-worker CLI arg, which meant sync never ran in production
+            // Note: JSON config uses "Sync": { "Enabled": true } → key is "Sync:Enabled"
+            //       Env var equivalent: Sync__Enabled=true
+            bool syncEnabled = builder.Configuration.GetValue<bool>("Sync:Enabled", true);
+            if (syncEnabled)
             {
-                // Register Outbox for NATS sync (uses same SQLite ShopERPDbContext)
-                builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
-
-                // Register NatsSyncWorker as BackgroundService
                 builder.Services.AddHostedService<NatsSyncWorker>();
-
-                Log.Information("NatsSyncWorker registered — running in edge sync mode");
+                Log.Information("NatsSyncWorker registered (Sync__Enabled=true) — Outbox → NATS sync active");
+            }
+            else
+            {
+                Log.Information("NatsSyncWorker disabled (Sync__Enabled=false)");
             }
 
-            // REMOVED: Queue and Outbox services for SQLite concurrency
-            // builder.Services.AddSingleton<IOrderQueueService, OrderQueueService>();
+            // REMOVED: SimpleOutboxProcessor — NatsSyncWorker is the single Outbox processor (W-1-T3 / S2)
+            // Duplicate processor would cause double-publish to NATS.
             // builder.Services.AddHostedService<SimpleOutboxProcessor>();
-            // builder.Services.AddHostedService(provider => (IHostedService)provider.GetRequiredService<IOrderQueueService>());
 
             // REMOVED: Enhanced OrderWorkflowService with queue integration
             // builder.Services.AddScoped<VanAn.ShopERP.Services.IOrderWorkflowService, VanAn.ShopERP.Services.OrderWorkflowService>();
@@ -190,6 +197,18 @@ namespace VanAn.ShopERP
             // W17-T1: Customer Identity services
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IOtpService, VanAn.ShopERP.Services.OtpService>();
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.ICustomerTokenService, VanAn.ShopERP.Services.CustomerTokenService>();
+
+            // FIX-BATCH-1: Missing DI registrations (verified unreachable via grep before this fix)
+            // C1: QR code generation services (W2 — task card claimed COMPLETE but services never registered)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IQrCodeService, VanAn.CoreHub.Services.QrCodeService>();
+            _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IShopQrCodeService, VanAn.ShopERP.Services.ShopQrCodeService>();
+            // C2: CustomerRecommendationService (W3 — injected into ProductsController primary ctor, would throw at runtime)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.CustomerRecommendationService>();
+            // C3: PushNotificationService (W4 — depends on IPushSubscriptionRepository which was also unregistered here)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IPushSubscriptionRepository, VanAn.CoreHub.Infrastructure.Repositories.PushSubscriptionRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.PushNotificationService>();
+            // FIX-BATCH-3: IHostedService that subscribes to NATS "order.status.changed" and dispatches to PushNotificationService
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.PushNotificationBackgroundService>();
 
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");
@@ -316,8 +335,15 @@ namespace VanAn.ShopERP
                 });
             });
 
-            // ✅ FIXED: Add cascading authentication state
-            _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.CascadingAuthenticationState>();
+            // ✅ FIXED: Add cascading authentication state.
+            // AddCascadingAuthenticationState() registers a ROOT cascading value via DI so
+            // Task<AuthenticationState> is available to ALL components — including per-page
+            // @rendermode InteractiveServer boundaries, which do NOT inherit <CascadingAuthenticationState>
+            // wrappers from Routes.razor/MainLayout.razor (those only cover static SSR root).
+            // The previous AddScoped<CascadingAuthenticationState>() was wrong: that type is a
+            // ComponentBase, not a service, so DI registration did nothing and interactive pages
+            // threw "Authorization requires a cascading parameter of type Task<AuthenticationState>".
+            _ = builder.Services.AddCascadingAuthenticationState();
 
             // ✅ FIXED: Register AuthenticationStateProvider to bridge Razor Pages auth to Blazor
             _ = builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, HttpContextAuthenticationStateProvider>();
@@ -407,6 +433,27 @@ namespace VanAn.ShopERP
                 {
                     var migrationService = scope.ServiceProvider.GetRequiredService<CoreHub.Services.DataProtection.PiiDataMigrationService>();
                     await migrationService.MigrateAsync();
+                }
+
+                // Phase 4: Seed sample Products for KhachLink home page catalog (idempotent — only when empty).
+                // Customer-facing home page shows product showcase + recommendations; without seed data
+                // the catalog is empty and the page looks broken in dev. Uses the seed tenant id above
+                // so products belong to the same tenant as the Owner demo user.
+                if (!await context.Products.IgnoreQueryFilters().AnyAsync())
+                {
+                    context.Products.AddRange(
+                        new Product(seedTenantId, "Cà phê sữa đá", "Cà phê phin truyền thống, sữa đặc, đá lạnh", 25000m, "Đồ uống", true, null, 0.08m, 12000m),
+                        new Product(seedTenantId, "Cà phê đen đá", "Cà phê phin truyền thống, đen, đá lạnh", 20000m, "Đồ uống", true, null, 0.08m, 10000m),
+                        new Product(seedTenantId, "Bánh mì thịt nướng", "Bánh mì nướng than hoa, pate, rau sống, nước sốt", 35000m, "Đồ ăn", true, null, 0.08m, 18000m),
+                        new Product(seedTenantId, "Phở bò tái", "Phở bò truyền thống, tái nạc, nước dùng hầm xương", 55000m, "Đồ ăn", true, null, 0.08m, 30000m),
+                        new Product(seedTenantId, "Trà đào cam sả", "Trà đen, đào miếng, cam tươi, sả", 40000m, "Đồ uống", true, null, 0.08m, 18000m),
+                        new Product(seedTenantId, "Cơm gà xối mỡ", "Cơm sườn, gà xối mỡ hành, đồ chua", 65000m, "Đồ ăn", true, null, 0.08m, 35000m),
+                        new Product(seedTenantId, "Sinh tố bơ", "Sinh tố bơ tươi, sữa đặc, đá xay", 38000m, "Đồ uống", true, null, 0.08m, 20000m),
+                        new Product(seedTenantId, "Gỏi cuốn tôm", "Gỏi cuốn tôm tươi, bún, rau sống, nước mắm", 45000m, "Đồ ăn", true, null, 0.08m, 25000m),
+                        new Product(seedTenantId, "Bánh flan caramel", "Bánh flan mềm, caramel đậm vị", 28000m, "Tráng miệng", true, null, 0.08m, 12000m)
+                    );
+                    _ = await context.SaveChangesAsync();
+                    Console.WriteLine($"Phase 4: Sample Products seeded — 9 items for tenant {tenantIdStr}");
                 }
 
                 // W3: Seed AccountChart reference data (clear + reseed to ensure chart matches code).
