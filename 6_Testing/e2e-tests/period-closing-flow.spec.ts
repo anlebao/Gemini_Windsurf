@@ -79,11 +79,8 @@ test.describe('VanAn ShopERP - Period Closing Wizard E2E Tests', () => {
     await page.locator('input[type="number"]').fill(String(new Date().getFullYear() - 1));
     await page.locator('select').selectOption('1');
     await page.locator('button:has-text("Bắt Đầu Kiểm Tra")').click();
-    await page.waitForTimeout(3000);
-
-    // "Tiếp Theo" button must appear after validation — proves step 1 succeeded
-    const nextButton = page.locator('button:has-text("Tiếp Theo")');
-    await expect(nextButton).toBeVisible({ timeout: 5000 });
+    // Wait for validation to complete — fluent wait for "Tiếp Theo" button
+    await expect(page.locator('button:has-text("Tiếp Theo")')).toBeVisible({ timeout: 10000 });
     await nextButton.click();
     await page.waitForLoadState('networkidle');
 

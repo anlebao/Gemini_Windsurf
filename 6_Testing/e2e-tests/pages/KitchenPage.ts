@@ -106,8 +106,8 @@ export class KitchenPage {
     await expect(preparingBtn).toBeVisible({ timeout: 3000 });
     await preparingBtn.click();
     
-    // Wait for status update to reflect
-    await this.page.waitForTimeout(500);
+    // Wait for status update to reflect — fluent wait for network idle
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
@@ -120,8 +120,8 @@ export class KitchenPage {
     await expect(readyBtn).toBeVisible({ timeout: 3000 });
     await readyBtn.click();
     
-    // Wait for status update to reflect
-    await this.page.waitForTimeout(500);
+    // Wait for status update to reflect — fluent wait for network idle
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
@@ -134,8 +134,8 @@ export class KitchenPage {
     await expect(completeBtn).toBeVisible({ timeout: 3000 });
     await completeBtn.click();
     
-    // Wait for status update to reflect
-    await this.page.waitForTimeout(500);
+    // Wait for status update to reflect — fluent wait for network idle
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**

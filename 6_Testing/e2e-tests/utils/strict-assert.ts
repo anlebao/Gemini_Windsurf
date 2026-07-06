@@ -50,7 +50,8 @@ export async function assertOneOf(
         lastError = err;
       }
     }
-    await page.waitForTimeout(100);
+    // Small delay between polling iterations (not Playwright waitForTimeout)
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
   throw new Error(

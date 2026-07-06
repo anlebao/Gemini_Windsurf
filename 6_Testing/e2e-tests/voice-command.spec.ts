@@ -31,15 +31,15 @@ test.describe('Voice Command Tests', () => {
       const firstProduct = page.locator('.feature-card').first();
       await firstProduct.locator('button').click();
       
-      // Wait for cart to update
-      await page.waitForTimeout(1000);
+      // Wait for cart to update — fluent wait for cart state change
+      await expect(page.locator('button:has-text("Xác nhận đơn hàng")')).toBeVisible({ timeout: 5000 });
       
       // Place order to create order ID
       const placeOrderButton = page.locator('button:has-text("Xác nhận đơn hàng")');
       await placeOrderButton.click();
       
-      // Wait for order to be created
-      await page.waitForTimeout(2000);
+      // Wait for order to be created — fluent wait for navigation or order confirmation
+      await page.waitForLoadState('networkidle');
       
       // Check if voice command button is available
       const voiceButton = page.locator('button:has-text("Ghi chú giọng nói")');
@@ -94,8 +94,9 @@ test.describe('Voice Command Tests', () => {
       // Click voice recording button
       await voiceButton.click();
       
-      // Wait for recording to complete
-      await page.waitForTimeout(2000);
+      // Wait for recording to complete — fluent wait for transcript to appear
+      // Mock fires onresult after 1s, so wait for the transcript element
+      await expect(page.locator('.transcript-text')).toBeVisible({ timeout: 5000 });
       
       // Check if transcript is displayed
       const transcript = page.locator('.transcript-text');

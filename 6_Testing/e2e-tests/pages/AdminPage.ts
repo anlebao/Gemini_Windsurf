@@ -172,8 +172,8 @@ export class AdminPage {
     await expect(this.confirmButton).toBeVisible();
     await this.confirmButton.click();
     
-    // Wait for status update to reflect
-    await this.page.waitForTimeout(1000);
+    // Wait for status update to reflect — fluent wait for network idle
+    await this.page.waitForLoadState('networkidle');
   }
 
   /**
