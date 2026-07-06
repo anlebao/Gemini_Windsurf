@@ -29,7 +29,7 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
 
   // ─── PRODUCT CATALOG ─────────────────────────────────────────────────────
 
-  test('Customer can view product catalog', async ({ page }) => {
+  test('Customer can view product catalog @golden', async ({ page }) => {
     // Feature cards must be present — hard assertion, no silent skip
     await expect(page.locator('.feature-card').first()).toBeVisible();
 
@@ -38,7 +38,7 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
 
   });
 
-  test('Customer can add items to cart', async ({ page }) => {
+  test('Customer can add items to cart @golden', async ({ page }) => {
     const firstProduct = page.locator('.feature-card').first();
     await expect(firstProduct).toBeVisible();
 
@@ -51,7 +51,7 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
 
   });
 
-  test('Customer can place order', async ({ page }) => {
+  test('Customer can place order @golden', async ({ page }) => {
     // Navigate to home and add product to cart
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
@@ -77,7 +77,7 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
 
   // ─── STAFF ORDER VIEW (ShopERP) ──────────────────────────────────────────
 
-  test('Staff can view orders in ShopERP', async ({ page }) => {
+  test('Staff can view orders in ShopERP @golden', async ({ page }) => {
     await page.goto(config.SHOPERP_URL);
     await page.waitForLoadState('networkidle');
 
@@ -86,7 +86,7 @@ test.describe('VanAn Ecosystem - Order Flow E2E Tests', () => {
 
   });
 
-  test('Staff can update order status', async ({ page }) => {
+  test('Staff can update order status @golden', async ({ page }) => {
     await page.goto(config.SHOPERP_URL);
     await page.waitForLoadState('networkidle');
 

@@ -35,6 +35,46 @@ export default defineConfig({
   },
 
   projects: [
+    // ─── Tier 0: Smoke Tests (~10 tests, health checks only) ───────────────
+    {
+      name: 'tier-smoke',
+      testMatch: 'smoke-tests/**/*.spec.ts',
+      use: {
+        baseURL: config.COREHUB_URL,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure'
+      }
+    },
+    // ─── Tier 1: Golden Path (~20-30 tests, critical business flows) ──────
+    // Tag tests with @golden in test title to include in this tier
+    {
+      name: 'tier-golden',
+      testMatch: 'e2e-tests/**/*.spec.ts',
+      grep: /@golden/,
+      use: {
+        baseURL: config.SHOPERP_URL,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+        storageState: 'auth/admin.json'
+      }
+    },
+    // ─── Tier 2: Full Regression (~700 tests, all E2E) ────────────────────
+    // Runs on merge to main + nightly. Excludes @slow tests.
+    {
+      name: 'tier-full',
+      testMatch: 'e2e-tests/**/*.spec.ts',
+      grepInvert: /@slow/,
+      use: {
+        baseURL: config.SHOPERP_URL,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'retain-on-failure',
+        storageState: 'auth/admin.json'
+      }
+    },
+    // ─── Legacy projects (kept for backward compatibility) ────────────────
     {
       name: 'smoke-tests',
       testMatch: 'smoke-tests/**/*.spec.ts',

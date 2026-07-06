@@ -22,6 +22,10 @@ interface TestConfig {
 
   E2E_TEST_PARALLEL: boolean;
 
+  // W0: Tier filtering — controls which E2E tier runs
+  // 'smoke' = Tier 0 only, 'golden' = Tier 1 only, 'full' = Tier 2, 'all' = everything
+  E2E_TIER: 'smoke' | 'golden' | 'full' | 'all';
+
   
 
   // Load Tests
@@ -176,6 +180,12 @@ export function loadEnvConfig(): TestConfig {
 
       E2E_TEST_PARALLEL: config.E2E_TEST_PARALLEL === 'true',
 
+      // W0: Tier filtering — default 'all' (run everything unless explicitly scoped)
+      // Priority: process.env.E2E_TIER > .env.test E2E_TIER > 'all'
+      E2E_TIER: (process.env.E2E_TIER as 'smoke' | 'golden' | 'full' | 'all')
+        || (config.E2E_TIER as 'smoke' | 'golden' | 'full' | 'all')
+        || 'all',
+
       
 
       // Load Tests
@@ -289,6 +299,9 @@ export function loadEnvConfig(): TestConfig {
       E2E_TEST_TIMEOUT: 120,
 
       E2E_TEST_PARALLEL: false,
+
+      // W0: Default to 'all' when no .env.test file found
+      E2E_TIER: 'all' as const,
 
       ENABLE_LOAD_TEST: false,
 

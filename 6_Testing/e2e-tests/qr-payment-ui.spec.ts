@@ -29,7 +29,7 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
 
   // ─── CHECKOUT PAGE — QR TRIGGER BUTTON ───────────────────────────────────
 
-  test('Checkout page has "Thanh toán QR" trigger button', async ({ page }) => {
+  test('Checkout page has "Thanh toán QR" trigger button @golden', async ({ page }) => {
     // Set up cart state first by navigating to home and adding a product
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
@@ -48,7 +48,7 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
 
   });
 
-  test('Clicking "Thanh toán QR" opens #qrPaymentModal', async ({ page }) => {
+  test('Clicking "Thanh toán QR" opens #qrPaymentModal @golden', async ({ page }) => {
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
 

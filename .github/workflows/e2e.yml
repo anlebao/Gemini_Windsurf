@@ -110,11 +110,12 @@ jobs:
         working-directory: 6_Testing
         run: npx playwright install --with-deps ${{ github.event.inputs.browser || 'chromium' }}
 
-  # Job 3: Run E2E Tests — BLOCKING (SaaS W3: re-enabled)
-  e2e-tests:
+  # Job 3: Run E2E Tests — PR tier (Smoke + Golden Path only, ~2 min)
+  e2e-pr:
     runs-on: ubuntu-latest
     needs: [build-apps, setup-playwright]
-    timeout-minutes: 30
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout
@@ -137,6 +138,10 @@ jobs:
         working-directory: 6_Testing
         run: npm install
 
+      - name: Install Playwright Browsers
+        working-directory: 6_Testing
+        run: npx playwright install --with-deps chromium
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -149,28 +154,90 @@ jobs:
           dotnet ./artifacts/shoperp/VanAn.ShopERP.dll &
           dotnet ./artifacts/khachlink/VanAn.KhachLink.dll &
 
-      - name: Wait for Gateway ready
+      - name: Wait for Services ready
         run: |
           timeout 60 bash -c 'until curl -sf http://localhost:5001/health; do sleep 2; done'
-          echo "Gateway is ready"
-
-      - name: Wait for ShopERP ready
-        run: |
           timeout 60 bash -c 'until curl -sf http://localhost:5003/health; do sleep 2; done'
-          echo "ShopERP is ready"
-
-      - name: Wait for KhachLink ready
-        run: |
           timeout 60 bash -c 'until curl -sf http://localhost:5002/health; do sleep 2; done'
-          echo "KhachLink is ready"
 
-      - name: Run E2E Tests
+      - name: Run E2E Tests — Tier 0 (Smoke) + Tier 1 (Golden Path)
+        working-directory: 6_Testing
+        run: npx playwright test --project=tier-smoke --project=tier-golden
+        env:
+          CI: true
+          ASPNETCORE_ENVIRONMENT: Development
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:5003
+          SHOPERP_URL: http://localhost:5003
+          GATEWAY_URL: http://localhost:5001
+          KHACHLINK_URL: http://localhost:5002
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-pr-results
+          path: |
+            6_Testing/playwright-report/
+            6_Testing/test-results/
+          retention-days: 7
+
+  # Job 4: Run E2E Tests — Full regression (all tests, ~15 min)
+  e2e-full:
+    runs-on: ubuntu-latest
+    needs: [build-apps, setup-playwright]
+    timeout-minutes: 30
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore Playwright Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}-${{ hashFiles('6_Testing/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}-
+
+      - name: Install Dependencies
+        working-directory: 6_Testing
+        run: npm install
+
+      - name: Install Playwright Browsers
+        working-directory: 6_Testing
+        run: npx playwright install --with-deps ${{ github.event.inputs.browser || 'chromium' }}
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-artifacts
+          path: ./artifacts/
+
+      - name: Start Services
+        run: |
+          dotnet ./artifacts/gateway/VanAn.Gateway.dll &
+          dotnet ./artifacts/shoperp/VanAn.ShopERP.dll &
+          dotnet ./artifacts/khachlink/VanAn.KhachLink.dll &
+
+      - name: Wait for Services ready
+        run: |
+          timeout 60 bash -c 'until curl -sf http://localhost:5001/health; do sleep 2; done'
+          timeout 60 bash -c 'until curl -sf http://localhost:5003/health; do sleep 2; done'
+          timeout 60 bash -c 'until curl -sf http://localhost:5002/health; do sleep 2; done'
+
+      - name: Run E2E Tests — Full Regression (Tier 2)
         working-directory: 6_Testing
         run: |
           if [ -n "${{ github.event.inputs.spec }}" ]; then
             npx playwright test ${{ github.event.inputs.spec }} --project=${{ github.event.inputs.browser || 'chromium' }}
           else
-            npx playwright test --project=${{ github.event.inputs.browser || 'chromium' }} --grep-invert "@slow"
+            npx playwright test --project=tier-full --grep-invert "@slow"
           fi
         env:
           CI: true
@@ -179,17 +246,17 @@ jobs:
           SHOPERP_URL: http://localhost:5003
           GATEWAY_URL: http://localhost:5001
           KHACHLINK_URL: http://localhost:5002
-          
+
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-results
+          name: playwright-full-results
           path: |
             6_Testing/playwright-report/
             6_Testing/test-results/
           retention-days: 30
-          
+
       - name: Upload Test Reports
         uses: actions/upload-artifact@v4
         if: always()

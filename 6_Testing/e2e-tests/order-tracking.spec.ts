@@ -31,7 +31,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
   // ─── DIRECT NAVIGATION ────────────────────────────────────────────────────
 
-  test('Order tracking page renders at /order-tracking/{orderId}', async ({ page }) => {
+  test('Order tracking page renders at /order-tracking/{orderId} @golden', async ({ page }) => {
     await page.goto(`${config.KHACHLINK_URL}/order-tracking/${TEST_ORDER_ID}`);
     await page.waitForLoadState('networkidle');
 
@@ -48,7 +48,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
   });
 
-  test('Order tracking page has .order-tracking container', async ({ page }) => {
+  test('Order tracking page has .order-tracking container @golden', async ({ page }) => {
     await page.goto(`${config.KHACHLINK_URL}/order-tracking/${TEST_ORDER_ID}`);
     await page.waitForLoadState('networkidle');
 
@@ -57,7 +57,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
   });
 
-  test('Order tracking page shows order ID in heading', async ({ page }) => {
+  test('Order tracking page shows order ID in heading @golden', async ({ page }) => {
     await page.goto(`${config.KHACHLINK_URL}/order-tracking/${TEST_ORDER_ID}`);
     await page.waitForLoadState('networkidle');
 
@@ -70,7 +70,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
   });
 
-  test('Order tracking page renders status timeline', async ({ page }) => {
+  test('Order tracking page renders status timeline @golden', async ({ page }) => {
     await page.goto(`${config.KHACHLINK_URL}/order-tracking/${TEST_ORDER_ID}`);
     await page.waitForLoadState('networkidle');
 
@@ -81,7 +81,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
   });
 
-  test('Order tracking page shows "not found" gracefully for unknown order', async ({ page }) => {
+  test('Order tracking page shows "not found" gracefully for unknown order @golden', async ({ page }) => {
     const unknownId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
     await page.goto(`${config.KHACHLINK_URL}/order-tracking/${unknownId}`);
     await page.waitForLoadState('networkidle');
@@ -100,7 +100,7 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
 
   // ─── CHECKOUT → ORDER TRACKING REDIRECT ──────────────────────────────────
 
-  test('Checkout redirects to /order-tracking/{id} after order placed', async ({ page }) => {
+  test('Checkout redirects to /order-tracking/{id} after order placed @golden', async ({ page }) => {
     // Navigate to KhachLink home
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');

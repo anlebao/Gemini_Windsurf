@@ -45,7 +45,7 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
    * This test covers the complete order lifecycle from guest checkout to handover,
    * including NATS sync timing between different stations.
    */
-  test('SCENARIO 1: First-Time Guest Omnichannel Order Flow', async ({ browser }) => {
+  test('SCENARIO 1: First-Time Guest Omnichannel Order Flow @golden', async ({ browser }) => {
     // Step 1: Customer places order as guest
     const customerContext = await browser.newContext();
     const customerPage = new CustomerPage(await customerContext.newPage());

@@ -25,7 +25,7 @@ test.describe('VietQR Gateway API Tests', () => {
 
   // ─── GATEWAY API CONTRACT ─────────────────────────────────────────────────
 
-  test('TC_QR_Generation - Gateway /api/v1/vietqr/generate returns valid response', async ({ request }) => {
+  test('TC_QR_Generation - Gateway /api/v1/vietqr/generate returns valid response @golden', async ({ request }) => {
     const qrRequest = {
       Amount: 50000,
       OrderDescription: 'TEST_ORDER_123',
@@ -59,7 +59,7 @@ test.describe('VietQR Gateway API Tests', () => {
 
   });
 
-  test('TC_QR_Validation - Gateway /api/v1/vietqr/validate-bank validates correctly', async ({ request }) => {
+  test('TC_QR_Validation - Gateway /api/v1/vietqr/validate-bank validates correctly @golden', async ({ request }) => {
     // Valid bank
     const validResponse = await request.post(`${config.GATEWAY_URL}/api/v1/vietqr/validate-bank`, {
       data: { BankId: '970422', AccountNo: '1234567890', AccountName: 'VALID BANK' },
