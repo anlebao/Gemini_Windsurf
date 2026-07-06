@@ -1,10 +1,17 @@
 @page "/order-tracking/{orderId:guid}"
 @using VanAn.Shared.Domain
+@using VanAn.KhachLink.Components
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
 <PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
+
+<!-- Identity Upgrade Modal — only shown when order is delivered (end of order flow) -->
+<IdentityUpgradeModal ShowModal="@_showUpgradeModal"
+                      ShopConfig="@null"
+                      OnDismiss="@DismissUpgradeModal"
+                      OnUpgrade="@GoToLogin" />
 
 <style>
     .timeline {
@@ -184,11 +191,16 @@
     private bool isLoading = true;
     private string? errorMessage;
     
-    // Wave 9: Polling infrastructure for real-time order status updates
-    private PeriodicTimer? _pollingTimer;
+    // Wave 9/W4: Polling infrastructure for real-time order status updates
+    // W4: Replaced PeriodicTimer with Task.Delay loop for adaptive interval control
     private CancellationTokenSource? _pollingCts;
     private bool isPolling = false;
     private bool isTabVisible = true;
+    private bool _pollingStopped = false; // W4: stops polling when order reaches final state
+
+    // IdentityUpgradeModal — only shown when order reaches "delivered" status
+    private bool _showUpgradeModal = false;
+    private bool _hasShownUpgradeModal = false;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -197,6 +209,9 @@
         await LoadOrderFromGateway();
         BuildStatusTimeline();
         isLoading = false;
+
+        // Check if order is already delivered on initial load
+        CheckOrderDelivered();
         
         // Wave 9: Start polling after initial load
         StartPolling();
@@ -217,7 +232,6 @@
             await _pollingCts.CancelAsync();
             _pollingCts.Dispose();
         }
-        _pollingTimer?.Dispose();
     }
 
     // T-02d: Call Gateway API instead of simulated data
@@ -296,15 +310,15 @@
         public DateTime? Timestamp { get; init; }
     }
 
-    // Wave 9: Polling methods for real-time order status updates
+    // Wave 9/W4: Polling methods for real-time order status updates
     private void StartPolling()
     {
-        if (_pollingTimer != null) return; // Prevent duplicate timers
-        
+        if (_pollingCts != null) return; // Prevent duplicate polling loops
+
         _pollingCts = new CancellationTokenSource();
-        _pollingTimer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        _pollingStopped = false;
         isPolling = true;
-        
+
         _ = Task.Run(async () => await PollingLoopAsync(_pollingCts.Token));
     }
 
@@ -312,21 +326,39 @@
     {
         isPolling = false;
         _pollingCts?.Cancel();
-        _pollingTimer?.Dispose();
-        _pollingTimer = null;
     }
 
+    /// <summary>
+    /// W4: Adaptive polling loop — interval changes based on order status.
+    /// pending/ready = 5s (need fast updates), confirmed/preparing = 10s (stable),
+    /// completed/delivered/cancelled = STOP (no more requests).
+    /// </summary>
     private async Task PollingLoopAsync(CancellationToken cancellationToken)
     {
         try
         {
-            while (await _pollingTimer!.WaitForNextTickAsync(cancellationToken))
+            while (!cancellationToken.IsCancellationRequested && !_pollingStopped)
             {
+                // W4: Adaptive interval based on current order status
+                int intervalSeconds = GetPollingInterval(order?.Status?.Value);
+
+                if (intervalSeconds == 0)
+                {
+                    // Final state reached — stop polling entirely
+                    _pollingStopped = true;
+                    isPolling = false;
+                    break;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested || _pollingStopped) break;
+
                 // Check visibility using JS interop for battery-friendly polling
                 var isVisible = await CheckTabVisibilityAsync();
                 if (!isVisible) continue; // Skip polling when tab is hidden
-                
-                await InvokeAsync(async () => 
+
+                await InvokeAsync(async () =>
                 {
                     await PollOrderStatusAsync();
                     StateHasChanged();
@@ -343,6 +375,23 @@
             Console.WriteLine($"Polling error: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// W4: Adaptive polling interval — poll faster when status is about to change, slower when stable.
+    /// Returns 0 to signal "stop polling" for final states.
+    /// </summary>
+    private static int GetPollingInterval(string? status) => status switch
+    {
+        "pending"   => 5,   // Chờ xác nhận — khách đang chờ, cần update nhanh
+        "confirmed" => 10,  // Đã xác nhận — đang chuẩn bị, ít thay đổi
+        "preparing" => 10,  // Đang làm — ít thay đổi
+        "processing" => 10, // Đang pha chế — ít thay đổi
+        "ready"     => 5,   // Sẵn sàng — khách cần biết ngay
+        "completed" => 0,   // Hoàn thành — STOP polling
+        "delivered" => 0,   // Đã giao — STOP polling
+        "cancelled" => 0,   // Đã hủy — STOP polling
+        _           => 5    // Unknown — default 5s
+    };
 
     private async Task<bool> CheckTabVisibilityAsync()
     {
@@ -373,6 +422,16 @@
                     // Status changed, reload full order data
                     await LoadOrderFromGateway();
                     BuildStatusTimeline();
+
+                    // Show IdentityUpgradeModal when order is delivered (end of order flow)
+                    CheckOrderDelivered();
+
+                    // W4: Stop polling when order reaches final state
+                    if (statusData.Status is "completed" or "delivered" or "cancelled")
+                    {
+                        _pollingStopped = true;
+                        isPolling = false;
+                    }
                 }
             }
         }
@@ -381,6 +440,30 @@
             // Silent fail for polling errors - don't disrupt user experience
             Console.WriteLine($"Polling order status error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Show IdentityUpgradeModal only when order reaches "delivered" status.
+    /// This ensures the modal does NOT block the order flow — it appears at the very end.
+    /// </summary>
+    private void CheckOrderDelivered()
+    {
+        if (order?.Status?.Value == "delivered" && !_hasShownUpgradeModal)
+        {
+            _showUpgradeModal = true;
+            _hasShownUpgradeModal = true;
+        }
+    }
+
+    private void DismissUpgradeModal()
+    {
+        _showUpgradeModal = false;
+    }
+
+    private void GoToLogin()
+    {
+        _showUpgradeModal = false;
+        Navigation.NavigateTo("/login");
     }
 
     private record OrderStatusDto
