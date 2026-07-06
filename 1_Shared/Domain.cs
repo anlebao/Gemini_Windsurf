@@ -1801,7 +1801,7 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public class InvoiceItem : BaseEntity
     {
-        public InvoiceItemId Id { get; protected set; } = new InvoiceItemId(Guid.NewGuid());
+        public new InvoiceItemId Id { get; protected set; } = new InvoiceItemId(Guid.NewGuid());
         public ElectronicInvoiceId InvoiceId { get; protected set; } = null!;
 
         /// <summary>
@@ -2054,7 +2054,7 @@ namespace VanAn.Shared.Domain
     public class HKDRevenueClassification : BaseEntity
     {
         public Guid ClassificationId { get; protected set; } = Guid.NewGuid();
-        public TenantId TenantId { get; protected set; } = null!;
+        public new TenantId TenantId { get; protected set; } = null!;
         public AccountingPeriod Period { get; protected set; } = null!;
         public decimal TotalRevenue { get; protected set; }
         public HKDRevenueGroup RevenueGroup { get; protected set; }
@@ -2142,7 +2142,7 @@ namespace VanAn.Shared.Domain
     public class ProviderConfiguration : BaseEntity
     {
         public Guid ConfigurationId { get; protected set; } = Guid.NewGuid();
-        public TenantId TenantId { get; protected set; } = null!;
+        public new TenantId TenantId { get; protected set; } = null!;
         public ProviderId ProviderId { get; protected set; } = null!;
         public string ProviderName { get; protected set; } = string.Empty;
         public bool IsActive { get; protected set; }
@@ -2212,14 +2212,14 @@ namespace VanAn.Shared.Domain
     {
         public Guid QueueId { get; protected set; } = Guid.NewGuid();
         public OrderId OrderId { get; protected set; } = null!;
-        public TenantId TenantId { get; protected set; } = null!;
+        public new TenantId TenantId { get; protected set; } = null!;
         public decimal TotalAmount { get; protected set; }
         public decimal VatAmount { get; protected set; }
         public PendingInvoiceStatus Status { get; protected set; } = PendingInvoiceStatus.PendingInvoice;
         public int RetryCount { get; protected set; } = 0;
         public string? ErrorMessage { get; protected set; }
         public DateTime? ProcessedAt { get; protected set; }
-        public DateTime CreatedAt { get; protected set; } = DateTime.UtcNow;
+        public new DateTime CreatedAt { get; protected set; } = DateTime.UtcNow;
 
         protected PendingInvoiceQueue() { }
 

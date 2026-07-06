@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -57,12 +58,12 @@ public class DomainEntityLocationAnalyzer : DiagnosticAnalyzer
         if (string.IsNullOrEmpty(name)) return false;
         
         // Domain entity naming patterns
-        return name.EndsWith("Entry") ||
-               name.EndsWith("Balance") ||
-               name.EndsWith("Ledger") ||
-               name.EndsWith("Package") ||
-               name.EndsWith("Invoice") ||
-               name.EndsWith("Aggregate") ||
-               name.EndsWith("Event");
+        return name.EndsWith("Entry", StringComparison.Ordinal) ||
+               name.EndsWith("Balance", StringComparison.Ordinal) ||
+               name.EndsWith("Ledger", StringComparison.Ordinal) ||
+               name.EndsWith("Package", StringComparison.Ordinal) ||
+               name.EndsWith("Invoice", StringComparison.Ordinal) ||
+               name.EndsWith("Aggregate", StringComparison.Ordinal) ||
+               name.EndsWith("Event", StringComparison.Ordinal);
     }
 }

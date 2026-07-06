@@ -8,7 +8,7 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public sealed partial class JournalEntry : BaseEntity, IMustHaveTenant
     {
-        public TenantId TenantId { get; } = null!;
+        public new TenantId TenantId { get; } = null!;
         public JournalEntryId JournalEntryId { get; } = null!;
         public string JournalNo { get; } = null!;
         public DateTime EntryDate { get; }

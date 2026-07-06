@@ -1,3 +1,4 @@
+using System.Text.Json;
 using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain
@@ -8,6 +9,11 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public sealed class OutboxMessage : BaseEntity
     {
+        private static readonly JsonSerializerOptions s_jsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
         public string EventType { get; private set; } = string.Empty;
         public string Payload { get; private set; } = string.Empty;
         public DateTime OccurredOn { get; private set; }
@@ -27,10 +33,7 @@ namespace VanAn.Shared.Domain
             {
                 Id = Guid.NewGuid(),
                 EventType = eventType,
-                Payload = System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-                }),
+                Payload = JsonSerializer.Serialize(payload, s_jsonOptions),
                 OccurredOn = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow
             };

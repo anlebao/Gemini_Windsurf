@@ -118,7 +118,7 @@
         CancelDebounce();
         debounceTimer = new System.Threading.Timer(_ =>
         {
-            InvokeAsync(TriggerSearch);
+            _ = InvokeAsync(TriggerSearch);
         }, null, 300, System.Threading.Timeout.Infinite);
     }
 

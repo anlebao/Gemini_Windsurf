@@ -54,7 +54,7 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
                     {
                         <option value="">@field.Placeholder</option>
                     }
-                    @foreach (var option in field.Options)
+                    @foreach (var option in field.Options ?? Enumerable.Empty<FieldOption>())
                     {
                         <option value="@option.Value" selected="@(option.Value == field.Value)">
                             @option.Label

@@ -8,12 +8,12 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public sealed class JournalTemplate : BaseEntity, IMustHaveTenant
     {
-        public TenantId TenantId { get; } = null!;
+        public new TenantId TenantId { get; } = null!;
         public string Code { get; } = null!;
         public string Description { get; } = null!;
         public bool IsActive { get; }
-        public DateTime CreatedAt { get; }
-        public DateTime? UpdatedAt { get; }
+        public new DateTime CreatedAt { get; }
+        public new DateTime? UpdatedAt { get; }
 
         private readonly List<JournalTemplateLine> _lines = [];
         public IReadOnlyCollection<JournalTemplateLine> Lines => _lines.AsReadOnly();

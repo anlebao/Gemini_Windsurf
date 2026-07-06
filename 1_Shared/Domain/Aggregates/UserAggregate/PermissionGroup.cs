@@ -38,7 +38,7 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
 
             return SerializedRoles
                 .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => (UserRole)int.Parse(s))
+                .Select(s => (UserRole)int.Parse(s, System.Globalization.CultureInfo.InvariantCulture))
                 .Distinct()
                 .ToList()
                 .AsReadOnly();
@@ -53,14 +53,14 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
             if (!roles.Contains(role))
                 roles.Add(role);
 
-            SerializedRoles = string.Join(",", roles.Select(r => ((int)r).ToString()));
+            SerializedRoles = string.Join(",", roles.Select(r => ((int)r).ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         public void RemoveRole(UserRole role)
         {
             var roles = GetEffectiveRoles().ToList();
             _ = roles.Remove(role);
-            SerializedRoles = string.Join(",", roles.Select(r => ((int)r).ToString()));
+            SerializedRoles = string.Join(",", roles.Select(r => ((int)r).ToString(System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         public void UpdateProfile(string name, string description)

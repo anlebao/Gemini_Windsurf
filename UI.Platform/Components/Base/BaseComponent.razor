@@ -131,7 +131,7 @@
     protected async Task<T> PreventDoubleClick<T>(Func<Task<T>> action)
     {
         if (_isProcessing || !State.IsInteractive)
-            return default(T);
+            return default(T)!;
             
         _isProcessing = true;
         try
