@@ -256,6 +256,95 @@ namespace VanAn.CoreHub.Tests
                 Assert.Equal(voiceNoteText, itemWithNote.VoiceNoteText);
             }
         }
+
+        [Fact(DisplayName = "W1-T3: When all OrderItems completed → OrderStatus transitions to Ready (not Completed)")]
+        public async Task UpdateItemStatus_AllItemsCompleted_TransitionsOrderToReady()
+        {
+            // Arrange
+            Guid shopId = ActiveTenantId;
+            TenantId shopTenantId = new(shopId);
+
+            Shop shop = new(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
+            _ = await Context.Shops.AddAsync(shop);
+
+            Product product = new(shopTenantId, "Cà phê sữa", "Cà phê sữa đá", 30000m, "Coffee", true, null, 0.10m);
+            _ = await Context.Products.AddAsync(product);
+
+            Customer customer = new(shopTenantId, "Test Customer", "0123456789", "test@customer.com");
+            _ = await Context.Customers.AddAsync(customer);
+            _ = await Context.SaveChangesAsync();
+
+            Order order = new(shopTenantId, customer.Id, 60000m);
+            _ = await Context.Orders.AddAsync(order);
+            _ = await Context.SaveChangesAsync();
+
+            OrderItem item1 = new(shopTenantId, order.Id, product.Id, 1, 30000m, "Cà phê sữa");
+            OrderItem item2 = new(shopTenantId, order.Id, product.Id, 1, 30000m, "Cà phê sữa");
+            await Context.OrderItems.AddRangeAsync(item1, item2);
+            _ = await Context.SaveChangesAsync();
+
+            // Act — complete first item (partial: order should NOT transition yet)
+            _ = await _kitchenService.UpdateItemStatusAsync(
+                new KitchenStatusUpdateDto { OrderItemId = item1.Id, NewStatus = KitchenStatus.Completed },
+                userId: Guid.NewGuid());
+
+            // Assert partial — order status should NOT be Ready yet
+            Order? partialOrder = await Context.Orders.FindAsync(order.Id);
+            Assert.NotNull(partialOrder);
+            Assert.NotEqual("ready", partialOrder!.Status.Value);
+
+            // Act — complete second item (all items done → order should transition to Ready)
+            _ = await _kitchenService.UpdateItemStatusAsync(
+                new KitchenStatusUpdateDto { OrderItemId = item2.Id, NewStatus = KitchenStatus.Completed },
+                userId: Guid.NewGuid());
+
+            // Assert — order status should be Ready (not Completed)
+            Order? completedOrder = await Context.Orders.FindAsync(order.Id);
+            Assert.NotNull(completedOrder);
+            Assert.Equal("ready", completedOrder!.Status.Value);
+            // W1: MarkAsCompleted should NOT be called — CompletedAt should be null
+            // (Completed is for customer pickup, not kitchen done)
+            Assert.Null(completedOrder.CompletedAt);
+        }
+
+        [Fact(DisplayName = "W1-T3: Partial items completed → OrderStatus unchanged")]
+        public async Task UpdateItemStatus_PartialItemsCompleted_OrderStatusUnchanged()
+        {
+            // Arrange
+            Guid shopId = ActiveTenantId;
+            TenantId shopTenantId = new(shopId);
+
+            Shop shop = new(shopTenantId, "Test Shop 2", "Test Address", "0901234567", "test@shop.com");
+            _ = await Context.Shops.AddAsync(shop);
+
+            Product product = new(shopTenantId, "Trà đào", "Trà đào cam sả", 35000m, "Tea", true, null, 0.10m);
+            _ = await Context.Products.AddAsync(product);
+
+            Customer customer = new(shopTenantId, "Test Customer 2", "0123456789", "test@customer.com");
+            _ = await Context.Customers.AddAsync(customer);
+            _ = await Context.SaveChangesAsync();
+
+            Order order = new(shopTenantId, customer.Id, 70000m);
+            _ = await Context.Orders.AddAsync(order);
+            _ = await Context.SaveChangesAsync();
+
+            OrderItem item1 = new(shopTenantId, order.Id, product.Id, 1, 35000m, "Trà đào");
+            OrderItem item2 = new(shopTenantId, order.Id, product.Id, 1, 35000m, "Trà đào");
+            await Context.OrderItems.AddRangeAsync(item1, item2);
+            _ = await Context.SaveChangesAsync();
+
+            string originalStatus = order.Status.Value;
+
+            // Act — complete only first item
+            _ = await _kitchenService.UpdateItemStatusAsync(
+                new KitchenStatusUpdateDto { OrderItemId = item1.Id, NewStatus = KitchenStatus.Completed },
+                userId: Guid.NewGuid());
+
+            // Assert — order status should NOT have changed
+            Order? partialOrder = await Context.Orders.FindAsync(order.Id);
+            Assert.NotNull(partialOrder);
+            Assert.Equal(originalStatus, partialOrder!.Status.Value);
+        }
     }
 
     // Simple test logger for unit tests
