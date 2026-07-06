@@ -252,6 +252,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.DataSyncSubscriber>();
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.Events.SimpleAccountingEventHandler>();
 
+            // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)
+            // Implemented in Gateway using IHubContext<OrderHub> — CoreHub stays pure class library.
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Interfaces.IOrderNotificationService, VanAn.Gateway.Services.OrderNotificationService>();
+
             // Wave 14: Build HmacSigningOptions from configuration
             var hmacOptions = new VanAn.Gateway.Middleware.HmacSigningOptions();
             var protectedPaths = builder.Configuration

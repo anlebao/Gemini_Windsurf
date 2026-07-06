@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using System.Text.Json;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Domain.Repositories;
+using VanAn.CoreHub.Interfaces;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Events;
@@ -16,7 +17,8 @@ namespace VanAn.CoreHub.Services
         ILoyaltyRewardsService loyaltyRewardsService,
         ICustomerRepository customerRepository,
         INatsEventPublisher? natsEventPublisher,
-        IOutboxRepository? outboxRepository = null) : IOrderWorkflowService
+        IOutboxRepository? outboxRepository = null,
+        IOrderNotificationService? orderNotificationService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -26,6 +28,8 @@ namespace VanAn.CoreHub.Services
         private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
         // W-1-T7: Outbox repository for persisting events before NATS publish (reliable delivery)
         private readonly IOutboxRepository? _outboxRepository = outboxRepository;
+        // W0-T4: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
+        private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
         private static readonly JsonSerializerOptions EventJsonOptions = new()
@@ -69,6 +73,14 @@ namespace VanAn.CoreHub.Services
                 await PublishOrderStatusChangedEventAsync(order, oldStatus, newStatus);
 
                 await transaction.CommitAsync();
+
+                // W0-T4: Broadcast SignalR notification to ShopERP staff (best-effort, non-blocking)
+                // Null in ShopERP scope (no OrderHub) — in v2 edge mode, NATS → DataSyncSubscriber handles it.
+                if (_orderNotificationService != null)
+                {
+                    _ = _orderNotificationService.NotifyOrderStatusChangedAsync(
+                        order.Id, order.TenantId.Value, oldStatus.Value, newStatus.Value);
+                }
 
                 _logger.LogInformation("Order {OrderId} transitioned from {OldStatus} to {NewStatus}",
                     orderId, oldStatus.Value, newStatus.Value);

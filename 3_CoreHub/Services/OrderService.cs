@@ -23,7 +23,8 @@ namespace VanAn.CoreHub.Services
         IInventoryService? inventoryService = null,
         ITemplateFactory? templateFactory = null,
         IOrderHub? orderHub = null,
-        VanAnDbContext? dbContext = null) : IOrderService
+        IVanAnDbContext? dbContext = null,
+        IOrderNotificationService? orderNotificationService = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -38,7 +39,10 @@ namespace VanAn.CoreHub.Services
         private readonly IOrderHub _orderHub = orderHub;
 
         // Wave 5: DbContext for Tenant.DefaultIndustrySector lookup (Order.IndustrySector ?? Tenant.DefaultIndustrySector)
-        private readonly VanAnDbContext? _dbContext = dbContext;
+        private readonly IVanAnDbContext? _dbContext = dbContext;
+
+        // W0-T5: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
+        private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -581,6 +585,13 @@ namespace VanAn.CoreHub.Services
 
             // 3. Generate accounting entries (Revenue + COGS) — only after payment confirmed
             await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
+
+            // W0-T5: Broadcast SignalR PaymentConfirmed notification to ShopERP staff (best-effort)
+            // Null in ShopERP scope — in v2 edge mode, NATS → DataSyncSubscriber handles it.
+            if (_orderNotificationService != null)
+            {
+                _ = _orderNotificationService.NotifyPaymentConfirmedAsync(order.Id, tenantId, transactionId);
+            }
 
             _logger.LogInformation("ConfirmPaymentAsync: Payment confirmed for order {OrderId}, accounting entries generated", orderId);
         }
