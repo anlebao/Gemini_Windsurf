@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
+using VietQrServiceConcrete = VanAn.Shared.Services.VietQrService;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -55,17 +56,14 @@ namespace VanAn.Gateway.Controllers
         [HttpGet("supported-banks")]
         public ActionResult<IEnumerable<object>> GetSupportedBanks()
         {
-            var supportedBanks = new[]
+            // Use the shared single source of truth from VietQrService.SupportedBanks.
+            // Returns the same shape (Id, Name, Logo) as before extraction.
+            return Ok(VietQrService.SupportedBanks.Select(b => new
             {
-                new { Id = "970422", Name = "Vietcombank", Logo = "https://img.vietqr.io/bank/970422.png" },
-                new { Id = "970436", Name = "VietinBank", Logo = "https://img.vietqr.io/bank/970436.png" },
-                new { Id = "970418", Name = "Agribank", Logo = "https://img.vietqr.io/bank/970418.png" },
-                new { Id = "970449", Name = "MB Bank", Logo = "https://img.vietqr.io/bank/970449.png" },
-                new { Id = "970423", Name = "Sacombank", Logo = "https://img.vietqr.io/bank/970423.png" },
-                new { Id = "970405", Name = "Timo Digital Bank", Logo = "https://img.vietqr.io/bank/970405.png" }
-            };
-
-            return Ok(supportedBanks);
+                b.Id,
+                b.Name,
+                b.Logo
+            }));
         }
     }
 }

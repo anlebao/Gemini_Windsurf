@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Orchestration;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Gateway.Controllers;
 
@@ -21,6 +22,7 @@ public class WebhookController : ControllerBase
 {
     private readonly IWebhookService _webhookService;
     private readonly IOrderService _orderService;
+    private readonly ITenantProvider _tenantProvider;
     private readonly ILogger<WebhookController> _logger;
 
     // JSON options for parsing raw webhook payloads
@@ -31,10 +33,15 @@ public class WebhookController : ControllerBase
         ReadCommentHandling = JsonCommentHandling.Skip
     };
 
-    public WebhookController(IWebhookService webhookService, IOrderService orderService, ILogger<WebhookController> logger)
+    public WebhookController(
+        IWebhookService webhookService,
+        IOrderService orderService,
+        ITenantProvider tenantProvider,
+        ILogger<WebhookController> logger)
     {
         _webhookService = webhookService;
         _orderService = orderService;
+        _tenantProvider = tenantProvider;
         _logger = logger;
     }
 
@@ -139,6 +146,14 @@ public class WebhookController : ControllerBase
         _logger.LogInformation(
             "WebhookController.ConfirmPayment: Received payment confirmation — orderId={OrderId} transactionId={TransactionId}",
             request.OrderId, request.TransactionId);
+
+        // W6/Bucket C (H5 fix): The webhook is [AllowAnonymous] — no JWT, so ITenantProvider.TenantId
+        // resolves to Guid.Empty. VanAnDbContext applies a global query filter
+        // (e => e.TenantId == CurrentTenantIdValue) on ALL tenant-scoped queries.
+        // Without setting the tenant context here, ConfirmPaymentAsync → OrderRepository.GetByIdAsync
+        // applies the filter "TenantId == Guid.Empty" which excludes all real orders → 404.
+        // Fix: set tenant context from the request body BEFORE calling the service.
+        _tenantProvider.SetTenant(request.TenantId);
 
         try
         {

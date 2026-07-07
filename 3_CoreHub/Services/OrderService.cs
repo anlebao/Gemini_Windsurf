@@ -595,5 +595,15 @@ namespace VanAn.CoreHub.Services
 
             _logger.LogInformation("ConfirmPaymentAsync: Payment confirmed for order {OrderId}, accounting entries generated", orderId);
         }
+
+        /// <summary>
+        /// W6/Bucket D: Public tracking — fetch by Id only (no tenant filter).
+        /// OrderId is globally unique Guid. Used by KhachLink customer-facing tracking page.
+        /// Reuses GetByIdWithIncludesAsync (fetches by Id only, includes Items+Product+Customer).
+        /// </summary>
+        public async Task<Order?> GetOrderByIdForPublicTrackingAsync(Guid orderId, CancellationToken cancellationToken = default)
+        {
+            return await _orderRepository.GetByIdWithIncludesAsync(orderId, cancellationToken);
+        }
     }
 }

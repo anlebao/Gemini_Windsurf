@@ -53,5 +53,12 @@ namespace VanAn.CoreHub.Services
         // Sprint B: Payment confirmation — triggers accounting entry generation
         // TT 152/2025/TT-BTC: doanh thu chỉ ghi nhận sau khi thanh toán xác nhận
         Task ConfirmPaymentAsync(Guid orderId, Guid tenantId, string transactionId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// W6/Bucket D: Fetch order by Id for public customer-facing tracking (no tenant filter).
+        /// OrderId is globally unique (Guid) — safe to fetch without tenant context.
+        /// Returns null if order not found.
+        /// </summary>
+        Task<Order?> GetOrderByIdForPublicTrackingAsync(Guid orderId, CancellationToken cancellationToken = default);
     }
 }

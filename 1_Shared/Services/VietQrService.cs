@@ -3,9 +3,17 @@ using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace VanAn.Shared.Services
 {
+    /// <summary>
+    /// Represents a bank supported by the VietQR/Napas BIN registry.
+    /// Extracted from VietQrController to provide a single source of truth
+    /// for both the controller endpoint and ValidateBankConfigAsync.
+    /// </summary>
+    public sealed record BankInfo(string Id, string Name, string Logo);
+
     public interface IVietQrService
     {
         Task<VietQrResponse> GenerateQrCodeAsync(VietQrRequest request);
@@ -16,6 +24,23 @@ namespace VanAn.Shared.Services
     {
         private readonly ILogger<VietQrService> _logger = logger;
         private readonly HttpClient _httpClient = httpClient;
+
+        /// <summary>
+        /// Supported banks registered with Napas/VietQR (BIN codes per TT 152/2025/TT-BTC intent).
+        /// Single source of truth shared with VietQrController.GetSupportedBanks.
+        /// </summary>
+        public static readonly IReadOnlyList<BankInfo> SupportedBanks =
+        [
+            new BankInfo("970422", "Vietcombank", "https://img.vietqr.io/bank/970422.png"),
+            new BankInfo("970436", "VietinBank", "https://img.vietqr.io/bank/970436.png"),
+            new BankInfo("970418", "Agribank", "https://img.vietqr.io/bank/970418.png"),
+            new BankInfo("970449", "MB Bank", "https://img.vietqr.io/bank/970449.png"),
+            new BankInfo("970423", "Sacombank", "https://img.vietqr.io/bank/970423.png"),
+            new BankInfo("970405", "Timo Digital Bank", "https://img.vietqr.io/bank/970405.png")
+        ];
+
+        // Account number must be numeric and 6-16 digits long (per business rule).
+        private static readonly Regex AccountNoPattern = new(@"^\d{6,16}$", RegexOptions.Compiled);
 
         public async Task<VietQrResponse> GenerateQrCodeAsync(VietQrRequest request)
         {
@@ -64,16 +89,24 @@ namespace VanAn.Shared.Services
             try
             {
                 await Task.CompletedTask;
-                // Basic validation
-                if (string.IsNullOrWhiteSpace(config.BankId) ||
-                    string.IsNullOrWhiteSpace(config.AccountNo) ||
-                    string.IsNullOrWhiteSpace(config.AccountName))
-                {
-                    return false;
-                }
 
-                // Additional validation logic would go here
-                // For now, just return true if basic info is provided
+                // Rule 1: BankId must be non-empty and in supported banks list (Napas/VietQR BIN)
+                if (string.IsNullOrWhiteSpace(config.BankId))
+                    return false;
+                bool bankIdSupported = SupportedBanks.Any(b => b.Id == config.BankId!.Trim());
+                if (!bankIdSupported)
+                    return false;
+
+                // Rule 2: AccountNo must be non-empty and numeric (6-16 digits)
+                if (string.IsNullOrWhiteSpace(config.AccountNo))
+                    return false;
+                if (!AccountNoPattern.IsMatch(config.AccountNo!.Trim()))
+                    return false;
+
+                // Rule 3: AccountName must be non-empty (after trim)
+                if (string.IsNullOrWhiteSpace(config.AccountName))
+                    return false;
+
                 return true;
             }
             catch (Exception ex)

@@ -160,6 +160,51 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        /// <summary>
+        /// W6/Bucket C (H6 fix): Update order status — Gateway-hosted endpoint for E2E tests
+        /// and SignalR clients. ShopERP has a similar endpoint but tests hit Gateway directly.
+        /// Per Option B (monolithic mode, approved 2026-07-05), Gateway hosts in-process CoreHub services.
+        /// Broadcasts OrderStatusChanged via SignalR to all connected ShopERP clients.
+        /// </summary>
+        [HttpPut("{id}/status")]
+        public async Task<ActionResult> UpdateOrderStatus(Guid id, [FromBody] UpdateStatusRequest request)
+        {
+            try
+            {
+                ArgumentNullException.ThrowIfNull(request);
+
+                Guid tenantId = GetTenantId();
+                if (tenantId == Guid.Empty)
+                {
+                    _logger.LogWarning("UpdateOrderStatus rejected: missing TenantId claim");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
+
+                bool success = await _orderService.UpdateOrderStatusAsync(id, request.Status, tenantId);
+                if (!success)
+                {
+                    return NotFound(new { error = "Order not found" });
+                }
+
+                // Broadcast status change via SignalR — ShopERP dashboard auto-updates
+                await _orderHub.Clients.All.SendAsync("OrderStatusChanged", new
+                {
+                    OrderId = id,
+                    Status = request.Status,
+                    TenantId = tenantId,
+                    UpdatedAt = DateTime.UtcNow,
+                });
+
+                _logger.LogInformation("Order {OrderId} status updated to {Status}", id, request.Status);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order status {OrderId}", id);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         private Guid GetTenantId()
         {
             // Wave 1 Phase 2: Standardized claim name "tenant_id" (snake_case, OIDC standard)
@@ -190,5 +235,14 @@ namespace VanAn.Gateway.Controllers
     public class OrderNoteRequest
     {
         public string Note { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// W6/Bucket C (H6): Request body for PUT /api/orders/{id}/status.
+    /// Mirrors ShopERP's UpdateStatusRequest — same contract for E2E tests.
+    /// </summary>
+    public class UpdateStatusRequest
+    {
+        public string Status { get; set; } = string.Empty;
     }
 }
