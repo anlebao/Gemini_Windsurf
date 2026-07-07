@@ -107,6 +107,11 @@ namespace VanAn.Gateway
                     {
                         ValidateIssuerSigningKey = true,
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+                        // FIX: IdentityModel v7.1.2 doesn't auto-try IssuerSigningKey when JWT has no kid header.
+                        // JwtTokenService issues HS256 tokens without kid (symmetric key) — resolver must
+                        // explicitly return the configured key. Without this, all [Authorize] endpoints return 401
+                        // with "The signature key was not found".
+                        IssuerSigningKeyResolver = (_, _, _, validationParameters) => new[] { validationParameters.IssuerSigningKey },
                         ValidateIssuer = true,
                         ValidIssuer = jwtIssuer,
                         ValidateAudience = true,

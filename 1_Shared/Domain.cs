@@ -1014,9 +1014,8 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Bucket A feature (approved 2026-07-07): Set guest customer info on order.
-        /// Used by KhachLink guest checkout flow — customer provides name/phone/address
-        /// without authentication. Follows SetCustomerDeviceId pattern.
+        /// Bucket A: Attach guest customer info to order (approved 2026-07-07).
+        /// CustomerInfo value object is persisted via EF Core OwnsOne.
         /// </summary>
         public void SetCustomerInfo(CustomerInfo info)
         {
