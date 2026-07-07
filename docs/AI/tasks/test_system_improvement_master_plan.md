@@ -322,4 +322,4 @@ main ← feature/test-w5-signalr-e2e
 | W3 | `125e299` | Test Tenant + Accounting Cleanup Strategy |
 | W4 | `d58db6a` | E2E for W3 Payment Confirm Flow — 3 scenarios |
 | W5 | `1a35cc9` | SignalR E2E Pattern + Cross-system Timing — 3 scenarios |
-| W6 | ⏳ uncommitted | Golden Test Fixes — 8 fixes applied, 8 tests still failing |
+| W6 | `fd7b038` | Golden Test Fixes — 5 buckets, 21/22 PASS (1 deferred) |
