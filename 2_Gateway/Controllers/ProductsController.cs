@@ -7,10 +7,12 @@ namespace VanAn.Gateway.Controllers
     /// FIX-BATCH-2: Gateway forward for product QR code generation.
     /// KhachLink and admin UI call this endpoint to get a PNG QR code for a product.
     /// Forwards to ShopERP ProductsController.GetProductQrCode.
+    /// W12-G7: Class-level [Authorize] (auth-on-by-default); public forwarding endpoint
+    /// opts out via method-level [AllowAnonymous]. Mirrors ShopERP ProductsController pattern.
     /// </summary>
     [ApiController]
     [Route("api/products")]
-    [AllowAnonymous]
+    [Authorize]
     public class ProductsController(IHttpClientFactory httpClientFactory, ILogger<ProductsController> logger) : ControllerBase
     {
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
@@ -18,8 +20,10 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// Forward GET /api/products/{id}/qr → ShopERP. Returns PNG image.
+        /// Public: KhachLink scanner calls this without JWT (FIX-BATCH-2 forwarding contract).
         /// </summary>
         [HttpGet("{id:guid}/qr")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetProductQrCode(Guid id, [FromQuery] Guid? tenantId)
         {
             try

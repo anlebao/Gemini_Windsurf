@@ -6,10 +6,12 @@ namespace VanAn.Gateway.Controllers
     /// <summary>
     /// FIX-BATCH-4: Gateway forward for dashboard shop-metrics endpoint.
     /// KhachLink RealTimeDashboard polls this endpoint (replaces SignalR DashboardHub).
+    /// W12-G7: Class-level [Authorize] (auth-on-by-default); public forwarding endpoint
+    /// opts out via method-level [AllowAnonymous]. Mirrors ShopERP DashboardController pattern.
     /// </summary>
     [ApiController]
     [Route("api/dashboard")]
-    [AllowAnonymous]
+    [Authorize]
     public class DashboardController(IHttpClientFactory httpClientFactory, ILogger<DashboardController> logger) : ControllerBase
     {
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
@@ -17,8 +19,10 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// Forward GET /api/dashboard/shop-metrics/{shopId} → ShopERP. Returns ShopDashboardMetrics JSON.
+        /// Public: KhachLink PWA polls this without JWT (FIX-BATCH-4 forwarding contract).
         /// </summary>
         [HttpGet("shop-metrics/{shopId:guid}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetShopMetrics(Guid shopId)
         {
             try
