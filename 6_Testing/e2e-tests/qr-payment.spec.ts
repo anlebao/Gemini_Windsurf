@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loadEnvConfig, isTierEnabled } from '../utils/env-config';
 import { TestReporter } from '../utils/test-reporter';
+import { getAuthHeader } from './utils/auth-api';
 
 // T-03d: Updated selectors to match real rendered HTML after QrPaymentModal integration.
 // Original spec had: waitForSelector('#qrPaymentModal') — not wired to any page.
@@ -26,6 +27,9 @@ test.describe('VietQR Gateway API Tests', () => {
   // ─── GATEWAY API CONTRACT ─────────────────────────────────────────────────
 
   test('TC_QR_Generation - Gateway /api/v1/vietqr/generate returns valid response @golden', async ({ request }) => {
+    // W4 Fix: Gateway uses JWT Bearer auth (cookies are origin-bound to ShopERP:5003)
+    const authHeaders = getAuthHeader('admin');
+
     const qrRequest = {
       Amount: 50000,
       OrderDescription: 'TEST_ORDER_123',
@@ -38,6 +42,7 @@ test.describe('VietQR Gateway API Tests', () => {
 
     const response = await request.post(`${config.GATEWAY_URL}/api/v1/vietqr/generate`, {
       data: qrRequest,
+      headers: authHeaders,
     });
 
     expect(response.ok()).toBeTruthy();
@@ -56,13 +61,16 @@ test.describe('VietQR Gateway API Tests', () => {
     // Verify VietQR URL format
     expect(qrImageUrl).toContain('img.vietqr.io/image/970422-1234567890');
     expect(qrImageUrl).toContain('amount=50000');
-
   });
 
   test('TC_QR_Validation - Gateway /api/v1/vietqr/validate-bank validates correctly @golden', async ({ request }) => {
+    // W4 Fix: Gateway uses JWT Bearer auth
+    const authHeaders = getAuthHeader('admin');
+
     // Valid bank
     const validResponse = await request.post(`${config.GATEWAY_URL}/api/v1/vietqr/validate-bank`, {
       data: { BankId: '970422', AccountNo: '1234567890', AccountName: 'VALID BANK' },
+      headers: authHeaders,
     });
     expect(validResponse.ok()).toBeTruthy();
     const validResult = await validResponse.json();
@@ -71,15 +79,18 @@ test.describe('VietQR Gateway API Tests', () => {
     // Invalid bank
     const invalidResponse = await request.post(`${config.GATEWAY_URL}/api/v1/vietqr/validate-bank`, {
       data: { BankId: '999999', AccountNo: '123', AccountName: 'INVALID BANK' },
+      headers: authHeaders,
     });
     expect(invalidResponse.ok()).toBeTruthy();
     const invalidResult = await invalidResponse.json();
     expect(invalidResult).toBe(false);
-
   });
 
   test('TC_QR_SupportedBanks - Gateway /api/v1/vietqr/supported-banks returns bank list', async ({ request }) => {
-    const response = await request.get(`${config.GATEWAY_URL}/api/v1/vietqr/supported-banks`);
+    const authHeaders = getAuthHeader('admin');
+    const response = await request.get(`${config.GATEWAY_URL}/api/v1/vietqr/supported-banks`, {
+      headers: authHeaders,
+    });
     expect(response.ok()).toBeTruthy();
 
     const banks = await response.json();
@@ -103,16 +114,24 @@ test.describe('VietQR Gateway API Tests', () => {
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
 
-    const productCard = page.locator('.feature-card').first();
+    const productCard = page.getByTestId('home-product-card').first();
     await expect(productCard).toBeVisible({ timeout: 10000 });
-    await productCard.locator('button:has-text("Đặt ngay")').click();
+    await productCard.getByTestId('home-btn-add-to-cart').click();
 
-    await page.goto(`${config.KHACHLINK_URL}/checkout`);
+    await expect(page.getByText(/Đã thêm|Added to cart/i)).toBeVisible({ timeout: 5000 });
+
+    await page.goto(`${config.KHACHLINK_URL}/cart`);
     await page.waitForLoadState('networkidle');
+    await expect(page.getByText(/Giỏ hàng|Cart/i).first()).toBeVisible({ timeout: 10000 });
 
-    // "Thanh toán QR" button must be present (T-03c integration)
-    const qrButton = page.locator('button:has-text("Thanh toán QR")');
-    await expect(qrButton).toBeVisible({ timeout: 8000 });
+    const checkoutBtn = page.getByTestId('cart-btn-checkout');
+    await expect(checkoutBtn).toBeVisible({ timeout: 5000 });
+    await checkoutBtn.click();
+
+    // "Thanh toán QR" button must be present on checkout page (T-03c integration)
+    const qrButton = page.getByTestId('checkout-btn-qr-payment');
+    await expect(qrButton).toBeVisible({ timeout: 15000 });
 
   });
 });
+

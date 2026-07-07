@@ -23,11 +23,13 @@ export class TestDataCleaner {
   private readonly apiContext: APIRequestContext;
   private readonly baseURL: string;
   private readonly tenantId: string;
+  private readonly authHeaders: Record<string, string>;
 
-  constructor(apiContext: APIRequestContext, baseURL: string, tenantId?: string) {
+  constructor(apiContext: APIRequestContext, baseURL: string, tenantId?: string, authHeaders?: Record<string, string>) {
     this.apiContext = apiContext;
     this.baseURL = baseURL;
     this.tenantId = tenantId || TEST_TENANT_ID;
+    this.authHeaders = authHeaders || {};
   }
 
   /**
@@ -184,11 +186,19 @@ export class TestDataCleaner {
     try {
       // Fetch all orders for the test tenant
       const response = await this.apiContext.get(
-        `${this.baseURL}/api/orders?tenantId=${this.tenantId}&pageSize=100`
+        `${this.baseURL}/api/orders?tenantId=${this.tenantId}&pageSize=100`,
+        { headers: this.authHeaders }
       );
 
       if (response.status() !== 200) {
         console.warn(`[cleanupTestTenant] Failed to fetch orders: ${response.status()}`);
+        return 0;
+      }
+
+      // W4 Fix: Handle non-JSON responses (e.g., HTML error pages when auth fails)
+      const contentType = response.headers()['content-type'] || '';
+      if (!contentType.includes('application/json')) {
+        console.warn(`[cleanupTestTenant] Non-JSON response (content-type: ${contentType}). Skipping cleanup.`);
         return 0;
       }
 

@@ -108,6 +108,16 @@ async function globalSetup(_config: FullConfig) {
         const body = await response.json();
         console.log(`[global-setup] Dev login OK (${role}) — tenantId=${body.tenantId}, role=${body.role}`);
         loginSucceeded = true;
+
+        // W4 Fix: Save JWT token for Gateway API tests (Gateway uses Bearer auth, not cookies).
+        // The /dev/login endpoint issues both a Cookie session (for ShopERP UI) and a JWT token
+        // (for Gateway API calls). Cookies are origin-bound (localhost:5003), so they don't work
+        // for Gateway (localhost:5001). JWT tokens are origin-agnostic — use Bearer header instead.
+        if (body.token) {
+          const tokenPath = path.join(authDir, `${role}.token`);
+          await fs.promises.writeFile(tokenPath, body.token, 'utf-8');
+          console.log(`[global-setup] auth/${role}.token written (JWT for Gateway API)`);
+        }
       } else {
         console.warn(`[global-setup] /dev/login/${role === 'admin' ? '' : role} returned ${response.status()}`);
       }

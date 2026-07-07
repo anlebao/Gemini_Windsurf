@@ -29,7 +29,7 @@ export class CustomerPage {
     this.page = page;
     
     // Initialize selectors after page is set
-    this.menuItems = this.page.locator('.feature-card, .product-card');
+    this.menuItems = this.page.getByTestId('home-product-card');
     this.addToCartButton = this.page.locator('button:has-text("Đặt ngay"), button:has-text("Add to Cart")');
     this.cartIcon = this.page.locator('.cart-icon, .shopping-cart');
     this.cartCount = this.page.locator('.cart-count, .badge');
@@ -104,7 +104,7 @@ export class CustomerPage {
    * Add specific item to cart by name
    */
   async addItemToCartByName(itemName: string) {
-    const item = this.page.locator(`.feature-card, .product-card`).filter({ hasText: itemName });
+    const item = this.page.getByTestId('home-product-card').filter({ hasText: itemName });
     await expect(item.first()).toBeVisible({ timeout: 10000 });
     const addToCartBtn = item.first().locator(this.addToCartButton);
     await expect(addToCartBtn).toBeVisible();
