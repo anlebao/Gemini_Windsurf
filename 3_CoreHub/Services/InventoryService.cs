@@ -5,9 +5,9 @@ using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services
 {
-    public class InventoryService(VanAnDbContext context, ILogger<InventoryService> logger) : IInventoryService
+    public class InventoryService(IVanAnDbContext context, ILogger<InventoryService> logger) : IInventoryService
     {
-        private readonly VanAnDbContext _context = context;
+        private readonly IVanAnDbContext _context = context;
         private readonly ILogger<InventoryService> _logger = logger;
 
         public async Task<bool> CanFulfillOrderAsync(Order order, IReadOnlyDictionary<IngredientId, Inventory> inventories, IReadOnlyDictionary<Guid, Recipe> recipes)

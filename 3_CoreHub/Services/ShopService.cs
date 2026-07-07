@@ -14,9 +14,9 @@ namespace VanAn.CoreHub.Services
         Task<bool> DeleteShopAsync(Guid shopId);
     }
 
-    public class ShopService(VanAnDbContext context, ITenantProvider tenantProvider) : IShopService
+    public class ShopService(IVanAnDbContext context, ITenantProvider tenantProvider) : IShopService
     {
-        private readonly VanAnDbContext _context = context;
+        private readonly IVanAnDbContext _context = context;
         private readonly ITenantProvider _tenantProvider = tenantProvider;
 
         public async Task<Shop> CreateShopAsync(Shop shop)

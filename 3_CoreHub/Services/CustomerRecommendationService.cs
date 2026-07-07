@@ -10,9 +10,9 @@ namespace VanAn.CoreHub.Services
     /// Service for generating product recommendations based on customer order history.
     /// Uses frequency-based algorithm: products bought more frequently are recommended higher.
     /// </summary>
-    public class CustomerRecommendationService(VanAnDbContext dbContext, IMemoryCache cache, ILogger<CustomerRecommendationService> logger)
+    public class CustomerRecommendationService(IVanAnDbContext dbContext, IMemoryCache cache, ILogger<CustomerRecommendationService> logger)
     {
-        private readonly VanAnDbContext _dbContext = dbContext;
+        private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IMemoryCache _cache = cache;
         private readonly ILogger<CustomerRecommendationService> _logger = logger;
         private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);

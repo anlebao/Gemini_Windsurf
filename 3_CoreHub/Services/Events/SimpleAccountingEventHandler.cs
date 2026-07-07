@@ -28,32 +28,52 @@ namespace VanAn.CoreHub.Services.Events
         {
             _logger.LogInformation("Accounting event handler started");
 
-            try
-            {
-                using IConnection connection = CreateNatsConnection();
+            string natsUrl = _configuration["NATS:Url"] ?? "nats://localhost:4222";
 
-                // W-1-T6: Subscribe to subject that matches NatsSyncWorker.BuildSubject output.
-                // NatsSyncWorker builds: "vanan.shoperp.{eventType.ToLowerInvariant().Replace('_', '.')}"
-                // For "OrderCompleted" → "vanan.shoperp.ordercompleted"
-                IAsyncSubscription subscription = connection.SubscribeAsync("vanan.shoperp.ordercompleted", async (sender, args) =>
+            // Degraded mode: retry NATS connection every 10s instead of crashing on startup.
+            // This matches DataSyncSubscriber's degraded mode pattern — Gateway can start
+            // without NATS and resume subscription when NATS becomes available.
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
                 {
-                    await HandleOrderCompletedEventAsync(args.Message, stoppingToken);
-                });
+                    IConnection? connection = CreateNatsConnection();
+                    if (connection == null)
+                    {
+                        // NATS unavailable — trigger retry loop
+                        throw new InvalidOperationException("NATS connection returned null");
+                    }
 
-                _logger.LogInformation("Subscribed to OrderCompleted events (subject: vanan.shoperp.ordercompleted)");
+                    // W-1-T6: Subscribe to subject that matches NatsSyncWorker.BuildSubject output.
+                    // NatsSyncWorker builds: "vanan.shoperp.{eventType.ToLowerInvariant().Replace('_', '.')}"
+                    // For "OrderCompleted" → "vanan.shoperp.ordercompleted"
+                    IAsyncSubscription subscription = connection.SubscribeAsync("vanan.shoperp.ordercompleted", async (sender, args) =>
+                    {
+                        await HandleOrderCompletedEventAsync(args.Message, stoppingToken);
+                    });
 
-                // Keep running until cancellation
-                await Task.Delay(Timeout.Infinite, stoppingToken);
+                    _logger.LogInformation("Subscribed to OrderCompleted events (subject: vanan.shoperp.ordercompleted)");
+
+                    // Keep running until cancellation
+                    await Task.Delay(Timeout.Infinite, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "SimpleAccountingEventHandler: NATS unavailable at {Url}. Running in degraded mode — will retry in 10s.",
+                        natsUrl);
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to start NATS subscription");
-                throw;
-            }
-            finally
-            {
-                _logger.LogInformation("Accounting event handler stopped");
-            }
+
+            _logger.LogInformation("Accounting event handler stopped");
         }
 
         /// <summary>
@@ -133,9 +153,9 @@ namespace VanAn.CoreHub.Services.Events
         }
 
         /// <summary>
-        /// Creates NATS connection
+        /// Creates NATS connection. Returns null if unavailable (degraded mode).
         /// </summary>
-        private IConnection CreateNatsConnection()
+        private IConnection? CreateNatsConnection()
         {
             string natsUrl = _configuration["NATS:Url"] ?? "nats://localhost:4222";
 
@@ -147,8 +167,8 @@ namespace VanAn.CoreHub.Services.Events
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to create NATS connection to {Url}", natsUrl);
-                throw new InvalidOperationException("Unable to connect to NATS server", ex);
+                _logger.LogWarning(ex, "Failed to create NATS connection to {Url}", natsUrl);
+                return null;
             }
         }
     }

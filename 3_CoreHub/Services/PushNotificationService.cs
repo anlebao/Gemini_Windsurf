@@ -33,12 +33,15 @@ namespace VanAn.CoreHub.Services
             _subscriptionRepository = subscriptionRepository;
             _natsPublisher = natsPublisher;
             
-            // VAPID private key from environment variable (security requirement)
-            _vapidPrivateKey = Environment.GetEnvironmentVariable("VAPID_PRIVATE_KEY") 
-                ?? throw new InvalidOperationException("VAPID_PRIVATE_KEY environment variable is required");
-            
+            // VAPID private key from environment variable (security requirement).
+            // Dev fallback: read from configuration "PushNotifications:VapidPrivateKey" for local development.
+            _vapidPrivateKey = Environment.GetEnvironmentVariable("VAPID_PRIVATE_KEY")
+                ?? configuration["PushNotifications:VapidPrivateKey"]
+                ?? throw new InvalidOperationException(
+                    "VAPID_PRIVATE_KEY environment variable (or PushNotifications:VapidPrivateKey config for dev) is required");
+
             // VAPID public key from configuration (can be in source code)
-            _vapidPublicKey = configuration["PushNotifications:VapidPublicKey"] 
+            _vapidPublicKey = configuration["PushNotifications:VapidPublicKey"]
                 ?? throw new InvalidOperationException("PushNotifications:VapidPublicKey configuration is required");
             
             // VAPID subject (contact email for push notifications)
