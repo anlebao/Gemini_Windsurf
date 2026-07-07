@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Controllers
@@ -14,11 +15,12 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ProductsController(VanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService) : ControllerBase
+    public class ProductsController(VanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService, IShopQrCodeService qrCodeService) : ControllerBase
     {
         private readonly VanAnDbContext _dbContext = dbContext;
         private readonly ILogger<ProductsController> _logger = logger;
         private readonly CustomerRecommendationService _recommendationService = recommendationService;
+        private readonly IShopQrCodeService _qrCodeService = qrCodeService;
 
         /// <summary>
         /// Get active products for a shop's public catalog (KhachLink).
@@ -143,6 +145,36 @@ namespace VanAn.ShopERP.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting recommended products for customer {CustomerId}", customerId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// FIX-BATCH-2: Generate QR code PNG for a product. KhachLink scanner scans this QR
+        /// to add the product to cart. Payload is JSON: {ProductId, ShopId, Timestamp}.
+        /// </summary>
+        [HttpGet("{id:guid}/qr")]
+        [AllowAnonymous]
+        public async Task<ActionResult> GetProductQrCode(Guid id, [FromQuery] Guid? tenantId)
+        {
+            try
+            {
+                Product? product = await _dbContext.Products
+                    .FirstOrDefaultAsync(p => p.ProductId == new ProductId(id) && p.IsActive && !p.IsDeleted);
+
+                if (product == null)
+                {
+                    return NotFound($"Product {id} not found or inactive");
+                }
+
+                Guid shopId = tenantId ?? product.TenantId.Value;
+                byte[] png = _qrCodeService.GenerateProductQRCode(id, shopId);
+
+                return File(png, "image/png", $"qr-{id}.png");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating QR code for product {ProductId}", id);
                 return StatusCode(500, "Internal server error");
             }
         }

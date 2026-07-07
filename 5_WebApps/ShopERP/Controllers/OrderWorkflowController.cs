@@ -70,6 +70,40 @@ namespace VanAn.ShopERP.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        // P2 FIX: Missing endpoints referenced by KhachLink OrderWorkflowHttpService
+
+        [HttpGet("by-status/{status}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<Order>>> GetOrdersByStatus(string status)
+        {
+            try
+            {
+                List<Order> orders = await _orderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId(status));
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting orders by status {Status}", status);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("transition-valid")]
+        [AllowAnonymous]
+        public async Task<ActionResult<bool>> IsTransitionValid([FromQuery] string current, [FromQuery] string next)
+        {
+            try
+            {
+                bool valid = await _orderWorkflowService.IsTransitionValidAsync(new OrderStatusId(current), new OrderStatusId(next));
+                return Ok(valid);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking transition validity {Current} -> {Next}", current, next);
+                return StatusCode(500, "Internal server error");
+            }
+        }
     }
 
     public class TransitionStatusRequest

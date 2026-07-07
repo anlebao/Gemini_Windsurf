@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
 using System.Security.Claims;
 
 namespace VanAn.ShopERP.Services
@@ -6,15 +7,13 @@ namespace VanAn.ShopERP.Services
     /// <summary>
     /// Bridges Razor Pages authentication to Blazor components.
     /// Uses HttpContext to retrieve authentication state from cookie-based auth during SSR.
-    /// In interactive circuit mode (HttpContext null), uses a cached state that the framework
-    /// sets via <see cref="IHostEnvironmentAuthenticationStateProvider.SetAuthenticationState"/>.
+    /// Falls back to <see cref="ServerAuthenticationStateProvider"/> base when HttpContext is null
+    /// (interactive circuit mode) — the framework sets the auth state via
+    /// <see cref="IHostEnvironmentAuthenticationStateProvider"/> when the circuit is established.
     /// </summary>
-    public class HttpContextAuthenticationStateProvider(IHttpContextAccessor httpContextAccessor)
-        : AuthenticationStateProvider, IHostEnvironmentAuthenticationStateProvider
+    public class HttpContextAuthenticationStateProvider(IHttpContextAccessor httpContextAccessor) : ServerAuthenticationStateProvider
     {
         private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
-        private Task<AuthenticationState> _circuitAuthState =
-            Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity())));
 
         public override Task<AuthenticationState> GetAuthenticationStateAsync()
         {
@@ -25,14 +24,9 @@ namespace VanAn.ShopERP.Services
                 return Task.FromResult(new AuthenticationState(httpContext.User));
             }
 
-            // Interactive circuit: HttpContext is null, use state set by the framework
-            return _circuitAuthState;
-        }
-
-        void IHostEnvironmentAuthenticationStateProvider.SetAuthenticationState(Task<AuthenticationState> authenticationStateTask)
-        {
-            _circuitAuthState = authenticationStateTask ?? throw new ArgumentNullException(nameof(authenticationStateTask));
-            NotifyAuthenticationStateChanged(_circuitAuthState);
+            // Interactive circuit: HttpContext is null, fall back to base
+            // (ServerAuthenticationStateProvider gets state from the circuit connection)
+            return base.GetAuthenticationStateAsync();
         }
     }
 }
