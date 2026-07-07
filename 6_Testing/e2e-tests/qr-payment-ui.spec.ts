@@ -104,6 +104,16 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
 
   // ─── MODAL CONTENT ────────────────────────────────────────────────────────
 
+  // Helper: fill guest checkout form and place order (Bucket A feature)
+  async function fillGuestFormAndPlaceOrder(page: import('@playwright/test').Page) {
+    const nameInput = page.getByTestId('checkout-input-name');
+    await expect(nameInput).toBeVisible({ timeout: 10000 });
+    await nameInput.fill('Test Guest');
+    const phoneInput = page.getByTestId('checkout-input-phone');
+    await phoneInput.fill('0901234567');
+    await page.getByTestId('checkout-btn-place-order').click();
+  }
+
   test('QR modal contains .qr-image element', async ({ page }) => {
     await page.goto(`${config.KHACHLINK_URL}/home`);
     await page.waitForLoadState('networkidle');
@@ -120,6 +130,9 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     const checkoutBtn = page.getByTestId('cart-btn-checkout');
     await expect(checkoutBtn).toBeVisible({ timeout: 5000 });
     await checkoutBtn.click();
+
+    // Bucket A feature: fill guest checkout form before order creation
+    await fillGuestFormAndPlaceOrder(page);
 
     const qrButton = page.getByTestId('checkout-btn-qr-payment');
     await expect(qrButton).toBeVisible({ timeout: 15000 });
@@ -153,6 +166,9 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     await expect(checkoutBtn).toBeVisible({ timeout: 5000 });
     await checkoutBtn.click();
 
+    // Bucket A feature: fill guest checkout form before order creation
+    await fillGuestFormAndPlaceOrder(page);
+
     const qrButton = page.getByTestId('checkout-btn-qr-payment');
     await expect(qrButton).toBeVisible({ timeout: 15000 });
     await qrButton.click();
@@ -181,6 +197,9 @@ test.describe('KhachLink - QR Payment Modal UI (T-03)', () => {
     const checkoutBtn = page.getByTestId('cart-btn-checkout');
     await expect(checkoutBtn).toBeVisible({ timeout: 5000 });
     await checkoutBtn.click();
+
+    // Bucket A feature: fill guest checkout form before order creation
+    await fillGuestFormAndPlaceOrder(page);
 
     const qrButton = page.getByTestId('checkout-btn-qr-payment');
     await expect(qrButton).toBeVisible({ timeout: 15000 });
