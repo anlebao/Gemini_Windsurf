@@ -22,7 +22,7 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<SocialCampaign> CreateCampaignAsync(SocialCampaign campaign)
         {
-            var response = await _httpClient.PostAsJsonAsync("api/socialcampaigns", campaign);
+            var response = await _httpClient.PostAsJsonAsync("api/campaigns", campaign);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<SocialCampaign>()
                 ?? throw new InvalidOperationException("CreateCampaign returned empty response");
@@ -30,7 +30,7 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<SocialCampaign?> GetCampaignByIdAsync(Guid campaignId)
         {
-            var response = await _httpClient.GetAsync($"api/socialcampaigns/{campaignId}");
+            var response = await _httpClient.GetAsync($"api/campaigns/{campaignId}");
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 return null;
@@ -42,27 +42,27 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<List<SocialCampaign>> GetCampaignsByShopAsync(Guid shopId)
         {
-            var response = await _httpClient.GetAsync($"api/socialcampaigns/by-shop/{shopId}");
+            var response = await _httpClient.GetAsync($"api/campaigns/by-shop/{shopId}");
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<List<SocialCampaign>>() ?? [];
         }
 
         public async Task<string> GenerateTrackingUrlAsync(Guid campaignId)
         {
-            var response = await _httpClient.GetAsync($"api/socialcampaigns/{campaignId}/tracking-url");
+            var response = await _httpClient.GetAsync($"api/campaigns/{campaignId}/tracking-url");
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
 
         public async Task<bool> RecordClickAsync(string trackingCode)
         {
-            var response = await _httpClient.PostAsync($"api/socialcampaigns/record-click/{Uri.EscapeDataString(trackingCode)}", null);
+            var response = await _httpClient.PostAsync($"api/campaigns/click/{Uri.EscapeDataString(trackingCode)}", null);
             return response.IsSuccessStatusCode;
         }
 
         public async Task<SocialCampaign?> GetCampaignByTrackingCodeAsync(string trackingCode)
         {
-            var response = await _httpClient.GetAsync($"api/socialcampaigns/by-tracking-code/{Uri.EscapeDataString(trackingCode)}");
+            var response = await _httpClient.GetAsync($"api/campaigns/{Uri.EscapeDataString(trackingCode)}");
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
                 return null;
@@ -74,13 +74,13 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<bool> IncrementConvertedOrdersAsync(Guid campaignId)
         {
-            var response = await _httpClient.PostAsync($"api/socialcampaigns/{campaignId}/increment-conversion", null);
+            var response = await _httpClient.PostAsync($"api/campaigns/{campaignId}/increment-conversion", null);
             return response.IsSuccessStatusCode;
         }
 
         public async Task<SocialCampaign> UpdateCampaignAsync(SocialCampaign campaign)
         {
-            var response = await _httpClient.PutAsJsonAsync($"api/socialcampaigns/{campaign.Id}", campaign);
+            var response = await _httpClient.PutAsJsonAsync($"api/campaigns/{campaign.Id}", campaign);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<SocialCampaign>()
                 ?? throw new InvalidOperationException("UpdateCampaign returned empty response");
@@ -88,13 +88,13 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<bool> DeleteCampaignAsync(Guid campaignId)
         {
-            var response = await _httpClient.DeleteAsync($"api/socialcampaigns/{campaignId}");
+            var response = await _httpClient.DeleteAsync($"api/campaigns/{campaignId}");
             return response.IsSuccessStatusCode;
         }
 
         public async Task<IEnumerable<SocialCampaign>> GetAllCampaignsAsync()
         {
-            var response = await _httpClient.GetAsync("api/socialcampaigns");
+            var response = await _httpClient.GetAsync("api/campaigns");
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<List<SocialCampaign>>() ?? [];
         }

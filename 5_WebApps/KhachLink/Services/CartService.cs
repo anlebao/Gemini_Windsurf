@@ -92,13 +92,6 @@ namespace VanAn.KhachLink.Services
             NotifyCartChanged();
         }
 
-        public async Task AddFromQrCodeAsync(ProductDto product, int quantity = 1)
-        {
-            _cartState.AddItem(product, quantity);
-            await SaveCartToStorageAsync();
-            NotifyCartChanged();
-        }
-
         private void NotifyCartChanged()
         {
             OnCartChanged?.Invoke();

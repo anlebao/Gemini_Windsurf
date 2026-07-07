@@ -1,4 +1,4 @@
-﻿using VanAn.Shared.Services;
+using VanAn.Shared.Services;
 
 using VanAn.CoreHub.Services;
 
@@ -105,12 +105,9 @@ namespace VanAn.KhachLink
             // Register Recently Viewed Service (Wave 8: Product Personalization)
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
 
-            // Register Dashboard Services
-
-            _ = builder.Services.AddScoped<Services.Dashboard.RealTimeDashboardService>();
-
-            _ = builder.Services.AddSignalR(); // SignalR for real-time updates
-
+            // FIX-BATCH-4: SignalR + RealTimeDashboardService removed from KhachLink.
+            // Staff dashboard now uses HTTP polling (RealTimeDashboard.razor → GET /api/dashboard/shop-metrics/{shopId}).
+            // SignalR remains in ShopERP for Kitchen Display only (staff count << 10,000).
 
 
             // Add Memory Cache (used by HTTP services for optional caching)
@@ -172,11 +169,7 @@ namespace VanAn.KhachLink
                    .AddInteractiveServerRenderMode();
 
 
-
-            // Map SignalR Hub
-
-            _ = app.MapHub<Hubs.DashboardHub>("/dashboardHub");
-
+            // FIX-BATCH-4: SignalR Hub mapping removed (no WebSocket connections from KhachLink).
 
 
             // Razor Pages fallback removed; Blazor Router handles unmatched routes.

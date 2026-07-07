@@ -1,5 +1,4 @@
 ﻿@using VanAn.KhachLink.Components.PWA
-@using static Microsoft.AspNetCore.Components.Web.RenderMode
 <!DOCTYPE html>
 <html lang="en">
 
@@ -9,6 +8,7 @@
     <base href="/" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="VanAn.KhachLink.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
             integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+"
@@ -17,7 +17,7 @@
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes />
     <PWAInstallPrompt />
     <script src="_framework/blazor.web.js"></script>
     <script src="/js/pwa.js"></script>

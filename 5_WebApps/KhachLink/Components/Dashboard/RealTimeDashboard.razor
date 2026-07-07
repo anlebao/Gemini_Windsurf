@@ -1,6 +1,7 @@
-@using Microsoft.AspNetCore.SignalR.Client
-@using VanAn.Shared.Domain
+﻿@using VanAn.Shared.Domain
 @using VanAn.UI.Platform.Services
+@using System.Text.Json
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
 @inject ITenantService TenantService
@@ -33,7 +34,7 @@
                 <i class="fas fa-shopping-cart"></i>
             </div>
             <div class="metric-content">
-                <div class="metric-value">@DashboardData?.TodayOrders</div>
+                <div class="metric-value">@_metrics?.TodayOrders</div>
                 <div class="metric-label">Today's Orders</div>
                 <div class="metric-change @(GrowthRate >= 0 ? "positive" : "negative")">
                     <i class="fas @(GrowthRate >= 0 ? "fa-arrow-up" : "fa-arrow-down")"></i>
@@ -47,9 +48,9 @@
                 <i class="fas fa-dollar-sign"></i>
             </div>
             <div class="metric-content">
-                <div class="metric-value">@FormatCurrency(DashboardData?.TodayRevenue)</div>
+                <div class="metric-value">@FormatCurrency(_metrics?.TodayRevenue)</div>
                 <div class="metric-label">Today's Revenue</div>
-                <div class="metric-subtitle">@DashboardData?.AverageOrderValue avg/order</div>
+                <div class="metric-subtitle">@_metrics?.AverageOrderValue avg/order</div>
             </div>
         </div>
 
@@ -58,9 +59,9 @@
                 <i class="fas fa-clock"></i>
             </div>
             <div class="metric-content">
-                <div class="metric-value">@DashboardData?.PendingOrders</div>
+                <div class="metric-value">@_metrics?.PendingOrders</div>
                 <div class="metric-label">Pending Orders</div>
-                <div class="metric-subtitle">@(DashboardData?.ProcessingTime?.Minutes ?? 0) min avg</div>
+                <div class="metric-subtitle">@(_metrics?.ProcessingTimeMinutes ?? 0) min avg</div>
             </div>
         </div>
 
@@ -69,12 +70,12 @@
                 <i class="fas fa-star"></i>
             </div>
             <div class="metric-content">
-                <div class="metric-value">@DashboardData?.CustomerSatisfaction?.ToString("F1")</div>
+                <div class="metric-value">@_metrics?.CustomerSatisfaction?.ToString("F1")</div>
                 <div class="metric-label">Customer Rating</div>
                 <div class="metric-stars">
                     @for (int i = 1; i <= 5; i++)
                     {
-                        <i class="fas fa-star @(i <= (DashboardData?.CustomerSatisfaction ?? 0) ? "active" : "")"></i>
+                        <i class="fas fa-star @(i <= (_metrics?.CustomerSatisfaction ?? 0) ? "active" : "")"></i>
                     }
                 </div>
             </div>
@@ -86,10 +87,10 @@
         <div class="chart-container">
             <h3><i class="fas fa-chart-bar me-2"></i>Hourly Orders</h3>
             <div class="chart-placeholder">
-                @if (DashboardData?.HourlyStats != null)
+                @if (_metrics?.HourlyStats != null)
                 {
                     <div class="simple-bar-chart">
-                        @foreach (var stat in DashboardData.HourlyStats)
+                        @foreach (var stat in _metrics.HourlyStats)
                         {
                             <div class="bar-item">
                                 <div class="bar" style="height: @(GetBarHeight(stat.Orders))%"></div>
@@ -111,9 +112,9 @@
         <div class="chart-container">
             <h3><i class="fas fa-trophy me-2"></i>Top Products</h3>
             <div class="top-products">
-                @if (DashboardData?.TopSellingItems != null)
+                @if (_metrics?.TopSellingItems != null)
                 {
-                    @foreach (var item in DashboardData.TopSellingItems.Take(5))
+                    @foreach (var item in _metrics.TopSellingItems.Take(5))
                     {
                         <div class="product-item">
                             <div class="product-name">@item.Name</div>
@@ -137,9 +138,9 @@
     <div class="activity-section">
         <h3><i class="fas fa-stream me-2"></i>Recent Activity</h3>
         <div class="activity-feed">
-            @if (DashboardData?.RecentActivity != null)
+            @if (_metrics?.RecentActivity != null)
             {
-                @foreach (var activity in DashboardData.RecentActivity.Take(10))
+                @foreach (var activity in _metrics.RecentActivity.Take(10))
                 {
                     <div class="activity-item">
                         <div class="activity-icon">
@@ -164,12 +165,12 @@
     </div>
 
     <!-- Alerts Section -->
-    @if (DashboardData?.InventoryAlerts > 0)
+    @if ((_metrics?.InventoryAlerts ?? 0) > 0)
     {
         <div class="alerts-section">
             <div class="alert alert-warning">
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                <strong>@DashboardData.InventoryAlerts</strong> inventory alerts
+                <strong>@_metrics.InventoryAlerts</strong> inventory alerts
                 <button class="btn btn-sm btn-outline-warning ms-2" @onclick="ViewInventoryAlerts">
                     View Details
                 </button>
@@ -509,104 +510,52 @@
 </style>
 
 @code {
-    private HubConnection? _hubConnection;
+    // FIX-BATCH-4: Replaced SignalR HubConnection with HTTP polling.
+    // Polls GET /api/dashboard/shop-metrics/{shopId} every 10 seconds.
+    private ShopDashboardMetrics? _metrics;
     private bool _isConnected = false;
     private bool _autoRefresh = true;
-    private object? _dashboardData;
     private Timer? _refreshTimer;
+    private CancellationTokenSource? _cts;
+
+    // Local DTOs matching ShopERP ShopDashboardMetrics response shape
+    private class ShopDashboardMetrics
+    {
+        public Guid ShopId { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public int TodayOrders { get; set; }
+        public decimal TodayRevenue { get; set; }
+        public int PendingOrders { get; set; }
+        public decimal AverageOrderValue { get; set; }
+        public double GrowthRate { get; set; }
+        public int ProcessingTimeMinutes { get; set; }
+        public double? CustomerSatisfaction { get; set; }
+        public List<HourlyStat>? HourlyStats { get; set; }
+        public List<TopSellingItem>? TopSellingItems { get; set; }
+        public List<RecentActivityEntry>? RecentActivity { get; set; }
+        public int InventoryAlerts { get; set; }
+    }
+    private class HourlyStat { public int Hour { get; set; } public int Orders { get; set; } }
+    private class TopSellingItem { public string Name { get; set; } = ""; public int Sales { get; set; } public decimal Revenue { get; set; } }
+    private class RecentActivityEntry { public string Action { get; set; } = ""; public string Details { get; set; } = ""; public DateTime Time { get; set; } }
 
     public bool IsConnected => _isConnected;
     public bool AutoRefresh => _autoRefresh;
-
-    public dynamic? DashboardData => _dashboardData as dynamic;
-    public decimal GrowthRate => DashboardData?.GrowthRate ?? 0;
+    public decimal GrowthRate => (decimal)(_metrics?.GrowthRate ?? 0);
 
     protected override async Task OnInitializedAsync()
     {
-        await InitializeSignalR();
+        _cts = new CancellationTokenSource();
+        await RefreshData();
         StartAutoRefresh();
-    }
-
-    private async Task InitializeSignalR()
-    {
-        try
-        {
-            _hubConnection = new HubConnectionBuilder()
-                .WithUrl(NavigationManager.ToAbsoluteUri("/dashboardHub"))
-                .WithAutomaticReconnect()
-                .Build();
-
-            // Register event handlers
-            _hubConnection.On<object>("ShopMetricsUpdate", (metricsData) =>
-            {
-                _dashboardData = metricsData;
-                StateHasChanged();
-            });
-
-            _hubConnection.On<object>("ShopOrderUpdate", (orderData) =>
-            {
-                // Handle real-time order updates
-                StateHasChanged();
-            });
-
-            _hubConnection.On<object>("InventoryUpdate", (inventoryData) =>
-            {
-                // Handle inventory updates
-                StateHasChanged();
-            });
-
-            _hubConnection.On<object>("Notification", (notificationData) =>
-            {
-                // Handle notifications
-                StateHasChanged();
-            });
-
-            _hubConnection.Reconnected += async (_) =>
-            {
-                _isConnected = true;
-                await JoinShopGroup();
-                StateHasChanged();
-            };
-
-            _hubConnection.Reconnecting += (_) =>
-            {
-                _isConnected = false;
-                StateHasChanged();
-                return Task.CompletedTask;
-            };
-
-            _hubConnection.Closed += async (_) =>
-            {
-                _isConnected = false;
-                StateHasChanged();
-            };
-
-            await _hubConnection.StartAsync();
-            _isConnected = true;
-            
-            await JoinShopGroup();
-        }
-        catch (Exception ex)
-        {
-            _isConnected = false;
-            Console.WriteLine($"Failed to connect to SignalR: {ex.Message}");
-        }
-    }
-
-    private async Task JoinShopGroup()
-    {
-        if (_hubConnection != null && _isConnected)
-        {
-            var shopId = TenantService.GetCurrentTenantId().ToString();
-            await _hubConnection.InvokeAsync("JoinShopGroup", shopId);
-        }
     }
 
     private void StartAutoRefresh()
     {
         if (_autoRefresh)
         {
-            _refreshTimer = new Timer(async _ => await RefreshData(), null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+            _refreshTimer?.Dispose();
+            _refreshTimer = new Timer(async _ => await RefreshData(), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
         }
     }
 
@@ -618,17 +567,29 @@
 
     private async Task RefreshData()
     {
-        if (_hubConnection != null && _isConnected)
+        try
         {
-            try
+            var httpClient = HttpClientFactory.CreateClient("gateway");
+            var shopId = TenantService.GetCurrentTenantId();
+            var response = await httpClient.GetAsync($"api/dashboard/shop-metrics/{shopId}");
+
+            if (response.IsSuccessStatusCode)
             {
-                // Request fresh data
-                await _hubConnection.InvokeAsync("RequestShopMetrics", TenantService.GetCurrentTenantId().ToString());
+                var json = await response.Content.ReadAsStringAsync();
+                _metrics = JsonSerializer.Deserialize<ShopDashboardMetrics>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                _isConnected = true;
+                await InvokeAsync(StateHasChanged);
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Failed to refresh data: {ex.Message}");
+                _isConnected = false;
+                Console.WriteLine($"Dashboard polling failed: {response.StatusCode}");
             }
+        }
+        catch (Exception ex)
+        {
+            _isConnected = false;
+            Console.WriteLine($"Failed to refresh dashboard data: {ex.Message}");
         }
     }
 
@@ -656,7 +617,7 @@
 
     private string FormatCurrency(decimal? value)
     {
-        return value?.ToString("C0", new System.Globalization.CultureInfo("vi-VN")) ?? "₫0";
+        return value?.ToString("C0", new System.Globalization.CultureInfo("vi-VN")) ?? "â‚«0";
     }
 
     private string FormatTime(DateTime? time)
@@ -685,13 +646,10 @@
         return Math.Max(5, Math.Min(100, height));
     }
 
-    public async void Dispose()
+    public void Dispose()
     {
         StopAutoRefresh();
-        
-        if (_hubConnection != null)
-        {
-            await _hubConnection.DisposeAsync();
-        }
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
 }

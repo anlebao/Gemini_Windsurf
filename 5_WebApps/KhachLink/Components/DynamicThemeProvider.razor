@@ -105,29 +105,24 @@ else if (ShopConfig != null)
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadShopConfig();
+        // P4 FIX: Only load HTTP data here — JSRuntime is NOT available during prerender.
+        // JS interop calls (updatePageTitle, applyThemeClass) moved to OnAfterRenderAsync.
+        await LoadShopConfigAsync();
     }
 
-    private async Task LoadShopConfig()
+    private async Task LoadShopConfigAsync()
     {
         try
         {
             IsLoading = true;
-            
+
             var http = HttpClientFactory.CreateClient("gateway");
             var response = await http.GetFromJsonAsync<ShopConfig>($"/api/v1/shopconfig/shops/{ShopId}/config");
-            
+
             if (response != null)
             {
                 ShopConfig = response;
                 await OnConfigLoaded.InvokeAsync(ShopConfig);
-                
-                // Update page title with null-coalescing
-                var displayTitle = ShopConfig?.ShopName ?? "Vạn An Group";
-                await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
-                
-                // Apply theme class to body
-                await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");
             }
         }
         catch (Exception)
@@ -152,9 +147,20 @@ else if (ShopConfig != null)
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && ShopConfig != null)
         {
-            await LoadShopConfig();
+            // P4 FIX: JSRuntime calls moved here — only available after hydration.
+            try
+            {
+                var displayTitle = ShopConfig?.ShopName ?? "Vạn An Group";
+                await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
+
+                await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");
+            }
+            catch (Exception)
+            {
+                // JS interop may fail if JS functions not defined — non-fatal
+            }
         }
     }
 

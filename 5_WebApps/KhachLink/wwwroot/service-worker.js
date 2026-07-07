@@ -96,13 +96,7 @@ self.addEventListener('fetch', event => {
             
             // Offline fallback for API
             if (url.pathname.includes('/menu')) {
-              return new Response(JSON.stringify({
-                error: 'Offline mode',
-                data: [
-                  { id: 1, name: 'Trà sữa', price: 25000, available: true },
-                  { id: 2, name: 'Cà phê', price: 20000, available: true }
-                ]
-              }), {
+              return new Response(JSON.stringify({ error: 'Offline mode' }), {
                 headers: { 'Content-Type': 'application/json' }
               });
             }
