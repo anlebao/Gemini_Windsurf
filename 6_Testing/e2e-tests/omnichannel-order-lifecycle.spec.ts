@@ -41,16 +41,16 @@ test.describe('Omnichannel Order Lifecycle E2E Tests', () => {
 
   /**
    * SCENARIO 1: First-Time Guest Omnichannel Order Flow (Guest Web to Handover)
-   * 
+   *
    * This test covers the complete order lifecycle from guest checkout to handover,
    * including NATS sync timing between different stations.
+   *
+   * Bucket A feature (implemented 2026-07-07): Guest checkout form UI added to
+   * KhachLink's Checkout.razor — name/phone/address inputs + "Đặt hàng" button.
+   * Backend: CheckoutOrderRequest DTO extended + OrderService sets CustomerInfo.
+   * See: docs/AI/tasks/feature_guest_checkout_form_task_card.md
    */
-  // W6/Bucket A: DEFERRED — Test spec assumes a guest checkout form (name/phone/address
-  // inputs + "Đặt hàng" button) that doesn't exist in KhachLink's cart-based Checkout.razor.
-  // User decision (2026-07-07): implement guest-form UI as a separate feature build.
-  // Feature task card: docs/AI/tasks/feature_guest_checkout_form_task_card.md (to be created).
-  // This test is skipped until the guest-form UI feature is implemented.
-  test.skip('SCENARIO 1: First-Time Guest Omnichannel Order Flow @golden', async ({ browser }) => {
+  test('SCENARIO 1: First-Time Guest Omnichannel Order Flow @golden', async ({ browser }) => {
     // Step 1: Customer places order as guest
     const customerContext = await browser.newContext();
     const customerPage = new CustomerPage(await customerContext.newPage());

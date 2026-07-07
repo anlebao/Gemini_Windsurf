@@ -9,6 +9,12 @@ namespace VanAn.CoreHub.Commands
     {
         public Guid CustomerDeviceId { get; set; }
         public List<OrderItemRequest> Items { get; set; } = [];
+
+        // Bucket A feature (approved 2026-07-07): Guest checkout customer info.
+        // Nullable — anonymous checkout (no form) still supported for backward compat.
+        public string? CustomerName { get; set; }
+        public string? CustomerPhone { get; set; }
+        public string? CustomerAddress { get; set; }
     }
 
     public class OrderItemRequest

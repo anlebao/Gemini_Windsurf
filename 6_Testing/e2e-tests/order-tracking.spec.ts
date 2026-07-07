@@ -150,6 +150,14 @@ test.describe('KhachLink - Order Tracking Page (T-02)', () => {
     await expect(checkoutBtn).toBeVisible({ timeout: 5000 });
     await checkoutBtn.click();
 
+    // Bucket A feature: fill guest checkout form before order creation
+    const nameInput = page.getByTestId('checkout-input-name');
+    await expect(nameInput).toBeVisible({ timeout: 10000 });
+    await nameInput.fill('Test Guest');
+    const phoneInput = page.getByTestId('checkout-input-phone');
+    await phoneInput.fill('0901234567');
+    await page.getByTestId('checkout-btn-place-order').click();
+
     // Checkout page creates order and shows order details.
     // Click "Theo dõi đơn hàng" link to navigate to tracking page.
     const trackingLink = page.getByTestId('checkout-link-tracking');

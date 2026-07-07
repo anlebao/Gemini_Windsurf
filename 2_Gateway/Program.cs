@@ -61,7 +61,13 @@ namespace VanAn.Gateway
             string connectionString = builder.Configuration.GetSection("ConnectionStrings")["DefaultConnection"]
                 ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection configuration is required in Gateway.");
             _ = builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.IVanAnDbContext, VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
-                options.UseNpgsql(connectionString));
+            {
+                // Auto-detect provider: SQLite ("Data Source=") for local dev, Npgsql ("Host=") for production
+                if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+                    options.UseSqlite(connectionString);
+                else
+                    options.UseNpgsql(connectionString);
+            });
 
             // Wave 0: JWT + Cookie dual-scheme authentication
             // Cookie is default scheme (keeps Blazor UI working).
@@ -80,6 +86,17 @@ namespace VanAn.Gateway
                 {
                     options.LoginPath = "/login";
                     options.ExpireTimeSpan = TimeSpan.FromHours(8);
+                    // W4 Fix: Forward to JWT Bearer when Authorization header is present.
+                    // This enables dual-scheme auth: Cookie for Blazor UI, JWT for API tests.
+                    options.ForwardDefaultSelector = context =>
+                    {
+                        if (context.Request.Headers.TryGetValue("Authorization", out var auth)
+                            && auth.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return JwtBearerDefaults.AuthenticationScheme;
+                        }
+                        return null; // Use Cookie (default scheme)
+                    };
                 })
                 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
                 {
@@ -330,12 +347,17 @@ namespace VanAn.Gateway
                 // Add Localization Middleware
                 _ = app.UseMiddleware<LocalizationMiddleware>();
 
-                // Add YARP Reverse Proxy
-                _ = app.MapReverseProxy();
-
+                // W4 Fix: Map controllers BEFORE YARP so Gateway's own API endpoints
+                // (OrdersController, VietQrController, etc.) take priority over the
+                // YARP fallback catch-all route ({**catch-all} → khachlink-cluster).
+                // Without this, /api/* requests get forwarded to KhachLink (HTML) instead
+                // of being handled by Gateway controllers.
                 _ = app.MapControllers();
                 _ = app.MapHub<OrderHub>("/orderHub");
                 _ = app.MapHub<KitchenHub>("/kitchenhub");
+
+                // Add YARP Reverse Proxy (after controllers so it only catches non-API routes)
+                _ = app.MapReverseProxy();
 
                 // Health check endpoint
                 _ = app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Service = "VanAn Gateway", Timestamp = DateTime.UtcNow }));

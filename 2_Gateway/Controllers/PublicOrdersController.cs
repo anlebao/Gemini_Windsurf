@@ -109,7 +109,11 @@ namespace VanAn.Gateway.Controllers
                         ProductId = i.ProductId,
                         Quantity = i.Quantity,
                         UnitPrice = i.UnitPrice
-                    }).ToList()
+                    }).ToList(),
+                    // Bucket A feature (approved 2026-07-07): pass guest customer info through.
+                    CustomerName = request.CustomerName,
+                    CustomerPhone = request.CustomerPhone,
+                    CustomerAddress = request.CustomerAddress
                 };
 
                 Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);
@@ -190,6 +194,11 @@ namespace VanAn.Gateway.Controllers
         public string? OrderType { get; set; }
         public string? CustomerNotes { get; set; }
         public List<CheckoutOrderItem> Items { get; set; } = new();
+
+        // Bucket A feature (approved 2026-07-07): Guest checkout customer info.
+        public string? CustomerName { get; set; }
+        public string? CustomerPhone { get; set; }
+        public string? CustomerAddress { get; set; }
     }
 
     public class CheckoutOrderItem

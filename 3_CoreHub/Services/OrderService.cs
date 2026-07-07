@@ -528,8 +528,28 @@ namespace VanAn.CoreHub.Services
                     OrderItem.Create(Guid.NewGuid(), tenantIdObj, orderId, i.ProductId, i.Quantity, i.UnitPrice)
                 ).ToList();
 
-                // Create Order using DDD factory method
-                Order order = Order.Create(orderId, tenantIdObj, command.CustomerDeviceId, orderItems);
+                // Create Order using DDD factory method.
+                // NOTE: customerId is passed as null — guest checkout has no Customer entity.
+                // CustomerDeviceId is a device fingerprint (string), NOT a Customer FK.
+                // Previously command.CustomerDeviceId (Guid) was passed as customerId, causing
+                // FK_Orders_Customers_CustomerId violations for guest checkout (no Customer row exists).
+                // Bucket A feature fix (approved 2026-07-07): pass null customerId, set device id separately.
+                Order order = Order.Create(orderId, tenantIdObj, null, orderItems);
+                order.SetCustomerDeviceId(command.CustomerDeviceId.ToString());
+
+                // Bucket A feature (approved 2026-07-07): attach guest customer info if provided.
+                // CustomerInfo value object is persisted via OwnsOne (columns already exist).
+                if (!string.IsNullOrWhiteSpace(command.CustomerName)
+                    || !string.IsNullOrWhiteSpace(command.CustomerPhone)
+                    || !string.IsNullOrWhiteSpace(command.CustomerAddress))
+                {
+                    var info = new CustomerInfo(
+                        command.CustomerName ?? string.Empty,
+                        command.CustomerPhone ?? string.Empty,
+                        email: string.Empty,
+                        address: command.CustomerAddress);
+                    order.SetCustomerInfo(info);
+                }
 
                 // Save order using existing repository pattern
                 Order createdOrder = await _orderRepository.AddAsync(order);

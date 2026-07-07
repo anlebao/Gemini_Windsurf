@@ -1014,6 +1014,17 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
+        /// Bucket A feature (approved 2026-07-07): Set guest customer info on order.
+        /// Used by KhachLink guest checkout flow — customer provides name/phone/address
+        /// without authentication. Follows SetCustomerDeviceId pattern.
+        /// </summary>
+        public void SetCustomerInfo(CustomerInfo info)
+        {
+            CustomerInfo = info;
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set per-order industry sector override (TT 152 S2a/S2b).
         /// If set, takes precedence over Tenant.DefaultIndustrySector when generating accounting entries.
         /// </summary>
@@ -2054,7 +2065,7 @@ namespace VanAn.Shared.Domain
     public class HKDRevenueClassification : BaseEntity
     {
         public Guid ClassificationId { get; protected set; } = Guid.NewGuid();
-        public new TenantId TenantId { get; protected set; } = null!;
+        public TenantId TenantId { get; protected set; } = null!;
         public AccountingPeriod Period { get; protected set; } = null!;
         public decimal TotalRevenue { get; protected set; }
         public HKDRevenueGroup RevenueGroup { get; protected set; }

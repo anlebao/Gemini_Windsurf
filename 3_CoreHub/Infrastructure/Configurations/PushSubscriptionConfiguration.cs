@@ -18,7 +18,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Property configurations
             _ = builder.Property(e => e.PushSubscriptionId)
                 .IsRequired()
-                .HasDefaultValueSql("newid()");
+                .HasDefaultValueSql("gen_random_uuid()");
 
             _ = builder.Property(e => e.CustomerId)
                 .IsRequired();
@@ -36,7 +36,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
 
             _ = builder.Property(e => e.LastUsedAt)
                 .IsRequired()
-                .HasDefaultValueSql("datetime('now')");
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             _ = builder.Property(e => e.ExpiresAt)
                 .IsRequired();
