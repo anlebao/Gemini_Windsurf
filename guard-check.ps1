@@ -11,7 +11,7 @@ $untrackedFiles = git ls-files --others --exclude-standard | Where-Object {
 }
 
 if ($untrackedFiles) {
-    Write-Host "`nâŒ UNTRACKED SOURCE FILES DETECTED:" -ForegroundColor Red
+    Write-Host "`n[FAIL] UNTRACKED SOURCE FILES DETECTED:" -ForegroundColor Red
     $untrackedFiles | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
     Write-Host "`nThese files exist on disk but are NOT tracked by git." -ForegroundColor Yellow
     Write-Host "You will LOSE these files if you switch branches or the working tree is cleaned." -ForegroundColor Yellow
@@ -22,25 +22,25 @@ if ($untrackedFiles) {
     exit 1
 }
 
-Write-Host "âœ“ Untracked source files: PASSED" -ForegroundColor Green
+Write-Host "[OK] Untracked source files: PASSED" -ForegroundColor Green
 
 # 1. Run windsurf-guard.js
 Write-Host "Running windsurf-guard.js v6.0..." -ForegroundColor Yellow
 node windsurf-guard.js
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Ã¢ WINDSURF GUARD FAILED" -ForegroundColor Red
+    Write-Host "[FAIL] WINDSURF GUARD FAILED" -ForegroundColor Red
     exit 1
 }
-Write-Host "Ã¢ WINDSURF GUARD PASSED" -ForegroundColor Green
+Write-Host "[OK] WINDSURF GUARD PASSED" -ForegroundColor Green
 
 # 2. Run architecture-guard.ps1 (TEMPORARY - will be removed in Phase 3)
 Write-Host "Running architecture-guard.ps1..." -ForegroundColor Yellow
 .\architecture-guard.ps1
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Ã¢ ARCHITECTURE GUARD FAILED" -ForegroundColor Red
+    Write-Host "[FAIL] ARCHITECTURE GUARD FAILED" -ForegroundColor Red
     exit 1
 }
-Write-Host "Ã¢ ARCHITECTURE GUARD PASSED" -ForegroundColor Green
+Write-Host "[OK] ARCHITECTURE GUARD PASSED" -ForegroundColor Green
 
 # 2.5. Run Roslyn Analyzers (NEW - Phase 2.3)
 Write-Host "Running Roslyn Analyzers..." -ForegroundColor Yellow
@@ -63,7 +63,7 @@ Write-Host "Running dotnet build..." -ForegroundColor Yellow
 $buildOutput = dotnet build --verbosity normal --configuration Release 2>&1 | Tee-Object -FilePath "build.log"
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Ã¢ BUILD FAILED" -ForegroundColor Red
+    Write-Host "[FAIL] BUILD FAILED" -ForegroundColor Red
     exit 1
 }
 
@@ -138,12 +138,12 @@ Write-Host "Fast test gate: PASSED" -ForegroundColor Green
 
 # 6. Summary
 $warningCount = ($buildOutput | Select-String -Pattern 'warning').Count
-Write-Host "Ã¢ BUILD SUCCEEDED - $warningCount warning`(s`)" -ForegroundColor Green
+Write-Host "[OK] BUILD SUCCEEDED - $warningCount warning`(s`)" -ForegroundColor Green
 
 if ($warningCount -gt 5) {
-    Write-Host "Ã¢  Warning count `($warningCount`) is higher than target `(<=5`). Please review." -ForegroundColor Yellow
+    Write-Host "[WARN] Warning count `($warningCount`) is higher than target `(<=5`). Please review." -ForegroundColor Yellow
 } else {
-    Write-Host "Ã¢ Excellent! Warning count is within target." -ForegroundColor Green
+    Write-Host "[OK] Excellent! Warning count is within target." -ForegroundColor Green
 }
 
 # 7. Generate guard report
@@ -182,4 +182,4 @@ $reportContent | Out-File $reportFile
 
 Write-Host "Report generated: $reportFile" -ForegroundColor Green
 
-Write-Host "âœ… ALL CHECKS PASSED - Ready for review" -ForegroundColor Cyan
+Write-Host "[DONE] ALL CHECKS PASSED - Ready for review" -ForegroundColor Cyan
