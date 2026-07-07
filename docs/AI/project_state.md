@@ -29,27 +29,45 @@
 
 ## 2. Current Objective
 
-**[PLAYWRIGHT E2E GOLDEN TEST FIXES — W6 COMPLETE ✅ 21/22 EXPECTED PASS, 1 DEFERRED]**
+**[BUCKET A GUEST CHECKOUT FORM + POSTGRESQL MIGRATION FIX — COMPLETE ✅ COMMITTED `310f3da` + `8867dbc`]**
 
-W6 of test system improvement master plan complete. All 5 buckets (A-E) implemented. Build 0 errors. 13/13 VietQrService unit tests PASS. Playwright golden suite verification PENDING (services need restart).
+Bucket A feature (guest checkout form UI for KhachLink) + PostgreSQL migration fix (SQLite-only → PostgreSQL-compatible). Both committed to `main`.
 
-- **Master plan:** `docs/AI/tasks/test_system_improvement_master_plan.md` (W0-W6 ALL COMPLETE)
-- **Task card:** `docs/AI/tasks/test_w6_golden_test_fixes_task_card.md`
-- **Investigation report:** `docs/AI/tasks/test_w6_deep_investigation_report.md`
-- **Result:** 21/22 golden tests expected PASS, 1 deferred (Bucket A — guest-form UI feature build)
-- **5 buckets implemented:**
-  - **Bucket A (deferred):** `omnichannel-order-lifecycle.spec.ts:48` — `test.skip` with debt pointer (guest-form UI = separate feature build)
-  - **Bucket B:** `order-tracking.spec.ts:57` — timeout 5s → 15s; fallback `h4/h3/h2` → `order-tracking-container`
-  - **Bucket C (H5):** `WebhookController` injects `ITenantProvider`, calls `SetTenant(request.TenantId)` before `ConfirmPaymentAsync` — fixes EF global query filter (tests #3, #4, #6, #8)
-  - **Bucket C (H6):** Added `PUT /api/orders/{id}/status` to Gateway `OrdersController` + SignalR broadcast + lowercase status values in tests
-  - **Bucket D:** Added `GET /api/public/orders/{id}` (AllowAnonymous, limited DTO) + wired `OrderTracking.razor` (test #7)
-  - **Bucket E:** Implemented real `ValidateBankConfigAsync` (BankId ∈ supported + AccountNo `^\d{6,16}$` + AccountName non-empty) + 13 unit tests (test #5)
-- **Production-code gaps filled (per user directive):** G1 VietQR validation, G2 public order tracking, H5 webhook tenant context, H6 Gateway status endpoint
-- **Files modified:** 14 (8 production + 3 new + 3 test specs) + 1 bonus fix (`App.razor` duplicate `</html>`)
+- **Task card:** `docs/AI/tasks/feature_guest_checkout_form_task_card.md`
+- **Commits:** `310f3da` (feature + infra fix, 33 files), `8867dbc` (E2E test fix, 1 file)
 
-**Services running:** Gateway (5001) + KhachLink (5002) + ShopERP (5003) — KhachLink was killed during build (PID 30120); needs restart before Playwright run.
+**Bucket A — Guest checkout form:**
+- Domain: `Order.SetCustomerInfo(CustomerInfo)` method
+- Application: `CreateOrderCommand` + `OrderService` + `PublicOrdersController` DTO
+- UI: `Checkout.razor` rewrite with guest form (VanAnCard/VanAnButton/VanAnAlert/VanAInput)
+- Fix: `OrderService` CustomerId null (was passing CustomerDeviceId as CustomerId FK)
+- Tests: 4 unit + 3 integration + 5 E2E specs updated with guest form step
+- Un-skip: `omnichannel-order-lifecycle.spec.ts` SCENARIO 1
 
-**NEXT:** (1) Restart services (Gateway, KhachLink, ShopERP). (2) Run `npx playwright test --grep "@golden" --reporter=line` → expect 21/22 PASS, 1 skipped. (3) If green, commit W6 changes. (4) Bucket A feature build (separate session per Context Control rules).
+**PostgreSQL migration fix:**
+- `DesignTimeDbContextFactory`: auto-detect provider (SQLite/Npgsql) from connection string
+- `Gateway Program.cs`: auto-detect provider (matches DesignTimeFactory)
+- `PushSubscriptionConfiguration`: `newid()` → `gen_random_uuid()`, `datetime('now')` → `CURRENT_TIMESTAMP`
+- Regenerate `InitialCreate` migration with PostgreSQL-native types (uuid, varchar, boolean, timestamp, numeric)
+- 36 tables created in PostgreSQL `VanAnLocal` database
+
+**UI Platform fix:**
+- `VanAInput.razor`: `@onchange` → `@oninput` (real-time binding, Playwright `fill()` compatibility)
+
+**Validation:**
+- Build: 0 errors
+- Core.Tests: 979/979 PASS
+- GuestCheckoutEndpointTests: 3/3 PASS
+- Runtime checkout: 200 OK on PostgreSQL (order created with `orderId` + `amount`)
+- E2E `qr-payment-ui.spec.ts`: 2/6 PASS, 4 FAIL (pre-existing — see below)
+
+**4 E2E tests still failing (pre-existing, NOT caused by this feature):**
+1. `qr-payment-ui.spec.ts:117` — "QR modal contains .qr-image element" — VanAnModal renders `hidden` (Blazor `OnParametersSetAsync` async timing; modal DOM present but CSS `display:none`)
+2. `qr-payment-ui.spec.ts:152` — "QR modal shows payment info section" — Same VanAnModal visibility issue
+3. `qr-payment-ui.spec.ts:184` — "QR modal can be closed with Đóng button" — Same VanAnModal visibility issue
+4. `qr-payment-ui.spec.ts:224` — "Gateway /api/v1/vietqr/supported-banks returns list" — 401 Unauthorized (JWT signature key mismatch: test token `kid` doesn't match Gateway `TokenValidationParameters`)
+
+**NEXT:** (1) Fix VanAnModal visibility (Blazor rendering timing — `StateHasChanged` after `IsLoading=false`). (2) Fix JWT auth for VietQR API (test token signing key mismatch). (3) Run full golden suite to verify other specs. (4) Sync products ShopERP SQLite → Gateway PostgreSQL (architectural — requires sync mechanism or shared DB).
 
 ---
 
@@ -455,6 +473,7 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
+* **2026-07-07 — BUCKET A GUEST CHECKOUT FORM + POSTGRESQL MIGRATION FIX COMPLETE.** Commits `310f3da` + `8867dbc` on `main`. (1) Guest checkout form UI for KhachLink: `Order.SetCustomerInfo` + `CreateOrderCommand` + `OrderService` fix (CustomerId null) + `Checkout.razor` rewrite + `VanAInput @onchange→@oninput`. (2) PostgreSQL migration fix: `DesignTimeDbContextFactory` auto-detect provider + `PushSubscriptionConfiguration` `newid()→gen_random_uuid()` + regenerate `InitialCreate` migration with PG-native types (uuid/varchar/boolean/timestamp/numeric) + 36 tables created. (3) Tests: Core.Tests 979/979 PASS, GuestCheckout 3/3 PASS, runtime checkout 200 OK. E2E `qr-payment-ui.spec.ts`: 2/6 PASS, 4 FAIL (pre-existing: VanAnModal visibility + JWT auth 401). **Branch:** `main`. **NEXT:** Fix VanAnModal + JWT → full golden suite.
 * **2026-07-07 — PLAYWRIGHT E2E GOLDEN TEST FIXES (W6) COMPLETE.** All 5 buckets (A-E) implemented. **Build 0 errors. VietQrService unit tests 13/13 PASS.** 21/22 golden tests expected PASS, 1 deferred (Bucket A — guest-form UI feature build). **5 buckets:** (A) `test.skip` with debt pointer; (B) timeout 5s→15s + fallback `order-tracking-container`; (C-H5) `WebhookController` injects `ITenantProvider` + `SetTenant(request.TenantId)`; (C-H6) added `PUT /api/orders/{id}/status` to Gateway + SignalR broadcast + lowercase status values; (D) added `GET /api/public/orders/{id}` (AllowAnonymous, limited DTO) + wired `OrderTracking.razor`; (E) implemented real `ValidateBankConfigAsync` (BankId ∈ supported + AccountNo `^\d{6,16}$` + AccountName non-empty) + 13 unit tests. **Production-code gaps filled:** G1 VietQR validation, G2 public order tracking, H5 webhook tenant context, H6 Gateway status endpoint. **Files:** 14 modified + 1 bonus fix (`App.razor` duplicate `</html>`). **Branch:** `main`, uncommitted. **NEXT:** Restart services → run golden suite → commit → Bucket A feature build (separate session).
 
 * **2026-07-07 — PLAYWRIGHT E2E GOLDEN TEST FIXES (W6) IN PROGRESS.** 22 golden tests in 7 files. 8 fixes applied (F1-F8): selector, cart flow, DevLogin, modal-content, JWT auth, Checkout.razor auto-redirect removal, syntax error, DTO simplification. **Current result: 14/22 PASS, 8 FAIL.** 3 remaining buckets: (1) re-verify F1/F2/F5 after F7 syntax fix, (2) backend order persistence for webhook 404 (#3/#4), (3) SignalR + Blazor rendering for 3 realtime tests (#6/#7/#8). Master plan updated with W6 wave. Task card created: `docs/AI/tasks/test_w6_golden_test_fixes_task_card.md`. **Branch:** `main`, 108 uncommitted files. **NEXT:** Re-run golden suite → investigate backend + SignalR → commit.
@@ -483,5 +502,5 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 * **Previous:** 2026-07-04 — **STREAM F (VAS) PLANNING COMPLETE + D9 CONVERSION**. Audited 4 BCTC (3/4 mock/stub, 1/4 query broken) + Order→Accounting flow (18 vấn đề: 3C+5H+10M). Verified legal: TT 99/2025 (thay TT 200) + TT 133/2016 + TT 58/2026 (thay TT 132, NOT TT 133). User approved: 3 tầng chuẩn, VAS module riêng (feature flag), 4 BCTC song song, writer fix trước seed, Domain mod approved, seed DN vừa TT 133, JIT Planning. **D9 approved: HKD↔DN conversion = Option B (New Tenant + Link) + Read-only historical qua predecessor + Amend W2+W3+W8 (no new wave).** W2 amended: add Predecessor/Successor fields + CreateFromConversion + MarkConvertedTo + Converted status. W3 amended: add HKD→DN account mapping (14 keys). W8 amended: add TenantConversionService + conversion wizard + read-only gating. Created master plan v3 (slim, JIT Planning Strategy) + 10 task cards (W0-W9, 3 amended for D9). 9 decisions approved (D1-D9). Next: W0 IMPLEMENT (Order→Accounting Writer Fix, branch `feature/vas-wave0-order-accounting-writer-fix`).
 * **Previous:** 2026-07-04 — **WAVE 8 SESSION 2 IN PROGRESS** (branch `feature/hkd-fix-wave8-ui-docx-export-regression`). Session 1 committed `c8eb819`: HKD Book UI page (`HKDBooks.razor` list + `HKDBookDetail.razor` detail) + `HKDBookExportService` (DOCX via OpenXML + XLSX via EPPlus) + DI wiring in ShopERP `Program.cs` + `HKDBookGenerationService` changed to depend on `IVanAnDbContext` + `DocumentFormat.OpenXml` dependency added. Build 0 errors. Session 2: added `hkd-books.spec.ts` (6 E2E tests, 36 listed via `playwright --list`), `HKDBookTemplateArchitectureTests.cs` (3 regression tests for Issue 1 — all PASS), `check-encoding.ps1` (SC7 mojibake lint — fixed false-positive detection: now scans for 2-char lead+continuation sequences, not single Latin-1 chars; 923 files scanned, 0 mojibake), updated `docs/UI_Platform_Implementation_Guide.md` with Wave 8 HKD Book module reference. Architecture.Tests 3/3 PASS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
 * **Previous:** 2026-07-17 — **WAVE 7 COMPLETE** (commit `76d2c11`). Created HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse (GetHashCode), BaseHKDBookTemplate null! logger (NullLogger), CalculateFormulaAsync legacy variables overload → FormulaContext (root cause of TotalRevenue=0). Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED.
-* **Current Branch:** `feature/vas-wave4-services-bs-is-cf-tb` (W4 COMPLETE, pending merge) · `main` (W0+W1+W2+W3 merged, W6 uncommitted) · `feature/hkd-fix-wave8-ui-docx-export-regression` (Stream D W8 S2 — parked)
-* **Current Objective:** W6 (Golden Test Fixes) COMPLETE — pending Playwright verification + commit. Next: restart services → run golden suite → commit → Bucket A feature build (separate session).
+* **Current Branch:** `main` (Bucket A + PostgreSQL migration fix committed `310f3da` + `8867dbc`)
+* **Current Objective:** Bucket A + PostgreSQL migration fix COMPLETE. 4 E2E pre-existing failures remain (VanAnModal visibility + JWT auth). Next: fix VanAnModal + JWT → run full golden suite.
