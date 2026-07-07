@@ -85,6 +85,30 @@ foreach ($p in @($gatewayProj, $shopErpProj)) {
 # --- 4. Launch services ---
 $envScript = "`$env:ASPNETCORE_ENVIRONMENT='Development'"
 
+# --- 3.5. Pre-build solution ONCE (synchronous) to avoid parallel-build DLL race (CS2012).
+#          Without this, the 3 parallel `dotnet run` invocations below each rebuild
+#          1_Shared/VanAn.Shared.csproj simultaneously and collide on writing
+#          1_Shared\obj\Debug\net8.0\VanAn.Shared.dll -> CS2012 on the losers.
+$solutionPath = Join-Path $rootDir 'VanAn.sln'
+if (-not (Test-Path $solutionPath)) { Write-Error "Missing: $solutionPath"; exit 1 }
+
+Write-Host "`n[Build] Pre-building VanAn.sln (single-pass to avoid parallel-build DLL lock)..." -ForegroundColor Green
+$buildLog = Join-Path $PSScriptRoot '.last-dev-build.log'
+& dotnet build $solutionPath --configuration Debug --nologo 2>&1 |
+    Tee-Object -FilePath $buildLog | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Pre-build failed (exit $LASTEXITCODE). See log: $buildLog"
+    exit 1
+}
+Write-Host "[Build] Pre-build OK." -ForegroundColor Green
+
+# Shut down MSBuild / VBCSCompiler server nodes so they do not hold handles
+# to VanAn.Shared.dll when the app processes start. (nodeReuse=true keeps them
+# alive ~60s after build, which overlaps with `dotnet run` startup.)
+Write-Host "[Build] Shutting down dotnet build-server (release MSBuild/VBCSCompiler handles)..." -ForegroundColor DarkGray
+& dotnet build-server shutdown 2>&1 | Out-Null
+Start-Sleep -Seconds 1
+
 # --- 4a. Pre-flight: remove stale SQLite DB if it predates W3 (missing AccountCharts table) ---
 $dbPath = Join-Path $rootDir "5_WebApps\ShopERP\vanan_shoperp.db"
 if (Test-Path $dbPath) {
@@ -104,21 +128,21 @@ if (Test-Path $dbPath) {
 if (-not $ShopERPOnly) {
     Write-Host "`n[Gateway] Starting on http://localhost:5001 ..." -ForegroundColor Green
     $gatewayDir = Split-Path $gatewayProj -Parent
-    $cmd = "$envScript; Set-Location '$gatewayDir'; dotnet run --project '$gatewayProj' --configuration Debug --urls 'http://localhost:5001'"
+    $cmd = "$envScript; Set-Location '$gatewayDir'; dotnet run --project '$gatewayProj' --configuration Debug --no-build --urls 'http://localhost:5001'"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 
 # ShopERP (5003) - Blazor Server + API controllers + DevLogin
 Write-Host "[ShopERP] Starting on http://localhost:5003 ..." -ForegroundColor Green
 $shopErpDir = Split-Path $shopErpProj -Parent
-$cmd = "$envScript; Set-Location '$shopErpDir'; dotnet run --project '$shopErpProj' --configuration Debug --urls 'http://localhost:5003'"
+$cmd = "$envScript; Set-Location '$shopErpDir'; dotnet run --project '$shopErpProj' --configuration Debug --no-build --urls 'http://localhost:5003'"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 
 # KhachLink (5002) - optional PWA
 if (-not $NoKhachLink -and (Test-Path $khachLinkProj)) {
     Write-Host "[KhachLink] Starting on http://localhost:5002 ..." -ForegroundColor Green
     $khachLinkDir = Split-Path $khachLinkProj -Parent
-    $cmd = "$envScript; Set-Location '$khachLinkDir'; dotnet run --project '$khachLinkProj' --configuration Debug --urls 'http://localhost:5002'"
+    $cmd = "$envScript; Set-Location '$khachLinkDir'; dotnet run --project '$khachLinkProj' --configuration Debug --no-build --urls 'http://localhost:5002'"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 

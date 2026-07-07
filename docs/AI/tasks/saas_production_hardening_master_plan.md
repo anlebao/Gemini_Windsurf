@@ -166,7 +166,7 @@ main ← feature/saas-w8-regression-production-tag
 | W5 | Period Closing Persist + Auth Hardening | IMPLEMENT | 2 | `saas_w5_task_card.md` | ✅ DONE (pending merge) — PeriodClosingStatusEntity (Infrastructure, NOT Domain — W3 precedent) + migration + PeriodClosingService refactored (static Dictionary → DB queries) + DevLoginController `#if DEBUG` guard + 3 Arch tests + 4 Integration tests (SQLite in-memory). HttpOnly cookie already set (no-op). Pre-existing AccountingLayoutNavigationTests fixed (IVasFeatureFlagService mock in ComponentTestBase). 1143/1143 tests PASS. |
 | W6 | E-Invoice Real Integration Verification | IMPLEMENT | 2 | `saas_w6_task_card.md` | ✅ DONE & PUSHED (`fcdfbb9`) — Stream A merged into W6 (4 waves → 8 tasks, 1 branch). Viettel + MISA providers fully rewritten per real API spec (Cookie auth + nested payload + transactionUUID for Viettel; appid + {Success,Data,ErrorCode} + SignType for MISA). Facebook Lead unsafe reflection removed. 1152/1152 tests PASS. **W6-T6 deferred** (staging tests blocked by Viettel/MISA sandbox credentials). |
 | W7 | Tech Debt Cleanup (Tier 1+2) | IMPLEMENT | 3 | `saas_w7_task_card.md` | ✅ DONE & PUSHED (`453e4cb`) — M1+M2 SKIP (already fixed), M3+M4 DEFER (E2E reliability hack), M6+M7 obsolete methods removed, Docker hardening (resource limits + SQLite volume + test stage), security headers middleware (5 headers). 1152/1152 tests PASS. |
-| W8 | Final Regression + Production Tag | REVIEW | 3 | `saas_w8_task_card.md` | ⏳ NEXT |
+| W8 | Final Regression + Production Tag | REVIEW | 3 | `saas_w8_task_card.md` | ✅ DONE — Full regression 1257 tests PASS (Core 941 + Arch 34 + Integration 177 + ShopERP 99 + Load 6; E2E 27 CI-only). Build 0 errors (SDK 8.0.422). guard-check ALL PASSED. All 4 blockers resolved (B1 Option B, B2 env vars, B3 SDK 8.0.422, B4 CI active). All 5 hardening items verified (H5 deferred — credentials). Tech debt M1/M4/M6/M7 done, M2/M3/M5 deferred. Tag `saas-production-v1.0` created. Smoke test deferred to user. |
 
 **Chi tiết từng wave:** xem task card tương ứng. Master plan chỉ giữ overview.
 
@@ -229,8 +229,8 @@ Sprint 3 (Cleanup):     W7 → W8
 - [x] Docker: resource limits + SQLite volume mount — **W7 DONE**
 - [x] Docker: tests enabled in Dockerfile (separate stage) — **W7 DONE**
 - [x] Security headers middleware — **W7 DONE** (5 headers)
-- [ ] Full regression: 1152++ tests PASS basslinee + ew — s8sXT
-- [ ] Tag: `saas-production-v1.0` — **W8 XTXT**
+- [x] Full regression: 1257 tests PASS (Core 941 + Arch 34 + Integration 177 + ShopERP 99 + Load 6; E2E 27 CI-only) — **W8 DONE**
+- [x] Tag: `saas-production-v1.0` — **W8 DONE**
 
 ---
 

@@ -28,7 +28,6 @@ dotnet_diagnostic.CS0628.severity = none    # Sealed protected constructor - EF 
 dotnet_diagnostic.CS1998.severity = none    # Async method lacks await - interface contract
 dotnet_diagnostic.CS8632.severity = none    # Nullable annotation context - analyzer project netstandard2.0
 dotnet_diagnostic.RS2003.severity = none    # Analyzer release tracking - internal tooling
-dotnet_diagnostic.RZ10012.severity = none   # Component not found - UI Platform internal refs, would require enum case migration
 
 # MEDIUM RISK
 dotnet_diagnostic.CA2007.severity = suggestion
