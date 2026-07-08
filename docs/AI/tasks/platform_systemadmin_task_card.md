@@ -1,10 +1,11 @@
 # TASK CARD — Platform SystemAdmin (Cross-Tenant Production Admin)
 
-> **Status:** ⏳ PENDING — awaiting IMPLEMENT approval
+> **Status:** 🟢 COMPLETE — IMPLEMENTED 2026-07-08
 > **Prerequisite:** User-approved pattern 2 lớp (2026-07-08)
-> **Branch:** `feature/platform-systemadmin`
-> **Estimated sessions:** 1
+> **Branch:** `main`
+> **Estimated sessions:** 1 (actual: 1)
 > **Master plan:** `docs/AI/tasks/platform_systemadmin_master_plan.md`
+> **Commit:** `dde219e` `[PLATFORM-ADMIN] Add Platform SystemAdmin production login`
 
 ## Objective
 Thêm SystemAdmin production thật (cross-tenant, toàn quyền) theo pattern 2 lớp:

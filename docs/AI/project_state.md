@@ -30,15 +30,6 @@
 
 ## 2. Current Objective
 
-**[PLATFORM SYSTEMADMIN — PLANNING COMPLETE ✅ COMMITTED `792cc3f` — AWAITING IMPLEMENT APPROVAL]**
-
-Add production SystemAdmin (cross-tenant, toàn quyền) via pattern 2 lớp: giữ `DevLoginController` (dev `#if DEBUG`) + thêm `PlatformUserLoginController` (prod, BCrypt verify). PlatformUser = Infrastructure entity (non-tenant, precedent: `AccountChartEntity`).
-
-- **Master plan:** `docs/AI/tasks/platform_systemadmin_master_plan.md` (9 tasks T1-T9, 8 risks, 8 decisions)
-- **Task card:** `docs/AI/tasks/platform_systemadmin_task_card.md` (12 files: 6 new + 6 modified, 5 unit + 4 integration tests)
-- **Architecture:** PlatformUser entity → PlatformUserConfiguration → 3 DbContext DbSet → migration → PlatformUserLoginService (BCrypt + JWT) → PlatformUserLoginController (`POST /api/platform/login`) → DI + 3 policy updates + seed `sysadmin@vanan.vn`/`VanAn@2026`
-- **Hard stops:** KHÔNG sửa Domain · KHÔNG động DevLoginController
-
 **[LOCAL CD FLOW — DOCKER COMPOSE BUILD FIX — COMPLETE ✅ UNCOMMITTED on `main`]**
 
 Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
@@ -51,13 +42,14 @@ Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
 
 ## 3. Current Status
 
-- **Branch:** `main` (5 modified + 1 untracked — local CD flow changes uncommitted)
-- **Last commit:** `792cc3f` [PLAN] Platform SystemAdmin master plan + task card
+- **Branch:** `main` (local CD flow changes uncommitted)
+- **Last commit:** `dde219e` [PLATFORM-ADMIN] Add Platform SystemAdmin production login
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **Services (Docker):** Gateway (5010) + ShopERP (5002) + KhachLink (5003) + Postgres (5432) + NATS (4222) + pgAdmin (5050) + Seq (8081 — unhealthy, logging only)
 - **DB:** SQLite `vanan_shoperp.db` (local dev) · PostgreSQL (Docker `vanan-postgres`)
 - **Tests:** 1152/1152 PASS (Core 941 + Arch 34 + Integration 177) — last verified W7
 - **Completed streams (all merged to main):**
+  - Platform SystemAdmin ✅ (commit `dde219e`)
   - Stream G: SaaS Production Hardening W0-W7 ✅ (W8 pending — final regression + tag)
   - Stream F: VAS Enterprise Reports W0-W9 ✅ (tag `saas-production-v1.0`)
   - Stream D: HKD Book Accounting Fix W0-W8 ✅
@@ -72,14 +64,13 @@ Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
 ## 4. Next Actions
 
 **Immediate:**
-1. **Implement Platform SystemAdmin** (awaiting user approval) — 9 tasks T1-T9 per task card
-2. **Commit local CD flow changes** — 5 modified + 1 new file uncommitted on `main`
-3. **W8: Final Regression + Production Tag** — full regression + `saas-production-v1.0` tag
+1. **Commit local CD flow changes** — 5 modified + 1 new file uncommitted on `main`
+2. **W8: Final Regression + Production Tag** — full regression + `saas-production-v1.0` tag
 
 **Deferred:**
-4. **W6-T2 (user-side):** Email Viettel + MISA for sandbox credentials (1-2 tuần bottleneck)
-5. **W6-T6:** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true`, blocked by W6-T2
-6. **KhachLink→Gateway QR auth forwarding** — architectural, `QrPaymentModal.razor` needs JWT forwarding
+3. **W6-T2 (user-side):** Email Viettel + MISA for sandbox credentials (1-2 tuần bottleneck)
+4. **W6-T6:** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true`, blocked by W6-T2
+5. **KhachLink→Gateway QR auth forwarding** — architectural, `QrPaymentModal.razor` needs JWT forwarding
 
 ---
 
@@ -102,7 +93,8 @@ Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
 
 ## 6. History Log (compressed — see git log + archive for details)
 
-* [2026-07-08] **PLATFORM SYSTEMADMIN PLANNING COMPLETE** — Investigated 2 role systems (`UserRole` tenant-scoped vs `PlatformRole` cross-tenant), `DevLoginController` (`#if DEBUG`), `DemoUser` (rejects `TenantId=Empty`). User chose pattern 2 lớp. Created master plan + task card (9 tasks, 12 files). Commit `792cc3f`. **NEXT:** Implement T1-T9.
+* [2026-07-08] **PLATFORM SYSTEMADMIN IMPLEMENT COMPLETE** — Implemented T1-T9: PlatformUser entity (non-tenant Infrastructure entity), PlatformUserConfiguration, 3 DbContext DbSet registrations, EF Migration (AddPlatformUsersTable), PlatformUserLoginService (BCrypt verify + JWT mint), PlatformUserLoginController (POST /api/platform/login, production, no #if DEBUG), DI registration + 3 policy updates (OwnerOnly, StoreManagement, StaffOrAbove add SystemAdmin) + seed sysadmin@vanan.vn, unit + integration tests. Build 0 errors, guard pass. Commit `dde219e`.
+* [2026-07-08] **PLATFORM SYSTEMADMIN PLANNING COMPLETE** — Investigated 2 role systems (`UserRole` tenant-scoped vs `PlatformRole` cross-tenant), `DevLoginController` (`#if DEBUG`), `DemoUser` (rejects `TenantId=Empty`). User chose pattern 2 lớp. Created master plan + task card (9 tasks, 12 files). Commit `792cc3f`.
 * [2026-07-07] **SDK 8.0.422 + TRIAGE + E2E FIX + BUCKET A + W6 GOLDEN TESTS** — 14 commits total: SDK to system path (CVEs patched), 5 pre-existing issues triaged, qr-payment-ui 6/6 PASS (`24718b8`), guest checkout + PostgreSQL migration (`310f3da`+`8867dbc`), 21/22 golden tests PASS (`fd7b038`). See archive for details.
 * [2026-07-05] **STREAM G W0-W7 + STREAM F W0-W9 COMPLETE** — SaaS hardening (Gateway Option B, secrets, package security, CI restore, UI tests, period closing, e-invoice rewrite, tech debt, Docker hardening). VAS reports (10 waves, 4 BCTC, 124 accounts, feature flag, conversion service). All merged to main. 1152/1152 tests PASS.
 * [2026-07-04] **STREAM D W0-W8 + STREAM E COMPLETE** — HKD Book Accounting Fix (12 waves, TT 152 compliance, 7 templates, DOCX/XLSX export). DB Migration Strategy (EF Core Migrations enabled). All merged to main.
@@ -113,12 +105,6 @@ Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
 ---
 
 ## 7. Active Files Reference
-
-### Platform SystemAdmin (current)
-| File | Role |
-|---|---|
-| `docs/AI/tasks/platform_systemadmin_master_plan.md` | Master plan (9 tasks, 8 risks, 8 decisions) |
-| `docs/AI/tasks/platform_systemadmin_task_card.md` | Task card (12 files, tests, auth flow) |
 
 ### Stream G (SaaS Hardening)
 | File | Role |
@@ -154,7 +140,7 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
-* **2026-07-08 — PLATFORM SYSTEMADMIN PLANNING COMPLETE.** Investigated auth architecture: 2 role systems, `DevLoginController` (`#if DEBUG`), `DemoUser` (rejects `TenantId=Empty`). User chose pattern 2 lớp. Created master plan + task card. Commit `792cc3f`. **NEXT:** Implement T1-T9. **Branch:** `main`.
+* **2026-07-08 — PLATFORM SYSTEMADMIN IMPLEMENT COMPLETE.** Implemented T1-T9: PlatformUser entity (non-tenant Infrastructure entity), PlatformUserConfiguration, 3 DbContext DbSet registrations, EF Migration (AddPlatformUsersTable), PlatformUserLoginService (BCrypt verify + JWT mint), PlatformUserLoginController (POST /api/platform/login, production, no #if DEBUG), DI registration + 3 policy updates (OwnerOnly, StoreManagement, StaffOrAbove add SystemAdmin) + seed sysadmin@vanan.vn, unit + integration tests. Build 0 errors, guard pass. Commit `dde219e`. **Branch:** `main`.
 
 * **2026-07-08 — PROJECT STATE ARCHIVED.** Reduced `project_state.md` from 528→~200 lines. Moved completed waves (Stream G W0-W7, Stream F W0-W9, Stream D W0-W8, Stream C W0-W6, Stream B W0-W8, Order Lifecycle, Bucket A, E2E Fix, Golden Tests, older waves) to `docs/AI/project_state_archive.md`. Kept: current objectives, active decisions, next actions, recent history (2026-07-02 onward). **Branch:** `main`.
 

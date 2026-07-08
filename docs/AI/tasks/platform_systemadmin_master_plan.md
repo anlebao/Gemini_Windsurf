@@ -1,9 +1,10 @@
 # MASTER PLAN — Platform SystemAdmin (Cross-Tenant Production Admin)
 
-> **Status:** 🟡 PLANNED — awaiting IMPLEMENT approval
+> **Status:** � COMPLETE — IMPLEMENTED 2026-07-08
 > **Created:** 2026-07-08 · **Last Updated:** 2026-07-08
-> **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `feature/platform-systemadmin`
+> **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `main`
 > **Prerequisite audits:** DevLoginController analysis + UserRole/PlatformRole split + AccountChartEntity precedent
+> **Commit:** `dde219e` `[PLATFORM-ADMIN] Add Platform SystemAdmin production login`
 
 ---
 
@@ -132,15 +133,15 @@ main ← feature/platform-systemadmin
 
 | Task | Tên | Mode | Domain? | Status |
 |------|-----|------|---------|--------|
-| T1 | PlatformUser entity | IMPLEMENT | ❌ | ⏳ PENDING |
-| T2 | PlatformUserConfiguration | IMPLEMENT | ❌ | ⏳ PENDING |
-| T3 | DbContext registration (3 files) | IMPLEMENT | ❌ | ⏳ PENDING |
-| T4 | EF Migration | IMPLEMENT | ❌ | ⏳ PENDING |
-| T5 | PlatformUserLoginService | IMPLEMENT | ❌ | ⏳ PENDING |
-| T6 | PlatformUserLoginController | IMPLEMENT | ❌ | ⏳ PENDING |
-| T7 | DI + Policies + Seed | IMPLEMENT | ❌ | ⏳ PENDING |
-| T8 | Tests (unit + integration) | IMPLEMENT | ❌ | ⏳ PENDING |
-| T9 | Build + Guard + Commit | IMPLEMENT | ❌ | ⏳ PENDING |
+| T1 | PlatformUser entity | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T2 | PlatformUserConfiguration | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T3 | DbContext registration (3 files) | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T4 | EF Migration | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T5 | PlatformUserLoginService | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T6 | PlatformUserLoginController | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T7 | DI + Policies + Seed | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T8 | Tests (unit + integration) | IMPLEMENT | ❌ | ✅ COMPLETE |
+| T9 | Build + Guard + Commit | IMPLEMENT | ❌ | ✅ COMPLETE |
 
 **Chi tiết từng task:** xem `docs/AI/tasks/platform_systemadmin_task_card.md`
 
