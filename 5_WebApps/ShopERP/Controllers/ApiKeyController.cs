@@ -17,7 +17,7 @@ namespace VanAn.ShopERP.Controllers
     /// </summary>
     [ApiController]
     [Route("api/apikeys")]
-    [Authorize(Roles = "Admin,Owner")]
+    [Authorize(Roles = "Admin,Owner,SystemAdmin")]
     public class ApiKeyController(
         IApiKeyManagementService apiKeyService,
         ITenantProvider tenantProvider,

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace VanAn.ShopERP.Pages
 {
-    [Authorize(Roles = "Guard")]
+    [Authorize(Roles = "Guard,SystemAdmin")]
     public class GuardRedirectModel : PageModel
     {
         public IActionResult OnGet()

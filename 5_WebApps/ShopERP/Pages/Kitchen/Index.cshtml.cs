@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace VanAn.ShopERP.Pages.Kitchen
 {
-    [Authorize(Roles = "Masterchef,Staff,Manager")]
+    [Authorize(Roles = "Masterchef,Staff,Manager,SystemAdmin")]
     public class IndexModel : PageModel
     {
         public Guid ShopId { get; set; }

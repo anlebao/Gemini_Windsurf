@@ -1,21 +1,22 @@
 # TASK CARD — Platform SystemAdmin Access Matrix (Cross-Tenant Verification)
 
 > **Status:** 🟡 PLANNED — awaiting user approval
-> **Prerequisite:** F1-F5 từ `platform_systemadmin_task_card.md` phải COMPLETE
+> **Prerequisite:** F1-F5 từ `platform_systemadmin_task_card.md` phải COMPLETE ✅
 > **Branch:** `main`
-> **Estimated sessions:** 2-3 (ANALYZE 0.5 + DESIGN 0.5 + IMPLEMENT 1 + VERIFY 1)
+> **Estimated sessions:** 3-4 (ANALYZE 0.5 + DESIGN 0.5 + IMPLEMENT 1.5 + VERIFY 1)
 > **Master plan:** `docs/AI/tasks/platform_systemadmin_access_matrix_master_plan.md`
-> **Parent feature:** `docs/AI/tasks/platform_systemadmin_master_plan.md` (login — COMPLETE-WITH-DEVIATIONS)
+> **Parent feature:** `docs/AI/tasks/platform_systemadmin_master_plan.md` (login — F1-F5 fixed)
 >
 > ⚠️ **Plan này KHÔNG thực hiện cho đến khi user approve.**
-> ⚠️ **F1-F5 phải COMPLETE trước khi chạy VERIFY phase.**
+> ⚠️ **F1-F5 đã COMPLETE (commit `cdab2e7`).** D1, D2, D3, D6 đã được user resolve 2026-07-08.
 
 ## Objective
 
 Verify SystemAdmin (cross-tenant, platform-level admin) truy cập đúng entry points trong toàn app:
 1. **Liệt kê** tất cả entry points mà SystemAdmin có thể/không thể truy cập
-2. **Verify** SystemAdmin truy cập thành công chúng (HTTP test với auth thật, không `TestAuthenticationHandler`)
-3. **Fix** role mismatch + policy gap phát hiện qua audit
+2. **Implement tenant impersonation** — "All Tenants" page với "Access as Tenant" button → SystemAdmin chọn tenant → set tenant_id claim → truy cập tenant-scoped data
+3. **Verify** SystemAdmin truy cập thành công (HTTP test với auth thật, không `TestAuthenticationHandler`)
+4. **Fix** role mismatch + policy gap còn lại phát hiện qua audit
 
 Phát sinh từ Deviation #5 (AuditTrail `Roles="Admin"` mismatch) — parent feature claim SystemAdmin access `/admin/audit-trail` nhưng thực tế fail.
 
@@ -23,9 +24,11 @@ Phát sinh từ Deviation #5 (AuditTrail `Roles="Admin"` mismatch) — parent fe
 
 Access Matrix = **verification concern riêng** (không phải login concern). Tách plan vì:
 - Scope lớn (~41 entry points × nhiều test cases)
-- Cần design decisions cho 5 category
-- Phụ thuộc F1-F5 (login) phải work trước
+- Cần design decisions cho 5 category (D1, D2, D3 resolved; D4, D5 pending)
+- Phụ thuộc F1-F5 (login) đã COMPLETE ✅
 - Cần HTTP test infrastructure mới (factory không test auth handler)
+
+**Tenant Impersonation (D6 resolved 2026-07-08):** SystemAdmin chọn tenant từ "All Tenants" page → `POST /api/admin/impersonate/{tenantId}` → set `tenant_id` claim trong auth cookie → có thể truy cập tenant-scoped entry points. Không cần Domain change (EDR-AM-5) — chỉ thao tác claim. Exit impersonation: "Exit Impersonation" button → clear tenant_id → redirect /admin/tenants.
 
 ## Prerequisites (verify before Phase 1)
 
@@ -39,11 +42,13 @@ Access Matrix = **verification concern riêng** (không phải login concern). T
 | File | Action | Phase | Purpose |
 |---|---|---|---|
 | `docs/AI/artifacts/platform_systemadmin_access_matrix_audit.md` | CREATE | ANALYZE | Audit artifact: enum + categorize + flag |
-| `5_WebApps/ShopERP/Components/Pages/Admin/AuditTrail.razor` | MODIFY | IMPLEMENT | Fix role mismatch (F5 — có thể overlap với parent plan) |
-| `5_WebApps/ShopERP/Controllers/ApiKeyController.cs` | MODIFY (if D4 approved) | IMPLEMENT | Add SystemAdmin role |
-| `5_WebApps/ShopERP/Program.cs` | MODIFY (if D2 approved) | IMPLEMENT | Update RequireTenantAccess policy |
+| `5_WebApps/ShopERP/Components/Pages/Admin/TenantManagement.razor` | MODIFY | IMPLEMENT | Add "Access as Tenant" button per row + "Exit Impersonation" button in navbar (AM-T7) |
+| `5_WebApps/ShopERP/Controllers/AdminController.cs` | CREATE | IMPLEMENT | `POST /api/admin/impersonate/{tenantId}` + `POST /api/admin/exit-impersonation` (AM-T8) |
+| `5_WebApps/ShopERP/Controllers/ApiKeyController.cs` | MODIFY | IMPLEMENT | Add SystemAdmin to Roles (D4) |
+| `5_WebApps/ShopERP/Pages/Kitchen/Index.cshtml.cs` | MODIFY | IMPLEMENT | Add SystemAdmin to Roles (D5) |
+| `5_WebApps/ShopERP/Pages/GuardRedirect.cshtml.cs` | MODIFY | IMPLEMENT | Add SystemAdmin to Roles (D5) |
 | `6_Tests/VanAn.Integration.Tests/Infrastructure/AuthRealWebApplicationFactory.cs` | CREATE | IMPLEMENT | Factory không TestAuthenticationHandler, mint JWT thật |
-| `6_Tests/VanAn.Integration.Tests/PlatformSystemAdminAccessMatrixTests.cs` | CREATE | VERIFY | HTTP tests với auth thật, cover 7 policies |
+| `6_Tests/VanAn.Integration.Tests/PlatformSystemAdminAccessMatrixTests.cs` | CREATE | VERIFY | HTTP tests với auth thật, cover 7 policies + impersonation flow |
 
 ## Detailed Task List
 
@@ -72,92 +77,96 @@ Access Matrix = **verification concern riêng** (không phải login concern). T
 - [ ] Any entry point mà Objective parent plan claim access nhưng thực tế fail
 - [ ] Output: flagged list với reasoning
 
-### Phase 2: DESIGN (await user decision — EDR-AM-3)
+### Phase 2: DESIGN (all 6 decisions resolved 2026-07-08 ✅)
 
-#### AM-T4: Propose options cho D1-D5
-- [ ] D1 (Category B): SystemAdmin truy cập tenant-scoped business data?
-  - (a) Có + impersonation tenant (chọn tenant để query data)
-  - (b) Có + aggregated view (data tất cả tenants gộp lại)
-  - (c) Không — chỉ admin pages, tenant business là tenant concern
-- [ ] D2 (Category C): RequireTenantAccess exclude SystemAdmin intentional?
-  - (a) Cố ý — SystemAdmin không cần truy cập tenant-specific resources (Shops, HKDInvoice)
-  - (b) Bug — phải pass + auto-pick tenant (cần claim `tenant_id` default)
-- [ ] D3 (F5 fix): AuditTrail đổi attribute?
-  - (a) `Roles="SystemAdmin"` (string match)
-  - (b) `Policy="SystemAdmin"` (nhất quán với TenantManagement.razor)
-- [ ] D4 (Category E): ApiKeyController thêm SystemAdmin?
-  - (a) Có — SystemAdmin quản platform API keys
-  - (b) Không — ApiKey tenant-scoped, SystemAdmin không can thiệp
-- [ ] D5 (Category D): Kitchen, GuardRedirect chạm không?
-  - (a) Không chạm — đúng exclude SystemAdmin (kitchen staff, guard là tenant operational roles)
-  - (b) Review lại — có logic platform-level nào hidden không
+> **Note:** D1-D6 đã được user resolve. DESIGN phase rút gọn: chỉ cần log decisions vào task card.
 
-#### AM-T5: User decide
-- [ ] User chọn option cho D1-D5
-- [ ] Nếu user defer decision → mark "deferred", exclude khỏi scope, ghi rõ trong artifact
+#### AM-T4: Log all decisions vào task card
+- [ ] D1-D6 đã được ghi trong section "Design Decisions" (pre-filled)
+- [ ] Verify decisions consistent với audit artifact từ ANALYZE phase
+- [ ] Nếu ANALYZE phát hiện thêm ambiguity → propose new decision
 
 #### AM-T6: Log decisions
 - [ ] Ghi vào section "Design Decisions" cuối task card
 - [ ] Format: `D#: <question> → <user's choice> — <rationale>`
 
-### Phase 3: IMPLEMENT (code fix — EDR-AM-5: no Domain)
+### Phase 3: IMPLEMENT (code fix — EDR-AM-5: no Domain, EDR-AM-6: audit impersonation)
 
-#### AM-T7: Fix role mismatch
-- [ ] `AuditTrail.razor` L16: `Roles="Admin"` → theo D3 (a) `Roles="SystemAdmin"` hoặc (b) `Policy="SystemAdmin"`
-- [ ] `ApiKeyController.cs` L20: nếu D4 (a) → thêm `,SystemAdmin` vào `Roles="Admin,Owner,SystemAdmin"`
+#### AM-T7: Tenant impersonation page (enhance TenantManagement.razor)
+- [ ] Add "Access as Tenant" button per tenant row trong `TenantManagement.razor`
+- [ ] Button gọi `POST /api/admin/impersonate/{tenantId}` → reload trang với tenant context
+- [ ] Add "Exit Impersonation" button: visible khi `tenant_id` claim != Empty
+  - Có thể đặt trong AdminLayout navbar (dùng `AuthenticationStateProvider` để check claim)
+  - Click → `POST /api/admin/exit-impersonation` → redirect `/admin/tenants`
+- [ ] UI Platform components: `VanAnButton`, `VanAnCard`, `VanAnAlert`
 - [ ] Build pass
 
-#### AM-T8: Fix policy (if D2 = bug)
-- [ ] `Program.cs` L313-315: `RequireTenantAccess` — nếu D2 (b) → thêm SystemAdmin bypass:
-  ```csharp
-  .AddPolicy("RequireTenantAccess", policy =>
-      policy.RequireAuthenticatedUser()
-           .RequireAssertion(ctx =>
-               ctx.User.IsInRole("SystemAdmin") ||
-               ctx.User.HasClaim("tenant_id")))
-  ```
+#### AM-T8: Tenant impersonation endpoint (AdminController)
+- [ ] Tạo `5_WebApps/ShopERP/Controllers/AdminController.cs`
+- [ ] `[Authorize(Policy = "SystemAdmin")]` + `[ApiController] [Route("api/admin")]`
+- [ ] `POST /api/admin/impersonate/{tenantId}`:
+  - Validate tenantId tồn tại trong DB (query `Tenants` table)
+  - Nếu không tồn tại → 404
+  - Set `tenant_id` claim trong auth cookie: `new Claim("tenant_id", tenantId.ToString())`
+  - Re-sign cookie với `HttpContext.SignInAsync`
+  - Log impersonation event (EDR-AM-6): dùng `ILogger<AdminController>` hoặc `IAuditTrailService`
+  - Return 200 `{ success, tenantId, tenantName }`
+- [ ] `POST /api/admin/exit-impersonation`:
+  - Clear `tenant_id` claim → re-sign cookie không có tenant_id
+  - Log exit event
+  - Return 200 `{ success, message: "Exited impersonation" }`
 - [ ] Build pass
-- [ ] Existing tests (ShopsController, HKDElectronicInvoiceController) vẫn pass hoặc update nếu cần
+- [ ] DI registration trong `Program.cs`: `AddScoped<AdminController>` (auto-registered by `[ApiController]`)
 
-#### AM-T9: Setup HTTP test infrastructure
+#### AM-T9: Fix role mismatch remaining (D4, D5 resolved)
+- [ ] `ApiKeyController.cs` L20: thêm `,SystemAdmin` → `Roles="Admin,Owner,SystemAdmin"` (D4)
+- [ ] `Pages/Kitchen/Index.cshtml.cs` L6: thêm `,SystemAdmin` → `Roles="Masterchef,Staff,Manager,SystemAdmin"` (D5)
+- [ ] `Pages/GuardRedirect.cshtml.cs` L7: thêm `,SystemAdmin` → `Roles="Guard,SystemAdmin"` (D5)
+- [ ] Build pass
+
+#### AM-T10: Setup HTTP test infrastructure
 - [ ] Tạo `6_Tests/VanAn.Integration.Tests/Infrastructure/AuthRealWebApplicationFactory.cs`
 - [ ] Factory này KHÔNG register `TestAuthenticationHandler` (EDR-AM-1)
 - [ ] Test phải mint JWT thật qua `IJwtTokenService` (inject từ DI container)
-- [ ] Hoặc: sub-cutaneous test — `HttpClient` với `Authorization: Bearer <jwt>` header
 - [ ] Helper: `LoginAsSystemAdminAsync()` → returns `HttpClient` với cookie/JWT set
+- [ ] Helper: `ImpersonateTenantAsync(client, tenantId)` → set tenant_id claim
 - [ ] Build pass
 
-### Phase 4: VERIFY (HTTP test với auth thật — EDR-AM-1, EDR-AM-2)
+### Phase 4: VERIFY (HTTP test với auth thật — EDR-AM-1, EDR-AM-2, EDR-AM-6)
 
-#### AM-T10: Write HTTP tests với auth thật
+#### AM-T11: Write HTTP tests với auth thật
 - [ ] Test: `LoginAsSystemAdmin_ReturnsJwt` — `POST /api/platform/login` → 200 + JWT
 - [ ] Test: `SystemAdmin_AccessAdminUsers_Returns200` — GET `/admin/users` với JWT
 - [ ] Test: `SystemAdmin_AccessAdminTenants_Returns200` — GET `/admin/tenants` với JWT
-- [ ] Test: `SystemAdmin_AccessAdminAuditTrail_Returns200` — GET `/admin/audit-trail` với JWT (fix F5 verify)
+- [ ] Test: `SystemAdmin_AccessAdminAuditTrail_Returns200` — GET `/admin/audit-trail` với JWT (F5 verified)
 - [ ] Test: `SystemAdmin_AccessAdminPermissionGroups_Returns200`
-- [ ] Test: `SystemAdmin_AccessTenantScoped_ReturnsExpected` — theo D1 (200 if approved, 200-with-empty-data if not approved)
-- [ ] Test: `SystemAdmin_AccessRequireTenantAccess_ReturnsExpected` — theo D2
+- [ ] Test: `SystemAdmin_ImpersonateTenant_Returns200` — `POST /api/admin/impersonate/{validTenantId}` → 200 + cookie has tenant_id
+- [ ] Test: `SystemAdmin_ImpersonateTenant_InvalidTenant_Returns404`
+- [ ] Test: `SystemAdmin_AfterImpersonation_AccessTenantScoped_Returns200` — sau impersonation, GET Accounting/Orders/EInvoice page → 200
+- [ ] Test: `SystemAdmin_AfterImpersonation_PassRequireTenantAccess_Returns200` — sau impersonation, GET Shops/EInvoice → 200
+- [ ] Test: `SystemAdmin_ExitImpersonation_ClearsTenantId` — POST /api/admin/exit-impersonation → 200, cookie không còn tenant_id
+- [ ] Test: `SystemAdmin_AfterExitImpersonation_FailRequireTenantAccess_Returns401` — sau exit, GET Shops → 401
 - [ ] Test: `SystemAdmin_AccessKitchen_Returns403` — Category D (should fail)
 - [ ] Test: `SystemAdmin_AccessGuardRedirect_Returns403` — Category D
 - [ ] Test: `SystemAdmin_FailGuardOnly_Returns403` — GuardOnly policy
-- [ ] Test: `AnonymousUser_LoginEndpoint_Returns200` — verify [AllowAnonymous] (F1) — không qua test auth handler
+- [ ] Test: `AnonymousUser_LoginEndpoint_Returns200` — verify [AllowAnonymous] (F1)
 - [ ] Test: `AnonymousUser_ProtectedEndpoint_Returns401` — verify auth enforced
 - [ ] **EDR-AM-2:** Audit trail test case cho mỗi policy (7 policies × SystemAdmin pass/fail)
 
-#### AM-T11: Run verification checklist
+#### AM-T12: Run verification checklist
 - [ ] `dotnet build VanAn.sln` — 0 errors (command + output)
 - [ ] `guard-check.ps1` — PASS (command + output)
 - [ ] Core.Tests — all PASS (command + output)
 - [ ] Arch.Tests — all PASS (command + output)
 - [ ] Integration.Tests — all PASS (command + output)
 - [ ] `PlatformSystemAdminAccessMatrixTests` — all PASS (command + output)
-- [ ] Manual verify: `curl POST /api/platform/login` với sysadmin@vanan.vn → 200 + JWT (command + output)
+- [ ] Manual verify: `curl POST /api/platform/login` → 200 + JWT, then impersonate → access tenant page (command + output)
 
-#### AM-T12: Final report
+#### AM-T13: Final report
 - [ ] Update task card status: 🟡 → 🟢 COMPLETE (if all pass) hoặc 🟠 (if deviations)
 - [ ] Update master plan status
 - [ ] Update `docs/AI/project_state.md` Section 6 (History Log) + Section 9 (Maintenance Log)
-- [ ] Commit: `[PLATFORM-ADMIN-ACCESS-MATRIX] Verify SystemAdmin access matrix — <summary>`
+- [ ] Commit: `[PLATFORM-ADMIN-ACCESS-MATRIX] Verify SystemAdmin access matrix + impersonation — <summary>`
 
 ## Verification Checklist (to be filled in AM-T11)
 
@@ -174,9 +183,14 @@ Access Matrix = **verification concern riêng** (không phải login concern). T
 | SystemAdmin access /admin/tenants | 200 | TBD | TBD | TBD |
 | SystemAdmin access /admin/audit-trail | 200 | TBD | TBD | TBD |
 | SystemAdmin access /admin/permission-groups | 200 | TBD | TBD | TBD |
-| SystemAdmin access Category B (per D1) | per D1 | TBD | TBD | TBD |
-| SystemAdmin access Category C (per D2) | per D2 | TBD | TBD | TBD |
-| SystemAdmin fail Category D (Kitchen, Guard) | 403 | TBD | TBD | TBD |
+| SystemAdmin impersonate valid tenant | 200 | TBD | TBD | TBD |
+| SystemAdmin impersonate invalid tenant | 404 | TBD | TBD | TBD |
+| SystemAdmin after impersonation: access tenant-scoped page | 200 | TBD | TBD | TBD |
+| SystemAdmin after impersonation: pass RequireTenantAccess | 200 | TBD | TBD | TBD |
+| SystemAdmin exit impersonation: clears tenant_id | 200 | TBD | TBD | TBD |
+| SystemAdmin after exit: fail RequireTenantAccess | 401 | TBD | TBD | TBD |
+| SystemAdmin access Kitchen page | 200 | TBD | TBD | TBD |
+| SystemAdmin access GuardRedirect page | 200 | TBD | TBD | TBD |
 | Anonymous login endpoint | 200 | TBD | TBD | TBD |
 | Anonymous protected endpoint | 401 | TBD | TBD | TBD |
 | Domain layer not modified | no diff | TBD | TBD | TBD |
@@ -188,21 +202,22 @@ Access Matrix = **verification concern riêng** (không phải login concern). T
 - Delete artifact (access_matrix_audit.md)
 - Revert Program.cs policy changes (if any)
 
-## Design Decisions (to be filled in AM-T6)
+## Design Decisions (D1, D2, D3, D6 resolved 2026-07-08)
 
-<!-- Format: D#: <question> → <user's choice> — <rationale> -->
+- **D1:** SystemAdmin có nên truy cập tenant-scoped business data? → **(a) Có + impersonation tenant** — SystemAdmin chọn tenant từ "All Tenants" page → set tenant_id claim → access tenant data với đúng TenantId. Rationale: impersonation giữ data isolation per tenant, không cần Domain change.
+- **D2:** `RequireTenantAccess` exclude SystemAdmin? → **Resolved by D1** — Sau impersonation, SystemAdmin có tenant_id claim → RequireTenantAccess tự động pass. Policy KHÔNG cần sửa. Trước impersonation: fail (chưa chọn tenant) — đúng behavior.
+- **D3:** AuditTrail attribute? → **(b) `Policy="SystemAdmin"`** (nhất quán TenantManagement.razor). Đã implement trong F5.
+- **D6:** Tenant impersonation page design? → **(a) Enhance TenantManagement.razor hiện có** — page `/admin/tenants` đã có `Policy="SystemAdmin"`. Thêm "Access as Tenant" button per row + "Exit Impersonation" button trong navbar.
 
-_D1: TBD_
-_D2: TBD_
-_D3: TBD_
-_D4: TBD_
-_D5: TBD_
+- **D4:** ApiKeyController thêm SystemAdmin? → **(a) Có** — SystemAdmin quản platform API keys (HMAC signing cho cross-tenant integration). Implement: thêm `,SystemAdmin` vào `Roles="Admin,Owner,SystemAdmin"`.
+- **D5:** Kitchen/GuardRedirect chạm không? → **Cho SystemAdmin access luôn** — `Roles="Masterchef,Staff,Manager,SystemAdmin"` cho Kitchen, `Roles="Guard,SystemAdmin"` cho GuardRedirect. SystemAdmin có thể troubleshoot kitchen operations + security guard flow sau khi impersonate tenant.
 
 ## Open Questions
 
-- Q1: Category B (tenant-scoped business) — impersonation có cần Domain change không? (Nếu có → Hard Stop, EDR-AM-5)
+- ~~Q1: Category B (tenant-scoped business) — impersonation có cần Domain change không?~~ → **RESOLVED: Không cần.** Chỉ thao tác claim trong auth cookie, không sửa Domain entity (EDR-AM-5 satisfied).
 - Q2: `AuthRealWebApplicationFactory` có thể share connection với `CustomWebApplicationFactory` không, hay phải connection riêng?
 - Q3: Test class scope — 1 class cho tất cả 7 policies, hay 1 class per policy? (EDR-AM-2 yêu cầu cover all 7, structure tuỳ impl)
+- Q4: "Exit Impersonation" button đặt ở đâu trong UI? → AdminLayout navbar (dùng `AuthenticationStateProvider` check `tenant_id` claim != Empty khi role là SystemAdmin). IMPLEMENT phase sẽ quyết định exact placement.
 
 ## Files NOT Modified (Hard Stops)
 
