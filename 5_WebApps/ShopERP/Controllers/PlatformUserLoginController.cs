@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using VanAn.CoreHub.Services;
@@ -9,6 +10,7 @@ namespace VanAn.ShopERP.Controllers;
 
 [ApiController]
 [Route("api/platform")]
+[Authorize]
 public class PlatformUserLoginController : ControllerBase
 {
     private readonly IPlatformUserLoginService _platformUserLoginService;
