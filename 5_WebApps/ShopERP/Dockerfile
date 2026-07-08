@@ -22,8 +22,13 @@ WORKDIR /src
 # Copy csproj files and restore as distinct layers
 COPY ["VanAn.sln", "./"]
 COPY ["1_Shared/VanAn.Shared.csproj", "1_Shared/"]
+COPY ["2_Gateway/VanAn.Gateway.csproj", "2_Gateway/"]
 COPY ["3_CoreHub/VanAn.CoreHub.csproj", "3_CoreHub/"]
+COPY ["UI.Platform/VanAn.UI.Platform.csproj", "UI.Platform/"]
+COPY ["VanAn.Accounting/VanAn.Accounting.csproj", "VanAn.Accounting/"]
+COPY ["VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj", "VanAn.Accounting/VanAn.Accounting.Analyzers/"]
 COPY ["5_WebApps/ShopERP/VanAn.ShopERP.csproj", "5_WebApps/ShopERP/"]
+COPY ["5_WebApps/KhachLink/VanAn.KhachLink.csproj", "5_WebApps/KhachLink/"]
 RUN dotnet restore "5_WebApps/ShopERP/VanAn.ShopERP.csproj"
 
 # Copy everything else and build

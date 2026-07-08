@@ -1,6 +1,4 @@
 
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -89,50 +87,8 @@ services:
       - postgres
 
   # ========================================
-  # App Services
+  # App Services (Monolithic: CoreHub runs in-process in Gateway)
   # ========================================
-
-  corehub:
-    build:
-      context: .
-      dockerfile: 3_CoreHub/Dockerfile
-    container_name: vanan-corehub
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
-      - NATS__Url=nats://nats:4222
-      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
-    ports:
-      - "${COREHUB_PORT:-5001}:80"
-    networks:
-      - vanan-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    # W7-T4 (2026-07-05): Resource limits for production safety
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 256M
 
   gateway:
     build:
@@ -145,18 +101,20 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       - ConnectionStrings__Nats=nats://nats:4222
       - Nats__Url=nats://nats:4222
-      - CoreHub__BaseUrl=http://corehub:80
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
+      - Jwt__Secret=${JWT_SECRET_KEY}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
     ports:
-      - "${GATEWAY_PORT:-5000}:80"
+      - "${GATEWAY_PORT:-5010}:80"
     networks:
       - vanan-network
     depends_on:
-      corehub:
+      postgres:
+        condition: service_healthy
+      nats:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -183,20 +141,20 @@ services:
       dockerfile: 5_WebApps/ShopERP/Dockerfile
     container_name: vanan-shoperp
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:80
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
       # W7-T4 (2026-07-05): SQLite persistent volume path
-      - SQLITE_DB_PATH=/data/sqlite/vanan.db
+      - SQLITE_DB_PATH=Data Source=/data/sqlite/vanan.db
     ports:
       - "${SHOPERP_PORT:-5002}:80"
     networks:
       - vanan-network
     depends_on:
-      corehub:
+      gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -236,7 +194,7 @@ services:
       gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
