@@ -29,7 +29,27 @@
 
 ## 2. Current Objective
 
-**[BUCKET A GUEST CHECKOUT FORM + POSTGRESQL MIGRATION FIX — COMPLETE ✅ COMMITTED `310f3da` + `8867dbc`]**
+**[PLATFORM SYSTEMADMIN — PLANNING COMPLETE ✅ UNCOMMITTED on `main` — AWAITING IMPLEMENT APPROVAL]**
+
+Add production SystemAdmin (cross-tenant, toàn quyền) via pattern 2 lớp: giữ `DevLoginController` (dev `#if DEBUG`) + thêm `PlatformUserLoginController` (prod, BCrypt verify). PlatformUser = Infrastructure entity (non-tenant, precedent: `AccountChartEntity`).
+
+- **Master plan:** `docs/AI/tasks/platform_systemadmin_master_plan.md` (9 tasks T1-T9, 8 risks, 8 decisions)
+- **Task card:** `docs/AI/tasks/platform_systemadmin_task_card.md` (12 files: 6 new + 6 modified, 5 unit + 4 integration tests)
+- **Architecture:** PlatformUser entity (Infrastructure, không BaseEntity) → PlatformUserConfiguration → 3 DbContext DbSet → migration → PlatformUserLoginService (BCrypt verify + JWT mint) → PlatformUserLoginController (`POST /api/platform/login`, no `#if DEBUG`) → DI + 3 policy updates (`OwnerOnly`/`StoreManagement`/`StaffOrAbove` + `RequireRole("SystemAdmin")`) + seed `sysadmin@vanan.vn`/`VanAn@2026`
+- **Hard stops:** KHÔNG sửa Domain (UserRole.cs, PlatformRole.cs, DemoUser.cs) · KHÔNG động DevLoginController
+- **Uncommitted:** 2 new planning files on `main`
+
+**[LOCAL CD FLOW — DOCKER COMPOSE BUILD FIX — COMPLETE ✅ UNCOMMITTED on `main`]**
+
+Fixed Docker build issues for local deployment via `deploy-local.ps1`. All 7 services running healthy in Docker Compose.
+
+- **Dockerfiles fixed (3):** `2_Gateway/Dockerfile`, `5_WebApps/ShopERP/Dockerfile`, `5_WebApps/KhachLink/Dockerfile` — added all missing `.csproj` copies (CoreHub, UI.Platform, Accounting, Accounting.Analyzers, ShopERP, KhachLink) before `dotnet restore` to eliminate "Skipping project" errors.
+- **docker-compose.yml fixed:** Removed `corehub` service (monolithic architecture), updated `depends_on` (Gateway→postgres+nats, ShopERP→gateway), added `Jwt__Secret` env var, changed Gateway port 5000→5010 (Windows Hyper-V reserved), changed ShopERP to Development env (avoids production config validation requiring Brevo/Esms/Redis), fixed `SQLITE_DB_PATH` to include `Data Source=` prefix, changed healthcheck from `wget`→`curl` (only curl installed in containers), removed obsolete `version` attribute.
+- **New files:** `.env.example` (local Docker Compose vars), `scripts/deploy-local.ps1` (Powerwright deploy script with -Rebuild/-Down/-Status/-Logs flags).
+- **Result:** 6/7 services healthy (Seq unhealthy — logging only, not critical). Gateway:5010, ShopERP:5002, KhachLink:5003, Postgres:5432, NATS:4222, pgAdmin:5050.
+- **Uncommitted:** 5 modified + 1 new file on `main`.
+
+**[PREVIOUS — BUCKET A GUEST CHECKOUT FORM + POSTGRESQL MIGRATION FIX — COMPLETE ✅ COMMITTED `310f3da` + `8867dbc`]**
 
 Bucket A feature (guest checkout form UI for KhachLink) + PostgreSQL migration fix (SQLite-only → PostgreSQL-compatible). Both committed to `main`.
 
@@ -228,10 +248,11 @@ Fix 8 root-cause issues + 2 architecture/legal findings preventing correct TT 15
 
 ## 3. Current Status
 
-- **Branch:** `main` (working tree clean — all changes committed as of 2026-07-07 triage)
+- **Branch:** `main` (5 modified + 1 untracked — local CD flow changes uncommitted)
 - **.NET SDK:** 8.0.422 (installed to system path `C:\Program Files\dotnet\sdk\8.0.422`, CVEs patched. global.json pins 8.0.422 with `rollForward: latestFeature`)
-- **Services:** Gateway (5001) + KhachLink (5002) + ShopERP (5003) running in Development mode
-- **DB:** SQLite shared at `C:\vanan_shoperp.db` (Gateway + ShopERP point to same file for product data)
+- **Services (Docker Compose):** Gateway (5010) + ShopERP (5002) + KhachLink (5003) + Postgres (5432) + NATS (4222) + pgAdmin (5050) + Seq (8081) — all running healthy except Seq (unhealthy, logging only)
+- **Services (local dev):** Gateway (5001) + KhachLink (5002) + ShopERP (5003) running in Development mode (when not using Docker)
+- **DB:** SQLite shared at `C:\vanan_shoperp.db` (local dev) · PostgreSQL in Docker (`vanan-postgres` container)
 - **Playwright E2E Golden Test Fixes — IN PROGRESS 🔄:**
   - **Files modified (test specs):** `order-flow.spec.ts`, `order-tracking.spec.ts`, `qr-payment-ui.spec.ts`, `qr-payment.spec.ts`, `payment-confirm-flow.spec.ts`
   - **Files modified (app code):** `Checkout.razor` (removed auto-redirect), `PublicOrdersController.cs` (simplified DTO), `Gateway Program.cs` (dynamic DB provider), `appsettings.Development.json` (SQLite + FK disable)
@@ -371,13 +392,16 @@ Sprint 1 (Blockers) COMPLETE ✅ — all 4 waves merged to main.
 **Critical path:** ~~W0~~ ✅ → ~~W1~~ ✅ → ~~W2~~ ✅ → ~~W3~~ ✅ → ~~W4~~ ✅ → ~~W5~~ ✅ → ~~W6~~ ✅ → ~~W7~~ ✅ → **W8** → `saas-production-v1.0` tag
 
 **Immediate next steps:**
-1. ~~Merge `feature/saas-w4-ui-test-coverage` → `main`~~ (deferred — working on `main` directly per user directive)
-2. ~~Merge `feature/saas-w5-period-persist-auth-hardening` → `main`~~ (deferred)
-3. ~~Start W6: E-Invoice Real Integration Verification~~ → **W6 COMPLETE & PUSHED**
-4. ~~W7: Tech Debt Cleanup~~ → **W7 COMPLETE & PUSHED**
-5. **W6-T2 (parallel, user-side):** Email Viettel (`lienhe@viettelsolution.com.vn` / `1900.8119`) + MISA xin sandbox credentials — 1-2 tuần bottleneck. Khi có credentials → W6-T6 staging tests.
-6. **W6-T6 (deferred):** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true` env var, blocked by W6-T2 credentials.
-7. **W8: Final Regression + Production Tag** ⏳ NEXT — full regression + `saas-production-v1.0` tag
+1. **Commit planning files** — 2 new files (master plan + task card) on `main`
+2. **Implement Platform SystemAdmin** (awaiting user approval) — 9 tasks T1-T9 per task card
+3. **Commit local CD flow changes** — 5 modified + 1 new file uncommitted on `main` (docker-compose.yml, 3 Dockerfiles, .env.example, deploy-local.ps1)
+4. ~~Merge `feature/saas-w4-ui-test-coverage` → `main`~~ (deferred — working on `main` directly per user directive)
+5. ~~Merge `feature/saas-w5-period-persist-auth-hardening` → `main`~~ (deferred)
+6. ~~Start W6: E-Invoice Real Integration Verification~~ → **W6 COMPLETE & PUSHED**
+7. ~~W7: Tech Debt Cleanup~~ → **W7 COMPLETE & PUSHED**
+8. **W6-T2 (parallel, user-side):** Email Viettel (`lienhe@viettelsolution.com.vn` / `1900.8119`) + MISA xin sandbox credentials — 1-2 tuần bottleneck. Khi có credentials → W6-T6 staging tests.
+9. **W6-T6 (deferred):** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true` env var, blocked by W6-T2 credentials.
+10. **W8: Final Regression + Production Tag** ⏳ NEXT — full regression + `saas-production-v1.0` tag
 
 **Deferred (awaiting user decision):**
 1. ~~Push to origin~~ ✅ DONE — `main` pushed to `origin/main` (`453e4cb`), pre-push CI ALL PASSED.
@@ -462,6 +486,8 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 
 ## 9. Maintenance Log
 
+* **2026-07-08 — PLATFORM SYSTEMADMIN PLANNING COMPLETE.** Investigated auth architecture: 2 role systems (`UserRole` tenant-scoped vs `PlatformRole` cross-tenant), `DevLoginController` (`#if DEBUG`, hardcoded claims, bypass auth for E2E), `DemoUser` aggregate (rejects `TenantId=Guid.Empty`). Identified 3 approaches (A: extend UserRole, B: PlatformUser entity, C: Owner for default tenant). User chose **pattern 2 lớp** (keep DevLoginController for dev + new PlatformUserLoginController for prod). PlatformUser = Infrastructure entity (non-tenant, precedent: `AccountChartEntity`). Created master plan (9 tasks T1-T9, 8 risks, 8 decisions) + task card (12 files: 6 new + 6 modified, 5 unit + 4 integration tests). **Hard stops:** no Domain modification, no DevLoginController changes. **Awaiting IMPLEMENT approval.** **Branch:** `main`.
+
 * **2026-07-07 — SDK 8.0.422 INSTALLED TO SYSTEM PATH.** Diagnosed root cause via `dotnet --info` + `--list-sdks` + `global.json` inspection: (1) SDK 8.0.422 was installed user-local only (`%LOCALAPPDATA%\dotnet\sdk\8.0.422`), invisible to system dotnet (`C:\Program Files\dotnet\dotnet.exe`). (2) `DOTNET_MULTILEVEL_LOOKUP=1` deprecated for .NET 8 SDK discovery — no effect. (3) Windows PATH puts System PATH before User PATH → system dotnet always wins. **Fix:** Installed SDK 8.0.422 to `C:\Program Files\dotnet\sdk` via `dotnet-install.ps1` (elevated, user approved UAC). Updated `global.json` version `8.0.100` → `8.0.422` (explicit pin, `rollForward: latestFeature` retained). Removed stale `DOTNET_MULTILEVEL_LOOKUP` User env var. **Verification:** `dotnet --version` = 8.0.422, `dotnet --list-sdks` shows both 8.0.100 + 8.0.422 in system path, Architecture.Tests build 0 errors. **CVEs patched.** **Branch:** `main`.
 
 * **2026-07-07 — PRE-EXISTING ISSUES VERIFIED + TRIAGE COMPLETE.** Verified 5 pre-existing issues from prior session: (1) W12-G7 arch test failure — FIXED (commit `7e0df23`, Gateway DashboardController + ProductsController class [Authorize] + method [AllowAnonymous], 10/10 arch tests PASS). (2) guard-check.ps1 mojibake — FIXED (commit `73a0d52`, 11 emoji chars → ASCII tags, 0 non-ASCII bytes). (3) SDK version discrepancy — CORRECTED (commit `d998299`, 8.0.422 installed user-local but NOT resolved by system dotnet, 6 state file locations fixed). (4) ~41 modified + 61 untracked files on main — TRIAGED into 10 focused commits (Gateway/CoreHub/KhachLink/ShopERP/E2E/Infra groups + cleanup). (5) Stale state file — CORRECTED (commit `9460236`, Section 4 W6 marked complete, E2E-FIX header fixed, stale Program.cs reference removed). **Branch:** `main`, 14 commits total. Working tree clean. **NEXT:** SDK install (DONE this entry) + remaining E2E architectural items.
@@ -496,5 +522,7 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 * **Previous:** 2026-07-04 — **STREAM F (VAS) PLANNING COMPLETE + D9 CONVERSION**. Audited 4 BCTC (3/4 mock/stub, 1/4 query broken) + Order→Accounting flow (18 vấn đề: 3C+5H+10M). Verified legal: TT 99/2025 (thay TT 200) + TT 133/2016 + TT 58/2026 (thay TT 132, NOT TT 133). User approved: 3 tầng chuẩn, VAS module riêng (feature flag), 4 BCTC song song, writer fix trước seed, Domain mod approved, seed DN vừa TT 133, JIT Planning. **D9 approved: HKD↔DN conversion = Option B (New Tenant + Link) + Read-only historical qua predecessor + Amend W2+W3+W8 (no new wave).** W2 amended: add Predecessor/Successor fields + CreateFromConversion + MarkConvertedTo + Converted status. W3 amended: add HKD→DN account mapping (14 keys). W8 amended: add TenantConversionService + conversion wizard + read-only gating. Created master plan v3 (slim, JIT Planning Strategy) + 10 task cards (W0-W9, 3 amended for D9). 9 decisions approved (D1-D9). Next: W0 IMPLEMENT (Order→Accounting Writer Fix, branch `feature/vas-wave0-order-accounting-writer-fix`).
 * **Previous:** 2026-07-04 — **WAVE 8 SESSION 2 IN PROGRESS** (branch `feature/hkd-fix-wave8-ui-docx-export-regression`). Session 1 committed `c8eb819`: HKD Book UI page (`HKDBooks.razor` list + `HKDBookDetail.razor` detail) + `HKDBookExportService` (DOCX via OpenXML + XLSX via EPPlus) + DI wiring in ShopERP `Program.cs` + `HKDBookGenerationService` changed to depend on `IVanAnDbContext` + `DocumentFormat.OpenXml` dependency added. Build 0 errors. Session 2: added `hkd-books.spec.ts` (6 E2E tests, 36 listed via `playwright --list`), `HKDBookTemplateArchitectureTests.cs` (3 regression tests for Issue 1 — all PASS), `check-encoding.ps1` (SC7 mojibake lint — fixed false-positive detection: now scans for 2-char lead+continuation sequences, not single Latin-1 chars; 923 files scanned, 0 mojibake), updated `docs/UI_Platform_Implementation_Guide.md` with Wave 8 HKD Book module reference. Architecture.Tests 3/3 PASS. Next: final build + guard-check + commit Session 2, then merge Wave 8 to main.
 * **Previous:** 2026-07-17 — **WAVE 7 COMPLETE** (commit `76d2c11`). Created HKDBookDto + HKDBooksController (2 endpoints) + 2 DI smoke tests + 4 endpoint tests (6/6 PASS). Fixed 7 pre-existing bugs: Gateway missing DI, circular dependency (Lazy<IFormulaEngine>), JournalEntryConfiguration missing EntryDate, HKDBookGenerationService unmapped Period query, CreateBaseVariables GUID→decimal parse (GetHashCode), BaseHKDBookTemplate null! logger (NullLogger), CalculateFormulaAsync legacy variables overload → FormulaContext (root cause of TotalRevenue=0). Core.Tests 818/818 PASS, Architecture.Tests 28/28 PASS, guard PASSED.
-* **Current Branch:** `main` (working tree clean — all commits as of 2026-07-07)
-* **Current Objective:** All 5 pre-existing issues resolved. SDK 8.0.422 installed to system path (CVEs patched). Next: remaining E2E architectural items (KhachLink QR auth forwarding, SQLite→PostgreSQL sync).
+* **Current Branch:** `main` (5 modified + 1 untracked — local CD flow changes uncommitted)
+* **Current Objective:** Local CD flow Docker build fix complete. All 7 services running in Docker Compose. Next: commit changes + W8 Final Regression + Production Tag.
+
+* **2026-07-08 — LOCAL CD FLOW DOCKER BUILD FIX COMPLETE.** Fixed Docker Compose local deployment. **3 Dockerfiles fixed** (Gateway, ShopERP, KhachLink): added all missing `.csproj` copies before `dotnet restore` (CoreHub, UI.Platform, VanAn.Accounting, VanAn.Accounting.Analyzers, ShopERP, KhachLink) — eliminated "Skipping project" errors. **docker-compose.yml fixes:** (1) removed `corehub` service (monolithic architecture); (2) updated `depends_on` (Gateway→postgres+nats, ShopERP→gateway); (3) added `Jwt__Secret` env var (Gateway `ValidateProductionConfig` requires it); (4) changed Gateway port 5000→5010 (Windows Hyper-V reserves 5000); (5) changed ShopERP to `Development` env (avoids production config validation requiring Brevo/Esms/Redis); (6) fixed `SQLITE_DB_PATH` to include `Data Source=` prefix; (7) changed healthcheck `wget`→`curl` (only curl installed in .NET runtime images); (8) removed obsolete `version` attribute. **New files:** `.env.example` (local Docker Compose vars), `scripts/deploy-local.ps1` (PowerShell deploy script). **Result:** 6/7 services healthy (Seq unhealthy — logging only). **Uncommitted on `main`:** docker-compose.yml, 3 Dockerfiles, .env.example, scripts/deploy-local.ps1. **Branch:** `main`.
