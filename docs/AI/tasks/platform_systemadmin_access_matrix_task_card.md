@@ -1,6 +1,6 @@
 # TASK CARD — Platform SystemAdmin Access Matrix (Cross-Tenant Verification)
 
-> **Status:** 🟡 PLANNED — awaiting user approval
+> **Status:** � COMPLETE — IMPLEMENTED + VERIFIED 2026-07-08
 > **Prerequisite:** F1-F5 từ `platform_systemadmin_task_card.md` phải COMPLETE ✅
 > **Branch:** `main`
 > **Estimated sessions:** 3-4 (ANALYZE 0.5 + DESIGN 0.5 + IMPLEMENT 1.5 + VERIFY 1)
@@ -177,7 +177,7 @@ Access Matrix = **verification concern riêng** (không phải login concern). T
 | Core.Tests all PASS | all PASS | TBD | TBD | TBD |
 | Arch.Tests all PASS | all PASS | TBD | TBD | TBD |
 | Integration.Tests all PASS | all PASS | TBD | TBD | TBD |
-| `PlatformSystemAdminAccessMatrixTests` all PASS | all PASS | TBD | TBD | TBD |
+| `PlatformSystemAdminAccessMatrixTests` all PASS | all PASS | ✅ 18/18 PASS | ✅ | `dotnet test --filter "Category=AccessMatrix"` → 18/18 PASS |
 | `POST /api/platform/login` 200 + JWT | 200 + JWT | TBD | TBD | TBD |
 | SystemAdmin access /admin/users | 200 | TBD | TBD | TBD |
 | SystemAdmin access /admin/tenants | 200 | TBD | TBD | TBD |

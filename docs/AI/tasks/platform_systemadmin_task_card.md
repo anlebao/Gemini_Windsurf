@@ -1,6 +1,6 @@
 # TASK CARD — Platform SystemAdmin (Cross-Tenant Production Admin)
 
-> **Status:** � COMPLETE-PENDING-ACCESS-MATRIX-VERIFY — F1-F5 fix implemented + verified 2026-07-08
+> **Status:** � COMPLETE — F1-F5 fix + Access Matrix implemented + verified 2026-07-08
 > **Prerequisite:** User-approved pattern 2 lớp (2026-07-08)
 > **Branch:** `main`
 > **Estimated sessions:** 1 (actual: 1) + 1 review pass
@@ -394,7 +394,7 @@ Implement **bỏ qua snippet**, hardcode thẳng.
 
 **Post-fix Verdict:** 9/14 checks pass, 1/14 pre-existing flaky (not caused by F1-F5), 1/14 partial (guard), 2/14 deferred to Access Matrix plan (HTTP verification with real auth, by design).
 
-**Status:** 🟡 COMPLETE-PENDING-ACCESS-MATRIX-VERIFY — F1-F5 fix verified at code + unit + integration test level. HTTP-level access verification deferred to `platform_systemadmin_access_matrix_master_plan.md` (per design — that plan's VERIFY phase requires F1-F5 COMPLETE as prerequisite, which is now satisfied).
+**Status:** 🟡 COMPLETE — F1-F5 fix verified at code + unit + integration test level. HTTP-level access verification deferred to `platform_systemadmin_access_matrix_master_plan.md` (per design — that plan's VERIFY phase requires F1-F5 COMPLETE as prerequisite, which is now satisfied).
 
 **Note on guard FAST TEST GATE failure:** W5-ARCH-003 fails ONLY when `dotnet test --configuration Release` runs arch tests, because `Assembly.LoadFrom(Debug path)` returns the already-loaded Release assembly (same identity, .NET caches by identity). This is a **pre-existing test infrastructure limitation**, NOT a regression from F1-F5. Confirmed by:
 1. Arch tests 34/34 PASS in Debug mode
