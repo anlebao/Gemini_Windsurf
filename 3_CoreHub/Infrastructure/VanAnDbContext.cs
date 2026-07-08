@@ -103,6 +103,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Replaces the previous in-memory static Dictionary in PeriodClosingService.
         public DbSet<Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }
 
+        // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
+        public DbSet<Entities.PlatformUser> PlatformUsers { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

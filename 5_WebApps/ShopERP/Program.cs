@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Threading.RateLimiting;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
@@ -312,12 +313,15 @@ namespace VanAn.ShopERP
                 .AddPolicy("RequireTenantAccess", policy =>
                     policy.RequireAuthenticatedUser()
                            .RequireClaim("tenant_id"))
-                .AddPolicy("OwnerOnly", policy => policy.RequireRole(UserRole.Owner.ToString()))
-                .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString()))
+                .AddPolicy("OwnerOnly", policy => policy.RequireRole(UserRole.Owner.ToString(), "SystemAdmin"))
+                .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString(), "SystemAdmin"))
                 .AddPolicy("GuardOnly", policy => policy.RequireRole(UserRole.Guard.ToString()))
-                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString()))
+                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString(), "SystemAdmin"))
                 // Wave 5: SystemAdmin — cross-tenant Tenant CRUD (platform-level admin)
                 .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
+
+            // Platform SystemAdmin: Register login service
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPlatformUserLoginService, VanAn.CoreHub.Services.PlatformUserLoginService>();
 
             // Wave 7: Rate limiting for login endpoint (5 requests per minute per IP)
             _ = builder.Services.AddRateLimiter(options =>
@@ -426,6 +430,24 @@ namespace VanAn.ShopERP
                     );
                     _ = await context.SaveChangesAsync();
                     Console.WriteLine($"Wave 0: Owner role fixed by recreating user — owner={ownerUsername}, oldRole={existingOwner.Role}");
+                }
+
+                // Platform SystemAdmin: Seed PlatformUser (cross-tenant, idempotent)
+                var platformUserRepo = context.PlatformUsers;
+                var existingPlatformAdmin = await platformUserRepo
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Username == "sysadmin@vanan.vn");
+
+                if (existingPlatformAdmin == null)
+                {
+                    var sysadminHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
+                    platformUserRepo.Add(new PlatformUser(
+                        "sysadmin@vanan.vn",
+                        sysadminHash,
+                        "System Admin",
+                        "sysadmin@vanan.vn"));
+                    _ = await context.SaveChangesAsync();
+                    Console.WriteLine("Platform SystemAdmin seeded — sysadmin@vanan.vn");
                 }
 
                 // Wave 2: Encrypt any pre-existing plaintext PII in dev DB

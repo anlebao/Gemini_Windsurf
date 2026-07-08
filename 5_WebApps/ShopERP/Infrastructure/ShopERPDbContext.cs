@@ -74,6 +74,9 @@ namespace VanAn.ShopERP.Infrastructure
         // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity)
         public DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }
 
+        // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
+        public DbSet<VanAn.CoreHub.Infrastructure.Entities.PlatformUser> PlatformUsers { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

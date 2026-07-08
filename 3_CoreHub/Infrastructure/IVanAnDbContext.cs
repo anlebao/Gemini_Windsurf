@@ -58,6 +58,9 @@ namespace VanAn.CoreHub.Infrastructure
         // W5: Period closing status persistence (tenant-scoped)
         DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; }
 
+        // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.PlatformUser> PlatformUsers { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }
