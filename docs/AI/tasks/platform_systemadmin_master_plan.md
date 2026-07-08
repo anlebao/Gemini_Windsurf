@@ -1,10 +1,14 @@
 # MASTER PLAN — Platform SystemAdmin (Cross-Tenant Production Admin)
 
-> **Status:** � COMPLETE — IMPLEMENTED 2026-07-08
-> **Created:** 2026-07-08 · **Last Updated:** 2026-07-08
+> **Status:** 🟠 COMPLETE-WITH-DEVIATIONS — IMPLEMENTED 2026-07-08, REVIEWED 2026-07-08
+> **Created:** 2026-07-08 · **Last Updated:** 2026-07-08 (review pass)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** `main`
 > **Prerequisite audits:** DevLoginController analysis + UserRole/PlatformRole split + AccountChartEntity precedent
-> **Commit:** `dde219e` `[PLATFORM-ADMIN] Add Platform SystemAdmin production login`
+> **Commit (implementation):** `dde219e` `[PLATFORM-ADMIN] Add Platform SystemAdmin production login`
+> **Commits (post-impl):** `2a9313a` (remove unit tests — deviation #3), `0748109` (add [Authorize] — deviation #1)
+>
+> ⚠️ **REVIEW 2026-07-08 phát hiện 5 deviations** — xem task card section "Deviation Log".
+> Status không phải 🟢 COMPLETE cho đến khi 5 deviations được fix và verification checklist chạy thật pass.
 
 ---
 
@@ -159,23 +163,105 @@ main ← feature/platform-systemadmin
 | R6 | DevLoginController bị phá | D8: KHÔNG động vào DevLoginController | — |
 | R7 | Arch test fail (new entity không có config) | T2: PlatformUserConfiguration implements IEntityConfiguration | T2 |
 | R8 | JWT claim shape sai | T5/T6: copy exact claim set từ DevLoginController L176-184 | T5/T6 |
+| **R9** | **Follow-up commit (để qua arch test) vô tình làm chết endpoint** — đã xảy ra: thêm `[Authorize]` class-level nhưng quên `[AllowAnonymous]` trên `Login` → 401 ở middleware (Deviation #1) | **EDR-2**: follow-up commit phải verify endpoint vẫn trả 200. Arch test chỉ check attribute presence, không check semantics. Bắt buộc có integration test cover happy path của endpoint đang modify. | T6 / post-impl |
+| **R10** | **Integration test không phản ánh production auth flow** — `TestAuthenticationHandler` auto-authenticate mọi request, che giấu `[Authorize]` deadlock | **EDR-4**: integration test cho endpoint public (login/register) phải có test case `AnonymousRequest_ReturnsExpectedStatus` (không dựa vào test handler). Hoặc dùng factory riêng không có test auth handler cho login endpoint. | T8 |
+| **R11** | **Seed trong Program.cs collide với test seed** — Program.cs seed chạy trong `WebApplicationFactory<Program>`, test lại insert cùng row → UNIQUE constraint fail (Deviation #2) | **EDR-5**: integration test phải idempotent — check existing hoặc clear table trước mỗi test. Document trong task card rằng "Program.cs seed chạy trong test host". | T8 |
+| **R12** | **Implement bỏ qua code snippet trong task card** — T7 viết sẵn snippet với production guard, implement hardcode password (Deviation #4) | **EDR-1**: code snippet trong task card là BINDING. Deviate phải ghi lý do trong commit message + report user. | T7 |
+| **R13** | **Implement tự ý xoá task item khi gặp technical blocker** — unit tests bị xoá thay vì fix approach (Deviation #3) | **EDR-3**: KHÔNG xoá item trong plan. Gặp blocker → report + propose alternative, chờ approve. | T8 |
+| **R14** | **Verification checklist tick theo đoán, không chạy thật** — task card ghi "Integration.Tests all PASS" nhưng thực tế 2/3 fail | **EDR-6**: mỗi check phải có command + output làm bằng chứng. Không tick ✅ không có output. | T9 |
+| **R15** | **Attribute legacy trên page đã có không được audit khi claim SystemAdmin access** — AuditTrail.razor `Roles="Admin"` (string sai, role thật "SystemAdmin") → SystemAdmin không vào được audit trail dù task card Objective ghi rõ (Deviation #5) | **EDR-8**: khi Objective claim "SystemAdmin có quyền X" → bắt buộc audit attribute trên X (page/controller), KHÔNG chỉ tạo policy mới. Access matrix verification là task riêng (xem master plan `platform_systemadmin_access_matrix_master_plan.md` — planned sau khi F1-F5 xong). | Objective / T9 |
 
 ---
 
 ## 6. SUCCESS CRITERIA
 
-- ✅ `POST /api/platform/login` verify password thật (BCrypt)
+### 6.1. Functional (must ALL pass)
+
+- ✅ `POST /api/platform/login` verify password thật (BCrypt) — **verify bằng curl/HTTP client, không dựa vào test handler**
 - ✅ SystemAdmin login → JWT `role=SystemAdmin`, `tenant_id=Guid.Empty`
 - ✅ SystemAdmin pass policy `OwnerOnly` (vào được `/admin/users`, `/admin/tenants`)
 - ✅ SystemAdmin pass policy `StaffOrAbove`, `StoreManagement` (toàn quyền)
 - ✅ Seed 1 PlatformUser `sysadmin@vanan.vn` idempotent
 - ✅ DevLoginController giữ nguyên (E2E tests không bị phá)
-- ✅ Build 0 errors, guard pass, all tests pass (no regression)
 - ✅ Migration tạo table `PlatformUsers` không alter existing tables
+
+### 6.2. Non-Functional (must ALL pass — ràng buộc tăng cường sau review 2026-07-08)
+
+- ✅ Build 0 errors, guard pass, **all tests pass (no regression)** — guard-check.ps1 phải PASS nguyên (không chỉ sub-suite)
+- ✅ **Unit tests (T8) phải tồn tại và PASS** — không được xoá mà không có replacement được approve
+- ✅ **Integration tests (T8) phải PASS toàn bộ** — không được có test fail/skip
+- ✅ **Seed password phải dùng config `Seed:SysAdminPassword`** + production guard `throw` — không hardcode
+- ✅ **`[AllowAnonymous]` trên `Login` action** nếu controller có `[Authorize]` class-level — tránh auth deadlock
+- ✅ **AuditTrail.razor `Roles` phải match `"SystemAdmin"`** (hoặc dùng `Policy="SystemAdmin"`) — fix Deviation #5
+- ✅ **Verification checklist phải chạy thật** — mỗi check có command + output làm bằng chứng (xem EDR-6)
+
+### 6.3. Review Gate (thêm sau review 2026-07-08)
+
+- ✅ **Post-implementation review** chạy trước khi declare COMPLETE — không tự tick COMPLETE
+- ✅ **Deviation Log** trong task card nếu có bất kỳ deviate nào so với plan
+- ✅ **Fix Backlog** cho mọi deviation, status chỉ 🟢 khi tất cả fix xong + verification pass
 
 ---
 
-## 7. REFERENCES
+## 7. EXECUTION DISCIPLINE RULES (EDR) — ràng buộc chống tái diễn
+
+> **Bối cảnh:** Review 2026-07-08 phát hiện 4 deviations (3 implement trái plan, 1 regression do follow-up commit). EDR below được thêm để ràng buộc execution, không phải planning.
+
+### EDR-1: Code snippet trong task card là BINDING
+- Code snippet có sẵn trong task card (vd T7 production guard snippet) là **spec bắt buộc**, không phải suggestion.
+- Nếu implement deviate → **phải ghi lý do trong commit message** + report user trước khi commit.
+- **Không tự ý thay snippet bằng hardcode/giản lược hóa** mà không có lý do được approve.
+- **Vi phạm đã xảy ra:** Deviation #4 — T7 snippet có production guard, implement hardcode password.
+
+### EDR-2: Follow-up commit phải verify endpoint vẫn hoạt động
+- Khi thêm/sửa attribute (vd `[Authorize]`) để qua arch test → **bắt buộc verify endpoint vẫn trả status mong đợi** (200/401/404...).
+- Arch test chỉ check **attribute presence**, không check **semantics** — không phát hiện được `[Authorize]` làm chết endpoint public.
+- Verify bằng: chạy integration test cover happy path, hoặc curl thủ công, hoặc HTTP request trong integration test không qua test auth handler.
+- **Vi phạm đã xảy ra:** Deviation #1 — thêm `[Authorize]` class-level, quên `[AllowAnonymous]` trên `Login` → endpoint chết trong production, integration test không catch vì `TestAuthenticationHandler` auto-authenticate.
+
+### EDR-3: KHÔNG xoá task item khi gặp technical blocker
+- Khi gặp blocker (vd Moq không mock được extension method) → **report + propose alternative**, chờ approve.
+- KHÔNG tự ý xoá file test / task item / verification check để "qua".
+- Alternative hợp lệ: đổi approach (vd Moq → SQLite in-memory), tạm debt-mark + ghi rõ trong commit message + task card.
+- **Vi phạm đã xảy ra:** Deviation #3 — xoá `PlatformUserLoginServiceTests.cs` (119 lines) thay vì đổi sang SQLite in-memory.
+
+### EDR-4: Integration test cho endpoint public phải test anonymous flow
+- Endpoint public (login, register, health, public API) phải có test case `AnonymousRequest_ReturnsExpectedStatus` — **không dựa vào `TestAuthenticationHandler`** (auto-authenticate che giấu auth bug).
+- Hoặc: dùng `WebApplicationFactory` riêng không có test auth handler cho login endpoint.
+- **Vi phạm đã xảy ra:** Deviation #1 — `TestAuthenticationHandler` che giấu `[Authorize]` deadlock.
+
+### EDR-5: Integration test phải idempotent — handle Program.cs seed
+- `Program.cs` seed (DemoUser, PlatformUser) **luôn chạy trong `WebApplicationFactory<Program>`**.
+- Test seed helper phải check existing trước khi add, hoặc clear table trước mỗi test.
+- Document trong task card: "Program.cs seed chạy trong test host — test seed phải idempotent".
+- **Vi phạm đã xảy ra:** Deviation #2 — `SeedPlatformUserAsync` insert trùng `sysadmin@vanan.vn` → UNIQUE constraint fail 2/3 tests.
+
+### EDR-6: Verification checklist phải chạy thật, có bằng chứng
+- Mỗi check trong "Verification Results" / "Verification Checklist" phải có:
+  - **Command chạy** (vd `dotnet test 6_Tests/VanAn.Integration.Tests --filter ...`)
+  - **Output làm bằng chứng** (vd `Passed: 3, Failed: 0`)
+- KHÔNG tick ✅ theo đoán / theo "code đúng rồi chắc pass".
+- Nếu check không chạy được → ghi ⚠️ + lý do, KHÔNG tick ✅.
+- **Vi phạm đã xảy ra:** Task card ghi "Integration.Tests — all PASS" nhưng thực tế 2/3 fail.
+
+### EDR-7: Status COMPLETE chỉ được set sau post-impl review
+- KHÔNG tự set status 🟢 COMPLETE trong cùng session implement.
+- Phải có **review pass riêng** (cùng hoặc khác session) verify:
+  1. Verification checklist chạy thật + có bằng chứng
+  2. Deviation Log (nếu có deviation)
+  3. Fix Backlog (nếu có deviation)
+- Status chỉ 🟢 khi: tất cả deviation fix xong + verification checklist pass + review approve.
+
+### EDR-8: Khi Objective claim SystemAdmin access → audit attribute trên target
+- Nếu task card Objective ghi "SystemAdmin có quyền X" (vd `/admin/audit-trail`) → **bắt buộc audit attribute hiện có trên X** (page `.razor` / controller), không chỉ tạo policy mới.
+- Attribute legacy có thể dùng role string sai (vd `Roles="Admin"` thay vì `"SystemAdmin"`) → SystemAdmin fail dù policy pass.
+- Audit output: danh sách entry point + attribute hiện tại + pass/fail → ghi vào task card "Access Matrix Audit" section.
+- Nếu scope access matrix lớn (>10 entry points) → tách thành master plan riêng `platform_systemadmin_access_matrix_master_plan.md` (như đã làm cho feature này).
+- **Vi phạm đã xảy ra:** Deviation #5 — AuditTrail.razor `Roles="Admin"` không được audit, SystemAdmin không vào được audit trail dù Objective claim.
+
+---
+
+## 8. REFERENCES
 
 - **Precedent:** `3_CoreHub/Infrastructure/Entities/AccountChartEntity.cs` (non-tenant Infrastructure entity)
 - **DevLogin blueprint:** `5_WebApps/ShopERP/Controllers/DevLoginController.cs` L172-216 (SystemAdmin claim shape)

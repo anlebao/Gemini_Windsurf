@@ -433,6 +433,12 @@ namespace VanAn.ShopERP
                 }
 
                 // Platform SystemAdmin: Seed PlatformUser (cross-tenant, idempotent)
+                // F4: password from configuration with production guard — same pattern as DemoUser seed (L384-387).
+                // Hardcoding "VanAn@2026" in production would leave the platform admin password at a known default.
+                string sysadminPassword = builder.Configuration["Seed:SysAdminPassword"]
+                    ?? (builder.Environment.IsProduction()
+                        ? throw new InvalidOperationException("Seed:SysAdminPassword configuration is required in Production.")
+                        : "VanAn@2026");
                 var platformUserRepo = context.PlatformUsers;
                 var existingPlatformAdmin = await platformUserRepo
                     .IgnoreQueryFilters()
@@ -440,7 +446,7 @@ namespace VanAn.ShopERP
 
                 if (existingPlatformAdmin == null)
                 {
-                    var sysadminHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
+                    var sysadminHash = BCrypt.Net.BCrypt.HashPassword(sysadminPassword, 12);
                     platformUserRepo.Add(new PlatformUser(
                         "sysadmin@vanan.vn",
                         sysadminHash,

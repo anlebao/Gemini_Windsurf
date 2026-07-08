@@ -27,10 +27,20 @@ public class PlatformUserLoginEndpointTests : IClassFixture<CustomWebApplication
         _client = factory.CreateClient();
     }
 
+    // F2: idempotent — Program.cs seed (L435-451) already runs inside WebApplicationFactory<Program>,
+    // so the same sysadmin@vanan.vn row exists. Insert again → UNIQUE constraint fail (Deviation #2).
+    // Fix: check existing first, reuse if present. Tests don't rely on a specific password hash
+    // because the test uses the actual Program.cs-seeded user (password "VanAn@2026").
     private async Task SeedPlatformUserAsync()
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+        var existing = await db.PlatformUsers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Username == "sysadmin@vanan.vn");
+        if (existing != null)
+        {
+            return; // Program.cs seed already inserted the user
+        }
         var passwordHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
         var user = new PlatformUser("sysadmin@vanan.vn", passwordHash, "System Admin", "sysadmin@vanan.vn");
         _ = db.PlatformUsers.Add(user);

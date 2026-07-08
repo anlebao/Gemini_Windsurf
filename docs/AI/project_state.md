@@ -30,26 +30,31 @@
 
 ## 2. Current Objective
 
-**[LOCAL CD FLOW — DOCKER COMPOSE BUILD FIX — COMPLETE ✅ UNCOMMITTED on `main`]**
+**[PLATFORM SYSTEMADMIN — F1-F5 FIX COMPLETE ✅ + ACCESS MATRIX PLAN PLANNED 🟡]**
 
-Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
-- **Modified (5):** `docker-compose.yml`, `2_Gateway/Dockerfile`, `5_WebApps/ShopERP/Dockerfile`, `5_WebApps/KhachLink/Dockerfile`, `.env.example`
-- **New (1):** `scripts/deploy-local.ps1` (deploy script with -Rebuild/-Down/-Status/-Logs)
-- **Key fixes:** Removed `corehub` service (monolithic), Gateway port 5000→5010 (Hyper-V), ShopERP Development env, `SQLITE_DB_PATH` prefix, curl healthcheck
-- **Ports:** Gateway:5010, ShopERP:5002, KhachLink:5003, Postgres:5432, NATS:4222, pgAdmin:5050
+Post-implementation review (2026-07-08) phát hiện 5 deviations từ `platform_systemadmin_task_card.md`. F1-F5 fixed + verified:
+- F1: `[AllowAnonymous]` on `Login` action — fix auth deadlock
+- F2: Integration test `SeedPlatformUserAsync` idempotent — fix UNIQUE constraint fail
+- F3: Unit tests re-created (5/5 PASS, SQLite in-memory) — fix deleted tests
+- F4: `Seed:SysAdminPassword` config + production guard — fix hardcoded password
+- F5: `AuditTrail.razor` `Roles="Admin"` → `Policy="SystemAdmin"` — fix role mismatch
+
+**Access Matrix master plan** (`platform_systemadmin_access_matrix_master_plan.md`) created — 4 phases (ANALYZE→DESIGN→IMPLEMENT→VERIFY), 12 tasks, 5 EDR-AM rules. Awaiting user approval.
+
+**Local CD Flow changes** still uncommitted on `main`.
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main` (local CD flow changes uncommitted)
-- **Last commit:** `dde219e` [PLATFORM-ADMIN] Add Platform SystemAdmin production login
+- **Branch:** `main`
+- **Last commit (pre-fix):** `0748109` [PLATFORM-ADMIN] Add [Authorize] to PlatformUserLoginController
+- **Next commit:** F1-F5 fix + docs (pending)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
-- **Services (Docker):** Gateway (5010) + ShopERP (5002) + KhachLink (5003) + Postgres (5432) + NATS (4222) + pgAdmin (5050) + Seq (8081 — unhealthy, logging only)
 - **DB:** SQLite `vanan_shoperp.db` (local dev) · PostgreSQL (Docker `vanan-postgres`)
-- **Tests:** 1152/1152 PASS (Core 941 + Arch 34 + Integration 177) — last verified W7
+- **Tests (Debug):** 1174/1174 PASS (Core 957 + Arch 34 + Integration 183) — verified 2026-07-08 post F1-F5 fix
 - **Completed streams (all merged to main):**
-  - Platform SystemAdmin ✅ (commit `dde219e`)
+  - Platform SystemAdmin ✅ (commit `dde219e`) — F1-F5 fix + docs pending commit
   - Stream G: SaaS Production Hardening W0-W7 ✅ (W8 pending — final regression + tag)
   - Stream F: VAS Enterprise Reports W0-W9 ✅ (tag `saas-production-v1.0`)
   - Stream D: HKD Book Accounting Fix W0-W8 ✅
@@ -64,13 +69,15 @@ Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
 ## 4. Next Actions
 
 **Immediate:**
-1. **Commit local CD flow changes** — 5 modified + 1 new file uncommitted on `main`
-2. **W8: Final Regression + Production Tag** — full regression + `saas-production-v1.0` tag
+1. **Commit F1-F5 fix + docs** — 5 code files + 4 docs files + project_state.md (pending)
+2. **Access Matrix Phase 1: ANALYZE** — khi user approve `platform_systemadmin_access_matrix_master_plan.md`
 
 **Deferred:**
-3. **W6-T2 (user-side):** Email Viettel + MISA for sandbox credentials (1-2 tuần bottleneck)
-4. **W6-T6:** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true`, blocked by W6-T2
-5. **KhachLink→Gateway QR auth forwarding** — architectural, `QrPaymentModal.razor` needs JWT forwarding
+3. **Commit local CD flow changes** — 5 modified + 1 new file still uncommitted on `main`
+4. **W8: Final Regression + Production Tag** — full regression + `saas-production-v1.0` tag
+5. **W6-T2 (user-side):** Email Viettel + MISA for sandbox credentials (1-2 tuần bottleneck)
+6. **W6-T6:** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true`, blocked by W6-T2
+7. **KhachLink→Gateway QR auth forwarding** — architectural, `QrPaymentModal.razor` needs JWT forwarding
 
 ---
 
@@ -88,11 +95,14 @@ Fixed Docker build for local deployment. 6/7 services healthy in Docker Compose.
 | HKD Data Source = Option A (query AccountingEntries directly) | Wave 0.5 — AccountingEntry is immutable SSoT |
 | DOCX export = DocumentFormat.OpenXml + XLSX = EPPlus 7.6.1 | Wave 0 T9 — user approved |
 | **[NEW] PlatformUser = Infrastructure entity (non-tenant)** | Precedent: AccountChartEntity — cross-tenant admin, no BaseEntity |
+| **[NEW] Execution Discipline Rules (EDR)** | 8 EDR rules in `platform_systemadmin_master_plan.md` Section 7 — ràng buộc execution chống tái diễn deviations |
+| **[NEW] Access Matrix = verification plan riêng** | `platform_systemadmin_access_matrix_master_plan.md` — 4 phases, 5 EDR-AM rules, depends on F1-F5 COMPLETE |
 
 ---
 
 ## 6. History Log (compressed — see git log + archive for details)
 
+* [2026-07-08] **PLATFORM SYSTEMADMIN REVIEW + F1-F5 FIX** — Post-implementation review phát hiện 5 deviations. Fixed F1-F5: `[AllowAnonymous]` on Login (auth deadlock), integration test idempotent (UNIQUE constraint), unit tests re-created (5/5 PASS SQLite in-memory), `Seed:SysAdminPassword` config + production guard, AuditTrail `Policy="SystemAdmin"`. Updated master plan with EDR-1..EDR-8 (Execution Discipline Rules). Created Access Matrix master plan + task card (4 phases, 12 tasks, EDR-AM-1..EDR-AM-5). Build 0 errors Debug+Release. Tests: 1174/1174 PASS (Core 957 + Arch 34 + Integration 183). Pending commit.
 * [2026-07-08] **PLATFORM SYSTEMADMIN IMPLEMENT COMPLETE** — Implemented T1-T9: PlatformUser entity (non-tenant Infrastructure entity), PlatformUserConfiguration, 3 DbContext DbSet registrations, EF Migration (AddPlatformUsersTable), PlatformUserLoginService (BCrypt verify + JWT mint), PlatformUserLoginController (POST /api/platform/login, production, no #if DEBUG), DI registration + 3 policy updates (OwnerOnly, StoreManagement, StaffOrAbove add SystemAdmin) + seed sysadmin@vanan.vn, unit + integration tests. Build 0 errors, guard pass. Commit `dde219e`.
 * [2026-07-08] **PLATFORM SYSTEMADMIN PLANNING COMPLETE** — Investigated 2 role systems (`UserRole` tenant-scoped vs `PlatformRole` cross-tenant), `DevLoginController` (`#if DEBUG`), `DemoUser` (rejects `TenantId=Empty`). User chose pattern 2 lớp. Created master plan + task card (9 tasks, 12 files). Commit `792cc3f`.
 * [2026-07-07] **SDK 8.0.422 + TRIAGE + E2E FIX + BUCKET A + W6 GOLDEN TESTS** — 14 commits total: SDK to system path (CVEs patched), 5 pre-existing issues triaged, qr-payment-ui 6/6 PASS (`24718b8`), guest checkout + PostgreSQL migration (`310f3da`+`8867dbc`), 21/22 golden tests PASS (`fd7b038`). See archive for details.
@@ -139,6 +149,8 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-08 — PLATFORM SYSTEMADMIN REVIEW + F1-F5 FIX.** Post-implementation review: 5 deviations found. Fixed F1-F5 (AllowAnonymous, idempotent test, unit tests re-created, config password, AuditTrail role). Master plan updated with EDR-1..EDR-8. Access Matrix master plan + task card created (4 phases, 12 tasks). Build 0 errors Debug+Release. Tests: 1174/1174 PASS (Core 957 + Arch 34 + Integration 183). Pending commit. **Branch:** `main`.
 
 * **2026-07-08 — PLATFORM SYSTEMADMIN IMPLEMENT COMPLETE.** Implemented T1-T9: PlatformUser entity (non-tenant Infrastructure entity), PlatformUserConfiguration, 3 DbContext DbSet registrations, EF Migration (AddPlatformUsersTable), PlatformUserLoginService (BCrypt verify + JWT mint), PlatformUserLoginController (POST /api/platform/login, production, no #if DEBUG), DI registration + 3 policy updates (OwnerOnly, StoreManagement, StaffOrAbove add SystemAdmin) + seed sysadmin@vanan.vn, unit + integration tests. Build 0 errors, guard pass. Commit `dde219e`. **Branch:** `main`.
 

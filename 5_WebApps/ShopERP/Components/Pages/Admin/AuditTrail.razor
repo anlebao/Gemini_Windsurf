@@ -13,7 +13,7 @@
 @inject ILogger<AuditTrail> Logger
 @inject NavigationManager NavigationManager
 
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Policy = "SystemAdmin")]
 
 <div class="audit-trail-page @ThemeProvider.CurrentTheme">
     <!-- Header -->

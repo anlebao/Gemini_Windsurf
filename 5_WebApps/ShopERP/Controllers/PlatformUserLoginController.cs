@@ -20,7 +20,10 @@ public class PlatformUserLoginController : ControllerBase
         _platformUserLoginService = platformUserLoginService;
     }
 
+    // F1: [AllowAnonymous] required — login endpoint must be reachable without auth,
+    // otherwise [Authorize] on class creates a deadlock (need auth to login).
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var result = await _platformUserLoginService.LoginAsync(request.Username, request.Password);
