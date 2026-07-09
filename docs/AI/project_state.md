@@ -30,18 +30,20 @@
 
 ## 2. Current Objective
 
-**[ACCOUNTING POSTGRESQL ONLINE + TEST ENFORCEMENT — MASTER PLAN CREATED 🟡]**
+**[ACCOUNTING POSTGRESQL ONLINE + TEST ENFORCEMENT — MASTER PLAN v2 READY 🟡]**
 
-Điều tra phát hiện vi phạm ADR-001 từ 2026-06-03: Accounting module chạy trên SQLite thay vì PostgreSQL (commit `957ac95` gốc rễ, `cf05eb1` cemented). 10 services + 3 repositories inject `IVanAnDbContext` → resolve `ShopERPDbContext` (SQLite). Không sync lên PostgreSQL. Vi phạm ADR-001 "accounting always online" + ADR-003 Thông tư 200/152 compliance.
+Điều tra phát hiện vi phạm ADR-001 từ 2026-06-03: Accounting module chạy trên SQLite thay vì PostgreSQL (commit `957ac95` gốc rễ, `cf05eb1` cemented). 10 services + 3 repositories inject `IVanAnDbContext` → resolve `ShopERPDbContext` (SQLite). Vi phạm ADR-001 "accounting always online" + ADR-003 Thông tư 200/152 compliance.
 
-Master plan tạo: `docs/AI/tasks/accounting_postgresql_online_master_plan.md` — 10 phases:
-- Phase 1-7: Tạo `IAccountingDbContext` interface, `VanAnDbContext` implement, `ShopERPDbContext` xóa accounting DbSets, update 13 services/repos, docker-compose + appsettings
-- Phase 8: 4 Architecture Tests mới (Rule J/K/L/M) — enforce accounting-online + PostgreSQL
-- Phase 9-10: Fix existing tests, build + verify
+Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_master_plan.md` — 246 dòng, 3 waves:
+- **Wave 1:** Split `IVanAnDbContext` → giữ 21 business DbSets + tạo `IAccountingDbContext` (6 accounting DbSets). `VanAnDbContext` implement cả 2, `ShopERPDbContext` implement chỉ business. Compile-time safety, no throw stubs.
+- **Wave 2:** Swap 13 services/repos sang `IAccountingDbContext`, register PostgreSQL DI trong ShopERP, thêm `AccountingConnection` config + docker-compose.
+- **Wave 3:** 4 Architecture Tests (Rule J/K/L/M) enforce accounting-online, fix existing test mocks, full verification.
+
+3 task cards tạo: `accounting_pg_wave1_interface_split_task_card.md`, `accounting_pg_wave2_services_di_config_task_card.md`, `accounting_pg_wave3_tests_verify_task_card.md`.
 
 Roslyn Analyzers audit: 9 analyzers = dead code (wiring sai, 0 test, 3 outdated). Ghi debt Tier 4 trong `TECHNICAL_DEBT_LEDGER.md`. Skip toàn bộ — Architecture Tests đủ enforce.
 
-**Awaiting user approval** để bắt đầu implement (TDD: Phase 8 red → Phase 1-7 green).
+**Awaiting user approval** để bắt đầu implement Wave 1.
 
 **Previous (completed):** Platform SystemAdmin F1-F5 fix ✅ + Access Matrix plan 🟡 (deferred).
 
@@ -50,8 +52,8 @@ Roslyn Analyzers audit: 9 analyzers = dead code (wiring sai, 0 test, 3 outdated)
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit (pre-fix):** `0748109` [PLATFORM-ADMIN] Add [Authorize] to PlatformUserLoginController
-- **Next commit:** F1-F5 fix + docs (pending)
+- **Last commit:** `f0fd6e4` [ANALYZE] Accounting PostgreSQL online master plan + Roslyn Analyzer debt audit
+- **Next commit:** Master plan v2 (Option B) + 3 task cards
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev) · PostgreSQL (Docker `vanan-postgres`)
 - **Tests (Debug):** 1174/1174 PASS (Core 957 + Arch 34 + Integration 183) — verified 2026-07-08 post F1-F5 fix
@@ -71,9 +73,9 @@ Roslyn Analyzers audit: 9 analyzers = dead code (wiring sai, 0 test, 3 outdated)
 ## 4. Next Actions
 
 **Immediate:**
-1. **Accounting PostgreSQL Online — Phase 8 (TDD red)** — Write Architecture Tests Rule J/K/L/M, verify fail
-2. **Accounting PostgreSQL Online — Phase 1-7 (implement)** — IAccountingDbContext, update 13 services/repos, docker-compose, appsettings
-3. **Accounting PostgreSQL Online — Phase 9-10 (verify)** — Fix existing tests, build + full verification
+1. **Accounting PostgreSQL Online — Wave 1 (interface split)** — Create `IAccountingDbContext`, remove 6 accounting DbSets from `IVanAnDbContext`, update `VanAnDbContext` + `ShopERPDbContext`. Task card: `accounting_pg_wave1_interface_split_task_card.md`
+2. **Accounting PostgreSQL Online — Wave 2 (services + DI + config)** — Swap 13 services/repos, register PostgreSQL DI, add `AccountingConnection` config + docker-compose. Task card: `accounting_pg_wave2_services_di_config_task_card.md`
+3. **Accounting PostgreSQL Online — Wave 3 (tests + verify)** — 4 Architecture Tests Rule J/K/L/M, fix existing test mocks, full verification. Task card: `accounting_pg_wave3_tests_verify_task_card.md`
 
 **Deferred:**
 4. **Access Matrix Phase 1: ANALYZE** — khi user approve `platform_systemadmin_access_matrix_master_plan.md`
@@ -92,7 +94,7 @@ Roslyn Analyzers audit: 9 analyzers = dead code (wiring sai, 0 test, 3 outdated)
 |---|---|
 | CoreHub = in-process background service trong Gateway | Monolith Phase 1-2 (Option B approved 2026-07-05) |
 | Gateway = DI composition root cho CoreHub | Program.cs đăng ký CoreHub DbContext/Services |
-| ShopERP = SQLite (Business) + PostgreSQL (Accounting) | ADR-001: accounting always online. ShopERPDbContext (SQLite) cho Business/Platform, VanAnDbContext (PostgreSQL) cho Accounting qua IAccountingDbContext. **VI PHẠM 2026-06-03→2026-07-09** — accounting chạy trên SQLite, master plan pending implement |
+| ShopERP = SQLite (Business) + PostgreSQL (Accounting) | ADR-001: accounting always online. ShopERPDbContext (SQLite) cho Business/Platform, VanAnDbContext (PostgreSQL) cho Accounting qua IAccountingDbContext. **VI PHẠM 2026-06-03→2026-07-09** — accounting chạy trên SQLite, master plan v2 (Option B split interface) pending implement |
 | CustomerToken = `IDataProtector` | Tránh library mới |
 | `AccountingEntry` immutable, Reversal Entry | Audit trail bất khả xâm phạm |
 | Multi-tenancy `TenantId` filter mọi layer | Data isolation per HKD |
@@ -131,6 +133,8 @@ Roslyn Analyzers audit: 9 analyzers = dead code (wiring sai, 0 test, 3 outdated)
 ---
 
 ## 6. History Log (compressed — see git log + archive for details)
+
+* [2026-07-09] **ACCOUNTING POSTGRESQL ONLINE — MASTER PLAN v2 (OPTION B) + 3 TASK CARDS.** Review v1 (697 dòng, 10 phases, Option A throw stubs) phát hiện 3 bugs + 1 over-engineering tendency. User chọn Option B (split interface, compile-time safety). Rewrite master plan theo template `einvoice_provider_rewrite_master_plan.md`: 246 dòng, 3 waves (interface split → services/DI/config → tests/verify). Tạo 3 task cards chi tiết. Fix 3 bugs: Rule J exclude repo-inject services, Rule K đơn giản hóa (no throw stubs), AccountChartSeeder callers audit. **Branch:** `main`.
 
 * [2026-07-09] **ACCOUNTING POSTGRESQL ONLINE — MASTER PLAN + DEBT AUDIT.** Điều tra git history phát hiện vi phạm ADR-001 từ 2026-06-03 (commit `957ac95`): Accounting module chạy trên SQLite thay vì PostgreSQL. Root cause: ShopERP Program.cs hardcoded `UseSqlite()`, accounting services inject `IVanAnDbContext` → resolve `ShopERPDbContext` (SQLite). PR #55 (`754e2b3`) cố sửa nhưng crash, PR #56 (`cf05eb1`) revert + hiểu sai ADR-001. 10 services + 3 repositories affected. Roslyn Analyzers audit: 9 analyzers = dead code (wiring sai — chỉ reference bởi project trống, 0 test, 3 outdated Gateway Option B, path separator bug). Ghi debt Tier 4 trong `TECHNICAL_DEBT_LEDGER.md`. User quyết định skip toàn bộ analyzers, dùng Architecture Tests thay. Master plan tạo: `accounting_postgresql_online_master_plan.md` — 10 phases (IAccountingDbContext interface, 13 services/repos update, 4 Architecture Tests Rule J/K/L/M). Awaiting approval. **Branch:** `main`.
 
@@ -188,6 +192,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-09 — ACCOUNTING POSTGRESQL ONLINE MASTER PLAN v2 + 3 TASK CARDS.** Review v1 master plan (697 dòng, 10 phases, Option A throw stubs) phát hiện 3 bugs kỹ thuật + 1 over-engineering tendency (Option A ISP violation). User chọn Option B (split interface, compile-time safety). Rewrite master plan theo template `einvoice_provider_rewrite_master_plan.md`: 246 dòng (-65%), 3 waves (Wave 1: interface split + DbContext, Wave 2: services/repos + DI + config, Wave 3: architecture tests + verify). Tạo 3 task cards chi tiết. Fix 3 bugs: (1) Rule J exclude repo-inject services (AccountingEntryService, ReversalService, AuditTrailService, HKDBookService), (2) Rule K đơn giản hóa (Option B no throw stubs → string contains check), (3) AccountChartSeeder callers audit (signature change). Updated Section 2 (objective v2), 3 (status), 4 (next actions 3 waves), 5 (decisions), 6 (history), 9 (maintenance log). **Branch:** `main`.
 
 * **2026-07-09 — ACCOUNTING POSTGRESQL ONLINE MASTER PLAN + ANALYZER DEBT AUDIT.** Git history investigation found ADR-001 violation since 2026-06-03 (commit `957ac95`): accounting on SQLite instead of PostgreSQL. 10 services + 3 repos affected. Roslyn Analyzers audit: 9 analyzers dead (wiring, 0 test, 3 outdated). Debt Tier 4 recorded in `TECHNICAL_DEBT_LEDGER.md`. Master plan created: `docs/AI/tasks/accounting_postgresql_online_master_plan.md` (10 phases, IAccountingDbContext + 4 Architecture Tests). Updated Section 2 (objective), 4 (next actions), 5 (decisions), 6 (history). Hard stop updated: "ShopERP SQLite (Business) + PostgreSQL (Accounting)". **Branch:** `main`.
 
