@@ -141,6 +141,49 @@
 
 ---
 
+## Tier 4: Roslyn Analyzers Dead Code (2026-07-09)
+
+**Location:** `VanAn.Accounting/VanAn.Accounting.Analyzers/`
+**Severity:** Medium — compile-time guards không hoạt động, nhưng runtime tests + architecture tests vẫn enforce
+
+### Vấn đề
+
+9 Roslyn analyzers được build nhưng **không analyze code thật**:
+
+| ID | Analyzer | Giá trị | Trạng thái |
+|----|----------|---------|------------|
+| VA1001 | DomainEntityLocationAnalyzer | Thấp (false positive) | Dead — wiring sai |
+| VA1002 | DependencyDirectionAnalyzer | Cao (Clean Arch) | Dead — wiring sai + path separator bug |
+| VA1003 | EfCoreInDomainAnalyzer | Cao (Domain purity) | Dead — wiring sai |
+| VA1004 | BusinessLogicInGatewayAnalyzer | Thấp (outdated Option B) | Dead + outdated |
+| VA1005 | AccountingEntryImmutabilityAnalyzer | Cao (ADR-003) | Dead — wiring sai |
+| VA0001 | ImmutableAccountingAnalyzer | Cao (ADR-003) | Dead — wiring sai |
+| VA0002 | ReversalOnlyAnalyzer | Cao (ADR-003) | Dead — wiring sai |
+| VA0003 | NoBusinessInGatewayAnalyzer | Thấp (outdated Option B) | Dead + outdated |
+| VA0004 | CentralPackageManagementAnalyzer | Cao (CPM) | Commented out |
+
+### Root Cause
+
+1. **Wiring sai:** `VanAn.Accounting.Analyzers.csproj` chỉ được reference bởi `VanAn.Accounting.csproj` (project gần như trống). Code thật nằm trong 1_Shared, 3_CoreHub, 2_Gateway, 5_WebApps — không reference analyzer.
+2. **0 test:** Không có `VanAn.Accounting.Analyzers.Tests` project. Không có `DiagnosticVerifier` test.
+3. **Path separator bug:** Hardcoded `/` trong `filePath.Contains("3_CoreHub/Services")` — fail trên Windows (`\`).
+4. **3 analyzers outdated:** VA1004 + VA0003 (Gateway Option B = in-process, rule inverted 2026-07-05), VA1001 (naming pattern quá broad).
+
+### Kế hoạch sửa (REVIEW_ONLY — chưa implement)
+
+**Priority:** Thấp — Architecture Tests (Rule J/K/L) đã enforce accounting-online + PostgreSQL. Analyzer là compile-time guard bổ sung, không phải primary enforcement.
+
+**Khi implement:**
+1. Reference analyzer từ 1_Shared, 3_CoreHub, 2_Gateway, 5_WebApps csproj (`OutputItemType="Analyzer"`)
+2. Fix path separator: dùng `Path.DirectorySeparatorChar` hoặc check cả `/` và `\`
+3. Xóa VA1004, VA0003 (outdated Gateway Option B)
+4. Refactor VA1001: dùng namespace check thay vì naming pattern
+5. Enable VA0004 (CPM) — uncomment
+6. Tạo `VanAn.Accounting.Analyzers.Tests` project với DiagnosticVerifier
+7. Giữ VA1005, VA0001, VA0002 (immutability), VA1003 (Domain purity), VA1002 (dependency direction)
+
+---
+
 ## Chú thích
 
 - **Fix (triệt để):** Đã sửa đúng root cause, không cần refactor sau
