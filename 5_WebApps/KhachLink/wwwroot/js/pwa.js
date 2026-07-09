@@ -21,6 +21,14 @@ window.vananPWA = {
                         });
                     }
                 });
+
+                // Auto-reload when new service worker takes control (purges stale cache)
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        console.log('Service Worker controller changed — reloading to purge stale cache');
+                        window.location.reload();
+                    });
+                }
                 
                 return registration;
             } catch (error) {

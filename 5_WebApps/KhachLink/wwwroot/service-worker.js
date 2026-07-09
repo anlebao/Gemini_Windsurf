@@ -1,6 +1,6 @@
-const CACHE_NAME = 'vanan-khachlink-v2';
-const STATIC_CACHE = 'vanan-static-v2';
-const DYNAMIC_CACHE = 'vanan-dynamic-v2';
+const CACHE_NAME = 'vanan-khachlink-v3';
+const STATIC_CACHE = 'vanan-static-v3';
+const DYNAMIC_CACHE = 'vanan-dynamic-v3';
 
 // Core static assets to cache
 const staticUrlsToCache = [

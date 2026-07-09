@@ -67,19 +67,24 @@ namespace VanAn.Architecture.Tests
             }
         }
 
-        [Fact(DisplayName = "VA-ARCH-001: Application Layer Should Not Contain Migration Classes (Infrastructure layer ALLOWED)")]
+        [Fact(DisplayName = "VA-ARCH-001: Application Layer Should Not Contain Migration Classes (Infrastructure + ShopERP edge DbContext ALLOWED)")]
         public void Application_Layer_Should_Not_Contain_Migration_Classes()
         {
             // Arrange
             var repoRoot = GetRepoRoot();
             // Application-layer paths — Migrations STILL FORBIDDEN here
             // Infrastructure layer (3_CoreHub/Infrastructure/Migrations) is ALLOWED per Stream E decision (2026-07-03)
+            // ShopERP/Migrations is ALLOWED per Docker-Config fix (2026-07-09): ShopERPDbContext is a separate
+            //   SQLite edge DbContext — its migrations cannot live in 3_CoreHub (different provider, different schema).
             var applicationPaths = new[]
             {
                 Path.Combine(repoRoot, "5_WebApps", "KhachLink"),
-                Path.Combine(repoRoot, "5_WebApps", "ShopERP"),
                 Path.Combine(repoRoot, "2_Gateway")
             };
+
+            // ShopERP is checked separately — only allow its own Migrations folder, not migration classes elsewhere
+            var shopErpPath = Path.Combine(repoRoot, "5_WebApps", "ShopERP");
+            var shopErpAllowedMigrationsFolder = Path.Combine(shopErpPath, "Migrations");
 
             // Act & Assert - Check for Migration classes or Migrations folder in APPLICATION layer only
             foreach (var appPath in applicationPaths)
@@ -96,7 +101,7 @@ namespace VanAn.Architecture.Tests
                     var migrationFiles = Directory.GetFiles(migrationsFolder, "*.cs");
                     if (migrationFiles.Length > 0)
                     {
-                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration file trong Application Layer! Migrations chỉ được phép ở Infrastructure layer (3_CoreHub/Infrastructure/Migrations). Found in: {appPath}");
+                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration file trong Application Layer! Migrations chỉ được phép ở Infrastructure layer (3_CoreHub/Infrastructure/Migrations) hoặc ShopERP edge DbContext (5_WebApps/ShopERP/Migrations). Found in: {appPath}");
                     }
                 }
 
@@ -110,13 +115,36 @@ namespace VanAn.Architecture.Tests
                     if (content.Contains(": Migration") || 
                         content.Contains(": Microsoft.EntityFrameworkCore.Migrations.Migration"))
                     {
-                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration class trong Application Layer! Migrations chỉ được phép ở Infrastructure layer. Found in: {file}");
+                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration class trong Application Layer! Migrations chỉ được phép ở Infrastructure layer hoặc ShopERP edge DbContext. Found in: {file}");
+                    }
+                }
+            }
+
+            // ShopERP: check for migration classes OUTSIDE the allowed Migrations folder
+            if (Directory.Exists(shopErpPath))
+            {
+                var shopErpCsFiles = Directory.GetFiles(shopErpPath, "*.cs", SearchOption.AllDirectories);
+                foreach (var file in shopErpCsFiles)
+                {
+                    // Skip files in the allowed Migrations folder
+                    var dirName = Path.GetDirectoryName(file);
+                    if (dirName != null && dirName.StartsWith(shopErpAllowedMigrationsFolder, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var content = File.ReadAllText(file);
+                    if (content.Contains(": Migration") ||
+                        content.Contains(": Microsoft.EntityFrameworkCore.Migrations.Migration"))
+                    {
+                        Assert.Fail($"VA-ARCH-001: Phát hiện Migration class ngoài Migrations folder trong ShopERP! Found in: {file}");
                     }
                 }
             }
 
             // NOTE: 3_CoreHub/Infrastructure/Migrations/ is ALLOWED (Infrastructure layer per Stream E decision).
-            // This test only checks Application layer (5_WebApps, 2_Gateway).
+            // NOTE: 5_WebApps/ShopERP/Migrations/ is ALLOWED (ShopERPDbContext edge SQLite, 2026-07-09).
+            // This test checks Application layer (KhachLink, Gateway) + ShopERP migrations outside allowed folder.
         }
 
         [Fact(DisplayName = "VA-GATEWAY-003: Gateway Should Not Contain Business Logic (Monolithic Mode — DbContext allowed per Option B)")]

@@ -105,7 +105,7 @@ services:
       - Jwt__Secret=${JWT_SECRET_KEY}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
     ports:
-      - "${GATEWAY_PORT:-5010}:80"
+      - "${GATEWAY_PORT:-5001}:80"
     networks:
       - vanan-network
     depends_on:
@@ -147,7 +147,7 @@ services:
       # W7-T4 (2026-07-05): SQLite persistent volume path
       - SQLITE_DB_PATH=Data Source=/data/sqlite/vanan.db
     ports:
-      - "${SHOPERP_PORT:-5002}:80"
+      - "${SHOPERP_PORT:-5003}:80"
     networks:
       - vanan-network
     depends_on:
@@ -185,9 +185,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:80
+      - Gateway__BaseUrl=http://gateway:80
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
     ports:
-      - "${KHACHLINK_PORT:-5003}:80"
+      - "${KHACHLINK_PORT:-5002}:80"
     networks:
       - vanan-network
     depends_on:

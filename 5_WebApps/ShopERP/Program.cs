@@ -369,7 +369,7 @@ namespace VanAn.ShopERP
             using (IServiceScope scope = app.Services.CreateScope())
             {
                 ShopERPDbContext context = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
-                _ = await context.Database.EnsureCreatedAsync();
+                await context.Database.MigrateAsync();
 
                 // Optimize SQLite for concurrency
                 _ = await context.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
