@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Use .NET 8 runtime (matching our target framework)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
@@ -12,6 +13,9 @@ RUN apt-get update && apt-get install -y \
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+# Pin NuGet global packages folder for BuildKit cache mount (NuGet.Config uses %USERPROFILE% which is Windows-only)
+ENV NUGET_PACKAGES=/root/.nuget/packages
+
 # Copy csproj files and restore as distinct layers
 COPY ["VanAn.sln", "./"]
 COPY ["1_Shared/VanAn.Shared.csproj", "1_Shared/"]
@@ -22,7 +26,8 @@ COPY ["VanAn.Accounting/VanAn.Accounting.csproj", "VanAn.Accounting/"]
 COPY ["VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj", "VanAn.Accounting/VanAn.Accounting.Analyzers/"]
 COPY ["5_WebApps/ShopERP/VanAn.ShopERP.csproj", "5_WebApps/ShopERP/"]
 COPY ["5_WebApps/KhachLink/VanAn.KhachLink.csproj", "5_WebApps/KhachLink/"]
-RUN dotnet restore "2_Gateway/VanAn.Gateway.csproj"
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet restore "2_Gateway/VanAn.Gateway.csproj"
 
 # Copy everything else and build
 COPY . .
@@ -32,10 +37,12 @@ WORKDIR "/src/2_Gateway"
 # RUN dotnet test "6_Tests/VanAn.Tests.csproj" --no-restore --logger "console;verbosity=detailed" --results-directory /test-results
 
 # Build application
-RUN dotnet build "VanAn.Gateway.csproj" -c Release -o /app/build
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet build "VanAn.Gateway.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "VanAn.Gateway.csproj" -c Release -o /app/publish
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet publish "VanAn.Gateway.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
