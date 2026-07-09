@@ -17,11 +17,11 @@ namespace VanAn.ShopERP.Controllers
     [Authorize]
     public class DashboardController(
         IDashboardService dashboardService,
-        VanAnDbContext dbContext,
+        IVanAnDbContext dbContext,
         ILogger<DashboardController> logger) : ControllerBase
     {
         private readonly IDashboardService _dashboardService = dashboardService;
-        private readonly VanAnDbContext _dbContext = dbContext;
+        private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<DashboardController> _logger = logger;
 
         [HttpGet("postgresql-metrics")]

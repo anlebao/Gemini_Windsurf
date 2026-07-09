@@ -15,9 +15,9 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ProductsController(VanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService, IShopQrCodeService qrCodeService) : ControllerBase
+    public class ProductsController(IVanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService, IShopQrCodeService qrCodeService) : ControllerBase
     {
-        private readonly VanAnDbContext _dbContext = dbContext;
+        private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<ProductsController> _logger = logger;
         private readonly CustomerRecommendationService _recommendationService = recommendationService;
         private readonly IShopQrCodeService _qrCodeService = qrCodeService;
