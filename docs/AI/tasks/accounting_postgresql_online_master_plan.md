@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — Accounting Always-Online + PostgreSQL + Test Enforcement
 
-> **Status:** PENDING — Awaiting Approval
+> **Status:** WAVE 1 COMPLETE ✅ — WAVE 2 PARTIAL 🟡 (docker-compose pending) — WAVE 3 PENDING
 > **Created:** 2026-07-09
-> **Last Updated:** 2026-07-09 (v2 — Option B split interface, template-aligned, condensed)
+> **Last Updated:** 2026-07-09 (v3 — Wave 1 complete, plan discrepancies fixed)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** JIT Planning + Pure Execution
@@ -77,37 +77,40 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 
 ---
 
-## 2. WAVE 1 — Split Interface + DbContext Updates
+## 2. WAVE 1 — Split Interface + DbContext Updates + Service Swap ✅ COMPLETE
 
 **Branch:** `feature/accounting-pg-wave1-interface-split`
-**Estimated sessions:** 1
+**Commit:** `9d589bd`
+**Completed:** 2026-07-09
 **Conflict risk:** MEDIUM (IVanAnDbContext change affects 47 files)
 **Priority:** 1
 **Task Card:** `docs/AI/tasks/accounting_pg_wave1_interface_split_task_card.md`
 
+> **NOTE:** User approved "Full Wave 1 as written" — merging Wave 2 service-swap (W2-T1 through W2-T5) into Wave 1. INVESTIGATE found ~98 compile-error sites (task card §6.5 threshold >20 met). All service/repo swaps + DI registration + appsettings config done in Wave 1.
+
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---------|------|-------|--------|
-| 1 | W1-T1 | Create `IAccountingDbContext` interface (6 accounting DbSets) | `3_CoreHub/Infrastructure/IAccountingDbContext.cs` | PENDING |
-| 2 | W1-T2 | Remove 6 accounting DbSets from `IVanAnDbContext` | `3_CoreHub/Infrastructure/IVanAnDbContext.cs` | PENDING |
-| 3 | W1-T3 | `VanAnDbContext` implement both `IVanAnDbContext` + `IAccountingDbContext` | `3_CoreHub/Infrastructure/VanAnDbContext.cs` | PENDING |
-| 4 | W1-T4 | `ShopERPDbContext` remove 6 accounting DbSet declarations | `5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs` | PENDING |
-| 5 | W1-T5 | Fix compile errors (services lost accounting DbSets via IVanAnDbContext) | Solution-wide | PENDING |
-| 6 | W1-T6 | Verify build: 0 errors | Solution-wide | PENDING |
+| 1 | W1-T1 | Create `IAccountingDbContext` interface (6 accounting DbSets) | `3_CoreHub/Infrastructure/IAccountingDbContext.cs` | ✅ DONE |
+| 2 | W1-T2 | Remove 6 accounting DbSets from `IVanAnDbContext` | `3_CoreHub/Infrastructure/IVanAnDbContext.cs` | ✅ DONE |
+| 3 | W1-T3 | `VanAnDbContext` implement both `IVanAnDbContext` + `IAccountingDbContext` | `3_CoreHub/Infrastructure/VanAnDbContext.cs` | ✅ DONE |
+| 4 | W1-T4 | `ShopERPDbContext` remove 6 accounting DbSet declarations + HKDBooks | `5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs` | ✅ DONE |
+| 5 | W1-T5 | Fix compile errors — SWAP 11 files + DUAL-INJECT 3 files | Solution-wide (14 CoreHub files + 3 test files) | ✅ DONE |
+| 6 | W1-T6 | Verify build: 0 errors | Solution-wide | ✅ DONE |
 
-### Entry criteria
-- [ ] Project builds successfully
-- [ ] Git status clean
-- [ ] `IVanAnDbContext` confirmed has 27 DbSets (line 18-66)
-- [ ] `ShopERPDbContext` confirmed implements `IVanAnDbContext`
+### Exit criteria — ALL MET
+- [x] `IAccountingDbContext` exists with 6 accounting DbSets
+- [x] `IVanAnDbContext` has 19 business DbSets (6 accounting removed) — **plan said 21, actual 19**
+- [x] `VanAnDbContext` implements both interfaces
+- [x] `ShopERPDbContext` has 19 business DbSets only (no accounting + no HKDBooks)
+- [x] Build: 0 errors
+- [x] No throw stubs (Option B — compile-time clean)
 
-### Exit criteria
-- [ ] `IAccountingDbContext` exists with 6 accounting DbSets
-- [ ] `IVanAnDbContext` has 21 business DbSets (6 accounting removed)
-- [ ] `VanAnDbContext` implements both interfaces
-- [ ] `ShopERPDbContext` has 21 business DbSets only (no accounting)
-- [ ] Build: 0 errors
-- [ ] No throw stubs (Option B — compile-time clean)
+### Plan discrepancies found during implementation
+1. **DbSet count:** `IVanAnDbContext` had **25 DbSets** (not 27): 6 accounting + **19 business** (not 21). Plan doc error.
+2. **SmartPreAggregationService:** Plan listed as "direct-inject" (W2-T2) → actually **dual-inject** (uses `_context.Tenants` line 297 + `_context.AccountingEntries` line 249).
+3. **DataProviderService:** Not in original plan list → added as SWAP (accounting-only consumer, 5 `_context.AccountingEntries` accesses).
+4. **HKDBooks DbSet:** Removed from ShopERPDbContext (abstract base, ignored in OnModelCreating — never persisted).
 
 ### Why first
 - Foundation cho Wave 2 (services cần `IAccountingDbContext` để inject)
@@ -116,37 +119,34 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 
 ---
 
-## 3. WAVE 2 — Update Services/Repos + DI + Config + Docker
+## 3. WAVE 2 — Update Services/Repos + DI + Config + Docker 🟡 PARTIAL
 
-**Branch:** `feature/accounting-pg-wave2-services-di-config`
-**Estimated sessions:** 1-2
+**Branch:** `feature/accounting-pg-wave1-interface-split` (done in Wave 1) → `feature/accounting-pg-wave2-services-di-config` (docker-compose residual)
 **Conflict risk:** MEDIUM
 **Priority:** 2
 **Task Card:** `docs/AI/tasks/accounting_pg_wave2_services_di_config_task_card.md`
 
+> **NOTE:** W2-T1 through W2-T5 + W2-T6 (appsettings) were completed in Wave 1 (user approved merge). Only docker-compose env var config (W2-T6 partial) + W2-T7 verify remain.
+
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---------|------|-------|--------|
-| 1 | W2-T1 | 3 repositories: `IVanAnDbContext` → `IAccountingDbContext` | `AccountingEntryRepository.cs`, `AuditLogRepository.cs`, `HKDBookRepository.cs` | PENDING |
-| 2 | W2-T2 | 7 direct-inject services: `IVanAnDbContext` → `IAccountingDbContext` | `PeriodClosingService`, `BalanceSheetService`, `IncomeStatementService`, `CashFlowStatementService`, `TrialBalanceService`, `AccountChartService`, `SmartPreAggregationService` | PENDING |
-| 3 | W2-T3 | 2 dual-inject services: add `IAccountingDbContext` + keep `IVanAnDbContext` | `TenantConversionService`, `HKDBookGenerationService` | PENDING |
-| 4 | W2-T4 | `AccountChartSeeder`: change param `IVanAnDbContext` → `IAccountingDbContext` + update all callers | `AccountChartSeeder.cs` + callers | PENDING |
-| 5 | W2-T5 | ShopERP `Program.cs`: register `VanAnDbContext` with `UseNpgsql` + `IAccountingDbContext` DI | `5_WebApps/ShopERP/Program.cs` | PENDING |
-| 6 | W2-T6 | Add `AccountingConnection` to appsettings + docker-compose | `appsettings.json`, `appsettings.Development.json`, `docker-compose.yml`, `docker-compose.prod.yml` | PENDING |
-| 7 | W2-T7 | Verify build: 0 errors | Solution-wide | PENDING |
+| 1 | W2-T1 | 3 repositories: `IVanAnDbContext` → `IAccountingDbContext` | `AccountingEntryRepository.cs`, `AuditLogRepository.cs`, `HKDBookRepository.cs` | ✅ DONE (Wave 1) |
+| 2 | W2-T2 | 7 direct-inject services: `IVanAnDbContext` → `IAccountingDbContext` | `PeriodClosingService`, `BalanceSheetService`, `IncomeStatementService`, `CashFlowStatementService`, `TrialBalanceService`, `AccountChartService`, `DataProviderService` | ✅ DONE (Wave 1) |
+| 3 | W2-T3 | 2 dual-inject services: add `IAccountingDbContext` + keep `IVanAnDbContext` | `TenantConversionService`, `HKDBookGenerationService` | ✅ DONE (Wave 1) |
+| 4 | W2-T4 | `AccountChartSeeder`: change param `IVanAnDbContext` → `IAccountingDbContext` + update all callers | `AccountChartSeeder.cs` + callers | ✅ DONE (Wave 1) |
+| 5 | W2-T5 | ShopERP `Program.cs`: register `VanAnDbContext` with `UseNpgsql` + `IAccountingDbContext` DI | `5_WebApps/ShopERP/Program.cs` | ✅ DONE (Wave 1) |
+| 6 | W2-T6 | Add `AccountingConnection` to appsettings + docker-compose | `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json`, `docker-compose.yml`, `docker-compose.prod.yml` | 🟡 PARTIAL (appsettings ✅, docker-compose ❌) |
+| 7 | W2-T7 | Verify build: 0 errors | Solution-wide | ✅ DONE (Wave 1 build) |
 
-### Entry criteria
-- [ ] Wave 1 merged
-- [ ] `IAccountingDbContext` exists
-- [ ] `ShopERPDbContext` has no accounting DbSets
-
-### Exit criteria
-- [ ] 3 repos + 7 services inject `IAccountingDbContext`
-- [ ] 2 dual-inject services have both `IAccountingDbContext` + `IVanAnDbContext`
-- [ ] `VasFeatureFlagService` giữ `IVanAnDbContext` (chỉ cần Tenants — business)
-- [ ] ShopERP `Program.cs` registers `VanAnDbContext` with `UseNpgsql`
-- [ ] `AccountingConnection` in appsettings + docker-compose
-- [ ] Build: 0 errors
+### Exit criteria — PARTIAL
+- [x] 3 repos + 7 services inject `IAccountingDbContext` (11 SWAP files total — DataProviderService added)
+- [x] 3 dual-inject services have both `IAccountingDbContext` + `IVanAnDbContext` (SmartPreAggregationService recategorized)
+- [x] `VasFeatureFlagService` giữ `IVanAnDbContext` (chỉ cần Tenants — business)
+- [x] ShopERP `Program.cs` registers `VanAnDbContext` with `UseNpgsql`
+- [x] `AccountingConnection` in appsettings (base/dev/prod)
+- [ ] `AccountingConnection` in docker-compose.yml + docker-compose.prod.yml
+- [x] Build: 0 errors
 
 ### Why second
 - Cần `IAccountingDbContext` từ Wave 1
@@ -198,11 +198,11 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 - `AccountingEntry` immutable trong tất cả modes
 - Multi-tenancy TenantId filter vẫn enforce qua cả 2 contexts
 
-### Interface Split (Option B)
-- `IVanAnDbContext` → 21 business DbSets (giữ tên, giảm churn cho business services)
-- `IAccountingDbContext` → 6 accounting DbSets (NEW)
-- `VanAnDbContext` implements cả 2 (PostgreSQL — có đầy đủ 27 DbSets)
-- `ShopERPDbContext` implements `IVanAnDbContext` only (SQLite — 21 business DbSets)
+### Interface Split (Option B) — IMPLEMENTED
+- `IVanAnDbContext` → 19 business DbSets (giữ tên, giảm churn cho business services)
+- `IAccountingDbContext` → 6 accounting DbSets (NEW — created Wave 1)
+- `VanAnDbContext` implements cả 2 (PostgreSQL — có đầy đủ 25+ DbSets)
+- `ShopERPDbContext` implements `IVanAnDbContext` only (SQLite — 19 business DbSets, no accounting + no HKDBooks)
 - **Compile-time safety:** Nếu ai query accounting qua `IVanAnDbContext` → compile error (không có DbSet)
 - **No throw stubs:** Clean interface segregation, no ISP violation
 
@@ -211,36 +211,37 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 - `TenantOnboardingService` + 8 `IIndustrySeedStrategy` — giữ `IVanAnDbContext` (seed business data)
 - Business services (OrderService, ShopService, InventoryService, etc.) — không đổi
 
-### Dual Injection
-- `TenantConversionService`: `IAccountingDbContext` (AccountingEntries) + `IVanAnDbContext` (Tenants)
-- `HKDBookGenerationService`: `IAccountingDbContext` (JournalEntries) + `IVanAnDbContext` (Tenants)
+### Dual Injection — 3 services (recategorized during Wave 1)
+- `TenantConversionService`: `IVanAnDbContext` (Tenants) + `IAccountingDbContext` (AccountingEntries)
+- `SmartPreAggregationService`: `IVanAnDbContext` (Tenants) + `IAccountingDbContext` (AccountingEntries) — **plan originally listed as direct-inject, recategorized to dual-inject**
+- `HKDBookGenerationService`: `IVanAnDbContext` (Tenants) + `IAccountingDbContext` (JournalEntries)
 
 ### Data Migration
 - **Out of scope:** Dev data, re-seed được. Production migration = task riêng nếu có data thật
 
 ---
 
-## 6. APPROVAL CHECKLIST
+## 6. APPROVAL CHECKLIST — ALL APPROVED + EXECUTED
 
-- [ ] Master plan reviewed (v2 — Option B, 3 waves, template-aligned)
-- [ ] 3 task cards reviewed (Wave 1-3)
-- [ ] Option B confirmed (split interface, compile-time safety)
-- [ ] `IVanAnDbContext` 27 DbSets confirmed (6 accounting + 21 business)
-- [ ] 10 services + 3 repos identified for interface swap
-- [ ] 2 dual-inject services identified (TenantConversion + HKDBookGeneration)
-- [ ] `VasFeatureFlagService` confirmed business-only (giữ IVanAnDbContext)
-- [ ] AccountChartSeeder callers cần update (signature change)
-- [ ] Sẵn sàng implement Wave 1
+- [x] Master plan reviewed (v2 — Option B, 3 waves, template-aligned)
+- [x] 3 task cards reviewed (Wave 1-3)
+- [x] Option B confirmed (split interface, compile-time safety)
+- [x] `IVanAnDbContext` 25 DbSets confirmed (6 accounting + 19 business — plan said 27/21, actual 25/19)
+- [x] 10 services + 3 repos identified for interface swap — **actual: 11 SWAP + 3 DUAL-INJECT** (DataProviderService added, SmartPreAggregationService recategorized)
+- [x] 3 dual-inject services identified (TenantConversion + SmartPreAggregation + HKDBookGeneration)
+- [x] `VasFeatureFlagService` confirmed business-only (giữ IVanAnDbContext)
+- [x] AccountChartSeeder callers updated (signature change)
+- [x] Wave 1 implemented + committed (`9d589bd`)
 
 ---
 
 ## 7. EFFORT SUMMARY
 
-| Wave | Description | Sessions | Bottleneck |
-|---|---|---|---|
-| Wave 1 | Split interface + DbContext updates | 1 | None (build catches all misses) |
-| Wave 2 | Services/repos + DI + config + docker | 1-2 | None |
-| Wave 3 | Architecture tests + existing tests + verify | 1-2 | Test mock update count |
-| **Total** | | **3-5 sessions** | |
+| Wave | Description | Sessions | Status | Bottleneck |
+|---|---|---|---|---|
+| Wave 1 | Split interface + DbContext updates + service swap | 1 | ✅ COMPLETE (`9d589bd`) | None (build catches all misses) |
+| Wave 2 | Services/repos + DI + config + docker | 1-2 | 🟡 PARTIAL (docker-compose pending) | Docker-compose env var |
+| Wave 3 | Architecture tests + existing tests + verify | 1-2 | ⏳ PENDING | Test mock update count |
+| **Total** | | **3-5 sessions** | **Wave 1 done in 1 session** | |
 
-**Critical path:** Wave 1 → Wave 2 → Wave 3
+**Critical path:** Wave 1 ✅ → Wave 2 (docker-compose) → Wave 3
