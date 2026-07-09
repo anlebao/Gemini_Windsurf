@@ -40,7 +40,7 @@ public class PeriodClosingPersistenceTests : IClassFixture<TestDatabaseFixture>
     /// The mock repository returns a single revenue entry with non-zero amount (passes validation).
     /// </summary>
     private static PeriodClosingService CreateService(
-        IVanAnDbContext dbContext,
+        IAccountingDbContext dbContext,
         TenantId tenantId,
         AccountingPeriod period,
         List<CoreAccountingEntry>? entries = null)

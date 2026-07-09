@@ -19,10 +19,10 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public class AccountChartService : IAccountChartService
 {
-    private readonly IVanAnDbContext _dbContext;
+    private readonly IAccountingDbContext _dbContext;
     private readonly ILogger<AccountChartService> _logger;
 
-    public AccountChartService(IVanAnDbContext dbContext, ILogger<AccountChartService> logger)
+    public AccountChartService(IAccountingDbContext dbContext, ILogger<AccountChartService> logger)
     {
         _dbContext = dbContext;
         _logger = logger;

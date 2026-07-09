@@ -25,7 +25,7 @@ public static class AccountChartSeeder
     /// Seeds all supported standards. Idempotent — skips accounts that already exist (by Standard + AccountCode).
     /// For startup usage, prefer <see cref="CleanupAsync"/> + <see cref="SeedAsync"/> to ensure chart matches code.
     /// </summary>
-    public static async Task<int> SeedAsync(IVanAnDbContext dbContext, ILogger? logger = null, CancellationToken ct = default)
+    public static async Task<int> SeedAsync(IAccountingDbContext dbContext, ILogger? logger = null, CancellationToken ct = default)
     {
         int totalAdded = 0;
 
@@ -41,7 +41,7 @@ public static class AccountChartSeeder
     /// chart matches code (label corrections, account additions/removals propagate on every restart).
     /// Safe because AccountCharts is reference data with no FK dependencies and no user edits.
     /// </summary>
-    public static async Task CleanupAsync(IVanAnDbContext db, CancellationToken ct = default)
+    public static async Task CleanupAsync(IAccountingDbContext db, CancellationToken ct = default)
     {
         var all = await db.AccountCharts.ToListAsync(ct).ConfigureAwait(false);
         db.AccountCharts.RemoveRange(all);
@@ -50,7 +50,7 @@ public static class AccountChartSeeder
 
     /// <summary>Seed a single standard. Idempotent per (Standard, AccountCode).</summary>
     private static async Task<int> SeedStandardAsync(
-        IVanAnDbContext dbContext,
+        IAccountingDbContext dbContext,
         AccountingStandard standard,
         IEnumerable<(string Code, string Name, AccountType Type, bool IsNormalCredit)> accounts,
         ILogger? logger,

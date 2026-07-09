@@ -56,6 +56,7 @@ namespace VanAn.Core.Tests.Services
 
             return new SmartPreAggregationService(
                 _context,
+                _context,
                 new Lazy<IFormulaEngine>(() => new ProductionFormulaEngine(mockDataProvider.Object, new NullLogger<ProductionFormulaEngine>())),
                 new NullLogger<SmartPreAggregationService>());
         }

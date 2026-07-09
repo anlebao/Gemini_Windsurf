@@ -9,9 +9,9 @@ namespace VanAn.CoreHub.Repositories
     /// Repository implementation for HKD Book management (7 HKD books - Thông tư 152/2025/TT-BTC)
     /// Implements 5-layer protection: Domain, EF Core, Repository, Service, API
     /// </summary>
-    public class HKDBookRepository(IVanAnDbContext context, ILogger<HKDBookRepository> logger) : IHKDBookRepository
+    public class HKDBookRepository(IAccountingDbContext context, ILogger<HKDBookRepository> logger) : IHKDBookRepository
     {
-        private readonly IVanAnDbContext _context = context;
+        private readonly IAccountingDbContext _context = context;
         private readonly ILogger<HKDBookRepository> _logger = logger;
 
         public async Task<IEnumerable<JournalEntry>> GetByBookTypeAsync(

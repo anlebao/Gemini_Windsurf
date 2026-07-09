@@ -30,7 +30,7 @@ public class VasFeatureFlagTests
         return (
             db,
             new VasFeatureFlagService(db, NullLogger<VasFeatureFlagService>.Instance),
-            new TenantConversionService(db, mapper, NullLogger<TenantConversionService>.Instance)
+            new TenantConversionService(db, db, mapper, NullLogger<TenantConversionService>.Instance)
         );
     }
 
@@ -51,7 +51,7 @@ public class VasFeatureFlagTests
         return (
             db,
             new VasFeatureFlagService(db, NullLogger<VasFeatureFlagService>.Instance),
-            new TenantConversionService(db, mapper, NullLogger<TenantConversionService>.Instance),
+            new TenantConversionService(db, db, mapper, NullLogger<TenantConversionService>.Instance),
             hkdId
         );
     }

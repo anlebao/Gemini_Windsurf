@@ -14,10 +14,10 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
     /// </summary>
     public class AuditLogRepository : IAuditLogRepository
     {
-        private readonly IVanAnDbContext _context;
+        private readonly IAccountingDbContext _context;
         private readonly Guid _currentTenantId;
 
-        public AuditLogRepository(IVanAnDbContext context)
+        public AuditLogRepository(IAccountingDbContext context)
         {
             _context = context;
             _currentTenantId = context is VanAnDbContext vanAnContext 

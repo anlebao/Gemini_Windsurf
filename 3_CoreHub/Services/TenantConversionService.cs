@@ -14,10 +14,12 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public class TenantConversionService(
     IVanAnDbContext dbContext,
+    IAccountingDbContext accountingContext,
     IHkdToEnterpriseAccountMapper accountMapper,
     ILogger<TenantConversionService> logger) : ITenantConversionService
 {
     private readonly IVanAnDbContext _dbContext = dbContext;
+    private readonly IAccountingDbContext _accountingContext = accountingContext;
     private readonly IHkdToEnterpriseAccountMapper _accountMapper = accountMapper;
     private readonly ILogger<TenantConversionService> _logger = logger;
 
@@ -141,7 +143,7 @@ public class TenantConversionService(
         var hkdId = new TenantId(hkdTenantId);
 
         // Query all HKD accounting entries (closing balance = cumulative, cross-tenant)
-        List<AccountingEntry> hkdEntries = await _dbContext.AccountingEntries
+        List<AccountingEntry> hkdEntries = await _accountingContext.AccountingEntries
             .AsNoTracking()
             .IgnoreQueryFilters()
             .Where(e => e.TenantId == hkdId)

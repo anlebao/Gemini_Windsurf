@@ -13,11 +13,11 @@ namespace VanAn.CoreHub.Services;
 /// </summary>
 public class BalanceSheetService : IBalanceSheetService
 {
-    private readonly IVanAnDbContext _dbContext;
+    private readonly IAccountingDbContext _dbContext;
     private readonly IAccountChartService _accountChart;
     private readonly ILogger<BalanceSheetService> _logger;
 
-    public BalanceSheetService(IVanAnDbContext dbContext, IAccountChartService accountChart, ILogger<BalanceSheetService> logger)
+    public BalanceSheetService(IAccountingDbContext dbContext, IAccountChartService accountChart, ILogger<BalanceSheetService> logger)
     {
         _dbContext = dbContext;
         _accountChart = accountChart;
