@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — Accounting Always-Online + PostgreSQL + Test Enforcement
 
-> **Status:** WAVE 1 COMPLETE ✅ — WAVE 2 PARTIAL 🟡 (docker-compose pending) — WAVE 3 PENDING
+> **Status:** WAVE 1 COMPLETE ✅ — WAVE 2 COMPLETE ✅ — WAVE 3 PENDING
 > **Created:** 2026-07-09
-> **Last Updated:** 2026-07-09 (v3 — Wave 1 complete, plan discrepancies fixed)
+> **Last Updated:** 2026-07-10 (v4 — Wave 2 complete, docker-compose config done)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** JIT Planning + Pure Execution
@@ -119,14 +119,14 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 
 ---
 
-## 3. WAVE 2 — Update Services/Repos + DI + Config + Docker 🟡 PARTIAL
+## 3. WAVE 2 — Update Services/Repos + DI + Config + Docker ✅ COMPLETE
 
-**Branch:** `feature/accounting-pg-wave1-interface-split` (done in Wave 1) → `feature/accounting-pg-wave2-services-di-config` (docker-compose residual)
+**Branch:** `feature/accounting-pg-wave1-interface-split` (done in Wave 1 + Wave 2 residual)
 **Conflict risk:** MEDIUM
 **Priority:** 2
 **Task Card:** `docs/AI/tasks/accounting_pg_wave2_services_di_config_task_card.md`
 
-> **NOTE:** W2-T1 through W2-T5 + W2-T6 (appsettings) were completed in Wave 1 (user approved merge). Only docker-compose env var config (W2-T6 partial) + W2-T7 verify remain.
+> **NOTE:** W2-T1 through W2-T5 + W2-T6 (appsettings) completed in Wave 1. W2-T6 (docker-compose) + W2-T7 (verify) completed in Wave 2 residual session (2026-07-10).
 
 ### Tasks
 | # | Task ID | Task | Files | Status |
@@ -136,16 +136,16 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 | 3 | W2-T3 | 2 dual-inject services: add `IAccountingDbContext` + keep `IVanAnDbContext` | `TenantConversionService`, `HKDBookGenerationService` | ✅ DONE (Wave 1) |
 | 4 | W2-T4 | `AccountChartSeeder`: change param `IVanAnDbContext` → `IAccountingDbContext` + update all callers | `AccountChartSeeder.cs` + callers | ✅ DONE (Wave 1) |
 | 5 | W2-T5 | ShopERP `Program.cs`: register `VanAnDbContext` with `UseNpgsql` + `IAccountingDbContext` DI | `5_WebApps/ShopERP/Program.cs` | ✅ DONE (Wave 1) |
-| 6 | W2-T6 | Add `AccountingConnection` to appsettings + docker-compose | `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json`, `docker-compose.yml`, `docker-compose.prod.yml` | 🟡 PARTIAL (appsettings ✅, docker-compose ❌) |
+| 6 | W2-T6 | Add `AccountingConnection` to appsettings + docker-compose | `appsettings.json`, `appsettings.Development.json`, `appsettings.Production.json`, `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.edge.yml`, `.env.example` | ✅ DONE |
 | 7 | W2-T7 | Verify build: 0 errors | Solution-wide | ✅ DONE (Wave 1 build) |
 
-### Exit criteria — PARTIAL
+### Exit criteria — ALL MET
 - [x] 3 repos + 7 services inject `IAccountingDbContext` (11 SWAP files total — DataProviderService added)
 - [x] 3 dual-inject services have both `IAccountingDbContext` + `IVanAnDbContext` (SmartPreAggregationService recategorized)
 - [x] `VasFeatureFlagService` giữ `IVanAnDbContext` (chỉ cần Tenants — business)
 - [x] ShopERP `Program.cs` registers `VanAnDbContext` with `UseNpgsql`
 - [x] `AccountingConnection` in appsettings (base/dev/prod)
-- [ ] `AccountingConnection` in docker-compose.yml + docker-compose.prod.yml
+- [x] `AccountingConnection` in docker-compose.yml + docker-compose.prod.yml + docker-compose.edge.yml
 - [x] Build: 0 errors
 
 ### Why second
@@ -240,8 +240,8 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 | Wave | Description | Sessions | Status | Bottleneck |
 |---|---|---|---|---|
 | Wave 1 | Split interface + DbContext updates + service swap | 1 | ✅ COMPLETE (`9d589bd`) | None (build catches all misses) |
-| Wave 2 | Services/repos + DI + config + docker | 1-2 | 🟡 PARTIAL (docker-compose pending) | Docker-compose env var |
+| Wave 2 | Services/repos + DI + config + docker | 1-2 | ✅ COMPLETE (Wave 1 + residual 2026-07-10) | None |
 | Wave 3 | Architecture tests + existing tests + verify | 1-2 | ⏳ PENDING | Test mock update count |
 | **Total** | | **3-5 sessions** | **Wave 1 done in 1 session** | |
 
-**Critical path:** Wave 1 ✅ → Wave 2 (docker-compose) → Wave 3
+**Critical path:** Wave 1 ✅ → Wave 2 ✅ → Wave 3

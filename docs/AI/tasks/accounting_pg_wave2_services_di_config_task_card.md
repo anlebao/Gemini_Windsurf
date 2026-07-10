@@ -3,9 +3,9 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Swap 13 services/repos sang `IAccountingDbContext`, register PostgreSQL DI trong ShopERP, thêm `AccountingConnection` config
 - **Nghiệp vụ áp dụng:** ADR-001 compliance — accounting always online trên PostgreSQL
-- **Status:** 🟡 PARTIAL — W2-T1 through W2-T5 + W2-T6 (appsettings) done in Wave 1; W2-T6 (docker-compose) + W2-T7 pending
+- **Status:** ✅ COMPLETE — W2-T1 through W2-T5 done in Wave 1; W2-T6 (appsettings + docker-compose) + W2-T7 done in Wave 2 residual session (2026-07-10)
 - **Branch:** `feature/accounting-pg-wave1-interface-split` (W2-T1..T5 done here) → `feature/accounting-pg-wave2-services-di-config` (docker-compose residual)
-- **Completed:** 2026-07-09 (W2-T1..T6 appsettings in Wave 1 session)
+- **Completed:** 2026-07-09 (W2-T1..T6 appsettings in Wave 1 session) + 2026-07-10 (W2-T6 docker-compose + W2-T7 verify in Wave 2 residual session)
 
 ---
 
@@ -69,7 +69,7 @@
 - [x] **SC5:** `AccountChartSeeder` signature đổi sang `IAccountingDbContext` + tất cả callers updated
 - [x] **SC6:** ShopERP `Program.cs` registers `VanAnDbContext` with `UseNpgsql` + `IAccountingDbContext` DI
 - [x] **SC7a:** `AccountingConnection` trong appsettings (base/dev/prod) ✅
-- [ ] **SC7b:** `AccountingConnection` trong docker-compose.yml + docker-compose.prod.yml ❌
+- [x] **SC7b:** `AccountingConnection` trong docker-compose.yml + docker-compose.prod.yml + docker-compose.edge.yml ✅
 - [x] **SC8:** Build: 0 errors
 
 ---
@@ -215,7 +215,7 @@ int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.See
 
 **Also added:** `Npgsql.EntityFrameworkCore.PostgreSQL` package to `5_WebApps/ShopERP/VanAn.ShopERP.csproj` (was missing — transitive from CoreHub not sufficient for `UseNpgsql` extension method).
 
-### 6.6. Config + Docker (W2-T6) 🟡 PARTIAL (appsettings ✅, docker-compose ❌)
+### 6.6. Config + Docker (W2-T6) ✅ DONE (appsettings Wave 1, docker-compose Wave 2 residual 2026-07-10)
 
 **`5_WebApps/ShopERP/appsettings.json` ✅ DONE:**
 ```json
@@ -242,16 +242,18 @@ int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.See
 ```
 > **NOTE:** Production dùng env var `${ACCOUNTING_CONNECTION_STRING}` thay vì hardcoded (security).
 
-**`docker-compose.yml` — shoperp service environment ❌ PENDING:**
+**`docker-compose.yml` — shoperp service environment ✅ DONE (2026-07-10):**
 ```yaml
 environment:
-  - ConnectionStrings__DefaultConnection=Data Source=/data/shoperp.db
-  - ConnectionStrings__AccountingConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-vanan_accounting};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
+  - ConnectionStrings__AccountingConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
 ```
+> **NOTE:** Uses `${POSTGRES_DB:-VanAnCoreHub}` (not `vanan_accounting`) to match postgres service default + Gateway connection. Accounting data lives in same DB as CoreHub/Gateway. Task card original suggestion `vanan_accounting` had a default mismatch bug — corrected during implementation.
 
-**`docker-compose.prod.yml` — shoperp service environment ❌ PENDING:** Same pattern.
+**`docker-compose.prod.yml` — shoperp service environment ✅ DONE (2026-07-10):** Same pattern.
 
-**`docker-compose.edge.yml`** — cần review: Edge mode ShopERP chạy độc lập (không cần PostgreSQL). Có thể cần conditional config hoặc skip `AccountingConnection` cho edge mode.
+**`docker-compose.edge.yml` — shoperp service environment ✅ DONE (2026-07-10):** Same pattern. Edge compose has postgres on same network — direct connection works. True 2-server edge (ShopERP without postgres) = Tier 5 tech debt (HTTP via Gateway).
+
+**`.env.example` ✅ DONE (2026-07-10):** Added `ACCOUNTING_CONNECTION_STRING` optional override documentation.
 
 ---
 
@@ -268,10 +270,9 @@ environment:
   - Fact 6: VasFeatureFlagService giữ `IVanAnDbContext` (chỉ cần Tenants — business) ✅
   - Fact 7: AccountChartSeeder signature đổi sang `IAccountingDbContext` + all callers updated (ShopERP Program.cs) ✅
   - Fact 8: ShopERP Program.cs registers VanAnDbContext with UseNpgsql + IAccountingDbContext DI ✅
-  - Fact 9: AccountingConnection in appsettings (base/dev/prod) ✅; docker-compose ❌ pending
-- **Assumptions:** None remaining — all verified during Wave 1 implementation
-- **Open Questions:**
-  - Q1: docker-compose.edge.yml — Edge mode ShopERP chạy độc lập (không cần PostgreSQL). Có cần conditional config hoặc skip AccountingConnection cho edge mode? (Cần review trong Wave 2 residual)
+  - Fact 9: AccountingConnection in appsettings (base/dev/prod) ✅ + docker-compose (yml/prod/edge) ✅
+- **Assumptions:** None remaining — all verified during Wave 1 + Wave 2 residual implementation
+- **Open Questions:** None remaining — Q1 resolved (edge compose has postgres on same network, direct connection works; true 2-server edge = Tier 5 tech debt)
 
 ---
 
@@ -284,7 +285,7 @@ environment:
 | AccountChartSeeder | All callers break (signature change) | W2-T4 updates all callers | ✅ Done (ShopERP Program.cs + tests pass VanAnDbContext which implements both) |
 | ShopERP Program.cs | Startup behavior change | Build verified 0 errors | ✅ Done |
 | appsettings | Config change — không break code | Verify config valid | ✅ Done |
-| docker-compose | Config change — không break code | Verify config valid | ❌ Pending |
+| docker-compose | Config change — không break code | Verify config valid | ✅ Done |
 | Test files (3) | Constructor signature change | Pass db as both interfaces | ✅ Done |
 
 ---
