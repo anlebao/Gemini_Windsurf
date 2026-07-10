@@ -184,6 +184,48 @@
 
 ---
 
+## Tier 5: True Offline Edge — Accounting via HTTP (2026-07-09)
+
+**Location:** `5_WebApps/ShopERP/Program.cs` (conditional DI), `3_CoreHub/Services/Http/` (new), `2_Gateway/Controllers/` (new)
+**Severity:** Low — hiện tại cả 3 compose files đều chạy PostgreSQL trên cùng máy, debt chưa trigger
+**Task Card:** `docs/AI/tasks/true_offline_edge_accounting_http_task_card.md`
+
+### Vấn đề
+
+Wave 1 (commit `9d589bd`) split `IVanAnDbContext` → `IAccountingDbContext` để enforce ADR-001. ShopERP `Program.cs` luôn đăng ký `VanAnDbContext` với `UseNpgsql` — không có conditional logic.
+
+Khi triển khai **true 2-server Edge mode** (ShopERP trên Server A không có PostgreSQL, Gateway + PostgreSQL trên Server B), `IAccountingDbContext` (UseNpgsql) sẽ throw khi resolve vì không kết nối được PostgreSQL.
+
+### Giải pháp (Option C — Gateway HTTP API)
+
+1. Tạo `AccountingHttpService : IAccountingDbContext` — gọi Gateway HTTP API thay vì direct DbContext
+2. Conditional DI: `EdgeMode:TrueOffline` flag → register `AccountingHttpService`, else register `VanAnDbContext` (UseNpgsql)
+3. Gateway expose accounting query HTTP endpoints (JournalEntries, AccountingEntries, etc.)
+4. Disable accounting UI khi offline (KHÔNG trả empty data — vi phạm TT 152)
+
+### 14 services/repos KHÔNG cần đổi
+
+11 SWAP + 3 DUAL-INJECT files đã inject `IAccountingDbContext` (interface) — không quan tâm implementation là `VanAnDbContext` (direct) hay `AccountingHttpService` (HTTP). Đây là giá trị của interface segregation (Option B).
+
+### Anti-patterns đã bác bỏ
+
+| # | Anti-pattern | Lý do bác |
+|---|-------------|-----------|
+| 1 | Throw stub `IAccountingDbContext` | Option A rejected — crash runtime |
+| 2 | Service Locator (`IServiceProvider`) | Ẩn dependencies, phá testability |
+| 3 | Graceful degradation (return empty) | Vi phạm TT 152 — báo cáo sai |
+| 4 | Null check boilerplate × 55 methods | Over-engineering cho kịch bản không tồn tại |
+
+### Trigger
+
+Khi có khách hàng cần edge node không có PostgreSQL (true offline). Hiện tại `docker-compose.edge.yml` chạy PostgreSQL trên cùng máy (`shoperp.depends_on: postgres: condition: service_healthy`).
+
+### Estimated effort
+
+5-8 sessions (4 phases: Gateway HTTP endpoints → AccountingHttpService + conditional DI → UI feature flag → tests)
+
+---
+
 ## Chú thích
 
 - **Fix (triệt để):** Đã sửa đúng root cause, không cần refactor sau
