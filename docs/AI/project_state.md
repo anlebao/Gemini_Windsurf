@@ -54,10 +54,11 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 ## 3. Current Status
 
 - **Branch:** `feature/accounting-pg-wave1-interface-split`
-- **Last commit:** `9d589bd` [WAVE 1] Accounting PostgreSQL Online — Split IVanAnDbContext + IAccountingDbContext
+- **Last commit:** `ebda286` [DEBT] Record Tier 5: True Offline Edge — Accounting via Gateway HTTP API
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres`)
 - **Tests (Debug):** Build 0 errors verified post-Wave 1 (2026-07-09). Test run pending Wave 3.
+- **Tech debt:** Tier 5 recorded — True Offline Edge (Accounting via HTTP), task card `true_offline_edge_accounting_http_task_card.md`. Trigger: true 2-server Edge deployment. Severity: Low (not triggered — all compose files have PostgreSQL on same machine).
 - **Completed streams (all merged to main):**
   - Platform SystemAdmin ✅ (commit `dde219e`) — F1-F5 fix + docs pending commit
   - Stream G: SaaS Production Hardening W0-W7 ✅ (W8 pending — final regression + tag)
@@ -194,6 +195,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-09 — DOCS SYNC + TIER 5 DEBT RECORDED.** Synced all docs with Wave 1 source code: project_state.md (§2/3/4/5/6/9), master_plan.md (Wave 1 ✅, Wave 2 🟡, Cross-Wave discrepancies fixed), 3 task cards (Wave 1 ✅, Wave 2 🟡, Wave 3 ⏳). Commit `2fc2ce6`. Then: user reviewed proposed "Option C with graceful degradation" for Edge mode — rejected (7 points: throw stub = Option A rejected, Service Locator anti-pattern, ADR-001 violation via empty data, problem doesn't exist yet, breaks 17 files, pattern churn, false "production-ready" claim). User approved simpler approach: add env var to 3 compose files, no code changes. Recorded Tier 5 debt: true offline Edge (2-server) accounting via Gateway HTTP API. Task card `true_offline_edge_accounting_http_task_card.md` (158 dòng, 7 sections, impact analysis reserve). Debt ledger Tier 5 added. Commit `ebda286`. Updated Section 3 (last commit, tech debt note), 9 (maintenance log). **Branch:** `feature/accounting-pg-wave1-interface-split`.
 
 * **2026-07-09 — WAVE 1 COMPLETE.** User approved "Full Wave 1 as written" (merge Wave 2 service-swap). INVESTIGATE: ~98 compile-error sites (task card §6.5 threshold >20 met). Implementation: IAccountingDbContext created (6 DbSets), 6 removed from IVanAnDbContext (19 business-only), VanAnDbContext implements both, ShopERPDbContext business-only. 11 SWAP + 3 DUAL-INJECT files. DI: VanAnDbContext UseNpgsql + IAccountingDbContext registered in ShopERP Program.cs. AccountingConnection in appsettings. 3 test files fixed. Plan discrepancies: 25 DbSets not 27 (19 business not 21), SmartPreAggregationService dual-inject not direct-inject, DataProviderService added. Build 0 errors. Guard-check PASS. Commit `9d589bd`. Updated Section 2 (objective — Wave 1 ✅, Wave 2 partial 🟡), 3 (status — branch, commit, DB), 4 (next actions — docker-compose + Wave 3 + merge), 5 (decisions — ADR-001 Wave 1 complete), 6 (history), 9 (maintenance log). **Branch:** `feature/accounting-pg-wave1-interface-split`.
 
