@@ -55,7 +55,7 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 ## 3. Current Status
 
 - **Branch:** `feature/accounting-pg-wave1-interface-split`
-- **Last commit:** pending — Wave 3 (Architecture Tests + test fixes)
+- **Last commit:** `31ebb5b` [WAVE 3] Architecture Tests Rule J/K/L/M + test fixes — ALL 3 WAVES COMPLETE
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres`)
 - **Tests (Release):** 1223/1223 PASS — 38 Architecture + 984 Core + 201 Integration (verified 2026-07-10). Guard-check ALL PASSED.
