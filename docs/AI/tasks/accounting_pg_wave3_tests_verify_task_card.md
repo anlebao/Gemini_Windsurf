@@ -3,7 +3,7 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Add 4 Architecture Tests (Rule J/K/L/M) để enforce accounting-online, fix existing test mocks, full verification
 - **Nghiệp vụ áp dụng:** ADR-001 compliance enforcement — đảm bảo vi phạm không tái diễn
-- **Status:** ⏳ PENDING — Wave 1 ✅ complete, Wave 2 🟡 partial (docker-compose pending), Wave 3 awaiting Wave 2 completion
+- **Status:** ✅ COMPLETE — All 4 Architecture Tests (Rule J/K/L/M) added + passing. Rule C fixed (ShopERP exempt — legitimately uses Npgsql). W5-ARCH-003 fixed (MetadataReader instead of Assembly.LoadFrom). 6 integration test factories fixed (IAccountingDbContext registration). Full verification: 38 arch + 984 core + 201 integration = 1223/1223 PASS. Guard-check ALL PASSED.
 - **Branch:** `feature/accounting-pg-wave3-tests-verify`
 - **Estimated Sessions:** 1-2
 

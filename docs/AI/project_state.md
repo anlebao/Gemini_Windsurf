@@ -30,14 +30,14 @@
 
 ## 2. Current Objective
 
-**[ACCOUNTING POSTGRESQL ONLINE — WAVE 1 COMPLETE ✅, WAVE 2 COMPLETE ✅, WAVE 3 PENDING]**
+**[ACCOUNTING POSTGRESQL ONLINE — ALL 3 WAVES COMPLETE ✅, READY FOR MERGE]**
 
 Điều tra phát hiện vi phạm ADR-001 từ 2026-06-03: Accounting module chạy trên SQLite thay vì PostgreSQL (commit `957ac95` gốc rễ, `cf05eb1` cemented). 10 services + 3 repositories inject `IVanAnDbContext` → resolve `ShopERPDbContext` (SQLite). Vi phạm ADR-001 "accounting always online" + ADR-003 Thông tư 200/152 compliance.
 
 Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_master_plan.md` — 3 waves:
 - **Wave 1 ✅ COMPLETE (commit `9d589bd`, branch `feature/accounting-pg-wave1-interface-split`):** Split `IVanAnDbContext` → 19 business DbSets + tạo `IAccountingDbContext` (6 accounting DbSets). `VanAnDbContext` implement cả 2, `ShopERPDbContext` implement chỉ business. Compile-time safety, no throw stubs. **User approved merging Wave 2 service-swap into Wave 1** — 11 SWAP files + 3 DUAL-INJECT files + DI registration + appsettings config done in Wave 1.
 - **Wave 2 ✅ COMPLETE (2026-07-10):** W2-T1..T5 + W2-T6 appsettings done in Wave 1. W2-T6 docker-compose + W2-T7 verify done in Wave 2 residual session. `AccountingConnection` env var added to `docker-compose.yml` + `docker-compose.prod.yml` + `docker-compose.edge.yml` + `.env.example`. Uses `${POSTGRES_DB:-VanAnCoreHub}` (matches postgres service default + Gateway — corrected task card's `vanan_accounting` default mismatch bug). Build: 0 errors. Architecture test "Rule C: Edge Nodes Must Not Reference Npgsql" fails (pre-existing from Wave 1 Npgsql package add — fix in Wave 3 W3-T5).
-- **Wave 3:** 4 Architecture Tests (Rule J/K/L/M) enforce accounting-online, fix existing test mocks (incl. Rule C Npgsql), full verification.
+- **Wave 3 ✅ COMPLETE (2026-07-10):** 4 Architecture Tests (Rule J/K/L/M) added + passing. Rule C fixed (ShopERP exempt — legitimately uses Npgsql for accounting). W5-ARCH-003 fixed (MetadataReader instead of Assembly.LoadFrom to avoid ReflectionTypeLoadException). 6 integration test factories fixed (IAccountingDbContext DI registration). Full verification: 38 arch + 984 core + 201 integration = 1223/1223 PASS. Guard-check ALL PASSED.
 
 **Plan discrepancies fixed during implementation:**
 - `IVanAnDbContext` had **25 DbSets** (not 27): 6 accounting + **19 business** (not 21)
@@ -46,7 +46,7 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 - `HKDBooks` DbSet removed from ShopERPDbContext (abstract base, ignored in OnModelCreating — never persisted)
 - docker-compose `AccountingConnection` default: task card suggested `${POSTGRES_DB:-vanan_accounting}` but postgres service uses `${POSTGRES_DB:-VanAnCoreHub}` — corrected to `VanAnCoreHub` to avoid crash when POSTGRES_DB unset
 
-**Next:** Wave 3 Architecture Tests → merge to main.
+**Next:** Merge `feature/accounting-pg-wave1-interface-split` to `main` → push origin.
 
 **Previous (completed):** Platform SystemAdmin F1-F5 fix ✅ + Access Matrix plan 🟡 (deferred).
 
@@ -55,10 +55,10 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 ## 3. Current Status
 
 - **Branch:** `feature/accounting-pg-wave1-interface-split`
-- **Last commit:** `dc3d293` [WAVE 2] docker-compose AccountingConnection env var
+- **Last commit:** pending — Wave 3 (Architecture Tests + test fixes)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres`)
-- **Tests (Debug):** Build 0 errors verified post-Wave 1 (2026-07-09). Test run pending Wave 3.
+- **Tests (Release):** 1223/1223 PASS — 38 Architecture + 984 Core + 201 Integration (verified 2026-07-10). Guard-check ALL PASSED.
 - **Tech debt:** Tier 5 recorded — True Offline Edge (Accounting via HTTP), task card `true_offline_edge_accounting_http_task_card.md`. Trigger: true 2-server Edge deployment. Severity: Low (not triggered — all compose files have PostgreSQL on same machine).
 - **Completed streams (all merged to main):**
   - Platform SystemAdmin ✅ (commit `dde219e`) — F1-F5 fix + docs pending commit
@@ -76,8 +76,7 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 ## 4. Next Actions
 
 **Immediate:**
-1. **Accounting PostgreSQL Online — Wave 3 (tests + verify)** — 4 Architecture Tests Rule J/K/L/M, fix existing test mocks (incl. Rule C Npgsql reference), full verification. Task card: `accounting_pg_wave3_tests_verify_task_card.md`
-2. **Merge Wave 1+2 branch to main** — after Wave 3 tests pass, merge `feature/accounting-pg-wave1-interface-split` to `main`
+1. **Merge `feature/accounting-pg-wave1-interface-split` to `main`** — all 3 waves complete, 1223/1223 tests pass, guard-check PASSED. Ready for merge + push.
 
 **Deferred:**
 4. **Access Matrix Phase 1: ANALYZE** — khi user approve `platform_systemadmin_access_matrix_master_plan.md`
@@ -95,7 +94,7 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 |---|---|
 | CoreHub = in-process background service trong Gateway | Monolith Phase 1-2 (Option B approved 2026-07-05) |
 | Gateway = DI composition root cho CoreHub | Program.cs đăng ký CoreHub DbContext/Services |
-| ShopERP = SQLite (Business) + PostgreSQL (Accounting) | ADR-001: accounting always online. ShopERPDbContext (SQLite) cho Business/Platform, VanAnDbContext (PostgreSQL) cho Accounting qua IAccountingDbContext. **Wave 1+2 COMPLETE 2026-07-10** — interface split + service swap + DI registration + appsettings + docker-compose config all done. |
+| ShopERP = SQLite (Business) + PostgreSQL (Accounting) | ADR-001: accounting always online. ShopERPDbContext (SQLite) cho Business/Platform, VanAnDbContext (PostgreSQL) cho Accounting qua IAccountingDbContext. **ALL 3 WAVES COMPLETE 2026-07-10** — interface split + service swap + DI + docker-compose + 4 Architecture Tests (Rule J/K/L/M) + test fixes. 1223/1223 tests PASS. ✅ ENFORCED. |
 | CustomerToken = `IDataProtector` | Tránh library mới |
 | `AccountingEntry` immutable, Reversal Entry | Audit trail bất khả xâm phạm |
 | Multi-tenancy `TenantId` filter mọi layer | Data isolation per HKD |
@@ -195,6 +194,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-10 — WAVE 3 COMPLETE — ALL 3 WAVES DONE.** Added 4 Architecture Tests (Rule J/K/L/M) to `ArchitectureRulesTests.cs`: Rule J (accounting services inject IAccountingDbContext), Rule K (ShopERPDbContext no accounting DbSets), Rule L (docker-compose AccountingConnection), Rule M (ShopERP Program.cs UseNpgsql). Fixed Rule C (ShopERP exempt — now legitimately uses Npgsql for accounting, only KhachLink checked). Fixed W5-ARCH-003 (used MetadataReader instead of Assembly.LoadFrom to avoid ReflectionTypeLoadException when loading Debug assembly from Release test run). Fixed 6 integration test factories (added IAccountingDbContext → VanAnDbContext DI registration): CustomWebApplicationFactory, AuthRealWebApplicationFactory, GatewayWebApplicationFactory, IntegrationTestBase (2 sites), EInvoiceDISmokeTests, TestDatabaseFixture. Full verification: 38 Architecture + 984 Core + 201 Integration = 1223/1223 PASS (Release). Guard-check ALL CHECKS PASSED. Updated: master plan (Wave 3 ✅), Wave 3 task card (✅), project_state.md (§2/3/4/5/9). **Branch:** `feature/accounting-pg-wave1-interface-split`.
 
 * **2026-07-10 — WAVE 2 RESIDUAL COMPLETE.** Added `ConnectionStrings__AccountingConnection` env var to `docker-compose.yml` + `docker-compose.prod.yml` + `docker-compose.edge.yml` shoperp service. Uses `${POSTGRES_DB:-VanAnCoreHub}` (matches postgres service default + Gateway — corrected task card's `vanan_accounting` default mismatch bug). Added `ACCOUNTING_CONNECTION_STRING` optional override to `.env.example`. Build: 0 errors. Guard-check: domain/arch/Roslyn/build PASS; Architecture.Tests 1 fail (Rule C Npgsql — pre-existing from Wave 1, fix in Wave 3 W3-T5). Updated: master plan (Wave 2 ✅), Wave 2 task card (SC7b ✅, §6.6 ✅, health check Q1 resolved), project_state.md (§2/4/5/9). **Branch:** `feature/accounting-pg-wave1-interface-split`.
 

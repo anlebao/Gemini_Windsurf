@@ -54,6 +54,8 @@ public class TestDatabaseFixture : IAsyncLifetime
                 .EnableDetailedErrors());
 
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+        // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
+        services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         // W5: Singleton so SetCurrentTenant affects all scopes (CreateFreshDbContext creates new scopes
         // that would otherwise get a default-tenant TestTenantProvider instance).
         services.AddSingleton<ITenantProvider, TestTenantProvider>();

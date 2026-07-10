@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — Accounting Always-Online + PostgreSQL + Test Enforcement
 
-> **Status:** WAVE 1 COMPLETE ✅ — WAVE 2 COMPLETE ✅ — WAVE 3 PENDING
+> **Status:** WAVE 1 COMPLETE ✅ — WAVE 2 COMPLETE ✅ — WAVE 3 COMPLETE ✅ — ALL 3 WAVES DONE
 > **Created:** 2026-07-09
-> **Last Updated:** 2026-07-10 (v4 — Wave 2 complete, docker-compose config done)
+> **Last Updated:** 2026-07-10 (v5 — Wave 3 complete, all tests passing, ready for merge)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** JIT Planning + Pure Execution
@@ -154,10 +154,10 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 
 ---
 
-## 4. WAVE 3 — Architecture Tests + Existing Tests + Verify
+## 4. WAVE 3 — Architecture Tests + Existing Tests + Verify ✅ COMPLETE
 
-**Branch:** `feature/accounting-pg-wave3-tests-verify`
-**Estimated sessions:** 1-2
+**Branch:** `feature/accounting-pg-wave1-interface-split` (done on same branch as Wave 1+2)
+**Completed:** 2026-07-10
 **Conflict risk:** LOW
 **Priority:** 3
 **Task Card:** `docs/AI/tasks/accounting_pg_wave3_tests_verify_task_card.md`
@@ -165,25 +165,25 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---------|------|-------|--------|
-| 1 | W3-T1 | Add Architecture Test Rule J: accounting services inject `IAccountingDbContext` | `ArchitectureRulesTests.cs` | PENDING |
-| 2 | W3-T2 | Add Architecture Test Rule K: `ShopERPDbContext` has no accounting DbSets | `ArchitectureRulesTests.cs` | PENDING |
-| 3 | W3-T3 | Add Architecture Test Rule L: docker-compose has `AccountingConnection` (PostgreSQL) | `ArchitectureRulesTests.cs` | PENDING |
-| 4 | W3-T4 | Add Architecture Test Rule M: ShopERP `Program.cs` registers `IAccountingDbContext` with `UseNpgsql` | `ArchitectureRulesTests.cs` | PENDING |
-| 5 | W3-T5 | Fix existing tests: mock `IAccountingDbContext` cho accounting tests | `6_Tests/VanAn.Core.Tests/`, `6_Tests/VanAn.Integration.Tests/` | PENDING |
-| 6 | W3-T6 | Full verification: build + guard-check + all tests | Solution-wide | PENDING |
-| 7 | W3-T7 | Update `project_state.md`: "ShopERP SQLite-only" → "ShopERP SQLite (Business) + PostgreSQL (Accounting)" | `docs/AI/project_state.md` | PENDING |
+| 1 | W3-T1 | Add Architecture Test Rule J: accounting services inject `IAccountingDbContext` | `ArchitectureRulesTests.cs` | ✅ DONE |
+| 2 | W3-T2 | Add Architecture Test Rule K: `ShopERPDbContext` has no accounting DbSets | `ArchitectureRulesTests.cs` | ✅ DONE |
+| 3 | W3-T3 | Add Architecture Test Rule L: docker-compose has `AccountingConnection` (PostgreSQL) | `ArchitectureRulesTests.cs` | ✅ DONE |
+| 4 | W3-T4 | Add Architecture Test Rule M: ShopERP `Program.cs` registers `IAccountingDbContext` with `UseNpgsql` | `ArchitectureRulesTests.cs` | ✅ DONE |
+| 5 | W3-T5 | Fix existing tests: Rule C (ShopERP exempt from Npgsql check), W5-ARCH-003 (MetadataReader), 6 integration test factories (IAccountingDbContext DI registration) | `ArchitectureRulesTests.cs`, `DevLoginControllerReleaseBuildGuardTests.cs`, `CustomWebApplicationFactory.cs`, `AuthRealWebApplicationFactory.cs`, `GatewayWebApplicationFactory.cs`, `IntegrationTestBase.cs`, `EInvoiceDISmokeTests.cs`, `TestDatabaseFixture.cs` | ✅ DONE |
+| 6 | W3-T6 | Full verification: build + guard-check + all tests | Solution-wide | ✅ DONE |
+| 7 | W3-T7 | Update `project_state.md` | `docs/AI/project_state.md` | ✅ DONE |
 
-### Entry criteria
-- [ ] Wave 2 merged
-- [ ] All services/repos updated
-- [ ] DI registration complete
+### Entry criteria — ALL MET
+- [x] Wave 2 complete
+- [x] All services/repos updated
+- [x] DI registration complete
 
-### Exit criteria
-- [ ] Rule J/K/L/M PASS
-- [ ] All existing tests pass (after mock updates)
-- [ ] `dotnet build VanAn.sln` → 0 errors
-- [ ] `scripts/guard-check.ps1` → PASS
-- [ ] `project_state.md` updated
+### Exit criteria — ALL MET
+- [x] Rule J/K/L/M PASS (38/38 Architecture Tests)
+- [x] All existing tests pass (984 Core + 201 Integration = 1185 + 38 Arch = 1223 total)
+- [x] `dotnet build VanAn.sln` → 0 errors
+- [x] `guard-check.ps1` → ALL CHECKS PASSED
+- [x] `project_state.md` updated
 
 ### Why third
 - Cần implementation xong trước khi test (green phase)
@@ -241,7 +241,7 @@ Architecture Tests Rule H chỉ check docker-compose có `Host=postgres`, không
 |---|---|---|---|---|
 | Wave 1 | Split interface + DbContext updates + service swap | 1 | ✅ COMPLETE (`9d589bd`) | None (build catches all misses) |
 | Wave 2 | Services/repos + DI + config + docker | 1-2 | ✅ COMPLETE (Wave 1 + residual 2026-07-10) | None |
-| Wave 3 | Architecture tests + existing tests + verify | 1-2 | ⏳ PENDING | Test mock update count |
+| Wave 3 | Architecture tests + existing tests + verify | 1 | ✅ COMPLETE (2026-07-10) | None |
 | **Total** | | **3-5 sessions** | **Wave 1 done in 1 session** | |
 
-**Critical path:** Wave 1 ✅ → Wave 2 ✅ → Wave 3
+**Critical path:** Wave 1 ✅ → Wave 2 ✅ → Wave 3 ✅ — ALL COMPLETE, READY FOR MERGE
