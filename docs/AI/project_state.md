@@ -30,36 +30,32 @@
 
 ## 2. Current Objective
 
-**[ACCOUNTING POSTGRESQL ONLINE — ALL 3 WAVES COMPLETE ✅, READY FOR MERGE]**
+**[ENTRY POINT CHECK + LOCAL INFRA BOOT — COMPLETE ✅]**
 
-Điều tra phát hiện vi phạm ADR-001 từ 2026-06-03: Accounting module chạy trên SQLite thay vì PostgreSQL (commit `957ac95` gốc rễ, `cf05eb1` cemented). 10 services + 3 repositories inject `IVanAnDbContext` → resolve `ShopERPDbContext` (SQLite). Vi phạm ADR-001 "accounting always online" + ADR-003 Thông tư 200/152 compliance.
+SystemAdmin impersonation flow verification trên local Debug build. Khởi động full stack (Docker + PostgreSQL + NATS + Gateway 5001 + ShopERP 5003 + KhachLink 5002), login SystemAdmin, list tenants, impersonate, test 57 entry points across 45 controllers.
 
-Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_master_plan.md` — 3 waves:
-- **Wave 1 ✅ COMPLETE (commit `9d589bd`, branch `feature/accounting-pg-wave1-interface-split`):** Split `IVanAnDbContext` → 19 business DbSets + tạo `IAccountingDbContext` (6 accounting DbSets). `VanAnDbContext` implement cả 2, `ShopERPDbContext` implement chỉ business. Compile-time safety, no throw stubs. **User approved merging Wave 2 service-swap into Wave 1** — 11 SWAP files + 3 DUAL-INJECT files + DI registration + appsettings config done in Wave 1.
-- **Wave 2 ✅ COMPLETE (2026-07-10):** W2-T1..T5 + W2-T6 appsettings done in Wave 1. W2-T6 docker-compose + W2-T7 verify done in Wave 2 residual session. `AccountingConnection` env var added to `docker-compose.yml` + `docker-compose.prod.yml` + `docker-compose.edge.yml` + `.env.example`. Uses `${POSTGRES_DB:-VanAnCoreHub}` (matches postgres service default + Gateway — corrected task card's `vanan_accounting` default mismatch bug). Build: 0 errors. Architecture test "Rule C: Edge Nodes Must Not Reference Npgsql" fails (pre-existing from Wave 1 Npgsql package add — fix in Wave 3 W3-T5).
-- **Wave 3 ✅ COMPLETE (2026-07-10):** 4 Architecture Tests (Rule J/K/L/M) added + passing. Rule C fixed (ShopERP exempt — legitimately uses Npgsql for accounting). W5-ARCH-003 fixed (MetadataReader instead of Assembly.LoadFrom to avoid ReflectionTypeLoadException). 6 integration test factories fixed (IAccountingDbContext DI registration). Full verification: 38 arch + 984 core + 201 integration = 1223/1223 PASS. Guard-check ALL PASSED.
+**Results:**
+- **Phase 1 (no impersonation):** 18/57 OK. Gateway 401 (auth scheme mismatch), ShopERP 500 (multi-tenancy filter + TenantType null), ShopERP 401 (role claims).
+- **Phase 2 (with impersonation):** 17/29 OK. Gateway Cookie auth 10/11 OK (91%). ShopERP tenant-scoped 9/15 OK.
+- **Fixes applied in session:**
+  1. Gateway `IAccountingDbContext` DI registration — `2_Gateway/Program.cs` (Wave 1-3 gap, Gateway crashed on startup)
+  2. `VanAnDbContext.ApplyMultiTenancyFilters` — bỏ throw khi TenantId empty trong `OnModelCreating` (break startup)
+- **4 error groups documented:** `docs/AI/entry_point_check_4_error_groups.md` — 12 endpoints còn fail, phân loại root cause + giải pháp.
 
-**Plan discrepancies fixed during implementation:**
-- `IVanAnDbContext` had **25 DbSets** (not 27): 6 accounting + **19 business** (not 21)
-- `SmartPreAggregationService` miscategorized as direct-inject → actually **dual-inject** (uses `_context.Tenants` line 297)
-- `DataProviderService` not in original plan list → added as SWAP (accounting-only consumer)
-- `HKDBooks` DbSet removed from ShopERPDbContext (abstract base, ignored in OnModelCreating — never persisted)
-- docker-compose `AccountingConnection` default: task card suggested `${POSTGRES_DB:-vanan_accounting}` but postgres service uses `${POSTGRES_DB:-VanAnCoreHub}` — corrected to `VanAnCoreHub` to avoid crash when POSTGRES_DB unset
-
-**Next:** Merge `feature/accounting-pg-wave1-interface-split` to `main` → push origin.
-
-**Previous (completed):** Platform SystemAdmin F1-F5 fix ✅ + Access Matrix plan 🟡 (deferred).
+**Previous (completed):** Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged to main `33d18fa`).
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `feature/accounting-pg-wave1-interface-split`
-- **Last commit:** `31ebb5b` [WAVE 3] Architecture Tests Rule J/K/L/M + test fixes — ALL 3 WAVES COMPLETE
+- **Branch:** `main`
+- **Last commit:** `33d18fa` Merge feature/accounting-pg-wave1-interface-split — Accounting PostgreSQL Online (ALL 3 WAVES COMPLETE)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
-- **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres`)
+- **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `VanAnLocal` (accounting, Docker `vanan-postgres-local`)
 - **Tests (Release):** 1223/1223 PASS — 38 Architecture + 984 Core + 201 Integration (verified 2026-07-10). Guard-check ALL PASSED.
+- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 + NATS 4222 + Gateway 5001 + ShopERP 5003 + KhachLink 5002 — all healthy. SystemAdmin login + impersonation flow verified.
 - **Tech debt:** Tier 5 recorded — True Offline Edge (Accounting via HTTP), task card `true_offline_edge_accounting_http_task_card.md`. Trigger: true 2-server Edge deployment. Severity: Low (not triggered — all compose files have PostgreSQL on same machine).
+- **Entry point check findings (2026-07-10):** 4 error groups documented in `docs/AI/entry_point_check_4_error_groups.md`. P1: Forbid misuse + TenantType null (8 EP). P2: Gateway JWT scheme mismatch (6 EP). P3: AllowAnonymous 401 (4 EP, cần điều tra). P4: HKDBooks Cookie 401 (1 EP, by design).
 - **Completed streams (all merged to main):**
   - Platform SystemAdmin ✅ (commit `dde219e`) — F1-F5 fix + docs pending commit
   - Stream G: SaaS Production Hardening W0-W7 ✅ (W8 pending — final regression + tag)
@@ -76,9 +72,11 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 ## 4. Next Actions
 
 **Immediate:**
-1. **Merge `feature/accounting-pg-wave1-interface-split` to `main`** — all 3 waves complete, 1223/1223 tests pass, guard-check PASSED. Ready for merge + push.
+1. **Fix P1 — Nhóm 1 (8 endpoints):** `Forbid("msg")` → `StatusCode(403)` trong 4 VAS controllers + `TenantManagementService.CreateTenantAsync` gọi `SetTenantType(Enterprise_SME)` cho Company tenants. Xem `docs/AI/entry_point_check_4_error_groups.md` §Nhóm 1.
+2. **Fix P2 — Nhóm 3 (6 endpoints):** Gateway JWT Bearer convention cho `/api/*` routes + issue JWT với đúng tenant_id GUID sau impersonation. Xem `docs/AI/entry_point_check_4_error_groups.md` §Nhóm 3.
 
 **Deferred:**
+3. **Investigate P3 — Nhóm 2 (4 endpoints):** AllowAnonymous 401 — đọc 4 controllers (CustomerIdentity, CustomerOrders, Loyalty, Notifications) + HMAC middleware config. Có thể by design (customer-only).
 4. **Access Matrix Phase 1: ANALYZE** — khi user approve `platform_systemadmin_access_matrix_master_plan.md`
 5. **W8: Final Regression + Production Tag** — full regression + `saas-production-v1.0` tag
 6. **W6-T2 (user-side):** Email Viettel + MISA for sandbox credentials (1-2 tuần bottleneck)
@@ -194,6 +192,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-10 — ENTRY POINT CHECK + LOCAL INFRA BOOT.** Khởi động full stack local Debug: Docker Desktop + PostgreSQL (vanan-postgres-local:5432) + NATS (4222) + Gateway (5001) + ShopERP (5003) + KhachLink (5002). Login SystemAdmin qua `POST /dev/login/systemadmin` (DEBUG-only endpoint). Extracted 150+ routes từ 45 controllers (21 ShopERP + 24 Gateway) qua subagent. Test 57 entry points: Phase 1 (no impersonation) 18/57 OK; Phase 2 (with impersonation) 17/29 OK. Fixes applied: (1) Gateway `IAccountingDbContext` DI registration trong `2_Gateway/Program.cs` (Wave 1-3 gap — Gateway crashed on startup), (2) `VanAnDbContext.ApplyMultiTenancyFilters` bỏ throw khi TenantId empty trong `OnModelCreating` (break startup khi no HTTP context). Created 2 test tenants qua API: HKD (HouseholdBusiness) + Company (Enterprise). Impersonation flow verified: Login → List Tenants → Impersonate → Test → Exit. 4 error groups documented trong `docs/AI/entry_point_check_4_error_groups.md`: Nhóm 1 (4×500 VAS reports — TenantType null + Forbid misuse), Nhóm 2 (4×401 AllowAnonymous — cần điều tra), Nhóm 3 (3×401 Gateway JWT scheme mismatch), Nhóm 4 (1×401 HKDBooks Cookie — by design). **Branch:** `main`.
 
 * **2026-07-10 — WAVE 3 COMPLETE — ALL 3 WAVES DONE.** Added 4 Architecture Tests (Rule J/K/L/M) to `ArchitectureRulesTests.cs`: Rule J (accounting services inject IAccountingDbContext), Rule K (ShopERPDbContext no accounting DbSets), Rule L (docker-compose AccountingConnection), Rule M (ShopERP Program.cs UseNpgsql). Fixed Rule C (ShopERP exempt — now legitimately uses Npgsql for accounting, only KhachLink checked). Fixed W5-ARCH-003 (used MetadataReader instead of Assembly.LoadFrom to avoid ReflectionTypeLoadException when loading Debug assembly from Release test run). Fixed 6 integration test factories (added IAccountingDbContext → VanAnDbContext DI registration): CustomWebApplicationFactory, AuthRealWebApplicationFactory, GatewayWebApplicationFactory, IntegrationTestBase (2 sites), EInvoiceDISmokeTests, TestDatabaseFixture. Full verification: 38 Architecture + 984 Core + 201 Integration = 1223/1223 PASS (Release). Guard-check ALL CHECKS PASSED. Updated: master plan (Wave 3 ✅), Wave 3 task card (✅), project_state.md (§2/3/4/5/9). **Branch:** `feature/accounting-pg-wave1-interface-split`.
 

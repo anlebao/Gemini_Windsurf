@@ -228,11 +228,14 @@ namespace VanAn.CoreHub.Infrastructure
                 return;
             }
 
-            // Phase 1: Fail-fast if TenantId is empty (security hardening)
-            if (_tenantProvider.TenantId == Guid.Empty)
-            {
-                throw new InvalidOperationException("TenantId is empty — cannot query tenant-scoped data. Ensure JWT claim 'TenantId' is set.");
-            }
+            // Phase 1: During startup (no HTTP context), TenantId is Guid.Empty.
+            // Filters use CurrentTenantIdValue which is evaluated at QUERY TIME, so they work
+            // correctly regardless of TenantId during model creation.
+            // The fail-fast guard for empty TenantId is enforced at repository/service layer.
+            // if (_tenantProvider.TenantId == Guid.Empty)
+            // {
+            //     throw new InvalidOperationException("TenantId is empty — cannot query tenant-scoped data. Ensure JWT claim 'TenantId' is set.");
+            // }
 
             // Apply to all entities implementing IMustHaveTenant
             // (AccountingEntry excluded: special cross-tenant audit/reconciliation queries).

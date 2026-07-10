@@ -69,6 +69,12 @@ namespace VanAn.Gateway
                     options.UseNpgsql(connectionString);
             });
 
+            // Wave 1-3: Register IAccountingDbContext → VanAnDbContext (same instance, implements both interfaces).
+            // Accounting repositories (AccountingEntryRepository, HKDBookRepository, AuditLogRepository) inject IAccountingDbContext.
+            // Without this registration, Gateway crashes on startup with "Unable to resolve service for type IAccountingDbContext".
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Infrastructure.IAccountingDbContext>(provider =>
+                provider.GetRequiredService<VanAn.CoreHub.Infrastructure.VanAnDbContext>());
+
             // Wave 0: JWT + Cookie dual-scheme authentication
             // Cookie is default scheme (keeps Blazor UI working).
             // JwtBearer is secondary scheme for API endpoints — validate tokens issued by ShopERP.
