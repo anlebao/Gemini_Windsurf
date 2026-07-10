@@ -46,7 +46,7 @@ public class BalanceSheetsController(
             if (!await _featureFlagService.CanAccessVasReportsAsync(tenantId, ct))
             {
                 _logger.LogWarning("VAS access denied for tenant {TenantId} (HKD tenant — feature flag blocked)", tenantId.Value);
-                return Forbid("VAS reports are only available for Enterprise tenants. HKD tenants use the HKD Book module.");
+                return StatusCode(403, new { error = "VAS reports are only available for Enterprise tenants. HKD tenants use the HKD Book module." });
             }
 
             var period = new AccountingPeriod(year, month);

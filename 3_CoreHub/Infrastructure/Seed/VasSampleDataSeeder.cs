@@ -24,8 +24,9 @@ public static class VasSampleDataSeeder
     {
         logger?.LogInformation("VAS W1: Starting sample data seed...");
 
-        // Check idempotency — skip if tenant already exists
+        // Check idempotency — skip if tenant already exists (IgnoreQueryFilters: cross-tenant seed check)
         bool tenantExists = await dbContext.Tenants
+            .IgnoreQueryFilters()
             .AnyAsync(t => t.Id == VasEnterpriseTenantId, ct);
         if (tenantExists)
         {

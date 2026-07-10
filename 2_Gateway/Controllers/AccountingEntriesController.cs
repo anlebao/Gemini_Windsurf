@@ -161,7 +161,7 @@ namespace VanAn.Gateway.Controllers
                 }
                 TenantId tenantId = new(tenantGuid);
 
-                IEnumerable<Shared.DTOs.AccountingEntryDto> entries = await _accountingEntryService.GetEntriesByDateRangeAsync(tenantId, DateTime.MinValue, DateTime.MaxValue);
+                IEnumerable<Shared.DTOs.AccountingEntryDto> entries = await _accountingEntryService.GetEntriesByDateRangeAsync(tenantId, new DateTime(2000, 1, 1), new DateTime(2100, 12, 31));
                 return Ok(entries);
             }
             catch (Exception ex)

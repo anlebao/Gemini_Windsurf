@@ -29,6 +29,14 @@ namespace VanAn.CoreHub.Services
                 ? Tenant.CreateHouseholdBusiness(id, request.Name, request.HKDGroup.Value, settings)
                 : Tenant.CreateCompany(id, request.Name, settings);
 
+            // Fix Nhóm 1A: classify Company tenant for VAS feature flag routing.
+            // CreateCompany() doesn't set Type (by design — W8 SetTenantType method exists for this).
+            // Without this, VasFeatureFlagService.CanAccessVasReportsAsync returns false (Type=null → access denied).
+            if (request.BusinessType == BusinessType.Company)
+            {
+                tenant.SetTenantType(TenantType.Enterprise_SME, AccountingStandard.TT133_2016);
+            }
+
             dbContext.Tenants.Add(tenant);
             await dbContext.SaveChangesAsync(ct);
 

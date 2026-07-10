@@ -172,33 +172,63 @@ Cần đọc code từng controller để xác nhận:
 
 ### Nguyên nhân
 
-**Root cause 3A — Gateway default auth scheme là Cookie, không JWT:**
+> **Verification note (2026-07-10):** Root cause 3A đã được re-investigate — Gateway CÓ `ForwardDefaultSelector` tự forward Bearer header sang JWT Bearer scheme. Claim cũ "Cookie default → JWT không parse" là SAI. Xem chi tiết bên dưới.
 
-`2_Gateway/Program.cs` dòng 80-84:
+**Root cause 3A — Gateway `ForwardDefaultSelector` tồn tại nhưng 401 vẫn xảy ra (cần điều tra thêm):**
+
+`2_Gateway/Program.cs` dòng 86-105 cấu hình dual-scheme auth với `ForwardDefaultSelector`:
 ```csharp
 _ = builder.Services.AddAuthentication(options =>
 {
     // Cookie remains the default scheme — Blazor UI continues to work unchanged
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+    {
+        options.LoginPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        // W4 Fix: Forward to JWT Bearer when Authorization header is present.
+        // This enables dual-scheme auth: Cookie for Blazor UI, JWT for API tests.
+        options.ForwardDefaultSelector = context =>
+        {
+            if (context.Request.Headers.TryGetValue("Authorization", out var auth)
+                && auth.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                return JwtBearerDefaults.AuthenticationScheme;
+            }
+            return null; // Use Cookie (default scheme)
+        };
+    })
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options => { /* ... */ });
 ```
 
-Khi gửi `Authorization: Bearer <token>`, Gateway vẫn dùng Cookie auth làm default scheme → không parse JWT → 401.
+→ Khi gửi `Authorization: Bearer <token>`, Gateway **CÓ** forward sang JWT Bearer scheme và parse token. Claim cũ trong document này ("Cookie default → không parse JWT → 401") là **SAI** — `ForwardDefaultSelector` đã handle case này.
 
-Chỉ controllers có explicit `AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme` mới dùng JWT Bearer. `HKDBooksController` có explicit scheme nhưng vẫn 401 — xem root cause 3B.
+**Vậy 401 đến từ đâu?** Các khả năng cần điều tra:
+1. **JWT validation failure** — Issuer/Audience mismatch giữa token do ShopERP issue và Gateway validate (xem `TokenValidationParameters` dòng 112-129). Nếu `Jwt:Issuer`/`Jwt:Audience` config khác nhau giữa 2 apps → token bị reject.
+2. **`tenant_id: "system"` claim** — Policy `RequireTenantAccess` chỉ require claim tồn tại (dòng 133-135), nhưng controller downstream có thể parse `tenant_id` sang Guid và fail. Xem root cause 3B.
+3. **Controller không có explicit `AuthenticationSchemes`** — `AccountingEntriesController` và `OrdersController` rely vào default scheme. `ForwardDefaultSelector` chạy ở Cookie scheme level, có thể không apply cho tất cả policy evaluation paths.
 
 **Root cause 3B — JWT token có `tenant_id: "system"` (string), không phải GUID:**
 
-`DevLoginController.LoginAsSystemAdmin()` (`5_WebApps/ShopERP/Controllers/DevLoginController.cs` dòng 172-184) issue JWT với:
+`DevLoginController.LoginAsSystemAdmin()` (`5_WebApps/ShopERP/Controllers/DevLoginController.cs` dòng 172-206) issue JWT với:
 ```csharp
+// SystemAdmin JWT without tenant constraint
 var jwtToken = _jwtTokenService.GenerateToken(
-    userId: TestUserId,
+    userId: Guid.Parse("00000000-0000-0000-0000-000000000001"),
     email: "systemadmin@vanan.vn",
-    role: UserRole.Owner,  // ← BUG: hardcode Owner, không phải SystemAdmin
-    tenantId: TestTenantId);  // ← TestTenantId = 11111111-... (không phải "system")
+    role: PlatformRole.SystemAdmin.ToString(),  // ← đúng: SystemAdmin, KHÔNG phải Owner
+    tenantId: Guid.Empty);  // ← Guid.Empty → JwtTokenService convert sang "system"
 ```
 
-Nhưng JWT payload thực tế decode được:
+`JwtTokenService.GenerateToken(string role)` overload (`3_CoreHub/Services/JwtTokenService.cs` dòng 88-90) convert `Guid.Empty` → `"system"`:
+```csharp
+// For SystemAdmin, tenant_id may be empty or special value
+new("tenant_id", tenantId == Guid.Empty ? "system" : tenantId.ToString()),
+new("TenantId", tenantId == Guid.Empty ? "system" : tenantId.ToString()),
+```
+
+→ JWT payload thực tế decode được:
 ```json
 {
   "sub": "00000000-0000-0000-0000-000000000001",
@@ -216,7 +246,7 @@ Nhưng JWT payload thực tế decode được:
            .RequireClaim("tenant_id"))  // ← require tenant_id claim exists
 ```
 
-Policy chỉ require claim `tenant_id` tồn tại (không validate format). Nhưng controller dùng `TenantId` để query data — nếu `tenant_id = "system"` (string), parse sang Guid sẽ fail.
+Policy chỉ require claim `tenant_id` tồn tại (không validate format) → `"system"` pass policy. Nhưng controller dùng `TenantId` để query data — nếu `tenant_id = "system"` (string), parse sang Guid sẽ fail ở service layer.
 
 **Root cause 3C — HKDBooksController explicit JwtBearer scheme:**
 
@@ -229,13 +259,22 @@ Yêu cầu JWT Bearer auth. Khi gửi Cookie → reject 401. Khi gửi JWT → p
 
 ### Giải pháp
 
-**Fix 3A — Gateway: thêm JWT Bearer làm default scheme cho API routes:**
+> **Verification note (2026-07-10):** Vì `ForwardDefaultSelector` đã tồn tại, Fix 3A cũ (thêm convention-based JWT Bearer default) có thể **không cần thiết** — Gateway đã parse JWT khi có Bearer header. Cần xác nhận 401 đến từ validation failure hay downstream parse failure trước khi áp dụng fix.
 
-Option 1 (Policy-based): Thêm `AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme` cho tất cả Gateway controllers cần JWT.
+**Fix 3A — Điều tra thực tế 401 trước khi fix (REVIEW_ONLY):**
 
-Option 2 (Route-based): Cấu hình `app.MapControllerRoute` cho `/api/*` routes dùng JWT Bearer default, `/` routes dùng Cookie.
+Trước khi áp dụng fix, cần xác định 401 đến từ bước nào trong pipeline:
+1. **JWT validation failure** — Kiểm tra `Jwt:Issuer`/`Jwt:Audience` config trong `appsettings.Development.json` của ShopERP và Gateway có match không. Nếu mismatch → token bị reject ở `TokenValidationParameters`.
+2. **Policy pass nhưng controller fail** — Nếu JWT validate OK, policy `RequireTenantAccess` pass (claim `tenant_id = "system"` tồn tại), nhưng controller/service parse `"system"` sang Guid → throw → 500 (không phải 401). Nếu thấy 401, khả năng cao là validation failure.
+3. **ForwardDefaultSelector edge case** — Kiểm tra `ForwardDefaultSelector` có chạy cho tất cả `RequireTenantAccess` policy evaluations không, đặc biệt khi controller không có explicit `AuthenticationSchemes`.
 
-Option 3 (Recommended): Giữ Cookie default cho Blazor UI, thêm JWT Bearer cho API controllers qua base class hoặc convention:
+**Nếu 401 là JWT validation failure (Issuer/Audience mismatch):**
+- Sync `Jwt:Issuer`/`Jwt:Audience` giữa ShopERP `appsettings.Development.json` và Gateway `appsettings.Development.json`.
+- Không cần thay đổi auth scheme convention.
+
+**Nếu 401 là do `ForwardDefaultSelector` không cover tất cả cases:**
+- Option 1 (Policy-based): Thêm `AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme` cho Gateway controllers cần JWT.
+- Option 2 (Convention-based): Thêm convention cho `/api/*` controllers:
 ```csharp
 // 2_Gateway/Program.cs — thêm sau AddAuthentication
 builder.Services.AddControllers(options =>
@@ -245,22 +284,37 @@ builder.Services.AddControllers(options =>
 });
 ```
 
-**Fix 3B — DevLoginController: issue JWT với đúng tenant_id GUID:**
+**Fix 3B — Issue JWT với đúng tenant_id GUID sau impersonation:**
 
-Sau khi impersonate, issue JWT mới với `tenantId = impersonatedTenantId`:
+Hiện tại `LoginAsSystemAdmin()` issue JWT với `tenantId: Guid.Empty` → `JwtTokenService` convert sang `"system"`. Đây là **by design cho cross-tenant SystemAdmin**, nhưng gây fail khi controller parse `tenant_id` sang Guid.
+
+Giải pháp:
+1. **Thêm endpoint impersonation:** `POST /dev/login/systemadmin/{tenantId}` — issue JWT với `tenantId = impersonatedTenantId` (GUID thực), dùng `GenerateToken(string role)` overload:
 ```csharp
-// DevLoginController.LoginAsSystemAdmin() — hiện tại hardcode
-// Cần: hoặc issue JWT với tenant_id = Guid.Empty (cross-tenant)
-// Hoặc: thêm endpoint /dev/login/systemadmin/{tenantId} để impersonate + issue JWT
+// Endpoint mới: SystemAdmin impersonate tenant cụ thể + lấy JWT
+[HttpPost("login/systemadmin/{tenantId:guid}")]
+public async Task<IActionResult> LoginAsSystemAdminForTenant(Guid tenantId)
+{
+    // Issue JWT với tenantId GUID thực (không phải Guid.Empty)
+    var jwtToken = _jwtTokenService.GenerateToken(
+        userId: Guid.Parse("00000000-0000-0000-0000-000000000001"),
+        email: "systemadmin@vanan.vn",
+        role: PlatformRole.SystemAdmin.ToString(),
+        tenantId: tenantId);  // ← GUID thực, không phải Guid.Empty
+    // ... issue cookie + return token
+}
 ```
 
-Hoặc sửa `JwtTokenService.GenerateToken()` để accept `tenantId = Guid.Empty` cho SystemAdmin (cross-tenant), và Gateway policy `RequireTenantAccess` bypass cho role=SystemAdmin.
+2. **Hoặc bypass `RequireTenantAccess` cho role=SystemAdmin:** Sửa policy để bypass `RequireClaim("tenant_id")` khi role=SystemAdmin (cross-tenant admin không cần tenant_id). Cần custom `IAuthorizationHandler`.
 
 **Fix 3C — HKDBooksController:**
 
-Nếu Fix 3A áp dụng JWT Bearer cho tất cả API controllers, HKDBooksController sẽ tự động dùng JWT. Không cần fix riêng.
+`HKDBooksController` đã có explicit `AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme` → JWT Bearer đã works (nếu JWT validate OK). 401 khi gửi Cookie là by design (xem Nhóm 4). Không cần fix riêng cho JWT path — chỉ cần Fix 3B (issue JWT với đúng tenant_id GUID).
 
-**Khuyến nghị:** Fix 3A (Option 3 — convention-based) + Fix 3B (issue JWT với đúng tenant_id sau impersonation). Cần thiết kế `POST /dev/login/systemadmin/{tenantId}` để SystemAdmin lấy JWT cho tenant cụ thể.
+**Khuyến nghị:**
+1. **Bước 1 (REVIEW_ONLY):** Điều tra 401 thực tế — kiểm tra `Jwt:Issuer`/`Jwt:Audience` config match giữa ShopERP và Gateway. Nếu mismatch → sync config, 401 sẽ hết.
+2. **Bước 2 (IMPLEMENT):** Fix 3B — thêm `POST /dev/login/systemadmin/{tenantId}` endpoint để SystemAdmin lấy JWT với tenant_id GUID thực sau impersonation.
+3. **Bước 3 (nếu cần):** Nếu `ForwardDefaultSelector` không cover tất cả cases → áp dụng convention-based JWT Bearer cho `/api/*` controllers (Fix 3A Option 2).
 
 ---
 
@@ -311,9 +365,11 @@ Nhưng **không khuyến nghị** — giảm security. HKD Books nên giữ JWT 
 |---|---|---|---|---|
 | **P1** | Nhóm 1B (Forbid misuse) | 4 | Thấp — đổi 1 dòng × 4 files | Không |
 | **P1** | Nhóm 1A (TenantType null) | 4 | Thấp — thêm 2 dòng trong service | Thấp |
-| **P2** | Nhóm 3A (Gateway JWT scheme) | 3 | Trung bình — convention hoặc per-controller | Trung bình |
-| **P2** | Nhóm 3B (JWT tenant_id) | 3 | Trung bình — thêm endpoint hoặc sửa GenerateToken | Trung bình |
+| **P2** | Nhóm 3A (Gateway JWT 401) | 3 | Cần điều tra trước — có thể chỉ là config mismatch (Issuer/Audience) | Thấp–Trung bình |
+| **P2** | Nhóm 3B (JWT tenant_id) | 3 | Trung bình — thêm endpoint `/dev/login/systemadmin/{tenantId}` | Trung bình |
 | **P3** | Nhóm 2 (AllowAnonymous 401) | 4 | Cần điều tra trước — có thể by design | — |
 | **—** | Nhóm 4 (HKDBooks Cookie) | 1 | By design — không fix | — |
 
-**Tổng cộng:** Fix P1 (8 endpoints) + P2 (6 endpoints) = 14 endpoints có thể fix. P3 cần điều tra. Nhóm 4 by design.
+**Tổng cộng:** Fix P1 (8 endpoints) + P2 (6 endpoints) = 14 endpoints có thể fix. P2 cần điều tra config mismatch trước khi code. P3 cần điều tra. Nhóm 4 by design.
+
+> **Verification log (2026-07-10):** Nhóm 3 root cause 3A đã được re-investigate — `ForwardDefaultSelector` tồn tại trong Gateway `Program.cs` dòng 95-105, tự forward Bearer header sang JWT Bearer scheme. Claim cũ "Cookie default → JWT không parse" đã được đính chính. Root cause 3B code snippet đã được sửa — `LoginAsSystemAdmin()` dùng `PlatformRole.SystemAdmin.ToString()` và `Guid.Empty` (không phải `UserRole.Owner` và `TestTenantId` như claim cũ).

@@ -23,6 +23,10 @@ namespace VanAn.Gateway
     {
         public static void Main(string[] args)
         {
+            // Npgsql 7+: Enable legacy timestamp behavior so DateTime with Kind=Unspecified works
+            // with PostgreSQL 'timestamp with time zone' columns (same switch as ShopERP).
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             // Wave 4: Clear the default inbound claim type map so JWT short-form claims ("role", "sub")
             // are NOT silently remapped to long Microsoft schema URLs at runtime.
             // This ensures RoleClaimType = "role" matches exactly what arrives in the JWT payload.

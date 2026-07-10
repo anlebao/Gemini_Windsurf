@@ -27,6 +27,11 @@ namespace VanAn.ShopERP
     {
         public static async Task Main(string[] args)
         {
+            // Npgsql 7+: Enable legacy timestamp behavior so DateTime with Kind=Unspecified works
+            // with PostgreSQL 'timestamp with time zone' columns. Domain layer uses new DateTime(year, month, 1)
+            // which has Kind=Unspecified — Npgsql 7+ requires UTC by default. This switch restores Npgsql 6 behavior.
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             // Architect: Dynamic file logging configuration
@@ -495,13 +500,44 @@ namespace VanAn.ShopERP
                     Console.WriteLine($"Phase 4: Sample Products seeded — 9 items for tenant {tenantIdStr}");
                 }
 
+                // VAS Wave 1: Seed Enterprise tenant into SQLite (business DB) for feature flag routing.
+                // VasFeatureFlagService queries IVanAnDbContext → ShopERPDbContext (SQLite), so the tenant
+                // must exist here with Type=Enterprise_SME. Accounting data is seeded separately into PostgreSQL.
+                var vasTenantId = new Guid("a5b6c7d8-1234-5678-9abc-def012345678");
+                if (!await context.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == new TenantId(vasTenantId)))
+                {
+                    var vasSettings = new VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantSettings("contact@vanan-enterprise.vn", "028-1234-5678", "123 Le Loi, Q.1, TP.HCM", taxCode: "0301234567");
+                    var vasTenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(
+                        new TenantId(vasTenantId), "Vạn An Trading Co. (DN vừa TT 133)", vasSettings);
+                    vasTenant.SetTenantType(VanAn.Shared.Domain.TenantType.Enterprise_SME, VanAn.Shared.Domain.AccountingStandard.TT133_2016);
+                    context.Tenants.Add(vasTenant);
+                    await context.SaveChangesAsync();
+                    Console.WriteLine($"VAS W1: Enterprise tenant seeded into SQLite — {vasTenantId}");
+                }
+
                 // W3: Seed AccountChart reference data (clear + reseed to ensure chart matches code).
                 // Reference data is NOT user-editable — clear+reseed propagates label fixes + account additions/removals.
                 // AccountCharts has no FK dependencies, safe to clear before HTTP requests start.
                 CoreHub.Infrastructure.IAccountingDbContext accountingContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IAccountingDbContext>();
+                // Ensure PostgreSQL accounting database schema exists (migrate before seed)
+                if (accountingContext is VanAn.CoreHub.Infrastructure.VanAnDbContext vanAnDb)
+                {
+                    await vanAnDb.Database.MigrateAsync();
+                    Console.WriteLine("PostgreSQL accounting database migrated");
+                }
                 await CoreHub.Infrastructure.Seed.AccountChartSeeder.CleanupAsync(accountingContext);
                 int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(accountingContext);
                 Console.WriteLine($"W3: AccountChart reference data seeded — {accountChartCount} accounts across 2 standards (TT 133 + TT 99)");
+
+                // VAS Wave 1: Seed Enterprise tenant + sample data for VAS report testing (idempotent)
+                if (accountingContext is VanAn.CoreHub.Infrastructure.VanAnDbContext vanAnDbForSeed)
+                {
+                    var vasSeedResult = await CoreHub.Infrastructure.Seed.VasSampleDataSeeder.SeedAsync(vanAnDbForSeed);
+                    if (vasSeedResult.Skipped)
+                        Console.WriteLine("VAS W1: Enterprise tenant already seeded, skipping");
+                    else
+                        Console.WriteLine($"VAS W1: Seed complete — {vasSeedResult.JournalEntries} journals, {vasSeedResult.AccountingEntries} accounting entries");
+                }
             }
 
             // Configure the HTTP request pipeline.

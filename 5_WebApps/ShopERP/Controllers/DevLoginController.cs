@@ -215,6 +215,60 @@ namespace VanAn.ShopERP.Controllers
             });
         }
 
+        /// <summary>POST /dev/login/systemadmin/{tenantId} — SystemAdmin impersonate a specific tenant.</summary>
+        /// <remarks>
+        /// Entry point check fix (Nhóm 3B): SystemAdmin cross-tenant login issues JWT with tenant_id="system"
+        /// which fails Guid.TryParse in Gateway controllers → 401. This endpoint issues Cookie + JWT with
+        /// the real tenant_id GUID so SystemAdmin can access tenant-scoped endpoints after impersonation.
+        /// </remarks>
+        [HttpPost("login/systemadmin/{tenantId:guid}")]
+        public async Task<IActionResult> LoginAsSystemAdminForTenant(Guid tenantId)
+        {
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name,  "System Admin"),
+                new(ClaimTypes.Email, "systemadmin@vanan.vn"),
+                new(ClaimTypes.Role,  PlatformRole.SystemAdmin.ToString()),
+                // Impersonated tenant_id — real GUID so Gateway controllers can parse it
+                new("tenant_id",      tenantId.ToString()),
+                new("TenantId",       tenantId.ToString()),
+                new("sub",            "systemadmin@vanan.vn"),
+                new("role",           PlatformRole.SystemAdmin.ToString()),
+            };
+
+            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc   = DateTimeOffset.UtcNow.AddHours(8),
+                AllowRefresh = true,
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                authProperties);
+
+            // Issue JWT with real tenant_id GUID (not Guid.Empty → "system")
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId:   Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                email:    "systemadmin@vanan.vn",
+                role:     PlatformRole.SystemAdmin.ToString(),
+                tenantId: tenantId);
+
+            return Ok(new
+            {
+                success   = true,
+                tenantId  = tenantId,
+                email     = "systemadmin@vanan.vn",
+                role      = PlatformRole.SystemAdmin.ToString(),
+                token     = jwtToken,
+                message   = $"SystemAdmin impersonation successful — tenant {tenantId} cookie and JWT issued",
+            });
+        }
+
         /// <summary>POST /dev/login/vas — issues Cookie auth session for the VAS Enterprise seed tenant.</summary>
         /// <remarks>
         /// W8 smoke-test convenience: the default <c>/dev/login</c> endpoint issues a session for
