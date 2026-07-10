@@ -55,7 +55,7 @@ Master plan v2 (Option B approved): `docs/AI/tasks/accounting_postgresql_online_
 ## 3. Current Status
 
 - **Branch:** `feature/accounting-pg-wave1-interface-split`
-- **Last commit:** pending — Wave 2 residual (docker-compose AccountingConnection env var)
+- **Last commit:** `dc3d293` [WAVE 2] docker-compose AccountingConnection env var
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres`)
 - **Tests (Debug):** Build 0 errors verified post-Wave 1 (2026-07-09). Test run pending Wave 3.
