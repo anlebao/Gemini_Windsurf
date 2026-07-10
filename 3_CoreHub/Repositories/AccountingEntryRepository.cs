@@ -10,9 +10,9 @@ namespace VanAn.CoreHub.Repositories
     /// Repository implementation for AccountingEntry - No Update/Delete methods (immutable design)
     /// Implements 5-layer protection: Domain, EF Core, Repository, Service, API
     /// </summary>
-    public class AccountingEntryRepository(IVanAnDbContext context, ILogger<AccountingEntryRepository> logger) : IAccountingEntryRepository
+    public class AccountingEntryRepository(IAccountingDbContext context, ILogger<AccountingEntryRepository> logger) : IAccountingEntryRepository
     {
-        private readonly IVanAnDbContext _context = context;
+        private readonly IAccountingDbContext _context = context;
         private readonly ILogger<AccountingEntryRepository> _logger = logger;
 
         public async Task<CoreAccountingEntry?> GetByIdAsync(AccountingEntryId id, CancellationToken cancellationToken = default)

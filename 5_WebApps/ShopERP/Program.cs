@@ -95,6 +95,17 @@ namespace VanAn.ShopERP
             // This decouples services from VanAnDbContext (PostgreSQL) and allows SQLite usage
             _ = builder.Services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
 
+            // ADR-001: Accounting always online on PostgreSQL.
+            // Register VanAnDbContext (PostgreSQL) + IAccountingDbContext for accounting services.
+            string accountingConnectionString =
+                Environment.GetEnvironmentVariable("ACCOUNTING_CONNECTION_STRING")
+                ?? builder.Configuration.GetConnectionString("AccountingConnection")
+                ?? "Host=localhost;Port=5432;Database=vanan_accounting;Username=vanan_admin;Password=VanAn@2024!";
+            _ = builder.Services.AddDbContext<VanAn.CoreHub.Infrastructure.VanAnDbContext>(options =>
+                options.UseNpgsql(accountingConnectionString));
+            _ = builder.Services.AddScoped<IAccountingDbContext>(provider =>
+                provider.GetRequiredService<VanAn.CoreHub.Infrastructure.VanAnDbContext>());
+
             // Register NATS publisher as Singleton (holds NATS connection)
             // Required by OrderWorkflowService even without --sync-worker mode
             builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
@@ -487,9 +498,9 @@ namespace VanAn.ShopERP
                 // W3: Seed AccountChart reference data (clear + reseed to ensure chart matches code).
                 // Reference data is NOT user-editable — clear+reseed propagates label fixes + account additions/removals.
                 // AccountCharts has no FK dependencies, safe to clear before HTTP requests start.
-                CoreHub.Infrastructure.IVanAnDbContext vanAnContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IVanAnDbContext>();
-                await CoreHub.Infrastructure.Seed.AccountChartSeeder.CleanupAsync(vanAnContext);
-                int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(vanAnContext);
+                CoreHub.Infrastructure.IAccountingDbContext accountingContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IAccountingDbContext>();
+                await CoreHub.Infrastructure.Seed.AccountChartSeeder.CleanupAsync(accountingContext);
+                int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(accountingContext);
                 Console.WriteLine($"W3: AccountChart reference data seeded — {accountChartCount} accounts across 2 standards (TT 133 + TT 99)");
             }
 

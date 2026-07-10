@@ -2,6 +2,8 @@ using Xunit;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 namespace VanAn.Architecture.Tests
 {
@@ -111,25 +113,35 @@ namespace VanAn.Architecture.Tests
                 }
             }
 
-            // Act
-            Assembly shopErpAssembly = Assembly.LoadFrom(shopErpAssemblyPath);
-            Type? devLoginControllerType = shopErpAssembly
-                .GetTypes()
-                .FirstOrDefault(t => t.Name == "DevLoginController");
+            // Act — use MetadataReader to read type names directly from the PE file without
+            // loading the assembly or its dependencies. This avoids ReflectionTypeLoadException
+            // when loading a Debug-built assembly from a Release test run where dependencies
+            // may not resolve correctly.
+            bool devLoginControllerExists;
+            using (var stream = File.OpenRead(shopErpAssemblyPath))
+            using (var peReader = new PEReader(stream))
+            {
+                var metadataReader = peReader.GetMetadataReader();
+                devLoginControllerExists = metadataReader.TypeDefinitions
+                    .Select(h => metadataReader.GetTypeDefinition(h))
+                    .Any(td =>
+                        metadataReader.GetString(td.Name) == "DevLoginController" &&
+                        metadataReader.GetString(td.Namespace) == "VanAn.ShopERP.Controllers");
+            }
 
             // Assert — in Debug build, the type MUST exist (proves the #if DEBUG guard is syntactically valid
             // and the class compiles correctly). In Release build, the type MUST NOT exist.
             string config = shopErpAssemblyPath.Contains("\\Debug\\") ? "Debug" : "Release";
             if (config == "Debug")
             {
-                Assert.True(devLoginControllerType != null,
+                Assert.True(devLoginControllerExists,
                     "W5-ARCH-003: DevLoginController type not found in Debug-built VanAn.ShopERP.dll. " +
                     "The #if DEBUG guard may be malformed or the class may have a compilation error. " +
                     "Expected: type exists in Debug, absent in Release.");
             }
             else
             {
-                Assert.True(devLoginControllerType == null,
+                Assert.True(!devLoginControllerExists,
                     "W5-ARCH-003: DevLoginController type found in Release-built VanAn.ShopERP.dll! " +
                     "This is a SECURITY VIOLATION — the controller bypasses OIDC auth and must NOT " +
                     "exist in Release builds. Verify the #if DEBUG guard in Controllers/DevLoginController.cs.");

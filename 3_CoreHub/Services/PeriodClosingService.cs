@@ -19,13 +19,13 @@ namespace VanAn.CoreHub.Services
         IAccountingEntryRepository entryRepository,
         IReversalService reversalService,
         IAuditTrailService auditTrailService,
-        IVanAnDbContext dbContext,
+        IAccountingDbContext dbContext,
         ILogger<PeriodClosingService> logger) : IPeriodClosingService
     {
         private readonly IAccountingEntryRepository _entryRepository = entryRepository;
         private readonly IReversalService _reversalService = reversalService;
         private readonly IAuditTrailService _auditTrailService = auditTrailService;
-        private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IAccountingDbContext _dbContext = dbContext;
         private readonly ILogger<PeriodClosingService> _logger = logger;
 
         public async Task<PeriodClosingCheckResult> ValidatePeriodAsync(

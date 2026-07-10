@@ -90,6 +90,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<ShopERPDbContext>(options => options.UseSqlite(_connection));
             services.AddDbContext<VanAnDbContext>(options => options.UseSqlite(_connection));
             services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
+            // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
+            services.AddScoped<IAccountingDbContext>(provider => provider.GetRequiredService<VanAnDbContext>());
 
             // Deterministic tenant provider for multi-tenancy tests.
             services.AddScoped<ITenantProvider, TestTenantProvider>();

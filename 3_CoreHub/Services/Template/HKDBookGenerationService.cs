@@ -13,11 +13,13 @@ namespace VanAn.CoreHub.Services.Template
     /// </summary>
     public class HKDBookGenerationService(
         IVanAnDbContext context,
+        IAccountingDbContext accountingContext,
         TemplateFactory templateFactory,
         IBookResultCache cache,
         ILogger<HKDBookGenerationService> logger) : IHKDBookGenerationService
     {
         private readonly IVanAnDbContext _context = context;
+        private readonly IAccountingDbContext _accountingContext = accountingContext;
         private readonly TemplateFactory _templateFactory = templateFactory;
         private readonly IBookResultCache _cache = cache;
         private readonly ILogger<HKDBookGenerationService> _logger = logger;
@@ -187,7 +189,7 @@ namespace VanAn.CoreHub.Services.Template
             DateTime periodStart = new(period.Year, period.Month, 1);
             DateTime periodEnd = periodStart.AddMonths(1);
 
-            return await _context.JournalEntries
+            return await _accountingContext.JournalEntries
                 .Where(e => e.TenantId == tenantId &&
                            e.EntryDate >= periodStart &&
                            e.EntryDate < periodEnd)

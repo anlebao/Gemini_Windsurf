@@ -14,10 +14,12 @@ namespace VanAn.CoreHub.Services.PreAggregation
     /// </summary>
     public class SmartPreAggregationService(
         IVanAnDbContext context,
+        IAccountingDbContext accountingContext,
         Lazy<IFormulaEngine> formulaEngine,
         ILogger<SmartPreAggregationService> logger) : IPreAggregationService
     {
         private readonly IVanAnDbContext _context = context;
+        private readonly IAccountingDbContext _accountingContext = accountingContext;
         private readonly Lazy<IFormulaEngine> _formulaEngine = formulaEngine;
         private readonly ILogger<SmartPreAggregationService> _logger = logger;
 
@@ -246,7 +248,7 @@ namespace VanAn.CoreHub.Services.PreAggregation
                 // so we must filter by TenantId manually. Direct e.TenantId == tenantId works
                 // correctly — EF Core applies TenantIdConverter (TenantId → Guid) via convention.
                 // Do NOT use EF.Property<Guid> — TenantId is stored as TEXT, not Guid.
-                IQueryable<AccountingEntry> query = _context.AccountingEntries
+                IQueryable<AccountingEntry> query = _accountingContext.AccountingEntries
                     .Where(e => e.TenantId == tenantId &&
                                e.PeriodYear == period.Year &&
                                e.PeriodMonth == period.Month);

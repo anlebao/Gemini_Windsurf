@@ -56,6 +56,8 @@ public abstract class IntegrationTestBase : IDisposable
 
         // Register IVanAnDbContext and ITenantProvider (required by repositories)
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+        // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
+        services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         services.AddScoped<ITenantProvider, TestTenantProvider>();
 
         // Add repository registrations
@@ -84,7 +86,7 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<VanAn.CoreHub.Services.IFacebookLeadService, VanAn.CoreHub.Services.FacebookLeadService>();
         services.AddScoped<VanAn.CoreHub.Services.ICustomerOnboardingService, VanAn.CoreHub.Services.CustomerOnboardingService>();
         services.AddScoped<VanAn.CoreHub.Services.ILoyaltyRewardsService, VanAn.CoreHub.Services.LoyaltyRewardsService>();
-        
+
         // Notification services (required by CompositeNotificationService)
         services.AddHttpClient(); // Required by BrevoEmailService
         services.AddScoped<CoreHub.Services.IEmailService, CoreHub.Services.BrevoEmailService>();
@@ -146,6 +148,8 @@ public abstract class IntegrationTestBase : IDisposable
 
         // Register IVanAnDbContext and ITenantProvider
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+        // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
+        services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         services.AddScoped<ITenantProvider, TestTenantProvider>();
 
         // Add repository registrations

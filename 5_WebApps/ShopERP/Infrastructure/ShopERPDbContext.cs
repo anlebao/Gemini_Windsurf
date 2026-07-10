@@ -41,13 +41,12 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Recipe> Recipes { get; set; }
 
         // Additional tables required by IVanAnDbContext (for Offline Mode)
-        public DbSet<AccountingEntry> AccountingEntries { get; set; }
+        // NOTE: Accounting DbSets (AccountingEntries, JournalEntries, AuditLogs,
+        // PendingInvoiceQueues, AccountCharts, PeriodClosingStatuses) removed —
+        // accounting is always-online on PostgreSQL via IAccountingDbContext (ADR-001).
+        // HKDBook removed (abstract base, ignored in OnModelCreating — never persisted).
         public DbSet<LoyaltyRewards> LoyaltyRewards { get; set; }
         public DbSet<SocialCampaign> SocialCampaigns { get; set; }
-        public DbSet<HKDBook> HKDBooks { get; set; }
-        public DbSet<JournalEntry> JournalEntries { get; set; }
-        public DbSet<AuditLog> AuditLogs { get; set; }
-        public DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; set; }
 
         // Wave 5: Tenant management (required by IVanAnDbContext)
         public DbSet<Tenant> Tenants { get; set; }
@@ -68,11 +67,9 @@ namespace VanAn.ShopERP.Infrastructure
         // Wave 9: Push Subscriptions for Web Push notifications
         public DbSet<PushSubscription> PushSubscriptions { get; set; }
 
-        // W3: VAS Account Chart reference data (NOT tenant-scoped)
-        public DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; set; }
+        // W3: VAS Account Chart reference data — moved to IAccountingDbContext (ADR-001)
 
-        // W5: Period closing status persistence (tenant-scoped, IMustHaveTenant via BaseEntity)
-        public DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; }
+        // W5: Period closing status persistence — moved to IAccountingDbContext (ADR-001)
 
         // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
         public DbSet<VanAn.CoreHub.Infrastructure.Entities.PlatformUser> PlatformUsers { get; set; }

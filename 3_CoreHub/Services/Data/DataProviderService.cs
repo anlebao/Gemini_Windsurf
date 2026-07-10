@@ -13,12 +13,12 @@ namespace VanAn.CoreHub.Services.Data
     /// Essential for HKD book generation and formula engine integration
     /// </summary>
     public class DataProviderService(
-        IVanAnDbContext context,
+        IAccountingDbContext context,
         IAccountingEntryRepository repository,
         IMemoryCache cache,
         ILogger<DataProviderService> logger) : IDataProvider
     {
-        private readonly IVanAnDbContext _context = context;
+        private readonly IAccountingDbContext _context = context;
         private readonly IAccountingEntryRepository _repository = repository;
         private readonly IMemoryCache _cache = cache;
         private readonly ILogger<DataProviderService> _logger = logger;

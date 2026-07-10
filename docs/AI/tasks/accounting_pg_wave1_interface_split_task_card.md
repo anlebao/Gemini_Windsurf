@@ -1,11 +1,11 @@
 # TASK CARD: Accounting PostgreSQL Online — Wave 1 — Split Interface + DbContext Updates
 
 ## 1. GOAL & CONTEXT
-- **Mục tiêu cốt lõi:** Split `IVanAnDbContext` thành business-only (21 DbSets) + tạo `IAccountingDbContext` (6 accounting DbSets). `VanAnDbContext` implement cả 2, `ShopERPDbContext` implement chỉ business.
+- **Mục tiêu cốt lõi:** Split `IVanAnDbContext` thành business-only (19 DbSets) + tạo `IAccountingDbContext` (6 accounting DbSets). `VanAnDbContext` implement cả 2, `ShopERPDbContext` implement chỉ business.
 - **Nghiệp vụ áp dụng:** ADR-001 compliance — accounting always online trên PostgreSQL
-- **Status:** PENDING — Planning & Approval
+- **Status:** ✅ COMPLETE — Committed `9d589bd`
 - **Branch:** `feature/accounting-pg-wave1-interface-split`
-- **Estimated Sessions:** 1
+- **Completed:** 2026-07-09 (1 session — user approved merging Wave 2 service-swap)
 
 ---
 
@@ -44,13 +44,13 @@
 
 ---
 
-## 5. SUCCESS CRITERIA
-- [ ] **SC1:** `IAccountingDbContext` exists with 6 accounting DbSets
-- [ ] **SC2:** `IVanAnDbContext` has 21 business DbSets (6 accounting removed)
-- [ ] **SC3:** `VanAnDbContext` implements both `IVanAnDbContext` + `IAccountingDbContext`
-- [ ] **SC4:** `ShopERPDbContext` has 21 business DbSets only (no accounting DbSet declarations)
-- [ ] **SC5:** Build: 0 errors
-- [ ] **SC6:** No throw stubs in ShopERPDbContext
+## 5. SUCCESS CRITERIA — ALL MET
+- [x] **SC1:** `IAccountingDbContext` exists with 6 accounting DbSets
+- [x] **SC2:** `IVanAnDbContext` has 19 business DbSets (6 accounting removed) — **plan said 21, actual 19**
+- [x] **SC3:** `VanAnDbContext` implements both `IVanAnDbContext` + `IAccountingDbContext`
+- [x] **SC4:** `ShopERPDbContext` has 19 business DbSets only (no accounting + no HKDBooks)
+- [x] **SC5:** Build: 0 errors
+- [x] **SC6:** No throw stubs in ShopERPDbContext
 
 ---
 
@@ -102,7 +102,7 @@ DbSet<AccountChartEntity> AccountCharts { get; }        // → IAccountingDbCont
 DbSet<PeriodClosingStatusEntity> PeriodClosingStatuses { get; } // → IAccountingDbContext
 ```
 
-**Keep these 21 business DbSets:**
+**Keep these 19 business DbSets:**
 Orders, OrderItems, Customers, Products, Inventories, Ingredients, Recipes, Shops, LoyaltyRewards, SocialCampaigns, OutboxMessages, Users, Tenants, UserTenants, PermissionGroups, UserPermissionGroups, ApiKeys, PushSubscriptions, PlatformUsers
 
 ### 6.3. VanAnDbContext implement both (W1-T3)
@@ -135,36 +135,38 @@ public DbSet<PeriodClosingStatusEntity> PeriodClosingStatuses { get; set; } // l
 
 **Keep:** All 21 business DbSet declarations.
 
-### 6.5. Fix compile errors (W1-T5)
+### 6.5. Fix compile errors (W1-T5) — ✅ EXECUTED
 
-Sau khi remove 6 accounting DbSets từ `IVanAnDbContext`, các services/repos nào query `_context.AccountingEntries`, `_context.JournalEntries`, etc. sẽ **compile error**.
+Sau khi remove 6 accounting DbSets từ `IVanAnDbContext`, các services/repos query `_context.AccountingEntries`, `_context.JournalEntries`, etc. compile error.
 
-**Expected compile errors (fix in Wave 2, NOT Wave 1):**
-- 10 services: `PeriodClosingService`, `BalanceSheetService`, `IncomeStatementService`, `CashFlowStatementService`, `TrialBalanceService`, `AccountChartService`, `SmartPreAggregationService`, `TenantConversionService`, `HKDBookGenerationService`, `VasFeatureFlagService`
-- 3 repos: `AccountingEntryRepository`, `AuditLogRepository`, `HKDBookRepository`
-- `AccountChartSeeder`
+**Actual compile errors:** ~98 error sites across 15 CoreHub files + 9 test files (task card §6.5 threshold >20 met).
 
-**Wave 1 strategy:** Fix compile errors bằng cách thêm `IAccountingDbContext` injection vào các services/repos này (temporary — full swap in Wave 2). Hoặc:
+**Decision executed:** User approved "Full Wave 1 as written" — fix all compile errors by swapping services/repos to `IAccountingDbContext` in Wave 1 (merging Wave 2 service-swap work).
 
-**Alternative:** Wave 1 chỉ tạo `IAccountingDbContext` + implement trên `VanAnDbContext`, CHƯA remove từ `IVanAnDbContext`. Remove khỏi `IVanAnDbContext` ở đầu Wave 2 (cùng lúc swap services).
+**SWAP (11 files — accounting-only consumers):**
+- TrialBalanceService, IncomeStatementService, BalanceSheetService, CashFlowStatementService, AccountChartService, PeriodClosingService, DataProviderService (added — not in original plan), AccountingEntryRepository, HKDBookRepository, AuditLogRepository, AccountChartSeeder
 
-> **DECISION POINT:** Nếu compile errors quá nhiều (>20), tách W1-T2 sang đầu Wave 2. Wave 1 chỉ tạo interface mới + implement. Wave 2 bắt đầu bằng remove + swap đồng thời.
+**DUAL-INJECT (3 files — accounting + business consumers):**
+- TenantConversionService, SmartPreAggregationService (recategorized from direct-inject — uses `_context.Tenants` line 297), HKDBookGenerationService
+
+**Test fixes (3 files):**
+- PeriodClosingPersistenceTests, VasFeatureFlagTests, SmartPreAggregationServiceWave2Tests
 
 ---
 
-## 7. AI HEALTH CHECK MATRIX (INITIAL)
-- **Evidence Count:** 5
+## 7. AI HEALTH CHECK MATRIX — POST-IMPLEMENTATION
+- **Evidence Count:** 8
 - **Verified Facts:**
-  - Fact 1: `IVanAnDbContext` has 27 DbSets (line 18-66) — 6 accounting + 21 business
-  - Fact 2: `ShopERPDbContext` implements `IVanAnDbContext` (line 23) with 27 DbSet declarations
-  - Fact 3: `VanAnDbContext` implements `IVanAnDbContext` (line 20) with 27 DbSet declarations
+  - Fact 1: `IVanAnDbContext` had 25 DbSets (not 27) — 6 accounting + 19 business (not 21)
+  - Fact 2: `ShopERPDbContext` implements `IVanAnDbContext` (line 23) with 25 DbSet declarations
+  - Fact 3: `VanAnDbContext` implements `IVanAnDbContext` (line 20) with 25+ DbSet declarations
   - Fact 4: `HKDBooks` DbSet in ShopERPDbContext (line 47) is already ignored in OnModelCreating (line 152)
   - Fact 5: 47 files reference `IVanAnDbContext` in 3_CoreHub
-- **Assumptions:**
-  - Removing 6 DbSets from IVanAnDbContext sẽ cause ~13-15 compile errors (services + repos + seeder)
-  - Business services (OrderService, ShopService, etc.) không bị affect vì không query accounting DbSets
-- **Open Questions:**
-  - Q1: Nên remove 6 DbSets trong Wave 1 hay Wave 2? (Recommend: Wave 2 đầu — giảm compile error window)
+  - Fact 6: ~98 compile-error sites after removing 6 DbSets (task card §6.5 threshold >20 met)
+  - Fact 7: SmartPreAggregationService uses `_context.Tenants` (line 297) → dual-inject, not direct-inject
+  - Fact 8: DataProviderService uses only `_context.AccountingEntries` (5 sites) → SWAP candidate
+- **Assumptions:** None remaining — all verified during implementation
+- **Open Questions:** None remaining — all resolved during implementation
 
 ---
 
@@ -178,8 +180,9 @@ Sau khi remove 6 accounting DbSets từ `IVanAnDbContext`, các services/repos n
 
 ---
 
-## 9. TDD & TESTING STRATEGY
+## 9. TDD & TESTING STRATEGY — VERIFIED
 - **Unit tests:** Không trong wave này
 - **Integration tests:** Không trong wave này
 - **Architecture tests:** Không trong wave này (Wave 3)
-- **Verification:** `dotnet build VanAn.sln` → 0 errors (sau khi fix compile errors)
+- **Verification:** `dotnet build VanAn.sln` → **0 errors** ✅ (Debug, verified 2026-07-09)
+- **Guard-check:** PASS ✅ (pre-commit hook confirmed)

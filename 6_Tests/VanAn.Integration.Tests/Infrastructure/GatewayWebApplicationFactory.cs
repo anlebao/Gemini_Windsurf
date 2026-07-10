@@ -80,6 +80,9 @@ public class GatewayWebApplicationFactory : WebApplicationFactory<VanAn.Gateway.
             services.AddDbContext<IVanAnDbContext, VanAnDbContext>(options =>
                 options.UseSqlite(_connection));
 
+            // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
+            services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+
             // ITenantProvider needed by VanAnDbContext multi-tenancy filters.
             // Replace with test provider that returns a deterministic test tenant ID.
             services.RemoveAll<ITenantProvider>();

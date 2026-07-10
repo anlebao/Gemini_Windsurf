@@ -25,13 +25,9 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Ingredient> Ingredients { get; }
         DbSet<Recipe> Recipes { get; }
         DbSet<Shop> Shops { get; }
-        DbSet<AccountingEntry> AccountingEntries { get; }
         DbSet<LoyaltyRewards> LoyaltyRewards { get; }
         DbSet<SocialCampaign> SocialCampaigns { get; }
         DbSet<OutboxMessage> OutboxMessages { get; }
-        DbSet<JournalEntry> JournalEntries { get; }
-        DbSet<AuditLog> AuditLogs { get; }
-        DbSet<PendingInvoiceQueue> PendingInvoiceQueues { get; }
 
         // Wave 0: Demo users for BCrypt authentication
         DbSet<DemoUser> Users { get; }
@@ -52,11 +48,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Wave 9: Push Subscriptions for Web Push notifications
         DbSet<PushSubscription> PushSubscriptions { get; }
 
-        // W3: VAS Account Chart reference data (NOT tenant-scoped)
-        DbSet<VanAn.CoreHub.Infrastructure.Entities.AccountChartEntity> AccountCharts { get; }
+        // W3: VAS Account Chart reference data (NOT tenant-scoped) — moved to IAccountingDbContext
 
-        // W5: Period closing status persistence (tenant-scoped)
-        DbSet<VanAn.CoreHub.Infrastructure.Entities.PeriodClosingStatusEntity> PeriodClosingStatuses { get; }
+        // W5: Period closing status persistence (tenant-scoped) — moved to IAccountingDbContext
 
         // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
         DbSet<VanAn.CoreHub.Infrastructure.Entities.PlatformUser> PlatformUsers { get; }

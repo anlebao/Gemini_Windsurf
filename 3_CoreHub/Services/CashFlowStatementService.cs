@@ -20,11 +20,11 @@ public class CashFlowStatementService : ICashFlowStatementService
     private const string CashAccountPrefix1 = "111";
     private const string CashAccountPrefix2 = "112";
 
-    private readonly IVanAnDbContext _dbContext;
+    private readonly IAccountingDbContext _dbContext;
     private readonly IAccountChartService _accountChart;
     private readonly ILogger<CashFlowStatementService> _logger;
 
-    public CashFlowStatementService(IVanAnDbContext dbContext, IAccountChartService accountChart, ILogger<CashFlowStatementService> logger)
+    public CashFlowStatementService(IAccountingDbContext dbContext, IAccountChartService accountChart, ILogger<CashFlowStatementService> logger)
     {
         _dbContext = dbContext;
         _accountChart = accountChart;

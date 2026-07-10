@@ -81,15 +81,17 @@ public class ArchitectureRulesTests
         }
     }
 
-    [Fact(DisplayName = "Rule C: Edge Nodes Must Not Reference Npgsql")]
+    [Fact(DisplayName = "Rule C: Client Nodes (KhachLink) Must Not Reference Npgsql — ShopERP exempt (ADR-001 accounting online)")]
     public void EdgeNodes_ShouldNotReferencePostgreSqlProvider()
     {
         // Arrange
+        // WAVE 3 (2026-07-10): ShopERP removed from this check — it now legitimately references
+        // Npgsql.EntityFrameworkCore.PostgreSQL for IAccountingDbContext (ADR-001: accounting always online).
+        // Only KhachLink (Blazor WASM client, HTTP-only) must remain free of direct DB provider references.
         var repoRoot = GetRepoRoot();
         var edgeNodeProjects = new[]
         {
             Path.Combine(repoRoot, "5_WebApps", "KhachLink", "VanAn.KhachLink.csproj"),
-            Path.Combine(repoRoot, "5_WebApps", "ShopERP", "VanAn.ShopERP.csproj")
         };
 
         // Act & Assert
@@ -282,5 +284,129 @@ public class ArchitectureRulesTests
         Assert.True(hasNatsBroker,
             "ADR-001 v2 Edge violation: docker-compose.edge.yml must include NATS broker (nats:2.10-alpine) " +
             "for event-driven sync between stations.");
+    }
+
+    [Fact(DisplayName = "Rule J: ADR-001 - Accounting services/repos MUST inject IAccountingDbContext (PostgreSQL)")]
+    public void AccountingServices_MustInject_IAccountingDbContext()
+    {
+        var repoRoot = GetRepoRoot();
+        var servicesPath = Path.Combine(repoRoot, "3_CoreHub", "Services");
+        var reposPath = Path.Combine(repoRoot, "3_CoreHub", "Repositories");
+
+        // Services + repos that MUST inject IAccountingDbContext
+        // NOTE: Excludes services that inject repositories (AccountingEntryService, ReversalService,
+        // AuditTrailService, HKDBookService) — they don't inject DbContext directly.
+        var accountingFiles = new[]
+        {
+            // Repositories (direct DbContext injection)
+            Path.Combine(reposPath, "AccountingEntryRepository.cs"),
+            Path.Combine(repoRoot, "3_CoreHub", "Infrastructure", "Repositories", "AuditLogRepository.cs"),
+            Path.Combine(reposPath, "HKDBookRepository.cs"),
+            // Services (direct DbContext injection — accounting-only consumers)
+            Path.Combine(servicesPath, "PeriodClosingService.cs"),
+            Path.Combine(servicesPath, "BalanceSheetService.cs"),
+            Path.Combine(servicesPath, "IncomeStatementService.cs"),
+            Path.Combine(servicesPath, "CashFlowStatementService.cs"),
+            Path.Combine(servicesPath, "TrialBalanceService.cs"),
+            Path.Combine(servicesPath, "AccountChartService.cs"),
+            Path.Combine(servicesPath, "Data", "DataProviderService.cs"),
+            // Dual-inject services (must have IAccountingDbContext alongside IVanAnDbContext)
+            Path.Combine(servicesPath, "PreAggregation", "SmartPreAggregationService.cs"),
+            Path.Combine(servicesPath, "TenantConversionService.cs"),
+            Path.Combine(servicesPath, "Template", "HKDBookGenerationService.cs"),
+        };
+
+        var violations = new List<string>();
+        foreach (var filePath in accountingFiles)
+        {
+            if (!File.Exists(filePath))
+            {
+                violations.Add($"{filePath}: file not found");
+                continue;
+            }
+            var content = File.ReadAllText(filePath);
+            if (!content.Contains("IAccountingDbContext"))
+                violations.Add($"{Path.GetFileName(filePath)}: missing IAccountingDbContext injection");
+        }
+
+        Assert.True(violations.Count == 0,
+            "ADR-001 violation: Accounting services/repos must inject IAccountingDbContext (PostgreSQL, online).\n" +
+            string.Join("\n", violations));
+    }
+
+    [Fact(DisplayName = "Rule K: ADR-001 - ShopERPDbContext (SQLite) MUST NOT contain accounting DbSets")]
+    public void ShopERPDbContext_MustNotContain_AccountingDbSets()
+    {
+        var repoRoot = GetRepoRoot();
+        var dbContextPath = Path.Combine(repoRoot, "5_WebApps", "ShopERP", "Infrastructure", "ShopERPDbContext.cs");
+
+        if (!File.Exists(dbContextPath))
+            Assert.Fail($"ShopERPDbContext.cs not found: {dbContextPath}");
+
+        var content = File.ReadAllText(dbContextPath);
+
+        var forbiddenDbSets = new[]
+        {
+            "DbSet<AccountingEntry>",
+            "DbSet<JournalEntry>",
+            "DbSet<AuditLog>",
+            "DbSet<PendingInvoiceQueue>",
+            "DbSet<AccountChartEntity>",
+            "DbSet<PeriodClosingStatusEntity>",
+        };
+
+        var violations = new List<string>();
+        foreach (var dbSet in forbiddenDbSets)
+        {
+            if (content.Contains(dbSet))
+                violations.Add($"Found accounting DbSet in SQLite context: {dbSet}");
+        }
+
+        Assert.True(violations.Count == 0,
+            "ADR-001 violation: ShopERPDbContext (SQLite) must not contain accounting DbSets.\n" +
+            string.Join("\n", violations));
+    }
+
+    [Fact(DisplayName = "Rule L: ADR-001 - docker-compose ShopERP MUST have AccountingConnection (PostgreSQL)")]
+    public void DockerCompose_ShopERP_MustHave_AccountingConnection()
+    {
+        var repoRoot = GetRepoRoot();
+        var composeFiles = new[]
+        {
+            Path.Combine(repoRoot, "docker-compose.yml"),
+            Path.Combine(repoRoot, "docker-compose.prod.yml"),
+            Path.Combine(repoRoot, "docker-compose.edge.yml"),
+        };
+
+        foreach (var composeFile in composeFiles)
+        {
+            if (!File.Exists(composeFile)) continue;
+            var content = File.ReadAllText(composeFile);
+
+            Assert.True(content.Contains("AccountingConnection"),
+                $"ADR-001 violation: {Path.GetFileName(composeFile)} must have AccountingConnection env var. " +
+                "Accounting is always online on PostgreSQL.");
+
+            Assert.True(content.Contains("Host=postgres") || content.Contains("postgres:5432"),
+                $"ADR-001 violation: {Path.GetFileName(composeFile)} must reference PostgreSQL host for accounting.");
+        }
+    }
+
+    [Fact(DisplayName = "Rule M: ADR-001 - ShopERP Program.cs MUST register IAccountingDbContext with UseNpgsql")]
+    public void ShopERP_ProgramCs_MustRegister_IAccountingDbContext_Npgsql()
+    {
+        var repoRoot = GetRepoRoot();
+        var programCsPath = Path.Combine(repoRoot, "5_WebApps", "ShopERP", "Program.cs");
+
+        if (!File.Exists(programCsPath))
+            Assert.Fail($"Program.cs not found: {programCsPath}");
+
+        var content = File.ReadAllText(programCsPath);
+
+        Assert.True(content.Contains("IAccountingDbContext"),
+            "ADR-001 violation: ShopERP Program.cs must register IAccountingDbContext.");
+
+        Assert.True(content.Contains("UseNpgsql"),
+            "ADR-001 violation: ShopERP Program.cs must call UseNpgsql for accounting DbContext.");
     }
 }

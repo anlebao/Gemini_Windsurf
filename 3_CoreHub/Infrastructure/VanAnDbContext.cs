@@ -17,7 +17,7 @@ using UserPermissionGroup = VanAn.Shared.Domain.Aggregates.UserAggregate.UserPer
 
 namespace VanAn.CoreHub.Infrastructure
 {
-    public class VanAnDbContext(DbContextOptions<VanAnDbContext> options, ITenantProvider tenantProvider = null!) : DbContext(options), IVanAnDbContext
+    public class VanAnDbContext(DbContextOptions<VanAnDbContext> options, ITenantProvider tenantProvider = null!) : DbContext(options), IVanAnDbContext, IAccountingDbContext
     {
         private readonly ITenantProvider _tenantProvider = tenantProvider;
 

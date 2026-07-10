@@ -37,6 +37,8 @@ public class EInvoiceDISmokeTests
         services.AddDbContext<VanAnDbContext>(options =>
             options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+        // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
+        services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
 
         services.AddScoped<ITenantProvider, TestTenantProvider>();
 
