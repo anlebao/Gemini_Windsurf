@@ -30,13 +30,15 @@
 
 ## 2. Current Objective
 
-**[KHACHLINK FULL BUSINESS FLOW COMPLETION — WAVE 0 IN PROGRESS]**
+**[KHACHLINK FULL BUSINESS FLOW COMPLETION — WAVE 0 COMPLETE, WAVE 1 NEXT]**
 
 Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.2 (`docs/MVP_Product/Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md`). Master plan: `docs/AI/tasks/khachlink_full_flow_master_plan.md` — 5 waves, 43 tasks.
 
-**Wave 0 (IN PROGRESS):** Module Toggle Infrastructure — 6 feature toggles + Shop Settings UI. BLOCKING cho W1-W4.
+**Wave 0 (COMPLETE ✅ — merged `8edea1b`):** Module Toggle Infrastructure — 6 feature toggles + Shop Settings UI + API + KhachLink HTTP service + EF migration + seed. Live runtime verified (RV1-RV12 PASS). BLOCKING cho W1-W4 — đã unblock.
 
-**6 toggles:** `QR_TableNumber_Enabled` (OFF), `Kitchen_Workflow_Enabled` (ON), `Voice_Note_Enabled` (OFF), `Loyalty_Program_Enabled` (ON), `Accounting_Sync_Enabled` (ON), `EInvoice_Auto_Export_Enabled` (OFF).
+**Wave 1 (NEXT):** Payment Flow + Kitchen UI + Polling 3s — 10 tasks. Task card: `docs/AI/tasks/khachlink_flow_wave1_payment_kitchen_ui_task_card.md`. Branch (tbd): `feature/khachlink-flow-wave1-payment-kitchen-ui`.
+
+**6 toggles (default seed):** `QR_TableNumber_Enabled` (OFF), `Kitchen_Workflow_Enabled` (ON), `Voice_Note_Enabled` (OFF), `Loyalty_Program_Enabled` (ON), `Accounting_Sync_Enabled` (ON), `EInvoice_Auto_Export_Enabled` (OFF).
 
 **Previous (completed):** SystemAdmin Entry Point — 2 remaining 500s FIXED ✅ (commit `ca1d4cd`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged `33d18fa`).
 
@@ -44,18 +46,19 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 ## 3. Current Status
 
-- **Branch:** `main` → `feature/khachlink-flow-wave0-toggle-infrastructure` (pending)
-- **Last commit:** `ca1d4cd` Fix 2 remaining 500 errors: EInvoice DI in ShopERP + default tenant seed
-- **Uncommitted changes:** 3 new docs (KhachLink requirements v1.2 + master plan + Wave 0 task card) — pending commit
+- **Branch:** `main` (Wave 0 merged via `8edea1b`). Wave 1 branch (tbd) pending.
+- **Last commit:** `8edea1b` [KL WAVE 0] Merge: Module Toggle Infrastructure COMPLETE + Live Runtime Verification Protocol
+- **Uncommitted changes:** None (clean working tree — only untracked reports/scripts)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
-- **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres-local`, role `vanan_admin`)
+- **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-pg-local`, role `vanan_admin`)
 - **Tests (Release):** 1222/1223 PASS — 38 Architecture + 983 Core + 201 Integration (1 flaky SQLite concurrency test, passes in isolation). Verified 2026-07-10.
-- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 + NATS 4222 + Gateway 5001 + ShopERP 5003 — all healthy. SystemAdmin login + impersonation flow verified. Both previously-failing endpoints (`/einvoice/invoices`, `/api/hkd-books`) now return 200 OK.
+- **Wave 0 Live Runtime Verification (2026-07-11):** ShopERP boot OK on http://localhost:5003. EF migration `20260711143852_AddShopFeatureSettingsTable` applied. Seed inserted for tenant `00000000-...001`. DevLogin admin OK. GET `/api/shop/settings/features` → 200 + 6 toggles. PUT → 200 + QR false→true persisted. UI `/settings/shop-features` → 200 + 6 form-switch + VanACard/VanAAlert/VanAButton. RV1-RV12 all PASS.
+- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 (`vanan-pg-local`) + NATS 4222 + ShopERP 5003 — all healthy. KhachLink 5002 + Gateway 5001 not started this session (Wave 0 verify only needed ShopERP).
 - **Tech debt:** Tier 5 recorded — True Offline Edge (Accounting via HTTP), task card `true_offline_edge_accounting_http_task_card.md`. Trigger: true 2-server Edge deployment. Severity: Low (not triggered — all compose files have PostgreSQL on same machine).
 - **Entry point check (2026-07-11):** 2 remaining 500s FIXED. `/einvoice/invoices` (missing EInvoice DI in ShopERP) → 200. `/api/hkd-books` (default tenant not seeded) → 200. Full verify script re-run pending (tool stuck in polling loop, manual endpoint checks confirmed 200).
-- **Entry point check (2026-07-10):** 4 error groups ALL FIXED. Nhóm 1 (VAS reports) 4/4 → 200. Nhóm 2 (AllowAnonymous) 4/4 → 200 with customer token (by design). Nhóm 3 (Gateway JWT) 2/3 → 200 (Accounting Entries 500 = pre-existing SQLite schema gap). Nhóm 4 (HKDBooks Cookie) by design.
 - **Completed streams (all merged to main):**
-  - Platform SystemAdmin ✅ (commit `dde219e`) — F1-F5 fix + docs pending commit
+  - **KhachLink Wave 0: Module Toggle Infrastructure ✅** (merge `8edea1b`) — 6 toggles + Shop Settings UI + API + KhachLink HTTP service + EF migration + seed. Live runtime verified.
+  - Platform SystemAdmin ✅ (commit `dde219e`)
   - Stream G: SaaS Production Hardening W0-W7 ✅ (W8 pending — final regression + tag)
   - Stream F: VAS Enterprise Reports W0-W9 ✅ (tag `saas-production-v1.0`)
   - Stream D: HKD Book Accounting Fix W0-W8 ✅
@@ -69,11 +72,16 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 ## 4. Next Actions
 
-**Immediate (KhachLink Full Flow):**
-1. **Commit docs** — requirements v1.2 + master plan + Wave 0 task card.
-2. **Create branch** `feature/khachlink-flow-wave0-toggle-infrastructure`.
-3. **Wave 0 ANALYZE** — investigate toggle storage (Option A JSON column vs Option B separate table), UI Platform toggle component, existing patterns.
-4. **Wave 0 IMPLEMENT** — 6 toggles + Shop Settings UI + API + KhachLink HTTP service + seed + tests.
+**Immediate (KhachLink Full Flow — Wave 1):**
+1. **Create branch** `feature/khachlink-flow-wave1-payment-kitchen-ui` (from `main`).
+2. **Wave 1 ANALYZE** — read `Checkout.razor`, `QrPaymentModal.razor`, `OrderWorkflowService.cs`, `OrderTracking.razor`, `Detail.razor`. Verify `CheckoutFlowState.PaymentMethod` type, kitchen state machine transitions, polling interval location.
+3. **Wave 1 IMPLEMENT** — 10 tasks: payment method selector (cash/transfer), ProcessingBar, dual status bars, kitchen buttons (preparing/ready), kitchen bypass when toggle OFF, status name fix (`processing`→`preparing`), polling 3s, hide kitchen statuses when OFF.
+4. **Wave 1 Live Runtime Verification (MANDATORY)** — RV1-RV10: boot ShopERP+KhachLink+Docker, test cash/transfer payment flow, kitchen buttons ON/OFF, polling 3s, status name, EF migration, LINQ translation, UI Platform, persist. All MUST pass before mark COMPLETE.
+
+**Wave 2-4 queued (task cards ready, Live Runtime Verification Protocol embedded):**
+- Wave 2: Customer confirm + loyalty bypass + accounting bypass (7 tasks, RV1-RV11)
+- Wave 3: Voice note STT-only + TTS kitchen + QR table number (10 tasks, RV1-RV12)
+- Wave 4: E2E Playwright tests — full flow + minimal flow (7 tasks, RV1-RV10)
 
 **Deferred (pre-existing, not blocking KhachLink flow):**
 1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap.
@@ -194,6 +202,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-11 — KHACHLINK WAVE 0 COMPLETE + MERGED TO MAIN + LIVE RUNTIME VERIFICATION PROTOCOL.** Wave 0 (Module Toggle Infrastructure) implemented across 5 commits on `feature/khachlink-flow-wave0-toggle-infrastructure`, then merged to `main` via `8edea1b` (no-ff merge). 13 files (7 new + 6 modified): `ShopFeatureSettingsEntity` (Infrastructure, BaseEntity, tenant-scoped, 6 toggles), `ShopFeatureSettingsConfiguration` (EF config, unique index TenantId), `IShopFeatureSettingsService` + `ShopFeatureSettingsService` (Get/Update/IsEnabled), `ShopSettingsController` (GET/PUT `/api/shop/settings/features`, [Authorize]), `ShopFeatures.razor` (VanACard + VanAAlert + VanAButton + 6 form-switch), `ShopFeatureSettingsHttpService` (KhachLink HTTP via Gateway), DI registrations (ShopERP + KhachLink Program.cs), DbSet additions (IVanAnDbContext + VanAnDbContext + ShopERPDbContext), KhachLinkStartupTests assertion, default seed (kitchen=ON, loyalty=ON, accounting=ON, QR=OFF, voice=OFF, einvoice=OFF). EF migration `20260711143852_AddShopFeatureSettingsTable` (manual — only creates/drops ShopFeatureSettings table, does NOT touch accounting tables moved to PostgreSQL per ADR-001). **Live Runtime Verification (RV1-RV12 PASS):** boot Docker PostgreSQL 5432 + ShopERP 5003, migration applied, seed inserted, GET API 200 + 6 toggles, PUT API 200 + QR false→true persisted, UI 200 + 6 form-switch + VanA components. **2 runtime issues found + fixed (NOT caught by static checks):** (1) missing EF migration → `no such table: ShopFeatureSettings`, (2) LINQ translation error `s.TenantId.Value == tenantId` → fixed to direct comparison `s.TenantId == new TenantId(tenantId)` (Known Pattern #1). **Lesson learned:** static checks (build + architecture tests + guard-check) PASS ≠ runtime works. Live Runtime Verification Protocol added to all Wave 1-4 task cards (mandatory RV tests before mark COMPLETE). Wave 1-4 task cards also updated with new SC requiring Live RV PASS. **Branch:** `main` (merged from `feature/khachlink-flow-wave0-toggle-infrastructure`).
 
 * **2026-07-11 — KHACHLINK FULL FLOW MASTER PLAN + WAVE 0 TASK CARD.** Verify codebase 3 subagents song song: (A) KhachLink client, (B) ShopERP/CoreHub server, (C) E2E Playwright tests. Kết quả: base code CHƯA sẵn sàng chạy full luồng — 11 tech debt items (TD-KL-01..14). User approved tài liệu yêu cầu v1.2 với 6 module toggles + polling 3s + voice note STT-only + TTS kitchen + OTP 5 phút + EInvoice deferred. Tạo master plan `khachlink_full_flow_master_plan.md` (5 waves, 43 tasks) + Wave 0 task card `khachlink_flow_wave0_toggle_infrastructure_task_card.md` (9 tasks, BLOCKING). Wave 0: Module Toggle Infrastructure — 6 toggles (QR_TableNumber, Kitchen_Workflow, Voice_Note, Loyalty_Program, Accounting_Sync, EInvoice_Auto_Export) + Shop Settings UI + API + KhachLink HTTP service. **Branch:** `main` → `feature/khachlink-flow-wave0-toggle-infrastructure` (pending).
 
