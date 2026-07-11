@@ -74,9 +74,11 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
     private async Task<ShopFeatureSettingsEntity?> GetEntityAsync(Guid tenantId, CancellationToken ct)
     {
         // Use IgnoreQueryFilters to find by raw TenantId (since the entity is tenant-scoped)
+        // Pattern #1: use direct TenantId comparison, NOT .Value accessor (EF Core applies TenantIdConverter)
+        var tid = new TenantId(tenantId);
         return await _context.ShopFeatureSettings
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(s => s.TenantId.Value == tenantId, ct);
+            .FirstOrDefaultAsync(s => s.TenantId == tid, ct);
     }
 
     private static ShopFeatureSettingsDto ToDto(ShopFeatureSettingsEntity entity) => new()
