@@ -1,11 +1,11 @@
-# TASK CARD: KhachLink Full Flow — Wave 0 — Module Toggle Infrastructure
+# TASK CARD: KhachLink Full Flow — Wave 0 — Module Toggle Infrastructure ✅ COMPLETE
 
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Tạo Shop Settings page + toggle storage + logic read/write cho 6 module toggles. Đây là nền tảng BLOCKING cho mọi wave sau (W1-W4).
 - **Nghiệp vụ áp dụng:** Section 3 (Module Toggles) của `Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md` v1.2
-- **Status:** ⬜ NOT STARTED
+- **Status:** ✅ COMPLETE — commit `999d5d8` on `feature/khachlink-flow-wave0-toggle-infrastructure`
 - **Branch:** `feature/khachlink-flow-wave0-toggle-infrastructure`
-- **Tech Debt:** TD-KL-12 (High)
+- **Tech Debt:** TD-KL-12 (High) — RESOLVED
 
 ---
 
@@ -62,15 +62,16 @@
 ---
 
 ## 5. SUCCESS CRITERIA
-- [ ] **SC1:** `IShopFeatureSettingsService` + implementation tồn tại, read/write 6 toggles per tenant
-- [ ] **SC2:** API `GET /api/shop/settings/features` trả về 6 toggles
-- [ ] **SC3:** API `PUT /api/shop/settings/features` cập nhật toggles
-- [ ] **SC4:** ShopERP Settings page hiển thị 6 toggle switches (UI Platform components)
-- [ ] **SC5:** KhachLink `ShopFeatureSettingsHttpService` fetch được toggles qua HTTP
-- [ ] **SC6:** Default seed: 6 toggles với giá trị mặc định
-- [ ] **SC7:** KhachLinkStartupTests assertion pass
-- [ ] **SC8:** Build: 0 errors
-- [ ] **SC9:** guard-check.ps1 pass
+- [x] **SC1:** `IShopFeatureSettingsService` + implementation tồn tại, read/write 6 toggles per tenant
+- [x] **SC2:** API `GET /api/shop/settings/features` trả về 6 toggles
+- [x] **SC3:** API `PUT /api/shop/settings/features` cập nhật toggles
+- [x] **SC4:** ShopERP Settings page hiển thị 6 toggle switches (UI Platform — VanAForm + form-check form-switch)
+- [x] **SC5:** KhachLink `ShopFeatureSettingsHttpService` fetch được toggles qua HTTP
+- [x] **SC6:** Default seed: 6 toggles với giá trị mặc định
+- [x] **SC7:** KhachLinkStartupTests assertion pass
+- [x] **SC8:** Build: 0 errors
+- [x] **SC9:** guard-check.ps1 ALL CHECKS PASSED
+- [x] **SC10:** Architecture Tests 38/38 PASS (W12-S3 [Authorize] fix)
 
 ---
 
@@ -256,8 +257,20 @@ Assert.NotNull(sp.GetRequiredService<IShopFeatureSettingsHttpService>());
   - Q2: UI Platform có VanAToggle component chưa?
 - **Gate check:** Assumptions (2) >= Verified Facts (3) → ❌ CHƯA được sửa code, cần INVESTIGATE thêm
 
-### Post-ANALYZE (update sau khi investigate)
-- Cần verify: Shop/Tenant entity structure, UI Platform toggle component, existing settings page pattern, KhachLink HTTP service pattern
+### Post-ANALYZE (subagent 694af2f9 — 6 questions answered)
+- **Evidence Count:** 6
+- **Verified Facts:**
+  - Fact 1: `Shop` entity KHÔNG có Settings/Metadata field. `Tenant` có `TenantSettings` (value object: ContactEmail, Phone, Address, LogoUrl, TaxCode) — không phù hợp cho toggles
+  - Fact 2: UI Platform KHÔNG có VanAToggle/VanAnSwitch. `DynamicFormFields` hỗ trợ `FieldType.Checkbox`. `VanAStatusForm` dùng HTML checkbox trong VanAForm
+  - Fact 3: ShopERP không có Settings folder. Pattern: direct service injection + VanAForm + UI Platform components
+  - Fact 4: KhachLink HTTP service pattern: class only (no interface), `IHttpClientFactory` named "gateway", path `shoperp/api/*`, try-catch return empty
+  - Fact 5: YARP routes: `shoperp/{**catch-all}` → shoperp-cluster. Gateway controllers handle `/api/*` directly. NO new route needed
+  - Fact 6: ShopERP DI pattern: `AddScoped<Interface, Implementation>()`. Seed block at lines 479-598
+- **Decisions:**
+  - **D1:** Option B (separate Infrastructure entity `ShopFeatureSettingsEntity`) — giữ Domain pure, precedent `AccountChartEntity` + `PeriodClosingStatusEntity`
+  - **D2:** UI: VanAForm + HTML `form-check form-switch` (follow `VanAStatusForm` pattern)
+  - **D3:** API: ShopERP controller (YARP forwarding `shoperp/api/*`)
+- **Gate check:** Assumptions (0) < Verified Facts (6) → ✅ OK để proceed IMPLEMENT
 
 ---
 
@@ -279,25 +292,65 @@ Assert.NotNull(sp.GetRequiredService<IShopFeatureSettingsHttpService>());
 ## 9. EXECUTION CHECKLIST
 
 ### ANALYZE Phase
-- [ ] Read `1_Shared/Domain.cs` — check Shop/Tenant entity (Option A vs B decision)
-- [ ] Read `UI.Platform/` — check toggle/switch component availability
-- [ ] Read existing `5_WebApps/ShopERP/Components/Pages/Settings/` — check patterns
-- [ ] Read 1 file in `5_WebApps/KhachLink/Services/Http/` — check HTTP service pattern
-- [ ] Read `2_Gateway/Program.cs` — check YARP routing (need new route?)
-- [ ] Decision: Option A (JSON column) or Option B (separate table)
-- [ ] Update Health Check Matrix (Assumptions < Verified Facts)
+- [x] Read `1_Shared/Domain.cs` — check Shop/Tenant entity (Option A vs B decision)
+- [x] Read `UI.Platform/` — check toggle/switch component availability
+- [x] Read existing `5_WebApps/ShopERP/Components/Pages/Settings/` — check patterns
+- [x] Read 1 file in `5_WebApps/KhachLink/Services/Http/` — check HTTP service pattern
+- [x] Read `2_Gateway/Program.cs` — check YARP routing (need new route?)
+- [x] Decision: Option B (separate Infrastructure entity)
+- [x] Update Health Check Matrix (Assumptions 0 < Verified Facts 6)
 
 ### IMPLEMENT Phase
-- [ ] W0-T1: Toggle storage (entity/config)
-- [ ] W0-T2: Service layer (interface + implementation)
-- [ ] W0-T3: DI registration (ShopERP + KhachLink)
-- [ ] W0-T4: ShopERP Settings UI (UI Platform)
-- [ ] W0-T5: API endpoints
-- [ ] W0-T6: KhachLink HTTP service
-- [ ] W0-T7: KhachLinkStartupTests assertion
-- [ ] W0-T8: Default seed
-- [ ] W0-T9: Build + guard-check.ps1
+- [x] W0-T1: Toggle storage (`ShopFeatureSettingsEntity` + `ShopFeatureSettingsConfiguration`)
+- [x] W0-T2: Service layer (`IShopFeatureSettingsService` + `ShopFeatureSettingsService`)
+- [x] W0-T3: DI registration (ShopERP + KhachLink + 3 DbContexts)
+- [x] W0-T4: ShopERP Settings UI (VanAForm + 6 form-switch toggles)
+- [x] W0-T5: API endpoints (`ShopSettingsController` — GET/PUT `/api/shop/settings/features`)
+- [x] W0-T6: KhachLink HTTP service (`ShopFeatureSettingsHttpService`)
+- [x] W0-T7: KhachLinkStartupTests assertion
+- [x] W0-T8: Default seed (Program.cs lines 618-627)
+- [x] W0-T9: Build 0 errors + guard-check.ps1 ALL CHECKS PASSED + Architecture Tests 38/38
 
 ### Post-IMPLEMENT
-- [ ] Commit: `[KL WAVE 0] Module toggle infrastructure — 6 toggles + Shop Settings UI`
-- [ ] Update `project_state.md` (if user requests)
+- [x] Commit: `[KL WAVE 0] Module toggle infrastructure — 6 toggles + Shop Settings UI` (`999d5d8`)
+- [x] Update `project_state.md` (Section 2, 3, 4, 9)
+
+---
+
+## 10. COMPLETION SUMMARY
+
+**Wave 0 COMPLETE** — commit `999d5d8` on `feature/khachlink-flow-wave0-toggle-infrastructure`.
+
+### Files created (7)
+| File | Purpose |
+|------|---------|
+| `3_CoreHub/Infrastructure/Entities/ShopFeatureSettingsEntity.cs` | Tenant-scoped entity (BaseEntity), 6 toggles, factory + UpdateToggles |
+| `3_CoreHub/Infrastructure/Configurations/ShopFeatureSettingsConfiguration.cs` | EF config — unique index TenantId, default values |
+| `3_CoreHub/Services/IShopFeatureSettingsService.cs` | Interface + ShopFeatureSettingsDto (6 toggle properties) |
+| `3_CoreHub/Services/ShopFeatureSettingsService.cs` | Implementation — Get/Update/IsEnabled via IVanAnDbContext |
+| `5_WebApps/ShopERP/Controllers/ShopSettingsController.cs` | API GET/PUT `/api/shop/settings/features` ([Authorize]) |
+| `5_WebApps/ShopERP/Components/Pages/Settings/ShopFeatures.razor` | UI — VanAForm + 6 form-switch toggles + Save button |
+| `5_WebApps/KhachLink/Services/Http/ShopFeatureSettingsHttpService.cs` | KhachLink HTTP service — Get/Update/IsEnabled via Gateway |
+
+### Files modified (6)
+| File | Change |
+|------|--------|
+| `3_CoreHub/Infrastructure/IVanAnDbContext.cs` | +DbSet<ShopFeatureSettingsEntity> ShopFeatureSettings |
+| `3_CoreHub/Infrastructure/VanAnDbContext.cs` | +DbSet<ShopFeatureSettingsEntity> ShopFeatureSettings |
+| `5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs` | +DbSet<ShopFeatureSettingsEntity> ShopFeatureSettings |
+| `5_WebApps/ShopERP/Program.cs` | +DI registration (line 155) + default seed (lines 618-627) |
+| `5_WebApps/KhachLink/Program.cs` | +DI registration (line 105) |
+| `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` | +assertion ShopFeatureSettingsHttpService |
+
+### Verification
+- **Build:** 0 errors ✅
+- **Architecture Tests:** 38/38 PASS ✅ (W12-S3 [Authorize] fix applied)
+- **guard-check.ps1:** ALL CHECKS PASSED ✅
+- **13 files changed, 526 insertions**
+
+### Issues fixed during implementation
+1. **Missing using directives:** `TenantId` (VanAn.Shared.Domain) + `ILogger<>` (Microsoft.Extensions.Logging) → added
+2. **IVanAnDbContext.Entry() not available:** Entity constructor sets TenantId via `base(tenantId)` → removed `Entry().Property()` call
+3. **DTO `init` properties incompatible with `@bind`:** Razor `@bind` needs `set` → changed `init` → `set`
+4. **`TenantProvider.TenantId` is Guid not Guid?:** Removed `.Value` accessor
+5. **W12-S3 Architecture Test fail:** `ShopSettingsController` missing `[Authorize]` → added attribute

@@ -1,8 +1,8 @@
 # MASTER IMPLEMENTATION PLAN — KhachLink Full Business Flow Completion
 
-> **Status:** PLANNING — awaiting user approval to start Wave 0
+> **Status:** IN PROGRESS — Wave 0 COMPLETE ✅, Wave 1-4 PENDING
 > **Created:** 2026-07-11
-> **Last Updated:** 2026-07-11
+> **Last Updated:** 2026-07-11 (Wave 0 complete — commit `999d5d8`)
 > **Target Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Branch strategy:** `main` → feature branches per wave
 > **Execution principle:** JIT Planning + Pure Execution + Toggle-First
@@ -111,9 +111,10 @@ Thiếu nút "Hoàn tất" trên ShopERP UI. Thiếu nút "Xác nhận đã nh�
 
 ---
 
-## 2. WAVE 0 — Module Toggle Infrastructure
+## 2. WAVE 0 — Module Toggle Infrastructure ✅ COMPLETE
 
 **Branch:** `feature/khachlink-flow-wave0-toggle-infrastructure`
+**Commit:** `999d5d8`
 **Priority:** 0 (Critical — BLOCKING mọi wave sau)
 **Task Card:** `docs/AI/tasks/khachlink_flow_wave0_toggle_infrastructure_task_card.md`
 
@@ -123,23 +124,32 @@ Tạo Shop Settings page + toggle storage + logic bypass cho 6 toggles. Đây l�
 ### Tasks
 | # | Task ID | Task | Files | Status |
 |---|---------|------|-------|--------|
-| 1 | W0-T1 | Tạo `ShopFeatureSettings` entity (Domain) hoặc config model (Infrastructure) | `1_Shared/Domain.cs` hoặc `3_CoreHub/Infrastructure/` | ⬜ |
-| 2 | W0-T2 | Tạo `IShopFeatureSettingsService` + implementation (read/write toggles per shop/tenant) | `3_CoreHub/Services/` | ⬜ |
-| 3 | W0-T3 | Đăng ký DI trong ShopERP `Program.cs` + KhachLink `Program.cs` (HTTP service) | `5_WebApps/ShopERP/Program.cs`, `5_WebApps/KhachLink/Program.cs` | ⬜ |
-| 4 | W0-T4 | Tạo Shop Settings page (ShopERP) — UI Platform components, 6 toggle switches | `5_WebApps/ShopERP/Components/Pages/Settings/ShopFeatures.razor` | ⬜ |
-| 5 | W0-T5 | Tạo API endpoint `GET/PUT /api/shop/settings/features` | `5_WebApps/ShopERP/Controllers/ShopSettingsController.cs` | ⬜ |
-| 6 | W0-T6 | Tạo `ShopFeatureSettingsHttpService` cho KhachLink (fetch toggles via Gateway) | `5_WebApps/KhachLink/Services/Http/ShopFeatureSettingsHttpService.cs` | ⬜ |
-| 7 | W0-T7 | KhachLinkStartupTests assertion | `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` | ⬜ |
-| 8 | W0-T8 | Seed default toggles (kitchen=ON, loyalty=ON, accounting=ON, QR_table=OFF, voice=OFF, einvoice=OFF) | `5_WebApps/ShopERP/Program.cs` (seed block) | ⬜ |
-| 9 | W0-T9 | Verify build: 0 errors + guard-check.ps1 pass | Solution-wide | ⬜ |
+| 1 | W0-T1 | Tạo `ShopFeatureSettingsEntity` (Infrastructure, BaseEntity, tenant-scoped) + EF config | `3_CoreHub/Infrastructure/Entities/ShopFeatureSettingsEntity.cs`, `3_CoreHub/Infrastructure/Configurations/ShopFeatureSettingsConfiguration.cs` | ✅ |
+| 2 | W0-T2 | Tạo `IShopFeatureSettingsService` + `ShopFeatureSettingsService` (Get/Update/IsEnabled) | `3_CoreHub/Services/IShopFeatureSettingsService.cs`, `3_CoreHub/Services/ShopFeatureSettingsService.cs` | ✅ |
+| 3 | W0-T3 | Đăng ký DI ShopERP `Program.cs` (line 155) + KhachLink `Program.cs` (line 105) + DbSet vào IVanAnDbContext/VanAnDbContext/ShopERPDbContext | `5_WebApps/ShopERP/Program.cs`, `5_WebApps/KhachLink/Program.cs`, `3_CoreHub/Infrastructure/IVanAnDbContext.cs`, `3_CoreHub/Infrastructure/VanAnDbContext.cs`, `5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs` | ✅ |
+| 4 | W0-T4 | Tạo Shop Settings page (ShopERP) — VanAForm + 6 toggle switches (form-check form-switch) | `5_WebApps/ShopERP/Components/Pages/Settings/ShopFeatures.razor` | ✅ |
+| 5 | W0-T5 | Tạo API endpoint `GET/PUT /api/shop/settings/features` (ShopERP controller, YARP forwarding `shoperp/api/*`) | `5_WebApps/ShopERP/Controllers/ShopSettingsController.cs` | ✅ |
+| 6 | W0-T6 | Tạo `ShopFeatureSettingsHttpService` cho KhachLink (Get/Update/IsEnabled via Gateway) | `5_WebApps/KhachLink/Services/Http/ShopFeatureSettingsHttpService.cs` | ✅ |
+| 7 | W0-T7 | KhachLinkStartupTests assertion | `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` | ✅ |
+| 8 | W0-T8 | Seed default toggles (kitchen=ON, loyalty=ON, accounting=ON, QR_table=OFF, voice=OFF, einvoice=OFF) | `5_WebApps/ShopERP/Program.cs` (seed block line 618-627) | ✅ |
+| 9 | W0-T9 | Verify build: 0 errors + guard-check.ps1 ALL CHECKS PASSED + Architecture Tests 38/38 PASS | Solution-wide | ✅ |
 
 ### Exit criteria
-- [ ] 6 toggles lưu được trong DB per shop/tenant
-- [ ] ShopERP Settings page hiển thị + chỉnh sửa toggles (UI Platform)
-- [ ] KhachLink fetch được toggles qua HTTP
-- [ ] Default seed: kitchen=ON, loyalty=ON, accounting=ON, QR_table=OFF, voice=OFF, einvoice=OFF
-- [ ] Build: 0 errors
-- [ ] KhachLinkStartupTests pass
+- [x] 6 toggles lưu được trong DB per shop/tenant (ShopFeatureSettings table, unique index TenantId)
+- [x] ShopERP Settings page hiển thị + chỉnh sửa toggles (UI Platform — VanAForm + form-switch)
+- [x] KhachLink fetch được toggles qua HTTP (ShopFeatureSettingsHttpService → `shoperp/api/shop/settings/features`)
+- [x] Default seed: kitchen=ON, loyalty=ON, accounting=ON, QR_table=OFF, voice=OFF, einvoice=OFF
+- [x] Build: 0 errors
+- [x] KhachLinkStartupTests pass
+- [x] Architecture Tests 38/38 pass (W12-S3 [Authorize] fix)
+- [x] guard-check.ps1 ALL CHECKS PASSED
+
+### Implementation notes
+- **Storage decision:** Option B (separate Infrastructure entity `ShopFeatureSettingsEntity`) — giữ Domain pure, precedent `AccountChartEntity` + `PeriodClosingStatusEntity`
+- **UI Platform:** Không có VanAToggle component → dùng `VanAForm` + HTML `form-check form-switch` (follow `VanAStatusForm` pattern)
+- **API routing:** ShopERP controller (YARP forwarding `shoperp/api/*` → ShopERP `/api/*`) — không cần Gateway controller
+- **Architecture test fix:** `ShopSettingsController` thiếu `[Authorize]` → W12-S3 fail → fixed by adding `[Authorize]` attribute
+- **Files:** 7 new + 6 modified = 13 files, 526 insertions
 
 ### Why first
 - Mọi wave sau cần check toggle state để quyết định có chạy luồng đó không
