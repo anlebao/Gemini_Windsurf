@@ -3,9 +3,11 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** (1) UI chọn payment method (Cash/Transfer) + Processing Bar cho cash + dual status bars cho transfer. (2) ShopERP kitchen transition buttons ở Order Detail. (3) KhachLink status name fix + polling 3s. (4) Kitchen flow bypass khi toggle OFF.
 - **Nghiệp vụ áp dụng:** Section 4 (Giai đoạn 2) của `Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md` v1.2
-- **Status:** ⬜ NOT STARTED
+- **Status:** ✅ COMPLETE — IMPLEMENT + Live RV PASS
 - **Branch:** `feature/khachlink-flow-wave1-payment-kitchen-ui`
 - **Dependency:** Wave 0 COMPLETE ✅ (toggle infrastructure sẵn sàng)
+- **Last commit:** `0748a63` [KL WAVE 1] Payment flow + kitchen UI + polling 3s + kitchen bypass
+- **Live RV:** RV1-RV10 ALL PASS (2026-07-11, Docker+ShopERP 5003+KhachLink 5002+Gateway 5001)
 
 ---
 

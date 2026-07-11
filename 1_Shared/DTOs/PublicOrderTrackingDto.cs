@@ -13,6 +13,8 @@ namespace VanAn.Shared.DTOs
         public decimal TotalPrice { get; init; }
         public int ItemCount { get; init; }
         public List<PublicOrderItemDto> Items { get; init; } = new();
+        /// <summary>W1-T9: Tenant GUID — needed by KhachLink to fetch shop feature toggles (kitchen workflow visibility).</summary>
+        public Guid TenantId { get; init; }
     }
 
     /// <summary>

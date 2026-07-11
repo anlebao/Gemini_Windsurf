@@ -17,6 +17,7 @@ namespace VanAn.CoreHub.Services
         ILoyaltyRewardsService loyaltyRewardsService,
         ICustomerRepository customerRepository,
         INatsEventPublisher? natsEventPublisher,
+        IShopFeatureSettingsService? shopFeatureSettingsService = null,
         IOutboxRepository? outboxRepository = null,
         IOrderNotificationService? orderNotificationService = null) : IOrderWorkflowService
     {
@@ -26,6 +27,8 @@ namespace VanAn.CoreHub.Services
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly ICustomerRepository _customerRepository = customerRepository;
         private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
+        // W1-T6: Shop feature settings — for kitchen workflow toggle bypass
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
         // W-1-T7: Outbox repository for persisting events before NATS publish (reliable delivery)
         private readonly IOutboxRepository? _outboxRepository = outboxRepository;
         // W0-T4: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
@@ -50,7 +53,7 @@ namespace VanAn.CoreHub.Services
                     return null;
                 }
 
-                if (!await IsTransitionValidAsync(order.Status, newStatus))
+                if (!await IsTransitionValidAsync(order.Status, newStatus, order.TenantId.Value))
                 {
                     _logger.LogWarning("Invalid status transition for order {OrderId}: {CurrentStatus} -> {NewStatus}",
                         orderId, order.Status.Value, newStatus.Value);
@@ -238,18 +241,66 @@ namespace VanAn.CoreHub.Services
             return orders.ToList();
         }
 
+        /// <summary>
+        /// Public interface method — defaults to kitchen ON when no tenant context available.
+        /// Used by OrderWorkflowController.IsTransitionValid endpoint (no order loaded → no tenantId).
+        /// </summary>
         public async Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus)
         {
-            await Task.CompletedTask;
-            // Simple validation logic - can be enhanced
-            Dictionary<string, List<string>> validTransitions = new()
+            return await IsTransitionValidAsync(currentStatus, newStatus, null);
+        }
+
+        /// <summary>
+        /// W1-T6: Internal validation with tenant context — checks Kitchen_Workflow_Enabled toggle.
+        /// When kitchen toggle OFF: bypass preparing/ready, allow confirmed→completed directly.
+        /// When kitchen toggle ON (default): normal flow pending→preparing→ready→completed.
+        /// </summary>
+        private async Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus, Guid? tenantId)
+        {
+            // W1-T6: Check kitchen toggle — default ON if service unavailable or no tenant context
+            bool kitchenEnabled = true;
+            if (tenantId.HasValue && tenantId.Value != Guid.Empty && _shopFeatureSettingsService != null)
             {
-                ["pending"] = ["preparing", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
-                ["preparing"] = ["ready", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
-                ["ready"] = ["completed", "cancelled"],
-                ["completed"] = [], // Final state
-                ["cancelled"] = []  // Final state
-            };
+                try
+                {
+                    kitchenEnabled = await _shopFeatureSettingsService.IsEnabledAsync(
+                        tenantId.Value,
+                        nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to check kitchen toggle for tenant {TenantId} — defaulting to ON", tenantId);
+                    kitchenEnabled = true;
+                }
+            }
+
+            Dictionary<string, List<string>> validTransitions;
+
+            if (!kitchenEnabled)
+            {
+                // W1-T6: Kitchen bypass — skip preparing/ready, allow confirmed→completed directly
+                validTransitions = new()
+                {
+                    ["pending"] = ["confirmed", "cancelled", "completed"],
+                    ["confirmed"] = ["completed", "cancelled"],
+                    ["preparing"] = ["ready", "cancelled", "completed"], // Safety: allow recovery if already in preparing
+                    ["ready"] = ["completed", "cancelled"],
+                    ["completed"] = [],
+                    ["cancelled"] = []
+                };
+            }
+            else
+            {
+                // Normal kitchen flow
+                validTransitions = new()
+                {
+                    ["pending"] = ["preparing", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
+                    ["preparing"] = ["ready", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
+                    ["ready"] = ["completed", "cancelled"],
+                    ["completed"] = [], // Final state
+                    ["cancelled"] = []  // Final state
+                };
+            }
 
             return validTransitions.ContainsKey(currentStatus.Value) &&
                    validTransitions[currentStatus.Value].Contains(newStatus.Value);

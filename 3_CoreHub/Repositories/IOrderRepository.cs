@@ -20,6 +20,13 @@ namespace VanAn.CoreHub.Repositories
         Task<Order?> GetByIdWithIncludesAsync(Guid orderId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Gets an order by ID with includes, bypassing multi-tenancy query filter.
+        /// Used by public tracking endpoint (anonymous — no JWT, no tenant context).
+        /// Safe: PublicOrderTrackingDto strips all sensitive data (no TenantId leak to client pre-W1, no CustomerId, no notes).
+        /// </summary>
+        Task<Order?> GetByIdWithIncludesIgnoreFiltersAsync(Guid orderId, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets all orders for a tenant
         /// </summary>
         Task<IEnumerable<Order>> GetByTenantAsync(TenantId tenantId, CancellationToken cancellationToken = default);

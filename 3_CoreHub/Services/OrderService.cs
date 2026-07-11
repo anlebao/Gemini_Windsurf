@@ -623,7 +623,9 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         public async Task<Order?> GetOrderByIdForPublicTrackingAsync(Guid orderId, CancellationToken cancellationToken = default)
         {
-            return await _orderRepository.GetByIdWithIncludesAsync(orderId, cancellationToken);
+            // Use IgnoreQueryFilters variant — public endpoint has no JWT/tenant context.
+            // Safe: PublicOrderTrackingDto strips all sensitive fields before returning to client.
+            return await _orderRepository.GetByIdWithIncludesIgnoreFiltersAsync(orderId, cancellationToken);
         }
     }
 }
