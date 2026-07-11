@@ -30,28 +30,23 @@
 
 ## 2. Current Objective
 
-**[SYSTEMADMIN ENTRY POINT VERIFICATION — 2 REMAINING 500s FIXED ✅]**
+**[KHACHLINK FULL BUSINESS FLOW COMPLETION — WAVE 0 IN PROGRESS]**
 
-Fix 2 remaining 500 errors từ SystemAdmin entry point verification (51 PASS, 2 FAIL, 15 SKIP).
+Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.2 (`docs/MVP_Product/Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md`). Master plan: `docs/AI/tasks/khachlink_full_flow_master_plan.md` — 5 waves, 43 tasks.
 
-**Fixes applied (this session):**
-- **`GET /einvoice/invoices` (ShopERP) 500 → 200:** Root cause = `IEInvoiceOrchestrator` not registered in ShopERP DI (only in CoreHub). Added full EInvoice DI block to `5_WebApps/ShopERP/Program.cs` mirroring `3_CoreHub/Program.cs` lines 147-251: `IInvoicePolicyService`, `ViettelConfig`/`MisaConfig` + named HttpClients, `IEInvoiceProviderRegistry`/`IEInvoiceProviderFactory`, `ICircuitBreakerService`, `IRetryPolicyService` (with factory delegate wiring submitAction to real provider), `IComplianceService`, `IWebhookService`, `IHKDRevenueClassificationService`, `ITenantProviderConfigurationService`, `IProviderManager`, `IFallbackService`, `IEInvoiceOrchestrator`. Added `using VanAn.CoreHub.Services.Providers.EInvoice;` for provider types.
-- **`GET /api/hkd-books` (Gateway) 500 → 200:** Root cause = `Tenant 00000000-0000-0000-0000-000000000001 not found` — default dev tenant was never seeded into `Tenants` table (only `DemoUsers` + VAS tenant were seeded). Added default tenant seeding to `5_WebApps/ShopERP/Program.cs`: `Tenant.CreateHouseholdBusiness(seedTenantId, "Vạn An Cafe (HKD Group 1)", HKDGroup.Group1)` with `TenantId = own Id` set via EF Core Entry API (multi-tenancy self-reference — `BaseEntity.TenantId` must equal own `Id` for global query filter to find it). Also fixed VAS tenant seeding with same `TenantId = own Id` self-reference fix (was missing, would fail cross-tenant query).
+**Wave 0 (IN PROGRESS):** Module Toggle Infrastructure — 6 feature toggles + Shop Settings UI. BLOCKING cho W1-W4.
 
-**Verification results:**
-- `GET /einvoice/invoices`: **200 OK** ✅
-- `GET /api/hkd-books`: **200 OK** ✅
-- Build: ShopERP `dotnet build` — 0 errors ✅
+**6 toggles:** `QR_TableNumber_Enabled` (OFF), `Kitchen_Workflow_Enabled` (ON), `Voice_Note_Enabled` (OFF), `Loyalty_Program_Enabled` (ON), `Accounting_Sync_Enabled` (ON), `EInvoice_Auto_Export_Enabled` (OFF).
 
-**Previous (completed):** Entry Point Check Fix — 4 error groups ✅ (commit `3424bac`). Entry Point Check + Local Infra Boot ✅ (commit `f4eb676`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged to main `33d18fa`).
+**Previous (completed):** SystemAdmin Entry Point — 2 remaining 500s FIXED ✅ (commit `ca1d4cd`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged `33d18fa`).
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main`
-- **Last commit:** `97f7a1b` run-dev.ps1: add wsl --shutdown before Docker start + --remove-orphans for cleanup
-- **Uncommitted changes:** `5_WebApps/ShopERP/Program.cs` (EInvoice DI block + default tenant seed + VAS tenant TenantId fix)
+- **Branch:** `main` → `feature/khachlink-flow-wave0-toggle-infrastructure` (pending)
+- **Last commit:** `ca1d4cd` Fix 2 remaining 500 errors: EInvoice DI in ShopERP + default tenant seed
+- **Uncommitted changes:** 3 new docs (KhachLink requirements v1.2 + master plan + Wave 0 task card) — pending commit
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres-local`, role `vanan_admin`)
 - **Tests (Release):** 1222/1223 PASS — 38 Architecture + 983 Core + 201 Integration (1 flaky SQLite concurrency test, passes in isolation). Verified 2026-07-10.
@@ -74,19 +69,22 @@ Fix 2 remaining 500 errors từ SystemAdmin entry point verification (51 PASS, 2
 
 ## 4. Next Actions
 
-**Immediate:**
-1. **Commit current fixes** — EInvoice DI block + default tenant seed in `5_WebApps/ShopERP/Program.cs`.
-2. **Re-run verify script** — `scripts/verify-systemadmin-entry-points.ps1` to confirm 0 FAIL (was interrupted by tool polling issue; manual endpoint checks confirmed both 200).
-3. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap. Auth passes (JWT validated, policy OK), 500 from `SQLite Error 1: 'no such column: a.AccountCode'`.
-4. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict between `LoginInfo` (GET /dev/login) and Blazor `/Index` page. POST works fine.
+**Immediate (KhachLink Full Flow):**
+1. **Commit docs** — requirements v1.2 + master plan + Wave 0 task card.
+2. **Create branch** `feature/khachlink-flow-wave0-toggle-infrastructure`.
+3. **Wave 0 ANALYZE** — investigate toggle storage (Option A JSON column vs Option B separate table), UI Platform toggle component, existing patterns.
+4. **Wave 0 IMPLEMENT** — 6 toggles + Shop Settings UI + API + KhachLink HTTP service + seed + tests.
 
-**Deferred:**
+**Deferred (pre-existing, not blocking KhachLink flow):**
+1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap.
+2. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict.
 3. **Access Matrix Phase 1: ANALYZE** — khi user approve `platform_systemadmin_access_matrix_master_plan.md`
 4. **W8: Final Regression + Production Tag** — full regression + `saas-production-v1.0` tag
 5. **W6-T2 (user-side):** Email Viettel + MISA for sandbox credentials (1-2 tuần bottleneck)
 6. **W6-T6:** Staging integration tests — gated by `EINVOICE_STAGING_ENABLED=true`, blocked by W6-T2
 7. **KhachLink→Gateway QR auth forwarding** — architectural, `QrPaymentModal.razor` needs JWT forwarding
 8. **Roslyn Analyzer wiring fix** — Tier 4 debt, low priority (Architecture Tests đủ enforce)
+9. **EInvoice auto-trigger (TD-KL-01):** Chờ sandbox Viettel/MISA xong mới làm
 
 ---
 
@@ -196,6 +194,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-11 — KHACHLINK FULL FLOW MASTER PLAN + WAVE 0 TASK CARD.** Verify codebase 3 subagents song song: (A) KhachLink client, (B) ShopERP/CoreHub server, (C) E2E Playwright tests. Kết quả: base code CHƯA sẵn sàng chạy full luồng — 11 tech debt items (TD-KL-01..14). User approved tài liệu yêu cầu v1.2 với 6 module toggles + polling 3s + voice note STT-only + TTS kitchen + OTP 5 phút + EInvoice deferred. Tạo master plan `khachlink_full_flow_master_plan.md` (5 waves, 43 tasks) + Wave 0 task card `khachlink_flow_wave0_toggle_infrastructure_task_card.md` (9 tasks, BLOCKING). Wave 0: Module Toggle Infrastructure — 6 toggles (QR_TableNumber, Kitchen_Workflow, Voice_Note, Loyalty_Program, Accounting_Sync, EInvoice_Auto_Export) + Shop Settings UI + API + KhachLink HTTP service. **Branch:** `main` → `feature/khachlink-flow-wave0-toggle-infrastructure` (pending).
 
 * **2026-07-11 — SYSTEMADMIN ENTRY POINT: 2 REMAINING 500s FIXED.** Fixed `/einvoice/invoices` (ShopERP) 500: added full EInvoice DI block to `5_WebApps/ShopERP/Program.cs` (IEInvoiceOrchestrator + 12 dependencies — was only registered in CoreHub). Added `using VanAn.CoreHub.Services.Providers.EInvoice;`. Fixed `/api/hkd-books` (Gateway) 500: root cause = default dev tenant `00000000-...001` never seeded into `Tenants` table. Added tenant seeding to ShopERP Program.cs with `TenantId = own Id` set via EF Core Entry API (multi-tenancy self-reference for global query filter). Also fixed VAS tenant seeding with same self-reference fix. Both endpoints verified 200 OK via manual curl. Build: 0 errors. Verify script re-run pending (tool polling issue). **Branch:** `main`.
 
