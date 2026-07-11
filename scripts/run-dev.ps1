@@ -126,7 +126,16 @@ if ($NoInfra) {
         if ($result.ExitCode -eq 0) {
             $dockerAvailable = $true
         } else {
-            Write-Host "[Infra] Docker daemon not running. Starting Docker Desktop..." -ForegroundColor Yellow
+            Write-Host "[Infra] Docker daemon not running. Clearing WSL stale state + starting Docker Desktop..." -ForegroundColor Yellow
+            # Clear stale WSL state (fixes "wslUpdateRequired" hang on Docker Desktop 4.66+)
+            $wslCmd = Get-Command wsl -ErrorAction SilentlyContinue
+            if ($wslCmd) {
+                Write-Host "[Infra] Running 'wsl --shutdown' to clear stale WSL state..." -ForegroundColor DarkGray
+                $prevEAP = $ErrorActionPreference
+                $ErrorActionPreference = "Continue"
+                try { & wsl --shutdown 2>&1 | Out-Null } finally { $ErrorActionPreference = $prevEAP }
+                Start-Sleep -Seconds 2
+            }
             if (Test-Path $dockerDesktopExe) {
                 Start-Process $dockerDesktopExe
                 Write-Host "[Infra] Waiting for Docker daemon to become ready (up to 90s)..." -ForegroundColor DarkGray
@@ -157,7 +166,7 @@ if ($NoInfra) {
             $infraCompose = Join-Path $rootDir "docker-compose.infra.yml"
             if (Test-Path $infraCompose) {
                 Write-Host "[Infra] Starting PostgreSQL + NATS via docker-compose.infra.yml..." -ForegroundColor Green
-                $result = Invoke-DockerSafe -DockerArgs @("compose", "-f", $infraCompose, "up", "-d")
+                $result = Invoke-DockerSafe -DockerArgs @("compose", "-f", $infraCompose, "up", "-d", "--remove-orphans")
                 $result.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
                 $composeExit = $result.ExitCode
 
