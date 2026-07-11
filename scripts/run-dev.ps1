@@ -1,15 +1,18 @@
 ﻿<#
 .SYNOPSIS
-    Start Vạn An apps for local smoke test (SQLite-only, no Docker required).
+    Start Vạn An apps for local smoke test (SQLite + Docker infra: PostgreSQL + NATS).
 .DESCRIPTION
     Launches Gateway (5001), ShopERP (5003), and optionally KhachLink (5002)
-    in separate PowerShell windows using the SQLite dev database.
+    in separate PowerShell windows.
 
-    Unlike start-apps.ps1 (which requires Docker PostgreSQL + NATS), this script
-    is designed for quick W8 smoke testing against the seeded SQLite DB:
+    Infrastructure (PostgreSQL + NATS) is started via docker-compose.infra.yml.
+    If Docker Desktop is not running, it is auto-started and waited for readiness.
+    If Docker Desktop is not installed, the script falls back to SQLite-only mode
+    (Gateway/ShopERP run without NATS in degraded mode).
+
       - ShopERP uses vanan_shoperp.db (auto-created + seeded on first run)
       - Gateway runs in monolithic mode (in-process CoreHub services)
-      - No external infrastructure required
+      - PostgreSQL (5432) for Accounting, NATS (4222) for event sync
 
     Auto-detects .NET SDK 8.0.422 in user-local path if not on system PATH.
 
@@ -19,17 +22,22 @@
     Skip launching KhachLink (only Gateway + ShopERP).
 .PARAMETER ShopERPOnly
     Launch only ShopERP (Gateway runs in-process per Option B monolithic mode).
+.PARAMETER NoInfra
+    Skip Docker infrastructure startup (SQLite-only, no PostgreSQL/NATS).
 .EXAMPLE
     .\run-dev.ps1
 .EXAMPLE
     .\run-dev.ps1 -NoKhachLink
 .EXAMPLE
     .\run-dev.ps1 -ShopERPOnly
+.EXAMPLE
+    .\run-dev.ps1 -NoInfra
 #>
 [CmdletBinding()]
 param(
     [switch]$NoKhachLink,
-    [switch]$ShopERPOnly
+    [switch]$ShopERPOnly,
+    [switch]$NoInfra
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,8 +46,8 @@ $ErrorActionPreference = "Stop"
 $rootDir = Split-Path -Parent $PSScriptRoot
 Set-Location $rootDir
 
-Write-Host ">> Vạn An Smoke Test Launcher (SQLite-only)" -ForegroundColor Cyan
-Write-Host "   SDK: 8.0.422+ | DB: SQLite | Mode: Development (Debug build)" -ForegroundColor DarkGray
+Write-Host ">> Vạn An Smoke Test Launcher (SQLite + Docker Infra)" -ForegroundColor Cyan
+Write-Host "   SDK: 8.0.422+ | DB: SQLite + PostgreSQL | Mode: Development (Debug build)" -ForegroundColor DarkGray
 Write-Host ""
 
 # --- 0. Kill any running dotnet/VS processes to avoid DLL lock (CS2012) ---
@@ -72,6 +80,122 @@ if (-not $dotnetVersion -or [version]$dotnetVersion -lt [version]"8.0.400") {
 }
 Write-Host "[SDK] dotnet $dotnetVersion" -ForegroundColor Green
 Write-Host "[Repo] $rootDir" -ForegroundColor Green
+
+# --- 2.5. Ensure Docker infrastructure (PostgreSQL + NATS) ---
+# Docker CLI writes errors to stderr, which $ErrorActionPreference=Stop treats as fatal.
+# Use a helper that temporarily relaxes EAP for Docker calls.
+function Invoke-DockerSafe {
+    param([string[]]$DockerArgs)
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $output = & docker @DockerArgs 2>&1
+        return @{ ExitCode = $LASTEXITCODE; Output = $output }
+    } finally {
+        $ErrorActionPreference = $prevEAP
+    }
+}
+
+$infraStarted = $false
+if ($NoInfra) {
+    Write-Host "[Infra] -NoInfra specified, skipping Docker infrastructure (SQLite-only mode)" -ForegroundColor Yellow
+} else {
+    $dockerDesktopExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+    $dockerAvailable = $false
+
+    # Check if Docker CLI is available
+    $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+    if (-not $dockerCmd) {
+        Write-Host "[Infra] Docker CLI not found on PATH. Checking Docker Desktop install..." -ForegroundColor Yellow
+        if (Test-Path $dockerDesktopExe) {
+            # Add Docker CLI to PATH (Docker Desktop installs to standard location)
+            $dockerPath = "C:\Program Files\Docker\Docker\resources\bin"
+            if (Test-Path $dockerPath) {
+                $env:PATH = "$dockerPath;$env:PATH"
+                $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    if (-not $dockerCmd) {
+        Write-Host "[Infra] Docker not installed. Falling back to SQLite-only mode (no NATS/PostgreSQL)." -ForegroundColor Yellow
+        Write-Host "[Infra] Gateway will run in degraded mode (NATS retry every 10s — harmless)." -ForegroundColor DarkGray
+    } else {
+        # Check if Docker daemon is running
+        $result = Invoke-DockerSafe -DockerArgs @("info")
+        if ($result.ExitCode -eq 0) {
+            $dockerAvailable = $true
+        } else {
+            Write-Host "[Infra] Docker daemon not running. Starting Docker Desktop..." -ForegroundColor Yellow
+            if (Test-Path $dockerDesktopExe) {
+                Start-Process $dockerDesktopExe
+                Write-Host "[Infra] Waiting for Docker daemon to become ready (up to 90s)..." -ForegroundColor DarkGray
+                $maxWait = 90
+                $waited = 0
+                while ($waited -lt $maxWait) {
+                    Start-Sleep -Seconds 5
+                    $waited += 5
+                    $result = Invoke-DockerSafe -DockerArgs @("info")
+                    if ($result.ExitCode -eq 0) {
+                        $dockerAvailable = $true
+                        break
+                    }
+                    Write-Host "   ...waiting ($waited`s)" -ForegroundColor DarkGray
+                }
+                if (-not $dockerAvailable) {
+                    Write-Host "[Infra] Docker daemon did not become ready in ${maxWait}s. Falling back to SQLite-only." -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "[Infra] Docker Desktop not found at standard path. Falling back to SQLite-only." -ForegroundColor Yellow
+            }
+        }
+
+        if ($dockerAvailable) {
+            Write-Host "[Infra] Docker daemon is ready." -ForegroundColor Green
+
+            # Start infrastructure containers
+            $infraCompose = Join-Path $rootDir "docker-compose.infra.yml"
+            if (Test-Path $infraCompose) {
+                Write-Host "[Infra] Starting PostgreSQL + NATS via docker-compose.infra.yml..." -ForegroundColor Green
+                $result = Invoke-DockerSafe -DockerArgs @("compose", "-f", $infraCompose, "up", "-d")
+                $result.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                $composeExit = $result.ExitCode
+
+                if ($composeExit -eq 0) {
+                    # Wait for healthchecks to pass
+                    Write-Host "[Infra] Waiting for container healthchecks (up to 30s)..." -ForegroundColor DarkGray
+                    $maxHealthWait = 30
+                    $healthWaited = 0
+                    while ($healthWaited -lt $maxHealthWait) {
+                        $hResult = Invoke-DockerSafe -DockerArgs @("inspect", "--format={{.State.Health.Status}}", "vanan-postgres-local", "vanan-nats-local")
+                        $unhealthy = ($hResult.Output | Where-Object { $_ -ne "healthy" }).Count
+                        if ($unhealthy -eq 0) {
+                            break
+                        }
+                        Start-Sleep -Seconds 3
+                        $healthWaited += 3
+                        Write-Host "   ...waiting ($healthWaited`s)" -ForegroundColor DarkGray
+                    }
+
+                    $psResult = Invoke-DockerSafe -DockerArgs @("ps", "--format", "table {{.Names}}`t{{.Status}}`t{{.Ports}}")
+                    Write-Host "[Infra] Containers:" -ForegroundColor Green
+                    $psResult.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
+                    $infraStarted = $true
+                } else {
+                    Write-Host "[Infra] docker compose up failed (exit $composeExit). Continuing without infra (degraded mode)." -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "[Infra] docker-compose.infra.yml not found. Continuing without infra." -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
+if ($infraStarted) {
+    Write-Host "[Infra] PostgreSQL (5432) + NATS (4222) ready." -ForegroundColor Green
+} else {
+    Write-Host "[Infra] Running without Docker infra — NATS degraded mode (harmless retry logs)." -ForegroundColor Yellow
+}
 
 # --- 3. Verify projects exist ---
 $gatewayProj    = Join-Path $rootDir "2_Gateway\VanAn.Gateway.csproj"
@@ -197,3 +321,8 @@ SMOKE TEST QUICK REFERENCE
 
 Write-Host "Note: First run will seed SQLite DB (vanan_shoperp.db) - may take 10-15s extra." -ForegroundColor Yellow
 Write-Host 'Note: DevLogin endpoints only exist in Debug build (#if DEBUG guard, W5).' -ForegroundColor Yellow
+if ($infraStarted) {
+    Write-Host "Note: PostgreSQL + NATS running via Docker. Stop with: docker compose -f docker-compose.infra.yml down" -ForegroundColor DarkGray
+} else {
+    Write-Host "Note: No Docker infra — NATS degraded mode (retry logs every 10s are harmless)." -ForegroundColor DarkGray
+}
