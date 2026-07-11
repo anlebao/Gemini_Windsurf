@@ -30,13 +30,15 @@
 
 ## 2. Current Objective
 
-**[KHACHLINK FULL BUSINESS FLOW COMPLETION — WAVE 0 COMPLETE, WAVE 1 NEXT]**
+**[KHACHLINK FULL BUSINESS FLOW COMPLETION — WAVE 1 COMPLETE, WAVE 2 NEXT]**
 
 Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.2 (`docs/MVP_Product/Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md`). Master plan: `docs/AI/tasks/khachlink_full_flow_master_plan.md` — 5 waves, 43 tasks.
 
 **Wave 0 (COMPLETE ✅ — merged `8edea1b`):** Module Toggle Infrastructure — 6 feature toggles + Shop Settings UI + API + KhachLink HTTP service + EF migration + seed. Live runtime verified (RV1-RV12 PASS). BLOCKING cho W1-W4 — đã unblock.
 
-**Wave 1 (NEXT):** Payment Flow + Kitchen UI + Polling 3s — 10 tasks. Task card: `docs/AI/tasks/khachlink_flow_wave1_payment_kitchen_ui_task_card.md`. Branch (tbd): `feature/khachlink-flow-wave1-payment-kitchen-ui`.
+**Wave 1 (COMPLETE ✅ — merged `49c1911`):** Payment Flow + Kitchen UI + Polling 3s — 10 tasks + 1 pre-existing bug fix. Live runtime verified (RV1-RV10 PASS). Includes fix for public order tracking 404 (IgnoreQueryFilters — multi-tenancy query filter bypassed for anonymous endpoint).
+
+**Wave 2 (NEXT):** Customer Confirm + Loyalty Bypass + Accounting Bypass — 7 tasks. Task card: `docs/AI/tasks/khachlink_flow_wave2_completion_loyalty_task_card.md`. Branch (tbd): `feature/khachlink-flow-wave2-completion-loyalty`.
 
 **6 toggles (default seed):** `QR_TableNumber_Enabled` (OFF), `Kitchen_Workflow_Enabled` (ON), `Voice_Note_Enabled` (OFF), `Loyalty_Program_Enabled` (ON), `Accounting_Sync_Enabled` (ON), `EInvoice_Auto_Export_Enabled` (OFF).
 
@@ -46,17 +48,19 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 ## 3. Current Status
 
-- **Branch:** `main` (Wave 0 merged via `8edea1b`). Wave 1 branch (tbd) pending.
-- **Last commit:** `8edea1b` [KL WAVE 0] Merge: Module Toggle Infrastructure COMPLETE + Live Runtime Verification Protocol
+- **Branch:** `main` (Wave 1 merged via `49c1911`). Wave 2 branch (tbd) pending.
+- **Last commit:** `49c1911` [KL WAVE 1] Merge: Payment flow + kitchen UI + polling 3s + kitchen bypass COMPLETE
 - **Uncommitted changes:** None (clean working tree — only untracked reports/scripts)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-pg-local`, role `vanan_admin`)
 - **Tests (Release):** 1222/1223 PASS — 38 Architecture + 983 Core + 201 Integration (1 flaky SQLite concurrency test, passes in isolation). Verified 2026-07-10.
+- **Wave 1 Live Runtime Verification (2026-07-11):** ShopERP 5003 + KhachLink 5002 + Gateway 5001 + Docker PostgreSQL 5432 all booted. Kitchen ON transitions confirmed→preparing→ready→completed ALL 200. Kitchen bypass confirmed→completed 200 (toggle OFF) + pending→preparing rejected 404 (expected). Polling 3s in source. Status name "preparing" (not "processing"). Public order tracking API 200 with TenantId (after IgnoreQueryFilters fix). RV1-RV10 all PASS.
 - **Wave 0 Live Runtime Verification (2026-07-11):** ShopERP boot OK on http://localhost:5003. EF migration `20260711143852_AddShopFeatureSettingsTable` applied. Seed inserted for tenant `00000000-...001`. DevLogin admin OK. GET `/api/shop/settings/features` → 200 + 6 toggles. PUT → 200 + QR false→true persisted. UI `/settings/shop-features` → 200 + 6 form-switch + VanACard/VanAAlert/VanAButton. RV1-RV12 all PASS.
-- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 (`vanan-pg-local`) + NATS 4222 + ShopERP 5003 — all healthy. KhachLink 5002 + Gateway 5001 not started this session (Wave 0 verify only needed ShopERP).
+- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 (`vanan-pg-local`) + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001 — all verified healthy during Wave 1 RV.
 - **Tech debt:** Tier 5 recorded — True Offline Edge (Accounting via HTTP), task card `true_offline_edge_accounting_http_task_card.md`. Trigger: true 2-server Edge deployment. Severity: Low (not triggered — all compose files have PostgreSQL on same machine).
 - **Entry point check (2026-07-11):** 2 remaining 500s FIXED. `/einvoice/invoices` (missing EInvoice DI in ShopERP) → 200. `/api/hkd-books` (default tenant not seeded) → 200. Full verify script re-run pending (tool stuck in polling loop, manual endpoint checks confirmed 200).
 - **Completed streams (all merged to main):**
+  - **KhachLink Wave 1: Payment Flow + Kitchen UI + Polling 3s ✅** (merge `49c1911`) — 10 tasks + 1 pre-existing bug fix (public tracking 404). Live runtime verified.
   - **KhachLink Wave 0: Module Toggle Infrastructure ✅** (merge `8edea1b`) — 6 toggles + Shop Settings UI + API + KhachLink HTTP service + EF migration + seed. Live runtime verified.
   - Platform SystemAdmin ✅ (commit `dde219e`)
   - Stream G: SaaS Production Hardening W0-W7 ✅ (W8 pending — final regression + tag)
@@ -72,14 +76,13 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 ## 4. Next Actions
 
-**Immediate (KhachLink Full Flow — Wave 1):**
-1. **Create branch** `feature/khachlink-flow-wave1-payment-kitchen-ui` (from `main`).
-2. **Wave 1 ANALYZE** — read `Checkout.razor`, `QrPaymentModal.razor`, `OrderWorkflowService.cs`, `OrderTracking.razor`, `Detail.razor`. Verify `CheckoutFlowState.PaymentMethod` type, kitchen state machine transitions, polling interval location.
-3. **Wave 1 IMPLEMENT** — 10 tasks: payment method selector (cash/transfer), ProcessingBar, dual status bars, kitchen buttons (preparing/ready), kitchen bypass when toggle OFF, status name fix (`processing`→`preparing`), polling 3s, hide kitchen statuses when OFF.
-4. **Wave 1 Live Runtime Verification (MANDATORY)** — RV1-RV10: boot ShopERP+KhachLink+Docker, test cash/transfer payment flow, kitchen buttons ON/OFF, polling 3s, status name, EF migration, LINQ translation, UI Platform, persist. All MUST pass before mark COMPLETE.
+**Immediate (KhachLink Full Flow — Wave 2):**
+1. **Create branch** `feature/khachlink-flow-wave2-completion-loyalty` (from `main`).
+2. **Wave 2 ANALYZE** — read `OrderTracking.razor` (customer confirm button location), `OrderWorkflowService.cs` (state machine ready→delivered), `OrderService.cs` (`ConfirmPaymentAsync` + `GenerateAccountingEntriesAsync`), `IdentityUpgradeModal.razor` (loyalty modal trigger), `PWAInstallPrompt.razor` (PWA toggle).
+3. **Wave 2 IMPLEMENT** — 7 tasks: customer confirm button (ready→delivered), state machine fix (ready→delivered valid), loyalty bypass when toggle OFF, PWA install prompt disable, accounting bypass when toggle OFF (no `GenerateAccountingEntriesAsync` call), loyalty modal hide when toggle OFF.
+4. **Wave 2 Live Runtime Verification (MANDATORY)** — RV1-RV11: boot ShopERP+KhachLink+Docker, test customer confirm button, state machine ready→delivered, loyalty bypass ON/OFF, PWA disable, accounting bypass ON/OFF with PostgreSQL row count check. All MUST pass before mark COMPLETE.
 
-**Wave 2-4 queued (task cards ready, Live Runtime Verification Protocol embedded):**
-- Wave 2: Customer confirm + loyalty bypass + accounting bypass (7 tasks, RV1-RV11)
+**Wave 3-4 queued (task cards ready, Live Runtime Verification Protocol embedded):**
 - Wave 3: Voice note STT-only + TTS kitchen + QR table number (10 tasks, RV1-RV12)
 - Wave 4: E2E Playwright tests — full flow + minimal flow (7 tasks, RV1-RV10)
 
@@ -202,6 +205,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-11 — KHACHLINK WAVE 1 COMPLETE + MERGED TO MAIN + PRE-EXISTING BUG FIXED.** Wave 1 (Payment Flow + Kitchen UI + Polling 3s) implemented across 3 commits on `feature/khachlink-flow-wave1-payment-kitchen-ui`, then merged to `main` via `49c1911` (no-ff merge). 12 files (1 new + 11 modified): `ProcessingBar.razor` (new — VanACard + VanASpinner + 3-step progress for cash flow), `Checkout.razor` (payment method radio selector cash/transfer + cash flow redirect to OrderTracking), `QrPaymentModal.razor` (dual status bars — "Xử lý đơn hàng" + "Chờ thanh toán"), `Detail.razor` (kitchen buttons preparing/ready/completed + bypass button + IShopFeatureSettingsService inject + kitchenEnabled toggle), `OrderWorkflowService.cs` (kitchen bypass in IsTransitionValidAsync — when toggle OFF, confirmed→completed allowed directly), `OrderTracking.razor` (status name "processing"→"preparing" + polling 5-10s→3s + hide kitchen statuses when toggle OFF + ShopFeatureSettingsHttpService inject), `PublicOrderTrackingDto.cs` (added TenantId field for KhachLink toggle fetch), `PublicOrdersController.cs` (map TenantId in DTO), `IOrderRepository.cs` + `OrderRepository.cs` + `OrderService.cs` (fix pre-existing bug: public tracking 404 — added GetByIdWithIncludesIgnoreFiltersAsync with IgnoreQueryFilters for anonymous endpoint). **Live Runtime Verification (RV1-RV10 PASS):** boot Docker PostgreSQL 5432 + ShopERP 5003 + KhachLink 5002 + Gateway 5001, kitchen ON transitions confirmed→preparing→ready→completed ALL 200, kitchen bypass confirmed→completed 200 (toggle OFF) + pending→preparing rejected 404 (expected), polling 3s in source, status name "preparing" (not "processing"), public tracking API 200 with TenantId (after IgnoreQueryFilters fix — was 404 before). **Pre-existing bug found + fixed during RV:** `GetOrderByIdForPublicTrackingAsync` subject to EF Core global multi-tenancy query filter (WHERE TenantId = CurrentTenantIdValue = Guid.Empty for anonymous) → 404. Fix: `IgnoreQueryFilters()` variant (same pattern as WebhookController.SetTenant). Safety: PublicOrderTrackingDto strips sensitive fields, TenantId intentionally exposed for KhachLink toggle fetch. **Branch:** `main` (merged from `feature/khachlink-flow-wave1-payment-kitchen-ui`).
 
 * **2026-07-11 — KHACHLINK WAVE 0 COMPLETE + MERGED TO MAIN + LIVE RUNTIME VERIFICATION PROTOCOL.** Wave 0 (Module Toggle Infrastructure) implemented across 5 commits on `feature/khachlink-flow-wave0-toggle-infrastructure`, then merged to `main` via `8edea1b` (no-ff merge). 13 files (7 new + 6 modified): `ShopFeatureSettingsEntity` (Infrastructure, BaseEntity, tenant-scoped, 6 toggles), `ShopFeatureSettingsConfiguration` (EF config, unique index TenantId), `IShopFeatureSettingsService` + `ShopFeatureSettingsService` (Get/Update/IsEnabled), `ShopSettingsController` (GET/PUT `/api/shop/settings/features`, [Authorize]), `ShopFeatures.razor` (VanACard + VanAAlert + VanAButton + 6 form-switch), `ShopFeatureSettingsHttpService` (KhachLink HTTP via Gateway), DI registrations (ShopERP + KhachLink Program.cs), DbSet additions (IVanAnDbContext + VanAnDbContext + ShopERPDbContext), KhachLinkStartupTests assertion, default seed (kitchen=ON, loyalty=ON, accounting=ON, QR=OFF, voice=OFF, einvoice=OFF). EF migration `20260711143852_AddShopFeatureSettingsTable` (manual — only creates/drops ShopFeatureSettings table, does NOT touch accounting tables moved to PostgreSQL per ADR-001). **Live Runtime Verification (RV1-RV12 PASS):** boot Docker PostgreSQL 5432 + ShopERP 5003, migration applied, seed inserted, GET API 200 + 6 toggles, PUT API 200 + QR false→true persisted, UI 200 + 6 form-switch + VanA components. **2 runtime issues found + fixed (NOT caught by static checks):** (1) missing EF migration → `no such table: ShopFeatureSettings`, (2) LINQ translation error `s.TenantId.Value == tenantId` → fixed to direct comparison `s.TenantId == new TenantId(tenantId)` (Known Pattern #1). **Lesson learned:** static checks (build + architecture tests + guard-check) PASS ≠ runtime works. Live Runtime Verification Protocol added to all Wave 1-4 task cards (mandatory RV tests before mark COMPLETE). Wave 1-4 task cards also updated with new SC requiring Live RV PASS. **Branch:** `main` (merged from `feature/khachlink-flow-wave0-toggle-infrastructure`).
 
