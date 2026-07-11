@@ -75,6 +75,9 @@ public class KhachLinkStartupTests : IClassFixture<KhachLinkWebApplicationFactor
         // Phase 3: ShopConfigHttpService — replaces former IShopConfigService (CoreHub direct inject).
         // Architectural violation fix: KhachLink now loads ShopConfig via HTTP (Gateway → ShopERP).
         Assert.NotNull(sp.GetRequiredService<ShopConfigHttpService>());
+
+        // KhachLink Full Flow W0: Shop feature toggle settings HTTP service
+        Assert.NotNull(sp.GetRequiredService<ShopFeatureSettingsHttpService>());
     }
 
     /// <summary>

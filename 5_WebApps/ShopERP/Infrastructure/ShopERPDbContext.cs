@@ -74,6 +74,9 @@ namespace VanAn.ShopERP.Infrastructure
         // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
         public DbSet<VanAn.CoreHub.Infrastructure.Entities.PlatformUser> PlatformUsers { get; set; }
 
+        // KhachLink Full Flow W0: Shop feature toggle settings (tenant-scoped)
+        public DbSet<VanAn.CoreHub.Infrastructure.Entities.ShopFeatureSettingsEntity> ShopFeatureSettings { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
