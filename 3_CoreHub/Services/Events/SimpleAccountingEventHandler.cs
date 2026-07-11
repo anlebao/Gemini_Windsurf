@@ -35,15 +35,26 @@ namespace VanAn.CoreHub.Services.Events
             // without NATS and resume subscription when NATS becomes available.
             while (!stoppingToken.IsCancellationRequested)
             {
+                IConnection? connection = CreateNatsConnection();
+                if (connection == null)
+                {
+                    // NATS unavailable — log once and retry after 10s (no exception for control flow)
+                    _logger.LogWarning(
+                        "SimpleAccountingEventHandler: NATS unavailable at {Url}. Running in degraded mode — will retry in 10s.",
+                        natsUrl);
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    continue;
+                }
+
                 try
                 {
-                    IConnection? connection = CreateNatsConnection();
-                    if (connection == null)
-                    {
-                        // NATS unavailable — trigger retry loop
-                        throw new InvalidOperationException("NATS connection returned null");
-                    }
-
                     // W-1-T6: Subscribe to subject that matches NatsSyncWorker.BuildSubject output.
                     // NatsSyncWorker builds: "vanan.shoperp.{eventType.ToLowerInvariant().Replace('_', '.')}"
                     // For "OrderCompleted" → "vanan.shoperp.ordercompleted"
@@ -59,9 +70,8 @@ namespace VanAn.CoreHub.Services.Events
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex,
-                        "SimpleAccountingEventHandler: NATS unavailable at {Url}. Running in degraded mode — will retry in 10s.",
-                        natsUrl);
+                    _logger.LogError(ex,
+                        "SimpleAccountingEventHandler: subscription error. Will retry connection in 10s.");
                     try
                     {
                         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
