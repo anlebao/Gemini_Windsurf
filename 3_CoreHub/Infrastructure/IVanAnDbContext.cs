@@ -55,6 +55,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
         DbSet<VanAn.CoreHub.Infrastructure.Entities.PlatformUser> PlatformUsers { get; }
 
+        // KhachLink Full Flow W0: Shop feature toggle settings (tenant-scoped)
+        DbSet<VanAn.CoreHub.Infrastructure.Entities.ShopFeatureSettingsEntity> ShopFeatureSettings { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

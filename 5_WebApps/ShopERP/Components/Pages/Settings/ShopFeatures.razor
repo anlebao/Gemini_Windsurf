@@ -1,0 +1,158 @@
+@page "/settings/shop-features"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
+@inject IShopFeatureSettingsService SettingsService
+@inject ITenantProvider TenantProvider
+@inject ILogger<ShopFeatures> Logger
+
+<PageTitle>Cấu hình tính năng Shop</PageTitle>
+
+<div class="shop-features-page" data-testid="shop-features-page">
+    <header class="page-header">
+        <h1>Cấu hình tính năng Shop</h1>
+    </header>
+
+    @if (!TenantProvider.HasTenant)
+    {
+        <VanAAlert Variant="warning" Message="Không tìm thấy thông tin tenant. Vui lòng đăng nhập lại." />
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <VanAAlert Variant="success" Message="@successMessage" data-testid="alert-success" />
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <VanAAlert Variant="error" Message="@errorMessage" data-testid="alert-error" />
+        }
+
+        @if (loading)
+        {
+            <VanAAlert Variant="info" Message="Đang tải cấu hình..." />
+        }
+        else
+        {
+            <VanACard Header="Tính năng nghiệp vụ" data-testid="features-card">
+                <div class="features-form">
+                    <div class="feature-row" data-testid="toggle-qr-table-number">
+                        <div class="feature-info">
+                            <strong>Hiển thị số bàn trong QR Code</strong>
+                            <p class="text-muted small">Khi bật, QR Code sẽ chứa thêm số thứ tự bàn. Khách quét mã thấy thông tin bàn.</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="qr-table-number" @bind="settings.QR_TableNumber_Enabled" />
+                        </div>
+                    </div>
+
+                    <div class="feature-row" data-testid="toggle-kitchen-workflow">
+                        <div class="feature-info">
+                            <strong>Bật luồng nhà bếp / pha chế</strong>
+                            <p class="text-muted small">Đơn hàng đi qua: Nhận đơn → Đang chế biến → Sẵn sàng giao. Khi tắt, đơn đi thẳng đến Hoàn tất.</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="kitchen-workflow" @bind="settings.Kitchen_Workflow_Enabled" />
+                        </div>
+                    </div>
+
+                    <div class="feature-row" data-testid="toggle-voice-note">
+                        <div class="feature-info">
+                            <strong>Bật ghi chú giọng nói (STT + TTS)</strong>
+                            <p class="text-muted small">Khách ghi âm → chuyển thành text. Nhà bếp đọc ghi chú bằng giọng nói khi nhận đơn.</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="voice-note" @bind="settings.Voice_Note_Enabled" />
+                        </div>
+                    </div>
+
+                    <div class="feature-row" data-testid="toggle-loyalty-program">
+                        <div class="feature-info">
+                            <strong>Bật chương trình điểm thưởng</strong>
+                            <p class="text-muted small">Sau khi hoàn tất đơn: OTP + tích điểm + PWA prompt. Khi tắt, khách chỉ thấy "Cảm ơn".</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="loyalty-program" @bind="settings.Loyalty_Program_Enabled" />
+                        </div>
+                    </div>
+
+                    <div class="feature-row" data-testid="toggle-accounting-sync">
+                        <div class="feature-info">
+                            <strong>Đồng bộ kế toán HKD tự động</strong>
+                            <p class="text-muted small">Mọi giao dịch thanh toán tự động đẩy sang hệ thống kế toán. Khi tắt, admin nhập liệu thủ công.</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="accounting-sync" @bind="settings.Accounting_Sync_Enabled" />
+                        </div>
+                    </div>
+
+                    <div class="feature-row" data-testid="toggle-einvoice-auto-export">
+                        <div class="feature-info">
+                            <strong>Tự động xuất hóa đơn điện tử</strong>
+                            <p class="text-muted small">Tự động xuất HĐĐT khi đơn hàng Hoàn tất. Yêu cầu đã cấu hình nhà cung cấp (Viettel/MISA).</p>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   id="einvoice-auto-export" @bind="settings.EInvoice_Auto_Export_Enabled" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions mt-3">
+                    <VanAButton Variant="primary" OnClick="SaveSettings" data-testid="btn-save">
+                        Lưu cấu hình
+                    </VanAButton>
+                </div>
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private ShopFeatureSettingsDto settings = new();
+    private bool loading = true;
+    private string? successMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Guid tenantId = TenantProvider.TenantId;
+            settings = await SettingsService.GetSettingsAsync(tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading shop feature settings");
+            errorMessage = "Không thể tải cấu hình. Vui lòng thử lại.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            successMessage = null;
+            errorMessage = null;
+            Guid tenantId = TenantProvider.TenantId;
+            settings = await SettingsService.UpdateSettingsAsync(tenantId, settings);
+            successMessage = "Đã lưu cấu hình thành công.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving shop feature settings");
+            errorMessage = "Không thể lưu cấu hình. Vui lòng thử lại.";
+        }
+    }
+}

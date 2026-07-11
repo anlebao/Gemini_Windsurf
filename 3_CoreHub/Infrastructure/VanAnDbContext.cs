@@ -106,6 +106,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Platform SystemAdmin: Platform-level users (cross-tenant, NOT tenant-scoped)
         public DbSet<Entities.PlatformUser> PlatformUsers { get; set; }
 
+        // KhachLink Full Flow W0: Shop feature toggle settings (tenant-scoped)
+        public DbSet<Entities.ShopFeatureSettingsEntity> ShopFeatureSettings { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

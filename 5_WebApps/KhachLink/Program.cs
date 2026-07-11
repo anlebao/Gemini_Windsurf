@@ -102,6 +102,9 @@ namespace VanAn.KhachLink
 
             _ = builder.Services.AddScoped<Services.Http.ProductHttpService>();
 
+            // KhachLink Full Flow W0: Shop feature toggle settings (HTTP via Gateway)
+            _ = builder.Services.AddScoped<Services.Http.ShopFeatureSettingsHttpService>();
+
             // Register Recently Viewed Service (Wave 8: Product Personalization)
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
 

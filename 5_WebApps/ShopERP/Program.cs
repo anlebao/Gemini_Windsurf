@@ -152,6 +152,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
+            // KhachLink Full Flow W0: Shop feature toggle settings
+            _ = builder.Services.AddScoped<CoreHub.Services.IShopFeatureSettingsService, CoreHub.Services.ShopFeatureSettingsService>();
             _ = builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
             _ = builder.Services.AddHttpContextAccessor();
 
@@ -611,6 +613,16 @@ namespace VanAn.ShopERP
                     context.Entry(vasTenant).Property("TenantId").CurrentValue = new TenantId(vasTenantId);
                     await context.SaveChangesAsync();
                     Console.WriteLine($"VAS W1: Enterprise tenant seeded into SQLite — {vasTenantId}");
+                }
+
+                // KhachLink Full Flow W0: Seed default shop feature settings for default tenant.
+                // Defaults: kitchen=ON, loyalty=ON, accounting=ON, QR_table=OFF, voice=OFF, einvoice=OFF.
+                if (!await context.ShopFeatureSettings.IgnoreQueryFilters().AnyAsync(s => s.TenantId == seedTenantId))
+                {
+                    var featureSettings = new CoreHub.Infrastructure.Entities.ShopFeatureSettingsEntity(seedTenantId);
+                    context.ShopFeatureSettings.Add(featureSettings);
+                    await context.SaveChangesAsync();
+                    Console.WriteLine($"KL W0: Shop feature settings seeded for tenant {tenantIdStr}");
                 }
 
                 // W3: Seed AccountChart reference data (clear + reseed to ensure chart matches code).
