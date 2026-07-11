@@ -590,15 +590,11 @@ namespace VanAn.ShopERP
             // W5 hardening: Wrapped in #if DEBUG so the route is compiled out of Release builds.
             // The DevLoginController class itself is also #if DEBUG-guarded (see Controllers/DevLoginController.cs).
             // VanAn.Architecture.Tests enforces this via DevLoginControllerReleaseBuildGuardTests.
+            // NOTE: GET /dev/login is handled by DevLoginController.LoginInfo() — do NOT register
+            // a duplicate minimal API MapGet here (causes AmbiguousMatchException on GET).
 #if DEBUG
             if (app.Environment.IsDevelopment())
             {
-                _ = app.MapGet("/dev/login", () => Results.Ok(new
-                {
-                    available = true,
-                    env       = "Development",
-                    note      = "POST to /dev/login to create an auth session for E2E tests",
-                }));
                 app.Logger.LogInformation("DevLoginController registered at /dev/login (Development only)");
             }
 #endif

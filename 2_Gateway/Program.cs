@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using VanAn.Shared.Services;
 using VanAn.Shared.Domain.Common;
@@ -21,7 +22,7 @@ namespace VanAn.Gateway
 {
     public partial class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             // Npgsql 7+: Enable legacy timestamp behavior so DateTime with Kind=Unspecified works
             // with PostgreSQL 'timestamp with time zone' columns (same switch as ShopERP).
@@ -323,6 +324,16 @@ namespace VanAn.Gateway
             {
                 Log.Information("🚀 Starting Vạn An Gateway Service...");
 
+                // Local dev SQLite schema sync: ShopERP's migration creates AccountingEntries with
+                // audit columns only (AccountingEntry DbSet removed from ShopERPDbContext per ADR-001).
+                // Gateway uses VanAnDbContext which expects full business columns (AccountCode, Amount,
+                // EntryType, etc.). On SQLite local dev, patch the missing columns via ALTER TABLE.
+                // Production uses PostgreSQL where VanAnDbContext migrations create the full schema.
+                if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+                {
+                    await EnsureSqliteAccountingSchemaAsync(app.Services);
+                }
+
                 // Configure the HTTP request pipeline.
                 if (app.Environment.IsDevelopment())
                 {
@@ -414,6 +425,70 @@ namespace VanAn.Gateway
             {
                 throw new InvalidOperationException("Jwt:Secret must be at least 32 characters for HS256 security.");
             }
+        }
+
+        /// <summary>
+        /// Local dev SQLite schema patch: add missing business columns to AccountingEntries table.
+        /// ShopERP's ShopERPDbContext migration creates AccountingEntries with audit columns only
+        /// (AccountingEntry DbSet removed per ADR-001). Gateway's VanAnDbContext expects full
+        /// business columns. This method patches the gap via ALTER TABLE ADD COLUMN (SQLite-safe,
+        /// idempotent — checks PRAGMA table_info before adding).
+        /// </summary>
+        private static async Task EnsureSqliteAccountingSchemaAsync(IServiceProvider services)
+        {
+            using IServiceScope scope = services.CreateScope();
+            VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+
+            // Columns that VanAnDbContext expects but ShopERP's migration doesn't create.
+            // SQLite ALTER TABLE ADD COLUMN is null-tolerant for existing rows.
+            (string Name, string Type)[] requiredColumns =
+            [
+                ("Amount", "REAL NOT NULL DEFAULT 0"),
+                ("EntryType", "INTEGER NOT NULL DEFAULT 0"),
+                ("VatRate", "INTEGER NOT NULL DEFAULT 0"),
+                ("AccountingBookType", "INTEGER NOT NULL DEFAULT 0"),
+                ("PeriodYear", "INTEGER NOT NULL DEFAULT 2000"),
+                ("PeriodMonth", "INTEGER NOT NULL DEFAULT 1"),
+                ("ReversalEntryId", "TEXT"),
+                ("Description", "TEXT NOT NULL DEFAULT ''"),
+                ("AccountCode", "TEXT"),
+                ("Vendor", "TEXT"),
+                ("Category", "TEXT"),
+                ("Reference", "TEXT"),
+                ("IndustrySector", "INTEGER"),
+            ];
+
+            // Query existing columns
+            var existingColumns = await context.Database.SqlQueryRaw<ColumnInfo>(
+                "PRAGMA table_info(AccountingEntries)").ToListAsync();
+            var existingNames = existingColumns.Select(c => c.Name).ToHashSet();
+
+            int added = 0;
+            foreach ((string name, string type) in requiredColumns)
+            {
+                if (!existingNames.Contains(name))
+                {
+                    await context.Database.ExecuteSqlRawAsync(
+                        $"ALTER TABLE AccountingEntries ADD COLUMN {name} {type}");
+                    added++;
+                }
+            }
+
+            if (added > 0)
+            {
+                Log.Information("SQLite schema patch: added {Count} missing columns to AccountingEntries", added);
+            }
+        }
+
+        private class ColumnInfo
+        {
+            public int Cid { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Type { get; set; } = string.Empty;
+            public int NotNull { get; set; }
+            [Column("dflt_value")]
+            public string? DfltValue { get; set; }
+            public int Pk { get; set; }
         }
     }
 
