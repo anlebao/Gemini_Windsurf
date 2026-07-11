@@ -174,6 +174,28 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        /// <summary>
+        /// Public tracking: bypasses multi-tenancy query filter.
+        /// Safe — PublicOrderTrackingDto strips TenantId/CustomerId/notes before returning to client.
+        /// </summary>
+        public async Task<Order?> GetByIdWithIncludesIgnoreFiltersAsync(Guid orderId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await _context.Orders
+                    .IgnoreQueryFilters()
+                    .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                    .Include(o => o.Customer)
+                    .FirstOrDefaultAsync(o => o.Id == orderId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting order {OrderId} with includes (IgnoreFilters)", orderId);
+                return null;
+            }
+        }
+
         public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             _ = await _context.SaveChangesAsync(cancellationToken);
