@@ -3,9 +3,11 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** (1) KhachLink nút "Xác nhận đã nhận hàng". (2) Loyalty flow bypass khi toggle OFF. (3) PWA disable cho logged-in users. (4) Accounting sync bypass khi toggle OFF.
 - **Nghiệp vụ áp dụng:** Section 4 (Giai đoạn 3) của `Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md` v1.2
-- **Status:** ⬜ NOT STARTED
+- **Status:** ✅ COMPLETE — IMPLEMENT + Live RV PASS
 - **Branch:** `feature/khachlink-flow-wave2-completion-loyalty`
 - **Dependency:** Wave 1 COMPLETE (kitchen UI + polling 3s + status fix)
+- **Last commit:** `25efa12` [KL WAVE 2] Customer confirm + loyalty bypass + PWA disable + accounting bypass
+- **Live RV:** RV1-RV11 ALL PASS (2026-07-11, Docker+ShopERP 5003+KhachLink 5002+Gateway 5001)
 
 ---
 
