@@ -210,6 +210,8 @@
     private bool _showOfflineIndicator = false;
     private CancellationTokenSource _cts = new();
     private bool _isInitialized = false;
+    // W2-T5: Disable PWA prompt for logged-in users (they already have the app)
+    private bool _isLoggedIn = false;
 
     public bool IsOnline => _isOnline;
     public bool ShowOfflineIndicator => _showOfflineIndicator;
@@ -238,8 +240,13 @@
             var dismissedFlag = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "pwa_dismissed");
             _dismissed = dismissedFlag == "true";
 
-            // Show install prompt if not installed and not dismissed
-            if (!PWAService.IsInstalled && !_dismissed)
+            // W2-T5: Check if user is logged in (customer_token in localStorage)
+            // Logged-in users already have the app — don't show install prompt
+            var customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            _isLoggedIn = !string.IsNullOrEmpty(customerToken);
+
+            // Show install prompt if not installed, not dismissed, and not logged in
+            if (!PWAService.IsInstalled && !_dismissed && !_isLoggedIn)
             {
                 // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
                 try
@@ -255,7 +262,8 @@
 
     private string GetDisplayStyle()
     {
-        if (!_showInstallPrompt || _dismissed) return "display: none;";
+        // W2-T5: Hide if dismissed OR logged in
+        if (!_showInstallPrompt || _dismissed || _isLoggedIn) return "display: none;";
         return "";
     }
 

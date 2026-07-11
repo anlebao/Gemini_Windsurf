@@ -24,7 +24,8 @@ namespace VanAn.CoreHub.Services
         ITemplateFactory? templateFactory = null,
         IOrderHub? orderHub = null,
         IVanAnDbContext? dbContext = null,
-        IOrderNotificationService? orderNotificationService = null) : IOrderService
+        IOrderNotificationService? orderNotificationService = null,
+        IShopFeatureSettingsService? shopFeatureSettingsService = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -32,6 +33,8 @@ namespace VanAn.CoreHub.Services
         private readonly IHKDBookRepository _hkdBookRepository = hkdBookRepository;
         private readonly IAccountingEntryRepository _accountingEntryRepository = accountingEntryRepository;
         private readonly ILogger<OrderService> _logger = logger;
+        // W2-T6: Shop feature settings — for accounting sync toggle bypass
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
 
         // NEW DEPENDENCIES
         private readonly IInventoryService _inventoryService = inventoryService;
@@ -604,7 +607,30 @@ namespace VanAn.CoreHub.Services
             Order accountingOrder = orderWithItems ?? order; // fallback to plain order if reload fails
 
             // 3. Generate accounting entries (Revenue + COGS) — only after payment confirmed
-            await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
+            // W2-T6: Skip if Accounting_Sync_Enabled toggle is OFF for this tenant
+            bool accountingEnabled = true;
+            if (_shopFeatureSettingsService != null)
+            {
+                try
+                {
+                    accountingEnabled = await _shopFeatureSettingsService.IsEnabledAsync(
+                        tenantId,
+                        nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ConfirmPaymentAsync: Failed to fetch Accounting_Sync_Enabled toggle for tenant {TenantId} — defaulting to ON", tenantId);
+                }
+            }
+
+            if (accountingEnabled)
+            {
+                await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
+            }
+            else
+            {
+                _logger.LogInformation("ConfirmPaymentAsync: Accounting sync disabled for tenant {TenantId} — skipping entry generation for order {OrderId}", tenantId, orderId);
+            }
 
             // W0-T5: Broadcast SignalR PaymentConfirmed notification to ShopERP staff (best-effort)
             // Null in ShopERP scope — in v2 edge mode, NATS → DataSyncSubscriber handles it.

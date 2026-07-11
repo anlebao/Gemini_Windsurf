@@ -104,6 +104,36 @@ namespace VanAn.ShopERP.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        /// <summary>
+        /// W2-T2: Customer confirms receipt of order (ready → delivered).
+        /// Called by KhachLink OrderTracking when customer clicks "Xác nhận đã nhận hàng".
+        /// Routes through TransitionStatusAsync for validation + outbox events.
+        /// </summary>
+        [HttpPost("{orderId:guid}/confirm-received")]
+        [AllowAnonymous]
+        public async Task<ActionResult> ConfirmReceived(Guid orderId)
+        {
+            try
+            {
+                Order? order = await _orderWorkflowService.TransitionStatusAsync(
+                    orderId,
+                    new OrderStatusId("delivered"),
+                    "Customer confirmed receipt");
+
+                if (order == null)
+                {
+                    return NotFound(new { error = "Order not found or invalid transition (ready→delivered required)" });
+                }
+
+                return Ok(new { success = true, orderId, status = "delivered" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming receipt for order {OrderId}", orderId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
     }
 
     public class TransitionStatusRequest
