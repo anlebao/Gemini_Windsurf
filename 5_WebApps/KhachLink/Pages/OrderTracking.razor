@@ -1,9 +1,12 @@
 @page "/order-tracking/{orderId:guid}"
 @using VanAn.Shared.DTOs
 @using VanAn.KhachLink.Components
+@using VanAn.KhachLink.Services.Http
+@using VanAn.CoreHub.Services
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject ShopFeatureSettingsHttpService FeatureSettings
 
 <PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
 
@@ -190,7 +193,9 @@
     private List<TrackingStep> statusTimeline = new();
     private bool isLoading = true;
     private string? errorMessage;
-    
+    // W1-T9: Kitchen toggle — controls visibility of preparing/ready steps in timeline
+    private bool kitchenEnabled = true;
+
     // Wave 9/W4: Polling infrastructure for real-time order status updates
     // W4: Replaced PeriodicTimer with Task.Delay loop for adaptive interval control
     private CancellationTokenSource? _pollingCts;
@@ -207,12 +212,28 @@
         isLoading = true;
         errorMessage = null;
         await LoadOrderFromGateway();
+
+        // W1-T9: Load kitchen toggle after order is available (need TenantId from PublicOrderTrackingDto)
+        if (_publicOrder != null && _publicOrder.TenantId != Guid.Empty)
+        {
+            try
+            {
+                kitchenEnabled = await FeatureSettings.IsEnabledAsync(
+                    _publicOrder.TenantId,
+                    nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
+            }
+            catch
+            {
+                kitchenEnabled = true; // Default to ON if fetch fails
+            }
+        }
+
         BuildStatusTimeline();
         isLoading = false;
 
         // Check if order is already delivered on initial load
         CheckOrderDelivered();
-        
+
         // Wave 9: Start polling after initial load
         StartPolling();
     }
@@ -263,20 +284,27 @@
 
     private void BuildStatusTimeline()
     {
+        // W1-T7: Fixed "processing" → "preparing" to match Domain OrderStatusId.Preparing
+        // W1-T9: When kitchen toggle OFF, hide preparing/ready steps
         var allSteps = new[]
         {
             new { Id = "pending",    DisplayName = "Chờ xác nhận",  Sequence = 1 },
             new { Id = "confirmed",  DisplayName = "Đã xác nhận",   Sequence = 2 },
-            new { Id = "processing", DisplayName = "Đang pha chế",  Sequence = 3 },
+            new { Id = "preparing",  DisplayName = "Đang chế biến", Sequence = 3 },
             new { Id = "ready",      DisplayName = "Sẵn sàng",      Sequence = 4 },
             new { Id = "delivered",  DisplayName = "Đã giao",       Sequence = 5 },
         };
 
+        // W1-T9: Filter out kitchen statuses when toggle is OFF
+        var visibleSteps = kitchenEnabled
+            ? allSteps.ToList()
+            : allSteps.Where(s => s.Id != "preparing" && s.Id != "ready").ToList();
+
         string currentStatusId = _publicOrder?.Status ?? "pending";
-        int currentSeq = Array.FindIndex(allSteps, s => s.Id == currentStatusId) + 1;
+        int currentSeq = visibleSteps.FindIndex(s => s.Id == currentStatusId) + 1;
         if (currentSeq == 0) currentSeq = 1;
 
-        statusTimeline = allSteps.Select(s => new TrackingStep
+        statusTimeline = visibleSteps.Select(s => new TrackingStep
         {
             Id          = s.Id,
             DisplayName = s.DisplayName,
@@ -289,7 +317,7 @@
     {
         "pending"    => "warning",
         "confirmed"  => "info",
-        "processing" => "primary",
+        "preparing"  => "primary",
         "ready"      => "success",
         "delivered"  => "success",
         "cancelled"  => "danger",
@@ -371,20 +399,19 @@
     }
 
     /// <summary>
-    /// W4: Adaptive polling interval — poll faster when status is about to change, slower when stable.
+    /// W1-T8: Fixed 3s polling for all non-final statuses (per requirements v1.2).
     /// Returns 0 to signal "stop polling" for final states.
     /// </summary>
     private static int GetPollingInterval(string? status) => status switch
     {
-        "pending"   => 5,   // Chờ xác nhận — khách đang chờ, cần update nhanh
-        "confirmed" => 10,  // Đã xác nhận — đang chuẩn bị, ít thay đổi
-        "preparing" => 10,  // Đang làm — ít thay đổi
-        "processing" => 10, // Đang pha chế — ít thay đổi
-        "ready"     => 5,   // Sẵn sàng — khách cần biết ngay
+        "pending"   => 3,   // W1-T8: 3s per requirements
+        "confirmed" => 3,
+        "preparing" => 3,
+        "ready"     => 3,
         "completed" => 0,   // Hoàn thành — STOP polling
         "delivered" => 0,   // Đã giao — STOP polling
         "cancelled" => 0,   // Đã hủy — STOP polling
-        _           => 5    // Unknown — default 5s
+        _           => 3    // Unknown — default 3s
     };
 
     private async Task<bool> CheckTabVisibilityAsync()

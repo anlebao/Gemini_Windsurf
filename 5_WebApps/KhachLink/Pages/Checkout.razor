@@ -9,6 +9,8 @@
 @inject IHttpClientFactory HttpClientFactory
 @implements IDisposable
 
+@* W1-T1: Payment method — "cash" shows ProcessingBar, "transfer" shows QR modal. *@
+
 <PageTitle>KhachLink - Thanh toán đơn hàng</PageTitle>
 
 <KhachLinkLayout>
@@ -103,8 +105,32 @@
                             <VanAnAlert Variant="AlertVariant.Error" Message="@formError" Dismissible="false" />
                         }
 
-                        <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order">
-                            Đặt hàng
+                        <!-- W1-T1: Payment method selector -->
+                        <div class="mb-3" data-testid="payment-method-selector">
+                            <label class="form-label fw-bold">Hình thức thanh toán</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input id="payment-cash" type="radio" name="paymentMethod" value="cash"
+                                           class="form-check-input" checked="@(selectedPaymentMethod == "cash")"
+                                           @onchange="@(() => selectedPaymentMethod = "cash")"
+                                           data-testid="payment-option-cash" />
+                                    <label for="payment-cash" class="form-check-label">💵 Tiền mặt</label>
+                                </div>
+                                <div class="form-check">
+                                    <input id="payment-transfer" type="radio" name="paymentMethod" value="transfer"
+                                           class="form-check-input" checked="@(selectedPaymentMethod == "transfer")"
+                                           @onchange="@(() => selectedPaymentMethod = "transfer")"
+                                           data-testid="payment-option-transfer" />
+                                    <label for="payment-transfer" class="form-check-label">🏦 Chuyển khoản (VietQR)</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- W1-T2: ProcessingBar shown during cash order submission -->
+                        <ProcessingBar IsVisible="@isSendingCash" />
+
+                        <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order" disabled="@isSendingCash">
+                            @(selectedPaymentMethod == "cash" ? "Đặt hàng (Tiền mặt)" : "Đặt hàng (Chuyển khoản)")
                         </VanAnButton>
                     </VanAnCard>
                 </div>
@@ -155,6 +181,10 @@
     private string guestPhone = string.Empty;
     private string guestAddress = string.Empty;
     private string? formError;
+    // W1-T1: Payment method — "cash" or "transfer" (default: transfer for QR flow)
+    private string selectedPaymentMethod = "transfer";
+    // W1-T2: Cash flow processing state
+    private bool isSendingCash;
 
     protected override async Task OnInitializedAsync()
     {
@@ -191,15 +221,19 @@
 
         formError = null;
         isProcessing = true;
+        // W1-T2: Cash flow uses ProcessingBar instead of QR spinner
+        if (selectedPaymentMethod == "cash")
+            isSendingCash = true;
         showGuestForm = false;
         StateHasChanged();
 
         try
         {
-            // Persist guest info to CheckoutFlowState (scoped state machine)
+            // Persist guest info + payment method to CheckoutFlowState (scoped state machine)
             CheckoutFlow.CustomerName = guestName;
             CheckoutFlow.CustomerPhone = guestPhone;
             CheckoutFlow.CustomerAddress = guestAddress;
+            CheckoutFlow.PaymentMethod = selectedPaymentMethod;
 
             var orderRequest = new
             {
@@ -229,6 +263,13 @@
                 orderCreated = true;
 
                 await CartService.ClearCartAsync();
+
+                // W1-T1: Cash flow → redirect to OrderTracking immediately (no QR modal)
+                if (selectedPaymentMethod == "cash" && !string.IsNullOrEmpty(createdOrderId))
+                {
+                    NavigationManager.NavigateTo($"/order-tracking/{createdOrderId}");
+                    return;
+                }
             }
         }
         catch (Exception ex)
@@ -238,6 +279,7 @@
         finally
         {
             isProcessing = false;
+            isSendingCash = false;
             StateHasChanged();
         }
     }

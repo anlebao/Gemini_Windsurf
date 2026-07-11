@@ -161,6 +161,7 @@ namespace VanAn.Gateway.Controllers
                     CreatedAt = order.CreatedAt,
                     TotalPrice = order.TotalPrice,
                     ItemCount = order.Items.Count,
+                    TenantId = order.TenantId.Value,
                     Items = order.Items.Select(i => new PublicOrderItemDto
                     {
                         Quantity = i.Quantity,

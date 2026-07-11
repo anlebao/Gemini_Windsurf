@@ -7,12 +7,15 @@
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Components.Data
 @using VanAn.UI.Platform.Models
+@using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
+@using VanAn.CoreHub.Services
 @using System.Net.Http.Json
 @inject IHttpClientFactory HttpClientFactory
 @inject ILogger<Detail> Logger
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
+@inject IShopFeatureSettingsService FeatureSettings
 
 <div class="order-detail-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -61,6 +64,44 @@
                 <div class="action-row">
                     <VanAButton Variant="primary" OnClick="ConfirmOrder" data-testid="btn-confirm-detail">
                         ✓ Xác nhận đơn hàng
+                    </VanAButton>
+                </div>
+            }
+
+            @* W1-T4: Kitchen buttons — only when Kitchen_Workflow_Enabled is ON *@
+            @if (kitchenEnabled && order.Status?.Value == "confirmed")
+            {
+                <div class="action-row">
+                    <VanAButton Variant="primary" OnClick="StartPreparing" data-testid="btn-start-preparing">
+                        ⏳ Bắt đầu làm
+                    </VanAButton>
+                </div>
+            }
+
+            @if (kitchenEnabled && order.Status?.Value == "preparing")
+            {
+                <div class="action-row">
+                    <VanAButton Variant="success" OnClick="MarkReady" data-testid="btn-mark-ready">
+                        ✅ Sẵn sàng giao
+                    </VanAButton>
+                </div>
+            }
+
+            @if (kitchenEnabled && order.Status?.Value == "ready")
+            {
+                <div class="action-row">
+                    <VanAButton Variant="primary" OnClick="CompleteOrder" data-testid="btn-complete">
+                        ✔️ Hoàn tất
+                    </VanAButton>
+                </div>
+            }
+
+            @* W1-T5: Kitchen bypass — when toggle OFF, show "Hoàn tất" directly from confirmed *@
+            @if (!kitchenEnabled && order.Status?.Value == "confirmed")
+            {
+                <div class="action-row">
+                    <VanAButton Variant="success" OnClick="CompleteOrder" data-testid="btn-complete-bypass">
+                        ✔️ Hoàn tất đơn hàng
                     </VanAButton>
                 </div>
             }
@@ -120,10 +161,27 @@
     private string? errorMessage;
     private HubConnection? _hubConnection;
     private List<TrackingStep> statusTimeline = new();
+    // W1-T4: Kitchen toggle — controls visibility of kitchen transition buttons
+    private bool kitchenEnabled = true;
 
     protected override async Task OnInitializedAsync()
     {
         await ReloadOrder();
+        // W1-T4: Load kitchen toggle after order is available (need tenantId)
+        if (order?.TenantId?.Value != null && order.TenantId.Value != Guid.Empty)
+        {
+            try
+            {
+                kitchenEnabled = await FeatureSettings.IsEnabledAsync(
+                    order.TenantId.Value,
+                    nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to load kitchen toggle — defaulting to ON");
+                kitchenEnabled = true;
+            }
+        }
         await StartSignalRConnection();
     }
 
@@ -219,6 +277,62 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error confirming payment for order {OrderId}", OrderId);
+            errorMessage = $"Lỗi: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// W1-T4: Transition order to "preparing" (kitchen starts making the order).
+    /// Routes through OrderWorkflowService via shoperp/api/orderworkflow for transition validation + outbox events.
+    /// </summary>
+    private async Task StartPreparing()
+    {
+        await TransitionOrderStatus("preparing");
+    }
+
+    /// <summary>
+    /// W1-T4: Transition order to "ready" (kitchen finished, ready for pickup/delivery).
+    /// </summary>
+    private async Task MarkReady()
+    {
+        await TransitionOrderStatus("ready");
+    }
+
+    /// <summary>
+    /// W1-T5: Transition order to "completed" (final state — triggers loyalty/accounting/outbox).
+    /// Works for both kitchen ON (ready→completed) and kitchen OFF (confirmed→completed bypass).
+    /// </summary>
+    private async Task CompleteOrder()
+    {
+        await TransitionOrderStatus("completed");
+    }
+
+    /// <summary>
+    /// W1-T4/T5: Shared transition method — calls OrderWorkflowService via YARP shoperp-route.
+    /// OrderWorkflowService validates transition + handles kitchen bypass + records outbox events.
+    /// </summary>
+    private async Task TransitionOrderStatus(string newStatus)
+    {
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("gateway");
+            var response = await httpClient.PutAsJsonAsync(
+                $"shoperp/api/orderworkflow/{OrderId}/status",
+                new { Status = newStatus, Reason = (string?)null });
+
+            if (response.IsSuccessStatusCode)
+            {
+                await ReloadOrder();
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Không thể chuyển trạng thái sang '{newStatus}': {(int)response.StatusCode} — {body}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error transitioning order {OrderId} to {Status}", OrderId, newStatus);
             errorMessage = $"Lỗi: {ex.Message}";
         }
     }
