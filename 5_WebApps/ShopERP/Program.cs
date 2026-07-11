@@ -13,6 +13,7 @@ using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Services.Providers.EInvoice;
 using VanAn.ShopERP.Infrastructure;
 using VanAn.ShopERP.Services;
 using VanAn.UI.Platform.Services;
@@ -210,6 +211,86 @@ namespace VanAn.ShopERP
 
             // Wave 8: HKD Book export service (DOCX via OpenXML + XLSX via EPPlus)
             _ = builder.Services.AddScoped<Services.IHKDBookExportService, Services.HKDBookExportService>();
+
+            // E-Invoice Services (Sprint 3 — DI wiring for ShopERP host)
+            // Mirrors 3_CoreHub/Program.cs registration. Required by InvoiceManagement.razor + HKDElectronicInvoiceController.
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IInvoicePolicyService, CoreHub.Services.Orchestration.InvoicePolicyService>();
+            _ = builder.Services.Configure<ViettelConfig>(builder.Configuration.GetSection("ViettelConfig"));
+            _ = builder.Services.AddHttpClient<ViettelEInvoiceProvider>("viettel", client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["ViettelConfig:BaseUrl"] ?? "https://sinvoice.viettel.vn/");
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+            _ = builder.Services.Configure<MisaConfig>(builder.Configuration.GetSection("MisaConfig"));
+            _ = builder.Services.AddHttpClient<MisaEInvoiceProvider>("misa", client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["MisaConfig:BaseUrl"] ?? "https://api.meinvoice.vn/");
+                client.Timeout = TimeSpan.FromSeconds(45);
+            });
+            _ = builder.Services.AddSingleton<IEInvoiceProviderRegistry>(sp =>
+            {
+                var registry = new EInvoiceProviderRegistry();
+                registry.RegisterProvider("viettel", typeof(ViettelEInvoiceProvider));
+                registry.RegisterProvider("misa",    typeof(MisaEInvoiceProvider));
+                return registry;
+            });
+            _ = builder.Services.AddScoped<IEInvoiceProviderFactory, EInvoiceProviderFactory>();
+            _ = builder.Services.AddSingleton<CoreHub.Services.Resilience.ICircuitBreakerService, CoreHub.Services.Resilience.CircuitBreakerService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IRetryPolicyService>(sp =>
+            {
+                var factory = sp.GetRequiredService<IEInvoiceProviderFactory>();
+                var breaker = sp.GetRequiredService<CoreHub.Services.Resilience.ICircuitBreakerService>();
+                var db      = sp.GetRequiredService<CoreHub.Infrastructure.VanAnDbContext>();
+                var logger  = sp.GetRequiredService<ILogger<CoreHub.Services.Orchestration.RetryPolicyService>>();
+
+                Func<VanAn.Shared.Domain.ElectronicInvoiceId, CancellationToken, Task> submitAction =
+                    async (invoiceId, ct) =>
+                    {
+                        var invoice = await db.ElectronicInvoices
+                            .FirstOrDefaultAsync(i => i.InvoiceId == invoiceId, ct)
+                            ?? throw new InvalidOperationException($"Invoice {invoiceId.Value} not found");
+
+                        var providerId = invoice.CurrentProvider is not null
+                            ? invoice.CurrentProvider.Value
+                            : "viettel";
+
+                        if (breaker.IsOpen(providerId))
+                            throw new InvalidOperationException("Circuit breaker OPEN for provider: " + providerId);
+
+                        var provider = factory.CreateProvider(providerId);
+
+                        var supplierTaxCode = providerId == "viettel"
+                            ? builder.Configuration["ViettelConfig:TaxCode"] ?? string.Empty
+                            : builder.Configuration["MisaConfig:CompanyCode"] ?? string.Empty;
+
+                        var request  = new EInvoiceRequest(
+                            invoice.TenantId, invoice.InvoiceId, invoice.OrderId, invoice.InvoiceType,
+                            invoice.Amount, invoice.VatAmount, invoice.TotalAmount,
+                            invoice.CustomerName, invoice.CustomerTaxCode, invoice.CustomerAddress,
+                            invoice.SubmittedAt ?? DateTime.UtcNow,
+                            new Dictionary<string, string>(), supplierTaxCode,
+                            invoice.Items.ToList() as IReadOnlyList<VanAn.Shared.Domain.InvoiceItem>,
+                            "VND", "CASH");
+
+                        var response = await provider.SubmitInvoiceAsync(request, ct);
+                        if (response.Success)
+                            breaker.RecordSuccess(providerId);
+                        else
+                        {
+                            breaker.RecordFailure(providerId);
+                            throw new InvalidOperationException(response.ErrorMessage);
+                        }
+                    };
+
+                return new CoreHub.Services.Orchestration.RetryPolicyService(submitAction, logger);
+            });
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IComplianceService, CoreHub.Services.Orchestration.ComplianceService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IWebhookService, CoreHub.Services.Orchestration.WebhookService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IHKDRevenueClassificationService, CoreHub.Services.Orchestration.HKDRevenueClassificationService>();
+            _ = builder.Services.AddScoped<CoreHub.Infrastructure.Repositories.ITenantProviderConfigurationService, CoreHub.Infrastructure.Repositories.TenantProviderConfigurationService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IProviderManager, CoreHub.Services.ProviderManager>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IFallbackService, CoreHub.Services.Orchestration.FallbackService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Orchestration.IEInvoiceOrchestrator, CoreHub.Services.Orchestration.EInvoiceOrchestrator>();
 
             // W17-T1: Customer Identity services
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IOtpService, VanAn.ShopERP.Services.OtpService>();
@@ -500,6 +581,21 @@ namespace VanAn.ShopERP
                     Console.WriteLine($"Phase 4: Sample Products seeded — 9 items for tenant {tenantIdStr}");
                 }
 
+                // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)
+                // FIX: Tenant entity's TenantId (from BaseEntity) must equal its own Id for the
+                // global multi-tenancy query filter to find it. Factory methods don't set TenantId,
+                // so we set it via EF Core Entry API after tracking.
+                if (!await context.Tenants.IgnoreQueryFilters().AnyAsync(t => t.Id == seedTenantId))
+                {
+                    var devTenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateHouseholdBusiness(
+                        seedTenantId, "Vạn An Cafe (HKD Group 1)", VanAn.Shared.Domain.HKDGroup.Group1);
+                    context.Tenants.Add(devTenant);
+                    // Set TenantId = own Id (multi-tenancy discriminator for self-reference)
+                    context.Entry(devTenant).Property("TenantId").CurrentValue = seedTenantId;
+                    await context.SaveChangesAsync();
+                    Console.WriteLine($"Default tenant seeded into Tenants table — {tenantIdStr}");
+                }
+
                 // VAS Wave 1: Seed Enterprise tenant into SQLite (business DB) for feature flag routing.
                 // VasFeatureFlagService queries IVanAnDbContext → ShopERPDbContext (SQLite), so the tenant
                 // must exist here with Type=Enterprise_SME. Accounting data is seeded separately into PostgreSQL.
@@ -511,6 +607,8 @@ namespace VanAn.ShopERP
                         new TenantId(vasTenantId), "Vạn An Trading Co. (DN vừa TT 133)", vasSettings);
                     vasTenant.SetTenantType(VanAn.Shared.Domain.TenantType.Enterprise_SME, VanAn.Shared.Domain.AccountingStandard.TT133_2016);
                     context.Tenants.Add(vasTenant);
+                    // Set TenantId = own Id (multi-tenancy discriminator for self-reference)
+                    context.Entry(vasTenant).Property("TenantId").CurrentValue = new TenantId(vasTenantId);
                     await context.SaveChangesAsync();
                     Console.WriteLine($"VAS W1: Enterprise tenant seeded into SQLite — {vasTenantId}");
                 }

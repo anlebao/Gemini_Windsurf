@@ -30,39 +30,34 @@
 
 ## 2. Current Objective
 
-**[ENTRY POINT CHECK FIX — COMPLETE ✅]**
+**[SYSTEMADMIN ENTRY POINT VERIFICATION — 2 REMAINING 500s FIXED ✅]**
 
-Fix 4 error groups từ entry point check (12 endpoints fail). Tất cả fixes applied + verified.
+Fix 2 remaining 500 errors từ SystemAdmin entry point verification (51 PASS, 2 FAIL, 15 SKIP).
 
-**Fixes applied:**
-- **Nhóm 1A:** `TenantManagementService.CreateTenantAsync` gọi `SetTenantType(Enterprise_SME)` cho Company tenants + VAS tenant seed vào SQLite (ShopERPDbContext) cho feature flag routing.
-- **Nhóm 1B:** `Forbid("msg")` → `StatusCode(403, ...)` trong 4 VAS controllers (BalanceSheets, CashFlow, IncomeStatements, TrialBalances).
-- **Nhóm 3A+3B:** New endpoint `POST /dev/login/systemadmin/{tenantId:guid}` — SystemAdmin impersonation với JWT tenant_id GUID thực (không phải "system"). Gateway `ForwardDefaultSelector` đã handle JWT → 401 root cause là `tenant_id="system"` fail `Guid.TryParse`.
-- **Nhóm 2:** Confirmed **by design** — 4 AllowAnonymous endpoints require `X-Customer-Token` (customer session), not ASP.NET auth. Seeded customer via OTP flow → all 4 return 200.
-- **Npgsql fix:** `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` trong ShopERP + Gateway Program.cs — Domain `DateTime` with `Kind=Unspecified` compatible với PostgreSQL `timestamp with time zone`.
-- **VAS seed fix:** `VasSampleDataSeeder` thêm `IgnoreQueryFilters()` cho idempotency check (multi-tenancy filter chặn cross-tenant seed query).
-- **AccountingEntries fix:** `DateTime.MinValue` → `new DateTime(2000,1,1)` trong Gateway `GetEntriesByTenant()` (repository reject default DateTime).
+**Fixes applied (this session):**
+- **`GET /einvoice/invoices` (ShopERP) 500 → 200:** Root cause = `IEInvoiceOrchestrator` not registered in ShopERP DI (only in CoreHub). Added full EInvoice DI block to `5_WebApps/ShopERP/Program.cs` mirroring `3_CoreHub/Program.cs` lines 147-251: `IInvoicePolicyService`, `ViettelConfig`/`MisaConfig` + named HttpClients, `IEInvoiceProviderRegistry`/`IEInvoiceProviderFactory`, `ICircuitBreakerService`, `IRetryPolicyService` (with factory delegate wiring submitAction to real provider), `IComplianceService`, `IWebhookService`, `IHKDRevenueClassificationService`, `ITenantProviderConfigurationService`, `IProviderManager`, `IFallbackService`, `IEInvoiceOrchestrator`. Added `using VanAn.CoreHub.Services.Providers.EInvoice;` for provider types.
+- **`GET /api/hkd-books` (Gateway) 500 → 200:** Root cause = `Tenant 00000000-0000-0000-0000-000000000001 not found` — default dev tenant was never seeded into `Tenants` table (only `DemoUsers` + VAS tenant were seeded). Added default tenant seeding to `5_WebApps/ShopERP/Program.cs`: `Tenant.CreateHouseholdBusiness(seedTenantId, "Vạn An Cafe (HKD Group 1)", HKDGroup.Group1)` with `TenantId = own Id` set via EF Core Entry API (multi-tenancy self-reference — `BaseEntity.TenantId` must equal own `Id` for global query filter to find it). Also fixed VAS tenant seeding with same `TenantId = own Id` self-reference fix (was missing, would fail cross-tenant query).
 
 **Verification results:**
-- Nhóm 1 (VAS Reports): **4/4 → 200 OK** (Balance Sheet, Cash Flow, Income Statement, Trial Balance)
-- Nhóm 2 (AllowAnonymous): **4/4 → 200 OK** with X-Customer-Token (by design confirmed)
-- Nhóm 3 (Gateway JWT): **2/3 → 200 OK** (HKD Books, Orders). Accounting Entries 500 = pre-existing SQLite schema gap (`no such column: a.AccountCode`), auth passes.
-- Nhóm 4 (HKDBooks Cookie): 401 by design (JWT Bearer only)
-- Tests: Architecture 38/38 PASS · Core 983/984 PASS (1 flaky SQLite concurrency) · Integration 201/201 PASS
+- `GET /einvoice/invoices`: **200 OK** ✅
+- `GET /api/hkd-books`: **200 OK** ✅
+- Build: ShopERP `dotnet build` — 0 errors ✅
 
-**Previous (completed):** Entry Point Check + Local Infra Boot ✅ (commit `f4eb676`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged to main `33d18fa`).
+**Previous (completed):** Entry Point Check Fix — 4 error groups ✅ (commit `3424bac`). Entry Point Check + Local Infra Boot ✅ (commit `f4eb676`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged to main `33d18fa`).
 
 ---
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `f4eb676` Entry point check: SystemAdmin impersonation flow + 2 startup fixes
+- **Last commit:** `97f7a1b` run-dev.ps1: add wsl --shutdown before Docker start + --remove-orphans for cleanup
+- **Uncommitted changes:** `5_WebApps/ShopERP/Program.cs` (EInvoice DI block + default tenant seed + VAS tenant TenantId fix)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-postgres-local`, role `vanan_admin`)
 - **Tests (Release):** 1222/1223 PASS — 38 Architecture + 983 Core + 201 Integration (1 flaky SQLite concurrency test, passes in isolation). Verified 2026-07-10.
-- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 + NATS 4222 + Gateway 5001 + ShopERP 5003 — all healthy. SystemAdmin login + impersonation flow verified. VAS reports 200 OK. Customer OTP flow verified.
+- **Local infra (Debug):** Docker Desktop + PostgreSQL 5432 + NATS 4222 + Gateway 5001 + ShopERP 5003 — all healthy. SystemAdmin login + impersonation flow verified. Both previously-failing endpoints (`/einvoice/invoices`, `/api/hkd-books`) now return 200 OK.
 - **Tech debt:** Tier 5 recorded — True Offline Edge (Accounting via HTTP), task card `true_offline_edge_accounting_http_task_card.md`. Trigger: true 2-server Edge deployment. Severity: Low (not triggered — all compose files have PostgreSQL on same machine).
+- **Entry point check (2026-07-11):** 2 remaining 500s FIXED. `/einvoice/invoices` (missing EInvoice DI in ShopERP) → 200. `/api/hkd-books` (default tenant not seeded) → 200. Full verify script re-run pending (tool stuck in polling loop, manual endpoint checks confirmed 200).
 - **Entry point check (2026-07-10):** 4 error groups ALL FIXED. Nhóm 1 (VAS reports) 4/4 → 200. Nhóm 2 (AllowAnonymous) 4/4 → 200 with customer token (by design). Nhóm 3 (Gateway JWT) 2/3 → 200 (Accounting Entries 500 = pre-existing SQLite schema gap). Nhóm 4 (HKDBooks Cookie) by design.
 - **Completed streams (all merged to main):**
   - Platform SystemAdmin ✅ (commit `dde219e`) — F1-F5 fix + docs pending commit
@@ -80,8 +75,10 @@ Fix 4 error groups từ entry point check (12 endpoints fail). Tất cả fixes 
 ## 4. Next Actions
 
 **Immediate:**
-1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap. Auth passes (JWT validated, policy OK), 500 from `SQLite Error 1: 'no such column: a.AccountCode'`.
-2. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict between `LoginInfo` (GET /dev/login) and Blazor `/Index` page. POST works fine.
+1. **Commit current fixes** — EInvoice DI block + default tenant seed in `5_WebApps/ShopERP/Program.cs`.
+2. **Re-run verify script** — `scripts/verify-systemadmin-entry-points.ps1` to confirm 0 FAIL (was interrupted by tool polling issue; manual endpoint checks confirmed both 200).
+3. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap. Auth passes (JWT validated, policy OK), 500 from `SQLite Error 1: 'no such column: a.AccountCode'`.
+4. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict between `LoginInfo` (GET /dev/login) and Blazor `/Index` page. POST works fine.
 
 **Deferred:**
 3. **Access Matrix Phase 1: ANALYZE** — khi user approve `platform_systemadmin_access_matrix_master_plan.md`
@@ -199,6 +196,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-11 — SYSTEMADMIN ENTRY POINT: 2 REMAINING 500s FIXED.** Fixed `/einvoice/invoices` (ShopERP) 500: added full EInvoice DI block to `5_WebApps/ShopERP/Program.cs` (IEInvoiceOrchestrator + 12 dependencies — was only registered in CoreHub). Added `using VanAn.CoreHub.Services.Providers.EInvoice;`. Fixed `/api/hkd-books` (Gateway) 500: root cause = default dev tenant `00000000-...001` never seeded into `Tenants` table. Added tenant seeding to ShopERP Program.cs with `TenantId = own Id` set via EF Core Entry API (multi-tenancy self-reference for global query filter). Also fixed VAS tenant seeding with same self-reference fix. Both endpoints verified 200 OK via manual curl. Build: 0 errors. Verify script re-run pending (tool polling issue). **Branch:** `main`.
 
 * **2026-07-10 — ENTRY POINT CHECK FIX — ALL 4 ERROR GROUPS FIXED.** Fixed 12 failing endpoints from entry point check. Nhóm 1A: `TenantManagementService.CreateTenantAsync` calls `SetTenantType(Enterprise_SME)` for Company tenants + VAS tenant seed into SQLite for feature flag routing. Nhóm 1B: `Forbid("msg")` → `StatusCode(403, ...)` in 4 VAS controllers. Nhóm 3B: New `POST /dev/login/systemadmin/{tenantId:guid}` endpoint for SystemAdmin impersonation with real tenant_id GUID. Npgsql `EnableLegacyTimestampBehavior` switch in ShopERP + Gateway. `VasSampleDataSeeder` idempotency check with `IgnoreQueryFilters()`. `AccountingEntriesController` DateTime.MinValue fix. Verification: VAS reports 4/4 → 200, AllowAnonymous 4/4 → 200 with customer token (by design), Gateway JWT 2/3 → 200 (Accounting Entries 500 = pre-existing schema gap). Tests: Arch 38/38, Core 983/984 (1 flaky), Integration 201/201. **Branch:** `main`.
 
