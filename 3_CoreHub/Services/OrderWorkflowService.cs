@@ -282,9 +282,10 @@ namespace VanAn.CoreHub.Services
                 validTransitions = new()
                 {
                     ["pending"] = ["confirmed", "cancelled", "completed"],
-                    ["confirmed"] = ["completed", "cancelled"],
+                    ["confirmed"] = ["completed", "cancelled", "delivered"],
                     ["preparing"] = ["ready", "cancelled", "completed"], // Safety: allow recovery if already in preparing
-                    ["ready"] = ["completed", "cancelled"],
+                    ["ready"] = ["completed", "cancelled", "delivered"],
+                    ["delivered"] = ["completed", "cancelled"],
                     ["completed"] = [],
                     ["cancelled"] = []
                 };
@@ -296,7 +297,8 @@ namespace VanAn.CoreHub.Services
                 {
                     ["pending"] = ["preparing", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
                     ["preparing"] = ["ready", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
-                    ["ready"] = ["completed", "cancelled"],
+                    ["ready"] = ["completed", "cancelled", "delivered"], // W2-T3: Customer confirm receipt
+                    ["delivered"] = ["completed", "cancelled"], // W2-T3: delivered is intermediate state
                     ["completed"] = [], // Final state
                     ["cancelled"] = []  // Final state
                 };

@@ -3,6 +3,7 @@
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Services.Http
 @using VanAn.CoreHub.Services
+@using VanAn.UI.Platform.Components
 @inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
@@ -160,7 +161,30 @@
                                 </div>
 
                                 <div class="mt-3">
-                                    <a href="/home" class="btn btn-outline-primary w-100" data-testid="order-tracking-btn-back-home-success">
+                                    <!-- W2-T1: Customer confirm receipt button — visible when status=ready -->
+                                    @if (_publicOrder?.Status == "ready" && !_confirmingReceipt)
+                                    {
+                                        <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
+                                                     OnClick="ConfirmReceived" data-testid="btn-confirm-received">
+                                            ✅ Xác nhận đã nhận hàng
+                                        </VanAnButton>
+                                    }
+                                    else if (_publicOrder?.Status == "ready" && _confirmingReceipt)
+                                    {
+                                        <VanAnButton Variant="ButtonVariant.Secondary" FullWidth="true" disabled="true">
+                                            Đang xác nhận...
+                                        </VanAnButton>
+                                    }
+
+                                    <!-- W2-T4: Loyalty bypass — when toggle OFF, show "Cảm ơn" instead of IdentityUpgradeModal -->
+                                    @if (_publicOrder?.Status == "delivered" && !loyaltyEnabled && !_hasShownUpgradeModal)
+                                    {
+                                        <VanAnAlert Variant="AlertVariant.Success"
+                                                    Message="Cảm ơn quý khách! 🙏 Hẹn gặp lại!" Dismissible="false" />
+                                        _hasShownUpgradeModal = true; // Prevent re-render flicker
+                                    }
+
+                                    <a href="/home" class="btn btn-outline-primary w-100 mt-2" data-testid="order-tracking-btn-back-home-success">
                                         Quay lại trang chủ
                                     </a>
                                 </div>
@@ -195,6 +219,10 @@
     private string? errorMessage;
     // W1-T9: Kitchen toggle — controls visibility of preparing/ready steps in timeline
     private bool kitchenEnabled = true;
+    // W2-T4: Loyalty toggle — controls IdentityUpgradeModal vs "Cảm ơn" message
+    private bool loyaltyEnabled = true;
+    // W2-T1: Customer confirm receipt state
+    private bool _confirmingReceipt = false;
 
     // Wave 9/W4: Polling infrastructure for real-time order status updates
     // W4: Replaced PeriodicTimer with Task.Delay loop for adaptive interval control
@@ -221,10 +249,15 @@
                 kitchenEnabled = await FeatureSettings.IsEnabledAsync(
                     _publicOrder.TenantId,
                     nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
+                // W2-T4: Load loyalty toggle
+                loyaltyEnabled = await FeatureSettings.IsEnabledAsync(
+                    _publicOrder.TenantId,
+                    nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled));
             }
             catch
             {
                 kitchenEnabled = true; // Default to ON if fetch fails
+                loyaltyEnabled = true;
             }
         }
 
@@ -486,6 +519,47 @@
     {
         _showUpgradeModal = false;
         Navigation.NavigateTo("/login");
+    }
+
+    /// <summary>
+    /// W2-T1: Customer confirms receipt of order (ready → delivered).
+    /// Calls POST shoperp/api/orderworkflow/{orderId}/confirm-received via Gateway.
+    /// After confirm → OrderWorkflowService.TransitionStatusAsync → status "delivered".
+    /// </summary>
+    private async Task ConfirmReceived()
+    {
+        if (_publicOrder == null || _confirmingReceipt) return;
+
+        _confirmingReceipt = true;
+        StateHasChanged();
+
+        try
+        {
+            var httpClient = HttpClientFactory.CreateClient("gateway");
+            var response = await httpClient.PostAsync(
+                $"shoperp/api/orderworkflow/{orderId}/confirm-received",
+                null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Reload order to reflect new status
+                await PollOrderStatusAsync();
+                StateHasChanged();
+            }
+            else
+            {
+                errorMessage = $"Không thể xác nhận đã nhận hàng: {(int)response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _confirmingReceipt = false;
+            StateHasChanged();
+        }
     }
 }
 
