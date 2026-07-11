@@ -68,6 +68,7 @@
 - [ ] **SC7:** Build: 0 errors
 - [ ] **SC8:** guard-check.ps1 pass
 - [ ] **SC9:** Architecture Tests pass
+- [ ] **SC10:** Live Runtime Verification PASS (RV1-RV11 trong §9 Post-IMPLEMENT) — boot ShopERP+KhachLink+Docker, test HTTP/UI thực tế
 
 ---
 
@@ -251,3 +252,27 @@ else
 ### Post-IMPLEMENT
 - [ ] Commit: `[KL WAVE 2] Customer confirm + loyalty bypass + accounting bypass`
 - [ ] Update `project_state.md` (if user requests)
+
+### Live Runtime Verification (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark wave COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003
+- [ ] KhachLink started on http://localhost:5002
+- [ ] DevLogin admin trên ShopERP + customer login trên KhachLink
+- [ ] Order ở status `ready` (từ Wave 1 flow hoặc seed)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Customer confirm button:** KhachLink OrderTracking (status=ready) → nút "Xác nhận đã nhận hàng" hiển thị → click → API `POST /api/orders/{id}/confirm-received` trả 200 → Order status `delivered`
+- [ ] **RV2 — State machine ready→delivered:** Verify `OrderWorkflowService.IsTransitionValidAsync(ready, delivered)` returns true — không `InvalidStateTransitionException`
+- [ ] **RV3 — Loyalty bypass (toggle OFF):** Set `Loyalty_Program_Enabled=false` → KhachLink OrderTracking sau confirm → KHÔNG hiển thị IdentityUpgradeModal → hiển thị "Cảm ơn" message
+- [ ] **RV4 — Loyalty flow (toggle ON):** Set `Loyalty_Program_Enabled=true` → sau confirm → IdentityUpgradeModal hiển thị (existing behavior preserved)
+- [ ] **RV5 — PWA disable (logged-in):** Customer đã login → truy cập KhachLink → KHÔNG hiển thị PWAInstallPrompt → verify localStorage customer token exists
+- [ ] **RV6 — Accounting bypass (toggle OFF):** Set `Accounting_Sync_Enabled=false` → confirm payment → `OrderService.ConfirmPaymentAsync` KHÔNG gọi `AccountingEntryService` → verify no new row trong PostgreSQL `AccountingEntries` table
+- [ ] **RV7 — Accounting flow (toggle ON):** Set `Accounting_Sync_Enabled=true` → confirm payment → AccountingEntry created trong PostgreSQL → verify `SELECT COUNT(*) FROM "AccountingEntries"` tăng
+- [ ] **RV8 — EF Migration:** Nếu có entity change → migration applied (no `no such table` error)
+- [ ] **RV9 — LINQ translation:** Mọi query mới dùng direct comparison (no `.Value` accessor) — no `InvalidOperationException`
+- [ ] **RV10 — UI Platform:** OrderTracking + IdentityUpgradeModal dùng VanA components (no custom HTML)
+- [ ] **RV11 — Persist:** Sau confirm-received, refresh KhachLink → status `delivered` (DB persist OK)

@@ -77,6 +77,7 @@
 - [ ] **SC11:** Build: 0 errors
 - [ ] **SC12:** guard-check.ps1 pass
 - [ ] **SC13:** Architecture Tests 38/38 pass
+- [ ] **SC14:** Live Runtime Verification PASS (RV1-RV10 trong §9 Post-IMPLEMENT) — boot ShopERP+KhachLink+Docker, test HTTP/UI thực tế
 
 ---
 
@@ -351,3 +352,25 @@ else
 ### Post-IMPLEMENT
 - [ ] Commit: `[KL WAVE 1] Payment flow + kitchen UI + polling 3s`
 - [ ] Update `project_state.md` (if user requests)
+
+### Live Runtime Verification (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark wave COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: migration applied + seed OK)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] DevLogin admin trên ShopERP + customer token trên KhachLink
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Cash payment flow:** KhachLink Checkout → chọn "Tiền mặt" → ProcessingBar hiển thị → API `POST /api/orders/{id}/confirm-payment` trả 200 → Order status `confirmed`
+- [ ] **RV2 — Transfer payment flow:** KhachLink Checkout → chọn "Chuyển khoản" → QrPaymentModal hiển thị dual status bars (Xử lý đơn + Chờ thanh toán) → API confirm trả 200
+- [ ] **RV3 — Kitchen buttons (toggle ON):** ShopERP Order Detail → nút "Bắt đầu làm" (pending→preparing) → nút "Sẵn sàng" (preparing→ready) → API transition 200
+- [ ] **RV4 — Kitchen bypass (toggle OFF):** Set `Kitchen_Workflow_Enabled=false` qua PUT API → KhachLink OrderTracking KHÔNG hiển thị kitchen statuses (preparing/ready) → Order auto-skip confirmed→delivered
+- [ ] **RV5 — Polling 3s:** Mở OrderTracking → inspect Network tab → polling interval = 3000ms (không 5s/10s)
+- [ ] **RV6 — Status name fix:** KhachLink OrderTracking hiển thị `preparing` (không `processing`) — match ShopERP status
+- [ ] **RV7 — EF Migration:** Nếu có entity change → `dotnet ef migrations add` + verify `MigrateAsync()` log áp dụng migration mới (không `no such table` error)
+- [ ] **RV8 — LINQ translation:** Mọi query mới dùng direct property comparison (KHÔNG `EF.Property<Guid>` hay `.Value` accessor cho TenantId) — verify không `InvalidOperationException: LINQ expression could not be translated`
+- [ ] **RV9 — UI Platform:** Checkout + OrderTracking + Detail.razor dùng VanAForm/VanACard/VanAButton (no custom HTML) — grep HTML source
+- [ ] **RV10 — Persist:** Sau khi transition status, refresh page → status giữ nguyên (DB persist OK)

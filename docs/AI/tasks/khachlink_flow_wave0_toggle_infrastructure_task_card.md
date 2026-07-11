@@ -343,10 +343,43 @@ Assert.NotNull(sp.GetRequiredService<IShopFeatureSettingsHttpService>());
 | `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` | +assertion ShopFeatureSettingsHttpService |
 
 ### Verification
+
+#### Static Verification (compile-time)
 - **Build:** 0 errors ✅
 - **Architecture Tests:** 38/38 PASS ✅ (W12-S3 [Authorize] fix applied)
 - **guard-check.ps1:** ALL CHECKS PASSED ✅
 - **13 files changed, 526 insertions**
+
+#### Live Runtime Verification (boot + HTTP + UI) — commit `3d0e72f`
+> **Lesson learned:** Build + Architecture Tests + guard-check PASS ≠ runtime works.
+> Wave 0 initially passed all static checks but failed at runtime due to (1) missing EF migration
+> and (2) LINQ translation error. Live runtime verification is MANDATORY for all waves.
+
+| # | Test | Status | Evidence |
+|---|------|--------|----------|
+| RV1 | Boot infra (Docker PostgreSQL 5432 + NATS 4222 + Seq) | ✅ | `vanan-pg-local Up 0.0.0.0:5432->5432/tcp` |
+| RV2 | ShopERP start on http://localhost:5003 | ✅ | `Now listening on: http://localhost:5003` |
+| RV3 | EF Migration applied | ✅ | `Applying migration '20260711143852_AddShopFeatureSettingsTable'` + `CREATE TABLE "ShopFeatureSettings"` |
+| RV4 | Default seed inserted | ✅ | `KL W0: Shop feature settings seeded for tenant 00000000-0000-0000-0000-000000000001` |
+| RV5 | DevLogin admin | ✅ | `Login status: 200` + cookie `.VanAn.Auth` issued |
+| RV6 | GET `/api/shop/settings/features?tenantId=...` | ✅ 200 | `{"qR_TableNumber_Enabled":false,"kitchen_Workflow_Enabled":true,"voice_Note_Enabled":false,"loyalty_Program_Enabled":true,"accounting_Sync_Enabled":true,"eInvoice_Auto_Export_Enabled":false}` |
+| RV7 | PUT `/api/shop/settings/features?tenantId=...` (QR false→true) | ✅ 200 | Response confirms `qR_TableNumber_Enabled:true` |
+| RV8 | GET after PUT (persist check) | ✅ 200 | `qR_TableNumber_Enabled:true` — persisted to SQLite |
+| RV9 | UI `/settings/shop-features` renders | ✅ 200 | HTTP 200 + HTML returned |
+| RV10 | UI 6 toggle switches present | ✅ | 6× `form-check-input` + 6× `form-switch` + 4× `checked` (Kitchen, Loyalty, Accounting, QR after PUT) |
+| RV11 | UI Platform components used | ✅ | VanACard + VanAAlert + VanAButton (no custom HTML) |
+| RV12 | UI Save button present | ✅ | "Lưu cấu hình" button rendered |
+
+**Live verification protocol executed:**
+1. `Start-Process Docker Desktop` → wait `docker info` OK
+2. `docker run -d --name vanan-pg-local -p 5432:5432 postgres:16-alpine` (PostgreSQL port mapping)
+3. `dotnet build 5_WebApps/ShopERP/VanAn.ShopERP.csproj` (0 errors)
+4. `dotnet run --project 5_WebApps/ShopERP --no-build` (background, watch logs for migration + seed)
+5. `Invoke-WebRequest POST /dev/login` (admin@vanan.vn / VanAn@2026)
+6. `Invoke-WebRequest GET /api/shop/settings/features` (assert 200 + 6 toggles)
+7. `Invoke-WebRequest PUT /api/shop/settings/features` (assert 200 + updated values)
+8. `Invoke-WebRequest GET /api/shop/settings/features` (assert persist)
+9. `Invoke-WebRequest GET /settings/shop-features` (assert 200 + count form-switch + VanA components)
 
 ### Issues fixed during implementation
 1. **Missing using directives:** `TenantId` (VanAn.Shared.Domain) + `ILogger<>` (Microsoft.Extensions.Logging) → added
@@ -354,3 +387,9 @@ Assert.NotNull(sp.GetRequiredService<IShopFeatureSettingsHttpService>());
 3. **DTO `init` properties incompatible with `@bind`:** Razor `@bind` needs `set` → changed `init` → `set`
 4. **`TenantProvider.TenantId` is Guid not Guid?:** Removed `.Value` accessor
 5. **W12-S3 Architecture Test fail:** `ShopSettingsController` missing `[Authorize]` → added attribute
+
+### Runtime issues found during Live Verification (NOT caught by static checks)
+6. **Missing EF Migration (RV3):** ShopERP dùng `MigrateAsync()` nhưng không có migration cho `ShopFeatureSettings` table → `SQLite Error 1: 'no such table: ShopFeatureSettings'`. Fix: tạo manual migration `20260711143852_AddShopFeatureSettingsTable` chỉ tạo/drop `ShopFeatureSettings` table (KHÔNG drop accounting tables đã move sang PostgreSQL per ADR-001).
+7. **LINQ Translation Error (RV6):** `s.TenantId.Value == tenantId` không translate ra SQL → `System.InvalidOperationException: The LINQ expression could not be translated`. Fix: dùng direct comparison `s.TenantId == new TenantId(tenantId)` (Known Pattern #1 — EF Core tự apply TenantIdConverter).
+
+> **WARNING for future waves:** Static verification (build + architecture tests + guard-check) chỉ đảm bảo compile-time. Runtime issues (EF migration, LINQ translation, DI resolution, HTTP routing, auth) chỉ phát hiện khi boot app + gọi API/UI thực tế. **Live Runtime Verification là BẮT BUỘC** trước khi mark wave COMPLETE.

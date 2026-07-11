@@ -79,6 +79,7 @@
 - [ ] **SC8:** Build: 0 errors
 - [ ] **SC9:** guard-check.ps1 pass
 - [ ] **SC10:** Architecture Tests pass
+- [ ] **SC11:** Live Runtime Verification PASS (RV1-RV12 trong §9 Post-IMPLEMENT) — boot ShopERP+KhachLink+Docker, test STT/TTS/QR thực tế
 
 ---
 
@@ -285,3 +286,29 @@ Tìm QR generation logic (admin page hoặc service). Khi `QR_TableNumber_Enable
 ### Post-IMPLEMENT
 - [ ] Commit: `[KL WAVE 3] Voice note STT-only + TTS kitchen + QR table number`
 - [ ] Update `project_state.md` (if user requests)
+
+### Live Runtime Verification (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark wave COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003
+- [ ] KhachLink started on http://localhost:5002
+- [ ] DevLogin admin trên ShopERP + customer login trên KhachLink
+- [ ] Browser có Web Speech API support (Chrome/Edge — `window.speechSynthesis` + `window.SpeechRecognition`)
+- [ ] Order có VoiceNote từ customer (seed hoặc tạo qua UI)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Voice note toggle OFF:** Set `Voice_Note_Enabled=false` → KhachLink Checkout/OrderNote → VoiceNote component KHÔNG hiển thị → chỉ text input
+- [ ] **RV2 — Voice note toggle ON (STT):** Set `Voice_Note_Enabled=true` → VoiceNote component hiển thị → click mic → SpeechRecognition transcribe → text hiển thị trong textarea
+- [ ] **RV3 — No audio storage:** Sau STT → inspect Network tab → KHÔNG có upload audio file (chỉ text transcript gửi qua API) → verify request body chỉ chứa `noteText` string
+- [ ] **RV4 — TTS kitchen (toggle ON):** ShopERP Order Detail (order có voice note) → nút "Đọc ghi chú" hiển thị → click → `window.speechSynthesis.speak()` called → verify JS console log `TTS speaking: <text>`
+- [ ] **RV5 — TTS sub-toggle (voice OFF):** Set `Voice_Note_Enabled=false` → ShopERP Order Detail → nút "Đọc ghi chú" KHÔNG hiển thị (TTS phụ thuộc voice toggle)
+- [ ] **RV6 — QR table number (toggle ON):** Set `QR_TableNumber_Enabled=true` → generate QR code → scan → KhachLink Scan.razor hiển thị "Bàn số: X" (table number extracted từ QR payload)
+- [ ] **RV7 — QR table number (toggle OFF):** Set `QR_TableNumber_Enabled=false` → generate QR → scan → KHÔNG hiển thị table number (QR payload không có field)
+- [ ] **RV8 — Domain Obsolete:** `VoiceNote` entity (nếu có audio field) marked `[Obsolete("Audio storage removed per D5 — STT-only + TTS")]` — build warning xuất hiện nhưng không error
+- [ ] **RV9 — JS interop:** `tts-reader.js` loaded trong ShopERP wwwroot → browser console không error `Cannot find module tts-reader`
+- [ ] **RV10 — EF Migration:** Nếu có entity change (QRCodePayload) → migration applied (no `no such table` error)
+- [ ] **RV11 — LINQ translation:** Mọi query mới dùng direct comparison — no `InvalidOperationException`
+- [ ] **RV12 — UI Platform:** VoiceNote.razor + Scan.razor dùng VanA components (no custom HTML)

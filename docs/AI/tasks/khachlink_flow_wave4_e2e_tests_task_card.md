@@ -77,6 +77,7 @@
 - [ ] **SC5:** Page Objects: ShopSettingsPage, VoiceNotePage, CustomerConfirmPage tồn tại
 - [ ] **SC6:** All E2E tests pass (0 flaky)
 - [ ] **SC7:** Build: 0 errors (production code không thay đổi)
+- [ ] **SC8:** Live Runtime Verification PASS (RV1-RV10 trong §9 Post-IMPLEMENT) — boot full stack + run Playwright E2E thực tế
 
 ---
 
@@ -295,3 +296,36 @@ await page.addInitScript(() => {
 - [ ] Commit: `[KL WAVE 4] E2E tests — full flow + minimal flow scenarios`
 - [ ] Update `project_state.md` — mark KhachLink Full Flow COMPLETE
 - [ ] Tag: `khachlink-flow-v1.0`
+
+### Live Runtime Verification (MANDATORY — see Wave 0 lesson)
+> E2E tests tự thân là live runtime verification, nhưng cần đảm bảo môi trường boot đúng.
+> Playwright tests KHÔNG pass nếu app không boot được — đây là tầng verification cuối cùng.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: migration + seed OK)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001 (YARP forwarding)
+- [ ] Playwright browsers installed (`npx playwright install chromium`)
+- [ ] All Wave 0-3 features deployed + toggles accessible
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Full flow E2E (all toggles ON):** `npx playwright test khachlink-full-order-flow.spec.ts` → PASS
+  - Guest checkout → payment (cash) → ShopERP kitchen (preparing→ready) → KhachLink OrderTracking polling 3s → customer confirm (delivered) → loyalty modal → accounting entry created
+- [ ] **RV2 — Minimal flow E2E (kitchen/loyalty/accounting OFF):** `npx playwright test khachlink-minimal-flow.spec.ts` → PASS
+  - Guest checkout → payment (transfer) → kitchen bypass (no preparing/ready) → customer confirm (delivered) → no loyalty modal → no accounting entry
+- [ ] **RV3 — Toggle API accessible from test:** Page Object `ShopSettingsPage.setToggle(name, value)` → PUT API trả 200 → verify persist qua GET
+- [ ] **RV4 — Speech API mock:** `voice-command.spec.ts` không SKIP → mock `speechSynthesis` + `SpeechRecognition` → test PASS
+- [ ] **RV5 — No flaky tests:** Run 3 lần liên tiếp → tất cả PASS (no timeout, no selector flake)
+- [ ] **RV6 — Cleanup:** Sau mỗi test → order data cleanup (no leftover rows) → verify `SELECT COUNT(*) FROM Orders WHERE TestId='...'` = 0
+- [ ] **RV7 — Playwright config tiers:** `npx playwright test --grep @smoke` → smoke tests PASS (< 30s) → `--grep @golden` → golden tests PASS (< 5min)
+- [ ] **RV8 — Page Objects reusable:** `ShopSettingsPage`, `VoiceNotePage`, `CustomerConfirmPage` import OK trong cả 2 spec files (no circular dependency)
+- [ ] **RV9 — CI integration:** `scripts/ci-full.ps1` Step 2c (Playwright) → PASS trong CI environment
+- [ ] **RV10 — HTML report:** `playwright-report/index.html` generated → all tests green → screenshots attached
+
+**Final sign-off (all MUST be ✅):**
+- [ ] Static: Build 0 errors + Architecture Tests PASS + guard-check PASS
+- [ ] Live: RV1-RV10 all PASS
+- [ ] Cross-wave: Wave 0-3 features still work (no regression)
+- [ ] Documentation: `project_state.md` updated + master plan marked COMPLETE
+- [ ] Tag: `khachlink-flow-v1.0` pushed
