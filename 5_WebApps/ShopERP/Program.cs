@@ -298,6 +298,12 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IOtpService, VanAn.ShopERP.Services.OtpService>();
             _ = builder.Services.AddScoped<VanAn.ShopERP.Services.ICustomerTokenService, VanAn.ShopERP.Services.CustomerTokenService>();
 
+            // Tiered Auth Phase 1: Google OAuth
+            _ = builder.Services.AddHttpClient<CoreHub.Services.IGoogleAuthService, CoreHub.Services.GoogleAuthService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+
             // FIX-BATCH-1: Missing DI registrations (verified unreachable via grep before this fix)
             // C1: QR code generation services (W2 — task card claimed COMPLETE but services never registered)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IQrCodeService, VanAn.CoreHub.Services.QrCodeService>();

@@ -38,6 +38,7 @@
     <!-- Wave 8: Export libraries (EPPlus for XLSX via CoreHub transitive, OpenXML for DOCX) -->
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="EPPlus" />
+    <PackageReference Include="Google.Apis.Auth" />
   </ItemGroup>
 
   <ItemGroup>
