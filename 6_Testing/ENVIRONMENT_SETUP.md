@@ -16,11 +16,11 @@ E2E tests now use centralized environment configuration through `loadEnvConfig()
 
 ### Production Testing
 - **Template**: `.env.production.example`
-- **Setup**: Copy to `.env.test` and update with production URLs
-- **URLs**: Production endpoints
-  - Gateway: `https://api.vanantech.io.vn`
-  - KhachLink: `https://vanantech.io.vn`
-  - ShopERP: `https://admin.vanantech.io.vn`
+- **Setup**: Copy to `.env.test` and set `VANAN_DOMAIN` to your production domain
+- **URLs**: Derived from `VANAN_DOMAIN` env var
+  - Gateway: `https://api.${VANAN_DOMAIN}`
+  - KhachLink: `https://${VANAN_DOMAIN}`
+  - ShopERP: `https://app.${VANAN_DOMAIN}`
 
 ## Configuration Structure
 
@@ -77,7 +77,7 @@ const shopErpUrl = process.env.SHOPERP_URL || 'http://localhost:5003';
 2. Update `env-config.ts` to load staging file if needed
 3. Or override via command line:
    ```bash
-   OMNICHANNEL_URL=https://staging.vanantech.io.vn npx playwright test
+   OMNICHANNEL_URL=https://staging.example.com npx playwright test
    ```
 
 ## Playwright Configuration

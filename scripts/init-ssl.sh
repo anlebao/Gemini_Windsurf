@@ -3,56 +3,50 @@
 # scripts/init-ssl.sh
 # Chạy 1 lần trên VPS để lấy SSL certificate từ Let's Encrypt
 #
+# Kiến trúc mới: docker-entrypoint.sh tự động detect cert và chọn
+# template (HTTP-only nếu chưa có cert, HTTPS nếu đã có).
+# Script này chỉ cần: restart nginx (HTTP-only) → certbot → restart nginx (HTTPS).
+#
 # Yêu cầu:
 #   - DNS A records đã trỏ đúng về IP VPS (TTL propagated)
 #   - Docker + docker compose đã cài
 #   - Stack đã deploy ít nhất 1 lần (có certbot_www volume)
+#   - VANAN_DOMAIN đã set trong /opt/vanan/.env
 #
-# Usage: sudo bash /opt/vanan/scripts/init-ssl.sh your@email.com
+# Usage: sudo bash /opt/vanan/scripts/init-ssl.sh [domain] [email]
+#   domain — apex domain (default: đọc từ .env VANAN_DOMAIN)
+#   email  — email cho Let's Encrypt (default: admin@<domain>)
+#
+# Example: sudo bash /opt/vanan/scripts/init-ssl.sh
+#          sudo bash /opt/vanan/scripts/init-ssl.sh khachvip.online admin@khachvip.online
 # =============================================================
 set -e
 
-DOMAIN="vanantech.io.vn"
-EMAIL="${1:-admin@vanantech.io.vn}"
-COMPOSE_FILE="/opt/vanan/docker-compose.prod.yml"
-NGINX_CONF_DIR="/opt/vanan/nginx/conf.d"
+DEPLOY_DIR="/opt/vanan"
+COMPOSE_FILE="$DEPLOY_DIR/docker-compose.prod.yml"
+
+# Load domain from .env if not provided as argument
+DOMAIN="${1:-$(grep -E '^VANAN_DOMAIN=' "$DEPLOY_DIR/.env" 2>/dev/null | cut -d= -f2)}"
+if [ -z "$DOMAIN" ]; then
+    echo "ERROR: domain not provided and VANAN_DOMAIN not found in $DEPLOY_DIR/.env"
+    echo "Usage: sudo bash init-ssl.sh <domain> [email]"
+    exit 1
+fi
+EMAIL="${2:-admin@${DOMAIN}}"
 
 echo "=== VanAn SSL Bootstrap ==="
 echo "Domain : $DOMAIN"
 echo "Email  : $EMAIL"
 echo ""
 
-# --- Step 1: Start nginx with HTTP-only config ---
-echo "[1/4] Switching nginx to HTTP-only mode for ACME challenge..."
-
-cat > /tmp/vanantech-bootstrap.conf << 'NGINXEOF'
-server {
-    listen 80;
-    server_name vanantech.io.vn www.vanantech.io.vn diemthuong.vanantech.io.vn app.vanantech.io.vn api.vanantech.io.vn;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        return 200 'VanAn Tech - SSL Bootstrap';
-        add_header Content-Type text/plain;
-    }
-}
-NGINXEOF
-
-# Backup existing config and use bootstrap
-sudo cp "$NGINX_CONF_DIR/vanantech.conf" "$NGINX_CONF_DIR/vanantech.conf.bak"
-sudo cp /tmp/vanantech-bootstrap.conf "$NGINX_CONF_DIR/vanantech.conf"
-
-# Restart nginx with HTTP-only config
+# --- Step 1: Restart nginx (entrypoint will use HTTP-only template since no cert) ---
+echo "[1/3] Restarting nginx in HTTP-only mode (no cert detected yet)..."
 sudo docker compose -f "$COMPOSE_FILE" restart nginx
 sleep 3
-
-echo "[2/4] Nginx started in HTTP-only mode."
+echo "      Nginx is now serving HTTP-only — ACME challenge will work."
 
 # --- Step 2: Request certificate ---
-echo "[3/4] Requesting Let's Encrypt certificate..."
+echo "[2/3] Requesting Let's Encrypt certificate..."
 
 sudo docker run --rm \
   -v vanan_certbot_conf:/etc/letsencrypt \
@@ -71,9 +65,8 @@ sudo docker run --rm \
 
 echo "Certificate issued successfully!"
 
-# --- Step 3: Restore full HTTPS config ---
-echo "[4/4] Switching nginx to HTTPS mode..."
-sudo cp "$NGINX_CONF_DIR/vanantech.conf.bak" "$NGINX_CONF_DIR/vanantech.conf"
+# --- Step 3: Restart nginx (entrypoint will now detect cert and use HTTPS template) ---
+echo "[3/3] Restarting nginx to pick up HTTPS config..."
 sudo docker compose -f "$COMPOSE_FILE" restart nginx
 sleep 3
 

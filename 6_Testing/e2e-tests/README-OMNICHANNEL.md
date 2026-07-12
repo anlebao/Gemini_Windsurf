@@ -1,12 +1,12 @@
-# Omnichannel E2E Test Suite for vanantech.io.vn
+# Omnichannel E2E Test Suite
 
 ## Overview
 
-Comprehensive End-to-End (E2E) automation test suite using Playwright (TypeScript) for the vanantech.io.vn platform, testing the full omnichannel order lifecycle across different actor perspectives.
+Comprehensive End-to-End (E2E) automation test suite using Playwright (TypeScript) for the VanAn platform, testing the full omnichannel order lifecycle across different actor perspectives.
 
 ## Architecture & Behavior
 
-- **URL**: https://vanantech.io.vn
+- **URL**: configured via `VANAN_DOMAIN` env var (e.g. `https://khachvip.online`)
 - **Architecture**: Hybrid Online/Offline-First with NATS Sync Workers
 - **Synchronization**: 1-second polling interval for NATS sync from edge storage to cloud PostgreSQL
 - **Critical Timing**: Tests use fluent polling assertions instead of hardcoded sleep to handle async NATS synchronization
@@ -81,9 +81,10 @@ e2e-tests/
 ### Environment Variables (.env.test)
 
 ```bash
-# Omnichannel Configuration
-OMNICHANNEL_URL=https://vanantech.io.vn
-GATEWAY_PUBLIC_URL=https://api.vanantech.io.vn
+# Omnichannel Configuration (derived from VANAN_DOMAIN)
+VANAN_DOMAIN=khachvip.online
+OMNICHANNEL_URL=https://${VANAN_DOMAIN}
+GATEWAY_PUBLIC_URL=https://api.${VANAN_DOMAIN}
 
 # Test Credentials
 ADMIN_USERNAME=admin
@@ -103,7 +104,7 @@ KITCHEN_PASSWORD=kitchen123
   name: 'omnichannel-e2e',
   testMatch: 'e2e-tests/omnichannel*.spec.ts',
   use: {
-    baseURL: 'https://vanantech.io.vn',
+    baseURL: process.env.OMNICHANNEL_URL || 'http://localhost:5002',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

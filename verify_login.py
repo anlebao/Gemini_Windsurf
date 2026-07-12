@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import subprocess, re, sys
+import subprocess, re, sys, os
+
+DOMAIN = os.environ.get("VANAN_DOMAIN", "localhost")
+BASE = f"https://{DOMAIN}"
 
 # GET /Login để lấy CSRF token + cookie
 r = subprocess.run(
-    ["curl", "-sk", "https://vanantech.io.vn/Login", "-c", "/tmp/jar.txt"],
+    ["curl", "-sk", f"{BASE}/Login", "-c", "/tmp/jar.txt"],
     capture_output=True, text=True
 )
 m = re.search(r'name="__RequestVerificationToken"[^>]*value="([^"]+)"', r.stdout)
@@ -18,7 +21,7 @@ print(f"Token: {token[:30]}...")
 # POST /Login
 r2 = subprocess.run(
     ["curl", "-sk", "-X", "POST",
-     "https://vanantech.io.vn/Login?ReturnUrl=%2F",
+     f"{BASE}/Login?ReturnUrl=%2F",
      "-b", "/tmp/jar.txt", "-D", "-", "-o", "/dev/null",
      "--data-urlencode", "Username=adminvanan1",
      "--data-urlencode", "Password=2026@vanan",

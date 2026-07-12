@@ -8,13 +8,13 @@ import { loadEnvConfig } from '../utils/env-config';
 const config = loadEnvConfig();
 
 /**
- * Comprehensive E2E Test Suite for vanantech.io.vn Omnichannel Order Lifecycle
+ * Comprehensive E2E Test Suite for Omnichannel Order Lifecycle
  * 
  * Architecture: Hybrid Online/Offline-First with NATS Sync Workers
  * Critical Timing: Uses fluent polling (expect.toBeVisible with timeout) instead of hardcoded sleep
  * for NATS synchronization (1-second polling interval)
  * 
- * URL: https://vanantech.io.vn
+ * URL: configured via VANAN_DOMAIN env var (see env-config.ts)
  */
 
 test.describe('Omnichannel Order Lifecycle E2E Tests', () => {

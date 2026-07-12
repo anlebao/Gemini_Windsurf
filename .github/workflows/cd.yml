@@ -152,7 +152,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN
           script: |
             set -e
 
@@ -172,6 +172,7 @@ jobs:
 
             # Write .env using printf (no heredoc)
             printf '%s\n' \
+              "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
               "POSTGRES_DB=VanAnCoreHub" \
               "POSTGRES_USER=vanan_admin" \
               "POSTGRES_PASSWORD=${DEPLOY_POSTGRES_PASSWORD}" \
@@ -205,3 +206,4 @@ jobs:
           DEPLOY_REGISTRY: ${{ env.REGISTRY }}
           DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
           DEPLOY_IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}

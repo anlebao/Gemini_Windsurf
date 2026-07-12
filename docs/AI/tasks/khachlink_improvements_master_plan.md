@@ -167,7 +167,7 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 | 2 | W1-T2 | Ensure PWAInstallPrompt.razor is active in App.razor | 5_WebApps/KhachLink/Components/App.razor | Verify component is properly included | PENDING |
 | 3 | W1-T3 | Configure VAPID key or disable push notifications | 5_WebApps/KhachLink/wwwroot/js/pwa.js | Replace placeholder or comment out push logic | PENDING |
 | 4 | W1-T4 | Verify service worker registration in App.razor | 5_WebApps/KhachLink/Components/App.razor | Ensure service worker is registered on startup | PENDING |
-| 5 | W1-T5 | Test PWA installation on real devices | Production (diemthuong.vanantech.io.vn) | Test on Android Chrome, iOS Safari | PENDING |
+| 5 | W1-T5 | Test PWA installation on real devices | Production (diemthuong.${VANAN_DOMAIN}) | Test on Android Chrome, iOS Safari | PENDING |
 
 ### Entry criteria
 - [ ] Project builds successfully (`dotnet build`)
@@ -212,7 +212,7 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 | 4 | W2-T4 | Implement scan-to-cart workflow | 5_WebApps/KhachLink/Pages/Scan.razor, CartService | Parse QR data, add to cart, navigate | PENDING |
 | 5 | W2-T5 | Add camera permission handling | 5_WebApps/KhachLink/Components/QRScanner.razor | iOS và Android permissions | PENDING |
 | 6 | W2-T6 | Add QR scanner to navigation | 5_WebApps/KhachLink/Components/Layout/NavMenu.razor | Add scan button to menu | PENDING |
-| 7 | W2-T7 | Test QR scanning on real devices | Production (diemthuong.vanantech.io.vn) | Test on Android Chrome, iOS Safari | PENDING |
+| 7 | W2-T7 | Test QR scanning on real devices | Production (diemthuong.${VANAN_DOMAIN}) | Test on Android Chrome, iOS Safari | PENDING |
 
 ### Entry criteria
 - [ ] Wave 1 merged to main
@@ -259,7 +259,7 @@ KhachLink → ProductHttpService → Gateway → ShopERP → ProductsController 
 | 5 | W3-T5 | Add "Frequently Bought" section to Home.razor | 5_WebApps/KhachLink/Pages/Home.razor | Display personalized recommendations | PENDING |
 | 6 | W3-T6 | Add "Recently Viewed" section to Home.razor | 5_WebApps/KhachLink/Pages/Home.razor | Display recently viewed products | PENDING |
 | 7 | W3-T7 | Implement caching for recommendations | 3_CoreHub/Infrastructure/Caching/RecommendationCache.cs | Cache for 5-10 minutes to avoid performance impact | PENDING |
-| 8 | W3-T8 | Test personalization with real customer data | Production (diemthuong.vanantech.io.vn) | Verify recommendations are accurate | PENDING |
+| 8 | W3-T8 | Test personalization with real customer data | Production (diemthuong.${VANAN_DOMAIN}) | Verify recommendations are accurate | PENDING |
 
 ### Entry criteria
 - [ ] Wave 2 merged to main

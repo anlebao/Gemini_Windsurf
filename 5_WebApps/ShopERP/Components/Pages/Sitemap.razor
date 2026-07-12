@@ -242,7 +242,7 @@
         _roleName = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
 
         // Load KhachLink URL from configuration
-        _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? "https://diemthuong.vanantech.io.vn";
+        _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? string.Empty;
     }
 
     private void Logout()

@@ -351,9 +351,9 @@ export function loadEnvConfig(): TestConfig {
 
       SHOPERP_URL: 'http://localhost:5003',
 
-      OMNICHANNEL_URL: 'https://vanantech.io.vn',
+      OMNICHANNEL_URL: process.env.VANAN_DOMAIN ? `https://${process.env.VANAN_DOMAIN}` : 'https://localhost',
 
-      GATEWAY_PUBLIC_URL: 'https://api.vanantech.io.vn',
+      GATEWAY_PUBLIC_URL: process.env.VANAN_DOMAIN ? `https://api.${process.env.VANAN_DOMAIN}` : 'http://localhost:5001',
 
       ADMIN_USERNAME: 'admin',
 

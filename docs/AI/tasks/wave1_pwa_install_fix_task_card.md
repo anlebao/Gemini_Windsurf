@@ -1,7 +1,7 @@
 # TASK CARD: KhachLink Improvements - Wave 1 - PWA Install Fix
 
 ## 1. GOAL & CONTEXT
-- **Mục tiêu cốt lõi:** Fix PWA installation functionality on diemthuong.vanantech.io.vn
+- **Mục tiêu cốt lõi:** Fix PWA installation functionality on diemthuong.${VANAN_DOMAIN}
 - **Nghiệp vụ áp dụng:** KhachLink customer-facing PWA - enable app installation for better user experience
 
 ## 2. ACTIVE WORKFLOW ROUTING
