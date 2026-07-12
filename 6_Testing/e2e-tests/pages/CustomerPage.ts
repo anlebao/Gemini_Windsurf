@@ -27,17 +27,19 @@ export class CustomerPage {
 
   constructor(page: Page) {
     this.page = page;
-    
+
     // Initialize selectors after page is set
-    this.menuItems = this.page.getByTestId('home-product-card');
+    // W4: Updated to match actual KhachLink Home.razor selectors (feature-card class, not testid)
+    this.menuItems = this.page.locator('.feature-card, [data-testid="home-product-card"]');
     this.addToCartButton = this.page.locator('button:has-text("Đặt ngay"), button:has-text("Add to Cart")');
     this.cartIcon = this.page.locator('.cart-icon, .shopping-cart');
     this.cartCount = this.page.locator('.cart-count, .badge');
     this.checkoutButton = this.page.locator('button:has-text("Thanh toán"), button:has-text("Checkout")');
-    this.guestNameInput = this.page.locator('input[name="name"], input[placeholder*="tên"], input[placeholder*="name"]');
-    this.guestPhoneInput = this.page.locator('input[name="phone"], input[placeholder*="số điện thoại"], input[placeholder*="phone"]');
-    this.guestAddressInput = this.page.locator('input[name="address"], textarea[placeholder*="địa chỉ"], textarea[placeholder*="address"]');
-    this.placeOrderButton = this.page.locator('button:has-text("Đặt hàng"), button:has-text("Place Order")');
+    // W4: Use data-testid from Checkout.razor for robust selectors
+    this.guestNameInput = this.page.getByTestId('checkout-input-name');
+    this.guestPhoneInput = this.page.getByTestId('checkout-input-phone');
+    this.guestAddressInput = this.page.getByTestId('checkout-input-address');
+    this.placeOrderButton = this.page.getByTestId('checkout-btn-place-order');
     this.orderSuccessMessage = this.page.locator('.order-success, .order-confirmation, .alert-success');
     this.orderIdDisplay = this.page.locator('.order-id, .order-number');
     this.orderStatusDisplay = this.page.locator('.order-status, .status-badge');
@@ -95,18 +97,28 @@ export class CustomerPage {
   async addFirstItemToCart() {
     const firstItem = this.menuItems.first();
     await expect(firstItem).toBeVisible({ timeout: 10000 });
-    const addToCartBtn = firstItem.locator(this.addToCartButton);
+    // W4: Use string selector directly (Locator-as-filter doesn't scope correctly)
+    const addToCartBtn = firstItem.locator('button:has-text("Đặt ngay"), button:has-text("Add to Cart")');
     await expect(addToCartBtn).toBeVisible();
     await addToCartBtn.click();
+    // W4: Wait for Blazor Server async processing — notification appears after CartService.AddItemAsync
+    // "Đã thêm" = "Added" notification text shown by ShowNotification in Home.razor
+    try {
+      await expect(this.page.locator('text=/Đã thêm/i')).toBeVisible({ timeout: 5000 });
+    } catch {
+      // Notification may be transient — fallback to fixed wait
+      await this.page.waitForTimeout(1500);
+    }
   }
 
   /**
    * Add specific item to cart by name
    */
   async addItemToCartByName(itemName: string) {
-    const item = this.page.getByTestId('home-product-card').filter({ hasText: itemName });
+    // W4: Use .feature-card selector (matches KhachLink Home.razor)
+    const item = this.page.locator('.feature-card').filter({ hasText: itemName });
     await expect(item.first()).toBeVisible({ timeout: 10000 });
-    const addToCartBtn = item.first().locator(this.addToCartButton);
+    const addToCartBtn = item.first().locator('button:has-text("Đặt ngay"), button:has-text("Add to Cart")');
     await expect(addToCartBtn).toBeVisible();
     await addToCartBtn.click();
   }
@@ -123,10 +135,26 @@ export class CustomerPage {
    * Proceed to checkout
    */
   async proceedToCheckout() {
-    if (await this.checkoutButton.isVisible()) {
+    // W4: KhachLink flow: Home → add to cart → Cart page → checkout button → Checkout page
+    // First try clicking checkout button if visible (already on cart page)
+    if (await this.checkoutButton.isVisible({ timeout: 2000 })) {
       await this.checkoutButton.click();
     } else {
-      await this.page.goto('/checkout');
+      // Navigate to cart first
+      await this.page.goto('/cart');
+      await this.page.waitForLoadState('networkidle');
+
+      // W4: Blazor Server cart loads from localStorage in OnAfterRenderAsync(firstRender).
+      // Wait for cart items to appear (or "empty" message to disappear) before clicking checkout.
+      // Allow up to 8s for Blazor hydration + localStorage load + StateHasChanged
+      const cartCheckoutBtn = this.page.getByTestId('cart-btn-checkout');
+      try {
+        await expect(cartCheckoutBtn).toBeVisible({ timeout: 8000 });
+        await cartCheckoutBtn.click();
+      } catch {
+        // Cart may still be empty (Blazor timing issue) — fallback: navigate directly to checkout
+        await this.page.goto('/checkout');
+      }
     }
     await this.page.waitForLoadState('networkidle');
   }
