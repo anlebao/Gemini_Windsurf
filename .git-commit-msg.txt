@@ -1,21 +1,9 @@
-refactor: parameterize domain via VANAN_DOMAIN env var
+test(arch): allow VANAN_ prefix in docker-compose env var naming
 
-Replace all hardcoded vanantech.io.vn references with ${VANAN_DOMAIN}
-env var. Now deploying to a new domain only requires changing one line
-in .env (or GitHub secret VANAN_DOMAIN).
-
-Changes:
-- nginx: conf.d/vanantech.conf to templates/vanan.conf.template (envsubst)
-- nginx: new vanan-http.conf.template for HTTP-only bootstrap
-- nginx: docker-entrypoint.sh rewrites to envsubst + cert detection
-- docker-compose.prod/edge.yml: pass VANAN_DOMAIN, derive all URLs
-- docker-compose: fix gateway crash (add Jwt__Secret env var)
-- docker-compose: fix CORS origins (use ${VANAN_DOMAIN})
-- init-ssl.sh: accept domain as $1 arg or read from .env
-- cd.yml: pass VANAN_DOMAIN secret to deploy
-- appsettings/Sitemap.razor: remove hardcoded domain fallback
-- testing: all configs derive from VANAN_DOMAIN env var
-- docs/legacy scripts: parameterize domain references
+VA-CONSISTENCY-004 was flagging VANAN_DOMAIN as inconsistent.
+VANAN_ prefix is infrastructure-level (docker-compose substitution +
+nginx envsubst), same category as ASPNETCORE_, POSTGRES_, etc.
+Added VANAN_ to exclusion list.
 
 Generated with [Devin](https://devin.ai)
 

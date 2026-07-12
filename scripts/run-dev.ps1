@@ -1,18 +1,15 @@
 ﻿<#
 .SYNOPSIS
-    Start Vạn An apps for local smoke test (SQLite + Docker infra: PostgreSQL + NATS).
+    Start Vạn An apps for local smoke test (SQLite-only, no Docker required).
 .DESCRIPTION
     Launches Gateway (5001), ShopERP (5003), and optionally KhachLink (5002)
-    in separate PowerShell windows.
+    in separate PowerShell windows using the SQLite dev database.
 
-    Infrastructure (PostgreSQL + NATS) is started via docker-compose.infra.yml.
-    If Docker Desktop is not running, it is auto-started and waited for readiness.
-    If Docker Desktop is not installed, the script falls back to SQLite-only mode
-    (Gateway/ShopERP run without NATS in degraded mode).
-
+    Unlike start-apps.ps1 (which requires Docker PostgreSQL + NATS), this script
+    is designed for quick W8 smoke testing against the seeded SQLite DB:
       - ShopERP uses vanan_shoperp.db (auto-created + seeded on first run)
       - Gateway runs in monolithic mode (in-process CoreHub services)
-      - PostgreSQL (5432) for Accounting, NATS (4222) for event sync
+      - No external infrastructure required
 
     Auto-detects .NET SDK 8.0.422 in user-local path if not on system PATH.
 
@@ -22,22 +19,20 @@
     Skip launching KhachLink (only Gateway + ShopERP).
 .PARAMETER ShopERPOnly
     Launch only ShopERP (Gateway runs in-process per Option B monolithic mode).
-.PARAMETER NoInfra
-    Skip Docker infrastructure startup (SQLite-only, no PostgreSQL/NATS).
+================================
+cd c:\vibecoding\gemini_windsurf\scripts\
+
 .EXAMPLE
     .\run-dev.ps1
 .EXAMPLE
     .\run-dev.ps1 -NoKhachLink
 .EXAMPLE
     .\run-dev.ps1 -ShopERPOnly
-.EXAMPLE
-    .\run-dev.ps1 -NoInfra
 #>
 [CmdletBinding()]
 param(
     [switch]$NoKhachLink,
-    [switch]$ShopERPOnly,
-    [switch]$NoInfra
+    [switch]$ShopERPOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,8 +41,8 @@ $ErrorActionPreference = "Stop"
 $rootDir = Split-Path -Parent $PSScriptRoot
 Set-Location $rootDir
 
-Write-Host ">> Vạn An Smoke Test Launcher (SQLite + Docker Infra)" -ForegroundColor Cyan
-Write-Host "   SDK: 8.0.422+ | DB: SQLite + PostgreSQL | Mode: Development (Debug build)" -ForegroundColor DarkGray
+Write-Host ">> Vạn An Smoke Test Launcher (SQLite-only)" -ForegroundColor Cyan
+Write-Host "   SDK: 8.0.422+ | DB: SQLite | Mode: Development (Debug build)" -ForegroundColor DarkGray
 Write-Host ""
 
 # --- 0. Kill any running dotnet/VS processes to avoid DLL lock (CS2012) ---
@@ -81,131 +76,6 @@ if (-not $dotnetVersion -or [version]$dotnetVersion -lt [version]"8.0.400") {
 Write-Host "[SDK] dotnet $dotnetVersion" -ForegroundColor Green
 Write-Host "[Repo] $rootDir" -ForegroundColor Green
 
-# --- 2.5. Ensure Docker infrastructure (PostgreSQL + NATS) ---
-# Docker CLI writes errors to stderr, which $ErrorActionPreference=Stop treats as fatal.
-# Use a helper that temporarily relaxes EAP for Docker calls.
-function Invoke-DockerSafe {
-    param([string[]]$DockerArgs)
-    $prevEAP = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try {
-        $output = & docker @DockerArgs 2>&1
-        return @{ ExitCode = $LASTEXITCODE; Output = $output }
-    } finally {
-        $ErrorActionPreference = $prevEAP
-    }
-}
-
-$infraStarted = $false
-if ($NoInfra) {
-    Write-Host "[Infra] -NoInfra specified, skipping Docker infrastructure (SQLite-only mode)" -ForegroundColor Yellow
-} else {
-    $dockerDesktopExe = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    $dockerAvailable = $false
-
-    # Check if Docker CLI is available
-    $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
-    if (-not $dockerCmd) {
-        Write-Host "[Infra] Docker CLI not found on PATH. Checking Docker Desktop install..." -ForegroundColor Yellow
-        if (Test-Path $dockerDesktopExe) {
-            # Add Docker CLI to PATH (Docker Desktop installs to standard location)
-            $dockerPath = "C:\Program Files\Docker\Docker\resources\bin"
-            if (Test-Path $dockerPath) {
-                $env:PATH = "$dockerPath;$env:PATH"
-                $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
-            }
-        }
-    }
-
-    if (-not $dockerCmd) {
-        Write-Host "[Infra] Docker not installed. Falling back to SQLite-only mode (no NATS/PostgreSQL)." -ForegroundColor Yellow
-        Write-Host "[Infra] Gateway will run in degraded mode (NATS retry every 10s — harmless)." -ForegroundColor DarkGray
-    } else {
-        # Check if Docker daemon is running
-        $result = Invoke-DockerSafe -DockerArgs @("info")
-        if ($result.ExitCode -eq 0) {
-            $dockerAvailable = $true
-        } else {
-            Write-Host "[Infra] Docker daemon not running. Clearing WSL stale state + starting Docker Desktop..." -ForegroundColor Yellow
-            # Clear stale WSL state (fixes "wslUpdateRequired" hang on Docker Desktop 4.66+)
-            $wslCmd = Get-Command wsl -ErrorAction SilentlyContinue
-            if ($wslCmd) {
-                Write-Host "[Infra] Running 'wsl --shutdown' to clear stale WSL state..." -ForegroundColor DarkGray
-                $prevEAP = $ErrorActionPreference
-                $ErrorActionPreference = "Continue"
-                try { & wsl --shutdown 2>&1 | Out-Null } finally { $ErrorActionPreference = $prevEAP }
-                Start-Sleep -Seconds 2
-            }
-            if (Test-Path $dockerDesktopExe) {
-                Start-Process $dockerDesktopExe
-                Write-Host "[Infra] Waiting for Docker daemon to become ready (up to 90s)..." -ForegroundColor DarkGray
-                $maxWait = 90
-                $waited = 0
-                while ($waited -lt $maxWait) {
-                    Start-Sleep -Seconds 5
-                    $waited += 5
-                    $result = Invoke-DockerSafe -DockerArgs @("info")
-                    if ($result.ExitCode -eq 0) {
-                        $dockerAvailable = $true
-                        break
-                    }
-                    Write-Host "   ...waiting ($waited`s)" -ForegroundColor DarkGray
-                }
-                if (-not $dockerAvailable) {
-                    Write-Host "[Infra] Docker daemon did not become ready in ${maxWait}s. Falling back to SQLite-only." -ForegroundColor Yellow
-                }
-            } else {
-                Write-Host "[Infra] Docker Desktop not found at standard path. Falling back to SQLite-only." -ForegroundColor Yellow
-            }
-        }
-
-        if ($dockerAvailable) {
-            Write-Host "[Infra] Docker daemon is ready." -ForegroundColor Green
-
-            # Start infrastructure containers
-            $infraCompose = Join-Path $rootDir "docker-compose.infra.yml"
-            if (Test-Path $infraCompose) {
-                Write-Host "[Infra] Starting PostgreSQL + NATS via docker-compose.infra.yml..." -ForegroundColor Green
-                $result = Invoke-DockerSafe -DockerArgs @("compose", "-f", $infraCompose, "up", "-d", "--remove-orphans")
-                $result.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-                $composeExit = $result.ExitCode
-
-                if ($composeExit -eq 0) {
-                    # Wait for healthchecks to pass
-                    Write-Host "[Infra] Waiting for container healthchecks (up to 30s)..." -ForegroundColor DarkGray
-                    $maxHealthWait = 30
-                    $healthWaited = 0
-                    while ($healthWaited -lt $maxHealthWait) {
-                        $hResult = Invoke-DockerSafe -DockerArgs @("inspect", "--format={{.State.Health.Status}}", "vanan-postgres-local", "vanan-nats-local")
-                        $unhealthy = ($hResult.Output | Where-Object { $_ -ne "healthy" }).Count
-                        if ($unhealthy -eq 0) {
-                            break
-                        }
-                        Start-Sleep -Seconds 3
-                        $healthWaited += 3
-                        Write-Host "   ...waiting ($healthWaited`s)" -ForegroundColor DarkGray
-                    }
-
-                    $psResult = Invoke-DockerSafe -DockerArgs @("ps", "--format", "table {{.Names}}`t{{.Status}}`t{{.Ports}}")
-                    Write-Host "[Infra] Containers:" -ForegroundColor Green
-                    $psResult.Output | ForEach-Object { Write-Host "   $_" -ForegroundColor DarkGray }
-                    $infraStarted = $true
-                } else {
-                    Write-Host "[Infra] docker compose up failed (exit $composeExit). Continuing without infra (degraded mode)." -ForegroundColor Yellow
-                }
-            } else {
-                Write-Host "[Infra] docker-compose.infra.yml not found. Continuing without infra." -ForegroundColor Yellow
-            }
-        }
-    }
-}
-
-if ($infraStarted) {
-    Write-Host "[Infra] PostgreSQL (5432) + NATS (4222) ready." -ForegroundColor Green
-} else {
-    Write-Host "[Infra] Running without Docker infra — NATS degraded mode (harmless retry logs)." -ForegroundColor Yellow
-}
-
 # --- 3. Verify projects exist ---
 $gatewayProj    = Join-Path $rootDir "2_Gateway\VanAn.Gateway.csproj"
 $shopErpProj    = Join-Path $rootDir "5_WebApps\ShopERP\VanAn.ShopERP.csproj"
@@ -217,30 +87,6 @@ foreach ($p in @($gatewayProj, $shopErpProj)) {
 
 # --- 4. Launch services ---
 $envScript = "`$env:ASPNETCORE_ENVIRONMENT='Development'"
-
-# --- 3.5. Pre-build solution ONCE (synchronous) to avoid parallel-build DLL race (CS2012).
-#          Without this, the 3 parallel `dotnet run` invocations below each rebuild
-#          1_Shared/VanAn.Shared.csproj simultaneously and collide on writing
-#          1_Shared\obj\Debug\net8.0\VanAn.Shared.dll -> CS2012 on the losers.
-$solutionPath = Join-Path $rootDir 'VanAn.sln'
-if (-not (Test-Path $solutionPath)) { Write-Error "Missing: $solutionPath"; exit 1 }
-
-Write-Host "`n[Build] Pre-building VanAn.sln (single-pass to avoid parallel-build DLL lock)..." -ForegroundColor Green
-$buildLog = Join-Path $PSScriptRoot '.last-dev-build.log'
-& dotnet build $solutionPath --configuration Debug --nologo 2>&1 |
-    Tee-Object -FilePath $buildLog | Out-Host
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Pre-build failed (exit $LASTEXITCODE). See log: $buildLog"
-    exit 1
-}
-Write-Host "[Build] Pre-build OK." -ForegroundColor Green
-
-# Shut down MSBuild / VBCSCompiler server nodes so they do not hold handles
-# to VanAn.Shared.dll when the app processes start. (nodeReuse=true keeps them
-# alive ~60s after build, which overlaps with `dotnet run` startup.)
-Write-Host "[Build] Shutting down dotnet build-server (release MSBuild/VBCSCompiler handles)..." -ForegroundColor DarkGray
-& dotnet build-server shutdown 2>&1 | Out-Null
-Start-Sleep -Seconds 1
 
 # --- 4a. Pre-flight: remove stale SQLite DB if it predates W3 (missing AccountCharts table) ---
 $dbPath = Join-Path $rootDir "5_WebApps\ShopERP\vanan_shoperp.db"
@@ -261,21 +107,21 @@ if (Test-Path $dbPath) {
 if (-not $ShopERPOnly) {
     Write-Host "`n[Gateway] Starting on http://localhost:5001 ..." -ForegroundColor Green
     $gatewayDir = Split-Path $gatewayProj -Parent
-    $cmd = "$envScript; Set-Location '$gatewayDir'; dotnet run --project '$gatewayProj' --configuration Debug --no-build --urls 'http://localhost:5001'"
+    $cmd = "$envScript; Set-Location '$gatewayDir'; dotnet run --project '$gatewayProj' --configuration Debug --urls 'http://localhost:5001'"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 
 # ShopERP (5003) - Blazor Server + API controllers + DevLogin
 Write-Host "[ShopERP] Starting on http://localhost:5003 ..." -ForegroundColor Green
 $shopErpDir = Split-Path $shopErpProj -Parent
-$cmd = "$envScript; Set-Location '$shopErpDir'; dotnet run --project '$shopErpProj' --configuration Debug --no-build --urls 'http://localhost:5003'"
+$cmd = "$envScript; Set-Location '$shopErpDir'; dotnet run --project '$shopErpProj' --configuration Debug --urls 'http://localhost:5003'"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 
 # KhachLink (5002) - optional PWA
 if (-not $NoKhachLink -and (Test-Path $khachLinkProj)) {
     Write-Host "[KhachLink] Starting on http://localhost:5002 ..." -ForegroundColor Green
     $khachLinkDir = Split-Path $khachLinkProj -Parent
-    $cmd = "$envScript; Set-Location '$khachLinkDir'; dotnet run --project '$khachLinkProj' --configuration Debug --no-build --urls 'http://localhost:5002'"
+    $cmd = "$envScript; Set-Location '$khachLinkDir'; dotnet run --project '$khachLinkProj' --configuration Debug --urls 'http://localhost:5002'"
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $cmd
 }
 
@@ -330,8 +176,3 @@ SMOKE TEST QUICK REFERENCE
 
 Write-Host "Note: First run will seed SQLite DB (vanan_shoperp.db) - may take 10-15s extra." -ForegroundColor Yellow
 Write-Host 'Note: DevLogin endpoints only exist in Debug build (#if DEBUG guard, W5).' -ForegroundColor Yellow
-if ($infraStarted) {
-    Write-Host "Note: PostgreSQL + NATS running via Docker. Stop with: docker compose -f docker-compose.infra.yml down" -ForegroundColor DarkGray
-} else {
-    Write-Host "Note: No Docker infra — NATS degraded mode (retry logs every 10s are harmless)." -ForegroundColor DarkGray
-}
