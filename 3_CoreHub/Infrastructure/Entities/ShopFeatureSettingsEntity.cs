@@ -31,6 +31,9 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// <summary>Toggle: auto-export e-invoice when order completed. Default: OFF (chờ sandbox Viettel/MISA).</summary>
     public bool EInvoice_Auto_Export_Enabled { get; private set; }
 
+    /// <summary>KhachLink OrderTracking polling interval in seconds. Default: 15. Range: 5-120.</summary>
+    public int PollingIntervalSeconds { get; private set; } = 15;
+
     private ShopFeatureSettingsEntity() { } // EF Core materialization
 
     /// <summary>Factory: create with default toggle values for a tenant.</summary>
@@ -42,16 +45,18 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Loyalty_Program_Enabled = true;
         Accounting_Sync_Enabled = true;
         EInvoice_Auto_Export_Enabled = false;
+        PollingIntervalSeconds = 15;
     }
 
-    /// <summary>Update all toggles at once.</summary>
+    /// <summary>Update all toggles + polling interval at once.</summary>
     public void UpdateToggles(
         bool qrTableNumber,
         bool kitchenWorkflow,
         bool voiceNote,
         bool loyaltyProgram,
         bool accountingSync,
-        bool einvoiceAutoExport)
+        bool einvoiceAutoExport,
+        int pollingIntervalSeconds = 15)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -59,6 +64,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Loyalty_Program_Enabled = loyaltyProgram;
         Accounting_Sync_Enabled = accountingSync;
         EInvoice_Auto_Export_Enabled = einvoiceAutoExport;
+        PollingIntervalSeconds = Math.Clamp(pollingIntervalSeconds, 5, 120);
         UpdateAudit();
     }
 }

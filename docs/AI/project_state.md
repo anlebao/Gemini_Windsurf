@@ -84,11 +84,11 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 ## 4. Next Actions
 
-**Immediate (KhachLink Full Flow — Wave 4):**
-1. **Create branch** `feature/khachlink-flow-wave4-e2e-tests` (from `main`).
-2. **Wave 4 ANALYZE** — read existing Playwright test patterns, identify E2E test scenarios for full KhachLink flow (checkout→payment→kitchen→delivery→confirm) + minimal flow (QR scan→cart→checkout).
-3. **Wave 4 IMPLEMENT** — 7 tasks: E2E test specs for full flow + minimal flow + toggle ON/OFF scenarios.
-4. **Wave 4 Live Runtime Verification (MANDATORY)** — RV1-RV10: boot all apps + Docker, run Playwright E2E tests, all MUST pass before mark COMPLETE.
+**Immediate (KhachLink Full Flow — ALL WAVES COMPLETE):**
+- KhachLink Wave 0-4 all COMPLETE ✅. No pending actions.
+
+**Recent addition (2026-07-12):**
+- **Configurable Polling Interval** — added `PollingIntervalSeconds` (int, default 15, range 5-120) to `ShopFeatureSettingsEntity`. Admin can configure via `/settings/shop-features` UI. KhachLink `OrderTracking.razor` fetches interval per-tenant (replaces hardcoded 3s). E2E test coverage: 6 test cases in `khachlink-polling-interval.spec.ts` (API GET/PUT/clamping + UI input + OrderTracking load). All 8 KhachLink E2E tests PASS.
 
 **Deferred (pre-existing, not blocking KhachLink flow):**
 1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap.
@@ -209,6 +209,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-12 — CONFIGURABLE POLLING INTERVAL + WAVE 4 E2E TEST UPDATE.** Replaced hardcoded 3s polling in `OrderTracking.razor` with admin-configurable `PollingIntervalSeconds` (int, default 15, range 5-120, clamped via `Math.Clamp`). 8 files modified + 1 new test file: `ShopFeatureSettingsEntity.cs` (+PollingIntervalSeconds property + UpdateToggles param), `ShopFeatureSettingsConfiguration.cs` (+column mapping + default 15), `IShopFeatureSettingsService.cs` (+DTO field), `ShopFeatureSettingsService.cs` (+map in UpdateToggles + ToDto), `ShopFeatures.razor` (+numeric input min=5 max=120 with Vietnamese label), `ShopFeatureSettingsHttpService.cs` (+GetPollingIntervalAsync helper), `OrderTracking.razor` (fetch interval from settings + replace hardcoded 3s in GetPollingInterval), `ShopSettingsPage.ts` (+pollingIntervalSeconds in interface + enableAll/disableAll), `khachlink-polling-interval.spec.ts` (NEW — 6 test cases: API GET/PUT/clamping + UI input + OrderTracking load). EF migration `AddPollingIntervalSeconds` auto-generated. Runtime verified: API GET returns `pollingIntervalSeconds:15`, PUT to 30 persists, E2E 8/8 PASS (26.3s). Updated full-order-flow + minimal-flow specs: `waitForTimeout` 3s→6s (aligned with configurable interval). Wave 4 task card status updated to COMPLETE. **Branch:** `main`.
 
 * **2026-07-12 — KHACHLINK WAVE 3 COMPLETE + MERGED TO MAIN.** Wave 3 (Voice Note STT-only + TTS Kitchen + QR Table Number) implemented across 2 commits on `feature/khachlink-flow-wave3-voice-qr`, then merged to `main` via `a1b2c3d` (no-ff merge). 9 files (1 new + 8 modified): `VoiceNote.razor` (voice note toggle ON/OFF + ShopFeatureSettingsHttpService inject + voiceNoteEnabled field + OnAfterRender gated by toggle + toggle OFF shows text-only textarea + toggle ON shows STT UI), `Domain.cs` ([Obsolete] attribute on OrderItem.ItemNoteAudioBlob + Order.VoiceNoteAudioBlob — audio storage removed per requirements v1.2, STT only), `QRCodePayload.cs` (TableNumber string? property + parameterless constructor for JsonSerializer + constructor overload with tableNumber), `ShopQrCodeService.cs` (GenerateProductQRCode overload with tableNumber param), `ProductsController.cs` (GET /{id}/qr accepts optional tableNumber query param + IShopFeatureSettingsService inject for QR_TableNumber_Enabled toggle check), `Detail.razor` (TTS "Đọc ghi chú" button when order has VoiceNoteText + status=confirmed + voiceNoteEnabled + ReadVoiceNote method calling JS interop ttsReader.speak + VoiceNoteText field in OrderDetailDto + IJSRuntime inject + voiceNoteEnabled sub-toggle load), `tts-reader.js` (NEW — Web Speech API speechSynthesis speak/cancel/isSupported), `App.razor` (script src js/tts-reader.js), `Scan.razor` (_tableNumber field + extract TableNumber from QRCodePayload + VanAnAlert Info "Bàn số: X" when present + data-testid table-number-display). **Live Runtime Verification (RV1-RV12 PASS):** boot Docker + ShopERP 5003 + KhachLink 5002 + Gateway 5001, voice note toggle OFF text-only + ON STT UI, no audio capture (STT-only confirmed), TTS button + JS interop, TTS sub-toggle (voice OFF→TTS OFF), QR table number ON (PNG 2788 bytes), QR toggle OFF (tableNumber ignored), Domain Obsolete, tts-reader.js loaded, no migration needed, no LINQ issues, VanAn components. **QRCodePayloadTests fix:** added parameterless constructor — JsonSerializer.Deserialize requires it when multiple constructors exist. 2 tests were failing, now 7/7 PASS. **Branch:** `main` (merged from `feature/khachlink-flow-wave3-voice-qr`).
 

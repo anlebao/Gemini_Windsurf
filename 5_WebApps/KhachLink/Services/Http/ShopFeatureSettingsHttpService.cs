@@ -64,4 +64,12 @@ public class ShopFeatureSettingsHttpService(IHttpClientFactory httpClientFactory
             _ => false
         };
     }
+
+    public async Task<int> GetPollingIntervalAsync(Guid tenantId, int fallbackSeconds = 15)
+    {
+        ShopFeatureSettingsDto? settings = await GetSettingsAsync(tenantId);
+        if (settings == null)
+            return fallbackSeconds;
+        return settings.PollingIntervalSeconds > 0 ? settings.PollingIntervalSeconds : fallbackSeconds;
+    }
 }

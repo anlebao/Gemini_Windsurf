@@ -12,6 +12,7 @@ public record ShopFeatureSettingsDto
     public bool Loyalty_Program_Enabled { get; set; } = true;
     public bool Accounting_Sync_Enabled { get; set; } = true;
     public bool EInvoice_Auto_Export_Enabled { get; set; }
+    public int PollingIntervalSeconds { get; set; } = 15;
 }
 
 /// <summary>

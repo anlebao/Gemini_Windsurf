@@ -81,8 +81,8 @@ test.describe('KhachLink Minimal Flow — Kitchen + Loyalty + Accounting OFF @sm
 
       // With loyalty OFF, "Cảm ơn quý khách" message should appear
       // (Order may be in "confirmed" or "completed" state — kitchen bypass)
-      // Wait for page to load + polling to update status
-      await page.waitForTimeout(3000);
+      // Wait for page to load + polling to update status (configured interval, not hardcoded 3s)
+      await page.waitForTimeout(6000);
 
       // Verify "Cảm ơn quý khách" message OR order status visible
       const thankYou = page.locator('text=/Cảm ơn quý khách/i');

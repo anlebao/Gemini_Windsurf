@@ -224,6 +224,9 @@
     // W2-T1: Customer confirm receipt state
     private bool _confirmingReceipt = false;
 
+    // Configurable polling interval (fetched from ShopFeatureSettings per tenant)
+    private int _pollingIntervalSeconds = 15;
+
     // Wave 9/W4: Polling infrastructure for real-time order status updates
     // W4: Replaced PeriodicTimer with Task.Delay loop for adaptive interval control
     private CancellationTokenSource? _pollingCts;
@@ -253,6 +256,9 @@
                 loyaltyEnabled = await FeatureSettings.IsEnabledAsync(
                     _publicOrder.TenantId,
                     nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled));
+                // Load configurable polling interval
+                _pollingIntervalSeconds = await FeatureSettings.GetPollingIntervalAsync(
+                    _publicOrder.TenantId, fallbackSeconds: 15);
             }
             catch
             {
@@ -432,19 +438,19 @@
     }
 
     /// <summary>
-    /// W1-T8: Fixed 3s polling for all non-final statuses (per requirements v1.2).
+    /// Returns configurable polling interval from ShopFeatureSettings (admin-configurable per tenant).
     /// Returns 0 to signal "stop polling" for final states.
     /// </summary>
-    private static int GetPollingInterval(string? status) => status switch
+    private int GetPollingInterval(string? status) => status switch
     {
-        "pending"   => 3,   // W1-T8: 3s per requirements
-        "confirmed" => 3,
-        "preparing" => 3,
-        "ready"     => 3,
+        "pending"   => _pollingIntervalSeconds,
+        "confirmed" => _pollingIntervalSeconds,
+        "preparing" => _pollingIntervalSeconds,
+        "ready"     => _pollingIntervalSeconds,
         "completed" => 0,   // Hoàn thành — STOP polling
         "delivered" => 0,   // Đã giao — STOP polling
         "cancelled" => 0,   // Đã hủy — STOP polling
-        _           => 3    // Unknown — default 3s
+        _           => _pollingIntervalSeconds  // Unknown — default to configured interval
     };
 
     private async Task<bool> CheckTabVisibilityAsync()

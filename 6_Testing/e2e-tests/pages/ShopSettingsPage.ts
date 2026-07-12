@@ -13,6 +13,7 @@ export interface ShopFeatureToggles {
   loyalty_Program_Enabled?: boolean;
   accounting_Sync_Enabled?: boolean;
   eInvoice_Auto_Export_Enabled?: boolean;
+  pollingIntervalSeconds?: number;
 }
 
 export class ShopSettingsPage {
@@ -60,6 +61,7 @@ export class ShopSettingsPage {
       loyalty_Program_Enabled: toggles.loyalty_Program_Enabled ?? current.loyalty_Program_Enabled ?? false,
       accounting_Sync_Enabled: toggles.accounting_Sync_Enabled ?? current.accounting_Sync_Enabled ?? false,
       eInvoice_Auto_Export_Enabled: toggles.eInvoice_Auto_Export_Enabled ?? current.eInvoice_Auto_Export_Enabled ?? false,
+      pollingIntervalSeconds: toggles.pollingIntervalSeconds ?? current.pollingIntervalSeconds ?? 15,
     };
     const body = JSON.stringify(merged);
     const resp = await this.apiContext.put(
@@ -80,6 +82,7 @@ export class ShopSettingsPage {
       loyalty_Program_Enabled: true,
       accounting_Sync_Enabled: true,
       eInvoice_Auto_Export_Enabled: false,
+      pollingIntervalSeconds: 5,
     });
   }
 
@@ -94,6 +97,7 @@ export class ShopSettingsPage {
       loyalty_Program_Enabled: false,
       accounting_Sync_Enabled: false,
       eInvoice_Auto_Export_Enabled: false,
+      pollingIntervalSeconds: 5,
     });
   }
 }

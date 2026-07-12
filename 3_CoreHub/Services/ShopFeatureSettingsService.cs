@@ -49,7 +49,8 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.Voice_Note_Enabled,
             settings.Loyalty_Program_Enabled,
             settings.Accounting_Sync_Enabled,
-            settings.EInvoice_Auto_Export_Enabled);
+            settings.EInvoice_Auto_Export_Enabled,
+            settings.PollingIntervalSeconds);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -88,6 +89,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         Voice_Note_Enabled = entity.Voice_Note_Enabled,
         Loyalty_Program_Enabled = entity.Loyalty_Program_Enabled,
         Accounting_Sync_Enabled = entity.Accounting_Sync_Enabled,
-        EInvoice_Auto_Export_Enabled = entity.EInvoice_Auto_Export_Enabled
+        EInvoice_Auto_Export_Enabled = entity.EInvoice_Auto_Export_Enabled,
+        PollingIntervalSeconds = entity.PollingIntervalSeconds
     };
 }

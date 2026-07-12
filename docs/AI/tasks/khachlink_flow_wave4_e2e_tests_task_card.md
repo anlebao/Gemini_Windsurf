@@ -3,8 +3,8 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Tạo E2E test full luồng với 2 scenarios: (1) Full flow (tất cả toggle ON), (2) Minimal flow (kitchen + loyalty + accounting OFF).
 - **Nghiệp vụ áp dụng:** Section 8 của `Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md` v1.2
-- **Status:** ⬜ NOT STARTED
-- **Branch:** `feature/khachlink-flow-wave4-e2e-tests`
+- **Status:** ✅ COMPLETE (E2E tests + polling interval configurable feature)
+- **Branch:** `main`
 - **Dependency:** Wave 3 COMPLETE (voice note + TTS + QR table number)
 
 ---

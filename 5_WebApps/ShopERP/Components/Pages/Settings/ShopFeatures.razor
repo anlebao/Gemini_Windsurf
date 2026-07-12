@@ -105,6 +105,18 @@
                     </div>
                 </div>
 
+                <div class="feature-row mt-4 pt-3 border-top" data-testid="setting-polling-interval">
+                    <div class="feature-info">
+                        <strong>Thời gian làm mới theo dõi đơn hàng (giây)</strong>
+                        <p class="text-muted small">Khoảng thời gian KhachLink tự động cập nhật trạng thái đơn. Nên đặt từ 15s trở lên để giảm tải hệ thống. Cho phép chỉnh từ 5-120 giây.</p>
+                    </div>
+                    <div class="form-group" style="width: 120px;">
+                        <input type="number" class="form-control" id="polling-interval"
+                               min="5" max="120" step="1"
+                               @bind="settings.PollingIntervalSeconds" />
+                    </div>
+                </div>
+
                 <div class="form-actions mt-3">
                     <VanAButton Variant="primary" OnClick="SaveSettings" data-testid="btn-save">
                         Lưu cấu hình
