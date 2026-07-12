@@ -126,6 +126,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify VANAN_DOMAIN secret is set
+        run: |
+          if [ -z "${{ secrets.VANAN_DOMAIN }}" ]; then
+            echo "::error::VANAN_DOMAIN GitHub secret is not set. Deploy skipped to prevent breaking VPS."
+            echo "::error::Set it in: Settings → Secrets and variables → Actions → New repository secret"
+            echo "::error::Name: VANAN_DOMAIN  Value: your domain (e.g. khachvip.online)"
+            exit 1
+          fi
+          echo "VANAN_DOMAIN secret is set: ${{ secrets.VANAN_DOMAIN }}"
+
       - name: Prepare deploy directory on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
