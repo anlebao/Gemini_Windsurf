@@ -602,6 +602,14 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    public enum IdentityLevel
+    {
+        Guest = 0,
+        Social = 1,
+        Verified = 2,
+        Full = 3
+    }
+
     public record CustomerId(Guid Value);
 
     // Customer CRM Entity for Loyalty & Tier Management
@@ -613,6 +621,7 @@ namespace VanAn.Shared.Domain
         public string? Email { get; protected set; }
         public int LoyaltyPoints { get; protected set; }
         public string CustomerTier { get; protected set; } = "Bronze"; // Bronze, Silver, Gold, Platinum
+        public IdentityLevel IdentityLevel { get; protected set; } = IdentityLevel.Social;
         public DateTime? LastOrderDate { get; protected set; }
         public decimal TotalSpent { get; protected set; } = 0;
         public bool IsActive { get; protected set; } = true;
@@ -643,6 +652,13 @@ namespace VanAn.Shared.Domain
             CustomerTier = customerTier;
             DeviceId = deviceId;
             IsActive = isActive;
+            UpdateAudit();
+        }
+
+        public void UpgradeIdentityLevel(IdentityLevel newLevel)
+        {
+            if (newLevel <= IdentityLevel) return;
+            IdentityLevel = newLevel;
             UpdateAudit();
         }
 

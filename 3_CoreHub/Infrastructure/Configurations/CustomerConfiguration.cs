@@ -37,6 +37,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(20);
 
+            _ = builder.Property(e => e.IdentityLevel)
+                .IsRequired()
+                .HasConversion<int>()
+                .HasDefaultValue(IdentityLevel.Social);
+
             _ = builder.Property(e => e.TotalSpent)
                 .HasPrecision(18, 2);
 

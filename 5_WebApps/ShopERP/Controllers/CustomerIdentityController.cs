@@ -76,6 +76,14 @@ namespace VanAn.ShopERP.Controllers
                 _logger.LogInformation("New customer created: {CustomerId}", customer.Id);
             }
 
+            // OTP verification upgrades identity level to Verified
+            if (customer.IdentityLevel < IdentityLevel.Verified)
+            {
+                customer.UpgradeIdentityLevel(IdentityLevel.Verified);
+                await _customerRepository.UpdateAsync(customer);
+                _logger.LogInformation("Customer {CustomerId} upgraded to Verified via OTP", customer.Id);
+            }
+
             var customerToken = _customerTokenService.CreateToken(customer.Id);
             var rewards = await _loyaltyRewardsService.GetOrCreateCustomerRewardsAsync(customer.Id, new TenantId(tenantId));
             var tier = CalcTier(rewards.PointBalance);
@@ -87,7 +95,8 @@ namespace VanAn.ShopERP.Controllers
                 PhoneNumber = request.PhoneNumber,
                 CustomerToken = customerToken,
                 Tier = tier,
-                PointBalance = rewards.PointBalance
+                PointBalance = rewards.PointBalance,
+                IdentityLevel = customer.IdentityLevel.ToString()
             });
         }
 
@@ -115,7 +124,8 @@ namespace VanAn.ShopERP.Controllers
                 PhoneNumber = customer.PhoneNumber,
                 CustomerToken = token,
                 Tier = tier,
-                PointBalance = rewards?.PointBalance ?? 0
+                PointBalance = rewards?.PointBalance ?? 0,
+                IdentityLevel = customer.IdentityLevel.ToString()
             });
         }
 
@@ -161,5 +171,6 @@ namespace VanAn.ShopERP.Controllers
         public string CustomerToken { get; set; } = string.Empty;
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
+        public string IdentityLevel { get; set; } = "Social";
     }
 }
