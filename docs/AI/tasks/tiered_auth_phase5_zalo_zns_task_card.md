@@ -82,7 +82,34 @@
 
 ---
 
-## 8. USER ACTION REQUIRED
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: no startup errors)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001
+- [ ] Zalo Cloud Automation Portal: OTP template (Loại 1) approved + Template ID copied
+- [ ] `Zalo:AccessToken` + `Zalo:TemplateId` + `Zalo:OaId` trong appsettings.json (dev) hoặc env vars (prod)
+- [ ] Phase 2 COMPLETE (upgrade OTP flow hoạt động)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Zalo ZNS API call:** `POST /api/customer-identity/upgrade/send-otp` → `ZaloZnsService.SendOtpAsync` gọi Zalo ZNS API → HTTP 200 từ Zalo → log `[ZNS] OTP sent to {phone} via Zalo ZNS`.
+- [ ] **RV2 — OTP received:** Nếu test với real Zalo account → OTP nhận trong Zalo app → verify OTP thành công → `IdentityLevel = Verified`.
+- [ ] **RV3 — Fallback to eSMS:** Disable Zalo config (empty AccessToken) → `POST /api/customer-identity/upgrade/send-otp` → `CompositeOtpService` fallback eSMS → log `[OTP] Zalo failed, falling back to eSMS` → SMS gửi thành công.
+- [ ] **RV4 — Provider logging:** Check logs → mỗi OTP gửi có log line với `Provider=Zalo` hoặc `Provider=eSMS` + estimated cost (300đ or 1000đ).
+- [ ] **RV5 — CompositeOtpService priority:** Khi Zalo config valid + Zalo API available → OTP gửi qua Zalo (KHÔNG qua eSMS) → log confirms `Provider=Zalo`.
+- [ ] **RV6 — Zalo API error fallback:** Mock Zalo API return 500 → `CompositeOtpService` catch error → fallback eSMS → OTP vẫn gửi thành công.
+- [ ] **RV7 — Existing OTP login unaffected:** `POST /api/customers/otp/send` (login flow) → vẫn hoạt động (dùng CompositeOtpService hoặc EsmsNotificationService directly).
+- [ ] **RV8 — Unit tests pass:** `dotnet test --filter "ZaloZnsService|CompositeOtpService"` → 2/2 PASS (Zalo success + eSMS fallback).
+- [ ] **RV9 — LINQ translation:** Mọi query mới dùng direct property comparison — verify không `InvalidOperationException`.
+- [ ] **RV10 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.
+
+---
+
+## 9. USER ACTION REQUIRED
 User cần thực hiện các bước sau trên Zalo Cloud Automation Portal:
 1. Đăng nhập Zalo OA → Zalo Cloud Automation (ZCA) Portal
 2. Developers → tạo application → lấy Access Token

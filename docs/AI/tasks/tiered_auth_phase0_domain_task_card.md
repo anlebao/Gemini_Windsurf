@@ -75,3 +75,24 @@
 - **Verified Facts:** 5 (Customer entity structure, CustomerConfiguration exists, CustomerIdentityController flow, Migration patterns, CustomerIdentityResponse structure)
 - **Open Questions:** 0
 - **Gate check:** Assumptions (0) < Verified Facts (5) → OK để proceed
+
+---
+
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: migration applied + seed OK)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — EF Migration applied:** `dotnet ef database update` trong ShopERP → log hiển thị `AddCustomerIdentityLevel` migration applied. Không `no such table` error.
+- [ ] **RV2 — Column exists:** Query SQLite `PRAGMA table_info(Customers)` → column `IdentityLevel` tồn tại, default = 1 (Social).
+- [ ] **RV3 — OTP verify sets Verified:** `POST /api/customers/otp/send` + `POST /api/customers/otp/verify` thành công → query `SELECT IdentityLevel FROM Customers WHERE ...` → value = 2 (Verified).
+- [ ] **RV4 — CustomerIdentityResponse trả IdentityLevel:** `POST /api/customers/otp/verify` → response JSON chứa `"identityLevel": "Verified"` (hoặc `"Social"` cho customer có sẵn chưa verify).
+- [ ] **RV5 — LINQ translation:** Mọi query mới dùng direct property comparison (KHÔNG `EF.Property<Guid>` cho TenantId) — verify không `InvalidOperationException: LINQ expression could not be translated`.
+- [ ] **RV6 — Existing customers unaffected:** Query existing customers → `IdentityLevel` = 1 (Social, default) — không break existing data.
+- [ ] **RV7 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.

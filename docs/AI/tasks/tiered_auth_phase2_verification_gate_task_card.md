@@ -76,3 +76,27 @@
 - **Verified Facts:** 5 (SubtractPointsAsync implementation, LoyaltyController endpoints, CustomerIdentityController pattern, OtpService pattern, ICustomerRepository methods)
 - **Open Questions:** 0
 - **Gate check:** Assumptions (0) < Verified Facts (5) → OK để proceed
+
+---
+
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: no startup errors)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001
+- [ ] Phase 0 COMPLETE (IdentityLevel column exists in DB)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Redeem blocked (Social):** Customer với `IdentityLevel = Social` → `POST /api/loyalty/redeem` → HTTP 403 với `{ error, requiresUpgrade: true, currentLevel: "Social", requiredLevel: "Verified" }`.
+- [ ] **RV2 — Redeem success (Verified):** Customer với `IdentityLevel = Verified` → `POST /api/loyalty/redeem` → HTTP 200 → points deducted → query DB confirm.
+- [ ] **RV3 — Upgrade send OTP:** `POST /api/customer-identity/upgrade/send-otp` với phone number → OTP gửi thành công → `OtpService.VerifyOtp` returns true cho OTP vừa gửi.
+- [ ] **RV4 — Upgrade verify OTP:** `POST /api/customer-identity/upgrade/verify-otp` với correct OTP → `IdentityLevel` updated = Verified → query DB confirm `SELECT IdentityLevel FROM Customers WHERE ...` → value = 2.
+- [ ] **RV5 — Upgrade wrong OTP:** `POST /api/customer-identity/upgrade/verify-otp` với wrong OTP → HTTP 400 → `IdentityLevel` KHÔNG thay đổi.
+- [ ] **RV6 — Earn points unaffected:** `POST /api/loyalty/earn` (AddPointsAsync) → vẫn thành công cho `IdentityLevel = Social` → points added → KHÔNG bị gate block.
+- [ ] **RV7 — LINQ translation:** Mọi query mới dùng direct property comparison — verify không `InvalidOperationException`.
+- [ ] **RV8 — Unit tests pass:** `dotnet test --filter "LoyaltyRewardsServiceVerificationGate"` → 2/2 PASS (blocked + success).
+- [ ] **RV9 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.

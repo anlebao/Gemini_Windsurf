@@ -73,3 +73,28 @@
 - **Verified Facts:** 4 (GoogleAuthService pattern from P1, SocialAuthController structure from P1, Login.razor structure from P3, appsettings pattern)
 - **Open Questions:** 1 (Facebook App review — cần configure trong Facebook Developer Console)
 - **Gate check:** Assumptions (1) < Verified Facts (4) → OK để proceed
+
+---
+
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: no startup errors)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001
+- [ ] Facebook Developer Console: App configured với redirect URI `https://localhost:5003/api/auth/facebook/callback`
+- [ ] `Facebook:AppId` + `Facebook:AppSecret` trong appsettings.json (dev) hoặc env vars (prod)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Facebook login redirect:** `GET /api/auth/facebook/login` (via Gateway 5001) → HTTP 302 redirect đến `facebook.com/v18.0/dialog/oauth` với đúng `client_id` + `redirect_uri` + `scope`.
+- [ ] **RV2 — Facebook callback (new customer):** Complete OAuth flow → `GET /api/auth/facebook/callback?code=...` → verify access token thành công → Customer mới tạo với `IdentityLevel = Social` → query DB confirm.
+- [ ] **RV3 — Facebook callback (existing customer):** OAuth với email đã tồn tại → Customer giữ nguyên `IdentityLevel` → issue token.
+- [ ] **RV4 — Token redirect to KhachLink:** Callback redirect đến `https://localhost:5002/login?token={token}&provider=facebook` → KhachLink Login page nhận token.
+- [ ] **RV5 — Facebook button visible:** Mở `http://localhost:5002/login` → nút "Đăng nhập với Facebook" hiển thị (VanAnButton + Facebook icon) — inspect DOM `data-testid="btn-facebook-login"`.
+- [ ] **RV6 — Gateway forwarding:** `GET /api/auth/facebook/login` qua Gateway 5001 → forward đến ShopERP 5003 → 302 redirect (không 404/500).
+- [ ] **RV7 — Error handling:** OAuth với invalid code → redirect KhachLink với error param (không crash server).
+- [ ] **RV8 — LINQ translation:** Mọi query mới dùng direct property comparison — verify không `InvalidOperationException`.
+- [ ] **RV9 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.

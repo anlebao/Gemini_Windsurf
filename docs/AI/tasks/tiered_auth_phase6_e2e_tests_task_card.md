@@ -70,3 +70,28 @@
 - **Verified Facts:** 4 (existing E2E patterns, Page Object pattern, OTP dev header pattern, Playwright config)
 - **Open Questions:** 0
 - **Gate check:** Assumptions (0) < Verified Facts (4) → OK để proceed
+
+---
+
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: no startup errors)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001
+- [ ] Phase 0-5 ALL COMPLETE (full tiered auth operational)
+- [ ] Playwright installed: `npx playwright install chromium` trong `6_Testing/e2e-tests/`
+- [ ] Dev mode: `X-Dev-OTP` header exposes OTP for testing (existing pattern)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Scenario 1 full flow:** `npx playwright test tiered-auth-social-login-flow` → social login (mocked) → earn points → redeem blocked (403) → upgrade OTP → redeem success → test PASS.
+- [ ] **RV2 — Scenario 2 full flow:** `npx playwright test tiered-auth-otp-login-flow` → phone OTP login (already Verified) → redeem success → test PASS.
+- [ ] **RV3 — Facebook login (mocked):** Facebook OAuth flow (mocked) → customer created with `IdentityLevel = Social` → test PASS.
+- [ ] **RV4 — Zalo ZNS OTP (mocked):** Upgrade OTP via Zalo ZNS (mocked) → `IdentityLevel = Verified` → test PASS.
+- [ ] **RV5 — No flaky tests:** Run `npx playwright test tiered-auth-*` 3 lần liên tiếp → all PASS mọi lần (không flaky).
+- [ ] **RV6 — Page Object coverage:** SocialAuthPage + IdentityUpgradePage Page Objects used trong cả 2 spec files → grep `import` confirm.
+- [ ] **RV7 — E2E test count:** `npx playwright test tiered-auth-* --list` → ≥ 4 test cases (2 scenarios + Facebook + Zalo).
+- [ ] **RV8 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.

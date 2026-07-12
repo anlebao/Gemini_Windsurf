@@ -78,3 +78,28 @@
 - **Verified Facts:** 4 (CustomerTokenService pattern, CustomerIdentityController pattern, ICustomerRepository methods, appsettings env var pattern)
 - **Open Questions:** 1 (Google OAuth redirect URI — cần configure trong Google Cloud Console)
 - **Gate check:** Assumptions (2) < Verified Facts (4) → OK, nhưng cần investigate Google.Apis.Auth compatibility
+
+---
+
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: no startup errors)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001 (YARP forwards `/api/auth/*` → ShopERP 5003)
+- [ ] Google Cloud Console: OAuth 2.0 Client ID configured với redirect URI `https://localhost:5003/api/auth/google/callback`
+- [ ] `Google:ClientId` + `Google:ClientSecret` trong appsettings.json (dev) hoặc env vars (prod)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Google login redirect:** `GET /api/auth/google/login` (via Gateway 5001) → HTTP 302 redirect đến `accounts.google.com/o/oauth2/v2/auth` với đúng `client_id` + `redirect_uri` + `scope`.
+- [ ] **RV2 — Google callback (new customer):** Complete OAuth flow → `GET /api/auth/google/callback?code=...` → verify ID token thành công → Customer mới tạo với `IdentityLevel = Social` → query DB confirm.
+- [ ] **RV3 — Google callback (existing customer):** OAuth với email đã tồn tại → Customer giữ nguyên `IdentityLevel` (không override) → issue token.
+- [ ] **RV4 — Token redirect to KhachLink:** Callback redirect đến `https://localhost:5002/login?token={token}&provider=google` → KhachLink Login page nhận token từ URL query param.
+- [ ] **RV5 — Token validation:** Token từ redirect = `ICustomerTokenService.ValidateToken` trả về correct `customerId` → `GET /api/customers/profile` với `Authorization: Bearer {token}` → 200.
+- [ ] **RV6 — Gateway forwarding:** `GET /api/auth/google/login` qua Gateway 5001 → forward đến ShopERP 5003 → 302 redirect (không 404/500).
+- [ ] **RV7 — Error handling:** OAuth với invalid code → `GET /api/auth/google/callback?code=invalid` → redirect KhachLink với error param (không crash server).
+- [ ] **RV8 — LINQ translation:** Mọi query mới dùng direct property comparison — verify không `InvalidOperationException`.
+- [ ] **RV9 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.

@@ -82,3 +82,29 @@
 - **Verified Facts:** 5 (Login.razor structure, IdentityUpgradeModal structure, Profile.razor structure, LoyaltyCard.razor structure, HTTP service pattern)
 - **Open Questions:** 1 (Google OAuth redirect URI — cần configure trong Google Cloud Console + KhachLink URL)
 - **Gate check:** Assumptions (1) < Verified Facts (5) → OK để proceed
+
+---
+
+## 8. LIVE RUNTIME VERIFICATION (MANDATORY — see Wave 0 lesson)
+> Static checks (build + architecture tests + guard-check) KHÔNG đảm bảo runtime works.
+> Phải boot app + test HTTP/UI thực tế trước khi mark phase COMPLETE.
+
+**Prerequisites:**
+- [ ] Docker Desktop running (PostgreSQL 5432 + NATS 4222)
+- [ ] ShopERP started on http://localhost:5003 (watch logs: no startup errors)
+- [ ] KhachLink started on http://localhost:5002 (PWA loads)
+- [ ] Gateway started on http://localhost:5001
+- [ ] Phase 1 COMPLETE (Google OAuth endpoints hoạt động)
+- [ ] Phase 2 COMPLETE (Verification gate + upgrade API hoạt động)
+
+**RV tests (all MUST pass):**
+- [ ] **RV1 — Google login button visible:** Mở `http://localhost:5002/login` → nút "Đăng nhập với Google" hiển thị (VanAnButton + Google icon) — inspect DOM `data-testid="btn-google-login"`.
+- [ ] **RV2 — Google login redirect:** Click nút Google → redirect đến `GET /api/auth/google/login` (via Gateway 5001) → redirect đến Google consent screen.
+- [ ] **RV3 — Token callback handling:** Sau Google OAuth → redirect `http://localhost:5002/login?token={token}&provider=google` → KhachLink parse token từ URL → store `localStorage` → redirect `/profile`.
+- [ ] **RV4 — Profile shows IdentityLevel badge:** Mở `http://localhost:5002/profile` → hiển thị badge "Tài khoản Social" (cho Social) hoặc "Đã xác thực" (cho Verified) — inspect DOM.
+- [ ] **RV5 — Upgrade modal OTP flow:** Mở IdentityUpgradeModal → click "Nâng cấp ngay" → gọi `POST /api/customer-identity/upgrade/send-otp` → 200 → modal hiển thị OTP input → nhập OTP → click verify → `POST /api/customer-identity/upgrade/verify-otp` → 200 → modal đóng.
+- [ ] **RV6 — Redeem 403 shows upgrade modal:** LoyaltyCard → redeem với `IdentityLevel = Social` → API trả 403 → IdentityUpgradeModal tự động hiển thị.
+- [ ] **RV7 — Upgrade persists:** Sau upgrade OTP verify thành công → refresh page → Profile badge đổi từ "Social" → "Đã xác thực" → redeem thành công (không 403).
+- [ ] **RV8 — KhachLinkStartupTests pass:** `dotnet test --filter "KhachLinkStartupTests"` → all PASS (DI assertions).
+- [ ] **RV9 — UI Platform compliance:** Login + Profile + LoyaltyCard + IdentityUpgradeModal dùng VanAnButton/VanAnCard/VanAnAlert — grep HTML source, KHÔNG custom button/card.
+- [ ] **RV10 — Build + guard-check:** `dotnet build VanAn.sln` 0 errors + `guard-check.ps1` ALL CHECKS PASSED.
