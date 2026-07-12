@@ -42,7 +42,7 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 **Wave 3 (COMPLETE ✅ — merged `a1b2c3d`):** Voice Note STT-only + TTS Kitchen + QR Table Number — 9 tasks. Live runtime verified (RV1-RV12 PASS). QRCodePayloadTests fixed (parameterless ctor for JsonSerializer). Domain Obsolete marks on audio blob fields (backward compat).
 
-**Wave 4 (NEXT):** E2E Playwright Tests — full flow + minimal flow (7 tasks, RV1-RV10). Task card: `docs/AI/tasks/khachlink_flow_wave4_e2e_tests_task_card.md`. Branch (tbd): `feature/khachlink-flow-wave4-e2e-tests`.
+**Wave 4 (COMPLETE ✅ — merged `32ddab6`):** E2E Playwright Tests — full flow + minimal flow (7 tasks). Live runtime verified (4 tests PASS on e2e-tests + chromium projects). API-driven order creation (Blazor Server UI timing issues in headless mode). 3 Page Objects added (ShopSettingsPage, VoiceNotePage, CustomerConfirmPage). CustomerPage selectors fixed to match actual KhachLink Home.razor + Checkout.razor.
 
 **6 toggles (default seed):** `QR_TableNumber_Enabled` (OFF), `Kitchen_Workflow_Enabled` (ON), `Voice_Note_Enabled` (OFF), `Loyalty_Program_Enabled` (ON), `Accounting_Sync_Enabled` (ON), `EInvoice_Auto_Export_Enabled` (OFF).
 
