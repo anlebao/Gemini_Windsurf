@@ -119,6 +119,7 @@ services:
       - Seed__OwnerUsername=${SHOPERP_OWNER_USERNAME:-adminvanan1}
       - Seed__OwnerPassword=${SHOPERP_OWNER_PASSWORD:-2026@vanan}
       - Seed__TenantId=${SHOPERP_TENANT_ID:-00000000-0000-0000-0000-000000000001}
+      - Seed__SysAdminPassword=${SHOPERP_SYSADMIN_PASSWORD:-2026@vanan}
       # WAVE 2 (2026-07-10): Accounting always online on PostgreSQL (ADR-001)
       - ConnectionStrings__AccountingConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
     volumes:

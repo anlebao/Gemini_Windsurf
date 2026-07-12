@@ -10,7 +10,6 @@ namespace VanAn.ShopERP.Controllers;
 
 [ApiController]
 [Route("api/platform")]
-[Authorize]
 public class PlatformUserLoginController : ControllerBase
 {
     private readonly IPlatformUserLoginService _platformUserLoginService;
