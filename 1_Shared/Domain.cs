@@ -728,6 +728,7 @@ namespace VanAn.Shared.Domain
 
         //  GOLDEN FLOW: Voice Note Properties (Operational Only)
         public string? ItemNoteText { get; protected set; }
+        [Obsolete("Audio storage removed per requirements v1.2 — STT only. TTS reads text at kitchen.")]
         public string? ItemNoteAudioBlob { get; protected set; }
 
         protected OrderItem() { }
@@ -862,6 +863,7 @@ namespace VanAn.Shared.Domain
 
         //  GOLDEN FLOW: Voice Note Properties (Operational Only)
         public string? VoiceNoteText { get; protected set; }
+        [Obsolete("Audio storage removed per requirements v1.2 — STT only. TTS reads text at kitchen.")]
         public string? VoiceNoteAudioBlob { get; protected set; }
 
         // GOLDEN FLOW: Kitchen Status (Operational Only)

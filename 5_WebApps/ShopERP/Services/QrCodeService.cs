@@ -11,13 +11,26 @@ namespace VanAn.ShopERP.Services
     public interface IShopQrCodeService
     {
         byte[] GenerateProductQRCode(Guid productId, Guid shopId);
+        /// <summary>
+        /// W3-T8: Generate QR code with optional table number (when QR_TableNumber_Enabled = ON).
+        /// </summary>
+        byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber);
     }
 
     public class ShopQrCodeService : IShopQrCodeService
     {
         public byte[] GenerateProductQRCode(Guid productId, Guid shopId)
         {
-            var qrPayload = new QRCodePayload(productId, shopId);
+            return GenerateProductQRCode(productId, shopId, tableNumber: null);
+        }
+
+        /// <summary>
+        /// W3-T8: Generate QR code with optional table number.
+        /// When tableNumber is null, QR payload excludes it (backward compat).
+        /// </summary>
+        public byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber)
+        {
+            var qrPayload = new QRCodePayload(productId, shopId, tableNumber);
             var qrJson = qrPayload.ToJson();
 
             using (QRCodeGenerator qrGenerator = new QRCodeGenerator())

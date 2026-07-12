@@ -9,12 +9,30 @@ namespace VanAn.Shared.DTOs
         public Guid ProductId { get; set; }
         public Guid ShopId { get; set; }
         public long Timestamp { get; set; }
+        /// <summary>
+        /// W3-T7: Optional table number — only included when QR_TableNumber_Enabled = ON.
+        /// Null when toggle OFF (backward compat — old QR codes still scan correctly).
+        /// </summary>
+        public string? TableNumber { get; set; }
+
+        /// <summary>
+        /// Parameterless constructor for JSON deserialization (JsonSerializer requires it).
+        /// </summary>
+        public QRCodePayload() { }
 
         public QRCodePayload(Guid productId, Guid shopId)
         {
             ProductId = productId;
             ShopId = shopId;
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        }
+
+        /// <summary>
+        /// W3-T7: Constructor overload with optional table number.
+        /// </summary>
+        public QRCodePayload(Guid productId, Guid shopId, string? tableNumber) : this(productId, shopId)
+        {
+            TableNumber = tableNumber;
         }
 
         public string ToJson()
