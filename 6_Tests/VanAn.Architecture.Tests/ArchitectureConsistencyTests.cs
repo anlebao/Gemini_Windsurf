@@ -208,6 +208,7 @@ namespace VanAn.Architecture.Tests
                     !varName.StartsWith("JWT_") &&
                     !varName.StartsWith("SHOPERP_") &&
                     !varName.StartsWith("IMAGE_") &&
+                    !varName.StartsWith("VANAN_") &&
                     !varName.Equals("ACCEPT_EULA") &&
                     !varName.Contains("__")) // Allow double underscore for nested config
                 {
