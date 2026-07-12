@@ -30,23 +30,27 @@
 
 ## 2. Current Objective
 
-**[KHACHLINK FULL BUSINESS FLOW COMPLETION — WAVE 3 COMPLETE, WAVE 4 NEXT]**
+**[TIERED AUTHENTICATION FOR LOYALTY PROGRAM — PLANNING COMPLETE, P0 NEXT]**
 
-Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.2 (`docs/MVP_Product/Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md`). Master plan: `docs/AI/tasks/khachlink_full_flow_master_plan.md` — 5 waves, 43 tasks.
+Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Login: Google + Facebook OAuth) cho earn points — free. Tier 2 (SMS OTP via Zalo ZNS 300đ) cho redeem points. Tier 3 cho giao dịch quan trọng. Master plan: `docs/AI/tasks/tiered_auth_loyalty_master_plan.md` — 7 phases, 7 task cards created.
 
-**Wave 0 (COMPLETE ✅ — merged `8edea1b`):** Module Toggle Infrastructure — 6 feature toggles + Shop Settings UI + API + KhachLink HTTP service + EF migration + seed. Live runtime verified (RV1-RV12 PASS). BLOCKING cho W1-W4 — đã unblock.
+**Phase 0 (NOT STARTED ⬜):** Domain: `IdentityLevel` enum (Guest/Social/Verified/Full) + `Customer.IdentityLevel` property + EF migration. BLOCKING cho P1-P6.
 
-**Wave 1 (COMPLETE ✅ — merged `49c1911`):** Payment Flow + Kitchen UI + Polling 3s — 10 tasks + 1 pre-existing bug fix. Live runtime verified (RV1-RV10 PASS). Includes fix for public order tracking 404 (IgnoreQueryFilters — multi-tenancy query filter bypassed for anonymous endpoint).
+**Phase 1 (NOT STARTED ⬜):** Google OAuth — redirect → callback → verify ID token → issue customer token.
 
-**Wave 2 (COMPLETE ✅ — merged `cf7c04d`):** Customer Confirm + Loyalty Bypass + PWA Disable + Accounting Bypass — 7 tasks. Live runtime verified (RV1-RV11 PASS). Pre-existing AuditLog tenant mismatch bug found (NOT Wave 2 regression — in AuditLogRepository.AddAsync when webhook sets tenant context).
+**Phase 2 (NOT STARTED ⬜):** Verification gate trong `SubtractPointsAsync` + upgrade OTP API endpoints.
 
-**Wave 3 (COMPLETE ✅ — merged `a1b2c3d`):** Voice Note STT-only + TTS Kitchen + QR Table Number — 9 tasks. Live runtime verified (RV1-RV12 PASS). QRCodePayloadTests fixed (parameterless ctor for JsonSerializer). Domain Obsolete marks on audio blob fields (backward compat).
+**Phase 3 (NOT STARTED ⬜):** KhachLink UI: Google login button + IdentityUpgradeModal wire up + Profile badge.
 
-**Wave 4 (COMPLETE ✅ — merged `32ddab6`):** E2E Playwright Tests — full flow + minimal flow (7 tasks). Live runtime verified (4 tests PASS on e2e-tests + chromium projects). API-driven order creation (Blazor Server UI timing issues in headless mode). 3 Page Objects added (ShopSettingsPage, VoiceNotePage, CustomerConfirmPage). CustomerPage selectors fixed to match actual KhachLink Home.razor + Checkout.razor.
+**Phase 4 (NOT STARTED ⬜):** Facebook OAuth — reuse ISocialAuthService pattern.
 
-**6 toggles (default seed):** `QR_TableNumber_Enabled` (OFF), `Kitchen_Workflow_Enabled` (ON), `Voice_Note_Enabled` (OFF), `Loyalty_Program_Enabled` (ON), `Accounting_Sync_Enabled` (ON), `EInvoice_Auto_Export_Enabled` (OFF).
+**Phase 5 (NOT STARTED ⬜):** Zalo ZNS OTP (300đ/OTP) + CompositeOtpService (Zalo priority, eSMS fallback).
 
-**Previous (completed):** SystemAdmin Entry Point — 2 remaining 500s FIXED ✅ (commit `ca1d4cd`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged `33d18fa`).
+**Phase 6 (NOT STARTED ⬜):** E2E Playwright tests — 2 scenarios (social login flow + OTP login flow).
+
+**Cost target:** Giảm từ 2-2.4Mđ/tháng → ~90Kđ/tháng (96% saving).
+
+**Previous (completed):** KhachLink Full Business Flow — ALL 5 WAVES COMPLETE ✅ (Waves 0-4 merged). Configurable Polling Interval feature added. SystemAdmin Entry Point — 2 remaining 500s FIXED ✅ (commit `ca1d4cd`). Accounting PostgreSQL Online — ALL 3 WAVES COMPLETE ✅ (merged `33d18fa`).
 
 ---
 
@@ -84,11 +88,18 @@ Hoàn tất 100% luồng nghiệp vụ KhachLink theo tài liệu yêu cầu v1.
 
 ## 4. Next Actions
 
-**Immediate (KhachLink Full Flow — ALL WAVES COMPLETE):**
-- KhachLink Wave 0-4 all COMPLETE ✅. No pending actions.
+**Immediate (Tiered Auth — Planning complete, P0 next):**
+1. **Phase 0:** Domain `IdentityLevel` enum + `Customer.IdentityLevel` property + EF migration — BLOCKING
+2. **Phase 1:** Google OAuth (Blazor Server) — redirect → callback → token
+3. **Phase 2:** Verification gate trong `SubtractPointsAsync` + upgrade OTP API (parallel with P1)
+4. **Phase 3:** KhachLink UI — Google login button + upgrade modal + profile badge
+5. **Phase 4:** Facebook OAuth — reuse pattern
+6. **Phase 5:** Zalo ZNS OTP (300đ/OTP) + CompositeOtpService
+7. **Phase 6:** E2E Playwright tests
 
 **Recent addition (2026-07-12):**
 - **Configurable Polling Interval** — added `PollingIntervalSeconds` (int, default 15, range 5-120) to `ShopFeatureSettingsEntity`. Admin can configure via `/settings/shop-features` UI. KhachLink `OrderTracking.razor` fetches interval per-tenant (replaces hardcoded 3s). E2E test coverage: 6 test cases in `khachlink-polling-interval.spec.ts` (API GET/PUT/clamping + UI input + OrderTracking load). All 8 KhachLink E2E tests PASS.
+- **Tiered Auth Master Plan + 7 Task Cards** — created `tiered_auth_loyalty_master_plan.md` (7 phases, cost analysis, dependency graph) + 7 task cards (`tiered_auth_phase{0-6}_*.md`). Strategy: Social Login (free) → Zalo ZNS OTP (300đ) → eSMS fallback (1.000-1.200đ). Cost saving ~96%.
 
 **Deferred (pre-existing, not blocking KhachLink flow):**
 1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column — schema migration gap.
@@ -209,6 +220,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-12 — TIERED AUTH MASTER PLAN + 7 TASK CARDS.** Created `docs/AI/tasks/tiered_auth_loyalty_master_plan.md` (7 phases, dependency graph, risk assessment, cost analysis — 96% saving). Created 7 task cards: `tiered_auth_phase0_domain_task_card.md` (IdentityLevel enum + migration), `tiered_auth_phase1_google_oauth_task_card.md` (Google OAuth Blazor Server), `tiered_auth_phase2_verification_gate_task_card.md` (SubtractPointsAsync gate + upgrade API), `tiered_auth_phase3_khachlink_social_ui_task_card.md` (KhachLink UI), `tiered_auth_phase4_facebook_oauth_task_card.md` (Facebook OAuth), `tiered_auth_phase5_zalo_zns_task_card.md` (Zalo ZNS OTP 300đ), `tiered_auth_phase6_e2e_tests_task_card.md` (E2E tests). Strategy: Tier 1 Social Login (free) → Tier 2 Zalo ZNS OTP (300đ) → eSMS fallback (1.000-1.200đ). Updated Section 2 (new objective), 4 (next actions — 7 phases). **Branch:** `main`.
 
 * **2026-07-12 — CONFIGURABLE POLLING INTERVAL + WAVE 4 E2E TEST UPDATE.** Replaced hardcoded 3s polling in `OrderTracking.razor` with admin-configurable `PollingIntervalSeconds` (int, default 15, range 5-120, clamped via `Math.Clamp`). 8 files modified + 1 new test file: `ShopFeatureSettingsEntity.cs` (+PollingIntervalSeconds property + UpdateToggles param), `ShopFeatureSettingsConfiguration.cs` (+column mapping + default 15), `IShopFeatureSettingsService.cs` (+DTO field), `ShopFeatureSettingsService.cs` (+map in UpdateToggles + ToDto), `ShopFeatures.razor` (+numeric input min=5 max=120 with Vietnamese label), `ShopFeatureSettingsHttpService.cs` (+GetPollingIntervalAsync helper), `OrderTracking.razor` (fetch interval from settings + replace hardcoded 3s in GetPollingInterval), `ShopSettingsPage.ts` (+pollingIntervalSeconds in interface + enableAll/disableAll), `khachlink-polling-interval.spec.ts` (NEW — 6 test cases: API GET/PUT/clamping + UI input + OrderTracking load). EF migration `AddPollingIntervalSeconds` auto-generated. Runtime verified: API GET returns `pollingIntervalSeconds:15`, PUT to 30 persists, E2E 8/8 PASS (26.3s). Updated full-order-flow + minimal-flow specs: `waitForTimeout` 3s→6s (aligned with configurable interval). Wave 4 task card status updated to COMPLETE. **Branch:** `main`.
 
