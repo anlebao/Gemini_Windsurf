@@ -5,6 +5,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.ShopERP.Controllers
 {
@@ -15,12 +16,14 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ProductsController(IVanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService, IShopQrCodeService qrCodeService) : ControllerBase
+    public class ProductsController(IVanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService, IShopQrCodeService qrCodeService, IShopFeatureSettingsService? shopFeatureSettingsService = null) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<ProductsController> _logger = logger;
         private readonly CustomerRecommendationService _recommendationService = recommendationService;
         private readonly IShopQrCodeService _qrCodeService = qrCodeService;
+        // W3-T8: Shop feature settings — for QR_TableNumber_Enabled toggle
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
 
         /// <summary>
         /// Get active products for a shop's public catalog (KhachLink).
@@ -155,7 +158,7 @@ namespace VanAn.ShopERP.Controllers
         /// </summary>
         [HttpGet("{id:guid}/qr")]
         [AllowAnonymous]
-        public async Task<ActionResult> GetProductQrCode(Guid id, [FromQuery] Guid? tenantId)
+        public async Task<ActionResult> GetProductQrCode(Guid id, [FromQuery] Guid? tenantId, [FromQuery] string? tableNumber)
         {
             try
             {
@@ -168,7 +171,25 @@ namespace VanAn.ShopERP.Controllers
                 }
 
                 Guid shopId = tenantId ?? product.TenantId.Value;
-                byte[] png = _qrCodeService.GenerateProductQRCode(id, shopId);
+
+                // W3-T8: Include table number in QR payload only when QR_TableNumber_Enabled = ON
+                string? effectiveTableNumber = null;
+                if (!string.IsNullOrEmpty(tableNumber) && _shopFeatureSettingsService != null)
+                {
+                    try
+                    {
+                        bool qrTableEnabled = await _shopFeatureSettingsService.IsEnabledAsync(
+                            shopId,
+                            nameof(ShopFeatureSettingsDto.QR_TableNumber_Enabled));
+                        effectiveTableNumber = qrTableEnabled ? tableNumber : null;
+                    }
+                    catch
+                    {
+                        // Default to OFF if toggle fetch fails (secure default)
+                    }
+                }
+
+                byte[] png = _qrCodeService.GenerateProductQRCode(id, shopId, effectiveTableNumber);
 
                 return File(png, "image/png", $"qr-{id}.png");
             }

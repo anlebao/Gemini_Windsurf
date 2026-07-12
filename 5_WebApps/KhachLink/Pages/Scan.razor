@@ -22,9 +22,18 @@
                         
                         @if (_scannedProduct != null)
                         {
-                            <VanAnAlert Variant="AlertVariant.Success" 
-                                       Message="Đã quét thành công! Đang thêm sản phẩm vào giỏ hàng..." 
+                            <VanAnAlert Variant="AlertVariant.Success"
+                                       Message="Đã quét thành công! Đang thêm sản phẩm vào giỏ hàng..."
                                        class="mt-4" />
+
+                            @* W3-T9: Display table number when present in QR payload *@
+                            @if (!string.IsNullOrEmpty(_tableNumber))
+                            {
+                                <VanAnAlert Variant="AlertVariant.Info"
+                                           Message="@($"Bàn số: {_tableNumber}")"
+                                           class="mt-2"
+                                           data-testid="table-number-display" />
+                            }
                             
                             <VanAnCard CssClass="mt-3 product-result-card">
                                 <div class="card-body">
@@ -71,6 +80,8 @@
 @code {
     private ProductDto? _scannedProduct = null;
     private string? _errorMessage = null;
+    // W3-T9: Table number from QR payload (when QR_TableNumber_Enabled = ON)
+    private string? _tableNumber = null;
 
     private async Task HandleQRCodeDetected(string qrCodeText)
     {
@@ -78,17 +89,21 @@
         {
             _errorMessage = null;
             _scannedProduct = null;
+            _tableNumber = null; // W3-T9: Reset table number
             StateHasChanged();
 
             // Parse QR code data (JSON format)
             var qrPayload = QRCodePayload.FromJson(qrCodeText);
-            
+
             if (qrPayload == null)
             {
                 _errorMessage = "Mã QR không hợp lệ. Vui lòng quét mã QR sản phẩm của Vạn An.";
                 StateHasChanged();
                 return;
             }
+
+            // W3-T9: Extract table number from QR payload (if present)
+            _tableNumber = qrPayload.TableNumber;
 
             // Validate QR code timestamp (prevent old QR codes from being used)
             var qrTimestamp = DateTimeOffset.FromUnixTimeSeconds(qrPayload.Timestamp);

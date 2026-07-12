@@ -1,9 +1,12 @@
 @page "/voice-note"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.DTOs
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
+@inject ShopFeatureSettingsHttpService FeatureSettings
 @implements IDisposable
 
 <PageTitle>Voice Note - Vạn An</PageTitle>
@@ -18,48 +21,72 @@
     <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" />
 }
 
-<div class="voice-note-container" data-testid="voice-note-container">
-    <div class="voice-header">
-        <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
-        <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
+@if (!voiceNoteEnabled)
+{
+    @* W3-T1: Voice note toggle OFF — show text-only note input *@
+    <div class="voice-note-container" data-testid="voice-note-disabled">
+        <div class="voice-header">
+            <h2>📝 Ghi chú đơn hàng</h2>
+            <p>Ghi chú giọng nói đã tắt — vui lòng nhập văn bản</p>
+        </div>
+        <textarea class="form-control" rows="3" placeholder="Nhập ghi chú cho đơn hàng..."
+                  @bind="transcriptionText" data-testid="text-note-input"></textarea>
+        <div class="voice-actions mt-3">
+            <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
+                📤 Gửi ghi chú
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
+                ❌ Hủy
+            </VanAnButton>
+        </div>
     </div>
+}
+else
+{
+    @* W3-T1: Voice note toggle ON — show STT UI *@
+    <div class="voice-note-container" data-testid="voice-note-container">
+        <div class="voice-header">
+            <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
+            <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
+        </div>
 
-    <div class="voice-controls">
-        <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
-            @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
-        </VanAnButton>
-        <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
-            🗑️ Xóa
-        </VanAnButton>
+        <div class="voice-controls">
+            <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
+                @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
+                🗑️ Xóa
+            </VanAnButton>
+        </div>
+
+        <div class="voice-status">
+            @if (isRecording)
+            {
+                <div class="recording-indicator">
+                    <span class="recording-dot"></span>
+                    <span>Đang ghi âm...</span>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(transcriptionText))
+            {
+                <div class="transcription-result">
+                    <h4>Văn bản chuyển đổi:</h4>
+                    <p data-testid="transcription-text">@transcriptionText</p>
+                </div>
+            }
+        </div>
+
+        <div class="voice-actions">
+            <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
+                📤 Gửi ghi chú
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
+                ❌ Hủy
+            </VanAnButton>
+        </div>
     </div>
-
-    <div class="voice-status">
-        @if (isRecording)
-        {
-            <div class="recording-indicator">
-                <span class="recording-dot"></span>
-                <span>Đang ghi âm...</span>
-            </div>
-        }
-
-        @if (!string.IsNullOrEmpty(transcriptionText))
-        {
-            <div class="transcription-result">
-                <h4>Văn bản chuyển đổi:</h4>
-                <p data-testid="transcription-text">@transcriptionText</p>
-            </div>
-        }
-    </div>
-
-    <div class="voice-actions">
-        <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
-            📤 Gửi ghi chú
-        </VanAnButton>
-        <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
-            ❌ Hủy
-        </VanAnButton>
-    </div>
-</div>
+}
 
 @code {
     [Parameter] public string? OrderId { get; set; }
@@ -69,12 +96,31 @@
     private string? _successMessage;
     private string? _errorMessage;
     private DotNetObjectReference<VoiceNote>? dotNetRef;
+    // W3-T1: Voice note toggle — default OFF (per seed default)
+    private bool voiceNoteEnabled = false;
 
     private HttpClient Http => HttpClientFactory.CreateClient("gateway");
 
+    protected override async Task OnInitializedAsync()
+    {
+        // W3-T1: Load voice note toggle from shop feature settings
+        try
+        {
+            // TenantId from query string or default — VoiceNote page is customer-facing
+            // For now, use the default tenant (00000000-...001) since customer hasn't logged in
+            voiceNoteEnabled = await FeatureSettings.IsEnabledAsync(
+                new Guid("00000000-0000-0000-0000-000000000001"),
+                nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
+        }
+        catch
+        {
+            voiceNoteEnabled = false; // Default to OFF if fetch fails
+        }
+    }
+
     protected override void OnAfterRender(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && voiceNoteEnabled) // W3-T1: Only init STT if toggle ON
         {
             dotNetRef = DotNetObjectReference.Create(this);
             JSRuntime.InvokeVoidAsync("initializeSpeechRecognition", dotNetRef);

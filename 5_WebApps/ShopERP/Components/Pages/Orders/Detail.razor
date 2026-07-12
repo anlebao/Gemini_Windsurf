@@ -16,6 +16,7 @@
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
 @inject IShopFeatureSettingsService FeatureSettings
+@inject IJSRuntime JSRuntime
 
 <div class="order-detail-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -74,6 +75,16 @@
                 <div class="action-row">
                     <VanAButton Variant="primary" OnClick="StartPreparing" data-testid="btn-start-preparing">
                         ⏳ Bắt đầu làm
+                    </VanAButton>
+                </div>
+            }
+
+            @* W3-T4: TTS "Đọc ghi chú" button — when order has voice note + Voice_Note_Enabled ON *@
+            @if (voiceNoteEnabled && !string.IsNullOrEmpty(order.VoiceNoteText) && order.Status?.Value == "confirmed")
+            {
+                <div class="action-row">
+                    <VanAButton Variant="secondary" OnClick="ReadVoiceNote" data-testid="btn-read-note">
+                        🔊 Đọc ghi chú
                     </VanAButton>
                 </div>
             }
@@ -163,6 +174,8 @@
     private List<TrackingStep> statusTimeline = new();
     // W1-T4: Kitchen toggle — controls visibility of kitchen transition buttons
     private bool kitchenEnabled = true;
+    // W3-T6: Voice note toggle — sub-toggle for TTS (when voice OFF, TTS also OFF)
+    private bool voiceNoteEnabled = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,6 +188,10 @@
                 kitchenEnabled = await FeatureSettings.IsEnabledAsync(
                     order.TenantId.Value,
                     nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
+                // W3-T6: Load voice note toggle (sub-toggle for TTS)
+                voiceNoteEnabled = await FeatureSettings.IsEnabledAsync(
+                    order.TenantId.Value,
+                    nameof(ShopFeatureSettingsDto.Voice_Note_Enabled));
             }
             catch (Exception ex)
             {
@@ -308,6 +325,23 @@
     }
 
     /// <summary>
+    /// W3-T4: TTS — read voice note text via Web Speech API (speechSynthesis).
+    /// Called when chef clicks "Đọc ghi chú" button. Sub-toggle: only available when Voice_Note_Enabled = ON.
+    /// </summary>
+    private async Task ReadVoiceNote()
+    {
+        if (order?.VoiceNoteText == null) return;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("ttsReader.speak", order.VoiceNoteText, "vi-VN");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "TTS playback failed for order {OrderId}", OrderId);
+        }
+    }
+
+    /// <summary>
     /// W1-T4/T5: Shared transition method — calls OrderWorkflowService via YARP shoperp-route.
     /// OrderWorkflowService validates transition + handles kitchen bypass + records outbox events.
     /// </summary>
@@ -435,6 +469,8 @@
         public List<OrderItemDto> Items { get; set; } = new();
         // W3-T1: TenantId needed for payment confirm request
         public TenantIdDto? TenantId { get; set; }
+        // W3-T4: Voice note text for TTS playback at kitchen
+        public string? VoiceNoteText { get; set; }
     }
 
     private class OrderStatusDto

@@ -3,9 +3,11 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** (1) Voice note toggle ON/OFF. (2) STT only (không audio storage). (3) TTS ở nhà bếp khi bếp trưởng nhấn "Nhận đơn" — toggle độc lập. (4) QR payload thêm TableNumber (toggle).
 - **Nghiệp vụ áp dụng:** Section 4 (Giai đoạn 1, mục 3) + Section 3 (Module Toggles) của `Tai_lieu_yeu_cau_nghiep_vu_Khachlink.md` v1.2
-- **Status:** ⬜ NOT STARTED
-- **Branch:** `feature/khachlink-flow-wave3-voice-note-tts`
+- **Status:** ✅ COMPLETE — IMPLEMENT + Live RV PASS
+- **Branch:** `feature/khachlink-flow-wave3-voice-qr`
 - **Dependency:** Wave 2 COMPLETE (completion + loyalty bypass)
+- **Last commit:** `e246f49` [KL WAVE 3] Voice note STT-only + TTS kitchen + QR table number
+- **Live RV:** RV1-RV12 ALL PASS (2026-07-12, Docker+ShopERP 5003+KhachLink 5002+Gateway 5001)
 
 ---
 
