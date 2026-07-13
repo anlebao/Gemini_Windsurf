@@ -57,6 +57,7 @@ jobs:
           context: .
           file: 2_Gateway/Dockerfile
           push: true
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-gateway:latest
@@ -80,6 +81,7 @@ jobs:
           context: .
           file: 5_WebApps/KhachLink/Dockerfile
           push: true
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-khachlink:latest

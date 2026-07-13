@@ -35,8 +35,7 @@ COPY ["VanAn.Accounting/VanAn.Accounting.csproj", "VanAn.Accounting/"]
 COPY ["VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj", "VanAn.Accounting/VanAn.Accounting.Analyzers/"]
 COPY ["5_WebApps/ShopERP/VanAn.ShopERP.csproj", "5_WebApps/ShopERP/"]
 COPY ["5_WebApps/KhachLink/VanAn.KhachLink.csproj", "5_WebApps/KhachLink/"]
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore "5_WebApps/KhachLink/VanAn.KhachLink.csproj"
+RUN dotnet restore "5_WebApps/KhachLink/VanAn.KhachLink.csproj"
 
 # Copy everything else and build
 COPY . .
@@ -46,12 +45,10 @@ WORKDIR "/src/5_WebApps/KhachLink"
 # RUN dotnet test "6_Tests/VanAn.Tests.csproj" --no-restore --logger "console;verbosity=detailed" --results-directory /test-results
 
 # Build application
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet build "VanAn.KhachLink.csproj" -c Release -o /app/build
+RUN dotnet build "VanAn.KhachLink.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet publish "VanAn.KhachLink.csproj" -c Release -o /app/publish
+RUN dotnet publish "VanAn.KhachLink.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
