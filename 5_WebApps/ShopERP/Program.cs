@@ -645,9 +645,26 @@ namespace VanAn.ShopERP
                 int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(accountingContext);
                 Console.WriteLine($"W3: AccountChart reference data seeded — {accountChartCount} accounts across 2 standards (TT 133 + TT 99)");
 
-                // VAS Wave 1: Seed Enterprise tenant + sample data for VAS report testing (idempotent)
+                // Seed tenants into PostgreSQL (shared with Gateway via VanAnDbContext).
+                // Gateway's HKDBookGenerationService queries Tenants table in PostgreSQL — without these rows,
+                // GET /api/hkd-books returns 500 "Tenant not found" because tenants only exist in SQLite.
                 if (accountingContext is VanAn.CoreHub.Infrastructure.VanAnDbContext vanAnDbForSeed)
                 {
+                    // Default HKD tenant — Factory method SetTenantId(id) makes TenantId = own Id
+                    // (self-referential for multi-tenancy query filter).
+                    bool hkdTenantExists = await vanAnDbForSeed.Tenants
+                        .IgnoreQueryFilters()
+                        .AnyAsync(t => t.Id == seedTenantId);
+                    if (!hkdTenantExists)
+                    {
+                        var hkdTenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateHouseholdBusiness(
+                            seedTenantId, "Vạn An Cafe (HKD Group 1)", VanAn.Shared.Domain.HKDGroup.Group1);
+                        vanAnDbForSeed.Tenants.Add(hkdTenant);
+                        await vanAnDbForSeed.SaveChangesAsync();
+                        Console.WriteLine($"PostgreSQL: Default HKD tenant seeded — {seedTenantId}");
+                    }
+
+                    // VAS Wave 1: Seed Enterprise tenant + sample data for VAS report testing (idempotent)
                     var vasSeedResult = await CoreHub.Infrastructure.Seed.VasSampleDataSeeder.SeedAsync(vanAnDbForSeed);
                     if (vasSeedResult.Skipped)
                         Console.WriteLine("VAS W1: Enterprise tenant already seeded, skipping");
