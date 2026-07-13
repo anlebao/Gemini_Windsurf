@@ -8,7 +8,7 @@ namespace VanAn.Gateway.Controllers
     /// Forwards X-Customer-Token from KhachLink to ShopERP's CustomerIdentityController.
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/customer-identity")]
     [AllowAnonymous]
     public class CustomerIdentityController(IHttpClientFactory httpClientFactory, ILogger<CustomerIdentityController> logger) : ControllerBase
     {

@@ -136,6 +136,7 @@ services:
       - Esms__SecretKey=not-configured
       - Esms__BrandName=VanAn
       - ConnectionStrings__Redis=not-configured
+      - Authentication__ClientSecret=not-configured
     volumes:
       - shoperp_data:/app
     networks:

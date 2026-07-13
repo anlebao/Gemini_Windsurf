@@ -12,7 +12,7 @@ namespace VanAn.ShopERP.Controllers
     /// Tiered Auth Phase 2: adds POST /api/loyalty/redeem with verification gate (Verified required).
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/loyalty")]
     [AllowAnonymous]
     public class LoyaltyController(
         ILoyaltyRewardsService loyaltyService,

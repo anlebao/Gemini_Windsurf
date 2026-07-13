@@ -9,7 +9,7 @@ namespace VanAn.Gateway.Controllers
     /// Tiered Auth Phase 2: adds POST /api/loyalty/redeem forwarding.
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/loyalty")]
     [AllowAnonymous]
     public class LoyaltyController(IHttpClientFactory httpClientFactory, ILogger<LoyaltyController> logger) : ControllerBase
     {

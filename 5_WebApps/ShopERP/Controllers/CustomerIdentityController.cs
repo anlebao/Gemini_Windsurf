@@ -13,7 +13,7 @@ namespace VanAn.ShopERP.Controllers
     /// AllowAnonymous: OTP endpoints are accessed by unauthenticated KhachLink users.
     /// </summary>
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/customer-identity")]
     [AllowAnonymous]
     public class CustomerIdentityController(
         IOtpService otpService,
