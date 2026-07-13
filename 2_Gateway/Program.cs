@@ -333,7 +333,14 @@ namespace VanAn.Gateway
                 // Production uses PostgreSQL where VanAnDbContext migrations create the full schema.
                 if (connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
                 {
-                    await EnsureSqliteAccountingSchemaAsync(app.Services);
+                    try
+                    {
+                        await EnsureSqliteAccountingSchemaAsync(app.Services);
+                    }
+                    catch (Exception schemaEx)
+                    {
+                        Log.Warning(schemaEx, "SQLite schema patch skipped (table may not exist yet in test/dev)");
+                    }
                 }
 
                 // Configure the HTTP request pipeline.
