@@ -10,6 +10,8 @@
     <AnalysisMode>Default</AnalysisMode>
     <NoWarn>$(NoWarn);CA1707;CA1848;CA1716</NoWarn>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Tiered Auth Phase 1: UserSecrets for dev-only OAuth credentials (do NOT commit) -->
+    <UserSecretsId>vanan-shoperp-dev</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

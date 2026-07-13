@@ -217,6 +217,7 @@ public class AuthorizationEnforcementTests
         {
             bool classLevelAuth = HasClassLevelAuthorize(controller);
             if (classLevelAuth) continue; // protected at class level
+            if (HasClassLevelAllowAnonymous(controller)) continue; // explicitly public at class level (e.g., SocialAuthController)
 
             // Check all action methods have at least one [Authorize] or the class has it
             var actions = GetActionMethods(controller).ToList();

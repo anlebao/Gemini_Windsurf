@@ -3,8 +3,8 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Thêm verification gate vào `SubtractPointsAsync` — chỉ cho redeem khi `IdentityLevel >= Verified`. Thêm API endpoint upgrade identity level qua OTP.
 - **Nghiệp vụ áp dụng:** Tier 2 — Redeem points yêu cầu xác thực SMS OTP
-- **Status:** ⬜ NOT STARTED
-- **Branch:** `feature/tiered-auth-phase2-verification-gate`
+- **Status:** ✅ CODE COMPLETE (online RV pending on khachvip.online)
+- **Branch:** `main`
 - **Dependency:** Phase 0 (IdentityLevel phải tồn tại)
 
 ---

@@ -122,6 +122,11 @@ services:
       - Seed__SysAdminPassword=${SHOPERP_SYSADMIN_PASSWORD:-2026@vanan}
       # WAVE 2 (2026-07-10): Accounting always online on PostgreSQL (ADR-001)
       - ConnectionStrings__AccountingConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
+      # Tiered Auth Phase 1 (2026-07-13): Google OAuth — production credentials via env vars
+      - Google__ClientId=${GOOGLE_CLIENT_ID}
+      - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
+      - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api.${VANAN_DOMAIN}}
+      - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://${VANAN_DOMAIN}/login}
     volumes:
       - shoperp_data:/app
     networks:

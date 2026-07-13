@@ -129,6 +129,85 @@ namespace VanAn.ShopERP.Controllers
             });
         }
 
+        /// <summary>
+        /// Tiered Auth Phase 2: Send OTP to the authenticated customer's registered phone number
+        /// for identity upgrade (Social → Verified). Unlike the anonymous /otp/send flow, this endpoint:
+        /// - Requires a valid X-Customer-Token (customer must already be logged in via social login)
+        /// - Does NOT create a new customer — only upgrades an existing one
+        /// - OTP is sent to the phone number already on file for the customer
+        /// In dev mode, the OTP is also exposed via X-Dev-OTP response header for testing.
+        /// </summary>
+        [HttpPost("upgrade/send-otp")]
+        public async Task<IActionResult> SendUpgradeOtp([FromHeader(Name = "X-Customer-Token")] string? token)
+        {
+            var customerId = _customerTokenService.ValidateToken(token);
+            if (!customerId.HasValue)
+                return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
+
+            var customer = await _customerRepository.GetByIdAsync(customerId.Value);
+            if (customer == null)
+                return NotFound(new { error = "Không tìm thấy khách hàng." });
+
+            if (string.IsNullOrWhiteSpace(customer.PhoneNumber))
+                return BadRequest(new { error = "Khách hàng chưa có số điện thoại. Vui lòng cập nhật thông tin trước khi nâng cấp." });
+
+            if (customer.IdentityLevel >= IdentityLevel.Verified)
+                return BadRequest(new { error = "Tài khoản đã được xác thực, không cần nâng cấp.", currentLevel = customer.IdentityLevel.ToString() });
+
+            var otp = _otpService.GenerateAndStoreOtp(customer.PhoneNumber);
+            _logger.LogInformation("Upgrade OTP generated for customer {CustomerId} phone {Phone}",
+                customer.Id, MaskPhone(customer.PhoneNumber));
+
+            // In dev mode, expose OTP in header for testing
+            Response.Headers["X-Dev-OTP"] = otp;
+
+            return Ok(new UpgradeSendOtpResponse
+            {
+                Message = "OTP đã được gửi đến số điện thoại đã đăng ký.",
+                PhoneNumberSuffix = MaskPhone(customer.PhoneNumber)
+            });
+        }
+
+        /// <summary>
+        /// Tiered Auth Phase 2: Verify OTP and upgrade the authenticated customer's IdentityLevel to Verified.
+        /// Requires X-Customer-Token (already logged in via social login) + correct OTP for the phone on file.
+        /// </summary>
+        [HttpPost("upgrade/verify-otp")]
+        public async Task<IActionResult> VerifyUpgradeOtp([FromHeader(Name = "X-Customer-Token")] string? token, [FromBody] VerifyUpgradeOtpRequest request)
+        {
+            var customerId = _customerTokenService.ValidateToken(token);
+            if (!customerId.HasValue)
+                return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
+
+            if (string.IsNullOrWhiteSpace(request.Otp))
+                return BadRequest(new { error = "OTP không được để trống." });
+
+            var customer = await _customerRepository.GetByIdAsync(customerId.Value);
+            if (customer == null)
+                return NotFound(new { error = "Không tìm thấy khách hàng." });
+
+            if (customer.IdentityLevel >= IdentityLevel.Verified)
+                return BadRequest(new { error = "Tài khoản đã được xác thực.", currentLevel = customer.IdentityLevel.ToString() });
+
+            if (string.IsNullOrWhiteSpace(customer.PhoneNumber))
+                return BadRequest(new { error = "Khách hàng chưa có số điện thoại để xác thực." });
+
+            if (!_otpService.VerifyOtp(customer.PhoneNumber, request.Otp))
+                return BadRequest(new { error = "OTP không đúng hoặc đã hết hạn." });
+
+            customer.UpgradeIdentityLevel(IdentityLevel.Verified);
+            await _customerRepository.UpdateAsync(customer);
+            _logger.LogInformation("Customer {CustomerId} upgraded to Verified via upgrade OTP flow", customer.Id);
+
+            return Ok(new UpgradeVerifyOtpResponse
+            {
+                Success = true,
+                CustomerId = customer.Id,
+                IdentityLevel = customer.IdentityLevel.ToString(),
+                Message = "Nâng cấp xác thực thành công. Bạn có thể đổi điểm thưởng ngay bây giờ."
+            });
+        }
+
         private static Guid GetTenantId(Guid? requestTenantId)
         {
             if (requestTenantId.HasValue && requestTenantId.Value != Guid.Empty)
@@ -172,5 +251,25 @@ namespace VanAn.ShopERP.Controllers
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
         public string IdentityLevel { get; set; } = "Social";
+    }
+
+    // Tiered Auth Phase 2: Upgrade OTP flow DTOs (authenticated — for Social → Verified upgrade)
+    public class VerifyUpgradeOtpRequest
+    {
+        public string Otp { get; set; } = string.Empty;
+    }
+
+    public class UpgradeSendOtpResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public string PhoneNumberSuffix { get; set; } = string.Empty;
+    }
+
+    public class UpgradeVerifyOtpResponse
+    {
+        public bool Success { get; set; }
+        public Guid CustomerId { get; set; }
+        public string IdentityLevel { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
     }
 }

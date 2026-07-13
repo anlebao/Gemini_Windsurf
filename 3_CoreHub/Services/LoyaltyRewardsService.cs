@@ -93,7 +93,16 @@ namespace VanAn.CoreHub.Services
                 {
                     throw new ArgumentException($"Customer with ID {customerId} not found");
                 }
-                
+
+                // Tiered Auth Phase 2: Verification gate — redeem requires IdentityLevel >= Verified.
+                // Earn (AddPointsAsync) is intentionally NOT gated — Social customers can still earn points.
+                if (customer.IdentityLevel < IdentityLevel.Verified)
+                {
+                    _logger.LogWarning("Redeem blocked for customer {CustomerId}: IdentityLevel={Current} < Required={Required}",
+                        customerId, customer.IdentityLevel, IdentityLevel.Verified);
+                    throw new IdentityLevelNotSufficientException(customerId, customer.IdentityLevel, IdentityLevel.Verified);
+                }
+
                 LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
 
                 if (rewards.PointBalance < points)
@@ -124,6 +133,14 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Subtracted {Points} points from customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
                 return true;
+            }
+            catch (IdentityLevelNotSufficientException)
+            {
+                // Tiered Auth Phase 2: re-throw gate exception so controller can return 403 with upgrade hint.
+                // Do NOT rollback inside this block — transaction is uncommitted (no changes made before gate),
+                // but rollback for safety since we entered the transaction scope.
+                await transaction.RollbackAsync();
+                throw;
             }
             catch (Exception ex)
             {

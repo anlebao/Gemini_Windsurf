@@ -503,3 +503,6 @@ docs/.cache/
 check-endpoints.ps1
 compose_history.txt
 deploy_log.txt
+
+# Guard check auto-generated reports
+guard-report-*.txt
