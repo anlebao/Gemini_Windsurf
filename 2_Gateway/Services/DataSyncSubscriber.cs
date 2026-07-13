@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Gateway.Services
 {
@@ -115,6 +116,18 @@ namespace VanAn.Gateway.Services
                     case "customer.created":
                     case "customercreated":
                         await SyncCustomerCreatedAsync(doc.RootElement, dbContext, cancellationToken);
+                        break;
+                    case "product.created":
+                    case "productcreated":
+                        await SyncProductUpsertAsync(doc.RootElement, dbContext, cancellationToken);
+                        break;
+                    case "product.updated":
+                    case "productupdated":
+                        await SyncProductUpsertAsync(doc.RootElement, dbContext, cancellationToken);
+                        break;
+                    case "product.deleted":
+                    case "productdeleted":
+                        await SyncProductDeletedAsync(doc.RootElement, dbContext, cancellationToken);
                         break;
                     default:
                         _logger.LogDebug("DataSyncSubscriber: unhandled event type {EventType} (subject={Subject})",
@@ -255,6 +268,97 @@ namespace VanAn.Gateway.Services
             _logger.LogInformation(
                 "SyncCustomerCreatedAsync: customer {CustomerId} not in PostgreSQL — full upsert deferred (offline-created customer)",
                 customerId);
+        }
+
+        /// <summary>
+        /// Sync ProductCreated/ProductUpdated event — upsert product to PostgreSQL.
+        /// Payload shape (from ShopERP product event publisher):
+        ///   { ProductId, TenantId, Name, Description, Price, CostPrice, Category, IsActive, ImageUrl, VatRate }
+        /// </summary>
+        private async Task SyncProductUpsertAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        {
+            if (!data.TryGetProperty("ProductId", out var idProp))
+            {
+                _logger.LogWarning("SyncProductUpsertAsync: missing ProductId in event data");
+                return;
+            }
+
+            Guid productId = idProp.GetGuid();
+            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncProductUpsertAsync: missing TenantId for product {ProductId}", productId);
+                return;
+            }
+
+            // Check if product already exists in PostgreSQL (IgnoreQueryFilters: cross-tenant upsert)
+            Product? existing = await dbContext.Products
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.ProductId == new ProductId(productId), ct);
+
+            string name = data.TryGetProperty("Name", out var nProp) ? nProp.GetString() ?? "" : "";
+            string description = data.TryGetProperty("Description", out var dProp) ? dProp.GetString() ?? "" : "";
+            decimal price = data.TryGetProperty("Price", out var pProp) ? pProp.GetDecimal() : 0m;
+            decimal costPrice = data.TryGetProperty("CostPrice", out var cpProp) ? cpProp.GetDecimal() : 0m;
+            string category = data.TryGetProperty("Category", out var cProp) ? cProp.GetString() ?? "" : "";
+            bool isActive = data.TryGetProperty("IsActive", out var iaProp) ? iaProp.GetBoolean() : true;
+            string? imageUrl = data.TryGetProperty("ImageUrl", out var imgProp) ? imgProp.GetString() : null;
+            decimal vatRate = data.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.08m;
+
+            if (existing == null)
+            {
+                // Create new product in PostgreSQL
+                var product = new Product(
+                    new TenantId(tenantId), name, description, price, category, isActive, imageUrl, vatRate, costPrice);
+                // Override ProductId to match source (constructor generates new Guid)
+                typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(productId));
+                dbContext.Products.Add(product);
+                await dbContext.SaveChangesAsync(ct);
+                _logger.LogInformation("Synced ProductCreated for product {ProductId} → PostgreSQL", productId);
+            }
+            else
+            {
+                // Update existing product fields via reflection (domain entity has protected setters)
+                typeof(Product).GetProperty("Name")!.SetValue(existing, name);
+                typeof(Product).GetProperty("Description")!.SetValue(existing, description);
+                typeof(Product).GetProperty("Price")!.SetValue(existing, price);
+                typeof(Product).GetProperty("CostPrice")!.SetValue(existing, costPrice);
+                typeof(Product).GetProperty("Category")!.SetValue(existing, category);
+                typeof(Product).GetProperty("IsActive")!.SetValue(existing, isActive);
+                typeof(Product).GetProperty("ImageUrl")!.SetValue(existing, imageUrl);
+                typeof(Product).GetProperty("VatRate")!.SetValue(existing, vatRate);
+                await dbContext.SaveChangesAsync(ct);
+                _logger.LogInformation("Synced ProductUpdated for product {ProductId} → PostgreSQL", productId);
+            }
+        }
+
+        /// <summary>
+        /// Sync ProductDeleted event — soft-delete product in PostgreSQL.
+        /// Payload shape: { ProductId, TenantId }
+        /// </summary>
+        private async Task SyncProductDeletedAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        {
+            if (!data.TryGetProperty("ProductId", out var idProp))
+            {
+                _logger.LogWarning("SyncProductDeletedAsync: missing ProductId in event data");
+                return;
+            }
+
+            Guid productId = idProp.GetGuid();
+            Product? product = await dbContext.Products
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(p => p.ProductId == new ProductId(productId), ct);
+
+            if (product == null)
+            {
+                _logger.LogDebug("SyncProductDeletedAsync: product {ProductId} not found in PostgreSQL (already deleted)", productId);
+                return;
+            }
+
+            // Soft-delete: set IsDeleted = true (BaseEntity pattern)
+            typeof(BaseEntity).GetProperty("IsDeleted")!.SetValue(product, true);
+            await dbContext.SaveChangesAsync(ct);
+            _logger.LogInformation("Synced ProductDeleted for product {ProductId} → PostgreSQL (soft-deleted)", productId);
         }
 
         public override void Dispose()

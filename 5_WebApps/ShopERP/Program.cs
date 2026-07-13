@@ -664,6 +664,31 @@ namespace VanAn.ShopERP
                         Console.WriteLine($"PostgreSQL: Default HKD tenant seeded — {seedTenantId}");
                     }
 
+                    // Seed products into PostgreSQL (shared with Gateway via VanAnDbContext).
+                    // Gateway's PublicOrdersController.CreateCheckoutOrder creates orders in PostgreSQL,
+                    // and OrderItems has FK constraint to Products table. Without products in PostgreSQL,
+                    // checkout returns 500 (FK violation: ProductId not found).
+                    // Products are reference data — seeded idempotently, kept in sync via NATS events.
+                    bool pgProductsExist = await vanAnDbForSeed.Products
+                        .IgnoreQueryFilters()
+                        .AnyAsync(p => p.TenantId == seedTenantId);
+                    if (!pgProductsExist)
+                    {
+                        vanAnDbForSeed.Products.AddRange(
+                            new Product(seedTenantId, "Cà phê sữa đá", "Cà phê phin truyền thống, sữa đặc, đá lạnh", 25000m, "Đồ uống", true, null, 0.08m, 12000m),
+                            new Product(seedTenantId, "Cà phê đen đá", "Cà phê phin truyền thống, đen, đá lạnh", 20000m, "Đồ uống", true, null, 0.08m, 10000m),
+                            new Product(seedTenantId, "Bánh mì thịt nướng", "Bánh mì nướng than hoa, pate, rau sống, nước sốt", 35000m, "Đồ ăn", true, null, 0.08m, 18000m),
+                            new Product(seedTenantId, "Phở bò tái", "Phở bò truyền thống, tái nạc, nước dùng hầm xương", 55000m, "Đồ ăn", true, null, 0.08m, 30000m),
+                            new Product(seedTenantId, "Trà đào cam sả", "Trà đen, đào miếng, cam tươi, sả", 40000m, "Đồ uống", true, null, 0.08m, 18000m),
+                            new Product(seedTenantId, "Cơm gà xối mỡ", "Cơm sườn, gà xối mỡ hành, đồ chua", 65000m, "Đồ ăn", true, null, 0.08m, 35000m),
+                            new Product(seedTenantId, "Sinh tố bơ", "Sinh tố bơ tươi, sữa đặc, đá xay", 38000m, "Đồ uống", true, null, 0.08m, 20000m),
+                            new Product(seedTenantId, "Gỏi cuốn tôm", "Gỏi cuốn tôm tươi, bún, rau sống, nước mắm", 45000m, "Đồ ăn", true, null, 0.08m, 25000m),
+                            new Product(seedTenantId, "Bánh flan caramel", "Bánh flan mềm, caramel đậm vị", 28000m, "Tráng miệng", true, null, 0.08m, 12000m)
+                        );
+                        await vanAnDbForSeed.SaveChangesAsync();
+                        Console.WriteLine($"PostgreSQL: Sample Products seeded — 9 items for tenant {seedTenantId}");
+                    }
+
                     // VAS Wave 1: Seed Enterprise tenant + sample data for VAS report testing (idempotent)
                     var vasSeedResult = await CoreHub.Infrastructure.Seed.VasSampleDataSeeder.SeedAsync(vanAnDbForSeed);
                     if (vasSeedResult.Skipped)
