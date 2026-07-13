@@ -666,12 +666,24 @@ namespace VanAn.ShopERP
 
                     // Sync products from SQLite → PostgreSQL (shared with Gateway via VanAnDbContext).
                     // Gateway's PublicOrdersController.CreateCheckoutOrder creates orders in PostgreSQL,
-                    // and OrderItems has FK constraint to Products table. Without products in PostgreSQL,
-                    // checkout returns 500 (FK violation: ProductId not found).
+                    // and OrderItems has FK constraint: OrderItems.ProductId → Products.Id (PK).
+                    // Without matching products in PostgreSQL, checkout returns 500 (FK violation).
                     //
-                    // IMPORTANT: Product IDs must match between SQLite and PostgreSQL — the Product constructor
-                    // generates new Guid.NewGuid() for ProductId, so we must override it to match SQLite's IDs.
-                    // Read actual products from SQLite (context) and upsert into PostgreSQL (vanAnDbForSeed).
+                    // IMPORTANT: FK maps OrderItems.ProductId → Products.Id (PK), NOT Products.ProductId.
+                    // So we must set Products.Id = SQLite's ProductId value, so that when checkout sends
+                    // ProductId (catalog ID), it matches Products.Id (PK) in PostgreSQL.
+                    // Also override Products.ProductId to match SQLite for consistency.
+                    // First: clean up stale products from previous deploys (Id != ProductId, duplicates)
+                    var stalePgProducts = await vanAnDbForSeed.Products
+                        .IgnoreQueryFilters()
+                        .Where(p => p.TenantId == seedTenantId && p.Id != p.ProductId.Value)
+                        .ToListAsync();
+                    if (stalePgProducts.Count > 0)
+                    {
+                        vanAnDbForSeed.Products.RemoveRange(stalePgProducts);
+                        await vanAnDbForSeed.SaveChangesAsync();
+                        Console.WriteLine($"PostgreSQL: Removed {stalePgProducts.Count} stale products (Id != ProductId)");
+                    }
                     var sqliteProducts = await context.Products
                         .IgnoreQueryFilters()
                         .Where(p => p.TenantId == seedTenantId)
@@ -679,6 +691,7 @@ namespace VanAn.ShopERP
                     int pgProductCount = 0;
                     foreach (var sqliteProd in sqliteProducts)
                     {
+                        // Check by ProductId (catalog ID) — if already synced, skip
                         bool pgProdExists = await vanAnDbForSeed.Products
                             .IgnoreQueryFilters()
                             .AnyAsync(p => p.ProductId == sqliteProd.ProductId);
@@ -688,8 +701,12 @@ namespace VanAn.ShopERP
                                 sqliteProd.TenantId, sqliteProd.Name, sqliteProd.Description,
                                 sqliteProd.Price, sqliteProd.Category, sqliteProd.IsActive,
                                 sqliteProd.ImageUrl, sqliteProd.VatRate, sqliteProd.CostPrice);
-                            // Override ProductId to match SQLite (constructor generates new Guid)
+                            // Override ProductId (catalog ID) to match SQLite
                             typeof(Product).GetProperty("ProductId")!.SetValue(pgProd, sqliteProd.ProductId);
+                            // Override Id (PK) = ProductId value, so FK_OrderItems_Products_ProductId
+                            // (which references Products.Id) matches the ProductId sent by checkout
+                            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!
+                                .SetValue(pgProd, sqliteProd.ProductId.Value);
                             vanAnDbForSeed.Products.Add(pgProd);
                             pgProductCount++;
                         }
