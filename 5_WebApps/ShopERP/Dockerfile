@@ -53,7 +53,11 @@ RUN dotnet test "VanAn.ShopERP.csproj" -c Release --no-build --logger "console;v
 RUN dotnet build "VanAn.ShopERP.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "VanAn.ShopERP.csproj" -c Release -o /app/publish
+WORKDIR "/src/5_WebApps/ShopERP"
+RUN dotnet publish "VanAn.ShopERP.csproj" -c Release -o /app/publish -v n 2>&1 | tee /tmp/publish.log
+RUN grep -i "google" /tmp/publish.log | head -20 || echo "NO GOOGLE REFERENCES IN PUBLISH LOG"
+RUN ls /app/publish/Google.Apis.Auth.dll 2>/dev/null && echo "Google DLL in publish output" || echo "Google DLL NOT in publish output"
+RUN grep -a -c "SocialAuth" /app/publish/VanAn.ShopERP.dll 2>/dev/null || echo "SocialAuth NOT in published DLL"
 
 FROM base AS final
 WORKDIR /app
