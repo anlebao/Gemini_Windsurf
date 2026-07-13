@@ -15,20 +15,25 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
     public class AuditLogRepository : IAuditLogRepository
     {
         private readonly IAccountingDbContext _context;
-        private readonly Guid _currentTenantId;
+        private readonly VanAnDbContext? _vanAnContext;
 
         public AuditLogRepository(IAccountingDbContext context)
         {
             _context = context;
-            _currentTenantId = context is VanAnDbContext vanAnContext 
-                ? vanAnContext.CurrentTenantId 
-                : Guid.Empty;
+            _vanAnContext = context as VanAnDbContext;
         }
+
+        /// <summary>
+        /// Current tenant ID — evaluated lazily at query time (not construction time).
+        /// This ensures controller-side _tenantProvider.SetTenant() is reflected
+        /// when the repository methods execute (fixes webhook AuditLog tenant mismatch).
+        /// </summary>
+        private Guid CurrentTenantId => _vanAnContext?.CurrentTenantId ?? Guid.Empty;
 
         public async Task<AuditLog?> GetByIdAsync(Guid id)
         {
             return await _context.AuditLogs
-                .Where(a => a.Id == id && a.TenantId == new TenantId(_currentTenantId))
+                .Where(a => a.Id == id && a.TenantId == new TenantId(CurrentTenantId))
                 .FirstOrDefaultAsync();
         }
 
@@ -36,7 +41,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             // Security: Always enforce tenant filter
             var dbQuery = _context.AuditLogs
-                .Where(a => a.TenantId == new TenantId(_currentTenantId));
+                .Where(a => a.TenantId == new TenantId(CurrentTenantId));
 
             // Apply date range filters
             if (query.FromDate.HasValue)
@@ -115,7 +120,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             int maxResults = 100)
         {
             return await _context.AuditLogs
-                .Where(a => a.TenantId == new TenantId(_currentTenantId) &&
+                .Where(a => a.TenantId == new TenantId(CurrentTenantId) &&
                            a.EntityType == entityType &&
                            a.EntityId == entityId)
                 .OrderByDescending(a => a.CreatedAt)
@@ -127,7 +132,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             // Security: Also filter by tenant for data isolation
             return await _context.AuditLogs
-                .Where(a => a.TenantId == new TenantId(_currentTenantId) &&
+                .Where(a => a.TenantId == new TenantId(CurrentTenantId) &&
                            a.CorrelationId == correlationId)
                 .OrderBy(a => a.CreatedAt)
                 .ToListAsync();
@@ -136,7 +141,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<AuditLog> AddAsync(AuditLog auditLog)
         {
             // Security: Ensure tenant ID is set correctly
-            if (auditLog.TenantId != new TenantId(_currentTenantId))
+            if (auditLog.TenantId != new TenantId(CurrentTenantId))
             {
                 throw new InvalidOperationException("AuditLog tenant ID does not match current tenant");
             }
@@ -154,7 +159,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             // Security: Validate all audit logs belong to current tenant
             foreach (var auditLog in auditLogList)
             {
-                if (auditLog.TenantId != new TenantId(_currentTenantId))
+                if (auditLog.TenantId != new TenantId(CurrentTenantId))
                 {
                     throw new InvalidOperationException("AuditLog tenant ID does not match current tenant");
                 }
@@ -169,7 +174,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<IReadOnlyList<AuditLog>> GetRecentAsync(int count = 50)
         {
             return await _context.AuditLogs
-                .Where(a => a.TenantId == new TenantId(_currentTenantId))
+                .Where(a => a.TenantId == new TenantId(CurrentTenantId))
                 .OrderByDescending(a => a.CreatedAt)
                 .Take(count)
                 .ToListAsync();
@@ -178,7 +183,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<int> GetCountAsync(DateTime? fromDate = null, DateTime? toDate = null)
         {
             var query = _context.AuditLogs
-                .Where(a => a.TenantId == new TenantId(_currentTenantId));
+                .Where(a => a.TenantId == new TenantId(CurrentTenantId));
 
             if (fromDate.HasValue)
             {
