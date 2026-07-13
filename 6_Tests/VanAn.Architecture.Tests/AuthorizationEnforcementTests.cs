@@ -130,6 +130,8 @@ public class AuthorizationEnforcementTests
             "CustomerOrdersController",
             "ShopsController",
             "NotificationsController",
+            // Tiered Auth Phase 2: Customer identity upgrade endpoints (X-Customer-Token header auth)
+            "CustomerIdentityController",
             // Wave 4: Platform-level SystemAdmin endpoint — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
             "TenantOnboardingController"
         };

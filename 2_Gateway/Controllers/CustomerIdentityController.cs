@@ -4,50 +4,65 @@ using Microsoft.AspNetCore.Mvc;
 namespace VanAn.Gateway.Controllers
 {
     /// <summary>
-    /// W17-T2: Gateway forward controller for Loyalty Dashboard.
-    /// Forwards X-Customer-Token from KhachLink to ShopERP's LoyaltyController.
-    /// Tiered Auth Phase 2: adds POST /api/loyalty/redeem forwarding.
+    /// Tiered Auth Phase 2: Gateway forward controller for Customer Identity upgrade endpoints.
+    /// Forwards X-Customer-Token from KhachLink to ShopERP's CustomerIdentityController.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [AllowAnonymous]
-    public class LoyaltyController(IHttpClientFactory httpClientFactory, ILogger<LoyaltyController> logger) : ControllerBase
+    public class CustomerIdentityController(IHttpClientFactory httpClientFactory, ILogger<CustomerIdentityController> logger) : ControllerBase
     {
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
-        private readonly ILogger<LoyaltyController> _logger = logger;
+        private readonly ILogger<CustomerIdentityController> _logger = logger;
 
-        [HttpGet("my")]
-        public async Task<IActionResult> GetMyLoyalty()
+        /// <summary>
+        /// Forward POST /api/customer-identity/upgrade/send-otp to ShopERP.
+        /// Passes X-Customer-Token header through.
+        /// </summary>
+        [HttpPost("upgrade/send-otp")]
+        public async Task<IActionResult> SendUpgradeOtp()
         {
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
-                var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/loyalty/my");
+                var reqMsg = new HttpRequestMessage(HttpMethod.Post, "/api/customer-identity/upgrade/send-otp");
                 if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
                     reqMsg.Headers.Add("X-Customer-Token", token.ToString());
 
+                if (Request.ContentLength > 0)
+                {
+                    reqMsg.Content = new StreamContent(Request.Body);
+                    reqMsg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                        Request.ContentType ?? "application/json");
+                }
+
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
+
+                // Forward X-Dev-OTP header from ShopERP response (dev mode only)
+                if (response.Headers.TryGetValues("X-Dev-OTP", out var devOtp))
+                    Response.Headers["X-Dev-OTP"] = devOtp.FirstOrDefault();
+
                 return StatusCode((int)response.StatusCode, content);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error forwarding GetMyLoyalty to ShopERP");
+                _logger.LogError(ex, "Error forwarding SendUpgradeOtp to ShopERP");
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
 
         /// <summary>
-        /// Tiered Auth Phase 2: Forward POST /api/loyalty/redeem to ShopERP.
+        /// Forward POST /api/customer-identity/upgrade/verify-otp to ShopERP.
         /// Passes X-Customer-Token header and request body through.
         /// </summary>
-        [HttpPost("redeem")]
-        public async Task<IActionResult> Redeem()
+        [HttpPost("upgrade/verify-otp")]
+        public async Task<IActionResult> VerifyUpgradeOtp()
         {
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
-                var reqMsg = new HttpRequestMessage(HttpMethod.Post, "/api/loyalty/redeem");
+                var reqMsg = new HttpRequestMessage(HttpMethod.Post, "/api/customer-identity/upgrade/verify-otp");
                 if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
                     reqMsg.Headers.Add("X-Customer-Token", token.ToString());
 
@@ -64,7 +79,7 @@ namespace VanAn.Gateway.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error forwarding Redeem to ShopERP");
+                _logger.LogError(ex, "Error forwarding VerifyUpgradeOtp to ShopERP");
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
