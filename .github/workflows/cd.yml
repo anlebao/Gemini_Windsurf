@@ -68,12 +68,11 @@ jobs:
           context: .
           file: 5_WebApps/ShopERP/Dockerfile
           push: true
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:${{ steps.meta.outputs.version }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/vanan-shoperp:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build & push KhachLink
         uses: docker/build-push-action@v5
