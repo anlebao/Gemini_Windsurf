@@ -18,6 +18,8 @@ ENV NUGET_PACKAGES=/root/.nuget/packages
 
 # Copy csproj files and restore as distinct layers
 COPY ["VanAn.sln", "./"]
+COPY ["Directory.Packages.props", "./"]
+COPY ["Directory.Build.props", "./"]
 COPY ["1_Shared/VanAn.Shared.csproj", "1_Shared/"]
 COPY ["2_Gateway/VanAn.Gateway.csproj", "2_Gateway/"]
 COPY ["3_CoreHub/VanAn.CoreHub.csproj", "3_CoreHub/"]
