@@ -35,26 +35,25 @@ COPY ["VanAn.Accounting/VanAn.Accounting.csproj", "VanAn.Accounting/"]
 COPY ["VanAn.Accounting/VanAn.Accounting.Analyzers/VanAn.Accounting.Analyzers.csproj", "VanAn.Accounting/VanAn.Accounting.Analyzers/"]
 COPY ["5_WebApps/ShopERP/VanAn.ShopERP.csproj", "5_WebApps/ShopERP/"]
 COPY ["5_WebApps/KhachLink/VanAn.KhachLink.csproj", "5_WebApps/KhachLink/"]
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet restore "5_WebApps/ShopERP/VanAn.ShopERP.csproj"
+RUN dotnet restore "5_WebApps/ShopERP/VanAn.ShopERP.csproj"
 
 # Copy everything else and build
 COPY . .
 WORKDIR "/src/5_WebApps/ShopERP"
 
+# Debug: verify Phase 1/2/3 files are in build context
+RUN ls -la Controllers/SocialAuthController.cs Controllers/LoyaltyController.cs Controllers/CustomerIdentityController.cs
+
 # W7-T4 (2026-07-05): Test stage (separate from final image — keeps runtime image lean)
 # Usage: docker build --target test -t vanan-shoperp-test .
 FROM build AS test
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet test "VanAn.ShopERP.csproj" -c Release --no-build --logger "console;verbosity=detailed" --results-directory /test-results
+RUN dotnet test "VanAn.ShopERP.csproj" -c Release --no-build --logger "console;verbosity=detailed" --results-directory /test-results
 
 # Build application
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet build "VanAn.ShopERP.csproj" -c Release -o /app/build
+RUN dotnet build "VanAn.ShopERP.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN --mount=type=cache,target=/root/.nuget/packages \
-    dotnet publish "VanAn.ShopERP.csproj" -c Release -o /app/publish
+RUN dotnet publish "VanAn.ShopERP.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
