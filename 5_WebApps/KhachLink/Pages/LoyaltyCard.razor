@@ -1,9 +1,12 @@
 @page "/my-loyalty"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components
+@using VanAn.KhachLink.Services.Http
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject SocialAuthHttpService SocialAuthHttp
 @using Microsoft.AspNetCore.Components.Web
 
 <PageTitle>Điểm thưởng của tôi</PageTitle>
@@ -47,6 +50,32 @@
                 </div>
             </VanAnCard>
 
+            @* Tiered Auth Phase 3: Redeem section with verification gate *@
+            <VanAnCard Shadow="true" CssClass="mb-4">
+                <h5 class="mb-3">Đổi điểm thưởng</h5>
+                <div class="mb-2">
+                    <label class="form-label small">Số điểm muốn đổi</label>
+                    <input type="number" class="form-control"
+                           placeholder="100" min="1" max="@_loyalty.PointBalance"
+                           @bind="_redeemPoints" @bind:event="oninput" />
+                </div>
+                @if (_redeemError != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Error" Message="@_redeemError" CssClass="mb-2" />
+                }
+                @if (_redeemSuccess != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Success" Message="@_redeemSuccess" CssClass="mb-2" />
+                }
+                <VanAnButton Variant="ButtonVariant.Primary"
+                             FullWidth="true"
+                             OnClick="RedeemPoints"
+                             Disabled="@_redeeming"
+                             TestId="btn-redeem-points">
+                    @(_redeeming ? "Đang xử lý..." : "Đổi điểm")
+                </VanAnButton>
+            </VanAnCard>
+
             <!-- Tier Info -->
             <VanAnCard Shadow="true" CssClass="mb-4">
                 <h5 class="mb-3">Quyền lợi theo hạng</h5>
@@ -86,6 +115,11 @@
             }
         }
     </div>
+
+    @* Tiered Auth Phase 3: Upgrade modal — shown when redeem returns 403 *@
+    <IdentityUpgradeModal ShowModal="_showUpgradeModal"
+                          OnDismiss="OnUpgradeModalDismiss"
+                          OnUpgradeComplete="OnUpgradeComplete" />
 </KhachLinkLayout>
 
 <style>
@@ -100,6 +134,13 @@
     private bool _loading = true;
     private bool _isLoggedIn = false;
     private LoyaltyData? _loyalty;
+
+    // Tiered Auth Phase 3: Redeem state
+    private int _redeemPoints;
+    private string? _redeemError;
+    private string? _redeemSuccess;
+    private bool _redeeming;
+    private bool _showUpgradeModal;
 
     private static readonly List<TierInfo> _tiers = new()
     {
@@ -139,6 +180,64 @@
             else { _isLoggedIn = false; }
         }
         finally { _loading = false; }
+    }
+
+    /// <summary>Tiered Auth Phase 3: Redeem points — calls POST /api/loyalty/redeem.</summary>
+    private async Task RedeemPoints()
+    {
+        _redeemError = null;
+        _redeemSuccess = null;
+
+        if (_redeemPoints <= 0)
+        {
+            _redeemError = "Vui lòng nhập số điểm hợp lệ.";
+            return;
+        }
+
+        _redeeming = true;
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _redeemError = "Vui lòng đăng nhập để đổi điểm.";
+                return;
+            }
+
+            var result = await SocialAuthHttp.RedeemPointsAsync(token, _redeemPoints, "Redeem from KhachLink");
+
+            if (result.Success)
+            {
+                _redeemSuccess = $"Đổi thành công {result.PointsRedeemed} điểm. Số dư mới: {result.NewBalance:N0} điểm.";
+                _redeemPoints = 0;
+                // Refresh loyalty data
+                await LoadLoyalty();
+            }
+            else if (result.RequiresUpgrade)
+            {
+                // Show upgrade modal — customer needs OTP verification to redeem
+                _showUpgradeModal = true;
+            }
+            else
+            {
+                _redeemError = result.Message;
+            }
+        }
+        finally { _redeeming = false; }
+    }
+
+    private void OnUpgradeModalDismiss()
+    {
+        _showUpgradeModal = false;
+    }
+
+    private async Task OnUpgradeComplete()
+    {
+        _showUpgradeModal = false;
+        _redeemError = null;
+        _redeemSuccess = "Nâng cấp thành công! Bạn có thể đổi điểm ngay bây giờ.";
+        // Refresh loyalty data to reflect any changes
+        await LoadLoyalty();
     }
 
     private string GetTierBadgeClass() => _loyalty?.Tier switch

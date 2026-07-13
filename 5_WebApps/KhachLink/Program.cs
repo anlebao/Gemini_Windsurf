@@ -105,6 +105,9 @@ namespace VanAn.KhachLink
             // KhachLink Full Flow W0: Shop feature toggle settings (HTTP via Gateway)
             _ = builder.Services.AddScoped<Services.Http.ShopFeatureSettingsHttpService>();
 
+            // Tiered Auth Phase 3: Social auth + identity upgrade HTTP service
+            _ = builder.Services.AddScoped<Services.Http.SocialAuthHttpService>();
+
             // Register Recently Viewed Service (Wave 8: Product Personalization)
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
 

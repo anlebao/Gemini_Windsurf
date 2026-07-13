@@ -40,7 +40,7 @@ Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Lo
 
 **Phase 2 (CODE COMPLETE ✅ — pending online RV on khachvip.online):** Verification gate trong `SubtractPointsAsync` (throws `IdentityLevelNotSufficientException` khi `IdentityLevel < Verified`) + `POST /api/loyalty/redeem` endpoint (403 with `requiresUpgrade` payload) + `POST /api/customer-identity/upgrade/send-otp` + `POST /api/customer-identity/upgrade/verify-otp` (authenticated upgrade flow Social → Verified). TDD: 6 unit tests PASS (Social blocked, Verified/Full success, Guest blocked, earn ungated, insufficient balance). Build 0 errors. Architecture 38/38. Core.Tests 990/990. guard-check ALL PASSED. Online RV (RV1-RV9) pending deploy to khachvip.online.
 
-**Phase 3 (NOT STARTED ⬜):** KhachLink UI: Google login button + IdentityUpgradeModal wire up + Profile badge.
+**Phase 3 (CODE COMPLETE ✅ — pending online RV on khachvip.online):** KhachLink UI: Google login button + token callback handler on Login.razor, IdentityUpgradeModal wired up with OTP upgrade flow (send-otp → OTP input → verify-otp → success), Profile.razor IdentityLevel badge (Social/Verified/Full), LoyaltyCard.razor redeem button + 403 → upgrade modal, SocialAuthHttpService (HTTP client for upgrade + redeem endpoints), Program.cs DI registration, KhachLinkStartupTests assertion. Build 0 errors. guard-check ALL PASSED. KhachLinkStartupTests 4/4 PASS. Online RV (RV1-RV10) pending deploy to khachvip.online.
 
 **Phase 4 (NOT STARTED ⬜):** Facebook OAuth — reuse ISocialAuthService pattern.
 
@@ -94,7 +94,7 @@ Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Lo
 1. ~~**Phase 0:** Domain `IdentityLevel` enum + `Customer.IdentityLevel` property + EF migration~~ ✅
 2. ~~**Phase 1:** Google OAuth — redirect → callback → verify ID token → issue customer token~~ ✅ (RV2-RV5 pending user live test trên `khachvip.online`)
 3. ~~**Phase 2:** Verification gate trong `SubtractPointsAsync` + upgrade OTP API~~ ✅ (code complete; online RV pending)
-4. **Phase 3:** KhachLink UI — Google login button + upgrade modal + profile badge
+4. ~~**Phase 3:** KhachLink UI — Google login button + upgrade modal + profile badge~~ ✅ (code complete; online RV pending)
 5. **Phase 4:** Facebook OAuth — reuse pattern
 6. **Phase 5:** Zalo ZNS OTP (300đ/OTP) + CompositeOtpService
 7. **Phase 6:** E2E Playwright tests

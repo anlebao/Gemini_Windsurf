@@ -1,62 +1,98 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
+@using VanAn.KhachLink.Services.Http
+@inject SocialAuthHttpService SocialAuthHttp
+@inject IJSRuntime JSRuntime
 
-@* Identity Upgrade Modal - Loyalty System *@
-<VanAnModal IsOpen="ShowModal" 
-          Title="Nâng Cấp Tài Khoản Vạn An" 
+@* Identity Upgrade Modal - Tiered Auth Phase 3 *@
+@* Wire up: send OTP → OTP input → verify OTP → upgrade to Verified *@
+<VanAnModal IsOpen="ShowModal"
+          Title="Nâng Cấp Tài Khoản"
           OnClose="OnDismiss"
           Closable="true">
     <div class="text-center">
-        <div class="mb-4">
-            <i class="fas fa-gift text-warning" style="font-size: 3rem;"></i>
-        </div>
-        
-        <h4 class="text-primary mb-3">Bảo vệ điểm của bạn!</h4>
-        
-        <p class="mb-4">
-            @(ShopConfig?.LoyaltyConfig?.UpgradeMessage ?? "Bảo vệ điểm của bạn và nhận thêm quà tặng!")
-        </p>
-        
-        <VanAnCard CssClass="bonus-points-card mb-4" Shadow="true">
-            <div class="text-success">
-                <i class="fas fa-star me-2"></i>
-                <strong>Thưởng @(ShopConfig?.LoyaltyConfig?.BonusPointsOnUpgrade ?? 100) điểm</strong> khi nâng cấp ngay!
+        @if (_upgradeStep == UpgradeStep.Intro)
+        {
+            <div class="mb-4">
+                <i class="fas fa-shield-alt text-primary" style="font-size: 3rem;"></i>
             </div>
-        </VanAnCard>
-        
-        <div class="text-muted small mb-4">
-            <i class="fas fa-lock me-1"></i>
-            Dữ liệu của bạn được bảo mật bằng Shadow ID - không lộ thông tin cá nhân
-        </div>
+            <h4 class="text-primary mb-3">Xác thực tài khoản</h4>
+            <p class="mb-3">
+                Xác thực bằng SMS OTP để bảo vệ và đổi điểm thưởng.
+            </p>
+            <p class="text-muted small mb-3">
+                <i class="fas fa-lock me-1"></i>
+                OTP sẽ được gửi đến số điện thoại đã đăng ký của bạn.
+            </p>
+            @if (_error != null)
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_error" CssClass="mb-3" />
+            }
+        }
+        else if (_upgradeStep == UpgradeStep.OtpSent)
+        {
+            <div class="mb-3">
+                <i class="fas fa-sms text-success" style="font-size: 2.5rem;"></i>
+            </div>
+            <h5 class="mb-3">Nhập mã OTP</h5>
+            @if (!string.IsNullOrEmpty(_phoneSuffix))
+            {
+                <p class="text-muted small mb-3">
+                    Mã OTP đã gửi đến số: <strong>@_phoneSuffix</strong>
+                </p>
+            }
+            <input type="number" class="form-control form-control-lg text-center mb-3"
+                   placeholder="123456" maxlength="6"
+                   style="max-width:200px; margin:0 auto;"
+                   @bind="_otp" @bind:event="oninput"
+                   @onkeyup="OnOtpKeyUp" />
+            @if (_error != null)
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_error" CssClass="mb-3" />
+            }
+        }
+        else if (_upgradeStep == UpgradeStep.Success)
+        {
+            <div class="py-3">
+                <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+                <h5 class="mt-2">Nâng cấp thành công!</h5>
+                <p class="text-muted">@_successMessage</p>
+            </div>
+        }
     </div>
-    
+
     <FooterContent>
-        <VanAnButton Variant="ButtonVariant.Secondary" 
-                   OnClick="OnDismiss">
-            <i class="fas fa-times me-1"></i>
-            Bây giờ sau
-        </VanAnButton>
-        <VanAnButton Variant="ButtonVariant.Primary" 
-                   OnClick="OnUpgrade">
-            <i class="fas fa-shield-alt me-1"></i>
-            Nâng cấp ngay
-        </VanAnButton>
+        @if (_upgradeStep == UpgradeStep.Intro)
+        {
+            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="OnDismiss" Disabled="@_loading">
+                Bây giờ sau
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendUpgradeOtp" Disabled="@_loading">
+                @(_loading ? "Đang gửi..." : "Nâng cấp ngay")
+            </VanAnButton>
+        }
+        else if (_upgradeStep == UpgradeStep.OtpSent)
+        {
+            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToIntro" Disabled="@_loading">
+                Quay lại
+            </VanAnButton>
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="VerifyUpgradeOtp" Disabled="@_loading">
+                @(_loading ? "Đang xác nhận..." : "Xác nhận OTP")
+            </VanAnButton>
+        }
+        else if (_upgradeStep == UpgradeStep.Success)
+        {
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="HandleUpgradeComplete">
+                Hoàn tất
+            </VanAnButton>
+        }
     </FooterContent>
 </VanAnModal>
 
-<style>
-    .bonus-points-card {
-        background: #f8fff8;
-        border: 1px solid #d4edda;
-    }
-    
-    .bonus-points-card ::deep .card-body {
-        padding: 1rem;
-    }
-</style>
-
 @code {
+    private enum UpgradeStep { Intro, OtpSent, Success }
+
     [Parameter]
     public bool ShowModal { get; set; }
 
@@ -69,8 +105,112 @@
     [Parameter]
     public EventCallback OnUpgrade { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>Triggered when upgrade completes successfully (parent should refresh data).</summary>
+    [Parameter]
+    public EventCallback OnUpgradeComplete { get; set; }
+
+    private UpgradeStep _upgradeStep = UpgradeStep.Intro;
+    private string _otp = "";
+    private string? _error;
+    private string _phoneSuffix = "";
+    private string _successMessage = "Tài khoản đã được xác thực.";
+    private bool _loading = false;
+    private string? _cachedToken;
+
+    protected override void OnParametersSet()
     {
-        await base.OnInitializedAsync();
+        // Reset to intro step when modal is reopened
+        if (ShowModal && _upgradeStep == UpgradeStep.Success)
+        {
+            _upgradeStep = UpgradeStep.Intro;
+            _error = null;
+            _otp = "";
+        }
+    }
+
+    private async Task<string?> GetTokenAsync()
+    {
+        if (_cachedToken != null) return _cachedToken;
+        _cachedToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        return _cachedToken;
+    }
+
+    private async Task SendUpgradeOtp()
+    {
+        _error = null;
+        _loading = true;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Vui lòng đăng nhập trước khi nâng cấp.";
+                return;
+            }
+
+            var result = await SocialAuthHttp.SendUpgradeOtpAsync(token);
+            if (result.Success)
+            {
+                _phoneSuffix = result.PhoneNumberSuffix;
+                _upgradeStep = UpgradeStep.OtpSent;
+            }
+            else
+            {
+                _error = result.Message;
+            }
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task VerifyUpgradeOtp()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_otp))
+        {
+            _error = "Vui lòng nhập mã OTP.";
+            return;
+        }
+        _loading = true;
+        try
+        {
+            var token = await GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            var result = await SocialAuthHttp.VerifyUpgradeOtpAsync(token, _otp);
+            if (result.Success)
+            {
+                _successMessage = result.Message;
+                _upgradeStep = UpgradeStep.Success;
+            }
+            else
+            {
+                _error = result.Message;
+            }
+        }
+        finally { _loading = false; }
+    }
+
+    private void BackToIntro()
+    {
+        _upgradeStep = UpgradeStep.Intro;
+        _error = null;
+        _otp = "";
+    }
+
+    private async Task OnOtpKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await VerifyUpgradeOtp();
+    }
+
+    private async Task HandleUpgradeComplete()
+    {
+        _upgradeStep = UpgradeStep.Intro;
+        _otp = "";
+        _error = null;
+        await OnUpgradeComplete.InvokeAsync();
     }
 }

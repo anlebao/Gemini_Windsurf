@@ -3,8 +3,8 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** (1) Thêm nút "Đăng nhập với Google" vào Login.razor. (2) Wire up IdentityUpgradeModal với upgrade OTP flow. (3) Hiển thị IdentityLevel trên Profile. (4) Khi user cố redeem mà chưa Verified, hiển thị upgrade modal.
 - **Nghiệp vụ áp dụng:** UX cho tiered auth — social login button + upgrade prompt
-- **Status:** ⬜ NOT STARTED
-- **Branch:** `feature/tiered-auth-phase3-khachlink-social-ui`
+- **Status:** ✅ CODE COMPLETE (online RV pending on khachvip.online)
+- **Branch:** `main`
 - **Dependency:** Phase 1 (Google OAuth) + Phase 2 (Verification Gate) COMPLETE
 
 ---

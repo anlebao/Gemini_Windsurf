@@ -78,6 +78,9 @@ public class KhachLinkStartupTests : IClassFixture<KhachLinkWebApplicationFactor
 
         // KhachLink Full Flow W0: Shop feature toggle settings HTTP service
         Assert.NotNull(sp.GetRequiredService<ShopFeatureSettingsHttpService>());
+
+        // Tiered Auth Phase 3: Social auth + identity upgrade HTTP service
+        Assert.NotNull(sp.GetRequiredService<SocialAuthHttpService>());
     }
 
     /// <summary>
