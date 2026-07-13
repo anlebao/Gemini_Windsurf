@@ -162,7 +162,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET
           script: |
             set -e
 
@@ -192,6 +192,8 @@ jobs:
               "JWT_SECRET_KEY=${DEPLOY_JWT_SECRET_KEY}" \
               "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
               "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
+              "GOOGLE_CLIENT_ID=${DEPLOY_GOOGLE_CLIENT_ID}" \
+              "GOOGLE_CLIENT_SECRET=${DEPLOY_GOOGLE_CLIENT_SECRET}" \
               > .env
 
             # Login to GHCR (use sudo to ensure docker socket access)
@@ -217,3 +219,5 @@ jobs:
           DEPLOY_REPO_OWNER: ${{ github.repository_owner }}
           DEPLOY_IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
           DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
+          DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}

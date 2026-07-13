@@ -82,7 +82,9 @@ function Test-RequiredVariables {
     $requiredVars = @(
         "POSTGRES_PASSWORD",
         "JWT_SECRET_KEY",
-        "SEQ_ADMIN_PASSWORD"
+        "SEQ_ADMIN_PASSWORD",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET"
     )
 
     $missingVars = @()
