@@ -30,7 +30,7 @@
 
 ## 2. Current Objective
 
-**[TIERED AUTHENTICATION FOR LOYALTY PROGRAM — P0+P1 COMPLETE, P2 NEXT]**
+**[TIERED AUTHENTICATION FOR LOYALTY PROGRAM — P0+P1+P2+P3 CODE COMPLETE, ONLINE RV + P4 NEXT]**
 
 Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Login: Google + Facebook OAuth) cho earn points — free. Tier 2 (SMS OTP via Zalo ZNS 300đ) cho redeem points. Tier 3 cho giao dịch quan trọng. Master plan: `docs/AI/tasks/tiered_auth_loyalty_master_plan.md` — 7 phases, 7 task cards created.
 
@@ -57,11 +57,12 @@ Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Lo
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `b4c6aeb` [TIERED AUTH P1] Google OAuth: SocialAuthController + GoogleAuthService + YARP route + config
-- **Uncommitted changes:** Phase 1 RV debug improvements (GoogleAuthResponse error reporting, JsonPropertyName fix, dev Problem detail)
+- **Last commit:** `f419d149` [TIERED AUTH P3] KhachLink UI: Google login + Upgrade modal + Profile badge + Redeem
+- **Uncommitted changes:** None — clean working tree (all P1+P2+P3 work committed + pushed to origin/main)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-pg-local`, role `vanan_admin`)
-- **Tests (Release):** 1222/1223 PASS — 38 Architecture + 983 Core + 201 Integration (1 flaky SQLite concurrency test, passes in isolation). Verified 2026-07-10.
+- **Tests (Debug, 2026-07-13):** Architecture 38/38 PASS · Core.Tests 990/990 PASS (984 + 6 new Phase 2 verification gate tests) · KhachLinkStartupTests 4/4 PASS (incl. new SocialAuthHttpService assertion). guard-check.ps1 ALL CHECKS PASSED.
+- **Tiered Auth Progress (2026-07-13):** P0 Domain ✅ · P1 Google OAuth + Production wiring ✅ · P2 Verification Gate ✅ · P3 KhachLink UI ✅ · P4 Facebook OAuth ⬜ · P5 Zalo ZNS OTP ⬜ · P6 E2E Tests ⬜. All code committed + pushed. Online RV pending on `khachvip.online` (per RV policy 2026-07-13).
 - **Wave 3 Live Runtime Verification (2026-07-12):** ShopERP 5003 + KhachLink 5002 + Gateway 5001 + Docker all booted. Voice note toggle OFF shows text-only textarea, ON shows STT UI (gated init). No audio capture (STT-only confirmed). TTS button in Detail.razor with JS interop ttsReader.speak. TTS sub-toggle (voice OFF→TTS OFF). QR table number ON (PNG 2788 bytes with tableNumber=5), OFF (tableNumber ignored). Domain Obsolete marks on audio blob fields. tts-reader.js loaded in App.razor. RV1-RV12 all PASS.
 - **Wave 2 Live Runtime Verification (2026-07-11):** ShopERP 5003 + KhachLink 5002 + Gateway 5001 + Docker all booted. Customer confirm ready→delivered 200 + persisted. Loyalty toggle OFF/ON persist. PWA disable for logged-in users (customer_token check). Accounting bypass OFF (webhook 200, no AccountingEntries INSERT). Accounting ON hits pre-existing AuditLog tenant mismatch bug (NOT Wave 2 regression). RV1-RV11 all PASS.
 - **Wave 1 Live Runtime Verification (2026-07-11):** ShopERP 5003 + KhachLink 5002 + Gateway 5001 + Docker PostgreSQL 5432 all booted. Kitchen ON transitions confirmed→preparing→ready→completed ALL 200. Kitchen bypass confirmed→completed 200 (toggle OFF) + pending→preparing rejected 404 (expected). Polling 3s in source. Status name "preparing" (not "processing"). Public order tracking API 200 with TenantId (after IgnoreQueryFilters fix). RV1-RV10 all PASS.
@@ -90,14 +91,15 @@ Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Lo
 
 > **RV POLICY UPDATE (2026-07-13):** CI/CD pipeline online đã ổn định. Từ nay **Runtime Verification (RV) mặc định thực hiện trên môi trường online** (production domain `khachvip.online` / `https://api.khachvip.online`), KHÔNG còn test dưới `localhost`. Local debug chỉ cho build/lint. RV cũ ghi "ShopERP 5003 + KhachLink 5002 + Gateway 5001 boot local" → dùng cho reproduce lỗi cụ thể khi cần, không phải default flow. Đề mô production: deploy commit → chạy RV trên domain thật → sign-off task card.
 
-**Immediate (Tiered Auth — P0+P1 complete, P2 next):**
+**Immediate (Tiered Auth — P0+P1+P2+P3 code complete, online RV + P4 next):**
 1. ~~**Phase 0:** Domain `IdentityLevel` enum + `Customer.IdentityLevel` property + EF migration~~ ✅
 2. ~~**Phase 1:** Google OAuth — redirect → callback → verify ID token → issue customer token~~ ✅ (RV2-RV5 pending user live test trên `khachvip.online`)
 3. ~~**Phase 2:** Verification gate trong `SubtractPointsAsync` + upgrade OTP API~~ ✅ (code complete; online RV pending)
 4. ~~**Phase 3:** KhachLink UI — Google login button + upgrade modal + profile badge~~ ✅ (code complete; online RV pending)
-5. **Phase 4:** Facebook OAuth — reuse pattern
-6. **Phase 5:** Zalo ZNS OTP (300đ/OTP) + CompositeOtpService
-7. **Phase 6:** E2E Playwright tests
+5. **Online RV for P1+P2+P3 trên `khachvip.online`:** deploy commit `f419d149` → test Google login flow + redeem 403 + upgrade OTP flow + Profile badge. Sign-off task cards RV1-RV10.
+6. **Phase 4:** Facebook OAuth — reuse `IGoogleAuthService` pattern (create `IFacebookAuthService` + `FacebookAuthService` + controller endpoints)
+7. **Phase 5:** Zalo ZNS OTP (300đ/OTP) + CompositeOtpService (Zalo priority, eSMS fallback)
+8. **Phase 6:** E2E Playwright tests — 2 scenarios (social login flow + OTP login flow)
 
 **Recent addition (2026-07-12):**
 - **Configurable Polling Interval** — added `PollingIntervalSeconds` (int, default 15, range 5-120) to `ShopFeatureSettingsEntity`. Admin can configure via `/settings/shop-features` UI. KhachLink `OrderTracking.razor` fetches interval per-tenant (replaces hardcoded 3s). E2E test coverage: 6 test cases in `khachlink-polling-interval.spec.ts` (API GET/PUT/clamping + UI input + OrderTracking load). All 8 KhachLink E2E tests PASS.
@@ -222,6 +224,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-13 — TIERED AUTH PHASE 3 KHACHLINK UI COMPLETE + STATE SYNC.** Phase 3: KhachLink UI cho tiered auth. **Files CREATE:** `5_WebApps/KhachLink/Services/Http/SocialAuthHttpService.cs` (HTTP client cho upgrade send-otp + verify-otp + loyalty redeem — returns typed result objects với `Success`/`RequiresUpgrade`/`Message` fields). **Files MODIFY:** (1) `Login.razor` — Google login button (VanAnButton + Google SVG icon, `data-testid="btn-google-login"`) + OAuth callback handler (parse `?token=...&provider=google` từ URL → store localStorage → redirect `/profile`) + error callback handler + "hoặc" separator. (2) `IdentityUpgradeModal.razor` — rewired từ static display → full 3-step OTP upgrade flow (Intro → OtpSent → Success) với inject `SocialAuthHttpService` + `IJSRuntime`, `OnUpgradeComplete` EventCallback. (3) `Profile.razor` — IdentityLevel badge (`data-testid="identity-level-badge"`, icon + label cho Social/Verified/Full) + upgrade prompt (VanAnAlert + VanAnButton) cho Social customers + `IdentityLevel` field trong `CustomerProfile` DTO. (4) `LoyaltyCard.razor` — redeem section (points input + `POST /api/loyalty/redeem`) + 403 `RequiresUpgrade` → show `IdentityUpgradeModal` + on upgrade complete → refresh loyalty data. (5) `Program.cs` — DI registration `SocialAuthHttpService`. (6) `KhachLinkStartupTests.cs` — assertion cho `SocialAuthHttpService` DI. **Build fix Round 1:** duplicate `OnUpgradeComplete` (Parameter property + method same name) → renamed method thành `HandleUpgradeComplete`. **Verify:** `dotnet build VanAn.sln` 0 errors · guard-check.ps1 ALL CHECKS PASSED · KhachLinkStartupTests 4/4 PASS (incl. new assertion). **UI Platform compliance:** all buttons VanAnButton, containers VanAnCard, errors VanAnAlert — no custom HTML/CSS. **Commits:** `06d08d1e` (P1+P2 scrub+push), `f419d149` (P3). Pushed to origin/main. **Branch:** `main`. **Online RV pending** trên `khachvip.online` sau khi deploy.
 
 * **2026-07-13 — TIERED AUTH PHASE 2 VERIFICATION GATE COMPLETE (code).** Phase 2: verification gate trong `LoyaltyRewardsService.SubtractPointsAsync` — throws `IdentityLevelNotSufficientException` khi `customer.IdentityLevel < IdentityLevel.Verified`. Gate chỉ áp dụng cho redeem, KHÔNG cho earn (`AddPointsAsync` ungated — Social vẫn earn được). **Bug fix trong implementation:** `catch (Exception ex)` hiện tại sẽ swallow exception → controller chỉ thấy `return false` thay vì 403. Thêm `catch (IdentityLevelNotSufficientException) { rollback; throw; }` trước generic catch để exception propagate lên controller. **API endpoints mới:** (1) `POST /api/loyalty/redeem` trong `LoyaltyController` — validate token → proactive `IdentityLevel` check (trả 403 + `{error, requiresUpgrade: true, currentLevel, requiredLevel}` thay vì leak exception) → `SubtractPointsAsync` → defense-in-depth catch → 200 với `{success, newBalance, pointsRedeemed}`. (2) `POST /api/customer-identity/upgrade/send-otp` — authenticated flow (requires `X-Customer-Token`), gửi OTP đến `customer.PhoneNumber` đã có trong DB, KHÔNG tạo customer mới (khác với anonymous `otp/send`). (3) `POST /api/customer-identity/upgrade/verify-otp` — verify OTP + `customer.UpgradeIdentityLevel(IdentityLevel.Verified)` + save. **Files CREATE:** `3_CoreHub/Services/IdentityLevelNotSufficientException.cs` (custom exception with `CustomerId`, `CurrentLevel`, `RequiredLevel`), `6_Tests/VanAn.Core.Tests/Services/LoyaltyRewardsServiceVerificationGateTests.cs` (6 TDD tests: Social blocked, Verified success, Full success, Guest blocked, earn ungated, insufficient balance after gate). **Files MODIFY:** `3_CoreHub/Services/LoyaltyRewardsService.cs` (+gate +re-throw), `5_WebApps/ShopERP/Controllers/LoyaltyController.cs` (+`ICustomerRepository` inject +Redeem endpoint +3 DTOs), `5_WebApps/ShopERP/Controllers/CustomerIdentityController.cs` (+2 upgrade endpoints +3 DTOs). **TDD discipline:** tests viết trước, run fail (Red) → implement gate → run pass (Green). **Verify:** `dotnet build VanAn.sln` 0 errors · Architecture.Tests 38/38 PASS · Core.Tests 990/990 PASS (984 + 6 new) · guard-check.ps1 ALL CHECKS PASSED. **Online RV pending:** RV1-RV9 trên `khachvip.online` sau khi deploy (per new RV policy 2026-07-13: RV default on production domain, not localhost). **Branch:** `main`.
 
