@@ -36,6 +36,7 @@ public class PlatformUserLoginController : ControllerBase
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, "System Admin"),
+            new(ClaimTypes.NameIdentifier, result.UserId.ToString()),
             new(ClaimTypes.Email, result.Email),
             new(ClaimTypes.Role, result.Role),
             new("sub", result.Email),

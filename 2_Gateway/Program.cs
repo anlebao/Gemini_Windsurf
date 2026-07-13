@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -129,7 +130,11 @@ namespace VanAn.Gateway
                         ValidAudience = jwtAudience,
                         ValidateLifetime = true,
                         ClockSkew = TimeSpan.Zero,
-                        RoleClaimType = "role",
+                        // FIX: JwtTokenService emits role as ClaimTypes.Role (long-form URI
+                        // http://schemas.microsoft.com/ws/2008/06/identity/claims/role).
+                        // With MapInboundClaims=false above, the claim type stays as the long-form URI.
+                        // RoleClaimType must match the actual claim type so RequireRole() finds it.
+                        RoleClaimType = ClaimTypes.Role,
                         NameClaimType = "sub"
                     };
                 });

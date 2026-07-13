@@ -110,6 +110,11 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 Guid tenantId = GetTenantId();
+                if (tenantId == Guid.Empty)
+                {
+                    _logger.LogWarning("GetOrders rejected: missing or invalid TenantId claim");
+                    return Unauthorized(new { error = "Tenant ID required in JWT claim" });
+                }
 
                 if (string.IsNullOrEmpty(status))
                 {
