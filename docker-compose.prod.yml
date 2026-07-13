@@ -127,6 +127,15 @@ services:
       - Google__ClientSecret=${GOOGLE_CLIENT_SECRET}
       - Google__CallbackBaseUrl=${GOOGLE_CALLBACK_BASE_URL:-https://api.${VANAN_DOMAIN}}
       - Google__KhachLinkLoginUrl=${GOOGLE_KHACHLINK_LOGIN_URL:-https://${VANAN_DOMAIN}/login}
+      # SaaS W1: ValidateProductionConfig sentinel keys — set to non-placeholder values
+      - Jwt__Secret=${JWT_SECRET_KEY}
+      - DataProtection__KeyDirectory=/app/keys
+      - Brevo__ApiKey=not-configured
+      - Brevo__SenderEmail=noreply@${VANAN_DOMAIN}
+      - Esms__ApiKey=not-configured
+      - Esms__SecretKey=not-configured
+      - Esms__BrandName=VanAn
+      - ConnectionStrings__Redis=not-configured
     volumes:
       - shoperp_data:/app
     networks:
