@@ -138,7 +138,7 @@ services:
       - ConnectionStrings__Redis=not-configured
       - Authentication__ClientSecret=not-configured
     volumes:
-      - shoperp_data:/app
+      - shoperp_data:/app/keys
     networks:
       - vanan-network
     depends_on:
