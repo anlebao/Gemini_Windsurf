@@ -16,6 +16,7 @@ namespace VanAn.ShopERP.Controllers
         ICustomerTokenService customerTokenService,
         ICustomerRepository customerRepository,
         IConfiguration configuration,
+        IWebHostEnvironment env,
         ILogger<SocialAuthController> logger) : ControllerBase
     {
         private readonly IGoogleAuthService _googleAuthService = googleAuthService;
@@ -51,13 +52,23 @@ namespace VanAn.ShopERP.Controllers
             }
 
             var redirectUri = GetCallbackUrl();
-            var userInfo = await _googleAuthService.ExchangeCodeForUserInfoAsync(code, redirectUri);
+            _logger.LogInformation("[GoogleAuth] Callback received. Code={CodePrefix} RedirectUri={RedirectUri}", code[..Math.Min(10, code.Length)], redirectUri);
+            var authResponse = await _googleAuthService.ExchangeCodeForUserInfoAsync(code, redirectUri);
 
-            if (userInfo == null)
+            if (!authResponse.Success || authResponse.UserInfo == null)
             {
-                _logger.LogError("[GoogleAuth] Failed to get user info from Google.");
+                var errorReason = authResponse.Error?.Reason ?? "unknown";
+                var errorDetails = authResponse.Error?.Details ?? "No details available";
+                _logger.LogError("[GoogleAuth] Failed: {Reason} — {Details}", errorReason, errorDetails);
+                if (env.IsDevelopment())
+                    return Problem(
+                        title: $"Google auth failed: {errorReason}",
+                        detail: errorDetails,
+                        statusCode: 500);
                 return Redirect($"{khachLinkLoginUrl}?error=auth_failed&provider=google");
             }
+
+            var userInfo = authResponse.UserInfo;
 
             // Find customer by email (PII-encrypted — load all and filter in-memory)
             var allCustomers = await _customerRepository.GetAllActiveAsync();

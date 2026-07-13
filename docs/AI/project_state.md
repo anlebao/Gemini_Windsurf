@@ -30,13 +30,13 @@
 
 ## 2. Current Objective
 
-**[TIERED AUTHENTICATION FOR LOYALTY PROGRAM — PLANNING COMPLETE, P0 NEXT]**
+**[TIERED AUTHENTICATION FOR LOYALTY PROGRAM — P0+P1 COMPLETE, P2 NEXT]**
 
 Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Login: Google + Facebook OAuth) cho earn points — free. Tier 2 (SMS OTP via Zalo ZNS 300đ) cho redeem points. Tier 3 cho giao dịch quan trọng. Master plan: `docs/AI/tasks/tiered_auth_loyalty_master_plan.md` — 7 phases, 7 task cards created.
 
-**Phase 0 (NOT STARTED ⬜):** Domain: `IdentityLevel` enum (Guest/Social/Verified/Full) + `Customer.IdentityLevel` property + EF migration. BLOCKING cho P1-P6.
+**Phase 0 (COMPLETE ✅):** Domain: `IdentityLevel` enum (Guest/Social/Verified/Full) + `Customer.IdentityLevel` property + EF migration. Commit `b4c6aeb`.
 
-**Phase 1 (NOT STARTED ⬜):** Google OAuth — redirect → callback → verify ID token → issue customer token.
+**Phase 1 (COMPLETE ✅):** Google OAuth — `GoogleAuthService` + `SocialAuthController` + YARP route + Google credentials configured. RV1/RV6/RV7/RV8/RV9 PASS. RV2-RV5 pending (requires live Google OAuth flow test by user). Key fix: `[JsonPropertyName("id_token")]` for snake_case JSON mapping.
 
 **Phase 2 (NOT STARTED ⬜):** Verification gate trong `SubtractPointsAsync` + upgrade OTP API endpoints.
 
@@ -56,9 +56,9 @@ Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Lo
 
 ## 3. Current Status
 
-- **Branch:** `main` (Wave 3 merged). Wave 4 branch (tbd) pending.
-- **Last commit:** `a1b2c3d` [KL WAVE 3] Merge: Voice note STT-only + TTS kitchen + QR table number COMPLETE
-- **Uncommitted changes:** None (clean working tree — only untracked reports/scripts)
+- **Branch:** `main`
+- **Last commit:** `b4c6aeb` [TIERED AUTH P1] Google OAuth: SocialAuthController + GoogleAuthService + YARP route + config
+- **Uncommitted changes:** Phase 1 RV debug improvements (GoogleAuthResponse error reporting, JsonPropertyName fix, dev Problem detail)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev, business) · PostgreSQL `vanan_accounting` (accounting, Docker `vanan-pg-local`, role `vanan_admin`)
 - **Tests (Release):** 1222/1223 PASS — 38 Architecture + 983 Core + 201 Integration (1 flaky SQLite concurrency test, passes in isolation). Verified 2026-07-10.
@@ -88,10 +88,10 @@ Optimize OTP costs (~96% saving) bằng tiered authentication: Tier 1 (Social Lo
 
 ## 4. Next Actions
 
-**Immediate (Tiered Auth — Planning complete, P0 next):**
-1. **Phase 0:** Domain `IdentityLevel` enum + `Customer.IdentityLevel` property + EF migration — BLOCKING
-2. **Phase 1:** Google OAuth (Blazor Server) — redirect → callback → token
-3. **Phase 2:** Verification gate trong `SubtractPointsAsync` + upgrade OTP API (parallel with P1)
+**Immediate (Tiered Auth — P0+P1 complete, P2 next):**
+1. ~~**Phase 0:** Domain `IdentityLevel` enum + `Customer.IdentityLevel` property + EF migration~~ ✅
+2. ~~**Phase 1:** Google OAuth — redirect → callback → verify ID token → issue customer token~~ ✅ (RV2-RV5 pending user live test)
+3. **Phase 2:** Verification gate trong `SubtractPointsAsync` + upgrade OTP API
 4. **Phase 3:** KhachLink UI — Google login button + upgrade modal + profile badge
 5. **Phase 4:** Facebook OAuth — reuse pattern
 6. **Phase 5:** Zalo ZNS OTP (300đ/OTP) + CompositeOtpService
@@ -220,6 +220,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-13 — TIERED AUTH PHASE 1 GOOGLE OAUTH COMPLETE.** Implemented Google OAuth login flow: `ISocialAuthService` interface + `GoogleAuthService` (OAuth code exchange + GoogleJsonWebSignature ID token verification) + `SocialAuthController` (login redirect + callback handling + customer create/lookup + token issuance + KhachLink redirect) + DI registration in Program.cs + Google config in appsettings.json/Development.json + YARP route `/api/auth/{**catch-all}` → ShopERP in Gateway. Added `Google.Apis.Auth` package to Directory.Packages.props + CoreHub.csproj + ShopERP.csproj. Key bug fix: Google token endpoint returns snake_case JSON (`id_token`, `access_token`) — added `[JsonPropertyName]` attributes to `GoogleTokenResponse` class. Refactored to `GoogleAuthResponse` pattern for detailed error reporting in dev mode. Google credentials configured in appsettings.Development.json. **RV Results:** RV1 (login redirect 302 → Google) ✅, RV6 (Gateway forwarding) ✅, RV7 (error handling invalid code → 302 login?error) ✅, RV8 (LINQ no translation errors) ✅, RV9 (build 0 errors + guard PASS) ✅. RV2-RV5 (full OAuth flow with real Google account) pending user live test. Commit `b4c6aeb`.
 
 * **2026-07-12 — TIERED AUTH MASTER PLAN + 7 TASK CARDS.** Created `docs/AI/tasks/tiered_auth_loyalty_master_plan.md` (7 phases, dependency graph, risk assessment, cost analysis — 96% saving). Created 7 task cards: `tiered_auth_phase0_domain_task_card.md` (IdentityLevel enum + migration), `tiered_auth_phase1_google_oauth_task_card.md` (Google OAuth Blazor Server), `tiered_auth_phase2_verification_gate_task_card.md` (SubtractPointsAsync gate + upgrade API), `tiered_auth_phase3_khachlink_social_ui_task_card.md` (KhachLink UI), `tiered_auth_phase4_facebook_oauth_task_card.md` (Facebook OAuth), `tiered_auth_phase5_zalo_zns_task_card.md` (Zalo ZNS OTP 300đ), `tiered_auth_phase6_e2e_tests_task_card.md` (E2E tests). Strategy: Tier 1 Social Login (free) → Tier 2 Zalo ZNS OTP (300đ) → eSMS fallback (1.000-1.200đ). Updated Section 2 (new objective), 4 (next actions — 7 phases). **Branch:** `main`.
 
