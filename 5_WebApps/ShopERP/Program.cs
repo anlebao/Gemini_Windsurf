@@ -674,10 +674,14 @@ namespace VanAn.ShopERP
                     // ProductId (catalog ID), it matches Products.Id (PK) in PostgreSQL.
                     // Also override Products.ProductId to match SQLite for consistency.
                     // First: clean up stale products from previous deploys (Id != ProductId, duplicates)
-                    var stalePgProducts = await vanAnDbForSeed.Products
+                    // Client-side filter: EF Core can't translate p.Id != p.ProductId.Value
+                    var allPgProducts = await vanAnDbForSeed.Products
                         .IgnoreQueryFilters()
-                        .Where(p => p.TenantId == seedTenantId && p.Id != p.ProductId.Value)
+                        .Where(p => p.TenantId == seedTenantId)
                         .ToListAsync();
+                    var stalePgProducts = allPgProducts
+                        .Where(p => p.Id != p.ProductId.Value)
+                        .ToList();
                     if (stalePgProducts.Count > 0)
                     {
                         vanAnDbForSeed.Products.RemoveRange(stalePgProducts);
