@@ -819,5 +819,66 @@ namespace VanAn.Core.Tests.Services
                 Times.Once,
                 "When TotalVatAmount = 0, only 1 revenue call (511 net) — no 3331 VAT liability call");
         }
+
+        // ============================================================================
+        // SC_W1: Payment Webhook 500 Root Cause Fix — Option A (Caller Deduplication)
+        // Bug: GenerateAccountingEntriesAsync adds the SAME revenueJournalEntry to TWO book
+        // types (S2b + S2c) — second AddToBookAsync call hits EF Core tracking conflict.
+        // Fix: Only call AddToBookAsync ONCE per JournalEntry instance. Book membership for
+        // multiple book types is a future mapping-table concern (current AddToBookAsync does
+        // not differentiate by bookType — see comment line 142-143 in HKDBookRepository).
+        // ============================================================================
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_ShouldCallAddToBookOncePerJournalEntry_NotTwice_W1()
+        {
+            // Arrange: order with 1 item — VAT=0 to keep the call structure minimal.
+            // item: qty=1, unitPrice=100 → SubTotal=100, VatAmount=0, netRevenue=100, COGS=70 (70% fallback).
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 100m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-W1");
+
+            // Assert: AddToBookAsync called ONCE for revenue + ONCE for COGS = 2 calls total.
+            // BEFORE fix: 2 for revenue (S2b + S2c) + 1 for COGS (S2c) = 3 calls — second revenue call throws.
+            // AFTER fix (Option A): 1 for revenue + 1 for COGS = 2 calls.
+            _mockHkdBookRepository.Verify(
+                x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()),
+                Times.Exactly(2),
+                "AddToBookAsync must be called exactly 2 times (1 revenue + 1 COGS), NOT 3 times (which would duplicate the revenue entity and trigger EF Core tracking conflict)");
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_RevenueEntryAddedOnce_NotTwiceForTwoBookTypes_W2()
+        {
+            // Arrange: order with VAT > 0 to ensure revenue path is exercised.
+            // item: qty=1, unitPrice=100 → SubTotal=100, VatAmount=10 (10% default), netRevenue=100.
+            Guid orderId = Guid.NewGuid();
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, Guid.NewGuid(), quantity: 1, unitPrice: 100m);
+            Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
+            Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);
+            SetupConfirmPaymentMocks(orderLight, orderWithItems, orderId);
+
+            // Capture each JournalEntry instance passed to AddToBookAsync
+            List<JournalEntry> capturedEntries = [];
+            _ = _mockHkdBookRepository
+                .Setup(x => x.AddToBookAsync(It.IsAny<JournalEntry>(), It.IsAny<AccountingBookType>(), It.IsAny<CancellationToken>()))
+                .Callback((JournalEntry je, AccountingBookType _, CancellationToken _) => capturedEntries.Add(je))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId, _testTenantId.Value, "TXN-W2");
+
+            // Assert: NO JournalEntry instance should appear twice in the captured list.
+            // Before fix: revenue JE appears twice (S2b + S2c) — duplicate instance reference.
+            // After fix: each JE appears exactly once.
+            int distinctInstanceCount = capturedEntries.Distinct().Count();
+            distinctInstanceCount.Should().Be(capturedEntries.Count,
+                "each JournalEntry instance must be passed to AddToBookAsync exactly once — duplicates trigger EF Core tracking conflict (Payment Webhook 500 root cause)");
+        }
     }
 }

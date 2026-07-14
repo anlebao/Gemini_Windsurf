@@ -139,12 +139,25 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
-                // For now, just add the journal entry to the database
-                // In a full implementation, we would create separate entries for each book type
-                _ = await _context.JournalEntries.AddAsync(entry, cancellationToken);
-                _ = await _context.SaveChangesAsync(cancellationToken);
+                // W-FIX (Payment Webhook 500 root cause — Option B defense-in-depth):
+                // If the SAME JournalEntry instance is already tracked by the DbContext
+                // (e.g. caller added it for S2b_HKD then attempts S2c_HKD), skip AddAsync +
+                // SaveChangesAsync to avoid SQLite UNIQUE constraint violation on JournalNo.
+                // This guards against callers that legitimately need to associate one entry
+                // with multiple book types — until a proper book-membership mapping table exists.
+                bool alreadyTracked = _context.JournalEntries.Local
+                    .Any(e => e.JournalEntryId.Value == entry.JournalEntryId.Value);
 
-                _logger.LogInformation("Added entry to HKD book {BookType} for tenant {TenantId}", bookType, entry.TenantId.Value);
+                if (!alreadyTracked)
+                {
+                    // For now, just add the journal entry to the database
+                    // In a full implementation, we would create separate entries for each book type
+                    _ = await _context.JournalEntries.AddAsync(entry, cancellationToken);
+                    _ = await _context.SaveChangesAsync(cancellationToken);
+                }
+
+                _logger.LogInformation("Added entry to HKD book {BookType} for tenant {TenantId} (tracked={Tracked})",
+                    bookType, entry.TenantId.Value, alreadyTracked);
             }
             catch (Exception ex)
             {
