@@ -55,6 +55,20 @@
             </div>
         </VanACard>
 
+        @* ── Product Management ── *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <VanACard Header="📦 Sản phẩm" Hoverable="true" data-testid="card-products">
+                    <div class="sitemap-links">
+                        <a href="/products" class="sitemap-link" data-testid="link-products">
+                            <span class="sitemap-link-icon">📦</span>
+                            <span>Quản lý sản phẩm</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
         @* ── Luồng 2: Kế Toán & Tài Chính ── *@
         <AuthorizeView Roles="Owner,StoreKeeper">
             <Authorized>

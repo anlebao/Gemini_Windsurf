@@ -80,6 +80,53 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        public async Task<string?> UploadAsync(Stream stream, string fileName, string folder, CancellationToken cancellationToken = default)
+        {
+            if (stream == null || stream.Length == 0)
+            {
+                _logger.LogWarning("UploadAsync(stream): empty stream");
+                return null;
+            }
+
+            if (stream.Length > MaxFileSize)
+            {
+                _logger.LogWarning("UploadAsync(stream): stream exceeds 5MB limit ({Size})", stream.Length);
+                return null;
+            }
+
+            var ext = Path.GetExtension(fileName);
+            if (!AllowedExtensions.Contains(ext))
+            {
+                _logger.LogWarning("UploadAsync(stream): extension {Ext} not allowed", ext);
+                return null;
+            }
+
+            try
+            {
+                var publicId = $"{folder}/{Guid.NewGuid():N}";
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(fileName, stream),
+                    PublicId = publicId,
+                    Overwrite = false
+                };
+
+                ImageUploadResult result = await _cloudinary.UploadAsync(uploadParams);
+                if (result?.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    return result.SecureUrl?.ToString();
+                }
+
+                _logger.LogWarning("UploadAsync(stream): Cloudinary returned {Status}", result?.StatusCode);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "UploadAsync(stream): Cloudinary upload failed");
+                return null;
+            }
+        }
+
         public async Task<bool> DeleteAsync(string publicId, CancellationToken cancellationToken = default)
         {
             try

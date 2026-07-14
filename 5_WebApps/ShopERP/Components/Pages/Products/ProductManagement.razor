@@ -1,0 +1,453 @@
+@page "/products"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "OwnerOnly")]
+@layout AccountingLayout
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.ShopERP.Components.Pages.Accounting
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using VanAn.Shared.Helpers
+@inject IProductService ProductService
+@inject ITenantProvider TenantProvider
+@inject ILogger<ProductManagement> Logger
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Quản lý sản phẩm - VanAn ERP</PageTitle>
+
+<div class="product-management-page">
+    <!-- Header -->
+    <header class="page-header">
+        <h1>📦 Quản lý sản phẩm</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" OnClick="OpenCreateModal">+ Thêm sản phẩm</VanAButton>
+            <VanAButton Variant="secondary" OnClick="LoadProducts">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    <!-- Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Type="danger" Message="@_errorMessage" OnClose="() => _errorMessage = null" />
+    }
+
+    <!-- Product list -->
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách sản phẩm...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_products.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có sản phẩm nào. Nhấn "+ Thêm sản phẩm" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách sản phẩm ({_products.Count})")">
+            <VanAnDataGrid Items="_products" EmptyMessage="Không có sản phẩm">
+                <Columns>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Tên">
+                        <Template Context="p">
+                            <div>
+                                <strong>@p.Name</strong>
+                                @if (!string.IsNullOrEmpty(p.ImageUrl))
+                                {
+                                    <br /><img src="@p.ImageUrl" alt="@p.Name" style="max-width: 50px; max-height: 50px; border-radius: 4px; margin-top: 4px;" />
+                                }
+                            </div>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Danh mục">
+                        <Template Context="p">@p.Category</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Giá bán">
+                        <Template Context="p">@CurrencyHelper.FormatVND(p.Price)</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Giá vốn">
+                        <Template Context="p">@CurrencyHelper.FormatVND(p.CostPrice)</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="VAT">
+                        <Template Context="p">@(p.VatRate * 100)%</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Trạng thái">
+                        <Template Context="p">
+                            @if (p.IsActive)
+                            {
+                                <span class="status-badge status-active">Đang bán</span>
+                            }
+                            else
+                            {
+                                <span class="status-badge status-inactive">Tạm ngưng</span>
+                            }
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Hành động">
+                        <Template Context="p">
+                            <VanAButton Variant="outline" Size="small" OnClick="() => OpenEditModal(p)">Sửa</VanAButton>
+                            @if (p.IsActive)
+                            {
+                                <VanAButton Variant="warning" Size="small" OnClick="() => DeactivateProduct(p)">Tạm ngưng</VanAButton>
+                            }
+                            else
+                            {
+                                <VanAButton Variant="success" Size="small" OnClick="() => ActivateProduct(p)">Kích hoạt</VanAButton>
+                            }
+                            <VanAButton Variant="danger" Size="small" OnClick="() => OpenDeleteModal(p)">Xoá</VanAButton>
+                        </Template>
+                    </VanAnColumn>
+                </Columns>
+            </VanAnDataGrid>
+        </VanACard>
+    }
+</div>
+
+<!-- Create Modal -->
+@if (_showCreateModal)
+{
+    <VanAnModal Title="Thêm sản phẩm mới" OnClose="CloseCreateModal">
+        <VanAForm OnValidSubmit="HandleCreateSubmit">
+            <div class="form-group">
+                <label for="create-name">Tên sản phẩm *</label>
+                <input id="create-name" class="vanan-input" @bind="_createForm.Name" placeholder="Nhập tên sản phẩm" required />
+            </div>
+            <div class="form-group">
+                <label for="create-description">Mô tả</label>
+                <textarea id="create-description" class="vanan-input" @bind="_createForm.Description" rows="2" placeholder="Mô tả sản phẩm"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="create-price">Giá bán (VNĐ) *</label>
+                <input id="create-price" class="vanan-input" type="number" @bind="_createForm.Price" placeholder="0" required />
+            </div>
+            <div class="form-group">
+                <label for="create-costprice">Giá vốn (VNĐ)</label>
+                <input id="create-costprice" class="vanan-input" type="number" @bind="_createForm.CostPrice" placeholder="0" />
+            </div>
+            <div class="form-group">
+                <label for="create-category">Danh mục *</label>
+                <input id="create-category" class="vanan-input" @bind="_createForm.Category" placeholder="VD: Đồ uống, Thực phẩm" required />
+            </div>
+            <div class="form-group">
+                <label for="create-vatrate">VAT (0-1, mặc định 0.10)</label>
+                <input id="create-vatrate" class="vanan-input" type="number" step="0.01" @bind="_createForm.VatRate" />
+            </div>
+            <div class="form-group">
+                <label for="create-image">Hình ảnh (tùy chọn)</label>
+                <InputFile id="create-image" OnChange="OnCreateImageSelected" accept=".jpg,.jpeg,.png,.webp" />
+                @if (_createImageFile != null)
+                {
+                    <small class="text-muted">Đã chọn: @_createImageFile.Name</small>
+                }
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="primary" Type="submit" Loading="@_isSaving">Tạo</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseCreateModal">Huỷ</VanAButton>
+            </div>
+        </VanAForm>
+    </VanAnModal>
+}
+
+<!-- Edit Modal -->
+@if (_showEditModal && _selected != null)
+{
+    <VanAnModal Title="Sửa sản phẩm" OnClose="CloseEditModal">
+        <VanAForm OnValidSubmit="HandleEditSubmit">
+            <div class="form-group">
+                <label for="edit-name">Tên sản phẩm *</label>
+                <input id="edit-name" class="vanan-input" @bind="_editForm.Name" required />
+            </div>
+            <div class="form-group">
+                <label for="edit-description">Mô tả</label>
+                <textarea id="edit-description" class="vanan-input" @bind="_editForm.Description" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="edit-price">Giá bán (VNĐ) *</label>
+                <input id="edit-price" class="vanan-input" type="number" @bind="_editForm.Price" required />
+            </div>
+            <div class="form-group">
+                <label for="edit-category">Danh mục *</label>
+                <input id="edit-category" class="vanan-input" @bind="_editForm.Category" required />
+            </div>
+            <div class="form-group">
+                <label for="edit-vatrate">VAT (0-1)</label>
+                <input id="edit-vatrate" class="vanan-input" type="number" step="0.01" @bind="_editForm.VatRate" />
+            </div>
+            <div class="form-group">
+                <label for="edit-active">Trạng thái</label>
+                <select id="edit-active" class="vanan-select" @bind="_editForm.IsActive">
+                    <option value="true">Đang bán</option>
+                    <option value="false">Tạm ngưng</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Hình ảnh hiện tại</label>
+                @if (!string.IsNullOrEmpty(_editForm.ImageUrl))
+                {
+                    <img src="@_editForm.ImageUrl" alt="Product image" style="max-width: 100px; max-height: 100px; border-radius: 4px;" />
+                }
+                else
+                {
+                    <span class="text-muted">Chưa có hình ảnh</span>
+                }
+            </div>
+            <div class="form-group">
+                <label for="edit-image">Đổi hình ảnh (tùy chọn)</label>
+                <InputFile id="edit-image" OnChange="OnEditImageSelected" accept=".jpg,.jpeg,.png,.webp" />
+                @if (_editImageFile != null)
+                {
+                    <small class="text-muted">Đã chọn: @_editImageFile.Name</small>
+                }
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="primary" Type="submit" Loading="@_isSaving">Lưu</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseEditModal">Huỷ</VanAButton>
+            </div>
+        </VanAForm>
+    </VanAnModal>
+}
+
+<!-- Delete Confirm Modal -->
+@if (_showDeleteModal && _selected != null)
+{
+    <VanAnModal Title="Xác nhận xoá" OnClose="CloseDeleteModal" ShowDefaultFooter="false">
+        <p>Bạn có chắc muốn xoá sản phẩm <strong>@_selected.Name</strong>?</p>
+        <p class="text-muted"><small>Sản phẩm sẽ bị ẩn khỏi mọi danh sách (soft delete).</small></p>
+        <div class="modal-actions">
+            <VanAButton Variant="danger" OnClick="ConfirmDelete" Loading="@_isSaving">Xoá</VanAButton>
+            <VanAButton Variant="outline" OnClick="CloseDeleteModal">Huỷ</VanAButton>
+        </div>
+    </VanAnModal>
+}
+
+@code {
+    private List<ProductDetailDto> _products = new();
+    private ProductDetailDto? _selected;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private CreateProductRequest _createForm = new();
+    private UpdateProductRequest _editForm = new();
+    private bool _showCreateModal;
+    private bool _showEditModal;
+    private bool _showDeleteModal;
+
+    private IBrowserFile? _createImageFile;
+    private IBrowserFile? _editImageFile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _products = await ProductService.GetAllForManagementAsync(TenantProvider.TenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading products");
+            _errorMessage = "Không thể tải danh sách sản phẩm.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    // ── Create ──
+
+    private void OpenCreateModal()
+    {
+        _createForm = new CreateProductRequest();
+        _createImageFile = null;
+        _showCreateModal = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        _showCreateModal = false;
+    }
+
+    private void OnCreateImageSelected(InputFileChangeEventArgs e)
+    {
+        _createImageFile = e.File;
+    }
+
+    private async Task HandleCreateSubmit()
+    {
+        _isSaving = true;
+        try
+        {
+            ProductDetailDto created = await ProductService.CreateProductAsync(_createForm, TenantProvider.TenantId);
+
+            // Upload image after create (need product ID first)
+            if (_createImageFile != null)
+            {
+                await using var stream = _createImageFile.OpenReadStream(5 * 1024 * 1024);
+                _ = await ProductService.UploadImageAsync(created.ProductId, stream, _createImageFile.Name, TenantProvider.TenantId);
+            }
+
+            _showCreateModal = false;
+            await LoadProducts();
+        }
+        catch (ArgumentException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating product");
+            _errorMessage = "Không thể tạo sản phẩm.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    // ── Edit ──
+
+    private void OpenEditModal(ProductDetailDto p)
+    {
+        _selected = p;
+        _editForm = new UpdateProductRequest
+        {
+            Name = p.Name,
+            Description = p.Description,
+            Price = p.Price,
+            Category = p.Category,
+            IsActive = p.IsActive,
+            VatRate = p.VatRate,
+            ImageUrl = p.ImageUrl
+        };
+        _editImageFile = null;
+        _showEditModal = true;
+    }
+
+    private void CloseEditModal()
+    {
+        _showEditModal = false;
+        _selected = null;
+    }
+
+    private void OnEditImageSelected(InputFileChangeEventArgs e)
+    {
+        _editImageFile = e.File;
+    }
+
+    private async Task HandleEditSubmit()
+    {
+        if (_selected == null) return;
+        _isSaving = true;
+        try
+        {
+            bool ok = await ProductService.UpdateProductAsync(_selected.ProductId, _editForm, TenantProvider.TenantId);
+
+            // Upload new image if selected
+            if (ok && _editImageFile != null)
+            {
+                await using var stream = _editImageFile.OpenReadStream(5 * 1024 * 1024);
+                _ = await ProductService.UploadImageAsync(_selected.ProductId, stream, _editImageFile.Name, TenantProvider.TenantId);
+            }
+
+            _showEditModal = false;
+            _selected = null;
+            await LoadProducts();
+        }
+        catch (ArgumentException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating product {ProductId}", _selected?.ProductId);
+            _errorMessage = "Không thể cập nhật sản phẩm.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    // ── Activate / Deactivate ──
+
+    private async Task ActivateProduct(ProductDetailDto p)
+    {
+        try
+        {
+            _ = await ProductService.ActivateProductAsync(p.ProductId, TenantProvider.TenantId);
+            await LoadProducts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error activating product {ProductId}", p.ProductId);
+            _errorMessage = "Không thể kích hoạt sản phẩm.";
+        }
+    }
+
+    private async Task DeactivateProduct(ProductDetailDto p)
+    {
+        try
+        {
+            _ = await ProductService.DeactivateProductAsync(p.ProductId, TenantProvider.TenantId);
+            await LoadProducts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deactivating product {ProductId}", p.ProductId);
+            _errorMessage = "Không thể tạm ngưng sản phẩm.";
+        }
+    }
+
+    // ── Delete ──
+
+    private void OpenDeleteModal(ProductDetailDto p)
+    {
+        _selected = p;
+        _showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        _showDeleteModal = false;
+        _selected = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_selected == null) return;
+        _isSaving = true;
+        try
+        {
+            _ = await ProductService.DeleteProductAsync(_selected.ProductId, TenantProvider.TenantId);
+            _showDeleteModal = false;
+            _selected = null;
+            await LoadProducts();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting product {ProductId}", _selected?.ProductId);
+            _errorMessage = "Không thể xoá sản phẩm.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

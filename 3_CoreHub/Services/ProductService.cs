@@ -144,6 +144,28 @@ namespace VanAn.CoreHub.Services
             return url;
         }
 
+        public async Task<string?> UploadImageAsync(Guid productId, Stream stream, string fileName, Guid tenantId, CancellationToken ct = default)
+        {
+            Product? product = await _productRepository.GetByIdAsync(new ProductId(productId), new TenantId(tenantId), ct);
+            if (product == null)
+            {
+                return null;
+            }
+
+            string folder = $"products/{tenantId}/{productId}";
+            string? url = await _imageStorageService.UploadAsync(stream, fileName, folder, ct);
+            if (url == null)
+            {
+                return null;
+            }
+
+            product.Update(product.Name, product.Description, product.Price, product.Category, product.IsActive, url, product.VatRate);
+            _ = await _productRepository.UpdateAsync(product, ct);
+            await _productRepository.SaveChangesAsync(ct);
+
+            return url;
+        }
+
         private static ProductDetailDto MapToDto(Product p) => new()
         {
             ProductId = p.ProductId.Value,

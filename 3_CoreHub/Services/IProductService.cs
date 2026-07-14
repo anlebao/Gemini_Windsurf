@@ -3,6 +3,7 @@ using VanAn.Shared.DTOs;
 
 namespace VanAn.CoreHub.Services
 {
+
     /// <summary>
     /// Product management service — CRUD + activate/deactivate + image upload.
     /// G3: Clean Architecture service layer (controller does NOT write via IVanAnDbContext directly).
@@ -31,7 +32,10 @@ namespace VanAn.CoreHub.Services
         /// <summary>Activate a product (IsActive = true). Returns true on success, false if not found.</summary>
         Task<bool> ActivateProductAsync(Guid productId, Guid tenantId, CancellationToken ct = default);
 
-        /// <summary>Upload an image for a product. Returns the image URL, or null on failure.</summary>
+        /// <summary>Upload an image for a product (IFormFile — from HTTP endpoint). Returns the image URL, or null on failure.</summary>
         Task<string?> UploadImageAsync(Guid productId, IFormFile file, Guid tenantId, CancellationToken ct = default);
+
+        /// <summary>Upload an image for a product (Stream — from Blazor Server IBrowserFile). Returns the image URL, or null on failure.</summary>
+        Task<string?> UploadImageAsync(Guid productId, Stream stream, string fileName, Guid tenantId, CancellationToken ct = default);
     }
 }
