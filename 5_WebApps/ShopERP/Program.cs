@@ -421,7 +421,7 @@ namespace VanAn.ShopERP
                 .AddPolicy("OwnerOnly", policy => policy.RequireRole(UserRole.Owner.ToString(), "SystemAdmin"))
                 .AddPolicy("StoreManagement", policy => policy.RequireRole(UserRole.Owner.ToString(), UserRole.StoreKeeper.ToString(), "SystemAdmin"))
                 .AddPolicy("GuardOnly", policy => policy.RequireRole(UserRole.Guard.ToString()))
-                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString(), "SystemAdmin"))
+                .AddPolicy("StaffOrAbove", policy => policy.RequireRole(UserRole.Staff.ToString(), UserRole.StoreKeeper.ToString(), UserRole.Owner.ToString(), UserRole.Masterchef.ToString(), "SystemAdmin"))
                 // Wave 5: SystemAdmin — cross-tenant Tenant CRUD (platform-level admin)
                 .AddPolicy("SystemAdmin", policy => policy.RequireRole("SystemAdmin"));
 

@@ -625,7 +625,19 @@ namespace VanAn.CoreHub.Services
 
             if (accountingEnabled)
             {
-                await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
+                // ISSUE #5 FIX: Wrap accounting entry generation in try-catch.
+                // Order status is already saved as Paid (line 603). Accounting entries are
+                // secondary — if they fail (e.g. JournalEntry PK duplicate), the payment
+                // confirmation should still succeed so the customer sees "Paid" status.
+                // The pre-existing JournalEntry duplicate key bug is tracked separately.
+                try
+                {
+                    await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
+                }
+                catch (Exception ex) when (ex is not KeyNotFoundException)
+                {
+                    _logger.LogError(ex, "ConfirmPaymentAsync: Accounting entry generation failed for order {OrderId} — order is already marked Paid. Accounting entries will need manual reconciliation.", orderId);
+                }
             }
             else
             {

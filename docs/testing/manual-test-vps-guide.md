@@ -21,7 +21,7 @@ Tenant ID: 00000000-0000-0000-0000-000000000001
 | Role | Username | Password | Ghi chú |
 |------|----------|----------|---------|
 | **SystemAdmin** | `sysadmin@vanan.vn` | `2026@vanan` | Platform-level, cross-tenant |
-| **Owner (Chủ quán)** | `admin@vanan.vn` | `2026@vanan` | Tenant-level, full access |
+| **Owner (Chủ quán)** | `adminvanan1` | `2026@vanan` | Tenant-level, full access |
 | **StoreKeeper (Thủ kho)** | `kho@vanan.vn` | `2026@vanan` | Quản lý kho + e-invoice |
 | **Guard (Bảo vệ)** | `baove@vanan.vn` | `2026@vanan` | QR check-in/out |
 | **Staff (Phục vụ)** | `staff@vanan.vn` | `2026@vanan` | Order + Kitchen display |
@@ -97,7 +97,7 @@ curl -X POST https://api.khachvip.online/shoperp/api/admin/exit-impersonation \
 ### 2.1 Đăng nhập
 
 1. Mở `https://api.khachvip.online/shoperp/Login`
-2. Nhập `admin@vanan.vn` / `2026@vanan`
+2. Nhập `adminvanan1` / `2026@vanan`
 3. Click "Đăng nhập"
 4. **Redirect:** `/Index` (Dashboard)
 

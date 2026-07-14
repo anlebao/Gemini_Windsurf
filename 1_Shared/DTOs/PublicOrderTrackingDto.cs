@@ -9,6 +9,8 @@ namespace VanAn.Shared.DTOs
     {
         public Guid OrderId { get; init; }
         public string Status { get; init; } = string.Empty;
+        /// <summary>ISSUE #5 FIX: Expose PaymentStatus so customer can see payment confirmation on tracking page.</summary>
+        public string PaymentStatus { get; init; } = string.Empty;
         public DateTime CreatedAt { get; init; }
         public decimal TotalPrice { get; init; }
         public int ItemCount { get; init; }

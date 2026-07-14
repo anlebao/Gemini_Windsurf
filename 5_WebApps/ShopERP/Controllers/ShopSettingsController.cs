@@ -21,7 +21,13 @@ public class ShopSettingsController : ControllerBase
     }
 
     /// <summary>Get feature settings for the current tenant.</summary>
+    /// <remarks>
+    /// ISSUE #4 FIX: AllowAnonymous — KhachLink (Customer PWA) calls this endpoint without
+    /// staff auth to determine which shop features are enabled (Kitchen display, QR table
+    /// number, voice note). Feature settings are public shop configuration, not sensitive.
+    /// </remarks>
     [HttpGet("features")]
+    [AllowAnonymous]
     public async Task<ActionResult<ShopFeatureSettingsDto>> GetFeatures([FromQuery] Guid? tenantId, CancellationToken ct)
     {
         Guid tid = tenantId ?? GetTenantIdFromContext();

@@ -158,6 +158,7 @@ namespace VanAn.Gateway.Controllers
                 {
                     OrderId = order.Id,
                     Status = order.Status?.Value ?? "pending",
+                    PaymentStatus = order.PaymentStatus ?? "pending",
                     CreatedAt = order.CreatedAt,
                     TotalPrice = order.TotalPrice,
                     ItemCount = order.Items.Count,
