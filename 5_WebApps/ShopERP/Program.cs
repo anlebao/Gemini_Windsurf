@@ -344,6 +344,9 @@ namespace VanAn.ShopERP
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
             _ = builder.Services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
+            // Product Management (Phase 3): IProductService + IImageStorageService (Cloudinary)
+            _ = builder.Services.AddScoped<CoreHub.Services.IProductService, CoreHub.Services.ProductService>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IImageStorageService, CoreHub.Services.CloudinaryImageStorageService>();
             // Wave 5: Tenant management
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantManagementService, CoreHub.Services.TenantManagementService>();
             // Wave 6: User & permission group management

@@ -126,7 +126,12 @@ foreach ($file in $serviceFiles) {
 # 5. Check for EF Core in Domain layer
 Write-Host "Checking EF Core in Domain layer..." -ForegroundColor Yellow
 
-$domainFiles = Get-ChildItem -Path "1_Shared" -Filter "*.cs" -Recurse
+# Domain layer = 1_Shared/Domain.cs + 1_Shared/Domain/ folder ONLY.
+# DTOs (1_Shared/DTOs/) and Models (1_Shared/Models/) are NOT domain entities —
+# G9 explicitly allows DataAnnotations at the DTO layer.
+$domainFiles = @()
+if (Test-Path "1_Shared\Domain.cs") { $domainFiles += Get-Item "1_Shared\Domain.cs" }
+$domainFiles += Get-ChildItem -Path "1_Shared\Domain" -Filter "*.cs" -Recurse -ErrorAction SilentlyContinue
 foreach ($file in $domainFiles) {
     $content = Get-Content $file.FullName -Raw
     

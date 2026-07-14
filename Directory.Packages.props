@@ -3,6 +3,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="CloudinaryDotNet" Version="1.27.0" />
     <PackageVersion Include="NATS.Client" Version="1.1.6" />
     <PackageVersion Include="QRCoder" Version="1.8.0" />
     <PackageVersion Include="System.Data.SQLite" Version="1.0.118" />

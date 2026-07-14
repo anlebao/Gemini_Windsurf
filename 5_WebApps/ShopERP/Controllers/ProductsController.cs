@@ -6,6 +6,7 @@ using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.DTOs;
 
 namespace VanAn.ShopERP.Controllers
 {
@@ -16,12 +17,21 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ProductsController(IVanAnDbContext dbContext, ILogger<ProductsController> logger, CustomerRecommendationService recommendationService, IShopQrCodeService qrCodeService, IShopFeatureSettingsService? shopFeatureSettingsService = null) : ControllerBase
+    public class ProductsController(
+        IVanAnDbContext dbContext,
+        ILogger<ProductsController> logger,
+        CustomerRecommendationService recommendationService,
+        IShopQrCodeService qrCodeService,
+        IProductService productService,
+        ITenantProvider tenantProvider,
+        IShopFeatureSettingsService? shopFeatureSettingsService = null) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<ProductsController> _logger = logger;
         private readonly CustomerRecommendationService _recommendationService = recommendationService;
         private readonly IShopQrCodeService _qrCodeService = qrCodeService;
+        private readonly IProductService _productService = productService;
+        private readonly ITenantProvider _tenantProvider = tenantProvider;
         // W3-T8: Shop feature settings — for QR_TableNumber_Enabled toggle
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
 
@@ -198,6 +208,161 @@ namespace VanAn.ShopERP.Controllers
                 _logger.LogError(ex, "Error generating QR code for product {ProductId}", id);
                 return StatusCode(500, "Internal server error");
             }
+        }
+
+        // ── Product Management endpoints (Phase 3 — G3 Clean Architecture) ──
+
+        /// <summary>
+        /// Get all products for management (include inactive, exclude soft-deleted).
+        /// </summary>
+        [HttpGet("manage")]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult<List<ProductDetailDto>>> GetProductsForManagement(CancellationToken ct)
+        {
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            List<ProductDetailDto> products = await _productService.GetAllForManagementAsync(_tenantProvider.TenantId, ct);
+            return Ok(products);
+        }
+
+        /// <summary>
+        /// Create a new product.
+        /// </summary>
+        [HttpPost]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult<ProductDetailDto>> CreateProduct([FromBody] CreateProductRequest request, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            try
+            {
+                ProductDetailDto created = await _productService.CreateProductAsync(request, _tenantProvider.TenantId, ct);
+                return CreatedAtAction(nameof(GetProduct), new { id = created.ProductId }, created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating product for tenant {TenantId}", _tenantProvider.TenantId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Update an existing product.
+        /// </summary>
+        [HttpPut("{id:guid}")]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult> UpdateProduct(Guid id, [FromBody] UpdateProductRequest request, CancellationToken ct)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            try
+            {
+                bool ok = await _productService.UpdateProductAsync(id, request, _tenantProvider.TenantId, ct);
+                return ok ? Ok() : NotFound();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating product {ProductId}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Soft-delete a product (MarkAsDeleted — IsDeleted = true).
+        /// </summary>
+        [HttpDelete("{id:guid}")]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult> DeleteProduct(Guid id, CancellationToken ct)
+        {
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            bool ok = await _productService.DeleteProductAsync(id, _tenantProvider.TenantId, ct);
+            return ok ? NoContent() : NotFound();
+        }
+
+        /// <summary>
+        /// Activate a product (IsActive = true).
+        /// </summary>
+        [HttpPut("{id:guid}/activate")]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult> ActivateProduct(Guid id, CancellationToken ct)
+        {
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            bool ok = await _productService.ActivateProductAsync(id, _tenantProvider.TenantId, ct);
+            return ok ? Ok() : NotFound();
+        }
+
+        /// <summary>
+        /// Deactivate a product (IsActive = false — hide from catalog, still visible in management).
+        /// </summary>
+        [HttpPut("{id:guid}/deactivate")]
+        [Authorize(Policy = "OwnerOnly")]
+        public async Task<ActionResult> DeactivateProduct(Guid id, CancellationToken ct)
+        {
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            bool ok = await _productService.DeactivateProductAsync(id, _tenantProvider.TenantId, ct);
+            return ok ? Ok() : NotFound();
+        }
+
+        /// <summary>
+        /// Upload an image for a product (multipart/form-data). Returns the image URL.
+        /// G8: Cloudinary — separate endpoint, no binary in JSON DTO.
+        /// </summary>
+        [HttpPost("{id:guid}/image")]
+        [Authorize(Policy = "OwnerOnly")]
+        [RequestSizeLimit(10 * 1024 * 1024)] // 10MB max request (file max 5MB enforced in service)
+        public async Task<ActionResult> UploadProductImage(Guid id, IFormFile file, CancellationToken ct)
+        {
+            if (!_tenantProvider.HasTenant)
+            {
+                return Unauthorized("No tenant context");
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file uploaded");
+            }
+
+            string? url = await _productService.UploadImageAsync(id, file, _tenantProvider.TenantId, ct);
+            return url == null ? NotFound() : Ok(new { imageUrl = url });
         }
     }
 
