@@ -149,14 +149,24 @@
 
             if (resp.IsSuccessStatusCode)
             {
-                var profile = await resp.Content.ReadFromJsonAsync<CustomerProfile>();
-                if (profile != null)
+                var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
+                if (contentType.Contains("json"))
                 {
-                    _isLoggedIn = true;
-                    _customerName = profile.FullName;
-                    _tier = profile.Tier;
-                    _pointBalance = profile.PointBalance;
-                    _identityLevel = profile.IdentityLevel ?? "Social";
+                    var profile = await resp.Content.ReadFromJsonAsync<CustomerProfile>();
+                    if (profile != null)
+                    {
+                        _isLoggedIn = true;
+                        _customerName = profile.FullName;
+                        _tier = profile.Tier;
+                        _pointBalance = profile.PointBalance;
+                        _identityLevel = profile.IdentityLevel ?? "Social";
+                    }
+                }
+                else
+                {
+                    // Non-JSON response (e.g., HTML fallback) — token likely invalid
+                    await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "customer_token");
+                    _isLoggedIn = false;
                 }
             }
             else

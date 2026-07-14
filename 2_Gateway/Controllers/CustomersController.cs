@@ -19,13 +19,13 @@ namespace VanAn.Gateway.Controllers
         [HttpPost("otp/send")]
         public async Task<IActionResult> SendOtp([FromBody] object request)
         {
-            return await ForwardPost("/api/customeridentity/otp/send", request);
+            return await ForwardPost("/api/customer-identity/otp/send", request);
         }
 
         [HttpPost("otp/verify")]
         public async Task<IActionResult> VerifyOtp([FromBody] object request)
         {
-            return await ForwardPost("/api/customeridentity/otp/verify", request);
+            return await ForwardPost("/api/customer-identity/otp/verify", request);
         }
 
         [HttpGet("me")]
@@ -34,7 +34,7 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
-                var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/customeridentity/me");
+                var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
                 // Forward X-Customer-Token header
                 if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
                     reqMsg.Headers.Add("X-Customer-Token", token.ToString());
