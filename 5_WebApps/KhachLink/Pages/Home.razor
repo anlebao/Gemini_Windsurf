@@ -205,12 +205,6 @@
 
     <!-- Social Hub: render real shop social links from ShopConfig (Phase 3 wire-up) -->
     <SocialHub ShopConfig="@_shopConfig" />
-
-    <!-- FIX-BATCH-5: Wire IdentityUpgradeModal — show after first cart add when anonymous -->
-    <IdentityUpgradeModal ShowModal="@_showUpgradeModal"
-                          ShopConfig="@_shopConfig"
-                          OnDismiss="@DismissUpgradeModal"
-                          OnUpgrade="@GoToLogin" />
 </KhachLinkLayout>
 
 @code {
@@ -219,9 +213,7 @@
     private List<RecommendedProductDto> recommendedProducts = new();
     private List<ProductDto> recentlyViewed = new();
     private ShopConfig? _shopConfig;
-    private bool _showUpgradeModal = false;
     private bool _isLoggedIn = false;
-    private bool _hasShownUpgradeModal = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -290,21 +282,13 @@
     private async Task AddToCart(ProductDto product)
     {
         await CartService.AddItemAsync(product, 1);
-        
+
         // Track product view
         await RecentlyViewedService.AddToRecentlyViewedAsync(product);
         recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
-        
+
         // Show notification
         await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng!", "success");
-
-        // FIX-BATCH-5: Show identity upgrade modal after first add-to-cart if anonymous
-        if (!_isLoggedIn && !_hasShownUpgradeModal)
-        {
-            _showUpgradeModal = true;
-            _hasShownUpgradeModal = true;
-            StateHasChanged();
-        }
     }
 
     private async Task ShowNotification(string message, string type)
@@ -322,18 +306,6 @@
     {
         Navigation.NavigateTo("/checkout");
         await Task.Delay(100);
-    }
-
-    // FIX-BATCH-5: IdentityUpgradeModal handlers
-    private void DismissUpgradeModal()
-    {
-        _showUpgradeModal = false;
-    }
-
-    private void GoToLogin()
-    {
-        _showUpgradeModal = false;
-        Navigation.NavigateTo("/login");
     }
 
     public void Dispose()

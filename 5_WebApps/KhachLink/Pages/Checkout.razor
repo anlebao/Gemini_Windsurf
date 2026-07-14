@@ -8,6 +8,7 @@
 @inject VanAn.KhachLink.Services.CheckoutFlowState CheckoutFlow
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 @* W1-T1: Payment method — "cash" shows ProcessingBar, "transfer" shows QR modal. *@
@@ -164,6 +165,11 @@
             </div>
         }
     </div>
+
+    <!-- Post-checkout: offer loyalty points signup for anonymous customers -->
+    <IdentityUpgradeModal ShowModal="@_showLoyaltySignupModal"
+                          OnDismiss="@DismissLoyaltySignup"
+                          OnUpgradeComplete="@OnLoyaltySignupComplete" />
 </KhachLinkLayout>
 
 @code {
@@ -187,11 +193,19 @@
     // W1-T2: Cash flow processing state
     private bool isSendingCash;
 
+    // Post-checkout loyalty signup: show IdentityUpgradeModal after order success for anonymous users
+    private bool _showLoyaltySignupModal = false;
+    private bool _isLoggedIn = false;
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
         CartService.OnCartChanged += StateHasChanged;
         await CartService.LoadCartFromStorageAsync();
+
+        // Check if customer is logged in (has customer_token in localStorage)
+        var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(token);
 
         if (cartState.GetTotalItems() == 0)
         {
@@ -265,6 +279,13 @@
 
                 await CartService.ClearCartAsync();
 
+                // Post-checkout: show loyalty signup modal for anonymous customers
+                // so they can authenticate and earn points on this order.
+                if (!_isLoggedIn)
+                {
+                    _showLoyaltySignupModal = true;
+                }
+
                 // W1-T1: Cash flow → redirect to OrderTracking immediately (no QR modal)
                 if (selectedPaymentMethod == "cash" && !string.IsNullOrEmpty(createdOrderId))
                 {
@@ -287,6 +308,18 @@
 
     private void OpenQrModal() => showQrModal = true;
     private void CloseQrModal() => showQrModal = false;
+
+    // Post-checkout loyalty signup handlers
+    private void DismissLoyaltySignup()
+    {
+        _showLoyaltySignupModal = false;
+    }
+
+    private void OnLoyaltySignupComplete()
+    {
+        _showLoyaltySignupModal = false;
+        _isLoggedIn = true;
+    }
 
     public void Dispose()
     {
