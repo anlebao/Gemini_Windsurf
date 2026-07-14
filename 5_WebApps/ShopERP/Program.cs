@@ -383,7 +383,19 @@ namespace VanAn.ShopERP
             {
                 options.Cookie.Name = ".VanAn.Auth";
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.Strict;
+                // Lax (not Strict) — allows cookie to be sent on top-level navigation
+                // and cross-subdomain requests (khachvip.online ↔ www.khachvip.online).
+                // Strict blocks cookie when navigating from external sites.
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                // Production: share cookie across khachvip.online and www.khachvip.online.
+                // Without Cookie.Domain, the cookie is bound to the exact host that set it,
+                // so login on khachvip.online is not recognized on www.khachvip.online (and vice versa).
+                // Dev: no domain (localhost single host).
+                var cookieDomain = builder.Configuration["Auth:CookieDomain"];
+                if (!string.IsNullOrWhiteSpace(cookieDomain))
+                {
+                    options.Cookie.Domain = cookieDomain;
+                }
                 // Development: allow cookies over HTTP for local smoke test (no HTTPS cert needed).
                 // Production: Always (HTTPS only) — defense in depth.
                 options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()

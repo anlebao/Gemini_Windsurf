@@ -137,6 +137,8 @@ services:
       - Esms__BrandName=VanAn
       - ConnectionStrings__Redis=not-configured
       - Authentication__ClientSecret=not-configured
+      # Cookie auth: share across khachvip.online and www.khachvip.online
+      - Auth__CookieDomain=.${VANAN_DOMAIN}
     volumes:
       - shoperp_data:/app/keys
     networks:
