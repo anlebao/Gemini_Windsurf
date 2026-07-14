@@ -1,8 +1,15 @@
 @page "/quick-setup"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "SystemAdmin")]
 @using Microsoft.AspNetCore.Components.Web
-@inject HttpClient Http
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.WebUtilities
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@inject IHttpClientFactory HttpClientFactory
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject ITenantManagementService TenantService
 
 <PageTitle>Khởi tạo nhanh - VanAn ERP</PageTitle>
 
@@ -85,7 +92,38 @@
         <p class="text-muted">Chọn template và cấu hình cửa hàng của bạn trong vài phút</p>
     </div>
 
-    <!-- Progress Bar -->
+    @if (_tenantLoadError)
+    {
+        <div class="alert alert-danger" role="alert">
+            <strong>Thiếu hoặc sai tenantId.</strong> Vui lòng chọn tenant từ trang Quản lý Tenant.
+            <div class="mt-2">
+                <button class="btn btn-primary" @onclick="GoToTenants">Đi đến Quản lý Tenant →</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Tenant info banner -->
+        <div class="alert alert-info mb-3" role="alert">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Đang khởi tạo cho tenant:</strong>
+                    @if (_tenantName != null)
+                    {
+                        <span>@_tenantName</span>
+                    }
+                    else
+                    {
+                        <span class="text-muted">Đang tải...</span>
+                    }
+                    <br />
+                    <small class="text-muted">ID: @_selectedTenantId</small>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="GoToTenants">← Đổi tenant</button>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
     <div class="progress-wizard">
         <div class="progress" style="height: 25px;">
             <div class="progress-bar" id="progressBar" style="width: 25%;" role="progressbar">
@@ -268,6 +306,7 @@
             </div>
         }
     </div>
+    } @* end else (tenant loaded) *@
 </div>
 
 <!-- JavaScript for Wizard -->
@@ -310,8 +349,35 @@
     private QuickSetupResponse? setupResult;
     private int currentStep = 1;
 
+    // Tenant selection (from query string — SystemAdmin context, NOT ITenantProvider)
+    private Guid _selectedTenantId;
+    private string? _tenantName;
+    private bool _tenantLoadError;
+
+    private HttpClient Http => HttpClientFactory.CreateClient("GatewayClient");
+
     protected override async Task OnInitializedAsync()
     {
+        // Parse tenantId from query string (?tenantId=...)
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (!QueryHelpers.ParseQuery(uri.Query).TryGetValue("tenantId", out var tid)
+            || !Guid.TryParse(tid.ToString(), out _selectedTenantId))
+        {
+            _tenantLoadError = true;
+            return;
+        }
+
+        // Load tenant info for display (in-process CoreHub service — Option B)
+        try
+        {
+            var tenant = await TenantService.GetTenantByIdAsync(new TenantId(_selectedTenantId));
+            _tenantName = tenant?.Name;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tenant info: {ex.Message}");
+        }
+
         await LoadTemplates();
     }
 
@@ -382,14 +448,14 @@
 
             var request = new QuickSetupRequest
             {
-                TemplateType = selectedTemplate?.Type ?? "cafe",
+                TemplateType = selectedTemplate?.Id.ToString() ?? Guid.Empty.ToString(),
                 ShopName = shopName,
                 ShopAddress = shopAddress,
                 ShopPhone = shopPhone,
                 ShopEmail = shopEmail
             };
 
-            var shopId = Guid.NewGuid(); // In real implementation, this would come from authentication
+            var shopId = _selectedTenantId;
             var response = await Http.PostAsJsonAsync($"/api/v1/onboarding/shops/{shopId}/quick-setup", request);
             if (response.IsSuccessStatusCode)
             {
@@ -413,8 +479,14 @@
         NavigationManager.NavigateTo("/");
     }
 
+    private void GoToTenants()
+    {
+        NavigationManager.NavigateTo("/admin/tenants");
+    }
+
     public class TemplateInfo
     {
+        public Guid Id { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;

@@ -21,10 +21,13 @@ namespace VanAn.Gateway.Controllers
         [HttpGet("templates")]
         public ActionResult<IEnumerable<object>> GetAvailableTemplates()
         {
+            // Template Ids are deterministic Guids so the QuickSetup client can send them
+            // back as TemplateType (parsed by Guid.TryParse in QuickSetup/ApplyTemplate).
             var templates = new[]
             {
                 new
                 {
+                    Id = Guid.Parse("a1111111-1111-1111-1111-111111111111"),
                     Type = "cafe",
                     Name = "Quán Cafe",
                     Description = "Template cho quán cà phê và trà sữa",
@@ -35,6 +38,7 @@ namespace VanAn.Gateway.Controllers
                 },
                 new
                 {
+                    Id = Guid.Parse("b2222222-2222-2222-2222-222222222222"),
                     Type = "beauty",
                     Name = "Spa & Beauty",
                     Description = "Template cho spa và salon làm đẹp",
@@ -45,6 +49,7 @@ namespace VanAn.Gateway.Controllers
                 },
                 new
                 {
+                    Id = Guid.Parse("c3333333-3333-3333-3333-333333333333"),
                     Type = "retail",
                     Name = "Cửa hàng",
                     Description = "Template cho cửa hàng thời trang và bán lẻ",

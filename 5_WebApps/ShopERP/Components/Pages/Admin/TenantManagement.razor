@@ -101,6 +101,9 @@
                             <td>@(t.Settings.ContactEmail ?? "-")</td>
                             <td>@t.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
                             <td class="action-cell">
+                                <VanAButton Variant="info" Size="small" OnClick="() => NavigateToQuickSetup(t)">
+                                    Khởi tạo nhanh
+                                </VanAButton>
                                 @if (t.Status == TenantStatus.Active)
                                 {
                                     <VanAButton Variant="outline" Size="small" OnClick="() => OpenSuspendModal(t)">
@@ -565,6 +568,11 @@
     }
 
     // ── Impersonation (AM-T7) ─────────────────────────────────────────────────
+
+    private void NavigateToQuickSetup(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant tenant)
+    {
+        NavigationManager.NavigateTo($"/quick-setup?tenantId={tenant.Id.Value}");
+    }
 
     private async Task ImpersonateTenant(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant tenant)
     {
