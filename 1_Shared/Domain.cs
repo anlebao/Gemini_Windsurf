@@ -600,6 +600,54 @@ namespace VanAn.Shared.Domain
             if (costPrice < 0) throw new ArgumentException("CostPrice cannot be negative.", nameof(costPrice));
             CostPrice = costPrice;
         }
+
+        /// <summary>
+        /// Update product info (name, description, price, category, isActive, imageUrl, vatRate).
+        /// G5: calls UpdateAudit() for audit trail integrity.
+        /// </summary>
+        public void Update(string name, string description, decimal price, string category, bool isActive, string? imageUrl, decimal vatRate, string? updatedBy = null)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name cannot be empty.", nameof(name));
+            if (price < 0) throw new ArgumentException("Price cannot be negative.", nameof(price));
+            if (vatRate < 0) throw new ArgumentException("VatRate cannot be negative.", nameof(vatRate));
+
+            Name = name;
+            Description = description;
+            Price = price;
+            Category = category;
+            IsActive = isActive;
+            ImageUrl = imageUrl;
+            VatRate = vatRate;
+            UpdateAudit(updatedBy);
+        }
+
+        /// <summary>
+        /// Deactivate product — hide from public catalog, still visible in management.
+        /// G6: IsActive = false (NOT a true delete).
+        /// </summary>
+        public void Deactivate(string? updatedBy = null)
+        {
+            IsActive = false;
+            UpdateAudit(updatedBy);
+        }
+
+        /// <summary>
+        /// Activate product — show in public catalog again.
+        /// </summary>
+        public void Activate(string? updatedBy = null)
+        {
+            IsActive = true;
+            UpdateAudit(updatedBy);
+        }
+
+        /// <summary>
+        /// Mark product as deleted — true soft delete (IsDeleted = true), hidden from all queries.
+        /// G6: separate from Deactivate(). DELETE endpoint calls this.
+        /// </summary>
+        public void MarkAsDeleted(string? updatedBy = null)
+        {
+            base.MarkAsDeleted(updatedBy);
+        }
     }
 
     public enum IdentityLevel
