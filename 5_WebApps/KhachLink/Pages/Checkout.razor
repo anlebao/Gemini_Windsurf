@@ -335,10 +335,15 @@
         CartService.OnCartChanged -= StateHasChanged;
     }
 
-    private record OrderCreatedResult(
-        string OrderId,
-        string? QrImageUrl,
-        string? PaymentUrl,
-        decimal Amount
-    );
+    private class OrderCreatedResult
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("orderId")]
+        public string OrderId { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("qrImageUrl")]
+        public string? QrImageUrl { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("paymentUrl")]
+        public string? PaymentUrl { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
+        public decimal Amount { get; set; }
+    }
 }

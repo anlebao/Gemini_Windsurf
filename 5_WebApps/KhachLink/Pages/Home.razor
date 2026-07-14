@@ -1,6 +1,7 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
+@using VanAn.KhachLink.Components.Shared
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Services.Http
@@ -97,9 +98,9 @@
                         <div class="col-md-4 mb-3 feature-card">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
-                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
-                                         class="card-img-top" 
-                                         alt="@item.Name" 
+                                    <img id="product-img-@item.ProductId" src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)"
+                                         class="card-img-top"
+                                         alt="@item.Name"
                                          style="height: 200px; object-fit: cover;" />
                                 </div>
                                 <div class="product-info">
@@ -107,11 +108,11 @@
                                     <p class="text-muted">@item.Description</p>
                                     <div class="d-flex justify-content-between align-items-center">
                                                 <div>
-                                                    <span class="h5 text-primary mb-0">@item.Price.ToString("N0")đ</span>
+                                                    <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.Price)</span>
                                                     <br />
                                                     <small class="text-muted">VAT: @(item.VatRate * 100)%</small>
                                                 </div>
-                                                <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item))">
+                                                <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item, $"product-img-{item.ProductId}"))">
                                                     Đặt ngay
                                                 </VanAnButton>
                                             </div>
@@ -279,8 +280,15 @@
         }
     }
 
-    private async Task AddToCart(ProductDto product)
+    private async Task AddToCart(ProductDto product, string? imgElementId = null)
     {
+        // Fly-to-cart animation
+        if (!string.IsNullOrEmpty(imgElementId))
+        {
+            try { await JSRuntime.InvokeVoidAsync("vananFlyToCart", imgElementId); }
+            catch { /* ignore animation errors */ }
+        }
+
         await CartService.AddItemAsync(product, 1);
 
         // Track product view

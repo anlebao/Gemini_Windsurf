@@ -55,6 +55,7 @@ window.vananPWA = {
             return false;
         }
 
+        // Android/Desktop Chrome: use beforeinstallprompt
         if (this.deferredPrompt) {
             try {
                 const result = await this.deferredPrompt.prompt();
@@ -73,8 +74,25 @@ window.vananPWA = {
                 return false;
             }
         }
+
+        // iOS Safari: no beforeinstallprompt support — show instructions
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        if (isIOS) {
+            alert('Để cài đặt app Vạn An trên iPhone:\n\n1. Nhấn nút Share (hình vuông có mũi tên lên) ở thanh công cụ Safari\n2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen)\n3. Nhấn "Thêm" (Add)');
+            return false;
+        }
         
         return false;
+    },
+
+    // Detect if running on iOS (no beforeinstallprompt support)
+    isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    },
+
+    // Check if beforeinstallprompt is available (Android/Desktop)
+    canInstallNative() {
+        return this.deferredPrompt !== null;
     },
 
     // Notifications

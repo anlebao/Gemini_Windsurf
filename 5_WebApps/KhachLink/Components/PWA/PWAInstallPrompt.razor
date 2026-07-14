@@ -10,11 +10,11 @@
         </div>
         <div class="pwa-install-text">
             <h3>Cài đặt Vạn An App</h3>
-            <p>Trải nghiệm tốt hơn với ứng dụng Vạn An trên thiết bị của bạn!</p>
+            <p>@(_isIOS ? "Thêm app vào màn hình chính để truy cập nhanh!" : "Trải nghiệm tốt hơn với ứng dụng Vạn An trên thiết bị của bạn!")</p>
         </div>
         <div class="pwa-install-actions">
             <button class="btn btn-primary" @onclick="InstallApp">
-                <i class="fas fa-download"></i> Cài đặt
+                <i class="fas fa-download"></i> @(_isIOS ? "Hướng dẫn" : "Cài đặt")
             </button>
             <button class="btn btn-secondary" @onclick="DismissPrompt">
                 <i class="fas fa-times"></i>
@@ -210,8 +210,8 @@
     private bool _showOfflineIndicator = false;
     private CancellationTokenSource _cts = new();
     private bool _isInitialized = false;
-    // W2-T5: Disable PWA prompt for logged-in users (they already have the app)
     private bool _isLoggedIn = false;
+    private bool _isIOS = false;
 
     public bool IsOnline => _isOnline;
     public bool ShowOfflineIndicator => _showOfflineIndicator;
@@ -241,11 +241,18 @@
             _dismissed = dismissedFlag == "true";
 
             // W2-T5: Check if user is logged in (customer_token in localStorage)
-            // Logged-in users already have the app — don't show install prompt
             var customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(customerToken);
 
+            // Detect iOS (no beforeinstallprompt support — show instructions instead)
+            try
+            {
+                _isIOS = await JSRuntime.InvokeAsync<bool>("vananPWA.isIOS");
+            }
+            catch { /* ignore */ }
+
             // Show install prompt if not installed and not dismissed
+            // On iOS, beforeinstallprompt never fires — show prompt with instructions
             if (!PWAService.IsInstalled && !_dismissed)
             {
                 // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
