@@ -104,7 +104,7 @@ namespace VanAn.Core.Tests.Accounting
 
             // Assert
             Assert.NotNull(cut.Find("input[type='date']"));
-            Assert.NotNull(cut.Find("input[type='number']"));
+            Assert.NotNull(cut.Find("input#amount"));
             Assert.NotNull(cut.Find("select#account"));
             Assert.NotNull(cut.Find("textarea#description"));
             Assert.NotNull(cut.Find("input[type='text']#reference"));
