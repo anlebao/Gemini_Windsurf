@@ -78,3 +78,5 @@ window.vananFlyToCart = function (sourceElementId, cartIconSelector) {
         return false;
     }
 };
+
+// CI trigger
