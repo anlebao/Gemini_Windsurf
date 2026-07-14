@@ -25,6 +25,7 @@
         <h1>📦 Quản lý sản phẩm</h1>
         <div class="header-actions">
             <VanAButton Variant="primary" OnClick="OpenCreateModal">+ Thêm sản phẩm</VanAButton>
+            <VanAButton Variant="info" OnClick="PrintSelected" Disabled="@(_selectedForPrint.Count == 0)">In QR đã chọn (@_selectedForPrint.Count)</VanAButton>
             <VanAButton Variant="secondary" OnClick="LoadProducts">Làm mới</VanAButton>
         </div>
     </header>
@@ -58,6 +59,11 @@
         <VanACard Header="@($"Danh sách sản phẩm ({_products.Count})")">
             <VanAnDataGrid Items="_products" EmptyMessage="Không có sản phẩm">
                 <Columns>
+                    <VanAnColumn TItem="ProductDetailDto" Title="Chọn">
+                        <Template Context="p">
+                            <input type="checkbox" checked="@_selectedForPrint.Contains(p.ProductId)" @onchange="@(e => TogglePrintSelection(p.ProductId, e.Value))" />
+                        </Template>
+                    </VanAnColumn>
                     <VanAnColumn TItem="ProductDetailDto" Title="Tên">
                         <Template Context="p">
                             <div>
@@ -105,6 +111,11 @@
                                 <VanAButton Variant="success" Size="small" OnClick="() => ActivateProduct(p)">Kích hoạt</VanAButton>
                             }
                             <VanAButton Variant="danger" Size="small" OnClick="() => OpenDeleteModal(p)">Xoá</VanAButton>
+                        </Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="ProductDetailDto" Title="QR">
+                        <Template Context="p">
+                            <VanAButton Variant="info" Size="small" OnClick="() => OpenQrModal(p)">📱 QR</VanAButton>
                         </Template>
                     </VanAnColumn>
                 </Columns>
@@ -230,12 +241,118 @@
     </VanAnModal>
 }
 
+<!-- QR Modal -->
+@if (_showQrModal && _selected != null)
+{
+    <VanAnModal Title="QR Code sản phẩm" OnClose="CloseQrModal">
+        <div class="qr-modal-content">
+            <div class="qr-product-info">
+                <h4>@_selected.Name</h4>
+                <p>Giá: <strong>@CurrencyHelper.FormatVND(_selected.Price)</strong></p>
+                <p>Danh mục: @_selected.Category</p>
+            </div>
+            <div class="qr-image-container">
+                <img src="@($"/api/products/{_selected.ProductId}/qr?tenantId={TenantProvider.TenantId}")"
+                     alt="@($"QR code for {_selected.Name}")"
+                     style="width: 250px; height: 250px;" />
+            </div>
+            <div class="modal-actions">
+                <VanAButton Variant="primary" OnClick="PrintSingleQr">🖨️ In QR code</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseQrModal">Đóng</VanAButton>
+            </div>
+        </div>
+    </VanAnModal>
+}
+
+<script>
+window.printQrCode = function(productId, tenantId, productName, price) {
+    const qrUrl = '/api/products/' + productId + '/qr?tenantId=' + tenantId;
+    const win = window.open('', '_blank');
+    if (!win) { alert('Vui lòng cho phép popup để in QR code.'); return; }
+    win.document.write(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="utf-8" />
+            <title>QR - ${productName}</title>
+            <style>
+                @@page { size: A4 portrait; margin: 10mm; }
+                body { font-family: 'Segoe UI', Arial, sans-serif; text-align: center; padding: 20mm; }
+                .qr-card { width: 95mm; height: 95mm; margin: 0 auto; border: 1px solid #ccc; padding: 5mm; text-align: center; page-break-inside: avoid; }
+                .qr-card img { width: 200px; height: 200px; }
+                .qr-card h3 { margin: 4mm 0 2mm; font-size: 14pt; }
+                .qr-card .price { font-size: 16pt; font-weight: bold; color: #2c5282; }
+                .qr-card .shop { font-size: 10pt; color: #666; margin-top: 2mm; }
+            </style>
+        </head>
+        <body>
+            <div class="qr-card">
+                <img src="${qrUrl}" alt="QR" />
+                <h3>${productName}</h3>
+                <div class="price">${price}</div>
+                <div class="shop">VanAn ERP</div>
+            </div>
+            <script>
+                window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };
+            <\/script>
+        </body>
+        </html>
+    `);
+    win.document.close();
+};
+
+window.printBatchQrCodes = function(productIds, tenantId, productsData) {
+    const win = window.open('', '_blank');
+    if (!win) { alert('Vui lòng cho phép popup để in QR codes.'); return; }
+    const cards = productsData.map(function(p, idx) {
+        const qrUrl = '/api/products/' + p.productId + '/qr?tenantId=' + tenantId;
+        const pageBreak = (idx > 0 && idx % 10 === 0) ? 'page-break-before: always;' : '';
+        return `
+            <div class="qr-card" style="${pageBreak}">
+                <img src="${qrUrl}" alt="QR" />
+                <h3>${p.name}</h3>
+                <div class="price">${p.price}</div>
+                <div class="shop">VanAn ERP</div>
+            </div>`;
+    }).join('');
+    win.document.write(`
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="utf-8" />
+            <title>In QR hàng loạt</title>
+            <style>
+                @@page { size: A4 portrait; margin: 10mm; }
+                body { font-family: 'Segoe UI', Arial, sans-serif; }
+                .qr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+                .qr-card { width: 95mm; height: 95mm; border: 1px solid #ccc; padding: 5mm; text-align: center; page-break-inside: avoid; box-sizing: border-box; }
+                .qr-card img { width: 200px; height: 200px; }
+                .qr-card h3 { margin: 4mm 0 2mm; font-size: 14pt; }
+                .qr-card .price { font-size: 16pt; font-weight: bold; color: #2c5282; }
+                .qr-card .shop { font-size: 10pt; color: #666; margin-top: 2mm; }
+                @@media print { .qr-card:nth-child(10n+1) { page-break-before: always; } .qr-card:first-child { page-break-before: avoid; } }
+            </style>
+        </head>
+        <body>
+            <div class="qr-grid">${cards}</div>
+            <script>
+                window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };
+            <\/script>
+        </body>
+        </html>
+    `);
+    win.document.close();
+};
+</script>
+
 @code {
     private List<ProductDetailDto> _products = new();
     private ProductDetailDto? _selected;
     private bool _isLoading = true;
     private bool _isSaving;
     private string? _errorMessage;
+    private HashSet<Guid> _selectedForPrint = new();
+    private bool _showQrModal;
 
     private CreateProductRequest _createForm = new();
     private UpdateProductRequest _editForm = new();
@@ -449,5 +566,60 @@
         {
             _isSaving = false;
         }
+    }
+
+    // ── QR View + Print ──
+
+    private void OpenQrModal(ProductDetailDto p)
+    {
+        _selected = p;
+        _showQrModal = true;
+    }
+
+    private void CloseQrModal()
+    {
+        _showQrModal = false;
+        _selected = null;
+    }
+
+    private async Task PrintSingleQr()
+    {
+        if (_selected == null) return;
+        string price = CurrencyHelper.FormatVND(_selected.Price);
+        await JSRuntime.InvokeVoidAsync("printQrCode",
+            _selected.ProductId.ToString(),
+            TenantProvider.TenantId.ToString(),
+            _selected.Name,
+            price);
+    }
+
+    // ── Batch Print ──
+
+    private void TogglePrintSelection(Guid productId, object? isChecked)
+    {
+        if (isChecked is bool b && b)
+        {
+            _ = _selectedForPrint.Add(productId);
+        }
+        else
+        {
+            _ = _selectedForPrint.Remove(productId);
+        }
+    }
+
+    private async Task PrintSelected()
+    {
+        if (_selectedForPrint.Count == 0) return;
+
+        // Build lightweight payload of selected products for the JS print layout
+        var selectedProducts = _products
+            .Where(p => _selectedForPrint.Contains(p.ProductId))
+            .Select(p => new { productId = p.ProductId.ToString(), name = p.Name, price = CurrencyHelper.FormatVND(p.Price) })
+            .ToArray();
+
+        await JSRuntime.InvokeVoidAsync("printBatchQrCodes",
+            _selectedForPrint.ToArray(),
+            TenantProvider.TenantId.ToString(),
+            selectedProducts);
     }
 }
