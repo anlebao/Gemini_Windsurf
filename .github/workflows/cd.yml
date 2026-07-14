@@ -182,6 +182,12 @@ jobs:
             cd /opt/vanan
 
             # Write .env using printf (no heredoc)
+            # Preserve existing GOOGLE_CLIENT_ID/SECRET if GitHub secrets are empty
+            EXISTING_GOOGLE_ID=$(grep -E '^GOOGLE_CLIENT_ID=' .env 2>/dev/null | cut -d= -f2- || echo "")
+            EXISTING_GOOGLE_SECRET=$(grep -E '^GOOGLE_CLIENT_SECRET=' .env 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_GOOGLE_ID="${DEPLOY_GOOGLE_CLIENT_ID:-$EXISTING_GOOGLE_ID}"
+            FINAL_GOOGLE_SECRET="${DEPLOY_GOOGLE_CLIENT_SECRET:-$EXISTING_GOOGLE_SECRET}"
+
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
               "POSTGRES_DB=VanAnCoreHub" \
@@ -193,8 +199,9 @@ jobs:
               "JWT_SECRET_KEY=${DEPLOY_JWT_SECRET_KEY}" \
               "IMAGE_PREFIX=${DEPLOY_REGISTRY}/${DEPLOY_REPO_OWNER}" \
               "IMAGE_TAG=${DEPLOY_IMAGE_TAG}" \
-              "GOOGLE_CLIENT_ID=${DEPLOY_GOOGLE_CLIENT_ID}" \
-              "GOOGLE_CLIENT_SECRET=${DEPLOY_GOOGLE_CLIENT_SECRET}" \
+              "GOOGLE_CLIENT_ID=${FINAL_GOOGLE_ID}" \
+              "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
+              "GOOGLE_KHACHLINK_LOGIN_URL=https://diemthuong.khachvip.online/login" \
               > .env
 
             # Login to GHCR (use sudo to ensure docker socket access)
