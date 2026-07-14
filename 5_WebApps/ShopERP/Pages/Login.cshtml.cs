@@ -34,6 +34,9 @@ namespace VanAn.ShopERP.Pages
         [BindProperty]
         public string Password { get; set; } = string.Empty;
 
+        [BindProperty]
+        public bool RememberMe { get; set; }
+
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
@@ -91,8 +94,10 @@ namespace VanAn.ShopERP.Pages
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             AuthenticationProperties authProperties = new()
             {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+                IsPersistent = RememberMe,
+                ExpiresUtc = RememberMe
+                    ? DateTimeOffset.UtcNow.AddDays(30)
+                    : DateTimeOffset.UtcNow.AddHours(8)
             };
 
             await HttpContext.SignInAsync(
@@ -101,12 +106,15 @@ namespace VanAn.ShopERP.Pages
                 authProperties);
 
             // Set JWT in HttpOnly cookie (.VanAn.Jwt) for API calls via Bearer token
+            // JWT expiry matches cookie expiry — 30 days if Remember Me, 8h otherwise
             Response.Cookies.Append(".VanAn.Jwt", jwtToken, new CookieOptions
             {
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict,
                 Secure = Request.IsHttps,
-                Expires = DateTimeOffset.UtcNow.AddHours(8)
+                Expires = RememberMe
+                    ? DateTimeOffset.UtcNow.AddDays(30)
+                    : DateTimeOffset.UtcNow.AddHours(8)
             });
 
             // Redirect based on role — role-specific landing pages [Wave4-T5]
@@ -169,8 +177,10 @@ namespace VanAn.ShopERP.Pages
             ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             AuthenticationProperties authProperties = new()
             {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+                IsPersistent = RememberMe,
+                ExpiresUtc = RememberMe
+                    ? DateTimeOffset.UtcNow.AddDays(30)
+                    : DateTimeOffset.UtcNow.AddHours(8)
             };
 
             await HttpContext.SignInAsync(
@@ -183,7 +193,9 @@ namespace VanAn.ShopERP.Pages
                 HttpOnly = true,
                 SameSite = SameSiteMode.Strict,
                 Secure = Request.IsHttps,
-                Expires = DateTimeOffset.UtcNow.AddHours(8)
+                Expires = RememberMe
+                    ? DateTimeOffset.UtcNow.AddDays(30)
+                    : DateTimeOffset.UtcNow.AddHours(8)
             });
 
             // Redirect to /sitemap — SystemAdmin landing page (platform overview)

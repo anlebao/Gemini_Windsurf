@@ -120,5 +120,16 @@
             </Authorized>
         </AuthorizeView>
 
+        @* Logout: visible to all authenticated users *@
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3 mt-auto border-top pt-2">
+                    <a class="nav-link text-danger" href="/Logout" title="Đăng xuất">
+                        <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Đăng xuất
+                    </a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
     </nav>
 </div>

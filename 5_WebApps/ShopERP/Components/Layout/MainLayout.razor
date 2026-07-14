@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@inject Microsoft.AspNetCore.Components.NavigationManager NavigationManager
 
 <CascadingAuthenticationState>
     <div class="page">
@@ -9,7 +10,22 @@
 
         <main>
             <div class="top-row px-4">
-                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="text-muted me-3">
+                            <i class="bi bi-person-circle"></i>
+                            @context.User.Identity?.Name
+                        </span>
+                        <a href="/Logout" class="btn btn-outline-danger btn-sm" title="Đăng xuất">
+                            <i class="bi bi-box-arrow-right"></i> Đăng xuất
+                        </a>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/Login" class="btn btn-primary btn-sm">
+                            <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
             </div>
 
             <article class="content px-4">
