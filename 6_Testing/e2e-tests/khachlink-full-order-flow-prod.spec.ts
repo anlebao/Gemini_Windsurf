@@ -101,11 +101,12 @@ test.describe('KhachLink Full Order Flow — PRODUCTION @golden', () => {
         TransactionId: `prod-txn-${Date.now()}`,
       };
       const resp = await apiContext.post('/api/webhooks/payment', { data: webhookBody });
-      // Note: accounting ON may hit pre-existing bugs (AuditLog tenant mismatch,
-      // JournalEntry duplicate key, duplicate entry detection) — accept 200, 400, or 500.
-      // The main flow being tested is order creation + tracking, not accounting entry generation.
+      // W-FIX (Payment Webhook 500 root cause fixed): webhook must return 200 now.
+      // Previously accepted 200/400/500 because of pre-existing JournalEntry duplicate key bug
+      // (GenerateAccountingEntriesAsync added same entity to S2b + S2c → SQLite UNIQUE constraint
+      // on JournalNo). Fixed via Option A (caller deduplication) + Option B (repository guard).
       const status = resp.status();
-      expect([200, 400, 500].includes(status), `Payment webhook should return 200/400/500, got ${status}`).toBeTruthy();
+      expect(status, `Payment webhook should return 200 after duplicate-key fix, got ${status}`).toBe(200);
       console.log(`[Step 2] Payment webhook status: ${status}`);
       await apiContext.dispose();
     });

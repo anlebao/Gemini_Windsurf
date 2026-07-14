@@ -158,9 +158,14 @@ namespace VanAn.CoreHub.Services
 
                 // 2. Generate HKD books for revenue (JournalEntry path — 3 lines if VAT, 2 if not)
                 JournalEntry revenueJournalEntry = await CreateRevenueEntryAsync(order, tenantId, period);
-                // Use appropriate HKD book types based on business type
-                await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2b_HKD); // Revenue book
-                await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2c_HKD); // Detailed book
+                // W-FIX (Payment Webhook 500 root cause): AddToBookAsync persists the JournalEntry
+                // to the DB. Calling it twice with the SAME entity instance (once for S2b, once for
+                // S2c) triggers SQLite UNIQUE constraint violation on JournalNo — the second insert
+                // is rejected because the row already exists. Current AddToBookAsync does not
+                // differentiate by bookType (see HKDBookRepository comment) — it simply persists
+                // the entry. Book membership for multiple book types (S2b + S2c) will be tracked
+                // via a mapping table in a future implementation. For now, call ONCE per entry.
+                await _hkdBookRepository.AddToBookAsync(revenueJournalEntry, AccountingBookType.S2b_HKD); // Revenue book (also covers S2c_HKD — detailed book)
 
                 // 3. COGS entry — W0-T4 (C1): shared CalculateCogsAmount syncs Path A and Path B.
                 decimal cogsAmount = CalculateCogsAmount(order);
