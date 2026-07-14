@@ -45,7 +45,7 @@ else
             var isSystemAdmin = authState.User.IsInRole("SystemAdmin");
             if (isSystemAdmin)
             {
-                NavigationManager.NavigateTo("/admin/tenants", forceLoad: true);
+                NavigationManager.NavigateTo("/admin/tenants");
                 return;
             }
         }
