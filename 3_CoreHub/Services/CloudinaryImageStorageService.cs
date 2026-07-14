@@ -13,7 +13,7 @@ namespace VanAn.CoreHub.Services
     /// </summary>
     public class CloudinaryImageStorageService : IImageStorageService
     {
-        private readonly Cloudinary _cloudinary;
+        private readonly Cloudinary? _cloudinary;
         private readonly ILogger<CloudinaryImageStorageService> _logger;
 
         private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
@@ -26,10 +26,18 @@ namespace VanAn.CoreHub.Services
             var apiKey = configuration["Cloudinary:ApiKey"];
             var apiSecret = configuration["Cloudinary:ApiSecret"];
 
-            // If config is missing/empty, Cloudinary client is null-configured — uploads will no-op (return null).
-            // This allows the app to boot without Cloudinary credentials in dev/test.
-            var account = new Account(cloudName ?? string.Empty, apiKey ?? string.Empty, apiSecret ?? string.Empty);
-            _cloudinary = new Cloudinary(account);
+            // If config is missing/empty, _cloudinary stays null — uploads will no-op (return null).
+            // This allows the app to boot without Cloudinary credentials in dev/test/prod-until-configured.
+            // Cloudinary's Account constructor throws ArgumentException when cloudName is empty,
+            // so we must guard against that to avoid crashing the DI container.
+            if (!string.IsNullOrWhiteSpace(cloudName) && !string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiSecret))
+            {
+                _cloudinary = new Cloudinary(new Account(cloudName, apiKey, apiSecret));
+            }
+            else
+            {
+                _logger.LogWarning("Cloudinary config missing (CloudName/ApiKey/ApiSecret empty) — image uploads will no-op");
+            }
         }
 
         public async Task<string?> UploadAsync(IFormFile file, string folder, CancellationToken cancellationToken = default)
@@ -55,6 +63,12 @@ namespace VanAn.CoreHub.Services
 
             try
             {
+                if (_cloudinary == null)
+                {
+                    _logger.LogWarning("UploadAsync: Cloudinary not configured — upload skipped");
+                    return null;
+                }
+
                 var publicId = $"{folder}/{Guid.NewGuid():N}";
                 await using var stream = file.OpenReadStream();
                 var uploadParams = new ImageUploadParams
@@ -103,6 +117,12 @@ namespace VanAn.CoreHub.Services
 
             try
             {
+                if (_cloudinary == null)
+                {
+                    _logger.LogWarning("UploadAsync(stream): Cloudinary not configured — upload skipped");
+                    return null;
+                }
+
                 var publicId = $"{folder}/{Guid.NewGuid():N}";
                 var uploadParams = new ImageUploadParams
                 {
@@ -131,6 +151,12 @@ namespace VanAn.CoreHub.Services
         {
             try
             {
+                if (_cloudinary == null)
+                {
+                    _logger.LogWarning("DeleteAsync: Cloudinary not configured — delete skipped");
+                    return false;
+                }
+
                 var deleteParams = new DeletionParams(publicId);
                 DeletionResult result = await _cloudinary.DestroyAsync(deleteParams);
                 return result?.StatusCode == System.Net.HttpStatusCode.OK;
