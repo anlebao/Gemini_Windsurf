@@ -26,21 +26,6 @@
             if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
             return el.value ?? '';
         };
-        // Currency formatting: formats input as thousands-separated VND (e.g. 55000 to "55.000")
-        // Called by Blazor oninput handler — reads current DOM value, formats it.
-        window.vananFormatCurrencyById = function (id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            var raw = (el.value || '').replace(/[^\d]/g, '');
-            if (!raw) { el.value = ''; return; }
-            var num = parseInt(raw, 10);
-            el.value = num.toLocaleString('vi-VN');
-        };
-        window.vananGetRawCurrency = function (id) {
-            var el = document.getElementById(id);
-            if (!el) return '';
-            return (el.value || '').replace(/[^\d]/g, '');
-        };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {

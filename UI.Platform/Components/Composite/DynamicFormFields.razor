@@ -1,6 +1,5 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.Extensions.Logging
-@using Microsoft.JSInterop
 @using VanAn.UI.Platform.Components.Base
 @using VanAn.UI.Platform.Core.Interfaces
 @using VanAn.UI.Platform.Adapters
@@ -12,7 +11,6 @@
 
 @inject ICssAdapter CssAdapter
 @inject ILogger<DynamicFormFields> Logger
-@inject IJSRuntime JSRuntime
 
 @if (Fields != null)
 {
@@ -92,8 +90,9 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
                 <input type="text"
                        class="form-control @(GetFieldValidationClass(field.Id))"
                        id="@field.Id"
-                       value="@field.Value"
-                       @oninput="@((Microsoft.AspNetCore.Components.ChangeEventArgs e) => HandleCurrencyInput(e, field))"
+                       @bind="field.Value"
+                       @bind:event="oninput"
+                       @bind:after="@(() => FormatCurrencyField(field))"
                        inputmode="numeric"
                        placeholder="@(field.Placeholder ?? "0")"
                        disabled="@State.IsDisabled"
@@ -200,21 +199,32 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
     }
 
     /// <summary>
-    /// Handle currency input: strip non-digits, store raw numeric string in field.Value,
-    /// format display value with thousands separator via JS.
-    /// Raw value is stored so validation and submission work correctly.
+    /// Format currency field: strip non-digits, reformat with thousands separator.
+    /// Called after @bind sets field.Value. Stores FORMATTED value (e.g. "55.000")
+    /// so display is correct. Validation/submission must strip separators before parsing.
     /// </summary>
-    private async Task HandleCurrencyInput(Microsoft.AspNetCore.Components.ChangeEventArgs e, FormField field)
+    private async Task FormatCurrencyField(FormField field)
     {
-        var raw = (e.Value?.ToString() ?? "").Replace(".", "").Replace(",", "").Replace(" ", "");
-        field.Value = raw; // Store RAW numeric string (e.g. "55000") — not formatted
-        await NotifyChanged(field);
-        // Format display value via JS interop
-        try
+        var current = field.Value?.ToString() ?? "";
+        // Strip all non-digit characters
+        var raw = new string(current.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrEmpty(raw))
         {
-            await JSRuntime.InvokeVoidAsync("vananFormatCurrencyById", field.Id);
+            field.Value = "";
         }
-        catch { /* JS interop may fail during prerender — safe to ignore */ }
+        else
+        {
+            // Format with vi-VN thousands separator (".")
+            if (long.TryParse(raw, out var num))
+            {
+                field.Value = num.ToString("#,##0", new System.Globalization.CultureInfo("vi-VN"));
+            }
+            else
+            {
+                field.Value = raw;
+            }
+        }
+        await NotifyChanged(field);
     }
 
     /// <summary>
