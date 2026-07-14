@@ -1,23 +1,33 @@
 ﻿@using VanAn.UI.Platform.Components
 @inherits LayoutComponentBase
 
-<VanALayout SidebarCollapsed="false">
-    <Sidebar>
-        <NavMenu />
-    </Sidebar>
-    
-    <Header>
-        <div class="top-row">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+<div class="khachlink-app-layout">
+    <!-- Mobile-friendly header -->
+    <header class="khachlink-app-header">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2">
+            <a href="/" class="app-brand">
+                <i class="bi bi-shop"></i>
+                <span class="fw-bold">Vạn An</span>
+            </a>
+            <div class="d-flex gap-2">
+                <a href="/cart" class="app-header-btn" aria-label="Giỏ hàng">
+                    <i class="bi bi-cart3"></i>
+                </a>
+                <a href="/profile" class="app-header-btn" aria-label="Tài khoản">
+                    <i class="bi bi-person"></i>
+                </a>
+            </div>
         </div>
-    </Header>
-    
-    <ChildContent>
-        <article class="content">
-            @Body
-        </article>
-    </ChildContent>
-</VanALayout>
+    </header>
+
+    <!-- Main content -->
+    <main class="khachlink-app-main">
+        @Body
+    </main>
+
+    <!-- Mobile bottom tab bar -->
+    <NavMenu />
+</div>
 
 <div id="blazor-error-ui">
     An unhandled error has occurred.
@@ -26,19 +36,50 @@
 </div>
 
 <style>
-    .top-row {
-        padding: 1rem;
-        border-bottom: 1px solid #e5e5e5;
+    .khachlink-app-layout {
+        min-height: 100vh;
+        background: #f9f9f9;
         display: flex;
-        justify-content: flex-end;
+        flex-direction: column;
     }
-    
-    .top-row a {
-        color: #0077cc;
+    .khachlink-app-header {
+        background: #8B4513;
+        position: sticky;
+        top: 0;
+        z-index: 900;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .app-brand {
+        color: white;
         text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1.1rem;
     }
-    
-    .content {
-        padding: 1.5rem;
+    .app-brand:hover { color: #f0f0f0; }
+    .app-header-btn {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        text-decoration: none;
+        color: white;
+        font-size: 1.2rem;
+        transition: background 0.2s;
+    }
+    .app-header-btn:hover { background: rgba(255,255,255,0.25); color: white; }
+    .khachlink-app-main {
+        flex: 1;
+        padding: 1rem;
+        padding-bottom: 80px; /* Space for mobile tab bar */
+    }
+    @@media (min-width: 769px) {
+        .khachlink-app-main {
+            padding: 1.5rem;
+        }
     }
 </style>

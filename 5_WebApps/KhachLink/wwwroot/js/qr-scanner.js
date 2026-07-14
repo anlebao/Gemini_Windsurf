@@ -30,31 +30,73 @@ async function requestCameraPermission() {
 async function startQRScanner(dotNetRef) {
     try {
         if (typeof Html5Qrcode === 'undefined') {
-            throw new Error('html5-qrcode library is not loaded');
+            throw new Error('Thư viện html5-qrcode chưa tải được. Vui lòng tải lại trang.');
+        }
+
+        // Clear any existing scanner
+        if (html5QrCode) {
+            try {
+                await html5QrCode.stop();
+                html5QrCode.clear();
+            } catch (e) { /* ignore */ }
+            html5QrCode = null;
+        }
+
+        const container = document.getElementById('qr-reader');
+        if (!container) {
+            throw new Error('Không tìm thấy vùng hiển thị camera');
         }
 
         html5QrCode = new Html5Qrcode("qr-reader");
-        
+
+        // Mobile-optimized config — smaller scan box for small screens
+        const isMobile = window.innerWidth < 768;
+        const qrboxSize = isMobile ? 200 : 250;
+
         const config = {
             fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0
+            qrbox: { width: qrboxSize, height: qrboxSize },
+            aspectRatio: isMobile ? 1.0 : 1.333
         };
 
-        await html5QrCode.start(
-            { facingMode: 'environment' },
-            config,
-            (decodedText) => {
-                // QR code detected successfully
-                dotNetRef.invokeMethodAsync('OnQRDetected', decodedText);
-            },
-            (errorMessage) => {
-                // Ignore scanning errors during normal operation
-                console.log('QR scan error:', errorMessage);
-            }
-        );
+        // Try environment camera first, fallback to any camera
+        let started = false;
+        try {
+            await html5QrCode.start(
+                { facingMode: 'environment' },
+                config,
+                (decodedText) => {
+                    // QR code detected successfully
+                    dotNetRef.invokeMethodAsync('OnQRDetected', decodedText);
+                },
+                (errorMessage) => {
+                    // Ignore scanning errors during normal operation
+                    console.log('QR scan error:', errorMessage);
+                }
+            );
+            started = true;
+        } catch (envError) {
+            console.warn('Environment camera failed, trying default camera:', envError);
+        }
+
+        if (!started) {
+            await html5QrCode.start(
+                { facingMode: 'user' },
+                config,
+                (decodedText) => {
+                    dotNetRef.invokeMethodAsync('OnQRDetected', decodedText);
+                },
+                (errorMessage) => {
+                    console.log('QR scan error:', errorMessage);
+                }
+            );
+        }
     } catch (error) {
         console.error('Failed to start QR scanner:', error);
+        // Notify Blazor of the error so UI can show it
+        try {
+            dotNetRef.invokeMethodAsync('OnQRError', error.message || 'Không thể khởi động camera');
+        } catch (e) { /* ignore */ }
         throw error;
     }
 }

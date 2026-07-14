@@ -245,8 +245,8 @@
             var customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(customerToken);
 
-            // Show install prompt if not installed, not dismissed, and not logged in
-            if (!PWAService.IsInstalled && !_dismissed && !_isLoggedIn)
+            // Show install prompt if not installed and not dismissed
+            if (!PWAService.IsInstalled && !_dismissed)
             {
                 // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
                 try
@@ -262,8 +262,8 @@
 
     private string GetDisplayStyle()
     {
-        // W2-T5: Hide if dismissed OR logged in
-        if (!_showInstallPrompt || _dismissed || _isLoggedIn) return "display: none;";
+        // Show install prompt if not dismissed (logged-in users can still install PWA)
+        if (!_showInstallPrompt || _dismissed) return "display: none;";
         return "";
     }
 

@@ -293,10 +293,19 @@
                     return;
                 }
             }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Checkout API error: {response.StatusCode} — {errorContent}");
+                formError = $"Lỗi tạo đơn hàng ({response.StatusCode}). Vui lòng thử lại hoặc liên hệ quán.";
+                showGuestForm = true;
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Exception creating order: {ex.Message}");
+            formError = $"Lỗi kết nối: {ex.Message}";
+            showGuestForm = true;
         }
         finally
         {

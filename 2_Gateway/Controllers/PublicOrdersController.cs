@@ -133,8 +133,9 @@ namespace VanAn.Gateway.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating checkout order");
-                return StatusCode(500, new { error = "Internal server error" });
+                _logger.LogError(ex, "Error creating checkout order — Items: {ItemCount}, CustomerName: {CustomerName}, CustomerPhone: {CustomerPhone}",
+                    request?.Items?.Count ?? 0, request?.CustomerName, request?.CustomerPhone);
+                return StatusCode(500, new { error = $"Lỗi tạo đơn hàng: {ex.Message}", detail = ex.InnerException?.Message });
             }
         }
 
