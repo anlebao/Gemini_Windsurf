@@ -49,7 +49,7 @@ namespace VanAn.Core.Tests.Accounting
                 .Add(p => p.FieldDefinitions, fields)
                 .Add(p => p.OnSubmit, EventCallback<FormData>.Empty));
 
-            // Assert — Currency field is now type="text" with JS formatting (thousands separator)
+            // Assert — Currency field is type="text" with Blazor @oninput handler for formatting
             AngleSharp.Dom.IElement input = cut.Find("input#amount");
             Assert.NotNull(input);
             Assert.Equal("text", input.GetAttribute("type"));

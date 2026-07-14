@@ -98,12 +98,21 @@
             }
         }
 
-        // Validate amount
-        if (decimal.TryParse(formData.Values.GetValueOrDefault("amount"), out var amount))
+        // Validate amount — strip thousands separators before parsing
+        var amountStr = (formData.Values.GetValueOrDefault("amount") ?? "").Replace(".", "").Replace(",", "").Trim();
+        if (!string.IsNullOrEmpty(amountStr))
         {
-            if (amount <= 0)
+            if (decimal.TryParse(amountStr, out var amount))
             {
-                formFieldsRef.SetFieldError("amount", "Số tiền phải lớn hơn 0");
+                if (amount <= 0)
+                {
+                    formFieldsRef.SetFieldError("amount", "Số tiền phải lớn hơn 0");
+                    hasErrors = true;
+                }
+            }
+            else
+            {
+                formFieldsRef.SetFieldError("amount", "Số tiền không hợp lệ");
                 hasErrors = true;
             }
         }
@@ -207,12 +216,9 @@
         ValidateForm();
         if (showError) return;
 
-        // Read raw currency value from DOM (formatted input stores raw in data-raw)
-        var rawAmount = await JSRuntime.InvokeAsync<string>("vananGetRawCurrency", "amount") ?? "";
-        if (string.IsNullOrEmpty(rawAmount))
-            rawAmount = formData.Values.GetValueOrDefault("amount") ?? "";
-        // Strip any thousands separators
-        rawAmount = rawAmount.Replace(".", "").Replace(",", "");
+        // formData.Values["amount"] stores RAW numeric string (from HandleCurrencyInput)
+        // Strip any thousands separators as safety net
+        var rawAmount = (formData.Values.GetValueOrDefault("amount") ?? "").Replace(".", "").Replace(",", "").Trim();
 
         // Validate amount
         if (!decimal.TryParse(rawAmount, out var amount) || amount <= 0)

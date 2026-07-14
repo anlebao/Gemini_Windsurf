@@ -300,13 +300,9 @@
             Logger.LogInformation("Field {FieldId}: '{FieldValue}' (source: {Source})", field.Id, value, criticalFields.Contains(field.Id) ? "DOM" : "model");
         }
 
-        // Validate amount - support both raw and formatted numbers (500000 or 500.000)
+        // Validate amount - formData.Values["amount"] stores RAW numeric string (from HandleCurrencyInput)
         Logger.LogInformation("Validating amount: {Amount}", formData.Values["amount"]);
-        // Try raw currency value from DOM first (formatted input stores raw in data-raw)
-        var amountStr = await JSRuntime.InvokeAsync<string>("vananGetRawCurrency", "amount") ?? "";
-        if (string.IsNullOrEmpty(amountStr))
-            amountStr = formData.Values["amount"];
-        amountStr = amountStr.Replace(".", "").Replace(",", "");
+        var amountStr = (formData.Values.GetValueOrDefault("amount") ?? "").Replace(".", "").Replace(",", "").Trim();
         if (!decimal.TryParse(amountStr, out var amount) || amount <= 0)
         {
             Logger.LogWarning("Amount validation failed for: {AmountStr}", amountStr);

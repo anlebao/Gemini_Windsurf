@@ -1,5 +1,6 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.Extensions.Logging
+@using Microsoft.JSInterop
 @using VanAn.UI.Platform.Components.Base
 @using VanAn.UI.Platform.Core.Interfaces
 @using VanAn.UI.Platform.Adapters
@@ -11,6 +12,7 @@
 
 @inject ICssAdapter CssAdapter
 @inject ILogger<DynamicFormFields> Logger
+@inject IJSRuntime JSRuntime
 
 @if (Fields != null)
 {
@@ -90,10 +92,8 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
                 <input type="text"
                        class="form-control @(GetFieldValidationClass(field.Id))"
                        id="@field.Id"
-                       @bind="field.Value"
-                       @bind:event="oninput"
-                       @bind:after="@(() => NotifyChanged(field))"
-                       oninput="vananFormatCurrency(this)"
+                       value="@field.Value"
+                       @oninput="@((Microsoft.AspNetCore.Components.ChangeEventArgs e) => HandleCurrencyInput(e, field))"
                        inputmode="numeric"
                        placeholder="@(field.Placeholder ?? "0")"
                        disabled="@State.IsDisabled"
@@ -192,11 +192,29 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
         {
             FieldErrors.Remove(field.Id);
         }
-        
+
         if (OnFieldChanged.HasDelegate)
         {
             await OnFieldChanged.InvokeAsync(field);
         }
+    }
+
+    /// <summary>
+    /// Handle currency input: strip non-digits, store raw numeric string in field.Value,
+    /// format display value with thousands separator via JS.
+    /// Raw value is stored so validation and submission work correctly.
+    /// </summary>
+    private async Task HandleCurrencyInput(Microsoft.AspNetCore.Components.ChangeEventArgs e, FormField field)
+    {
+        var raw = (e.Value?.ToString() ?? "").Replace(".", "").Replace(",", "").Replace(" ", "");
+        field.Value = raw; // Store RAW numeric string (e.g. "55000") — not formatted
+        await NotifyChanged(field);
+        // Format display value via JS interop
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananFormatCurrencyById", field.Id);
+        }
+        catch { /* JS interop may fail during prerender — safe to ignore */ }
     }
 
     /// <summary>
