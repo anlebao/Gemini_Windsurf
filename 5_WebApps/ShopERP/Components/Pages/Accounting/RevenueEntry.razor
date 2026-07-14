@@ -15,6 +15,7 @@
 @inject ITenantProvider TenantProvider
 @inject ILogger<RevenueEntry> Logger
 @inject NavigationManager NavigationManager
+@inject Microsoft.JSInterop.IJSRuntime JSRuntime
 
 <div class="revenue-entry-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -206,8 +207,15 @@
         ValidateForm();
         if (showError) return;
 
+        // Read raw currency value from DOM (formatted input stores raw in data-raw)
+        var rawAmount = await JSRuntime.InvokeAsync<string>("vananGetRawCurrency", "amount") ?? "";
+        if (string.IsNullOrEmpty(rawAmount))
+            rawAmount = formData.Values.GetValueOrDefault("amount") ?? "";
+        // Strip any thousands separators
+        rawAmount = rawAmount.Replace(".", "").Replace(",", "");
+
         // Validate amount
-        if (!decimal.TryParse(formData.Values["amount"], out var amount) || amount <= 0)
+        if (!decimal.TryParse(rawAmount, out var amount) || amount <= 0)
         {
             showError = true;
             errorMessage = "Số tiền phải lớn hơn 0";

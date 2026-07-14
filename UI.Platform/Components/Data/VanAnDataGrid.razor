@@ -10,47 +10,50 @@
 
 @typeparam TItem
 
-<table class="@GetDataGridClasses()" @attributes="GetMergedAttributes()">
-    <thead>
-        <tr>
-            @foreach (var col in _columns)
-            {
-                <th class="@GetColumnHeaderClass(col)">@col.Title</th>
-            }
-        </tr>
-    </thead>
-    <tbody>
-        @if (Items != null)
-        {
-            @foreach (var item in Items)
-            {
-                <tr class="@GetRowClass(item)">
-                    @foreach (var col in _columns)
-                    {
-                        <td class="@GetColumnClass(col)">
-                            @col.Template(item)
-                        </td>
-                    }
-                </tr>
-            }
-        }
-        else
-        {
-            <tr>
-                <td colspan="@_columns.Count" class="text-center py-4">
-                    <div class="text-muted">
-                        <i class="fas fa-inbox fa-2x mb-2"></i>
-                        <div>@EmptyMessage</div>
-                    </div>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
-
 <CascadingValue Value="this">
     @Columns
 </CascadingValue>
+
+@if (_columns.Count > 0)
+{
+    <table class="@GetDataGridClasses()" @attributes="GetMergedAttributes()">
+        <thead>
+            <tr>
+                @foreach (var col in _columns)
+                {
+                    <th class="@GetColumnHeaderClass(col)">@col.Title</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @if (Items != null && Items.Any())
+            {
+                @foreach (var item in Items)
+                {
+                    <tr class="@GetRowClass(item)">
+                        @foreach (var col in _columns)
+                        {
+                            <td class="@GetColumnClass(col)">
+                                @col.Template(item)
+                            </td>
+                        }
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="@_columns.Count" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <div>@EmptyMessage</div>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
 
 @code {
     /// <summary>
@@ -82,6 +85,7 @@
     internal void RegisterColumn(VanAnColumn<TItem> column)
     {
         _columns.Add(column);
+        StateHasChanged();
     }
     
     /// <summary>

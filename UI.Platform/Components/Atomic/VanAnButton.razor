@@ -8,8 +8,8 @@
 
 @inject ICssAdapter CssAdapter
 
-<button class="@GetButtonClasses()" 
-        disabled="@State.IsDisabled"
+<button class="@GetButtonClasses()"
+        disabled="@(State.IsDisabled ? true : null)"
         aria-busy="@State.IsLoading"
         @attributes="GetMergedAttributes()"
         @onclick="HandleClick">

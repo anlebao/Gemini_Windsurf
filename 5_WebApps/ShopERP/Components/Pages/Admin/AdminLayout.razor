@@ -1,12 +1,16 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
+@using VanAn.ShopERP.Components.Shared
 @inherits LayoutComponentBase
 
 <VanALayout>
     <Sidebar>
         <VanANavigation MenuItems="@AdminMenuItems" />
     </Sidebar>
+    <Header>
+        <UserHeader />
+    </Header>
     <ChildContent>
         @Body
     </ChildContent>
@@ -15,6 +19,7 @@
 @code {
     private List<NavigationItem> AdminMenuItems = new()
     {
+        new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
         new() { Title = "Người Dùng", Icon = "people", Url = "/admin/users" },
         new() { Title = "Nhóm Quyền", Icon = "person-lock", Url = "/admin/permission-groups" },
         new() { Title = "Audit Trail", Icon = "shield-check", Url = "/admin/audit-trail" },

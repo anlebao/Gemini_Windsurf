@@ -1,12 +1,16 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
+@using VanAn.ShopERP.Components.Shared
 @inherits LayoutComponentBase
 
 <VanALayout>
     <Sidebar>
         <VanANavigation MenuItems="@EInvoiceMenuItems" />
     </Sidebar>
+    <Header>
+        <UserHeader />
+    </Header>
     <ChildContent>
         @Body
     </ChildContent>
@@ -15,6 +19,7 @@
 @code {
     private List<NavigationItem> EInvoiceMenuItems = new()
     {
+        new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
         new() { Title = "Dashboard", Icon = "dashboard", Url = "/einvoice" },
         new() { Title = "Nhà Cung Cấp", Icon = "connect", Url = "/einvoice/providers" },
         new() { Title = "Cấu Hình", Icon = "settings", Url = "/einvoice/configuration" },

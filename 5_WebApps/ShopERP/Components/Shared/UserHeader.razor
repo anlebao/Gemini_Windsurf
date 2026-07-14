@@ -1,0 +1,87 @@
+@* UserHeader Component — hiển thị username + role + logout trong layout header *@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="user-header">
+    <div class="user-header__info">
+        <i class="bi bi-person-circle user-header__icon"></i>
+        <span class="user-header__name">@_displayName</span>
+        @if (!string.IsNullOrEmpty(_role))
+        {
+            <span class="user-header__role-badge">@_role</span>
+        }
+    </div>
+    <a href="/Logout" class="user-header__logout" aria-label="Đăng xuất">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Đăng xuất</span>
+    </a>
+</div>
+
+<style>
+    .user-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 1rem;
+        padding: 0.5rem 1rem;
+        height: 100%;
+    }
+    .user-header__info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .user-header__icon {
+        font-size: 1.25rem;
+        color: var(--vanan-primary, #007bff);
+    }
+    .user-header__name {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    .user-header__role-badge {
+        background: var(--vanan-primary, #007bff);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .user-header__logout {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: var(--vanan-danger, #dc3545);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+    .user-header__logout:hover {
+        background: rgba(220, 53, 69, 0.1);
+    }
+</style>
+
+@code {
+    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
+
+    private string _displayName = string.Empty;
+    private string _role = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _displayName = user.FindFirst(ClaimTypes.Name)?.Value
+                ?? user.Identity?.Name
+                ?? "Unknown";
+
+            _role = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+        }
+    }
+}

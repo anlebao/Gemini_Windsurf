@@ -26,6 +26,20 @@
             if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
             return el.value ?? '';
         };
+        // Currency formatting: formats input as thousands-separated VND (e.g. 55000 → "55.000")
+        // Stores raw numeric value in data-raw attribute for form submission.
+        window.vananFormatCurrency = function (el) {
+            var raw = (el.value || '').replace(/[^\d]/g, '');
+            if (!raw) { el.value = ''; el.setAttribute('data-raw', ''); return; }
+            var num = parseInt(raw, 10);
+            el.setAttribute('data-raw', num.toString());
+            el.value = num.toLocaleString('vi-VN');
+        };
+        window.vananGetRawCurrency = function (id) {
+            var el = document.getElementById(id);
+            if (!el) return '';
+            return el.getAttribute('data-raw') || (el.value || '').replace(/[^\d]/g, '');
+        };
         // Wave 8: Download a base64-encoded file (DOCX/XLSX export from HKD book page).
         window.vanAn = window.vanAn || {};
         window.vanAn.downloadFile = function (base64, mimeType, fileName) {

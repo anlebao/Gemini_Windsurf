@@ -87,15 +87,15 @@ else if (FieldDefinitions != null && FieldDefinitions.Any())
             }
             else if (field.Type == FieldType.Currency)
             {
-                <input type="number"
+                <input type="text"
                        class="form-control @(GetFieldValidationClass(field.Id))"
                        id="@field.Id"
                        @bind="field.Value"
                        @bind:event="oninput"
                        @bind:after="@(() => NotifyChanged(field))"
-                       step="0.01"
-                       min="0"
-                       placeholder="@field.Placeholder"
+                       oninput="vananFormatCurrency(this)"
+                       inputmode="numeric"
+                       placeholder="@(field.Placeholder ?? "0")"
                        disabled="@State.IsDisabled"
                        required="@field.Required" />
             }
