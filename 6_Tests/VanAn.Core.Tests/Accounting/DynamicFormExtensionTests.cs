@@ -49,11 +49,11 @@ namespace VanAn.Core.Tests.Accounting
                 .Add(p => p.FieldDefinitions, fields)
                 .Add(p => p.OnSubmit, EventCallback<FormData>.Empty));
 
-            // Assert
-            AngleSharp.Dom.IElement input = cut.Find("input[type='number']");
+            // Assert — Currency field is now type="text" with JS formatting (thousands separator)
+            AngleSharp.Dom.IElement input = cut.Find("input#amount");
             Assert.NotNull(input);
-            Assert.Equal("0.01", input.GetAttribute("step"));
-            Assert.Equal("0", input.GetAttribute("min"));
+            Assert.Equal("text", input.GetAttribute("type"));
+            Assert.Equal("numeric", input.GetAttribute("inputmode"));
         }
 
         [Fact]
