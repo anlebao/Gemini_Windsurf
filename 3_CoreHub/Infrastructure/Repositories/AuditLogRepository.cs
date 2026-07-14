@@ -114,6 +114,64 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             };
         }
 
+        /// <summary>
+        /// Cross-tenant query for SystemAdmin — bypasses tenant filter via IgnoreQueryFilters().
+        /// Security: only called from AuditTrailService when user is SystemAdmin without impersonation.
+        /// </summary>
+        public async Task<AuditLogPagedResult> GetByQueryCrossTenantAsync(AuditLogQuery query)
+        {
+            // Cross-tenant: IgnoreQueryFilters to bypass global TenantId filter
+            var dbQuery = _context.AuditLogs.IgnoreQueryFilters();
+
+            // Apply date range filters
+            if (query.FromDate.HasValue)
+                dbQuery = dbQuery.Where(a => a.CreatedAt >= query.FromDate.Value);
+
+            if (query.ToDate.HasValue)
+                dbQuery = dbQuery.Where(a => a.CreatedAt <= query.ToDate.Value);
+
+            if (query.Action.HasValue)
+                dbQuery = dbQuery.Where(a => a.Action == query.Action.Value);
+
+            if (query.EntityType.HasValue)
+                dbQuery = dbQuery.Where(a => a.EntityType == query.EntityType.Value);
+
+            if (query.EntityId.HasValue)
+                dbQuery = dbQuery.Where(a => a.EntityId == query.EntityId.Value);
+
+            if (!string.IsNullOrWhiteSpace(query.UserId))
+                dbQuery = dbQuery.Where(a => a.UserId == query.UserId);
+
+            if (!string.IsNullOrWhiteSpace(query.CorrelationId))
+                dbQuery = dbQuery.Where(a => a.CorrelationId == query.CorrelationId);
+
+            if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+            {
+                var searchLower = query.SearchTerm.ToLower();
+                dbQuery = dbQuery.Where(a =>
+                    (a.Reason != null && a.Reason.ToLower().Contains(searchLower)) ||
+                    (a.UserName != null && a.UserName.ToLower().Contains(searchLower)) ||
+                    (a.NewValues != null && a.NewValues.ToLower().Contains(searchLower)) ||
+                    (a.OldValues != null && a.OldValues.ToLower().Contains(searchLower)));
+            }
+
+            var totalCount = await dbQuery.CountAsync();
+
+            var items = await dbQuery
+                .OrderByDescending(a => a.CreatedAt)
+                .Skip((query.PageNumber - 1) * query.PageSize)
+                .Take(query.PageSize)
+                .ToListAsync();
+
+            return new AuditLogPagedResult
+            {
+                Items = items,
+                TotalCount = totalCount,
+                PageNumber = query.PageNumber,
+                PageSize = query.PageSize
+            };
+        }
+
         public async Task<IReadOnlyList<AuditLog>> GetByEntityAsync(
             AuditableEntityType entityType, 
             Guid entityId, 

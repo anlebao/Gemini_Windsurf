@@ -41,6 +41,7 @@ public class EInvoiceDISmokeTests
         services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
 
         services.AddScoped<ITenantProvider, TestTenantProvider>();
+        services.AddHttpContextAccessor();
 
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IInvoicePolicyService, InvoicePolicyService>();

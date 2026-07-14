@@ -6,8 +6,10 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Services;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
@@ -49,6 +51,14 @@ namespace VanAn.ShopERP.Pages
             // BCrypt verify: constant-time comparison, timing-attack resistant
             if (user == null || !BCrypt.Net.BCrypt.Verify(Password, user.PasswordHash))
             {
+                // Fix #3: Fall back to PlatformUsers table for SystemAdmin login via UI form.
+                // SystemAdmin is NOT in the tenant-scoped Users table — they live in PlatformUsers.
+                var platformUser = await TryLoginAsPlatformUserAsync(Username, Password);
+                if (platformUser != null)
+                {
+                    return await SignInPlatformUserAsync(platformUser);
+                }
+
                 ModelState.AddModelError(string.Empty, "Email hoặc password không đúng");
                 return Page();
             }
@@ -110,6 +120,74 @@ namespace VanAn.ShopERP.Pages
                 UserRole.None => throw new NotImplementedException(),
                 _ => RedirectToPage("/Index")
             };
+        }
+
+        /// <summary>
+        /// Fix #3: Try to authenticate as a platform-level SystemAdmin.
+        /// SystemAdmin users live in the PlatformUsers table (not tenant-scoped Users).
+        /// </summary>
+        private async Task<PlatformUser?> TryLoginAsPlatformUserAsync(string username, string password)
+        {
+            var platformUser = await _dbContext.PlatformUsers
+                .AsNoTracking()
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower() && u.IsActive);
+
+            if (platformUser == null || !BCrypt.Net.BCrypt.Verify(password, platformUser.PasswordHash))
+                return null;
+
+            return platformUser;
+        }
+
+        /// <summary>
+        /// Fix #3: Sign in SystemAdmin with platform-level claims (no tenant_id) and redirect to /sitemap.
+        /// SystemAdmin has no tenant until they impersonate one via /admin/tenants.
+        /// </summary>
+        private async Task<IActionResult> SignInPlatformUserAsync(PlatformUser platformUser)
+        {
+            var role = PlatformRole.SystemAdmin.ToString();
+
+            // JWT with tenant_id=Guid.Empty (platform mode — no tenant until impersonation)
+            var jwtToken = _jwtTokenService.GenerateToken(
+                userId: platformUser.Id,
+                email: platformUser.Email ?? platformUser.Username,
+                role: role,
+                tenantId: Guid.Empty);
+
+            // Cookie claims — NO tenant_id (SystemAdmin must impersonate to access tenant data)
+            List<Claim> claims =
+            [
+                new Claim(ClaimTypes.Name, platformUser.DisplayName),
+                new Claim(ClaimTypes.NameIdentifier, platformUser.Id.ToString()),
+                new Claim(ClaimTypes.Email, platformUser.Email ?? platformUser.Username),
+                new Claim(ClaimTypes.Role, role),
+                new Claim("DisplayName", platformUser.DisplayName),
+                new Claim("sub", platformUser.Email ?? platformUser.Username),
+                new Claim("role", role),
+            ];
+
+            ClaimsIdentity claimsIdentity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            AuthenticationProperties authProperties = new()
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+            };
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(claimsIdentity),
+                authProperties);
+
+            Response.Cookies.Append(".VanAn.Jwt", jwtToken, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict,
+                Secure = Request.IsHttps,
+                Expires = DateTimeOffset.UtcNow.AddHours(8)
+            });
+
+            // Redirect to /sitemap — SystemAdmin landing page (platform overview)
+            return Redirect("/sitemap");
         }
     }
 }

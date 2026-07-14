@@ -59,6 +59,7 @@ public abstract class IntegrationTestBase : IDisposable
         // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
         services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         services.AddScoped<ITenantProvider, TestTenantProvider>();
+        services.AddHttpContextAccessor();
 
         // Add repository registrations
         services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();
@@ -151,6 +152,7 @@ public abstract class IntegrationTestBase : IDisposable
         // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
         services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         services.AddScoped<ITenantProvider, TestTenantProvider>();
+        services.AddHttpContextAccessor();
 
         // Add repository registrations
         services.AddScoped<IAccountingEntryRepository, AccountingEntryRepository>();

@@ -22,6 +22,12 @@ namespace VanAn.CoreHub.Domain.Repositories
         Task<AuditLogPagedResult> GetByQueryAsync(AuditLogQuery query);
 
         /// <summary>
+        /// Get audit logs by query filter WITHOUT tenant filtering (cross-tenant).
+        /// Used by SystemAdmin (platform-level) to view audit logs across all tenants.
+        /// </summary>
+        Task<AuditLogPagedResult> GetByQueryCrossTenantAsync(AuditLogQuery query);
+
+        /// <summary>
         /// Get all audit logs for a specific entity (tenant-filtered)
         /// </summary>
         Task<IReadOnlyList<AuditLog>> GetByEntityAsync(AuditableEntityType entityType, Guid entityId, int maxResults = 100);

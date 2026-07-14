@@ -4,20 +4,32 @@
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using Microsoft.AspNetCore.Components.Authorization
 @inherits LayoutComponentBase
 
-<VanALayout>
-    <Sidebar>
-        <VanANavigation MenuItems="@AccountingMenuItems" />
-    </Sidebar>
-    <ChildContent>
-        @Body
-    </ChildContent>
-</VanALayout>
+@if (!_initialized)
+{
+    <div class="loading-state">
+        <VanASpinner Size="large" />
+    </div>
+}
+else
+{
+    <VanALayout>
+        <Sidebar>
+            <VanANavigation MenuItems="@AccountingMenuItems" />
+        </Sidebar>
+        <ChildContent>
+            @Body
+        </ChildContent>
+    </VanALayout>
+}
 
 @code {
     [Inject] private IVasFeatureFlagService FeatureFlagService { get; set; } = null!;
     [Inject] private ITenantProvider TenantProvider { get; set; } = null!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = null!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
 
     private List<NavigationItem> AccountingMenuItems = new();
     private bool _isEnterprise;
@@ -25,6 +37,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // BUG #1 FIX: SystemAdmin without tenant_id (not impersonating) must not access
+        // tenant-scoped accounting pages. Redirect to tenant selection page.
+        if (!TenantProvider.HasTenant)
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var isSystemAdmin = authState.User.IsInRole("SystemAdmin");
+            if (isSystemAdmin)
+            {
+                NavigationManager.NavigateTo("/admin/tenants", forceLoad: true);
+                return;
+            }
+        }
+
         // Build base menu (always visible — HKD + shared modules)
         AccountingMenuItems = new()
         {

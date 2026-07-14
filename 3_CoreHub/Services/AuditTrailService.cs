@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
@@ -19,15 +21,18 @@ namespace VanAn.CoreHub.Services
         private readonly IAuditLogRepository _auditLogRepository;
         private readonly ITenantProvider _tenantProvider;
         private readonly ILogger<AuditTrailService> _logger;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public AuditTrailService(
             IAuditLogRepository auditLogRepository,
             ITenantProvider tenantProvider,
-            ILogger<AuditTrailService> logger)
+            ILogger<AuditTrailService> logger,
+            IHttpContextAccessor httpContextAccessor)
         {
             _auditLogRepository = auditLogRepository;
             _tenantProvider = tenantProvider;
             _logger = logger;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuditLog> LogCreateAsync(
@@ -221,7 +226,17 @@ namespace VanAn.CoreHub.Services
             AuditLogQuery query,
             CancellationToken cancellationToken = default)
         {
-            // Ensure tenant ID is set from current context
+            // ISSUE #2 FIX: SystemAdmin without tenant_id (not impersonating) sees cross-tenant audit logs.
+            // When impersonating, _tenantProvider.HasTenant is true → normal tenant-filtered query.
+            if (IsSystemAdminWithoutTenant())
+            {
+                _logger.LogDebug(
+                    "Querying audit logs cross-tenant (SystemAdmin platform mode)");
+
+                return await _auditLogRepository.GetByQueryCrossTenantAsync(query);
+            }
+
+            // Normal tenant-filtered query
             var tenantId = new TenantId(_tenantProvider.TenantId);
             var queryWithTenant = query with { TenantId = tenantId };
 
@@ -268,23 +283,53 @@ namespace VanAn.CoreHub.Services
         #region Helper Methods - User Context
 
         /// <summary>
-        /// Gets the current user ID from the tenant provider or returns a system identifier.
-        /// In a real implementation, this would come from IHttpContextAccessor or similar.
+        /// Gets the current user ID from HTTP context claims.
+        /// Falls back to "system" when no HTTP context is available (e.g. background services).
         /// </summary>
         private string GetCurrentUserId()
         {
-            // TODO: Replace with actual user context from IHttpContextAccessor
-            // For now, return a system identifier or extract from ITenantProvider if available
-            return "system";
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user?.Identity?.IsAuthenticated != true)
+                return "system";
+
+            return user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? user.FindFirst("sub")?.Value
+                ?? "system";
         }
 
         /// <summary>
-        /// Gets the current user name from the tenant provider or returns a system identifier.
+        /// Gets the current user name from HTTP context claims.
+        /// Falls back to "System" when no HTTP context is available.
         /// </summary>
         private string GetCurrentUserName()
         {
-            // TODO: Replace with actual user context from IHttpContextAccessor
-            return "System";
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user?.Identity?.IsAuthenticated != true)
+                return "System";
+
+            return user.FindFirst(ClaimTypes.Name)?.Value
+                ?? user.FindFirst("DisplayName")?.Value
+                ?? user.FindFirst(ClaimTypes.Email)?.Value
+                ?? user.FindFirst("sub")?.Value
+                ?? "System";
+        }
+
+        /// <summary>
+        /// Checks if the current user is a SystemAdmin without a valid tenant_id (platform mode).
+        /// In this mode, audit queries should be cross-tenant.
+        /// </summary>
+        private bool IsSystemAdminWithoutTenant()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user?.Identity?.IsAuthenticated != true)
+                return false;
+
+            var isSystemAdmin = user.IsInRole("SystemAdmin");
+            if (!isSystemAdmin)
+                return false;
+
+            // SystemAdmin with valid tenant_id (impersonating) → tenant-filtered query
+            return !_tenantProvider.HasTenant;
         }
 
         #endregion
