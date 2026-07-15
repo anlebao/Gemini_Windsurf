@@ -144,7 +144,7 @@ services:
       # Cookie auth: share across khachvip.online and www.khachvip.online
       - Auth__CookieDomain=.${VANAN_DOMAIN}
       # SQLite DB persistent volume (survives container recreate/deploys)
-      - SQLITE_DB_PATH=Data Source=/app/keys/vanan_shoperp.db
+      - ConnectionStrings__DefaultConnection=Data Source=/app/keys/vanan_shoperp.db
     volumes:
       - shoperp_data:/app/keys
     networks:
