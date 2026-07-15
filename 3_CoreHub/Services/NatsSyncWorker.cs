@@ -83,7 +83,7 @@ public sealed class NatsSyncWorker : BackgroundService
 
         if (pendingEvents.Count == 0) return;
 
-        _logger.LogDebug("NatsSyncWorker: processing {Count} pending event(s)", pendingEvents.Count);
+        _logger.LogInformation("NatsSyncWorker: processing {Count} pending event(s)", pendingEvents.Count);
 
         foreach (var ev in pendingEvents)
         {
@@ -95,7 +95,7 @@ public sealed class NatsSyncWorker : BackgroundService
                 await _publisher.PublishAsync(subject, payload, cancellationToken);
                 await outbox.MarkAsProcessedAsync(ev.OutboxEventId, cancellationToken);
 
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "NatsSyncWorker: published event {EventId} type={EventType} → subject={Subject}",
                     ev.OutboxEventId, ev.EventType, subject);
             }

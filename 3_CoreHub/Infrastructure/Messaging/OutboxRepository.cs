@@ -33,6 +33,7 @@ public class OutboxRepository : IOutboxRepository
         // all Outbox messages (CurrentTenantIdValue = Guid.Empty in background worker scope).
         var messages = await _dbContext.OutboxMessages
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(m => m.Status == OutboxMessageStatus.Pending)
             .OrderBy(m => m.CreatedAt)
             .Take(batchSize)
