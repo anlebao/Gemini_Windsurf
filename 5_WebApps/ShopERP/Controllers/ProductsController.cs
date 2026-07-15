@@ -126,44 +126,55 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                // Get top N tenants that have active products
-                var tenantIds = await _dbContext.Products
+                // Load all active products (same query as GetProducts — proven to work)
+                List<Product> allProducts = await _dbContext.Products
                     .Where(p => p.IsActive && !p.IsDeleted)
-                    .Select(p => p.TenantId.Value)
-                    .Distinct()
-                    .Take(tenantsCount)
+                    .OrderBy(p => p.Category)
+                    .ThenBy(p => p.Name)
                     .ToListAsync();
 
-                if (tenantIds.Count == 0)
+                if (allProducts.Count == 0)
                     return Ok(new List<ProductCatalogItem>());
 
-                // Load tenant names
-                var tenantNames = await _dbContext.Tenants
-                    .Where(t => tenantIds.Contains(t.Id.Value))
-                    .ToDictionaryAsync(t => t.Id.Value, t => t.Name);
+                // Group in-memory, take top N tenants with 1-2 products each
+                var grouped = allProducts
+                    .GroupBy(p => p.TenantId.Value)
+                    .Take(tenantsCount)
+                    .ToList();
+
+                // Load tenant names from Shops table (fallback to default if not found)
+                Dictionary<Guid, string> tenantNames = new();
+                try
+                {
+                    var allShops = await _dbContext.Shops
+                        .Where(s => !s.IsDeleted)
+                        .ToListAsync();
+                    tenantNames = allShops.ToDictionary(s => s.TenantId.Value, s => s.Name);
+                }
+                catch (Exception shopEx)
+                {
+                    _logger.LogWarning(shopEx, "Shops table query failed, using fallback tenant names");
+                }
 
                 var result = new List<ProductCatalogItem>();
-                foreach (var tid in tenantIds)
+                foreach (var group in grouped)
                 {
-                    var prods = await _dbContext.Products
-                        .Where(p => p.TenantId.Value == tid && p.IsActive && !p.IsDeleted)
-                        .OrderBy(p => p.Category)
-                        .ThenBy(p => p.Name)
-                        .Take(productsPerTenant)
-                        .ToListAsync();
-
-                    result.AddRange(prods.Select(p => new ProductCatalogItem
+                    var tid = group.Key;
+                    foreach (var p in group.Take(productsPerTenant))
                     {
-                        ProductId = p.ProductId.Value,
-                        TenantId = p.TenantId.Value,
-                        TenantName = tenantNames.GetValueOrDefault(tid, "Cửa hàng"),
-                        Name = p.Name,
-                        Description = p.Description,
-                        Price = p.Price,
-                        Category = p.Category,
-                        ImageUrl = p.ImageUrl,
-                        VatRate = p.VatRate
-                    }));
+                        result.Add(new ProductCatalogItem
+                        {
+                            ProductId = p.ProductId.Value,
+                            TenantId = p.TenantId.Value,
+                            TenantName = tenantNames.GetValueOrDefault(tid, $"Cửa hàng {tid.ToString().Substring(0,8)}"),
+                            Name = p.Name,
+                            Description = p.Description,
+                            Price = p.Price,
+                            Category = p.Category,
+                            ImageUrl = p.ImageUrl,
+                            VatRate = p.VatRate
+                        });
+                    }
                 }
 
                 return Ok(result);
