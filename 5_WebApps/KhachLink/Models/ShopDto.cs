@@ -1,5 +1,7 @@
 namespace VanAn.KhachLink.Models;
 
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// DTO for Shop data received from ShopERP via Gateway (GET /api/shops/by-tenant/{tenantId}).
 /// Mirrors the subset of Shop entity fields needed to build a ShopConfig.
@@ -9,7 +11,15 @@ namespace VanAn.KhachLink.Models;
 public class ShopDto
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
+
+    // ShopERP returns TenantId as nested object {"value":"guid"} because TenantId is a ValueObject.
+    // Use TenantIdValue for deserialization, then expose as Guid via TenantId property.
+    [JsonPropertyName("tenantId")]
+    public TenantIdJson TenantIdWrapper { get; set; } = new();
+
+    [JsonIgnore]
+    public Guid TenantId => TenantIdWrapper?.Value ?? Guid.Empty;
+
     public string Name { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
@@ -17,4 +27,12 @@ public class ShopDto
     public bool IsActive { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+}
+
+/// <summary>
+/// Wrapper for TenantId ValueObject serialized as {"value":"guid"}
+/// </summary>
+public class TenantIdJson
+{
+    public Guid Value { get; set; }
 }

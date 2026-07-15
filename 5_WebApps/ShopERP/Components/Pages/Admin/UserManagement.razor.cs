@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.CoreHub.Services;
+using VanAn.CoreHub.Infrastructure;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.ShopERP.Components.Pages.Admin
 {
@@ -21,6 +24,8 @@ namespace VanAn.ShopERP.Components.Pages.Admin
         private UserRole _roleToAssign = UserRole.Staff;
         private readonly CreateUserForm _createForm = new();
         private bool _isSystemAdmin = false;
+        private Dictionary<Guid, string> _tenantNames = new();
+        private List<Tenant> _allTenants = new();
 
         protected override async Task OnInitializedAsync()
         {
@@ -31,6 +36,18 @@ namespace VanAn.ShopERP.Components.Pages.Admin
                 _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
             }
             catch { /* AuthStateProvider not available */ }
+
+            // Bug 3: Load tenant names for display + tenant selector
+            if (DbContext != null)
+            {
+                try
+                {
+                    _allTenants = await DbContext.Tenants.ToListAsync();
+                    _tenantNames = _allTenants.ToDictionary(t => t.Id.Value, t => t.Name);
+                }
+                catch (Exception ex) { Logger.LogWarning(ex, "Failed to load tenants"); }
+            }
+
             await LoadUsers();
         }
 
@@ -77,7 +94,10 @@ namespace VanAn.ShopERP.Components.Pages.Admin
             _isSaving = true;
             try
             {
-                var tenantId = GetTenantId();
+                // Bug 2: SystemAdmin can select target tenant; Owner uses own tenant
+                var tenantId = _isSystemAdmin && _createForm.TenantId != Guid.Empty
+                    ? new TenantId(_createForm.TenantId)
+                    : GetTenantId();
                 await UserService.CreateUserAsync(
                     tenantId,
                     _createForm.Username,
@@ -215,6 +235,7 @@ namespace VanAn.ShopERP.Components.Pages.Admin
             public string Password { get; set; } = string.Empty;
             public string DisplayName { get; set; } = string.Empty;
             public UserRole Role { get; set; } = UserRole.Staff;
+            public Guid TenantId { get; set; } = Guid.Empty;
 
             public void Reset()
             {
@@ -222,6 +243,7 @@ namespace VanAn.ShopERP.Components.Pages.Admin
                 Password = string.Empty;
                 DisplayName = string.Empty;
                 Role = UserRole.Staff;
+                TenantId = Guid.Empty;
             }
         }
     }

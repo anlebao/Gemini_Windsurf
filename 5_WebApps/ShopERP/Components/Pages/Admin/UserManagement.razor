@@ -16,6 +16,7 @@
 @inject ILogger<UserManagement> Logger
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
 
 @attribute [Authorize(Policy = "OwnerOnly")]
 
@@ -64,7 +65,7 @@
                     </VanAnColumn>
                     <VanAnColumn TItem="DemoUser" Title="Tenant" Width="2">
                         <Template Context="u">
-                            <span class="badge bg-info">@u.TenantId.Value.ToString().Substring(0,8)...</span>
+                            <span class="badge bg-info">@(_tenantNames.GetValueOrDefault(u.TenantId.Value, "N/A"))</span>
                         </Template>
                     </VanAnColumn>
                     <VanAnColumn TItem="DemoUser" Title="Vai trò" Width="1">
@@ -100,6 +101,25 @@
         <VanAModal Title="Tạo người dùng mới" IsVisible="true" OnClose="CloseCreateModal">
             <Body>
                 <form @onsubmit="HandleCreateSubmit" aria-label="Tạo người dùng mới">
+                    @if (_isSystemAdmin && _allTenants.Any())
+                    {
+                        <div class="form-group">
+                            <label for="user-tenant">Thuộc tenant *</label>
+                            <select id="user-tenant" class="vanan-select" @bind="_createForm.TenantId" aria-label="Tenant" required>
+                                @foreach (var t in _allTenants)
+                                {
+                                    <option value="@t.Id.Value">@t.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="form-group">
+                            <label>Thuộc tenant</label>
+                            <input class="vanan-input" value="@(_tenantNames.GetValueOrDefault(GetTenantId().Value, "Current tenant"))" disabled />
+                        </div>
+                    }
                     <div class="form-group">
                         <label for="user-username">Email đăng nhập *</label>
                         <input id="user-username" class="vanan-input" type="email" @bind="_createForm.Username" placeholder="user@vanan.vn" aria-label="Email đăng nhập" required />

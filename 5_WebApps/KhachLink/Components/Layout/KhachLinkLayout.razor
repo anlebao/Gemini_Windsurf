@@ -145,9 +145,10 @@
     {
         if (firstRender)
         {
-            // Bug 4: Show PWA install button on header if app not installed
+            // Bug 5: Must initialize PWA service first (registers beforeinstallprompt event listener)
             try
             {
+                await PWAService.InitializeAsync();
                 _showInstallButton = await PWAService.CanInstallAsync();
                 StateHasChanged();
             }
@@ -158,6 +159,13 @@
     private async Task InstallAppAsync()
     {
         var success = await PWAService.ShowInstallPromptAsync();
+        if (!success)
+        {
+            // Fallback: show instructions if browser doesn't support auto-install
+            await PWAService.ShowNotificationAsync(
+                "Cài đặt ứng dụng",
+                "Trên iPhone/iPad: nhấn nút Share → 'Thêm vào Màn hình chính'. Trên Android: menu ⋮ → 'Cài đặt ứng dụng'. Trên Desktop: nhấn icon Install trong thanh địa chỉ.");
+        }
         if (success)
         {
             _showInstallButton = false;
