@@ -23,6 +23,27 @@
             </Authorized>
         </AuthorizeView>
 
+        @* T14: POS + Kitchen + Orders — StaffOrAbove (Staff, StoreKeeper, Owner) *@
+        <AuthorizeView Roles="Staff,StoreKeeper,Owner">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="pos">
+                        <span class="bi bi-bag-fill-nav-menu" aria-hidden="true"></span> POS
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="kitchen">
+                        <span class="bi bi-fire-nav-menu" aria-hidden="true"></span> Bếp
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="orders">
+                        <span class="bi bi-list-check-nav-menu" aria-hidden="true"></span> Đơn hàng
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
         @* Accounting: Owner only *@
         <AuthorizeView Roles="Owner">
             <Authorized>

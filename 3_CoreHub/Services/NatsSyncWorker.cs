@@ -26,6 +26,7 @@ public sealed class NatsSyncWorker : BackgroundService
     private readonly ILogger<NatsSyncWorker> _logger;
     private readonly TimeSpan _pollInterval;
     private readonly int _batchSize;
+    private readonly string _subjectPrefix;
 
     public NatsSyncWorker(
         IServiceProvider serviceProvider,
@@ -39,6 +40,9 @@ public sealed class NatsSyncWorker : BackgroundService
         _pollInterval = TimeSpan.FromMilliseconds(
             configuration.GetValue<int>("Sync__PollIntervalMs", 1000));
         _batchSize = configuration.GetValue<int>("Sync__BatchSize", 50);
+        // RC-2 fix: subject prefix separates PG→SQLite (vanan.cloud.*) from SQLite→PG (vanan.shoperp.*).
+        // Gateway sets Sync:SubjectPrefix=cloud in appsettings.json; ShopERP (Edge) keeps default shoperp.
+        _subjectPrefix = configuration.GetValue<string>("Sync:SubjectPrefix") ?? "shoperp";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -89,7 +93,7 @@ public sealed class NatsSyncWorker : BackgroundService
         {
             try
             {
-                var subject = BuildSubject(ev.EventType);
+                var subject = BuildSubject(ev.EventType, _subjectPrefix);
                 var payload = Encoding.UTF8.GetBytes(ev.EventData);
 
                 await _publisher.PublishAsync(subject, payload, cancellationToken);
@@ -111,11 +115,16 @@ public sealed class NatsSyncWorker : BackgroundService
 
     /// <summary>
     /// Builds a canonical NATS subject from the domain event type.
-    /// "Order.Created" → "vanan.shoperp.order.created"
+    /// "OrderCreated" → "vanan.{prefix}.order.created"
+    /// "OrderStatusChanged" → "vanan.{prefix}.order.status.changed"
+    /// RC-2 fix: prefix separates directions (cloud=PG→SQLite, shoperp=SQLite→PG).
+    /// CamelCase split ensures subject matches subscriber expectations (dotted words).
     /// </summary>
-    private static string BuildSubject(string eventType)
+    private static string BuildSubject(string eventType, string prefix)
     {
-        var normalized = eventType.ToLowerInvariant().Replace('_', '.');
-        return $"vanan.shoperp.{normalized}";
+        // Split camelCase: "OrderCreated" → "order.created"
+        var normalized = System.Text.RegularExpressions.Regex.Replace(
+            eventType, "([a-z])([A-Z])", "$1.$2").ToLowerInvariant().Replace('_', '.');
+        return $"vanan.{prefix}.{normalized}";
     }
 }

@@ -1,0 +1,101 @@
+@* R2-0c: OrderSummaryCard — shared order summary display.
+   Replaces inline item list + total in KhachLink/Checkout.razor and ShopERP Detail.razor.
+   Takes IEnumerable<OrderItemDisplayDto> + total amounts. *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+@using VanAn.Shared.DTOs
+
+<VanACard Header="@Header">
+    @if (Items != null && Items.Any())
+    {
+        <div class="vanan-order-summary">
+            @foreach (var item in Items)
+            {
+                <div class="vanan-order-summary__item">
+                    <span class="vanan-order-summary__name">@item.ProductName x @item.Quantity</span>
+                    <span class="vanan-order-summary__amount">@item.TotalAmount.ToString("N0") VNĐ</span>
+                </div>
+            }
+
+            @if (ShowSubTotal && SubTotal > 0)
+            {
+                <hr class="vanan-order-summary__divider" />
+                <div class="vanan-order-summary__row">
+                    <span>Tạm tính:</span>
+                    <span>@SubTotal.ToString("N0") VNĐ</span>
+                </div>
+            }
+
+            @if (ShowVat && VatAmount > 0)
+            {
+                <div class="vanan-order-summary__row">
+                    <span>VAT:</span>
+                    <span>@VatAmount.ToString("N0") VNĐ</span>
+                </div>
+            }
+
+            <hr class="vanan-order-summary__divider" />
+            <div class="vanan-order-summary__total">
+                <span class="vanan-order-summary__total-label">@TotalLabel:</span>
+                <span class="vanan-order-summary__total-amount">@TotalAmount.ToString("N0") VNĐ</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <p class="vanan-order-summary__empty">@EmptyMessage</p>
+    }
+
+    @if (ChildContent != null)
+    {
+        <div class="vanan-order-summary__footer">
+            @ChildContent
+        </div>
+    }
+</VanACard>
+
+@code {
+    /// <summary>
+    /// Order items to display.
+    /// </summary>
+    [Parameter]
+    public IEnumerable<OrderItemDisplayDto>? Items { get; set; }
+
+    /// <summary>
+    /// Card header text.
+    /// </summary>
+    [Parameter]
+    public string Header { get; set; } = "🛒 Tóm tắt đơn hàng";
+
+    /// <summary>
+    /// Total amount (grand total including VAT).
+    /// </summary>
+    [Parameter]
+    public decimal TotalAmount { get; set; }
+
+    /// <summary>
+    /// Subtotal (before VAT). If > 0, shown as separate row.
+    /// </summary>
+    [Parameter]
+    public decimal SubTotal { get; set; }
+
+    /// <summary>
+    /// VAT amount. If > 0, shown as separate row.
+    /// </summary>
+    [Parameter]
+    public decimal VatAmount { get; set; }
+
+    [Parameter]
+    public bool ShowSubTotal { get; set; } = true;
+
+    [Parameter]
+    public bool ShowVat { get; set; } = true;
+
+    [Parameter]
+    public string TotalLabel { get; set; } = "Tổng cộng";
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "Không có sản phẩm";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

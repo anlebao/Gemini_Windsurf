@@ -99,10 +99,14 @@ public class OutboxRepository : IOutboxRepository
     /// <summary>
     /// W-1-T2: Reconstruct OutboxEvent from persistence model.
     /// InvoiceId is set to Guid.Empty for non-invoice events — subscribers parse EventData for type-specific fields.
+    /// RC-1 fix: Preserve original OutboxEventId = m.Id so MarkAsProcessedAsync can find the row.
     /// </summary>
     private static OutboxEvent ToDomain(OutboxMessage m)
     {
         var e = new OutboxEvent(m.TenantId, new ElectronicInvoiceId(Guid.Empty), m.EventType, m.EventData);
+
+        // Preserve original ID from persistence model (constructor generates new Guid — would break MarkAsProcessedAsync)
+        typeof(OutboxEvent).GetProperty("OutboxEventId")?.SetValue(e, m.Id);
 
         if (m.Status == OutboxMessageStatus.Processed)
             e.MarkAsProcessed();

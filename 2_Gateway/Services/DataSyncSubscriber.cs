@@ -217,8 +217,8 @@ namespace VanAn.Gateway.Services
 
         /// <summary>
         /// Sync OrderCreated event — upsert order to PostgreSQL.
-        /// Note: most orders are created via Gateway API (already in PostgreSQL).
-        /// This handler covers the offline case where ShopERP created the order locally.
+        /// Covers the offline case where ShopERP created the order locally (Edge Mode POS).
+        /// Direction: SQLite→PG (subject vanan.shoperp.order.created).
         /// </summary>
         private async Task SyncOrderCreatedAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
         {
@@ -236,12 +236,74 @@ namespace VanAn.Gateway.Services
                 return;
             }
 
-            // Full order upsert requires deserializing complete Order graph.
-            // For now, log — full implementation deferred to W-1 follow-up (needs Order payload contract).
-            // The order will be created in PostgreSQL when the customer's next API call hits Gateway.
-            _logger.LogInformation(
-                "SyncOrderCreatedAsync: order {OrderId} not in PostgreSQL — full upsert deferred (offline-created order)",
-                orderId);
+            // Full upsert: deserialize complete Order graph from event payload.
+            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncOrderCreatedAsync: missing TenantId for order {OrderId}", orderId);
+                return;
+            }
+
+            TenantId tenantIdObj = new(tenantId);
+
+            // Build OrderItems from payload
+            var items = new List<OrderItem>();
+            if (data.TryGetProperty("Items", out var itemsProp))
+            {
+                foreach (var item in itemsProp.EnumerateArray())
+                {
+                    Guid itemId = item.TryGetProperty("ItemId", out var idProp) ? idProp.GetGuid() : Guid.NewGuid();
+                    Guid productId = item.GetProperty("ProductId").GetGuid();
+                    int quantity = item.GetProperty("Quantity").GetInt32();
+                    decimal unitPrice = item.GetProperty("UnitPrice").GetDecimal();
+                    string productName = item.TryGetProperty("ProductName", out var pnProp) ? pnProp.GetString() ?? "" : "";
+                    decimal vatRate = item.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.10m;
+
+                    var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice, productName);
+                    typeof(OrderItem).GetProperty("VatRate")?.SetValue(orderItem, vatRate);
+                    items.Add(orderItem);
+                }
+            }
+
+            Order order = Order.Create(orderId, tenantIdObj, null, items);
+
+            // Set customer info if provided
+            if (data.TryGetProperty("CustomerInfo", out var infoProp))
+            {
+                string name = infoProp.TryGetProperty("FullName", out var n) ? n.GetString() ?? "" : "";
+                string phone = infoProp.TryGetProperty("PhoneNumber", out var p) ? p.GetString() ?? "" : "";
+                string email = infoProp.TryGetProperty("Email", out var e) ? e.GetString() ?? "" : "";
+                string address = infoProp.TryGetProperty("Address", out var a) ? a.GetString() ?? "" : "";
+
+                if (!string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(phone))
+                {
+                    order.SetCustomerInfo(new CustomerInfo(name, phone, email, address));
+                }
+            }
+
+            // Set device ID if provided
+            if (data.TryGetProperty("CustomerDeviceId", out var devProp))
+            {
+                string? deviceId = devProp.GetString();
+                if (!string.IsNullOrWhiteSpace(deviceId))
+                    order.SetCustomerDeviceId(deviceId);
+            }
+
+            // Set status if provided (default is "pending")
+            if (data.TryGetProperty("Status", out var statusProp))
+            {
+                string? status = statusProp.GetString();
+                if (!string.IsNullOrWhiteSpace(status) && status != "pending")
+                {
+                    order.UpdateOrderStatus(new OrderStatusId(status));
+                }
+            }
+
+            await dbContext.Orders.AddAsync(order, ct);
+            await dbContext.SaveChangesAsync(ct);
+
+            _logger.LogInformation("SyncOrderCreatedAsync: synced order {OrderId} → PostgreSQL ({ItemCount} items)",
+                orderId, items.Count);
         }
 
         /// <summary>

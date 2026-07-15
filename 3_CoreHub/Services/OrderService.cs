@@ -564,11 +564,16 @@ namespace VanAn.CoreHub.Services
                     order.SetCustomerInfo(info);
                 }
 
-                // Save order using existing repository pattern
-                Order createdOrder = await _orderRepository.AddAsync(order);
+                // Save order + Outbox event atomically (RC-1 fix: single transaction).
+                // Previously: AddAsync (SaveChangesAsync) then EnqueueAsync + SaveChangesAsync (2nd save).
+                // If 2nd save failed, order was committed but Outbox event was lost → sync never runs.
+                using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction =
+                    await _orderRepository.BeginTransactionAsync();
+
+                Order createdOrder = await _orderRepository.AddAsyncNoSave(order);
 
                 // Sync: Enqueue OrderCreated event to Outbox for NATS → ShopERP SQLite sync
-                // Gateway writes to PostgreSQL; ShopERP reads from SQLite.
+                // Gateway writes to PostgreSQL; ShopERP reads from SQLite (Owner UI).
                 // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).
                 if (_outboxRepository != null)
                 {
@@ -613,21 +618,20 @@ namespace VanAn.CoreHub.Services
                         new ElectronicInvoiceId(Guid.Empty),
                         "OrderCreated",
                         eventData);
-                    _ = _outboxRepository.EnqueueAsync(outboxEvent);
-
-                    // Save Outbox message — EnqueueAsync only adds to EF change tracker.
-                    // OrderRepository.AddAsync already called SaveChangesAsync for the order,
-                    // so we need a separate SaveChangesAsync for the Outbox message.
-                    if (_dbContext != null)
-                    {
-                        await _dbContext.SaveChangesAsync();
-                        _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
-                    }
+                    await _outboxRepository.EnqueueAsync(outboxEvent);
+                    _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
                 }
                 else
                 {
                     _logger.LogWarning("OutboxRepository not available — OrderCreated event for order {OrderId} not persisted", createdOrder.Id);
                 }
+
+                // Single SaveChangesAsync commits both order + outbox event atomically.
+                if (_dbContext != null)
+                {
+                    await _dbContext.SaveChangesAsync();
+                }
+                await transaction.CommitAsync();
 
                 _logger.LogInformation("Created order {OrderId} from Gateway command", createdOrder.Id);
 

@@ -1,0 +1,246 @@
+@page "/pos"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Components.Data
+@using VanAn.UI.Platform.Models
+@using VanAn.UI.Platform.Tokens
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Commands
+@inject IOrderService OrderService
+@inject IProductService ProductService
+@inject ITenantProvider TenantProvider
+@inject ILogger<Create> Logger
+@inject NavigationManager NavigationManager
+@inject IThemeProvider ThemeProvider
+
+<div class="pos-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>POS — Tạo đơn hàng</h1>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải danh sách sản phẩm...</p>
+        </VanACard>
+    }
+    else
+    {
+        <div class="pos-layout">
+            <div class="pos-products">
+                <VanACard Header="📋 Chọn sản phẩm">
+                    @if (products == null || products.Count == 0)
+                    {
+                        <p>Không có sản phẩm. Vui lòng thêm sản phẩm trước.</p>
+                    }
+                    else
+                    {
+                        <VanAnDataGrid TItem="ProductDetailDto" Items="@products" EmptyMessage="Không có sản phẩm">
+                            <Columns>
+                                <VanAnColumn TItem="ProductDetailDto" Title="Tên" Width="4">
+                                    <Template Context="p">@p.Name</Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ProductDetailDto" Title="Giá" Width="2">
+                                    <Template Context="p">@p.Price.ToString("N0") đ</Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ProductDetailDto" Title="Danh mục" Width="2">
+                                    <Template Context="p">@p.Category</Template>
+                                </VanAnColumn>
+                                <VanAnColumn TItem="ProductDetailDto" Title="" Width="2">
+                                    <Template Context="p">
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => AddToCart(p))" data-testid="@($"pos-add-{p.ProductId}")">
+                                            + Thêm
+                                        </VanAButton>
+                                    </Template>
+                                </VanAnColumn>
+                            </Columns>
+                        </VanAnDataGrid>
+                    }
+                </VanACard>
+            </div>
+
+            <div class="pos-cart">
+                <VanACard Header="🛒 Giỏ hàng">
+                    @if (cartItems.Count == 0)
+                    {
+                        <p>Chưa có sản phẩm trong giỏ.</p>
+                    }
+                    else
+                    {
+                        @foreach (var item in cartItems)
+                        {
+                            <div class="pos-cart-item">
+                                <div class="pos-cart-item__info">
+                                    <span class="pos-cart-item__name">@item.ProductName</span>
+                                    <span class="pos-cart-item__price">@item.UnitPrice.ToString("N0") đ</span>
+                                </div>
+                                <div class="pos-cart-item__qty">
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity - 1))">−</VanAButton>
+                                    <span class="pos-cart-item__count">@item.Quantity</span>
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity + 1))">+</VanAButton>
+                                    <VanAButton Variant="error" Size="small" OnClick="@(() => RemoveFromCart(item.ProductId))">✕</VanAButton>
+                                </div>
+                            </div>
+                        }
+
+                        <hr />
+                        <div class="pos-cart-total">
+                            <strong>Tổng cộng: @cartTotal.ToString("N0") đ</strong>
+                        </div>
+                    }
+                </VanACard>
+
+                <VanACard Header="📝 Thông tin khách hàng (tùy chọn)">
+                    <div class="pos-form">
+                        <div class="mb-2">
+                            <label class="form-label">Tên khách hàng</label>
+                            <input class="form-control" @bind="customerName" @bind:event="oninput" placeholder="Nhập tên" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Số điện thoại</label>
+                            <input class="form-control" @bind="customerPhone" @bind:event="oninput" placeholder="Nhập SĐT" />
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Số bàn</label>
+                            <input class="form-control" @bind="tableNumber" @bind:event="oninput" placeholder="Bàn số" />
+                        </div>
+                    </div>
+                </VanACard>
+
+                <VanAButton Variant="success" FullWidth="true" OnClick="CreateOrder" disabled="@(cartItems.Count == 0 || isSubmitting)" data-testid="pos-btn-create">
+                    @(isSubmitting ? "Đang tạo..." : "Tạo đơn hàng")
+                </VanAButton>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ProductDetailDto> products = new();
+    private List<PosCartItem> cartItems = new();
+    private bool loading = true;
+    private bool isSubmitting = false;
+    private string? errorMessage;
+    private string customerName = string.Empty;
+    private string customerPhone = string.Empty;
+    private string tableNumber = string.Empty;
+
+    private decimal cartTotal => cartItems.Sum(i => i.UnitPrice * i.Quantity);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            products = await ProductService.GetAllForManagementAsync(TenantProvider.TenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading products for POS");
+            errorMessage = $"Không thể tải sản phẩm: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void AddToCart(ProductDetailDto product)
+    {
+        var existing = cartItems.FirstOrDefault(c => c.ProductId == product.ProductId);
+        if (existing != null)
+        {
+            cartItems.Remove(existing);
+            cartItems.Add(existing with { Quantity = existing.Quantity + 1 });
+        }
+        else
+        {
+            cartItems.Add(new PosCartItem
+            {
+                ProductId = product.ProductId,
+                ProductName = product.Name,
+                UnitPrice = product.Price,
+                Quantity = 1
+            });
+        }
+    }
+
+    private void UpdateQty(Guid productId, int qty)
+    {
+        if (qty <= 0)
+        {
+            RemoveFromCart(productId);
+            return;
+        }
+        var item = cartItems.FirstOrDefault(c => c.ProductId == productId);
+        if (item != null)
+        {
+            cartItems.Remove(item);
+            cartItems.Add(item with { Quantity = qty });
+        }
+    }
+
+    private void RemoveFromCart(Guid productId)
+    {
+        _ = cartItems.RemoveAll(c => c.ProductId == productId);
+    }
+
+    // T9: Create order via IOrderService.CreateOrderFromCommandAsync (atomic outbox — E1 fix).
+    // Saves to SQLite directly (Edge offline-first). Outbox event syncs to PostgreSQL via NATS.
+    private async Task CreateOrder()
+    {
+        if (cartItems.Count == 0) return;
+
+        isSubmitting = true;
+        errorMessage = null;
+        try
+        {
+            var command = new CreateOrderCommand
+            {
+                CustomerDeviceId = Guid.Empty, // POS — staff-created, no device fingerprint
+                CustomerName = string.IsNullOrWhiteSpace(customerName) ? null : customerName,
+                CustomerPhone = string.IsNullOrWhiteSpace(customerPhone) ? null : customerPhone,
+                CustomerAddress = string.IsNullOrWhiteSpace(tableNumber) ? null : $"Bàn: {tableNumber}",
+                Items = cartItems.Select(c => new OrderItemRequest
+                {
+                    ProductId = c.ProductId,
+                    Quantity = c.Quantity,
+                    UnitPrice = c.UnitPrice
+                }).ToList()
+            };
+
+            Order order = await OrderService.CreateOrderFromCommandAsync(command, TenantProvider.TenantId);
+            Logger.LogInformation("POS order created: {OrderId}", order.Id);
+
+            // Redirect to payment page
+            NavigationManager.NavigateTo($"/pos/payment/{order.Id}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating POS order");
+            errorMessage = $"Không thể tạo đơn: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private record PosCartItem
+    {
+        public Guid ProductId { get; init; }
+        public string ProductName { get; init; } = string.Empty;
+        public decimal UnitPrice { get; init; }
+        public int Quantity { get; init; }
+    }
+}

@@ -144,19 +144,19 @@ Mỗi subscriber chỉ listen prefix của hướng ngược lại.
 
 ## 3. PHASE BREAKDOWN
 
-### Track E1 — Sync Root Cause Fix (8 tasks)
+### Track E1 — Sync Root Cause Fix (8 tasks) - COMPLETE 2026-07-15
 | Task | Mô tả |
 |---|---|
-| T1 | Verify-repro: `docker compose up` + clean DBs + checkout + assert SQLite=0, Dashboard=0 (evidence) |
-| T2 | RC-1 Atomic: refactor `OrderService.CreateOrderFromCommandAsync` dùng `BeginTransactionAsync` → add order + enqueue outbox → 1 `SaveChangesAsync` → `CommitAsync`. Audit `OrderRepository.AddAsync` callers — nếu phải change public API → STOP, ask user |
-| T3 | RC-2 Subject: đổi `NatsSyncWorker.BuildSubject` (Gateway) cho event PG→SQLite thành `vanan.cloud.{eventType}`. Đổi subscription ở `OrderSyncSubscriber` (ShopERP) thành `vanan.cloud.order.created` + `vanan.cloud.order.statuschanged`. Giữ `vanan.shoperp.*` cho SQLite→PG |
-| T4 | RC-3 OrderItem full payload: `OrderSyncSubscriber.SyncOrderCreatedAsync` parse đủ `ProductName`, `VatRate`, `TotalAmount`. Inspect `OrderItem` Domain — report nếu cần sửa Domain |
-| T5 | Hoàn thiện `DataSyncSubscriber.SyncOrderCreatedAsync` (Gateway) — hiện là stub, cần full upsert order + items vào PostgreSQL |
-| T6 | Verify-fix: checkout qua Gateway → assert SQLite có order sau ~5s với đúng VAT + ProductName |
-| T7 | Build + guard-check + commit `[SYNC-FIX] RC-1/2/3 atomic + subject + full payload` |
-| T8 | Update `project_state.md` Maintenance Log — mark Option C SUPERSEDED by Option D |
+| T1 | DONE - Verify-repro: `docker compose up` + clean DBs + checkout + assert SQLite=0, Dashboard=0 (evidence) |
+| T2 | DONE - RC-1 Atomic: refactor `OrderService.CreateOrderFromCommandAsync` dùng `BeginTransactionAsync` → add order + enqueue outbox → 1 `SaveChangesAsync` → `CommitAsync`. Audit `OrderRepository.AddAsync` callers — nếu phải change public API → STOP, ask user |
+| T3 | DONE - RC-2 Subject: đổi `NatsSyncWorker.BuildSubject` (Gateway) cho event PG→SQLite thành `vanan.cloud.{eventType}`. Đổi subscription ở `OrderSyncSubscriber` (ShopERP) thành `vanan.cloud.order.created` + `vanan.cloud.order.statuschanged`. Giữ `vanan.shoperp.*` cho SQLite→PG |
+| T4 | DONE - RC-3 OrderItem full payload: `OrderSyncSubscriber.SyncOrderCreatedAsync` parse đủ `ProductName`, `VatRate`, `TotalAmount`. Inspect `OrderItem` Domain — report nếu cần sửa Domain |
+| T5 | DONE - Hoàn thiện `DataSyncSubscriber.SyncOrderCreatedAsync` (Gateway) — hiện là stub, cần full upsert order + items vào PostgreSQL |
+| T6 | DONE - Verify-fix: checkout qua Gateway → assert SQLite có order sau ~5s với đúng VAT + ProductName |
+| T7 | DONE - Build + guard-check + commit `[SYNC-FIX] RC-1/2/3 atomic + subject + full payload` |
+| T8 | DONE - Update `project_state.md` Maintenance Log — mark Option C SUPERSEDED by Option D |
 
-### Track E2 — Edge Kitchen UI (8 tasks)
+### Track E2 — Edge Kitchen UI (8 tasks) - IN PROGRESS
 | Task | Mô tả |
 |---|---|
 | T9 | UI: Page POS Order Input `/pos` (VanAForm + VanAnDataGrid + product picker + qty + customer info + payment method) |
@@ -236,15 +236,15 @@ dotnet build VanAn.sln
 
 ## 7. ACCEPTANCE CRITERIA
 
-- [ ] Checkout qua Gateway → SQLite có order sau ~5s với `ProductName` + `VatRate` + `TotalAmount` đúng
-- [ ] Dashboard `shop-metrics` response có `TodayOrders >= 1` sau checkout (KHÔNG cần Dashboard HTTP refactor)
-- [ ] Order + Outbox atomic (1 transaction) — test kill giữa chừng không tạo orphan
-- [ ] Subject namespace tách: `vanan.cloud.*` (PG→SQLite) vs `vanan.shoperp.*` (SQLite→PG)
-- [ ] `OrderSyncSubscriber` subscribe `vanan.cloud.order.created` + `vanan.cloud.order.statuschanged`
-- [ ] `DataSyncSubscriber.SyncOrderCreatedAsync` full upsert (không còn stub)
+- [x] Checkout qua Gateway → SQLite có order sau ~5s với `ProductName` + `VatRate` + `TotalAmount` đúng
+- [x] Dashboard `shop-metrics` response có `TodayOrders >= 1` sau checkout (KHÔNG cần Dashboard HTTP refactor)
+- [x] Order + Outbox atomic (1 transaction) — test kill giữa chừng không tạo orphan
+- [x] Subject namespace tách: `vanan.cloud.*` (PG→SQLite) vs `vanan.shoperp.*` (SQLite→PG)
+- [x] `OrderSyncSubscriber` subscribe `vanan.cloud.order.created` + `vanan.cloud.order.statuschanged`
+- [x] `DataSyncSubscriber.SyncOrderCreatedAsync` full upsert (không còn stub)
 - [ ] Edge UI: POS input → payment → kitchen transitions → complete — full flow PASS local
-- [ ] Build: 0 errors, guard-check PASS
-- [ ] `project_state.md` updated — Option C SUPERSEDED by Option D
+- [x] Build: 0 errors, guard-check PASS
+- [x] `project_state.md` updated — Option C SUPERSEDED by Option D
 
 ---
 

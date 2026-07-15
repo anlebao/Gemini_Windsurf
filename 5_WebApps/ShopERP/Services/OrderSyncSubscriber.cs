@@ -54,14 +54,16 @@ namespace VanAn.ShopERP.Services
 
                 _subscriptionConnection = new ConnectionFactory().CreateConnection(opts);
 
-                // Subscribe to order.created events from Gateway
-                _ = _subscriptionConnection.SubscribeAsync("vanan.shoperp.order.created", async (sender, args) =>
+                // RC-2 fix: subscribe to vanan.cloud.* (PG→SQLite direction).
+                // Gateway publishes with prefix "cloud"; ShopERP publishes with prefix "shoperp".
+                // This prevents subject collision where Gateway would receive its own events back.
+                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.created", async (sender, args) =>
                 {
                     await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
                 });
 
                 // Also subscribe to order.statuschanged for status updates
-                _ = _subscriptionConnection.SubscribeAsync("vanan.shoperp.order.statuschanged", async (sender, args) =>
+                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.statuschanged", async (sender, args) =>
                 {
                     await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
                 });
@@ -120,8 +122,14 @@ namespace VanAn.ShopERP.Services
                         Guid productId = item.GetProperty("ProductId").GetGuid();
                         int quantity = item.GetProperty("Quantity").GetInt32();
                         decimal unitPrice = item.GetProperty("UnitPrice").GetDecimal();
+                        // RC-3 fix: parse ProductName + VatRate from payload (previously dropped).
+                        string productName = item.TryGetProperty("ProductName", out var pnProp) ? pnProp.GetString() ?? "" : "";
+                        decimal vatRate = item.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.10m;
 
-                        var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice);
+                        var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice, productName);
+                        // Set VatRate via reflection (protected setter — same pattern as OrderItem.Create sets Id).
+                        // TotalAmount is computed (SubTotal + VatAmount), no need to set.
+                        typeof(OrderItem).GetProperty("VatRate")?.SetValue(orderItem, vatRate);
                         items.Add(orderItem);
                     }
                 }

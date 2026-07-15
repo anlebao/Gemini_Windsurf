@@ -1,11 +1,11 @@
 using VanAn.CoreHub.Services;
-using VanAn.ShopERP.Services;
 using Xunit;
 
 namespace VanAn.Core.Tests.Services
 {
     /// <summary>
-    /// FIX-BATCH-7: Unit tests for QrCodeService (CoreHub + ShopERP).
+    /// FIX-BATCH-7: Unit tests for QrCodeService (CoreHub).
+    /// R2-0d: ShopERP IShopQrCodeService consolidated into IQrCodeService — single service tested.
     /// Verifies that GenerateProductQRCode returns a valid PNG byte array.
     /// </summary>
     public class QrCodeServiceTests
@@ -29,17 +29,17 @@ namespace VanAn.Core.Tests.Services
         }
 
         [Fact]
-        public void ShopERP_GenerateProductQRCode_ReturnsNonEmptyPngByteArray()
+        public void Consolidated_GenerateProductQRCode_WithTableNumber_ReturnsNonEmptyPngByteArray()
         {
-            var service = new ShopQrCodeService();
+            // R2-0d: tableNumber overload (formerly ShopERP-only, now consolidated into IQrCodeService)
+            var service = new QrCodeService();
             var productId = Guid.NewGuid();
             var shopId = Guid.NewGuid();
 
-            byte[] result = service.GenerateProductQRCode(productId, shopId);
+            byte[] result = service.GenerateProductQRCode(productId, shopId, "Table-5");
 
             Assert.NotNull(result);
             Assert.True(result.Length > 0);
-            // PNG signature check
             Assert.Equal(0x89, result[0]);
             Assert.Equal(0x50, result[1]);
             Assert.Equal(0x4E, result[2]);
