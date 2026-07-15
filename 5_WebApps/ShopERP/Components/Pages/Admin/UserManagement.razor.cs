@@ -20,9 +20,17 @@ namespace VanAn.ShopERP.Components.Pages.Admin
         private string _alertType = "info";
         private UserRole _roleToAssign = UserRole.Staff;
         private readonly CreateUserForm _createForm = new();
+        private bool _isSystemAdmin = false;
 
         protected override async Task OnInitializedAsync()
         {
+            // Bug 1: Check if current user is SystemAdmin (for role restriction in create form)
+            try
+            {
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
+            }
+            catch { /* AuthStateProvider not available */ }
             await LoadUsers();
         }
 

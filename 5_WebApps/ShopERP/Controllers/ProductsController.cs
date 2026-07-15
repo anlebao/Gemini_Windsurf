@@ -115,6 +115,67 @@ namespace VanAn.ShopERP.Controllers
         }
 
         /// <summary>
+        /// Bug 3: Get products grouped by tenant — top 5 tenants, 1-2 products each.
+        /// Returns flat list with TenantName for client-side grouping.
+        /// </summary>
+        [HttpGet("grouped-by-tenant")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<ProductCatalogItem>>> GetProductsGroupedByTenant(
+            [FromQuery] int tenantsCount = 5,
+            [FromQuery] int productsPerTenant = 2)
+        {
+            try
+            {
+                // Get top N tenants that have active products
+                var tenantIds = await _dbContext.Products
+                    .Where(p => p.IsActive && !p.IsDeleted)
+                    .Select(p => p.TenantId.Value)
+                    .Distinct()
+                    .Take(tenantsCount)
+                    .ToListAsync();
+
+                if (tenantIds.Count == 0)
+                    return Ok(new List<ProductCatalogItem>());
+
+                // Load tenant names
+                var tenantNames = await _dbContext.Tenants
+                    .Where(t => tenantIds.Contains(t.Id.Value))
+                    .ToDictionaryAsync(t => t.Id.Value, t => t.Name);
+
+                var result = new List<ProductCatalogItem>();
+                foreach (var tid in tenantIds)
+                {
+                    var prods = await _dbContext.Products
+                        .Where(p => p.TenantId.Value == tid && p.IsActive && !p.IsDeleted)
+                        .OrderBy(p => p.Category)
+                        .ThenBy(p => p.Name)
+                        .Take(productsPerTenant)
+                        .ToListAsync();
+
+                    result.AddRange(prods.Select(p => new ProductCatalogItem
+                    {
+                        ProductId = p.ProductId.Value,
+                        TenantId = p.TenantId.Value,
+                        TenantName = tenantNames.GetValueOrDefault(tid, "Cửa hàng"),
+                        Name = p.Name,
+                        Description = p.Description,
+                        Price = p.Price,
+                        Category = p.Category,
+                        ImageUrl = p.ImageUrl,
+                        VatRate = p.VatRate
+                    }));
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting grouped products");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
         /// Get personalized product recommendations for a customer based on order history.
         /// </summary>
         [HttpGet("recommended")]
@@ -370,6 +431,7 @@ namespace VanAn.ShopERP.Controllers
     {
         public Guid ProductId { get; set; }
         public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public decimal Price { get; set; }

@@ -94,19 +94,24 @@
                 <div class="col-md-7">
                     <VanAnCard Header="📝 Thông tin khách hàng">
                         <div class="mb-3">
-                            <label for="guest-name" class="form-label">Họ và tên <span class="text-danger">*</span></label>
-                            <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nhập họ và tên" required aria-label="Họ và tên" name="name" data-testid="checkout-input-name" />
+                            <label for="guest-name" class="form-label">Họ và tên @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
+                            <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nhập họ và tên" aria-label="Họ và tên" name="name" data-testid="checkout-input-name" />
                         </div>
 
                         <div class="mb-3">
-                            <label for="guest-phone" class="form-label">Số điện thoại <span class="text-danger">*</span></label>
-                            <input id="guest-phone" type="tel" class="form-control" @bind="guestPhone" @bind:event="oninput" placeholder="Nhập số điện thoại" required aria-label="Số điện thoại" name="phone" data-testid="checkout-input-phone" />
+                            <label for="guest-phone" class="form-label">Số điện thoại @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
+                            <input id="guest-phone" type="tel" class="form-control" @bind="guestPhone" @bind:event="oninput" placeholder="Nhập số điện thoại" aria-label="Số điện thoại" name="phone" data-testid="checkout-input-phone" />
                         </div>
 
                         <div class="mb-3">
                             <label for="guest-address" class="form-label">Địa chỉ giao hàng</label>
                             <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput" placeholder="Nhập địa chỉ giao hàng" aria-label="Địa chỉ giao hàng" name="address" data-testid="checkout-input-address" />
                         </div>
+
+                        @if (selectedPaymentMethod == "transfer")
+                        {
+                            <VanAnAlert Variant="AlertVariant.Info" Message="Vui lòng nhập họ tên để đối soát giao dịch chuyển khoản." Dismissible="false" />
+                        }
 
                         @if (!string.IsNullOrEmpty(formError))
                         {
@@ -239,16 +244,19 @@
 
     private async Task SubmitGuestOrder()
     {
-        // Validate required fields
-        if (string.IsNullOrWhiteSpace(guestName))
+        // Bug 2: Conditional validation — transfer requires name+phone for reconciliation, cash does not
+        if (selectedPaymentMethod == "transfer")
         {
-            formError = "Vui lòng nhập họ và tên.";
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(guestPhone))
-        {
-            formError = "Vui lòng nhập số điện thoại.";
-            return;
+            if (string.IsNullOrWhiteSpace(guestName))
+            {
+                formError = "Vui lòng nhập họ và tên để đối soát giao dịch chuyển khoản.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(guestPhone))
+            {
+                formError = "Vui lòng nhập số điện thoại để đối soát giao dịch chuyển khoản.";
+                return;
+            }
         }
 
         formError = null;

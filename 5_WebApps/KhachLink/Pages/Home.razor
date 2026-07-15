@@ -89,24 +89,31 @@
     <VanAnCard CssClass="products-section mb-4">
         <div class="container">
             <h2 class="text-center mb-4">Sản Phẩm Nổi Bật</h2>
-            <div class="row">
-                @if (products != null && products.Any())
+            @if (products != null && products.Any())
+            {
+                @* Bug 3: Group products by tenant, show tenant name as header *@
+                @foreach (var group in products.GroupBy(p => p.TenantId).ToList())
                 {
-                    @foreach (var item in products)
-                    {
-                        <!-- feature-card: E2E selector alias (T-02) -->
-                        <div class="col-md-4 mb-3 feature-card">
-                            <VanAnCard CssClass="product-card h-100">
-                                <div class="product-image">
-                                    <img id="product-img-@item.ProductId" src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)"
-                                         class="card-img-top"
-                                         alt="@item.Name"
-                                         style="height: 200px; object-fit: cover;" />
-                                </div>
-                                <div class="product-info">
-                                    <h5>@item.Name</h5>
-                                    <p class="text-muted">@item.Description</p>
-                                    <div class="d-flex justify-content-between align-items-center">
+                    var tenantName = group.First().TenantName;
+                    <div class="tenant-group mb-4">
+                        <h4 class="tenant-group-header text-center mb-3" style="color: var(--shop-primary, #8B4513); border-bottom: 2px solid var(--shop-secondary, #D2691E); padding-bottom: 8px;">
+                            <i class="bi bi-shop"></i> @tenantName
+                        </h4>
+                        <div class="row">
+                            @foreach (var item in group)
+                            {
+                                <div class="col-md-6 mb-3 feature-card">
+                                    <VanAnCard CssClass="product-card h-100">
+                                        <div class="product-image">
+                                            <img id="product-img-@item.ProductId" src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)"
+                                                 class="card-img-top"
+                                                 alt="@item.Name"
+                                                 style="height: 200px; object-fit: cover;" />
+                                        </div>
+                                        <div class="product-info">
+                                            <h5>@item.Name</h5>
+                                            <p class="text-muted">@item.Description</p>
+                                            <div class="d-flex justify-content-between align-items-center">
                                                 <div>
                                                     <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.Price)</span>
                                                     <br />
@@ -116,18 +123,20 @@
                                                     Đặt ngay
                                                 </VanAnButton>
                                             </div>
+                                        </div>
+                                    </VanAnCard>
                                 </div>
-                            </VanAnCard>
+                            }
                         </div>
-                    }
-                }
-                else
-                {
-                    <div class="col-12 text-center">
-                        <VanAnAlert Variant="AlertVariant.Info" Message="Đang tải sản phẩm..." />
                     </div>
                 }
-            </div>
+            }
+            else
+            {
+                <div class="col-12 text-center">
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Đang tải sản phẩm..." />
+                </div>
+                }
         </div>
     </VanAnCard>
 
@@ -240,7 +249,8 @@
 
     private async Task LoadProductsAsync()
     {
-        products = await ProductService.GetProductsAsync();
+        // Bug 3: Load products grouped by tenant (top 5 tenants, 1-2 products each)
+        products = await ProductService.GetProductsGroupedByTenantAsync();
     }
 
     // Phase 3: derive ShopConfig from products (Approach 2 — product-based TenantId).

@@ -29,6 +29,10 @@ namespace VanAn.ShopERP.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            // Bug 1: Owner cannot create Owner role users (only SystemAdmin can)
+            if (request.Role == UserRole.Owner && !User.IsInRole("SystemAdmin"))
+                return Forbid("Chỉ SystemAdmin mới được tạo user role Owner.");
+
             try
             {
                 var user = await userService.CreateUserAsync(
@@ -192,6 +196,7 @@ namespace VanAn.ShopERP.Controllers
 
     public record UserDto(
         Guid Id,
+        Guid TenantId,
         string Username,
         string DisplayName,
         UserRole Role,
@@ -200,6 +205,7 @@ namespace VanAn.ShopERP.Controllers
     {
         public static UserDto From(DemoUser u) => new(
             u.Id,
+            u.TenantId.Value,
             u.Username,
             u.DisplayName,
             u.Role,

@@ -32,6 +32,24 @@ namespace VanAn.KhachLink.Services.Http
         }
 
         /// <summary>
+        /// Bug 3: Get products grouped by tenant — top 5 tenants, 1-2 products each.
+        /// </summary>
+        public async Task<List<ProductDto>> GetProductsGroupedByTenantAsync(int tenantsCount = 5, int productsPerTenant = 2)
+        {
+            try
+            {
+                string url = $"shoperp/api/products/grouped-by-tenant?tenantsCount={tenantsCount}&productsPerTenant={productsPerTenant}";
+                List<ProductDto>? result = await _httpClient.GetFromJsonAsync<List<ProductDto>>(url);
+                return result ?? [];
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching grouped products from ShopERP");
+                return [];
+            }
+        }
+
+        /// <summary>
         /// Get personalized product recommendations for a customer
         /// </summary>
         public async Task<List<RecommendedProductDto>> GetRecommendedProductsAsync(Guid customerId, Guid tenantId, int topN = 10)

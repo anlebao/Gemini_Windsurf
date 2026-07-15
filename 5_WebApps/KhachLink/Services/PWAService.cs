@@ -122,6 +122,20 @@ namespace VanAn.KhachLink.Services.PWA
         }
 
         /// <summary>
+        /// Check if PWA can be installed (not already installed and not in standalone mode)
+        /// </summary>
+        public async Task<bool> CanInstallAsync()
+        {
+            try
+            {
+                if (IsInstalled) return false;
+                bool standalone = await IsStandaloneAsync();
+                return !standalone;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
         /// Request notification permission
         /// </summary>
         public async Task<bool> RequestNotificationPermissionAsync()

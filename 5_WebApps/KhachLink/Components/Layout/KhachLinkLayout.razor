@@ -3,9 +3,11 @@
 @using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Services.PWA
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject ShopConfigHttpService ShopConfigService
+@inject PWAService PWAService
 @inject NavigationManager Navigation
 @inherits VanAn.UI.Platform.Components.Base.BaseComponent
 
@@ -33,7 +35,13 @@
                 }
                 <span class="shop-name fw-bold text-white">@(_shopConfig?.ShopName ?? "Vạn An")</span>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center">
+                @if (_showInstallButton)
+                {
+                    <button class="header-icon-btn" aria-label="Cài app" @onclick="InstallAppAsync" title="Cài đặt ứng dụng">
+                        <i class="bi bi-download text-white"></i>
+                    </button>
+                }
                 <a href="/cart" class="header-icon-btn" aria-label="Giỏ hàng">
                     <i class="bi bi-cart3 text-white"></i>
                 </a>
@@ -125,11 +133,36 @@
 @code {
     private Guid _currentTenantId;
     private ShopConfig? _shopConfig;
+    private bool _showInstallButton;
 
     protected override async Task OnInitializedAsync()
     {
         _currentTenantId = TenantService.GetCurrentTenantId();
         _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_currentTenantId);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Bug 4: Show PWA install button on header if app not installed
+            try
+            {
+                _showInstallButton = await PWAService.CanInstallAsync();
+                StateHasChanged();
+            }
+            catch { /* PWA service not available — hide button */ }
+        }
+    }
+
+    private async Task InstallAppAsync()
+    {
+        var success = await PWAService.ShowInstallPromptAsync();
+        if (success)
+        {
+            _showInstallButton = false;
+            StateHasChanged();
+        }
     }
 
     private string GetThemeClass() => (_shopConfig?.ActiveTheme ?? ThemeType.Classic) switch

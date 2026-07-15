@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Services
@@ -14,6 +15,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ILogger<UserManagement> Logger
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 
 @attribute [Authorize(Policy = "OwnerOnly")]
 
@@ -59,6 +61,11 @@
                     </VanAnColumn>
                     <VanAnColumn TItem="DemoUser" Title="Email" Width="2">
                         <Template Context="u">@u.Username</Template>
+                    </VanAnColumn>
+                    <VanAnColumn TItem="DemoUser" Title="Tenant" Width="2">
+                        <Template Context="u">
+                            <span class="badge bg-info">@u.TenantId.Value.ToString().Substring(0,8)...</span>
+                        </Template>
                     </VanAnColumn>
                     <VanAnColumn TItem="DemoUser" Title="Vai trò" Width="1">
                         <Template Context="u">@u.Role</Template>
@@ -108,11 +115,15 @@
                     <div class="form-group">
                         <label for="user-role">Vai trò *</label>
                         <select id="user-role" class="vanan-select" @bind="_createForm.Role" aria-label="Vai trò" required>
-                            @foreach (var role in UserRoleHelper.AssignableRoles)
+                            @foreach (var role in UserRoleHelper.GetAssignableRoles(_isSystemAdmin))
                             {
                                 <option value="@role">@role</option>
                             }
                         </select>
+                        @if (!_isSystemAdmin)
+                        {
+                            <small class="text-muted">Owner chỉ được tạo user với role Staff, Masterchef, Guard, StoreKeeper.</small>
+                        }
                     </div>
                 </form>
             </Body>
@@ -145,7 +156,7 @@
                 <div class="form-group">
                     <label>Vai trò</label>
                     <select class="vanan-select" @bind="_roleToAssign">
-                        @foreach (var role in UserRoleHelper.AssignableRoles)
+                        @foreach (var role in UserRoleHelper.GetAssignableRoles(_isSystemAdmin))
                         {
                             <option value="@role">@role</option>
                         }
