@@ -28,7 +28,11 @@ public class OutboxRepository : IOutboxRepository
 
     public async Task<List<OutboxEvent>> GetPendingEventsAsync(int batchSize = 50, CancellationToken cancellationToken = default)
     {
+        // IgnoreQueryFilters: OutboxMessages is IMustHaveTenant, but NatsSyncWorker processes
+        // events across ALL tenants. Without this, the global TenantId query filter excludes
+        // all Outbox messages (CurrentTenantIdValue = Guid.Empty in background worker scope).
         var messages = await _dbContext.OutboxMessages
+            .IgnoreQueryFilters()
             .Where(m => m.Status == OutboxMessageStatus.Pending)
             .OrderBy(m => m.CreatedAt)
             .Take(batchSize)
@@ -40,6 +44,7 @@ public class OutboxRepository : IOutboxRepository
     public async Task MarkAsProcessedAsync(Guid outboxEventId, CancellationToken cancellationToken = default)
     {
         var message = await _dbContext.OutboxMessages
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(m => m.Id == outboxEventId, cancellationToken);
 
         if (message is null) return;
@@ -51,6 +56,7 @@ public class OutboxRepository : IOutboxRepository
     public async Task MarkAsFailedAsync(Guid outboxEventId, string errorDetails, CancellationToken cancellationToken = default)
     {
         var message = await _dbContext.OutboxMessages
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(m => m.Id == outboxEventId, cancellationToken);
 
         if (message is null) return;
@@ -62,6 +68,7 @@ public class OutboxRepository : IOutboxRepository
     public async Task<OutboxEvent?> GetByIdAsync(Guid outboxEventId, CancellationToken cancellationToken = default)
     {
         var message = await _dbContext.OutboxMessages
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(m => m.Id == outboxEventId, cancellationToken);
 
         return message is null ? null : ToDomain(message);
