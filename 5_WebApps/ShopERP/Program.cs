@@ -726,10 +726,12 @@ namespace VanAn.ShopERP
                     int pgProductCount = 0;
                     foreach (var sqliteProd in sqliteProducts)
                     {
-                        // Check by ProductId (catalog ID) — if already synced, skip
+                        // Check by Name + TenantId (case-insensitive) — prevents duplicate products
+                        // when GUID case differs between SQLite (uppercase) and PostgreSQL (lowercase).
+                        // Also check by Id as a secondary match for exact GUID equality.
                         bool pgProdExists = await vanAnDbForSeed.Products
                             .IgnoreQueryFilters()
-                            .AnyAsync(p => p.ProductId == sqliteProd.ProductId);
+                            .AnyAsync(p => p.TenantId == sqliteProd.TenantId && p.Name == sqliteProd.Name);
                         if (!pgProdExists)
                         {
                             var pgProd = new Product(

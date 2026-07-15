@@ -116,6 +116,40 @@ namespace VanAn.ShopERP.Services
 
                 if (root.TryGetProperty("Items", out var itemsProp))
                 {
+                    // Pre-check: ensure all ProductIds exist in SQLite before inserting order.
+                    // If a product is missing, create a stub from the event payload to prevent FK violation.
+                    var productIds = new List<(Guid ProductId, string ProductName, decimal VatRate)>();
+                    foreach (var item in itemsProp.EnumerateArray())
+                    {
+                        Guid productId = item.GetProperty("ProductId").GetGuid();
+                        string productName = item.TryGetProperty("ProductName", out var pnProp) ? pnProp.GetString() ?? "" : "";
+                        decimal vatRate = item.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.10m;
+                        productIds.Add((productId, productName, vatRate));
+                    }
+
+                    // Auto-create missing products as stubs (idempotent — skip if already exists)
+                    foreach (var (productId, productName, vatRate) in productIds)
+                    {
+                        bool productExists = await dbContext.Products
+                            .IgnoreQueryFilters()
+                            .AnyAsync(p => p.Id == productId, cancellationToken);
+                        if (!productExists)
+                        {
+                            var stub = new Product(tenantIdObj, productName, "Synced from Gateway", 0m, "Synced", true, null, vatRate, 0m);
+                            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(stub, productId);
+                            typeof(Product).GetProperty("ProductId")!.SetValue(stub, new ProductId(productId));
+                            _ = dbContext.Products.Add(stub);
+                            _logger.LogInformation("OrderSyncSubscriber: auto-created product stub {ProductId} ({Name})", productId, productName);
+                        }
+                    }
+
+                    // Save stubs before creating order (FK constraint requires products to exist first)
+                    if (dbContext.ChangeTracker.HasChanges())
+                    {
+                        await dbContext.SaveChangesAsync(cancellationToken);
+                    }
+
+                    // Now build OrderItems (products are guaranteed to exist)
                     foreach (var item in itemsProp.EnumerateArray())
                     {
                         Guid itemId = item.TryGetProperty("ItemId", out var idProp) ? idProp.GetGuid() : Guid.NewGuid();

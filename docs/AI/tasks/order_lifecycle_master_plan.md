@@ -1,7 +1,7 @@
 # MASTER PLAN — Order Lifecycle Realtime (Admin Confirm + Kitchen Complete + Payment + Realtime Push)
 
-> **Status:** 📋 PLANNING — awaiting user review
-> **Created:** 2026-07-05 · **Last Updated:** 2026-07-05
+> **Status:** ✅ COMPLETE — VPS Runtime Verified (2026-07-15)
+> **Created:** 2026-07-05 · **Last Updated:** 2026-07-15
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-wave feature branch
 > **Architecture decision:** Hybrid — HTTP Polling (KhachLink 500-1000 khách) + SignalR (ShopERP staff 5-20 người)
 > **Payment decision:** Option B — Admin ShopERP manual confirm "Đã nhận tiền"
@@ -157,13 +157,13 @@ main ← feature/order-w5-tests-sitemap
 
 | Wave | Tên | Mode | Domain? | Task Card | Gaps fixed | Status |
 |------|-----|------|---------|-----------|------------|--------|
-| W-1 | Sync Mechanism Fix (Outbox → NATS → PostgreSQL) | IMPLEMENT | ❌ | `order_w-1_task_card.md` | S1, S2, S3, S4, S5 | 📋 Planning |
-| W0 | SignalR Wiring (OrderHub broadcast) | IMPLEMENT | ❌ | `order_w0_task_card.md` | G3, G7 | 📋 Planning |
-| W1 | Kitchen → OrderStatus Transition | IMPLEMENT | ❌ | `order_w1_task_card.md` | G2 | 📋 Planning |
-| W2 | Admin Orders UI (list + confirm + detail) | IMPLEMENT | ❌ | `order_w2_task_card.md` | G1 | 📋 Planning |
-| W3 | Payment Confirm UI (Admin + KhachLink) | IMPLEMENT | ❌ | `order_w3_task_card.md` | G5, G6 | 📋 Planning |
-| W4 | KhachLink Polling Optimize (adaptive) | IMPLEMENT | ❌ | `order_w4_task_card.md` | G4 | 📋 Planning |
-| W5 | Tests + Sitemap links | IMPLEMENT | ❌ | `order_w5_task_card.md` | — | 📋 Planning |
+| W-1 | Sync Mechanism Fix (Outbox → NATS → PostgreSQL) | IMPLEMENT | ❌ | `order_w-1_task_card.md` | S1, S2, S3, S4, S5 | ✅ Done |
+| W0 | SignalR Wiring (OrderHub broadcast) | IMPLEMENT | ❌ | `order_w0_task_card.md` | G3, G7 | ✅ Done |
+| W1 | Kitchen → OrderStatus Transition | IMPLEMENT | ❌ | `order_w1_task_card.md` | G2 | ✅ Done |
+| W2 | Admin Orders UI (list + confirm + detail) | IMPLEMENT | ❌ | `order_w2_task_card.md` | G1 | ✅ Done |
+| W3 | Payment Confirm UI (Admin + KhachLink) | IMPLEMENT | ❌ | `order_w3_task_card.md` | G5, G6 | ✅ Done |
+| W4 | KhachLink Polling Optimize (adaptive) | IMPLEMENT | ❌ | `order_w4_task_card.md` | G4 | ✅ Done |
+| W5 | Tests + Sitemap links | IMPLEMENT | ❌ | `order_w5_task_card.md` | — | ✅ Done |
 
 ### Wave dependency graph:
 ```
