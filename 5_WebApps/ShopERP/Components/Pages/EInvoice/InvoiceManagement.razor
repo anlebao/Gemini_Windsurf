@@ -118,7 +118,7 @@
 
     @if (showCreateModal)
     {
-        <VanAModal Title="Tạo Hóa Đơn Điện Tử" OnClose="CloseCreateModal">
+        <VanAModal Title="Tạo Hóa Đơn Điện Tử" IsVisible="true" OnClose="CloseCreateModal">
             <div class="form-group">
                 <label>Mã Đơn Hàng:</label>
                 <input class="form-control" @bind="CreateModel.OrderId"

@@ -127,7 +127,7 @@
 <!-- Create Modal -->
 @if (_showCreateModal)
 {
-    <VanAnModal Title="Thêm sản phẩm mới" OnClose="CloseCreateModal">
+    <VanAnModal Title="Thêm sản phẩm mới" IsOpen="true" OnClose="CloseCreateModal">
         <VanAForm OnValidSubmit="HandleCreateSubmit">
             <div class="form-group">
                 <label for="create-name">Tên sản phẩm *</label>
@@ -172,7 +172,7 @@
 <!-- Edit Modal -->
 @if (_showEditModal && _selected != null)
 {
-    <VanAnModal Title="Sửa sản phẩm" OnClose="CloseEditModal">
+    <VanAnModal Title="Sửa sản phẩm" IsOpen="true" OnClose="CloseEditModal">
         <VanAForm OnValidSubmit="HandleEditSubmit">
             <div class="form-group">
                 <label for="edit-name">Tên sản phẩm *</label>
@@ -231,7 +231,7 @@
 <!-- Delete Confirm Modal -->
 @if (_showDeleteModal && _selected != null)
 {
-    <VanAnModal Title="Xác nhận xoá" OnClose="CloseDeleteModal" ShowDefaultFooter="false">
+    <VanAnModal Title="Xác nhận xoá" IsOpen="true" OnClose="CloseDeleteModal" ShowDefaultFooter="false">
         <p>Bạn có chắc muốn xoá sản phẩm <strong>@_selected.Name</strong>?</p>
         <p class="text-muted"><small>Sản phẩm sẽ bị ẩn khỏi mọi danh sách (soft delete).</small></p>
         <div class="modal-actions">
@@ -244,7 +244,7 @@
 <!-- QR Modal -->
 @if (_showQrModal && _selected != null)
 {
-    <VanAnModal Title="QR Code sản phẩm" OnClose="CloseQrModal">
+    <VanAnModal Title="QR Code sản phẩm" IsOpen="true" OnClose="CloseQrModal">
         <div class="qr-modal-content">
             <div class="qr-product-info">
                 <h4>@_selected.Name</h4>

@@ -21,15 +21,6 @@
 @attribute [Authorize(Policy = "SystemAdmin")]
 
 <div class="tenant-management-page @ThemeProvider.CurrentTheme">
-    <!-- DEBUG: Simple test button to isolate interactivity issue -->
-    <div style="padding: 10px; background: yellow; z-index: 9999;">
-        <button type="button" @onclick="TestSimpleClick" data-testid="simple-test-btn">
-            DEBUG: Simple @@onclick Test (clicked: @_testClickCount)
-        </button>
-        <span data-testid="modal-state" style="margin-left: 20px; font-weight: bold;">
-            _showCreateModal=@_showCreateModal
-        </span>
-    </div>
     <!-- Header -->
     <header class="page-header">
         <h1>Quản lý Tenant</h1>
@@ -149,7 +140,7 @@
     <!-- Create modal -->
     @if (_showCreateModal)
     {
-        <VanAModal Title="Tạo Tenant Mới" OnClose="CloseCreateModal">
+        <VanAModal Title="Tạo Tenant Mới" IsVisible="true" OnClose="CloseCreateModal">
             <VanAForm OnValidSubmit="HandleCreateSubmit" aria-label="Tạo tenant mới">
                 <div class="form-group">
                     <label for="tenant-name">Tên tenant *</label>
@@ -200,7 +191,7 @@
     <!-- Onboarding modal -->
     @if (_showOnboardingModal)
     {
-        <VanAModal Title="Tạo Tenant + Onboarding" OnClose="CloseOnboardingModal" Size="large">
+        <VanAModal Title="Tạo Tenant + Onboarding" IsVisible="true" OnClose="CloseOnboardingModal" Size="large">
             @if (_onboardingResult is not null)
             {
                 <VanACard Header="Onboarding thành công">
@@ -297,7 +288,7 @@
     <!-- Suspend modal -->
     @if (_showSuspendModal && _selectedTenant is not null)
     {
-        <VanAModal Title="Tạm ngưng Tenant" OnClose="CloseSuspendModal">
+        <VanAModal Title="Tạm ngưng Tenant" IsVisible="true" OnClose="CloseSuspendModal">
             <p>Tạm ngưng tenant: <strong>@_selectedTenant.Name</strong></p>
             <div class="form-group">
                 <label>Lý do *</label>
@@ -313,7 +304,7 @@
     <!-- Deactivate modal -->
     @if (_showDeactivateModal && _selectedTenant is not null)
     {
-        <VanAModal Title="Vô hiệu hoá Tenant" OnClose="CloseDeactivateModal">
+        <VanAModal Title="Vô hiệu hoá Tenant" IsVisible="true" OnClose="CloseDeactivateModal">
             <VanAAlert Type="error" Message="Thao tác này không thể hoàn tác! Tenant sẽ bị vô hiệu hoá vĩnh viễn." />
             <p>Vô hiệu hoá tenant: <strong>@_selectedTenant.Name</strong></p>
             <div class="form-group">
@@ -336,14 +327,6 @@
     private bool _isSaving;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
-
-    // DEBUG: Simple test click handler
-    private int _testClickCount;
-    private void TestSimpleClick()
-    {
-        _testClickCount++;
-        Logger.LogInformation("DEBUG: TestSimpleClick called — count: {Count}", _testClickCount);
-    }
 
     // Create modal
     private bool _showCreateModal;
@@ -427,7 +410,7 @@
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
-    private void OpenCreateModal() { _createForm = new(); _showCreateModal = true; Logger.LogInformation("DEBUG: OpenCreateModal called — _showCreateModal={ShowModal}", _showCreateModal); }
+    private void OpenCreateModal() { _createForm = new(); _showCreateModal = true; }
     private void CloseCreateModal() => _showCreateModal = false;
 
     private async Task HandleCreateSubmit()

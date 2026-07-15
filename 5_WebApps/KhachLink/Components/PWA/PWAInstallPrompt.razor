@@ -283,6 +283,11 @@
             _showInstallPrompt = false;
             await ShowNotificationAsync("Đã cài đặt thành công!", "Vạn An App đã được cài đặt trên thiết bị của bạn.");
         }
+        else
+        {
+            // Bug 3: Show feedback when install prompt unavailable (e.g. already installed, iOS, or browser doesn't support)
+            await ShowNotificationAsync("Không thể cài đặt tự động", "Trình duyệt không hỗ trợ cài đặt tự động. Trên iPhone/iPad: nhấn nút Share → 'Thêm vào Màn hình chính'. Trên Android: menu ⋮ → 'Cài đặt ứng dụng'.");
+        }
     }
 
     private async Task DismissPrompt()
