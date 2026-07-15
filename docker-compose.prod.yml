@@ -138,7 +138,7 @@ services:
       - Esms__BrandName=VanAn
       - ConnectionStrings__Redis=not-configured
       - Authentication__ClientSecret=not-configured
-      # NATS sync: Gateway (PostgreSQL) → NATS → ShopERP (SQLite)
+      # Sync: NATS Outbox events Gateway (PostgreSQL) → ShopERP (SQLite)
       - Nats__Url=nats://nats:4222
       - ConnectionStrings__Nats=nats://nats:4222
       # Cookie auth: share across khachvip.online and www.khachvip.online
