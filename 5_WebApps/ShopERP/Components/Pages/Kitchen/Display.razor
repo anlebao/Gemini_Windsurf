@@ -1,0 +1,312 @@
+@page "/kitchen"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.UI.Platform.Tokens
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.CoreHub.Services
+@inject IOrderWorkflowService OrderWorkflowService
+@inject IShopFeatureSettingsService FeatureSettings
+@inject ITenantProvider TenantProvider
+@inject ILogger<Display> Logger
+@inject NavigationManager NavigationManager
+@inject IThemeProvider ThemeProvider
+@implements IDisposable
+
+<div class="kitchen-display-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>🍳 Bếp — Hiển thị đơn hàng</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="RefreshOrders" data-testid="kitchen-btn-refresh">
+            🔄 Làm mới
+        </VanAButton>
+    </header>
+
+    @if (!kitchenEnabled)
+    {
+        <VanACard Header="Kitchen Display tắt">
+            <p>Kitchen Workflow đang tắt. Chuyển về trang đơn hàng.</p>
+            <VanAButton Variant="primary" OnClick="@(() => NavigationManager.NavigateTo("/orders"))">
+                ← Xem đơn hàng
+            </VanAButton>
+        </VanACard>
+    }
+    else
+    {
+        @if (errorMessage != null)
+        {
+            <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+        }
+
+        <div class="kitchen-columns">
+            @* Column 1: Confirmed — Chờ tiếp nhận *@
+            <div class="kitchen-column kitchen-column--confirmed">
+                <div class="kitchen-column__header">
+                    <h3>🟡 Chờ tiếp nhận (@confirmedOrders.Count)</h3>
+                </div>
+                <div class="kitchen-column__body">
+                    @foreach (var o in confirmedOrders)
+                    {
+                        <VanACard>
+                            <div class="kitchen-card">
+                                <div class="kitchen-card__header">
+                                    <strong>@(o.TrackingCode ?? o.Id.ToString()[..8])</strong>
+                                    <OrderStatusBadge Status="@o.Status" />
+                                </div>
+                                <div class="kitchen-card__time">
+                                    @o.OrderDate.ToString("HH:mm") — @GetElapsed(o.OrderDate)
+                                </div>
+                                <div class="kitchen-card__items">
+                                    @foreach (var item in o.Items)
+                                    {
+                                        <div>@item.ProductName x @item.Quantity</div>
+                                    }
+                                </div>
+                                <div class="kitchen-card__actions">
+                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionTo(o.Id, "preparing"))" data-testid="@($"kitchen-btn-preparing-{o.Id}")">
+                                        ⏳ Tiếp nhận
+                                    </VanAButton>
+                                </div>
+                            </div>
+                        </VanACard>
+                    }
+                    @if (confirmedOrders.Count == 0)
+                    {
+                        <p class="kitchen-empty">Không có đơn chờ.</p>
+                    }
+                </div>
+            </div>
+
+            @* Column 2: Preparing — Đang chế biến *@
+            <div class="kitchen-column kitchen-column--preparing">
+                <div class="kitchen-column__header">
+                    <h3>🟠 Đang chế biến (@preparingOrders.Count)</h3>
+                </div>
+                <div class="kitchen-column__body">
+                    @foreach (var o in preparingOrders)
+                    {
+                        <VanACard>
+                            <div class="kitchen-card">
+                                <div class="kitchen-card__header">
+                                    <strong>@(o.TrackingCode ?? o.Id.ToString()[..8])</strong>
+                                    <OrderStatusBadge Status="@o.Status" />
+                                </div>
+                                <div class="kitchen-card__time">
+                                    @o.OrderDate.ToString("HH:mm") — @GetElapsed(o.OrderDate)
+                                </div>
+                                <div class="kitchen-card__items">
+                                    @foreach (var item in o.Items)
+                                    {
+                                        <div>@item.ProductName x @item.Quantity</div>
+                                    }
+                                </div>
+                                <div class="kitchen-card__actions">
+                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionTo(o.Id, "ready"))" data-testid="@($"kitchen-btn-ready-{o.Id}")">
+                                        ✅ Hoàn thành
+                                    </VanAButton>
+                                </div>
+                            </div>
+                        </VanACard>
+                    }
+                    @if (preparingOrders.Count == 0)
+                    {
+                        <p class="kitchen-empty">Không có đơn đang làm.</p>
+                    }
+                </div>
+            </div>
+
+            @* Column 3: Ready — Sẵn sàng *@
+            <div class="kitchen-column kitchen-column--ready">
+                <div class="kitchen-column__header">
+                    <h3>🟢 Sẵn sàng (@readyOrders.Count)</h3>
+                </div>
+                <div class="kitchen-column__body">
+                    @foreach (var o in readyOrders)
+                    {
+                        <VanACard>
+                            <div class="kitchen-card">
+                                <div class="kitchen-card__header">
+                                    <strong>@(o.TrackingCode ?? o.Id.ToString()[..8])</strong>
+                                    <OrderStatusBadge Status="@o.Status" />
+                                </div>
+                                <div class="kitchen-card__time">
+                                    @o.OrderDate.ToString("HH:mm") — @GetElapsed(o.OrderDate)
+                                </div>
+                                <div class="kitchen-card__items">
+                                    @foreach (var item in o.Items)
+                                    {
+                                        <div>@item.ProductName x @item.Quantity</div>
+                                    }
+                                </div>
+                                <div class="kitchen-card__actions">
+                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => DeliverOrder(o.Id))" data-testid="@($"kitchen-btn-deliver-{o.Id}")">
+                                        📦 Trả đơn cho khách
+                                    </VanAButton>
+                                </div>
+                            </div>
+                        </VanACard>
+                    }
+                    @if (readyOrders.Count == 0)
+                    {
+                        <p class="kitchen-empty">Không có đơn sẵn sàng.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool kitchenEnabled = true;
+    private bool loading = false;
+    private string? errorMessage;
+    private System.Threading.Timer? _pollTimer;
+
+    private List<KitchenOrderDto> confirmedOrders = new();
+    private List<KitchenOrderDto> preparingOrders = new();
+    private List<KitchenOrderDto> readyOrders = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            kitchenEnabled = await FeatureSettings.IsEnabledAsync(
+                TenantProvider.TenantId,
+                nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load kitchen toggle — defaulting to ON");
+            kitchenEnabled = true;
+        }
+
+        if (kitchenEnabled)
+        {
+            await RefreshOrders();
+
+            // T11: Polling 5s — simpler for Edge, no SignalR needed.
+            _pollTimer = new System.Threading.Timer(
+                async _ => await InvokeAsync(async () => await RefreshOrders()),
+                null,
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(5));
+        }
+    }
+
+    private async Task RefreshOrders()
+    {
+        if (!kitchenEnabled) return;
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            // Load orders by status — direct service call (Edge offline-first).
+            List<Order> confirmed = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("confirmed"));
+            List<Order> preparing = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("preparing"));
+            List<Order> ready = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("ready"));
+
+            confirmedOrders = confirmed.Select(MapToDto).ToList();
+            preparingOrders = preparing.Select(MapToDto).ToList();
+            readyOrders = ready.Select(MapToDto).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading kitchen orders");
+            errorMessage = $"Không thể tải đơn hàng: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    // T12: Transition via direct IOrderWorkflowService call (no HTTP).
+    private async Task TransitionTo(Guid orderId, string newStatus)
+    {
+        try
+        {
+            _ = await OrderWorkflowService.TransitionStatusAsync(
+                orderId,
+                new OrderStatusId(newStatus),
+                reason: $"Kitchen display transition to {newStatus}");
+            await RefreshOrders();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error transitioning order {OrderId} to {Status}", orderId, newStatus);
+            errorMessage = $"Lỗi: {ex.Message}";
+        }
+    }
+
+    // T13: "Trả đơn cho khách" — ready → delivering → completed (2 transitions).
+    // completed triggers HandleOrderCompletedAsync → Outbox + accounting (existing logic).
+    private async Task DeliverOrder(Guid orderId)
+    {
+        try
+        {
+            // Step 1: ready → delivering
+            _ = await OrderWorkflowService.TransitionStatusAsync(
+                orderId,
+                new OrderStatusId("delivering"),
+                reason: "Kitchen: trả đơn cho khách");
+
+            // Step 2: delivering → completed (triggers accounting + outbox)
+            _ = await OrderWorkflowService.TransitionStatusAsync(
+                orderId,
+                new OrderStatusId("completed"),
+                reason: "Kitchen: đơn đã giao");
+
+            await RefreshOrders();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error delivering order {OrderId}", orderId);
+            errorMessage = $"Lỗi trả đơn: {ex.Message}";
+        }
+    }
+
+    private static string GetElapsed(DateTime orderDate)
+    {
+        TimeSpan elapsed = DateTime.UtcNow - orderDate;
+        return elapsed.TotalMinutes < 1 ? "vừa xong" : $"{(int)elapsed.TotalMinutes} phút trước";
+    }
+
+    private static KitchenOrderDto MapToDto(Order o)
+    {
+        return new KitchenOrderDto
+        {
+            Id = o.Id,
+            TrackingCode = o.TrackingCode,
+            Status = o.Status?.Value ?? "",
+            OrderDate = o.OrderDate,
+            Items = o.Items?.Select(i => new KitchenItemDto
+            {
+                ProductName = i.ProductName,
+                Quantity = i.Quantity
+            }).ToList() ?? new()
+        };
+    }
+
+    public void Dispose()
+    {
+        _pollTimer?.Dispose();
+    }
+
+    private class KitchenOrderDto
+    {
+        public Guid Id { get; set; }
+        public string? TrackingCode { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime OrderDate { get; set; }
+        public List<KitchenItemDto> Items { get; set; } = new();
+    }
+
+    private class KitchenItemDto
+    {
+        public string ProductName { get; set; } = "";
+        public int Quantity { get; set; }
+    }
+}

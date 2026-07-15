@@ -306,9 +306,9 @@ namespace VanAn.ShopERP
             });
 
             // FIX-BATCH-1: Missing DI registrations (verified unreachable via grep before this fix)
-            // C1: QR code generation services (W2 — task card claimed COMPLETE but services never registered)
+            // C1: QR code generation service (W2 — task card claimed COMPLETE but services never registered)
+            // R2-0d: Consolidated — IShopQrCodeService merged into IQrCodeService (CoreHub). Single registration.
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IQrCodeService, VanAn.CoreHub.Services.QrCodeService>();
-            _ = builder.Services.AddScoped<VanAn.ShopERP.Services.IShopQrCodeService, VanAn.ShopERP.Services.ShopQrCodeService>();
             // C2: CustomerRecommendationService (W3 — injected into ProductsController primary ctor, would throw at runtime)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.CustomerRecommendationService>();
             // C3: PushNotificationService (W4 — depends on IPushSubscriptionRepository which was also unregistered here)

@@ -1,0 +1,49 @@
+@* R2-0a: OrderStatusBadge — shared status badge component.
+   Replaces inline status-badge + TranslateStatus logic in Detail.razor and Kitchen Display.
+   Maps order status string to Vietnamese label + color variant. *@
+@inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
+
+<span class="vanan-status-badge vanan-status-badge--@GetVariant()" @attributes="AdditionalAttributes">
+    @GetLabel()
+</span>
+
+@code {
+    /// <summary>
+    /// Order status value: pending, confirmed, preparing, ready, delivering, completed, cancelled.
+    /// </summary>
+    [Parameter]
+    public string Status { get; set; } = string.Empty;
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetVariant()
+    {
+        return Status.ToLower() switch
+        {
+            "pending" => "warning",
+            "confirmed" => "info",
+            "preparing" => "warning",
+            "ready" => "success",
+            "delivering" => "info",
+            "completed" => "success",
+            "cancelled" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetLabel()
+    {
+        return Status.ToLower() switch
+        {
+            "pending" => "Chờ xác nhận",
+            "confirmed" => "Đã xác nhận",
+            "preparing" => "Đang làm",
+            "ready" => "Sẵn sàng",
+            "delivering" => "Đang giao",
+            "completed" => "Hoàn thành",
+            "cancelled" => "Đã hủy",
+            _ => Status
+        };
+    }
+}

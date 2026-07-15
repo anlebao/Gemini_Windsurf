@@ -1,0 +1,249 @@
+@page "/pos/payment/{OrderId:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "StaffOrAbove")]
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.UI.Platform.Tokens
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@using VanAn.Shared.DTOs
+@using VanAn.CoreHub.Services
+@inject IOrderWorkflowService OrderWorkflowService
+@inject IOrderService OrderService
+@inject ITenantProvider TenantProvider
+@inject ILogger<Payment> Logger
+@inject NavigationManager NavigationManager
+@inject IThemeProvider ThemeProvider
+
+<div class="pos-payment-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Thanh toán đơn hàng</h1>
+        <VanAButton Variant="secondary" Size="small" OnClick="@(() => NavigationManager.NavigateTo("/pos"))">
+            ← Tạo đơn mới
+        </VanAButton>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tải">
+            <p>Đang tải thông tin đơn hàng...</p>
+        </VanACard>
+    }
+    else if (order == null)
+    {
+        <VanACard Header="Không tìm thấy">
+            <p>Đơn hàng không tồn tại.</p>
+        </VanACard>
+    }
+    else
+    {
+        <div class="pos-payment-layout">
+            <div class="pos-payment-summary">
+                <VanACard Header="📋 Chi tiết đơn hàng">
+                    <div class="order-info-grid">
+                        <div><strong>Mã đơn:</strong> @(order.TrackingCode ?? order.Id.ToString()[..8])</div>
+                        <div><strong>Trạng thái:</strong> <OrderStatusBadge Status="@order.Status?.Value" /></div>
+                        <div><strong>Tổng tiền:</strong> @order.TotalAmount.ToString("N0") đ</div>
+                    </div>
+                    <hr />
+                    @if (order.Items != null && order.Items.Count > 0)
+                    {
+                        @foreach (var item in order.Items)
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>@item.ProductName x @item.Quantity</span>
+                                <span>@item.TotalAmount.ToString("N0") đ</span>
+                            </div>
+                        }
+                        <hr />
+                        <div class="d-flex justify-content-between">
+                            <h5>Tổng cộng:</h5>
+                            <h5 class="text-danger">@order.TotalAmount.ToString("N0") đ</h5>
+                        </div>
+                    }
+                </VanACard>
+            </div>
+
+            <div class="pos-payment-method">
+                <VanACard Header="💳 Chọn phương thức thanh toán">
+                    <PaymentMethodSelector @bind-Value="selectedPaymentMethod" Label="Hình thức thanh toán" GroupName="pos-payment" />
+
+                    <hr />
+
+                    @if (selectedPaymentMethod == "cash")
+                    {
+                        <VanAAlert Type="info" Message="Khách thanh toán bằng tiền mặt. Nhấn xác nhận để hoàn tất." Dismissible="false" />
+                        <div class="mt-3">
+                            <VanAButton Variant="success" FullWidth="true" OnClick="ConfirmCashPayment" disabled="@isProcessing" data-testid="pos-btn-cash-confirm">
+                                @(isProcessing ? "Đang xử lý..." : "✓ Xác nhận thanh toán tiền mặt")
+                            </VanAButton>
+                        </div>
+                    }
+                    else if (selectedPaymentMethod == "transfer")
+                    {
+                        <VanAAlert Type="warning" Message="Edge Mode: QR thanh toán cần kết nối internet. Nếu offline, dùng tiền mặt." Dismissible="false" />
+                        <div class="mt-3 text-center">
+                            @if (!string.IsNullOrEmpty(qrImageUrl))
+                            {
+                                <img src="@qrImageUrl" alt="VietQR Code" class="img-fluid" style="max-width: 250px;" />
+                                <p class="mt-2">Quét mã để thanh toán @order.TotalAmount.ToString("N0") đ</p>
+                                <VanAButton Variant="primary" OnClick="ConfirmTransferPayment" disabled="@isProcessing" data-testid="pos-btn-transfer-confirm">
+                                    ✓ Đã nhận chuyển khoản
+                                </VanAButton>
+                            }
+                            else
+                            {
+                                <p>Không thể tạo mã QR (offline hoặc chưa cấu hình ngân hàng).</p>
+                                <VanAButton Variant="primary" OnClick="ConfirmTransferPayment" disabled="@isProcessing" data-testid="pos-btn-transfer-manual">
+                                    ✓ Xác nhận đã nhận chuyển khoản
+                                </VanAButton>
+                            }
+                        </div>
+                    }
+                </VanACard>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+
+    private OrderDetailDto? order;
+    private bool loading = true;
+    private bool isProcessing = false;
+    private string? errorMessage;
+    private string selectedPaymentMethod = "cash";
+    private string? qrImageUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrder();
+    }
+
+    private async Task LoadOrder()
+    {
+        loading = true;
+        try
+        {
+            Order? domainOrder = await OrderWorkflowService.GetOrderAsync(OrderId);
+            if (domainOrder == null)
+            {
+                order = null;
+            }
+            else
+            {
+                order = MapToDto(domainOrder);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading order {OrderId}", OrderId);
+            errorMessage = $"Không thể tải đơn hàng: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    // T10: Cash payment — confirm order status to "confirmed" (skip payment gateway).
+    // Edge offline-first: cash is instant, no internet needed.
+    private async Task ConfirmCashPayment()
+    {
+        await ConfirmPayment("cash");
+    }
+
+    // T10: Transfer payment — staff manually confirms receipt of bank transfer.
+    private async Task ConfirmTransferPayment()
+    {
+        await ConfirmPayment("transfer");
+    }
+
+    private async Task ConfirmPayment(string method)
+    {
+        isProcessing = true;
+        errorMessage = null;
+        try
+        {
+            Guid tenantId = TenantProvider.TenantId;
+
+            // Confirm payment via IOrderService (generates accounting entries).
+            string transactionId = $"POS_{method.ToUpper()}_{OrderId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+            await OrderService.ConfirmPaymentAsync(OrderId, tenantId, transactionId);
+
+            // Transition order to "confirmed" so kitchen can pick it up.
+            _ = await OrderWorkflowService.TransitionStatusAsync(
+                OrderId,
+                new OrderStatusId("confirmed"),
+                reason: $"POS {method} payment confirmed");
+
+            Logger.LogInformation("POS payment confirmed for order {OrderId} via {Method}", OrderId, method);
+
+            // Redirect to kitchen display
+            NavigationManager.NavigateTo("/kitchen");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error confirming POS payment for order {OrderId}", OrderId);
+            errorMessage = $"Lỗi thanh toán: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private OrderDetailDto MapToDto(Order domainOrder)
+    {
+        return new OrderDetailDto
+        {
+            Id = domainOrder.Id,
+            TrackingCode = domainOrder.TrackingCode,
+            OrderDate = domainOrder.OrderDate,
+            Status = new OrderStatusDto { Value = domainOrder.Status?.Value ?? "" },
+            PaymentStatus = domainOrder.PaymentStatus,
+            PaymentMethod = domainOrder.PaymentMethod,
+            TotalAmount = domainOrder.TotalAmount,
+            Items = domainOrder.Items?.Select(i => new OrderItemDto
+            {
+                ProductName = i.ProductName,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                TotalAmount = i.TotalAmount
+            }).ToList() ?? new()
+        };
+    }
+
+    private class OrderDetailDto
+    {
+        public Guid Id { get; set; }
+        public string? TrackingCode { get; set; }
+        public DateTime OrderDate { get; set; }
+        public OrderStatusDto? Status { get; set; }
+        public string? PaymentStatus { get; set; }
+        public string? PaymentMethod { get; set; }
+        public decimal TotalAmount { get; set; }
+        public List<OrderItemDto> Items { get; set; } = new();
+    }
+
+    private class OrderStatusDto
+    {
+        public string Value { get; set; } = "";
+    }
+
+    private class OrderItemDto
+    {
+        public string ProductName { get; set; } = "";
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalAmount { get; set; }
+    }
+}
