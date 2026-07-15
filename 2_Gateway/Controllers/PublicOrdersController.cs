@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Services;
@@ -126,6 +126,7 @@ namespace VanAn.Gateway.Controllers
                 return Ok(new
                 {
                     OrderId = createdOrder.Id,
+                    TenantId = createdOrder.TenantId.Value,
                     QrImageUrl = (string?)null,
                     PaymentUrl = (string?)null,
                     Amount = createdOrder.TotalAmount

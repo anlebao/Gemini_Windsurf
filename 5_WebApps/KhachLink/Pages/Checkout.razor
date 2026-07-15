@@ -1,4 +1,4 @@
-@page "/checkout"
+﻿@page "/checkout"
 @rendermode InteractiveServer
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Components.Layout
@@ -6,6 +6,7 @@
 @using VanAn.UI.Platform.Components
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject VanAn.KhachLink.Services.CheckoutFlowState CheckoutFlow
+@inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
@@ -34,6 +35,10 @@
                     <VanAnCard Header="📋 Chi tiết đơn hàng">
                         <div class="order-success alert-success" role="status">
                             <p><strong>✅ Đặt hàng thành công!</strong></p>
+                            @if (!string.IsNullOrEmpty(shopName))
+                            {
+                                <p>Cửa hàng: <strong>@shopName</strong></p>
+                            }
                             <p>Mã đơn hàng: <span class="order-id">@createdOrderId</span></p>
                             <p>Trạng thái: <span class="badge bg-warning">Chờ thanh toán</span></p>
                         </div>
@@ -80,6 +85,7 @@
             <QrPaymentModal IsOpen="@showQrModal"
                             Amount="@orderTotal"
                             OrderId="@createdOrderId"
+                            TenantId="@tenantId"
                             OnPaymentCompleted="CloseQrModal" />
         }
         else if (showGuestForm)
@@ -181,6 +187,8 @@
     private string createdOrderId = string.Empty;
     private string? qrImageUrl;
     private decimal orderTotal;
+    private Guid tenantId;
+    private string? shopName;
     private List<CartItem> cartSnapshot = new();
 
     // Guest form fields
@@ -275,7 +283,19 @@
                 var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
                 createdOrderId = result?.OrderId ?? string.Empty;
                 qrImageUrl = result?.QrImageUrl;
+                tenantId = result?.TenantId ?? Guid.Empty;
                 orderCreated = true;
+
+                // Bug 0: Fetch shop name for display in order details
+                if (tenantId != Guid.Empty)
+                {
+                    try
+                    {
+                        var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(tenantId);
+                        shopName = shopConfig?.ShopName;
+                    }
+                    catch { /* non-critical — shop name is optional display */ }
+                }
 
                 await CartService.ClearCartAsync();
 
@@ -339,6 +359,8 @@
     {
         [System.Text.Json.Serialization.JsonPropertyName("orderId")]
         public string OrderId { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("qrImageUrl")]
         public string? QrImageUrl { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("paymentUrl")]

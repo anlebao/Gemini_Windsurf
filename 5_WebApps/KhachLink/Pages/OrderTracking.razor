@@ -1,4 +1,4 @@
-@page "/order-tracking/{orderId:guid}"
+﻿@page "/order-tracking/{orderId:guid}"
 @rendermode InteractiveServer
 @using VanAn.Shared.DTOs
 @using VanAn.KhachLink.Components
@@ -9,6 +9,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @inject ShopFeatureSettingsHttpService FeatureSettings
+@inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
 
 <PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
 
@@ -138,6 +139,10 @@
                             <div class="col-md-4">
                                 <h5>Thông tin đơn hàng</h5>
                                 <div class="order-info">
+                                    @if (!string.IsNullOrEmpty(_shopName))
+                                    {
+                                        <p><strong>Cửa hàng:</strong> @_shopName</p>
+                                    }
                                     <p><strong>Mã đơn:</strong> #@_publicOrder.OrderId.ToString()[..8]</p>
                                     <p><strong>Trạng thái:</strong>
                                         <span class="badge bg-@GetStatusColor(_publicOrder.Status ?? "")" data-testid="order-tracking-status">
@@ -215,6 +220,7 @@
     [Parameter] public Guid orderId { get; set; }
 
     private PublicOrderTrackingDto? _publicOrder;
+    private string? _shopName;
     private List<TrackingStep> statusTimeline = new();
     private bool isLoading = true;
     private string? errorMessage;
@@ -306,6 +312,17 @@
             if (response.IsSuccessStatusCode)
             {
                 _publicOrder = await response.Content.ReadFromJsonAsync<PublicOrderTrackingDto>();
+
+                // Bug 0: Fetch shop name for display
+                if (_publicOrder?.TenantId != null && _publicOrder.TenantId != Guid.Empty)
+                {
+                    try
+                    {
+                        var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(_publicOrder.TenantId);
+                        _shopName = shopConfig?.ShopName;
+                    }
+                    catch { /* non-critical */ }
+                }
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {

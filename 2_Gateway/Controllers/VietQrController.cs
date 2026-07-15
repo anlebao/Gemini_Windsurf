@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
@@ -8,7 +8,9 @@ namespace VanAn.Gateway.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
-    [Authorize(Policy = "RequireTenantAccess")]
+    // KhachLink (anonymous customer app) calls this endpoint to generate VietQR URLs.
+    // QR generation only builds a public img.vietqr.io URL — no tenant data accessed.
+    [AllowAnonymous]
     public class VietQrController(IVietQrService vietQrService, ILogger<VietQrController> logger) : ControllerBase
     {
         private readonly IVietQrService _vietQrService = vietQrService;

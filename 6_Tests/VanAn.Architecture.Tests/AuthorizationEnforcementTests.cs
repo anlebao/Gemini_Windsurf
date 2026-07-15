@@ -93,14 +93,17 @@ public class AuthorizationEnforcementTests
             "ShopConfigController is missing [Authorize] at class level — Wave 12 fix required.");
     }
 
-    [Fact(DisplayName = "W12-G5: VietQrController must have class-level [Authorize]")]
+    [Fact(DisplayName = "W12-G5: VietQrController must be [AllowAnonymous] (KhachLink anonymous customer app)")]
     public void VietQrController_MustHaveAuthorize()
     {
         var controller = GatewayAssembly.GetTypes()
             .Single(t => t.Name == "VietQrController");
 
-        Assert.True(HasClassLevelAuthorize(controller),
-            "VietQrController is missing [Authorize] at class level — Wave 12 fix required.");
+        // VietQrController generates public VietQR image URLs (img.vietqr.io) — no tenant data accessed.
+        // KhachLink is an anonymous customer-facing app and cannot provide a JWT.
+        // Changed from [Authorize] to [AllowAnonymous] per Bug 2 fix (2026-07-15).
+        Assert.True(HasClassLevelAllowAnonymous(controller),
+            "VietQrController must have [AllowAnonymous] — KhachLink is anonymous customer app.");
     }
 
     [Fact(DisplayName = "W12-G6: VoiceCommandController must have class-level [Authorize]")]
@@ -133,7 +136,9 @@ public class AuthorizationEnforcementTests
             // Tiered Auth Phase 2: Customer identity upgrade endpoints (X-Customer-Token header auth)
             "CustomerIdentityController",
             // Wave 4: Platform-level SystemAdmin endpoint — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
-            "TenantOnboardingController"
+            "TenantOnboardingController",
+            // Bug 2 fix (2026-07-15): VietQrController generates public VietQR URLs — KhachLink is anonymous customer app
+            "VietQrController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

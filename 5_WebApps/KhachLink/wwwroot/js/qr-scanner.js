@@ -1,4 +1,4 @@
-// QR Scanner JavaScript functions using html5-qrcode library
+﻿// QR Scanner JavaScript functions using html5-qrcode library
 let html5QrCode = null;
 
 // Check camera permission
@@ -42,7 +42,15 @@ async function startQRScanner(dotNetRef) {
             html5QrCode = null;
         }
 
-        const container = document.getElementById('qr-reader');
+        // Wait for DOM element to be rendered (Blazor Server timing fix)
+        let container = document.getElementById('qr-reader');
+        if (!container) {
+            for (let i = 0; i < 10; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                container = document.getElementById('qr-reader');
+                if (container) break;
+            }
+        }
         if (!container) {
             throw new Error('Không tìm thấy vùng hiển thị camera');
         }
