@@ -75,10 +75,23 @@ namespace VanAn.ShopERP
 
             // PHASE 5: SQLite with WAL Mode for Edge Node - Enhanced for concurrency
             // ADR-001 Edge: Allow SQLITE_DB_PATH env var override for Docker volume mounting
+            // CRITICAL: ShopERP ALWAYS uses SQLite for ShopERPDbContext (orders, products, users).
+            // This ensures local dev matches VPS production — no PostgreSQL fallback for order data.
+            // PostgreSQL (VanAnDbContext) is ONLY for accounting (IAccountingDbContext).
             string connectionString =
                 Environment.GetEnvironmentVariable("SQLITE_DB_PATH")
+                ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                 ?? builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? $"Data Source={Path.Combine(AppContext.BaseDirectory, "vanan_shoperp.db")}";
+            // Safety check: if connection string contains "Host=" or "Port=" it's PostgreSQL, not SQLite
+            if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("Port=", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"ShopERPDbContext MUST use SQLite, but connection string appears to be PostgreSQL: '{connectionString}'. " +
+                    "Check ConnectionStrings:DefaultConnection in appsettings. SQLite format: 'Data Source=vanan_shoperp.db'");
+            }
+            Console.WriteLine($"[ShopERP] ShopERPDbContext (SQLite) connection: {connectionString}");
             _ = builder.Services.AddDbContext<ShopERPDbContext>(options =>
                 options.UseSqlite(connectionString));
 
