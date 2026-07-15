@@ -294,3 +294,114 @@ KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
 ### OLDER HISTORY (2026-07-02 and before)
 - ShopConfig Refactor 3 phases, Tenant Onboarding 6 waves, Architecture Test Fixes, CI/CD Hotfix
 - See git log for commit-level details
+
+---
+
+## Archived 2026-07-15 (from project_state.md reduction)
+
+### TIERED AUTH PHASE 1-3 + PRODUCTION DEPLOY (2026-07-12 → 2026-07-13)
+
+**Tiered Auth Master Plan + 7 Task Cards (2026-07-12):**
+- Created `tiered_auth_loyalty_master_plan.md` (7 phases, dependency graph, cost analysis — 96% saving)
+- 7 task cards: phase0_domain, phase1_google_oauth, phase2_verification_gate, phase3_khachlink_social_ui, phase4_facebook_oauth, phase5_zalo_zns, phase6_e2e_tests
+- Strategy: Social Login (free) → Zalo ZNS OTP (300đ) → eSMS fallback (1.000-1.200đ)
+
+**Phase 1 — Google OAuth (2026-07-13):**
+- `ISocialAuthService` + `GoogleAuthService` (OAuth code exchange + ID token verification) + `SocialAuthController` + DI + YARP route
+- Google token endpoint snake_case JSON fix (`[JsonPropertyName]` on `GoogleTokenResponse`)
+- Production wiring: `appsettings.Production.json` env var placeholders + `docker-compose.prod.yml` env vars
+- Dev secret rotation: scrubbed plain-text secret from `appsettings.Development.json` → `dotnet user-secrets`
+- Test fix: `AllShopErpControllers_MustHaveAuthCoverage` — added `HasClassLevelAllowAnonymous` skip
+- Commit `b4c6aeb`
+
+**Phase 2 — Verification Gate (2026-07-13):**
+- `LoyaltyRewardsService.SubtractPointsAsync` — throws `IdentityLevelNotSufficientException` khi `IdentityLevel < Verified`
+- Gate chỉ cho redeem, KHÔNG cho earn. Bug fix: `catch (IdentityLevelNotSufficientException) { rollback; throw; }` trước generic catch
+- 3 API endpoints: `POST /api/loyalty/redeem`, `POST /api/customer-identity/upgrade/send-otp`, `POST /api/customer-identity/upgrade/verify-otp`
+- 6 TDD tests in `LoyaltyRewardsServiceVerificationGateTests.cs`
+
+**Phase 3 — KhachLink UI (2026-07-13):**
+- `SocialAuthHttpService.cs` (HTTP client cho upgrade + redeem)
+- `Login.razor` — Google login button + OAuth callback handler
+- `IdentityUpgradeModal.razor` — 3-step OTP upgrade flow (Intro → OtpSent → Success)
+- `Profile.razor` — IdentityLevel badge + upgrade prompt
+- `LoyaltyCard.razor` — redeem section + 403 → show upgrade modal
+- Commits `06d08d1e`, `f419d149`
+
+**Production Deploy + Online RV (2026-07-13):**
+- 7 CD runs to fix: missing `Directory.Packages.props` COPY, stale GHA cache, missing sentinel env vars, `[controller]` token route mismatch
+- Final deploy: local build + SCP to VPS. PostgreSQL schema reset.
+- **Online RV 14/14 PASS** on `khachvip.online`
+- Commits: `a9cf334b`, `c7dd67bf`, `40392310`, `10e83f8f`, `1a9bbed4`, `23b8ef24`, `11cf6af6`, `4bd66bc1`
+
+### KHACHLINK FULL FLOW WAVES 0-4 (2026-07-11 → 2026-07-12)
+
+**Master Plan + Wave 0 (2026-07-11):**
+- 3 subagents verified codebase: 11 tech debt items (TD-KL-01..14)
+- Master plan `khachlink_full_flow_master_plan.md` (5 waves, 43 tasks)
+- Wave 0: Module Toggle Infrastructure — 6 toggles + Shop Settings UI + API + KhachLink HTTP service
+- 13 files (7 new + 6 modified), EF migration, 2 runtime issues fixed (missing migration, LINQ Pattern #1)
+- RV1-RV12 PASS. Merge `8edea1b`. Live RV Protocol added to all Wave 1-4 task cards.
+
+**Wave 2 (2026-07-11):**
+- Payment Flow + Kitchen UI + Polling 3s. 12 files (1 new + 11 modified)
+- Pre-existing bug fix: `GetOrderByIdForPublicTrackingAsync` — `IgnoreQueryFilters` for anonymous endpoint
+- RV1-RV10 PASS. Merge `49c1911`.
+
+**Wave 3 (2026-07-12):**
+- Voice Note STT-only + TTS Kitchen + QR Table Number. 9 files (1 new + 8 modified)
+- `tts-reader.js` (Web Speech API), `QRCodePayload.TableNumber`, Domain `[Obsolete]` on audio blobs
+- RV1-RV12 PASS. Merge `a1b2c3d`.
+
+**Wave 4 — Configurable Polling Interval (2026-07-12):**
+- `PollingIntervalSeconds` (default 15, range 5-120, `Math.Clamp`). 8 files modified + 1 new test file
+- EF migration `AddPollingIntervalSeconds`. E2E 8/8 PASS (26.3s). Merge to main.
+
+### ACCOUNTING POSTGRESQL ONLINE — 3 WAVES (2026-07-09 → 2026-07-10)
+
+**Master Plan + Debt Audit (2026-07-09):**
+- ADR-001 violation since 2026-06-03 (commit `957ac95`): accounting on SQLite instead of PostgreSQL
+- 10 services + 3 repos affected. Roslyn Analyzers: 9 dead. Debt Tier 4 recorded.
+- User chose Option B (split interface, compile-time safety) over Option A (throw stubs)
+
+**Wave 1 — Interface Split (2026-07-09):**
+- `IAccountingDbContext` (6 DbSets), removed from `IVanAnDbContext` (19 business-only)
+- `VanAnDbContext` implements both, `ShopERPDbContext` business-only
+- 11 SWAP + 3 DUAL-INJECT files. DI: `VanAnDbContext` UseNpgsql + `IAccountingDbContext` registered
+- Commit `9d589bd`. Branch `feature/accounting-pg-wave1-interface-split`.
+
+**Wave 2 — Residual (2026-07-10):**
+- `ConnectionStrings__AccountingConnection` env var to 3 compose files
+- Uses `${POSTGRES_DB:-VanAnCoreHub}`. `.env.example` updated.
+
+**Wave 3 — Architecture Tests + Verify (2026-07-10):**
+- 4 Architecture Tests: Rule J (accounting services inject IAccountingDbContext), K (ShopERPDbContext no accounting DbSets), L (docker-compose AccountingConnection), M (ShopERP UseNpgsql)
+- Fixed Rule C (ShopERP exempt). Fixed 6 integration test factories.
+- 1223/1223 PASS (Release). Guard-check ALL PASSED.
+
+**Docs Sync + Tier 5 Debt (2026-07-09):**
+- User rejected "Option C graceful degradation" for Edge mode (7 points)
+- Approved simpler: env var to 3 compose files, no code changes
+- Tier 5 debt: true offline Edge accounting via Gateway HTTP API. Commit `ebda286`.
+
+### DOCKER CONFIG FIX + DEPLOYMENT MODES (2026-07-09)
+- Port swap fix (gateway=5001, shoperp=5003, khachlink=5002)
+- ShopERP 500 crash: SQLite volume stale → `DesignTimeDbContextFactory` + `MigrateAsync`
+- KhachLink 500 crash: missing `Gateway__BaseUrl` → added env var
+- Dual Deployment Modes (SaaS + Edge) recorded in Section 5a
+- Commits `9b2d209`, `b9ed4a2`
+
+### ENTRY POINT CHECK + FIXES (2026-07-10 → 2026-07-11)
+- Full stack local Debug boot: Docker + PostgreSQL + NATS + Gateway + ShopERP + KhachLink
+- 150+ routes extracted from 45 controllers. 57 entry points tested.
+- 4 error groups fixed: VAS 500s (TenantType null + Forbid misuse), Gateway JWT scheme, SystemAdmin impersonation endpoint
+- `SystemAdmin 500s fixed: EInvoice DI block + tenant seeding with self-reference
+- Tests: Arch 38/38, Core 983/984, Integration 201/201
+
+### PLATFORM SYSTEMADMIN (2026-07-08)
+- **Planning:** 2 role systems investigated (`UserRole` tenant-scoped vs `PlatformRole` cross-tenant). User chose pattern 2 lớp. Commit `792cc3f`.
+- **Implement:** T1-T9: PlatformUser entity, PlatformUserConfiguration, 3 DbContext DbSet, EF Migration, PlatformUserLoginService (BCrypt + JWT), PlatformUserLoginController, DI + 3 policy updates + seed. Commit `dde219e`.
+- **Review + F1-F5 Fix:** 5 deviations fixed (AllowAnonymous, idempotent test, unit tests, config password, AuditTrail role). EDR-1..EDR-8. Access Matrix master plan. 1174/1174 PASS.
+
+### SDK 8.0.422 + TRIAGE + BUCKET A (2026-07-07)
+- 14 commits: SDK to system path (CVEs patched), 5 pre-existing issues triaged, qr-payment-ui 6/6 PASS, guest checkout + PostgreSQL migration, 21/22 golden tests PASS

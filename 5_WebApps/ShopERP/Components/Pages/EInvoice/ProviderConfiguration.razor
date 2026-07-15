@@ -1,5 +1,5 @@
 @page "/einvoice/configuration"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @layout EInvoiceLayout
 @attribute [Authorize(Policy = "OwnerOnly")]
 @using Microsoft.AspNetCore.Authorization

@@ -1,5 +1,5 @@
 @using VanAn.KhachLink.Services.PWA
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject PWAService PWAService
 @inject IJSRuntime JSRuntime
 @implements IAsyncDisposable

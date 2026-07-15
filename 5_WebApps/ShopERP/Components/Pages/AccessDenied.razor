@@ -1,5 +1,5 @@
 @page "/access-denied"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using VanAn.UI.Platform.Components
 @inject NavigationManager NavigationManager
 

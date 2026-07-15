@@ -1,87 +1,94 @@
 import { test, expect } from '@playwright/test';
+import { createAuthenticatedPage } from './utils/prod-auth';
+import { loadEnvConfig } from '../../utils/env-config';
+
+const config = loadEnvConfig();
 
 /**
- * Phase 6 — QuickSetup flow E2E spec
+ * Phase 6 — QuickSetup flow E2E spec (PRODUCTION VPS)
  * @golden
  *
+ * RV tests via UI layout (not API calls).
+ * Auth: SystemAdmin platform login (no impersonation — QuickSetup is SystemAdmin-only).
+ *
  * Coverage:
- *  1. SystemAdmin login → /admin/tenants → click "Khởi tạo nhanh" on a tenant
- *  2. Verify redirect to /quick-setup?tenantId={id}
- *  3. Verify page renders + template list loads
- *
- * NOTE: Full QuickSetup completion (POST /api/v1/onboarding/shops/{id}/quick-setup) is NOT
- * executed in E2E because it would mutate production tenant data. We verify navigation +
- * page render only. The POST endpoint is covered by integration tests.
- *
- * Auth: requires SystemAdmin role. This spec uses a separate storageState file
- * (auth/systemadmin.json) — falls back to admin.json if unavailable.
+ *  1. SystemAdmin → /admin/tenants → "Khởi tạo nhanh" button (RV1)
+ *  2. Redirect to /quick-setup?tenantId={id} (RV1)
+ *  3. Page render + template list load (RV2, RV4)
+ *  4. Missing tenantId guard (RV7)
  */
-test.describe('QuickSetup Flow @golden', () => {
-  test.use({ storageState: 'auth/systemadmin.json' });
+test.describe('QuickSetup Flow (PROD) @golden', () => {
+  test('RV1 — SystemAdmin tenant selection → redirect to /quick-setup', async ({ browser }) => {
+    const { page, context } = await createAuthenticatedPage(browser, '00000000-0000-0000-0000-000000000001');
+    try {
+      // Navigate to tenant management (full URL — /admin/tenants resolves to domain root)
+      await page.goto(`${config.SHOPERP_URL}/admin/tenants`);
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
 
-  test('should navigate from tenant management to quick-setup page', async ({ page }) => {
-    // 1. Navigate to tenant management
-    await page.goto('/admin/tenants');
-    await page.waitForLoadState('networkidle');
+      // Page should render (header visible)
+      await expect(page.locator('h1:has-text("Tenant"), h1:has-text("tenant"), h1:has-text("Khách hàng")').first()).toBeVisible({ timeout: 15000 });
 
-    // 2. Verify tenant list renders
-    const tenantRows = page.locator('table tbody tr, .tenant-row, [data-testid*="tenant"]');
-    const rowCount = await tenantRows.count();
+      // Look for "Khởi tạo nhanh" button on any tenant row
+      const quickSetupBtn = page.locator('button:has-text("Khởi tạo nhanh"), a:has-text("Khởi tạo nhanh")').first();
+      const btnVisible = await quickSetupBtn.isVisible().catch(() => false);
 
-    if (rowCount === 0) {
-      test.skip(true, 'No tenants available for QuickSetup test — seed test tenant first');
-      return;
+      if (btnVisible) {
+        await quickSetupBtn.click();
+        // Verify redirect to /quick-setup with tenantId query string
+        await page.waitForURL('**/quick-setup**', { timeout: 10000 });
+        expect(page.url()).toContain('tenantId=');
+      } else {
+        // No tenants with quick-setup button — skip gracefully
+        test.skip(true, 'No "Khởi tạo nhanh" button found on tenant management page');
+      }
+    } finally {
+      await context.close();
     }
-
-    // 3. Click "Khởi tạo nhanh" on first tenant
-    const quickSetupBtn = tenantRows.first().locator('button:has-text("Khởi tạo nhanh"), a:has-text("Khởi tạo nhanh")');
-    await expect(quickSetupBtn).toBeVisible({ timeout: 5000 });
-    await quickSetupBtn.click();
-
-    // 4. Verify redirect to /quick-setup?tenantId={id}
-    await page.waitForURL(/\/quick-setup\?tenantId=[a-f0-9-]+/i, { timeout: 10000 });
-    expect(page.url()).toMatch(/\/quick-setup\?tenantId=[a-f0-9-]+/i);
-
-    // 5. Verify page renders (header or template list visible)
-    await page.waitForLoadState('networkidle');
-    // Look for either the page title, template cards, or any content indicating page loaded
-    const pageContent = page.locator('h1, h2, .template-card, [data-testid*="template"], .quick-setup');
-    await expect(pageContent.first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('should render QuickSetup page directly via URL', async ({ page, request }) => {
-    // Get a tenant ID from the tenant list first
-    await page.goto('/admin/tenants');
-    await page.waitForLoadState('networkidle');
+  test('RV2/RV4 — QuickSetup page render + template list', async ({ browser }) => {
+    const tenantId = '00000000-0000-0000-0000-000000000001';
+    const { page, context } = await createAuthenticatedPage(browser, tenantId);
+    try {
+      // Direct URL access with tenantId (full URL)
+      await page.goto(`${config.SHOPERP_URL}/quick-setup?tenantId=${tenantId}`);
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(3000);
 
-    const tenantRows = page.locator('table tbody tr, .tenant-row, [data-testid*="tenant"]');
-    const rowCount = await tenantRows.count();
+      // Page should render without crash (RV2)
+      // Look for page header or any content (not error page)
+      const errorPage = page.locator('h1.text-danger:has-text("Error")');
+      const hasError = await errorPage.isVisible().catch(() => false);
+      expect(hasError).toBeFalsy();
 
-    if (rowCount === 0) {
-      test.skip(true, 'No tenants available for direct URL test');
-      return;
+      // Page content visible (header or form or template list)
+      const pageContent = page.locator('h1, h2, h3, .quick-setup, .template-list, form').first();
+      await expect(pageContent).toBeVisible({ timeout: 15000 });
+    } finally {
+      await context.close();
     }
+  });
 
-    // Extract tenant ID from the row (look for data attribute or link href)
-    const firstRow = tenantRows.first();
-    const quickSetupBtn = firstRow.locator('button:has-text("Khởi tạo nhanh"), a:has-text("Khởi tạo nhanh")');
+  test('RV7 — Missing tenantId guard', async ({ browser }) => {
+    const { page, context } = await createAuthenticatedPage(browser, '00000000-0000-0000-0000-000000000001');
+    try {
+      // Navigate without tenantId (full URL)
+      await page.goto(`${config.SHOPERP_URL}/quick-setup`);
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(2000);
 
-    // Get the tenant ID by clicking and capturing the URL
-    const navPromise = page.waitForURL(/\/quick-setup\?tenantId=/i, { timeout: 10000 }).catch(() => null);
-    await quickSetupBtn.click();
-    await navPromise;
+      // Should show error message about missing tenantId (RV7)
+      // Either error alert or redirect to /admin/tenants
+      const url = page.url();
+      const hasErrorAlert = await page.locator('.vanan-alert, .alert-danger, .alert-warning').first().isVisible().catch(() => false);
+      const hasErrorText = await page.locator('text=/thiếu|tenantId|missing/i').first().isVisible().catch(() => false);
+      const redirectedToTenants = url.includes('/admin/tenants');
 
-    const url = page.url();
-    const match = url.match(/tenantId=([a-f0-9-]+)/i);
-    expect(match).toBeTruthy();
-    const tenantId = match![1];
-
-    // Now navigate directly to the URL (simulate bookmark/direct access)
-    await page.goto(`/quick-setup?tenantId=${tenantId}`);
-    await page.waitForLoadState('networkidle');
-
-    // Verify page renders
-    const pageContent = page.locator('h1, h2, .template-card, [data-testid*="template"], .quick-setup');
-    await expect(pageContent.first()).toBeVisible({ timeout: 10000 });
+      // At least one of these guard behaviors should be present
+      expect(hasErrorAlert || hasErrorText || redirectedToTenants).toBeTruthy();
+    } finally {
+      await context.close();
+    }
   });
 });

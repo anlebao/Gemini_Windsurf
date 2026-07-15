@@ -1,5 +1,5 @@
 @page "/einvoice"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @layout EInvoiceLayout
 @attribute [Authorize(Policy = "StoreManagement")]
 @using Microsoft.AspNetCore.Authorization

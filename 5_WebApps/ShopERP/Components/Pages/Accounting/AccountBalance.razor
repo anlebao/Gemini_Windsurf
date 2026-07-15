@@ -1,5 +1,5 @@
 @page "/accounting/balance"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @layout AccountingLayout
 @attribute [Authorize(Policy = "OwnerOnly")]
 @using Microsoft.AspNetCore.Authorization

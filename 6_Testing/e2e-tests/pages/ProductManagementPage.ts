@@ -1,4 +1,7 @@
 import { Page, expect, Locator } from '@playwright/test';
+import { loadEnvConfig } from '../../utils/env-config';
+
+const config = loadEnvConfig();
 
 /**
  * Page Object Model for Product Management page (/products)
@@ -51,9 +54,9 @@ export class ProductManagementPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.createButton = page.locator('button:has-text("Thêm sản phẩm")');
-    this.refreshButton = page.locator('button:has-text("Làm mới")');
-    this.batchPrintButton = page.locator('button:has-text("In QR đã chọn")');
+    this.createButton = page.locator('button:has-text("Thêm sản phẩm")').first();
+    this.refreshButton = page.locator('button:has-text("Làm mới")').first();
+    this.batchPrintButton = page.locator('button:has-text("In QR đã chọn")').first();
 
     this.dataGridRows = page.locator('table.vanan-data-grid tbody tr');
     this.emptyState = page.locator('.empty-state');
@@ -87,8 +90,8 @@ export class ProductManagementPage {
   }
 
   async navigate() {
-    await this.page.goto('/products');
-    // Wait for either DataGrid to render or empty state to appear
+    // Use full URL — page.goto('/products') resolves to domain root, not baseURL path
+    await this.page.goto(`${config.SHOPERP_URL}/products`);
     await this.page.waitForLoadState('networkidle');
   }
 

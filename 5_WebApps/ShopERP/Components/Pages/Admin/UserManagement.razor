@@ -1,5 +1,5 @@
 @page "/admin/users"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @layout AdminLayout
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.Shared.Domain

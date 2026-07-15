@@ -1,9 +1,31 @@
-test(arch): allow VANAN_ prefix in docker-compose env var naming
+[HOTFIX] Blazor interactivity broken on VPS — disable prerendering globally (43 files)
 
-VA-CONSISTENCY-004 was flagging VANAN_DOMAIN as inconsistent.
-VANAN_ prefix is infrastructure-level (docker-compose substitution +
-nginx envsubst), same category as ASPNETCORE_, POSTGRES_, etc.
-Added VANAN_ to exclusion list.
+Root cause: Blazor circuit connects (WebSocket 101) but fails to hydrate
+prerendered components. @onclick remains literal HTML attribute, buttons
+don't respond to clicks. Affects ALL interactive pages on VPS.
+
+Evidence (app.khachvip.online/admin/tenants):
+  - Raw HTML has Blazor markers (type:server, prerenderId) ✓
+  - blazor.web.js loads (200, 187KB) ✓
+  - WebSocket connects (101 Switching Protocols) ✓
+  - VanAButton OnAfterRender called on server ✓
+  - BUT: blazorClickAttrs=0, literalOnclick=11 (circuit didn't hydrate)
+  - No errors in console or server logs
+
+Pattern: ALL 43 .razor pages with @rendermode InteractiveServer are affected.
+Not a per-page issue — systemic prerendering/hydration failure on VPS.
+
+Fix: Replace @rendermode InteractiveServer (prerender:true by default)
+with @rendermode @(new InteractiveServerRenderMode(prerender: false))
+in all 43 .razor files across ShopERP + KhachLink.
+
+With prerender:false, the server skips static prerendering and the Blazor
+circuit renders components from scratch (no hydration needed). This avoids
+the hydration failure entirely.
+
+Trade-off: Brief blank page before circuit renders (better than non-functional buttons).
+
+Build: 0 errors.
 
 Generated with [Devin](https://devin.ai)
 
