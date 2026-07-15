@@ -296,6 +296,8 @@ namespace VanAn.Gateway
             // Sync: Register Outbox + NatsSyncWorker for Gateway→ShopERP sync (PostgreSQL → NATS → SQLite)
             // Gateway writes orders to PostgreSQL; Outbox event is enqueued by OrderService.CreateOrderFromCommandAsync.
             // NatsSyncWorker polls Outbox (PostgreSQL) and publishes to NATS → ShopERP subscriber syncs to SQLite.
+            // RC-2 fix: Gateway publishes with prefix "cloud" (vanan.cloud.*) to distinguish from
+            // ShopERP's SQLite→PG direction (vanan.shoperp.*). ShopERP OrderSyncSubscriber listens to vanan.cloud.*.
             _ = builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
             _ = builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
             _ = builder.Services.AddHostedService<NatsSyncWorker>();

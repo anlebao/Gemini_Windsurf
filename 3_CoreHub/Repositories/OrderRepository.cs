@@ -120,6 +120,17 @@ namespace VanAn.CoreHub.Repositories
             }
         }
 
+        /// <summary>
+        /// RC-1 fix: Adds order to change tracker WITHOUT SaveChangesAsync.
+        /// Caller owns the Unit of Work — must call SaveChangesAsync or CommitAsync on transaction.
+        /// </summary>
+        public async Task<Order> AddAsyncNoSave(Order order, CancellationToken cancellationToken = default)
+        {
+            _ = await _context.Orders.AddAsync(order, cancellationToken);
+            _logger.LogInformation("Staged order {OrderId} for tenant {TenantId} (no save — caller commits)", order.Id, order.TenantId);
+            return order;
+        }
+
         public async Task<Order> UpdateAsync(Order order, CancellationToken cancellationToken = default)
         {
             try

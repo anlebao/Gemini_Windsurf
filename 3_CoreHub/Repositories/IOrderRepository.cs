@@ -54,9 +54,16 @@ namespace VanAn.CoreHub.Repositories
         Task<IEnumerable<Order>> GetTodayOrdersAsync(TenantId tenantId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Adds a new order
+        /// Adds a new order (calls SaveChangesAsync — order is committed immediately).
         /// </summary>
         Task<Order> AddAsync(Order order, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Adds a new order to EF change tracker WITHOUT calling SaveChangesAsync.
+        /// Caller owns the Unit of Work and must commit the transaction.
+        /// Use this when enqueuing Outbox events atomically with order creation (RC-1 fix).
+        /// </summary>
+        Task<Order> AddAsyncNoSave(Order order, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Updates an existing order

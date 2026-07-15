@@ -605,8 +605,19 @@ namespace VanAn.ShopERP
                         new Product(seedTenantId, "Gỏi cuốn tôm", "Gỏi cuốn tôm tươi, bún, rau sống, nước mắm", 45000m, "Đồ ăn", true, null, 0.08m, 25000m),
                         new Product(seedTenantId, "Bánh flan caramel", "Bánh flan mềm, caramel đậm vị", 28000m, "Tráng miệng", true, null, 0.08m, 12000m)
                     );
+                    // FK fix: OrderItems.ProductId references Products.Id (PK), NOT Products.ProductId.
+                    // Product constructor generates separate Guids for Id and ProductId.
+                    // Override Id = ProductId so FK_OrderItems_Products_ProductId matches when
+                    // OrderSyncSubscriber creates OrderItems with ProductId from PG event payload.
+                    // (Same pattern as PG product sync at line 730-733.)
+                    foreach (var p in context.Products.Local)
+                    {
+                        if (p.ProductId.Value != Guid.Empty && p.Id != p.ProductId.Value)
+                        {
+                            context.Entry(p).Property("Id").CurrentValue = p.ProductId.Value;
+                        }
+                    }
                     _ = await context.SaveChangesAsync();
-                    Console.WriteLine($"Phase 4: Sample Products seeded — 9 items for tenant {tenantIdStr}");
                 }
 
                 // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)

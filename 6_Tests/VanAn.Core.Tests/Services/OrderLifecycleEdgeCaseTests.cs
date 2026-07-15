@@ -162,10 +162,11 @@ public class OrderLifecycleEdgeCaseTests : IntegrationTestBase
         await worker.StopAsync(CancellationToken.None);
 
         // Assert — events published in FIFO order (CreatedAt ascending)
+        // RC-2 fix: BuildSubject now splits camelCase → "OrderConfirmed" → "order.confirmed"
         Assert.Equal(3, publisher.Published.Count);
-        Assert.Equal("vanan.shoperp.orderconfirmed", publisher.Published[0].Subject);
-        Assert.Equal("vanan.shoperp.kitchenstarted", publisher.Published[1].Subject);
-        Assert.Equal("vanan.shoperp.kitchencompleted", publisher.Published[2].Subject);
+        Assert.Equal("vanan.shoperp.order.confirmed", publisher.Published[0].Subject);
+        Assert.Equal("vanan.shoperp.kitchen.started", publisher.Published[1].Subject);
+        Assert.Equal("vanan.shoperp.kitchen.completed", publisher.Published[2].Subject);
 
         // All 3 marked as processed (no skipped, no duplicated)
         outboxMock.Verify(o => o.MarkAsProcessedAsync(ev1.OutboxEventId, It.IsAny<CancellationToken>()), Times.Once);

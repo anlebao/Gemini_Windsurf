@@ -168,8 +168,13 @@ namespace VanAn.Core.Tests.Services
             };
 
             _ = _mockOrderRepository
-                .Setup(x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .Setup(x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Order o, CancellationToken _) => o);
+
+            // RC-1 fix: CreateOrderFromCommandAsync now uses BeginTransactionAsync + AddAsyncNoSave
+            _mockOrderRepository
+                .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>().Object);
 
             // Act
             Order result = await _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value);
@@ -179,7 +184,7 @@ namespace VanAn.Core.Tests.Services
             _ = result.TenantId.Value.Should().Be(_testTenantId.Value);
             _ = result.Items.Should().HaveCount(2);
             _mockOrderRepository.Verify(
-                x => x.AddAsync(It.IsAny<Order>(), It.IsAny<CancellationToken>()),
+                x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
