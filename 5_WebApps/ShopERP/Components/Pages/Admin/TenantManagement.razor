@@ -26,6 +26,9 @@
         <button type="button" @onclick="TestSimpleClick" data-testid="simple-test-btn">
             DEBUG: Simple @@onclick Test (clicked: @_testClickCount)
         </button>
+        <span data-testid="modal-state" style="margin-left: 20px; font-weight: bold;">
+            _showCreateModal=@_showCreateModal
+        </span>
     </div>
     <!-- Header -->
     <header class="page-header">
@@ -424,7 +427,7 @@
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
-    private void OpenCreateModal() { _createForm = new(); _showCreateModal = true; }
+    private void OpenCreateModal() { _createForm = new(); _showCreateModal = true; Logger.LogInformation("DEBUG: OpenCreateModal called — _showCreateModal={ShowModal}", _showCreateModal); }
     private void CloseCreateModal() => _showCreateModal = false;
 
     private async Task HandleCreateSubmit()
