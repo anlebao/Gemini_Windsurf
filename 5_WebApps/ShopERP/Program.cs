@@ -317,6 +317,10 @@ namespace VanAn.ShopERP
             // FIX-BATCH-3: IHostedService that subscribes to NATS "order.status.changed" and dispatches to PushNotificationService
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.PushNotificationBackgroundService>();
 
+            // Sync: Subscribe to NATS "order.created" events from Gateway → sync to SQLite
+            // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.OrderSyncSubscriber>();
+
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");
             if (!string.IsNullOrWhiteSpace(redisConnection))

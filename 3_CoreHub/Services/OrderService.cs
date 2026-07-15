@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Interfaces;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Common;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Commands;
@@ -25,7 +26,8 @@ namespace VanAn.CoreHub.Services
         IOrderHub? orderHub = null,
         IVanAnDbContext? dbContext = null,
         IOrderNotificationService? orderNotificationService = null,
-        IShopFeatureSettingsService? shopFeatureSettingsService = null) : IOrderService
+        IShopFeatureSettingsService? shopFeatureSettingsService = null,
+        IOutboxRepository? outboxRepository = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -46,6 +48,9 @@ namespace VanAn.CoreHub.Services
 
         // W0-T5: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
         private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
+
+        // Sync: Outbox for publishing OrderCreated events (Gateway → NATS → ShopERP SQLite)
+        private readonly IOutboxRepository? _outboxRepository = outboxRepository;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -561,6 +566,60 @@ namespace VanAn.CoreHub.Services
 
                 // Save order using existing repository pattern
                 Order createdOrder = await _orderRepository.AddAsync(order);
+
+                // Sync: Enqueue OrderCreated event to Outbox for NATS → ShopERP SQLite sync
+                // Gateway writes to PostgreSQL; ShopERP reads from SQLite.
+                // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).
+                if (_outboxRepository != null)
+                {
+                    var orderCreatedEvent = new
+                    {
+                        EventId = Guid.NewGuid(),
+                        OrderId = createdOrder.Id,
+                        TenantId = createdOrder.TenantId.Value,
+                        CustomerId = createdOrder.CustomerId,
+                        CustomerDeviceId = createdOrder.CustomerDeviceId ?? string.Empty,
+                        Status = createdOrder.Status.Value,
+                        TotalAmount = createdOrder.TotalAmount,
+                        SubTotal = createdOrder.SubTotal,
+                        TotalVatAmount = createdOrder.TotalVatAmount,
+                        PaymentStatus = createdOrder.PaymentStatus,
+                        OrderType = createdOrder.OrderType ?? "DineIn",
+                        OrderDate = createdOrder.OrderDate,
+                        CreatedAt = createdOrder.CreatedAt,
+                        TrackingCode = createdOrder.TrackingCode,
+                        CustomerInfo = new
+                        {
+                            FullName = createdOrder.CustomerInfo?.FullName ?? "",
+                            PhoneNumber = createdOrder.CustomerInfo?.PhoneNumber ?? "",
+                            Email = createdOrder.CustomerInfo?.Email ?? "",
+                            Address = createdOrder.CustomerInfo?.Address ?? ""
+                        },
+                        Items = createdOrder.Items.Select(i => new
+                        {
+                            ItemId = i.Id,
+                            ProductId = i.ProductId,
+                            ProductName = i.ProductName ?? i.Product?.Name ?? "Unknown",
+                            Quantity = i.Quantity,
+                            UnitPrice = i.UnitPrice,
+                            TotalAmount = i.TotalAmount,
+                            VatRate = i.VatRate
+                        }).ToList()
+                    };
+
+                    string eventData = System.Text.Json.JsonSerializer.Serialize(orderCreatedEvent);
+                    var outboxEvent = new OutboxEvent(
+                        createdOrder.TenantId,
+                        new ElectronicInvoiceId(Guid.Empty),
+                        "OrderCreated",
+                        eventData);
+                    _ = _outboxRepository.EnqueueAsync(outboxEvent);
+                    _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
+                }
+                else
+                {
+                    _logger.LogWarning("OutboxRepository not available — OrderCreated event for order {OrderId} not persisted", createdOrder.Id);
+                }
 
                 _logger.LogInformation("Created order {OrderId} from Gateway command", createdOrder.Id);
 

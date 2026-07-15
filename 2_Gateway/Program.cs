@@ -16,6 +16,7 @@ using VanAn.Gateway.Middleware;
 using VanAn.Gateway.Hubs;
 using VanAn.Gateway.Services;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using Serilog;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
 
@@ -291,6 +292,14 @@ namespace VanAn.Gateway
             // Degraded mode: if NATS unavailable, services log warning and skip events.
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.DataSyncSubscriber>();
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.Events.SimpleAccountingEventHandler>();
+
+            // Sync: Register Outbox + NatsSyncWorker for Gateway→ShopERP sync (PostgreSQL → NATS → SQLite)
+            // Gateway writes orders to PostgreSQL; Outbox event is enqueued by OrderService.CreateOrderFromCommandAsync.
+            // NatsSyncWorker polls Outbox (PostgreSQL) and publishes to NATS → ShopERP subscriber syncs to SQLite.
+            _ = builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
+            _ = builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+            _ = builder.Services.AddHostedService<NatsSyncWorker>();
+            _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
 
             // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)
             // Implemented in Gateway using IHubContext<OrderHub> — CoreHub stays pure class library.
