@@ -78,6 +78,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       - ConnectionStrings__Nats=nats://nats:4222
       - Nats__Url=nats://nats:4222
+      - NATS__Url=nats://nats:4222
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
       - Cors__AllowedOrigins__0=https://app.${VANAN_DOMAIN}

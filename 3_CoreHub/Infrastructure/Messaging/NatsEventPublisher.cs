@@ -72,7 +72,14 @@ public sealed class NatsEventPublisher : INatsEventPublisher
 
     private static IConnection? CreateConnection(IConfiguration configuration, ILogger logger)
     {
-        var url = configuration.GetValue<string>("NATS__Url") ?? "nats://localhost:4222";
+        // Try multiple config keys — env var naming varies (NATS__Url, Nats__Url, ConnectionStrings:Nats)
+        var url = configuration.GetValue<string>("NATS__Url")
+            ?? configuration.GetValue<string>("Nats__Url")
+            ?? configuration.GetValue<string>("NATS:Url")
+            ?? configuration.GetValue<string>("Nats:Url")
+            ?? configuration.GetValue<string>("ConnectionStrings:Nats")
+            ?? configuration.GetValue<string>("ConnectionStrings__Nats")
+            ?? "nats://localhost:4222";
         try
         {
             var opts = ConnectionFactory.GetDefaultOptions();
