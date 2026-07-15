@@ -117,17 +117,11 @@ namespace VanAn.ShopERP.Pages
                     : DateTimeOffset.UtcNow.AddHours(8)
             });
 
-            // Redirect based on role — role-specific landing pages [Wave4-T5]
-            return user.Role switch
-            {
-                UserRole.Guard => RedirectToPage("/Guard/Scan"),
-                UserRole.Owner => RedirectToPage("/Index"),
-                UserRole.StoreKeeper => RedirectToPage("/Index"),
-                UserRole.Staff => RedirectToPage("/Kitchen/Index"),
-                UserRole.Masterchef => RedirectToPage("/Kitchen/Index"),
-                UserRole.None => throw new NotImplementedException(),
-                _ => RedirectToPage("/Index")
-            };
+            // Redirect to Blazor /sitemap — single entry point for all roles
+            // Blazor Sitemap.razor handles role-based navigation (Owner, Staff, Guard, etc.)
+            // Guard users: /sitemap has link to /guard/scan (legacy Razor Page, no Blazor equivalent yet)
+            // Kitchen users: /sitemap has link to /Kitchen (legacy Razor Page, no Blazor equivalent yet)
+            return Redirect("/sitemap");
         }
 
         /// <summary>

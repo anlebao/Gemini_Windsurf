@@ -825,10 +825,11 @@ namespace VanAn.ShopERP
                 }
             }).RequireAuthorization("OwnerOnly");
 
-            _ = app.MapRazorPages();
+            _ = app.MapRazorPages(); // Login.cshtml, Logout.cshtml, Guard/Scan.cshtml
             _ = app.MapRazorComponents<Components.App>()
                 .AddInteractiveServerRenderMode();
-            _ = app.MapFallbackToPage("/Index"); // Proper fallback to Razor Page, not static HTML
+            // Blazor is the main app — unmatched routes fall through to Blazor App.razor
+            // (which renders NotFound or redirects to /sitemap via Home.razor)
 
             string urls = builder.Configuration["ASPNETCORE_URLS"] ?? "http://0.0.0.0:5003";
             await app.RunAsync(urls);
