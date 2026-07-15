@@ -7,6 +7,7 @@ using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.DTOs;
+using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
 namespace VanAn.ShopERP.Controllers
 {
@@ -126,7 +127,6 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                // Load all active products (same query as GetProducts — proven to work)
                 List<Product> allProducts = await _dbContext.Products
                     .Where(p => p.IsActive && !p.IsDeleted)
                     .OrderBy(p => p.Category)
@@ -136,25 +136,15 @@ namespace VanAn.ShopERP.Controllers
                 if (allProducts.Count == 0)
                     return Ok(new List<ProductCatalogItem>());
 
-                // Group in-memory, take top N tenants with 1-2 products each
                 var grouped = allProducts
                     .GroupBy(p => p.TenantId.Value)
                     .Take(tenantsCount)
                     .ToList();
 
-                // Load tenant names from Shops table (fallback to default if not found)
-                Dictionary<Guid, string> tenantNames = new();
-                try
-                {
-                    var allShops = await _dbContext.Shops
-                        .Where(s => !s.IsDeleted)
-                        .ToListAsync();
-                    tenantNames = allShops.ToDictionary(s => s.TenantId.Value, s => s.Name);
-                }
-                catch (Exception shopEx)
-                {
-                    _logger.LogWarning(shopEx, "Shops table query failed, using fallback tenant names");
-                }
+                // Load tenant names in-memory from Tenants table
+                // (Cannot use tenantIds.Contains(t.Id.Value) — EF Core cannot translate ValueObject .Value in Contains)
+                List<Tenant> allTenants = await _dbContext.Tenants.ToListAsync();
+                var tenantNames = allTenants.ToDictionary(t => t.Id.Value, t => t.Name);
 
                 var result = new List<ProductCatalogItem>();
                 foreach (var group in grouped)
@@ -166,7 +156,7 @@ namespace VanAn.ShopERP.Controllers
                         {
                             ProductId = p.ProductId.Value,
                             TenantId = p.TenantId.Value,
-                            TenantName = tenantNames.GetValueOrDefault(tid, $"Cửa hàng {tid.ToString().Substring(0,8)}"),
+                            TenantName = tenantNames.GetValueOrDefault(tid, $"Cửa hàng {tid.ToString()[..8]}"),
                             Name = p.Name,
                             Description = p.Description,
                             Price = p.Price,
