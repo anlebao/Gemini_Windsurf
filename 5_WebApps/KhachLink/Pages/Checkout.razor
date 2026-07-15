@@ -209,23 +209,32 @@
     {
         cartState = CartService.GetCartState();
         CartService.OnCartChanged += StateHasChanged;
-        await CartService.LoadCartFromStorageAsync();
+    }
 
-        // Check if customer is logged in (has customer_token in localStorage)
-        var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
-        _isLoggedIn = !string.IsNullOrEmpty(token);
-
-        if (cartState.GetTotalItems() == 0)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
         {
-            NavigationManager.NavigateTo("/cart");
-            return;
-        }
+            // JSRuntime is only available after hydration (not during static prerender).
+            await CartService.LoadCartFromStorageAsync();
 
-        // Snapshot cart for display + show guest form (no auto-create).
-        // Bucket A feature (approved 2026-07-07): guest fills form before order creation.
-        cartSnapshot = cartState.Items.ToList();
-        orderTotal = cartState.TotalAmount;
-        showGuestForm = true;
+            // Check if customer is logged in (has customer_token in localStorage)
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            _isLoggedIn = !string.IsNullOrEmpty(token);
+
+            if (cartState.GetTotalItems() == 0)
+            {
+                NavigationManager.NavigateTo("/cart");
+                return;
+            }
+
+            // Snapshot cart for display + show guest form (no auto-create).
+            // Bucket A feature (approved 2026-07-07): guest fills form before order creation.
+            cartSnapshot = cartState.Items.ToList();
+            orderTotal = cartState.TotalAmount;
+            showGuestForm = true;
+            StateHasChanged();
+        }
     }
 
     private async Task SubmitGuestOrder()
