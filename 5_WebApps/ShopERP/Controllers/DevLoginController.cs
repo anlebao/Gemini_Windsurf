@@ -30,8 +30,8 @@ namespace VanAn.ShopERP.Controllers
         private readonly IJwtTokenService _jwtTokenService = jwtTokenService;
 
         // Fixed test tenant — matches the seed tenant used by ShopERP dev SQLite DB
-        private static readonly Guid TestTenantId = new("11111111-1111-1111-1111-111111111111");
-        private static readonly Guid TestUserId   = new("11111111-1111-1111-1111-111111111111");
+        private static readonly Guid TestTenantId = new("00000000-0000-0000-0000-000000000001");
+        private static readonly Guid TestUserId   = new("00000000-0000-0000-0000-000000000001");
         private const string TestUserEmail = "admin@vanan.vn";
         private const string TestUserName  = "Dev Admin";
         private const string TestRole      = "Owner";
