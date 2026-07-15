@@ -1,5 +1,5 @@
 @page "/products"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "OwnerOnly")]
 @layout AccountingLayout
 @using Microsoft.AspNetCore.Authorization

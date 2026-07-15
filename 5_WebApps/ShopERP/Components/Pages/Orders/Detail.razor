@@ -1,5 +1,5 @@
 @page "/orders/{OrderId:guid}"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @attribute [Authorize(Policy = "StaffOrAbove")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.SignalR.Client

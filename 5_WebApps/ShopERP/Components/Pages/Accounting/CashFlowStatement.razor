@@ -1,5 +1,5 @@
 @page "/accounting/cash-flow-statement"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @layout AccountingLayout
 @attribute [Authorize(Policy = "OwnerOnly")]
 @using Microsoft.AspNetCore.Authorization

@@ -1,6 +1,6 @@
 @using VanAn.KhachLink.Components.Layout
 @page "/cart"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServer
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject NavigationManager Navigation
 @inject IThemeProvider ThemeProvider
