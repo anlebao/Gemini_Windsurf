@@ -614,7 +614,15 @@ namespace VanAn.CoreHub.Services
                         "OrderCreated",
                         eventData);
                     _ = _outboxRepository.EnqueueAsync(outboxEvent);
-                    _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
+
+                    // Save Outbox message — EnqueueAsync only adds to EF change tracker.
+                    // OrderRepository.AddAsync already called SaveChangesAsync for the order,
+                    // so we need a separate SaveChangesAsync for the Outbox message.
+                    if (_dbContext != null)
+                    {
+                        await _dbContext.SaveChangesAsync();
+                        _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
+                    }
                 }
                 else
                 {
