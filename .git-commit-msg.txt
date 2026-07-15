@@ -1,29 +1,33 @@
-[HOTFIX] Blazor interactivity broken on VPS — disable prerendering globally (43 files)
+[HOTFIX] Blazor @onclick not processed in UI.Platform class library — add @using Microsoft.AspNetCore.Components.Web
 
-Root cause: Blazor circuit connects (WebSocket 101) but fails to hydrate
-prerendered components. @onclick remains literal HTML attribute, buttons
-don't respond to clicks. Affects ALL interactive pages on VPS.
+Root cause: UI.Platform class library components (VanAButton, VanAInput,
+VanASelect, VanAForm, VanAModal, VanAAlert, DynamicForm, VanAnModal,
+VanAnAlert) use @onclick/@onchange/@onsubmit event directives on HTML
+elements. Without @using Microsoft.AspNetCore.Components.Web, the Razor
+source generator treats @onclick as a LITERAL HTML attribute (with @ in
+the name) instead of an event handler directive.
 
-Evidence (app.khachvip.online/admin/tenants):
-  - Raw HTML has Blazor markers (type:server, prerenderId) ✓
-  - blazor.web.js loads (200, 187KB) ✓
-  - WebSocket connects (101 Switching Protocols) ✓
-  - VanAButton OnAfterRender called on server ✓
-  - BUT: blazorClickAttrs=0, literalOnclick=11 (circuit didn't hydrate)
-  - No errors in console or server logs
+Evidence (generated code BEFORE fix):
+  __builder.AddAttribute(5, "@onclick", "HandleClick");  // LITERAL STRING
 
-Pattern: ALL 43 .razor pages with @rendermode InteractiveServer are affected.
-Not a per-page issue — systemic prerendering/hydration failure on VPS.
+Evidence (generated code AFTER fix):
+  __builder.AddAttribute(5, "onclick",
+    EventCallback.Factory.Create<MouseEventArgs>(this, HandleClick));  // EVENT HANDLER
 
-Fix: Replace @rendermode InteractiveServer (prerender:true by default)
-with @rendermode @(new InteractiveServerRenderMode(prerender: false))
-in all 43 .razor files across ShopERP + KhachLink.
+This caused ALL buttons in VanAButton (and other UI.Platform components)
+to be non-functional on VPS — @onclick="HandleClick" rendered as a literal
+HTML attribute, clicks did nothing.
 
-With prerender:false, the server skips static prerendering and the Blazor
-circuit renders components from scratch (no hydration needed). This avoids
-the hydration failure entirely.
+Pattern fix (not case-by-case):
+- Added @using Microsoft.AspNetCore.Components.Web to 9 .razor files in
+  UI.Platform that use @on* event directives
+- VanAButton.razor + VanAnButton.razor already had the import (or just added)
+- VanAnSearchBar.razor already had the import
 
-Trade-off: Brief blank page before circuit renders (better than non-functional buttons).
+Also includes previous commit's prerender:false change (43 pages) which
+fixes the circuit hydration issue. Both fixes are needed:
+  1. prerender:false — circuit renders from scratch (no hydration needed)
+  2. @using Components.Web — @onclick processed as event handler (not literal)
 
 Build: 0 errors.
 
