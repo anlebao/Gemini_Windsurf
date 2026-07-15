@@ -594,28 +594,27 @@ namespace VanAn.ShopERP
                 // so products belong to the same tenant as the Owner demo user.
                 if (!await context.Products.IgnoreQueryFilters().AnyAsync())
                 {
-                    context.Products.AddRange(
-                        new Product(seedTenantId, "Cà phê sữa đá", "Cà phê phin truyền thống, sữa đặc, đá lạnh", 25000m, "Đồ uống", true, null, 0.08m, 12000m),
-                        new Product(seedTenantId, "Cà phê đen đá", "Cà phê phin truyền thống, đen, đá lạnh", 20000m, "Đồ uống", true, null, 0.08m, 10000m),
-                        new Product(seedTenantId, "Bánh mì thịt nướng", "Bánh mì nướng than hoa, pate, rau sống, nước sốt", 35000m, "Đồ ăn", true, null, 0.08m, 18000m),
-                        new Product(seedTenantId, "Phở bò tái", "Phở bò truyền thống, tái nạc, nước dùng hầm xương", 55000m, "Đồ ăn", true, null, 0.08m, 30000m),
-                        new Product(seedTenantId, "Trà đào cam sả", "Trà đen, đào miếng, cam tươi, sả", 40000m, "Đồ uống", true, null, 0.08m, 18000m),
-                        new Product(seedTenantId, "Cơm gà xối mỡ", "Cơm sườn, gà xối mỡ hành, đồ chua", 65000m, "Đồ ăn", true, null, 0.08m, 35000m),
-                        new Product(seedTenantId, "Sinh tố bơ", "Sinh tố bơ tươi, sữa đặc, đá xay", 38000m, "Đồ uống", true, null, 0.08m, 20000m),
-                        new Product(seedTenantId, "Gỏi cuốn tôm", "Gỏi cuốn tôm tươi, bún, rau sống, nước mắm", 45000m, "Đồ ăn", true, null, 0.08m, 25000m),
-                        new Product(seedTenantId, "Bánh flan caramel", "Bánh flan mềm, caramel đậm vị", 28000m, "Tráng miệng", true, null, 0.08m, 12000m)
-                    );
-                    // FK fix: OrderItems.ProductId references Products.Id (PK), NOT Products.ProductId.
-                    // Product constructor generates separate Guids for Id and ProductId.
-                    // Override Id = ProductId so FK_OrderItems_Products_ProductId matches when
-                    // OrderSyncSubscriber creates OrderItems with ProductId from PG event payload.
-                    // (Same pattern as PG product sync at line 730-733.)
-                    foreach (var p in context.Products.Local)
+                    // Deterministic GUIDs (lowercase) — match PostgreSQL products exactly.
+                    // This prevents GUID case mismatch between SQLite (uppercase) and PG (lowercase)
+                    // which caused FK violations and duplicate products on every restart.
+                    var seedProducts = new[]
                     {
-                        if (p.ProductId.Value != Guid.Empty && p.Id != p.ProductId.Value)
-                        {
-                            context.Entry(p).Property("Id").CurrentValue = p.ProductId.Value;
-                        }
+                        (Id: Guid.Parse("4bda6dc0-a111-48ca-84d8-e8615477814c"), Name: "Cà phê sữa đá", Desc: "Cà phê phin truyền thống, sữa đặc, đá lạnh", Price: 25000m, Cat: "Đồ uống", Cost: 12000m),
+                        (Id: Guid.Parse("e817ea26-93d5-42bc-9dc1-8902f02b6e53"), Name: "Cà phê đen đá", Desc: "Cà phê phin truyền thống, đen, đá lạnh", Price: 20000m, Cat: "Đồ uống", Cost: 10000m),
+                        (Id: Guid.Parse("55ac278b-4226-49fa-b123-574198759c79"), Name: "Bánh mì thịt nướng", Desc: "Bánh mì nướng than hoa, pate, rau sống, nước sốt", Price: 35000m, Cat: "Đồ ăn", Cost: 18000m),
+                        (Id: Guid.Parse("e63cf4c6-71d1-4a0c-9f3e-1e9ac4b31008"), Name: "Phở bò tái", Desc: "Phở bò truyền thống, tái nạc, nước dùng hầm xương", Price: 55000m, Cat: "Đồ ăn", Cost: 30000m),
+                        (Id: Guid.Parse("f9ca4bf4-31a0-4631-80d7-86779261908f"), Name: "Trà đào cam sả", Desc: "Trà đen, đào miếng, cam tươi, sả", Price: 40000m, Cat: "Đồ uống", Cost: 18000m),
+                        (Id: Guid.Parse("b89bcfc9-343e-4bed-b5b5-56f902f1cd27"), Name: "Cơm gà xối mỡ", Desc: "Cơm sườn, gà xối mỡ hành, đồ chua", Price: 65000m, Cat: "Đồ ăn", Cost: 35000m),
+                        (Id: Guid.Parse("05341491-0b92-4ee1-82e8-d7714758bf86"), Name: "Sinh tố bơ", Desc: "Sinh tố bơ tươi, sữa đặc, đá xay", Price: 38000m, Cat: "Đồ uống", Cost: 20000m),
+                        (Id: Guid.Parse("5fe7d1c6-1a96-4b33-92fb-8f4baabdfb80"), Name: "Gỏi cuốn tôm", Desc: "Gỏi cuốn tôm tươi, bún, rau sống, nước mắm", Price: 45000m, Cat: "Đồ ăn", Cost: 25000m),
+                        (Id: Guid.Parse("2e6f1234-e70f-46b9-aad1-97ef8c854d1e"), Name: "Bánh flan caramel", Desc: "Bánh flan mềm, caramel đậm vị", Price: 28000m, Cat: "Tráng miệng", Cost: 12000m),
+                    };
+                    foreach (var sp in seedProducts)
+                    {
+                        var p = new Product(seedTenantId, sp.Name, sp.Desc, sp.Price, sp.Cat, true, null, 0.08m, sp.Cost);
+                        typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(p, sp.Id);
+                        typeof(Product).GetProperty("ProductId")!.SetValue(p, new ProductId(sp.Id));
+                        context.Products.Add(p);
                     }
                     _ = await context.SaveChangesAsync();
                 }
