@@ -30,21 +30,22 @@
 
 ## 2. Current Objective
 
-**[ORDER SYNC FIX + EDGE KITCHEN UI - OPTION D - TRACK E1 COMPLETE, TRACK E2 IN PROGRESS]**
+**[ORDER SYNC FIX + EDGE KITCHEN UI - OPTION D - TRACK E1 + E2 COMPLETE + VPS DATA SYNC HARDENING COMPLETE]**
 
-Fix PostgreSQL to SQLite order sync (RC-1/2/3 + 2 bonus bugs) + build Edge Kitchen UI (POS input, payment, kitchen display, transitions). Master plan: `docs/AI/tasks/order_sync_fix_kitchen_ui_master_plan.md`. Task card: `docs/AI/tasks/order_sync_fix_kitchen_ui_task_card.md`. 16 tasks (Track E1: sync fix T1-T8, Track E2: kitchen UI T9-T16).
+Fix PostgreSQL to SQLite order sync (RC-1/2/3 + 2 bonus bugs) + build Edge Kitchen UI (POS input, payment, kitchen display, transitions) + VPS data sync hardening (GUID case mismatch, product dedup, SQLite persistent volume, environment parity). Master plan: `docs/AI/tasks/order_sync_fix_kitchen_ui_master_plan.md`. Task card: `docs/AI/tasks/order_sync_fix_kitchen_ui_task_card.md`.
 
-**Track E1 (COMPLETE - commit `c2de0c2b` + `dd13bc19`):** RC-1 Atomic Outbox (AddAsyncNoSave + transaction), RC-2 Subject namespace (`vanan.cloud.*` vs `vanan.shoperp.*`), RC-3 OrderItem full payload (ProductName + VatRate), OutboxEvent ID fix, DataSyncSubscriber stub completed, SQLite product seed FK fix. Verify T6 PASS: checkout -> PG atomic -> NATS -> SQLite (1 order, Dashboard TodayOrders=1, TodayRevenue=55000). Build 0 errors. Tests 995/995 PASS.
+**Track E1 (COMPLETE - commit `c2de0c2b` + `dd13bc19`):** RC-1 Atomic Outbox, RC-2 Subject namespace, RC-3 OrderItem full payload, OutboxEvent ID fix, DataSyncSubscriber stub, SQLite product seed FK fix. Verify T6 PASS.
 
-**Track E2 (IN PROGRESS):** Edge Kitchen UI - 8 tasks:
-- T9: POS Order Input page `/pos` (VanAForm + product picker + quantity + customer info + payment method)
-- T10: Payment page `/pos/payment/{orderId}` (cash + QR)
-- T11: Kitchen Display page `/kitchen` (3-column layout, polling 5s, VanAnCard)
-- T12: Status transition buttons (confirmed -> preparing -> ready -> delivering -> completed)
-- T13: "Tra don cho khach" flow (ready -> delivering -> completed + Outbox + accounting)
-- T14: NavMenu + Sitemap integration (add POS + Kitchen links)
-- T15: Verify UI flow (POS -> payment -> kitchen -> complete)
-- T16: Build + commit E2
+**Track E2 (COMPLETE):** Edge Kitchen UI - POS Order Input, Payment, Kitchen Display, status transitions, NavMenu + Sitemap integration. VPS UI flow verified (Playwright: login, POS, payment, kitchen, order detail, KhachLink tracking).
+
+**VPS Data Sync Hardening (COMPLETE - commits `b3a8b3d6`, `89b69d3d`, `9840ddf6`):**
+- **Root cause:** SQLite stores GUIDs UPPERCASE, PostgreSQL lowercase → product sync checked by ProductId (Guid comparison) → duplicate products on every restart (9×4=36) → FK violations on order sync.
+- **Fix 1:** OrderSyncSubscriber auto-creates product stub from event payload if ProductId missing (prevents FK violation).
+- **Fix 2:** Product sync (Program.cs) dedup by Name + TenantId instead of ProductId (prevents duplicates across restarts).
+- **Fix 3:** SQLite persistent volume (`ConnectionStrings__DefaultConnection` env var → `/app/keys/vanan_shoperp.db` in volume).
+- **Fix 4:** Deterministic seed GUIDs (lowercase, match PostgreSQL).
+- **Fix 5:** ShopERP ALWAYS uses SQLite (all environments) — appsettings.json/Production/Staging all have `DefaultConnection = Data Source=vanan_shoperp.db` + safety check (throw if connection string looks like PostgreSQL) + startup log.
+- **E2E verified on VPS:** Checkout → 200 OK → NATS sync → "synced order → SQLite (1 items, 61600 VND)" → GET /api/orders/{id} → 200 OK. PG products: 9 (no duplicates after redeploy). SQLite products: 9 (persistent volume).
 
 **Known debt RC-7:** OrderService doesn't enrich OrderItems with ProductName/VatRate from Product entity (pre-existing, not sync bug - deferred).
 
@@ -52,46 +53,43 @@ Fix PostgreSQL to SQLite order sync (RC-1/2/3 + 2 bonus bugs) + build Edge Kitch
 
 ## 3. Current Status
 
-- **Branch:** `feature/order-sync-fix-kitchen-ui`
-- **Last commit:** `dd13bc19` [STATE] Track E1 sync fix complete - update maintenance log
-- **Uncommitted changes:** clean (after state update)
+- **Branch:** `main`
+- **Last commit:** `9840ddf6` [FIX] ShopERP always uses SQLite — match local + VPS environment
+- **Uncommitted changes:** clean
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
-- **DB:** SQLite `vanan_shoperp.db` (local dev, business) - PostgreSQL `VanAnLocal` (business, Docker) - PostgreSQL `vanan_accounting` (accounting, Docker)
-- **Tests (Debug, 2026-07-15):** Arch 38/38 - Core **995/995** - KhachLinkStartup 4/4. Build 0 errors, 296 warnings (pre-existing). guard-check PASS.
-- **E2E (2026-07-15):** `khachlink-full-order-flow` PASS local + VPS production.
-- **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Option C SUPERSEDED by Option D. Sync PG->SQLite works for both SaaS and Edge Mode. Verify T6 PASS. Commit `c2de0c2b`.
+- **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
+- **Tests (Debug, 2026-07-15):** Arch 38/38 - Core **968/968** - KhachLinkStartup 10/10. Build 0 errors. guard-check PASS.
+- **E2E (2026-07-15):** `khachlink-full-order-flow` PASS local + VPS production. `vps-shoperp-ui-flow` PASS VPS.
+- **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
+- **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
 - **QuickSetup + Product Management (2026-07-14):** Master plan + 6 task cards created. Gap review complete. **PARKED** while Order Sync + Kitchen UI is active.
 - **Tiered Auth:** P0-P3 PASS (Online RV 14/14 PASS). P4 Facebook - P5 Zalo ZNS - P6 E2E.
 - **Payment Webhook Fix:** CODE COMPLETE, merged to `main` (`f9b0392f`). **PENDING VPS DEPLOY.**
 - **Local infra (Debug):** Docker + PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
+- **VPS (Production):** khachvip.online — Gateway, ShopERP, KhachLink, PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`).
 - **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code.
-- **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A. See archive for details.
+- **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening. See archive for details.
 
 ## 4. Next Actions
-
-**Immediate (Order Sync + Kitchen UI - IMPLEMENT Track E2):**
-1. **T9:** POS Order Input page `/pos` - `5_WebApps/ShopERP/Components/Pages/POS/Create.razor` (NEW). Task card: `order_sync_fix_kitchen_ui_task_card.md`.
-2. **T10:** Payment page `/pos/payment/{orderId}` - cash + QR. Task card: `order_sync_fix_kitchen_ui_task_card.md`.
-3. **T11:** Kitchen Display page `/kitchen` - 3-column layout, polling 5s. Task card: `order_sync_fix_kitchen_ui_task_card.md`.
-4. **T12:** Status transition buttons - confirmed -> preparing -> ready -> delivering -> completed. Task card: `order_sync_fix_kitchen_ui_task_card.md`.
-5. **T13:** "Tra don cho khach" flow - completed trigger Outbox + accounting. Task card: `order_sync_fix_kitchen_ui_task_card.md`.
-6. **T14:** NavMenu + Sitemap integration - add POS + Kitchen links. Task card: `order_sync_fix_kitchen_ui_task_card.md`.
-7. **T15:** Verify local UI flow end-to-end (POS -> payment -> kitchen -> complete).
-8. **T16:** Build + commit `[KITCHEN-UI] POS + Payment + Display + transitions`.
 
 **Immediate (Payment Webhook Fix - DEPLOY + VERIFY):**
 1. **S6:** Push origin `main` -> trigger CD -> deploy VPS -> verify webhook returns 200 + PostgreSQL `JournalEntries` table has revenue + COGS entries
 2. **S7:** Update `manual-test-vps-guide.md` (remove "500 chap nhan duoc" workaround) + sign-off task card
 
+**Immediate (QuickSetup + Product Management - IMPLEMENT):**
+1. Review 6 task cards in `docs/AI/tasks/` (previously parked, now unblocked)
+2. Phase 1: QuickSetup wizard implementation
+3. Phase 2-6: Product management features
+
 **Deferred (pre-existing, not blocking):**
-1. **QuickSetup + Product Management:** 6 phases created, parked until Order Sync + Kitchen UI complete.
-2. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column - schema migration gap.
-3. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict.
-4. **PostgreSQL migrations sync:** PostgreSQL only has 2 migrations vs SQLite has 6+. `Customers.IdentityLevel` manually added on VPS. Not blocking E2E.
-5. **Payment webhook 400 (pre-existing AuditLog bug):** Payment webhook returns 400 due to AuditLog tenant ID mismatch. Order still marked Paid.
-6. **Access Matrix Phase 1: ANALYZE** - when user approve `platform_systemadmin_access_matrix_master_plan.md`
-7. **W8: Final Regression + Production Tag** - full regression + `saas-production-v1.0` tag
-8. **Roslyn Analyzer wiring fix** - Tier 4 debt, low priority
+1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column - schema migration gap.
+2. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict.
+3. **PostgreSQL migrations sync:** PostgreSQL only has 2 migrations vs SQLite has 6+. `Customers.IdentityLevel` manually added on VPS. Not blocking E2E.
+4. **Payment webhook 400 (pre-existing AuditLog bug):** Payment webhook returns 400 due to AuditLog tenant ID mismatch. Order still marked Paid.
+5. **Access Matrix Phase 1: ANALYZE** - when user approve `platform_systemadmin_access_matrix_master_plan.md`
+6. **W8: Final Regression + Production Tag** - full regression + `saas-production-v1.0` tag
+7. **Roslyn Analyzer wiring fix** - Tier 4 debt, low priority
+8. **RC-7 debt:** OrderService doesn't enrich OrderItems with ProductName/VatRate from Product entity (pre-existing, not sync bug).
 
 ## 5. Active Architecture Decisions
 
@@ -129,11 +127,13 @@ Fix PostgreSQL to SQLite order sync (RC-1/2/3 + 2 bonus bugs) + build Edge Kitch
 - Use case: C?a h�ng offline-first, internet kh�ng ?n d?nh, data local t?i edge
 - ADR-001: SQLite local + NATS sync + PostgreSQL cloud (accounting always online)
 
-**Luu � quan tr?ng (verified 2026-07-09):**
-- ShopERP d�ng SQLite trong C? 2 mode (Program.cs lu�n `UseSqlite`, kh�ng c� `UseNpgsql` path)
-- `docker-compose.prod.yml` ShopERP kh�ng set `SQLITE_DB_PATH` ? fallback local file trong container
-- `docker-compose.edge.yml` ShopERP set `SQLITE_DB_PATH=Data Source=/data/shoperp.db` + volume `shoperp_sqlite_data`
-- `docker-compose.edge.yml` c� th�m `shoperp-nats-sync` worker (command `--sync-worker`) d? poll Outbox + publish NATS
+**Luu y quan trong (verified 2026-07-16):**
+- ShopERP dung SQLite trong CA 2 mode (Program.cs luon UseSqlite, khong co UseNpgsql path cho ShopERPDbContext)
+- docker-compose.prod.yml ShopERP set ConnectionStrings__DefaultConnection=Data Source=/app/keys/vanan_shoperp.db + volume shoperp_data:/app/keys (persistent across redeploy)
+- docker-compose.edge.yml ShopERP set SQLITE_DB_PATH=Data Source=/data/shoperp.db + volume shoperp_sqlite_data
+- docker-compose.edge.yml co them shoperp-nats-sync worker (command --sync-worker) de poll Outbox + publish NATS
+- Safety check (2026-07-16): Program.cs throws InvalidOperationException if connection string contains Host= or Port= (PostgreSQL pattern) - prevents silent PostgreSQL fallback
+- Startup log (2026-07-16): [ShopERP] ShopERPDbContext (SQLite) connection: ... printed on every startup for verification
 
 ---
 
@@ -196,6 +196,8 @@ Server A (Edge):                      Server B (Central):
 
 ## 9. Maintenance Log
 
+
+* **2026-07-16 -- VPS DATA SYNC HARDENING + ENVIRONMENT PARITY COMPLETE.** 5-phase nuclear cleanup + fix: (1) Cleaned PG garbage (40 test orders, 450 dup products, 11 outbox messages deleted). (2) Wiped SQLite + force-recreate (fresh: 9 products, 5 users, 2 tenants). (3) Synced products PG↔SQLite with lowercase GUIDs (match exactly). (4) Fixed OrderSyncSubscriber to auto-create product stub from event payload if ProductId missing (prevents FK violation) + product sync dedup by Name+TenantId instead of ProductId (prevents duplicates across restarts with GUID case mismatch). (5) Deployed + verified E2E on VPS: checkout → 200 OK → NATS sync → "synced order → SQLite (1 items, 61600 VND)" → GET /api/orders/{id} → 200 OK. PG products: 9 (no duplicates after redeploy). Then added SQLite persistent volume (`ConnectionStrings__DefaultConnection` env var → `/app/keys/vanan_shoperp.db` in volume) + deterministic seed GUIDs (lowercase, match PostgreSQL) + ShopERP ALWAYS uses SQLite in all environments (appsettings.json/Production/Staging all have `DefaultConnection = Data Source=vanan_shoperp.db` + safety check that throws if connection string looks like PostgreSQL + startup log). Commits: `b3a8b3d6`, `89b69d3d`, `9840ddf6`. Branch: `main`. CD runs: 3 (all success). VPS verified: `[ShopERP] ShopERPDbContext (SQLite) connection: Data Source=/app/keys/vanan_shoperp.db`.
 
 * **2026-07-16 -- STATE + MASTER PLAN UPDATED: Track E1 COMPLETE, Track E2 STARTING.** Updated `docs/AI/project_state.md` Sections 2/3/4 to reflect Order Sync Track E1 complete (commits c2de0c2b, dd13bc19) and Track E2 Kitchen UI in progress. Updated `docs/AI/tasks/order_sync_fix_kitchen_ui_master_plan.md` and `order_sync_fix_kitchen_ui_task_card.md` to mark T1-T8 DONE. Branch: `feature/order-sync-fix-kitchen-ui`.
 
