@@ -11,25 +11,10 @@ namespace VanAn.ShopERP.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // SINGLE-IDENTITY: Align Id = BusinessKey before dropping columns.
-            // PRAGMA foreign_keys=OFF is set in Program.cs BEFORE MigrateAsync
-            // (SQLite PRAGMA cannot be changed inside a transaction).
-
-            // Align Id = BusinessKey for all affected entities
-            migrationBuilder.Sql("UPDATE Products SET Id = ProductId WHERE Id != ProductId");
-            migrationBuilder.Sql("UPDATE Customers SET Id = CustomerId WHERE Id != CustomerId");
-            migrationBuilder.Sql("UPDATE OrderItems SET Id = OrderItemId WHERE Id != OrderItemId");
-            migrationBuilder.Sql("UPDATE Ingredients SET Id = IngredientId WHERE Id != IngredientId");
-            migrationBuilder.Sql("UPDATE Recipes SET Id = RecipeId WHERE Id != RecipeId");
-
-            // Update child table FKs to match new parent Ids
-            // (parent Ids changed above, child FKs still point to old Ids)
-            migrationBuilder.Sql("UPDATE Orders SET CustomerId = (SELECT c.Id FROM Customers c WHERE c.CustomerId = Orders.CustomerId) WHERE CustomerId IS NOT NULL");
-            migrationBuilder.Sql("UPDATE LoyaltyRewards SET CustomerId = (SELECT c.Id FROM Customers c WHERE c.CustomerId = LoyaltyRewards.CustomerId)");
-            migrationBuilder.Sql("UPDATE OrderItems SET ProductId = (SELECT p.Id FROM Products p WHERE p.ProductId = OrderItems.ProductId)");
-            migrationBuilder.Sql("UPDATE Recipes SET ProductId = (SELECT p.Id FROM Products p WHERE p.ProductId = Recipes.ProductId)");
-            migrationBuilder.Sql("UPDATE Recipes SET IngredientId = (SELECT i.Id FROM Ingredients i WHERE i.IngredientId = Recipes.IngredientId)");
-            migrationBuilder.Sql("UPDATE Inventories SET IngredientId = (SELECT i.Id FROM Ingredients i WHERE i.IngredientId = Inventories.IngredientId)");
+            // SINGLE-IDENTITY: Drop business key columns.
+            // Data alignment (Id = BusinessKey) is handled separately in Program.cs
+            // via ExecuteSqlRawAsync AFTER migration, with PRAGMA foreign_keys=OFF.
+            // This migration ONLY drops columns — no data updates (avoids FK violations).
 
             migrationBuilder.DropIndex(
                 name: "IX_Recipes_RecipeId",

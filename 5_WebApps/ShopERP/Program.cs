@@ -554,13 +554,18 @@ namespace VanAn.ShopERP
                 // Wrapped in try-catch: if SQLite migration fails, app still starts (Gateway uses PostgreSQL).
                 try
                 {
+                    // PRAGMA foreign_keys=OFF before migration (in case migration needs it)
                     _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
                     await context.Database.MigrateAsync();
+                    // Data alignment AFTER migration (columns dropped, no FK issues with BusinessKey columns)
+                    // All entities now use Id as sole identity. No BusinessKey columns to align.
                     _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON");
                 }
                 catch (Exception sqliteEx)
                 {
                     Console.WriteLine($"SQLite migration ERROR: {sqliteEx.Message}");
+                    // Re-enable FKs even if migration failed
+                    try { _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON"); } catch { }
                 }
 
                 // Optimize SQLite for concurrency
@@ -686,21 +691,10 @@ namespace VanAn.ShopERP
                     _ = await context.SaveChangesAsync();
                 }
 
-                // SINGLE-IDENTITY data fix: Align Product.Id (PK) with Product.ProductId (business key).
-                // After Hướng A refactor, ProductId is Ignored in EF config (no DB column mapping).
-                // Use raw SQL to align Id = ProductId for existing rows before migration drops the column.
-                // Wrapped in try-catch: column may already be dropped by migration.
-                try
-                {
-                    int fixedRows = await context.Database.ExecuteSqlRawAsync(
-                        "UPDATE Products SET Id = ProductId WHERE Id != ProductId");
-                    if (fixedRows > 0)
-                        Console.WriteLine($"SINGLE-IDENTITY fix: Aligned {fixedRows} products (Id = ProductId)");
-                }
-                catch (Exception dmdEx)
-                {
-                    Console.WriteLine($"SINGLE-IDENTITY fix skipped: {dmdEx.Message}");
-                }
+                // NOTE: SINGLE-IDENTITY data alignment is no longer needed here.
+                // The migration drops BusinessKey columns. Data alignment for Product.Id
+                // was already done by the previous DMD-FK1 fix (before this refactor).
+                // New entities created after this refactor have Id = BusinessKey by constructor.
 
                 // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)
                 // FIX: Tenant entity's TenantId (from BaseEntity) must equal its own Id for the
@@ -780,20 +774,8 @@ namespace VanAn.ShopERP
                     // So we must set Products.Id = SQLite's ProductId value, so that when checkout sends
                     // ProductId (catalog ID), it matches Products.Id (PK) in PostgreSQL.
                     // Also override Products.ProductId to match SQLite for consistency.
-                    // First: clean up stale products from previous deploys (Id != ProductId, duplicates)
-                    // SINGLE-IDENTITY: ProductId is now Ignored in EF config. Use raw SQL for stale cleanup.
-                    try
-                    {
-                        int staleCount = await vanAnDbForSeed.Database.ExecuteSqlRawAsync(
-                            "DELETE FROM Products WHERE \"TenantId\" = {0} AND \"Id\" != \"ProductId\"",
-                            seedTenantId);
-                        if (staleCount > 0)
-                            Console.WriteLine($"PostgreSQL: Removed {staleCount} stale products (Id != ProductId)");
-                    }
-                    catch (Exception staleEx)
-                    {
-                        Console.WriteLine($"PostgreSQL stale product cleanup skipped: {staleEx.Message}");
-                    }
+                    // SINGLE-IDENTITY: ProductId column dropped by migration. No stale cleanup needed
+                    // (Id is sole identity). Just seed products from SQLite if missing in PostgreSQL.
                     var sqliteProducts = await context.Products
                         .IgnoreQueryFilters()
                         .Where(p => p.TenantId == seedTenantId)
