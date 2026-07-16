@@ -531,7 +531,13 @@ namespace VanAn.ShopERP
             using (IServiceScope scope = app.Services.CreateScope())
             {
                 ShopERPDbContext context = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+
+                // SINGLE-IDENTITY migration fix: SQLite PRAGMA foreign_keys must be OFF
+                // BEFORE MigrateAsync starts a transaction. EF Core SQLite provider
+                // opens a connection per-scope, so this PRAGMA applies to the migration.
+                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
                 await context.Database.MigrateAsync();
+                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON");
 
                 // Optimize SQLite for concurrency
                 _ = await context.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
