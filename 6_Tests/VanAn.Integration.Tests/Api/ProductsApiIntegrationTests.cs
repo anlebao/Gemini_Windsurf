@@ -117,7 +117,7 @@ public class ProductsApiIntegrationTests : IntegrationTestBase
 
         // Act
         var saved = await _dbContext.Products
-            .FirstOrDefaultAsync(p => p.ProductId == product.ProductId);
+            .FirstOrDefaultAsync(p => p.Id == product.Id);
 
         // Assert fields used by ProductCatalogItem DTO
         Assert.NotNull(saved);
@@ -127,7 +127,7 @@ public class ProductsApiIntegrationTests : IntegrationTestBase
         Assert.Equal("Matcha", saved.Category);
         Assert.Equal("https://cdn.vanan.vn/matcha.jpg", saved.ImageUrl);
         Assert.Equal(0.10m, saved.VatRate);
-        _output.WriteLine($"Product {saved.ProductId.Value} fields verified");
+        _output.WriteLine($"Product {saved.Id} fields verified");
     }
 
     [Fact(DisplayName = "Products: Empty catalog returns empty list (no 500)")]

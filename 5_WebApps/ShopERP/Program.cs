@@ -656,32 +656,20 @@ namespace VanAn.ShopERP
                     _ = await context.SaveChangesAsync();
                 }
 
-                // DMD-FK1 data fix: Align Product.Id (PK) with Product.ProductId (business key) for existing products.
-                // Products created before the Domain fix (constructor now sets Id = ProductId.Value) have
-                // Id != ProductId → FK_OrderItems_Products_ProductId violation when creating orders via POS.
-                // This one-time fix updates Id to match ProductId for any misaligned products.
-                // NOTE: Filter in memory (not LINQ-to-SQL) because ProductId has a value converter.
-                // Wrapped in try-catch to prevent startup crash if DB schema differs.
+                // SINGLE-IDENTITY data fix: Align Product.Id (PK) with Product.ProductId (business key).
+                // After Hướng A refactor, ProductId is Ignored in EF config (no DB column mapping).
+                // Use raw SQL to align Id = ProductId for existing rows before migration drops the column.
+                // Wrapped in try-catch: column may already be dropped by migration.
                 try
                 {
-                    var allProducts = await context.Products
-                        .IgnoreQueryFilters()
-                        .ToListAsync();
-                    var misalignedProducts = allProducts.Where(p => p.Id != p.ProductId.Value).ToList();
-                    if (misalignedProducts.Count > 0)
-                    {
-                        Console.WriteLine($"DMD-FK1 fix: Aligning Id=ProductId for {misalignedProducts.Count} misaligned products");
-                        foreach (var p in misalignedProducts)
-                        {
-                            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(p, p.ProductId.Value);
-                            Console.WriteLine($"  Fixed: {p.Name} — Id set to {p.ProductId.Value}");
-                        }
-                        _ = await context.SaveChangesAsync();
-                    }
+                    int fixedRows = await context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Products SET Id = ProductId WHERE Id != ProductId");
+                    if (fixedRows > 0)
+                        Console.WriteLine($"SINGLE-IDENTITY fix: Aligned {fixedRows} products (Id = ProductId)");
                 }
                 catch (Exception dmdEx)
                 {
-                    Console.WriteLine($"DMD-FK1 fix skipped: {dmdEx.Message}");
+                    Console.WriteLine($"SINGLE-IDENTITY fix skipped: {dmdEx.Message}");
                 }
 
                 // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)
@@ -769,19 +757,18 @@ namespace VanAn.ShopERP
                     // ProductId (catalog ID), it matches Products.Id (PK) in PostgreSQL.
                     // Also override Products.ProductId to match SQLite for consistency.
                     // First: clean up stale products from previous deploys (Id != ProductId, duplicates)
-                    // Client-side filter: EF Core can't translate p.Id != p.ProductId.Value
-                    var allPgProducts = await vanAnDbForSeed.Products
-                        .IgnoreQueryFilters()
-                        .Where(p => p.TenantId == seedTenantId)
-                        .ToListAsync();
-                    var stalePgProducts = allPgProducts
-                        .Where(p => p.Id != p.ProductId.Value)
-                        .ToList();
-                    if (stalePgProducts.Count > 0)
+                    // SINGLE-IDENTITY: ProductId is now Ignored in EF config. Use raw SQL for stale cleanup.
+                    try
                     {
-                        vanAnDbForSeed.Products.RemoveRange(stalePgProducts);
-                        await vanAnDbForSeed.SaveChangesAsync();
-                        Console.WriteLine($"PostgreSQL: Removed {stalePgProducts.Count} stale products (Id != ProductId)");
+                        int staleCount = await vanAnDbForSeed.Database.ExecuteSqlRawAsync(
+                            "DELETE FROM Products WHERE \"TenantId\" = {0} AND \"Id\" != \"ProductId\"",
+                            seedTenantId);
+                        if (staleCount > 0)
+                            Console.WriteLine($"PostgreSQL: Removed {staleCount} stale products (Id != ProductId)");
+                    }
+                    catch (Exception staleEx)
+                    {
+                        Console.WriteLine($"PostgreSQL stale product cleanup skipped: {staleEx.Message}");
                     }
                     var sqliteProducts = await context.Products
                         .IgnoreQueryFilters()
@@ -802,12 +789,12 @@ namespace VanAn.ShopERP
                                 sqliteProd.TenantId, sqliteProd.Name, sqliteProd.Description,
                                 sqliteProd.Price, sqliteProd.Category, sqliteProd.IsActive,
                                 sqliteProd.ImageUrl, sqliteProd.VatRate, sqliteProd.CostPrice);
-                            // Override ProductId (catalog ID) to match SQLite
-                            typeof(Product).GetProperty("ProductId")!.SetValue(pgProd, sqliteProd.ProductId);
-                            // Override Id (PK) = ProductId value, so FK_OrderItems_Products_ProductId
-                            // (which references Products.Id) matches the ProductId sent by checkout
+                            // SINGLE-IDENTITY: Override Id (PK) = SQLite's Id, so FK_OrderItems_Products_ProductId
+                            // (which references Products.Id) matches the ProductId sent by checkout.
+                            // ProductId VO is synced to Id in constructor (Id = ProductId.Value).
                             typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!
-                                .SetValue(pgProd, sqliteProd.ProductId.Value);
+                                .SetValue(pgProd, sqliteProd.Id);
+                            typeof(Product).GetProperty("ProductId")!.SetValue(pgProd, new ProductId(sqliteProd.Id));
                             vanAnDbForSeed.Products.Add(pgProd);
                             pgProductCount++;
                         }

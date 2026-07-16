@@ -13,10 +13,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.Id);
 
-            // RecipeId value object converter
-            _ = builder.Property(e => e.RecipeId)
-                .HasConversion(id => id.Value, value => new RecipeId(value))
-                .IsRequired();
+            // SINGLE-IDENTITY: RecipeId is synced to Id in constructor (Id = RecipeId.Value).
+            // Ignore — no separate DB column. Code reads entity.Id, not entity.RecipeId.Value.
+            _ = builder.Ignore(e => e.RecipeId);
 
 
             // NOTE: ProductId and IngredientId are Guid (not value objects) per PHASE 3 FIX
@@ -40,7 +39,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Indexes
-            _ = builder.HasIndex(e => e.RecipeId);
             _ = builder.HasIndex(e => new { e.TenantId, e.ProductId });
             _ = builder.HasIndex(e => e.IngredientId);
         }

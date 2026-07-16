@@ -13,10 +13,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.Id);
 
-            // OrderItemId value object converter
-            _ = builder.Property(e => e.OrderItemId)
-                .HasConversion(id => id.Value, value => new OrderItemId(value))
-                .IsRequired();
+            // SINGLE-IDENTITY: OrderItemId is synced to Id in OrderItem.Create (Id = OrderItemId.Value).
+            // Ignore — no separate DB column. Code reads entity.Id, not entity.OrderItemId.Value.
+            _ = builder.Ignore(e => e.OrderItemId);
 
 
             // Note: OrderId and ProductId are Guid (not value objects) per Domain.cs
@@ -56,7 +55,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Indexes
-            _ = builder.HasIndex(e => e.OrderItemId);
             _ = builder.HasIndex(e => new { e.TenantId, e.OrderId });
             _ = builder.HasIndex(e => e.ProductId);
             _ = builder.HasIndex(e => e.KitchenStatus);

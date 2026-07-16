@@ -59,7 +59,7 @@ namespace VanAn.ShopERP.Controllers
 
                 List<ProductCatalogItem> result = products.Select(p => new ProductCatalogItem
                 {
-                    ProductId = p.ProductId.Value,
+                    ProductId = p.Id,
                     TenantId = p.TenantId.Value,
                     Name = p.Name,
                     Description = p.Description,
@@ -88,7 +88,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 Product? product = await _dbContext.Products
-                    .FirstOrDefaultAsync(p => p.ProductId == new ProductId(id) && p.IsActive && !p.IsDeleted);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted);
 
                 if (product == null)
                 {
@@ -97,7 +97,7 @@ namespace VanAn.ShopERP.Controllers
 
                 return Ok(new ProductCatalogItem
                 {
-                    ProductId = product.ProductId.Value,
+                    ProductId = product.Id,
                     TenantId = product.TenantId.Value,
                     Name = product.Name,
                     Description = product.Description,
@@ -153,7 +153,7 @@ namespace VanAn.ShopERP.Controllers
                     {
                         result.Add(new ProductCatalogItem
                         {
-                            ProductId = p.ProductId.Value,
+                            ProductId = p.Id,
                             TenantId = p.TenantId.Value,
                             TenantName = tenantNames.GetValueOrDefault(tid, $"Cửa hàng {tid.ToString()[..8]}"),
                             Name = p.Name,
@@ -234,7 +234,7 @@ namespace VanAn.ShopERP.Controllers
             try
             {
                 Product? product = await _dbContext.Products
-                    .FirstOrDefaultAsync(p => p.ProductId == new ProductId(id) && p.IsActive && !p.IsDeleted);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted);
 
                 if (product == null)
                 {

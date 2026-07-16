@@ -76,6 +76,28 @@ trigger: always_on
 - If Domain entity is missing a required property → report as Domain Modeling Defect, await Tech Lead approval
 - ONLY modify Domain entities when a genuine modeling defect is confirmed
 
+### **Single-Identity Pattern (HARD STOP — Entity Design Rule)**
+Every entity inheriting `BaseEntity` MUST use a **single identity**: `BaseEntity.Id` (PK) is the ONLY identity column. Business key value objects (ProductId, CustomerId, OrderItemId, IngredientId, RecipeId, OrderId, etc.) are **Ignored** in EF Core config — they are NOT mapped to DB columns.
+
+**Mandatory rules for ALL entities (existing + new):**
+1. **Constructor sync:** Every entity constructor MUST set `Id = BusinessKey.Value` after `base(tenantId)`. This ensures PK == business key from creation.
+2. **EF config:** `builder.Ignore(e => e.BusinessKey)` — no separate DB column, no value converter, no index on business key.
+3. **Code reads:** Production code reads `entity.Id`, NOT `entity.BusinessKey.Value`. After EF loads from DB, business key VO is NOT populated (it's ignored) — reading it returns a random GUID from the field initializer.
+4. **LINQ queries:** Filter by `e.Id == someGuid`, NOT `e.BusinessKey == new BusinessKey(someGuid)`.
+5. **FK references:** FK columns (e.g., `OrderItem.ProductId`) reference `BaseEntity.Id` (PK), NOT the business key VO. This is already the case — the fix ensures the value stored in FK matches the PK.
+
+**Why:** Dual-identity (Id != BusinessKey) causes FK violations when creating related entities (e.g., OrderItem → Product). The business key is what DTOs and code pass around, but FK constraints check against PK. If they differ, save fails with "FK constraint violation" — exactly the POS order creation bug fixed on 2026-07-16.
+
+**Audit checklist for new entities:**
+- [ ] Entity has a business key VO (e.g., `FooId`) inheriting from `BaseEntity`?
+- [ ] Constructor sets `Id = FooId.Value`?
+- [ ] EF config has `builder.Ignore(e => e.FooId)`?
+- [ ] No LINQ queries filter by `e.FooId ==`?
+- [ ] No code reads `entity.FooId.Value` after DB load?
+- [ ] Migration drops the `FooId` column if it existed before?
+
+**Reference implementation:** `Order` entity (UUIDv7 refactor, 2026-07-16) — `OrderConfiguration.Ignore(o => o.OrderId)`, `Order.Create(id, ...)` syncs both. All other entities aligned to this pattern in the same refactor batch.
+
 ### **Domain Modification By Mode**
 - FIX_ONLY: NEVER modify Domain.cs, BaseEntity, or AccountingEntry.
 - REVIEW_ONLY: NEVER modify files.

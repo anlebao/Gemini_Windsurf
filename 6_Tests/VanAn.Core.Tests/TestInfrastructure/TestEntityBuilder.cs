@@ -149,7 +149,7 @@ namespace VanAn.Core.Tests.TestInfrastructure
             TenantId testTenantId = tenantId ?? CreateTenantId();
             Customer customer = CreateCustomer(testTenantId);
             Shop shop = CreateShop(testTenantId);
-            Order order = CreateOrder(testTenantId, 100.0m, customer.CustomerId.Value);
+            Order order = CreateOrder(testTenantId, 100.0m, customer.Id);
 
             return (customer, shop, order);
         }

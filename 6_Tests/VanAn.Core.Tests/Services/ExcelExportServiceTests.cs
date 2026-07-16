@@ -154,20 +154,8 @@ namespace VanAn.Core.Tests.Services
 
         private static Ingredient CreateIngredient(TenantId tenantId, string name, string unit, decimal currentStock, decimal minStock, decimal pricePerUnit)
         {
-            Ingredient ingredient = (Ingredient)Activator.CreateInstance(typeof(Ingredient), nonPublic: true)!;
-            ingredient.Name = name;
-            ingredient.Unit = unit;
-            ingredient.CurrentStock = currentStock;
-            ingredient.MinStockThreshold = minStock;
-            ingredient.PricePerUnit = pricePerUnit;
-
-            // Bypass protected setter for IngredientId and base TenantId
-            System.Reflection.PropertyInfo ingredientIdProperty = typeof(Ingredient).GetProperty("IngredientId")!;
-            ingredientIdProperty.SetValue(ingredient, new IngredientId(Guid.NewGuid()));
-            System.Reflection.PropertyInfo tenantProperty = typeof(Ingredient).GetProperty("TenantId")!;
-            tenantProperty.SetValue(ingredient, tenantId);
-
-            return ingredient;
+            // SINGLE-IDENTITY: Use public constructor that syncs Id = IngredientId.Value.
+            return new Ingredient(tenantId, name, unit, currentStock, minStock, pricePerUnit);
         }
 
         [Fact]

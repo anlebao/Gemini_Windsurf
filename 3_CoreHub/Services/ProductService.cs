@@ -47,7 +47,7 @@ namespace VanAn.CoreHub.Services
             _ = await _productRepository.AddAsync(product, ct);
             await _productRepository.SaveChangesAsync(ct);
 
-            _logger.LogInformation("Created product {ProductId} for tenant {TenantId}", product.ProductId.Value, tenantId);
+            _logger.LogInformation("Created product {ProductId} for tenant {TenantId}", product.Id, tenantId);
             return MapToDto(product);
         }
 
@@ -168,7 +168,7 @@ namespace VanAn.CoreHub.Services
 
         private static ProductDetailDto MapToDto(Product p) => new()
         {
-            ProductId = p.ProductId.Value,
+            ProductId = p.Id,
             TenantId = p.TenantId.Value,
             Name = p.Name,
             Description = p.Description,

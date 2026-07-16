@@ -16,6 +16,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Primary key
             _ = builder.HasKey(e => e.Id);
 
+            // SINGLE-IDENTITY: CustomerId is synced to Id in constructor (Id = CustomerId.Value).
+            // Ignore — no separate DB column. Code reads entity.Id, not entity.CustomerId.Value.
+            _ = builder.Ignore(e => e.CustomerId);
+
             // Property configurations
             _ = builder.Property(e => e.FullName)
                 .IsRequired()
@@ -46,13 +50,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasPrecision(18, 2);
 
             _ = builder.Property(e => e.DeviceId);
-
-            // CustomerId converter
-            _ = builder.Property(e => e.CustomerId)
-                .IsRequired()
-                .HasConversion(
-                    id => id.Value,
-                    value => new CustomerId(value));
 
             // TenantId converter
             _ = builder.Property(e => e.TenantId)

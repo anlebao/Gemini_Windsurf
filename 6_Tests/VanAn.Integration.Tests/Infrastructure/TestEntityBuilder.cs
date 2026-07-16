@@ -176,7 +176,7 @@ public static class TestEntityBuilder
         var testTenantId = tenantId ?? CreateTenantId();
         var customer = CreateCustomer(testTenantId);
         var shop = CreateShop(testTenantId);
-        var order = CreateOrder(testTenantId, customer.CustomerId.Value);
+        var order = CreateOrder(testTenantId, customer.Id);
 
         return (customer, shop, order);
     }

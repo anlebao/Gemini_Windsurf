@@ -692,6 +692,9 @@ namespace VanAn.Shared.Domain
         public Customer(TenantId tenantId, string fullName, string phoneNumber, string? email = null)
             : base(tenantId)
         {
+            // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with CustomerId (business key).
+            // FK_Orders_Customers_CustomerId references Customers.Id (PK), but DTOs/code use CustomerId.
+            Id = CustomerId.Value;
             FullName = fullName;
             PhoneNumber = phoneNumber;
             Email = email;
@@ -822,10 +825,10 @@ namespace VanAn.Shared.Domain
         {
             OrderItem orderItem = new(tenantId, orderId, productId, quantity, unitPrice, productName);
 
-            // Use internal access to set protected Id property
+            // SINGLE-IDENTITY: Sync both Id (PK) and OrderItemId (business key) to same value.
             Type orderItemType = typeof(OrderItem);
-            System.Reflection.PropertyInfo? idProperty = orderItemType.GetProperty("Id");
-            idProperty?.SetValue(orderItem, id);
+            orderItemType.GetProperty("Id")?.SetValue(orderItem, id);
+            orderItemType.GetProperty("OrderItemId")?.SetValue(orderItem, new OrderItemId(id));
 
             return orderItem;
         }
@@ -865,6 +868,18 @@ namespace VanAn.Shared.Domain
 
         // EF Core constructor for materialization
         protected Ingredient() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with IngredientId (business key).
+        public Ingredient(TenantId tenantId, string name, string unit, decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
+            : base(tenantId)
+        {
+            Id = IngredientId.Value;
+            Name = name;
+            Unit = unit;
+            CurrentStock = currentStock;
+            MinStockThreshold = minStockThreshold;
+            PricePerUnit = pricePerUnit;
+        }
     }
 
     public class Recipe : BaseEntity
@@ -881,6 +896,16 @@ namespace VanAn.Shared.Domain
 
         // EF Core constructor for materialization
         protected Recipe() { }
+
+        // SINGLE-IDENTITY: Align BaseEntity.Id (PK) with RecipeId (business key).
+        public Recipe(TenantId tenantId, Guid productId, Guid ingredientId, decimal quantityNeeded)
+            : base(tenantId)
+        {
+            Id = RecipeId.Value;
+            ProductId = productId;
+            IngredientId = ingredientId;
+            QuantityNeeded = quantityNeeded;
+        }
     }
 
     public class Inventory : BaseEntity

@@ -30,7 +30,7 @@ namespace VanAn.CoreHub.Services.Reports
             int row = 2;
             foreach (Customer customer in customers.OrderByDescending(c => c.TotalSpent))
             {
-                sheet.Cells[row, 1].Value = customer.CustomerId.Value.ToString();
+                sheet.Cells[row, 1].Value = customer.Id.ToString();
                 sheet.Cells[row, 2].Value = customer.FullName;
                 sheet.Cells[row, 3].Value = customer.PhoneNumber;
                 sheet.Cells[row, 4].Value = customer.Email;

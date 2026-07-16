@@ -72,8 +72,8 @@ namespace VanAn.CoreHub.Services
                 // Get product details
                 var productIds = productFrequency.Select(p => p.ProductId).ToList();
                 var products = await _dbContext.Products
-                    .Where(p => productIds.Contains(p.ProductId.Value) && 
-                                p.IsActive && 
+                    .Where(p => productIds.Contains(p.Id) &&
+                                p.IsActive &&
                                 !p.IsDeleted &&
                                 p.TenantId == new TenantId(tenantId))
                     .ToListAsync();
@@ -82,10 +82,10 @@ namespace VanAn.CoreHub.Services
                 var results = productFrequency
                     .Join(products,
                         freq => freq.ProductId,
-                        product => product.ProductId.Value,
+                        product => product.Id,
                         (freq, product) => new RecommendationResult
                         {
-                            ProductId = product.ProductId.Value,
+                            ProductId = product.Id,
                             Name = product.Name,
                             Description = product.Description,
                             Price = product.Price,

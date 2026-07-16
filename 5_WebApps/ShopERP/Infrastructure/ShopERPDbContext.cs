@@ -166,6 +166,8 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Entity<Customer>(entity =>
             {
                 _ = entity.HasKey(e => e.Id);
+                // SINGLE-IDENTITY: CustomerId synced to Id in constructor. Ignore — no DB column.
+                _ = entity.Ignore(e => e.CustomerId);
                 _ = entity.Property(e => e.FullName).IsRequired().HasMaxLength(200);
                 _ = entity.Property(e => e.PhoneNumber)
                     .IsRequired()

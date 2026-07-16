@@ -764,9 +764,6 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("CustomerId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("CustomerTier")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -935,9 +932,6 @@ namespace VanAn.ShopERP.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("IngredientId")
-                        .HasColumnType("TEXT");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
@@ -969,8 +963,6 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("IngredientId");
 
                     b.HasIndex("TenantId", "Name");
 
@@ -1417,9 +1409,6 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("OrderItemId")
-                        .HasColumnType("TEXT");
-
                     b.Property<Guid>("ProductId")
                         .HasColumnType("TEXT");
 
@@ -1453,8 +1442,6 @@ namespace VanAn.ShopERP.Migrations
                     b.HasIndex("KitchenStatus");
 
                     b.HasIndex("OrderId");
-
-                    b.HasIndex("OrderItemId");
 
                     b.HasIndex("ProductId");
 
@@ -1574,9 +1561,6 @@ namespace VanAn.ShopERP.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("TEXT");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
@@ -1593,8 +1577,6 @@ namespace VanAn.ShopERP.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IsActive");
-
-                    b.HasIndex("ProductId");
 
                     b.HasIndex("TenantId", "Category");
 
@@ -1679,9 +1661,6 @@ namespace VanAn.ShopERP.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("RecipeId")
-                        .HasColumnType("TEXT");
-
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
@@ -1696,8 +1675,6 @@ namespace VanAn.ShopERP.Migrations
                     b.HasIndex("IngredientId");
 
                     b.HasIndex("ProductId");
-
-                    b.HasIndex("RecipeId");
 
                     b.HasIndex("TenantId", "ProductId");
 

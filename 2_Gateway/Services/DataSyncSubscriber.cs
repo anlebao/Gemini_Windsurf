@@ -357,7 +357,7 @@ namespace VanAn.Gateway.Services
             // Check if product already exists in PostgreSQL (IgnoreQueryFilters: cross-tenant upsert)
             Product? existing = await dbContext.Products
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(p => p.ProductId == new ProductId(productId), ct);
+                .FirstOrDefaultAsync(p => p.Id == productId, ct);
 
             string name = data.TryGetProperty("Name", out var nProp) ? nProp.GetString() ?? "" : "";
             string description = data.TryGetProperty("Description", out var dProp) ? dProp.GetString() ?? "" : "";
@@ -410,7 +410,7 @@ namespace VanAn.Gateway.Services
             Guid productId = idProp.GetGuid();
             Product? product = await dbContext.Products
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(p => p.ProductId == new ProductId(productId), ct);
+                .FirstOrDefaultAsync(p => p.Id == productId, ct);
 
             if (product == null)
             {

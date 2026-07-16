@@ -19,7 +19,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Products
-                    .FirstOrDefaultAsync(p => p.ProductId == id && p.TenantId == tenantId, cancellationToken);
+                    .FirstOrDefaultAsync(p => p.Id == id.Value && p.TenantId == tenantId, cancellationToken);
             }
             catch (Exception ex)
             {

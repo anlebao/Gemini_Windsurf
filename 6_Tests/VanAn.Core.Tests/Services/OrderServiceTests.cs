@@ -446,7 +446,7 @@ namespace VanAn.Core.Tests.Services
 
             // Create product with known CostPrice (e.g., product costs 60, sells at 100)
             Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test Product", price: 100m, costPrice: 60m);
-            Guid productId = product.ProductId.Value;
+            Guid productId = product.Id;
 
             // Create OrderItem referencing that product (qty=2, unitPrice=100 → subtotal=200)
             OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, productId, quantity: 2, unitPrice: 100m);
@@ -501,7 +501,7 @@ namespace VanAn.Core.Tests.Services
 
             // Product with CostPrice = 0 (legacy product, no cost recorded)
             Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Legacy Product", price: 100m, costPrice: 0m);
-            Guid productId = product.ProductId.Value;
+            Guid productId = product.Id;
 
             // OrderItem: qty=1, unitPrice=100 → expected COGS = 100 × 0.7 = 70
             OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, productId, quantity: 1, unitPrice: 100m);
@@ -686,7 +686,7 @@ namespace VanAn.Core.Tests.Services
             // Arrange (SC19): W0-T4 — COGS Path A (AccountingEntry amount) == Path B (JournalEntry line amount).
             Guid orderId = Guid.NewGuid();
             Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test", price: 100m, costPrice: 60m);
-            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.ProductId.Value, quantity: 2, unitPrice: 100m);
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.Id, quantity: 2, unitPrice: 100m);
             typeof(OrderItem).GetProperty("Product")!.SetValue(item, product);
             Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
             Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 220m);
@@ -726,7 +726,7 @@ namespace VanAn.Core.Tests.Services
             // Arrange (SC20): W0-T5 — COGS expense entry uses account 632 (not 621).
             Guid orderId = Guid.NewGuid();
             Product product = TestEntityBuilder.CreateProduct(_testTenantId, "Test", price: 100m, costPrice: 60m);
-            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.ProductId.Value, quantity: 1, unitPrice: 100m);
+            OrderItem item = OrderItem.Create(Guid.NewGuid(), _testTenantId, orderId, product.Id, quantity: 1, unitPrice: 100m);
             typeof(OrderItem).GetProperty("Product")!.SetValue(item, product);
             Order orderWithItems = Order.Create(orderId, _testTenantId, null, [item]);
             Order orderLight = TestEntityBuilder.CreateOrder(_testTenantId, 110m);

@@ -104,32 +104,14 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             TenantId tenantId, string name, string unit,
             decimal currentStock, decimal minStockThreshold, decimal pricePerUnit)
         {
-            var ingredient = (Ingredient)Activator.CreateInstance(typeof(Ingredient), nonPublic: true)!;
-            ingredient.Name = name;
-            ingredient.Unit = unit;
-            ingredient.CurrentStock = currentStock;
-            ingredient.MinStockThreshold = minStockThreshold;
-            ingredient.PricePerUnit = pricePerUnit;
-
-            // Set TenantId via reflection (protected setter on BaseEntity)
-            System.Reflection.PropertyInfo? tenantProp = typeof(Ingredient).GetProperty("TenantId");
-            tenantProp?.SetValue(ingredient, tenantId);
-
-            return ingredient;
+            // SINGLE-IDENTITY: Use public constructor that syncs Id = IngredientId.Value.
+            return new Ingredient(tenantId, name, unit, currentStock, minStockThreshold, pricePerUnit);
         }
 
         private static Recipe CreateRecipe(TenantId tenantId, Guid productId, Guid ingredientId, decimal quantityNeeded)
         {
-            var recipe = (Recipe)Activator.CreateInstance(typeof(Recipe), nonPublic: true)!;
-            recipe.ProductId = productId;
-            recipe.IngredientId = ingredientId;
-            recipe.QuantityNeeded = quantityNeeded;
-
-            // Set TenantId via reflection (protected setter on BaseEntity)
-            System.Reflection.PropertyInfo? tenantProp = typeof(Recipe).GetProperty("TenantId");
-            tenantProp?.SetValue(recipe, tenantId);
-
-            return recipe;
+            // SINGLE-IDENTITY: Use public constructor that syncs Id = RecipeId.Value.
+            return new Recipe(tenantId, productId, ingredientId, quantityNeeded);
         }
     }
 }

@@ -55,7 +55,7 @@ namespace VanAn.Core.Tests
             Shared.Domain.Customer customer1 = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId);
             Shared.Domain.Customer customer2 = await _customerService.GetOrCreateCustomerByDeviceIdAsync(deviceId);
 
-            Assert.Equal(customer1.CustomerId.Value, customer2.CustomerId.Value);
+            Assert.Equal(customer1.Id, customer2.Id);
             Assert.Equal(1, await Context.Customers.CountAsync(c => c.DeviceId == deviceId));
         }
     }

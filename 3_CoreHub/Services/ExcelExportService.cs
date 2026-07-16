@@ -59,7 +59,7 @@ namespace VanAn.CoreHub.Services
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            Dictionary<Guid, Ingredient> ingredientMap = ingredients.ToDictionary(i => i.IngredientId.Value);
+            Dictionary<Guid, Ingredient> ingredientMap = ingredients.ToDictionary(i => i.Id);
             return await InventoryExcelReport.GenerateAsync(inventories, ingredientMap);
         }
 

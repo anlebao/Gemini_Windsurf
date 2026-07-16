@@ -42,7 +42,7 @@ public class CustomerOnboardingIntegrationTests : IntegrationTestBase
 
         _dbContext.Customers.Add(customer);
         await _dbContext.SaveChangesAsync();
-        _output.WriteLine($"Created customer: {customer.CustomerId.Value}");
+        _output.WriteLine($"Created customer: {customer.Id}");
 
         // Act - Skip onboarding service test due to missing implementation
         // TODO: Re-enable when ICustomerOnboardingService is properly implemented
@@ -67,7 +67,7 @@ public class CustomerOnboardingIntegrationTests : IntegrationTestBase
         await _dbContext.Customers.AddAsync(customer1);
         await _dbContext.Customers.AddAsync(customer2);
         await _dbContext.SaveChangesAsync();
-        _output.WriteLine($"Created customers: {customer1.CustomerId.Value}, {customer2.CustomerId.Value}");
+        _output.WriteLine($"Created customers: {customer1.Id}, {customer2.Id}");
 
         // Act - Skip onboarding service test due to missing implementation
         // TODO: Re-enable when ICustomerOnboardingService is properly implemented
@@ -94,7 +94,7 @@ public class CustomerOnboardingIntegrationTests : IntegrationTestBase
         
         _dbContext.Customers.Add(customer);
         await _dbContext.SaveChangesAsync();
-        _output.WriteLine($"Created customer: {customer.CustomerId.Value}");
+        _output.WriteLine($"Created customer: {customer.Id}");
 
         // Act - Skip onboarding service test due to missing implementation
         // TODO: Re-enable when ICustomerOnboardingService is properly implemented

@@ -54,7 +54,7 @@ namespace VanAn.Core.Tests.Domain
             Customer customer = new(tenantId, "Test Customer", "1234567890", "test@email.com");
 
             // Assert
-            Assert.NotEqual(Guid.Empty, customer.CustomerId.Value);
+            Assert.NotEqual(Guid.Empty, customer.Id);
             Assert.NotNull(customer.CustomerId);
         }
 

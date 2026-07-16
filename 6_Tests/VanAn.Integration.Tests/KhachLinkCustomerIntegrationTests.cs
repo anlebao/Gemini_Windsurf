@@ -38,13 +38,13 @@ public class KhachLinkCustomerIntegrationTests : IntegrationTestBase
 
         _dbContext.Customers.Add(customer);
         await _dbContext.SaveChangesAsync();
-        _output.WriteLine($"Created customer: {customer.CustomerId.Value}");
+        _output.WriteLine($"Created customer: {customer.Id}");
 
         // Act - Test business logic through database
         await _dbContext.SaveChangesAsync();
 
         // Assert - Business Outcome
-        Assert.True(customer.CustomerId.Value != Guid.Empty);
+        Assert.True(customer.Id != Guid.Empty);
         _output.WriteLine("KhachLink customer created successfully");
 
         // Verify customer exists in database
@@ -71,10 +71,10 @@ public class KhachLinkCustomerIntegrationTests : IntegrationTestBase
         await _dbContext.Customers.AddAsync(customer1);
         await _dbContext.Customers.AddAsync(customer2);
         await _dbContext.SaveChangesAsync();
-        _output.WriteLine($"Created customers: {customer1.CustomerId.Value}, {customer2.CustomerId.Value}");
+        _output.WriteLine($"Created customers: {customer1.Id}, {customer2.Id}");
 
-        Assert.True(customer1.CustomerId.Value != Guid.Empty);
-        Assert.True(customer2.CustomerId.Value != Guid.Empty);
+        Assert.True(customer1.Id != Guid.Empty);
+        Assert.True(customer2.Id != Guid.Empty);
         _output.WriteLine("KhachLink customers created successfully");
 
         // Assert - Verify isolation by checking TenantId values directly (bypass global filter)
@@ -98,13 +98,13 @@ public class KhachLinkCustomerIntegrationTests : IntegrationTestBase
         
         _dbContext.Customers.Add(customer);
         await _dbContext.SaveChangesAsync();
-        _output.WriteLine($"Created customer: {customer.CustomerId.Value}");
+        _output.WriteLine($"Created customer: {customer.Id}");
 
         // Act - Test business logic through database
         await _dbContext.SaveChangesAsync();
 
         // Assert - Should handle gracefully
-        Assert.True(customer.CustomerId.Value != Guid.Empty);
+        Assert.True(customer.Id != Guid.Empty);
         _output.WriteLine("Validation test completed successfully");
     }
 }

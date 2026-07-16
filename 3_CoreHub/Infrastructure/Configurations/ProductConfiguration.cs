@@ -13,10 +13,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
         {
             _ = builder.HasKey(e => e.Id);
 
-            // ProductId value object converter
-            _ = builder.Property(e => e.ProductId)
-                .HasConversion(id => id.Value, value => new ProductId(value))
-                .IsRequired();
+            // SINGLE-IDENTITY: ProductId is synced to Id in constructor (Id = ProductId.Value).
+            // Ignore — no separate DB column. Code reads entity.Id, not entity.ProductId.Value.
+            _ = builder.Ignore(e => e.ProductId);
 
 
             _ = builder.Property(e => e.Name)
@@ -47,7 +46,6 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
             // Indexes
-            _ = builder.HasIndex(e => e.ProductId);
             _ = builder.HasIndex(e => new { e.TenantId, e.Category });
             _ = builder.HasIndex(e => e.IsActive);
         }
