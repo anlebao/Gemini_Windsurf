@@ -12,8 +12,17 @@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
 
-        @* Home: visible to all authenticated users — redirects to /sitemap (main hub) *@
-        <AuthorizeView>
+        @* Home: Masterchef → /kitchen, all others → /sitemap (main hub) *@
+        <AuthorizeView Roles="Masterchef">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="kitchen" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+        <AuthorizeView Roles="Staff,StoreKeeper,Owner,Guard,Admin,SystemAdmin">
             <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="sitemap" Match="NavLinkMatch.All">
@@ -23,7 +32,7 @@
             </Authorized>
         </AuthorizeView>
 
-        @* T14: POS + Kitchen + Orders — StaffOrAbove (Staff, StoreKeeper, Owner) *@
+        @* T14: POS + Kitchen + Orders — Staff, StoreKeeper, Owner (NOT Masterchef — kitchen-only role) *@
         <AuthorizeView Roles="Staff,StoreKeeper,Owner">
             <Authorized>
                 <div class="nav-item px-3">
@@ -39,6 +48,17 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="orders">
                         <span class="bi bi-list-check-nav-menu" aria-hidden="true"></span> Đơn hàng
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Masterchef: Kitchen ONLY — no POS, no Orders, no other pages *@
+        <AuthorizeView Roles="Masterchef">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="kitchen">
+                        <span class="bi bi-fire-nav-menu" aria-hidden="true"></span> Bếp
                     </NavLink>
                 </div>
             </Authorized>

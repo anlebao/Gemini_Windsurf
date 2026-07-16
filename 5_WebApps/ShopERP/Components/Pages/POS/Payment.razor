@@ -179,10 +179,12 @@
             string transactionId = $"POS_{method.ToUpper()}_{OrderId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
             await OrderService.ConfirmPaymentAsync(OrderId, tenantId, transactionId);
 
-            // Transition order to "confirmed" so kitchen can pick it up.
+            // FIX: Transition to "preparing" (not "confirmed") — Kitchen ON flow is
+            // pending→preparing→ready→completed. "confirmed" only exists in Kitchen OFF bypass.
+            // POS orders are auto-accepted (staff already confirmed payment) → go to "preparing".
             _ = await OrderWorkflowService.TransitionStatusAsync(
                 OrderId,
-                new OrderStatusId("confirmed"),
+                new OrderStatusId("preparing"),
                 reason: $"POS {method} payment confirmed");
 
             Logger.LogInformation("POS payment confirmed for order {OrderId} via {Method}", OrderId, method);

@@ -205,8 +205,10 @@
         {
             // Load orders by status — direct service call (Edge offline-first).
             // Pass tenantId so the repository filters correctly (legacy no-tenant overload uses Guid.Empty → 0 results).
+            // FIX: Kitchen ON flow is pending→preparing→ready→completed (no "confirmed" status).
+            // Column 1 "Chờ tiếp nhận" must query "pending" (new orders from KhachLink + POS).
             Guid tenantId = TenantProvider.TenantId;
-            List<Order> confirmed = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("confirmed"), tenantId);
+            List<Order> confirmed = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("pending"), tenantId);
             List<Order> preparing = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("preparing"), tenantId);
             List<Order> ready = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("ready"), tenantId);
 

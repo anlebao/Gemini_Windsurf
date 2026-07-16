@@ -282,6 +282,13 @@
 
         _roleName = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
 
+        // Masterchef: redirect to /kitchen — kitchen-only role, no sitemap access
+        if (user.IsInRole(UserRole.Masterchef.ToString()))
+        {
+            NavigationManager.NavigateTo("/kitchen", forceLoad: true);
+            return;
+        }
+
         // Load KhachLink URL from configuration
         _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? string.Empty;
 
