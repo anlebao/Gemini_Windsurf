@@ -64,6 +64,13 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
+            // FIX: JSON cycle detection — Order.Items[].Order navigation creates a cycle.
+            // IgnoreCycles serializes back-references as null instead of throwing JsonException.
+            builder.Services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(options =>
+            {
+                options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+            });
+
             // Add SignalR timeout configuration to prevent circuit disconnect
             _ = builder.Services.AddServerSideBlazor()
                 .AddHubOptions(options =>

@@ -61,7 +61,11 @@ namespace VanAn.Gateway
                 ValidateProductionConfig(builder.Configuration);
             }
 
-            _ = builder.Services.AddControllers();
+            _ = builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                });
             _ = builder.Services.AddSignalR();
 
             // Register CoreHub DbContext for monolithic architecture (in-process services)

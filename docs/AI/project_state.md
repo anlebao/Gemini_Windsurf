@@ -48,12 +48,12 @@ Refactor `Order` entity to use a single, sequential UUIDv7 identifier, resolving
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `adf00b3e` [FIX] ShopERP UI batch: VanAForm preventDefault + accounting data loss + sitemap restructure
-- **Uncommitted changes:** 17 modified + 10 new files (Order UUIDv7 refactor) — pending commit
+- **Last commit:** `a79ce830` [FIX] Update DbContextModelBuildTests for UUIDv7 refactor — Order.OrderId now ignored
+- **Uncommitted changes:** none
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-16):** 0 errors. VanAn.sln build PASS.
-- **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + LOCAL VERIFIED):** 5 phases done. UUIDNext 4.2.4 added. `Order.Create` syncs `OrderId = Id`. 3 sites use `Uuid.NewDatabaseFriendly(Database.PostgreSql)`. `OrderConfiguration` ignores `OrderId` + 2 migrations drop `Orders.OrderId` column. 3 test files updated. 83/83 order tests PASS. Local runtime: new order `019f6a18-7800-72e6-...` (UUIDv7), transition 200 OK, Outbox + NATS OK, dead column dropped, 4 pre-existing orders preserved.
+- **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. UUIDNext 4.2.4 added. `Order.Create` syncs `OrderId = Id`. 3 sites use `Uuid.NewDatabaseFriendly(Database.PostgreSql)`. `OrderConfiguration` ignores `OrderId` + 2 migrations drop `Orders.OrderId` column. 3 test files updated + 1 test updated (DbContextModelBuildTests). 995/995 tests PASS. VPS: 2 new orders `019f6a3d-d9e8-7741-ab81-434f939c8799` + `019f6a42-95be-7125-9a14-9790c3f262f6` (UUIDv7 prefix, version 7). PG: 12 orders (10 pre-existing + 2 new). NATS sync to SQLite works (order found, 500 is pre-existing serialization bug). Migration applied (server healthy). Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure (settings card, sysadmin roles, HKD/Company VAS split) + NavMenu Home→/sitemap.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
 - **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
@@ -67,10 +67,9 @@ Refactor `Order` entity to use a single, sequential UUIDv7 identifier, resolving
 
 ## 4. Next Actions
 
-**Immediate (Order UUIDv7 Refactor - COMMIT + DEPLOY + VPS VERIFY):**
-1. Commit 27 files (17 modified + 10 new — UUIDv7 refactor + master plan + 5 task cards)
-2. Push origin `main` -> trigger CD -> wait for deploy -> VPS runtime verification
-3. VPS verify: new order UUIDv7 prefix, transition API, Outbox + NATS, dead column dropped, pre-existing orders preserved
+**Immediate (Order UUIDv7 Refactor - COMPLETE):**
+- ✅ Committed (362b219c + a79ce830), pushed, CD #4 SUCCESS, VPS verified.
+- **Known debt:** `orderworkflow/{orderId}` returns 500 (pre-existing JSON serialization bug with Order entity — NOT UUIDv7 regression). File as tech debt if needed.
 
 **Immediate (Payment Webhook Fix - DEPLOY + VERIFY):**
 1. **S6:** Push origin `main` -> trigger CD -> deploy VPS -> verify webhook returns 200 + PostgreSQL `JournalEntries` table has revenue + COGS entries
