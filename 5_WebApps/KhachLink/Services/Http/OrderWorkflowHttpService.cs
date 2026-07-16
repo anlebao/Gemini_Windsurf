@@ -57,6 +57,15 @@ namespace VanAn.KhachLink.Services.Http
             return await response.Content.ReadFromJsonAsync<List<Order>>() ?? [];
         }
 
+        public async Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status, Guid tenantId)
+        {
+            // tenantId is resolved server-side from JWT claims (ShopERP controller parses TenantId claim).
+            // Query param kept for interface compatibility; server ignores it for security.
+            var response = await _httpClient.GetAsync($"api/orderworkflow/by-status/{Uri.EscapeDataString(status.Value)}?tenantId={tenantId}");
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<List<Order>>() ?? [];
+        }
+
         public async Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus)
         {
             var response = await _httpClient.GetAsync(

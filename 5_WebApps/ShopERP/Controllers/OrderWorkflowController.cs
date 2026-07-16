@@ -79,8 +79,15 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                List<Order> orders = await _orderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId(status));
-                return Ok(orders);
+                // Try to get tenantId from claims; fall back to no-tenant (legacy) if not available.
+                string? tenantClaim = User.FindFirst("TenantId")?.Value;
+                if (Guid.TryParse(tenantClaim, out Guid tenantId) && tenantId != Guid.Empty)
+                {
+                    List<Order> orders = await _orderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId(status), tenantId);
+                    return Ok(orders);
+                }
+                // No tenant context (anonymous) — return empty list (security: don't leak cross-tenant orders)
+                return Ok(new List<Order>());
             }
             catch (Exception ex)
             {

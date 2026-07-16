@@ -204,9 +204,11 @@
         try
         {
             // Load orders by status — direct service call (Edge offline-first).
-            List<Order> confirmed = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("confirmed"));
-            List<Order> preparing = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("preparing"));
-            List<Order> ready = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("ready"));
+            // Pass tenantId so the repository filters correctly (legacy no-tenant overload uses Guid.Empty → 0 results).
+            Guid tenantId = TenantProvider.TenantId;
+            List<Order> confirmed = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("confirmed"), tenantId);
+            List<Order> preparing = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("preparing"), tenantId);
+            List<Order> ready = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("ready"), tenantId);
 
             confirmedOrders = confirmed.Select(MapToDto).ToList();
             preparingOrders = preparing.Select(MapToDto).ToList();

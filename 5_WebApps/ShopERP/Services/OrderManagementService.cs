@@ -90,15 +90,16 @@ namespace VanAn.ShopERP.Services
         {
             try
             {
+                Guid tenantId = GetCurrentTenantId();
                 if (status != null)
                 {
-                    return await _orderWorkflowService.GetOrdersByStatusAsync(status);
+                    return await _orderWorkflowService.GetOrdersByStatusAsync(status, tenantId);
                 }
 
-                List<Order> pending = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Pending);
-                List<Order> processing = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Processing);
-                List<Order> completed = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Completed);
-                List<Order> cancelled = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Cancelled);
+                List<Order> pending = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Pending, tenantId);
+                List<Order> processing = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Processing, tenantId);
+                List<Order> completed = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Completed, tenantId);
+                List<Order> cancelled = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Cancelled, tenantId);
                 return [.. pending, .. processing, .. completed, .. cancelled];
             }
             catch (Exception ex)
@@ -170,10 +171,11 @@ namespace VanAn.ShopERP.Services
         {
             try
             {
-                List<Order> pOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Pending);
-                List<Order> prOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Processing);
-                List<Order> cOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Completed);
-                List<Order> canOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Cancelled);
+                Guid tenantId = GetCurrentTenantId();
+                List<Order> pOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Pending, tenantId);
+                List<Order> prOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Processing, tenantId);
+                List<Order> cOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Completed, tenantId);
+                List<Order> canOrders = await _orderWorkflowService.GetOrdersByStatusAsync(OrderStatusId.Cancelled, tenantId);
                 List<Order> allOrders = [.. pOrders, .. prOrders, .. cOrders, .. canOrders];
                 DateTime now = DateTime.UtcNow;
                 DateTime twentyFourHoursAgo = now.AddHours(-24);

@@ -8,6 +8,7 @@ namespace VanAn.CoreHub.Services
         Task<Order?> GetOrderAsync(Guid orderId);
         Task<List<Order>> GetOrdersByCustomerAsync(string customerDeviceId);
         Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status);
+        Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status, Guid tenantId);
         Task<bool> IsTransitionValidAsync(OrderStatusId currentStatus, OrderStatusId newStatus);
     }
 }

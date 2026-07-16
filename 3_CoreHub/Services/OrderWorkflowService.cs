@@ -237,7 +237,15 @@ namespace VanAn.CoreHub.Services
 
         public async Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status)
         {
+            // Legacy: no tenant filter — returns empty due to Guid.Empty tenant mismatch.
+            // Use GetOrdersByStatusAsync(status, tenantId) instead.
             IEnumerable<Order> orders = await _orderRepository.GetByStatusAsync(new TenantId(Guid.Empty), status.Value);
+            return orders.ToList();
+        }
+
+        public async Task<List<Order>> GetOrdersByStatusAsync(OrderStatusId status, Guid tenantId)
+        {
+            IEnumerable<Order> orders = await _orderRepository.GetByStatusAsync(new TenantId(tenantId), status.Value);
             return orders.ToList();
         }
 
