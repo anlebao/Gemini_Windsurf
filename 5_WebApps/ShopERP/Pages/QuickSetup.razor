@@ -484,7 +484,9 @@
 
     private void GoToDashboard()
     {
-        NavigationManager.NavigateTo("/");
+        // FIX: SystemAdmin has no tenant_id claim → "/" requires RequireTenantAccess → redirect loop.
+        // Navigate back to tenant management where SystemAdmin can impersonate the tenant.
+        NavigationManager.NavigateTo("/admin/tenants", forceLoad: true);
     }
 
     private void GoToTenants()

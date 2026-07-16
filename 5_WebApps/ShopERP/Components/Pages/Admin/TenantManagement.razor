@@ -15,7 +15,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
 @inject NavigationManager NavigationManager
-@inject HttpClient HttpClient
+@inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
 
 @attribute [Authorize(Policy = "SystemAdmin")]
@@ -584,7 +584,8 @@
         _impersonatingTenantId = tenant.Id.Value;
         try
         {
-            var response = await HttpClient.PostAsync(Api($"/api/admin/impersonate/{tenant.Id.Value}"), null);
+            var client = HttpClientFactory.CreateClient("CookieForwarding");
+            var response = await client.PostAsync(Api($"/api/admin/impersonate/{tenant.Id.Value}"), null);
             if (response.IsSuccessStatusCode)
             {
                 NavigationManager.NavigateTo("/", forceLoad: true);
@@ -607,7 +608,8 @@
         _isExitingImpersonation = true;
         try
         {
-            var response = await HttpClient.PostAsync(Api("/api/admin/exit-impersonation"), null);
+            var client = HttpClientFactory.CreateClient("CookieForwarding");
+            var response = await client.PostAsync(Api("/api/admin/exit-impersonation"), null);
             if (response.IsSuccessStatusCode)
             {
                 NavigationManager.NavigateTo("/admin/tenants", forceLoad: true);

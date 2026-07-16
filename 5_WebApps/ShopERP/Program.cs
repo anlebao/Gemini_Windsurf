@@ -368,6 +368,21 @@ namespace VanAn.ShopERP
             {
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
+            // FIX: Cookie-forwarding HttpClient for Blazor pages that call own API endpoints
+            // (TenantManagement impersonation). Default HttpClient doesn't forward auth cookies → 302 redirect.
+            _ = builder.Services.AddHttpClient("CookieForwarding", (sp, client) =>
+            {
+                var ctx = sp.GetRequiredService<IHttpContextAccessor>().HttpContext;
+                if (ctx != null)
+                {
+                    var cookies = ctx.Request.Headers.Cookie.ToString();
+                    if (!string.IsNullOrEmpty(cookies))
+                    {
+                        client.DefaultRequestHeaders.Add("Cookie", cookies);
+                    }
+                }
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
             _ = builder.Services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
             // Product Management (Phase 3): IProductService + IImageStorageService (Cloudinary)
             _ = builder.Services.AddScoped<CoreHub.Services.IProductService, CoreHub.Services.ProductService>();

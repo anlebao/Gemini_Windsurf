@@ -10,14 +10,15 @@
 
 @if (IsOpen)
 {
-    <div class="modal fade show d-block" 
-         tabindex="-1" 
-         role="dialog" 
+    <div class="modal-backdrop fade show" @onclick="HandleBackdropClick"></div>
+    <div class="modal fade show d-block"
+         tabindex="-1"
+         role="dialog"
          aria-labelledby="modalTitle"
          aria-hidden="false"
          @attributes="GetMergedAttributes()">
-        
-        <div class="modal-dialog" role="document">
+
+        <div class="modal-dialog" role="document" @onclick:stopPropagation="true">
             <div class="modal-content">
                 @if (!string.IsNullOrEmpty(Title))
                 {
@@ -25,8 +26,8 @@
                         <h5 class="modal-title" id="modalTitle">@Title</h5>
                         @if (Closable)
                         {
-                            <button type="button" 
-                                    class="btn-close" 
+                            <button type="button"
+                                    class="btn-close"
                                     aria-label="Close"
                                     @onclick="HandleClose"
                                     disabled="@State.IsDisabled">
@@ -34,11 +35,11 @@
                         }
                     </div>
                 }
-                
+
                 <div class="modal-body">
                     @ChildContent
                 </div>
-                
+
                 @if (Footer != null)
                 {
                     <div class="modal-footer">
@@ -48,13 +49,13 @@
                 else if (ShowDefaultFooter)
                 {
                     <div class="modal-footer">
-                        <VanAnButton Variant="ButtonVariant.Secondary" 
+                        <VanAnButton Variant="ButtonVariant.Secondary"
                                     @onclick="HandleClose"
                                     Disabled="@State.IsDisabled">
                             Cancel
                         </VanAnButton>
-                        
-                        <VanAnButton Variant="ButtonVariant.Primary" 
+
+                        <VanAnButton Variant="ButtonVariant.Primary"
                                     @onclick="HandleConfirm"
                                     Loading="@State.IsLoading"
                                     Disabled="@State.IsDisabled">
@@ -64,8 +65,6 @@
                 }
             </div>
         </div>
-        
-        <div class="modal-backdrop fade show" @onclick="HandleBackdropClick"></div>
     </div>
 }
 
