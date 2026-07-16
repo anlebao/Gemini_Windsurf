@@ -12,9 +12,10 @@ namespace VanAn.ShopERP.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // SINGLE-IDENTITY: Drop business key columns.
-            // Data alignment (Id = BusinessKey) is handled separately in Program.cs
-            // via ExecuteSqlRawAsync AFTER migration, with PRAGMA foreign_keys=OFF.
-            // This migration ONLY drops columns — no data updates (avoids FK violations).
+            // NOTE: SQLite ALTER TABLE DROP COLUMN is auto-commit (not transactional).
+            // If a previous deploy partially ran this migration, some columns may already be dropped.
+            // Program.cs checks if columns still exist before calling MigrateAsync,
+            // and manually marks this migration as applied if columns are already gone.
 
             migrationBuilder.DropIndex(
                 name: "IX_Recipes_RecipeId",

@@ -556,6 +556,25 @@ namespace VanAn.ShopERP
                 {
                     // PRAGMA foreign_keys=OFF before migration (in case migration needs it)
                     _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
+
+                    // SINGLE-IDENTITY: Check if BusinessKey columns already dropped (previous deploy
+                    // may have partially run the migration — SQLite DDL is auto-commit, not transactional).
+                    // If columns are gone, manually mark migration as applied to skip it.
+                    bool productsHasProductId = await context.Database.SqlQueryRaw<int>(
+                        "SELECT COUNT(*) AS Value FROM pragma_table_info('Products') WHERE name = 'ProductId'")
+                        .FirstOrDefaultAsync() > 0;
+                    if (!productsHasProductId)
+                    {
+                        // Columns already dropped — mark migration as applied
+                        Console.WriteLine("SINGLE-IDENTITY: BusinessKey columns already dropped, marking migration as applied");
+                        await context.Database.ExecuteSqlRawAsync(
+                            "INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\",\"ProductVersion\") VALUES ('20260716184043_SingleIdentity_DropBusinessKeyColumns','10.0.5')");
+                    }
+                    else
+                    {
+                        Console.WriteLine("SINGLE-IDENTITY: BusinessKey columns still exist, running migration");
+                    }
+
                     await context.Database.MigrateAsync();
                     // Data alignment AFTER migration (columns dropped, no FK issues with BusinessKey columns)
                     // All entities now use Id as sole identity. No BusinessKey columns to align.
