@@ -660,10 +660,12 @@ namespace VanAn.ShopERP
                 // Products created before the Domain fix (constructor now sets Id = ProductId.Value) have
                 // Id != ProductId → FK_OrderItems_Products_ProductId violation when creating orders via POS.
                 // This one-time fix updates Id to match ProductId for any misaligned products.
-                var misalignedProducts = await context.Products
+                // NOTE: Filter in memory (not LINQ-to-SQL) because ProductId has a value converter that
+                // doesn't translate p.ProductId.Value in Where clauses.
+                var allProducts = await context.Products
                     .IgnoreQueryFilters()
-                    .Where(p => p.Id != p.ProductId.Value)
                     .ToListAsync();
+                var misalignedProducts = allProducts.Where(p => p.Id != p.ProductId.Value).ToList();
                 if (misalignedProducts.Count > 0)
                 {
                     Console.WriteLine($"DMD-FK1 fix: Aligning Id=ProductId for {misalignedProducts.Count} misaligned products");
