@@ -4,6 +4,7 @@ using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.ShopERP.Services;
+using UUIDNext;
 
 namespace VanAn.ShopERP.Controllers
 {
@@ -166,7 +167,7 @@ namespace VanAn.ShopERP.Controllers
             {
                 Guid tenantId = GetTenantId();
                 TenantId tenantIdObj = new(tenantId);
-                Guid orderId = Guid.NewGuid();
+                Guid orderId = Uuid.NewDatabaseFriendly(Database.PostgreSql);
                 // CustomerId is null — device-identified anonymous order (no FK to Customers required)
                 Order domainOrder = Order.Create(orderId, tenantIdObj, (Guid?)null, []);
                 Order order = await _orderService.CreateOrderAsync(domainOrder, tenantId);

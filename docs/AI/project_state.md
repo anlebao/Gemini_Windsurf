@@ -30,30 +30,30 @@
 
 ## 2. Current Objective
 
-**[SHOPERP UI FIX BATCH + SITEMAP/NAV RESTRUCTURE - COMPLETE]**
+**[ORDER UUIDv7 SINGLE IDENTITY REFACTOR - COMPLETE + VPS VERIFY PENDING]**
 
-Fix 3 batches of ShopERP UI bugs reported by user:
-1. **VanAForm native submit bug (Blazor Category B):** `VanAForm.razor` used `@onsubmit` without `@onsubmit:preventDefault` → browser native form POST → page reload → Blazor handler never fires → forms silently fail. Affected: TenantManagement (create+onboarding), ProductManagement (create+edit). Fix: add `@onsubmit:preventDefault`.
-2. **Accounting entry data loss:** RevenueEntry/ExpenseEntry called `CreateRevenueEntryAsync`/`CreateExpenseEntryAsync` without passing `accountCode` (null) → server-side duplicate check false-positive + AccountCode not saved. Fix: pass `accountCode`, `vendor`, `category`, `reference`. Also fixed `ExpenseEntry.ValidateForm` to strip thousands separators.
-3. **TransactionHistory export stub:** `ExportToExcel()` was a no-op stub. Implemented CSV export via `vanAn.downloadFile` JS interop.
+Refactor `Order` entity to use a single, sequential UUIDv7 identifier, resolving the dual-identity problem where `Order.Id` (PK) and `Order.OrderId` (domain ID) were separately generated.
 
-**Sitemap + NavMenu restructure (user request #4-6):**
-- Added "Cấu hình & Thiết lập" card (link `/settings/shop-features`, Owner only)
-- Moved "Quản Trị Hệ Thống" card from Owner → SystemAdmin
-- Moved "Hóa Đơn Điện Tử" card from Owner/StoreKeeper → SystemAdmin
-- VAS BCTC reports card: only show for Company (DN) tenants, hidden for HKD (load `BusinessType` via `ITenantManagementService`)
-- NavMenu Home button: redirect to `/sitemap` instead of `/`
+**5 Phases (ALL COMPLETE + LOCAL RUNTIME VERIFIED 2026-07-16):**
+1. **Phase 1: Add UUIDNext 4.2.4** — CPM (`Directory.Packages.props`) + 5 projects (Shared, CoreHub, ShopERP, Gateway, KhachLink)
+2. **Phase 2: Domain sync** — `Order.Create` syncs `OrderId = new OrderId(id)` after setting `Id` (single identity)
+3. **Phase 3: UUIDv7 generation** — Replace `Guid.NewGuid()` → `Uuid.NewDatabaseFriendly(Database.PostgreSql)` at 3 sites (OrderService, OrdersController, OmnichannelOrderService) + fix `RevenueExcelReport` to use `order.Id`
+4. **Phase 4: EF Core + Migration** — `OrderConfiguration` ignores `OrderId` property + 2 migrations (SQLite + PostgreSQL) drop `Orders.OrderId` column
+5. **Phase 5: Tests + Runtime** — 3 test files updated (query by `o.Id`, not `o.OrderId.Value`); 83/83 order tests PASS; runtime verified: new order `019f6a18-7800-72e6-...` (UUIDv7 prefix, version nibble 7), transition `pending → preparing` 200 OK, Outbox enqueued, NATS published, dead column dropped, 4 pre-existing orders preserved.
 
-**Previous (completed):** Order Sync Fix + Edge Kitchen UI + VPS Data Sync Hardening -> QuickSetup + Product Management plan (IMPLEMENT PENDING - parked) -> Tiered Auth P0-P3 -> KhachLink Waves 0-4 -> Accounting PostgreSQL 3 Waves -> KhachLink UI/UX Fix -> Payment Webhook Fix (pending VPS deploy). See archive for details.
+**PENDING:** Commit + push + CD + VPS runtime verification.
+
+**Previous (completed):** ShopERP UI Fix Batch + Sitemap/Nav Restructure -> Order Sync Fix + Edge Kitchen UI + VPS Data Sync Hardening -> QuickSetup + Product Management plan (IMPLEMENT PENDING - parked) -> Tiered Auth P0-P3 -> KhachLink Waves 0-4 -> Accounting PostgreSQL 3 Waves -> KhachLink UI/UX Fix -> Payment Webhook Fix (pending VPS deploy). See archive for details.
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `57f67e22` [FIX] Kitchen Display + OrderManagementService: pass correct tenantId
-- **Uncommitted changes:** 11 modified files (UI fix batch + sitemap restructure) — pending commit
+- **Last commit:** `adf00b3e` [FIX] ShopERP UI batch: VanAForm preventDefault + accounting data loss + sitemap restructure
+- **Uncommitted changes:** 17 modified + 10 new files (Order UUIDv7 refactor) — pending commit
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-16):** 0 errors. VanAn.sln build PASS.
+- **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + LOCAL VERIFIED):** 5 phases done. UUIDNext 4.2.4 added. `Order.Create` syncs `OrderId = Id`. 3 sites use `Uuid.NewDatabaseFriendly(Database.PostgreSql)`. `OrderConfiguration` ignores `OrderId` + 2 migrations drop `Orders.OrderId` column. 3 test files updated. 83/83 order tests PASS. Local runtime: new order `019f6a18-7800-72e6-...` (UUIDv7), transition 200 OK, Outbox + NATS OK, dead column dropped, 4 pre-existing orders preserved.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure (settings card, sysadmin roles, HKD/Company VAS split) + NavMenu Home→/sitemap.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
 - **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
@@ -67,9 +67,10 @@ Fix 3 batches of ShopERP UI bugs reported by user:
 
 ## 4. Next Actions
 
-**Immediate (UI Fix Batch - COMMIT + DEPLOY):**
-1. Commit 11 modified files (VanAForm, RevenueEntry, ExpenseEntry, TransactionHistory, Sitemap, NavMenu, TenantManagement, QuickSetup, OrderService, OrderWorkflowService, DataSyncSubscriber)
-2. Push origin `main` -> trigger CD -> deploy VPS -> verify forms work + sitemap roles correct
+**Immediate (Order UUIDv7 Refactor - COMMIT + DEPLOY + VPS VERIFY):**
+1. Commit 27 files (17 modified + 10 new — UUIDv7 refactor + master plan + 5 task cards)
+2. Push origin `main` -> trigger CD -> wait for deploy -> VPS runtime verification
+3. VPS verify: new order UUIDv7 prefix, transition API, Outbox + NATS, dead column dropped, pre-existing orders preserved
 
 **Immediate (Payment Webhook Fix - DEPLOY + VERIFY):**
 1. **S6:** Push origin `main` -> trigger CD -> deploy VPS -> verify webhook returns 200 + PostgreSQL `JournalEntries` table has revenue + COGS entries
@@ -194,6 +195,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-16 -- ORDER UUIDv7 SINGLE IDENTITY REFACTOR COMPLETE + LOCAL RUNTIME VERIFIED.** 5-phase refactor to resolve dual-identity problem (`Order.Id` PK vs `Order.OrderId` domain ID generated independently). Phase 1: Added `UUIDNext 4.2.4` to CPM + 5 projects (Shared, CoreHub, ShopERP, Gateway, KhachLink). Phase 2: `Order.Create` syncs `OrderId = new OrderId(id)` after setting `Id` (single identity). Phase 3: Replaced `Guid.NewGuid()` → `Uuid.NewDatabaseFriendly(Database.PostgreSql)` at 3 sites (OrderService.cs, OrdersController.cs, OmnichannelOrderService.cs) + fixed `RevenueExcelReport.cs` to use `order.Id` (was `order.OrderId.Value`). Phase 4: `OrderConfiguration.cs` ignores `OrderId` property + 2 migrations (SQLite `20260716082930_DropOrderOrderIdColumn` + PostgreSQL `20260716083001_DropOrderOrderIdColumn`) drop `Orders.OrderId` column. Kept `OrderIdConverter` for `ElectronicInvoice.OrderId` + `PendingInvoiceQueue.OrderId`. Phase 5: Updated 3 test files (`OrderApiTests.cs`, `OrderWorkflowServiceTests.cs`, `OrderFinancialCalculationTests.cs`) — query by `o.Id`, removed `OrderId = new OrderId(...)` sets. 83/83 order tests PASS. Local runtime verified: new order `019f6a18-7800-72e6-b61a-7a85c39b4b1c` (UUIDv7 prefix `019f6a18`, version nibble `7`), transition `pending → preparing` 200 OK, OutboxEvent enqueued, NATS published, `Orders.OrderId` column dropped (40 columns remain), 4 pre-existing orders preserved (UUIDv4 → UUIDv7 transition clean). Cross-DB sync subscribers (DataSyncSubscriber, OrderSyncSubscriber) NOT modified. Build 0 errors. Branch: `main`. 27 files (17 modified + 10 new).
 
 * **2026-07-16 -- SHOPERP UI FIX BATCH + SITEMAP/NAV RESTRUCTURE COMPLETE.** Fixed 3 batches of UI bugs: (1) VanAForm `@onsubmit:preventDefault` — Blazor Category B native form submit bug causing silent fail on 4 forms (TenantManagement create+onboarding, ProductManagement create+edit). (2) RevenueEntry/ExpenseEntry — pass accountCode/vendor/category/reference to AccountingEntryService (was null → duplicate check false-positive + data loss). ExpenseEntry.ValidateForm strip thousands separators. (3) TransactionHistory ExportToExcel — implemented CSV export via `vanAn.downloadFile` JS interop (was stub). Sitemap restructure: added "Cấu hình & Thiết lập" card (Owner only, link `/settings/shop-features`), moved "Quản Trị Hệ Thống" Owner→SystemAdmin, moved "Hóa Đơn Điện Tử" Owner/StoreKeeper→SystemAdmin, VAS BCTC reports card only for Company tenants (load BusinessType via ITenantManagementService, hidden for HKD). NavMenu Home button → `/sitemap`. Build 0 errors. Branch: `main`. 11 files modified.
 

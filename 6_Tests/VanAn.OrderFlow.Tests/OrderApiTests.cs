@@ -45,16 +45,15 @@ public class OrderApiTests : IDisposable
     public async Task OrderEntity_ShouldPersistToPostgreSQL()
     {
         // Arrange
-        var orderId = new OrderId(Guid.NewGuid());
         var order = new Order
         {
-            OrderId = orderId,
             CustomerDeviceId = "test-device-123",
             OrderType = "DINEIN",
             Status = new OrderStatusId("PENDING"),
             CustomerNotes = "Test order creation",
             TenantId = Guid.NewGuid()
         };
+        var orderId = order.Id; // capture PK for query (aligns with production — query by Id, not OrderId)
 
         // Add order items
         var orderItem = new OrderItem
@@ -77,7 +76,7 @@ public class OrderApiTests : IDisposable
         // Assert - Should FAIL initially (RED) if Order entity doesn't exist
         var savedOrder = await _dbContext.Orders
             .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.OrderId.Value == orderId.Value);
+            .FirstOrDefaultAsync(o => o.Id == orderId);
         
         Assert.NotNull(savedOrder);
         Assert.Equal("PENDING", savedOrder.Status.Value);
@@ -92,16 +91,15 @@ public class OrderApiTests : IDisposable
     public async Task OrderEntity_ShouldCalculateTotalsCorrectly()
     {
         // Arrange
-        var orderId = new OrderId(Guid.NewGuid());
         var order = new Order
         {
-            OrderId = orderId,
             CustomerDeviceId = "test-device-456",
             OrderType = "TAKEAWAY",
             Status = new OrderStatusId("PENDING"),
             CustomerNotes = "Test order calculation",
             TenantId = Guid.NewGuid()
         };
+        var orderId = order.Id; // capture PK for query (aligns with production)
 
         // Add multiple order items
         var orderItem1 = new OrderItem
@@ -139,7 +137,7 @@ public class OrderApiTests : IDisposable
         // Assert - Should FAIL initially (RED) if CalculateTotals doesn't exist
         var savedOrder = await _dbContext.Orders
             .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.OrderId.Value == orderId.Value);
+            .FirstOrDefaultAsync(o => o.Id == orderId);
         
         Assert.NotNull(savedOrder);
         Assert.True(savedOrder.SubTotal > 0, "SubTotal should be calculated");
@@ -158,14 +156,13 @@ public class OrderApiTests : IDisposable
     public async Task OrderEntity_ShouldHaveDefaultStatus()
     {
         // Arrange
-        var orderId = new OrderId(Guid.NewGuid());
         var order = new Order
         {
-            OrderId = orderId,
             CustomerDeviceId = "test-device-default",
             OrderType = "DINEIN",
             TenantId = Guid.NewGuid()
         };
+        var orderId = order.Id; // capture PK for query (aligns with production)
 
         // Act
         _dbContext.Orders.Add(order);
@@ -173,7 +170,7 @@ public class OrderApiTests : IDisposable
 
         // Assert - Should FAIL initially (RED) if default status logic doesn't exist
         var savedOrder = await _dbContext.Orders
-            .FirstOrDefaultAsync(o => o.OrderId.Value == orderId.Value);
+            .FirstOrDefaultAsync(o => o.Id == orderId);
         
         Assert.NotNull(savedOrder);
         Assert.Equal("PENDING", savedOrder.Status.Value);

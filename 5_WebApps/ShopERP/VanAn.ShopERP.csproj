@@ -41,6 +41,7 @@
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="EPPlus" />
     <PackageReference Include="Google.Apis.Auth" />
+    <PackageReference Include="UUIDNext" />
   </ItemGroup>
 
   <ItemGroup>

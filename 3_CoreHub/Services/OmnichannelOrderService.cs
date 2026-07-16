@@ -3,6 +3,7 @@ using VanAn.Shared.Domain;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
+using UUIDNext;
 
 namespace VanAn.CoreHub.Services
 {
@@ -25,7 +26,7 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("Creating omnichannel order for customer: {CustomerId}, user: {UserId}, device: {DeviceId}",
                     request.CustomerId, userId, deviceId);
 
-                Guid orderId = Guid.NewGuid();
+                Guid orderId = Uuid.NewDatabaseFriendly(Database.PostgreSql);
                 OmnichannelOrder order = new()
                 {
                     OrderId = orderId,

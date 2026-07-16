@@ -35,7 +35,7 @@ public class OrderFinancialCalculationTests
         
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
+            // OrderId removed — Order.Create syncs OrderId = Id; direct construction uses default
             TenantId = testTenantId,
             OrderType = "DINEIN",
             Status = new OrderStatusId("Draft")
@@ -90,7 +90,7 @@ public class OrderFinancialCalculationTests
         
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
+            // OrderId removed — Order.Create syncs OrderId = Id; direct construction uses default
             TenantId = testTenantId,
             OrderType = "DINEIN",
             Status = new OrderStatusId("Draft"),
@@ -134,7 +134,7 @@ public class OrderFinancialCalculationTests
         
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
+            // OrderId removed — Order.Create syncs OrderId = Id; direct construction uses default
             TenantId = testTenantId,
             OrderType = "DINEIN",
             Status = new OrderStatusId("Draft")
@@ -175,7 +175,7 @@ public class OrderFinancialCalculationTests
         
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
+            // OrderId removed — Order.Create syncs OrderId = Id; direct construction uses default
             TenantId = testTenantId,
             OrderType = "DINEIN",
             Status = new OrderStatusId("Draft")
@@ -216,7 +216,7 @@ public class OrderFinancialCalculationTests
         
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
+            // OrderId removed — Order.Create syncs OrderId = Id; direct construction uses default
             TenantId = testTenantId,
             OrderType = "DINEIN",
             Status = new OrderStatusId("Draft")

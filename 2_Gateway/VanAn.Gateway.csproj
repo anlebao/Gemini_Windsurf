@@ -20,6 +20,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Yarp.ReverseProxy" />
+    <PackageReference Include="UUIDNext" />
   </ItemGroup>
 
   

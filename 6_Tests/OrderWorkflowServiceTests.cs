@@ -107,7 +107,6 @@ public class OrderWorkflowServiceTests
         // Create order with tracking code
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
             Id = Guid.NewGuid(),
             TenantId = testTenantId,
             CustomerDeviceId = "test_customer",
@@ -205,7 +204,6 @@ public class OrderWorkflowServiceTests
         // Create order WITHOUT tracking code
         var order = new Order
         {
-            OrderId = new OrderId(Guid.NewGuid()),
             Id = Guid.NewGuid(),
             TenantId = testTenantId,
             CustomerDeviceId = "test_customer",

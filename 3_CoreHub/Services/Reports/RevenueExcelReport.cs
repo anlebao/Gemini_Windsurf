@@ -120,7 +120,7 @@ namespace VanAn.CoreHub.Services.Reports
             int row = 2;
             foreach (Order order in orders.OrderByDescending(o => o.OrderDate))
             {
-                sheet.Cells[row, 1].Value = order.OrderId.Value.ToString();
+                sheet.Cells[row, 1].Value = order.Id.ToString();
                 sheet.Cells[row, 2].Value = order.OrderDate.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
                 sheet.Cells[row, 3].Value = order.Customer?.FullName ?? order.CustomerDeviceId ?? "Khách vãng lai";
                 sheet.Cells[row, 4].Value = order.OrderType;

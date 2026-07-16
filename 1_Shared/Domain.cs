@@ -1025,6 +1025,10 @@ namespace VanAn.Shared.Domain
             System.Reflection.PropertyInfo? idProperty = orderType.GetProperty("Id");
             idProperty?.SetValue(order, id);
 
+            // Sync OrderId domain value object to PK Id (single identity — UUIDv7 refactor)
+            System.Reflection.PropertyInfo? orderIdProperty = orderType.GetProperty("OrderId");
+            orderIdProperty?.SetValue(order, new OrderId(id));
+
             // Set Status to Pending
             System.Reflection.PropertyInfo? statusProperty = orderType.GetProperty("Status");
             statusProperty?.SetValue(order, OrderStatusId.Pending);

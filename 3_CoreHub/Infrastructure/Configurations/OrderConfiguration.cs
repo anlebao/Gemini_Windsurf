@@ -27,10 +27,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             // Use BaseEntity.Id as primary key (Guid) - OrderItem.OrderId FK is Guid
             _ = builder.HasKey(o => o.Id);
 
-            // OrderId strongly-typed value object converter
-            _ = builder.Property(o => o.OrderId)
-                .IsRequired()
-                .HasConversion(id => id.Value, value => new OrderId(value));
+            // Order.OrderId property is synced to Order.Id in Order.Create (single identity).
+            // Explicitly ignore — no separate DB column (UUIDv7 refactor).
+            _ = builder.Ignore(o => o.OrderId);
 
             // Configure index for CustomerId for faster queries
             _ = builder.HasIndex(o => o.CustomerId);

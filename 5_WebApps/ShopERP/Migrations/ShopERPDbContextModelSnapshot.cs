@@ -1302,9 +1302,6 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("TEXT")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<Guid>("OrderId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("OrderType")
                         .IsRequired()
                         .ValueGeneratedOnAdd()

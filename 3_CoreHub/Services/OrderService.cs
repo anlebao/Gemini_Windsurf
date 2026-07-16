@@ -6,6 +6,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Common;
 using VanAn.Shared.Domain;
+using UUIDNext;
 using VanAn.CoreHub.Commands;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
@@ -560,7 +561,7 @@ namespace VanAn.CoreHub.Services
             try
             {
                 // Create domain entity using DDD compliant factory methods
-                Guid orderId = Guid.NewGuid();
+                Guid orderId = Uuid.NewDatabaseFriendly(Database.PostgreSql);
                 TenantId tenantIdObj = new(tenantId);
 
                 // Create OrderItems using DDD factory methods
