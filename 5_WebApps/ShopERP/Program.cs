@@ -554,32 +554,29 @@ namespace VanAn.ShopERP
                 // Wrapped in try-catch: if SQLite migration fails, app still starts (Gateway uses PostgreSQL).
                 try
                 {
-                    // SINGLE-IDENTITY: SQLite migration may fail if previous deploy partially
-                    // ran it (DDL is auto-commit). Catch, mark as applied, retry.
+                    // SINGLE-IDENTITY: Mark the migration as applied BEFORE MigrateAsync.
+                    // Previous deploy may have partially run it (SQLite DDL is auto-commit).
+                    // If columns are already dropped, MigrateAsync would crash trying to drop them again.
+                    // By marking it as applied first, MigrateAsync skips it.
+                    // If columns are NOT dropped yet, they'll be ignored by EF Core (not in model).
                     try
                     {
-                        await context.Database.MigrateAsync();
+                        await context.Database.ExecuteSqlRawAsync(
+                            "INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\",\"ProductVersion\") VALUES ('20260716184043_SingleIdentity_DropBusinessKeyColumns','10.0.5')");
+                        Console.WriteLine("SINGLE-IDENTITY: Marked SingleIdentity migration as applied");
                     }
-                    catch (Exception migrateEx)
+                    catch (Exception markEx)
                     {
-                        Console.WriteLine($"SQLite MigrateAsync failed (likely partial migration): {migrateEx.Message}");
-                        // Mark the SingleIdentity migration as applied (columns likely already dropped)
-                        try
-                        {
-                            await context.Database.ExecuteSqlRawAsync(
-                                "INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\",\"ProductVersion\") VALUES ('20260716184043_SingleIdentity_DropBusinessKeyColumns','10.0.5')");
-                            await context.Database.MigrateAsync();
-                            Console.WriteLine("SQLite migration recovered after marking as applied");
-                        }
-                        catch (Exception retryEx)
-                        {
-                            Console.WriteLine($"SQLite migration retry failed: {retryEx.Message}");
-                        }
+                        Console.WriteLine($"SINGLE-IDENTITY: Could not mark migration as applied: {markEx.Message}");
                     }
+
+                    await context.Database.MigrateAsync();
+                    Console.WriteLine("SQLite database migrated");
                 }
                 catch (Exception sqliteEx)
                 {
                     Console.WriteLine($"SQLite migration ERROR: {sqliteEx.Message}");
+                    // Don't rethrow — app should start even if SQLite migration fails
                 }
 
                 // Optimize SQLite for concurrency
