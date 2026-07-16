@@ -48,12 +48,14 @@ namespace VanAn.Core.Tests.Infrastructure
             Microsoft.EntityFrameworkCore.Metadata.IEntityType? orderEntityType = model.FindEntityType(typeof(Shared.Domain.Order));
             Assert.NotNull(orderEntityType);
 
+            // UUIDv7 refactor: Order.OrderId is now ignored by EF Core (single identity — Order.Id is the PK).
+            // OrderId is synced in-memory by Order.Create. Verify it is NOT mapped.
             Microsoft.EntityFrameworkCore.Metadata.IProperty? orderIdProperty = orderEntityType.FindProperty(nameof(Shared.Domain.Order.OrderId));
-            Assert.NotNull(orderIdProperty);
+            Assert.Null(orderIdProperty);
 
-            // Verify the property has a value converter (it should be mapped to Guid, not as a separate entity)
-            Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter? valueConverter = orderIdProperty.GetValueConverter();
-            Assert.NotNull(valueConverter);
+            // Verify Order.Id (PK) is mapped
+            Microsoft.EntityFrameworkCore.Metadata.IProperty? idProperty = orderEntityType.FindProperty(nameof(Shared.Domain.Order.Id));
+            Assert.NotNull(idProperty);
         }
 
         [Fact]
