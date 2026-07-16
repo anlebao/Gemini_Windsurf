@@ -530,14 +530,38 @@ namespace VanAn.ShopERP
             // Architect's Directive: Ensure SQLite schema exists and optimized for concurrency
             using (IServiceScope scope = app.Services.CreateScope())
             {
+                // MIGRATE POSTGRESQL FIRST — Gateway (in-process CoreHub) uses PostgreSQL directly.
+                // If SQLite migration crashes, PostgreSQL must already be migrated so Gateway works.
+                CoreHub.Infrastructure.IAccountingDbContext accountingContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IAccountingDbContext>();
+                if (accountingContext is VanAn.CoreHub.Infrastructure.VanAnDbContext vanAnDb)
+                {
+                    try
+                    {
+                        await vanAnDb.Database.MigrateAsync();
+                        Console.WriteLine("PostgreSQL accounting database migrated");
+                    }
+                    catch (Exception pgEx)
+                    {
+                        Console.WriteLine($"PostgreSQL migration ERROR: {pgEx.Message}");
+                    }
+                }
+
                 ShopERPDbContext context = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
 
                 // SINGLE-IDENTITY migration fix: SQLite PRAGMA foreign_keys must be OFF
                 // BEFORE MigrateAsync starts a transaction. EF Core SQLite provider
                 // opens a connection per-scope, so this PRAGMA applies to the migration.
-                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
-                await context.Database.MigrateAsync();
-                _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON");
+                // Wrapped in try-catch: if SQLite migration fails, app still starts (Gateway uses PostgreSQL).
+                try
+                {
+                    _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
+                    await context.Database.MigrateAsync();
+                    _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON");
+                }
+                catch (Exception sqliteEx)
+                {
+                    Console.WriteLine($"SQLite migration ERROR: {sqliteEx.Message}");
+                }
 
                 // Optimize SQLite for concurrency
                 _ = await context.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
@@ -723,13 +747,7 @@ namespace VanAn.ShopERP
                 // W3: Seed AccountChart reference data (clear + reseed to ensure chart matches code).
                 // Reference data is NOT user-editable — clear+reseed propagates label fixes + account additions/removals.
                 // AccountCharts has no FK dependencies, safe to clear before HTTP requests start.
-                CoreHub.Infrastructure.IAccountingDbContext accountingContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IAccountingDbContext>();
-                // Ensure PostgreSQL accounting database schema exists (migrate before seed)
-                if (accountingContext is VanAn.CoreHub.Infrastructure.VanAnDbContext vanAnDb)
-                {
-                    await vanAnDb.Database.MigrateAsync();
-                    Console.WriteLine("PostgreSQL accounting database migrated");
-                }
+                // PostgreSQL migration already ran above (before SQLite migration).
                 await CoreHub.Infrastructure.Seed.AccountChartSeeder.CleanupAsync(accountingContext);
                 int accountChartCount = await CoreHub.Infrastructure.Seed.AccountChartSeeder.SeedAsync(accountingContext);
                 Console.WriteLine($"W3: AccountChart reference data seeded — {accountChartCount} accounts across 2 standards (TT 133 + TT 99)");
