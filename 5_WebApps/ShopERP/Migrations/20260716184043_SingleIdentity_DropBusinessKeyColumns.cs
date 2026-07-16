@@ -12,35 +12,31 @@ namespace VanAn.ShopERP.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             // SINGLE-IDENTITY: Align Id = BusinessKey before dropping columns.
-            // SQLite: disable FK enforcement during UPDATE to avoid FK violations
-            // (Orders.CustomerId, LoyaltyRewards.CustomerId reference Customers.Id).
-            // EF Core migration runs on its own connection so PRAGMA is safe here.
-            migrationBuilder.Sql("PRAGMA foreign_keys=OFF");
+            // SQLite: PRAGMA foreign_keys cannot be changed inside a transaction.
+            // EF Core migration wraps everything in a transaction, so we use
+            // a different approach: update child FKs FIRST (while parent Ids are still old),
+            // then update parent Ids, then drop columns.
+            // Since we're aligning Id = BusinessKey, and child FKs already reference Id,
+            // we need to: 1) set child FKs to BusinessKey value, 2) update parent Id = BusinessKey.
+            // This way FKs match after parent Id changes.
 
-            // Align Id = BusinessKey for all affected entities
+            // Step 1: Update child FKs to BusinessKey value (will match new parent Id after step 2)
+            // Orders.CustomerId → set to Customers.CustomerId (which will become Customers.Id)
+            migrationBuilder.Sql("UPDATE Orders SET CustomerId = (SELECT c.CustomerId FROM Customers c WHERE c.Id = Orders.CustomerId) WHERE CustomerId IS NOT NULL");
+            migrationBuilder.Sql("UPDATE LoyaltyRewards SET CustomerId = (SELECT c.CustomerId FROM Customers c WHERE c.Id = LoyaltyRewards.CustomerId)");
+            migrationBuilder.Sql("UPDATE OrderItems SET ProductId = (SELECT p.ProductId FROM Products p WHERE p.Id = OrderItems.ProductId)");
+            migrationBuilder.Sql("UPDATE Recipes SET ProductId = (SELECT p.ProductId FROM Products p WHERE p.Id = Recipes.ProductId)");
+            migrationBuilder.Sql("UPDATE Recipes SET IngredientId = (SELECT i.IngredientId FROM Ingredients i WHERE i.Id = Recipes.IngredientId)");
+            migrationBuilder.Sql("UPDATE Inventories SET IngredientId = (SELECT i.IngredientId FROM Ingredients i WHERE i.Id = Inventories.IngredientId)");
+
+            // Step 2: Align parent Id = BusinessKey (now child FKs already point to BusinessKey values)
             migrationBuilder.Sql("UPDATE Products SET Id = ProductId WHERE Id != ProductId");
             migrationBuilder.Sql("UPDATE Customers SET Id = CustomerId WHERE Id != CustomerId");
             migrationBuilder.Sql("UPDATE OrderItems SET Id = OrderItemId WHERE Id != OrderItemId");
             migrationBuilder.Sql("UPDATE Ingredients SET Id = IngredientId WHERE Id != IngredientId");
             migrationBuilder.Sql("UPDATE Recipes SET Id = RecipeId WHERE Id != RecipeId");
 
-            // Update child table FKs to match new parent Ids (Customers.Id changed above)
-            // Orders.CustomerId → match Customers.CustomerId (old Id) → set to Customers.Id (new)
-            migrationBuilder.Sql("UPDATE Orders SET CustomerId = (SELECT c.Id FROM Customers c WHERE c.CustomerId = Orders.CustomerId) WHERE CustomerId IS NOT NULL");
-            migrationBuilder.Sql("UPDATE LoyaltyRewards SET CustomerId = (SELECT c.Id FROM Customers c WHERE c.CustomerId = LoyaltyRewards.CustomerId)");
-
-            // OrderItems.ProductId → match Products.ProductId (old Id) → set to Products.Id (new)
-            migrationBuilder.Sql("UPDATE OrderItems SET ProductId = (SELECT p.Id FROM Products p WHERE p.ProductId = OrderItems.ProductId)");
-
-            // Recipes.ProductId + Recipes.IngredientId → match new parent Ids
-            migrationBuilder.Sql("UPDATE Recipes SET ProductId = (SELECT p.Id FROM Products p WHERE p.ProductId = Recipes.ProductId)");
-            migrationBuilder.Sql("UPDATE Recipes SET IngredientId = (SELECT i.Id FROM Ingredients i WHERE i.IngredientId = Recipes.IngredientId)");
-
-            // Inventory.IngredientId → match new Ingredient Id
-            migrationBuilder.Sql("UPDATE Inventories SET IngredientId = (SELECT i.Id FROM Ingredients i WHERE i.IngredientId = Inventories.IngredientId)");
-
-            migrationBuilder.Sql("PRAGMA foreign_keys=ON");
-
+            // Step 3: Drop indexes and columns
             migrationBuilder.DropIndex(
                 name: "IX_Recipes_RecipeId",
                 table: "Recipes");
