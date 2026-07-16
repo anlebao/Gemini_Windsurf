@@ -102,12 +102,21 @@
             }
         }
 
-        // Validate amount
-        if (decimal.TryParse(formData.Values.GetValueOrDefault("amount"), out var amount))
+        // Validate amount — strip thousands separators before parsing (consistency with HandleSubmit)
+        var amountStr = (formData.Values.GetValueOrDefault("amount") ?? "").Replace(".", "").Replace(",", "").Trim();
+        if (!string.IsNullOrEmpty(amountStr))
         {
-            if (amount <= 0)
+            if (decimal.TryParse(amountStr, out var amount))
             {
-                formFieldsRef.SetFieldError("amount", "Số tiền phải lớn hơn 0");
+                if (amount <= 0)
+                {
+                    formFieldsRef.SetFieldError("amount", "Số tiền phải lớn hơn 0");
+                    hasErrors = true;
+                }
+            }
+            else
+            {
+                formFieldsRef.SetFieldError("amount", "Số tiền không hợp lệ");
                 hasErrors = true;
             }
         }
@@ -394,7 +403,11 @@
             tenantId,
             period,
             amount,
-            formData.Values["description"]);
+            formData.Values["description"],
+            accountCode: accountCode,
+            vendor: vendor,
+            category: category,
+            reference: formData.Values.GetValueOrDefault("reference"));
 
         Logger.LogInformation("AccountingService.CreateExpenseEntryAsync completed successfully");
 

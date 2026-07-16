@@ -267,7 +267,9 @@
             tenantId,
             period,
             amount,
-            formData.Values["description"]);
+            formData.Values["description"],
+            accountCode: accountCode,
+            reference: formData.Values.GetValueOrDefault("reference"));
 
         // Track for duplicate detection
         _recentEntries.Add(new RecentEntry(amount, date, accountCode, now));

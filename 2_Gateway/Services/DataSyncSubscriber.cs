@@ -107,6 +107,7 @@ namespace VanAn.Gateway.Services
                         break;
                     case "order.statuschanged":
                     case "orderstatuschanged":
+                    case "order.status.changed":
                         await SyncOrderStatusAsync(doc.RootElement, dbContext, cancellationToken);
                         break;
                     case "order.created":

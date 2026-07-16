@@ -5,10 +5,15 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @using VanAn.UI.Platform.Components
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
 @inject IThemeProvider ThemeProvider
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IConfiguration Configuration
+@inject ITenantManagementService TenantManagementService
+@inject ITenantProvider TenantProvider
 
 <PageTitle>Sitemap - Vạn An Ecosystem</PageTitle>
 
@@ -73,6 +78,20 @@
             </Authorized>
         </AuthorizeView>
 
+        @* ── Cấu hình & Thiết lập (Owner only) ── *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <VanACard Header="⚙️ Cấu hình & Thiết lập" Hoverable="true" data-testid="card-settings">
+                    <div class="sitemap-links">
+                        <a href="/settings/shop-features" class="sitemap-link" data-testid="link-shop-features">
+                            <span class="sitemap-link-icon">🛠️</span>
+                            <span>Cấu hình tính năng Shop</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
         @* ── Luồng 2: Kế Toán & Tài Chính ── *@
         <AuthorizeView Roles="Owner,StoreKeeper">
             <Authorized>
@@ -111,9 +130,11 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Luồng 2b: BCTC VAS (Enterprise only) ── *@
+        @* ── Luồng 2b: BCTC VAS (Company tenants only — HKD uses TT 152 HKD books) ── *@
         <AuthorizeView Roles="Owner">
             <Authorized>
+                @if (_isCompanyTenant)
+                {
                 <VanACard Header="📊 Báo Cáo Tài Chính (VAS)" Hoverable="true" data-testid="card-vas-reports">
                     <div class="sitemap-links">
                         <a href="/accounting/financial-reports" class="sitemap-link" data-testid="link-financial-reports">
@@ -138,11 +159,12 @@
                         </a>
                     </div>
                 </VanACard>
+                }
             </Authorized>
         </AuthorizeView>
 
-        @* ── Luồng 3: Hóa Đơn Điện Tử ── *@
-        <AuthorizeView Roles="Owner,StoreKeeper">
+        @* ── Luồng 3: Hóa Đơn Điện Tử (SystemAdmin only) ── *@
+        <AuthorizeView Roles="SystemAdmin">
             <Authorized Context="einvoiceAuth">
                 <VanACard Header="🧾 Hóa Đơn Điện Tử" Hoverable="true" data-testid="card-einvoice">
                     <div class="sitemap-links">
@@ -162,18 +184,14 @@
                             <span class="sitemap-link-icon">❤️</span>
                             <span>Health Monitoring</span>
                         </a>
-                        <AuthorizeView Roles="Owner">
-                            <Authorized Context="ownerAuth">
-                                <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
-                                    <span class="sitemap-link-icon">⚙️</span>
-                                    <span>Quản Lý Provider</span>
-                                </a>
-                                <a href="/einvoice/configuration" class="sitemap-link" data-testid="link-einvoice-configuration">
-                                    <span class="sitemap-link-icon">🔧</span>
-                                    <span>Cấu Hình Provider</span>
-                                </a>
-                            </Authorized>
-                        </AuthorizeView>
+                        <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
+                            <span class="sitemap-link-icon">⚙️</span>
+                            <span>Quản Lý Provider</span>
+                        </a>
+                        <a href="/einvoice/configuration" class="sitemap-link" data-testid="link-einvoice-configuration">
+                            <span class="sitemap-link-icon">🔧</span>
+                            <span>Cấu Hình Provider</span>
+                        </a>
                     </div>
                 </VanACard>
             </Authorized>
@@ -194,8 +212,8 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Quản trị Hệ Thống ── *@
-        <AuthorizeView Roles="Owner">
+        @* ── Quản trị Hệ Thống (SystemAdmin only) ── *@
+        <AuthorizeView Roles="SystemAdmin">
             <Authorized>
                 <VanACard Header="⚙️ Quản Trị Hệ Thống" Hoverable="true" data-testid="card-admin">
                     <div class="sitemap-links">
@@ -251,6 +269,7 @@
     private string _displayName = string.Empty;
     private string _roleName = string.Empty;
     private string _khachLinkUrl = string.Empty;
+    private bool _isCompanyTenant; // VAS BCTC reports only show for Company (DN) tenants, not HKD
 
     protected override async Task OnInitializedAsync()
     {
@@ -265,6 +284,22 @@
 
         // Load KhachLink URL from configuration
         _khachLinkUrl = Configuration["ExternalUrls:KhachLink"] ?? string.Empty;
+
+        // Load tenant BusinessType to decide whether to show VAS BCTC reports card.
+        // HKD tenants use TT 152 HKD books (separate card); Company tenants use VAS BCTC reports.
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(TenantProvider.TenantId));
+                _isCompanyTenant = tenant?.BusinessType == BusinessType.Company;
+            }
+            catch (Exception)
+            {
+                // If tenant lookup fails, default to showing VAS reports (backward compatible)
+                _isCompanyTenant = true;
+            }
+        }
     }
 
     private void Logout()

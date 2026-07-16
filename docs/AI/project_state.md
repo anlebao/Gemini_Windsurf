@@ -30,36 +30,31 @@
 
 ## 2. Current Objective
 
-**[ORDER SYNC FIX + EDGE KITCHEN UI - OPTION D - TRACK E1 + E2 COMPLETE + VPS DATA SYNC HARDENING COMPLETE]**
+**[SHOPERP UI FIX BATCH + SITEMAP/NAV RESTRUCTURE - COMPLETE]**
 
-Fix PostgreSQL to SQLite order sync (RC-1/2/3 + 2 bonus bugs) + build Edge Kitchen UI (POS input, payment, kitchen display, transitions) + VPS data sync hardening (GUID case mismatch, product dedup, SQLite persistent volume, environment parity). Master plan: `docs/AI/tasks/order_sync_fix_kitchen_ui_master_plan.md`. Task card: `docs/AI/tasks/order_sync_fix_kitchen_ui_task_card.md`.
+Fix 3 batches of ShopERP UI bugs reported by user:
+1. **VanAForm native submit bug (Blazor Category B):** `VanAForm.razor` used `@onsubmit` without `@onsubmit:preventDefault` → browser native form POST → page reload → Blazor handler never fires → forms silently fail. Affected: TenantManagement (create+onboarding), ProductManagement (create+edit). Fix: add `@onsubmit:preventDefault`.
+2. **Accounting entry data loss:** RevenueEntry/ExpenseEntry called `CreateRevenueEntryAsync`/`CreateExpenseEntryAsync` without passing `accountCode` (null) → server-side duplicate check false-positive + AccountCode not saved. Fix: pass `accountCode`, `vendor`, `category`, `reference`. Also fixed `ExpenseEntry.ValidateForm` to strip thousands separators.
+3. **TransactionHistory export stub:** `ExportToExcel()` was a no-op stub. Implemented CSV export via `vanAn.downloadFile` JS interop.
 
-**Track E1 (COMPLETE - commit `c2de0c2b` + `dd13bc19`):** RC-1 Atomic Outbox, RC-2 Subject namespace, RC-3 OrderItem full payload, OutboxEvent ID fix, DataSyncSubscriber stub, SQLite product seed FK fix. Verify T6 PASS.
+**Sitemap + NavMenu restructure (user request #4-6):**
+- Added "Cấu hình & Thiết lập" card (link `/settings/shop-features`, Owner only)
+- Moved "Quản Trị Hệ Thống" card from Owner → SystemAdmin
+- Moved "Hóa Đơn Điện Tử" card from Owner/StoreKeeper → SystemAdmin
+- VAS BCTC reports card: only show for Company (DN) tenants, hidden for HKD (load `BusinessType` via `ITenantManagementService`)
+- NavMenu Home button: redirect to `/sitemap` instead of `/`
 
-**Track E2 (COMPLETE):** Edge Kitchen UI - POS Order Input, Payment, Kitchen Display, status transitions, NavMenu + Sitemap integration. VPS UI flow verified (Playwright: login, POS, payment, kitchen, order detail, KhachLink tracking).
-
-**VPS Data Sync Hardening (COMPLETE - commits `b3a8b3d6`, `89b69d3d`, `9840ddf6`):**
-- **Root cause:** SQLite stores GUIDs UPPERCASE, PostgreSQL lowercase → product sync checked by ProductId (Guid comparison) → duplicate products on every restart (9×4=36) → FK violations on order sync.
-- **Fix 1:** OrderSyncSubscriber auto-creates product stub from event payload if ProductId missing (prevents FK violation).
-- **Fix 2:** Product sync (Program.cs) dedup by Name + TenantId instead of ProductId (prevents duplicates across restarts).
-- **Fix 3:** SQLite persistent volume (`ConnectionStrings__DefaultConnection` env var → `/app/keys/vanan_shoperp.db` in volume).
-- **Fix 4:** Deterministic seed GUIDs (lowercase, match PostgreSQL).
-- **Fix 5:** ShopERP ALWAYS uses SQLite (all environments) — appsettings.json/Production/Staging all have `DefaultConnection = Data Source=vanan_shoperp.db` + safety check (throw if connection string looks like PostgreSQL) + startup log.
-- **E2E verified on VPS:** Checkout → 200 OK → NATS sync → "synced order → SQLite (1 items, 61600 VND)" → GET /api/orders/{id} → 200 OK. PG products: 9 (no duplicates after redeploy). SQLite products: 9 (persistent volume).
-
-**Known debt RC-7:** OrderService doesn't enrich OrderItems with ProductName/VatRate from Product entity (pre-existing, not sync bug - deferred).
-
-**Previous (completed):** QuickSetup + Product Management plan (IMPLEMENT PENDING - parked) -> Tiered Auth P0-P3 -> KhachLink Waves 0-4 -> Accounting PostgreSQL 3 Waves -> KhachLink UI/UX Fix -> Payment Webhook Fix (pending VPS deploy). See archive for details.
+**Previous (completed):** Order Sync Fix + Edge Kitchen UI + VPS Data Sync Hardening -> QuickSetup + Product Management plan (IMPLEMENT PENDING - parked) -> Tiered Auth P0-P3 -> KhachLink Waves 0-4 -> Accounting PostgreSQL 3 Waves -> KhachLink UI/UX Fix -> Payment Webhook Fix (pending VPS deploy). See archive for details.
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `9840ddf6` [FIX] ShopERP always uses SQLite — match local + VPS environment
-- **Uncommitted changes:** clean
+- **Last commit:** `57f67e22` [FIX] Kitchen Display + OrderManagementService: pass correct tenantId
+- **Uncommitted changes:** 11 modified files (UI fix batch + sitemap restructure) — pending commit
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Tests (Debug, 2026-07-15):** Arch 38/38 - Core **968/968** - KhachLinkStartup 10/10. Build 0 errors. guard-check PASS.
-- **E2E (2026-07-15):** `khachlink-full-order-flow` PASS local + VPS production. `vps-shoperp-ui-flow` PASS VPS.
+- **Build (2026-07-16):** 0 errors. VanAn.sln build PASS.
+- **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure (settings card, sysadmin roles, HKD/Company VAS split) + NavMenu Home→/sitemap.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
 - **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
 - **QuickSetup + Product Management (2026-07-14):** Master plan + 6 task cards created. Gap review complete. **PARKED** while Order Sync + Kitchen UI is active.
@@ -71,6 +66,10 @@ Fix PostgreSQL to SQLite order sync (RC-1/2/3 + 2 bonus bugs) + build Edge Kitch
 - **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening. See archive for details.
 
 ## 4. Next Actions
+
+**Immediate (UI Fix Batch - COMMIT + DEPLOY):**
+1. Commit 11 modified files (VanAForm, RevenueEntry, ExpenseEntry, TransactionHistory, Sitemap, NavMenu, TenantManagement, QuickSetup, OrderService, OrderWorkflowService, DataSyncSubscriber)
+2. Push origin `main` -> trigger CD -> deploy VPS -> verify forms work + sitemap roles correct
 
 **Immediate (Payment Webhook Fix - DEPLOY + VERIFY):**
 1. **S6:** Push origin `main` -> trigger CD -> deploy VPS -> verify webhook returns 200 + PostgreSQL `JournalEntries` table has revenue + COGS entries
@@ -196,6 +195,7 @@ Server A (Edge):                      Server B (Central):
 
 ## 9. Maintenance Log
 
+* **2026-07-16 -- SHOPERP UI FIX BATCH + SITEMAP/NAV RESTRUCTURE COMPLETE.** Fixed 3 batches of UI bugs: (1) VanAForm `@onsubmit:preventDefault` — Blazor Category B native form submit bug causing silent fail on 4 forms (TenantManagement create+onboarding, ProductManagement create+edit). (2) RevenueEntry/ExpenseEntry — pass accountCode/vendor/category/reference to AccountingEntryService (was null → duplicate check false-positive + data loss). ExpenseEntry.ValidateForm strip thousands separators. (3) TransactionHistory ExportToExcel — implemented CSV export via `vanAn.downloadFile` JS interop (was stub). Sitemap restructure: added "Cấu hình & Thiết lập" card (Owner only, link `/settings/shop-features`), moved "Quản Trị Hệ Thống" Owner→SystemAdmin, moved "Hóa Đơn Điện Tử" Owner/StoreKeeper→SystemAdmin, VAS BCTC reports card only for Company tenants (load BusinessType via ITenantManagementService, hidden for HKD). NavMenu Home button → `/sitemap`. Build 0 errors. Branch: `main`. 11 files modified.
 
 * **2026-07-16 -- VPS DATA SYNC HARDENING + ENVIRONMENT PARITY COMPLETE.** 5-phase nuclear cleanup + fix: (1) Cleaned PG garbage (40 test orders, 450 dup products, 11 outbox messages deleted). (2) Wiped SQLite + force-recreate (fresh: 9 products, 5 users, 2 tenants). (3) Synced products PG↔SQLite with lowercase GUIDs (match exactly). (4) Fixed OrderSyncSubscriber to auto-create product stub from event payload if ProductId missing (prevents FK violation) + product sync dedup by Name+TenantId instead of ProductId (prevents duplicates across restarts with GUID case mismatch). (5) Deployed + verified E2E on VPS: checkout → 200 OK → NATS sync → "synced order → SQLite (1 items, 61600 VND)" → GET /api/orders/{id} → 200 OK. PG products: 9 (no duplicates after redeploy). Then added SQLite persistent volume (`ConnectionStrings__DefaultConnection` env var → `/app/keys/vanan_shoperp.db` in volume) + deterministic seed GUIDs (lowercase, match PostgreSQL) + ShopERP ALWAYS uses SQLite in all environments (appsettings.json/Production/Staging all have `DefaultConnection = Data Source=vanan_shoperp.db` + safety check that throws if connection string looks like PostgreSQL + startup log). Commits: `b3a8b3d6`, `89b69d3d`, `9840ddf6`. Branch: `main`. CD runs: 3 (all success). VPS verified: `[ShopERP] ShopERPDbContext (SQLite) connection: Data Source=/app/keys/vanan_shoperp.db`.
 

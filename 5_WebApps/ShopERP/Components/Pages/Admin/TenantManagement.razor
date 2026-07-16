@@ -570,6 +570,10 @@
 
     // ── Impersonation (AM-T7) ─────────────────────────────────────────────────
 
+    // ShopERP page calling its own API: build absolute URL from NavigationManager.BaseUri
+    // because the injected HttpClient has no BaseAddress (relative URLs fail silently).
+    private string Api(string path) => $"{NavigationManager.BaseUri.TrimEnd('/')}/{path.TrimStart('/')}";
+
     private void NavigateToQuickSetup(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant tenant)
     {
         NavigationManager.NavigateTo($"/quick-setup?tenantId={tenant.Id.Value}");
@@ -580,7 +584,7 @@
         _impersonatingTenantId = tenant.Id.Value;
         try
         {
-            var response = await HttpClient.PostAsync($"/api/admin/impersonate/{tenant.Id.Value}", null);
+            var response = await HttpClient.PostAsync(Api($"/api/admin/impersonate/{tenant.Id.Value}"), null);
             if (response.IsSuccessStatusCode)
             {
                 NavigationManager.NavigateTo("/", forceLoad: true);
@@ -603,7 +607,7 @@
         _isExitingImpersonation = true;
         try
         {
-            var response = await HttpClient.PostAsync("/api/admin/exit-impersonation", null);
+            var response = await HttpClient.PostAsync(Api("/api/admin/exit-impersonation"), null);
             if (response.IsSuccessStatusCode)
             {
                 NavigationManager.NavigateTo("/admin/tenants", forceLoad: true);

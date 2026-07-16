@@ -308,9 +308,36 @@ namespace VanAn.CoreHub.Services
                 return false;
             }
 
+            OrderStatusId oldStatus = order.Status;
             order.UpdateOrderStatus(new OrderStatusId(newStatus));
 
             _ = await _orderRepository.UpdateAsync(order);
+
+            // Enqueue Outbox event so NatsSyncWorker publishes "vanan.shoperp.order.status.changed"
+            // → Gateway DataSyncSubscriber updates PostgreSQL → KhachLink OrderTracking sees new status.
+            if (_outboxRepository != null)
+            {
+                var payload = new
+                {
+                    orderId = order.Id,
+                    tenantId = order.TenantId.Value,
+                    oldStatus = oldStatus.Value,
+                    newStatus = newStatus,
+                    timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+                string eventData = System.Text.Json.JsonSerializer.Serialize(payload);
+                var outboxEvent = new OutboxEvent(
+                    order.TenantId,
+                    new ElectronicInvoiceId(Guid.Empty),
+                    "OrderStatusChanged",
+                    eventData);
+                await _outboxRepository.EnqueueAsync(outboxEvent);
+            }
+            else
+            {
+                _logger.LogWarning("OutboxRepository not available — OrderStatusChanged event for order {OrderId} not persisted", orderId);
+            }
+
             await _orderRepository.SaveChangesAsync();
 
             _logger.LogInformation("Updated order {OrderId} status to {Status}", orderId, newStatus);

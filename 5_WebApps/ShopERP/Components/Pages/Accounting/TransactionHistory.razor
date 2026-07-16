@@ -11,11 +11,13 @@
 @using VanAn.Shared.Domain.Common
 @using VanAn.Shared.DTOs
 @using CoreAccountingService = VanAn.CoreHub.Services
+@using Microsoft.JSInterop
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<TransactionHistory> Logger
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <div class="transaction-history-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -319,9 +321,40 @@
         selectedTransaction = null;
     }
 
-    private void ExportToExcel()
+    private async Task ExportToExcel()
     {
-        Logger.LogInformation("Export to Excel requested for tenant {TenantId}, period {Year}/{Month}", 
-            TenantProvider.TenantId, selectedYear, selectedMonth);
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Ngay,Loai,Tai khoan,So tien,Dien giai,So chung tu");
+            foreach (var t in filteredTransactions)
+            {
+                var date = t.TransactionDate.ToString("dd/MM/yyyy");
+                var type = t.EntryType.ToString();
+                var acct = t.AccountCode ?? "";
+                var amt = t.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var desc = EscapeCsv(t.Description);
+                var refNo = EscapeCsv(t.Reference);
+                sb.AppendLine(date + "," + type + "," + acct + "," + amt + "," + desc + "," + refNo);
+            }
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            string base64 = Convert.ToBase64String(bytes);
+            string fileName = "transactions_" + selectedYear + "_" + selectedMonth.ToString("D2") + ".csv";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting transactions to CSV");
+        }
+    }
+
+    private static string EscapeCsv(string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        bool needsQuote = field.Contains(',') || field.Contains('"') || field.Contains('\n');
+        if (!needsQuote) return field;
+        string escaped = field.Replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
     }
 }

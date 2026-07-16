@@ -75,6 +75,10 @@ namespace VanAn.CoreHub.Services
                 // 📡 Wave 9: Publish NATS event for push notifications (non-blocking)
                 await PublishOrderStatusChangedEventAsync(order, oldStatus, newStatus);
 
+                // Sync: Enqueue Outbox event so NatsSyncWorker publishes "vanan.shoperp.order.status.changed"
+                // → Gateway DataSyncSubscriber updates PostgreSQL → KhachLink OrderTracking sees new status.
+                EnqueueOrderStatusChangedEvent(order, oldStatus, newStatus);
+
                 await transaction.CommitAsync();
 
                 // W0-T4: Broadcast SignalR notification to ShopERP staff (best-effort, non-blocking)
@@ -169,6 +173,38 @@ namespace VanAn.CoreHub.Services
             _ = _outboxRepository.EnqueueAsync(outboxEvent);
             _logger.LogInformation("Enqueued OrderCompleted event to Outbox for order {OrderId} (EventId={EventId})",
                 order.Id, orderCompletedEvent.EventId);
+        }
+
+        /// <summary>
+        /// Enqueue OrderStatusChanged event to Outbox for SQLite→PG sync.
+        /// NatsSyncWorker publishes "vanan.shoperp.order.status.changed" → Gateway DataSyncSubscriber
+        /// updates PostgreSQL so KhachLink OrderTracking sees the new status.
+        /// </summary>
+        private void EnqueueOrderStatusChangedEvent(Order order, OrderStatusId oldStatus, OrderStatusId newStatus)
+        {
+            if (_outboxRepository == null)
+            {
+                _logger.LogWarning("OutboxRepository not available — OrderStatusChanged event for order {OrderId} not persisted", order.Id);
+                return;
+            }
+
+            var payload = new
+            {
+                orderId = order.Id,
+                tenantId = order.TenantId.Value,
+                oldStatus = oldStatus.Value,
+                newStatus = newStatus.Value,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            };
+            string eventData = JsonSerializer.Serialize(payload, EventJsonOptions);
+            var outboxEvent = new OutboxEvent(
+                order.TenantId,
+                new ElectronicInvoiceId(Guid.Empty),
+                "OrderStatusChanged",
+                eventData);
+            _ = _outboxRepository.EnqueueAsync(outboxEvent);
+            _logger.LogInformation("Enqueued OrderStatusChanged event to Outbox for order {OrderId}: {OldStatus} → {NewStatus}",
+                order.Id, oldStatus.Value, newStatus.Value);
         }
 
         private async Task ProcessSocialCampaignConversionAsync(string trackingCode)

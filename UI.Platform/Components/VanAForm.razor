@@ -2,8 +2,9 @@
 @inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
 @using Microsoft.AspNetCore.Components.Web
 
-<form class="vanan-form @AdditionalClasses" 
-      @onsubmit="HandleSubmit" 
+<form class="vanan-form @AdditionalClasses"
+      @onsubmit="HandleSubmit"
+      @onsubmit:preventDefault
       @attributes="AdditionalAttributes">
     @ChildContent
 </form>
