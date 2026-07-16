@@ -660,21 +660,28 @@ namespace VanAn.ShopERP
                 // Products created before the Domain fix (constructor now sets Id = ProductId.Value) have
                 // Id != ProductId → FK_OrderItems_Products_ProductId violation when creating orders via POS.
                 // This one-time fix updates Id to match ProductId for any misaligned products.
-                // NOTE: Filter in memory (not LINQ-to-SQL) because ProductId has a value converter that
-                // doesn't translate p.ProductId.Value in Where clauses.
-                var allProducts = await context.Products
-                    .IgnoreQueryFilters()
-                    .ToListAsync();
-                var misalignedProducts = allProducts.Where(p => p.Id != p.ProductId.Value).ToList();
-                if (misalignedProducts.Count > 0)
+                // NOTE: Filter in memory (not LINQ-to-SQL) because ProductId has a value converter.
+                // Wrapped in try-catch to prevent startup crash if DB schema differs.
+                try
                 {
-                    Console.WriteLine($"DMD-FK1 fix: Aligning Id=ProductId for {misalignedProducts.Count} misaligned products");
-                    foreach (var p in misalignedProducts)
+                    var allProducts = await context.Products
+                        .IgnoreQueryFilters()
+                        .ToListAsync();
+                    var misalignedProducts = allProducts.Where(p => p.Id != p.ProductId.Value).ToList();
+                    if (misalignedProducts.Count > 0)
                     {
-                        typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(p, p.ProductId.Value);
-                        Console.WriteLine($"  Fixed: {p.Name} — Id set to {p.ProductId.Value}");
+                        Console.WriteLine($"DMD-FK1 fix: Aligning Id=ProductId for {misalignedProducts.Count} misaligned products");
+                        foreach (var p in misalignedProducts)
+                        {
+                            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(p, p.ProductId.Value);
+                            Console.WriteLine($"  Fixed: {p.Name} — Id set to {p.ProductId.Value}");
+                        }
+                        _ = await context.SaveChangesAsync();
                     }
-                    _ = await context.SaveChangesAsync();
+                }
+                catch (Exception dmdEx)
+                {
+                    Console.WriteLine($"DMD-FK1 fix skipped: {dmdEx.Message}");
                 }
 
                 // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)
