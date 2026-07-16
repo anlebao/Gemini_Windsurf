@@ -554,50 +554,32 @@ namespace VanAn.ShopERP
                 // Wrapped in try-catch: if SQLite migration fails, app still starts (Gateway uses PostgreSQL).
                 try
                 {
-                    // PRAGMA foreign_keys=OFF before migration (in case migration needs it)
-                    _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=OFF");
-
-                    // SINGLE-IDENTITY: Previous deploy may have partially run the migration
-                    // (SQLite DDL is auto-commit, not transactional). If columns are already dropped,
-                    // manually mark migration as applied so MigrateAsync skips it.
-                    // Use try-catch around the check — if it fails, just proceed with MigrateAsync.
-                    try
-                    {
-                        // Check if ProductId column still exists in Products table
-                        var result = await context.Database.ExecuteSqlRawAsync(
-                            "SELECT CASE WHEN EXISTS (SELECT 1 FROM pragma_table_info('Products') WHERE name = 'ProductId') THEN 1 ELSE 0 END");
-                        // ExecuteSqlRawAsync returns rows affected, not the scalar value.
-                        // Use a different approach: try to drop the column directly.
-                    }
-                    catch { }
-
-                    // Always try to mark the migration as applied (idempotent — INSERT OR IGNORE)
-                    // If the migration hasn't run yet, MigrateAsync will run it and record it.
-                    // If the migration already ran (columns dropped), this prevents re-running.
-                    // But we can't know for sure, so let MigrateAsync handle it.
-                    // The issue is that MigrateAsync might fail if columns are already dropped.
-                    // So we catch the error and mark the migration as applied manually.
+                    // SINGLE-IDENTITY: SQLite migration may fail if previous deploy partially
+                    // ran it (DDL is auto-commit). Catch, mark as applied, retry.
                     try
                     {
                         await context.Database.MigrateAsync();
                     }
                     catch (Exception migrateEx)
                     {
-                        Console.WriteLine($"SQLite MigrateAsync failed, marking migration as applied: {migrateEx.Message}");
+                        Console.WriteLine($"SQLite MigrateAsync failed (likely partial migration): {migrateEx.Message}");
                         // Mark the SingleIdentity migration as applied (columns likely already dropped)
-                        await context.Database.ExecuteSqlRawAsync(
-                            "INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\",\"ProductVersion\") VALUES ('20260716184043_SingleIdentity_DropBusinessKeyColumns','10.0.5')");
-                        // Try MigrateAsync again — it should skip the applied migration
-                        try { await context.Database.MigrateAsync(); } catch { }
+                        try
+                        {
+                            await context.Database.ExecuteSqlRawAsync(
+                                "INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\",\"ProductVersion\") VALUES ('20260716184043_SingleIdentity_DropBusinessKeyColumns','10.0.5')");
+                            await context.Database.MigrateAsync();
+                            Console.WriteLine("SQLite migration recovered after marking as applied");
+                        }
+                        catch (Exception retryEx)
+                        {
+                            Console.WriteLine($"SQLite migration retry failed: {retryEx.Message}");
+                        }
                     }
-
-                    _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON");
                 }
                 catch (Exception sqliteEx)
                 {
                     Console.WriteLine($"SQLite migration ERROR: {sqliteEx.Message}");
-                    // Re-enable FKs even if migration failed
-                    try { _ = await context.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON"); } catch { }
                 }
 
                 // Optimize SQLite for concurrency
