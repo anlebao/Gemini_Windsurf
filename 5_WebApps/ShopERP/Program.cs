@@ -656,6 +656,25 @@ namespace VanAn.ShopERP
                     _ = await context.SaveChangesAsync();
                 }
 
+                // DMD-FK1 data fix: Align Product.Id (PK) with Product.ProductId (business key) for existing products.
+                // Products created before the Domain fix (constructor now sets Id = ProductId.Value) have
+                // Id != ProductId → FK_OrderItems_Products_ProductId violation when creating orders via POS.
+                // This one-time fix updates Id to match ProductId for any misaligned products.
+                var misalignedProducts = await context.Products
+                    .IgnoreQueryFilters()
+                    .Where(p => p.Id != p.ProductId.Value)
+                    .ToListAsync();
+                if (misalignedProducts.Count > 0)
+                {
+                    Console.WriteLine($"DMD-FK1 fix: Aligning Id=ProductId for {misalignedProducts.Count} misaligned products");
+                    foreach (var p in misalignedProducts)
+                    {
+                        typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(p, p.ProductId.Value);
+                        Console.WriteLine($"  Fixed: {p.Name} — Id set to {p.ProductId.Value}");
+                    }
+                    _ = await context.SaveChangesAsync();
+                }
+
                 // Seed default dev tenant into Tenants table (HKD Group 1 — quán cafe mẫu)
                 // FIX: Tenant entity's TenantId (from BaseEntity) must equal its own Id for the
                 // global multi-tenancy query filter to find it. Factory methods don't set TenantId,

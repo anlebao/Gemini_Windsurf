@@ -573,6 +573,10 @@ namespace VanAn.Shared.Domain
         public Product(TenantId tenantId, string name, decimal price, string category, decimal costPrice = 0m)
             : base(tenantId)
         {
+            // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
+            // FK_OrderItems_Products_ProductId references Products.Id (PK), but DTOs/code use ProductId.
+            // Without alignment, newly created products have Id != ProductId → FK violation on order creation.
+            Id = ProductId.Value;
             Name = name;
             Price = price;
             Category = category;
@@ -582,6 +586,8 @@ namespace VanAn.Shared.Domain
         public Product(TenantId tenantId, string name, string description, decimal price, string category, bool isActive = true, string? imageUrl = null, decimal vatRate = 0.10m, decimal costPrice = 0m)
             : base(tenantId)
         {
+            // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
+            Id = ProductId.Value;
             Name = name;
             Description = description;
             Price = price;
