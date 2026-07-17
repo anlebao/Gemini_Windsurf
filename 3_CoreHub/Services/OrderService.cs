@@ -596,6 +596,25 @@ namespace VanAn.CoreHub.Services
                 // FK_Orders_Customers_CustomerId violations for guest checkout (no Customer row exists).
                 // Bucket A feature fix (approved 2026-07-07): pass null customerId, set device id separately.
                 Guid? customerId = command.CustomerId;
+
+                // Bug 1a fix (2026-07-17): Validate CustomerId exists in DB before passing to Order.Create.
+                // If Customer entity doesn't exist (e.g., user logged in via OAuth but no Customer row was
+                // created), set CustomerId to null to avoid FK_Orders_Customers_CustomerId violation.
+                // Order will still be created and linked via CustomerDeviceId for order history.
+                if (customerId.HasValue && _dbContext != null)
+                {
+                    bool customerExists = await _dbContext.Customers
+                        .AnyAsync(c => c.Id == customerId.Value);
+                    if (!customerExists)
+                    {
+                        _logger.LogWarning(
+                            "Checkout: CustomerId {CustomerId} not found in DB — falling back to guest mode (CustomerId=null). " +
+                            "Order will be linked via CustomerDeviceId only.",
+                            customerId.Value);
+                        customerId = null;
+                    }
+                }
+
                 Order order = Order.Create(orderId, tenantIdObj, customerId, orderItems);
                 order.SetCustomerDeviceId(command.CustomerDeviceId.ToString());
 
