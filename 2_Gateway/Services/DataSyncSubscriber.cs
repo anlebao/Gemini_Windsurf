@@ -157,7 +157,9 @@ namespace VanAn.Gateway.Services
             }
 
             Guid orderId = orderIdProp.GetGuid();
-            var order = await dbContext.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            var order = await dbContext.Orders
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order == null)
             {
                 _logger.LogWarning("SyncOrderCompletedAsync: order {OrderId} not found in PostgreSQL — skipping", orderId);
@@ -201,7 +203,9 @@ namespace VanAn.Gateway.Services
                 return;
             }
 
-            var order = await dbContext.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            var order = await dbContext.Orders
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order == null)
             {
                 _logger.LogWarning("SyncOrderStatusAsync: order {OrderId} not found in PostgreSQL — skipping", orderId);
@@ -230,7 +234,9 @@ namespace VanAn.Gateway.Services
             }
 
             Guid orderId = orderIdProp.GetGuid();
-            bool exists = await dbContext.Orders.AnyAsync(o => o.Id == orderId, ct);
+            bool exists = await dbContext.Orders
+                .IgnoreQueryFilters()
+                .AnyAsync(o => o.Id == orderId, ct);
             if (exists)
             {
                 _logger.LogDebug("SyncOrderCreatedAsync: order {OrderId} already exists in PostgreSQL", orderId);
@@ -320,7 +326,9 @@ namespace VanAn.Gateway.Services
             }
 
             Guid customerId = idProp.GetGuid();
-            bool exists = await dbContext.Customers.AnyAsync(c => c.Id == customerId, ct);
+            bool exists = await dbContext.Customers
+                .IgnoreQueryFilters()
+                .AnyAsync(c => c.Id == customerId, ct);
             if (exists)
             {
                 _logger.LogDebug("SyncCustomerCreatedAsync: customer {CustomerId} already exists in PostgreSQL", customerId);
