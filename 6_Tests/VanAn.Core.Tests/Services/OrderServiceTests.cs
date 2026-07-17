@@ -21,6 +21,7 @@ namespace VanAn.Core.Tests.Services
         private readonly Mock<IAccountingService> _mockAccountingService;
         private readonly Mock<IHKDBookRepository> _mockHkdBookRepository;
         private readonly Mock<IAccountingEntryRepository> _mockAccountingEntryRepository;
+        private readonly Mock<IProductRepository> _mockProductRepository;
         private readonly OrderService _orderService;
         private readonly TenantId _testTenantId = new(Guid.NewGuid());
 
@@ -30,13 +31,15 @@ namespace VanAn.Core.Tests.Services
             _mockAccountingService = new Mock<IAccountingService>();
             _mockHkdBookRepository = new Mock<IHKDBookRepository>();
             _mockAccountingEntryRepository = new Mock<IAccountingEntryRepository>();
+            _mockProductRepository = new Mock<IProductRepository>();
 
             _orderService = new OrderService(
                 _mockOrderRepository.Object,
                 _mockAccountingService.Object,
                 _mockHkdBookRepository.Object,
                 _mockAccountingEntryRepository.Object,
-                new NullLogger<OrderService>()
+                new NullLogger<OrderService>(),
+                productRepository: _mockProductRepository.Object
             );
         }
 
@@ -156,14 +159,31 @@ namespace VanAn.Core.Tests.Services
         [Fact]
         public async Task CreateOrderFromCommandAsync_ShouldCreateOrderFromGatewayCommand()
         {
-            // Arrange: Gateway entry point — maps CreateOrderCommand to domain Order
+            // Arrange: Gateway entry point — maps CreateOrderCommand to domain Order.
+            // RC-7: ProductRepository must return products for snapshot (otherwise KeyNotFoundException).
+            Guid productAId = Guid.NewGuid();
+            Guid productBId = Guid.NewGuid();
+            Product productA = new(_testTenantId, "Product A", 25.0m, "Cat", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(productA, productAId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(productA, new ProductId(productAId));
+            Product productB = new(_testTenantId, "Product B", 50.0m, "Cat", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(productB, productBId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(productB, new ProductId(productBId));
+
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productAId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(productA);
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productBId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(productB);
+
             CreateOrderCommand command = new()
             {
                 CustomerDeviceId = Guid.NewGuid(),
                 Items =
                 [
-                    new() { ProductId = Guid.NewGuid(), Quantity = 2, UnitPrice = 25.0m },
-                    new() { ProductId = Guid.NewGuid(), Quantity = 1, UnitPrice = 50.0m }
+                    new() { ProductId = productAId, Quantity = 2, UnitPrice = 25.0m },
+                    new() { ProductId = productBId, Quantity = 1, UnitPrice = 50.0m }
                 ]
             };
 
@@ -186,6 +206,139 @@ namespace VanAn.Core.Tests.Services
             _mockOrderRepository.Verify(
                 x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()),
                 Times.Once);
+        }
+
+        // ============================================================================
+        // RC-7 tests: OrderItem must snapshot ProductName + VatRate from Product entity.
+        // TT 152/2025/TT-BTC: VAT must come from server-side Product, not client claim.
+        // ============================================================================
+
+        [Fact]
+        public async Task CreateOrderFromCommandAsync_ShouldSnapshotProductNameAndVatRateFromProduct()
+        {
+            // Arrange: Product with non-default VAT (5%) and explicit name.
+            Guid productId = Guid.NewGuid();
+            Product product = new(_testTenantId, "Cà phê đen", 25.0m, "Cà phê", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(product, productId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(productId));
+            // Set VatRate via the full constructor path — use Update to set 5%.
+            product.Update("Cà phê đen", "", 25.0m, "Cà phê", true, null, 0.05m);
+
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(product);
+
+            CreateOrderCommand command = new()
+            {
+                CustomerDeviceId = Guid.NewGuid(),
+                Items =
+                [
+                    new() { ProductId = productId, Quantity = 2, UnitPrice = 25.0m }
+                ]
+            };
+
+            _ = _mockOrderRepository
+                .Setup(x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Order o, CancellationToken _) => o);
+            _mockOrderRepository
+                .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>().Object);
+
+            // Act
+            Order result = await _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value);
+
+            // Assert: snapshot fields reflect the Product entity, not factory defaults.
+            _ = result.Items.Should().HaveCount(1);
+            OrderItem item = result.Items.First();
+            _ = item.ProductName.Should().Be("Cà phê đen");
+            _ = item.VatRate.Should().Be(0.05m);
+            // Per-item VatAmount = SubTotal * VatRate = (2 * 25) * 0.05 = 2.5
+            _ = item.VatAmount.Should().Be(2.5m);
+            // Order total VAT = 2.5 (not 5.0 which the old 0.10m default would produce)
+            _ = result.TotalVatAmount.Should().Be(2.5m);
+        }
+
+        [Fact]
+        public async Task CreateOrderFromCommandAsync_ShouldThrowWhenProductNotFound()
+        {
+            // Arrange: ProductId that doesn't exist in repository.
+            Guid missingProductId = Guid.NewGuid();
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(missingProductId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Product?)null);
+
+            CreateOrderCommand command = new()
+            {
+                CustomerDeviceId = Guid.NewGuid(),
+                Items =
+                [
+                    new() { ProductId = missingProductId, Quantity = 1, UnitPrice = 10.0m }
+                ]
+            };
+
+            _mockOrderRepository
+                .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>().Object);
+
+            // Act + Assert: fail fast — no ghost "Unknown" stubs.
+            _ = await Assert.ThrowsAsync<KeyNotFoundException>(
+                () => _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value));
+        }
+
+        [Fact]
+        public async Task CreateOrderFromCommandAsync_ShouldHandleMixedVatRates()
+        {
+            // Arrange: two products with different VAT rates (5% and 0%).
+            Guid productAId = Guid.NewGuid();
+            Guid productBId = Guid.NewGuid();
+            Product productA = new(_testTenantId, "Trà sữa", 50.0m, "Trà", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(productA, productAId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(productA, new ProductId(productAId));
+            productA.Update("Trà sữa", "", 50.0m, "Trà", true, null, 0.05m);
+
+            Product productB = new(_testTenantId, "Nước lọc", 10.0m, "Nước", 0m);
+            typeof(Product).GetProperty("Id")!.SetValue(productB, productBId);
+            typeof(Product).GetProperty("ProductId")!.SetValue(productB, new ProductId(productBId));
+            productB.Update("Nước lọc", "", 10.0m, "Nước", true, null, 0.00m);
+
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productAId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(productA);
+            _ = _mockProductRepository
+                .Setup(x => x.GetByIdAsync(new ProductId(productBId), _testTenantId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(productB);
+
+            CreateOrderCommand command = new()
+            {
+                CustomerDeviceId = Guid.NewGuid(),
+                Items =
+                [
+                    new() { ProductId = productAId, Quantity = 1, UnitPrice = 50.0m }, // VAT 5% → 2.5
+                    new() { ProductId = productBId, Quantity = 2, UnitPrice = 10.0m }  // VAT 0% → 0
+                ]
+            };
+
+            _ = _mockOrderRepository
+                .Setup(x => x.AddAsyncNoSave(It.IsAny<Order>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Order o, CancellationToken _) => o);
+            _mockOrderRepository
+                .Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new Mock<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction>().Object);
+
+            // Act
+            Order result = await _orderService.CreateOrderFromCommandAsync(command, _testTenantId.Value);
+
+            // Assert: per-item VAT correctly snapshot from Product.
+            _ = result.Items.Should().HaveCount(2);
+            List<OrderItem> itemList = result.Items.ToList();
+            _ = itemList[0].ProductName.Should().Be("Trà sữa");
+            _ = itemList[0].VatRate.Should().Be(0.05m);
+            _ = itemList[0].VatAmount.Should().Be(2.5m);
+            _ = itemList[1].ProductName.Should().Be("Nước lọc");
+            _ = itemList[1].VatRate.Should().Be(0.00m);
+            _ = itemList[1].VatAmount.Should().Be(0m);
+            // Total VAT = 2.5 + 0 = 2.5
+            _ = result.TotalVatAmount.Should().Be(2.5m);
         }
 
         [Theory]

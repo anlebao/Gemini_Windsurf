@@ -323,6 +323,11 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("VAT_Display_Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("Voice_Note_Enabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")

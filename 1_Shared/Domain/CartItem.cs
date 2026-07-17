@@ -12,8 +12,12 @@ namespace VanAn.Shared.Domain
         public required string Description { get; init; } = string.Empty;
         public required int Quantity { get; init; }
         public required decimal UnitPrice { get; init; }
+        public decimal VatRate { get; init; } = 0.10m;  // RC-7: snapshot from Product
 
-        // Computed property
+        // Computed properties
         public decimal TotalPrice => Quantity * UnitPrice;
+        // VAT-inclusive extraction: UnitPrice is gross, net = gross / (1 + rate)
+        public decimal VatAmount => TotalPrice - (TotalPrice / (1 + VatRate));
+        public decimal NetAmount => TotalPrice - VatAmount;
     }
 }

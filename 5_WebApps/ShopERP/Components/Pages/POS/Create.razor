@@ -14,6 +14,7 @@
 @using VanAn.CoreHub.Commands
 @inject IOrderService OrderService
 @inject IProductService ProductService
+@inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
 @inject ILogger<Create> Logger
 @inject NavigationManager NavigationManager
@@ -95,6 +96,18 @@
                         }
 
                         <hr />
+                        @if (_vatDisplayEnabled && cartItems.Count > 0)
+                        {
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>Tạm tính:</span>
+                                <span>@cartItems.Sum(i => i.NetAmount).ToString("N0") đ</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>VAT:</span>
+                                <span>@cartItems.Sum(i => i.VatAmount).ToString("N0") đ</span>
+                            </div>
+                            <hr />
+                        }
                         <div class="pos-cart-total">
                             <strong>Tổng cộng: @cartTotal.ToString("N0") đ</strong>
                         </div>
@@ -135,6 +148,7 @@
     private string customerName = string.Empty;
     private string customerPhone = string.Empty;
     private string tableNumber = string.Empty;
+    private bool _vatDisplayEnabled = true;
 
     private decimal cartTotal => cartItems.Sum(i => i.UnitPrice * i.Quantity);
 
@@ -143,6 +157,9 @@
         try
         {
             products = await ProductService.GetAllForManagementAsync(TenantProvider.TenantId);
+            // RC-7: Load VAT display toggle.
+            _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(
+                TenantProvider.TenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
         }
         catch (Exception ex)
         {
@@ -170,6 +187,7 @@
                 ProductId = product.ProductId,
                 ProductName = product.Name,
                 UnitPrice = product.Price,
+                VatRate = product.VatRate,
                 Quantity = 1
             });
         }
@@ -241,6 +259,10 @@
         public Guid ProductId { get; init; }
         public string ProductName { get; init; } = string.Empty;
         public decimal UnitPrice { get; init; }
+        public decimal VatRate { get; init; } = 0.10m;
         public int Quantity { get; init; }
+        public decimal TotalPrice => UnitPrice * Quantity;
+        public decimal VatAmount => TotalPrice - (TotalPrice / (1 + VatRate));
+        public decimal NetAmount => TotalPrice - VatAmount;
     }
 }

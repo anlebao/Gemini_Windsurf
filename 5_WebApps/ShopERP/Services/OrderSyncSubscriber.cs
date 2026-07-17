@@ -160,10 +160,7 @@ namespace VanAn.ShopERP.Services
                         string productName = item.TryGetProperty("ProductName", out var pnProp) ? pnProp.GetString() ?? "" : "";
                         decimal vatRate = item.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.10m;
 
-                        var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice, productName);
-                        // Set VatRate via reflection (protected setter — same pattern as OrderItem.Create sets Id).
-                        // TotalAmount is computed (SubTotal + VatAmount), no need to set.
-                        typeof(OrderItem).GetProperty("VatRate")?.SetValue(orderItem, vatRate);
+                        var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice, productName, vatRate);
                         items.Add(orderItem);
                     }
                 }

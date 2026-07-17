@@ -61,6 +61,7 @@ public class ShopFeatureSettingsHttpService(IHttpClientFactory httpClientFactory
             nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled) => settings.Loyalty_Program_Enabled,
             nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled) => settings.Accounting_Sync_Enabled,
             nameof(ShopFeatureSettingsDto.EInvoice_Auto_Export_Enabled) => settings.EInvoice_Auto_Export_Enabled,
+            nameof(ShopFeatureSettingsDto.VAT_Display_Enabled) => settings.VAT_Display_Enabled,
             _ => false
         };
     }

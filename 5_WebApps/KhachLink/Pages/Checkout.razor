@@ -4,9 +4,12 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Models
 @using VanAn.UI.Platform.Components
+@using VanAn.KhachLink.Services.Http
+@using VanAn.CoreHub.Services
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject VanAn.KhachLink.Services.CheckoutFlowState CheckoutFlow
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
+@inject ShopFeatureSettingsHttpService FeatureSettings
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
@@ -53,6 +56,18 @@
                         }
 
                         <hr />
+                        @if (_vatDisplayEnabled && _createdSubTotal > 0)
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Tạm tính (chưa VAT):</span>
+                                <span>@_createdSubTotal.ToString("N0") VNĐ</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>VAT:</span>
+                                <span>@_createdVatAmount.ToString("N0") VNĐ</span>
+                            </div>
+                            <hr />
+                        }
                         <div class="d-flex justify-content-between">
                             <h5 class="text-danger">Tổng cộng:</h5>
                             <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
@@ -164,6 +179,18 @@
                             </div>
                         }
                         <hr />
+                        @if (_vatDisplayEnabled)
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Tạm tính (chưa VAT):</span>
+                                <span>@cartState.NetSubTotal.ToString("N0") VNĐ</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>VAT:</span>
+                                <span>@cartState.TotalVatAmount.ToString("N0") VNĐ</span>
+                            </div>
+                            <hr />
+                        }
                         <div class="d-flex justify-content-between">
                             <h5 class="text-danger">Tổng cộng:</h5>
                             <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
@@ -201,6 +228,9 @@
     private Guid tenantId;
     private string? shopName;
     private List<CartItem> cartSnapshot = new();
+    private bool _vatDisplayEnabled = true;
+    private decimal _createdSubTotal;
+    private decimal _createdVatAmount;
 
     // Guest form fields
     private string guestName = string.Empty;
@@ -343,6 +373,18 @@
                 qrImageUrl = result?.QrImageUrl;
                 tenantId = result?.TenantId ?? Guid.Empty;
                 orderCreated = true;
+                _createdSubTotal = result?.SubTotal ?? 0m;
+                _createdVatAmount = result?.TotalVatAmount ?? 0m;
+
+                // RC-7: Load VAT display toggle for post-checkout summary.
+                if (tenantId != Guid.Empty)
+                {
+                    try
+                    {
+                        _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
+                    }
+                    catch { /* non-critical — default to true */ }
+                }
 
                 // Bug 0: Fetch shop name for display in order details
                 if (tenantId != Guid.Empty)
@@ -425,6 +467,10 @@
         public string? PaymentUrl { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
         public decimal Amount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("subTotal")]
+        public decimal SubTotal { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("totalVatAmount")]
+        public decimal TotalVatAmount { get; set; }
     }
 
     // Profile DTO for pre-filling checkout form when customer is logged in.

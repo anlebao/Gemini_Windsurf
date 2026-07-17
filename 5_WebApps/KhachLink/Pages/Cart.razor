@@ -1,10 +1,13 @@
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@using VanAn.CoreHub.Services
 @page "/cart"
 @rendermode InteractiveServer
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject NavigationManager Navigation
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
+@inject ShopFeatureSettingsHttpService FeatureSettings
 @implements IDisposable
 
 <PageTitle>Giỏ hàng - KhachLink</PageTitle>
@@ -67,6 +70,13 @@
                                 <span>Tạm tính:</span>
                                 <strong>@cartState.SubTotal.ToString("N0") VNĐ</strong>
                             </div>
+                            @if (_vatDisplayEnabled)
+                            {
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>VAT:</span>
+                                    <strong>@cartState.TotalVatAmount.ToString("N0") VNĐ</strong>
+                                </div>
+                            }
                             <hr />
                             <div class="d-flex justify-content-between mb-3">
                                 <h5>Tổng cộng:</h5>
@@ -88,6 +98,7 @@
 
 @code {
     private VanAn.KhachLink.Services.CartState cartState = new();
+    private bool _vatDisplayEnabled = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +113,12 @@
             // JSRuntime is only available after hydration (not during static prerender).
             // Load cart from localStorage here so items added on other pages persist.
             await CartService.LoadCartFromStorageAsync();
+            // RC-7: Load VAT display toggle from shop settings.
+            Guid tenantId = TenantService.GetCurrentTenantId();
+            if (tenantId != Guid.Empty)
+            {
+                _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
+            }
             StateHasChanged();
         }
     }

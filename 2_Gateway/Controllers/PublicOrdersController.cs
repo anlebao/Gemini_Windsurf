@@ -131,7 +131,9 @@ namespace VanAn.Gateway.Controllers
                     TenantId = createdOrder.TenantId.Value,
                     QrImageUrl = (string?)null,
                     PaymentUrl = (string?)null,
-                    Amount = createdOrder.TotalAmount
+                    Amount = createdOrder.TotalAmount,
+                    SubTotal = createdOrder.SubTotal,
+                    TotalVatAmount = createdOrder.TotalVatAmount
                 });
             }
             catch (Exception ex)
@@ -165,13 +167,17 @@ namespace VanAn.Gateway.Controllers
                     PaymentStatus = order.PaymentStatus ?? "pending",
                     CreatedAt = order.CreatedAt,
                     TotalPrice = order.TotalPrice,
+                    SubTotal = order.SubTotal,
+                    TotalVatAmount = order.TotalVatAmount,
                     ItemCount = order.Items.Count,
                     TenantId = order.TenantId.Value,
                     Items = order.Items.Select(i => new PublicOrderItemDto
                     {
                         Quantity = i.Quantity,
                         UnitPrice = i.UnitPrice,
-                        TotalPrice = i.TotalPrice
+                        TotalPrice = i.TotalPrice,
+                        VatRate = i.VatRate,
+                        VatAmount = i.VatAmount
                     }).ToList()
                 };
 

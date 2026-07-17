@@ -45,6 +45,13 @@
                 
                 <div class="cart-total-section">
                     <VanAnCard CssClass="cart-total-card" Shadow="false">
+                        @if (VatDisplayEnabled && TotalVatAmount > 0)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">VAT:</small>
+                                <small class="text-muted">@CurrencyHelper.FormatVND(TotalVatAmount)</small>
+                            </div>
+                        }
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <span>Tổng cộng:</span>
                             <strong class="text-success">@CurrencyHelper.FormatVND(TotalAmount)</strong>
@@ -159,6 +166,14 @@
     
     [Parameter]
     public decimal TotalAmount { get; set; }
+
+    /// <summary>RC-7: VAT amount for display. Shown only when VatDisplayEnabled is true.</summary>
+    [Parameter]
+    public decimal TotalVatAmount { get; set; }
+
+    /// <summary>RC-7: Toggle from ShopFeatureSettings — controls VAT line visibility.</summary>
+    [Parameter]
+    public bool VatDisplayEnabled { get; set; } = true;
     
     [Parameter]
     public Action<Guid>? RemoveFromCart { get; set; }

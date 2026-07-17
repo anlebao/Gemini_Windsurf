@@ -260,8 +260,7 @@ namespace VanAn.Gateway.Services
                     string productName = item.TryGetProperty("ProductName", out var pnProp) ? pnProp.GetString() ?? "" : "";
                     decimal vatRate = item.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.10m;
 
-                    var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice, productName);
-                    typeof(OrderItem).GetProperty("VatRate")?.SetValue(orderItem, vatRate);
+                    var orderItem = OrderItem.Create(itemId, tenantIdObj, orderId, productId, quantity, unitPrice, productName, vatRate);
                     items.Add(orderItem);
                 }
             }

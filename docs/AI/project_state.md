@@ -1,7 +1,7 @@
 # Project State
 
 > **M?c d�ch:** Single Source of Truth cho AI v? tr?ng th�i d? �n. B?T BU?C d?c d?u m?i phi�n.
-> **Archived:** 2026-07-08 � completed waves moved to `docs/AI/project_state_archive.md`
+> **Archived:** 2026-07-17 — completed Single-Identity Refactor moved to `docs/AI/project_state_archive.md`
 
 ---
 
@@ -30,37 +30,31 @@
 
 ## 2. Current Objective
 
-**[SINGLE-IDENTITY REFACTOR (HƯỚNG A) — ALL ENTITIES + VPS CRASH FIX]**
+**[AWAITING NEXT APPROVED OBJECTIVE]**
 
-Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities that had dual-GUID defect: `Product`, `Customer`, `OrderItem`, `Ingredient`, `Recipe`. `BaseEntity.Id` (PK) is the ONLY identity column. Business key VOs (ProductId, CustomerId, OrderItemId, IngredientId, RecipeId) are Ignored in EF Core config — no DB columns.
+QuickSetup + Product Management Phases 1–6 are complete and archived. The next work item has not been selected.
 
-**Status (2026-07-17): COMPLETE + VPS VERIFIED**
-- **Domain refactor:** COMPLETE — all 5 entity constructors sync `Id = BusinessKey.Value`.
-- **EF config:** COMPLETE — all 5 entities have `Ignore(BusinessKey)`.
-- **Production code:** COMPLETE — all `.BusinessKey.Value` reads changed to `.Id`.
-- **Migrations:** COMPLETE — SQLite + PostgreSQL migrations drop BusinessKey columns.
-- **Architecture rule:** COMPLETE — "Single-Identity Pattern (HARD STOP)" added to governance.md.
-- **ShopERP 502 FIX:** COMPLETE — seed product check now checks `p.Id == sqliteProd.Id` first (root cause: PG had product with same Id but different Name → PK violation). Try-catch swallows around migrations removed (fail-fast). Migration skip hack reverted.
-- **PG garbage cleanup:** COMPLETE — deleted duplicate product `1581168b-...` ("Sinh Tố bơ" vs correct "Sinh tố bơ"), updated 1 OrderItem reference.
-- **VPS deploy:** COMPLETE — manually deployed (CD failed due to disk full, cleaned 22GB Docker images). All containers healthy. `khachvip.online/` → 200, `/health` → 200, `diemthuong.khachvip.online/` → 200.
-- **Commits:** `e6ff8ee0` (fix), `e70c91a7` (CD retry).
+**Status (2026-07-17): READY FOR PLANNING**
+- Product Management UI, QR-code single/batch printing, and the focused E2E specifications are implemented.
+- Runtime execution results for the Phase 6 production E2E specifications are not recorded in this state file.
+- **RC-7 fix COMPLETE (2026-07-17):** `OrderService.CreateOrderFromCommandAsync` now loads Product entities and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation time. TT 152/2025/TT-BTC compliance restored. Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Domain `OrderItem.Create` factory extended with `vatRate` param (backward-compatible default). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. 998/998 Core.Tests pass.
+- **VAT Display UI COMPLETE (2026-07-17):** VAT breakdown (Tạm tính / VAT / Tổng cộng) now shown on Cart, Checkout, OrderTracking, OrderHistory, POS, and CartDrawer — conditional on new `VAT_Display_Enabled` shop feature toggle (default ON). Small HKDs turn it OFF in Shop Settings. `CartItem` record extended with `VatRate`/`VatAmount`/`NetAmount`. `CartState.TotalVatAmount` computes real VAT (was hardcoded 0). `PublicOrderTrackingDto` + `PublicOrderItemDto` + `CustomerOrderDto` + checkout response extended with VAT fields. 1006/1007 Core.Tests pass (1 flaky perf test unrelated).
 
-**Previous (completed):** Order UUIDv7 Single Identity Refactor (5 phases + VPS verified) -> ShopERP UI Fix Batch + Sitemap/Nav Restructure -> Order Sync Fix + Edge Kitchen UI + VPS Data Sync Hardening -> QuickSetup + Product Management plan (IMPLEMENT PENDING - parked) -> Tiered Auth P0-P3 -> KhachLink Waves 0-4 -> Accounting PostgreSQL 3 Waves -> KhachLink UI/UX Fix -> Payment Webhook Fix (pending VPS deploy). See archive for details.
+**Archived (2026-07-17):** QuickSetup + Product Management Phases 4–6 and the Single-Identity Refactor (Hướng A). See `docs/AI/project_state_archive.md`.
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `d9041adb` [STATE] Payment Webhook Fix VPS VERIFIED + next: QuickSetup
+- **Last commit:** `f2c3ef1e` [FIX] Gateway: forward OTP login + profile endpoints to ShopERP
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-17):** 0 errors. VanAn.sln build PASS.
-- **Single-Identity Refactor (2026-07-17 - COMPLETE + VPS VERIFIED):** All 5 entities refactored. 12 commits pushed (b8584a8a → e70c91a7). ShopERP 502 fixed (seed check by Id + fail-fast migrations). PG garbage cleaned. VPS all containers healthy.
-- **Anti-pattern audit (2026-07-17 - COMPLETE):** Try-catch swallows around migrations removed. Fail-fast pattern applied.
+- **Gateway/KhachLink authentication fixes (2026-07-17):** Latest commits `7158c0eb`, `781bae97`, and `f2c3ef1e` fix Google-login redirect, Android PWA install, order-history/checkout prefill, and Gateway forwarding of OTP/profile endpoints to ShopERP. Runtime verification is not recorded in this state file.
 - **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
 - **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
-- **QuickSetup + Product Management (2026-07-14 → 2026-07-17):** Master plan + 6 task cards. **Phase 1 (QuickSetup fix) COMPLETE** — @rendermode, [Authorize], IOnboardingService inject, tenantId from query string, TemplateType Guid fix, TenantManagement button, Sitemap link. **Phase 2 (Domain) COMPLETE** — Product.Update/Deactivate/Activate/MarkAsDeleted methods added. **Phase 3 (CRUD API) COMPLETE** — IProductRepository, IProductService, IImageStorageService (Cloudinary), 3 DTOs, 8 controller endpoints (GET manage, POST, PUT, DELETE, activate, deactivate, image upload). **Phase 4-6 PENDING** (UI + QR Print + E2E).
+- **QuickSetup + Product Management (2026-07-14 → 2026-07-17): COMPLETE.** All six phases are implemented. Phase 4 `/products` UI + `CurrencyHelper`: `a9766442`; Phase 5 QR view/single+batch print: `fdb25eb3`; Phase 6 product CRUD, QR print, and QuickSetup E2E specs: `69a3642f`. Execution results for those production E2E specs are not recorded here.
 - **Tiered Auth:** P0-P3 PASS (Online RV 14/14 PASS). P4 Facebook - P5 Zalo ZNS - P6 E2E.
 - **Payment Webhook Fix:** COMPLETE + VPS VERIFIED (2026-07-17). Webhook 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed.
 - **Local infra (Debug):** Docker + PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
@@ -70,20 +64,10 @@ Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities 
 
 ## 4. Next Actions
 
-**Immediate (QuickSetup + Product Management - Phase 4-6 IMPLEMENT):**
-1. **Phase 4:** Product Management UI — `/products` page (VanAnDataGrid + create/edit modal + delete/reactivate + image upload). Prerequisite: fix VanAnButton disabled bug + VanAnDataGrid render order bug. Create shared CurrencyHelper.
-2. **Phase 5:** QR Code view + print (single + batch print A4 layout)
-3. **Phase 6:** E2E tests (product CRUD flow + QR print + QuickSetup flow)
+**No active implementation item:** Select and approve the next objective before starting new work.
 
 **Deferred (pre-existing, not blocking):**
-1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column - schema migration gap.
-2. **Fix GET /dev/login route ambiguity:** Pre-existing routing conflict.
-3. **PostgreSQL migrations sync:** PostgreSQL only has 2 migrations vs SQLite has 6+. `Customers.IdentityLevel` manually added on VPS. Not blocking E2E.
-4. **Payment webhook 400 (pre-existing AuditLog bug):** Payment webhook returns 400 due to AuditLog tenant ID mismatch. Order still marked Paid.
-5. **Access Matrix Phase 1: ANALYZE** - when user approve `platform_systemadmin_access_matrix_master_plan.md`
-6. **W8: Final Regression + Production Tag** - full regression + `saas-production-v1.0` tag
-7. **Roslyn Analyzer wiring fix** - Tier 4 debt, low priority
-8. **RC-7 debt:** OrderService doesn't enrich OrderItems with ProductName/VatRate from Product entity (pre-existing, not sync bug).
+- *(none — RC-7 resolved 2026-07-17)*
 
 ## 5. Active Architecture Decisions
 
@@ -189,6 +173,16 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-17 -- VAT DISPLAY UI COMPLETE.** Added `VAT_Display_Enabled` shop feature toggle (7th toggle, default ON). `CartItem` record extended with `VatRate`/`VatAmount`/`NetAmount` (VAT-inclusive extraction). `CartState` computes real `TotalVatAmount` + `NetSubTotal`. `PublicOrderTrackingDto` + `PublicOrderItemDto` + `CustomerOrderDto` + checkout response extended with VAT fields. UI breakdown (Tạm tính / VAT / Tổng cộng) on Cart, Checkout, OrderTracking, OrderHistory, POS Create, CartDrawer — all conditional on toggle. EF migrations: SQLite + PostgreSQL. 1006/1007 Core.Tests pass (1 flaky perf test). Branch: `main`.
+* **2026-07-17 -- RC-7 FIX COMPLETE.** `OrderService.CreateOrderFromCommandAsync` now loads Product entities via `IProductRepository` and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation. Domain `OrderItem.Create` factory + constructor extended with `vatRate` param (backward-compatible default 0.10m). Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. Gateway Program.cs registers `IProductRepository`. 998/998 Core.Tests pass (3 new RC-7 tests + 1 updated). Branch: `main`.
+* **2026-07-17 -- DEFERRED SCOPE PRUNED.** Removed user-deprioritized items: PostgreSQL migration synchronization, Access Matrix Phase 1 analysis, W8 final regression/production tag, and Roslyn Analyzer wiring. Remaining deferred work: RC-7 OrderItem product-data snapshotting. Branch: `main`.
+
+* **2026-07-17 -- DEFERRED BUG AUDIT: PAYMENT WEBHOOK RESOLVED; RC-7 CONFIRMED.** Removed the stale payment-webhook/AuditLog 400 entry: `WebhookController` sets the anonymous callback tenant before payment processing (`fd7b0385`), and `AuditLogRepository` resolves the tenant lazily at execution (`9a0934bd`). Focused payment-confirmation tests: 16/16 PASS. RC-7 remains: `CreateOrderFromCommandAsync` does not resolve Product data before creating `OrderItem`, so `ProductName` and actual `VatRate` are not snapshotted. Branch: `main`.
+
+* **2026-07-17 -- DEFERRED BUG AUDIT: TWO ITEMS RESOLVED.** Removed stale deferred entries: (1) Gateway SQLite `AccountingEntries.AccountCode` gap is covered by the idempotent startup schema patch added in `d9cb377f`; (2) `/dev/login` ambiguity was already resolved by removing the duplicate minimal endpoint, leaving controller actions as the only handlers. Focused `DevLoginControllerReleaseBuildGuardTests`: 3/3 PASS. Branch: `main`.
+
+* **2026-07-17 -- PRODUCT MANAGEMENT PHASES 4–6 VERIFIED IMPLEMENTED + STATE ARCHIVED.** Source and git history confirm: Phase 4 `/products` UI + CurrencyHelper (`a9766442`), Phase 5 QR view/single+batch print (`fdb25eb3`), and Phase 6 product CRUD, QR print, QuickSetup E2E specs (`69a3642f`). Moved the completed wave into `project_state_archive.md`; active objective is now awaiting approval. Ground truth: branch `main`, latest code commit `f2c3ef1e`. Branch: `main`.
 
 * **2026-07-17 -- PAYMENT WEBHOOK FIX VPS VERIFIED + QUICKSETUP/PRODUCT MGMT PHASE 1-3 AUDITED.** Payment Webhook: POST /api/webhooks/payment on khachvip.online → 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed. QuickSetup/Product Management audit: verified Phase 1 (QuickSetup fix), Phase 2 (Domain Product.Update/Deactivate/Activate/MarkAsDeleted), Phase 3 (CRUD API — IProductRepository, IProductService, IImageStorageService, 3 DTOs, 8 controller endpoints) ALL ALREADY COMPLETE in codebase from prior sessions. Phase 4-6 (UI + QR Print + E2E) are next. Branch: `main`.
 

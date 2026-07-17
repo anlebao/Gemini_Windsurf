@@ -13,6 +13,10 @@ namespace VanAn.Shared.DTOs
         public string PaymentStatus { get; init; } = string.Empty;
         public DateTime CreatedAt { get; init; }
         public decimal TotalPrice { get; init; }
+        /// <summary>RC-7: Net subtotal (before VAT) for VAT breakdown display.</summary>
+        public decimal SubTotal { get; init; }
+        /// <summary>RC-7: Total VAT amount for VAT breakdown display.</summary>
+        public decimal TotalVatAmount { get; init; }
         public int ItemCount { get; init; }
         public List<PublicOrderItemDto> Items { get; init; } = new();
         /// <summary>W1-T9: Tenant GUID — needed by KhachLink to fetch shop feature toggles (kitchen workflow visibility).</summary>
@@ -28,5 +32,9 @@ namespace VanAn.Shared.DTOs
         public int Quantity { get; init; }
         public decimal UnitPrice { get; init; }
         public decimal TotalPrice { get; init; }
+        /// <summary>RC-7: Per-item VAT rate for display.</summary>
+        public decimal VatRate { get; init; }
+        /// <summary>RC-7: Per-item VAT amount for display.</summary>
+        public decimal VatAmount { get; init; }
     }
 }

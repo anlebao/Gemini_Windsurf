@@ -806,7 +806,7 @@ namespace VanAn.Shared.Domain
 
         protected OrderItem() { }
 
-        public OrderItem(TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice, string productName = "")
+        public OrderItem(TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice, string productName = "", decimal vatRate = 0.10m)
             : base(tenantId)
         {
             OrderId = orderId;
@@ -814,16 +814,18 @@ namespace VanAn.Shared.Domain
             Quantity = quantity;
             UnitPrice = unitPrice;
             ProductName = productName;
+            VatRate = vatRate;
         }
 
         /// <summary>
         /// DDD Compliant Static Factory Method - Domain-Driven Design
         /// Phase 2.5.4: Unified API Integration - Single Backend Service
-        /// Creates a new OrderItem entity with proper domain encapsulation
+        /// Creates a new OrderItem entity with proper domain encapsulation.
+        /// RC-7 fix: vatRate parameter snapshots the actual Product.VatRate (TT 152/2025/TT-BTC compliance).
         /// </summary>
-        public static OrderItem Create(Guid id, TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice, string productName = "")
+        public static OrderItem Create(Guid id, TenantId tenantId, Guid orderId, Guid productId, int quantity, decimal unitPrice, string productName = "", decimal vatRate = 0.10m)
         {
-            OrderItem orderItem = new(tenantId, orderId, productId, quantity, unitPrice, productName);
+            OrderItem orderItem = new(tenantId, orderId, productId, quantity, unitPrice, productName, vatRate);
 
             // SINGLE-IDENTITY: Sync both Id (PK) and OrderItemId (business key) to same value.
             Type orderItemType = typeof(OrderItem);

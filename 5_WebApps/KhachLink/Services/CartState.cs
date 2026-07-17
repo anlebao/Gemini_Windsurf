@@ -8,7 +8,8 @@ namespace VanAn.KhachLink.Services
     {
         public List<CartItem> Items { get; set; } = [];
         public decimal SubTotal => Items.Sum(item => item.TotalPrice);
-        public decimal TotalVatAmount => 0; // VAT not currently supported in Domain CartItem
+        public decimal NetSubTotal => Items.Sum(item => item.NetAmount);
+        public decimal TotalVatAmount => Items.Sum(item => item.VatAmount);
         public decimal TotalAmount => Items.Sum(item => item.TotalPrice);
 
         public void AddItem(ProductDto product, int quantity = 1)
@@ -34,7 +35,8 @@ namespace VanAn.KhachLink.Services
                     ProductName = product.Name,
                     Description = product.Description ?? string.Empty,
                     Quantity = quantity,
-                    UnitPrice = product.Price
+                    UnitPrice = product.Price,
+                    VatRate = product.VatRate
                 });
             }
         }

@@ -31,6 +31,11 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// <summary>Toggle: auto-export e-invoice when order completed. Default: OFF (chờ sandbox Viettel/MISA).</summary>
     public bool EInvoice_Auto_Export_Enabled { get; private set; }
 
+    /// <summary>Toggle: show VAT breakdown (Tạm tính / VAT / Tổng) on customer-facing UI. Default: ON.
+    /// Small HKDs not issuing VAT invoices turn this OFF. Backend always computes VAT separately
+    /// for future HKD→Công Ty migration.</summary>
+    public bool VAT_Display_Enabled { get; private set; } = true;
+
     /// <summary>KhachLink OrderTracking polling interval in seconds. Default: 15. Range: 5-120.</summary>
     public int PollingIntervalSeconds { get; private set; } = 15;
 
@@ -45,6 +50,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Loyalty_Program_Enabled = true;
         Accounting_Sync_Enabled = true;
         EInvoice_Auto_Export_Enabled = false;
+        VAT_Display_Enabled = true;
         PollingIntervalSeconds = 15;
     }
 
@@ -56,7 +62,8 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool loyaltyProgram,
         bool accountingSync,
         bool einvoiceAutoExport,
-        int pollingIntervalSeconds = 15)
+        int pollingIntervalSeconds = 15,
+        bool vatDisplay = true)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -64,6 +71,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Loyalty_Program_Enabled = loyaltyProgram;
         Accounting_Sync_Enabled = accountingSync;
         EInvoice_Auto_Export_Enabled = einvoiceAutoExport;
+        VAT_Display_Enabled = vatDisplay;
         PollingIntervalSeconds = Math.Clamp(pollingIntervalSeconds, 5, 120);
         UpdateAudit();
     }

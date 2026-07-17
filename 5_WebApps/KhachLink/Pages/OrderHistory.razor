@@ -2,9 +2,12 @@
 @rendermode InteractiveServer
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@using VanAn.CoreHub.Services
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject ShopFeatureSettingsHttpService FeatureSettings
 
 <PageTitle>Lịch sử đơn hàng</PageTitle>
 
@@ -62,6 +65,10 @@
                             <div class="text-end">
                                 <span class="badge @GetStatusClass(order.Status) mb-1 d-block">@GetStatusLabel(order.Status)</span>
                                 <div class="fw-bold text-primary">@FormatVND(order.TotalPrice)</div>
+                                @if (_vatDisplayEnabled && order.TotalVatAmount > 0)
+                                {
+                                    <small class="text-muted">VAT: @FormatVND(order.TotalVatAmount)</small>
+                                }
                             </div>
                         </div>
                         <div class="mt-2">
@@ -103,6 +110,7 @@
     private int _totalCount = 0;
     private const int PageSize = 10;
     private string? _activeStatus = null;
+    private bool _vatDisplayEnabled = true;
 
     private static readonly List<(string Label, string? Value)> _statusTabs = new()
     {
@@ -118,6 +126,29 @@
         if (firstRender)
         {
             await LoadOrders();
+            // RC-7: Load VAT display toggle after orders are loaded.
+            // Uses customer token to fetch shop settings — tenant is resolved server-side.
+            try
+            {
+                var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+                if (!string.IsNullOrEmpty(token))
+                {
+                    // Fetch customer profile to get tenantId for feature toggle lookup.
+                    var client = HttpClientFactory.CreateClient("gateway");
+                    client.DefaultRequestHeaders.Add("X-Customer-Token", token);
+                    var profileResp = await client.GetAsync("/api/customers/me");
+                    if (profileResp.IsSuccessStatusCode)
+                    {
+                        var profile = await profileResp.Content.ReadFromJsonAsync<CustomerProfileLite>();
+                        if (profile != null && profile.TenantId != Guid.Empty)
+                        {
+                            _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(
+                                profile.TenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
+                        }
+                    }
+                }
+            }
+            catch { /* non-critical — default to true */ }
             StateHasChanged();
         }
     }
@@ -193,8 +224,17 @@
         public Guid OrderId { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal TotalPrice { get; set; }
+        public decimal TotalVatAmount { get; set; }
         public DateTime CreatedAt { get; set; }
         public int ItemCount { get; set; }
+    }
+
+    // RC-7: Lightweight profile DTO for fetching TenantId to load VAT display toggle.
+    private class CustomerProfileLite
+    {
+        public Guid CustomerId { get; set; }
+        public Guid TenantId { get; set; }
+        public string FullName { get; set; } = string.Empty;
     }
 
     private class OrdersResult

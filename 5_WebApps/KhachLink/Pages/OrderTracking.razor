@@ -150,6 +150,11 @@
                                         </span>
                                     </p>
                                     <p><strong>Ngày đặt:</strong> @_publicOrder.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                                    @if (_vatDisplayEnabled && _publicOrder.TotalVatAmount > 0)
+                                    {
+                                        <p><strong>Tạm tính:</strong> @_publicOrder.SubTotal.ToString("N0")đ</p>
+                                        <p><strong>VAT:</strong> @_publicOrder.TotalVatAmount.ToString("N0")đ</p>
+                                    }
                                     <p><strong>Tổng tiền:</strong> @_publicOrder.TotalPrice.ToString("N0")đ</p>
                                 </div>
 
@@ -228,6 +233,8 @@
     private bool kitchenEnabled = true;
     // W2-T4: Loyalty toggle — controls IdentityUpgradeModal vs "Cảm ơn" message
     private bool loyaltyEnabled = true;
+    // RC-7: VAT display toggle — show/hide VAT breakdown on tracking page
+    private bool _vatDisplayEnabled = true;
     // W2-T1: Customer confirm receipt state
     private bool _confirmingReceipt = false;
 
@@ -263,6 +270,10 @@
                 loyaltyEnabled = await FeatureSettings.IsEnabledAsync(
                     _publicOrder.TenantId,
                     nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled));
+                // RC-7: Load VAT display toggle
+                _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(
+                    _publicOrder.TenantId,
+                    nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
                 // Load configurable polling interval
                 _pollingIntervalSeconds = await FeatureSettings.GetPollingIntervalAsync(
                     _publicOrder.TenantId, fallbackSeconds: 15);
@@ -271,6 +282,7 @@
             {
                 kitchenEnabled = true; // Default to ON if fetch fails
                 loyaltyEnabled = true;
+                _vatDisplayEnabled = true;
             }
         }
 

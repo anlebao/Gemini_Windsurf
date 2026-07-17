@@ -14,6 +14,7 @@
 @inject ITenantService TenantService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigService
+@inject VanAn.KhachLink.Services.Http.ShopFeatureSettingsHttpService FeatureSettings
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
 @inject IJSRuntime JSRuntime
 @implements IDisposable
@@ -21,9 +22,11 @@
 <PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
 
 <!-- Cart Drawer Component -->
-<CartDrawer 
+<CartDrawer
     CartItems="@cartState.Items"
     TotalAmount="@cartState.TotalAmount"
+    TotalVatAmount="@cartState.TotalVatAmount"
+    VatDisplayEnabled="@_vatDisplayEnabled"
     RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
     Checkout="async () => await GoToCheckout()" />
 
@@ -224,6 +227,7 @@
     private List<ProductDto> recentlyViewed = new();
     private ShopConfig? _shopConfig;
     private bool _isLoggedIn = false;
+    private bool _vatDisplayEnabled = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -243,6 +247,16 @@
             // Check if user is logged in (customer_token in localStorage)
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(token);
+            // RC-7: Load VAT display toggle for CartDrawer.
+            Guid tenantId = TenantService.GetCurrentTenantId();
+            if (tenantId != Guid.Empty)
+            {
+                try
+                {
+                    _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.CoreHub.Services.ShopFeatureSettingsDto.VAT_Display_Enabled));
+                }
+                catch { /* non-critical — default to true */ }
+            }
             StateHasChanged();
         }
     }

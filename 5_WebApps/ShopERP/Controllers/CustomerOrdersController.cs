@@ -53,6 +53,7 @@ namespace VanAn.ShopERP.Controllers
                     OrderId   = o.Id,
                     Status    = o.Status.Value,
                     TotalPrice = o.TotalPrice,
+                    TotalVatAmount = o.TotalVatAmount,
                     CreatedAt = o.CreatedAt,
                     ItemCount = o.Items.Count
                 })
@@ -67,6 +68,7 @@ namespace VanAn.ShopERP.Controllers
         public Guid OrderId { get; set; }
         public string Status { get; set; } = string.Empty;
         public decimal TotalPrice { get; set; }
+        public decimal TotalVatAmount { get; set; }
         public DateTime CreatedAt { get; set; }
         public int ItemCount { get; set; }
     }

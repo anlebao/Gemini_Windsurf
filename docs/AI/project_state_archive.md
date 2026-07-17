@@ -1,11 +1,46 @@
 # Project State Archive
 
 > **Mục đích:** Lưu trữ các wave đã hoàn thành để giảm file size của project_state.md
-> **Archived Date:** 2026-06-24
+> **Most Recent Archive:** 2026-07-17
 
 ---
 
 ## Archived Waves
+
+**PREVIOUS OBJECTIVE (archived)**
+**QuickSetup + Product Management — Phases 4–6**
+
+**Status:** COMPLETED (2026-07-17) — merged to `main`
+
+**Completed Actions:**
+1. Phase 4: implemented the Owner-only `/products` management page with UI Platform grid, create/edit, lifecycle actions, image upload, navigation, and `CurrencyHelper`.
+2. Phase 5: implemented product QR viewing plus single and selected-product batch printing.
+3. Phase 6: added focused production E2E specs for product CRUD, QR/print, and QuickSetup flows.
+
+**Key commits:** `a9766442` (Phase 4), `fdb25eb3` (Phase 5), `69a3642f` (Phase 6).
+
+**Archived:** 2026-07-17
+
+---
+
+**PREVIOUS OBJECTIVE (archived)**
+**Single-Identity Refactor (Hướng A) — all affected entities + VPS crash fix**
+
+**Status:** COMPLETED + VPS VERIFIED (2026-07-17) — merged to `main`
+
+**Completed Actions:**
+1. Extended the single-identity pattern to `Product`, `Customer`, `OrderItem`, `Ingredient`, and `Recipe`: constructors synchronize `BaseEntity.Id` with the business-key value object.
+2. Ignored the five business-key value objects in EF Core and migrated SQLite/PostgreSQL schemas to remove their duplicate columns.
+3. Replaced persisted-entity `.BusinessKey.Value` reads and filters with `Id`.
+4. Fixed the ShopERP production 502 by checking seed products by `Id`; removed migration exception swallowing so startup fails fast.
+5. Removed the duplicate PostgreSQL product and corrected its `OrderItem` reference; deployed manually after reclaiming VPS Docker disk space.
+6. Verified all production containers plus `khachvip.online/`, `/health`, and `diemthuong.khachvip.online/` return HTTP 200.
+
+**Key commits:** `b8584a8a` through `e70c91a7`.
+
+**Archived:** 2026-07-17
+
+---
 
 **PREVIOUS OBJECTIVE (archived)**
 **Wave 8–16 Production Hygiene + Wave 16 Production Hardening + Pre-Wave 17 Fixes**

@@ -28,7 +28,8 @@ namespace VanAn.CoreHub.Services
         IVanAnDbContext? dbContext = null,
         IOrderNotificationService? orderNotificationService = null,
         IShopFeatureSettingsService? shopFeatureSettingsService = null,
-        IOutboxRepository? outboxRepository = null) : IOrderService
+        IOutboxRepository? outboxRepository = null,
+        IProductRepository? productRepository = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -46,6 +47,10 @@ namespace VanAn.CoreHub.Services
 
         // Wave 5: DbContext for Tenant.DefaultIndustrySector lookup (Order.IndustrySector ?? Tenant.DefaultIndustrySector)
         private readonly IVanAnDbContext? _dbContext = dbContext;
+
+        // RC-7: Product repository for snapshotting ProductName + VatRate into OrderItem at creation time.
+        // TT 152/2025/TT-BTC: VAT must come from server-side Product entity, not client claim.
+        private readonly IProductRepository? _productRepository = productRepository;
 
         // W0-T5: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
         private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
@@ -564,10 +569,23 @@ namespace VanAn.CoreHub.Services
                 Guid orderId = Uuid.NewDatabaseFriendly(Database.PostgreSql);
                 TenantId tenantIdObj = new(tenantId);
 
-                // Create OrderItems using DDD factory methods
+                // RC-7 fix: Load Product entities to snapshot ProductName + actual VatRate into OrderItem.
+                // TT 152/2025/TT-BTC: VAT must come from server-side Product, not client claim.
+                // Without this, OrderItem.VatRate stays at the 0.10m factory default and ProductName is empty,
+                // causing wrong VAT in accounting entries, e-invoices, and "Unknown" stubs in sync subscribers.
+                Dictionary<Guid, Product> productLookup = await LoadProductsForSnapshotAsync(command.Items, tenantIdObj);
+
+                // Create OrderItems using DDD factory methods — pass snapshot ProductName + VatRate.
                 List<OrderItem> orderItems = command.Items.Select(i =>
-                    OrderItem.Create(Guid.NewGuid(), tenantIdObj, orderId, i.ProductId, i.Quantity, i.UnitPrice)
-                ).ToList();
+                {
+                    if (!productLookup.TryGetValue(i.ProductId, out Product? product))
+                    {
+                        throw new KeyNotFoundException(
+                            $"Product {i.ProductId} not found for tenant {tenantId}. Order creation aborted — " +
+                            "cannot snapshot ProductName/VatRate. Ensure the product exists before checkout.");
+                    }
+                    return OrderItem.Create(Guid.NewGuid(), tenantIdObj, orderId, i.ProductId, i.Quantity, i.UnitPrice, product.Name, product.VatRate);
+                }).ToList();
 
                 // Create Order using DDD factory method.
                 // customerId: when the checkout is performed by a logged-in customer (KhachLink
@@ -635,7 +653,8 @@ namespace VanAn.CoreHub.Services
                         {
                             ItemId = i.Id,
                             ProductId = i.ProductId,
-                            ProductName = i.ProductName ?? i.Product?.Name ?? "Unknown",
+                            // RC-7: ProductName is now snapshot at creation — no "Unknown" fallback needed.
+                            ProductName = i.ProductName,
                             Quantity = i.Quantity,
                             UnitPrice = i.UnitPrice,
                             TotalAmount = i.TotalAmount,
@@ -676,7 +695,43 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
-        /// Sprint B: Confirm payment and generate accounting entries.
+        /// RC-7: Load Product entities for all distinct ProductIds in the command to snapshot
+        /// ProductName + VatRate into OrderItem. Uses IProductRepository when available (preferred —
+        /// tenant-filtered). Falls back to IVanAnDbContext.Products query when repository is null
+        /// but DbContext is available. Returns empty dictionary when neither is wired (legacy tests).
+        /// </summary>
+        private async Task<Dictionary<Guid, Product>> LoadProductsForSnapshotAsync(
+            List<OrderItemRequest> items, TenantId tenantIdObj)
+        {
+            if (items.Count == 0) return [];
+
+            HashSet<Guid> productIds = items.Select(i => i.ProductId).ToHashSet();
+
+            // Path A: IProductRepository (preferred — explicit tenant filter via GetByIdAsync).
+            if (_productRepository != null)
+            {
+                var lookup = new Dictionary<Guid, Product>();
+                foreach (Guid pid in productIds)
+                {
+                    Product? product = await _productRepository.GetByIdAsync(new ProductId(pid), tenantIdObj);
+                    if (product != null) lookup[pid] = product;
+                }
+                return lookup;
+            }
+
+            // Path B: IVanAnDbContext (fallback — global query filter applies tenant scope).
+            if (_dbContext != null)
+            {
+                List<Product> products = await _dbContext.Products
+                    .Where(p => productIds.Contains(p.Id))
+                    .ToListAsync();
+                return products.ToDictionary(p => p.Id);
+            }
+
+            // Path C: neither wired (legacy unit tests without product snapshot) — return empty.
+            _logger.LogWarning("LoadProductsForSnapshotAsync: neither IProductRepository nor IVanAnDbContext available — OrderItem ProductName/VatRate will use factory defaults");
+            return [];
+        }
         /// Called by WebhookController after bank/VietQR confirms payment.
         /// Idempotent: second call for same orderId returns without creating duplicate entries.
         /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis accounting).
