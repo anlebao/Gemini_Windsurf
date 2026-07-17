@@ -42,7 +42,7 @@ namespace VanAn.ShopERP.Controllers
                 .OrderByDescending(o => o.CreatedAt);
 
             if (!string.IsNullOrEmpty(status))
-                query = query.Where(o => o.Status.Value == status);
+                query = query.Where(o => o.Status == new OrderStatusId(status));
 
             var total = await query.CountAsync();
             var orders = await query
