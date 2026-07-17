@@ -50,7 +50,7 @@ Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `e70c91a7` [CD] Retry deploy: ShopERP 502 fix (disk cleaned on VPS)
+- **Last commit:** `d9041adb` [STATE] Payment Webhook Fix VPS VERIFIED + next: QuickSetup
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-17):** 0 errors. VanAn.sln build PASS.
@@ -60,7 +60,7 @@ Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities 
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
 - **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
-- **QuickSetup + Product Management (2026-07-14):** Master plan + 6 task cards created. Gap review complete. **PARKED**.
+- **QuickSetup + Product Management (2026-07-14 → 2026-07-17):** Master plan + 6 task cards. **Phase 1 (QuickSetup fix) COMPLETE** — @rendermode, [Authorize], IOnboardingService inject, tenantId from query string, TemplateType Guid fix, TenantManagement button, Sitemap link. **Phase 2 (Domain) COMPLETE** — Product.Update/Deactivate/Activate/MarkAsDeleted methods added. **Phase 3 (CRUD API) COMPLETE** — IProductRepository, IProductService, IImageStorageService (Cloudinary), 3 DTOs, 8 controller endpoints (GET manage, POST, PUT, DELETE, activate, deactivate, image upload). **Phase 4-6 PENDING** (UI + QR Print + E2E).
 - **Tiered Auth:** P0-P3 PASS (Online RV 14/14 PASS). P4 Facebook - P5 Zalo ZNS - P6 E2E.
 - **Payment Webhook Fix:** COMPLETE + VPS VERIFIED (2026-07-17). Webhook 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed.
 - **Local infra (Debug):** Docker + PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
@@ -70,10 +70,10 @@ Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities 
 
 ## 4. Next Actions
 
-**Immediate (QuickSetup + Product Management - IMPLEMENT):**
-1. Review 6 task cards in `docs/AI/tasks/` (previously parked, now unblocked)
-2. Phase 1: QuickSetup wizard implementation
-3. Phase 2-6: Product management features
+**Immediate (QuickSetup + Product Management - Phase 4-6 IMPLEMENT):**
+1. **Phase 4:** Product Management UI — `/products` page (VanAnDataGrid + create/edit modal + delete/reactivate + image upload). Prerequisite: fix VanAnButton disabled bug + VanAnDataGrid render order bug. Create shared CurrencyHelper.
+2. **Phase 5:** QR Code view + print (single + batch print A4 layout)
+3. **Phase 6:** E2E tests (product CRUD flow + QR print + QuickSetup flow)
 
 **Deferred (pre-existing, not blocking):**
 1. **Fix Accounting Entries 500 (pre-existing):** Gateway SQLite `AccountingEntries` table missing `AccountCode` column - schema migration gap.
@@ -189,6 +189,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-17 -- PAYMENT WEBHOOK FIX VPS VERIFIED + QUICKSETUP/PRODUCT MGMT PHASE 1-3 AUDITED.** Payment Webhook: POST /api/webhooks/payment on khachvip.online → 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed. QuickSetup/Product Management audit: verified Phase 1 (QuickSetup fix), Phase 2 (Domain Product.Update/Deactivate/Activate/MarkAsDeleted), Phase 3 (CRUD API — IProductRepository, IProductService, IImageStorageService, 3 DTOs, 8 controller endpoints) ALL ALREADY COMPLETE in codebase from prior sessions. Phase 4-6 (UI + QR Print + E2E) are next. Branch: `main`.
 
 * **2026-07-17 -- PAYMENT WEBHOOK FIX VPS VERIFIED.** POST /api/webhooks/payment on khachvip.online → 200 OK `"Payment confirmed and accounting entries generated"`. Order `019f6dbf-...`: PaymentStatus=Paid, VietQR_TransactionId=test-tx-001. PostgreSQL JournalEntries: 2 rows (Doanh thu bán hàng + Giá vốn hàng bán). Idempotency: second call returns 200, no duplicate entries. Branch: `main`.
 
