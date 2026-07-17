@@ -59,7 +59,7 @@
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
                                 <div class="fw-semibold mb-1">Đơn #@order.OrderId.ToString()[^8..]</div>
-                                <div class="text-muted small">@order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                                <div class="text-muted small">@order.CreatedAt.ToVietnamString()</div>
                                 <div class="text-muted small">@order.ItemCount sản phẩm</div>
                             </div>
                             <div class="text-end">

@@ -44,6 +44,79 @@
             }
         });
     </script>
+    <style>
+        /* Issue 6: Ẩn Blazor default reconnect dialog (modal full-screen) */
+        /* Thay bằng indicator nhỏ ở góc dưới trái — không gây gián đoạn UX */
+        #components-reconnect-modal {
+            display: none !important;
+        }
+        /* Custom reconnect indicator — small spinner bottom-left */
+        #vanan-reconnect-indicator {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            background: rgba(139, 69, 19, 0.9);
+            color: white;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: opacity 0.3s ease;
+        }
+        #vanan-reconnect-indicator.show {
+            display: flex;
+        }
+        #vanan-reconnect-indicator .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: vanan-spin 0.8s linear infinite;
+        }
+        @@keyframes vanan-spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <!-- Custom reconnect indicator (replaces intrusive Blazor modal) -->
+    <div id="vanan-reconnect-indicator">
+        <div class="spinner"></div>
+        <span>Đang kết nối lại...</span>
+    </div>
+    <script>
+        // Issue 6: Show/hide custom reconnect indicator based on Blazor connection state
+        (function() {
+            var indicator = document.getElementById('vanan-reconnect-indicator');
+            if (!indicator) return;
+
+            function show() { indicator.classList.add('show'); }
+            function hide() { indicator.classList.remove('show'); }
+
+            // Listen for Blazor reconnection events
+            document.addEventListener('DOMContentLoaded', function() {
+                // Blazor fires these events on the document
+                // components-reconnect-show: when reconnection attempt starts
+                // components-reconnect-hide: when reconnection succeeds
+                // components-reconnect-failed: when all retries exhausted
+                document.addEventListener('components-reconnect-show', show);
+                document.addEventListener('components-reconnect-hide', hide);
+                document.addEventListener('components-reconnect-failed', function() {
+                    indicator.querySelector('span').textContent = 'Mất kết nối';
+                    indicator.style.background = 'rgba(220, 53, 69, 0.9)';
+                });
+                // Reset on successful reconnect
+                document.addEventListener('components-reconnect-hide', function() {
+                    indicator.querySelector('span').textContent = 'Đang kết nối lại...';
+                    indicator.style.background = 'rgba(139, 69, 19, 0.9)';
+                });
+            });
+        })();
+    </script>
 </body>
 
 </html>

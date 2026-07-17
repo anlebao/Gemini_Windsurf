@@ -128,7 +128,7 @@
                                                 <h6>@step.DisplayName</h6>
                                                 @if (step.Timestamp.HasValue)
                                                 {
-                                                    <small class="text-muted">@step.Timestamp.Value.ToString("HH:mm dd/MM/yyyy")</small>
+                                                    <small class="text-muted">@step.Timestamp.Value.ToVietnamTimeString()</small>
                                                 }
                                             </div>
                                         </div>
@@ -149,7 +149,7 @@
                                             @(_publicOrder.Status ?? "—")
                                         </span>
                                     </p>
-                                    <p><strong>Ngày đặt:</strong> @_publicOrder.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                                    <p><strong>Ngày đặt:</strong> @_publicOrder.CreatedAt.ToVietnamString()</p>
                                     @if (_vatDisplayEnabled && _publicOrder.TotalVatAmount > 0)
                                     {
                                         <p><strong>Tạm tính:</strong> @_publicOrder.SubTotal.ToString("N0")đ</p>
