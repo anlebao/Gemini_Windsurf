@@ -181,7 +181,7 @@
                     <input id="tenant-taxcode" class="vanan-input" @bind="_createForm.TaxCode" aria-label="Mã số thuế" />
                 </div>
                 <div class="modal-actions">
-                    <VanAButton Variant="primary" Type="submit" IsLoading="@_isSaving">Tạo</VanAButton>
+                    <VanAButton Variant="primary" OnClick="HandleCreateSubmit" IsLoading="@_isSaving">Tạo</VanAButton>
                     <VanAButton Variant="outline" OnClick="CloseCreateModal">Huỷ</VanAButton>
                 </div>
             </VanAForm>
@@ -271,7 +271,7 @@
                         <VanAAlert Type="error" Message="@string.Join(" ", _onboardingValidationErrors)" Dismissible="false" />
                     }
                     <div class="modal-actions">
-                        <VanAButton Variant="primary" Type="submit" IsLoading="@_isOnboardingSaving">Tạo + Onboarding</VanAButton>
+                        <VanAButton Variant="primary" OnClick="HandleOnboardingSubmit" IsLoading="@_isOnboardingSaving">Tạo + Onboarding</VanAButton>
                         <VanAButton Variant="outline" OnClick="CloseOnboardingModal">Huỷ</VanAButton>
                     </div>
                 </VanAForm>

@@ -87,6 +87,20 @@
         _columns.Add(column);
         StateHasChanged();
     }
+
+    /// <summary>
+    /// Bug 1 fix: After first render, child VanAnColumn components have registered themselves
+    /// via OnInitialized → RegisterColumn. But the @if (_columns.Count > 0) check in the markup
+    /// runs BEFORE child components initialize (during BuildRenderTree). Force a re-render
+    /// on first render to ensure the table appears once columns are registered.
+    /// </summary>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && _columns.Count > 0)
+        {
+            StateHasChanged();
+        }
+    }
     
     /// <summary>
     /// Get data grid CSS classes
