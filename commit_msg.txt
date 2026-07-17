@@ -1,15 +1,19 @@
-feat(security): Wave 0 [W0-S1] JWT Authentication Foundation
+[FIX] KhachLink: Google login redirect + Android PWA install
 
-W0-T1: Add JwtBearer 8.0.8 + BCrypt.Net-Next 4.0.3 to Central Package Management
-W0-T2: Implement IJwtTokenService + JwtTokenService in 3_CoreHub (HS256, 8h expiry)
-W0-T3: Migrate Login.cshtml.cs to BCrypt.Verify + JWT cookie issue
-W0-T4: Add AddJwtBearer dual-scheme to Gateway (Cookie default + JwtBearer secondary)
-W0-T5: Seed DemoUsers with BCrypt hashed passwords (work factor 12)
-W0-T6: Unit tests - JwtTokenServiceTests (5) + LoginPasswordTests (3) = 9/9 PASS
-W0-T7: DevLoginController returns JWT token in response for E2E tests
+1. Google login "redirect sai, bat dang nhap lai":
+   - Gateway forward controllers (Customers/Loyalty/CustomerIdentity/Dashboard)
+     returned text/plain instead of application/json when forwarding responses.
+   - KhachLink Profile page checks Content-Type for "json" — non-JSON response
+     was treated as invalid token, removing it and forcing re-login.
+   - Fix: use ContentResult with upstream Content-Type preserved.
 
-Build: dotnet build VanAn.sln -> 0 errors
-Tests: Architecture 11/11 PASS, JWT+BCrypt 9/9 PASS
+2. Android PWA install ("app chua duoc tren android"):
+   - service-worker.js cached non-existent files (/css/app.css, /js/app.js,
+     /images/logo.png) → cache.addAll() rejected → SW install failed →
+     Chrome Android never showed install prompt.
+   - Fix: updated staticUrlsToCache to actual files, bumped cache version.
+   - manifest.json: added purpose "any maskable" to 192x192 and 512x512
+     icons (required by Android Chrome for installability).
 
 Generated with [Devin](https://devin.ai)
 

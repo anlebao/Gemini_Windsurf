@@ -28,7 +28,13 @@ namespace VanAn.Gateway.Controllers
 
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
-                return StatusCode((int)response.StatusCode, content);
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
             }
             catch (Exception ex)
             {
@@ -60,7 +66,13 @@ namespace VanAn.Gateway.Controllers
 
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
-                return StatusCode((int)response.StatusCode, content);
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
             }
             catch (Exception ex)
             {

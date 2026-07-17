@@ -1,14 +1,14 @@
-const CACHE_NAME = 'vanan-khachlink-v3';
-const STATIC_CACHE = 'vanan-static-v3';
-const DYNAMIC_CACHE = 'vanan-dynamic-v3';
+const CACHE_NAME = 'vanan-khachlink-v4';
+const STATIC_CACHE = 'vanan-static-v4';
+const DYNAMIC_CACHE = 'vanan-dynamic-v4';
 
-// Core static assets to cache
+// Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
   '/',
   '/manifest.json',
-  '/css/app.css',
-  '/js/app.js',
-  '/images/logo.png',
+  '/app.css',
+  '/js/pwa.js',
+  '/favicon.png',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'
 ];

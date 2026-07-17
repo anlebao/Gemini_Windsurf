@@ -41,7 +41,16 @@ namespace VanAn.Gateway.Controllers
 
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
-                return StatusCode((int)response.StatusCode, content);
+                // Preserve Content-Type from upstream (ShopERP returns application/json).
+                // Without this, StatusCode() defaults to text/plain, causing KhachLink Profile
+                // page to think the token is invalid (it checks for "json" in Content-Type).
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
             }
             catch (Exception ex)
             {

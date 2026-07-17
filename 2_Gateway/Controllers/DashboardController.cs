@@ -30,7 +30,13 @@ namespace VanAn.Gateway.Controllers
                 var client = _httpClientFactory.CreateClient("shoperp");
                 var response = await client.GetAsync($"/api/dashboard/shop-metrics/{shopId}");
                 var content = await response.Content.ReadAsStringAsync();
-                return StatusCode((int)response.StatusCode, content);
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
             }
             catch (Exception ex)
             {
