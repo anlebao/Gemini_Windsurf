@@ -45,11 +45,12 @@ QuickSetup + Product Management Phases 1–6 are complete and archived. The next
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `f2c3ef1e` [FIX] Gateway: forward OTP login + profile endpoints to ShopERP
+- **Last commit:** `f9b274e6` [FEAT] VAT display UI + VAT_Display_Enabled toggle + env parity fix
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
-- **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-17):** 0 errors. VanAn.sln build PASS.
-- **Gateway/KhachLink authentication fixes (2026-07-17):** Latest commits `7158c0eb`, `781bae97`, and `f2c3ef1e` fix Google-login redirect, Android PWA install, order-history/checkout prefill, and Gateway forwarding of OTP/profile endpoints to ShopERP. Runtime verification is not recorded in this state file.
+- **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
+- **Build (2026-07-17):** 0 errors. VanAn.sln build PASS. CI pipeline PASS (980+17 unit, 38 arch, 10 KhachLink startup).
+- **Environment parity fix (2026-07-17):** `appsettings.Development.json` Gateway connection fixed from SQLite to PostgreSQL (matching VPS). VPS PostgreSQL DB dumped to local Docker PostgreSQL 15-alpine. Local infra: Docker PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001. All 3 servers verified healthy + NATS order sync verified (order created via Gateway API → synced to SQLite via NATS → kitchen display can query it).
+- **Circuit init + kitchen display fix (2026-07-17):** Root cause: 3 orphaned `OrderItems` rows in SQLite (referencing deleted ProductId `192330A9-...`) blocked `SingleIdentity_DropBusinessKeyColumns` migration → `MigrateAsync()` crash → server won't start → Blazor circuit failure + kitchen display empty. Fix: deleted orphaned rows + applied pending SQLite migrations. NATS was also not running locally → order sync Gateway→ShopERP broken → kitchen never received orders. Fix: started NATS in Docker.
 - **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
@@ -57,7 +58,7 @@ QuickSetup + Product Management Phases 1–6 are complete and archived. The next
 - **QuickSetup + Product Management (2026-07-14 → 2026-07-17): COMPLETE.** All six phases are implemented. Phase 4 `/products` UI + `CurrencyHelper`: `a9766442`; Phase 5 QR view/single+batch print: `fdb25eb3`; Phase 6 product CRUD, QR print, and QuickSetup E2E specs: `69a3642f`. Execution results for those production E2E specs are not recorded here.
 - **Tiered Auth:** P0-P3 PASS (Online RV 14/14 PASS). P4 Facebook - P5 Zalo ZNS - P6 E2E.
 - **Payment Webhook Fix:** COMPLETE + VPS VERIFIED (2026-07-17). Webhook 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed.
-- **Local infra (Debug):** Docker + PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
+- **Local infra (Debug):** Docker PostgreSQL 15-alpine (port 5432, VPS DB dumped) + NATS 2-alpine (port 4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001. All verified healthy with NATS order sync working.
 - **VPS (Production):** khachvip.online — Gateway (200), ShopERP (200 healthy), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
 - **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code.
 - **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening. See archive for details.
@@ -173,6 +174,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-17 -- ENVIRONMENT PARITY + CIRCUIT INIT + KITCHEN DISPLAY FIX.** Fixed 3 root causes: (1) `appsettings.Development.json` Gateway was using SQLite instead of PostgreSQL — environment drift vs VPS. Fixed to PostgreSQL connection string. Dumped VPS PostgreSQL DB to local Docker PostgreSQL 15-alpine for data parity. (2) "Circuit failed to initialize" on KhachLink — root cause: 3 orphaned `OrderItems` rows in SQLite (ProductId `192330A9-...` deleted) blocked `SingleIdentity_DropBusinessKeyColumns` migration → `MigrateAsync()` crash → server won't start. Fix: deleted orphaned rows + applied pending SQLite migrations (`SingleIdentity_DropBusinessKeyColumns` + `AddVatDisplayToggle`). (3) POS orders not showing on kitchen display — root cause: NATS not running locally → order sync Gateway→ShopERP broken. Fix: started NATS 2-alpine in Docker. Verified E2E: order created via Gateway API → NATS sync → SQLite (Status=pending, Total=61600, Vat=5600) → kitchen display can query it. All 3 servers (Gateway 5001, ShopERP 5003, KhachLink 5002) verified healthy. CI pipeline PASS: 980+17 unit tests, 38 arch tests, 10 KhachLink startup tests. Commit `f9b274e6` pushed to origin/main. Branch: `main`.
 
 * **2026-07-17 -- VAT DISPLAY UI COMPLETE.** Added `VAT_Display_Enabled` shop feature toggle (7th toggle, default ON). `CartItem` record extended with `VatRate`/`VatAmount`/`NetAmount` (VAT-inclusive extraction). `CartState` computes real `TotalVatAmount` + `NetSubTotal`. `PublicOrderTrackingDto` + `PublicOrderItemDto` + `CustomerOrderDto` + checkout response extended with VAT fields. UI breakdown (Tạm tính / VAT / Tổng cộng) on Cart, Checkout, OrderTracking, OrderHistory, POS Create, CartDrawer — all conditional on toggle. EF migrations: SQLite + PostgreSQL. 1006/1007 Core.Tests pass (1 flaky perf test). Branch: `main`.
 * **2026-07-17 -- RC-7 FIX COMPLETE.** `OrderService.CreateOrderFromCommandAsync` now loads Product entities via `IProductRepository` and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation. Domain `OrderItem.Create` factory + constructor extended with `vatRate` param (backward-compatible default 0.10m). Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. Gateway Program.cs registers `IProductRepository`. 998/998 Core.Tests pass (3 new RC-7 tests + 1 updated). Branch: `main`.
