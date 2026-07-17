@@ -92,7 +92,13 @@
         {
             <div class="row">
                 <div class="col-md-7">
-                    <VanAnCard Header="📝 Thông tin khách hàng">
+                    <VanAnCard Header="@(_isLoggedIn ? "📝 Xác nhận thông tin giao hàng" : "📝 Thông tin khách hàng")">
+                        @if (_isLoggedIn)
+                        {
+                            <VanAnAlert Variant="AlertVariant.Info"
+                                        Message="Thông tin đã được điền sẵn từ tài khoản của bạn. Vui lòng kiểm tra và chỉnh sửa nếu cần."
+                                        Dismissible="false" CssClass="mb-3" />
+                        }
                         <div class="mb-3">
                             <label for="guest-name" class="form-label">Họ và tên @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
                             <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nhập họ và tên" aria-label="Họ và tên" name="name" data-testid="checkout-input-name" />
@@ -209,6 +215,9 @@
     // Post-checkout loyalty signup: show IdentityUpgradeModal after order success for anonymous users
     private bool _showLoyaltySignupModal = false;
     private bool _isLoggedIn = false;
+    // Logged-in customer ID (from localStorage "customer_id") — sent with checkout request
+    // so the created order is linked to the Customer entity and appears in order history.
+    private Guid? _customerId = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -227,6 +236,11 @@
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(token);
 
+            // Load customerId from localStorage (saved at login by Login.razor / Google callback)
+            var customerIdStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_id");
+            if (Guid.TryParse(customerIdStr, out var parsedId))
+                _customerId = parsedId;
+
             if (cartState.GetTotalItems() == 0)
             {
                 NavigationManager.NavigateTo("/cart");
@@ -238,6 +252,31 @@
             cartSnapshot = cartState.Items.ToList();
             orderTotal = cartState.TotalAmount;
             showGuestForm = true;
+
+            // Pre-fill name/phone from customer profile when logged in so the user
+            // does not have to re-enter their info on every checkout.
+            if (_isLoggedIn && !string.IsNullOrEmpty(token))
+            {
+                try
+                {
+                    var profileClient = HttpClientFactory.CreateClient("gateway");
+                    profileClient.DefaultRequestHeaders.Add("X-Customer-Token", token);
+                    var profileResp = await profileClient.GetAsync("/api/customers/me");
+                    if (profileResp.IsSuccessStatusCode)
+                    {
+                        var profile = await profileResp.Content.ReadFromJsonAsync<CustomerProfileDto>();
+                        if (profile != null)
+                        {
+                            if (!string.IsNullOrWhiteSpace(profile.FullName))
+                                guestName = profile.FullName;
+                            if (!string.IsNullOrWhiteSpace(profile.PhoneNumber))
+                                guestPhone = profile.PhoneNumber;
+                        }
+                    }
+                }
+                catch { /* non-critical — pre-fill is a convenience, not a hard requirement */ }
+            }
+
             StateHasChanged();
         }
     }
@@ -289,7 +328,9 @@
                 CustomerNotes = "Đặt hàng từ web KhachLink",
                 CustomerName = guestName,
                 CustomerPhone = guestPhone,
-                CustomerAddress = guestAddress
+                CustomerAddress = guestAddress,
+                // Link order to logged-in customer so it appears in order history
+                CustomerId = _customerId
             };
 
             var http = HttpClientFactory.CreateClient("gateway");
@@ -384,5 +425,18 @@
         public string? PaymentUrl { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
         public decimal Amount { get; set; }
+    }
+
+    // Profile DTO for pre-filling checkout form when customer is logged in.
+    // Matches ShopERP CustomerIdentityController.GetMe response shape.
+    private class CustomerProfileDto
+    {
+        public Guid CustomerId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string CustomerToken { get; set; } = string.Empty;
+        public string Tier { get; set; } = "Bronze";
+        public int PointBalance { get; set; }
+        public string? IdentityLevel { get; set; }
     }
 }

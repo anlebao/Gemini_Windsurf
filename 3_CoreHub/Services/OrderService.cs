@@ -570,12 +570,15 @@ namespace VanAn.CoreHub.Services
                 ).ToList();
 
                 // Create Order using DDD factory method.
-                // NOTE: customerId is passed as null — guest checkout has no Customer entity.
-                // CustomerDeviceId is a device fingerprint (string), NOT a Customer FK.
+                // customerId: when the checkout is performed by a logged-in customer (KhachLink
+                // sends command.CustomerId from localStorage), pass it so the order is linked to
+                // the Customer entity and appears in /api/customerorders history.
+                // For anonymous/guest checkout, CustomerId is null — only CustomerDeviceId is set.
                 // Previously command.CustomerDeviceId (Guid) was passed as customerId, causing
                 // FK_Orders_Customers_CustomerId violations for guest checkout (no Customer row exists).
                 // Bucket A feature fix (approved 2026-07-07): pass null customerId, set device id separately.
-                Order order = Order.Create(orderId, tenantIdObj, null, orderItems);
+                Guid? customerId = command.CustomerId;
+                Order order = Order.Create(orderId, tenantIdObj, customerId, orderItems);
                 order.SetCustomerDeviceId(command.CustomerDeviceId.ToString());
 
                 // Bucket A feature (approved 2026-07-07): attach guest customer info if provided.

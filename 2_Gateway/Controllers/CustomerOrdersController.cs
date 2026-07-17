@@ -30,7 +30,16 @@ namespace VanAn.Gateway.Controllers
 
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
-                return StatusCode((int)response.StatusCode, content);
+                // Preserve Content-Type from upstream (ShopERP returns application/json).
+                // Without this, StatusCode() defaults to text/plain, breaking KhachLink
+                // ReadFromJsonAsync<OrdersResult>() which checks Content-Type for "json".
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
             }
             catch (Exception ex)
             {
@@ -62,7 +71,13 @@ namespace VanAn.Gateway.Controllers
                 _logger.LogDebug("Forwarded order status request for OrderId: {OrderId}, StatusCode: {StatusCode}", 
                     id, response.StatusCode);
                 
-                return StatusCode((int)response.StatusCode, content);
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
             }
             catch (Exception ex)
             {

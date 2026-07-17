@@ -1,6 +1,6 @@
-const CACHE_NAME = 'vanan-khachlink-v4';
-const STATIC_CACHE = 'vanan-static-v4';
-const DYNAMIC_CACHE = 'vanan-dynamic-v4';
+const CACHE_NAME = 'vanan-khachlink-v5';
+const STATIC_CACHE = 'vanan-static-v5';
+const DYNAMIC_CACHE = 'vanan-dynamic-v5';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -21,15 +21,25 @@ const dynamicCachePatterns = [
 ];
 
 // Install Service Worker
+// IMPORTANT: cache.addAll() is atomic — if any URL fails, the entire install fails
+// and the service worker never activates, breaking PWA install on Android.
+// Use individual cache.add() with per-URL catch so one missing asset doesn't
+// block the whole SW lifecycle.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => {
-        console.log('Caching static assets');
-        return cache.addAll(staticUrlsToCache);
+        console.log('Caching static assets (best-effort, per-URL)');
+        return Promise.allSettled(
+          staticUrlsToCache.map(url =>
+            cache.add(url).catch(err => {
+              console.warn('SW install: failed to cache', url, err);
+            })
+          )
+        );
       })
       .then(() => {
-        console.log('Static assets cached successfully');
+        console.log('Static assets cached (best-effort) — activating SW');
         return self.skipWaiting(); // Force activation
       })
   );

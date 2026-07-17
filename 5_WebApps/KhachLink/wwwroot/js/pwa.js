@@ -81,7 +81,18 @@ window.vananPWA = {
             alert('Để cài đặt app Vạn An trên iPhone:\n\n1. Nhấn nút Share (hình vuông có mũi tên lên) ở thanh công cụ Safari\n2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen)\n3. Nhấn "Thêm" (Add)');
             return false;
         }
-        
+
+        // Android/Desktop Chrome: beforeinstallprompt may not have fired yet, or the
+        // browser may have suppressed it (e.g. user dismissed too many times, or the
+        // engagement heuristic hasn't been met). Show manual instructions instead of
+        // returning false silently so the user gets actionable feedback.
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        if (isAndroid) {
+            alert('Để cài đặt app Vạn An trên Android:\n\n1. Nhấn nút menu (⋮) ở góc trên bên phải Chrome\n2. Chọn "Thêm vào màn hình chính" (Add to Home screen)\n3. Nhấn "Thêm" (Add)');
+        } else {
+            // Desktop Chrome/Edge
+            alert('Để cài đặt app Vạn An trên máy tính:\n\n1. Nhấn nút menu (⋮ hoặc ...) ở góc trên bên phải trình duyệt\n2. Chọn "Cài đặt Vạn An..." (Install Vạn An...) hoặc "Cài đặt ứng dụng"\n3. Xác nhận cài đặt');
+        }
         return false;
     },
 

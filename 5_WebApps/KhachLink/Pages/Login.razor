@@ -121,6 +121,7 @@
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
             var callbackToken = query["token"];
             var callbackProvider = query["provider"];
+            var callbackCustomerId = query["customerId"];
             var callbackError = query["error"];
 
             if (!string.IsNullOrEmpty(callbackError))
@@ -141,6 +142,9 @@
                 await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_token", callbackToken);
                 if (!string.IsNullOrEmpty(callbackProvider))
                     await JSRuntime.InvokeVoidAsync("localStorage.setItem", "login_provider", callbackProvider);
+                // Store customerId so checkout can link orders to this customer
+                if (!string.IsNullOrEmpty(callbackCustomerId))
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_id", callbackCustomerId);
 
                 _step = LoginStep.Success;
                 StateHasChanged();

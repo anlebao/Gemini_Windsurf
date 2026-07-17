@@ -113,7 +113,9 @@ namespace VanAn.Gateway.Controllers
                     // Bucket A feature (approved 2026-07-07): pass guest customer info through.
                     CustomerName = request.CustomerName,
                     CustomerPhone = request.CustomerPhone,
-                    CustomerAddress = request.CustomerAddress
+                    CustomerAddress = request.CustomerAddress,
+                    // Logged-in customer: link order to Customer entity so it shows in order history.
+                    CustomerId = request.CustomerId
                 };
 
                 Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);
@@ -203,6 +205,10 @@ namespace VanAn.Gateway.Controllers
         public string? CustomerName { get; set; }
         public string? CustomerPhone { get; set; }
         public string? CustomerAddress { get; set; }
+
+        // Logged-in customer ID (from KhachLink localStorage "customer_id").
+        // When set, the created order is linked to this Customer so it appears in order history.
+        public Guid? CustomerId { get; set; }
     }
 
     public class CheckoutOrderItem

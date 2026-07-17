@@ -1,19 +1,31 @@
-[FIX] KhachLink: Google login redirect + Android PWA install
+[FIX] KhachLink: order history blank + checkout pre-fill + Android PWA install
 
-1. Google login "redirect sai, bat dang nhap lai":
-   - Gateway forward controllers (Customers/Loyalty/CustomerIdentity/Dashboard)
-     returned text/plain instead of application/json when forwarding responses.
-   - KhachLink Profile page checks Content-Type for "json" — non-JSON response
-     was treated as invalid token, removing it and forcing re-login.
-   - Fix: use ContentResult with upstream Content-Type preserved.
+Lỗi 2: Order history trắng bóc (logged-in customer)
+- Root cause 2a: Gateway CustomerOrdersController returned text/plain instead of
+  application/json (same StatusCode() bug as previous commit). KhachLink
+  ReadFromJsonAsync<OrdersResult>() failed silently → empty list.
+  Fix: use ContentResult with upstream Content-Type preserved (2 methods).
+- Root cause 2b: Orders created via /api/public/orders/checkout always passed
+  customerId=null to Order.Create(). ShopERP CustomerOrdersController.GetMyOrders
+  filters by CustomerId == customerId.Value → never matched → blank.
+  Fix: CreateOrderCommand gains CustomerId field; PublicOrdersController accepts
+  CustomerId in CheckoutOrderRequest; OrderService passes it to Order.Create()
+  when provided. KhachLink Checkout.razor sends customer_id from localStorage.
+- SocialAuthController Google callback now includes customerId in redirect URL;
+  Login.razor saves it to localStorage (OTP flow already did this).
 
-2. Android PWA install ("app chua duoc tren android"):
-   - service-worker.js cached non-existent files (/css/app.css, /js/app.js,
-     /images/logo.png) → cache.addAll() rejected → SW install failed →
-     Chrome Android never showed install prompt.
-   - Fix: updated staticUrlsToCache to actual files, bumped cache version.
-   - manifest.json: added purpose "any maskable" to 192x192 and 512x512
-     icons (required by Android Chrome for installability).
+Lỗi 3: Checkout bắt nhập lại tên/SĐT cho khách đã đăng nhập
+- Checkout.razor OnAfterRenderAsync now fetches /api/customers/me when logged in
+  and pre-fills guestName/guestPhone from profile. Form header changes to
+  "Xác nhận thông tin giao hàng" with info alert. User can still edit.
+
+Lỗi 1: Android PWA — bấm download không có gì xảy ra
+- service-worker.js: replaced atomic cache.addAll() with per-URL cache.add()
+  + Promise.allSettled so one missing asset doesn't block SW install. Bumped v4→v5.
+- pwa.js showInstallPrompt: when beforeinstallprompt hasn't fired (deferredPrompt
+  is null), show manual instructions for Android Chrome (⋮ → Add to Home screen)
+  and Desktop instead of returning false silently.
+- manifest.json: added "id": "/" for stable PWA identity on Android.
 
 Generated with [Devin](https://devin.ai)
 

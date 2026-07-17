@@ -95,7 +95,7 @@ namespace VanAn.ShopERP.Controllers
 
             var token = _customerTokenService.CreateToken(customer.Id);
 
-            var redirectUrl = $"{khachLinkLoginUrl}?token={Uri.EscapeDataString(token)}&provider=google";
+            var redirectUrl = $"{khachLinkLoginUrl}?token={Uri.EscapeDataString(token)}&provider=google&customerId={Uri.EscapeDataString(customer.Id.ToString())}";
             if (!string.IsNullOrEmpty(state))
                 redirectUrl += $"&redirectTo={Uri.EscapeDataString(state)}";
 

@@ -15,6 +15,11 @@ namespace VanAn.CoreHub.Commands
         public string? CustomerName { get; set; }
         public string? CustomerPhone { get; set; }
         public string? CustomerAddress { get; set; }
+
+        // Logged-in customer: when set, Order.CustomerId is linked so the order
+        // appears in the customer's order history (/api/customerorders).
+        // Null for anonymous/guest checkout.
+        public Guid? CustomerId { get; set; }
     }
 
     public class OrderItemRequest
