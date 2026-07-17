@@ -40,7 +40,7 @@ namespace VanAn.KhachLink.Services.PWA
             try
             {
                 // Try to call JS - will fail silently during prerendering
-                IsInstalled = await _jsRuntime.InvokeAsync<bool>("vananPWA.isInstalled");
+                IsInstalled = await _jsRuntime.InvokeAsync<bool>("vananPWA.isInstalledFunc");
                 IsOnline = await _jsRuntime.InvokeAsync<bool>("vananPWA.isOnline");
                 await RegisterServiceWorkerAsync();
                 await SetupEventListenersAsync();

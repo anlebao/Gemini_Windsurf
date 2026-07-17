@@ -42,6 +42,11 @@ window.vananPWA = {
     deferredPrompt: null,
     isInstalled: false,
 
+    // Function wrapper for Blazor JSInterop (InvokeAsync expects a function, not a property)
+    isInstalledFunc() {
+        return this.checkInstallStatus();
+    },
+
     checkInstallStatus() {
         // Check if running in standalone mode
         this.isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
