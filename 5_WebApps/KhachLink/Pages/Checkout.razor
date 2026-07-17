@@ -344,9 +344,41 @@
             CheckoutFlow.CustomerAddress = guestAddress;
             CheckoutFlow.PaymentMethod = selectedPaymentMethod;
 
+            // Bug 1a fix: Use real device ID from localStorage (not hardcoded "web-client")
+            // so order history can filter by device ID for both guest and logged-in users.
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                // Generate + persist a stable device ID for this browser
+                deviceId = Guid.NewGuid().ToString();
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_device_id", deviceId);
+            }
+
+            // Bug 1a fix: Don't pass CustomerId if no Customer entity exists in DB.
+            // FK constraint requires Customer to exist. Since Customers table may be empty,
+            // passing an invalid CustomerId causes FK violation → checkout fails.
+            // Instead, rely on CustomerDeviceId for order history linking.
+            Guid? customerIdForOrder = null;
+            if (_isLoggedIn && _customerId.HasValue)
+            {
+                // Validate Customer exists before passing CustomerId
+                try
+                {
+                    var checkClient = HttpClientFactory.CreateClient("gateway");
+                    checkClient.DefaultRequestHeaders.Add("X-Customer-Token", 
+                        await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token") ?? "");
+                    var checkResp = await checkClient.GetAsync("/api/customers/me");
+                    if (checkResp.IsSuccessStatusCode)
+                        customerIdForOrder = _customerId;
+                    else
+                        _isLoggedIn = false; // token invalid — treat as guest
+                }
+                catch { /* if check fails, proceed as guest */ }
+            }
+
             var orderRequest = new
             {
-                CustomerDeviceId = "web-client",
+                CustomerDeviceId = deviceId,
                 OrderType = "TAKEAWAY",
                 Items = cartSnapshot.Select(i => new
                 {
@@ -359,8 +391,8 @@
                 CustomerName = guestName,
                 CustomerPhone = guestPhone,
                 CustomerAddress = guestAddress,
-                // Link order to logged-in customer so it appears in order history
-                CustomerId = _customerId
+                // Bug 1a fix: Only pass CustomerId if validated (Customer exists in DB)
+                CustomerId = customerIdForOrder
             };
 
             var http = HttpClientFactory.CreateClient("gateway");

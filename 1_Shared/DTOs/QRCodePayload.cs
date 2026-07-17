@@ -64,8 +64,18 @@ namespace VanAn.Shared.DTOs
                 if (qrContent.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
                     var uri = new Uri(qrContent);
-                    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-                    string? dataParam = query["data"];
+                    // Parse query string manually (avoid System.Web.HttpUtility — not reliable on Linux)
+                    string query = uri.Query.TrimStart('?');
+                    string? dataParam = null;
+                    foreach (string pair in query.Split('&'))
+                    {
+                        int eq = pair.IndexOf('=');
+                        if (eq > 0 && pair[..eq] == "data")
+                        {
+                            dataParam = Uri.UnescapeDataString(pair[(eq + 1)..]);
+                            break;
+                        }
+                    }
                     if (!string.IsNullOrEmpty(dataParam))
                     {
                         string json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataParam));

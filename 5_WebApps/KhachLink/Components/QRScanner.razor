@@ -7,9 +7,8 @@
             @if (!_isScanning)
             {
                 <div class="scanner-placeholder">
-                    <i class="bi bi-qr-code-scan display-1 text-primary mb-3"></i>
-                    <h5>Quét Mã QR Sản Phẩm</h5>
-                    <p class="text-muted mb-4">Định vị camera để quét mã QR sản phẩm</p>
+                    <i class="bi bi-qr-code-scan display-4 text-primary mb-2"></i>
+                    <h5 class="mb-2">Quét mã QR</h5>
                     
                     @if (!_hasCameraPermission)
                     {
@@ -170,13 +169,13 @@
     }
     
     .scanner-active {
-        padding: 1rem;
+        padding: 0.5rem;
     }
-    
+
     .qr-reader-container {
         width: 100%;
-        min-height: 400px;
-        max-height: 80vh;
+        min-height: 450px;
+        max-height: 85vh;
         border-radius: 8px;
         overflow: hidden;
     }
@@ -186,11 +185,14 @@
         border-radius: 8px;
     }
 
-    /* Issue 9: Mobile responsive — camera fills most of viewport */
+    /* Bug 2a: Mobile responsive — camera fills most of viewport, minimal padding */
     @@media (max-width: 768px) {
         .qr-reader-container {
-            min-height: 60vh;
-            max-height: 70vh;
+            min-height: 70vh;
+            max-height: 80vh;
+        }
+        .scanner-active {
+            padding: 0.25rem;
         }
     }
 </style>
