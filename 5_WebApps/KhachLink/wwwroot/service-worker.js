@@ -1,6 +1,6 @@
-const CACHE_NAME = 'vanan-khachlink-v6';
-const STATIC_CACHE = 'vanan-static-v6';
-const DYNAMIC_CACHE = 'vanan-dynamic-v6';
+const CACHE_NAME = 'vanan-khachlink-v7';
+const STATIC_CACHE = 'vanan-static-v7';
+const DYNAMIC_CACHE = 'vanan-dynamic-v7';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -49,6 +49,11 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
 
+  // Only intercept GET requests — POST/PUT/DELETE go straight to network
+  if (request.method !== 'GET') {
+    return;
+  }
+
   // Cache-first strategy for static assets
   if ((request.destination === 'script' && !url.pathname.startsWith('/_framework/')) ||
       request.destination === 'style' ||
@@ -79,7 +84,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first strategy for API calls with offline fallback
+  // Network-first strategy for API GET calls with offline fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
@@ -88,7 +93,7 @@ self.addEventListener('fetch', event => {
             return response;
           }
           
-          // Cache successful API responses
+          // Cache successful GET API responses
           const responseToCache = response.clone();
           caches.open(DYNAMIC_CACHE).then(cache => {
             cache.put(request, responseToCache);
@@ -120,10 +125,13 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Default: cache-first for navigation
+  // Default: network-first for navigation, fallback to cache, then offline page
   event.respondWith(
     fetch(request)
-      .catch(() => caches.match(request))
+      .catch(() => caches.match(request).then(cached => cached || new Response(
+        '<html><body><h1>Offline</h1><p>Vui lòng kết nối internet và thử lại.</p></body></html>',
+        { headers: { 'Content-Type': 'text/html' } }
+      )))
   );
 });
 
