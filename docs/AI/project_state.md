@@ -34,37 +34,28 @@
 
 Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities that had dual-GUID defect: `Product`, `Customer`, `OrderItem`, `Ingredient`, `Recipe`. `BaseEntity.Id` (PK) is the ONLY identity column. Business key VOs (ProductId, CustomerId, OrderItemId, IngredientId, RecipeId) are Ignored in EF Core config — no DB columns.
 
-**Status (2026-07-17):**
-- **Domain refactor:** COMPLETE — all 5 entity constructors sync `Id = BusinessKey.Value`. OrderItem.Create syncs both. Ingredient/Recipe have new public constructors (replacing Activator.CreateInstance).
-- **EF config:** COMPLETE — all 5 entities have `Ignore(BusinessKey)`. ShopERPDbContext inline Customer config also updated.
-- **Production code:** COMPLETE — all `.BusinessKey.Value` reads changed to `.Id`. All LINQ queries changed from `e.BusinessKey ==` to `e.Id ==`.
+**Status (2026-07-17): COMPLETE + VPS VERIFIED**
+- **Domain refactor:** COMPLETE — all 5 entity constructors sync `Id = BusinessKey.Value`.
+- **EF config:** COMPLETE — all 5 entities have `Ignore(BusinessKey)`.
+- **Production code:** COMPLETE — all `.BusinessKey.Value` reads changed to `.Id`.
 - **Migrations:** COMPLETE — SQLite + PostgreSQL migrations drop BusinessKey columns.
 - **Architecture rule:** COMPLETE — "Single-Identity Pattern (HARD STOP)" added to governance.md.
-- **Gateway + KhachLink:** WORKING — checkout returns 200 OK, orderId UUIDv7 `019f6ca2-...`.
-- **ShopERP:** CRASHING (502) — root cause identified via VPS docker logs.
-
-**Root cause of ShopERP 502 (found via SSH `docker logs vanan-shoperp`):**
-```
-duplicate key value violates unique constraint "PK_Products"
-at VanAn.ShopERP.Program.Main() in Program.cs:line 821
-```
-Seed code checks `pgProdExists` by Name+TenantId only. PostgreSQL already has products with SAME Id but DIFFERENT Name (data drift from previous deploys). Check returns false → insert with SQLite's Id → PK violation → unhandled exception → app crash → 502.
-
-**Anti-pattern discovered (data integrity violations):**
-Multiple `try-catch` blocks in Program.cs that swallow exceptions and continue — this hides errors, accumulates garbage data, and makes debugging impossible. User flagged this as unacceptable.
+- **ShopERP 502 FIX:** COMPLETE — seed product check now checks `p.Id == sqliteProd.Id` first (root cause: PG had product with same Id but different Name → PK violation). Try-catch swallows around migrations removed (fail-fast). Migration skip hack reverted.
+- **PG garbage cleanup:** COMPLETE — deleted duplicate product `1581168b-...` ("Sinh Tố bơ" vs correct "Sinh tố bơ"), updated 1 OrderItem reference.
+- **VPS deploy:** COMPLETE — manually deployed (CD failed due to disk full, cleaned 22GB Docker images). All containers healthy. `khachvip.online/` → 200, `/health` → 200, `diemthuong.khachvip.online/` → 200.
+- **Commits:** `e6ff8ee0` (fix), `e70c91a7` (CD retry).
 
 **Previous (completed):** Order UUIDv7 Single Identity Refactor (5 phases + VPS verified) -> ShopERP UI Fix Batch + Sitemap/Nav Restructure -> Order Sync Fix + Edge Kitchen UI + VPS Data Sync Hardening -> QuickSetup + Product Management plan (IMPLEMENT PENDING - parked) -> Tiered Auth P0-P3 -> KhachLink Waves 0-4 -> Accounting PostgreSQL 3 Waves -> KhachLink UI/UX Fix -> Payment Webhook Fix (pending VPS deploy). See archive for details.
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `0929353f` [FIX] SQLite migration: mark as applied BEFORE MigrateAsync (reverted in uncommitted changes)
-- **Uncommitted changes:** `5_WebApps/ShopERP/Program.cs` (reverted migration skip hack + removed try-catch swallow on seed)
+- **Last commit:** `e70c91a7` [CD] Retry deploy: ShopERP 502 fix (disk cleaned on VPS)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-17):** 0 errors. VanAn.sln build PASS (after revert).
-- **Single-Identity Refactor (2026-07-17 - IN PROGRESS):** Domain + EF config + production code + migrations + architecture rule ALL COMPLETE. 10 commits pushed (b8584a8a → 0929353f). PostgreSQL migration ran successfully on VPS (columns dropped). Gateway + KhachLink working. **ShopERP 502** due to seed PK violation (root cause identified via SSH docker logs).
-- **Anti-pattern audit (2026-07-17 - IN PROGRESS):** User flagged `try-catch` swallows in Program.cs as data-integrity violation. Audit of all swallows in progress — will replace with fail-fast or proper recovery.
+- **Build (2026-07-17):** 0 errors. VanAn.sln build PASS.
+- **Single-Identity Refactor (2026-07-17 - COMPLETE + VPS VERIFIED):** All 5 entities refactored. 12 commits pushed (b8584a8a → e70c91a7). ShopERP 502 fixed (seed check by Id + fail-fast migrations). PG garbage cleaned. VPS all containers healthy.
+- **Anti-pattern audit (2026-07-17 - COMPLETE):** Try-catch swallows around migrations removed. Fail-fast pattern applied.
 - **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
@@ -73,18 +64,11 @@ Multiple `try-catch` blocks in Program.cs that swallow exceptions and continue �
 - **Tiered Auth:** P0-P3 PASS (Online RV 14/14 PASS). P4 Facebook - P5 Zalo ZNS - P6 E2E.
 - **Payment Webhook Fix:** CODE COMPLETE, merged to `main` (`f9b0392f`). **PENDING VPS DEPLOY.**
 - **Local infra (Debug):** Docker + PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
-- **VPS (Production):** khachvip.online — Gateway (200), ShopERP (502 crash), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
+- **VPS (Production):** khachvip.online — Gateway (200), ShopERP (200 healthy), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
 - **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code.
 - **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening. See archive for details.
 
 ## 4. Next Actions
-
-**Immediate (Single-Identity Refactor — fix ShopERP 502 + anti-pattern audit):**
-1. **Audit all `try-catch` swallows in Program.cs** — list each one, classify (fail-fast vs proper recovery vs swallow)
-2. **Fix seed product check** — add `p.Id == sqliteProd.Id` to `pgProdExists` check (root cause of PK violation)
-3. **Design proper error handling for each swallow** — fail-fast for data integrity, proper recovery for transient errors only
-4. **Clean PostgreSQL garbage data** — remove products with mismatched Id/Name from previous deploys (via SSH)
-5. **Build + commit + push + CD + VPS RV** — verify ShopERP starts (200), checkout works (200), no 502
 
 **Immediate (Payment Webhook Fix - DEPLOY + VERIFY):**
 1. **S6:** Push origin `main` -> trigger CD -> deploy VPS -> verify webhook returns 200 + PostgreSQL `JournalEntries` table has revenue + COGS entries
@@ -210,7 +194,7 @@ Server A (Edge):                      Server B (Central):
 
 ## 9. Maintenance Log
 
-* **2026-07-17 -- SINGLE-IDENTITY REFACTOR (HƯỚNG A) — ALL ENTITIES + SHOPERP 502 CRASH DEBUG.** Extended single-identity pattern from Order to all 5 entities with dual-GUID defect (Product, Customer, OrderItem, Ingredient, Recipe). Domain: all constructors sync `Id = BusinessKey.Value`. EF: all configs `Ignore(BusinessKey)`. Production code: all `.BusinessKey.Value` → `.Id`, all LINQ `e.BusinessKey ==` → `e.Id ==`. Migrations: SQLite + PostgreSQL drop BusinessKey columns. Architecture rule added to governance.md. 10 commits pushed. PostgreSQL migration ran on VPS (columns dropped). Gateway + KhachLink working (checkout 200 OK, orderId `019f6ca2-...`). **ShopERP 502 crash:** root cause found via SSH `docker logs vanan-shoperp` — `duplicate key value violates unique constraint "PK_Products"` at Program.cs:line 821. Seed code checks `pgProdExists` by Name+TenantId only, but PostgreSQL has products with same Id + different Name (data drift) → insert → PK violation → crash. **Anti-pattern discovered:** multiple `try-catch` swallows in Program.cs hide errors + accumulate garbage data. User flagged as unacceptable. Reverted migration skip hack + removed try-catch swallow on seed. Audit of all swallows in progress. Branch: `main`.
+* **2026-07-17 -- SINGLE-IDENTITY REFACTOR COMPLETE + SHOPERP 502 FIXED + VPS VERIFIED.** Extended single-identity pattern from Order to all 5 entities (Product, Customer, OrderItem, Ingredient, Recipe). Domain + EF config + production code + migrations + architecture rule ALL COMPLETE. 12 commits pushed (b8584a8a → e70c91a7). **ShopERP 502 fix:** seed product check now checks `p.Id == sqliteProd.Id` first (root cause: PG had product `1581168b-...` "Sinh Tố bơ" with same Id but different Name as correct `05341491-...` "Sinh tố bơ" → PK violation on insert → crash). Try-catch swallows around PostgreSQL + SQLite migrations removed (fail-fast). Migration skip hack (INSERT OR IGNORE into __EFMigrationsHistory) reverted. PG garbage cleaned (deleted dup product, updated 1 OrderItem ref). CD failed (VPS disk full 44G/45G) → cleaned 22GB Docker images → manual deploy via SSH (`docker compose pull` + `up -d`). VPS verified: all containers healthy, `khachvip.online/` → 200, `/health` → 200, `diemthuong.khachvip.online/` → 200. Migrations ran cleanly (no PK violations). Branch: `main`.
 
 * **2026-07-16 -- ORDER UUIDv7 SINGLE IDENTITY REFACTOR COMPLETE + LOCAL RUNTIME VERIFIED.** 5-phase refactor to resolve dual-identity problem (`Order.Id` PK vs `Order.OrderId` domain ID generated independently). Phase 1: Added `UUIDNext 4.2.4` to CPM + 5 projects (Shared, CoreHub, ShopERP, Gateway, KhachLink). Phase 2: `Order.Create` syncs `OrderId = new OrderId(id)` after setting `Id` (single identity). Phase 3: Replaced `Guid.NewGuid()` → `Uuid.NewDatabaseFriendly(Database.PostgreSql)` at 3 sites (OrderService.cs, OrdersController.cs, OmnichannelOrderService.cs) + fixed `RevenueExcelReport.cs` to use `order.Id` (was `order.OrderId.Value`). Phase 4: `OrderConfiguration.cs` ignores `OrderId` property + 2 migrations (SQLite `20260716082930_DropOrderOrderIdColumn` + PostgreSQL `20260716083001_DropOrderOrderIdColumn`) drop `Orders.OrderId` column. Kept `OrderIdConverter` for `ElectronicInvoice.OrderId` + `PendingInvoiceQueue.OrderId`. Phase 5: Updated 3 test files (`OrderApiTests.cs`, `OrderWorkflowServiceTests.cs`, `OrderFinancialCalculationTests.cs`) — query by `o.Id`, removed `OrderId = new OrderId(...)` sets. 83/83 order tests PASS. Local runtime verified: new order `019f6a18-7800-72e6-b61a-7a85c39b4b1c` (UUIDv7 prefix `019f6a18`, version nibble `7`), transition `pending → preparing` 200 OK, OutboxEvent enqueued, NATS published, `Orders.OrderId` column dropped (40 columns remain), 4 pre-existing orders preserved (UUIDv4 → UUIDv7 transition clean). Cross-DB sync subscribers (DataSyncSubscriber, OrderSyncSubscriber) NOT modified. Build 0 errors. Branch: `main`. 27 files (17 modified + 10 new).
 
