@@ -49,6 +49,8 @@ server {
         proxy_set_header   Connection "upgrade";
         proxy_set_header   Host $host;
         proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 }
 
@@ -93,14 +95,16 @@ server {
         proxy_read_timeout 60s;
     }
 
-    # SignalR WebSocket
-    location /dashboardHub {
+    # Blazor Server circuit (SignalR WebSocket)
+    location /_blazor {
         proxy_pass         http://vanan-khachlink:80;
         proxy_http_version 1.1;
         proxy_set_header   Upgrade $http_upgrade;
         proxy_set_header   Connection "upgrade";
         proxy_set_header   Host $host;
         proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 }
 
@@ -153,6 +157,8 @@ server {
         proxy_set_header   Connection "upgrade";
         proxy_set_header   Host $host;
         proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 }
 
