@@ -76,7 +76,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
-                    .Where(o => o.TenantId == tenantId && o.Status.Value == status)
+                    .Where(o => o.TenantId == tenantId && o.Status == new OrderStatusId(status))
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
             }

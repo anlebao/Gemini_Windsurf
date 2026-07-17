@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [Authorize(Policy = "KitchenAccess")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Models
@@ -12,6 +13,7 @@
 @inject IOrderWorkflowService OrderWorkflowService
 @inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<Display> Logger
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
@@ -173,6 +175,16 @@
     {
         try
         {
+            // Resolve tenantId from AuthenticationStateProvider (works in Blazor circuits
+            // where HttpContext is null — HttpContextTenantProvider returns Guid.Empty).
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var tenantClaim = authState.User.FindFirst("tenant_id")?.Value
+                              ?? authState.User.FindFirst("tenantId")?.Value;
+            if (tenantClaim != null && Guid.TryParse(tenantClaim, out Guid tid) && tid != Guid.Empty)
+            {
+                TenantProvider.SetTenant(tid);
+            }
+
             kitchenEnabled = await FeatureSettings.IsEnabledAsync(
                 TenantProvider.TenantId,
                 nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
