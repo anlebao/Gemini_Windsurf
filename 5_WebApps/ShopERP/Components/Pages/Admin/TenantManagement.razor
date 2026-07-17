@@ -141,6 +141,7 @@
     @if (_showCreateModal)
     {
         <VanAModal Title="Tạo Tenant Mới" IsVisible="true" OnClose="CloseCreateModal">
+            <Body>
             <VanAForm OnValidSubmit="HandleCreateSubmit" aria-label="Tạo tenant mới">
                 <div class="form-group">
                     <label for="tenant-name">Tên tenant *</label>
@@ -185,6 +186,7 @@
                     <VanAButton Variant="outline" OnClick="CloseCreateModal">Huỷ</VanAButton>
                 </div>
             </VanAForm>
+            </Body>
         </VanAModal>
     }
 
@@ -192,6 +194,7 @@
     @if (_showOnboardingModal)
     {
         <VanAModal Title="Tạo Tenant + Onboarding" IsVisible="true" OnClose="CloseOnboardingModal" Size="large">
+            <Body>
             @if (_onboardingResult is not null)
             {
                 <VanACard Header="Onboarding thành công">
@@ -282,6 +285,7 @@
                     </div>
                 }
             }
+            </Body>
         </VanAModal>
     }
 
@@ -289,6 +293,7 @@
     @if (_showSuspendModal && _selectedTenant is not null)
     {
         <VanAModal Title="Tạm ngưng Tenant" IsVisible="true" OnClose="CloseSuspendModal">
+            <Body>
             <p>Tạm ngưng tenant: <strong>@_selectedTenant.Name</strong></p>
             <div class="form-group">
                 <label>Lý do *</label>
@@ -298,6 +303,7 @@
                 <VanAButton Variant="warning" OnClick="ConfirmSuspend" IsLoading="@_isSaving">Xác nhận tạm ngưng</VanAButton>
                 <VanAButton Variant="outline" OnClick="CloseSuspendModal">Huỷ</VanAButton>
             </div>
+            </Body>
         </VanAModal>
     }
 
@@ -305,6 +311,7 @@
     @if (_showDeactivateModal && _selectedTenant is not null)
     {
         <VanAModal Title="Vô hiệu hoá Tenant" IsVisible="true" OnClose="CloseDeactivateModal">
+            <Body>
             <VanAAlert Type="error" Message="Thao tác này không thể hoàn tác! Tenant sẽ bị vô hiệu hoá vĩnh viễn." />
             <p>Vô hiệu hoá tenant: <strong>@_selectedTenant.Name</strong></p>
             <div class="form-group">
@@ -315,6 +322,7 @@
                 <VanAButton Variant="danger" OnClick="ConfirmDeactivate" IsLoading="@_isSaving">Xác nhận vô hiệu hoá</VanAButton>
                 <VanAButton Variant="outline" OnClick="CloseDeactivateModal">Huỷ</VanAButton>
             </div>
+            </Body>
         </VanAModal>
     }
 </div>

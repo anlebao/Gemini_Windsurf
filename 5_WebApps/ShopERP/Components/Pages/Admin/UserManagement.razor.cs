@@ -56,8 +56,21 @@ namespace VanAn.ShopERP.Components.Pages.Admin
             _isLoading = true;
             try
             {
-                var tenantId = GetTenantId();
-                _users = (await UserService.ListUsersAsync(tenantId)).ToList();
+                // Bug 3: Sysadmin without impersonation sees ALL users.
+                // Sysadmin with impersonation (TenantProvider.TenantId set) sees only that tenant's users.
+                // Non-sysadmin always has TenantProvider.TenantId set.
+                if (_isSystemAdmin && TenantProvider.TenantId == Guid.Empty)
+                {
+                    // Sysadmin not impersonating — list all users across all tenants
+                    _users = await DbContext.Users
+                        .OrderBy(u => u.DisplayName)
+                        .ToListAsync();
+                }
+                else
+                {
+                    var tenantId = GetTenantId();
+                    _users = (await UserService.ListUsersAsync(tenantId)).ToList();
+                }
             }
             catch (Exception ex)
             {
@@ -224,9 +237,9 @@ namespace VanAn.ShopERP.Components.Pages.Admin
 
         private TenantId GetTenantId()
         {
-            return TenantProvider.TenantId == Guid.Empty
-                ? new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"))
-                : new TenantId(TenantProvider.TenantId);
+            // Bug 3: No hardcoded fallback. Use TenantProvider.TenantId (set via impersonation for sysadmin).
+            // If Guid.Empty, the caller should handle the "no tenant selected" case.
+            return new TenantId(TenantProvider.TenantId);
         }
 
         private class CreateUserForm
