@@ -59,7 +59,7 @@
                                     <OrderStatusBadge Status="@o.Status" />
                                 </div>
                                 <div class="kitchen-card__time">
-                                    @o.OrderDate.ToString("HH:mm") — @GetElapsed(o.OrderDate)
+                                    @o.OrderDate.ToVietnamTimeShort() — @GetElapsed(o.OrderDate)
                                 </div>
                                 <div class="kitchen-card__items">
                                     @foreach (var item in o.Items)
@@ -97,7 +97,7 @@
                                     <OrderStatusBadge Status="@o.Status" />
                                 </div>
                                 <div class="kitchen-card__time">
-                                    @o.OrderDate.ToString("HH:mm") — @GetElapsed(o.OrderDate)
+                                    @o.OrderDate.ToVietnamTimeShort() — @GetElapsed(o.OrderDate)
                                 </div>
                                 <div class="kitchen-card__items">
                                     @foreach (var item in o.Items)
@@ -135,7 +135,7 @@
                                     <OrderStatusBadge Status="@o.Status" />
                                 </div>
                                 <div class="kitchen-card__time">
-                                    @o.OrderDate.ToString("HH:mm") — @GetElapsed(o.OrderDate)
+                                    @o.OrderDate.ToVietnamTimeShort() — @GetElapsed(o.OrderDate)
                                 </div>
                                 <div class="kitchen-card__items">
                                     @foreach (var item in o.Items)

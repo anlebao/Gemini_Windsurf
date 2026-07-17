@@ -33,11 +33,12 @@ namespace VanAn.CoreHub.Services
         public byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber)
         {
             var qrPayload = new QRCodePayload(productId, shopId, tableNumber);
-            var qrJson = qrPayload.ToJson();
+            // Issue 9: Use URL format so external scanners (Zalo) can open the link
+            var qrContent = qrPayload.ToQrContent();
 
             using (QRCodeGenerator qrGenerator = new QRCodeGenerator())
             {
-                QRCoder.QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrJson, QRCodeGenerator.ECCLevel.Q);
+                QRCoder.QRCodeData qrCodeData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
                 using (PngByteQRCode qrCode = new PngByteQRCode(qrCodeData))
                 {
                     return qrCode.GetGraphic(20);

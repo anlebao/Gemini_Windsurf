@@ -57,9 +57,9 @@ async function startQRScanner(dotNetRef) {
 
         html5QrCode = new Html5Qrcode("qr-reader");
 
-        // Mobile-optimized config — smaller scan box for small screens
+        // Mobile-optimized config — larger scan box for better UX
         const isMobile = window.innerWidth < 768;
-        const qrboxSize = isMobile ? 200 : 250;
+        const qrboxSize = isMobile ? 250 : 300;
 
         const config = {
             fps: 10,

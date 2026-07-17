@@ -168,8 +168,13 @@
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             if (string.IsNullOrEmpty(token)) { _isLoggedIn = false; return; }
 
+            // Issue 10 fix: Also send device ID so guest checkout orders are included
+            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+
             var client = HttpClientFactory.CreateClient("gateway");
             client.DefaultRequestHeaders.Add("X-Customer-Token", token);
+            if (!string.IsNullOrEmpty(deviceId))
+                client.DefaultRequestHeaders.Add("X-Customer-Device-Id", deviceId);
             var url = $"/api/customerorders?page={_currentPage}&pageSize={PageSize}";
             if (!string.IsNullOrEmpty(_activeStatus)) url += $"&status={_activeStatus}";
 

@@ -29,6 +29,7 @@ namespace VanAn.ShopERP.Controllers
         [HttpGet]
         public async Task<IActionResult> GetMyOrders(
             [FromHeader(Name = "X-Customer-Token")] string? token,
+            [FromHeader(Name = "X-Customer-Device-Id")] string? deviceid,
             [FromQuery] string? status,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
@@ -37,8 +38,15 @@ namespace VanAn.ShopERP.Controllers
             if (!customerId.HasValue)
                 return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
 
+            // Issue 10 fix: Orders placed via guest checkout have CustomerId=NULL but CustomerDeviceId set.
+            // Query by BOTH CustomerId (logged-in) OR CustomerDeviceId (guest checkout).
+            // This ensures order history shows all orders for the customer's device.
+            string? deviceId = string.IsNullOrEmpty(deviceid) ? null : deviceid;
+
             IQueryable<Order> query = _dbContext.Orders
-                .Where(o => o.CustomerId == customerId.Value && !o.IsDeleted)
+                .Where(o => !o.IsDeleted && (
+                    o.CustomerId == customerId.Value ||
+                    (deviceId != null && o.CustomerDeviceId == deviceId)))
                 .OrderByDescending(o => o.CreatedAt);
 
             if (!string.IsNullOrEmpty(status))

@@ -77,7 +77,7 @@
                     </VanAnColumn>
                     <VanAnColumn TItem="OrderListItem" Title="Thời gian" Width="2">
                         <Template Context="o">
-                            @o.OrderDate.ToString("HH:mm dd/MM")
+                            @o.OrderDate.ToVietnamTimeString()
                         </Template>
                     </VanAnColumn>
                     <VanAnColumn TItem="OrderListItem" Title="Trạng thái" Width="2">
@@ -121,11 +121,19 @@
     private string selectedStatus = "";
     private string selectedDateRange = "today";
     private HubConnection? _hubConnection;
+    private System.Threading.Timer? _pollTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await ReloadOrders();
         await StartSignalRConnection();
+
+        // Issue 8 fix: Fallback polling timer — ensures auto-refresh even if SignalR fails
+        _pollTimer = new System.Threading.Timer(
+            async _ => await InvokeAsync(async () => await ReloadOrders()),
+            null,
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(10));
     }
 
     private async Task OnStatusChanged(ChangeEventArgs e)
@@ -268,6 +276,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _pollTimer?.Dispose();
         if (_hubConnection != null)
         {
             await _hubConnection.DisposeAsync();

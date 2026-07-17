@@ -132,6 +132,7 @@
     // ✅ FIXED: Track subscriptions properly
     private IDisposable? _orderUpdatesSubscription;
     private IDisposable? _metricsUpdatesSubscription;
+    private System.Threading.Timer? _pollTimer;
     
     // ✅ FIXED: Authentication state management
     private ClaimsPrincipal? _currentUser;
@@ -213,8 +214,14 @@
             if (!_isClientSide) return;
             
             Logger.LogDebug("Setting up real-time subscriptions");
-            
-            Logger.LogDebug("Real-time subscriptions not available, using polling instead.");
+
+            // Issue 8 fix: SignalR not available — use polling timer (same pattern as Kitchen/Display.razor)
+            _pollTimer = new System.Threading.Timer(
+                async _ => await InvokeAsync(async () => await LoadData()),
+                null,
+                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(10));
+            Logger.LogDebug("Polling timer started (10s interval)");
         }
         catch (Exception ex)
         {
@@ -422,6 +429,7 @@
     {
         try
         {
+            _pollTimer?.Dispose();
             _orderUpdatesSubscription?.Dispose();
             _metricsUpdatesSubscription?.Dispose();
             

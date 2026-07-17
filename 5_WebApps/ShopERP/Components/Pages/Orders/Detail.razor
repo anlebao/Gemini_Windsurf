@@ -53,7 +53,7 @@
         <VanACard Header="Thông tin đơn hàng">
             <div class="order-info-grid">
                 <div><strong>Mã đơn:</strong> @(order.TrackingCode ?? order.Id.ToString()[..8])</div>
-                <div><strong>Thời gian:</strong> @order.OrderDate.ToString("HH:mm dd/MM/yyyy")</div>
+                <div><strong>Thời gian:</strong> @order.OrderDate.ToVietnamTimeString()</div>
                 <div><strong>Trạng thái:</strong> <OrderStatusBadge Status="@order.Status?.Value" /></div>
                 <div><strong>Thanh toán:</strong> <span class="payment-badge">@order.PaymentStatus</span></div>
                 <div><strong>Tổng tiền:</strong> @order.TotalAmount.ToString("N0") đ</div>

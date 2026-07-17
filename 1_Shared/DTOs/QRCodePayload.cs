@@ -40,11 +40,42 @@ namespace VanAn.Shared.DTOs
             return System.Text.Json.JsonSerializer.Serialize(this);
         }
 
-        public static QRCodePayload? FromJson(string json)
+        /// <summary>
+        /// Issue 9 fix: Generate QR content as URL so external scanners (Zalo) can open it.
+        /// Format: https://diemthuong.khachvip.online/scan?data={base64(json)}
+        /// The Scan page detects URL format and extracts the embedded JSON.
+        /// </summary>
+        public string ToQrContent(string baseUrl = "https://diemthuong.khachvip.online")
+        {
+            string json = ToJson();
+            string base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
+            return $"{baseUrl.TrimEnd('/')}/scan?data={base64}";
+        }
+
+        /// <summary>
+        /// Parse QR content — supports both raw JSON (legacy) and URL format (Zalo-compatible).
+        /// URL format: https://diemthuong.khachvip.online/scan?data={base64(json)}
+        /// </summary>
+        public static QRCodePayload? FromJson(string qrContent)
         {
             try
             {
-                return System.Text.Json.JsonSerializer.Deserialize<QRCodePayload>(json);
+                // Issue 9: If QR contains a URL with ?data= param, extract base64-encoded JSON
+                if (qrContent.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    var uri = new Uri(qrContent);
+                    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                    string? dataParam = query["data"];
+                    if (!string.IsNullOrEmpty(dataParam))
+                    {
+                        string json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataParam));
+                        return System.Text.Json.JsonSerializer.Deserialize<QRCodePayload>(json);
+                    }
+                    return null;
+                }
+
+                // Legacy: raw JSON
+                return System.Text.Json.JsonSerializer.Deserialize<QRCodePayload>(qrContent);
             }
             catch
             {
