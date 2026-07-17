@@ -1,31 +1,14 @@
-[FIX] KhachLink: order history blank + checkout pre-fill + Android PWA install
+[FIX] Gateway: forward OTP login + profile endpoints to ShopERP
 
-Lỗi 2: Order history trắng bóc (logged-in customer)
-- Root cause 2a: Gateway CustomerOrdersController returned text/plain instead of
-  application/json (same StatusCode() bug as previous commit). KhachLink
-  ReadFromJsonAsync<OrdersResult>() failed silently → empty list.
-  Fix: use ContentResult with upstream Content-Type preserved (2 methods).
-- Root cause 2b: Orders created via /api/public/orders/checkout always passed
-  customerId=null to Order.Create(). ShopERP CustomerOrdersController.GetMyOrders
-  filters by CustomerId == customerId.Value → never matched → blank.
-  Fix: CreateOrderCommand gains CustomerId field; PublicOrdersController accepts
-  CustomerId in CheckoutOrderRequest; OrderService passes it to Order.Create()
-  when provided. KhachLink Checkout.razor sends customer_id from localStorage.
-- SocialAuthController Google callback now includes customerId in redirect URL;
-  Login.razor saves it to localStorage (OTP flow already did this).
+Root cause of "OTP chua implement": Gateway CustomerIdentityController
+only forwarded upgrade/send-otp + upgrade/verify-otp, NOT the initial
+login endpoints otp/send + otp/verify + me. Nginx routes api.khachvip.online
+to Gateway, so /api/customer-identity/otp/send returned 404.
 
-Lỗi 3: Checkout bắt nhập lại tên/SĐT cho khách đã đăng nhập
-- Checkout.razor OnAfterRenderAsync now fetches /api/customers/me when logged in
-  and pre-fills guestName/guestPhone from profile. Form header changes to
-  "Xác nhận thông tin giao hàng" with info alert. User can still edit.
-
-Lỗi 1: Android PWA — bấm download không có gì xảy ra
-- service-worker.js: replaced atomic cache.addAll() with per-URL cache.add()
-  + Promise.allSettled so one missing asset doesn't block SW install. Bumped v4→v5.
-- pwa.js showInstallPrompt: when beforeinstallprompt hasn't fired (deferredPrompt
-  is null), show manual instructions for Android Chrome (⋮ → Add to Home screen)
-  and Desktop instead of returning false silently.
-- manifest.json: added "id": "/" for stable PWA identity on Android.
+Added 3 forward endpoints:
+- POST otp/send   -> ShopERP (forwards X-Dev-OTP header in dev mode)
+- POST otp/verify -> ShopERP (returns customer token + customerId)
+- GET  me         -> ShopERP (requires X-Customer-Token)
 
 Generated with [Devin](https://devin.ai)
 
