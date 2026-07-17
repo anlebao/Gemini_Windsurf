@@ -532,52 +532,17 @@ namespace VanAn.ShopERP
             {
                 // MIGRATE POSTGRESQL FIRST — Gateway (in-process CoreHub) uses PostgreSQL directly.
                 // If SQLite migration crashes, PostgreSQL must already be migrated so Gateway works.
+                // FAIL-FAST: migration errors are rethrown (don't swallow — data integrity first).
                 CoreHub.Infrastructure.IAccountingDbContext accountingContext = scope.ServiceProvider.GetRequiredService<CoreHub.Infrastructure.IAccountingDbContext>();
                 if (accountingContext is VanAn.CoreHub.Infrastructure.VanAnDbContext vanAnDb)
                 {
-                    try
-                    {
-                        await vanAnDb.Database.MigrateAsync();
-                        Console.WriteLine("PostgreSQL accounting database migrated");
-                    }
-                    catch (Exception pgEx)
-                    {
-                        Console.WriteLine($"PostgreSQL migration ERROR: {pgEx.Message}");
-                    }
+                    await vanAnDb.Database.MigrateAsync();
+                    Console.WriteLine("PostgreSQL accounting database migrated");
                 }
 
                 ShopERPDbContext context = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
-
-                // SINGLE-IDENTITY migration fix: SQLite PRAGMA foreign_keys must be OFF
-                // BEFORE MigrateAsync starts a transaction. EF Core SQLite provider
-                // opens a connection per-scope, so this PRAGMA applies to the migration.
-                // Wrapped in try-catch: if SQLite migration fails, app still starts (Gateway uses PostgreSQL).
-                try
-                {
-                    // SINGLE-IDENTITY: Mark the migration as applied BEFORE MigrateAsync.
-                    // Previous deploy may have partially run it (SQLite DDL is auto-commit).
-                    // If columns are already dropped, MigrateAsync would crash trying to drop them again.
-                    // By marking it as applied first, MigrateAsync skips it.
-                    // If columns are NOT dropped yet, they'll be ignored by EF Core (not in model).
-                    try
-                    {
-                        await context.Database.ExecuteSqlRawAsync(
-                            "INSERT OR IGNORE INTO \"__EFMigrationsHistory\" (\"MigrationId\",\"ProductVersion\") VALUES ('20260716184043_SingleIdentity_DropBusinessKeyColumns','10.0.5')");
-                        Console.WriteLine("SINGLE-IDENTITY: Marked SingleIdentity migration as applied");
-                    }
-                    catch (Exception markEx)
-                    {
-                        Console.WriteLine($"SINGLE-IDENTITY: Could not mark migration as applied: {markEx.Message}");
-                    }
-
-                    await context.Database.MigrateAsync();
-                    Console.WriteLine("SQLite database migrated");
-                }
-                catch (Exception sqliteEx)
-                {
-                    Console.WriteLine($"SQLite migration ERROR: {sqliteEx.Message}");
-                    // Don't rethrow — app should start even if SQLite migration fails
-                }
+                await context.Database.MigrateAsync();
+                Console.WriteLine("SQLite database migrated");
 
                 // Optimize SQLite for concurrency
                 _ = await context.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
@@ -794,12 +759,14 @@ namespace VanAn.ShopERP
                     int pgProductCount = 0;
                     foreach (var sqliteProd in sqliteProducts)
                     {
-                        // Check by Name + TenantId (case-insensitive) — prevents duplicate products
-                        // when GUID case differs between SQLite (uppercase) and PostgreSQL (lowercase).
-                        // Also check by Id as a secondary match for exact GUID equality.
+                        // SINGLE-IDENTITY: Check by Id (PK) first — most reliable.
+                        // Also check by Name + TenantId as fallback (case-insensitive).
+                        // Both checks needed: product may exist with same Id but different Name
+                        // (data drift), or same Name but different Id (re-seed with new GUID).
                         bool pgProdExists = await vanAnDbForSeed.Products
                             .IgnoreQueryFilters()
-                            .AnyAsync(p => p.TenantId == sqliteProd.TenantId && p.Name == sqliteProd.Name);
+                            .AnyAsync(p => p.Id == sqliteProd.Id
+                                || (p.TenantId == sqliteProd.TenantId && p.Name == sqliteProd.Name));
                         if (!pgProdExists)
                         {
                             var pgProd = new Product(
