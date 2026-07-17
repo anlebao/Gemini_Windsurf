@@ -54,7 +54,7 @@ namespace VanAn.CoreHub.Services
             VanAnDbContext context = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
 
             return await context.Orders
-                .Where(o => EF.Property<Guid>(o, "TenantId") == tenantId &&
+                .Where(o => o.TenantId == new TenantId(tenantId) &&
                            o.Status == OrderStatusId.Pending)
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync();

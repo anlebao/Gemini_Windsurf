@@ -24,7 +24,7 @@ namespace VanAn.CoreHub.Repositories
         public async Task<IEnumerable<CoreAccountingEntry>> GetByTenantAsync(TenantId tenantId, CancellationToken cancellationToken = default)
         {
             return await _context.AccountingEntries
-                .Where(e => e.TenantId.Value == tenantId.Value)
+                .Where(e => e.TenantId == tenantId)
                 .OrderByDescending(e => e.CreatedAt)
                 .ToListAsync(cancellationToken);
         }

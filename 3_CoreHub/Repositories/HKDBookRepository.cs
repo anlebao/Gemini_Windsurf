@@ -22,7 +22,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.JournalEntries
-                    .Where(e => EF.Property<Guid>(e, "TenantId") == tenantId.Value)
+                    .Where(e => e.TenantId == tenantId)
                     .OrderBy(e => e.EntryDate)
                     .ToListAsync(cancellationToken);
             }
@@ -43,9 +43,9 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.JournalEntries
-                    .Where(e => EF.Property<Guid>(e, "TenantId") == tenantId.Value &&
-                               e.Period.Year == period.Year &&
-                               e.Period.Month == period.Month)
+                    .Where(e => e.TenantId == tenantId &&
+                               e.EntryDate >= period.StartDate &&
+                               e.EntryDate <= period.EndDate)
                     .OrderBy(e => e.EntryDate)
                     .ToListAsync(cancellationToken);
             }
@@ -100,9 +100,9 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.JournalEntries
-                    .Where(e => EF.Property<Guid>(e, "TenantId") == tenantId.Value &&
-                               e.Period.Year == period.Year &&
-                               e.Period.Month == period.Month &&
+                    .Where(e => e.TenantId == tenantId &&
+                               e.EntryDate >= period.StartDate &&
+                               e.EntryDate <= period.EndDate &&
                                e.Lines.Any(l => l.AccountNumber == accountNumber))
                     .OrderBy(e => e.EntryDate)
                     .ToListAsync(cancellationToken);

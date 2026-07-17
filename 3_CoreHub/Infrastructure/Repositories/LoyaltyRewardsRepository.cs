@@ -24,7 +24,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<IEnumerable<LoyaltyRewards>> GetByTenantIdAsync(TenantId tenantId, CancellationToken cancellationToken = default)
         {
             return await _context.LoyaltyRewards
-                .Where(r => r.TenantId.Value == tenantId.Value)
+                .Where(r => r.TenantId == tenantId)
                 .ToListAsync(cancellationToken);
         }
 

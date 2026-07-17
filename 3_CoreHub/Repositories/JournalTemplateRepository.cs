@@ -19,7 +19,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.JournalTemplates
-                    .FirstOrDefaultAsync(t => EF.Property<Guid>(t, "TenantId") == tenantId.Value && t.Code == code);
+                    .FirstOrDefaultAsync(t => t.TenantId == tenantId && t.Code == code);
             }
             catch (Exception ex)
             {
@@ -33,7 +33,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.JournalTemplates
-                    .Where(t => EF.Property<Guid>(t, "TenantId") == tenantId.Value)
+                    .Where(t => t.TenantId == tenantId)
                     .OrderBy(t => t.Code)
                     .ToListAsync();
             }
