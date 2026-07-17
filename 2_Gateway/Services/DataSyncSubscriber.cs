@@ -98,37 +98,38 @@ namespace VanAn.Gateway.Services
 
                 using IServiceScope scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<IVanAnDbContext>();
+                var scopeSp = scope.ServiceProvider;
 
                 switch (eventType)
                 {
                     case "order.completed":
                     case "ordercompleted":
-                        await SyncOrderCompletedAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncOrderCompletedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     case "order.statuschanged":
                     case "orderstatuschanged":
                     case "order.status.changed":
-                        await SyncOrderStatusAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncOrderStatusAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     case "order.created":
                     case "ordercreated":
-                        await SyncOrderCreatedAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncOrderCreatedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     case "customer.created":
                     case "customercreated":
-                        await SyncCustomerCreatedAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncCustomerCreatedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     case "product.created":
                     case "productcreated":
-                        await SyncProductUpsertAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncProductUpsertAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     case "product.updated":
                     case "productupdated":
-                        await SyncProductUpsertAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncProductUpsertAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     case "product.deleted":
                     case "productdeleted":
-                        await SyncProductDeletedAsync(doc.RootElement, dbContext, cancellationToken);
+                        await SyncProductDeletedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
                     default:
                         _logger.LogDebug("DataSyncSubscriber: unhandled event type {EventType} (subject={Subject})",
@@ -147,8 +148,9 @@ namespace VanAn.Gateway.Services
         /// Sync OrderCompleted event — order is already in PostgreSQL (created via Gateway API).
         /// This handler ensures the order's CompletedAt + Status fields are up-to-date in PostgreSQL
         /// in case the completion happened while ShopERP was offline.
+        /// Sets tenant context from payload so VanAnDbContext query filter works correctly.
         /// </summary>
-        private async Task SyncOrderCompletedAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        internal async Task SyncOrderCompletedAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
             if (!data.TryGetProperty("OrderId", out var orderIdProp))
             {
@@ -157,12 +159,21 @@ namespace VanAn.Gateway.Services
             }
 
             Guid orderId = orderIdProp.GetGuid();
-            var order = await dbContext.Orders
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(o => o.Id == orderId, ct);
+
+            // Set tenant context from payload so query filter finds the order.
+            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncOrderCompletedAsync: missing TenantId for order {OrderId} — cannot set tenant context", orderId);
+                return;
+            }
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            var order = await dbContext.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order == null)
             {
-                _logger.LogWarning("SyncOrderCompletedAsync: order {OrderId} not found in PostgreSQL — skipping", orderId);
+                _logger.LogWarning("SyncOrderCompletedAsync: order {OrderId} not found in PostgreSQL (tenant {TenantId}) — skipping", orderId, tenantId);
                 return;
             }
 
@@ -173,7 +184,7 @@ namespace VanAn.Gateway.Services
                 order.UpdateOrderStatus(new OrderStatusId("completed"));
                 order.MarkAsCompleted();
                 await dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Synced OrderCompleted for order {OrderId} → PostgreSQL status=completed", orderId);
+                _logger.LogInformation("Synced OrderCompleted for order {OrderId} → PostgreSQL status=completed (tenant {TenantId})", orderId, tenantId);
             }
             else
             {
@@ -183,10 +194,11 @@ namespace VanAn.Gateway.Services
 
         /// <summary>
         /// Sync OrderStatusChanged event — update order status in PostgreSQL.
-        /// Payload shape (from OrderWorkflowService.PublishOrderStatusChangedEventAsync):
-        ///   { orderId, oldStatus, newStatus, reason, timestamp }
+        /// Payload shape (from OrderWorkflowService.EnqueueOrderStatusChangedEvent):
+        ///   { orderId, tenantId, oldStatus, newStatus, timestamp }
+        /// Sets tenant context from payload so VanAnDbContext query filter works correctly.
         /// </summary>
-        private async Task SyncOrderStatusAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        internal async Task SyncOrderStatusAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
             if (!data.TryGetProperty("orderId", out var orderIdProp))
             {
@@ -203,12 +215,21 @@ namespace VanAn.Gateway.Services
                 return;
             }
 
-            var order = await dbContext.Orders
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            // Set tenant context from payload so query filter finds the order.
+            // Order always has a TenantId (determined from Product at creation time).
+            Guid tenantId = data.TryGetProperty("tenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncOrderStatusAsync: missing tenantId for order {OrderId} — cannot set tenant context", orderId);
+                return;
+            }
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            var order = await dbContext.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
             if (order == null)
             {
-                _logger.LogWarning("SyncOrderStatusAsync: order {OrderId} not found in PostgreSQL — skipping", orderId);
+                _logger.LogWarning("SyncOrderStatusAsync: order {OrderId} not found in PostgreSQL (tenant {TenantId}) — skipping", orderId, tenantId);
                 return;
             }
 
@@ -216,7 +237,7 @@ namespace VanAn.Gateway.Services
             {
                 order.UpdateOrderStatus(new OrderStatusId(newStatus));
                 await dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Synced order {OrderId} status → {Status} in PostgreSQL", orderId, newStatus);
+                _logger.LogInformation("Synced order {OrderId} status → {Status} in PostgreSQL (tenant {TenantId})", orderId, newStatus, tenantId);
             }
         }
 
@@ -225,7 +246,7 @@ namespace VanAn.Gateway.Services
         /// Covers the offline case where ShopERP created the order locally (Edge Mode POS).
         /// Direction: SQLite→PG (subject vanan.shoperp.order.created).
         /// </summary>
-        private async Task SyncOrderCreatedAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        internal async Task SyncOrderCreatedAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
             if (!data.TryGetProperty("OrderId", out var orderIdProp))
             {
@@ -234,9 +255,17 @@ namespace VanAn.Gateway.Services
             }
 
             Guid orderId = orderIdProp.GetGuid();
-            bool exists = await dbContext.Orders
-                .IgnoreQueryFilters()
-                .AnyAsync(o => o.Id == orderId, ct);
+            // Set tenant context from payload so query filter works correctly.
+            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncOrderCreatedAsync: missing TenantId for order {OrderId}", orderId);
+                return;
+            }
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            bool exists = await dbContext.Orders.AnyAsync(o => o.Id == orderId, ct);
             if (exists)
             {
                 _logger.LogDebug("SyncOrderCreatedAsync: order {OrderId} already exists in PostgreSQL", orderId);
@@ -244,13 +273,6 @@ namespace VanAn.Gateway.Services
             }
 
             // Full upsert: deserialize complete Order graph from event payload.
-            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
-            if (tenantId == Guid.Empty)
-            {
-                _logger.LogWarning("SyncOrderCreatedAsync: missing TenantId for order {OrderId}", orderId);
-                return;
-            }
-
             TenantId tenantIdObj = new(tenantId);
 
             // Build OrderItems from payload
@@ -316,8 +338,9 @@ namespace VanAn.Gateway.Services
         /// Sync CustomerCreated event — upsert customer to PostgreSQL.
         /// Customers are typically created via OTP verify flow (Gateway → ShopERP CustomerIdentityController).
         /// This handler covers the offline case.
+        /// Sets tenant context from payload so VanAnDbContext query filter works correctly.
         /// </summary>
-        private async Task SyncCustomerCreatedAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        internal async Task SyncCustomerCreatedAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
             if (!data.TryGetProperty("CustomerId", out var idProp))
             {
@@ -326,9 +349,17 @@ namespace VanAn.Gateway.Services
             }
 
             Guid customerId = idProp.GetGuid();
-            bool exists = await dbContext.Customers
-                .IgnoreQueryFilters()
-                .AnyAsync(c => c.Id == customerId, ct);
+            // Set tenant context from payload so query filter works correctly.
+            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncCustomerCreatedAsync: missing TenantId for customer {CustomerId} — cannot set tenant context", customerId);
+                return;
+            }
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            bool exists = await dbContext.Customers.AnyAsync(c => c.Id == customerId, ct);
             if (exists)
             {
                 _logger.LogDebug("SyncCustomerCreatedAsync: customer {CustomerId} already exists in PostgreSQL", customerId);
@@ -344,8 +375,10 @@ namespace VanAn.Gateway.Services
         /// Sync ProductCreated/ProductUpdated event — upsert product to PostgreSQL.
         /// Payload shape (from ShopERP product event publisher):
         ///   { ProductId, TenantId, Name, Description, Price, CostPrice, Category, IsActive, ImageUrl, VatRate }
+        /// Sets tenant context from payload so VanAnDbContext query filter works correctly.
+        /// Fail-safe: if tenantId missing → log + refuse to process (no bypass).
         /// </summary>
-        private async Task SyncProductUpsertAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        internal async Task SyncProductUpsertAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
             if (!data.TryGetProperty("ProductId", out var idProp))
             {
@@ -357,14 +390,15 @@ namespace VanAn.Gateway.Services
             Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
             if (tenantId == Guid.Empty)
             {
-                _logger.LogWarning("SyncProductUpsertAsync: missing TenantId for product {ProductId}", productId);
+                _logger.LogWarning("SyncProductUpsertAsync: missing TenantId for product {ProductId} — refusing to process (fail-safe)", productId);
                 return;
             }
 
-            // Check if product already exists in PostgreSQL (IgnoreQueryFilters: cross-tenant upsert)
-            Product? existing = await dbContext.Products
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(p => p.Id == productId, ct);
+            // Set tenant context from payload so query filter finds the product.
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            Product? existing = await dbContext.Products.FirstOrDefaultAsync(p => p.Id == productId, ct);
 
             string name = data.TryGetProperty("Name", out var nProp) ? nProp.GetString() ?? "" : "";
             string description = data.TryGetProperty("Description", out var dProp) ? dProp.GetString() ?? "" : "";
@@ -380,11 +414,14 @@ namespace VanAn.Gateway.Services
                 // Create new product in PostgreSQL
                 var product = new Product(
                     new TenantId(tenantId), name, description, price, category, isActive, imageUrl, vatRate, costPrice);
-                // Override ProductId to match source (constructor generates new Guid)
+                // Sync both PK (Id) and business key (ProductId) to match source.
+                // Product constructor sets Id = ProductId.Value (auto-generated Guid), so we must
+                // override BOTH to match the event's ProductId.
                 typeof(Product).GetProperty("ProductId")!.SetValue(product, new ProductId(productId));
+                typeof(BaseEntity).GetProperty("Id")!.SetValue(product, productId);
                 dbContext.Products.Add(product);
                 await dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Synced ProductCreated for product {ProductId} → PostgreSQL", productId);
+                _logger.LogInformation("Synced ProductCreated for product {ProductId} → PostgreSQL (tenant {TenantId})", productId, tenantId);
             }
             else
             {
@@ -398,15 +435,17 @@ namespace VanAn.Gateway.Services
                 typeof(Product).GetProperty("ImageUrl")!.SetValue(existing, imageUrl);
                 typeof(Product).GetProperty("VatRate")!.SetValue(existing, vatRate);
                 await dbContext.SaveChangesAsync(ct);
-                _logger.LogInformation("Synced ProductUpdated for product {ProductId} → PostgreSQL", productId);
+                _logger.LogInformation("Synced ProductUpdated for product {ProductId} → PostgreSQL (tenant {TenantId})", productId, tenantId);
             }
         }
 
         /// <summary>
         /// Sync ProductDeleted event — soft-delete product in PostgreSQL.
         /// Payload shape: { ProductId, TenantId }
+        /// Sets tenant context from payload so VanAnDbContext query filter works correctly.
+        /// Fail-safe: if tenantId missing → log + refuse to process (no bypass).
         /// </summary>
-        private async Task SyncProductDeletedAsync(JsonElement data, IVanAnDbContext dbContext, CancellationToken ct)
+        internal async Task SyncProductDeletedAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
             if (!data.TryGetProperty("ProductId", out var idProp))
             {
@@ -415,20 +454,29 @@ namespace VanAn.Gateway.Services
             }
 
             Guid productId = idProp.GetGuid();
-            Product? product = await dbContext.Products
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(p => p.Id == productId, ct);
+            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncProductDeletedAsync: missing TenantId for product {ProductId} — refusing to process (fail-safe)", productId);
+                return;
+            }
+
+            // Set tenant context from payload so query filter finds the product.
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            Product? product = await dbContext.Products.FirstOrDefaultAsync(p => p.Id == productId, ct);
 
             if (product == null)
             {
-                _logger.LogDebug("SyncProductDeletedAsync: product {ProductId} not found in PostgreSQL (already deleted)", productId);
+                _logger.LogDebug("SyncProductDeletedAsync: product {ProductId} not found in PostgreSQL (already deleted or wrong tenant)", productId);
                 return;
             }
 
             // Soft-delete: set IsDeleted = true (BaseEntity pattern)
             typeof(BaseEntity).GetProperty("IsDeleted")!.SetValue(product, true);
             await dbContext.SaveChangesAsync(ct);
-            _logger.LogInformation("Synced ProductDeleted for product {ProductId} → PostgreSQL (soft-deleted)", productId);
+            _logger.LogInformation("Synced ProductDeleted for product {ProductId} → PostgreSQL (soft-deleted, tenant {TenantId})", productId, tenantId);
         }
 
         public override void Dispose()

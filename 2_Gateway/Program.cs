@@ -19,6 +19,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using Serilog;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Core.Tests")]
 
 namespace VanAn.Gateway
 {
