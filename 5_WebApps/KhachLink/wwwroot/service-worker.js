@@ -1,10 +1,9 @@
-const CACHE_NAME = 'vanan-khachlink-v5';
-const STATIC_CACHE = 'vanan-static-v5';
-const DYNAMIC_CACHE = 'vanan-dynamic-v5';
+const CACHE_NAME = 'vanan-khachlink-v6';
+const STATIC_CACHE = 'vanan-static-v6';
+const DYNAMIC_CACHE = 'vanan-dynamic-v6';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
-  '/',
   '/manifest.json',
   '/app.css',
   '/js/pwa.js',
@@ -51,8 +50,8 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
 
   // Cache-first strategy for static assets
-  if (request.destination === 'script' || 
-      request.destination === 'style' || 
+  if ((request.destination === 'script' && !url.pathname.startsWith('/_framework/')) ||
+      request.destination === 'style' ||
       request.destination === 'image' ||
       staticUrlsToCache.some(staticUrl => url.pathname === staticUrl)) {
     
@@ -123,13 +122,8 @@ self.addEventListener('fetch', event => {
 
   // Default: cache-first for navigation
   event.respondWith(
-    caches.match(request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(request);
-      })
+    fetch(request)
+      .catch(() => caches.match(request))
   );
 });
 
