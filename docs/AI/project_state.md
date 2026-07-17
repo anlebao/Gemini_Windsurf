@@ -62,17 +62,13 @@ Extend the single-identity pattern (from Order UUIDv7 refactor) to ALL entities 
 - **VPS Data Sync Hardening (2026-07-15 - COMPLETE):** GUID case mismatch fixed, product dedup by Name, SQLite persistent volume, deterministic seed GUIDs, ShopERP always SQLite (all environments). E2E verified on VPS.
 - **QuickSetup + Product Management (2026-07-14):** Master plan + 6 task cards created. Gap review complete. **PARKED**.
 - **Tiered Auth:** P0-P3 PASS (Online RV 14/14 PASS). P4 Facebook - P5 Zalo ZNS - P6 E2E.
-- **Payment Webhook Fix:** CODE COMPLETE, merged to `main` (`f9b0392f`). **PENDING VPS DEPLOY.**
+- **Payment Webhook Fix:** COMPLETE + VPS VERIFIED (2026-07-17). Webhook 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed.
 - **Local infra (Debug):** Docker + PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
 - **VPS (Production):** khachvip.online — Gateway (200), ShopERP (200 healthy), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
 - **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code.
 - **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening. See archive for details.
 
 ## 4. Next Actions
-
-**Immediate (Payment Webhook Fix - DEPLOY + VERIFY):**
-1. **S6:** Push origin `main` -> trigger CD -> deploy VPS -> verify webhook returns 200 + PostgreSQL `JournalEntries` table has revenue + COGS entries
-2. **S7:** Update `manual-test-vps-guide.md` (remove "500 chap nhan duoc" workaround) + sign-off task card
 
 **Immediate (QuickSetup + Product Management - IMPLEMENT):**
 1. Review 6 task cards in `docs/AI/tasks/` (previously parked, now unblocked)
@@ -193,6 +189,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-17 -- PAYMENT WEBHOOK FIX VPS VERIFIED.** POST /api/webhooks/payment on khachvip.online → 200 OK `"Payment confirmed and accounting entries generated"`. Order `019f6dbf-...`: PaymentStatus=Paid, VietQR_TransactionId=test-tx-001. PostgreSQL JournalEntries: 2 rows (Doanh thu bán hàng + Giá vốn hàng bán). Idempotency: second call returns 200, no duplicate entries. Branch: `main`.
 
 * **2026-07-17 -- SINGLE-IDENTITY REFACTOR COMPLETE + SHOPERP 502 FIXED + VPS VERIFIED.** Extended single-identity pattern from Order to all 5 entities (Product, Customer, OrderItem, Ingredient, Recipe). Domain + EF config + production code + migrations + architecture rule ALL COMPLETE. 12 commits pushed (b8584a8a → e70c91a7). **ShopERP 502 fix:** seed product check now checks `p.Id == sqliteProd.Id` first (root cause: PG had product `1581168b-...` "Sinh Tố bơ" with same Id but different Name as correct `05341491-...` "Sinh tố bơ" → PK violation on insert → crash). Try-catch swallows around PostgreSQL + SQLite migrations removed (fail-fast). Migration skip hack (INSERT OR IGNORE into __EFMigrationsHistory) reverted. PG garbage cleaned (deleted dup product, updated 1 OrderItem ref). CD failed (VPS disk full 44G/45G) → cleaned 22GB Docker images → manual deploy via SSH (`docker compose pull` + `up -d`). VPS verified: all containers healthy, `khachvip.online/` → 200, `/health` → 200, `diemthuong.khachvip.online/` → 200. Migrations ran cleanly (no PK violations). Branch: `main`.
 
