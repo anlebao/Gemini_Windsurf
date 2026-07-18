@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Commands;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
@@ -15,11 +17,13 @@ namespace VanAn.Gateway.Controllers
         IOrderService orderService,
         ISocialCampaignService socialCampaignService,
         ITenantProvider tenantProvider,
+        IVanAnDbContext? dbContext,
         ILogger<PublicOrdersController> logger) : ControllerBase
     {
         private readonly IOrderService _orderService = orderService;
         private readonly ISocialCampaignService _socialCampaignService = socialCampaignService;
         private readonly ITenantProvider _tenantProvider = tenantProvider;
+        private readonly IVanAnDbContext? _dbContext = dbContext;
         private readonly ILogger<PublicOrdersController> _logger = logger;
 
         [HttpPost]
@@ -91,8 +95,23 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(new { error = "Invalid checkout order request — items required" });
                 }
 
-                // Use tenant that matches seeded product data (tenantId in ShopERP's vanan_shoperp.db)
-                Guid tenantId = new("00000000-0000-0000-0000-000000000001");
+                // Bug 4 fix: Resolve tenantId from the first product being ordered.
+                // Previously hardcoded to 00000000-0000-0000-0000-000000000001, which caused orders
+                // from other tenants to be created with the wrong tenant. Kitchen page filters by
+                // the admin's tenant (from JWT), so orders with wrong tenant don't appear on Kitchen.
+                Guid tenantId = new("00000000-0000-0000-0000-000000000001"); // fallback
+                if (_dbContext != null && request.Items.Count > 0)
+                {
+                    var firstProduct = await _dbContext.Products
+                        .IgnoreQueryFilters()
+                        .FirstOrDefaultAsync(p => p.Id == request.Items[0].ProductId);
+                    if (firstProduct != null)
+                    {
+                        tenantId = firstProduct.TenantId.Value;
+                        _logger.LogInformation("Checkout: resolved tenantId {TenantId} from product {ProductId}",
+                            tenantId, firstProduct.Id);
+                    }
+                }
 
                 // Set tenant context for VanAnDbContext multi-tenancy filters (no JWT in anonymous flow)
                 _tenantProvider.SetTenant(tenantId);

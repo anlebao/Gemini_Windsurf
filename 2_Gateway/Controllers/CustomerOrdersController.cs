@@ -25,8 +25,14 @@ namespace VanAn.Gateway.Controllers
                 var client = _httpClientFactory.CreateClient("shoperp");
                 var reqMsg = new HttpRequestMessage(HttpMethod.Get,
                     $"/api/customerorders?status={status}&page={page}&pageSize={pageSize}");
+                // Bug 3 fix: Forward BOTH X-Customer-Token AND X-Customer-Device-Id headers.
+                // Without X-Customer-Device-Id, ShopERP can only query by CustomerId (always null in SQLite
+                // because orders are synced with null CustomerId). The device ID is the ONLY way to match
+                // orders for logged-in customers. Without this header, order history is always blank.
                 if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
                     reqMsg.Headers.Add("X-Customer-Token", token.ToString());
+                if (Request.Headers.TryGetValue("X-Customer-Device-Id", out var deviceId))
+                    reqMsg.Headers.Add("X-Customer-Device-Id", deviceId.ToString());
 
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
