@@ -167,6 +167,16 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOnboardingService, CoreHub.Services.OnboardingService>();
+            // Industry seed strategies — registered for IOnboardingService.ApplyTemplateAsync to resolve by IndustryCode.
+            // Must match Gateway Program.cs registrations (lines 230-236).
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.SpaSeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.HotelSeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.BarberSeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.ClothesSeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.HealthySeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.PetShopSeedStrategy>();
+            _ = builder.Services.AddScoped<CoreHub.Services.Onboarding.IIndustrySeedStrategy, CoreHub.Services.Onboarding.Strategies.RetailSeedStrategy>();
             _ = builder.Services.AddScoped<CoreHub.Services.IVoiceCommandService, CoreHub.Services.VoiceCommandService>();
             _ = builder.Services.AddScoped<Shared.Services.ICustomerService, CoreHub.Services.CustomerService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
