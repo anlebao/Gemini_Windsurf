@@ -71,8 +71,10 @@ namespace VanAn.ShopERP.Pages
                 .AsNoTracking()
                 .FirstOrDefaultAsync(ut => ut.UserId == user.Id && ut.IsActive);
 
-            // Fallback to default tenant if no mapping exists (E2E testing / dev)
-            Guid tenantId = userTenant?.TenantId ?? Guid.Parse("00000000-0000-0000-0000-000000000001");
+            // Bug fix: Fallback to user.TenantId (set during user creation) instead of hardcoded GUID.
+            // Previously: hardcoded 00000000-...-001, causing users created for other tenants to
+            // always login with the wrong tenant_id → see wrong tenant's products/orders.
+            Guid tenantId = userTenant?.TenantId ?? user.TenantId.Value;
 
             // Issue JWT token with full claims
             var jwtToken = _jwtTokenService.GenerateToken(
