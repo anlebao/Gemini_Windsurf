@@ -32,23 +32,32 @@
 
 **[AWAITING NEXT APPROVED OBJECTIVE]**
 
-QuickSetup + Product Management Phases 1–6 are complete and archived. The next work item has not been selected.
+Multi-tenant bug-fix batch + Quick-Setup onboarding implementation COMPLETE (2026-07-18). All 5 commits deployed to VPS. See Section 6 for summary.
 
-**Status (2026-07-17): READY FOR PLANNING**
-- Product Management UI, QR-code single/batch printing, and the focused E2E specifications are implemented.
-- Runtime execution results for the Phase 6 production E2E specifications are not recorded in this state file.
-- **RC-7 fix COMPLETE (2026-07-17):** `OrderService.CreateOrderFromCommandAsync` now loads Product entities and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation time. TT 152/2025/TT-BTC compliance restored. Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Domain `OrderItem.Create` factory extended with `vatRate` param (backward-compatible default). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. 998/998 Core.Tests pass.
-- **VAT Display UI COMPLETE (2026-07-17):** VAT breakdown (Tạm tính / VAT / Tổng cộng) now shown on Cart, Checkout, OrderTracking, OrderHistory, POS, and CartDrawer — conditional on new `VAT_Display_Enabled` shop feature toggle (default ON). Small HKDs turn it OFF in Shop Settings. `CartItem` record extended with `VatRate`/`VatAmount`/`NetAmount`. `CartState.TotalVatAmount` computes real VAT (was hardcoded 0). `PublicOrderTrackingDto` + `PublicOrderItemDto` + `CustomerOrderDto` + checkout response extended with VAT fields. 1006/1007 Core.Tests pass (1 flaky perf test unrelated).
+**Status (2026-07-18): READY FOR PLANNING**
+- All previous QuickSetup + Product Management Phases 1–6 work remains complete and archived.
+- 5 new commits this session (Bug 1-4 fixes + Quick-Setup real implementation) — deployed to VPS, all healthy.
+
+**Completed this session (2026-07-18):**
+1. **Bug 1: Products page not filtered by tenant** — `HttpContextTenantProvider` returned `Guid.Empty` in Blazor Server interactive sessions (HttpContext null during SignalR circuits). Fixed by adding `AuthenticationStateProvider` fallback. Commit `0309e559`.
+2. **Bug 3: Logged-in users can't see order history** — Gateway `CustomerOrdersController` forwarded `X-Customer-Token` but NOT `X-Customer-Device-Id`. Without device ID, ShopERP query fell back to CustomerId only (always null in SQLite) → 0 results. Fixed by forwarding both headers. Commit `0309e559`.
+3. **Bug 4: Zalo QR orders don't appear on Kitchen** — Two root causes: (a) `PublicOrdersController` hardcoded `tenantId = 00000000-...-001` instead of resolving from product; (b) Kitchen Display queried only "pending" status, but paid orders transition to "confirmed" → invisible. Fixed both. Commit `0309e559`.
+4. **Login tenant_id bug** — `Login.cshtml.cs` had hardcoded fallback `00000000-...-001` when `UserTenants` mapping missing. Users created for tenant A always logged in with tenant B's ID. Fixed by falling back to `user.TenantId.Value` (set during creation). Commit `68a34af8`.
+5. **Quick-Setup onboarding stub → real implementation** — `OnboardingService.ApplyTemplateAsync` was `Task.Delay(10)` + fake return. Replaced with real delegation to `IIndustrySeedStrategy`. All 8 strategies implemented (F&B: 32 products, SPA: 22, RETAIL: 18 new, CLOTHES: 22, HOTEL: 15, BARBER: 12, HEALTHY: 12, PETSHOP: 12). Idempotent: skips if tenant already has products. 4th template "Thời trang" added. Commit `f40d162b`.
 
 **Archived (2026-07-17):** QuickSetup + Product Management Phases 4–6 and the Single-Identity Refactor (Hướng A). See `docs/AI/project_state_archive.md`.
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `f9b274e6` [FEAT] VAT display UI + VAT_Display_Enabled toggle + env parity fix
+- **Last commit:** `f40d162b` [FEATURE] Implement Quick-Setup onboarding — real seeding for all 8 industries
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-17):** 0 errors. VanAn.sln build PASS. CI pipeline PASS (980+17 unit, 38 arch, 10 KhachLink startup).
+- **Build (2026-07-18):** 0 errors. VanAn.sln build PASS. CD pipeline PASS (commit `f40d162b`, 5m12s). VPS: vanan-shoperp + vanan-gateway both healthy.
+- **Multi-tenant bug-fix batch (2026-07-18 - COMPLETE + VPS DEPLOYED):** 5 commits fixing tenant filtering, login tenant_id, order history, Kitchen display, and Quick-Setup stub. All deployed to VPS via CD. Commits: `0309e559` (Bug 1,3,4), `68a34af8` (Login tenant_id), `f40d162b` (Quick-Setup real impl).
+- **Quick-Setup Onboarding (2026-07-18 - COMPLETE):** `OnboardingService.ApplyTemplateAsync` rewritten to delegate to `IIndustrySeedStrategy`. All 8 strategies implemented with real data from menu requirement docs. New `RetailSeedStrategy` added (IndustryCode "RETAIL"). 4th QuickSetup template "Thời trang" (d444 → CLOTHES). Idempotent: skips seeding if tenant already has products. IIndustrySeedStrategy registered in ShopERP DI (was only in Gateway).
+- **RC-7 fix COMPLETE (2026-07-17):** `OrderService.CreateOrderFromCommandAsync` now loads Product entities and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation time. TT 152/2025/TT-BTC compliance restored. Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Domain `OrderItem.Create` factory extended with `vatRate` param (backward-compatible default). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. 998/998 Core.Tests pass.
+- **VAT Display UI COMPLETE (2026-07-17):** VAT breakdown (Tạm tính / VAT / Tổng cộng) now shown on Cart, Checkout, OrderTracking, OrderHistory, POS, and CartDrawer — conditional on new `VAT_Display_Enabled` shop feature toggle (default ON). Small HKDs turn it OFF in Shop Settings. `CartItem` record extended with `VatRate`/`VatAmount`/`NetAmount`. `CartState.TotalVatAmount` computes real VAT (was hardcoded 0). `PublicOrderTrackingDto` + `PublicOrderItemDto` + `CustomerOrderDto` + checkout response extended with VAT fields. 1006/1007 Core.Tests pass (1 flaky perf test unrelated).
 - **Environment parity fix (2026-07-17):** `appsettings.Development.json` Gateway connection fixed from SQLite to PostgreSQL (matching VPS). VPS PostgreSQL DB dumped to local Docker PostgreSQL 15-alpine. Local infra: Docker PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001. All 3 servers verified healthy + NATS order sync verified (order created via Gateway API → synced to SQLite via NATS → kitchen display can query it).
 - **Circuit init + kitchen display fix (2026-07-17):** Root cause: 3 orphaned `OrderItems` rows in SQLite (referencing deleted ProductId `192330A9-...`) blocked `SingleIdentity_DropBusinessKeyColumns` migration → `MigrateAsync()` crash → server won't start → Blazor circuit failure + kitchen display empty. Fix: deleted orphaned rows + applied pending SQLite migrations. NATS was also not running locally → order sync Gateway→ShopERP broken → kitchen never received orders. Fix: started NATS in Docker.
 - **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
@@ -60,15 +69,17 @@ QuickSetup + Product Management Phases 1–6 are complete and archived. The next
 - **Payment Webhook Fix:** COMPLETE + VPS VERIFIED (2026-07-17). Webhook 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed.
 - **Local infra (Debug):** Docker PostgreSQL 15-alpine (port 5432, VPS DB dumped) + NATS 2-alpine (port 4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001. All verified healthy with NATS order sync working.
 - **VPS (Production):** khachvip.online — Gateway (200), ShopERP (200 healthy), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
-- **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code.
-- **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening. See archive for details.
+- **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code. Quick-Setup workflow steps seeding (no domain entity for workflow steps yet).
+- **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening - Multi-tenant Bug Fix Batch (2026-07-18) - Quick-Setup Real Implementation (2026-07-18). See archive for details.
 
 ## 4. Next Actions
 
 **No active implementation item:** Select and approve the next objective before starting new work.
 
 **Deferred (pre-existing, not blocking):**
-- *(none — RC-7 resolved 2026-07-17)*
+- Quick-Setup workflow steps seeding (no domain entity for workflow steps yet — products/ingredients/recipes/inventory are seeded, but workflow steps are not)
+- UserTenant mapping record not created during user creation (login falls back to `user.TenantId.Value` — works correctly, but UserTenants table remains empty for manually-created users)
+- Bug 2 (KhachLink shows products from only 1 tenant) — DATA issue: only 1 tenant had products. Now resolved by Quick-Setup real implementation — sysadmin can seed products for any tenant via `/quick-setup?tenantId=...`
 
 ## 5. Active Architecture Decisions
 
@@ -118,6 +129,7 @@ QuickSetup + Product Management Phases 1–6 are complete and archived. The next
 
 ## 6. History Log (compressed � see archive + git log for details)
 
+* [2026-07-18] **MULTI-TENANT BUG FIX BATCH + QUICK-SETUP REAL IMPLEMENTATION.** 5 commits: Bug 1 (tenant filter in Blazor Server), Bug 3 (order history header forwarding), Bug 4 (Kitchen display + hardcoded tenantId), Login tenant_id fix, Quick-Setup stub → real (8 industry seed strategies, 145+ products total). All deployed to VPS.
 * [2026-07-14] **QUICKSETUP + PRODUCT MANAGEMENT MASTER PLAN + 6 TASK CARDS.** Gap review: 5 blocking + 6 minor gaps all resolved. 6 task cards created. Ready for IMPLEMENT.
 * [2026-07-14] **PAYMENT WEBHOOK 500 FIX � CODE COMPLETE ?.** Root cause: `OrderService` called `AddToBookAsync` twice with same JournalEntry instance. Fix A+B (TDD). 995/995 PASS. Merged to main. Pending VPS deploy.
 * [2026-07-14] **KHACHLINK UI/UX FIX BATCH ?.** 3 batches, 10 commits. PWA + currency formatting + iOS install + fly-to-cart + checkout JSON. 8/8 VPS verify PASS.
@@ -174,6 +186,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-18 -- MULTI-TENANT BUG FIX BATCH + QUICK-SETUP REAL IMPLEMENTATION.** 5 commits, all deployed to VPS via CD (healthy). (1) Bug 1: `HttpContextTenantProvider` returned `Guid.Empty` in Blazor Server interactive sessions → products page empty. Fixed by adding `AuthenticationStateProvider` fallback. Commit `0309e559`. (2) Bug 3: Gateway `CustomerOrdersController` didn't forward `X-Customer-Device-Id` header → order history blank for logged-in users. Fixed. Commit `0309e559`. (3) Bug 4: Zalo QR orders invisible on Kitchen — `PublicOrdersController` hardcoded tenantId + Kitchen only queried "pending" (paid orders are "confirmed"). Fixed both. Commit `0309e559`. (4) Login tenant_id bug: `Login.cshtml.cs` hardcoded fallback `00000000-...-001` when UserTenants mapping missing → users created for tenant A logged in with tenant B. Fixed by falling back to `user.TenantId.Value`. Commit `68a34af8`. (5) Quick-Setup stub → real: `OnboardingService.ApplyTemplateAsync` was `Task.Delay(10)` + fake return. Replaced with real delegation to `IIndustrySeedStrategy`. All 8 strategies implemented (F&B: 32 products from Menu_An_Uong.md §1, SPA: 22, RETAIL: 18 new, CLOTHES: 22, HOTEL: 15, BARBER: 12, HEALTHY: 12, PETSHOP: 12). Idempotent. 4th template "Thời trang" added. `IIndustrySeedStrategy` registered in ShopERP DI (was only in Gateway). Commit `f40d162b`. Branch: `main`.
 
 * **2026-07-17 -- ENVIRONMENT PARITY + CIRCUIT INIT + KITCHEN DISPLAY FIX.** Fixed 3 root causes: (1) `appsettings.Development.json` Gateway was using SQLite instead of PostgreSQL — environment drift vs VPS. Fixed to PostgreSQL connection string. Dumped VPS PostgreSQL DB to local Docker PostgreSQL 15-alpine for data parity. (2) "Circuit failed to initialize" on KhachLink — root cause: 3 orphaned `OrderItems` rows in SQLite (ProductId `192330A9-...` deleted) blocked `SingleIdentity_DropBusinessKeyColumns` migration → `MigrateAsync()` crash → server won't start. Fix: deleted orphaned rows + applied pending SQLite migrations (`SingleIdentity_DropBusinessKeyColumns` + `AddVatDisplayToggle`). (3) POS orders not showing on kitchen display — root cause: NATS not running locally → order sync Gateway→ShopERP broken. Fix: started NATS 2-alpine in Docker. Verified E2E: order created via Gateway API → NATS sync → SQLite (Status=pending, Total=61600, Vat=5600) → kitchen display can query it. All 3 servers (Gateway 5001, ShopERP 5003, KhachLink 5002) verified healthy. CI pipeline PASS: 980+17 unit tests, 38 arch tests, 10 KhachLink startup tests. Commit `f9b274e6` pushed to origin/main. Branch: `main`.
 
