@@ -30,6 +30,13 @@
         <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
     }
 
+    @if (_toastMessage != null)
+    {
+        <div class="pos-toast pos-toast--@_toastType">
+            @_toastMessage
+        </div>
+    }
+
     @if (loading)
     {
         <VanACard Header="Đang tải">
@@ -71,7 +78,7 @@
                 </VanACard>
             </div>
 
-            <div class="pos-cart">
+            <div class="@($"pos-cart {(_cartFlash ? "pos-cart--flash" : "")}")">
                 <VanACard Header="🛒 Giỏ hàng">
                     @if (cartItems.Count == 0)
                     {
@@ -79,21 +86,23 @@
                     }
                     else
                     {
-                        @foreach (var item in cartItems)
-                        {
-                            <div class="pos-cart-item">
-                                <div class="pos-cart-item__info">
-                                    <span class="pos-cart-item__name">@item.ProductName</span>
-                                    <span class="pos-cart-item__price">@item.UnitPrice.ToString("N0") đ</span>
+                        <div class="pos-cart-items">
+                            @foreach (var item in cartItems)
+                            {
+                                <div class="pos-cart-item">
+                                    <div class="pos-cart-item__info">
+                                        <span class="pos-cart-item__name">@item.ProductName</span>
+                                        <span class="pos-cart-item__price">@item.UnitPrice.ToString("N0") đ</span>
+                                    </div>
+                                    <div class="pos-cart-item__qty">
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity - 1))">−</VanAButton>
+                                        <span class="pos-cart-item__count">@item.Quantity</span>
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity + 1))">+</VanAButton>
+                                        <VanAButton Variant="error" Size="small" OnClick="@(() => RemoveFromCart(item.ProductId))">✕</VanAButton>
+                                    </div>
                                 </div>
-                                <div class="pos-cart-item__qty">
-                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity - 1))">−</VanAButton>
-                                    <span class="pos-cart-item__count">@item.Quantity</span>
-                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => UpdateQty(item.ProductId, item.Quantity + 1))">+</VanAButton>
-                                    <VanAButton Variant="error" Size="small" OnClick="@(() => RemoveFromCart(item.ProductId))">✕</VanAButton>
-                                </div>
-                            </div>
-                        }
+                            }
+                        </div>
 
                         <hr />
                         @if (_vatDisplayEnabled && cartItems.Count > 0)
@@ -131,13 +140,140 @@
                     </div>
                 </VanACard>
 
-                <VanAButton Variant="success" FullWidth="true" OnClick="CreateOrder" disabled="@(cartItems.Count == 0 || isSubmitting)" data-testid="pos-btn-create">
+                <VanAButton Variant="success" OnClick="CreateOrder" disabled="@(cartItems.Count == 0 || isSubmitting)" data-testid="pos-btn-create"
+                            style="width: 100%; padding: 12px; font-size: 1.1rem; font-weight: bold;">
                     @(isSubmitting ? "Đang tạo..." : "Tạo đơn hàng")
                 </VanAButton>
             </div>
         </div>
     }
 </div>
+
+<style>
+    /* POS Layout: 2-column grid — products left, cart right (sticky) */
+    .pos-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .pos-products {
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+    }
+
+    /* Cart panel: sticky on desktop so it's always visible */
+    .pos-cart {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+
+    /* Flash animation when item added to cart */
+    .pos-cart--flash {
+        animation: pos-cart-flash 0.6s ease;
+    }
+
+    @@keyframes pos-cart-flash {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.3); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    /* Cart items scrollable area */
+    .pos-cart-items {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .pos-cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .pos-cart-item__info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pos-cart-item__name {
+        font-weight: 600;
+    }
+
+    .pos-cart-item__price {
+        font-size: 0.85rem;
+        color: #6b7280;
+    }
+
+    .pos-cart-item__qty {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .pos-cart-item__count {
+        min-width: 2rem;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .pos-cart-total {
+        text-align: right;
+        font-size: 1.2rem;
+        padding: 0.5rem 0;
+    }
+
+    /* Toast notification — top-right, auto-dismiss */
+    .pos-toast {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 9999;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        animation: pos-toast-slide 0.3s ease;
+    }
+
+    .pos-toast--success {
+        background: #22c55e;
+        color: white;
+    }
+
+    .pos-toast--error {
+        background: #ef4444;
+        color: white;
+    }
+
+    @@keyframes pos-toast-slide {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Mobile: single column, cart below products but with sticky checkout bar */
+    @@media (max-width: 768px) {
+        .pos-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .pos-products {
+            max-height: none;
+            overflow-y: visible;
+        }
+
+        .pos-cart {
+            position: static;
+            max-height: none;
+            overflow-y: visible;
+        }
+    }
+</style>
 
 @code {
     private List<ProductDetailDto> products = new();
@@ -149,6 +285,12 @@
     private string customerPhone = string.Empty;
     private string tableNumber = string.Empty;
     private bool _vatDisplayEnabled = true;
+
+    // Visual feedback: toast + cart flash
+    private string? _toastMessage;
+    private string _toastType = "success";
+    private bool _cartFlash;
+    private System.Threading.Timer? _toastTimer;
 
     private decimal cartTotal => cartItems.Sum(i => i.UnitPrice * i.Quantity);
 
@@ -191,6 +333,25 @@
                 Quantity = 1
             });
         }
+
+        // Visual feedback: toast + cart flash
+        ShowToast($"✓ Đã thêm: {product.Name}", "success");
+        _cartFlash = true;
+        StateHasChanged();
+        // Reset flash after animation
+        _ = Task.Delay(600).ContinueWith(_ => { _cartFlash = false; InvokeAsync(StateHasChanged); });
+    }
+
+    private void ShowToast(string message, string type)
+    {
+        _toastMessage = message;
+        _toastType = type;
+        _toastTimer?.Dispose();
+        _toastTimer = new System.Threading.Timer(_ =>
+        {
+            _toastMessage = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 2000, Timeout.Infinite);
     }
 
     private void UpdateQty(Guid productId, int qty)
@@ -211,6 +372,7 @@
     private void RemoveFromCart(Guid productId)
     {
         _ = cartItems.RemoveAll(c => c.ProductId == productId);
+        ShowToast("Đã xoá khỏi giỏ", "success");
     }
 
     // T9: Create order via IOrderService.CreateOrderFromCommandAsync (atomic outbox — E1 fix).
@@ -247,6 +409,7 @@
         {
             Logger.LogError(ex, "Error creating POS order");
             errorMessage = $"Không thể tạo đơn: {ex.Message}";
+            ShowToast($"Lỗi: {ex.Message}", "error");
         }
         finally
         {
