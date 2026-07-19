@@ -48,11 +48,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasForeignKey(e => e.OrderId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Product navigation uses Guid (not value object)
-            _ = builder.HasOne(e => e.Product)
-                .WithMany()
-                .HasForeignKey(e => e.ProductId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Phase 3 (Option C): Product navigation removed — Gateway PG no longer stores Products.
+            // OrderItem.ProductId is now a plain Guid column (snapshot from client at checkout time).
+            // Products live in ShopERP SQLite. Referential integrity is enforced at ShopERP level.
+            // FK constraint dropped via migration AddOutboxRoutingKey (Phase 3).
+            // builder.HasOne(e => e.Product).WithMany().HasForeignKey(e => e.ProductId).OnDelete(DeleteBehavior.Restrict);
 
             // Indexes
             _ = builder.HasIndex(e => new { e.TenantId, e.OrderId });

@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
+using VanAn.Shared.Domain;
 
-// ReadAsByteArray extension method
+// ReadAsByteArrayAsync extension method
 using System.Net.Http;
 
 namespace VanAn.Gateway.Controllers
@@ -41,7 +42,7 @@ namespace VanAn.Gateway.Controllers
 
             var shopInstanceId = await _dbContext.Tenants
                 .IgnoreQueryFilters()
-                .Where(t => t.Id.Value == tenantId.Value && t.ShopInstanceId.HasValue)
+                .Where(t => t.Id == new TenantId(tenantId.Value) && t.ShopInstanceId.HasValue)
                 .Select(t => t.ShopInstanceId!.Value)
                 .FirstOrDefaultAsync();
 

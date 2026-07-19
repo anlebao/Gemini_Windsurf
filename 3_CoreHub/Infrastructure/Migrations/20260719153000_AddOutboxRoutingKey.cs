@@ -21,11 +21,27 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                 type: "character varying(100)",
                 maxLength: 100,
                 nullable: true);
+
+            // Phase 3 (Option C): Drop FK_OrderItems_Products_ProductId — Gateway PG no longer stores Products.
+            // OrderItem.ProductId is now a plain Guid column (snapshot from client at checkout time).
+            // Products live in ShopERP SQLite. Referential integrity enforced at ShopERP level.
+            migrationBuilder.DropForeignKey(
+                name: "FK_OrderItems_Products_ProductId",
+                table: "OrderItems");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Re-add FK (Option C revert — not recommended)
+            migrationBuilder.AddForeignKey(
+                name: "FK_OrderItems_Products_ProductId",
+                table: "OrderItems",
+                column: "ProductId",
+                principalTable: "Products",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
+
             migrationBuilder.DropColumn(
                 name: "RoutingKey",
                 table: "OutboxMessages");
