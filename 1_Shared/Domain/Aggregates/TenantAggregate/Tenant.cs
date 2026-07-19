@@ -37,6 +37,10 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         // DN created directly via CreateCompany: Type=null until W8 SetTenantType() method added.
         public TenantType? Type { get; private set; }
 
+        // Phase 1 (Multi-VPS Checkout): FK to ShopInstance — which VPS hosts this tenant's ShopERP.
+        // Nullable for backward compat — existing tenants get backfilled in migration.
+        public Guid? ShopInstanceId { get; private set; }
+
         // ── Lifecycle ─────────────────────────────────────────────────────────
         public TenantStatus Status { get; private set; } = TenantStatus.Active;
 
@@ -235,5 +239,20 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         public bool IsConversionOf(TenantId predecessor) => PredecessorTenantId == predecessor;
         public bool IsHouseholdBusiness() => BusinessType == BusinessType.HouseholdBusiness;
         public bool IsCompany() => BusinessType == BusinessType.Company;
+
+        // ── Phase 1: Multi-VPS routing ────────────────────────────────────────
+
+        /// <summary>
+        /// Phase 1 (Multi-VPS Checkout): Assign this tenant to a ShopERP hosting instance.
+        /// Used by Gateway router to determine which VPS to forward HTTP requests to.
+        /// </summary>
+        /// <param name="shopInstanceId">The ShopInstance Id (must not be Guid.Empty).</param>
+        public void AssignToShopInstance(Guid shopInstanceId)
+        {
+            if (shopInstanceId == Guid.Empty)
+                throw new ArgumentException("ShopInstanceId cannot be empty.", nameof(shopInstanceId));
+            ShopInstanceId = shopInstanceId;
+            UpdateAudit();
+        }
     }
 }

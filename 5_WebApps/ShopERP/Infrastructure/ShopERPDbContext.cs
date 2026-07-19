@@ -77,6 +77,9 @@ namespace VanAn.ShopERP.Infrastructure
         // KhachLink Full Flow W0: Shop feature toggle settings (tenant-scoped)
         public DbSet<VanAn.CoreHub.Infrastructure.Entities.ShopFeatureSettingsEntity> ShopFeatureSettings { get; set; }
 
+        // Phase 1 (Multi-VPS Checkout): ShopERP hosting instances (platform-level, NOT tenant-scoped)
+        public DbSet<ShopInstance> ShopInstances { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

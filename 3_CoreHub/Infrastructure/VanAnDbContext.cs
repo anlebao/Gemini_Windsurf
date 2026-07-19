@@ -109,6 +109,9 @@ namespace VanAn.CoreHub.Infrastructure
         // KhachLink Full Flow W0: Shop feature toggle settings (tenant-scoped)
         public DbSet<Entities.ShopFeatureSettingsEntity> ShopFeatureSettings { get; set; }
 
+        // Phase 1 (Multi-VPS Checkout): ShopERP hosting instances (platform-level, NOT tenant-scoped)
+        public DbSet<ShopInstance> ShopInstances { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

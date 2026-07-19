@@ -93,6 +93,15 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .HasColumnName("Type")
                 .HasConversion<int?>();
 
+            // Phase 1 (Multi-VPS Checkout): FK to ShopInstances table (nullable, no cascade delete).
+            // Deleting a ShopInstance with assigned tenants is blocked by Restrict.
+            builder.Property(e => e.ShopInstanceId)
+                .HasColumnName("ShopInstanceId");
+            builder.HasOne<ShopInstance>()
+                .WithMany()
+                .HasForeignKey(e => e.ShopInstanceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             builder.HasIndex(e => e.Id);
         }
     }
