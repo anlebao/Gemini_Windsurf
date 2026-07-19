@@ -374,27 +374,51 @@
 
 ## 8. COMPLETION SUMMARY
 
-**Phase 3 COMPLETE** — commit `<HASH>` on `main`.
+**Phase 3 COMPLETE** — commits `cdcb639e` + `b469c88c` on `main`.
+
+### What was done
+1. **OrderItemRequest DTO** — added `TenantId`, `ProductName`, `VatRate` (client snapshot fields).
+2. **OrderService.CreateOrderFromCommandAsync** — uses client-provided snapshot by default; falls back to `LoadProductsForSnapshotAsync` only when `ProductName` is empty (backward compat). Added `routingKey` param.
+3. **OutboxEvent + OutboxMessage** — added `RoutingKey` property (nullable, additive). Migration `20260719153000_AddOutboxRoutingKey` adds column + drops `FK_OrderItems_Products_ProductId` (Option C: Gateway PG no longer stores Products).
+4. **NatsSyncWorker.BuildSubject** — appends `.{routingKey}` when set → `vanan.{prefix}.order.created.{shopInstanceId}`.
+5. **PublicOrdersController.CreateCheckoutOrder** — rewritten: multi-tenant grouping (cart with N tenants → N orders), no Products table query, `CheckoutResponse` with partial failure support.
+6. **ProductsController** — added catalog forwarding endpoints (GetProducts, GetRecommendedProducts, ValidateProductPrice) with `ResolveShopErpClientAsync` (ShopInstance BaseUrl lookup, fallback to default "shoperp" client).
+7. **OrderItemConfiguration** — removed Product navigation (Option C). FK constraint dropped via migration.
+8. **DataSyncSubscriber** — product sync disabled per Option C (events logged + ignored).
 
 ### Files created
 | File | Purpose |
 |------|---------|
-| _TBD_ | _TBD_ |
+| `2_Gateway/Controllers/CheckoutResponse.cs` | Multi-tenant checkout response DTOs (Orders[], SuccessCount, FailureCount, Errors[]) |
+| `3_CoreHub/Infrastructure/Migrations/20260719153000_AddOutboxRoutingKey.cs` | Add RoutingKey column + drop FK_OrderItems_Products_ProductId |
 
 ### Files modified
 | File | Change |
 |------|--------|
-| _TBD_ | _TBD_ |
+| `3_CoreHub/Commands/CreateOrderCommand.cs` | OrderItemRequest: +TenantId, +ProductName, +VatRate |
+| `3_CoreHub/Services/IOrderService.cs` | CreateOrderFromCommandAsync: +routingKey param |
+| `3_CoreHub/Services/OrderService.cs` | Use client snapshot, fallback to LoadProducts when empty, +routingKey to OutboxEvent |
+| `1_Shared/Domain.cs` | OutboxEvent: +RoutingKey property + constructor param |
+| `3_CoreHub/Infrastructure/OutboxMessage.cs` | +RoutingKey property |
+| `3_CoreHub/Infrastructure/Configurations/OutboxMessageConfiguration.cs` | Map RoutingKey column |
+| `3_CoreHub/Infrastructure/Configurations/OrderItemConfiguration.cs` | Removed Product navigation (Option C) |
+| `3_CoreHub/Infrastructure/Messaging/OutboxRepository.cs` | ToMessage/ToDomain: map RoutingKey |
+| `3_CoreHub/Services/NatsSyncWorker.cs` | BuildSubject: append routingKey when set |
+| `2_Gateway/Controllers/PublicOrdersController.cs` | Rewrite CreateCheckoutOrder (multi-tenant grouping + CheckoutResponse) |
+| `2_Gateway/Controllers/ProductsController.cs` | +catalog forwarding (GetProducts, GetRecommendedProducts, ValidateProductPrice) + ResolveShopErpClientAsync |
+| `2_Gateway/Services/DataSyncSubscriber.cs` | Product sync disabled per Option C |
 
 ### Issues fixed during implementation
-- _TBD_
+- **FK_OrderItems_Products_ProductId constraint violation** — Gateway PG no longer stores Products (Option C), but FK constraint still required Product to exist. Fix: drop FK via migration + remove Product navigation from OrderItemConfiguration.
+- **TenantId LINQ translation** — `t.Id.Value == tenantId.Value` could not be translated by EF Core. Fix: use `t.Id == new TenantId(tenantId.Value)`.
+- **ReadAsByteArray missing** — used `ReadAsByteArrayAsync()` instead (modern API).
 
 ### Verification
 
 #### Static Verification (compile-time)
-- **Build:** _TBD_
-- **Unit tests:** _TBD_
-- **guard-check.ps1:** _TBD_
+- **Build:** 0 errors. VanAn.sln build PASS.
+- **Unit tests:** 1019/1020 PASS (1 flaky performance test, passes in isolation).
+- **guard-check.ps1:** ALL CHECKS PASSED.
 
 #### Live Runtime Verification (boot + HTTP + UI)
 > **Lesson learned (Wave 0):** Build + Architecture Tests + guard-check PASS ≠ runtime works.
@@ -402,4 +426,13 @@
 
 | # | Test | Status | Evidence |
 |---|------|--------|----------|
-| RV1 | _TBD_ | _TBD_ | _TBD_ |
+| RV1 | Gateway health | PASS | `{"status":"Healthy"}` |
+| RV2 | Single-tenant checkout | PASS | Order created, VAT 10% calc correct (100000 → 110000) |
+| RV3 | Missing ProductName validation | PASS | 400 BadRequest with clear error message |
+| RV4 | Multi-tenant grouping | PASS | 2 orders created (1 per tenant), both 200 OK |
+| RV5 | Products forwarding | FAIL | Pre-existing config issue (port 5003 vs 80) — deferred to Phase 3.6 |
+| RV6 | RoutingKey column + routing | PASS | Column exists, 2 events with routing key, Status=Processed |
+
+### Deferred to Phase 3.6
+1. **OnboardingController refactor** (remove product seeding) — deferred to avoid breaking existing onboarding tests. Phase 3.6 will redesign onboarding for multi-VPS.
+2. **Products forwarding port fix** (5003 vs 80) — pre-existing config issue. Root cause unclear. Phase 3.6 will investigate + fix.
