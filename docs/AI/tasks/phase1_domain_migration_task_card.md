@@ -162,7 +162,7 @@ Before opening this task card for execution, user must confirm:
 
 ## 7. COMPLETION SUMMARY
 
-**Phase 1 COMPLETE** — commit `32c832e9` on `main`.
+**Phase 1 COMPLETE** — commit `32c832e9` on `main` (pushed `557e99df`, CD pipeline #4 PASS, deployed to VPS).
 
 ### Files created (6)
 | File | Purpose |
@@ -202,7 +202,16 @@ Before opening this task card for execution, user must confirm:
 
 | # | Test | Status | Evidence |
 |---|------|--------|----------|
-| RV1 | Docker PostgreSQL 5432 + NATS 4222 running | ✅ | `vanan-postgres-local Up`, `vanan-nats-local Up` |
+| RV1 | Docker PostgreSQL 5432 + NATS 4222 running (local) | ✅ | `vanan-postgres-local Up`, `vanan-nats-local Up` |
 | RV2 | EF Migration applied to local PG | ✅ | `Applying migration '20260719102319_AddShopInstancesAndTenantFk'` → `Done.` |
-| RV3 | ShopInstances table created with seed row | ✅ | `SELECT Id, BaseUrl, Label FROM "ShopInstances"` → 1 row: `00000000-...-000000000001 / http://shoperp:5003 / Default Local` |
-| RV4 | Tenants backfilled with ShopInstanceId | ✅ | `SELECT count(*), count("ShopInstanceId") FROM "Tenants"` → `2 / 2` (all tenants assigned) |
+| RV3 | ShopInstances table created with seed row (local) | ✅ | `SELECT Id, BaseUrl, Label FROM "ShopInstances"` → 1 row: `00000000-...-000000000001 / http://shoperp:5003 / Default Local` |
+| RV4 | Tenants backfilled with ShopInstanceId (local) | ✅ | `SELECT count(*), count("ShopInstanceId") FROM "Tenants"` → `2 / 2` (all tenants assigned) |
+| RV5 | CD pipeline #4 PASS — Build + Push + Deploy to VPS | ✅ | `gh run watch 29685776664` → all 3 jobs ✓ (Build 3m38s, Pre-Deploy 11s, Deploy 1m16s) |
+| RV6 | VPS containers healthy after deploy | ✅ | `vanan-gateway Up 31s (healthy)`, `vanan-shoperp Up 31s (healthy)`, `vanan-khachlink Up 31s (healthy)` |
+| RV7 | EF Migration applied on VPS PG (via ShopERP MigrateAsync) | ✅ | ShopERP logs: `Applying migration '20260719102319_AddShopInstancesAndTenantFk'` + `CREATE TABLE "ShopInstances"` + seed INSERT + backfill UPDATE |
+| RV8 | ShopInstances table exists on VPS PG | ✅ | `SELECT tablename FROM pg_tables` → `ShopInstances` present |
+| RV9 | ShopInstances seed row on VPS | ✅ | `SELECT count(*) FROM "ShopInstances"` → `1` row |
+| RV10 | Tenants backfilled on VPS | ✅ | `SELECT count(*) FROM "Tenants" WHERE "ShopInstanceId" IS NOT NULL` → `2` (all tenants assigned) |
+| RV11 | Gateway health endpoint | ✅ | `curl http://localhost:80/health` → `{"status":"Healthy","service":"VanAn Gateway"}` |
+| RV12 | ShopERP health endpoint | ✅ | `curl http://localhost:80/health` → `Healthy` |
+| RV13 | KhachLink serving PWA | ✅ | `curl http://localhost:80/` → `<!DOCTYPE html><html lang="vi">` (Blazor WASM app loads) |
