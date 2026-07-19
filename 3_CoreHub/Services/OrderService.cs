@@ -134,12 +134,15 @@ namespace VanAn.CoreHub.Services
             try
             {
                 // Wave 5: Resolve industry sector — per-order override falls back to Tenant default
+                // Phase 3.5 fix: Select only DefaultIndustrySector (not full Tenant entity) to avoid
+                // SQLite "no such column: t.ShopInstanceId" error (ShopInstanceId is PG-only column).
                 IndustrySector? sector = order.IndustrySector;
                 if (sector == null && _dbContext != null)
                 {
-                    Tenant? tenant = await _dbContext.Tenants
-                        .FirstOrDefaultAsync(t => t.Id == tenantId);
-                    sector = tenant?.DefaultIndustrySector;
+                    sector = await _dbContext.Tenants
+                        .Where(t => t.Id == tenantId)
+                        .Select(t => t.DefaultIndustrySector)
+                        .FirstOrDefaultAsync();
                 }
 
                 // W0-T3 (C3): Split VAT — net revenue on 511 + VAT liability on 3331 (if VAT > 0).
