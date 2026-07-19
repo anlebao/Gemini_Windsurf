@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -165,6 +166,10 @@ namespace VanAn.Gateway
             // Wave 1 Phase 2: Register ITenantProvider for Gateway controllers
             _ = builder.Services.AddHttpContextAccessor();
             _ = builder.Services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
+
+            // Phase 2 (Multi-VPS Checkout): Normalize JWT role claims — accept both short-form ("role")
+            // and long-form (ClaimTypes.Role URI) in Bearer JWTs. See RoleClaimNormalizer for details.
+            _ = builder.Services.AddTransient<IClaimsTransformation, VanAn.Gateway.Infrastructure.RoleClaimNormalizer>();
 
             // Add YARP Reverse Proxy
             _ = builder.Services.AddReverseProxy()
