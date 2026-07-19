@@ -34,13 +34,14 @@
 
 Implement the 8-phase multi-VPS checkout system per `gateway_router_multi_vps_master_plan.md`.
 
-**Status (2026-07-19): PHASE 3 COMPLETE — Phase 3.5 IN PROGRESS**
+**Status (2026-07-19): PHASE 3 + 3.5 COMPLETE — Phase 4 NEXT**
 - Phase 1 (Domain + Migration): ShopInstance entity + Tenant.ShopInstanceId FK + additive migration with seed + backfill. 18 new unit tests. Commit `32c832e9`. VR 13/13 PASS on local + VPS.
 - Phase 2 (Gateway ShopInstances API): IShopInstanceService + ShopInstanceService + ShopInstancesController (7 endpoints, SystemAdmin Bearer JWT). 15 unit tests PASS. VR 8/8 PASS on VPS. Commit `e95b1d64`.
 - **RoleClaimNormalizer (bonus fix):** Gateway now accepts both short-form `role` and long-form `ClaimTypes.Role` in JWT via `IClaimsTransformation`. Commit `98f1d6d8`. VR 2/2 PASS on VPS (short-form JWT works).
 - **Phase 3 (Gateway Order Creator):** Client snapshot (OrderItemRequest +TenantId +ProductName +VatRate) + multi-tenant grouping (cart with N tenants → N orders) + routed outbox (RoutingKey + NATS subject `vanan.cloud.order.created.{shopInstanceId}`) + drop FK_OrderItems_Products_ProductId (Option C) + product catalog forwarding (ProductsController + ResolveShopErpClientAsync) + DataSyncSubscriber product sync disabled. Commits `cdcb639e` + `b469c88c`. VR 4/5 PASS (RV5 pre-existing port config issue, deferred to Phase 3.6).
+- **Phase 3.5 (Accounting Consolidation):** Split `ConfirmPaymentAsync` into `MarkPaidAsync` (status=Paid + Outbox event) + `GenerateAccountingEntriesAsync` (public) + `ConfirmPaymentAsync` wrapper (POS backward compat). Gateway webhook → `MarkPaidAsync` → NATS `vanan.cloud.order.payment.confirmed.{shopInstanceId}` → ShopERP `PaymentConfirmedSubscriber` → entries in SQLite. Gateway `EInvoiceSyncSubscriber` for sync-back. OrderSyncSubscriber wildcard fix. SQLite compat fix (select only DefaultIndustrySector). Commits `653825c1` + `5d6d589d` + `7248ec2d`. VR 5/5 PASS on VPS (checkout → webhook → NATS → SQLite accounting entries generated).
 - **Phase 3.6 (Deferred Cleanup — NEW):** OnboardingController refactor (remove product seeding) + Products forwarding port fix (5003 vs 80). Task card: `phase3.6_deferred_cleanup_task_card.md`. Depends on Phase 4 + 5.
-- **Next:** Phase 3.5 (Accounting Consolidation) — split MarkPaidAsync + PaymentConfirmedSubscriber + EInvoiceSyncSubscriber. IN PROGRESS.
+- **Next:** Phase 4 (ShopERP OrderSyncSubscriber routing key update) — `phase4_shoperp_public_checkout_task_card.md`.
 
 **Completed this session (2026-07-18):**
 1. **Bug 1: Products page not filtered by tenant** — `HttpContextTenantProvider` returned `Guid.Empty` in Blazor Server interactive sessions (HttpContext null during SignalR circuits). Fixed by adding `AuthenticationStateProvider` fallback. Commit `0309e559`.
@@ -79,7 +80,7 @@ Implement the 8-phase multi-VPS checkout system per `gateway_router_multi_vps_ma
 
 ## 4. Next Actions
 
-**IN PROGRESS:** Phase 3.5 (Accounting Consolidation) — `phase3.5_accounting_consolidation_task_card.md`. Split `ConfirmPaymentAsync` into `MarkPaidAsync` + `GenerateAccountingEntriesAsync` (public). Gateway webhook → `MarkPaidAsync` (PG status=Paid + Outbox event) → NATS → ShopERP `PaymentConfirmedSubscriber` → entries in SQLite + e-invoice. E-invoice sync-back to PG via `EInvoiceSyncSubscriber`.
+**IN PROGRESS:** Phase 4 (ShopERP OrderSyncSubscriber routing key update) — `phase4_shoperp_public_checkout_task_card.md`. Phase 3.5 COMPLETE: accounting entries now created only in ShopERP SQLite via NATS event chain (Gateway MarkPaidAsync → NATS → ShopERP PaymentConfirmedSubscriber → GenerateAccountingEntriesAsync).
 
 **Deferred to Phase 3.6** (`phase3.6_deferred_cleanup_task_card.md` — depends on Phase 4 + 5):
 - OnboardingController refactor (remove product seeding) — HIGH complexity, would break existing onboarding tests. Phase 3.6 will redesign for multi-VPS.
@@ -195,6 +196,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-19 -- PHASE 3.5 COMPLETE (Accounting Consolidation).** Split `ConfirmPaymentAsync` into `MarkPaidAsync` (status=Paid + Outbox event with routing key) + `GenerateAccountingEntriesAsync` (changed private→public) + `ConfirmPaymentAsync` wrapper (backward compat for POS). Gateway `WebhookController` now calls `MarkPaidAsync(enqueuePaymentConfirmedEvent: true)` → NATS `vanan.cloud.order.payment.confirmed.{shopInstanceId}` → ShopERP `PaymentConfirmedSubscriber` (NEW) → sets Paid in SQLite + `GenerateAccountingEntriesAsync`. Gateway `EInvoiceSyncSubscriber` (NEW) subscribes `vanan.shoperp.einvoice.synced.>` (full PG update deferred to Phase 6+). 3 issues found + fixed during VR: (1) OrderSyncSubscriber subject mismatch — added `vanan.cloud.order.created.>` wildcard subscription to match Phase 3 routing key suffix. (2) SQLite ShopInstanceId column missing — `GenerateAccountingEntriesAsync` loaded full Tenant entity (includes PG-only ShopInstanceId column) → SQLite error. Fix: project only `DefaultIndustrySector` via `Select()`. (3) ConfirmPaymentAsync idempotency — wrapper needed idempotency guard before MarkPaidAsync to avoid duplicate accounting entries. 6 new unit tests (MarkPaidAsync + ConfirmPaymentAsync wrapper + GenerateAccountingEntriesAsync public). 1026/1026 Core.Tests PASS. guard-check ALL PASSED. VR 5/5 PASS on VPS (checkout → webhook 200 OK → NATS → PaymentConfirmedSubscriber → "Generated accounting entries for order 019f7bf1..."). Commits: `653825c1` + `5d6d589d` + `7248ec2d`. Branch: `main`.
 
 * **2026-07-19 -- PHASE 3 COMPLETE + PHASE 3.6 CREATED.** Phase 3 (Gateway Order Creator): OrderItemRequest +TenantId +ProductName +VatRate (client snapshot). OrderService.CreateOrderFromCommandAsync uses client snapshot by default, fallback to LoadProductsForSnapshotAsync when ProductName empty. OutboxEvent + OutboxMessage +RoutingKey (nullable, additive migration `20260719153000_AddOutboxRoutingKey` — also drops FK_OrderItems_Products_ProductId per Option C). NatsSyncWorker.BuildSubject appends `.{routingKey}` when set. PublicOrdersController.CreateCheckoutOrder rewritten: multi-tenant grouping (cart with N tenants → N orders), CheckoutResponse with partial failure support. ProductsController +catalog forwarding (GetProducts, GetRecommendedProducts, ValidateProductPrice) with ResolveShopErpClientAsync (ShopInstance BaseUrl lookup). OrderItemConfiguration removed Product navigation. DataSyncSubscriber product sync disabled per Option C. Commits `cdcb639e` + `b469c88c`. VR 4/5 PASS on VPS (RV5 products forwarding FAIL — pre-existing port 5003 config issue, deferred). 1019/1020 unit tests PASS (1 flaky perf test). guard-check ALL PASSED. **Phase 3.6 (Deferred Cleanup) created:** OnboardingController refactor (remove product seeding) + Products forwarding port fix. Task card: `phase3.6_deferred_cleanup_task_card.md`. Depends on Phase 4 + 5. Branch: `main`.
 

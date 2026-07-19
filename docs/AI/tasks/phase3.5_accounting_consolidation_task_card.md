@@ -221,27 +221,44 @@ KhachLink payment → Gateway WebhookController
 
 ## 8. COMPLETION SUMMARY
 
-**Phase 3.5 COMPLETE** — commit `<HASH>` on `main`.
+**Phase 3.5 COMPLETE** — commits `653825c1` + `5d6d589d` + `7248ec2d` on `main`.
+
+### What was done
+1. **OrderService split** — `ConfirmPaymentAsync` split into `MarkPaidAsync` (status=Paid + Outbox event) + `GenerateAccountingEntriesAsync` (public) + `ConfirmPaymentAsync` wrapper (backward compat for POS).
+2. **WebhookController** — changed `ConfirmPaymentAsync` → `MarkPaidAsync(enqueuePaymentConfirmedEvent: true)`.
+3. **ShopERP PaymentConfirmedSubscriber** (NEW) — NATS hosted service, subscribes `vanan.cloud.order.payment.confirmed.>`. Sets order Paid in SQLite + calls `GenerateAccountingEntriesAsync`.
+4. **Gateway EInvoiceSyncSubscriber** (NEW) — NATS hosted service, subscribes `vanan.shoperp.einvoice.synced.>`. Logs sync-back (full PG update deferred to Phase 6+).
+5. **OrderSyncSubscriber fix** — added wildcard subscriptions for routing key suffix.
+6. **GenerateAccountingEntriesAsync SQLite fix** — select only `DefaultIndustrySector` to avoid `no such column: t.ShopInstanceId` error.
 
 ### Files created
 | File | Purpose |
 |------|---------|
-| _TBD_ | _TBD_ |
+| `5_WebApps/ShopERP/Services/PaymentConfirmedSubscriber.cs` | NATS subscriber: receives OrderPaymentConfirmed → sets Paid in SQLite + generates accounting entries |
+| `2_Gateway/Services/EInvoiceSyncSubscriber.cs` | NATS subscriber: receives EInvoiceSynced → logs sync-back (full PG update Phase 6+) |
+| `6_Tests/VanAn.Core.Tests/Services/OrderServiceMarkPaidTests.cs` | 6 unit tests for MarkPaidAsync vs ConfirmPaymentAsync |
 
 ### Files modified
 | File | Change |
 |------|--------|
-| _TBD_ | _TBD_ |
+| `3_CoreHub/Services/IOrderService.cs` | +MarkPaidAsync +GenerateAccountingEntriesAsync (public) |
+| `3_CoreHub/Services/OrderService.cs` | Split ConfirmPaymentAsync + MarkPaidAsync + GenerateAccountingEntriesAsync (public) + SQLite compat fix |
+| `2_Gateway/Controllers/WebhookController.cs` | Call MarkPaidAsync instead of ConfirmPaymentAsync |
+| `5_WebApps/ShopERP/Services/OrderSyncSubscriber.cs` | Added wildcard subscriptions for routing key |
+| `5_WebApps/ShopERP/Program.cs` | Register PaymentConfirmedSubscriber |
+| `2_Gateway/Program.cs` | Register EInvoiceSyncSubscriber |
 
 ### Issues fixed during implementation
-- _TBD_
+1. **OrderSyncSubscriber subject mismatch** — subscribed bare `vanan.cloud.order.created` but NatsSyncWorker publishes `vanan.cloud.order.created.{shopInstanceId}` (with routing key). NATS bare subject does NOT match routed subject. Fix: added `vanan.cloud.order.created.>` wildcard subscription.
+2. **SQLite ShopInstanceId column missing** — `GenerateAccountingEntriesAsync` loaded full Tenant entity (includes ShopInstanceId, PG-only column). SQLite query failed with "no such column: t.ShopInstanceId". Fix: project only `DefaultIndustrySector` via `Select()`.
+3. **ConfirmPaymentAsync idempotency** — wrapper needed idempotency guard BEFORE calling MarkPaidAsync to avoid duplicate accounting entries on second call. Fix: check `existingOrder.PaymentStatus == "Paid"` before delegating.
 
 ### Verification
 
 #### Static Verification (compile-time)
-- **Build:** _TBD_
-- **Unit tests:** _TBD_
-- **guard-check.ps1:** _TBD_
+- **Build:** 0 errors. VanAn.sln build PASS.
+- **Unit tests:** 1026/1026 PASS (16 skipped pre-existing). 6 new MarkPaidAsync tests PASS.
+- **guard-check.ps1:** ALL CHECKS PASSED.
 
 #### Live Runtime Verification (boot + HTTP + UI)
 > **Lesson learned (Wave 0):** Build + Architecture Tests + guard-check PASS ≠ runtime works.
@@ -249,4 +266,8 @@ KhachLink payment → Gateway WebhookController
 
 | # | Test | Status | Evidence |
 |---|------|--------|----------|
-| RV1 | _TBD_ | _TBD_ | _TBD_ |
+| RV1 | Gateway health | PASS | `{"status":"Healthy"}` |
+| RV2 | Checkout + Payment webhook → NATS → SQLite accounting | PASS | Order created in PG → synced to SQLite → webhook MarkPaidAsync 200 OK → NATS OrderPaymentConfirmed → PaymentConfirmedSubscriber → order marked Paid in SQLite + "Generated accounting entries for order 019f7bf1..." |
+| RV3 | Outbox events | PASS | Both OrderCreated + OrderPaymentConfirmed Status=2 (Processed) with routing key `00000000-...-001` |
+| RV4 | EInvoiceSyncSubscriber connected | PASS | "EInvoiceSyncSubscriber connected to NATS nats://nats:4222, subscribed to vanan.shoperp.einvoice.synced.>" |
+| RV5 | PaymentConfirmedSubscriber connected | PASS | "PaymentConfirmedSubscriber connected to NATS nats://nats:4222, subscribed to vanan.cloud.order.payment.confirmed.>" |

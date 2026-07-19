@@ -1,6 +1,6 @@
 # Master Plan: Gateway Order Creator + Routed Async Delivery (Option C) — Multi-VPS Checkout
 
-> **Status:** PHASE 1 + 2 + 3 COMPLETE — Phase 3.5 NEXT (in progress)
+> **Status:** PHASE 1 + 2 + 3 + 3.5 COMPLETE — Phase 4 NEXT
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Date opened:** 2026-07-18
 > **Architecture shift:** Option B (Monolithic in-process, 2026-07-05) → Option C (PG source of truth + routed async delivery, multi-VPS)
@@ -14,8 +14,8 @@
 | 2 — Gateway ShopInstances API | ✅ COMPLETE | `e95b1d64` | 8/8 PASS | IShopInstanceService + ShopInstancesController (7 endpoints, SystemAdmin Bearer JWT) |
 | Bonus — RoleClaimNormalizer | ✅ COMPLETE | `98f1d6d8` | 2/2 PASS | Gateway accepts both short-form `role` + long-form `ClaimTypes.Role` in JWT |
 | 3 — Gateway Order Creator | ✅ COMPLETE | `cdcb639e` + `b469c88c` | 4/5 PASS (RV5 pre-existing config) | Client snapshot + multi-tenant grouping + routed outbox + drop FK + product catalog forwarding |
-| 3.5 — Accounting Consolidation | ⏳ IN PROGRESS | — | — | Split MarkPaidAsync + PaymentConfirmedSubscriber + EInvoiceSyncSubscriber |
-| 4 — ShopERP OrderSyncSubscriber | ⏸ PENDING | — | — | Depends on Phase 3 contract |
+| 3.5 — Accounting Consolidation | ✅ COMPLETE | `653825c1` + `5d6d589d` + `7248ec2d` | 5/5 PASS | Split MarkPaidAsync + PaymentConfirmedSubscriber + EInvoiceSyncSubscriber + OrderSyncSubscriber wildcard fix + SQLite compat fix |
+| 4 — ShopERP OrderSyncSubscriber | ⏳ NEXT | — | — | Depends on Phase 3 contract |
 | 5 — KhachLink Multi-tenant Cart | ⏸ PENDING | — | — | Depends on Phase 3 contract |
 | 6 — Admin UI | ⏸ PENDING | — | — | Depends on Phase 1, 2 |
 | 7 — Verification + Governance | ⏸ PENDING | — | — | Depends on all above |
