@@ -44,6 +44,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.Status)
                 .HasConversion<int>();
 
+            // Phase 3: Routing key for NATS subject routing (nullable, additive)
+            _ = builder.Property(e => e.RoutingKey)
+                .HasMaxLength(100)
+                .IsRequired(false);
+
             // Indexes for performance
             _ = builder.HasIndex(e => e.Status);
             _ = builder.HasIndex(e => e.CreatedAt);

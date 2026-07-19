@@ -92,7 +92,8 @@ public class OutboxRepository : IOutboxRepository
             Status = MapToMessageStatus(e.Status),
             RetryCount = e.RetryCount,
             ProcessedAt = e.ProcessedAt,
-            Error = e.ErrorDetails
+            Error = e.ErrorDetails,
+            RoutingKey = e.RoutingKey
         };
     }
 
@@ -103,7 +104,7 @@ public class OutboxRepository : IOutboxRepository
     /// </summary>
     private static OutboxEvent ToDomain(OutboxMessage m)
     {
-        var e = new OutboxEvent(m.TenantId, new ElectronicInvoiceId(Guid.Empty), m.EventType, m.EventData);
+        var e = new OutboxEvent(m.TenantId, new ElectronicInvoiceId(Guid.Empty), m.EventType, m.EventData, m.RoutingKey);
 
         // Preserve original ID from persistence model (constructor generates new Guid — would break MarkAsProcessedAsync)
         typeof(OutboxEvent).GetProperty("OutboxEventId")?.SetValue(e, m.Id);

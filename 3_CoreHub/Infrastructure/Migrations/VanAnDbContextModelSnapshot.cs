@@ -539,6 +539,10 @@ namespace VanAn.CoreHub.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.Property<string>("RoutingKey")
+                        .HasColumnType("character varying(100)")
+                        .HasMaxLength(100);
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 

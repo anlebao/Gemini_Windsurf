@@ -18,6 +18,10 @@ namespace VanAn.CoreHub.Infrastructure
         public int RetryCount { get; set; }
         public DateTime? NextRetryAt { get; set; }
 
+        // Phase 3 (Multi-VPS Checkout): Routing key for NATS subject routing.
+        // When set, NatsSyncWorker.BuildSubject appends ".{routingKey}" to the subject.
+        public string? RoutingKey { get; set; }
+
         // IMustHaveTenant implementation
         public TenantId TenantId { get; set; } = new TenantId(Guid.Empty);
 
@@ -30,7 +34,8 @@ namespace VanAn.CoreHub.Infrastructure
         public static OutboxMessage Create(
             string eventType,
             string eventData,
-            TenantId tenantId)
+            TenantId tenantId,
+            string? routingKey = null)
         {
             return new OutboxMessage
             {
@@ -41,7 +46,8 @@ namespace VanAn.CoreHub.Infrastructure
                 TenantId = tenantId,
                 Status = OutboxMessageStatus.Pending,
                 RetryCount = 0,
-                NextRetryAt = DateTime.UtcNow
+                NextRetryAt = DateTime.UtcNow,
+                RoutingKey = routingKey
             };
         }
 

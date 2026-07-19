@@ -81,12 +81,15 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
-        /// W4 Fix: Create order from KhachLink checkout flow (no auth required).
-        /// KhachLink is a customer-facing app — customers don't login.
-        /// Uses a default test tenant for E2E. In production, tenant is resolved from shop context.
+        /// Phase 3 (Multi-VPS Checkout): Create order(s) from KhachLink checkout flow.
+        /// No auth required — KhachLink is a customer-facing app.
+        ///
+        /// Multi-tenant grouping: if cart has items from 2 tenants, creates 2 separate orders.
+        /// Client provides ProductName + VatRate snapshot — Gateway does NOT query Products table.
+        /// Each order's Outbox event is routed to the correct ShopERP via ShopInstanceId routing key.
         /// </summary>
         [HttpPost("checkout")]
-        public async Task<ActionResult<object>> CreateCheckoutOrder([FromBody] CheckoutOrderRequest request)
+        public async Task<ActionResult<CheckoutResponse>> CreateCheckoutOrder([FromBody] CheckoutOrderRequest request)
         {
             try
             {
@@ -95,65 +98,107 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(new { error = "Invalid checkout order request — items required" });
                 }
 
-                // Bug 4 fix: Resolve tenantId from the first product being ordered.
-                // Previously hardcoded to 00000000-0000-0000-0000-000000000001, which caused orders
-                // from other tenants to be created with the wrong tenant. Kitchen page filters by
-                // the admin's tenant (from JWT), so orders with wrong tenant don't appear on Kitchen.
-                Guid tenantId = new("00000000-0000-0000-0000-000000000001"); // fallback
-                if (_dbContext != null && request.Items.Count > 0)
+                // Validate: each item must have TenantId + ProductName (Phase 3 client snapshot)
+                var invalidItems = request.Items
+                    .Where(i => i.TenantId == Guid.Empty || string.IsNullOrWhiteSpace(i.ProductName))
+                    .ToList();
+                if (invalidItems.Count > 0)
                 {
-                    var firstProduct = await _dbContext.Products
-                        .IgnoreQueryFilters()
-                        .FirstOrDefaultAsync(p => p.Id == request.Items[0].ProductId);
-                    if (firstProduct != null)
+                    return BadRequest(new
                     {
-                        tenantId = firstProduct.TenantId.Value;
-                        _logger.LogInformation("Checkout: resolved tenantId {TenantId} from product {ProductId}",
-                            tenantId, firstProduct.Id);
-                    }
+                        error = "Each checkout item must include TenantId and ProductName (Phase 3 client snapshot). " +
+                                "Items missing these fields will trigger a broken product lookup."
+                    });
                 }
-
-                // Set tenant context for VanAnDbContext multi-tenancy filters (no JWT in anonymous flow)
-                _tenantProvider.SetTenant(tenantId);
 
                 Guid customerDeviceId = Guid.TryParse(request.CustomerDeviceId, out Guid parsedId)
                     ? parsedId
                     : Guid.NewGuid();
 
-                var command = new CreateOrderCommand
+                // Group items by TenantId — each tenant group becomes a separate order.
+                var tenantGroups = request.Items
+                    .GroupBy(i => i.TenantId)
+                    .ToList();
+
+                var response = new CheckoutResponse();
+
+                // Pre-fetch ShopInstance IDs for all tenants in the cart (single query, IgnoreQueryFilters)
+                Dictionary<Guid, Guid> tenantToShopInstance = [];
+                if (_dbContext != null)
                 {
-                    CustomerDeviceId = customerDeviceId,
-                    Items = request.Items.Select(i => new CoreHub.Commands.OrderItemRequest
+                    var tenantIds = tenantGroups.Select(g => g.Key).ToList();
+                    var tenants = await _dbContext.Tenants
+                        .IgnoreQueryFilters()
+                        .Where(t => tenantIds.Contains(t.Id))
+                        .Select(t => new { TenantId = t.Id.Value, t.ShopInstanceId })
+                        .ToListAsync();
+                    tenantToShopInstance = tenants
+                        .Where(t => t.ShopInstanceId.HasValue)
+                        .ToDictionary(t => t.TenantId, t => t.ShopInstanceId!.Value);
+                }
+
+                foreach (var group in tenantGroups)
+                {
+                    Guid tenantId = group.Key;
+
+                    // Lookup ShopInstanceId for routing key
+                    string? routingKey = tenantToShopInstance.TryGetValue(tenantId, out Guid shopInstanceId)
+                        ? shopInstanceId.ToString()
+                        : null;
+
+                    // Set tenant context for VanAnDbContext multi-tenancy filters
+                    _tenantProvider.SetTenant(tenantId);
+
+                    var command = new CreateOrderCommand
                     {
-                        ProductId = i.ProductId,
-                        Quantity = i.Quantity,
-                        UnitPrice = i.UnitPrice
-                    }).ToList(),
-                    // Bucket A feature (approved 2026-07-07): pass guest customer info through.
-                    CustomerName = request.CustomerName,
-                    CustomerPhone = request.CustomerPhone,
-                    CustomerAddress = request.CustomerAddress,
-                    // Logged-in customer: link order to Customer entity so it shows in order history.
-                    CustomerId = request.CustomerId
-                };
+                        CustomerDeviceId = customerDeviceId,
+                        Items = group.Select(i => new CoreHub.Commands.OrderItemRequest
+                        {
+                            ProductId = i.ProductId,
+                            TenantId = i.TenantId,
+                            ProductName = i.ProductName,
+                            VatRate = i.VatRate,
+                            Quantity = i.Quantity,
+                            UnitPrice = i.UnitPrice
+                        }).ToList(),
+                        CustomerName = request.CustomerName,
+                        CustomerPhone = request.CustomerPhone,
+                        CustomerAddress = request.CustomerAddress,
+                        CustomerId = request.CustomerId
+                    };
 
-                Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId);
+                    try
+                    {
+                        Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, tenantId, routingKey);
 
-                _logger.LogInformation(
-                    "Checkout order {OrderId} created for tenant {TenantId}",
-                    createdOrder.Id,
-                    tenantId);
+                        response.Orders.Add(new CreatedOrderDto
+                        {
+                            OrderId = createdOrder.Id,
+                            TenantId = createdOrder.TenantId.Value,
+                            Amount = createdOrder.TotalAmount,
+                            SubTotal = createdOrder.SubTotal,
+                            TotalVatAmount = createdOrder.TotalVatAmount
+                        });
+                        response.SuccessCount++;
 
-                return Ok(new
-                {
-                    OrderId = createdOrder.Id,
-                    TenantId = createdOrder.TenantId.Value,
-                    QrImageUrl = (string?)null,
-                    PaymentUrl = (string?)null,
-                    Amount = createdOrder.TotalAmount,
-                    SubTotal = createdOrder.SubTotal,
-                    TotalVatAmount = createdOrder.TotalVatAmount
-                });
+                        _logger.LogInformation(
+                            "Checkout: order {OrderId} created for tenant {TenantId}, routingKey={RoutingKey}",
+                            createdOrder.Id, tenantId, routingKey ?? "(none)");
+                    }
+                    catch (Exception ex)
+                    {
+                        response.FailureCount++;
+                        response.Errors.Add(new CheckoutErrorDto
+                        {
+                            TenantId = tenantId,
+                            Error = ex.Message
+                        });
+                        _logger.LogError(ex,
+                            "Checkout: failed to create order for tenant {TenantId}", tenantId);
+                    }
+                }
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -242,5 +287,10 @@ namespace VanAn.Gateway.Controllers
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public string? Notes { get; set; }
+
+        // Phase 3 (Multi-VPS Checkout): Client snapshot — Gateway creates order WITHOUT querying Products table.
+        public Guid TenantId { get; set; }
+        public string ProductName { get; set; } = "";
+        public decimal VatRate { get; set; } = 0.10m;
     }
 }

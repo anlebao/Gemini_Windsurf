@@ -2072,13 +2072,19 @@ namespace VanAn.Shared.Domain
         public int RetryCount { get; protected set; }
         public string? ErrorDetails { get; protected set; }
 
+        // Phase 3 (Multi-VPS Checkout): Routing key for NATS subject.
+        // When set, NatsSyncWorker.BuildSubject appends ".{routingKey}" to the subject.
+        // Used for ShopInstanceId routing — only the correct ShopERP receives the event.
+        public string? RoutingKey { get; protected set; }
+
         protected OutboxEvent() { }
 
         public OutboxEvent(
             TenantId tenantId,
             ElectronicInvoiceId invoiceId,
             string eventType,
-            string eventData)
+            string eventData,
+            string? routingKey = null)
             : base(tenantId)
         {
             InvoiceId = invoiceId;
@@ -2086,6 +2092,7 @@ namespace VanAn.Shared.Domain
             EventData = eventData;
             Status = EventStatus.Pending;
             RetryCount = 0;
+            RoutingKey = routingKey;
         }
 
         /// <summary>

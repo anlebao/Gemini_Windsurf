@@ -121,15 +121,19 @@ namespace VanAn.Gateway.Services
                         break;
                     case "product.created":
                     case "productcreated":
-                        await SyncProductUpsertAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
+                        // DISABLED per Option C (Phase 3, 2026-07-19): Gateway PG no longer stores products.
+                        // Products live in ShopERP SQLite. Client provides snapshot at checkout.
+                        _logger.LogDebug("DataSyncSubscriber: product.sync disabled per Option C — event ignored");
                         break;
                     case "product.updated":
                     case "productupdated":
-                        await SyncProductUpsertAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
+                        // DISABLED per Option C
+                        _logger.LogDebug("DataSyncSubscriber: product.sync disabled per Option C — event ignored");
                         break;
                     case "product.deleted":
                     case "productdeleted":
-                        await SyncProductDeletedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
+                        // DISABLED per Option C
+                        _logger.LogDebug("DataSyncSubscriber: product.sync disabled per Option C — event ignored");
                         break;
                     default:
                         _logger.LogDebug("DataSyncSubscriber: unhandled event type {EventType} (subject={Subject})",

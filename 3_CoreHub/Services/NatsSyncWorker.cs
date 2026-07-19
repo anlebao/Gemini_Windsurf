@@ -93,7 +93,7 @@ public sealed class NatsSyncWorker : BackgroundService
         {
             try
             {
-                var subject = BuildSubject(ev.EventType, _subjectPrefix);
+                var subject = BuildSubject(ev.EventType, _subjectPrefix, ev.RoutingKey);
                 var payload = Encoding.UTF8.GetBytes(ev.EventData);
 
                 await _publisher.PublishAsync(subject, payload, cancellationToken);
@@ -118,13 +118,16 @@ public sealed class NatsSyncWorker : BackgroundService
     /// "OrderCreated" → "vanan.{prefix}.order.created"
     /// "OrderStatusChanged" → "vanan.{prefix}.order.status.changed"
     /// RC-2 fix: prefix separates directions (cloud=PG→SQLite, shoperp=SQLite→PG).
+    /// Phase 3: routingKey (ShopInstanceId) appended when set → "vanan.{prefix}.order.created.{shopInstanceId}"
     /// CamelCase split ensures subject matches subscriber expectations (dotted words).
     /// </summary>
-    private static string BuildSubject(string eventType, string prefix)
+    private static string BuildSubject(string eventType, string prefix, string? routingKey = null)
     {
         // Split camelCase: "OrderCreated" → "order.created"
         var normalized = System.Text.RegularExpressions.Regex.Replace(
             eventType, "([a-z])([A-Z])", "$1.$2").ToLowerInvariant().Replace('_', '.');
-        return $"vanan.{prefix}.{normalized}";
+        return routingKey != null
+            ? $"vanan.{prefix}.{normalized}.{routingKey}"
+            : $"vanan.{prefix}.{normalized}";
     }
 }

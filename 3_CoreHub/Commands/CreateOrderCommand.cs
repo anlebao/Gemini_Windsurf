@@ -27,5 +27,13 @@ namespace VanAn.CoreHub.Commands
         public Guid ProductId { get; set; }
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
+
+        // Phase 3 (Multi-VPS Checkout): Client snapshot — Gateway creates order WITHOUT querying Products table.
+        // TenantId: for multi-tenant grouping + routing key (ShopInstanceId lookup).
+        // ProductName + VatRate: snapshot from QR code / catalog at scan time.
+        // Backward compat: if ProductName is empty, OrderService falls back to LoadProductsForSnapshotAsync.
+        public Guid TenantId { get; set; }
+        public string ProductName { get; set; } = "";
+        public decimal VatRate { get; set; } = 0.10m;
     }
 }

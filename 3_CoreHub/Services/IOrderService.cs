@@ -48,7 +48,9 @@ namespace VanAn.CoreHub.Services
         Task<List<AccountingEntry>> GetEntriesByOrderAsync(Guid orderId, TenantId tenantId);
 
         // NEW METHODS - Gateway Command Support
-        Task<Order> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId);
+        // Phase 3: routingKey optional param — when set, Outbox event NATS subject includes
+        // the routing key (ShopInstanceId) so only the correct ShopERP receives the event.
+        Task<Order> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId, string? routingKey = null);
 
         // Sprint B: Payment confirmation — triggers accounting entry generation
         // TT 152/2025/TT-BTC: doanh thu chỉ ghi nhận sau khi thanh toán xác nhận

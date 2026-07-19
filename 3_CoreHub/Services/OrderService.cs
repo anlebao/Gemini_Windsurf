@@ -560,8 +560,11 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Create order from Gateway Command - Clean Architecture Pattern
         /// Phase 2.5.4: Unified API Integration - Single Backend Service
+        /// Phase 3 (Multi-VPS Checkout): Uses client-provided ProductName + VatRate snapshot.
+        /// Falls back to LoadProductsForSnapshotAsync when ProductName is empty (legacy callers).
+        /// routingKey: when set, Outbox event NATS subject includes the routing key (ShopInstanceId).
         /// </summary>
-        public async Task<Order> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId)
+        public async Task<Order> CreateOrderFromCommandAsync(CreateOrderCommand command, Guid tenantId, string? routingKey = null)
         {
             try
             {
@@ -569,23 +572,37 @@ namespace VanAn.CoreHub.Services
                 Guid orderId = Uuid.NewDatabaseFriendly(Database.PostgreSql);
                 TenantId tenantIdObj = new(tenantId);
 
-                // RC-7 fix: Load Product entities to snapshot ProductName + actual VatRate into OrderItem.
-                // TT 152/2025/TT-BTC: VAT must come from server-side Product, not client claim.
-                // Without this, OrderItem.VatRate stays at the 0.10m factory default and ProductName is empty,
-                // causing wrong VAT in accounting entries, e-invoices, and "Unknown" stubs in sync subscribers.
-                Dictionary<Guid, Product> productLookup = await LoadProductsForSnapshotAsync(command.Items, tenantIdObj);
+                // Phase 3: Use client-provided snapshot (ProductName + VatRate) when available.
+                // Only load products from DB when the client didn't provide a snapshot (legacy fallback).
+                // This eliminates the broken PG product lookup that caused the KhachLink checkout bug.
+                bool needsProductLookup = command.Items.Any(i => string.IsNullOrEmpty(i.ProductName));
+                Dictionary<Guid, Product> productLookup = needsProductLookup
+                    ? await LoadProductsForSnapshotAsync(command.Items, tenantIdObj)
+                    : [];
 
                 // Create OrderItems using DDD factory methods — pass snapshot ProductName + VatRate.
-                List<OrderItem> orderItems = command.Items.Select(i =>
+                List<OrderItem> orderItems = [];
+                foreach (var i in command.Items)
                 {
-                    if (!productLookup.TryGetValue(i.ProductId, out Product? product))
+                    string productName = i.ProductName;
+                    decimal vatRate = i.VatRate;
+
+                    // Backward compat: if client didn't provide snapshot, load from DB
+                    if (string.IsNullOrEmpty(productName))
                     {
-                        throw new KeyNotFoundException(
-                            $"Product {i.ProductId} not found for tenant {tenantId}. Order creation aborted — " +
-                            "cannot snapshot ProductName/VatRate. Ensure the product exists before checkout.");
+                        if (!productLookup.TryGetValue(i.ProductId, out Product? product))
+                        {
+                            throw new KeyNotFoundException(
+                                $"Product {i.ProductId} not found for tenant {tenantId}. Order creation aborted — " +
+                                "cannot snapshot ProductName/VatRate. Ensure the product exists before checkout " +
+                                "OR provide ProductName + VatRate in the command (Phase 3 client snapshot).");
+                        }
+                        productName = product.Name;
+                        vatRate = product.VatRate;
                     }
-                    return OrderItem.Create(Guid.NewGuid(), tenantIdObj, orderId, i.ProductId, i.Quantity, i.UnitPrice, product.Name, product.VatRate);
-                }).ToList();
+
+                    orderItems.Add(OrderItem.Create(Guid.NewGuid(), tenantIdObj, orderId, i.ProductId, i.Quantity, i.UnitPrice, productName, vatRate));
+                }
 
                 // Create Order using DDD factory method.
                 // customerId: when the checkout is performed by a logged-in customer (KhachLink
@@ -686,7 +703,8 @@ namespace VanAn.CoreHub.Services
                         createdOrder.TenantId,
                         new ElectronicInvoiceId(Guid.Empty),
                         "OrderCreated",
-                        eventData);
+                        eventData,
+                        routingKey);
                     await _outboxRepository.EnqueueAsync(outboxEvent);
                     _logger.LogInformation("Enqueued OrderCreated event to Outbox for order {OrderId}", createdOrder.Id);
                 }
