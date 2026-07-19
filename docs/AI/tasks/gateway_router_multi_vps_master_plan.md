@@ -1,10 +1,24 @@
 # Master Plan: Gateway Order Creator + Routed Async Delivery (Option C) — Multi-VPS Checkout
 
-> **Status:** PLANNING COMPLETE — pending user approval to execute Phase 1
+> **Status:** PHASE 1 + PHASE 2 COMPLETE — Phase 3 next (awaiting approval)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Date opened:** 2026-07-18
 > **Architecture shift:** Option B (Monolithic in-process, 2026-07-05) → Option C (PG source of truth + routed async delivery, multi-VPS)
 > **Origin:** Bug "KhachLink checkout fails: Product not found for tenant 00000000-...-001" + multi-VPS co-location requirement
+
+### Progress Tracker
+
+| Phase | Status | Commit | VR Tests | Notes |
+|---|---|---|---|---|
+| 1 — Domain + Migration | ✅ COMPLETE | `32c832e9` | 13/13 PASS | ShopInstance entity + Tenant.ShopInstanceId FK + migration + seed + backfill |
+| 2 — Gateway ShopInstances API | ✅ COMPLETE | `e95b1d64` | 8/8 PASS | IShopInstanceService + ShopInstancesController (7 endpoints, SystemAdmin Bearer JWT) |
+| Bonus — RoleClaimNormalizer | ✅ COMPLETE | `98f1d6d8` | 2/2 PASS | Gateway accepts both short-form `role` + long-form `ClaimTypes.Role` in JWT |
+| 3 — Gateway Router | ⏳ NEXT | — | — | Awaiting user approval |
+| 3.5 — Accounting Consolidation | ⏸ PENDING | — | — | Depends on Phase 3 + 4 |
+| 4 — ShopERP OrderSyncSubscriber | ⏸ PENDING | — | — | Depends on Phase 3 contract |
+| 5 — KhachLink Multi-tenant Cart | ⏸ PENDING | — | — | Depends on Phase 3 contract |
+| 6 — Admin UI | ⏸ PENDING | — | — | Depends on Phase 1, 2 |
+| 7 — Verification + Governance | ⏸ PENDING | — | — | Depends on all above |
 
 ## 0. User Decisions (2026-07-18 — supersedes original §6 Open Questions)
 

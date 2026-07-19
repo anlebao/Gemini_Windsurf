@@ -157,20 +157,22 @@ No domain modification in this phase. Standard IMPLEMENT approval (user confirms
 ## 7. COMPLETION SUMMARY
 
 **Phase 2 COMPLETE** — commit `e95b1d64` on `main` (CD pipeline #5 PASS, deployed to VPS).
+**Bonus fix:** RoleClaimNormalizer — commit `98f1d6d8` (Gateway accepts both short-form `role` + long-form `ClaimTypes.Role` in JWT).
 
-### Files created (5)
+### Files created (6)
 | File | Purpose |
 |------|---------|
 | `3_CoreHub/Services/IShopInstanceService.cs` | Interface: CRUD + health check + tenant count |
 | `3_CoreHub/Services/ShopInstanceService.cs` | Implementation using IVanAnDbContext + HttpClient (IgnoreQueryFilters for platform entity) |
 | `3_CoreHub/Services/ShopInstanceHealthResult.cs` | DTO: Status, LatencyMs, CheckedAt, ErrorMessage (distinct from Omnichannel HealthCheckResult) |
 | `2_Gateway/Controllers/ShopInstancesController.cs` | REST CRUD: 7 endpoints under /api/v1/shop-instances, all [Authorize(Policy=SystemAdmin, Bearer)] |
+| `2_Gateway/Infrastructure/RoleClaimNormalizer.cs` | IClaimsTransformation — normalizes short-form `role` to ClaimTypes.Role (idempotent) |
 | `6_Tests/VanAn.Core.Tests/Services/ShopInstanceServiceTests.cs` | 15 unit tests (SQLite in-memory): CRUD, validation, health check, tenant count |
 
 ### Files modified (2)
 | File | Change |
 |------|--------|
-| `2_Gateway/Program.cs` | +DI: `AddHttpClient<IShopInstanceService, ShopInstanceService>()` (line 277) |
+| `2_Gateway/Program.cs` | +DI: `AddHttpClient<IShopInstanceService, ShopInstanceService>()` (line 277) + `AddTransient<IClaimsTransformation, RoleClaimNormalizer>()` (line 171) + `using Microsoft.AspNetCore.Authentication` |
 | `6_Tests/VanAn.Architecture.Tests/AuthorizationEnforcementTests.cs` | +ShopInstancesController to W12-G7 exempt list (method-level [Authorize] pattern) |
 
 ### Issues fixed during implementation
@@ -202,3 +204,5 @@ No domain modification in this phase. Standard IMPLEMENT approval (user confirms
 | RV6 | GET /api/v1/shop-instances (after create) | ✅ 200 | Returns 2 instances (Default Local + VPS-2 HCM) |
 | RV7 | POST /api/v1/shop-instances/{id}/health-check | ✅ 200 | `{"status":"Down","latencyMs":21,"errorMessage":"Connection refused (shoperp:5003)"}` — expected (shoperp:5003 not reachable from Gateway container; real health check will work when ShopERP is on same Docker network) |
 | RV8 | POST /api/v1/shop-instances (anonymous) | ✅ 401 | Empty response body, HTTP 401 Unauthorized |
+| RV9 | GET /api/v1/shop-instances (short-form `role` JWT, post-RoleClaimNormalizer) | ✅ 200 | Returns 2 instances — short-form `role` claim now accepted |
+| RV10 | POST create (short-form `role` JWT, post-RoleClaimNormalizer) | ✅ 201 | New instance `VPS-3 Test ShortForm` created with short-form JWT |

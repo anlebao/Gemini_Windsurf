@@ -34,11 +34,13 @@
 
 Implement the 7-phase multi-VPS checkout system per `gateway_router_multi_vps_master_plan.md`.
 
-**Status (2026-07-19): PHASE 1 COMPLETE**
-- Phase 1 (Domain + Migration): ShopInstance entity + Tenant.ShopInstanceId FK + additive migration with seed + backfill. 18 new unit tests. Commit `32c832e9`.
+**Status (2026-07-19): PHASE 2 COMPLETE — Phase 3 next**
+- Phase 1 (Domain + Migration): ShopInstance entity + Tenant.ShopInstanceId FK + additive migration with seed + backfill. 18 new unit tests. Commit `32c832e9`. VR 13/13 PASS on local + VPS.
+- Phase 2 (Gateway ShopInstances API): IShopInstanceService + ShopInstanceService + ShopInstancesController (7 endpoints, SystemAdmin Bearer JWT). 15 unit tests PASS. VR 8/8 PASS on VPS. Commit `e95b1d64`.
+- **RoleClaimNormalizer (bonus fix):** Gateway now accepts both short-form `role` and long-form `ClaimTypes.Role` in JWT via `IClaimsTransformation`. Commit `98f1d6d8`. VR 2/2 PASS on VPS (short-form JWT works).
 - 30 obsolete pre-existing test failures skipped (SeedStrategyStubTests 24 + FnbSeedStrategyTests 5 + ProductionDataTests 1). Commit `c94d9e8d`.
 - **Pre-phase rule:** Before implementing each phase, identify and skip obsolete/incompatible tests to keep guard-check fast test gate green.
-- **Next:** Phase 2 (Gateway ShopInstances API) — awaiting user approval.
+- **Next:** Phase 3 (Gateway Router) — awaiting user approval.
 
 **Completed this session (2026-07-18):**
 1. **Bug 1: Products page not filtered by tenant** — `HttpContextTenantProvider` returned `Guid.Empty` in Blazor Server interactive sessions (HttpContext null during SignalR circuits). Fixed by adding `AuthenticationStateProvider` fallback. Commit `0309e559`.
@@ -52,10 +54,10 @@ Implement the 7-phase multi-VPS checkout system per `gateway_router_multi_vps_ma
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `c94d9e8d` Skip 30 obsolete onboarding/production tests
+- **Last commit:** `98f1d6d8` Add RoleClaimNormalizer: Gateway accepts both short-form + long-form role claims
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
-- **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-18):** 0 errors. VanAn.sln build PASS. CD pipeline PASS (commit `f40d162b`, 5m12s). VPS: vanan-shoperp + vanan-gateway both healthy.
+- **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances table) - PostgreSQL `vanan_accounting` (local, accounting)
+- **Build (2026-07-19):** 0 errors. VanAn.sln build PASS. CD pipeline #5 PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink all healthy.
 - **Multi-tenant bug-fix batch (2026-07-18 - COMPLETE + VPS DEPLOYED):** 5 commits fixing tenant filtering, login tenant_id, order history, Kitchen display, and Quick-Setup stub. All deployed to VPS via CD. Commits: `0309e559` (Bug 1,3,4), `68a34af8` (Login tenant_id), `f40d162b` (Quick-Setup real impl).
 - **Quick-Setup Onboarding (2026-07-18 - COMPLETE):** `OnboardingService.ApplyTemplateAsync` rewritten to delegate to `IIndustrySeedStrategy`. All 8 strategies implemented with real data from menu requirement docs. New `RetailSeedStrategy` added (IndustryCode "RETAIL"). 4th QuickSetup template "Thời trang" (d444 → CLOTHES). Idempotent: skips seeding if tenant already has products. IIndustrySeedStrategy registered in ShopERP DI (was only in Gateway).
 - **RC-7 fix COMPLETE (2026-07-17):** `OrderService.CreateOrderFromCommandAsync` now loads Product entities and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation time. TT 152/2025/TT-BTC compliance restored. Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Domain `OrderItem.Create` factory extended with `vatRate` param (backward-compatible default). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. 998/998 Core.Tests pass.
@@ -77,7 +79,7 @@ Implement the 7-phase multi-VPS checkout system per `gateway_router_multi_vps_ma
 
 ## 4. Next Actions
 
-**AWAITING USER APPROVAL:** Review the fixed multi-VPS checkout plan + task cards. Once approved, start **Phase 1: Domain + Migration** (`phase1_domain_migration_task_card.md`).
+**AWAITING USER APPROVAL:** Start **Phase 3: Gateway Router** (`phase3_gateway_router_task_card.md`). Phase 1 + Phase 2 + RoleClaimNormalizer all COMPLETE and VPS-verified.
 
 **Deferred (pre-existing, not blocking):**
 - Quick-Setup workflow steps seeding (no domain entity for workflow steps yet — products/ingredients/recipes/inventory are seeded, but workflow steps are not)
@@ -189,6 +191,10 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-19 -- PHASE 2 COMPLETE + ROLECLAIMNORMALIZER.** Phase 2 (Gateway ShopInstances API): IShopInstanceService + ShopInstanceService (CRUD + health check + tenant count, IgnoreQueryFilters for platform entity) + ShopInstancesController (7 endpoints under /api/v1/shop-instances, all [Authorize(Policy=SystemAdmin, Bearer)]) + ShopInstanceHealthResult DTO. 15 unit tests PASS (SQLite in-memory). 9 integration tests skipped (pre-existing JWT auth issue in GatewayWebApplicationFactory — affects all SystemAdmin Bearer JWT integration tests). Architecture test W12-G7 exempt list updated. VR 8/8 PASS on VPS (GET 200, POST 201, health-check 200, anonymous 401). Commit `e95b1d64`. Bonus fix: RoleClaimNormalizer (IClaimsTransformation) — Gateway now accepts both short-form `role` and long-form `ClaimTypes.Role` in JWT. Idempotent. VR 2/2 PASS on VPS (short-form JWT GET 200 + POST 201). Commit `98f1d6d8`. Branch: `main`.
+
+* **2026-07-19 -- PHASE 1 COMPLETE.** ShopInstance entity (BaseUrl, Label, MaxTenants, IsActive, HealthCheckUrl, LastHealthCheck, HealthStatus) + Tenant.ShopInstanceId FK + AssignToShopInstance method. EF migration `AddShopInstancesAndTenantFk` (additive + seed 1 default instance + backfill all tenants). 18 new unit tests (14 ShopInstanceTests + 4 TenantShopInstanceAssignmentTests). 30 obsolete pre-existing test failures skipped. VR 13/13 PASS on local + VPS (migration applied, seed + backfill verified, all 3 services healthy). Commits: `32c832e9` (Phase 1), `c94d9e8d` (skip obsolete tests), `b1925232` (project_state update), `557e99df` (COMPLETION SUMMARY sections), `360cf7fc` (VR test results). Branch: `main`.
 
 * **2026-07-18 -- MULTI-VPS CHECKOUT PLAN REVIEW & TASK CARD FIXES.** Reviewed `gateway_router_multi_vps_master_plan.md` + 7 task cards (`phase1` through `phase7`). Fixed 15 issues: NATS subject mismatch (`OrderPaymentConfirmed` → `vanan.cloud.order.payment.confirmed.{shopInstanceId}`, `OrderStatusChanged` → `vanan.cloud.order.status.changed.{shopInstanceId}`), `OrderService` split into `MarkPaidAsync` (Gateway webhook) + `ConfirmPaymentAsync` wrapper (POS), `GenerateAccountingEntriesAsync` made public for `PaymentConfirmedSubscriber`, `CartItem.TenantId` default to `Guid.Empty` instead of `required` to avoid compile break, `IQrCodeService`/`QrCodeService`/`QRCodePayload` signature update for QR price/VAT/name, `ProductsController.GetProductQrCode` pass price fields, `FeaturedProduct` entity + `FeaturedProductId` VO fix, `CustomerRecommendationService` retirement note, product stub price sync from payload, price validation endpoint location, Home.razor scan modal Blazor interactivity gate, `ShopFeatureSettingsEntity` wording (Infrastructure not Domain), `OrderPaymentConfirmed` payload includes `paymentMethod`, `PaymentConfirmedSubscriber` retry loop + idempotency. `project_state.md` updated. No code changes. Plan awaits user approval before Phase 1. Branch: `main`.
 
