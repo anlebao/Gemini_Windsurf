@@ -306,6 +306,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddHostedService<VanAn.Gateway.Services.DataSyncSubscriber>();
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.Events.SimpleAccountingEventHandler>();
 
+            // Phase 3.5: EInvoiceSyncSubscriber — subscribes vanan.shoperp.einvoice.synced.>
+            // ShopERP publishes e-invoice result after submission → this subscriber updates PG ElectronicInvoice table.
+            _ = builder.Services.AddHostedService<VanAn.Gateway.Services.EInvoiceSyncSubscriber>();
+
             // Sync: Register Outbox + NatsSyncWorker for Gateway→ShopERP sync (PostgreSQL → NATS → SQLite)
             // Gateway writes orders to PostgreSQL; Outbox event is enqueued by OrderService.CreateOrderFromCommandAsync.
             // NatsSyncWorker polls Outbox (PostgreSQL) and publishes to NATS → ShopERP subscriber syncs to SQLite.

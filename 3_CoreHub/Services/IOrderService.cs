@@ -56,6 +56,16 @@ namespace VanAn.CoreHub.Services
         // TT 152/2025/TT-BTC: doanh thu chỉ ghi nhận sau khi thanh toán xác nhận
         Task ConfirmPaymentAsync(Guid orderId, Guid tenantId, string transactionId, CancellationToken cancellationToken = default);
 
+        // Phase 3.5: Split ConfirmPaymentAsync into MarkPaidAsync + GenerateAccountingEntriesAsync.
+        // MarkPaidAsync: sets order status=Paid + enqueues OrderPaymentConfirmed Outbox event (if flag set).
+        //   Gateway webhook calls this with enqueuePaymentConfirmedEvent=true → NATS → ShopERP subscriber.
+        //   Does NOT create accounting entries (those are created by ShopERP subscriber).
+        Task MarkPaidAsync(Guid orderId, Guid tenantId, string transactionId, bool enqueuePaymentConfirmedEvent = false, CancellationToken cancellationToken = default);
+
+        // Phase 3.5: GenerateAccountingEntriesAsync made PUBLIC for PaymentConfirmedSubscriber to call.
+        // Creates Revenue + COGS entries for an already-Paid order. Idempotent via JournalEntry.Reference check.
+        Task GenerateAccountingEntriesAsync(Order order, TenantId tenantId);
+
         /// <summary>
         /// W6/Bucket D: Fetch order by Id for public customer-facing tracking (no tenant filter).
         /// OrderId is globally unique (Guid) — safe to fetch without tenant context.

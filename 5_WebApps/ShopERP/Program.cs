@@ -351,6 +351,10 @@ namespace VanAn.ShopERP
             // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.OrderSyncSubscriber>();
 
+            // Phase 3.5: Subscribe to NATS "order.payment.confirmed" events from Gateway → create accounting entries in SQLite
+            // Single source of truth for accounting entries: ShopERP SQLite (not Gateway PG).
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.PaymentConfirmedSubscriber>();
+
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");
             if (!string.IsNullOrWhiteSpace(redisConnection))

@@ -120,7 +120,12 @@ namespace VanAn.CoreHub.Services
         /// Phase 2.2: Order to Accounting Integration
         /// Wave 5: Pass IndustrySector (Order.IndustrySector ?? Tenant.DefaultIndustrySector) to accounting entries.
         /// </summary>
-        private async Task GenerateAccountingEntriesAsync(Order order, TenantId tenantId)
+        /// <summary>
+        /// Phase 3.5: Made PUBLIC for PaymentConfirmedSubscriber to call after receiving NATS event.
+        /// Creates Revenue + COGS accounting entries for an already-Paid order.
+        /// Idempotent: caller should check JournalEntry.Reference before calling (subscriber does this).
+        /// </summary>
+        public async Task GenerateAccountingEntriesAsync(Order order, TenantId tenantId)
         {
             // W0-T6 (H4): Use OrderDate (not UtcNow) — entry belongs to the period when order was placed.
             AccountingPeriod period = AccountingPeriod.Create(order.OrderDate.Year, order.OrderDate.Month);
@@ -769,43 +774,121 @@ namespace VanAn.CoreHub.Services
             _logger.LogWarning("LoadProductsForSnapshotAsync: neither IProductRepository nor IVanAnDbContext available — OrderItem ProductName/VatRate will use factory defaults");
             return [];
         }
+        /// <summary>
+        /// Phase 3.5: MarkPaidAsync — sets order status=Paid + optionally enqueues OrderPaymentConfirmed Outbox event.
+        /// Called by Gateway WebhookController (enqueuePaymentConfirmedEvent=true) → NATS → ShopERP PaymentConfirmedSubscriber.
+        /// Does NOT create accounting entries (those are created by ShopERP subscriber via GenerateAccountingEntriesAsync).
+        /// Idempotent: second call for same orderId returns without duplicate action.
+        /// </summary>
+        public async Task MarkPaidAsync(Guid orderId, Guid tenantId, string transactionId, bool enqueuePaymentConfirmedEvent = false, CancellationToken cancellationToken = default)
+        {
+            TenantId tenantIdObj = new(tenantId);
+            OrderId orderIdObj = new(orderId);
+
+            Order? order = await _orderRepository.GetByIdAsync(orderIdObj, tenantIdObj);
+
+            if (order == null)
+            {
+                _logger.LogWarning("MarkPaidAsync: Order {OrderId} not found for tenant {TenantId}", orderId, tenantId);
+                throw new KeyNotFoundException($"Order {orderId} not found for tenant {tenantId}");
+            }
+
+            // Idempotency guard: if already paid, do not enqueue duplicate event
+            if (order.PaymentStatus == "Paid")
+            {
+                _logger.LogInformation("MarkPaidAsync: Order {OrderId} already paid (idempotent noop)", orderId);
+                return;
+            }
+
+            // 1. Mark order as paid (Domain method)
+            order.ConfirmPayment(transactionId, order.PaymentMethod ?? PaymentMethodConstants.Cash);
+            await _orderRepository.UpdateAsync(order);
+            await _orderRepository.SaveChangesAsync();
+
+            // 2. Enqueue OrderPaymentConfirmed Outbox event (if requested by Gateway webhook)
+            if (enqueuePaymentConfirmedEvent && _outboxRepository != null)
+            {
+                // Phase 3.5: Lookup ShopInstanceId for routing key
+                string? routingKey = null;
+                if (_dbContext != null)
+                {
+                    var shopInstanceId = await _dbContext.Tenants
+                        .IgnoreQueryFilters()
+                        .Where(t => t.Id == tenantIdObj && t.ShopInstanceId.HasValue)
+                        .Select(t => t.ShopInstanceId!.Value)
+                        .FirstOrDefaultAsync(cancellationToken);
+                    if (shopInstanceId != Guid.Empty)
+                        routingKey = shopInstanceId.ToString();
+                }
+
+                var paymentConfirmedEvent = new
+                {
+                    EventId = Guid.NewGuid(),
+                    OrderId = order.Id,
+                    TenantId = tenantId,
+                    TransactionId = transactionId,
+                    PaymentMethod = order.PaymentMethod ?? PaymentMethodConstants.Cash,
+                    PaidAt = DateTime.UtcNow
+                };
+
+                string eventData = System.Text.Json.JsonSerializer.Serialize(paymentConfirmedEvent);
+                var outboxEvent = new OutboxEvent(
+                    tenantIdObj,
+                    new ElectronicInvoiceId(Guid.Empty),
+                    "OrderPaymentConfirmed",
+                    eventData,
+                    routingKey);
+                await _outboxRepository.EnqueueAsync(outboxEvent);
+                await _orderRepository.SaveChangesAsync();
+                _logger.LogInformation("MarkPaidAsync: Enqueued OrderPaymentConfirmed event for order {OrderId}, routingKey={RoutingKey}", orderId, routingKey ?? "(none)");
+            }
+
+            // 3. Broadcast SignalR PaymentConfirmed notification (best-effort — customer sees "Paid" immediately)
+            if (_orderNotificationService != null)
+            {
+                _ = _orderNotificationService.NotifyPaymentConfirmedAsync(order.Id, tenantId, transactionId);
+            }
+
+            _logger.LogInformation("MarkPaidAsync: Order {OrderId} marked as Paid", orderId);
+        }
+
+        /// <summary>
+        /// Sprint B: Payment confirmation — triggers accounting entry generation
         /// Called by WebhookController after bank/VietQR confirms payment.
         /// Idempotent: second call for same orderId returns without creating duplicate entries.
         /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis accounting).
+        /// Phase 3.5: Now a backward-compat wrapper — calls MarkPaidAsync (no event) + GenerateAccountingEntriesAsync.
+        /// POS Payment.razor uses this (entries created locally in SQLite, no NATS event needed).
         /// </summary>
         public async Task ConfirmPaymentAsync(Guid orderId, Guid tenantId, string transactionId, CancellationToken cancellationToken = default)
         {
             TenantId tenantIdObj = new(tenantId);
             OrderId orderIdObj = new(orderId);
 
-            // Fast check with lightweight query (no includes) for idempotency guard
-            Order? order = await _orderRepository.GetByIdAsync(orderIdObj, tenantIdObj);
-
-            if (order == null)
+            // Phase 3.5: Check idempotency BEFORE calling MarkPaidAsync.
+            // If order is already Paid, this is a duplicate call → skip entirely (no MarkPaid, no accounting).
+            Order? existingOrder = await _orderRepository.GetByIdAsync(orderIdObj, tenantIdObj, cancellationToken);
+            if (existingOrder == null)
             {
                 _logger.LogWarning("ConfirmPaymentAsync: Order {OrderId} not found for tenant {TenantId}", orderId, tenantId);
                 throw new KeyNotFoundException($"Order {orderId} not found for tenant {tenantId}");
             }
 
-            // Idempotency guard: if already paid, do not create duplicate accounting entries
-            if (order.PaymentStatus == "Paid")
+            if (existingOrder.PaymentStatus == "Paid")
             {
-                _logger.LogInformation("ConfirmPaymentAsync: Order {OrderId} already confirmed (idempotent noop)", orderId);
+                _logger.LogInformation("ConfirmPaymentAsync: Order {OrderId} already paid (idempotent noop)", orderId);
                 return;
             }
 
-            // 1. Mark order as paid (Domain method — immutability of AccountingEntry is preserved)
-            // W0-T1 (C2): Pass PaymentMethod into ConfirmPayment so it is recorded on the order
-            //   (was previously lost — Domain default "VIETQR" was always used).
-            order.ConfirmPayment(transactionId, order.PaymentMethod ?? PaymentMethodConstants.Cash);
-            await _orderRepository.UpdateAsync(order);
-            await _orderRepository.SaveChangesAsync();
+            // Phase 3.5: Delegate to MarkPaidAsync (no Outbox event — POS creates entries locally)
+            await MarkPaidAsync(orderId, tenantId, transactionId, enqueuePaymentConfirmedEvent: false, cancellationToken);
 
-            // 2. Reload order with Items + Product for COGS calculation (C-3: use actual CostPrice)
+            // Reload order with Items + Product for COGS calculation (C-3: use actual CostPrice)
             Order? orderWithItems = await _orderRepository.GetByIdWithIncludesAsync(orderId, cancellationToken);
-            Order accountingOrder = orderWithItems ?? order; // fallback to plain order if reload fails
+            if (orderWithItems == null) return;
+            Order accountingOrder = orderWithItems;
 
-            // 3. Generate accounting entries (Revenue + COGS) — only after payment confirmed
+            // Generate accounting entries (Revenue + COGS) — only after payment confirmed
             // W2-T6: Skip if Accounting_Sync_Enabled toggle is OFF for this tenant
             bool accountingEnabled = true;
             if (_shopFeatureSettingsService != null)
@@ -825,10 +908,8 @@ namespace VanAn.CoreHub.Services
             if (accountingEnabled)
             {
                 // ISSUE #5 FIX: Wrap accounting entry generation in try-catch.
-                // Order status is already saved as Paid (line 603). Accounting entries are
-                // secondary — if they fail (e.g. JournalEntry PK duplicate), the payment
-                // confirmation should still succeed so the customer sees "Paid" status.
-                // The pre-existing JournalEntry duplicate key bug is tracked separately.
+                // Order status is already saved as Paid. Accounting entries are
+                // secondary — if they fail, the payment confirmation should still succeed.
                 try
                 {
                     await GenerateAccountingEntriesAsync(accountingOrder, tenantIdObj);
@@ -841,13 +922,6 @@ namespace VanAn.CoreHub.Services
             else
             {
                 _logger.LogInformation("ConfirmPaymentAsync: Accounting sync disabled for tenant {TenantId} — skipping entry generation for order {OrderId}", tenantId, orderId);
-            }
-
-            // W0-T5: Broadcast SignalR PaymentConfirmed notification to ShopERP staff (best-effort)
-            // Null in ShopERP scope — in v2 edge mode, NATS → DataSyncSubscriber handles it.
-            if (_orderNotificationService != null)
-            {
-                _ = _orderNotificationService.NotifyPaymentConfirmedAsync(order.Id, tenantId, transactionId);
             }
 
             _logger.LogInformation("ConfirmPaymentAsync: Payment confirmed for order {OrderId}, accounting entries generated", orderId);
