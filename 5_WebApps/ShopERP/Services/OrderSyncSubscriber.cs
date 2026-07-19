@@ -57,13 +57,23 @@ namespace VanAn.ShopERP.Services
                 // RC-2 fix: subscribe to vanan.cloud.* (PG→SQLite direction).
                 // Gateway publishes with prefix "cloud"; ShopERP publishes with prefix "shoperp".
                 // This prevents subject collision where Gateway would receive its own events back.
+                // Phase 3.5 fix: Subscribe to BOTH bare subject (legacy, no routing key)
+                // AND wildcard subject (Phase 3+ with routing key = ShopInstanceId).
                 _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.created", async (sender, args) =>
+                {
+                    await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
+                });
+                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.created.>", async (sender, args) =>
                 {
                     await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
                 });
 
                 // Also subscribe to order.statuschanged for status updates
                 _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.statuschanged", async (sender, args) =>
+                {
+                    await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
+                });
+                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.status.changed.>", async (sender, args) =>
                 {
                     await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
                 });
