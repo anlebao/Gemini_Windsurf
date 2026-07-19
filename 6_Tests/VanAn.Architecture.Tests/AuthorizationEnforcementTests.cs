@@ -137,6 +137,8 @@ public class AuthorizationEnforcementTests
             "CustomerIdentityController",
             // Wave 4: Platform-level SystemAdmin endpoint — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
             "TenantOnboardingController",
+            // Phase 2 (Multi-VPS Checkout): Platform-level SystemAdmin endpoint — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
+            "ShopInstancesController",
             // Bug 2 fix (2026-07-15): VietQrController generates public VietQR URLs — KhachLink is anonymous customer app
             "VietQrController"
         };
