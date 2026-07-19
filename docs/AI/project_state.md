@@ -30,11 +30,12 @@
 
 ## 2. Current Objective
 
-**[AWAITING NEXT APPROVED OBJECTIVE]**
+**Multi-VPS Checkout Architecture — PLAN REVIEW & FIX**
 
-Multi-tenant bug-fix batch + Quick-Setup onboarding implementation COMPLETE (2026-07-18). All 5 commits deployed to VPS. See Section 6 for summary.
+Review and fix `gateway_router_multi_vps_master_plan.md` + phase task cards (1, 2, 3, 3.5, 4, 5, 6, 7) to resolve 15 critical/important gaps before implementation. **Awaiting user approval to start Phase 1 implementation.**
 
-**Status (2026-07-18): READY FOR PLANNING**
+**Status (2026-07-18): PLAN REFINED**
+- 15 issues identified and fixed in task cards (NATS subject mismatch, MarkPaidAsync split, CartItem required TenantId break, QR service signature, FeaturedProduct entity, price validation endpoint, etc.).
 - All previous QuickSetup + Product Management Phases 1–6 work remains complete and archived.
 - 5 new commits this session (Bug 1-4 fixes + Quick-Setup real implementation) — deployed to VPS, all healthy.
 
@@ -69,12 +70,13 @@ Multi-tenant bug-fix batch + Quick-Setup onboarding implementation COMPLETE (202
 - **Payment Webhook Fix:** COMPLETE + VPS VERIFIED (2026-07-17). Webhook 200 OK, PaymentStatus=Paid, 2 JournalEntries (Revenue + COGS), idempotency confirmed.
 - **Local infra (Debug):** Docker PostgreSQL 15-alpine (port 5432, VPS DB dumped) + NATS 2-alpine (port 4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001. All verified healthy with NATS order sync working.
 - **VPS (Production):** khachvip.online — Gateway (200), ShopERP (200 healthy), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
+- **Multi-VPS Checkout Plan (2026-07-18 - REVIEWED & FIXED):** `gateway_router_multi_vps_master_plan.md` + 7 task cards reviewed. 15 issues fixed: NATS subject mismatch, `MarkPaidAsync` split, `GenerateAccountingEntriesAsync` visibility, `CartItem` `required TenantId` break, `IQrCodeService` QR price signature, `FeaturedProduct` entity, `CustomerRecommendationService` retirement, product stub price sync, price validation endpoint, Home.razor scan modal interactivity, `ShopFeatureSettingsEntity` wording. Plan awaits user approval before Phase 1 implementation.
 - **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code. Quick-Setup workflow steps seeding (no domain entity for workflow steps yet).
 - **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening - Multi-tenant Bug Fix Batch (2026-07-18) - Quick-Setup Real Implementation (2026-07-18). See archive for details.
 
 ## 4. Next Actions
 
-**No active implementation item:** Select and approve the next objective before starting new work.
+**AWAITING USER APPROVAL:** Review the fixed multi-VPS checkout plan + task cards. Once approved, start **Phase 1: Domain + Migration** (`phase1_domain_migration_task_card.md`).
 
 **Deferred (pre-existing, not blocking):**
 - Quick-Setup workflow steps seeding (no domain entity for workflow steps yet — products/ingredients/recipes/inventory are seeded, but workflow steps are not)
@@ -186,6 +188,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-18 -- MULTI-VPS CHECKOUT PLAN REVIEW & TASK CARD FIXES.** Reviewed `gateway_router_multi_vps_master_plan.md` + 7 task cards (`phase1` through `phase7`). Fixed 15 issues: NATS subject mismatch (`OrderPaymentConfirmed` → `vanan.cloud.order.payment.confirmed.{shopInstanceId}`, `OrderStatusChanged` → `vanan.cloud.order.status.changed.{shopInstanceId}`), `OrderService` split into `MarkPaidAsync` (Gateway webhook) + `ConfirmPaymentAsync` wrapper (POS), `GenerateAccountingEntriesAsync` made public for `PaymentConfirmedSubscriber`, `CartItem.TenantId` default to `Guid.Empty` instead of `required` to avoid compile break, `IQrCodeService`/`QrCodeService`/`QRCodePayload` signature update for QR price/VAT/name, `ProductsController.GetProductQrCode` pass price fields, `FeaturedProduct` entity + `FeaturedProductId` VO fix, `CustomerRecommendationService` retirement note, product stub price sync from payload, price validation endpoint location, Home.razor scan modal Blazor interactivity gate, `ShopFeatureSettingsEntity` wording (Infrastructure not Domain), `OrderPaymentConfirmed` payload includes `paymentMethod`, `PaymentConfirmedSubscriber` retry loop + idempotency. `project_state.md` updated. No code changes. Plan awaits user approval before Phase 1. Branch: `main`.
 
 * **2026-07-18 -- MULTI-TENANT BUG FIX BATCH + QUICK-SETUP REAL IMPLEMENTATION.** 5 commits, all deployed to VPS via CD (healthy). (1) Bug 1: `HttpContextTenantProvider` returned `Guid.Empty` in Blazor Server interactive sessions → products page empty. Fixed by adding `AuthenticationStateProvider` fallback. Commit `0309e559`. (2) Bug 3: Gateway `CustomerOrdersController` didn't forward `X-Customer-Device-Id` header → order history blank for logged-in users. Fixed. Commit `0309e559`. (3) Bug 4: Zalo QR orders invisible on Kitchen — `PublicOrdersController` hardcoded tenantId + Kitchen only queried "pending" (paid orders are "confirmed"). Fixed both. Commit `0309e559`. (4) Login tenant_id bug: `Login.cshtml.cs` hardcoded fallback `00000000-...-001` when UserTenants mapping missing → users created for tenant A logged in with tenant B. Fixed by falling back to `user.TenantId.Value`. Commit `68a34af8`. (5) Quick-Setup stub → real: `OnboardingService.ApplyTemplateAsync` was `Task.Delay(10)` + fake return. Replaced with real delegation to `IIndustrySeedStrategy`. All 8 strategies implemented (F&B: 32 products from Menu_An_Uong.md §1, SPA: 22, RETAIL: 18 new, CLOTHES: 22, HOTEL: 15, BARBER: 12, HEALTHY: 12, PETSHOP: 12). Idempotent. 4th template "Thời trang" added. `IIndustrySeedStrategy` registered in ShopERP DI (was only in Gateway). Commit `f40d162b`. Branch: `main`.
 
