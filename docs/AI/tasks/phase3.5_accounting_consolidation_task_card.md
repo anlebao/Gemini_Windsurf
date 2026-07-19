@@ -216,3 +216,37 @@ KhachLink payment → Gateway WebhookController
 | E-invoice sync back to PG | Gateway admin can view e-invoice status without querying ShopERP |
 | Idempotency via JournalEntry.Reference check | Prevents double entries if NATS redelivers or POS + webhook both fire |
 | `MarkPaidAsync` enqueues Outbox event | Same transaction as status change — atomic (RC-1 pattern) |
+
+---
+
+## 8. COMPLETION SUMMARY
+
+**Phase 3.5 COMPLETE** — commit `<HASH>` on `main`.
+
+### Files created
+| File | Purpose |
+|------|---------|
+| _TBD_ | _TBD_ |
+
+### Files modified
+| File | Change |
+|------|--------|
+| _TBD_ | _TBD_ |
+
+### Issues fixed during implementation
+- _TBD_
+
+### Verification
+
+#### Static Verification (compile-time)
+- **Build:** _TBD_
+- **Unit tests:** _TBD_
+- **guard-check.ps1:** _TBD_
+
+#### Live Runtime Verification (boot + HTTP + UI)
+> **Lesson learned (Wave 0):** Build + Architecture Tests + guard-check PASS ≠ runtime works.
+> Live runtime verification is MANDATORY for all phases.
+
+| # | Test | Status | Evidence |
+|---|------|--------|----------|
+| RV1 | _TBD_ | _TBD_ | _TBD_ |
