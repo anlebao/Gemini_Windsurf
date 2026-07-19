@@ -51,7 +51,7 @@ Review and fix `gateway_router_multi_vps_master_plan.md` + phase task cards (1, 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `f40d162b` [FEATURE] Implement Quick-Setup onboarding — real seeding for all 8 industries
+- **Last commit:** `ddd71e6f` Resolve plan gaps before multi-VPS checkout implementation
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-18):** 0 errors. VanAn.sln build PASS. CD pipeline PASS (commit `f40d162b`, 5m12s). VPS: vanan-shoperp + vanan-gateway both healthy.
