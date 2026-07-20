@@ -18,15 +18,18 @@ using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 namespace VanAn.Integration.Tests;
 
 /// <summary>
-/// Integration tests for Wave 6: full tenant onboarding end-to-end flow.
+/// Integration tests for tenant onboarding end-to-end flow.
+///
+/// Phase 3.6: Product seeding removed from onboarding — tests updated to verify
+/// tenant + owner + permission groups only (no seed data in DB).
 ///
 /// Validates:
 ///   - SC1: SystemAdmin POST creates tenant with 201
 ///   - SC2: Tenant exists in database
 ///   - SC3: Owner user exists with Owner role and BCrypt password hash
-///   - SC4: F&B seed data created (shop, products, ingredients, recipes)
-///   - SC5: Default permission groups created
-///   - SC6: Owner assigned to "Quản lý" permission group
+///   - SC4: Default permission groups created (was: F&B seed data)
+///   - SC5: Owner assigned to "Quản lý" permission group
+///   - SC6: Result warnings include QuickSetup-deferred notice
 ///
 /// Uses GatewayWebApplicationFactory (SQLite in-memory). Database queries bypass
 /// the global TenantId query filter because the test tenant provider returns a
@@ -92,8 +95,8 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
 
     // ── Full Flow Test ────────────────────────────────────────────────────────
 
-    [Fact(DisplayName = "W6-SC1..SC6: Full F&B onboarding creates tenant, owner, seed data and groups")]
-    public async Task Onboard_FnB_Creates_Tenant_Owner_Seed_Data_Groups()
+    [Fact(DisplayName = "Phase3.6: Full onboarding creates tenant, owner, permission groups (no seed data)")]
+    public async Task Onboard_Creates_Tenant_Owner_PermissionGroups()
     {
         // Arrange
         var request = BuildValidRequest();
@@ -110,12 +113,14 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
         Assert.NotNull(result);
         Assert.NotEqual(Guid.Empty, result.TenantId);
         Assert.NotEqual(Guid.Empty, result.OwnerUserId);
-        Assert.Equal(8, result.ProductsCreated);
-        Assert.Equal(12, result.IngredientsCreated);
-        Assert.Equal(14, result.RecipesCreated);
-        Assert.Equal(1, result.ShopsCreated);
+        // Phase 3.6: Seed counts are 0 (seeding deferred to QuickSetup)
+        Assert.Equal(0, result.ProductsCreated);
+        Assert.Equal(0, result.IngredientsCreated);
+        Assert.Equal(0, result.RecipesCreated);
+        Assert.Equal(0, result.ShopsCreated);
         Assert.Equal(4, result.PermissionGroupsCreated);
-        Assert.Empty(result.Warnings);
+        // Phase 3.6: Warnings include QuickSetup-deferred notice
+        Assert.NotEmpty(result.Warnings);
 
         var tenantIdGuid = result.TenantId;
 
@@ -153,36 +158,30 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
         Assert.NotNull(userTenant);
         Assert.Equal(UserRole.Owner, userTenant.Role);
 
-        // SC4: F&B seed data created for the new tenant
+        // SC4 (Phase 3.6): NO seed data created for the new tenant (seeding deferred to QuickSetup)
         var shopCount = await db.Shops
             .IgnoreQueryFilters()
             .AsNoTracking()
             .CountAsync(s => s.TenantId == new TenantId(tenantIdGuid));
-        Assert.Equal(1, shopCount);
+        Assert.Equal(0, shopCount);
 
         var productCount = await db.Products
             .IgnoreQueryFilters()
             .AsNoTracking()
             .CountAsync(p => p.TenantId == new TenantId(tenantIdGuid));
-        Assert.Equal(8, productCount);
+        Assert.Equal(0, productCount);
 
         var ingredientCount = await db.Ingredients
             .IgnoreQueryFilters()
             .AsNoTracking()
             .CountAsync(i => i.TenantId == new TenantId(tenantIdGuid));
-        Assert.Equal(12, ingredientCount);
+        Assert.Equal(0, ingredientCount);
 
         var recipeCount = await db.Recipes
             .IgnoreQueryFilters()
             .AsNoTracking()
             .CountAsync(r => r.TenantId == new TenantId(tenantIdGuid));
-        Assert.Equal(14, recipeCount);
-
-        var inventoryCount = await db.Inventories
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .CountAsync(i => i.TenantId == new TenantId(tenantIdGuid));
-        Assert.Equal(12, inventoryCount);
+        Assert.Equal(0, recipeCount);
 
         // SC5: Default permission groups created
         var groups = await db.PermissionGroups
@@ -207,8 +206,8 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
         _client.DefaultRequestHeaders.Authorization = null;
     }
 
-    [Fact(DisplayName = "W6: Onboarding is isolated per tenant (two tenants get separate seed data)")]
-    public async Task Onboard_TwoTenants_SeedDataIsIsolated()
+    [Fact(DisplayName = "Phase3.6: Onboarding is isolated per tenant (two tenants get separate tenants/owners)")]
+    public async Task Onboard_TwoTenants_TenantsAreIsolated()
     {
         var token = MintSystemAdminJwt();
         _client.DefaultRequestHeaders.Authorization =
@@ -227,6 +226,7 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
         Assert.NotEqual(result1.TenantId, result2.TenantId);
         Assert.NotEqual(result1.OwnerUserId, result2.OwnerUserId);
 
+        // Phase 3.6: No products seeded (seeding deferred to QuickSetup)
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IVanAnDbContext>();
         var tenant1ProductCount = await db.Products
@@ -238,8 +238,8 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
             .AsNoTracking()
             .CountAsync(p => p.TenantId == new TenantId(result2.TenantId));
 
-        Assert.Equal(8, tenant1ProductCount);
-        Assert.Equal(8, tenant2ProductCount);
+        Assert.Equal(0, tenant1ProductCount);
+        Assert.Equal(0, tenant2ProductCount);
 
         _client.DefaultRequestHeaders.Authorization = null;
     }

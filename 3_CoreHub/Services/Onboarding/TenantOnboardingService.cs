@@ -8,18 +8,20 @@ namespace VanAn.CoreHub.Services.Onboarding
     /// <summary>
     /// Orchestrates the full tenant onboarding flow in a single call:
     /// 1. Create tenant  →  2. Create owner user  →  3. Assign Owner role
-    /// 4. Seed industry data  →  5. Create default permission groups
-    /// 6. Assign owner to Quản lý group
+    /// 4. Create default permission groups  →  5. Assign owner to Quản lý group
     ///
-    /// Wave 3: Full implementation of <see cref="ITenantOnboardingService"/>.
+    /// Phase 3.6 (Multi-VPS Checkout): Product seeding removed from onboarding.
+    /// Gateway PG no longer stores Products (FK dropped in Phase 3, Option C).
+    /// Tenant owner runs QuickSetup manually after first login to seed industry data
+    /// via ShopERP SQLite (where Products now live).
+    /// The IndustryCode field in OnboardTenantRequest is kept for backward API compat
+    /// but is no longer used for seeding during onboarding.
     /// </summary>
     public class TenantOnboardingService(
         ITenantManagementService tenantService,
         IUserManagementService userService,
         IPermissionGroupService permissionGroupService,
         IRoleAssignmentService roleAssignmentService,
-        IEnumerable<IIndustrySeedStrategy> seedStrategies,
-        IVanAnDbContext dbContext,
         ILogger<TenantOnboardingService> logger) : ITenantOnboardingService
     {
         // Default F&B permission groups: name → description
@@ -35,17 +37,9 @@ namespace VanAn.CoreHub.Services.Onboarding
             OnboardTenantRequest request,
             CancellationToken ct = default)
         {
-            // ── 0. Validate industry code ──────────────────────────────────────────
-            var strategy = seedStrategies
-                .FirstOrDefault(s => string.Equals(s.IndustryCode, request.IndustryCode, StringComparison.OrdinalIgnoreCase))
-                ?? throw new ArgumentException(
-                    $"Industry code '{request.IndustryCode}' is not registered. " +
-                    $"Available: {string.Join(", ", seedStrategies.Select(s => s.IndustryCode))}",
-                    nameof(request));
-
             logger.LogInformation(
-                "Starting onboarding for tenant '{Name}' with industry '{Industry}'",
-                request.Name, strategy.IndustryCode);
+                "Starting onboarding for tenant '{Name}' (industry code '{Industry}' — seeding deferred to QuickSetup)",
+                request.Name, request.IndustryCode);
 
             // ── 1. Create tenant ───────────────────────────────────────────────────
             var createTenantRequest = new CreateTenantRequest(
@@ -76,17 +70,7 @@ namespace VanAn.CoreHub.Services.Onboarding
             // ── 3. Assign Owner role via RoleAssignmentService ─────────────────────
             await roleAssignmentService.AssignRoleToUserAsync(ownerUser.Id, tenantId, UserRole.Owner, ct);
 
-            // ── 4. Seed industry data ──────────────────────────────────────────────
-            var seedResult = await strategy.SeedAsync(tenantId, dbContext, ct);
-            await dbContext.SaveChangesAsync(ct);
-
-            logger.LogInformation(
-                "Industry seed complete for {Industry}: {Shops} shops, {Products} products, {Ingredients} ingredients, {Recipes} recipes",
-                strategy.IndustryCode,
-                seedResult.ShopsCreated, seedResult.ProductsCreated,
-                seedResult.IngredientsCreated, seedResult.RecipesCreated);
-
-            // ── 5. Create default permission groups ────────────────────────────────
+            // ── 4. Create default permission groups ────────────────────────────────
             var createdGroups = new List<Guid>(DefaultGroups.Length);
             foreach (var (name, description) in DefaultGroups)
             {
@@ -94,7 +78,7 @@ namespace VanAn.CoreHub.Services.Onboarding
                 createdGroups.Add(group.Id);
             }
 
-            // ── 6. Assign owner to "Quản lý" group (first group created) ──────────
+            // ── 5. Assign owner to "Quản lý" group (first group created) ──────────
             if (createdGroups.Count > 0)
             {
                 await roleAssignmentService.AssignUserToGroupAsync(ownerUser.Id, createdGroups[0], tenantId, ct);
@@ -103,23 +87,23 @@ namespace VanAn.CoreHub.Services.Onboarding
                     ownerUser.Id, createdGroups[0]);
             }
 
-            var warnings = new List<string>(seedResult.Warnings);
-            if (warnings.Count > 0)
-                logger.LogWarning("Onboarding completed with {WarningCount} seed warnings for tenant {TenantId}", warnings.Count, tenantId.Value);
-
             logger.LogInformation(
-                "Onboarding complete for tenant {TenantId}. Groups: {GroupCount}",
+                "Onboarding complete for tenant {TenantId}. Groups: {GroupCount}. " +
+                "Product seeding deferred — owner runs QuickSetup after first login.",
                 tenantId.Value, createdGroups.Count);
 
             return new TenantOnboardingResult(
                 TenantId: tenantId.Value,
                 OwnerUserId: ownerUser.Id,
-                ProductsCreated: seedResult.ProductsCreated,
-                IngredientsCreated: seedResult.IngredientsCreated,
-                RecipesCreated: seedResult.RecipesCreated,
-                ShopsCreated: seedResult.ShopsCreated,
+                ProductsCreated: 0,
+                IngredientsCreated: 0,
+                RecipesCreated: 0,
+                ShopsCreated: 0,
                 PermissionGroupsCreated: createdGroups.Count,
-                Warnings: warnings.AsReadOnly());
+                Warnings: new List<string>
+                {
+                    "Product seeding deferred to QuickSetup. Owner must run QuickSetup after first login to seed industry data."
+                }.AsReadOnly());
         }
     }
 }

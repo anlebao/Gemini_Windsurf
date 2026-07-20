@@ -207,6 +207,7 @@ namespace VanAn.Architecture.Tests
                     !varName.StartsWith("SEQ_") &&
                     !varName.StartsWith("JWT_") &&
                     !varName.StartsWith("SHOPERP_") &&
+                    !varName.StartsWith("SHOP_INSTANCE_ID") && // Phase 4: fail-fast env var for OrderSyncSubscriber routing
                     !varName.StartsWith("IMAGE_") &&
                     !varName.StartsWith("VANAN_") &&
                     !varName.Equals("ACCEPT_EULA") &&

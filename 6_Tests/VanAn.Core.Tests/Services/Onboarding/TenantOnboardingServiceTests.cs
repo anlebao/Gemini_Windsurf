@@ -15,9 +15,9 @@ using Xunit;
 namespace VanAn.Core.Tests.Services.Onboarding
 {
     /// <summary>
-    /// Unit tests for Wave 3: TenantOnboardingService.
-    /// Uses Moq to mock all service dependencies.
-    /// Verifies orchestration flow: tenant → user → role → seed → groups → group assignment.
+    /// Unit tests for TenantOnboardingService.
+    /// Phase 3.6: Product seeding removed from onboarding — tests updated to verify
+    /// tenant + owner + permission groups only (no seed strategy calls).
     /// </summary>
     public class TenantOnboardingServiceTests
     {
@@ -28,8 +28,6 @@ namespace VanAn.Core.Tests.Services.Onboarding
         private readonly Mock<IUserManagementService> _userServiceMock = new();
         private readonly Mock<IPermissionGroupService> _permissionGroupServiceMock = new();
         private readonly Mock<IRoleAssignmentService> _roleAssignmentServiceMock = new();
-        private readonly Mock<IIndustrySeedStrategy> _seedStrategyMock = new();
-        private readonly Mock<IVanAnDbContext> _dbContextMock = new();
 
         private readonly TenantOnboardingService _sut;
 
@@ -61,18 +59,6 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 .Setup(s => s.AssignUserToGroupAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<TenantId>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-            // Setup seed strategy mock
-            _seedStrategyMock.Setup(s => s.IndustryCode).Returns("F&B");
-            _seedStrategyMock.Setup(s => s.IndustryName).Returns("Food & Beverage");
-            _seedStrategyMock
-                .Setup(s => s.SeedAsync(It.IsAny<TenantId>(), It.IsAny<IVanAnDbContext>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IndustrySeedResult(8, 12, 14, 1, []));
-
-            // Setup DbContext SaveChangesAsync
-            _dbContextMock
-                .Setup(d => d.SaveChangesAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(1);
-
             // Setup permission group mock — returns a new group each call
             _permissionGroupServiceMock
                 .Setup(s => s.CreateGroupAsync(It.IsAny<TenantId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -84,8 +70,6 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 _userServiceMock.Object,
                 _permissionGroupServiceMock.Object,
                 _roleAssignmentServiceMock.Object,
-                [_seedStrategyMock.Object],
-                _dbContextMock.Object,
                 NullLogger<TenantOnboardingService>.Instance);
         }
 
@@ -102,7 +86,7 @@ namespace VanAn.Core.Tests.Services.Onboarding
             _sut.Should().BeAssignableTo<ITenantOnboardingService>();
         }
 
-        // ── SC2: One call creates tenant + user + seed ─────────────────────────
+        // ── SC2: One call creates tenant + user ─────────────────────────────────
 
         [Fact(DisplayName = "W3-SC2: OnboardAsync calls CreateTenantAsync once")]
         public async Task OnboardAsync_CallsCreateTenantAsync_Once()
@@ -130,17 +114,20 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 Times.Once);
         }
 
-        [Fact(DisplayName = "W3-SC2: OnboardAsync calls seed strategy SeedAsync once")]
-        public async Task OnboardAsync_CallsSeedStrategy_Once()
-        {
-            await _sut.OnboardAsync(DefaultRequest());
+        // ── Phase 3.6: No seed strategy calls (seeding deferred to QuickSetup) ──
 
-            _seedStrategyMock.Verify(
-                s => s.SeedAsync(
-                    It.Is<TenantId>(t => t == TestTenantId),
-                    It.IsAny<IVanAnDbContext>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+        [Fact(DisplayName = "Phase3.6: OnboardAsync does NOT call any seed strategy (seeding deferred to QuickSetup)")]
+        public async Task OnboardAsync_DoesNotCallSeedStrategy()
+        {
+            // Phase 3.6: Product seeding removed from onboarding.
+            // TenantOnboardingService no longer takes IIndustrySeedStrategy in constructor.
+            // This test verifies the service works without any seed strategy.
+            var result = await _sut.OnboardAsync(DefaultRequest());
+
+            result.ProductsCreated.Should().Be(0);
+            result.IngredientsCreated.Should().Be(0);
+            result.RecipesCreated.Should().Be(0);
+            result.ShopsCreated.Should().Be(0);
         }
 
         // ── SC3: Owner user assigned role Owner ────────────────────────────────
@@ -207,15 +194,15 @@ namespace VanAn.Core.Tests.Services.Onboarding
 
         // ── SC6: Returns TenantOnboardingResult with correct counts ───────────
 
-        [Fact(DisplayName = "W3-SC6: OnboardAsync returns result with correct seed counts")]
-        public async Task OnboardAsync_Returns_CorrectSeedCounts()
+        [Fact(DisplayName = "Phase3.6: OnboardAsync returns result with zero seed counts (seeding deferred)")]
+        public async Task OnboardAsync_Returns_ZeroSeedCounts()
         {
             var result = await _sut.OnboardAsync(DefaultRequest());
 
-            result.ProductsCreated.Should().Be(8);
-            result.IngredientsCreated.Should().Be(12);
-            result.RecipesCreated.Should().Be(14);
-            result.ShopsCreated.Should().Be(1);
+            result.ProductsCreated.Should().Be(0);
+            result.IngredientsCreated.Should().Be(0);
+            result.RecipesCreated.Should().Be(0);
+            result.ShopsCreated.Should().Be(0);
         }
 
         [Fact(DisplayName = "W3-SC6: OnboardAsync returns result with correct PermissionGroupsCreated count")]
@@ -235,38 +222,28 @@ namespace VanAn.Core.Tests.Services.Onboarding
             result.OwnerUserId.Should().NotBeEmpty();
         }
 
-        [Fact(DisplayName = "W3-SC6: OnboardAsync returns empty Warnings when seed has no warnings")]
-        public async Task OnboardAsync_Returns_EmptyWarnings_WhenNoSeedWarnings()
+        [Fact(DisplayName = "Phase3.6: OnboardAsync returns warning about deferred QuickSetup seeding")]
+        public async Task OnboardAsync_Returns_QuickSetupDeferredWarning()
         {
             var result = await _sut.OnboardAsync(DefaultRequest());
 
-            result.Warnings.Should().BeEmpty();
+            result.Warnings.Should().NotBeEmpty();
+            result.Warnings.Should().Contain(w => w.Contains("QuickSetup"));
         }
 
-        [Fact(DisplayName = "W3-SC6: OnboardAsync propagates seed warnings to result")]
-        public async Task OnboardAsync_Propagates_SeedWarnings()
+        // ── Invalid industry code no longer throws (Phase 3.6 — seeding deferred) ──
+
+        [Fact(DisplayName = "Phase3.6: OnboardAsync accepts unknown industry code (seeding deferred, no validation needed)")]
+        public async Task OnboardAsync_AcceptsUnknownIndustryCode()
         {
-            _seedStrategyMock
-                .Setup(s => s.SeedAsync(It.IsAny<TenantId>(), It.IsAny<IVanAnDbContext>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new IndustrySeedResult(0, 0, 0, 0, ["Some seed warning"]));
-
-            var result = await _sut.OnboardAsync(DefaultRequest());
-
-            result.Warnings.Should().ContainSingle().Which.Should().Be("Some seed warning");
-        }
-
-        // ── Invalid industry code throws ───────────────────────────────────────
-
-        [Fact(DisplayName = "W3-SC: OnboardAsync throws ArgumentException for unknown industry code")]
-        public async Task OnboardAsync_Throws_ForUnknownIndustryCode()
-        {
+            // Phase 3.6: Industry code is no longer validated during onboarding
+            // (seeding deferred to QuickSetup where the owner picks their industry).
             var act = () => _sut.OnboardAsync(DefaultRequest("UNKNOWN"));
 
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("*UNKNOWN*");
+            await act.Should().NotThrowAsync();
         }
 
-        [Fact(DisplayName = "W3-SC: OnboardAsync is case-insensitive for industry code lookup")]
+        [Fact(DisplayName = "Phase3.6: OnboardAsync is case-insensitive for industry code (kept for backward compat)")]
         public async Task OnboardAsync_IsCaseInsensitive_ForIndustryCode()
         {
             var result = await _sut.OnboardAsync(DefaultRequest("f&b"));
@@ -286,22 +263,9 @@ namespace VanAn.Core.Tests.Services.Onboarding
                 s.CreateUserAsync(It.Is<TenantId>(t => t == TestTenantId), It.IsAny<string>(),
                     It.IsAny<string>(), It.IsAny<string>(), It.IsAny<UserRole>(), It.IsAny<CancellationToken>()),
                 Times.Once);
-            _seedStrategyMock.Verify(s =>
-                s.SeedAsync(It.Is<TenantId>(t => t == TestTenantId), It.IsAny<IVanAnDbContext>(), It.IsAny<CancellationToken>()),
-                Times.Once);
             _permissionGroupServiceMock.Verify(s =>
                 s.CreateGroupAsync(It.Is<TenantId>(t => t == TestTenantId), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
                 Times.AtLeast(4));
-        }
-
-        // ── SaveChangesAsync called after seed ─────────────────────────────────
-
-        [Fact(DisplayName = "W3-SC: OnboardAsync calls SaveChangesAsync after seed")]
-        public async Task OnboardAsync_CallsSaveChangesAsync_AfterSeed()
-        {
-            await _sut.OnboardAsync(DefaultRequest());
-
-            _dbContextMock.Verify(d => d.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 }

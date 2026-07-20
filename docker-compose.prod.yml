@@ -84,6 +84,8 @@ services:
       - Cors__AllowedOrigins__0=https://app.${VANAN_DOMAIN}
       - Cors__AllowedOrigins__1=https://diemthuong.${VANAN_DOMAIN}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      # Phase 3.6: Explicit ShopERP BaseUrl — prevents port 5003 fallback (appsettings.Development.json leak)
+      - ShopERP__BaseUrl=http://shoperp:80/
     networks:
       - vanan-network
     depends_on:
