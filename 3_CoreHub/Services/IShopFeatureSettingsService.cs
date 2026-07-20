@@ -13,7 +13,22 @@ public record ShopFeatureSettingsDto
     public bool Accounting_Sync_Enabled { get; set; } = true;
     public bool EInvoice_Auto_Export_Enabled { get; set; }
     public bool VAT_Display_Enabled { get; set; } = true;
+    /// <summary>Phase 5: When ON, KhachLink validates QR/cart price against current product price
+    /// before checkout. Prevents stale QR codes from charging wrong amount. Default OFF (trust QR).</summary>
+    public bool Price_Validation_Enabled { get; set; }
     public int PollingIntervalSeconds { get; set; } = 15;
+}
+
+/// <summary>
+/// Phase 5: Result of price validation check (GET /api/products/{id}/validate-price).
+/// </summary>
+public class PriceValidationResult
+{
+    public Guid ProductId { get; set; }
+    public bool Match { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public decimal CurrentUnitPrice { get; set; }
+    public decimal CurrentVatRate { get; set; }
 }
 
 /// <summary>

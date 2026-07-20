@@ -24,6 +24,7 @@ public class ShopFeatureSettingsConfiguration : IEntityTypeConfiguration<ShopFea
         builder.Property(e => e.Accounting_Sync_Enabled).IsRequired().HasDefaultValue(true);
         builder.Property(e => e.EInvoice_Auto_Export_Enabled).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.VAT_Display_Enabled).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.Price_Validation_Enabled).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.PollingIntervalSeconds).IsRequired().HasDefaultValue(15);
 
         // One row per tenant — unique index on TenantId

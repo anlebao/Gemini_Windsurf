@@ -36,6 +36,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// for future HKD→Công Ty migration.</summary>
     public bool VAT_Display_Enabled { get; private set; } = true;
 
+    /// <summary>Phase 5: Toggle: validate QR/cart price against current product price before checkout.
+    /// Default OFF (trust QR snapshot). When ON, KhachLink calls /api/products/{id}/validate-price.</summary>
+    public bool Price_Validation_Enabled { get; private set; }
+
     /// <summary>KhachLink OrderTracking polling interval in seconds. Default: 15. Range: 5-120.</summary>
     public int PollingIntervalSeconds { get; private set; } = 15;
 
@@ -51,6 +55,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Accounting_Sync_Enabled = true;
         EInvoice_Auto_Export_Enabled = false;
         VAT_Display_Enabled = true;
+        Price_Validation_Enabled = false;
         PollingIntervalSeconds = 15;
     }
 
@@ -63,7 +68,8 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool accountingSync,
         bool einvoiceAutoExport,
         int pollingIntervalSeconds = 15,
-        bool vatDisplay = true)
+        bool vatDisplay = true,
+        bool priceValidation = false)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -72,6 +78,7 @@ public class ShopFeatureSettingsEntity : BaseEntity
         Accounting_Sync_Enabled = accountingSync;
         EInvoice_Auto_Export_Enabled = einvoiceAutoExport;
         VAT_Display_Enabled = vatDisplay;
+        Price_Validation_Enabled = priceValidation;
         PollingIntervalSeconds = Math.Clamp(pollingIntervalSeconds, 5, 120);
         UpdateAudit();
     }

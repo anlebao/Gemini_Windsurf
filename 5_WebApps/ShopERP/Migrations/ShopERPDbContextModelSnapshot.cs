@@ -309,6 +309,11 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(15);
 
+                    b.Property<bool>("Price_Validation_Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("QR_TableNumber_Enabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -403,6 +408,10 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
 
+                    b.Property<string>("RoutingKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
 
@@ -469,6 +478,10 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("PredecessorTenantId");
 
+                    b.Property<Guid?>("ShopInstanceId")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("ShopInstanceId");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -496,6 +509,8 @@ namespace VanAn.ShopERP.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Id");
+
+                    b.HasIndex("ShopInstanceId");
 
                     b.ToTable("Tenants", (string)null);
                 });
@@ -1748,6 +1763,78 @@ namespace VanAn.ShopERP.Migrations
                     b.ToTable("Shops");
                 });
 
+            modelBuilder.Entity("VanAn.Shared.Domain.ShopInstance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BaseUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HealthCheckUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HealthStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("Unknown");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastHealthCheck")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("MaxTenants")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(50);
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaseUrl")
+                        .IsUnique();
+
+                    b.ToTable("ShopInstances", (string)null);
+                });
+
             modelBuilder.Entity("VanAn.Shared.Domain.SocialCampaign", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1863,6 +1950,11 @@ namespace VanAn.ShopERP.Migrations
 
             modelBuilder.Entity("VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant", b =>
                 {
+                    b.HasOne("VanAn.Shared.Domain.ShopInstance", null)
+                        .WithMany()
+                        .HasForeignKey("ShopInstanceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.OwnsOne("VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantSettings", "Settings", b1 =>
                         {
                             b1.Property<Guid>("TenantId")
@@ -2101,7 +2193,7 @@ namespace VanAn.ShopERP.Migrations
                     b.HasOne("VanAn.Shared.Domain.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Order");

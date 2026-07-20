@@ -104,6 +104,11 @@ namespace VanAn.KhachLink.Models
         [JsonPropertyName("totalPrice")]
         public decimal TotalPrice { get; set; }
 
+        // Phase 5: TenantId preserved through offline sync so multi-tenant cart
+        // can be restored correctly after offline mode.
+        [JsonPropertyName("tenantId")]
+        public string? TenantId { get; set; }
+
         public OrderItem ToDomain()
         {
             // Create OrderItem using static factory method

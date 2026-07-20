@@ -51,7 +51,8 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.Accounting_Sync_Enabled,
             settings.EInvoice_Auto_Export_Enabled,
             settings.PollingIntervalSeconds,
-            settings.VAT_Display_Enabled);
+            settings.VAT_Display_Enabled,
+            settings.Price_Validation_Enabled);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -70,6 +71,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.Accounting_Sync_Enabled) => settings.Accounting_Sync_Enabled,
             nameof(ShopFeatureSettingsDto.EInvoice_Auto_Export_Enabled) => settings.EInvoice_Auto_Export_Enabled,
             nameof(ShopFeatureSettingsDto.VAT_Display_Enabled) => settings.VAT_Display_Enabled,
+            nameof(ShopFeatureSettingsDto.Price_Validation_Enabled) => settings.Price_Validation_Enabled,
             _ => false
         };
     }
@@ -93,6 +95,7 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         Accounting_Sync_Enabled = entity.Accounting_Sync_Enabled,
         EInvoice_Auto_Export_Enabled = entity.EInvoice_Auto_Export_Enabled,
         VAT_Display_Enabled = entity.VAT_Display_Enabled,
+        Price_Validation_Enabled = entity.Price_Validation_Enabled,
         PollingIntervalSeconds = entity.PollingIntervalSeconds
     };
 }

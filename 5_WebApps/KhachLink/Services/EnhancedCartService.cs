@@ -222,7 +222,8 @@ namespace VanAn.KhachLink.Services
                             ProductName = item.ProductName ?? string.Empty,
                             Description = string.Empty,
                             Quantity = item.Quantity,
-                            UnitPrice = item.UnitPrice
+                            UnitPrice = item.UnitPrice,
+                            TenantId = Guid.TryParse(item.TenantId, out Guid tid) ? tid : Guid.Empty
                         });
                     }
 
@@ -298,7 +299,8 @@ namespace VanAn.KhachLink.Services
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 TotalPrice = item.TotalPrice,
-                ProductName = item.ProductName
+                ProductName = item.ProductName,
+                TenantId = item.TenantId.ToString()
             };
         }
 
@@ -311,7 +313,8 @@ namespace VanAn.KhachLink.Services
                 ProductName = item.ProductName ?? string.Empty,
                 Description = string.Empty,
                 Quantity = item.Quantity,
-                UnitPrice = item.UnitPrice
+                UnitPrice = item.UnitPrice,
+                TenantId = Guid.TryParse(item.TenantId, out Guid tid) ? tid : Guid.Empty
             };
         }
     }

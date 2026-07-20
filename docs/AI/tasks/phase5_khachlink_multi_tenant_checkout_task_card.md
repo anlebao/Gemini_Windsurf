@@ -329,27 +329,51 @@ Checkout → send items with UnitPrice/VatRate from QR
 
 ## 7. COMPLETION SUMMARY
 
-**Phase 5 COMPLETE** — commit `<HASH>` on `main`.
+**Phase 5 COMPLETE** — pending commit on `main`.
 
 ### Files created
 | File | Purpose |
 |------|---------|
-| _TBD_ | _TBD_ |
+| `6_Tests/VanAn.Core.Tests/Domain/CartItemTenantIdTests.cs` | 5 tests: CartItem.TenantId defaults, preservation, CartState propagation, multi-tenant cart |
+| `6_Tests/VanAn.Core.Tests/Dto/QRCodePayloadPriceTests.cs` | 5 tests: QR payload price/VAT/name fields, JSON round-trip, legacy QR backward compat |
+| `3_CoreHub/Infrastructure/Migrations/20260720032140_AddPriceValidationToggle.cs` | Npgsql migration: add `Price_Validation_Enabled` column to `ShopFeatureSettings` |
+| `5_WebApps/ShopERP/Migrations/20260720031444_AddPriceValidationToggle.cs` | SQLite migration: add `Price_Validation_Enabled` column + pending model changes |
 
 ### Files modified
 | File | Change |
 |------|--------|
-| _TBD_ | _TBD_ |
+| `1_Shared/Domain/CartItem.cs` | Add `TenantId` (init-only, defaults `Guid.Empty`) for multi-tenant cart grouping |
+| `1_Shared/DTOs/QRCodePayload.cs` | Add `UnitPrice`, `VatRate`, `ProductName`, `TenantId` fields + 2 new constructors (6-arg, 7-arg) |
+| `3_CoreHub/Services/QrCodeService.cs` | Add 2 new `GenerateProductQRCode` overloads (6-arg with price/VAT/name, 7-arg with TenantId) |
+| `3_CoreHub/Services/IShopFeatureSettingsService.cs` | Add `Price_Validation_Enabled` to DTO + `PriceValidationResult` class |
+| `3_CoreHub/Services/ShopFeatureSettingsService.cs` | Wire `Price_Validation_Enabled` through update/IsEnabled/ToDto |
+| `3_CoreHub/Infrastructure/Entities/ShopFeatureSettingsEntity.cs` | Add `Price_Validation_Enabled` property + `UpdateToggles` parameter |
+| `3_CoreHub/Infrastructure/Configurations/ShopFeatureSettingsConfiguration.cs` | Map `Price_Validation_Enabled` column with default `false` |
+| `5_WebApps/KhachLink/Services/CartState.cs` | `AddItem` sets `TenantId` from `ProductDto.TenantId` |
+| `5_WebApps/KhachLink/Services/CartService.cs` | Add `AddItemAsync(CartItem)` overload for partial cart clear after multi-tenant checkout |
+| `5_WebApps/KhachLink/Services/EnhancedCartService.cs` | Update `new CartItem` sites to set `TenantId` + `OfflineOrderItemDto.TenantId` |
+| `5_WebApps/KhachLink/Models/OfflineOrderDto.cs` | Add `TenantId` to `OfflineOrderItemDto` for offline sync round-trip |
+| `5_WebApps/KhachLink/Pages/Checkout.razor` | Multi-tenant checkout request + `CheckoutResponse` handling + partial cart clear + `created_orders` localStorage |
+| `5_WebApps/KhachLink/Pages/Scan.razor` | Fast path: use QR price/VAT/name/tenantId directly (no API call) + legacy fallback |
+| `5_WebApps/KhachLink/Pages/OrderTracking.razor` | Show "other orders from this session" section (reads `created_orders` localStorage) |
+| `5_WebApps/KhachLink/Pages/OrderHistory.razor` | Add `TenantId` to `OrderDto` for multi-tenant order display |
+| `5_WebApps/ShopERP/Controllers/ProductsController.cs` | QR generation passes price/VAT/name/tenantId to new overload + `ValidateProductPrice` endpoint |
+| `5_WebApps/ShopERP/Components/Pages/Settings/ShopFeatures.razor` | Add `Price_Validation_Enabled` toggle UI |
+| `5_WebApps/ShopERP/Components/Pages/Products/ProductManagement.razor` | Add Phase 5 QR reminder alert in QR modal |
+| `6_Tests/VanAn.Core.Tests/Services/QrCodeServiceTests.cs` | Add 2 tests for new QR overloads (price/VAT/name + PNG size check) |
 
 ### Issues fixed during implementation
-- _TBD_
+- **CartItem construction sites:** `EnhancedCartService` had 2 `new CartItem` sites that needed `TenantId` propagation through `OfflineOrderItemDto`.
+- **CartService.AddItemAsync signature:** Only accepted `ProductDto` — added `AddItemAsync(CartItem)` overload for partial cart clear after multi-tenant checkout (items from failed tenants re-added for retry).
+- **Blazor `data-testid` complex content:** `data-testid="checkout-link-tracking-@order.OrderId"` caused RZ9986 error — removed dynamic testid (Blazor doesn't allow mixed C# + markup in attributes).
+- **Migration bundling:** ShopERP SQLite migration bundled pending model changes (ShopInstances, OutboxRoutingKey) with `Price_Validation_Enabled` — expected EF behavior when prior model changes weren't migrated.
 
 ### Verification
 
 #### Static Verification (compile-time)
-- **Build:** _TBD_
-- **Unit tests:** _TBD_
-- **guard-check.ps1:** _TBD_
+- **Build:** `dotnet build VanAn.sln` — 0 errors, 67 pre-existing warnings
+- **Unit tests:** `dotnet test VanAn.Core.Tests` — 1038 passed, 0 failed, 16 skipped (12 new tests added: 5 CartItem + 5 QR Payload + 2 QR Service)
+- **guard-check.ps1:** PASSED — architecture guard, Roslyn analyzers, build, fast test gate all green
 
 #### Live Runtime Verification (boot + HTTP + UI)
 > **Lesson learned (Wave 0):** Build + Architecture Tests + guard-check PASS ≠ runtime works.
@@ -357,4 +381,7 @@ Checkout → send items with UnitPrice/VatRate from QR
 
 | # | Test | Status | Evidence |
 |---|------|--------|----------|
-| RV1 | _TBD_ | _TBD_ | _TBD_ |
+| RV1 | _TBD_ — boot KhachLink + scan new QR (with price) | PENDING | Requires running stack |
+| RV2 | _TBD_ — multi-tenant checkout (cart with 2 tenants → 2 orders) | PENDING | Requires running stack |
+| RV3 | _TBD_ — legacy QR scan (no price → API fallback) | PENDING | Requires running stack |
+| RV4 | _TBD_ — Price_Validation toggle ON → stale QR blocked | PENDING | Requires running stack |

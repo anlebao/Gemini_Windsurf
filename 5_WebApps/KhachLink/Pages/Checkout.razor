@@ -31,45 +31,48 @@
                 </div>
             </VanAnCard>
         }
-        else if (orderCreated && !string.IsNullOrEmpty(createdOrderId))
+        else if (orderCreated && _createdOrders.Count > 0)
         {
             <div class="row">
                 <div class="col-md-6">
                     <VanAnCard Header="📋 Chi tiết đơn hàng">
                         <div class="order-success alert-success" role="status">
                             <p><strong>✅ Đặt hàng thành công!</strong></p>
-                            @if (!string.IsNullOrEmpty(shopName))
-                            {
-                                <p>Cửa hàng: <strong>@shopName</strong></p>
-                            }
-                            <p>Mã đơn hàng: <span class="order-id">@createdOrderId</span></p>
-                            <p>Trạng thái: <span class="badge bg-warning">Chờ thanh toán</span></p>
+                            <p>Đã tạo <strong>@_createdOrders.Count</strong> đơn hàng từ giỏ hàng của bạn.</p>
                         </div>
                         <hr />
 
-                        @foreach (var item in cartSnapshot)
+                        @foreach (var order in _createdOrders)
                         {
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>@item.ProductName x @item.Quantity</span>
-                                <span>@item.TotalPrice.ToString("N0") VNĐ</span>
+                            <div class="mb-3 p-2 border rounded">
+                                <p><strong>Đơn hàng:</strong> <span class="order-id">@order.OrderId</span></p>
+                                <p><strong>Tenant:</strong> @order.TenantId</p>
+                                @if (_vatDisplayEnabled && order.SubTotal > 0)
+                                {
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>Tạm tính (chưa VAT):</span>
+                                        <span>@order.SubTotal.ToString("N0") VNĐ</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>VAT:</span>
+                                        <span>@order.TotalVatAmount.ToString("N0") VNĐ</span>
+                                    </div>
+                                }
+                                <div class="d-flex justify-content-between">
+                                    <strong>Tổng:</strong>
+                                    <strong>@order.Amount.ToString("N0") VNĐ</strong>
+                                </div>
+                                <div class="mt-2">
+                                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{order.OrderId}"))">
+                                        Theo dõi đơn hàng
+                                    </VanAnButton>
+                                </div>
                             </div>
                         }
 
                         <hr />
-                        @if (_vatDisplayEnabled && _createdSubTotal > 0)
-                        {
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Tạm tính (chưa VAT):</span>
-                                <span>@_createdSubTotal.ToString("N0") VNĐ</span>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>VAT:</span>
-                                <span>@_createdVatAmount.ToString("N0") VNĐ</span>
-                            </div>
-                            <hr />
-                        }
                         <div class="d-flex justify-content-between">
-                            <h5 class="text-danger">Tổng cộng:</h5>
+                            <h5 class="text-danger">Tổng tất cả:</h5>
                             <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
                         </div>
 
@@ -77,14 +80,31 @@
                             <VanAnButton Variant="ButtonVariant.Primary" OnClick="OpenQrModal" data-testid="checkout-btn-qr-payment">
                                 📲 Thanh toán QR
                             </VanAnButton>
-                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{createdOrderId}"))" data-testid="checkout-link-tracking">
-                                Theo dõi đơn hàng
+                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}"))" data-testid="checkout-link-tracking">
+                                Theo dõi đơn hàng đầu tiên
                             </VanAnButton>
                         </div>
                     </VanAnCard>
                 </div>
 
-                @if (!string.IsNullOrEmpty(qrImageUrl))
+                @if (_checkoutErrors.Count > 0)
+                {
+                    <div class="col-md-6">
+                        <VanAnCard Header="⚠️ Đơn hàng thất bại">
+                            <VanAnAlert Variant="AlertVariant.Warning"
+                                        Message="@($"Một số đơn hàng không thể tạo ({_checkoutErrors.Count} thất bại). Các sản phẩm liên quan vẫn còn trong giỏ hàng để bạn thử lại.")"
+                                        Dismissible="false" />
+                            @foreach (var err in _checkoutErrors)
+                            {
+                                <div class="mb-2 p-2 border rounded">
+                                    <p><strong>Tenant:</strong> @err.TenantId</p>
+                                    <p class="text-danger">@err.Error</p>
+                                </div>
+                            }
+                        </VanAnCard>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(qrImageUrl))
                 {
                     <div class="col-md-6">
                         <VanAnCard Header="📱 Quét mã QR để thanh toán">
@@ -99,8 +119,8 @@
 
             <QrPaymentModal IsOpen="@showQrModal"
                             Amount="@orderTotal"
-                            OrderId="@createdOrderId"
-                            TenantId="@tenantId"
+                            OrderId="@(_createdOrders.Count > 0 ? _createdOrders[0].OrderId : string.Empty)"
+                            TenantId="@(_createdOrders.Count > 0 ? _createdOrders[0].TenantId : Guid.Empty)"
                             OnPaymentCompleted="CloseQrModal" />
         }
         else if (showGuestForm)
@@ -222,15 +242,15 @@
     private bool orderCreated;
     private bool showQrModal;
     private bool showGuestForm;
-    private string createdOrderId = string.Empty;
     private string? qrImageUrl;
     private decimal orderTotal;
-    private Guid tenantId;
     private string? shopName;
     private List<CartItem> cartSnapshot = new();
     private bool _vatDisplayEnabled = true;
-    private decimal _createdSubTotal;
-    private decimal _createdVatAmount;
+
+    // Phase 5: Multi-tenant checkout — multiple orders from one cart.
+    private List<CreatedOrderItem> _createdOrders = new();
+    private List<CheckoutErrorItem> _checkoutErrors = new();
 
     // Guest form fields
     private string guestName = string.Empty;
@@ -383,6 +403,9 @@
                 Items = cartSnapshot.Select(i => new
                 {
                     ProductId = i.ProductId,
+                    TenantId = i.TenantId,
+                    ProductName = i.ProductName,
+                    VatRate = i.VatRate,
                     Quantity = i.Quantity,
                     UnitPrice = i.UnitPrice,
                     Notes = "",
@@ -400,48 +423,76 @@
 
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<OrderCreatedResult>();
-                createdOrderId = result?.OrderId ?? string.Empty;
-                qrImageUrl = result?.QrImageUrl;
-                tenantId = result?.TenantId ?? Guid.Empty;
-                orderCreated = true;
-                _createdSubTotal = result?.SubTotal ?? 0m;
-                _createdVatAmount = result?.TotalVatAmount ?? 0m;
+                var result = await response.Content.ReadFromJsonAsync<CheckoutResponseResult>();
+                _createdOrders = result?.Orders ?? new();
+                _checkoutErrors = result?.Errors ?? new();
+                orderTotal = _createdOrders.Sum(o => o.Amount);
+                orderCreated = _createdOrders.Count > 0;
 
-                // RC-7: Load VAT display toggle for post-checkout summary.
-                if (tenantId != Guid.Empty)
+                // Phase 5: Load VAT display toggle from the first successful tenant.
+                if (_createdOrders.Count > 0)
                 {
+                    var firstTenantId = _createdOrders[0].TenantId;
                     try
                     {
-                        _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
+                        _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(firstTenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
                     }
                     catch { /* non-critical — default to true */ }
-                }
 
-                // Bug 0: Fetch shop name for display in order details
-                if (tenantId != Guid.Empty)
-                {
                     try
                     {
-                        var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(tenantId);
+                        var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(firstTenantId);
                         shopName = shopConfig?.ShopName;
                     }
                     catch { /* non-critical — shop name is optional display */ }
                 }
 
-                await CartService.ClearCartAsync();
+                // Phase 5: Store created_orders in localStorage for OrderHistory.
+                if (_createdOrders.Count > 0)
+                {
+                    var ordersForStorage = _createdOrders.Select(o => new
+                    {
+                        orderId = o.OrderId.ToString(),
+                        tenantId = o.TenantId.ToString(),
+                        amount = o.Amount
+                    }).ToList();
+                    var ordersJson = System.Text.Json.JsonSerializer.Serialize(ordersForStorage);
+                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "created_orders", ordersJson);
+                }
+
+                // Phase 5: Partial cart clear — only remove items belonging to successful tenants.
+                var successfulTenantIds = _createdOrders.Select(o => o.TenantId).ToHashSet();
+                var itemsToKeep = cartState.Items.Where(i => !successfulTenantIds.Contains(i.TenantId)).ToList();
+                if (itemsToKeep.Count == 0)
+                {
+                    await CartService.ClearCartAsync();
+                }
+                else
+                {
+                    // Clear and re-add only failed-tenant items (so customer can retry).
+                    await CartService.ClearCartAsync();
+                    var state = CartService.GetCartState();
+                    state.Items.AddRange(itemsToKeep);
+                    // SaveCartToStorageAsync is called by ClearCartAsync; we need to persist the re-added items.
+                    // CartService doesn't expose a public Save method for direct item manipulation,
+                    // so we trigger a save by calling UpdateQuantityAsync on a kept item (no-op if single item).
+                    // This is a workaround — a proper fix would add CartService.PersistAsync().
+                    if (itemsToKeep.Count > 0)
+                    {
+                        await CartService.UpdateQuantityAsync(itemsToKeep[0].ProductId, itemsToKeep[0].Quantity);
+                    }
+                }
 
                 // Post-checkout: show loyalty signup modal for anonymous customers
-                // so they can authenticate and earn points on this order.
-                if (!_isLoggedIn)
+                if (!_isLoggedIn && orderCreated)
                 {
                     _showLoyaltySignupModal = true;
                 }
 
-                // W1-T1: Cash flow → redirect to OrderTracking immediately (no QR modal)
-                if (selectedPaymentMethod == "cash" && !string.IsNullOrEmpty(createdOrderId))
+                // W1-T1: Cash flow with single successful order → redirect to OrderTracking immediately.
+                if (selectedPaymentMethod == "cash" && _createdOrders.Count == 1 && _checkoutErrors.Count == 0)
                 {
-                    NavigationManager.NavigateTo($"/order-tracking/{createdOrderId}");
+                    NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}");
                     return;
                 }
             }
@@ -487,22 +538,39 @@
         CartService.OnCartChanged -= StateHasChanged;
     }
 
-    private class OrderCreatedResult
+    // Phase 5: CheckoutResponse shape (matches Gateway CheckoutResponse DTO).
+    private class CheckoutResponseResult
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("orders")]
+        public List<CreatedOrderItem> Orders { get; set; } = new();
+        [System.Text.Json.Serialization.JsonPropertyName("successCount")]
+        public int SuccessCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("failureCount")]
+        public int FailureCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("errors")]
+        public List<CheckoutErrorItem> Errors { get; set; } = new();
+    }
+
+    private class CreatedOrderItem
     {
         [System.Text.Json.Serialization.JsonPropertyName("orderId")]
         public string OrderId { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
         public Guid TenantId { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("qrImageUrl")]
-        public string? QrImageUrl { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("paymentUrl")]
-        public string? PaymentUrl { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
         public decimal Amount { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("subTotal")]
         public decimal SubTotal { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("totalVatAmount")]
         public decimal TotalVatAmount { get; set; }
+    }
+
+    private class CheckoutErrorItem
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
+        public Guid TenantId { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("error")]
+        public string Error { get; set; } = string.Empty;
     }
 
     // Profile DTO for pre-filling checkout form when customer is logged in.

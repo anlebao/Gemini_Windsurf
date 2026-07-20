@@ -251,6 +251,7 @@
                 <p>Giá: <strong>@CurrencyHelper.FormatVND(_selected.Price)</strong></p>
                 <p>Danh mục: @_selected.Category</p>
             </div>
+            <VanAAlert Variant="info" Dismissible="false" Message="Phase 5: Mã QR mới chứa sẵn giá + VAT + tên sản phẩm + TenantId. Khách quét mã sẽ thêm vào giỏ ngay mà không cần gọi API. Nếu bạn sửa giá sau khi in QR, mã QR cũ sẽ vẫn hiển thị giá cũ — bật toggle 'Kiểm tra giá khi thanh toán' ở /settings/shop-features để kiểm tra giá thực tế trước khi thanh toán." />
             <div class="qr-image-container">
                 <img src="@($"/api/products/{_selected.ProductId}/qr?tenantId={TenantProvider.TenantId}")"
                      alt="@($"QR code for {_selected.Name}")"

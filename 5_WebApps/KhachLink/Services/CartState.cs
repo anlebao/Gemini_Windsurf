@@ -36,7 +36,8 @@ namespace VanAn.KhachLink.Services
                     Description = product.Description ?? string.Empty,
                     Quantity = quantity,
                     UnitPrice = product.Price,
-                    VatRate = product.VatRate
+                    VatRate = product.VatRate,
+                    TenantId = product.TenantId
                 });
             }
         }

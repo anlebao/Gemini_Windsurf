@@ -217,6 +217,27 @@
                 </div>
             }
 
+            @if (_otherOrdersFromSession.Count > 0)
+            {
+                <div class="card mt-3">
+                    <div class="card-body">
+                        <h6>📦 Đơn hàng khác từ phiên thanh toán này</h6>
+                        <ul class="list-group">
+                            @foreach (var other in _otherOrdersFromSession)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>Đơn hàng #@other.OrderId[..8]}</span>
+                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                               OnClick="@(() => Navigation.NavigateTo($"/order-tracking/{other.OrderId}"))">
+                                        Theo dõi
+                                    </VanAnButton>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+
         </div>
     </div>
 </div>
@@ -251,6 +272,9 @@
     // IdentityUpgradeModal — only shown when order reaches "delivered" status
     private bool _showUpgradeModal = false;
     private bool _hasShownUpgradeModal = false;
+
+    // Phase 5: Other orders from the same checkout session (read from localStorage created_orders).
+    private List<CreatedOrderRef> _otherOrdersFromSession = new();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -298,8 +322,26 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // No additional setup needed - visibility is checked in polling loop
-        await Task.CompletedTask;
+        if (firstRender)
+        {
+            // Phase 5: Read created_orders from localStorage to show "other orders from this session".
+            try
+            {
+                var ordersJson = await JS.InvokeAsync<string?>("localStorage.getItem", "created_orders");
+                if (!string.IsNullOrEmpty(ordersJson))
+                {
+                    var allOrders = System.Text.Json.JsonSerializer.Deserialize<List<CreatedOrderRef>>(ordersJson);
+                    if (allOrders != null)
+                    {
+                        _otherOrdersFromSession = allOrders
+                            .Where(o => o.OrderId != orderId.ToString())
+                            .ToList();
+                        StateHasChanged();
+                    }
+                }
+            }
+            catch { /* non-critical — localStorage may not be available during prerender */ }
+        }
     }
 
     // Wave 9: IAsyncDisposable implementation for proper cleanup
@@ -596,6 +638,14 @@
             _confirmingReceipt = false;
             StateHasChanged();
         }
+    }
+
+    // Phase 5: DTO for reading created_orders from localStorage.
+    private class CreatedOrderRef
+    {
+        public string OrderId { get; set; } = string.Empty;
+        public string TenantId { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
     }
 }
 

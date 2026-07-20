@@ -148,7 +148,26 @@
             return;
         }
 
-        // Fetch product from API
+        // Phase 5: Fast path — if QR has price + tenantId (new QR codes printed after Phase 5),
+        // add to cart directly WITHOUT an API call. Much faster for the customer.
+        if (qrPayload.UnitPrice > 0 && qrPayload.TenantId != Guid.Empty)
+        {
+            _scannedProduct = new ProductDto
+            {
+                ProductId = qrPayload.ProductId,
+                TenantId = qrPayload.TenantId,
+                Name = qrPayload.ProductName ?? "Sản phẩm",
+                Price = qrPayload.UnitPrice,
+                VatRate = qrPayload.VatRate,
+                Description = null,
+                IsActive = true
+            };
+            await CartService.AddItemAsync(_scannedProduct, 1);
+            StateHasChanged();
+            return;
+        }
+
+        // Legacy path: old QR codes (no price/VAT/name in payload) → fetch product from API.
         var products = await ProductService.GetProductsAsync(qrPayload.ShopId);
         _scannedProduct = products.FirstOrDefault(p => p.ProductId == qrPayload.ProductId);
 

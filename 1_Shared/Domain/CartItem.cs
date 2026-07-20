@@ -14,6 +14,11 @@ namespace VanAn.Shared.Domain
         public required decimal UnitPrice { get; init; }
         public decimal VatRate { get; init; } = 0.10m;  // RC-7: snapshot from Product
 
+        // Phase 5: Tenant that owns this product. Required for multi-tenant cart → multi-order checkout.
+        // Defaults to Guid.Empty so legacy/uninitialized CartItem objects remain valid (no `required` modifier).
+        // Validation (TenantId != Guid.Empty) happens at checkout.
+        public Guid TenantId { get; init; } = Guid.Empty;
+
         // Computed properties
         public decimal TotalPrice => Quantity * UnitPrice;
         // VAT-inclusive extraction: UnitPrice is gross, net = gross / (1 + rate)

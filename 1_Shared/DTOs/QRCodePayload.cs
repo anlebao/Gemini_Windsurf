@@ -15,6 +15,21 @@ namespace VanAn.Shared.DTOs
         /// </summary>
         public string? TableNumber { get; set; }
 
+        /// <summary>Phase 5: Product unit price snapshot at QR print time. 0 for legacy QR codes
+        /// (printed before Phase 5) — Scan.razor falls back to API call when 0.</summary>
+        public decimal UnitPrice { get; set; }
+
+        /// <summary>Phase 5: VAT rate snapshot at QR print time. 0 for legacy QR codes.</summary>
+        public decimal VatRate { get; set; }
+
+        /// <summary>Phase 5: Product name snapshot at QR print time. Null for legacy QR codes.
+        /// Lets Scan.razor display product name in cart without an API call.</summary>
+        public string? ProductName { get; set; }
+
+        /// <summary>Phase 5: Tenant ID that owns this product. Guid.Empty for legacy QR codes.
+        /// Required for multi-tenant cart grouping — without it, checkout can't route items to the correct tenant.</summary>
+        public Guid TenantId { get; set; }
+
         /// <summary>
         /// Parameterless constructor for JSON deserialization (JsonSerializer requires it).
         /// </summary>
@@ -33,6 +48,28 @@ namespace VanAn.Shared.DTOs
         public QRCodePayload(Guid productId, Guid shopId, string? tableNumber) : this(productId, shopId)
         {
             TableNumber = tableNumber;
+        }
+
+        /// <summary>
+        /// Phase 5: Constructor overload with price/VAT/name snapshot for fast offline scan.
+        /// Use this overload when generating new QR codes so Scan.razor can skip the API call.
+        /// </summary>
+        public QRCodePayload(Guid productId, Guid shopId, string? tableNumber,
+            decimal unitPrice, decimal vatRate, string? productName) : this(productId, shopId, tableNumber)
+        {
+            UnitPrice = unitPrice;
+            VatRate = vatRate;
+            ProductName = productName;
+        }
+
+        /// <summary>
+        /// Phase 5: Full constructor with TenantId — required for multi-tenant cart grouping.
+        /// Use this overload when generating new QR codes so Scan.razor can add to cart without ANY API call.
+        /// </summary>
+        public QRCodePayload(Guid productId, Guid shopId, string? tableNumber,
+            decimal unitPrice, decimal vatRate, string? productName, Guid tenantId) : this(productId, shopId, tableNumber, unitPrice, vatRate, productName)
+        {
+            TenantId = tenantId;
         }
 
         public string ToJson()

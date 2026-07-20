@@ -38,6 +38,13 @@ namespace VanAn.ShopERP.Services
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // Phase 4: Validate SHOP_INSTANCE_ID BEFORE attempting NATS connection.
+            // Without it, we cannot route subscriptions to this ShopERP's ShopInstance.
+            // Failing fast prevents cross-VPS data leaks (all ShopERPs receiving all orders).
+            Guid shopInstanceId = ResolveShopInstanceId();
+            string createdSubject = $"vanan.cloud.order.created.{shopInstanceId}";
+            string statusSubject = $"vanan.cloud.order.status.changed.{shopInstanceId}";
+
             string url = _configuration.GetValue<string>("Nats:Url")
                 ?? _configuration.GetValue<string>("NATS:Url")
                 ?? _configuration.GetValue<string>("NATS__Url")
@@ -46,51 +53,78 @@ namespace VanAn.ShopERP.Services
 
             try
             {
-                var opts = ConnectionFactory.GetDefaultOptions();
-                opts.Url = url;
-                opts.MaxReconnect = 5;
-                opts.ReconnectWait = 2000;
-                opts.Name = "vanan-shoperp-order-sync-subscriber";
+                _subscriptionConnection = CreateSubscriptionConnection(url);
 
-                _subscriptionConnection = new ConnectionFactory().CreateConnection(opts);
-
-                // RC-2 fix: subscribe to vanan.cloud.* (PG→SQLite direction).
-                // Gateway publishes with prefix "cloud"; ShopERP publishes with prefix "shoperp".
-                // This prevents subject collision where Gateway would receive its own events back.
-                // Phase 3.5 fix: Subscribe to BOTH bare subject (legacy, no routing key)
-                // AND wildcard subject (Phase 3+ with routing key = ShopInstanceId).
-                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.created", async (sender, args) =>
+                // Phase 4: Subscribe ONLY to routed subjects (vanan.cloud.order.created.{shopInstanceId}).
+                // Previous wildcard subscription (vanan.cloud.order.created.>) removed — would cause
+                // cross-VPS data leak in multi-VPS deployment.
+                _ = _subscriptionConnection.SubscribeAsync(createdSubject, async (sender, args) =>
                 {
                     await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
                 });
-                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.created.>", async (sender, args) =>
-                {
-                    await SyncOrderCreatedAsync(args.Message.Data, stoppingToken);
-                });
+                RecordSubscription(createdSubject);
 
-                // Also subscribe to order.statuschanged for status updates
-                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.statuschanged", async (sender, args) =>
+                _ = _subscriptionConnection.SubscribeAsync(statusSubject, async (sender, args) =>
                 {
                     await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
                 });
-                _ = _subscriptionConnection.SubscribeAsync("vanan.cloud.order.status.changed.>", async (sender, args) =>
-                {
-                    await SyncOrderStatusChangedAsync(args.Message.Data, stoppingToken);
-                });
+                RecordSubscription(statusSubject);
 
                 _logger.LogInformation(
-                    "OrderSyncSubscriber connected to NATS {Url}, subscribed to order.created + order.statuschanged",
-                    url);
+                    "OrderSyncSubscriber connected to NATS {Url}, subscribed to {CreatedSubject} + {StatusSubject} (ShopInstanceId={ShopInstanceId})",
+                    url, createdSubject, statusSubject, shopInstanceId);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
-                    "OrderSyncSubscriber: NATS unavailable at {Url}. Running in degraded mode — sync will resume when NATS is available.",
-                    url);
+                    "OrderSyncSubscriber: NATS unavailable at {Url}. Running in degraded mode — sync will resume when NATS is available. Routed subjects: {CreatedSubject}, {StatusSubject}",
+                    url, createdSubject, statusSubject);
             }
 
             return Task.CompletedTask;
         }
+
+        /// <summary>
+        /// Resolves this ShopERP's ShopInstanceId from config (env var SHOP_INSTANCE_ID
+        /// via configuration provider, or ShopInstance:Id config key). Throws if missing/invalid.
+        /// </summary>
+        private Guid ResolveShopInstanceId()
+        {
+            string? shopInstanceIdStr = _configuration.GetValue<string>("ShopInstance:Id")
+                ?? Environment.GetEnvironmentVariable("SHOP_INSTANCE_ID");
+
+            if (!Guid.TryParse(shopInstanceIdStr, out Guid shopInstanceId) || shopInstanceId == Guid.Empty)
+            {
+                _logger.LogError(
+                    "OrderSyncSubscriber: SHOP_INSTANCE_ID not configured. Set env var SHOP_INSTANCE_ID or config ShopInstance:Id. Aborting subscriber.");
+                throw new InvalidOperationException(
+                    "SHOP_INSTANCE_ID not configured — cannot route NATS subscription. " +
+                    "Set env var SHOP_INSTANCE_ID or config ShopInstance:Id to this ShopERP's ShopInstance Guid.");
+            }
+
+            return shopInstanceId;
+        }
+
+        /// <summary>
+        /// Creates the NATS subscription connection. Extracted as protected virtual
+        /// to enable testing without a real NATS server (test subclass overrides to
+        /// return a mock IConnection).
+        /// </summary>
+        protected virtual IConnection CreateSubscriptionConnection(string url)
+        {
+            var opts = ConnectionFactory.GetDefaultOptions();
+            opts.Url = url;
+            opts.MaxReconnect = 5;
+            opts.ReconnectWait = 2000;
+            opts.Name = "vanan-shoperp-order-sync-subscriber";
+            return new ConnectionFactory().CreateConnection(opts);
+        }
+
+        /// <summary>
+        /// Records a subscribed subject string. Test subclasses override to capture
+        /// the routed subject for assertion. Production implementation is a no-op.
+        /// </summary>
+        protected virtual void RecordSubscription(string subject) { }
 
         /// <summary>
         /// Sync OrderCreated event from Gateway → SQLite.
@@ -128,28 +162,33 @@ namespace VanAn.ShopERP.Services
                 {
                     // Pre-check: ensure all ProductIds exist in SQLite before inserting order.
                     // If a product is missing, create a stub from the event payload to prevent FK violation.
-                    var productIds = new List<(Guid ProductId, string ProductName, decimal VatRate)>();
+                    // Phase 4: stub uses UnitPrice + VatRate from the order payload (client snapshot from QR)
+                    // instead of 0m — avoids price-validation failures when a customer scans a legacy QR
+                    // and the ShopERP product does not yet exist.
+                    var productIds = new List<(Guid ProductId, string ProductName, decimal UnitPrice, decimal VatRate)>();
                     foreach (var item in itemsProp.EnumerateArray())
                     {
                         Guid productId = item.GetProperty("ProductId").GetGuid();
                         string productName = item.TryGetProperty("ProductName", out var pnProp) ? pnProp.GetString() ?? "" : "";
+                        decimal unitPrice = item.TryGetProperty("UnitPrice", out var upProp) ? upProp.GetDecimal() : 0m;
                         decimal vatRate = item.TryGetProperty("VatRate", out var vrProp) ? vrProp.GetDecimal() : 0.10m;
-                        productIds.Add((productId, productName, vatRate));
+                        productIds.Add((productId, productName, unitPrice, vatRate));
                     }
 
                     // Auto-create missing products as stubs (idempotent — skip if already exists)
-                    foreach (var (productId, productName, vatRate) in productIds)
+                    foreach (var (productId, productName, unitPrice, vatRate) in productIds)
                     {
                         bool productExists = await dbContext.Products
                             .IgnoreQueryFilters()
                             .AnyAsync(p => p.Id == productId, cancellationToken);
                         if (!productExists)
                         {
-                            var stub = new Product(tenantIdObj, productName, "Synced from Gateway", 0m, "Synced", true, null, vatRate, 0m);
+                            var stub = new Product(tenantIdObj, productName, "Synced from Gateway", unitPrice, "Synced", true, null, vatRate, 0m);
                             typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(stub, productId);
                             typeof(Product).GetProperty("ProductId")!.SetValue(stub, new ProductId(productId));
                             _ = dbContext.Products.Add(stub);
-                            _logger.LogInformation("OrderSyncSubscriber: auto-created product stub {ProductId} ({Name})", productId, productName);
+                            _logger.LogInformation("OrderSyncSubscriber: auto-created product stub {ProductId} ({Name}) UnitPrice={UnitPrice} VatRate={VatRate}",
+                                productId, productName, unitPrice, vatRate);
                         }
                     }
 

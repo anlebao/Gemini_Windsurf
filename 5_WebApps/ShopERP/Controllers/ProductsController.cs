@@ -260,7 +260,16 @@ namespace VanAn.ShopERP.Controllers
                     }
                 }
 
-                byte[] png = _qrCodeService.GenerateProductQRCode(id, shopId, effectiveTableNumber);
+                // Phase 5: Embed price + VAT + name + tenantId in QR payload so Scan.razor
+                // can add to cart without an API call (fast offline scan).
+                byte[] png = _qrCodeService.GenerateProductQRCode(
+                    productId: id,
+                    shopId: shopId,
+                    tableNumber: effectiveTableNumber,
+                    unitPrice: product.Price,
+                    vatRate: product.VatRate,
+                    productName: product.Name,
+                    tenantId: product.TenantId.Value);
 
                 return File(png, "image/png", $"qr-{id}.png");
             }
@@ -268,6 +277,56 @@ namespace VanAn.ShopERP.Controllers
             {
                 _logger.LogError(ex, "Error generating QR code for product {ProductId}", id);
                 return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Phase 5: Validate that the price/VAT in a QR code (or cart item) still matches the product's
+        /// current price. KhachLink calls this via Gateway when Price_Validation_Enabled = ON.
+        /// Returns 200 with match=true/false. Public (no auth) — KhachLink is customer-facing.
+        /// </summary>
+        [HttpGet("{id:guid}/validate-price")]
+        [AllowAnonymous]
+        public async Task<ActionResult<PriceValidationResult>> ValidateProductPrice(
+            Guid id,
+            [FromQuery] decimal unitPrice,
+            [FromQuery] decimal vatRate,
+            [FromQuery] Guid? tenantId)
+        {
+            try
+            {
+                Product? product = await _dbContext.Products
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsActive && !p.IsDeleted);
+
+                if (product == null)
+                {
+                    return NotFound(new PriceValidationResult
+                    {
+                        ProductId = id,
+                        Match = false,
+                        Reason = "Product not found or inactive",
+                        CurrentUnitPrice = 0m,
+                        CurrentVatRate = 0m
+                    });
+                }
+
+                bool priceMatch = product.Price == unitPrice;
+                bool vatMatch = product.VatRate == vatRate;
+                bool match = priceMatch && vatMatch;
+
+                return Ok(new PriceValidationResult
+                {
+                    ProductId = id,
+                    Match = match,
+                    Reason = match ? "OK" : (!priceMatch ? "UnitPrice mismatch" : "VatRate mismatch"),
+                    CurrentUnitPrice = product.Price,
+                    CurrentVatRate = product.VatRate
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating price for product {ProductId}", id);
+                return StatusCode(500, new { error = "Internal server error" });
             }
         }
 
