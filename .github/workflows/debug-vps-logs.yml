@@ -1,0 +1,27 @@
+name: Debug VPS Logs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    name: Get VPS Container Logs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Get ShopERP container logs
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          script: |
+            echo "=== Container Status ==="
+            sudo docker ps -a --filter name=vanan-shoperp --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            echo ""
+            echo "=== Last 100 lines of ShopERP logs ==="
+            sudo docker logs vanan-shoperp --tail 100 2>&1
+            echo ""
+            echo "=== Last 20 lines of Gateway logs ==="
+            sudo docker logs vanan-gateway --tail 20 2>&1
