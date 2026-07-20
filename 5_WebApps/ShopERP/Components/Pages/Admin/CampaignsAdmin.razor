@@ -6,13 +6,12 @@
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.CoreHub.Services
-@using VanAn.CoreHub.Infrastructure
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
-@using Microsoft.EntityFrameworkCore
-@inject ISocialCampaignService CampaignService
+@using VanAn.ShopERP.Services
+@inject CampaignApiClient CampaignApi
+@inject ShopApiClient ShopApi
 @inject ITenantManagementService TenantService
-@inject IVanAnDbContext DbContext
 @inject IThemeProvider ThemeProvider
 @inject ILogger<CampaignsAdmin> Logger
 
@@ -74,8 +73,8 @@
                     {
                         <tr>
                             <td><strong>@item.CampaignName</strong></td>
-                            <td>@(GetTenantName(item.TenantId.Value))</td>
-                            <td>@(item.UtmSource ?? "-")</td>
+                            <td>@GetTenantName(item.TenantId)</td>
+                            <td>@(string.IsNullOrEmpty(item.UtmSource) ? "-" : item.UtmSource)</td>
                             <td><code>@item.TrackingCode</code></td>
                             <td>@item.TotalClicks</td>
                             <td>@item.ConvertedOrders</td>
@@ -127,7 +126,7 @@
                     </select>
                     @if (_shops.Count == 0 && _form.TenantId != Guid.Empty)
                     {
-                        <small class="text-danger">Tenant này chưa có Shop. Vui lòng tạo Shop trước.</small>
+                        <small class="text-danger">Tenant này chưa có Shop. Vui lòng tạo Shop trước ở mục "Cửa hàng".</small>
                     }
                 </div>
                 <div class="form-group">
@@ -162,9 +161,9 @@
 }
 
 @code {
-    private List<SocialCampaign> _items = new();
+    private List<CampaignDto> _items = new();
     private List<TenantInfo> _tenants = new();
-    private List<ShopInfo> _shops = new();
+    private List<ShopDto> _shops = new();
     private bool _isLoading = true;
     private bool _showModal;
     private bool _isEdit;
@@ -184,8 +183,7 @@
         _isLoading = true;
         try
         {
-            _items = (await CampaignService.GetAllCampaignsAsync()).ToList();
-            // Load tenants for dropdown
+            _items = await CampaignApi.ListAsync();
             _tenants = (await TenantService.ListTenantsAsync())
                 .Select(t => new TenantInfo { Id = t.Id, Name = t.Name })
                 .ToList();
@@ -200,6 +198,12 @@
         {
             _isLoading = false;
         }
+    }
+
+    private string GetTenantName(Guid tenantId)
+    {
+        var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
+        return t?.Name ?? tenantId.ToString()[..8];
     }
 
     private async Task OnTenantChanged(ChangeEventArgs e)
@@ -220,11 +224,9 @@
 
         try
         {
-            _shops = await DbContext.Shops
-                .IgnoreQueryFilters()
-                .Where(s => s.TenantId == new TenantId(tenantId))
-                .Select(s => new ShopInfo { Id = s.Id, Name = s.Name })
-                .ToListAsync();
+            // Fetch all shops from Gateway (PG), filter by tenant in-memory
+            var allShops = await ShopApi.ListAllAsync();
+            _shops = allShops.Where(s => s.TenantId == tenantId).ToList();
         }
         catch (Exception ex)
         {
@@ -233,34 +235,29 @@
         }
     }
 
-    private string GetTenantName(Guid tenantId)
-    {
-        var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
-        return t?.Name ?? tenantId.ToString()[..8];
-    }
-
     private void OpenCreateModal()
     {
         _isEdit = false;
         _editId = null;
         _form = new CampaignForm { IsActive = true };
+        _shops = new();
         _showModal = true;
     }
 
-    private async Task OpenEditModal(SocialCampaign item)
+    private async Task OpenEditModal(CampaignDto item)
     {
         _isEdit = true;
         _editId = item.Id;
         _form = new CampaignForm
         {
-            TenantId = item.TenantId.Value,
+            TenantId = item.TenantId,
             ShopId = item.ShopId,
             CampaignName = item.CampaignName,
             UtmSource = item.UtmSource,
             TrackingCode = item.TrackingCode,
             IsActive = item.IsActive
         };
-        await LoadShopsForTenant(item.TenantId.Value);
+        await LoadShopsForTenant(item.TenantId);
         _showModal = true;
     }
 
@@ -293,45 +290,25 @@
 
             if (_isEdit && _editId.HasValue)
             {
-                // Update: fetch existing, modify, save
-                var existing = await CampaignService.GetCampaignByIdAsync(_editId.Value);
-                if (existing == null)
+                await CampaignApi.UpdateAsync(_editId.Value, new UpdateCampaignRequest
                 {
-                    _alertMessage = "Không tìm thấy campaign để sửa";
-                    _alertType = "danger";
-                    return;
-                }
-
-                // SocialCampaign has protected setters — use UpdateCampaignAsync with modified object
-                // Note: SocialCampaign doesn't have an Update method, so we create a new one with same Id
-                var updated = new SocialCampaign(
-                    existing.TenantId,
-                    existing.ShopId,
-                    _form.UtmSource ?? string.Empty,
-                    _form.CampaignName,
-                    _form.TrackingCode ?? existing.TrackingCode);
-                // Set Id via reflection (BaseEntity.Id is set in constructor, but we need to preserve it)
-                typeof(BaseEntity).GetProperty("Id")!.SetValue(updated, existing.Id);
-                typeof(BaseEntity).GetProperty("CreatedAt")!.SetValue(updated, existing.CreatedAt);
-
-                await CampaignService.UpdateCampaignAsync(updated);
+                    CampaignName = _form.CampaignName,
+                    UtmSource = _form.UtmSource,
+                    TrackingCode = _form.TrackingCode,
+                    IsActive = _form.IsActive
+                });
                 _alertMessage = "Đã cập nhật khuyến mãi.";
             }
             else
             {
-                // Create new
-                var trackingCode = string.IsNullOrWhiteSpace(_form.TrackingCode)
-                    ? $"camp_{Guid.NewGuid():N}"[..24]
-                    : _form.TrackingCode;
-
-                var campaign = new SocialCampaign(
-                    new TenantId(_form.TenantId),
-                    _form.ShopId,
-                    _form.UtmSource ?? string.Empty,
-                    _form.CampaignName,
-                    trackingCode);
-
-                await CampaignService.CreateCampaignAsync(campaign);
+                await CampaignApi.CreateAsync(new CreateCampaignRequest
+                {
+                    TenantId = _form.TenantId,
+                    ShopId = _form.ShopId,
+                    CampaignName = _form.CampaignName,
+                    UtmSource = _form.UtmSource,
+                    TrackingCode = _form.TrackingCode
+                });
                 _alertMessage = "Đã tạo khuyến mãi mới.";
             }
             _alertType = "success";
@@ -346,11 +323,11 @@
         }
     }
 
-    private async Task DeleteCampaign(SocialCampaign item)
+    private async Task DeleteCampaign(CampaignDto item)
     {
         try
         {
-            await CampaignService.DeleteCampaignAsync(item.Id);
+            await CampaignApi.DeleteAsync(item.Id);
             _alertMessage = $"Đã xoá khuyến mãi '{item.CampaignName}'.";
             _alertType = "success";
             await LoadData();
@@ -373,12 +350,6 @@
     }
 
     private class TenantInfo
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-    }
-
-    private class ShopInfo
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;

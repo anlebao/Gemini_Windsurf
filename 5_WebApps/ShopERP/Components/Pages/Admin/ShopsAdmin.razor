@@ -8,9 +8,8 @@
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
-@using VanAn.ShopERP.Infrastructure
-@using Microsoft.EntityFrameworkCore
-@inject ShopERPDbContext DbContext
+@using VanAn.ShopERP.Services
+@inject ShopApiClient ShopApi
 @inject ITenantManagementService TenantService
 @inject IThemeProvider ThemeProvider
 @inject ILogger<ShopsAdmin> Logger
@@ -72,9 +71,9 @@
                     {
                         <tr>
                             <td><strong>@item.Name</strong></td>
-                            <td>@GetTenantName(item.TenantId.Value)</td>
-                            <td>@(item.Address ?? "-")</td>
-                            <td>@(item.Phone ?? "-")</td>
+                            <td>@GetTenantName(item.TenantId)</td>
+                            <td>@(string.IsNullOrEmpty(item.Address) ? "-" : item.Address)</td>
+                            <td>@(string.IsNullOrEmpty(item.Phone) ? "-" : item.Phone)</td>
                             <td>
                                 @if (item.Latitude.HasValue && item.Longitude.HasValue)
                                 {
@@ -172,7 +171,7 @@
 }
 
 @code {
-    private List<Shop> _items = new();
+    private List<ShopDto> _items = new();
     private List<TenantInfo> _tenants = new();
     private bool _isLoading = true;
     private bool _showModal;
@@ -193,12 +192,7 @@
         _isLoading = true;
         try
         {
-            // SystemAdmin sees all shops (IgnoreQueryFilters — SystemAdmin JWT has tenant_id=Empty
-            // which would filter out all shops via global query filter)
-            _items = await DbContext.Shops
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
+            _items = await ShopApi.ListAllAsync();
             _tenants = (await TenantService.ListTenantsAsync())
                 .Select(t => new TenantInfo { Id = t.Id, Name = t.Name })
                 .ToList();
@@ -229,13 +223,13 @@
         _showModal = true;
     }
 
-    private void OpenEditModal(Shop item)
+    private void OpenEditModal(ShopDto item)
     {
         _isEdit = true;
         _editId = item.Id;
         _form = new ShopForm
         {
-            TenantId = item.TenantId.Value,
+            TenantId = item.TenantId,
             Name = item.Name,
             Address = item.Address,
             Phone = item.Phone,
@@ -269,40 +263,30 @@
 
             if (_isEdit && _editId.HasValue)
             {
-                var existing = await DbContext.Shops
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(s => s.Id == _editId.Value);
-                if (existing == null)
+                await ShopApi.UpdateAsync(_editId.Value, new UpdateShopRequest
                 {
-                    _alertMessage = "Không tìm thấy cửa hàng để sửa";
-                    _alertType = "danger";
-                    return;
-                }
-
-                existing.UpdateShopDetails(_form.Name, _form.Address, _form.Phone, _form.Email, _form.IsActive);
-                if (_form.Latitude.HasValue && _form.Longitude.HasValue)
-                {
-                    existing.SetCoordinates(_form.Latitude.Value, _form.Longitude.Value);
-                }
-                await DbContext.SaveChangesAsync();
+                    Name = _form.Name,
+                    Address = _form.Address,
+                    Phone = _form.Phone,
+                    Email = _form.Email,
+                    IsActive = _form.IsActive,
+                    Latitude = _form.Latitude,
+                    Longitude = _form.Longitude
+                });
                 _alertMessage = "Đã cập nhật cửa hàng.";
             }
             else
             {
-                var shop = new Shop(
-                    new TenantId(_form.TenantId),
-                    _form.Name,
-                    _form.Address ?? string.Empty,
-                    _form.Phone ?? string.Empty,
-                    _form.Email ?? string.Empty);
-
-                if (_form.Latitude.HasValue && _form.Longitude.HasValue)
+                await ShopApi.CreateAsync(new CreateShopRequest
                 {
-                    shop.SetCoordinates(_form.Latitude.Value, _form.Longitude.Value);
-                }
-
-                DbContext.Shops.Add(shop);
-                await DbContext.SaveChangesAsync();
+                    TenantId = _form.TenantId,
+                    Name = _form.Name,
+                    Address = _form.Address,
+                    Phone = _form.Phone,
+                    Email = _form.Email,
+                    Latitude = _form.Latitude,
+                    Longitude = _form.Longitude
+                });
                 _alertMessage = "Đã tạo cửa hàng mới.";
             }
             _alertType = "success";
@@ -317,18 +301,11 @@
         }
     }
 
-    private async Task DeleteShop(Shop item)
+    private async Task DeleteShop(ShopDto item)
     {
         try
         {
-            var existing = await DbContext.Shops
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(s => s.Id == item.Id);
-            if (existing != null)
-            {
-                DbContext.Shops.Remove(existing);
-                await DbContext.SaveChangesAsync();
-            }
+            await ShopApi.DeleteAsync(item.Id);
             _alertMessage = $"Đã xoá cửa hàng '{item.Name}'.";
             _alertType = "success";
             await LoadData();
