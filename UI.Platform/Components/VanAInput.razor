@@ -9,12 +9,15 @@
 <input id="@Id"
        class="vanan-input @AdditionalClasses"
        type="@Type"
-       value="@Value"
+       @bind="_currentValue"
+       @bind:event="oninput"
+       @bind:after="OnInputChanged"
        placeholder="@Placeholder"
        disabled="@Disabled"
        required="@Required"
        aria-label="@(AriaLabel ?? Label)"
-       @oninput="HandleChange"
+       step="@Step"
+       min="@Min"
        @attributes="AdditionalAttributes" />
 
 @code {
@@ -46,21 +49,40 @@
     public string? Label { get; set; }
 
     [Parameter]
+    public string? Step { get; set; }
+
+    [Parameter]
+    public string? Min { get; set; }
+
+    [Parameter]
     public string AdditionalClasses { get; set; } = string.Empty;
 
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private async Task HandleChange(ChangeEventArgs e)
+    private string _currentValue = string.Empty;
+    private bool _syncing;
+
+    protected override void OnParametersSet()
     {
-        var newValue = e.Value?.ToString() ?? string.Empty;
-        if (Value != newValue)
+        // Sync from parent → internal (only when parent value differs, avoid loop)
+        if (!_syncing && _currentValue != Value)
         {
-            Value = newValue;
+            _currentValue = Value;
+        }
+    }
+
+    private async Task OnInputChanged()
+    {
+        if (Value != _currentValue)
+        {
+            _syncing = true;
+            Value = _currentValue;
             if (ValueChanged.HasDelegate)
             {
-                await ValueChanged.InvokeAsync(newValue);
+                await ValueChanged.InvokeAsync(_currentValue);
             }
+            _syncing = false;
         }
     }
 }

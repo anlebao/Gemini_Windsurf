@@ -144,7 +144,8 @@
                 <div class="form-group">
                     <VanAInput Id="shopinstance-maxtenants" Label="Max Tenants"
                                Type="number" Value="@_form.MaxTenants.ToString()"
-                               ValueChanged="v => _form.MaxTenants = int.TryParse(v, out var n) ? n : 50" />
+                               ValueChanged="v => _form.MaxTenants = int.TryParse(v, out var n) ? n : 50"
+                               Step="1" Min="1" />
                 </div>
                 <div class="form-group">
                     <VanAInput Id="shopinstance-healthurl" Label="Health Check URL (tùy chọn)"

@@ -114,10 +114,14 @@
                                Placeholder="Tên sản phẩm..." Required="true" />
                 </div>
                 <div class="form-group">
-                    <VanAInput Id="fp-displayprice" Label="Giá hiển thị *"
+                    <VanAInput Id="fp-displayprice" Label="Giá hiển thị (VND) *"
                                Type="number" Value="@_form.DisplayPrice.ToString()"
                                ValueChanged="v => _form = _form with { DisplayPrice = decimal.TryParse(v, out var p) ? p : 0 }"
-                               Placeholder="0" Required="true" />
+                               Placeholder="100000" Required="true" Step="1000" Min="0" />
+                    @if (_form.DisplayPrice > 0)
+                    {
+                        <small class="text-muted">@_form.DisplayPrice.ToString("N0") đ</small>
+                    }
                 </div>
                 <div class="form-group">
                     <VanAInput Id="fp-description" Label="Mô tả"
@@ -130,11 +134,18 @@
                                Value="@(_form.ImageUrl ?? "")"
                                ValueChanged="v => _form = _form with { ImageUrl = string.IsNullOrEmpty(v) ? null : v }"
                                Placeholder="https://..." />
+                    @if (!string.IsNullOrWhiteSpace(_form.ImageUrl))
+                    {
+                        <div class="image-preview" style="margin-top:0.5rem;">
+                            <img src="@_form.ImageUrl" alt="Preview" style="max-width:200px;max-height:150px;border-radius:0.375rem;border:1px solid var(--vanan-border);" @onerror="OnImageError" />
+                        </div>
+                    }
                 </div>
                 <div class="form-group">
                     <VanAInput Id="fp-sortorder" Label="Thứ tự sắp xếp"
                                Type="number" Value="@_form.SortOrder.ToString()"
-                               ValueChanged="v => _form = _form with { SortOrder = int.TryParse(v, out var s) ? s : 0 }" />
+                               ValueChanged="v => _form = _form with { SortOrder = int.TryParse(v, out var s) ? s : 0 }"
+                               Step="1" Min="0" />
                 </div>
                 @if (!_isEdit)
                 {
@@ -255,8 +266,33 @@
 
     private void CloseModal() => _showModal = false;
 
+    private void OnImageError(EventArgs e)
+    {
+        Logger.LogWarning("Image preview failed to load: {Url}", _form.ImageUrl);
+    }
+
     private async Task HandleSubmit()
     {
+        // Client-side validation before API call
+        if (string.IsNullOrWhiteSpace(_form.DisplayName))
+        {
+            _alertMessage = "Lỗi: Tên hiển thị không được để trống.";
+            _alertType = "danger";
+            return;
+        }
+        if (_form.DisplayPrice < 0)
+        {
+            _alertMessage = "Lỗi: Giá hiển thị không được âm.";
+            _alertType = "danger";
+            return;
+        }
+        if (!_isEdit && _form.TenantId == Guid.Empty)
+        {
+            _alertMessage = "Lỗi: Vui lòng chọn Tenant.";
+            _alertType = "danger";
+            return;
+        }
+
         try
         {
             if (_isEdit && _editId.HasValue)
