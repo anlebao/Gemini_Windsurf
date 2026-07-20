@@ -29,7 +29,10 @@ namespace VanAn.Gateway.Controllers
             [FromQuery] bool? activeOnly,
             CancellationToken ct = default)
         {
-            var query = _dbContext.FeaturedProducts.AsNoTracking();
+            // IgnoreQueryFilters: SystemAdmin sees ALL featured products across all tenants
+            // (global query filter e.TenantId == CurrentTenantId would filter out everything
+            // because SystemAdmin JWT has tenant_id=Guid.Empty)
+            var query = _dbContext.FeaturedProducts.AsNoTracking().IgnoreQueryFilters();
             if (tenantId.HasValue && tenantId.Value != Guid.Empty)
                 query = query.Where(f => f.TenantId == new TenantId(tenantId.Value));
             if (activeOnly == true)
@@ -44,7 +47,7 @@ namespace VanAn.Gateway.Controllers
         [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<ActionResult<FeaturedProductDto>> GetById(Guid id, CancellationToken ct = default)
         {
-            var fp = await _dbContext.FeaturedProducts.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct);
+            var fp = await _dbContext.FeaturedProducts.AsNoTracking().IgnoreQueryFilters().FirstOrDefaultAsync(f => f.Id == id, ct);
             if (fp == null) return NotFound();
             return Ok(ToDto(fp));
         }
@@ -83,7 +86,7 @@ namespace VanAn.Gateway.Controllers
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var fp = await _dbContext.FeaturedProducts.FirstOrDefaultAsync(f => f.Id == id, ct);
+            var fp = await _dbContext.FeaturedProducts.IgnoreQueryFilters().FirstOrDefaultAsync(f => f.Id == id, ct);
             if (fp == null) return NotFound();
 
             fp.UpdateDisplayInfo(request.DisplayName, request.DisplayPrice,
@@ -100,7 +103,7 @@ namespace VanAn.Gateway.Controllers
         [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
         public async Task<IActionResult> Delete(Guid id, CancellationToken ct = default)
         {
-            var fp = await _dbContext.FeaturedProducts.FirstOrDefaultAsync(f => f.Id == id, ct);
+            var fp = await _dbContext.FeaturedProducts.IgnoreQueryFilters().FirstOrDefaultAsync(f => f.Id == id, ct);
             if (fp == null) return NotFound();
 
             _dbContext.FeaturedProducts.Remove(fp);

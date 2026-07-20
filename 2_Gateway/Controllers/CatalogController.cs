@@ -38,8 +38,11 @@ namespace VanAn.Gateway.Controllers
             if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
             // 1. Featured products (active, ordered by SortOrder)
+            // IgnoreQueryFilters: public endpoint (anonymous) — no tenant context,
+            // global filter would exclude all featured products.
             var featured = await _dbContext.FeaturedProducts
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .Where(f => f.IsActive)
                 .OrderBy(f => f.SortOrder)
                 .ThenBy(f => f.DisplayName)
