@@ -35,8 +35,10 @@ namespace VanAn.CoreHub.Services
                 return [];
             }
 
-            IEnumerable<SocialCampaign> campaigns = await _repository.GetByTenantIdAsync(new TenantId(tenantId));
-            return [.. campaigns.Where(c => c.IsActive).OrderByDescending(c => c.CreatedAt)];
+            // Use GetActiveByTenantIdValueAsync — queries by TenantId (not ShopId)
+            // IgnoreQueryFilters allows cross-tenant query for public endpoints
+            IEnumerable<SocialCampaign> campaigns = await _repository.GetActiveByTenantIdValueAsync(tenantId);
+            return [.. campaigns.OrderByDescending(c => c.CreatedAt)];
         }
 
         public async Task<string> GenerateTrackingUrlAsync(Guid campaignId)

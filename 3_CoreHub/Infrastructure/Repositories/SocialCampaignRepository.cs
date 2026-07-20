@@ -18,6 +18,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<IEnumerable<SocialCampaign>> GetByTenantIdAsync(TenantId tenantId, CancellationToken cancellationToken = default)
         {
             return await _context.SocialCampaigns
+                .IgnoreQueryFilters()
                 .Where(c => c.ShopId == tenantId.Value)
                 .ToListAsync(cancellationToken);
         }
@@ -25,14 +26,29 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         public async Task<IEnumerable<SocialCampaign>> GetActiveByTenantIdAsync(TenantId tenantId, CancellationToken cancellationToken = default)
         {
             return await _context.SocialCampaigns
+                .IgnoreQueryFilters()
                 .Where(c => c.ShopId == tenantId.Value && c.IsActive)
                 .ToListAsync(cancellationToken);
         }
 
         public async Task<IEnumerable<SocialCampaign>> GetActiveAsync(CancellationToken cancellationToken = default)
         {
+            // IgnoreQueryFilters: SystemAdmin (tenant_id=Empty) needs to see all campaigns
             return await _context.SocialCampaigns
+                .IgnoreQueryFilters()
                 .Where(c => c.IsActive)
+                .ToListAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Get active campaigns by TenantId (not ShopId). Used by Home page personalization.
+        /// IgnoreQueryFilters: allows cross-tenant query for SystemAdmin / public endpoints.
+        /// </summary>
+        public async Task<IEnumerable<SocialCampaign>> GetActiveByTenantIdValueAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        {
+            return await _context.SocialCampaigns
+                .IgnoreQueryFilters()
+                .Where(c => c.TenantId.Value == tenantId && c.IsActive)
                 .ToListAsync(cancellationToken);
         }
 

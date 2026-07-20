@@ -24,6 +24,11 @@ namespace VanAn.CoreHub.Repositories
         Task<IEnumerable<SocialCampaign>> GetActiveByTenantIdAsync(TenantId tenantId, CancellationToken cancellationToken = default);
         Task<IEnumerable<SocialCampaign>> GetActiveAsync(CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Get active campaigns by TenantId value (not ShopId). Used by Home page personalization.
+        /// </summary>
+        Task<IEnumerable<SocialCampaign>> GetActiveByTenantIdValueAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
         Task<SocialCampaign> AddAsync(SocialCampaign campaign, CancellationToken cancellationToken = default);
 
         /// <summary>

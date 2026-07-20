@@ -123,6 +123,13 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
+                // Forward Authorization header so ShopERP can authenticate the request
+                var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", authHeader);
+                }
+
                 var response = await client.PostAsJsonAsync("/api/shops", request);
                 var content = await response.Content.ReadAsStringAsync();
                 return Content(content, "application/json");
@@ -141,6 +148,12 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
+                var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", authHeader);
+                }
+
                 var response = await client.PutAsJsonAsync($"/api/shops/{id}", request);
                 var content = await response.Content.ReadAsStringAsync();
                 return Content(content, "application/json");
@@ -159,6 +172,12 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
+                var authHeader = HttpContext.Request.Headers.Authorization.FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", authHeader);
+                }
+
                 var response = await client.DeleteAsync($"/api/shops/{id}");
                 var content = await response.Content.ReadAsStringAsync();
                 return Content(content, "application/json");
