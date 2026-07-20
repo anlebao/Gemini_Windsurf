@@ -85,6 +85,31 @@ Two issues discovered during Phase 3 VR testing were deferred to avoid scope cre
 
 ## 6. COMPLETION SUMMARY
 
-**Phase 3.6 COMPLETE** — commit `<HASH>` on `main`.
+**Phase 3.6 COMPLETE** — commit `a6413668` on `main`.
 
-_TBD_
+### Issue 1: OnboardingController refactor (remove product seeding)
+- `TenantOnboardingService` no longer takes `IIndustrySeedStrategy` or `IVanAnDbContext`.
+- Onboarding creates tenant + owner + role + permission groups only (5 steps, was 6).
+- Product seeding deferred to ShopERP QuickSetup (tenant owner runs it after first login).
+- `TenantOnboardingResult` seed counts always 0; Warnings includes QuickSetup deferral notice.
+- `IndustryCode` field kept in `OnboardTenantRequest` for backward API compat (no longer validated).
+- Updated `TenantOnboardingServiceTests` (removed seed assertions, added Phase 3.6 tests).
+- Updated `TenantOnboardingIntegrationTests` (removed seed DB assertions, verify 0 products/shops/etc).
+
+### Issue 2: Products forwarding port fix
+- Added explicit `ShopERP__BaseUrl=http://shoperp:80/` env var to Gateway in `docker-compose.prod.yml` + `docker-compose.edge.yml`.
+- Prevents port 5003 fallback (appsettings.Development.json leak via Docker `COPY . .`).
+- VPS verification: `GET /api/products?tenantId=...` returns 200 OK with 16456 bytes.
+
+### Architecture test fix
+- `VA-CONSISTENCY-004`: Added `SHOP_INSTANCE_ID` to single-underscore exclusion list (Phase 4 fail-fast env var).
+
+### Validation
+- Build: 0 errors
+- Core.Tests: 1036/0/16 PASS
+- Architecture.Tests: 38/38 PASS
+- guard-check: ALL PASSED
+- CD: PASS (commit `a6413668`)
+- RV1 (Products forwarding): PASS — 200 OK, 16456 bytes
+- RV2 (Gateway health): PASS — Healthy
+- Phase 5 regression: 9/9 PASS (no regression)
