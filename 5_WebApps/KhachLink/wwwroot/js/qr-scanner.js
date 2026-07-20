@@ -126,7 +126,9 @@ async function startNativeOrJsQR(container, dotNetRef) {
             scanMode = typeof jsQR !== 'undefined' ? 'jsqr' : 'html5';
             if (scanMode === 'html5') {
                 await stopQRScanner();
-                return startHtml5Qrcode(container, dotNetRef);
+                // Re-fetch container after stopQRScanner cleared it
+                const c = document.getElementById('qr-reader');
+                return startHtml5Qrcode(c || container, dotNetRef);
             }
         }
     }
@@ -187,6 +189,7 @@ async function startNativeOrJsQR(container, dotNetRef) {
 
 // Fallback: html5-qrcode library (slowest but most compatible)
 async function startHtml5Qrcode(container, dotNetRef) {
+    // Stop any existing scanner first (releases camera + clears DOM)
     await stopQRScanner();
 
     if (typeof Html5Qrcode === 'undefined') {
@@ -194,6 +197,13 @@ async function startHtml5Qrcode(container, dotNetRef) {
         return;
     }
 
+    // Re-fetch container after stopQRScanner may have cleared innerHTML
+    container = document.getElementById('qr-reader');
+    if (!container) {
+        dotNetRef.invokeMethodAsync('OnQRError', 'Không tìm thấy vùng hiển thị camera');
+        return;
+    }
+    // Ensure container is empty (html5-qrcode expects clean container)
     container.innerHTML = '';
     html5QrCode = new Html5Qrcode('qr-reader');
 
@@ -222,23 +232,32 @@ async function stopQRScanner() {
     if (scanRAF) { cancelAnimationFrame(scanRAF); scanRAF = null; }
 
     if (scanStream) {
-        scanStream.getTracks().forEach(t => t.stop());
+        try { scanStream.getTracks().forEach(t => t.stop()); } catch (e) { /* ignore */ }
         scanStream = null;
     }
     if (scanVideo) {
         try { scanVideo.pause(); } catch (e) { /* ignore */ }
-        scanVideo.srcObject = null;
+        try { scanVideo.srcObject = null; } catch (e) { /* ignore */ }
         scanVideo = null;
     }
     scanCanvas = null;
     scanCtx = null;
 
+    // html5-qrcode cleanup — wrap each call separately to prevent removeChild errors
+    // from propagating. The library's stop()/clear() can fail if the DOM was modified
+    // externally (e.g. Blazor re-render cleared the container).
     if (html5QrCode) {
-        try {
-            await html5QrCode.stop();
-            html5QrCode.clear();
-        } catch (e) { /* ignore */ }
-        html5QrCode = null;
+        const inst = html5QrCode;
+        html5QrCode = null; // clear reference first so concurrent calls don't double-stop
+        try { await inst.stop(); } catch (e) { console.warn('html5QrCode.stop() failed (ignored):', e.message); }
+        try { inst.clear(); } catch (e) { console.warn('html5QrCode.clear() failed (ignored):', e.message); }
+    }
+
+    // Force-clear container DOM — removes any leftover video/canvas elements
+    // that html5-qrcode didn't clean up (prevents removeChild errors on next start).
+    const container = document.getElementById('qr-reader');
+    if (container) {
+        try { container.innerHTML = ''; } catch (e) { /* ignore */ }
     }
 }
 
