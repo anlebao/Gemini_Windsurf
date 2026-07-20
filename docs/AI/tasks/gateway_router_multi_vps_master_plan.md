@@ -19,7 +19,7 @@
 | 5 — KhachLink Multi-tenant Cart | ✅ COMPLETE | `c38b51e5` + `b2dc22c0` + `8718cb84` | 9/9 PASS | CartItem.TenantId + QR with prices + Checkout.razor multi-tenant + OrderTracking + OrderHistory + Price_Validation_Enabled toggle |
 | 6 — Admin UI | ✅ COMPLETE | `5b51c09d` | 8/8 PASS | FeaturedProduct entity + CatalogController (public) + FeaturedProductsController (admin) + ShopInstances.razor + FeaturedProducts.razor + TenantManagement column + Home.razor refactor |
 | **3.6 — Deferred Cleanup** | ✅ COMPLETE | `a6413668` | 2/2 PASS | Onboarding refactor (removed product seeding) + Products forwarding port fix (explicit `ShopERP__BaseUrl` env var) |
-| 7 — Verification + Governance | ✅ COMPLETE | `<PENDING>` | 6/6 PASS (Core + Arch + guard + CircuitBreaker) | governance.md Option C + ADR-001 v3 addendum + Phase 8 task card + tech debt register |
+| 7 — Verification + Governance | ✅ COMPLETE | `3616b205` | 6/6 PASS (Core + Arch + guard + CircuitBreaker) | governance.md Option C + ADR-001 v3 addendum + Phase 8 task card + tech debt register |
 | 8 — Multi-VPS E2E (Playwright) | ⏸ PENDING (post-master-plan) | — | — | Placeholder task card created in Phase 7 — `phase8_multi_vps_e2e_task_card.md` |
 
 ## 0. User Decisions (2026-07-18 — supersedes original §6 Open Questions)
@@ -410,7 +410,7 @@ All open questions from original draft are now resolved per user decisions (see 
 | 5 | `phase5_khachlink_multi_tenant_checkout_task_card.md` | ✅ COMPLETE (commits `c38b51e5`+`b2dc22c0`+`8718cb84`, VR 9/9) |
 | 3.6 | `phase3.6_deferred_cleanup_task_card.md` | ✅ COMPLETE (commit `a6413668`, VR 2/2 + Phase 5 regression 9/9) |
 | 6 | `phase6_admin_ui_task_card.md` | ✅ COMPLETE (commit `5b51c09d`, VR 8/8) |
-| 7 | `phase7_verification_governance_task_card.md` | ✅ COMPLETE (commit `<PENDING>`, RV 6/6 — governance + ADR-001 v3 + Phase 8 placeholder + tech debt register) |
+| 7 | `phase7_verification_governance_task_card.md` | ✅ COMPLETE (commit `3616b205`, RV 6/6 — governance + ADR-001 v3 + Phase 8 placeholder + tech debt register) |
 | 8 | `phase8_multi_vps_e2e_task_card.md` | ⏸ PENDING (placeholder created in Phase 7 — Playwright E2E for multi-VPS checkout) |
 
 Each task card follows `newfeaturebuild.md` workflow: ANALYZE → IMPLEMENT, with TDD plan, file list, validation gates.

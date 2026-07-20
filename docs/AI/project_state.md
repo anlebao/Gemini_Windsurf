@@ -60,7 +60,7 @@ Implement the 8-phase multi-VPS checkout system per `gateway_router_multi_vps_ma
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `<PENDING>` Phase 7: Verification + Governance (governance.md + ADR-001 v3 + Phase 8 task card + tech debt register)
+- **Last commit:** `3616b205` Phase 7: Verification + Governance (governance.md + ADR-001 v3 + Phase 8 task card + tech debt register)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts tables) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-20):** 0 errors. VanAn.sln build PASS. Core.Tests 1044/0/16. Architecture 38/38. guard-check PASS. Integration.Tests CircuitBreaker 6/6 (43 pre-existing failures require full local app stack — TD-MVPS-003). CD pipeline run #29722520591 PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink all healthy.
