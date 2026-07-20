@@ -135,6 +135,33 @@ namespace VanAn.Gateway.Controllers
                     tenantToShopInstance = tenants
                         .Where(t => t.ShopInstanceId.HasValue)
                         .ToDictionary(t => t.TenantId, t => t.ShopInstanceId!.Value);
+
+                    // Fallback: if any tenant has no ShopInstanceId (or doesn't exist in Tenants table),
+                    // route to the first active ShopInstance. This ensures orders are never lost in
+                    // single-VPS deployments where the tenant record may be missing or incomplete.
+                    var unresolvedTenantIds = tenantGroups
+                        .Select(g => g.Key)
+                        .Where(tid => !tenantToShopInstance.ContainsKey(tid))
+                        .ToList();
+                    if (unresolvedTenantIds.Count > 0)
+                    {
+                        var fallbackShopInstanceId = await _dbContext.ShopInstances
+                            .IgnoreQueryFilters()
+                            .Where(s => s.IsActive)
+                            .OrderBy(s => s.Id)
+                            .Select(s => s.Id)
+                            .FirstOrDefaultAsync();
+                        if (fallbackShopInstanceId != Guid.Empty)
+                        {
+                            foreach (var tid in unresolvedTenantIds)
+                            {
+                                tenantToShopInstance[tid] = fallbackShopInstanceId;
+                            }
+                            _logger.LogWarning(
+                                "Checkout: {Count} tenant(s) have no ShopInstanceId — routing to fallback {FallbackShopInstanceId}",
+                                unresolvedTenantIds.Count, fallbackShopInstanceId);
+                        }
+                    }
                 }
 
                 foreach (var group in tenantGroups)

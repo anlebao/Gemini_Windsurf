@@ -123,6 +123,9 @@
                             </td>
                             <td>@t.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
                             <td class="action-cell">
+                                <VanAButton Variant="primary" Size="small" OnClick="() => OpenEditModal(t)">
+                                    Sửa
+                                </VanAButton>
                                 <VanAButton Variant="info" Size="small" OnClick="() => NavigateToQuickSetup(t)">
                                     Khởi tạo nhanh
                                 </VanAButton>
@@ -364,6 +367,70 @@
             </Body>
         </VanAModal>
     }
+
+    <!-- Edit modal (assign ShopInstance + update profile) -->
+    @if (_showEditModal && _selectedTenant is not null)
+    {
+        <VanAModal Title="Sửa Tenant" IsVisible="true" OnClose="CloseEditModal" Size="medium">
+            <Body>
+            <VanAForm OnValidSubmit="HandleEditSubmit" aria-label="Sửa tenant">
+                <div class="form-group">
+                    <label for="edit-name">Tên tenant *</label>
+                    <input id="edit-name" class="vanan-input" @bind="_editForm.Name" placeholder="Tên doanh nghiệp..." required />
+                </div>
+                <div class="form-group">
+                    <label for="edit-email">Email liên hệ</label>
+                    <input id="edit-email" class="vanan-input" type="email" @bind="_editForm.ContactEmail" placeholder="email@example.com" />
+                </div>
+                <div class="form-group">
+                    <label for="edit-phone">Số điện thoại</label>
+                    <input id="edit-phone" class="vanan-input" @bind="_editForm.ContactPhone" placeholder="+84..." />
+                </div>
+                <div class="form-group">
+                    <label for="edit-address">Địa chỉ</label>
+                    <input id="edit-address" class="vanan-input" @bind="_editForm.Address" />
+                </div>
+                <div class="form-group">
+                    <label for="edit-taxcode">Mã số thuế</label>
+                    <input id="edit-taxcode" class="vanan-input" @bind="_editForm.TaxCode" />
+                </div>
+                <div class="form-group">
+                    <label for="edit-shopinstance">ShopERP Instance *</label>
+                    @if (_shopInstances.Any())
+                    {
+                        <select id="edit-shopinstance" class="vanan-select" @bind="_editForm.ShopInstanceId" aria-label="ShopERP Instance" required>
+                            <option value="">-- Chọn instance --</option>
+                            @foreach (var inst in _shopInstances)
+                            {
+                                <option value="@inst.Id">@inst.Label (@inst.BaseUrl)</option>
+                            }
+                        </select>
+                        @if (_editForm.ShopInstanceId.HasValue && _editForm.ShopInstanceId.Value != Guid.Empty)
+                        {
+                            var currentInst = _shopInstances.FirstOrDefault(i => i.Id == _editForm.ShopInstanceId.Value);
+                            @if (currentInst != null && _selectedTenant.ShopInstanceId == _editForm.ShopInstanceId)
+                            {
+                                <small class="text-muted">Đã gán: @currentInst.Label</small>
+                            }
+                            else if (currentInst != null)
+                            {
+                                <small class="text-warning">Sẽ gán mới: @currentInst.Label</small>
+                            }
+                        }
+                    }
+                    else
+                    {
+                        <input type="text" class="vanan-input" value="Chưa có instance — tạo tại /admin/shop-instances" disabled />
+                    }
+                </div>
+                <div class="modal-actions">
+                    <VanAButton Variant="primary" OnClick="HandleEditSubmit" IsLoading="@_isSaving">Lưu</VanAButton>
+                    <VanAButton Variant="outline" OnClick="CloseEditModal">Huỷ</VanAButton>
+                </div>
+            </VanAForm>
+            </Body>
+        </VanAModal>
+    }
 </div>
 
 @code {
@@ -417,6 +484,10 @@
     private bool _showDeactivateModal;
     private VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant? _selectedTenant;
     private string _reasonInput = string.Empty;
+
+    // Edit modal (assign ShopInstance + update profile)
+    private bool _showEditModal;
+    private EditForm _editForm = new();
 
     // Impersonation state (AM-T7)
     private bool _isImpersonating;
@@ -636,6 +707,68 @@
         finally { _isSaving = false; }
     }
 
+    // ── Edit (assign ShopInstance + update profile) ───────────────────────────
+    private void OpenEditModal(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t)
+    {
+        _selectedTenant = t;
+        _editForm = new EditForm
+        {
+            Name = t.Name,
+            ContactEmail = t.Settings.ContactEmail,
+            ContactPhone = t.Settings.ContactPhone,
+            Address = t.Settings.Address,
+            TaxCode = t.Settings.TaxCode,
+            ShopInstanceId = t.ShopInstanceId
+        };
+        _showEditModal = true;
+    }
+
+    private void CloseEditModal() => _showEditModal = false;
+
+    private async Task HandleEditSubmit()
+    {
+        if (_selectedTenant is null) return;
+        if (string.IsNullOrWhiteSpace(_editForm.Name))
+        {
+            ShowAlert("error", "Tên tenant không được để trống.");
+            return;
+        }
+        if (!_editForm.ShopInstanceId.HasValue || _editForm.ShopInstanceId.Value == Guid.Empty)
+        {
+            ShowAlert("error", "Vui lòng chọn ShopERP Instance.");
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            // 1. Update profile (name + contact info)
+            var profileRequest = new UpdateTenantProfileRequest(
+                _editForm.Name,
+                _editForm.ContactEmail,
+                _editForm.ContactPhone,
+                _editForm.Address,
+                _editForm.TaxCode);
+            await TenantService.UpdateProfileAsync(_selectedTenant.Id, profileRequest);
+
+            // 2. Assign ShopInstance (only if changed)
+            if (_selectedTenant.ShopInstanceId != _editForm.ShopInstanceId)
+            {
+                await TenantService.AssignShopInstanceAsync(_selectedTenant.Id, _editForm.ShopInstanceId.Value);
+            }
+
+            _showEditModal = false;
+            ShowAlert("success", $"Tenant '{_editForm.Name}' đã được cập nhật.");
+            await LoadTenants();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update tenant {TenantId}", _selectedTenant.Id);
+            ShowAlert("error", $"Lỗi: {ex.Message}");
+        }
+        finally { _isSaving = false; }
+    }
+
     // ── Impersonation (AM-T7) ─────────────────────────────────────────────────
 
     // ShopERP page calling its own API: build absolute URL from NavigationManager.BaseUri
@@ -715,6 +848,16 @@
         public string? ContactPhone { get; set; }
         public string? Address { get; set; }
         public string? TaxCode { get; set; }
+    }
+
+    private sealed class EditForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? ContactEmail { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? Address { get; set; }
+        public string? TaxCode { get; set; }
+        public Guid? ShopInstanceId { get; set; }
     }
 
     private sealed class OnboardingForm
