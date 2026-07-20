@@ -184,6 +184,12 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(new { error = "CampaignName is required" });
                 }
 
+                // ShopId is required (FK constraint: SocialCampaigns.ShopId → Shops.Id)
+                if (request.ShopId == Guid.Empty)
+                {
+                    return BadRequest(new { error = "ShopId is required — campaign must belong to an existing shop" });
+                }
+
                 // Generate tracking code if not provided
                 var trackingCode = string.IsNullOrWhiteSpace(request.TrackingCode)
                     ? $"camp_{Guid.NewGuid():N}"[..24]
