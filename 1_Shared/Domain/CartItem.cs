@@ -19,6 +19,11 @@ namespace VanAn.Shared.Domain
         // Validation (TenantId != Guid.Empty) happens at checkout.
         public Guid TenantId { get; init; } = Guid.Empty;
 
+        // Tenant display name — resolved from PG Tenants table at checkout/tracking time.
+        // Stored in cart so Cart/Checkout pages can show "Cửa hàng: {name}" instead of raw GUID.
+        // Empty string for legacy items (resolved lazily at checkout response).
+        public string TenantName { get; init; } = string.Empty;
+
         // Computed properties
         public decimal TotalPrice => Quantity * UnitPrice;
         // VAT-inclusive extraction: UnitPrice is gross, net = gross / (1 + rate)

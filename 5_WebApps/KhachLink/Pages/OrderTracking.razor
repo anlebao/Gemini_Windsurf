@@ -139,7 +139,11 @@
                             <div class="col-md-4">
                                 <h5>Thông tin đơn hàng</h5>
                                 <div class="order-info">
-                                    @if (!string.IsNullOrEmpty(_shopName))
+                                    @if (!string.IsNullOrEmpty(_publicOrder.TenantName))
+                                    {
+                                        <p><strong>Cửa hàng:</strong> @_publicOrder.TenantName</p>
+                                    }
+                                    else if (!string.IsNullOrEmpty(_shopName))
                                     {
                                         <p><strong>Cửa hàng:</strong> @_shopName</p>
                                     }

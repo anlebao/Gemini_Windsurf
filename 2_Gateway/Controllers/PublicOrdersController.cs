@@ -122,19 +122,22 @@ namespace VanAn.Gateway.Controllers
 
                 var response = new CheckoutResponse();
 
-                // Pre-fetch ShopInstance IDs for all tenants in the cart (single query, IgnoreQueryFilters)
+                // Pre-fetch ShopInstance IDs + Tenant names for all tenants in the cart (single query, IgnoreQueryFilters)
                 Dictionary<Guid, Guid> tenantToShopInstance = [];
+                Dictionary<Guid, string> tenantNames = [];
                 if (_dbContext != null)
                 {
                     var tenantIds = tenantGroups.Select(g => g.Key).ToList();
                     var tenants = await _dbContext.Tenants
                         .IgnoreQueryFilters()
                         .Where(t => tenantIds.Contains(t.Id))
-                        .Select(t => new { TenantId = t.Id.Value, t.ShopInstanceId })
+                        .Select(t => new { TenantId = t.Id.Value, t.ShopInstanceId, t.Name })
                         .ToListAsync();
                     tenantToShopInstance = tenants
                         .Where(t => t.ShopInstanceId.HasValue)
                         .ToDictionary(t => t.TenantId, t => t.ShopInstanceId!.Value);
+                    tenantNames = tenants
+                        .ToDictionary(t => t.TenantId, t => t.Name ?? string.Empty);
 
                     // Fallback: if any tenant has no ShopInstanceId (or doesn't exist in Tenants table),
                     // route to the first active ShopInstance. This ensures orders are never lost in
@@ -202,6 +205,7 @@ namespace VanAn.Gateway.Controllers
                         {
                             OrderId = createdOrder.Id,
                             TenantId = createdOrder.TenantId.Value,
+                            TenantName = tenantNames.GetValueOrDefault(tenantId, string.Empty),
                             Amount = createdOrder.TotalAmount,
                             SubTotal = createdOrder.SubTotal,
                             TotalVatAmount = createdOrder.TotalVatAmount
@@ -218,6 +222,7 @@ namespace VanAn.Gateway.Controllers
                         response.Errors.Add(new CheckoutErrorDto
                         {
                             TenantId = tenantId,
+                            TenantName = tenantNames.GetValueOrDefault(tenantId, string.Empty),
                             Error = ex.Message
                         });
                         _logger.LogError(ex,
@@ -251,6 +256,19 @@ namespace VanAn.Gateway.Controllers
                     return NotFound(new { error = "Order not found" });
                 }
 
+                // Resolve tenant name from PG Tenants table (single query)
+                string tenantName = string.Empty;
+                if (_dbContext != null && order.TenantId.Value != Guid.Empty)
+                {
+                    var tenant = await _dbContext.Tenants
+                        .AsNoTracking()
+                        .IgnoreQueryFilters()
+                        .Where(t => t.Id == order.TenantId)
+                        .Select(t => t.Name)
+                        .FirstOrDefaultAsync(HttpContext.RequestAborted);
+                    tenantName = tenant ?? string.Empty;
+                }
+
                 var dto = new PublicOrderTrackingDto
                 {
                     OrderId = order.Id,
@@ -262,6 +280,7 @@ namespace VanAn.Gateway.Controllers
                     TotalVatAmount = order.TotalVatAmount,
                     ItemCount = order.Items.Count,
                     TenantId = order.TenantId.Value,
+                    TenantName = tenantName,
                     Items = order.Items.Select(i => new PublicOrderItemDto
                     {
                         Quantity = i.Quantity,

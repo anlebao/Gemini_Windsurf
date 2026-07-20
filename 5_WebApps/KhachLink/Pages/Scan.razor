@@ -10,74 +10,70 @@
 <PageTitle>Quét Mã QR - KhachLink</PageTitle>
 
 <KhachLinkLayout>
-    <div class="container-fluid scan-page-container py-2 py-md-4 px-2 px-md-3">
+    <div class="container-fluid scan-page-container py-2 px-2">
         <div class="row justify-content-center g-0">
             <div class="col-12 col-md-8 col-lg-6">
-                <VanAnCard CssClass="scan-page-card">
-                    <div class="card-body">
-                        <h3 class="text-center mb-3 scan-page-title">
-                            <i class="bi bi-qr-code-scan text-primary"></i> Quét Mã QR
-                        </h3>
+                <h3 class="text-center mb-2 scan-page-title">
+                    <i class="bi bi-qr-code-scan text-primary"></i> Quét Mã QR
+                </h3>
 
-                        <QRScanner OnQRCodeDetected="HandleQRCodeDetected" />
+                <QRScanner OnQRCodeDetected="HandleQRCodeDetected" />
 
-                        @if (_scannedProduct != null)
-                        {
-                            <VanAnAlert Variant="AlertVariant.Success"
-                                       Message="Đã thêm sản phẩm vào giỏ hàng!"
-                                       class="mt-3" />
+                @if (_scannedProduct != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Success"
+                               Message="Đã thêm sản phẩm vào giỏ hàng!"
+                               class="mt-2" />
 
-                            @if (!string.IsNullOrEmpty(_tableNumber))
-                            {
-                                <VanAnAlert Variant="AlertVariant.Info"
-                                           Message="@($"Bàn số: {_tableNumber}")"
-                                           class="mt-2"
-                                           data-testid="table-number-display" />
-                            }
+                    @if (!string.IsNullOrEmpty(_tableNumber))
+                    {
+                        <VanAnAlert Variant="AlertVariant.Info"
+                                   Message="@($"Bàn số: {_tableNumber}")"
+                                   class="mt-2"
+                                   data-testid="table-number-display" />
+                    }
 
-                            <VanAnCard CssClass="mt-2 product-result-card">
-                                <div class="card-body">
-                                    <div class="scan-product-row">
-                                        <div class="scan-product-image">
-                                            <img src="@(_scannedProduct.ImageUrl ?? $"https://placehold.co/100x100?text={System.Uri.EscapeDataString(_scannedProduct.Name)}")"
-                                                 alt="@_scannedProduct.Name"
-                                                 class="rounded"
-                                                 style="width: 80px; height: 80px; object-fit: cover;" />
-                                        </div>
-                                        <div class="scan-product-info">
-                                            <h5 class="mb-1 scan-product-name">@_scannedProduct.Name</h5>
-                                            <p class="text-muted small mb-2 scan-product-desc">@_scannedProduct.Description</p>
-                                            <div class="scan-product-bottom">
-                                                <span class="h5 text-primary mb-0 scan-product-price">@_scannedProduct.Price.ToString("N0")đ</span>
-                                                <div class="scan-product-actions">
-                                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
-                                                               OnClick="@(() => { _scannedProduct = null; StateHasChanged(); })">
-                                                        Quét Tiếp
-                                                    </VanAnButton>
-                                                    <VanAnButton Size="ButtonSize.Small" Icon="cart-plus"
-                                                               OnClick="@(() => Navigation.NavigateTo("/cart"))">
-                                                        Xem Giỏ
-                                                    </VanAnButton>
-                                                </div>
-                                            </div>
+                    <VanAnCard CssClass="mt-2 product-result-card">
+                        <div class="card-body">
+                            <div class="scan-product-row">
+                                <div class="scan-product-image">
+                                    <img src="@(_scannedProduct.ImageUrl ?? $"https://placehold.co/100x100?text={System.Uri.EscapeDataString(_scannedProduct.Name)}")"
+                                         alt="@_scannedProduct.Name"
+                                         class="rounded"
+                                         style="width: 80px; height: 80px; object-fit: cover;" />
+                                </div>
+                                <div class="scan-product-info">
+                                    <h5 class="mb-1 scan-product-name">@_scannedProduct.Name</h5>
+                                    <p class="text-muted small mb-2 scan-product-desc">@_scannedProduct.Description</p>
+                                    <div class="scan-product-bottom">
+                                        <span class="h5 text-primary mb-0 scan-product-price">@_scannedProduct.Price.ToString("N0")đ</span>
+                                        <div class="scan-product-actions">
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                       OnClick="@(() => { _scannedProduct = null; StateHasChanged(); })">
+                                                Quét Tiếp
+                                            </VanAnButton>
+                                            <VanAnButton Size="ButtonSize.Small" Icon="cart-plus"
+                                                       OnClick="@(() => Navigation.NavigateTo("/cart"))">
+                                                Xem Giỏ
+                                            </VanAnButton>
                                         </div>
                                     </div>
                                 </div>
-                            </VanAnCard>
-                        }
-
-                        @if (_errorMessage != null)
-                        {
-                            <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" class="mt-3" />
-
-                            <div class="text-center mt-2">
-                                <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/"))">
-                                    Về Trang Chủ
-                                </VanAnButton>
                             </div>
-                        }
+                        </div>
+                    </VanAnCard>
+                }
+
+                @if (_errorMessage != null)
+                {
+                    <VanAnAlert Variant="AlertVariant.Error" Message="@_errorMessage" class="mt-2" />
+
+                    <div class="text-center mt-2">
+                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/"))">
+                            Về Trang Chủ
+                        </VanAnButton>
                     </div>
-                </VanAnCard>
+                }
             </div>
         </div>
     </div>

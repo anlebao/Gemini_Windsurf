@@ -89,6 +89,23 @@ namespace VanAn.Gateway.Controllers
                 results.AddRange(history.Where(h => !featuredProductIds.Contains(h.ProductId)));
             }
 
+            // 3. Resolve TenantName for all items (single batch query — avoid N+1)
+            var tenantIds = results.Select(r => r.TenantId).Where(t => t != Guid.Empty).Distinct().ToHashSet();
+            if (tenantIds.Count > 0)
+            {
+                var tenantNames = await _dbContext.Tenants
+                    .AsNoTracking()
+                    .IgnoreQueryFilters()
+                    .Where(t => tenantIds.Contains(t.Id))
+                    .Select(t => new { t.Id, t.Name })
+                    .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
+                foreach (var r in results)
+                {
+                    if (tenantNames.TryGetValue(r.TenantId, out var name))
+                        r.TenantName = name ?? string.Empty;
+                }
+            }
+
             var totalCount = results.Count;
             var paged = results
                 .Skip((page - 1) * pageSize)
@@ -119,6 +136,8 @@ namespace VanAn.Gateway.Controllers
         public string? Description { get; set; }
         public string Source { get; set; } = "Featured"; // "Featured" | "History"
         public DateTime? LastOrderedAt { get; set; }
+        /// <summary>Tenant display name — resolved from PG Tenants table.</summary>
+        public string TenantName { get; set; } = string.Empty;
     }
 
     public record RecommendedCatalogResponse

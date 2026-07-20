@@ -37,6 +37,10 @@
                                     <div class="row align-items-center">
                                         <div class="col-md-6">
                                             <h6>@item.ProductName</h6>
+                                            @if (!string.IsNullOrEmpty(item.TenantName))
+                                            {
+                                                <small class="text-muted d-block"><i class="bi bi-shop"></i> @item.TenantName</small>
+                                            }
                                             <small class="text-muted">@item.Description</small>
                                             <div class="mt-2">
                                                 <span class="badge bg-success">@item.UnitPrice.ToString("N0") VNĐ</span>

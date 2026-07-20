@@ -1,8 +1,17 @@
-@* UserHeader Component — hiển thị username + role + logout trong layout header *@
+@* UserHeader Component — hiển thị tenant name + username + role + logout trong layout header *@
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain.Common
 
 <div class="user-header">
+    @if (!string.IsNullOrEmpty(_tenantName))
+    {
+        <div class="user-header__tenant">
+            <i class="bi bi-shop"></i>
+            <span class="user-header__tenant-name">@_tenantName</span>
+        </div>
+    }
     <div class="user-header__info">
         <i class="bi bi-person-circle user-header__icon"></i>
         <span class="user-header__name">@_displayName</span>
@@ -25,6 +34,23 @@
         gap: 1rem;
         padding: 0.5rem 1rem;
         height: 100%;
+    }
+    .user-header__tenant {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 4px 10px;
+        background: rgba(0, 123, 255, 0.1);
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: var(--vanan-primary, #007bff);
+        font-weight: 600;
+    }
+    .user-header__tenant-name {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .user-header__info {
         display: flex;
@@ -62,13 +88,23 @@
     .user-header__logout:hover {
         background: rgba(220, 53, 69, 0.1);
     }
+    @@media (max-width: 768px) {
+        .user-header__tenant-name {
+            max-width: 120px;
+        }
+        .user-header__name {
+            font-size: 0.85rem;
+        }
+    }
 </style>
 
 @code {
     [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
+    [Inject] private ITenantManagementService TenantManagementService { get; set; } = null!;
 
     private string _displayName = string.Empty;
     private string _role = string.Empty;
+    private string _tenantName = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -82,6 +118,22 @@
                 ?? "Unknown";
 
             _role = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+            // Resolve tenant name from JWT claim (tenant_id or TenantId)
+            var tenantClaim = user.FindFirst("tenant_id")?.Value
+                ?? user.FindFirst("TenantId")?.Value;
+            if (Guid.TryParse(tenantClaim, out var tenantId) && tenantId != Guid.Empty)
+            {
+                try
+                {
+                    var tenant = await TenantManagementService.GetTenantByIdAsync(new TenantId(tenantId));
+                    _tenantName = tenant?.Name ?? string.Empty;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error resolving tenant name: {ex.Message}");
+                }
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ namespace VanAn.Gateway.Controllers
     {
         public Guid OrderId { get; set; }
         public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
         public decimal Amount { get; set; }
         public decimal SubTotal { get; set; }
         public decimal TotalVatAmount { get; set; }
@@ -25,6 +26,7 @@ namespace VanAn.Gateway.Controllers
     public class CheckoutErrorDto
     {
         public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
         public string Error { get; set; } = string.Empty;
     }
 }

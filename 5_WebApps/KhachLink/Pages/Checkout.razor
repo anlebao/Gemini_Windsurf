@@ -46,7 +46,7 @@
                         {
                             <div class="mb-3 p-2 border rounded">
                                 <p><strong>Đơn hàng:</strong> <span class="order-id">@order.OrderId</span></p>
-                                <p><strong>Tenant:</strong> @order.TenantId</p>
+                                <p><strong>Cửa hàng:</strong> @(string.IsNullOrEmpty(order.TenantName) ? order.TenantId.ToString() : order.TenantName)</p>
                                 @if (_vatDisplayEnabled && order.SubTotal > 0)
                                 {
                                     <div class="d-flex justify-content-between mb-1">
@@ -97,7 +97,7 @@
                             @foreach (var err in _checkoutErrors)
                             {
                                 <div class="mb-2 p-2 border rounded">
-                                    <p><strong>Tenant:</strong> @err.TenantId</p>
+                                    <p><strong>Cửa hàng:</strong> @(string.IsNullOrEmpty(err.TenantName) ? err.TenantId.ToString() : err.TenantName)</p>
                                     <p class="text-danger">@err.Error</p>
                                 </div>
                             }
@@ -557,6 +557,8 @@
         public string OrderId { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
         public Guid TenantId { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("tenantName")]
+        public string TenantName { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonPropertyName("amount")]
         public decimal Amount { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("subTotal")]
@@ -569,6 +571,8 @@
     {
         [System.Text.Json.Serialization.JsonPropertyName("tenantId")]
         public Guid TenantId { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("tenantName")]
+        public string TenantName { get; set; } = string.Empty;
         [System.Text.Json.Serialization.JsonPropertyName("error")]
         public string Error { get; set; } = string.Empty;
     }

@@ -106,10 +106,12 @@
                 <div class="row">
                     @foreach (var item in _catalog.Products.Where(p => p.Source == "Featured").Take(8))
                     {
+                        var imgId = $"featured-img-{item.ProductId:N}";
                         <div class="col-md-3 mb-3 feature-card">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
-                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
+                                    <img id="@imgId"
+                                         src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
                                          class="card-img-top"
                                          alt="@item.DisplayName"
                                          style="height: 200px; object-fit: cover;" />
@@ -119,7 +121,7 @@
                                     <p class="text-muted small">@item.Description</p>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
-                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddFeaturedToCart(item))">
+                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddFeaturedToCart(item, imgId))">
                                             Mua
                                         </VanAnButton>
                                     </div>
@@ -351,8 +353,15 @@
     /// Featured products have full snapshot: ProductId + TenantId + DisplayName + DisplayPrice + VatRate.
     /// No QR scan needed — admin curated the display info + VAT when creating the featured product.
     /// </summary>
-    private async Task AddFeaturedToCart(RecommendedCatalogItem item)
+    private async Task AddFeaturedToCart(RecommendedCatalogItem item, string? imgElementId = null)
     {
+        // Fly-to-cart animation
+        if (!string.IsNullOrEmpty(imgElementId))
+        {
+            try { await JSRuntime.InvokeVoidAsync("vananFlyToCart", imgElementId); }
+            catch { /* ignore animation errors */ }
+        }
+
         var product = new ProductDto
         {
             ProductId = item.ProductId,
@@ -362,6 +371,7 @@
             Price = item.DisplayPrice,
             VatRate = item.VatRate,
             ImageUrl = item.ImageUrl,
+            TenantName = item.TenantName ?? string.Empty,
             IsActive = true
         };
         await CartService.AddItemAsync(product, 1);
