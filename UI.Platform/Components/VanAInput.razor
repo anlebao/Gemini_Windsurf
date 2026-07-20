@@ -2,6 +2,10 @@
 @inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
 @using Microsoft.AspNetCore.Components.Web
 
+@if (!string.IsNullOrWhiteSpace(Label))
+{
+    <label for="@Id" class="vanan-input-label">@Label</label>
+}
 <input id="@Id"
        class="vanan-input @AdditionalClasses"
        type="@Type"
@@ -9,7 +13,7 @@
        placeholder="@Placeholder"
        disabled="@Disabled"
        required="@Required"
-       aria-label="@AriaLabel"
+       aria-label="@(AriaLabel ?? Label)"
        @oninput="HandleChange"
        @attributes="AdditionalAttributes" />
 
@@ -37,6 +41,9 @@
 
     [Parameter]
     public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
 
     [Parameter]
     public string AdditionalClasses { get; set; } = string.Empty;

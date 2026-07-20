@@ -136,6 +136,13 @@
 }
 
 /* ===== VanAn-styled form controls ===== */
+.vanan-input-label {
+    display: block;
+    margin-bottom: var(--vanan-spacing-xs, 0.25rem);
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--vanan-text);
+}
 .vanan-input,
 .vanan-select {
     display: block;
