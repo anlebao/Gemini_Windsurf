@@ -431,32 +431,65 @@ Response:
 
 ## 7. COMPLETION SUMMARY
 
-**Phase 6 COMPLETE** — commit `<HASH>` on `main`.
+**Phase 6 COMPLETE** — commit `5b51c09d` on `main`.
 
-### Files created
+### Files created (16 new)
 | File | Purpose |
 |------|---------|
-| _TBD_ | _TBD_ |
+| `1_Shared/Domain/FeaturedProduct.cs` | FeaturedProduct entity + FeaturedProductId VO (Single-Identity) |
+| `3_CoreHub/Infrastructure/Configurations/FeaturedProductConfiguration.cs` | EF Core config (PG-only, unique index ProductId+TenantId) |
+| `3_CoreHub/Infrastructure/Migrations/20260720060352_AddFeaturedProductsTable.cs` | PG migration |
+| `5_WebApps/ShopERP/Migrations/20260720061138_AddFeaturedProductsTable.cs` | SQLite migration (table exists but unused) |
+| `2_Gateway/Controllers/CatalogController.cs` | Public GET /api/catalog/recommended (Featured + History union) |
+| `2_Gateway/Controllers/FeaturedProductsController.cs` | SystemAdmin CRUD for FeaturedProducts |
+| `5_WebApps/ShopERP/Services/GatewayAdminApiClientBase.cs` | Shared base class for SystemAdmin JWT API clients |
+| `5_WebApps/ShopERP/Services/FeaturedProductApiClient.cs` | FeaturedProducts admin API client |
+| `5_WebApps/ShopERP/Services/ShopInstanceApiClient.cs` | ShopInstances admin API client |
+| `5_WebApps/ShopERP/Components/Pages/Admin/FeaturedProducts.razor` | Admin CRUD page |
+| `5_WebApps/ShopERP/Components/Pages/Admin/ShopInstances.razor` | Admin CRUD + health check page |
+| `5_WebApps/KhachLink/Models/RecommendedCatalogResponse.cs` | Catalog response DTOs |
+| `5_WebApps/KhachLink/Services/Http/CatalogHttpService.cs` | KhachLink catalog HTTP client |
+| `6_Tests/VanAn.Core.Tests/Domain/FeaturedProductTests.cs` | 8 unit tests (Single-Identity, factory, validation, toggle) |
 
-### Files modified
+### Files modified (12)
 | File | Change |
 |------|--------|
-| _TBD_ | _TBD_ |
+| `3_CoreHub/Infrastructure/IVanAnDbContext.cs` | Added `DbSet<FeaturedProduct> FeaturedProducts` |
+| `3_CoreHub/Infrastructure/VanAnDbContext.cs` | Added DbSet + Ignore<FeaturedProductId> |
+| `5_WebApps/ShopERP/Infrastructure/ShopERPDbContext.cs` | Added DbSet (PG-only entity, ignored in SQLite model) |
+| `3_CoreHub/Services/ITenantManagementService.cs` | Added `AssignShopInstanceAsync` |
+| `3_CoreHub/Services/TenantManagementService.cs` | Implemented `AssignShopInstanceAsync` |
+| `3_CoreHub/Services/Onboarding/Dtos/OnboardingDtos.cs` | Added `ShopInstanceId` to `OnboardTenantRequest` |
+| `3_CoreHub/Services/Onboarding/TenantOnboardingService.cs` | Assign tenant to ShopInstance during onboarding |
+| `5_WebApps/ShopERP/Components/Pages/Admin/TenantManagement.razor` | ShopERP Instance column + onboarding dropdown + validation |
+| `5_WebApps/ShopERP/Components/Layout/NavMenu.razor` | 2 new admin nav links |
+| `5_WebApps/ShopERP/Components/Pages/Sitemap.razor` | 2 new sitemap entries |
+| `5_WebApps/ShopERP/Program.cs` | DI: ShopInstanceApiClient + FeaturedProductApiClient |
+| `5_WebApps/KhachLink/Pages/Home.razor` | Refactored to use GET /api/catalog/recommended |
+| `5_WebApps/KhachLink/Program.cs` | DI: CatalogHttpService |
+| `6_Tests/VanAn.Architecture.Tests/AuthorizationEnforcementTests.cs` | CatalogController added to [AllowAnonymous] exempt list |
 
 ### Issues fixed during implementation
-- _TBD_
+- `IVanAnDbContext` interface missing `FeaturedProducts` DbSet → added to interface + both implementations
+- `FeaturedProductsController` missing class-level `[Authorize]` → added (Architecture test caught it)
+- `CatalogController` is `[AllowAnonymous]` by design → added to Architecture test exempt list
+- `Guid` cannot be `const` in C# → changed to `static readonly Guid` in test
 
 ### Verification
 
 #### Static Verification (compile-time)
-- **Build:** _TBD_
-- **Unit tests:** _TBD_
-- **guard-check.ps1:** _TBD_
+- **Build:** 0 errors
+- **Unit tests:** Core.Tests 1044/0/16 (8 new FeaturedProduct tests). Architecture 38/38.
+- **guard-check.ps1:** ALL PASSED
 
-#### Live Runtime Verification (boot + HTTP + UI)
-> **Lesson learned (Wave 0):** Build + Architecture Tests + guard-check PASS ≠ runtime works.
-> Live runtime verification is MANDATORY for all phases.
-
+#### Live Runtime Verification (VPS — 8/8 PASS)
 | # | Test | Status | Evidence |
 |---|------|--------|----------|
-| RV1 | _TBD_ | _TBD_ | _TBD_ |
+| RV1 | CatalogController public endpoint | PASS | HTTP 200, `{"products":[],"totalCount":0}` |
+| RV2 | FeaturedProductsController requires auth | PASS | HTTP 401 without token |
+| RV3 | ShopInstancesController requires auth | PASS | HTTP 401 without token |
+| RV4 | FeaturedProducts table exists in PG | PASS | count=0 (empty, expected) |
+| RV5 | KhachLink Home.razor loads | PASS | HTTP 200 |
+| RV6 | ShopERP admin page loads | PASS | HTTP 302 (redirect to login) |
+| RV7 | Phase 5 regression — Gateway health | PASS | HTTP 200, `{"status":"Healthy"}` |
+| RV8 | Phase 5 regression — products forwarding | PASS | HTTP 200, 16456 bytes |
