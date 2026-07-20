@@ -67,7 +67,7 @@ trigger: always_on
 - Domain layer must remain pure: NO EF Core, NO DbContext, NO DataAnnotations
 - Single Source of Truth: ALL domain entities MUST exist only in 1_Shared/Domain.cs
 - Multi-tenancy must be enforced at every layer
-- No business logic allowed in Controllers or Hubs (NOTE: Gateway hosts in-process CoreHub services per Option B approved 2026-07-05 — see saas_w0_task_card.md. Prior "pure proxy" rule rescinded.)
+- No business logic allowed in Controllers or Hubs (NOTE: Gateway operates in ORDER CREATOR + ROUTED ASYNC DELIVERY MODE (Option C approved 2026-07-18, supersedes Option B 2026-07-05 — see `gateway_router_multi_vps_master_plan.md`). Gateway PG is source of truth for Orders + Accounting + Tenants + ShopInstances + Users + FeaturedProducts. Products live in ShopERP per-tenant SQLite. Orders async-delivered to ShopERP via NATS (routed by ShopInstanceId) for kitchen/POS display. Multi-VPS supported via ShopInstances routing table. Client (KhachLink) provides ProductName + VatRate snapshot at checkout — Gateway does NOT query Products table. Prior "pure proxy" rule rescinded.)
 - Layers (inner → outer): Domain → Infrastructure → Services → API. Dependencies point INWARD (API → Services → Domain)
 
 ### **Domain Layer Protection**

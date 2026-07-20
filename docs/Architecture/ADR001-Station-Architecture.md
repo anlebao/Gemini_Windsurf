@@ -672,3 +672,64 @@ Implement Phase 1 only. This satisfies ADR-001 compliance test (has SQLite stati
 - **Sync frequency: 1 second** (poll interval)
 
 This approach satisfies ADR-001 test with minimal production risk.
+
+---
+
+## v3 Addendum — Option C (Order Creator + Routed Async Delivery, Multi-VPS)
+
+**Date:** 2026-07-18 (approved), 2026-07-20 (Phases 1-6 + 3.6 COMPLETE + VPS deployed + RV-verified)
+
+### Decision
+
+**Option C supersedes Option B** (Monolithic in-process, 2026-07-05). Gateway is now the **Order Creator + Routed Async Delivery** layer:
+
+- **Gateway PG** is the source of truth for: Orders, Accounting (JournalEntries), Tenants, ShopInstances, Users, FeaturedProducts, Auth.
+- **ShopERP per-tenant SQLite** is the source of truth for: Products, Ingredients, Recipes, Inventory, Shops, POS/Kitchen display state.
+- **Orders** are created in Gateway PG, then async-delivered to ShopERP via NATS, routed by `ShopInstanceId` (subject: `vanan.cloud.order.created.{shopInstanceId}`).
+- **Multi-VPS** supported via `ShopInstances` routing table — each tenant is assigned to a ShopInstance (VPS) at onboarding time.
+- **Client (KhachLink)** provides `ProductName` + `VatRate` snapshot at checkout — Gateway does NOT query Products table for order creation.
+- **Product catalog browse** (for ShopConfig derivation) still forwards via YARP to ShopERP.
+- **KhachLink Home.razor** (Phase 6) uses `GET /api/catalog/recommended` — pure PG query (FeaturedProducts + customer history), no ShopERP forward.
+
+### Rationale
+
+1. **Multi-VPS deployment requirement** — Option B assumed co-located Gateway + ShopERP. Production reality is N ShopERP instances on separate VPS, each hosting a subset of tenants.
+2. **FK constraint conflict** — `FK_OrderItems_Products_ProductId` assumed Products live in PG (Gateway). Under Option C, Products live in ShopERP SQLite only. Phase 3 dropped this FK.
+3. **Cross-VPS data leak prevention** — Phase 4 added fail-fast `SHOP_INSTANCE_ID` validation on ShopERP startup, before NATS connect. Subscribes ONLY to routed subjects.
+4. **KhachLink multi-tenant cart** — Phase 5 added `CartItem.TenantId` + multi-tenant checkout (cart with N tenants → N orders, each routed to the correct ShopInstance).
+
+### Trade-offs
+
+| Aspect | Option B (2026-07-05) | Option C (2026-07-18) |
+|---|---|---|
+| Order creation latency | In-process (~1ms) | PG write + NATS publish (~5-10ms) — acceptable |
+| Product lookup at checkout | In-process PG query | Client provides snapshot — no lookup needed |
+| Multi-VPS support | ❌ Assumed co-located | ✅ ShopInstances routing table |
+| Kitchen/POS display | Direct PG query | Replica via NATS (eventual consistency, ~1s) |
+| Failure mode | ShopERP down = no checkout | ShopERP down = checkout works (order in PG), kitchen delayed until recovery |
+| Schema complexity | Products in both PG + SQLite | Products in SQLite only, Orders in PG only — cleaner separation |
+
+### Implementation phases (all COMPLETE)
+
+| Phase | Commit | VR Tests | Focus |
+|---|---|---|---|
+| 1 — Domain + Migration | `32c832e9` | 13/13 | ShopInstance entity + Tenant.ShopInstanceId FK |
+| 2 — Gateway ShopInstances API | `e95b1d64` | 8/8 | SystemAdmin CRUD + health check |
+| 3 — Gateway Order Creator | `cdcb639e`+`b469c88c` | 4/5 | Client snapshot + routed outbox + drop FK |
+| 3.5 — Accounting Consolidation | `653825c1`+`5d6d589d`+`7248ec2d` | 5/5 | MarkPaidAsync split + NATS payment confirmed |
+| 4 — ShopERP OrderSyncSubscriber | `c38b51e5`+`e27727b1`+`e03bbebf` | 5/5 | Fail-fast SHOP_INSTANCE_ID + routed subjects |
+| 5 — KhachLink Multi-tenant Cart | `c38b51e5`+`b2dc22c0`+`8718cb84` | 9/9 | CartItem.TenantId + QR with prices + checkout |
+| 3.6 — Deferred Cleanup | `a6413668` | 2/2 | Onboarding refactor + port fix |
+| 6 — Admin UI | `5b51c09d` | 8/8 | FeaturedProduct + ShopInstances + Home.razor catalog |
+
+### Tech debt (documented for future cleanup)
+
+1. **NATS sync dead code** — `SyncProductUpsertAsync` on Gateway's DataSyncSubscriber is commented out (Phase 3 disabled product sync to PG). Remove after one release cycle.
+2. **CustomerRecommendationService** — Phase 6 added `CatalogController` as replacement. Mark `[Obsolete]` or delete after Phase 8 E2E verifies `CatalogController` works end-to-end.
+3. **UserTenant mapping** — manually-created users don't get a UserTenants record (login falls back to `user.TenantId.Value`). Works correctly but UserTenants table stays empty for these users.
+
+### References
+
+- Master plan: `docs/AI/tasks/gateway_router_multi_vps_master_plan.md`
+- Phase 7 task card: `docs/AI/tasks/phase7_verification_governance_task_card.md`
+- Governance: `.devin/rules/governance.md` (Option C language updated 2026-07-20)

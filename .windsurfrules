@@ -68,12 +68,20 @@ Sprint protocol: .devin/rules/sprint_tracking.rules.md
 
 ### Layer Boundaries
 - 3_CoreHub MUST remain pure Class Library (.dll). NO <OutputType>Exe</OutputType> allowed.
-- Gateway operates in MONOLITHIC MODE (Option B approved 2026-07-05 — see saas_w0_task_card.md): hosts in-process CoreHub services + IVanAnDbContext (Npgsql) for low-latency access. YARP remains configured for forwarding select traffic (e.g., static assets, KhachLink PWA). Prior "pure proxy" rule rescinded as aspirational-not-implemented.
+- Gateway operates in ORDER CREATOR + ROUTED ASYNC DELIVERY MODE (Option C approved 2026-07-18, supersedes Option B 2026-07-05 — see `gateway_router_multi_vps_master_plan.md`). Gateway PG is source of truth for Orders + Accounting + Tenants + ShopInstances + Users + FeaturedProducts. Products live in ShopERP per-tenant SQLite. Orders async-delivered to ShopERP via NATS (routed by ShopInstanceId) for kitchen/POS display. Multi-VPS supported via ShopInstances routing table. Client (KhachLink) provides ProductName + VatRate snapshot at checkout — Gateway does NOT query Products table. YARP remains configured for forwarding select traffic (e.g., static assets, KhachLink PWA, product catalog browse for ShopConfig derivation).
 - 5_WebApps/KhachLink (Client UI) MUST NOT inject IVanAnDbContext or query local databases. Use HTTP via Gateway only.
 - NO new .csproj files (e.g., VanAn.CoreHub.Api). Use 5_WebApps/ShopERP as main Web API Host.
 
-### Data Flow
-KhachLink (5002) → Gateway (5001) → ShopERP (5003) → SQLite Database
-     ↓                  ↓                  ↓
-  HttpClient   ProductsController   ProductsController
-                (forward)         (query IVanAnDbContext)
+### Data Flow (Option C — PG source of truth + routed async delivery, multi-VPS)
+KhachLink (5002) → Gateway (5001, order creator) → NATS (routed) → ShopERP-A/B/C... (per-tenant SQLite)
+Customer-facing     PG: Orders + Accounting        Subject:             Kitchen/POS display
+                    + Tenants + ShopInstances      vanan.cloud.order.   (replica, not source)
+                    + Users + FeaturedProducts     created.{shopInstId}
+                    + Auth
+
+Notes:
+- Gateway PG no longer receives product sync (DataSyncSubscriber product cases disabled — Phase 3).
+- Order sync direction is PG→SQLite (routed by ShopInstanceId) for new orders.
+- Order status sync SQLite→PG kept for kitchen/POS status updates.
+- KhachLink Home.razor uses GET /api/catalog/recommended (Phase 6) — pure PG query, no ShopERP forward.
+- Product catalog browse (for ShopConfig derivation) still forwards via YARP to ShopERP.

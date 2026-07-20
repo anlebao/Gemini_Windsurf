@@ -1,6 +1,6 @@
 # Master Plan: Gateway Order Creator + Routed Async Delivery (Option C) — Multi-VPS Checkout
 
-> **Status:** PHASE 1 + 2 + 3 + 3.5 + 4 + 5 + 3.6 + 6 COMPLETE — Phase 7 NEXT (final verification + governance)
+> **Status:** ALL 8 PHASES (1, 2, 3, 3.5, 4, 5, 3.6, 6, 7) COMPLETE — Multi-VPS Checkout Option C master plan COMPLETE. NEXT: Phase 8 (Multi-VPS E2E Validation — Playwright, separate task card).
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Date opened:** 2026-07-18
 > **Architecture shift:** Option B (Monolithic in-process, 2026-07-05) → Option C (PG source of truth + routed async delivery, multi-VPS)
@@ -19,7 +19,8 @@
 | 5 — KhachLink Multi-tenant Cart | ✅ COMPLETE | `c38b51e5` + `b2dc22c0` + `8718cb84` | 9/9 PASS | CartItem.TenantId + QR with prices + Checkout.razor multi-tenant + OrderTracking + OrderHistory + Price_Validation_Enabled toggle |
 | 6 — Admin UI | ✅ COMPLETE | `5b51c09d` | 8/8 PASS | FeaturedProduct entity + CatalogController (public) + FeaturedProductsController (admin) + ShopInstances.razor + FeaturedProducts.razor + TenantManagement column + Home.razor refactor |
 | **3.6 — Deferred Cleanup** | ✅ COMPLETE | `a6413668` | 2/2 PASS | Onboarding refactor (removed product seeding) + Products forwarding port fix (explicit `ShopERP__BaseUrl` env var) |
-| 7 — Verification + Governance | ⏳ NEXT | — | — | Final verification + governance docs + ADR-001 v3 addendum + project_state update |
+| 7 — Verification + Governance | ✅ COMPLETE | `<PENDING>` | 6/6 PASS (Core + Arch + guard + CircuitBreaker) | governance.md Option C + ADR-001 v3 addendum + Phase 8 task card + tech debt register |
+| 8 — Multi-VPS E2E (Playwright) | ⏸ PENDING (post-master-plan) | — | — | Placeholder task card created in Phase 7 — `phase8_multi_vps_e2e_task_card.md` |
 
 ## 0. User Decisions (2026-07-18 — supersedes original §6 Open Questions)
 
@@ -409,7 +410,8 @@ All open questions from original draft are now resolved per user decisions (see 
 | 5 | `phase5_khachlink_multi_tenant_checkout_task_card.md` | ✅ COMPLETE (commits `c38b51e5`+`b2dc22c0`+`8718cb84`, VR 9/9) |
 | 3.6 | `phase3.6_deferred_cleanup_task_card.md` | ✅ COMPLETE (commit `a6413668`, VR 2/2 + Phase 5 regression 9/9) |
 | 6 | `phase6_admin_ui_task_card.md` | ✅ COMPLETE (commit `5b51c09d`, VR 8/8) |
-| 7 | `phase7_verification_governance_task_card.md` | ⏳ NEXT (PLANNING — final verification + governance docs + ADR-001 v3 addendum) |
+| 7 | `phase7_verification_governance_task_card.md` | ✅ COMPLETE (commit `<PENDING>`, RV 6/6 — governance + ADR-001 v3 + Phase 8 placeholder + tech debt register) |
+| 8 | `phase8_multi_vps_e2e_task_card.md` | ⏸ PENDING (placeholder created in Phase 7 — Playwright E2E for multi-VPS checkout) |
 
 Each task card follows `newfeaturebuild.md` workflow: ANALYZE → IMPLEMENT, with TDD plan, file list, validation gates.
 
