@@ -11,10 +11,11 @@ namespace VanAn.ShopERP.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_OrderItems_Products_ProductId",
-                table: "OrderItems");
-
+            // Phase 1 (ShopInstance): Add ShopInstanceId to Tenants + create ShopInstances table.
+            // Phase 3 (Outbox Routing): Add RoutingKey to OutboxMessages.
+            // Phase 5 (Price Validation): Add Price_Validation_Enabled to ShopFeatureSettings.
+            // NOTE: FK_OrderItems_Products_ProductId is NOT touched — Phase 3 only dropped it in Npgsql (Gateway PG),
+            // not in SQLite (ShopERP still has Products and keeps the FK).
             migrationBuilder.AddColumn<Guid>(
                 name: "ShopInstanceId",
                 table: "Tenants",
@@ -71,14 +72,6 @@ namespace VanAn.ShopERP.Migrations
                 unique: true);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_OrderItems_Products_ProductId",
-                table: "OrderItems",
-                column: "ProductId",
-                principalTable: "Products",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
-
-            migrationBuilder.AddForeignKey(
                 name: "FK_Tenants_ShopInstances_ShopInstanceId",
                 table: "Tenants",
                 column: "ShopInstanceId",
@@ -90,10 +83,6 @@ namespace VanAn.ShopERP.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_OrderItems_Products_ProductId",
-                table: "OrderItems");
-
             migrationBuilder.DropForeignKey(
                 name: "FK_Tenants_ShopInstances_ShopInstanceId",
                 table: "Tenants");
@@ -116,14 +105,6 @@ namespace VanAn.ShopERP.Migrations
             migrationBuilder.DropColumn(
                 name: "RoutingKey",
                 table: "OutboxMessages");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_OrderItems_Products_ProductId",
-                table: "OrderItems",
-                column: "ProductId",
-                principalTable: "Products",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
         }
     }
 }
