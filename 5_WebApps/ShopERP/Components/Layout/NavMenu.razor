@@ -164,6 +164,18 @@
                         <span class="bi bi-star-nav-menu" aria-hidden="true"></span> Sản phẩm nổi bật
                     </NavLink>
                 </div>
+                @* Campaigns management (SystemAdmin only) — KhachLink Home personalization + CRUD *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/campaigns">
+                        <span class="bi bi-megaphone-nav-menu" aria-hidden="true"></span> Khuyến mãi
+                    </NavLink>
+                </div>
+                @* Shops management (SystemAdmin only) — Store Finder + CRUD *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/shops">
+                        <span class="bi bi-shop-nav-menu" aria-hidden="true"></span> Cửa hàng
+                    </NavLink>
+                </div>
             </Authorized>
         </AuthorizeView>
 
