@@ -47,6 +47,21 @@ namespace VanAn.KhachLink.Services.Http
             return await response.Content.ReadFromJsonAsync<List<SocialCampaign>>() ?? [];
         }
 
+        /// <summary>
+        /// Get active campaigns for a tenant (used by Home page personalization).
+        /// </summary>
+        public async Task<List<SocialCampaign>> GetCampaignsByTenantAsync(Guid tenantId)
+        {
+            if (tenantId == Guid.Empty)
+            {
+                return [];
+            }
+
+            var response = await _httpClient.GetAsync($"api/campaigns/by-tenant/{tenantId}");
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<List<SocialCampaign>>() ?? [];
+        }
+
         public async Task<string> GenerateTrackingUrlAsync(Guid campaignId)
         {
             var response = await _httpClient.GetAsync($"api/campaigns/{campaignId}/tracking-url");

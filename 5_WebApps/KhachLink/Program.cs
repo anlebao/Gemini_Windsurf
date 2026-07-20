@@ -113,6 +113,7 @@ namespace VanAn.KhachLink
 
             // Register Recently Viewed Service (Wave 8: Product Personalization)
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
+            _ = builder.Services.AddScoped<Services.LastInteractionService>();
 
             // FIX-BATCH-4: SignalR + RealTimeDashboardService removed from KhachLink.
             // Staff dashboard now uses HTTP polling (RealTimeDashboard.razor → GET /api/dashboard/shop-metrics/{shopId}).

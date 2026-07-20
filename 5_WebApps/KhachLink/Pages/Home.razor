@@ -5,6 +5,7 @@
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Services.Http
+@using VanAn.CoreHub.Services
 @page "/home"
 @page "/"
 @rendermode InteractiveServer
@@ -17,6 +18,9 @@
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigService
 @inject VanAn.KhachLink.Services.Http.ShopFeatureSettingsHttpService FeatureSettings
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
+@inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
+@inject ISocialCampaignService CampaignService
+@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
@@ -32,60 +36,147 @@
     Checkout="async () => await GoToCheckout()" />
 
 <KhachLinkLayout>
-    <!-- Hero Section -->
-    <VanAnCard CssClass="hero-section text-center py-5 mb-4">
+    <!-- Campaign Section (replaces Hero) — filtered by last interaction tenantId -->
+    <VanAnCard CssClass="campaign-section mb-4">
         <div class="container">
-            <h1 class="display-4 fw-bold mb-3">
-                <i class="bi bi-link-45deg"></i> KhachLink
-            </h1>
-            <p class="lead mb-4">Cỗ máy O2O Flywheel - Giữ khách & Tăng doanh thu</p>
-            <div class="d-flex justify-content-center gap-3">
-                <VanAnButton Icon="cart" OnClick="@(() => Navigation.NavigateTo("/cart"))">
-                    Xem Giỏ Hàng
-                </VanAnButton>
-                <VanAnButton Variant="ButtonVariant.Outline" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                    Quét QR
-                </VanAnButton>
-                <VanAnButton Variant="ButtonVariant.Outline" Icon="phone" OnClick="@(() => Navigation.NavigateTo("/contact"))">
-                    Liên Hệ
-                </VanAnButton>
-            </div>
+            <h2 class="mb-3">
+                <i class="bi bi-megaphone-fill text-primary"></i> Khuyến Mãi Cửa Hàng
+            </h2>
+
+            @if (_campaignLoading)
+            {
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Đang tải khuyến mãi...</p>
+                </div>
+            }
+            else if (_campaigns.Count > 0)
+            {
+                <div class="row g-3">
+                    @foreach (var campaign in _campaigns.Take(4))
+                    {
+                        <div class="col-12 col-md-6">
+                            <VanAnCard Shadow="true" CssClass="h-100 campaign-card">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="campaign-icon">
+                                        <i class="bi bi-tag-fill text-danger" style="font-size:2rem;"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-1">@campaign.CampaignName</h5>
+                                        @if (!string.IsNullOrEmpty(campaign.UtmSource))
+                                        {
+                                            <p class="text-muted small mb-2">
+                                                <i class="bi bi-share"></i> @campaign.UtmSource
+                                            </p>
+                                        }
+                                        <div class="d-flex gap-3 small text-muted mb-3">
+                                            <span>
+                                                <i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click
+                                            </span>
+                                            <span>
+                                                <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn
+                                            </span>
+                                        </div>
+                                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => OpenCampaign(campaign.TrackingCode))">
+                                            <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
+                                        </VanAnButton>
+                                    </div>
+                                </div>
+                            </VanAnCard>
+                        </div>
+                    }
+                </div>
+            }
+            else if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
+            {
+                <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào. Vui lòng quay lại sau!" />
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-megaphone text-muted mb-3 d-block" style="font-size:3rem;"></i>
+                    <p class="text-muted mb-3">Hãy quét QR hoặc mua sản phẩm để xem khuyến mãi của cửa hàng.</p>
+                    <VanAnButton Variant="ButtonVariant.Primary" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                        Quét QR Ngay
+                    </VanAnButton>
+                </div>
+            }
         </div>
     </VanAnCard>
 
-    <!-- Stats Section -->
-    <VanAnCard CssClass="stats-section mb-4">
+    <!-- StoreFinder Section (replaces Stats) — show store info for last interaction tenantId -->
+    <VanAnCard CssClass="store-section mb-4">
         <div class="container">
-            <div class="row text-center">
-                <div class="col-md-3">
-                    <div class="stat-item">
-                        <i class="bi bi-people text-primary fs-1"></i>
-                        <h3>1,234</h3>
-                        <p>Khách hàng</p>
+            <h2 class="mb-3">
+                <i class="bi bi-geo-alt-fill text-primary"></i> Cửa Hàng Của Bạn
+            </h2>
+
+            @if (_storeLoading)
+            {
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Đang tải...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Đang tải thông tin cửa hàng...</p>
+                </div>
+            }
+            else if (_store != null)
+            {
+                <VanAnCard Shadow="true">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="store-icon">
+                            <i class="bi bi-shop text-primary" style="font-size:2rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1">@_store.Name</h5>
+                            @if (!string.IsNullOrEmpty(_store.Address))
+                            {
+                                <p class="text-muted small mb-1">
+                                    <i class="bi bi-geo-alt"></i> @_store.Address
+                                </p>
+                            }
+                            @if (!string.IsNullOrEmpty(_store.Phone))
+                            {
+                                <p class="mb-1">
+                                    <a href="tel:@_store.Phone" class="text-decoration-none">
+                                        <i class="bi bi-telephone"></i> @_store.Phone
+                                    </a>
+                                </p>
+                            }
+                            @if (_store.Latitude.HasValue && _store.Longitude.HasValue)
+                            {
+                                <div class="mt-2">
+                                    <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude"
+                                       target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-map"></i> Chỉ đường
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </VanAnCard>
+            }
+            else if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
+            {
+                <VanAnAlert Variant="AlertVariant.Info" Message="Không tìm thấy thông tin cửa hàng. Cửa hàng có thể chưa được cấu hình." />
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-shop text-muted mb-3 d-block" style="font-size:3rem;"></i>
+                    <p class="text-muted mb-3">Quét QR sản phẩm để xem thông tin cửa hàng bạn đang quan tâm.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <VanAnButton Variant="ButtonVariant.Primary" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                            Quét QR
+                        </VanAnButton>
+                        <VanAnButton Variant="ButtonVariant.Outline" Icon="geo-alt" OnClick="@(() => Navigation.NavigateTo("/stores"))">
+                            Xem Tất Cả Cửa Hàng
+                        </VanAnButton>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="stat-item">
-                        <i class="bi bi-cart text-success fs-1"></i>
-                        <h3>567</h3>
-                        <p>Đơn hàng</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stat-item">
-                        <i class="bi bi-star text-warning fs-1"></i>
-                        <h3>4.8</h3>
-                        <p>Đánh giá</p>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="stat-item">
-                        <i class="bi bi-coin text-info fs-1"></i>
-                        <h3>@cartState.GetTotalItems()</h3>
-                        <p>Sản phẩm</p>
-                    </div>
-                </div>
-            </div>
+            }
         </div>
     </VanAnCard>
 
@@ -231,6 +322,23 @@
     private bool _catalogLoading = true;
     private Guid? _customerId;
 
+    // Campaign + Store sections (replace Hero + Stats) — personalized by last interaction tenantId
+    private List<SocialCampaign> _campaigns = new();
+    private bool _campaignLoading = true;
+    private StoreInfoDto? _store;
+    private bool _storeLoading = true;
+    private Guid? _lastTenantId;
+
+    public class StoreInfoDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
@@ -271,7 +379,78 @@
             // Phase 6: Load recommended catalog (Featured + customer history if logged in)
             await LoadCatalogAsync();
 
+            // Campaign + Store sections: load by last interaction tenantId
+            await LoadLastTenantDataAsync();
+
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Load campaigns + store info for the tenant the customer most recently interacted with.
+    /// Falls back to empty state with CTA if no interaction recorded (new user).
+    /// </summary>
+    private async Task LoadLastTenantDataAsync()
+    {
+        _lastTenantId = await LastInteractionService.GetLastTenantIdAsync();
+
+        if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
+        {
+            // Parallel load: campaigns + store info
+            var campaignTask = LoadCampaignsAsync(_lastTenantId.Value);
+            var storeTask = LoadStoreInfoAsync(_lastTenantId.Value);
+            await Task.WhenAll(campaignTask, storeTask);
+        }
+        else
+        {
+            // New user — no interaction yet. Show empty state with CTA.
+            _campaignLoading = false;
+            _storeLoading = false;
+        }
+    }
+
+    private async Task LoadCampaignsAsync(Guid tenantId)
+    {
+        _campaignLoading = true;
+        try
+        {
+            _campaigns = await CampaignService.GetCampaignsByTenantAsync(tenantId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading campaigns for tenant {tenantId}: {ex.Message}");
+            _campaigns = new();
+        }
+        finally
+        {
+            _campaignLoading = false;
+        }
+    }
+
+    private async Task LoadStoreInfoAsync(Guid tenantId)
+    {
+        _storeLoading = true;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("gateway");
+            var response = await client.GetAsync($"/api/shops/by-tenant/{tenantId}");
+            if (response.IsSuccessStatusCode)
+            {
+                _store = await response.Content.ReadFromJsonAsync<StoreInfoDto>();
+            }
+            else
+            {
+                _store = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading store info for tenant {tenantId}: {ex.Message}");
+            _store = null;
+        }
+        finally
+        {
+            _storeLoading = false;
         }
     }
 
@@ -377,6 +556,16 @@
         await CartService.AddItemAsync(product, 1);
         await RecentlyViewedService.AddToRecentlyViewedAsync(product);
         recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
+
+        // Track last interaction tenantId for Home page personalization
+        await LastInteractionService.RecordInteractionAsync(item.TenantId);
+
+        // Refresh campaigns + store section if tenant changed
+        if (!_lastTenantId.HasValue || _lastTenantId.Value != item.TenantId)
+        {
+            await LoadLastTenantDataAsync();
+        }
+
         await ShowNotification($"Đã thêm {item.DisplayName} vào giỏ hàng!", "success");
     }
 
@@ -389,6 +578,11 @@
     private void GoToCart()
     {
         Navigation.NavigateTo("/cart");
+    }
+
+    private void OpenCampaign(string trackingCode)
+    {
+        Navigation.NavigateTo($"/c/{Uri.EscapeDataString(trackingCode)}");
     }
 
     private async Task GoToCheckout()

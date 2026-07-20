@@ -111,6 +111,30 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        // Home page personalization: fetch active campaigns by tenantId.
+        // SocialCampaign implements IMustHaveTenant, so GetCampaignsByShopAsync
+        // actually queries by TenantId internally (parameter name is legacy).
+        [HttpGet("by-tenant/{tenantId:guid}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<SocialCampaign>>> GetByTenant(Guid tenantId)
+        {
+            try
+            {
+                if (tenantId == Guid.Empty)
+                {
+                    return Ok(new List<SocialCampaign>());
+                }
+
+                List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByShopAsync(tenantId);
+                return Ok(campaigns);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching campaigns for tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         [HttpGet("{campaignId:guid}/tracking-url")]
         [AllowAnonymous]
         public async Task<ActionResult<string>> GenerateTrackingUrl(Guid campaignId)

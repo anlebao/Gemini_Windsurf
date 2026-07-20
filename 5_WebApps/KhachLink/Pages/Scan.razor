@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
+@inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
 
 <PageTitle>Quét Mã QR - KhachLink</PageTitle>
 
@@ -260,6 +261,8 @@
                 IsActive = true
             };
             await CartService.AddItemAsync(_scannedProduct, 1);
+            // Track last interaction tenantId for Home page personalization
+            await LastInteractionService.RecordInteractionAsync(_scannedProduct.TenantId);
             StateHasChanged();
             return;
         }
@@ -277,6 +280,8 @@
 
         // Add to cart
         await CartService.AddItemAsync(_scannedProduct, 1);
+        // Track last interaction tenantId for Home page personalization
+        await LastInteractionService.RecordInteractionAsync(_scannedProduct.TenantId);
         StateHasChanged();
     }
 }

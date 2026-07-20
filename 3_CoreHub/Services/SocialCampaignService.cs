@@ -28,6 +28,17 @@ namespace VanAn.CoreHub.Services
             return [.. campaigns.Where(c => c.IsActive).OrderByDescending(c => c.CreatedAt)];
         }
 
+        public async Task<List<SocialCampaign>> GetCampaignsByTenantAsync(Guid tenantId)
+        {
+            if (tenantId == Guid.Empty)
+            {
+                return [];
+            }
+
+            IEnumerable<SocialCampaign> campaigns = await _repository.GetByTenantIdAsync(new TenantId(tenantId));
+            return [.. campaigns.Where(c => c.IsActive).OrderByDescending(c => c.CreatedAt)];
+        }
+
         public async Task<string> GenerateTrackingUrlAsync(Guid campaignId)
         {
             SocialCampaign? campaign = await GetCampaignByIdAsync(campaignId) ?? throw new InvalidOperationException($"Campaign {campaignId} not found");

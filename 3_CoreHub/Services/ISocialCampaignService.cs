@@ -7,6 +7,7 @@ namespace VanAn.CoreHub.Services
         Task<SocialCampaign> CreateCampaignAsync(SocialCampaign campaign);
         Task<SocialCampaign?> GetCampaignByIdAsync(Guid campaignId);
         Task<List<SocialCampaign>> GetCampaignsByShopAsync(Guid shopId);
+        Task<List<SocialCampaign>> GetCampaignsByTenantAsync(Guid tenantId);
         Task<string> GenerateTrackingUrlAsync(Guid campaignId);
         Task<bool> RecordClickAsync(string trackingCode);
         Task<SocialCampaign?> GetCampaignByTrackingCodeAsync(string trackingCode);
