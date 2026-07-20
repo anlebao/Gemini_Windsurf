@@ -95,23 +95,8 @@ if ($product) {
 Write-Host ""
 Write-Host "[RV2] Multi-tenant checkout - verify CheckoutResponse shape with orders[]..."
 $testId = "phase5-rv-$(Get-Date -Format 'yyyyMMddHHmmss')"
-$checkoutBody = @{
-    CustomerDeviceId = $testId
-    OrderType = 'TAKEAWAY'
-    Items = @(@{
-        ProductId = $productId
-        TenantId = $TenantId
-        ProductName = $productName
-        VatRate = $productVatRate
-        Quantity = 1
-        UnitPrice = $productPrice
-        Notes = ''
-    })
-    CustomerNotes = 'Phase 5 RV test'
-    CustomerName = "Phase5 RV $testId"
-    CustomerPhone = "09$(Get-Date -Format 'HHmmss')"
-    CustomerAddress = 'RV Test Address'
-} | ConvertTo-Json -Depth 5 -Compress
+# Build JSON manually with ASCII-safe product name (client snapshot — doesn't need to match DB)
+$checkoutBody = '{"customerDeviceId":"' + $testId + '","orderType":"TAKEAWAY","items":[{"productId":"' + $productId + '","tenantId":"' + $TenantId + '","productName":"Phase5 RV Product","vatRate":' + $productVatRate + ',"quantity":1,"unitPrice":' + $productPrice + ',"notes":""}],"customerNotes":"Phase 5 RV test","customerName":"Phase5 RV ' + $testId + '","customerPhone":"09' + (Get-Date -Format 'HHmmss') + '","customerAddress":"RV Test Address"}'
 
 $firstOrderId = ""
 try {
@@ -125,7 +110,15 @@ try {
     Test-Result "RV2b: successCount=1" ($successCount -eq 1) "successCount=$successCount"
     Test-Result "RV2c: First order has orderId" (-not [string]::IsNullOrEmpty($firstOrderId)) "orderId=$firstOrderId"
 } catch {
-    Test-Result "RV2: Multi-tenant checkout" $false "error: $($_.Exception.Message)"
+    $errDetail = $_.Exception.Message
+    try {
+        $respStream = $_.Exception.Response.GetResponseStream()
+        $reader = New-Object System.IO.StreamReader($respStream)
+        $errBody = $reader.ReadToEnd()
+        $reader.Close()
+        $errDetail = $errBody
+    } catch { }
+    Test-Result "RV2: Multi-tenant checkout" $false "error: $errDetail"
 }
 
 # ─── RV3: New QR code endpoint returns non-empty PNG ──────────────────
@@ -168,22 +161,13 @@ try {
 Write-Host ""
 Write-Host "[RV6] Price_Validation_Enabled toggle readable via ShopFeatureSettings API..."
 try {
-    $settingsResp = Invoke-RestMethod -Uri "$ShopERPUrl/api/shopsettings/features" -WebSession $session -UseBasicParsing
+    $settingsResp = Invoke-RestMethod -Uri "$ShopERPUrl/api/shop/settings/features?tenantId=$TenantId" -UseBasicParsing
     $pvValue = $settingsResp.price_Validation_Enabled
     if ($null -eq $pvValue) { $pvValue = $settingsResp.Price_Validation_Enabled }
     $hasPV = ($null -ne $pvValue)
     Test-Result "RV6: Price_Validation_Enabled field present" $hasPV "value=$pvValue"
 } catch {
-    # Try alternate endpoint
-    try {
-        $settingsResp2 = Invoke-RestMethod -Uri "$ShopERPUrl/api/shopsettings" -WebSession $session -UseBasicParsing
-        $pvValue2 = $settingsResp2.price_Validation_Enabled
-        if ($null -eq $pvValue2) { $pvValue2 = $settingsResp2.Price_Validation_Enabled }
-        $hasPV2 = ($null -ne $pvValue2)
-        Test-Result "RV6: Price_Validation_Enabled (alt endpoint)" $hasPV2 "value=$pvValue2"
-    } catch {
-        Test-Result "RV6: Price_Validation_Enabled toggle" $false "error: $($_.Exception.Message)"
-    }
+    Test-Result "RV6: Price_Validation_Enabled toggle" $false "error: $($_.Exception.Message)"
 }
 
 # ─── RV7: KhachLink order tracking UI loads ───────────────────────────
