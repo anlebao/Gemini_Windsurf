@@ -141,6 +141,9 @@ services:
       # Sync: NATS Outbox events Gateway (PostgreSQL) → ShopERP (SQLite)
       - Nats__Url=nats://nats:4222
       - ConnectionStrings__Nats=nats://nats:4222
+      # Phase 4: ShopInstance routing — this ShopERP's ShopInstance Guid.
+      # VPS is single-instance, uses default tenant's ShopInstance Guid.
+      - SHOP_INSTANCE_ID=${SHOPERP_SHOP_INSTANCE_ID:-00000000-0000-0000-0000-000000000001}
       # Cookie auth: share across khachvip.online and www.khachvip.online
       - Auth__CookieDomain=.${VANAN_DOMAIN}
       # SQLite DB persistent volume (survives container recreate/deploys)
