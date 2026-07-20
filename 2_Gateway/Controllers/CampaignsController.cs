@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -112,8 +113,6 @@ namespace VanAn.Gateway.Controllers
         }
 
         // Home page personalization: fetch active campaigns by tenantId.
-        // SocialCampaign implements IMustHaveTenant, so GetCampaignsByShopAsync
-        // actually queries by TenantId internally (parameter name is legacy).
         [HttpGet("by-tenant/{tenantId:guid}")]
         [AllowAnonymous]
         public async Task<ActionResult<List<SocialCampaign>>> GetByTenant(Guid tenantId)
@@ -125,7 +124,7 @@ namespace VanAn.Gateway.Controllers
                     return Ok(new List<SocialCampaign>());
                 }
 
-                List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByShopAsync(tenantId);
+                List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByTenantAsync(tenantId);
                 return Ok(campaigns);
             }
             catch (Exception ex)
@@ -214,12 +213,29 @@ namespace VanAn.Gateway.Controllers
 
         [HttpPut("{campaignId:guid}")]
         [Authorize(Policy = "SystemAdmin")]
-        public async Task<ActionResult<SocialCampaign>> UpdateCampaign(Guid campaignId, [FromBody] SocialCampaign campaign)
+        public async Task<ActionResult<SocialCampaign>> UpdateCampaign(Guid campaignId, [FromBody] UpdateCampaignRequest request)
         {
             try
             {
-                SocialCampaign updated = await _socialCampaignService.UpdateCampaignAsync(campaign);
-                return Ok(updated);
+                // Fetch existing campaign
+                var existing = await _socialCampaignService.GetCampaignByIdAsync(campaignId);
+                if (existing == null)
+                {
+                    return NotFound(new { error = "Campaign not found" });
+                }
+
+                // Build updated campaign with same Id/TenantId/ShopId
+                var updated = new SocialCampaign(
+                    existing.TenantId,
+                    existing.ShopId,
+                    request.UtmSource ?? existing.UtmSource,
+                    request.CampaignName ?? existing.CampaignName,
+                    request.TrackingCode ?? existing.TrackingCode);
+                typeof(BaseEntity).GetProperty("Id")!.SetValue(updated, existing.Id);
+                typeof(BaseEntity).GetProperty("CreatedAt")!.SetValue(updated, existing.CreatedAt);
+
+                var result = await _socialCampaignService.UpdateCampaignAsync(updated);
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -253,5 +269,14 @@ namespace VanAn.Gateway.Controllers
         public string CampaignName { get; init; } = string.Empty;
         public string UtmSource { get; init; } = string.Empty;
         public string? TrackingCode { get; init; }
+    }
+
+    // DTO for update campaign request — SystemAdmin admin UI
+    public record UpdateCampaignRequest
+    {
+        public string? CampaignName { get; init; }
+        public string? UtmSource { get; init; }
+        public string? TrackingCode { get; init; }
+        public bool IsActive { get; init; } = true;
     }
 }
