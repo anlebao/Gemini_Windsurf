@@ -10,12 +10,12 @@
 <PageTitle>Quét Mã QR - KhachLink</PageTitle>
 
 <KhachLinkLayout>
-    <div class="container py-2 py-md-4">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
+    <div class="container-fluid scan-page-container py-2 py-md-4 px-2 px-md-3">
+        <div class="row justify-content-center g-0">
+            <div class="col-12 col-md-8 col-lg-6">
                 <VanAnCard CssClass="scan-page-card">
                     <div class="card-body">
-                        <h3 class="text-center mb-3">
+                        <h3 class="text-center mb-3 scan-page-title">
                             <i class="bi bi-qr-code-scan text-primary"></i> Quét Mã QR
                         </h3>
 
@@ -37,19 +37,19 @@
 
                             <VanAnCard CssClass="mt-2 product-result-card">
                                 <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="product-image me-3">
+                                    <div class="scan-product-row">
+                                        <div class="scan-product-image">
                                             <img src="@(_scannedProduct.ImageUrl ?? $"https://placehold.co/100x100?text={System.Uri.EscapeDataString(_scannedProduct.Name)}")"
                                                  alt="@_scannedProduct.Name"
                                                  class="rounded"
                                                  style="width: 80px; height: 80px; object-fit: cover;" />
                                         </div>
-                                        <div class="flex-grow-1">
-                                            <h5 class="mb-1">@_scannedProduct.Name</h5>
-                                            <p class="text-muted small mb-2">@_scannedProduct.Description</p>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span class="h5 text-primary mb-0">@_scannedProduct.Price.ToString("N0")đ</span>
-                                                <div class="d-flex gap-2">
+                                        <div class="scan-product-info">
+                                            <h5 class="mb-1 scan-product-name">@_scannedProduct.Name</h5>
+                                            <p class="text-muted small mb-2 scan-product-desc">@_scannedProduct.Description</p>
+                                            <div class="scan-product-bottom">
+                                                <span class="h5 text-primary mb-0 scan-product-price">@_scannedProduct.Price.ToString("N0")đ</span>
+                                                <div class="scan-product-actions">
                                                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                                OnClick="@(() => { _scannedProduct = null; StateHasChanged(); })">
                                                         Quét Tiếp
@@ -82,6 +82,107 @@
         </div>
     </div>
 </KhachLinkLayout>
+
+<style>
+    /* Mobile-first responsive Scan page */
+    .scan-page-container {
+        max-width: 100%;
+    }
+
+    .scan-page-card {
+        width: 100%;
+        border-radius: 12px;
+    }
+
+    .scan-page-title {
+        font-size: 1.25rem;
+    }
+
+    /* Product result row — flex row on desktop, stacked on mobile */
+    .scan-product-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .scan-product-image {
+        flex-shrink: 0;
+    }
+
+    .scan-product-info {
+        flex: 1 1 auto;
+        min-width: 0; /* prevent flex overflow on mobile */
+    }
+
+    .scan-product-name {
+        font-size: 1rem;
+        word-break: break-word;
+    }
+
+    .scan-product-desc {
+        font-size: 0.85rem;
+        word-break: break-word;
+    }
+
+    .scan-product-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .scan-product-price {
+        font-size: 1.1rem;
+        white-space: nowrap;
+    }
+
+    .scan-product-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    /* Mobile breakpoint — stack product card vertically */
+    @@media (max-width: 576px) {
+        .scan-product-row {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .scan-product-image {
+            margin-bottom: 0.5rem;
+        }
+
+        .scan-product-bottom {
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .scan-product-actions {
+            justify-content: center;
+            width: 100%;
+        }
+
+        .scan-product-actions > * {
+            flex: 1 1 auto;
+        }
+
+        .scan-page-title {
+            font-size: 1.1rem;
+        }
+    }
+
+    /* Tablet breakpoint — keep row but tighten spacing */
+    @@media (max-width: 768px) {
+        .scan-page-container {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+    }
+</style>
 
 @code {
     private ProductDto? _scannedProduct = null;

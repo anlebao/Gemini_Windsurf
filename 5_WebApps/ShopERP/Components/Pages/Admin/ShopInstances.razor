@@ -115,32 +115,34 @@
 @if (_showModal)
 {
     <VanAModal Title="@(_isEdit ? "Sửa ShopERP Instance" : "Thêm ShopERP Instance")"
-               OnClose="CloseModal" MaxWidth="600px">
-        <VanAForm OnSubmit="HandleSubmit">
-            <VanAInput Label="Nhãn (vd: VPS-1 HCM)" Value="@_form.Label"
-                       OnChange="v => _form = _form with { Label = v }" />
-            @if (!_isEdit)
-            {
-                <VanAInput Label="Base URL (vd: http://shoperp:80/)" Value="@_form.BaseUrl"
-                           OnChange="v => _form = _form with { BaseUrl = v }" />
-            }
-            else
-            {
-                <div class="form-group">
-                    <label>Base URL</label>
-                    <input type="text" class="form-control" value="@_editBaseUrl" disabled />
-                    <small class="text-muted">BaseUrl không thể thay đổi sau khi tạo (sẽ phá vỡ routing).</small>
+               IsVisible="true" OnClose="CloseModal" Size="medium">
+        <Body>
+            <VanAForm OnValidSubmit="HandleSubmit">
+                <VanAInput Label="Nhãn (vd: VPS-1 HCM)" Value="@_form.Label"
+                           OnChange="v => _form = _form with { Label = v }" />
+                @if (!_isEdit)
+                {
+                    <VanAInput Label="Base URL (vd: http://shoperp:80/)" Value="@_form.BaseUrl"
+                               OnChange="v => _form = _form with { BaseUrl = v }" />
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>Base URL</label>
+                        <input type="text" class="form-control" value="@_editBaseUrl" disabled />
+                        <small class="text-muted">BaseUrl không thể thay đổi sau khi tạo (sẽ phá vỡ routing).</small>
+                    </div>
+                }
+                <VanAInput Label="Max Tenants" Value="@_form.MaxTenants.ToString()"
+                           OnChange="v => _form = _form with { MaxTenants = int.TryParse(v, out var n) ? n : 50 }" />
+                <VanAInput Label="Health Check URL (tùy chọn)" Value="@(_form.HealthCheckUrl ?? "")"
+                           OnChange="v => _form = _form with { HealthCheckUrl = string.IsNullOrEmpty(v) ? null : v }" />
+                <div class="form-actions">
+                    <VanAButton Variant="primary" OnClick="HandleSubmit">Lưu</VanAButton>
+                    <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
                 </div>
-            }
-            <VanAInput Label="Max Tenants" Value="@_form.MaxTenants.ToString()"
-                       OnChange="v => _form = _form with { MaxTenants = int.TryParse(v, out var n) ? n : 50 }" />
-            <VanAInput Label="Health Check URL (tùy chọn)" Value="@(_form.HealthCheckUrl ?? "")"
-                       OnChange="v => _form = _form with { HealthCheckUrl = string.IsNullOrEmpty(v) ? null : v }" />
-            <div class="form-actions">
-                <VanAButton Variant="primary" Type="submit">Lưu</VanAButton>
-                <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
-            </div>
-        </VanAForm>
+            </VanAForm>
+        </Body>
     </VanAModal>
 }
 

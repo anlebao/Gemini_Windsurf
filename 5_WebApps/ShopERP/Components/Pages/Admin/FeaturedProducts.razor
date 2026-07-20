@@ -98,47 +98,49 @@
 @if (_showModal)
 {
     <VanAModal Title="@(_isEdit ? "Sửa sản phẩm nổi bật" : "Thêm sản phẩm nổi bật")"
-               OnClose="CloseModal" MaxWidth="600px">
-        <VanAForm OnSubmit="HandleSubmit">
-            <VanAInput Label="ProductId (GUID)" Value="@_form.ProductId.ToString()"
-                       OnChange="v => _form = _form with { ProductId = Guid.TryParse(v, out var g) ? g : Guid.Empty }" />
-            <VanAInput Label="Tên hiển thị" Value="@_form.DisplayName"
-                       OnChange="v => _form = _form with { DisplayName = v }" />
-            <VanAInput Label="Giá hiển thị" Value="@_form.DisplayPrice.ToString()"
-                       OnChange="v => _form = _form with { DisplayPrice = decimal.TryParse(v, out var p) ? p : 0 }" />
-            <VanAInput Label="Mô tả" Value="@(_form.DisplayDescription ?? "")"
-                       OnChange="v => _form = _form with { DisplayDescription = string.IsNullOrEmpty(v) ? null : v }" />
-            <VanAInput Label="URL hình ảnh" Value="@(_form.ImageUrl ?? "")"
-                       OnChange="v => _form = _form with { ImageUrl = string.IsNullOrEmpty(v) ? null : v }" />
-            <VanAInput Label="Thứ tự sắp xếp" Value="@_form.SortOrder.ToString()"
-                       OnChange="v => _form = _form with { SortOrder = int.TryParse(v, out var s) ? s : 0 }" />
-            @if (!_isEdit)
-            {
-                <div class="form-group">
-                    <label>Tenant</label>
-                    <select class="form-control" @bind="_form.TenantId">
-                        @foreach (var t in _tenants)
-                        {
-                            <option value="@t.Id.Value">@t.Name</option>
-                        }
-                    </select>
+               IsVisible="true" OnClose="CloseModal" Size="medium">
+        <Body>
+            <VanAForm OnValidSubmit="HandleSubmit">
+                <VanAInput Label="ProductId (GUID)" Value="@_form.ProductId.ToString()"
+                           OnChange="v => _form = _form with { ProductId = Guid.TryParse(v, out var g) ? g : Guid.Empty }" />
+                <VanAInput Label="Tên hiển thị" Value="@_form.DisplayName"
+                           OnChange="v => _form = _form with { DisplayName = v }" />
+                <VanAInput Label="Giá hiển thị" Value="@_form.DisplayPrice.ToString()"
+                           OnChange="v => _form = _form with { DisplayPrice = decimal.TryParse(v, out var p) ? p : 0 }" />
+                <VanAInput Label="Mô tả" Value="@(_form.DisplayDescription ?? "")"
+                           OnChange="v => _form = _form with { DisplayDescription = string.IsNullOrEmpty(v) ? null : v }" />
+                <VanAInput Label="URL hình ảnh" Value="@(_form.ImageUrl ?? "")"
+                           OnChange="v => _form = _form with { ImageUrl = string.IsNullOrEmpty(v) ? null : v }" />
+                <VanAInput Label="Thứ tự sắp xếp" Value="@_form.SortOrder.ToString()"
+                           OnChange="v => _form = _form with { SortOrder = int.TryParse(v, out var s) ? s : 0 }" />
+                @if (!_isEdit)
+                {
+                    <div class="form-group">
+                        <label>Tenant</label>
+                        <select class="form-control" @bind="_form.TenantId">
+                            @foreach (var t in _tenants)
+                            {
+                                <option value="@t.Id.Value">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+                @if (_isEdit)
+                {
+                    <div class="form-group">
+                        <label>Trạng thái</label>
+                        <select class="form-control" @bind="_editIsActive">
+                            <option value="true">Hiển thị</option>
+                            <option value="false">Ẩn</option>
+                        </select>
+                    </div>
+                }
+                <div class="form-actions">
+                    <VanAButton Variant="primary" OnClick="HandleSubmit">Lưu</VanAButton>
+                    <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
                 </div>
-            }
-            @if (_isEdit)
-            {
-                <div class="form-group">
-                    <label>Trạng thái</label>
-                    <select class="form-control" @bind="_editIsActive">
-                        <option value="true">Hiển thị</option>
-                        <option value="false">Ẩn</option>
-                    </select>
-                </div>
-            }
-            <div class="form-actions">
-                <VanAButton Variant="primary" Type="submit">Lưu</VanAButton>
-                <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
-            </div>
-        </VanAForm>
+            </VanAForm>
+        </Body>
     </VanAModal>
 }
 
