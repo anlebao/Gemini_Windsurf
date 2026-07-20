@@ -17,7 +17,8 @@ namespace VanAn.CoreHub.Services.Onboarding
         string IndustryCode,
         string OwnerUsername,
         string OwnerPassword,
-        string OwnerDisplayName);
+        string OwnerDisplayName,
+        Guid? ShopInstanceId = null);
 
     /// <summary>
     /// Result of a complete tenant onboarding operation.

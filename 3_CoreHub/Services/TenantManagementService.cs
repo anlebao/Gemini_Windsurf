@@ -109,6 +109,21 @@ namespace VanAn.CoreHub.Services
             logger.LogInformation("Tenant deactivated: {TenantId}. Reason: {Reason}", id.Value, reason);
         }
 
+        /// <summary>Phase 6: Assign tenant to a ShopERP hosting instance (multi-VPS routing).</summary>
+        public async Task AssignShopInstanceAsync(TenantId id, Guid shopInstanceId, CancellationToken ct = default)
+        {
+            if (shopInstanceId == Guid.Empty)
+                throw new ArgumentException("ShopInstanceId cannot be empty.", nameof(shopInstanceId));
+
+            var tenant = await GetTenantByIdAsync(id, ct)
+                ?? throw new KeyNotFoundException($"Tenant {id.Value} not found.");
+
+            tenant.AssignToShopInstance(shopInstanceId);
+            await dbContext.SaveChangesAsync(ct);
+            logger.LogInformation("Tenant {TenantId} assigned to ShopInstance {ShopInstanceId}",
+                id.Value, shopInstanceId);
+        }
+
         // ── Private event handlers ─────────────────────────────────────────────
 
         private async Task HandleTenantCreatedAsync(TenantCreatedEvent evt)

@@ -140,7 +140,9 @@ public class AuthorizationEnforcementTests
             // Phase 2 (Multi-VPS Checkout): Platform-level SystemAdmin endpoint — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
             "ShopInstancesController",
             // Bug 2 fix (2026-07-15): VietQrController generates public VietQR URLs — KhachLink is anonymous customer app
-            "VietQrController"
+            "VietQrController",
+            // Phase 6: CatalogController is public [AllowAnonymous] — KhachLink Home.razor is anonymous customer app
+            "CatalogController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

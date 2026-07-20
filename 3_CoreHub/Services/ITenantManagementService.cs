@@ -30,6 +30,9 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>Permanently deactivates a tenant (irreversible).</summary>
         Task DeactivateAsync(TenantId id, string reason, CancellationToken ct = default);
+
+        /// <summary>Phase 6: Assign tenant to a ShopERP hosting instance (multi-VPS routing).</summary>
+        Task AssignShopInstanceAsync(TenantId id, Guid shopInstanceId, CancellationToken ct = default);
     }
 
     public record CreateTenantRequest(

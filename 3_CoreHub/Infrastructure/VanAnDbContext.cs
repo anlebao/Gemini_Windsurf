@@ -112,6 +112,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Phase 1 (Multi-VPS Checkout): ShopERP hosting instances (platform-level, NOT tenant-scoped)
         public DbSet<ShopInstance> ShopInstances { get; set; }
 
+        // Phase 6 (Admin UI): Sysadmin-curated featured products for Home.razor (PG-only, tenant-scoped)
+        public DbSet<FeaturedProduct> FeaturedProducts { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -131,6 +134,7 @@ namespace VanAn.CoreHub.Infrastructure
             modelBuilder.Ignore<JournalEntryId>();
             modelBuilder.Ignore<OrderItemId>();
             modelBuilder.Ignore<OrderStatusId>();
+            modelBuilder.Ignore<FeaturedProductId>();
 
             base.OnModelCreating(modelBuilder);
 

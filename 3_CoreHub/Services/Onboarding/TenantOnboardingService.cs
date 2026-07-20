@@ -56,6 +56,14 @@ namespace VanAn.CoreHub.Services.Onboarding
 
             logger.LogInformation("Tenant created: {TenantId}", tenantId.Value);
 
+            // ── 1b. Phase 6: Assign tenant to ShopERP instance (multi-VPS routing) ──
+            if (request.ShopInstanceId.HasValue && request.ShopInstanceId.Value != Guid.Empty)
+            {
+                await tenantService.AssignShopInstanceAsync(tenantId, request.ShopInstanceId.Value, ct);
+                logger.LogInformation("Tenant {TenantId} assigned to ShopInstance {ShopInstanceId}",
+                    tenantId.Value, request.ShopInstanceId.Value);
+            }
+
             // ── 2. Create owner user ───────────────────────────────────────────────
             var ownerUser = await userService.CreateUserAsync(
                 tenantId,

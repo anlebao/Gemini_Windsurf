@@ -12,6 +12,7 @@
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @inject ITenantManagementService TenantService
 @inject TenantOnboardingApiClient OnboardingApiClient
+@inject ShopInstanceApiClient ShopInstanceApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
 @inject NavigationManager NavigationManager
@@ -84,6 +85,7 @@
                         <th>Loại hình</th>
                         <th>Trạng thái</th>
                         <th>Email liên hệ</th>
+                        <th>ShopERP Instance</th>
                         <th>Ngày tạo</th>
                         <th>Hành động</th>
                     </tr>
@@ -100,6 +102,25 @@
                                 </span>
                             </td>
                             <td>@(t.Settings.ContactEmail ?? "-")</td>
+                            <td>
+                                @if (t.ShopInstanceId.HasValue && t.ShopInstanceId.Value != Guid.Empty)
+                                {
+                                    var inst = _shopInstances.FirstOrDefault(i => i.Id == t.ShopInstanceId.Value);
+                                    if (inst != null)
+                                    {
+                                        <div><strong>@inst.Label</strong></div>
+                                        <small class="text-muted"><code>@inst.BaseUrl</code></small>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">ID: @t.ShopInstanceId.Value.ToString()[..8]</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="status-badge status-inactive">Chưa gán</span>
+                                }
+                            </td>
                             <td>@t.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
                             <td class="action-cell">
                                 <VanAButton Variant="info" Size="small" OnClick="() => NavigateToQuickSetup(t)">
@@ -255,6 +276,24 @@
                         <label for="onboarding-industry">Ngành nghề *</label>
                         <VanASelect Id="onboarding-industry" @bind-Value="_onboardingForm.IndustryCode" Options="_industryOptions" AriaLabel="Ngành nghề" />
                     </div>
+                    @* Phase 6: ShopInstance selector (required for multi-VPS routing) *@
+                    <div class="form-group">
+                        <label for="onboarding-shopinstance">ShopERP Instance *</label>
+                        @if (_shopInstances.Any())
+                        {
+                            <select id="onboarding-shopinstance" class="vanan-select" @bind="_onboardingForm.ShopInstanceId" aria-label="ShopERP Instance" required>
+                                <option value="">-- Chọn instance --</option>
+                                @foreach (var inst in _shopInstances)
+                                {
+                                    <option value="@inst.Id">@inst.Label (@inst.BaseUrl)</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input type="text" class="vanan-input" value="Chưa có instance — tạo tại /admin/shop-instances" disabled />
+                        }
+                    </div>
                     <div class="form-row">
                         <div class="form-group form-group-half">
                             <label for="onboarding-ownerusername">Tên đăng nhập owner *</label>
@@ -331,6 +370,8 @@
 #pragma warning disable CS0618 // Tenant obsolete — using new TenantAggregate.Tenant explicitly below
     // Use FQN to disambiguate: both VanAn.Shared.Domain.Tenant and TenantAggregate.Tenant exist
     private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = [];
+    // Phase 6: ShopInstance list for dropdown + column display
+    private List<ShopInstanceDto> _shopInstances = [];
     private bool _isLoading;
     private bool _isSaving;
     private string _alertMessage = string.Empty;
@@ -396,6 +437,7 @@
             _impersonatedTenantName = $"Tenant {tid.ToString("N")[..8]}";
         }
         await LoadTenants();
+        await LoadShopInstances();
     }
 
     private async Task LoadTenants()
@@ -414,6 +456,20 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    // Phase 6: Load ShopInstances for column display + onboarding dropdown
+    private async Task LoadShopInstances()
+    {
+        try
+        {
+            _shopInstances = await ShopInstanceApi.ListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load ShopInstances — column will show 'Chưa gán'");
+            _shopInstances = [];
         }
     }
 
@@ -481,6 +537,9 @@
             _onboardingValidationErrors.Add("Email liên hệ không hợp lệ.");
         if (_onboardingForm.BusinessTypeStr == "HouseholdBusiness" && string.IsNullOrWhiteSpace(_onboardingForm.HKDGroupStr))
             _onboardingValidationErrors.Add("Nhóm HKD là bắt buộc khi chọn Hộ kinh doanh.");
+        // Phase 6: ShopInstance required for multi-VPS routing
+        if (!_onboardingForm.ShopInstanceId.HasValue || _onboardingForm.ShopInstanceId.Value == Guid.Empty)
+            _onboardingValidationErrors.Add("ShopERP Instance là bắt buộc (tạo tại /admin/shop-instances nếu chưa có).");
         return _onboardingValidationErrors.Count == 0;
     }
 
@@ -511,7 +570,8 @@
                 _onboardingForm.IndustryCode,
                 _onboardingForm.OwnerUsername,
                 _onboardingForm.OwnerPassword,
-                _onboardingForm.OwnerDisplayName);
+                _onboardingForm.OwnerDisplayName,
+                _onboardingForm.ShopInstanceId);
 
             _onboardingResult = await OnboardingApiClient.OnboardAsync(request);
             ShowAlert("success", $"Tenant onboarding '{_onboardingForm.Name}' thành công.");
@@ -670,5 +730,7 @@
         public string OwnerUsername { get; set; } = string.Empty;
         public string OwnerPassword { get; set; } = string.Empty;
         public string OwnerDisplayName { get; set; } = string.Empty;
+        // Phase 6: ShopInstance assignment (required for multi-VPS routing)
+        public Guid? ShopInstanceId { get; set; }
     }
 }

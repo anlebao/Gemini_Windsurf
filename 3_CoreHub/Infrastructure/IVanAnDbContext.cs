@@ -61,6 +61,9 @@ namespace VanAn.CoreHub.Infrastructure
         // Phase 1 (Multi-VPS Checkout): ShopERP hosting instances (platform-level, NOT tenant-scoped)
         DbSet<ShopInstance> ShopInstances { get; }
 
+        // Phase 6 (Admin UI): Sysadmin-curated featured products (PG-only, tenant-scoped)
+        DbSet<FeaturedProduct> FeaturedProducts { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

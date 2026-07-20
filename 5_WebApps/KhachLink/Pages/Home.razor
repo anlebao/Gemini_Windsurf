@@ -13,6 +13,7 @@
 @inject IThemeProvider ThemeProvider
 @inject ITenantService TenantService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
+@inject VanAn.KhachLink.Services.Http.CatalogHttpService CatalogService
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigService
 @inject VanAn.KhachLink.Services.Http.ShopFeatureSettingsHttpService FeatureSettings
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
@@ -88,87 +89,81 @@
         </div>
     </VanAnCard>
 
-    <!-- Product Showcase -->
+    <!-- Phase 6: Recommended Catalog — Featured products + customer history (replaces multi-VPS product browse) -->
     <VanAnCard CssClass="products-section mb-4">
         <div class="container">
-            <h2 class="text-center mb-4">Sản Phẩm Nổi Bật</h2>
-            @if (products != null && products.Any())
+            <h2 class="text-center mb-4">
+                <i class="bi bi-star-fill text-warning"></i> Sản Phẩm Nổi Bật
+            </h2>
+            @if (_catalogLoading)
             {
-                @* Bug 3: Group products by tenant, show tenant name as header *@
-                @foreach (var group in products.GroupBy(p => p.TenantId).ToList())
-                {
-                    var tenantName = group.First().TenantName;
-                    <div class="tenant-group mb-4">
-                        <h4 class="tenant-group-header text-center mb-3" style="color: var(--shop-primary, #8B4513); border-bottom: 2px solid var(--shop-secondary, #D2691E); padding-bottom: 8px;">
-                            <i class="bi bi-shop"></i> @tenantName
-                        </h4>
-                        <div class="row">
-                            @foreach (var item in group)
-                            {
-                                <div class="col-md-6 mb-3 feature-card">
-                                    <VanAnCard CssClass="product-card h-100">
-                                        <div class="product-image">
-                                            <img id="product-img-@item.ProductId" src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)"
-                                                 class="card-img-top"
-                                                 alt="@item.Name"
-                                                 style="height: 200px; object-fit: cover;" />
-                                        </div>
-                                        <div class="product-info">
-                                            <h5>@item.Name</h5>
-                                            <p class="text-muted">@item.Description</p>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <div>
-                                                    <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.Price)</span>
-                                                    <br />
-                                                    <small class="text-muted">VAT: @(item.VatRate * 100)%</small>
-                                                </div>
-                                                <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item, $"product-img-{item.ProductId}"))">
-                                                    Đặt ngay
-                                                </VanAnButton>
-                                            </div>
-                                        </div>
-                                    </VanAnCard>
+                <div class="text-center py-4">
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Đang tải sản phẩm nổi bật..." />
+                </div>
+            }
+            else if (_catalog != null && _catalog.Products.Any(p => p.Source == "Featured"))
+            {
+                <div class="row">
+                    @foreach (var item in _catalog.Products.Where(p => p.Source == "Featured").Take(8))
+                    {
+                        <div class="col-md-3 mb-3 feature-card">
+                            <VanAnCard CssClass="product-card h-100">
+                                <div class="product-image">
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
+                                         class="card-img-top"
+                                         alt="@item.DisplayName"
+                                         style="height: 200px; object-fit: cover;" />
                                 </div>
-                            }
+                                <div class="product-info">
+                                    <h5>@item.DisplayName</h5>
+                                    <p class="text-muted small">@item.Description</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
+                                        <VanAnButton Size="ButtonSize.Small" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                                            Scan QR để mua
+                                        </VanAnButton>
+                                    </div>
+                                </div>
+                            </VanAnCard>
                         </div>
-                    </div>
-                }
+                    }
+                </div>
             }
             else
             {
                 <div class="col-12 text-center">
-                    <VanAnAlert Variant="AlertVariant.Info" Message="Đang tải sản phẩm..." />
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Chưa có sản phẩm nổi bật. Vui lòng quay lại sau." />
                 </div>
-                }
+            }
         </div>
     </VanAnCard>
 
-    <!-- Frequently Bought Section -->
-    @if (recommendedProducts != null && recommendedProducts.Any())
+    <!-- Phase 6: Customer History Section (only shown if logged in + has history) -->
+    @if (_catalog != null && _catalog.Products.Any(p => p.Source == "History"))
     {
         <VanAnCard CssClass="recommendations-section mb-4">
             <div class="container">
                 <h2 class="text-center mb-4">
-                    <i class="bi bi-star-fill text-warning"></i> Gợi Ý Dựa Trên Lịch Sử Mua Hàng
+                    <i class="bi bi-clock-history text-info"></i> Gợi Ý Dựa Trên Lịch Sử Mua Hàng
                 </h2>
                 <div class="row">
-                    @foreach (var item in recommendedProducts.Take(4))
+                    @foreach (var item in _catalog.Products.Where(p => p.Source == "History").Take(4))
                     {
                         <div class="col-md-3 mb-3">
                             <VanAnCard CssClass="product-card h-100">
                                 <div class="product-image">
-                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.Name)}" : item.ImageUrl)" 
-                                         class="card-img-top" 
-                                         alt="@item.Name" 
+                                    <img src="@(string.IsNullOrEmpty(item.ImageUrl) ? $"https://placehold.co/400x300?text={System.Uri.EscapeDataString(item.DisplayName)}" : item.ImageUrl)"
+                                         class="card-img-top"
+                                         alt="@item.DisplayName"
                                          style="height: 180px; object-fit: cover;" />
                                 </div>
                                 <div class="product-info">
-                                    <h6>@item.Name</h6>
-                                    <small class="text-muted">@item.RecommendationReason</small>
+                                    <h6>@item.DisplayName</h6>
+                                    <small class="text-muted">Mua lần cuối: @(item.LastOrderedAt?.ToLocalTime().ToString("yyyy-MM-dd") ?? "-")</small>
                                     <div class="d-flex justify-content-between align-items-center mt-2">
-                                        <span class="text-primary fw-bold">@item.Price.ToString("N0")đ</span>
-                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item))">
-                                            Mua
+                                        <span class="text-primary fw-bold">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
+                                        <VanAnButton Size="ButtonSize.Small" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                                            Mua lại
                                         </VanAnButton>
                                     </div>
                                 </div>
@@ -229,6 +224,11 @@
     private bool _isLoggedIn = false;
     private bool _vatDisplayEnabled = true;
 
+    // Phase 6: Catalog recommended (Featured + History) — replaces multi-VPS product browse
+    private RecommendedCatalogResponse? _catalog;
+    private bool _catalogLoading = true;
+    private Guid? _customerId;
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
@@ -236,7 +236,6 @@
         await CartService.LoadCartFromStorageAsync();
         await LoadProductsAsync();
         await LoadShopConfigAsync();
-        await LoadRecommendedProductsAsync();
         await LoadRecentlyViewedAsync();
     }
 
@@ -247,6 +246,15 @@
             // Check if user is logged in (customer_token in localStorage)
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(token);
+
+            // Phase 6: Load customerId from localStorage if logged in
+            if (_isLoggedIn)
+            {
+                var cidStr = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_id");
+                if (Guid.TryParse(cidStr, out var cid) && cid != Guid.Empty)
+                    _customerId = cid;
+            }
+
             // RC-7: Load VAT display toggle for CartDrawer.
             Guid tenantId = TenantService.GetCurrentTenantId();
             if (tenantId != Guid.Empty)
@@ -257,6 +265,10 @@
                 }
                 catch { /* non-critical — default to true */ }
             }
+
+            // Phase 6: Load recommended catalog (Featured + customer history if logged in)
+            await LoadCatalogAsync();
+
             StateHasChanged();
         }
     }
@@ -264,7 +276,15 @@
     private async Task LoadProductsAsync()
     {
         // Bug 3: Load products grouped by tenant (top 5 tenants, 1-2 products each)
-        products = await ProductService.GetProductsGroupedByTenantAsync();
+        // Phase 6: Still used for ShopConfig derivation (branding). Catalog display uses _catalog.
+        try
+        {
+            products = await ProductService.GetProductsGroupedByTenantAsync();
+        }
+        catch
+        {
+            products = new();
+        }
     }
 
     // Phase 3: derive ShopConfig from products (Approach 2 — product-based TenantId).
@@ -275,19 +295,22 @@
         _shopConfig = await ShopConfigService.GetShopConfigFromProductsAsync(products);
     }
 
-    private async Task LoadRecommendedProductsAsync()
+    // Phase 6: Load recommended catalog from Gateway (public endpoint, no auth required)
+    private async Task LoadCatalogAsync()
     {
+        _catalogLoading = true;
         try
         {
-            // For MVP, we'll use a dummy customer ID. In production, this would come from authentication
-            var customerId = Guid.Parse("00000000-0000-0000-0000-000000000001");
-            var tenantId = TenantService.GetCurrentTenantId();
-            recommendedProducts = await ProductService.GetRecommendedProductsAsync(customerId, tenantId, 4);
+            _catalog = await CatalogService.GetRecommendedAsync(_customerId, page: 1, pageSize: 20);
         }
         catch (Exception ex)
         {
-            // Silently fail - recommendations are optional
-            Console.WriteLine($"Error loading recommended products: {ex.Message}");
+            Console.WriteLine($"Error loading catalog: {ex.Message}");
+            _catalog = null;
+        }
+        finally
+        {
+            _catalogLoading = false;
         }
     }
 

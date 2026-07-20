@@ -1,0 +1,288 @@
+@page "/admin/shop-instances"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject ShopInstanceApiClient ShopInstanceApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<ShopInstances> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="shop-instances-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>ShopERP Instances</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Thêm instance
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có ShopERP instance nào. Nhấn "+ Thêm instance" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách ShopERP Instances ({_items.Count})")">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Nhãn</th>
+                        <th>Base URL</th>
+                        <th>Max Tenants</th>
+                        <th>Tenant Count</th>
+                        <th>Health</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td><strong>@item.Label</strong></td>
+                            <td><code>@item.BaseUrl</code></td>
+                            <td>@item.MaxTenants</td>
+                            <td>@item.TenantCount</td>
+                            <td>
+                                <span class="status-badge status-@(item.HealthStatus.ToLower())">
+                                    @item.HealthStatus
+                                </span>
+                                @if (item.LastHealthCheck.HasValue)
+                                {
+                                    <small class="text-muted d-block">@item.LastHealthCheck.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+                                }
+                            </td>
+                            <td>
+                                <span class="status-badge status-@(item.IsActive ? "active" : "inactive")">
+                                    @(item.IsActive ? "Hoạt động" : "Tạm dừng")
+                                </span>
+                            </td>
+                            <td class="action-cell">
+                                <VanAButton Variant="info" Size="small" OnClick="() => OpenEditModal(item)">
+                                    Sửa
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => HealthCheck(item)" IsLoading="@(_healthCheckingId == item.Id)">
+                                    Kiểm tra sức khoẻ
+                                </VanAButton>
+                                @if (item.IsActive)
+                                {
+                                    <VanAButton Variant="warning" Size="small" OnClick="() => ToggleActive(item, false)">
+                                        Tạm dừng
+                                    </VanAButton>
+                                }
+                                else
+                                {
+                                    <VanAButton Variant="success" Size="small" OnClick="() => ToggleActive(item, true)">
+                                        Kích hoạt
+                                    </VanAButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+</div>
+
+@if (_showModal)
+{
+    <VanAModal Title="@(_isEdit ? "Sửa ShopERP Instance" : "Thêm ShopERP Instance")"
+               OnClose="CloseModal" MaxWidth="600px">
+        <VanAForm OnSubmit="HandleSubmit">
+            <VanAInput Label="Nhãn (vd: VPS-1 HCM)" Value="@_form.Label"
+                       OnChange="v => _form = _form with { Label = v }" />
+            @if (!_isEdit)
+            {
+                <VanAInput Label="Base URL (vd: http://shoperp:80/)" Value="@_form.BaseUrl"
+                           OnChange="v => _form = _form with { BaseUrl = v }" />
+            }
+            else
+            {
+                <div class="form-group">
+                    <label>Base URL</label>
+                    <input type="text" class="form-control" value="@_editBaseUrl" disabled />
+                    <small class="text-muted">BaseUrl không thể thay đổi sau khi tạo (sẽ phá vỡ routing).</small>
+                </div>
+            }
+            <VanAInput Label="Max Tenants" Value="@_form.MaxTenants.ToString()"
+                       OnChange="v => _form = _form with { MaxTenants = int.TryParse(v, out var n) ? n : 50 }" />
+            <VanAInput Label="Health Check URL (tùy chọn)" Value="@(_form.HealthCheckUrl ?? "")"
+                       OnChange="v => _form = _form with { HealthCheckUrl = string.IsNullOrEmpty(v) ? null : v }" />
+            <div class="form-actions">
+                <VanAButton Variant="primary" Type="submit">Lưu</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
+            </div>
+        </VanAForm>
+    </VanAModal>
+}
+
+@code {
+    private List<ShopInstanceDto> _items = new();
+    private bool _isLoading = true;
+    private bool _showModal;
+    private bool _isEdit;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private Guid? _editId;
+    private string _editBaseUrl = "";
+    private Guid? _healthCheckingId;
+
+    private CreateShopInstanceRequest _form = new()
+    {
+        BaseUrl = "",
+        Label = "",
+        MaxTenants = 50,
+        HealthCheckUrl = null
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await ShopInstanceApi.ListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load shop instances");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEdit = false;
+        _editId = null;
+        _form = new CreateShopInstanceRequest
+        {
+            BaseUrl = "http://shoperp:80/",
+            Label = "",
+            MaxTenants = 50
+        };
+        _showModal = true;
+    }
+
+    private void OpenEditModal(ShopInstanceDto item)
+    {
+        _isEdit = true;
+        _editId = item.Id;
+        _editBaseUrl = item.BaseUrl;
+        _form = new CreateShopInstanceRequest
+        {
+            BaseUrl = item.BaseUrl,
+            Label = item.Label,
+            MaxTenants = item.MaxTenants,
+            HealthCheckUrl = item.HealthCheckUrl
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            if (_isEdit && _editId.HasValue)
+            {
+                await ShopInstanceApi.UpdateAsync(_editId.Value, new UpdateShopInstanceRequest
+                {
+                    Label = _form.Label,
+                    MaxTenants = _form.MaxTenants
+                });
+                _alertMessage = "Đã cập nhật ShopERP instance.";
+            }
+            else
+            {
+                await ShopInstanceApi.CreateAsync(_form);
+                _alertMessage = "Đã tạo ShopERP instance.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save shop instance");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task ToggleActive(ShopInstanceDto item, bool isActive)
+    {
+        try
+        {
+            await ShopInstanceApi.SetActiveAsync(item.Id, isActive);
+            _alertMessage = isActive ? "Đã kích hoạt instance." : "Đã tạm dừng instance.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task HealthCheck(ShopInstanceDto item)
+    {
+        _healthCheckingId = item.Id;
+        try
+        {
+            var result = await ShopInstanceApi.HealthCheckAsync(item.Id);
+            _alertMessage = result != null
+                ? $"Health check: {result.Status} ({result.CheckedAt:HH:mm:ss})"
+                : "Health check không trả về kết quả.";
+            _alertType = result?.Status == "Healthy" ? "success" : "warning";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _healthCheckingId = null;
+        }
+    }
+}

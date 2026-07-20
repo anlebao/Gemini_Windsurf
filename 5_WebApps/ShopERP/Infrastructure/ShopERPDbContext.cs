@@ -80,6 +80,10 @@ namespace VanAn.ShopERP.Infrastructure
         // Phase 1 (Multi-VPS Checkout): ShopERP hosting instances (platform-level, NOT tenant-scoped)
         public DbSet<ShopInstance> ShopInstances { get; set; }
 
+        // Phase 6: FeaturedProduct is PG-only — ShopERP SQLite ignores this entity (see OnModelCreating).
+        // DbSet exists to satisfy IVanAnDbContext interface contract; never queried from ShopERP.
+        public DbSet<FeaturedProduct> FeaturedProducts { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -154,6 +158,9 @@ namespace VanAn.ShopERP.Infrastructure
             // It's not meant to be persisted as an entity
             _ = modelBuilder.Ignore<HKDBook>();
             _ = modelBuilder.Ignore<GenericHKDBook>();
+
+            // Phase 6: FeaturedProductId is a value object — never mapped as a separate entity
+            _ = modelBuilder.Ignore<FeaturedProductId>();
 
             // Apply configurations from CoreHub assembly via assembly scanning
             // This avoids direct reference to CoreHub.Infrastructure.Configurations

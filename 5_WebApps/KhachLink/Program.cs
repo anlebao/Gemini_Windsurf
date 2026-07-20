@@ -102,6 +102,9 @@ namespace VanAn.KhachLink
 
             _ = builder.Services.AddScoped<Services.Http.ProductHttpService>();
 
+            // Phase 6: Catalog recommended API client (Featured + History, public endpoint)
+            _ = builder.Services.AddScoped<Services.Http.CatalogHttpService>();
+
             // KhachLink Full Flow W0: Shop feature toggle settings (HTTP via Gateway)
             _ = builder.Services.AddScoped<Services.Http.ShopFeatureSettingsHttpService>();
 

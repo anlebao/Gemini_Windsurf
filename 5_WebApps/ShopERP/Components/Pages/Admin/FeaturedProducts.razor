@@ -1,0 +1,304 @@
+@page "/admin/featured-products"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject FeaturedProductApiClient FeaturedProductApi
+@inject ITenantManagementService TenantService
+@inject IThemeProvider ThemeProvider
+@inject ILogger<FeaturedProducts> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="featured-products-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Sản phẩm nổi bật</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Thêm sản phẩm nổi bật
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có sản phẩm nổi bật nào. Nhấn "+ Thêm sản phẩm nổi bật" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách sản phẩm nổi bật ({_items.Count})")">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Tên hiển thị</th>
+                        <th>Tenant</th>
+                        <th>Giá hiển thị</th>
+                        <th>Thứ tự</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td><strong>@item.DisplayName</strong></td>
+                            <td>@TenantLabel(item.TenantId)</td>
+                            <td>@item.DisplayPrice.ToString("N0") đ</td>
+                            <td>@item.SortOrder</td>
+                            <td>
+                                <span class="status-badge status-@(item.IsActive ? "active" : "inactive")">
+                                    @(item.IsActive ? "Hiển thị" : "Ẩn")
+                                </span>
+                            </td>
+                            <td class="action-cell">
+                                <VanAButton Variant="info" Size="small" OnClick="() => OpenEditModal(item)">
+                                    Sửa
+                                </VanAButton>
+                                <VanAButton Variant="outline" Size="small" OnClick="() => ToggleActive(item)">
+                                    @(item.IsActive ? "Ẩn" : "Hiện")
+                                </VanAButton>
+                                <VanAButton Variant="danger" Size="small" OnClick="() => DeleteItem(item)">
+                                    Xoá
+                                </VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+</div>
+
+<!-- Create/Edit Modal -->
+@if (_showModal)
+{
+    <VanAModal Title="@(_isEdit ? "Sửa sản phẩm nổi bật" : "Thêm sản phẩm nổi bật")"
+               OnClose="CloseModal" MaxWidth="600px">
+        <VanAForm OnSubmit="HandleSubmit">
+            <VanAInput Label="ProductId (GUID)" Value="@_form.ProductId.ToString()"
+                       OnChange="v => _form = _form with { ProductId = Guid.TryParse(v, out var g) ? g : Guid.Empty }" />
+            <VanAInput Label="Tên hiển thị" Value="@_form.DisplayName"
+                       OnChange="v => _form = _form with { DisplayName = v }" />
+            <VanAInput Label="Giá hiển thị" Value="@_form.DisplayPrice.ToString()"
+                       OnChange="v => _form = _form with { DisplayPrice = decimal.TryParse(v, out var p) ? p : 0 }" />
+            <VanAInput Label="Mô tả" Value="@(_form.DisplayDescription ?? "")"
+                       OnChange="v => _form = _form with { DisplayDescription = string.IsNullOrEmpty(v) ? null : v }" />
+            <VanAInput Label="URL hình ảnh" Value="@(_form.ImageUrl ?? "")"
+                       OnChange="v => _form = _form with { ImageUrl = string.IsNullOrEmpty(v) ? null : v }" />
+            <VanAInput Label="Thứ tự sắp xếp" Value="@_form.SortOrder.ToString()"
+                       OnChange="v => _form = _form with { SortOrder = int.TryParse(v, out var s) ? s : 0 }" />
+            @if (!_isEdit)
+            {
+                <div class="form-group">
+                    <label>Tenant</label>
+                    <select class="form-control" @bind="_form.TenantId">
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id.Value">@t.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+            @if (_isEdit)
+            {
+                <div class="form-group">
+                    <label>Trạng thái</label>
+                    <select class="form-control" @bind="_editIsActive">
+                        <option value="true">Hiển thị</option>
+                        <option value="false">Ẩn</option>
+                    </select>
+                </div>
+            }
+            <div class="form-actions">
+                <VanAButton Variant="primary" Type="submit">Lưu</VanAButton>
+                <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
+            </div>
+        </VanAForm>
+    </VanAModal>
+}
+
+@code {
+    private List<FeaturedProductDto> _items = new();
+    private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = new();
+    private bool _isLoading = true;
+    private bool _showModal;
+    private bool _isEdit;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private Guid? _editId;
+    private bool _editIsActive = true;
+
+    private CreateFeaturedProductRequest _form = new()
+    {
+        ProductId = Guid.Empty,
+        TenantId = Guid.Empty,
+        DisplayName = "",
+        DisplayPrice = 0,
+        DisplayDescription = null,
+        ImageUrl = null,
+        SortOrder = 0
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await FeaturedProductApi.ListAsync();
+            _tenants = (await TenantService.ListTenantsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load featured products");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string TenantLabel(Guid tenantId)
+    {
+        var t = _tenants.FirstOrDefault(x => x.Id.Value == tenantId);
+        return t?.Name ?? tenantId.ToString()[..8];
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEdit = false;
+        _editId = null;
+        _form = new CreateFeaturedProductRequest
+        {
+            ProductId = Guid.Empty,
+            TenantId = _tenants.FirstOrDefault()?.Id.Value ?? Guid.Empty,
+            DisplayName = "",
+            DisplayPrice = 0,
+            SortOrder = 0
+        };
+        _showModal = true;
+    }
+
+    private void OpenEditModal(FeaturedProductDto item)
+    {
+        _isEdit = true;
+        _editId = item.Id;
+        _editIsActive = item.IsActive;
+        _form = new CreateFeaturedProductRequest
+        {
+            ProductId = item.ProductId,
+            TenantId = item.TenantId,
+            DisplayName = item.DisplayName,
+            DisplayPrice = item.DisplayPrice,
+            DisplayDescription = item.DisplayDescription,
+            ImageUrl = item.ImageUrl,
+            SortOrder = item.SortOrder
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            if (_isEdit && _editId.HasValue)
+            {
+                await FeaturedProductApi.UpdateAsync(_editId.Value, new UpdateFeaturedProductRequest
+                {
+                    DisplayName = _form.DisplayName,
+                    DisplayPrice = _form.DisplayPrice,
+                    DisplayDescription = _form.DisplayDescription,
+                    ImageUrl = _form.ImageUrl,
+                    SortOrder = _form.SortOrder,
+                    IsActive = _editIsActive
+                });
+                _alertMessage = "Đã cập nhật sản phẩm nổi bật.";
+            }
+            else
+            {
+                await FeaturedProductApi.CreateAsync(_form);
+                _alertMessage = "Đã thêm sản phẩm nổi bật.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save featured product");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task ToggleActive(FeaturedProductDto item)
+    {
+        try
+        {
+            await FeaturedProductApi.UpdateAsync(item.Id, new UpdateFeaturedProductRequest
+            {
+                DisplayName = item.DisplayName,
+                DisplayPrice = item.DisplayPrice,
+                DisplayDescription = item.DisplayDescription,
+                ImageUrl = item.ImageUrl,
+                SortOrder = item.SortOrder,
+                IsActive = !item.IsActive
+            });
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task DeleteItem(FeaturedProductDto item)
+    {
+        try
+        {
+            await FeaturedProductApi.DeleteAsync(item.Id);
+            _alertMessage = "Đã xoá sản phẩm nổi bật.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+}

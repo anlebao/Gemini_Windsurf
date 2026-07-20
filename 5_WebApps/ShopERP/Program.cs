@@ -420,6 +420,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantConversionService, CoreHub.Services.TenantConversionService>();
             // Wave 5: Gateway tenant onboarding API client (SystemAdmin JWT + HttpClient)
             _ = builder.Services.AddScoped<Services.TenantOnboardingApiClient>();
+            // Phase 6: Gateway admin API clients for ShopInstances + FeaturedProducts management
+            _ = builder.Services.AddScoped<Services.ShopInstanceApiClient>();
+            _ = builder.Services.AddScoped<Services.FeaturedProductApiClient>();
             // Wave 14: API Key management
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
             _ = builder.Services.AddScoped<CoreHub.Services.IApiKeyManagementService, CoreHub.Services.ApiKeyManagementService>();
