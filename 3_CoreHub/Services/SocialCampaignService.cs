@@ -1,17 +1,23 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Infrastructure;
 
 namespace VanAn.CoreHub.Services
 {
-    public class SocialCampaignService(ISocialCampaignRepository repository, ILogger<SocialCampaignService> logger) : ISocialCampaignService
+    public class SocialCampaignService(
+        ISocialCampaignRepository repository,
+        IVanAnDbContext dbContext,
+        ILogger<SocialCampaignService> logger) : ISocialCampaignService
     {
         private readonly ISocialCampaignRepository _repository = repository;
+        private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<SocialCampaignService> _logger = logger;
 
         public async Task<SocialCampaign> CreateCampaignAsync(SocialCampaign campaign)
         {
             _ = await _repository.AddAsync(campaign);
+            await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Created social campaign {CampaignId} for shop {ShopId}", campaign.Id, campaign.ShopId);
             return campaign;
@@ -92,6 +98,7 @@ namespace VanAn.CoreHub.Services
             campaign.IncrementConvertedOrders();
 
             _ = await _repository.UpdateAsync(campaign);
+            await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Incremented converted orders for campaign {CampaignId}, total: {TotalConverted}",
                 campaign.Id, campaign.ConvertedOrders);
@@ -104,6 +111,7 @@ namespace VanAn.CoreHub.Services
             existing.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, campaign.IsActive);
 
             _ = await _repository.UpdateAsync(existing);
+            await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Updated social campaign {CampaignId}", campaign.Id);
             return existing;
@@ -120,6 +128,7 @@ namespace VanAn.CoreHub.Services
             campaign.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, false);
 
             _ = await _repository.UpdateAsync(campaign);
+            await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("Deactivated social campaign {CampaignId}", campaignId);
             return true;
