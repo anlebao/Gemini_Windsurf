@@ -2,6 +2,10 @@ name: Debug VPS Logs
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/debug-vps-logs.yml'
 
 jobs:
   debug:
