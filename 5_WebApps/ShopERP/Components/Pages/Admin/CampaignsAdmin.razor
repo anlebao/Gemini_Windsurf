@@ -1,0 +1,321 @@
+@page "/admin/campaigns"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject ISocialCampaignService CampaignService
+@inject ITenantManagementService TenantService
+@inject IThemeProvider ThemeProvider
+@inject ILogger<CampaignsAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="campaigns-admin-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Quản lý Khuyến Mãi</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Thêm khuyến mãi
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách khuyến mãi...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có chương trình khuyến mãi nào. Nhấn "+ Thêm khuyến mãi" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách Khuyến Mãi ({_items.Count})")">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Tên Campaign</th>
+                        <th>Tenant</th>
+                        <th>UTM Source</th>
+                        <th>Tracking Code</th>
+                        <th>Clicks</th>
+                        <th>Đơn chuyển đổi</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td><strong>@item.CampaignName</strong></td>
+                            <td>@(GetTenantName(item.TenantId.Value))</td>
+                            <td>@(item.UtmSource ?? "-")</td>
+                            <td><code>@item.TrackingCode</code></td>
+                            <td>@item.TotalClicks</td>
+                            <td>@item.ConvertedOrders</td>
+                            <td>
+                                <span class="status-badge status-@(item.IsActive ? "active" : "inactive")">
+                                    @(item.IsActive ? "Hoạt động" : "Tạm dừng")
+                                </span>
+                            </td>
+                            <td class="action-cell">
+                                <VanAButton Variant="info" Size="small" OnClick="() => OpenEditModal(item)">
+                                    Sửa
+                                </VanAButton>
+                                <VanAButton Variant="danger" Size="small" OnClick="() => DeleteCampaign(item)">
+                                    Xoá
+                                </VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+</div>
+
+@if (_showModal)
+{
+    <VanAModal Title="@(_isEdit ? "Sửa Khuyến Mãi" : "Thêm Khuyến Mãi")"
+               IsVisible="true" OnClose="CloseModal" Size="medium">
+        <Body>
+            <VanAForm OnValidSubmit="HandleSubmit">
+                <div class="form-group">
+                    <label>Tenant *</label>
+                    <select class="vanan-input" @bind="_form.TenantId" disabled="@_isEdit">
+                        <option value="@Guid.Empty">-- Chọn Tenant --</option>
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <VanAInput Id="campaign-name" Label="Tên Campaign *"
+                               Value="@_form.CampaignName"
+                               ValueChanged="v => _form.CampaignName = v"
+                               Placeholder="Khuyến mãi mùa hè 2026" Required="true" />
+                </div>
+                <div class="form-group">
+                    <VanAInput Id="campaign-utm" Label="UTM Source"
+                               Value="@_form.UtmSource"
+                               ValueChanged="v => _form.UtmSource = v"
+                               Placeholder="facebook_summer2026" />
+                </div>
+                <div class="form-group">
+                    <VanAInput Id="campaign-tracking" Label="Tracking Code (để trống = auto-generate)"
+                               Value="@(_form.TrackingCode ?? "")"
+                               ValueChanged="v => _form.TrackingCode = string.IsNullOrEmpty(v) ? null : v"
+                               Placeholder="camp_summer2026" />
+                </div>
+                <div class="form-group">
+                    <label>Hoạt động</label>
+                    <input type="checkbox" @bind="_form.IsActive" />
+                </div>
+                <div class="form-actions">
+                    <VanAButton Variant="primary" OnClick="HandleSubmit">Lưu</VanAButton>
+                    <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
+                </div>
+            </VanAForm>
+        </Body>
+    </VanAModal>
+}
+
+@code {
+    private List<SocialCampaign> _items = new();
+    private List<TenantInfo> _tenants = new();
+    private bool _isLoading = true;
+    private bool _showModal;
+    private bool _isEdit;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private Guid? _editId;
+
+    private CampaignForm _form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = (await CampaignService.GetAllCampaignsAsync()).ToList();
+            // Load tenants for dropdown
+            _tenants = (await TenantService.ListTenantsAsync())
+                .Select(t => new TenantInfo { Id = t.Id, Name = t.Name })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load campaigns");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetTenantName(Guid tenantId)
+    {
+        var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
+        return t?.Name ?? tenantId.ToString()[..8];
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEdit = false;
+        _editId = null;
+        _form = new CampaignForm { IsActive = true };
+        _showModal = true;
+    }
+
+    private void OpenEditModal(SocialCampaign item)
+    {
+        _isEdit = true;
+        _editId = item.Id;
+        _form = new CampaignForm
+        {
+            TenantId = item.TenantId.Value,
+            CampaignName = item.CampaignName,
+            UtmSource = item.UtmSource,
+            TrackingCode = item.TrackingCode,
+            IsActive = item.IsActive
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            if (_form.TenantId == Guid.Empty)
+            {
+                _alertMessage = "Vui lòng chọn Tenant";
+                _alertType = "danger";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_form.CampaignName))
+            {
+                _alertMessage = "Vui lòng nhập tên campaign";
+                _alertType = "danger";
+                return;
+            }
+
+            if (_isEdit && _editId.HasValue)
+            {
+                // Update: fetch existing, modify, save
+                var existing = await CampaignService.GetCampaignByIdAsync(_editId.Value);
+                if (existing == null)
+                {
+                    _alertMessage = "Không tìm thấy campaign để sửa";
+                    _alertType = "danger";
+                    return;
+                }
+
+                // SocialCampaign has protected setters — use UpdateCampaignAsync with modified object
+                // Note: SocialCampaign doesn't have an Update method, so we create a new one with same Id
+                var updated = new SocialCampaign(
+                    existing.TenantId,
+                    existing.ShopId,
+                    _form.UtmSource ?? string.Empty,
+                    _form.CampaignName,
+                    _form.TrackingCode ?? existing.TrackingCode);
+                // Set Id via reflection (BaseEntity.Id is set in constructor, but we need to preserve it)
+                typeof(BaseEntity).GetProperty("Id")!.SetValue(updated, existing.Id);
+                typeof(BaseEntity).GetProperty("CreatedAt")!.SetValue(updated, existing.CreatedAt);
+
+                await CampaignService.UpdateCampaignAsync(updated);
+                _alertMessage = "Đã cập nhật khuyến mãi.";
+            }
+            else
+            {
+                // Create new
+                var trackingCode = string.IsNullOrWhiteSpace(_form.TrackingCode)
+                    ? $"camp_{Guid.NewGuid():N}"[..24]
+                    : _form.TrackingCode;
+
+                var campaign = new SocialCampaign(
+                    new TenantId(_form.TenantId),
+                    Guid.Empty, // ShopId — will be resolved later or left empty
+                    _form.UtmSource ?? string.Empty,
+                    _form.CampaignName,
+                    trackingCode);
+
+                await CampaignService.CreateCampaignAsync(campaign);
+                _alertMessage = "Đã tạo khuyến mãi mới.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save campaign");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task DeleteCampaign(SocialCampaign item)
+    {
+        try
+        {
+            await CampaignService.DeleteCampaignAsync(item.Id);
+            _alertMessage = $"Đã xoá khuyến mãi '{item.CampaignName}'.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi xoá: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private class CampaignForm
+    {
+        public Guid TenantId { get; set; }
+        public string CampaignName { get; set; } = string.Empty;
+        public string UtmSource { get; set; } = string.Empty;
+        public string? TrackingCode { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    private class TenantInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

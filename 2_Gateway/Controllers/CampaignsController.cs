@@ -167,8 +167,47 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        // POST create — SystemAdmin only (admin operations)
+        [HttpPost]
+        [Authorize(Policy = "SystemAdmin")]
+        public async Task<ActionResult<SocialCampaign>> CreateCampaign([FromBody] CreateCampaignRequest request)
+        {
+            try
+            {
+                if (request.TenantId == Guid.Empty)
+                {
+                    return BadRequest(new { error = "TenantId is required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.CampaignName))
+                {
+                    return BadRequest(new { error = "CampaignName is required" });
+                }
+
+                // Generate tracking code if not provided
+                var trackingCode = string.IsNullOrWhiteSpace(request.TrackingCode)
+                    ? $"camp_{Guid.NewGuid():N}"[..24]
+                    : request.TrackingCode;
+
+                var campaign = new SocialCampaign(
+                    new TenantId(request.TenantId),
+                    request.ShopId,
+                    request.UtmSource ?? string.Empty,
+                    request.CampaignName,
+                    trackingCode);
+
+                var created = await _socialCampaignService.CreateCampaignAsync(campaign);
+                return CreatedAtAction(nameof(GetCampaignById), new { campaignId = created.Id }, created);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating campaign");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         [HttpPut("{campaignId:guid}")]
-        [AllowAnonymous]
+        [Authorize(Policy = "SystemAdmin")]
         public async Task<ActionResult<SocialCampaign>> UpdateCampaign(Guid campaignId, [FromBody] SocialCampaign campaign)
         {
             try
@@ -184,7 +223,7 @@ namespace VanAn.Gateway.Controllers
         }
 
         [HttpDelete("{campaignId:guid}")]
-        [AllowAnonymous]
+        [Authorize(Policy = "SystemAdmin")]
         public async Task<ActionResult<bool>> DeleteCampaign(Guid campaignId)
         {
             try
@@ -198,5 +237,15 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+    }
+
+    // DTO for create campaign request — SystemAdmin admin UI
+    public record CreateCampaignRequest
+    {
+        public Guid TenantId { get; init; }
+        public Guid ShopId { get; init; }
+        public string CampaignName { get; init; } = string.Empty;
+        public string UtmSource { get; init; } = string.Empty;
+        public string? TrackingCode { get; init; }
     }
 }
