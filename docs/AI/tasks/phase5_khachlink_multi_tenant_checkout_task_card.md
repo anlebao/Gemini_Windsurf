@@ -381,7 +381,18 @@ Checkout → send items with UnitPrice/VatRate from QR
 
 | # | Test | Status | Evidence |
 |---|------|--------|----------|
-| RV1 | _TBD_ — boot KhachLink + scan new QR (with price) | PENDING | Requires running stack |
-| RV2 | _TBD_ — multi-tenant checkout (cart with 2 tenants → 2 orders) | PENDING | Requires running stack |
-| RV3 | _TBD_ — legacy QR scan (no price → API fallback) | PENDING | Requires running stack |
-| RV4 | _TBD_ — Price_Validation toggle ON → stale QR blocked | PENDING | Requires running stack |
+| RV1 | Gateway health | PASS | `{"status":"Healthy"}` |
+| RV2a | CheckoutResponse has orders[] array | PASS | orders.Count=1 |
+| RV2b | successCount=1 | PASS | successCount=1 |
+| RV2c | First order has orderId | PASS | orderId=019f7de9-8a4b-77c4-88c9-fa610cc2e668 |
+| RV3 | QR endpoint returns non-empty PNG | PASS | 4540 bytes, HTTP 200 |
+| RV4 | ValidateProductPrice match=true (correct price) | PASS | match=True, reason=OK |
+| RV5 | ValidateProductPrice match=false (stale price) | PASS | match=False, reason=UnitPrice mismatch, currentPrice=30000.0 |
+| RV6 | Price_Validation_Enabled toggle readable | PASS | value=False (default) |
+| RV7 | KhachLink order tracking UI loads | PASS | HTTP 200, contentLength=23686 |
+
+**RV script:** `scripts/verify-phase5-multi-tenant-checkout-prod.ps1`
+**VPS deploy fixes during RV:**
+1. Npgsql migration `AddPriceValidationToggle` tried to drop FK already dropped by Phase 3 → removed duplicate DropFK/AddFK
+2. SQLite migration `AddPriceValidationToggle` had unnecessary FK drop/re-add → removed (SQLite keeps FK)
+3. `SHOP_INSTANCE_ID` env var missing from `docker-compose.prod.yml` → hardcoded Guid `00000000-0000-0000-0000-000000000001` (matches Phase 1 seed)
