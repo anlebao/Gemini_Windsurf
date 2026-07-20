@@ -258,6 +258,15 @@ namespace VanAn.KhachLink.Services.PWA
             // Could trigger a user notification to refresh
         }
 
+        [JSInvokable]
+        public void HandlePageVisible()
+        {
+            // Called by pwa.js when document visibility changes (tab switch/navigate back).
+            // No-op for now — prevents circuit crash from invoking a missing JSInvokable method.
+            // Future: could trigger data sync or refresh order status.
+            _logger.LogDebug("Page became visible - visibilitychange event");
+        }
+
         public async ValueTask DisposeAsync()
         {
             if (_dotNetRef != null)
