@@ -46,9 +46,12 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         /// </summary>
         public async Task<IEnumerable<SocialCampaign>> GetActiveByTenantIdValueAsync(Guid tenantId, CancellationToken cancellationToken = default)
         {
+            // Use direct TenantId comparison (Known Error Pattern #1: EF Core applies
+            // TenantIdConverter automatically — never use EF.Property<Guid> or .Value)
+            var tid = new TenantId(tenantId);
             return await _context.SocialCampaigns
                 .IgnoreQueryFilters()
-                .Where(c => c.TenantId.Value == tenantId && c.IsActive)
+                .Where(c => c.TenantId == tid && c.IsActive)
                 .ToListAsync(cancellationToken);
         }
 
