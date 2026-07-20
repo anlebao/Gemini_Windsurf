@@ -124,6 +124,13 @@
                     }
                 </div>
                 <div class="form-group">
+                    <VanAInput Id="fp-vatrate" Label="VAT (%) *"
+                               Type="number" Value="@_form.VatRate.ToString()"
+                               ValueChanged="v => _form = _form with { VatRate = decimal.TryParse(v, out var r) ? r : 0.10m }"
+                               Placeholder="0.10 (10%)" Required="true" Step="0.01" Min="0" Max="1" />
+                    <small class="text-muted">@( (_form.VatRate * 100).ToString("N0") )% — 0.10 = 10%, 0.08 = 8%, 0 = không thuế</small>
+                </div>
+                <div class="form-group">
                     <VanAInput Id="fp-description" Label="Mô tả"
                                Value="@(_form.DisplayDescription ?? "")"
                                ValueChanged="v => _form = _form with { DisplayDescription = string.IsNullOrEmpty(v) ? null : v }"
@@ -241,6 +248,7 @@
             TenantId = _tenants.FirstOrDefault()?.Id.Value ?? Guid.Empty,
             DisplayName = "",
             DisplayPrice = 0,
+            VatRate = 0.10m,
             SortOrder = 0
         };
         _showModal = true;
@@ -257,6 +265,7 @@
             TenantId = item.TenantId,
             DisplayName = item.DisplayName,
             DisplayPrice = item.DisplayPrice,
+            VatRate = item.VatRate,
             DisplayDescription = item.DisplayDescription,
             ImageUrl = item.ImageUrl,
             SortOrder = item.SortOrder
@@ -301,6 +310,7 @@
                 {
                     DisplayName = _form.DisplayName,
                     DisplayPrice = _form.DisplayPrice,
+                    VatRate = _form.VatRate,
                     DisplayDescription = _form.DisplayDescription,
                     ImageUrl = _form.ImageUrl,
                     SortOrder = _form.SortOrder,
@@ -333,6 +343,7 @@
             {
                 DisplayName = item.DisplayName,
                 DisplayPrice = item.DisplayPrice,
+                VatRate = item.VatRate,
                 DisplayDescription = item.DisplayDescription,
                 ImageUrl = item.ImageUrl,
                 SortOrder = item.SortOrder,

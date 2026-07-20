@@ -39,6 +39,11 @@ namespace VanAn.Shared.Domain
         /// <summary>Display price (may differ from actual — show "from" price).</summary>
         public decimal DisplayPrice { get; protected set; }
 
+        /// <summary>VAT rate snapshot at time of featuring (e.g., 0.10 = 10%).
+        /// Stored so KhachLink can add featured products to cart without scanning QR.
+        /// May differ from Product.VatRate if product VAT changed after featuring.</summary>
+        public decimal VatRate { get; protected set; } = 0.10m;
+
         public bool IsActive { get; protected set; } = true;
 
         /// <summary>Display ordering (lower = first).</summary>
@@ -50,17 +55,20 @@ namespace VanAn.Shared.Domain
         protected FeaturedProduct() { }
 
         public FeaturedProduct(TenantId tenantId, Guid productId, string displayName, decimal displayPrice,
-            string? displayDescription = null, string? imageUrl = null, int sortOrder = 0)
+            string? displayDescription = null, string? imageUrl = null, int sortOrder = 0, decimal vatRate = 0.10m)
             : base(tenantId)
         {
             if (string.IsNullOrWhiteSpace(displayName))
                 throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
             if (displayPrice < 0)
                 throw new ArgumentException("DisplayPrice cannot be negative.", nameof(displayPrice));
+            if (vatRate < 0)
+                throw new ArgumentException("VatRate cannot be negative.", nameof(vatRate));
 
             ProductId = productId;
             DisplayName = displayName;
             DisplayPrice = displayPrice;
+            VatRate = vatRate;
             DisplayDescription = displayDescription;
             ImageUrl = imageUrl;
             SortOrder = sortOrder;
@@ -72,16 +80,16 @@ namespace VanAn.Shared.Domain
 
         /// <summary>Factory with explicit Id (for tests + migrations).</summary>
         public static FeaturedProduct Create(Guid id, TenantId tenantId, Guid productId, string displayName,
-            decimal displayPrice, string? displayDescription = null, string? imageUrl = null, int sortOrder = 0)
+            decimal displayPrice, string? displayDescription = null, string? imageUrl = null, int sortOrder = 0, decimal vatRate = 0.10m)
         {
-            var fp = new FeaturedProduct(tenantId, productId, displayName, displayPrice, displayDescription, imageUrl, sortOrder);
+            var fp = new FeaturedProduct(tenantId, productId, displayName, displayPrice, displayDescription, imageUrl, sortOrder, vatRate);
             fp.Id = id;
             fp.FeaturedProductId = new FeaturedProductId(id);
             return fp;
         }
 
         public void UpdateDisplayInfo(string displayName, decimal displayPrice, string? displayDescription,
-            string? imageUrl, int sortOrder)
+            string? imageUrl, int sortOrder, decimal? vatRate = null)
         {
             if (string.IsNullOrWhiteSpace(displayName))
                 throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
@@ -90,6 +98,8 @@ namespace VanAn.Shared.Domain
 
             DisplayName = displayName;
             DisplayPrice = displayPrice;
+            if (vatRate.HasValue && vatRate.Value >= 0)
+                VatRate = vatRate.Value;
             DisplayDescription = displayDescription;
             ImageUrl = imageUrl;
             SortOrder = sortOrder;

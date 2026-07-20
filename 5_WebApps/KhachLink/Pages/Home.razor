@@ -119,8 +119,8 @@
                                     <p class="text-muted small">@item.Description</p>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="h5 text-primary mb-0">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
-                                        <VanAnButton Size="ButtonSize.Small" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                                            Scan QR để mua
+                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddFeaturedToCart(item))">
+                                            Mua
                                         </VanAnButton>
                                     </div>
                                 </div>
@@ -198,8 +198,8 @@
                                     <h6>@item.Name</h6>
                                     <div class="d-flex justify-content-between align-items-center mt-2">
                                         <span class="text-primary fw-bold">@item.Price.ToString("N0")đ</span>
-                                        <VanAnButton Size="ButtonSize.Small" Icon="cart-plus" OnClick="@(() => AddToCart(item))">
-                                            Mua
+                                        <VanAnButton Size="ButtonSize.Small" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
+                                            Scan QR để mua
                                         </VanAnButton>
                                     </div>
                                 </div>
@@ -344,6 +344,30 @@
 
         // Show notification
         await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng!", "success");
+    }
+
+    /// <summary>
+    /// Add a Featured product (from Catalog API) directly to cart.
+    /// Featured products have full snapshot: ProductId + TenantId + DisplayName + DisplayPrice + VatRate.
+    /// No QR scan needed — admin curated the display info + VAT when creating the featured product.
+    /// </summary>
+    private async Task AddFeaturedToCart(RecommendedCatalogItem item)
+    {
+        var product = new ProductDto
+        {
+            ProductId = item.ProductId,
+            TenantId = item.TenantId,
+            Name = item.DisplayName,
+            Description = item.Description ?? string.Empty,
+            Price = item.DisplayPrice,
+            VatRate = item.VatRate,
+            ImageUrl = item.ImageUrl,
+            IsActive = true
+        };
+        await CartService.AddItemAsync(product, 1);
+        await RecentlyViewedService.AddToRecentlyViewedAsync(product);
+        recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
+        await ShowNotification($"Đã thêm {item.DisplayName} vào giỏ hàng!", "success");
     }
 
     private async Task ShowNotification(string message, string type)

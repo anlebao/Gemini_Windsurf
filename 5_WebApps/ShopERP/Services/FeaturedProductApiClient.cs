@@ -59,6 +59,7 @@ namespace VanAn.ShopERP.Services
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; }
         public bool IsActive { get; set; }
         public int SortOrder { get; set; }
         public DateTime FeaturedAt { get; set; }
@@ -70,6 +71,7 @@ namespace VanAn.ShopERP.Services
         public Guid TenantId { get; set; }
         public string DisplayName { get; set; } = "";
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; } = 0.10m;
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }
@@ -79,6 +81,7 @@ namespace VanAn.ShopERP.Services
     {
         public string DisplayName { get; set; } = "";
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; } = 0.10m;
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }

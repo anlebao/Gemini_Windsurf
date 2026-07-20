@@ -36,6 +36,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             builder.Property(e => e.DisplayPrice)
                 .HasPrecision(18, 2);
 
+            builder.Property(e => e.VatRate)
+                .HasPrecision(5, 4)
+                .HasDefaultValue(0.10m);
+
             builder.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);

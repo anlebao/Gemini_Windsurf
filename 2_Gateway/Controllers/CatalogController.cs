@@ -52,6 +52,7 @@ namespace VanAn.Gateway.Controllers
                     TenantId = f.TenantId.Value,
                     DisplayName = f.DisplayName,
                     DisplayPrice = f.DisplayPrice,
+                    VatRate = f.VatRate,
                     ImageUrl = f.ImageUrl,
                     Description = f.DisplayDescription,
                     Source = "Featured",
@@ -113,6 +114,7 @@ namespace VanAn.Gateway.Controllers
         public Guid TenantId { get; set; }
         public string DisplayName { get; set; } = "";
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; } = 0.10m;
         public string? ImageUrl { get; set; }
         public string? Description { get; set; }
         public string Source { get; set; } = "Featured"; // "Featured" | "History"

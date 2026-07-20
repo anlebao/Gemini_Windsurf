@@ -67,7 +67,8 @@ namespace VanAn.Gateway.Controllers
                 request.DisplayPrice,
                 request.DisplayDescription,
                 request.ImageUrl,
-                request.SortOrder);
+                request.SortOrder,
+                request.VatRate);
 
             _dbContext.FeaturedProducts.Add(fp);
             await _dbContext.SaveChangesAsync(ct);
@@ -90,7 +91,7 @@ namespace VanAn.Gateway.Controllers
             if (fp == null) return NotFound();
 
             fp.UpdateDisplayInfo(request.DisplayName, request.DisplayPrice,
-                request.DisplayDescription, request.ImageUrl, request.SortOrder);
+                request.DisplayDescription, request.ImageUrl, request.SortOrder, request.VatRate);
             if (request.IsActive.HasValue)
                 fp.SetActive(request.IsActive.Value);
 
@@ -122,6 +123,7 @@ namespace VanAn.Gateway.Controllers
             DisplayDescription = fp.DisplayDescription,
             ImageUrl = fp.ImageUrl,
             DisplayPrice = fp.DisplayPrice,
+            VatRate = fp.VatRate,
             IsActive = fp.IsActive,
             SortOrder = fp.SortOrder,
             FeaturedAt = fp.FeaturedAt
@@ -137,6 +139,7 @@ namespace VanAn.Gateway.Controllers
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; }
         public bool IsActive { get; set; }
         public int SortOrder { get; set; }
         public DateTime FeaturedAt { get; set; }
@@ -148,6 +151,7 @@ namespace VanAn.Gateway.Controllers
         public Guid TenantId { get; set; }
         public string DisplayName { get; set; } = "";
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; } = 0.10m;
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }
@@ -157,6 +161,7 @@ namespace VanAn.Gateway.Controllers
     {
         public string DisplayName { get; set; } = "";
         public decimal DisplayPrice { get; set; }
+        public decimal VatRate { get; set; } = 0.10m;
         public string? DisplayDescription { get; set; }
         public string? ImageUrl { get; set; }
         public int SortOrder { get; set; }

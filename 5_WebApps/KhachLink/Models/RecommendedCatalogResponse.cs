@@ -22,6 +22,7 @@ public class RecommendedCatalogItem
     public Guid TenantId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public decimal DisplayPrice { get; set; }
+    public decimal VatRate { get; set; } = 0.10m;
     public string? ImageUrl { get; set; }
     public string? Description { get; set; }
     public string Source { get; set; } = "Featured"; // "Featured" | "History"
