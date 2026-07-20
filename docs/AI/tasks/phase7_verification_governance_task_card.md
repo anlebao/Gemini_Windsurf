@@ -2,24 +2,27 @@
 
 > **Master plan:** `gateway_router_multi_vps_master_plan.md`
 > **Workflow:** `newfeaturebuild.md` (final phase — verification + deployment)
-> **Phase:** 7 of 7
-> **Depends on:** Phases 1-6 all COMPLETE
+> **Phase:** 7 of 8 (originally 7 of 7 — Phase 8 Multi-VPS E2E added per Round 2)
+> **Depends on:** Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6 ALL COMPLETE ✅
 
 ---
 
 ## 1. Use Case & Business Design
 
-**Problem:** After Phases 1-6, code is implemented but:
-1. Governance documents still describe Option B (Monolithic in-process) — must update to Option C (Router).
-2. `project_state.md` must reflect the new architecture + completed phases.
-3. VPS production needs migration + deploy + smoke test.
-4. End-to-end multi-tenant checkout must be verified on production.
-5. Payment webhook known issue (Phase 3 Q4) must be documented as tech debt.
-6. ADR-001 must be updated with v3 addendum.
+**Problem:** After Phases 1-6 + 3.6, code is implemented + deployed + RV-verified on VPS, but:
+1. Governance documents still describe Option B (Monolithic in-process) — must update to Option C (Router + Multi-VPS).
+2. `project_state.md` already partially updated during each phase — needs final consolidation pass.
+3. ADR-001 must be updated with v3 addendum (Option C supersedes Option B).
+4. End-to-end multi-tenant checkout already verified on VPS (Phase 5 RV 9/9 + Phase 6 RV 8/8) — Phase 7 re-confirms no regressions.
+5. Payment webhook known issue (Phase 3 Q4) — RESOLVED per user decision 2026-07-18 (order stays in PG, webhook unchanged). Document as closed.
+6. NATS sync dead code (commented `SyncProductUpsertAsync`) — document as tech debt for future cleanup.
+7. Phase 8 (Multi-VPS E2E) is the next phase after Phase 7 — placeholder task card needed.
 
-**Goal:** Production-ready state with updated docs, verified multi-tenant checkout, governance aligned with code.
+**Goal:** Production-ready state with updated governance docs, ADR-001 v3 addendum, final verification pass, and clear handoff to Phase 8 (Multi-VPS E2E).
 
-**Out of scope:** Payment webhook refactor (separate future task card), Playwright E2E suite (deferred per governance — separate validation phase).
+**Out of scope:** Payment webhook refactor (RESOLVED — no work needed), Playwright E2E suite (Phase 8), multi-VPS production rollout (post-Phase 8).
+
+**Note:** VPS is already deployed + healthy (vanan-gateway + vanan-shoperp + vanan-khachlink all healthy as of 2026-07-20). Phase 7 is primarily documentation + final verification — NOT a re-deploy.
 
 ---
 
@@ -156,23 +159,24 @@
 
 ## 6. Approval Gate
 
-**Production deploy requires explicit user approval.**
-- [ ] All Phases 1-6 marked COMPLETE
-- [ ] All verification gates PASS
+**Phase 7 is documentation + final verification — no production deploy needed (VPS already deployed + healthy per Phase 6 RV 8/8).**
+- [x] All Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6 marked COMPLETE
+- [ ] All verification gates PASS (build + tests + guard-check)
 - [ ] Governance + ADR + project_state updated
-- [ ] User approves VPS deploy
-- [ ] User acknowledges payment webhook known issue
-- [ ] User acknowledges rollback plan
+- [ ] User acknowledges payment webhook issue RESOLVED (no work needed)
+- [ ] User acknowledges NATS sync dead code as tech debt (future cleanup)
+- [ ] User approves Phase 8 (Multi-VPS E2E) as next phase
 
 ---
 
 ## 7. Post-Phase 7 (Future Work — NOT in this master plan)
 
-1. **Playwright E2E validation** — `playwright_e2e_gateway_router_validation_task_card.md`
-2. **Multi-VPS production rollout** — when first real customer needs separate VPS. Requires deploying additional ShopERP VPS instances with distinct `SHOP_INSTANCE_ID` env vars + creating `ShopInstance` rows in Gateway PG via admin UI.
-3. **NATS sync dead code cleanup** — remove commented `SyncProductUpsertAsync` after one release cycle.
+1. **Phase 8 — Multi-VPS E2E validation** — `phase8_multi_vps_e2e_task_card.md` (placeholder — to be created in Phase 7). Playwright E2E suite for full multi-tenant checkout flow across multiple ShopERP instances.
+2. **Multi-VPS production rollout** — when first real customer needs separate VPS. Requires deploying additional ShopERP VPS instances with distinct `SHOP_INSTANCE_ID` env vars + creating `ShopInstance` rows in Gateway PG via admin UI (Phase 6 `/admin/shop-instances` page).
+3. **NATS sync dead code cleanup** — remove commented `SyncProductUpsertAsync` after one release cycle. Document as tech debt in Phase 7.
 4. **ShopInstance auto-provisioning** — when creating new ShopInstance, auto-spin VPS via Terraform/Docker. Future.
 5. **Order status bidirectional sync review** — verify `SyncOrderStatusAsync` + `SyncOrderCompletedAsync` still needed once kitchen/POS workflows are re-audited under Option C.
+6. **CustomerRecommendationService retirement** — Phase 6 added `CatalogController` as replacement. Mark `CustomerRecommendationService` as `[Obsolete]` or delete after Phase 8 E2E verifies `CatalogController` works end-to-end.
 
 ---
 

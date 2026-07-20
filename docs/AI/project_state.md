@@ -34,7 +34,7 @@
 
 Implement the 8-phase multi-VPS checkout system per `gateway_router_multi_vps_master_plan.md`.
 
-**Status (2026-07-20): PHASE 3 + 3.5 + 4 + 5 COMPLETE — Phase 6 NEXT**
+**Status (2026-07-20): PHASE 1 + 2 + 3 + 3.5 + 4 + 5 + 3.6 + 6 COMPLETE — Phase 7 NEXT (final verification + governance)**
 - Phase 1 (Domain + Migration): ShopInstance entity + Tenant.ShopInstanceId FK + additive migration with seed + backfill. 18 new unit tests. Commit `32c832e9`. VR 13/13 PASS on local + VPS.
 - Phase 2 (Gateway ShopInstances API): IShopInstanceService + ShopInstanceService + ShopInstancesController (7 endpoints, SystemAdmin Bearer JWT). 15 unit tests PASS. VR 8/8 PASS on VPS. Commit `e95b1d64`.
 - **RoleClaimNormalizer (bonus fix):** Gateway now accepts both short-form `role` and long-form `ClaimTypes.Role` in JWT via `IClaimsTransformation`. Commit `98f1d6d8`. VR 2/2 PASS on VPS (short-form JWT works).
@@ -83,7 +83,7 @@ Implement the 8-phase multi-VPS checkout system per `gateway_router_multi_vps_ma
 - **VPS (Production):** khachvip.online — Gateway (200), ShopERP (200 healthy), KhachLink (200), PostgreSQL, NATS, Seq, Nginx. SQLite DB at `/app/keys/vanan_shoperp.db` (persistent volume `shoperp_data`). SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
 - **Multi-VPS Checkout Plan (2026-07-18 - REVIEWED & FIXED):** `gateway_router_multi_vps_master_plan.md` + 7 task cards reviewed. 15 issues fixed: NATS subject mismatch, `MarkPaidAsync` split, `GenerateAccountingEntriesAsync` visibility, `CartItem` `required TenantId` break, `IQrCodeService` QR price signature, `FeaturedProduct` entity, `CustomerRecommendationService` retirement, product stub price sync, price validation endpoint, Home.razor scan modal interactivity, `ShopFeatureSettingsEntity` wording. Plan awaits user approval before Phase 1 implementation.
 - **Tech debt:** Tier 5 - True Offline Edge. Tier 4 - Roslyn Analyzers dead code. Quick-Setup workflow steps seeding (no domain entity for workflow steps yet).
-- **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening - Multi-tenant Bug Fix Batch (2026-07-18) - Quick-Setup Real Implementation (2026-07-18). See archive for details.
+- **Completed streams (all merged to main):** KhachLink Waves 0-4 - Tiered Auth P0-P3 - Platform SystemAdmin - Stream G/F/D/C/B - Order Lifecycle - Bucket A - Order Sync Fix Track E1+E2 - VPS Data Sync Hardening - Multi-tenant Bug Fix Batch (2026-07-18) - Quick-Setup Real Implementation (2026-07-18) - **Multi-VPS Checkout Option C (Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6 — 2026-07-18 to 2026-07-20)**. See archive for details.
 
 ## 4. Next Actions
 

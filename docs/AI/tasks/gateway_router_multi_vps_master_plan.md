@@ -1,6 +1,6 @@
 # Master Plan: Gateway Order Creator + Routed Async Delivery (Option C) — Multi-VPS Checkout
 
-> **Status:** PHASE 1 + 2 + 3 + 3.5 COMPLETE — Phase 4 NEXT
+> **Status:** PHASE 1 + 2 + 3 + 3.5 + 4 + 5 + 3.6 + 6 COMPLETE — Phase 7 NEXT (final verification + governance)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT)
 > **Date opened:** 2026-07-18
 > **Architecture shift:** Option B (Monolithic in-process, 2026-07-05) → Option C (PG source of truth + routed async delivery, multi-VPS)
@@ -15,11 +15,11 @@
 | Bonus — RoleClaimNormalizer | ✅ COMPLETE | `98f1d6d8` | 2/2 PASS | Gateway accepts both short-form `role` + long-form `ClaimTypes.Role` in JWT |
 | 3 — Gateway Order Creator | ✅ COMPLETE | `cdcb639e` + `b469c88c` | 4/5 PASS (RV5 pre-existing config) | Client snapshot + multi-tenant grouping + routed outbox + drop FK + product catalog forwarding |
 | 3.5 — Accounting Consolidation | ✅ COMPLETE | `653825c1` + `5d6d589d` + `7248ec2d` | 5/5 PASS | Split MarkPaidAsync + PaymentConfirmedSubscriber + EInvoiceSyncSubscriber + OrderSyncSubscriber wildcard fix + SQLite compat fix |
-| 4 — ShopERP OrderSyncSubscriber | ⏳ NEXT | — | — | Depends on Phase 3 contract |
-| 5 — KhachLink Multi-tenant Cart | ⏸ PENDING | — | — | Depends on Phase 3 contract |
-| 6 — Admin UI | ⏸ PENDING | — | — | Depends on Phase 1, 2 |
-| 7 — Verification + Governance | ⏸ PENDING | — | — | Depends on all above |
-| **3.6 — Deferred Cleanup** (NEW) | ⏸ PENDING | — | — | Onboarding refactor + Products forwarding port fix — see `phase3.6_deferred_cleanup_task_card.md` |
+| 4 — ShopERP OrderSyncSubscriber | ✅ COMPLETE | `c38b51e5` + `e27727b1` + `e03bbebf` | 5/5 PASS (Phase 5 E2E) | Fail-fast `SHOP_INSTANCE_ID` validation + routed subjects only + UnitPrice from payload |
+| 5 — KhachLink Multi-tenant Cart | ✅ COMPLETE | `c38b51e5` + `b2dc22c0` + `8718cb84` | 9/9 PASS | CartItem.TenantId + QR with prices + Checkout.razor multi-tenant + OrderTracking + OrderHistory + Price_Validation_Enabled toggle |
+| 6 — Admin UI | ✅ COMPLETE | `5b51c09d` | 8/8 PASS | FeaturedProduct entity + CatalogController (public) + FeaturedProductsController (admin) + ShopInstances.razor + FeaturedProducts.razor + TenantManagement column + Home.razor refactor |
+| **3.6 — Deferred Cleanup** | ✅ COMPLETE | `a6413668` | 2/2 PASS | Onboarding refactor (removed product seeding) + Products forwarding port fix (explicit `ShopERP__BaseUrl` env var) |
+| 7 — Verification + Governance | ⏳ NEXT | — | — | Final verification + governance docs + ADR-001 v3 addendum + project_state update |
 
 ## 0. User Decisions (2026-07-18 — supersedes original §6 Open Questions)
 
@@ -401,13 +401,15 @@ All open questions from original draft are now resolved per user decisions (see 
 
 | Phase | Task card file | Status |
 |---|---|---|
-| 1 | `phase1_domain_migration_task_card.md` | PLANNING — domain mod approved |
-| 2 | `phase2_gateway_shop_instances_api_task_card.md` | PLANNING |
-| 3 | `phase3_gateway_router_task_card.md` | PLANNING (rewritten 2026-07-18 — client snapshot + routed outbox, NOT pure router) |
-| 4 | `phase4_shoperp_public_checkout_task_card.md` | PLANNING (rewritten 2026-07-18 — routing key update only, NOT new endpoint) |
-| 5 | `phase5_khachlink_multi_tenant_checkout_task_card.md` | PLANNING (updated 2026-07-18 — adds ProductName/VatRate snapshot to request) |
-| 6 | `phase6_admin_ui_task_card.md` | PLANNING |
-| 7 | `phase7_verification_governance_task_card.md` | PLANNING |
+| 1 | `phase1_domain_migration_task_card.md` | ✅ COMPLETE (commit `32c832e9`, VR 13/13) |
+| 2 | `phase2_gateway_shop_instances_api_task_card.md` | ✅ COMPLETE (commit `e95b1d64`, VR 8/8) |
+| 3 | `phase3_gateway_router_task_card.md` | ✅ COMPLETE (commits `cdcb639e`+`b469c88c`, VR 4/5) |
+| 3.5 | `phase3.5_accounting_consolidation_task_card.md` | ✅ COMPLETE (commits `653825c1`+`5d6d589d`+`7248ec2d`, VR 5/5) |
+| 4 | `phase4_shoperp_public_checkout_task_card.md` | ✅ COMPLETE (commits `c38b51e5`+`e27727b1`+`e03bbebf`, VR 5/5 via Phase 5 E2E) |
+| 5 | `phase5_khachlink_multi_tenant_checkout_task_card.md` | ✅ COMPLETE (commits `c38b51e5`+`b2dc22c0`+`8718cb84`, VR 9/9) |
+| 3.6 | `phase3.6_deferred_cleanup_task_card.md` | ✅ COMPLETE (commit `a6413668`, VR 2/2 + Phase 5 regression 9/9) |
+| 6 | `phase6_admin_ui_task_card.md` | ✅ COMPLETE (commit `5b51c09d`, VR 8/8) |
+| 7 | `phase7_verification_governance_task_card.md` | ⏳ NEXT (PLANNING — final verification + governance docs + ADR-001 v3 addendum) |
 
 Each task card follows `newfeaturebuild.md` workflow: ANALYZE → IMPLEMENT, with TDD plan, file list, validation gates.
 
