@@ -10,7 +10,10 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<SocialCampaign?> GetByIdAsync(Guid campaignId, CancellationToken cancellationToken = default)
         {
+            // IgnoreQueryFilters: SystemAdmin (tenant_id=Empty) needs to fetch campaigns
+            // from any tenant for admin operations (update/delete)
             return await _context.SocialCampaigns
+                .IgnoreQueryFilters()
                 .Include(c => c.Shop)
                 .FirstOrDefaultAsync(c => c.Id == campaignId, cancellationToken);
         }
