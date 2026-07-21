@@ -93,15 +93,18 @@ namespace VanAn.Gateway.Controllers
             var tenantIds = results.Select(r => r.TenantId).Where(t => t != Guid.Empty).Distinct().ToHashSet();
             if (tenantIds.Count > 0)
             {
+                // Convert to HashSet<TenantId> for LINQ translation (Tenant.Id is TenantId value object
+                // with HasConversion — Known Error Pattern #1: match types in Contains for translation.)
+                var tenantIdValues = tenantIds.Select(id => new TenantId(id)).ToHashSet();
                 var tenantNames = await _dbContext.Tenants
                     .AsNoTracking()
                     .IgnoreQueryFilters()
-                    .Where(t => tenantIds.Contains(t.Id))
+                    .Where(t => tenantIdValues.Contains(t.Id))
                     .Select(t => new { t.Id, t.Name })
                     .ToDictionaryAsync(t => t.Id, t => t.Name, ct);
                 foreach (var r in results)
                 {
-                    if (tenantNames.TryGetValue(r.TenantId, out var name))
+                    if (tenantNames.TryGetValue(new TenantId(r.TenantId), out var name))
                         r.TenantName = name ?? string.Empty;
                 }
             }

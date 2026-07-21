@@ -128,9 +128,13 @@ namespace VanAn.Gateway.Controllers
                 if (_dbContext != null)
                 {
                     var tenantIds = tenantGroups.Select(g => g.Key).ToList();
+                    // Convert to List<TenantId> for LINQ translation (Tenant.Id is TenantId value object
+                    // with HasConversion — Known Error Pattern #1: never use EF.Property<Guid> or .Value
+                    // in Where. Contains with matching type translates correctly.)
+                    var tenantIdValues = tenantIds.Select(id => new TenantId(id)).ToList();
                     var tenants = await _dbContext.Tenants
                         .IgnoreQueryFilters()
-                        .Where(t => tenantIds.Contains(t.Id))
+                        .Where(t => tenantIdValues.Contains(t.Id))
                         .Select(t => new { TenantId = t.Id.Value, t.ShopInstanceId, t.Name })
                         .ToListAsync();
                     tenantToShopInstance = tenants
