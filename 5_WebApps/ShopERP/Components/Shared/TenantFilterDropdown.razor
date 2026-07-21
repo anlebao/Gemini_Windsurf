@@ -1,6 +1,8 @@
 @* TenantFilterDropdown — SystemAdmin tenant selector for cross-tenant admin pages.
-   Shows a dropdown of all tenants (loaded from Gateway API).
-   When selected, overrides ITenantProvider so the page loads data for that tenant.
+   3 states:
+   1. "---Lọc dữ liệu---" (EMPTY) — default, page shows no data
+   2. Specific tenant — page shows data for that tenant only
+   3. "Tất cả" (ALL) — last option, page shows all data across tenants
    For non-SystemAdmin users, this component is hidden (they see their own tenant). *@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Logging
@@ -17,22 +19,28 @@
         <label class="tenant-filter-label">
             <i class="bi bi-building"></i> Tenant:
         </label>
-        <select class="tenant-filter-select" @bind="_selectedTenantId" @bind:after="OnTenantChanged">
+        <select class="tenant-filter-select" @bind="_selectedValue" @bind:after="OnTenantChanged">
+            <option value="EMPTY">---Lọc dữ liệu---</option>
             @foreach (var t in _tenants)
             {
-                <option value="@t.Id">@t.Name</option>
+                <option value="@t.Id.ToString()">@t.Name</option>
             }
+            <option value="ALL">Tất cả</option>
         </select>
     </div>
 }
 
 @code {
     private List<TenantApiDto> _tenants = new();
-    private Guid _selectedTenantId = Guid.Empty;
+    private string _selectedValue = "EMPTY";
     private bool _isVisible;
 
+    /// <summary>
+    /// Notifies parent page when filter changes.
+    /// Value is one of: "EMPTY" (no data), "ALL" (all tenants), or tenant Guid string.
+    /// </summary>
     [Parameter]
-    public EventCallback<Guid> TenantChanged { get; set; }
+    public EventCallback<string> FilterChanged { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,12 +55,8 @@
             }
 
             _tenants = await TenantApi.ListAllAsync();
-            if (_tenants.Count > 0)
-            {
-                _selectedTenantId = _tenants[0].Id;
-                TenantProvider.SetTenant(_selectedTenantId);
-                await TenantChanged.InvokeAsync(_selectedTenantId);
-            }
+            // Default = EMPTY — do NOT auto-select tenant, do NOT invoke FilterChanged.
+            // Page starts with empty list until user picks a filter.
         }
         catch (Exception ex)
         {
@@ -62,10 +66,21 @@
 
     private async Task OnTenantChanged()
     {
-        if (_selectedTenantId != Guid.Empty)
+        if (_selectedValue == "EMPTY")
         {
-            TenantProvider.SetTenant(_selectedTenantId);
-            await TenantChanged.InvokeAsync(_selectedTenantId);
+            // Empty state — clear tenant override, notify page to show nothing
+            await FilterChanged.InvokeAsync("EMPTY");
+        }
+        else if (_selectedValue == "ALL")
+        {
+            // All tenants — clear any tenant override, notify page to load all
+            await FilterChanged.InvokeAsync("ALL");
+        }
+        else if (Guid.TryParse(_selectedValue, out Guid tenantId))
+        {
+            // Specific tenant — override TenantProvider + notify page
+            TenantProvider.SetTenant(tenantId);
+            await FilterChanged.InvokeAsync(_selectedValue);
         }
     }
 }

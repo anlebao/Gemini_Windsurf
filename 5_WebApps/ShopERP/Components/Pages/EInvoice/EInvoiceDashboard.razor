@@ -11,10 +11,11 @@
 @inject ITenantProvider TenantProvider
 @inject ILogger<EInvoiceDashboard> Logger
 @inject NavigationManager NavigationManager
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="einvoice-dashboard @ThemeProvider.CurrentTheme" data-testid="einvoice-dashboard">
     <!-- Tenant Filter (SystemAdmin only) -->
-    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
+    <TenantFilterDropdown FilterChanged="OnFilterChanged" />
 
     <!-- Header -->
     <header class="page-header">
@@ -132,8 +133,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // SystemAdmin: wait for filter selection (default EMPTY = no data)
+        // Non-SystemAdmin: load own tenant data immediately
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            bool isSysAdmin = authState.User.IsInRole("SystemAdmin");
+            if (isSysAdmin)
+            {
+                // Default EMPTY — no data loaded until filter selected
+                return;
+            }
             if (!TenantProvider.HasTenant)
             {
                 Logger.LogWarning("EInvoiceDashboard: no tenant context — skipping load");
@@ -166,8 +176,21 @@
 
     private Task RefreshData() => LoadDashboardData();
 
-    private async Task OnTenantFilterChanged(Guid tenantId)
+    private async Task OnFilterChanged(string filterValue)
     {
+        if (filterValue == "EMPTY")
+        {
+            // Clear data — empty state
+            ProviderStatuses = new();
+            RecentActivities = new();
+            ActiveProviderCount = 0;
+            TodayInvoiceCount = 0;
+            ErrorCount = 0;
+            SuccessRate = 0m;
+            StateHasChanged();
+            return;
+        }
+        // "ALL" or specific tenant — load data
         await LoadDashboardData();
         StateHasChanged();
     }

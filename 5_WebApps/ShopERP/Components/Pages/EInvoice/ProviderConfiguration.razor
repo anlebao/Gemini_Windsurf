@@ -11,9 +11,10 @@
 @inject ITenantProvider TenantProvider
 @inject ILogger<ProviderConfiguration> Logger
 @inject NavigationManager NavigationManager
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="provider-configuration-page @ThemeProvider.CurrentTheme" data-testid="provider-configuration">
-    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
+    <TenantFilterDropdown FilterChanged="OnFilterChanged" />
     <header class="page-header">
         <h1>Cấu Hình Nhà Cung Cấp</h1>
         <div class="header-actions">
@@ -127,8 +128,16 @@
             LoadProviderConfig(selectedProvider);
     }
 
-    private Task OnTenantFilterChanged(Guid tenantId)
+    private Task OnFilterChanged(string filterValue)
     {
+        if (filterValue == "EMPTY")
+        {
+            // Clear config — empty state
+            ConfigModel = null;
+            selectedProvider = string.Empty;
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
         if (!string.IsNullOrEmpty(selectedProvider))
             LoadProviderConfig(selectedProvider);
         StateHasChanged();

@@ -48,7 +48,12 @@ namespace VanAn.ShopERP.Components.Pages.Admin
                 catch (Exception ex) { Logger.LogWarning(ex, "Failed to load tenants"); }
             }
 
-            await LoadUsers();
+            // SystemAdmin: default EMPTY — no data loaded until filter selected
+            // Non-SystemAdmin: load own tenant users immediately
+            if (!_isSystemAdmin)
+            {
+                await LoadUsers();
+            }
         }
 
         private async Task LoadUsers()
@@ -83,8 +88,15 @@ namespace VanAn.ShopERP.Components.Pages.Admin
             }
         }
 
-        private async Task OnTenantFilterChanged(Guid tenantId)
+        private async Task OnFilterChanged(string filterValue)
         {
+            if (filterValue == "EMPTY")
+            {
+                _users = new List<DemoUser>();
+                StateHasChanged();
+                return;
+            }
+            // "ALL" or specific tenant — load data
             await LoadUsers();
             StateHasChanged();
         }

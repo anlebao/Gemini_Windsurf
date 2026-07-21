@@ -21,7 +21,7 @@
 @attribute [Authorize(Policy = "OwnerOnly", Roles = "Owner,SystemAdmin")]
 
 <div class="user-management-page @ThemeProvider.CurrentTheme">
-    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
+    <TenantFilterDropdown FilterChanged="OnFilterChanged" />
     <header class="page-header">
         <h1>Quản lý người dùng</h1>
         <div class="header-actions">

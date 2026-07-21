@@ -11,9 +11,10 @@
 @inject ITenantProvider TenantProvider
 @inject ILogger<ProviderManagement> Logger
 @inject NavigationManager NavigationManager
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="provider-management-page @ThemeProvider.CurrentTheme" data-testid="provider-management">
-    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
+    <TenantFilterDropdown FilterChanged="OnFilterChanged" />
     <header class="page-header">
         <h1>Quản Lý Nhà Cung Cấp</h1>
         <div class="header-actions">
@@ -95,6 +96,14 @@
     {
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            bool isSysAdmin = authState.User.IsInRole("SystemAdmin");
+            if (isSysAdmin)
+            {
+                // Default EMPTY — no data loaded until filter selected
+                isLoading = false;
+                return;
+            }
             if (!TenantProvider.HasTenant)
             {
                 Logger.LogWarning("ProviderManagement: no tenant context — skipping load");
@@ -131,8 +140,14 @@
         isLoading = false;
     }
 
-    private async Task OnTenantFilterChanged(Guid tenantId)
+    private async Task OnFilterChanged(string filterValue)
     {
+        if (filterValue == "EMPTY")
+        {
+            EInvoiceProviders = new List<ProviderItem>();
+            StateHasChanged();
+            return;
+        }
         await LoadProviders();
         StateHasChanged();
     }

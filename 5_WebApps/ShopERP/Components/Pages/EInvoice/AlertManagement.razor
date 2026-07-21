@@ -10,9 +10,10 @@
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject ILogger<AlertManagement> Logger
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="alert-management-page @ThemeProvider.CurrentTheme" data-testid="alert-management">
-    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
+    <TenantFilterDropdown FilterChanged="OnFilterChanged" />
     <header class="page-header">
         <h1>Quản Lý Cảnh Báo</h1>
         <div class="header-actions">
@@ -121,6 +122,13 @@
     {
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            bool isSysAdmin = authState.User.IsInRole("SystemAdmin");
+            if (isSysAdmin)
+            {
+                // Default EMPTY — no data loaded until filter selected
+                return;
+            }
             if (!TenantProvider.HasTenant)
             {
                 Logger.LogWarning("AlertManagement: no tenant context — skipping load");
@@ -156,8 +164,14 @@
         }
     }
 
-    private async Task OnTenantFilterChanged(Guid tenantId)
+    private async Task OnFilterChanged(string filterValue)
     {
+        if (filterValue == "EMPTY")
+        {
+            Alerts = new List<AlertItem>();
+            StateHasChanged();
+            return;
+        }
         await LoadAlerts();
         StateHasChanged();
     }
