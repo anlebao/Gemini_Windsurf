@@ -22,6 +22,9 @@ namespace VanAn.CoreHub.Services
         /// <summary>Updates tenant display name and settings.</summary>
         Task UpdateProfileAsync(TenantId id, UpdateTenantProfileRequest request, CancellationToken ct = default);
 
+        /// <summary>Tenant Profile Page (2026-07-21): Update URL slug for /store/{slug} route.</summary>
+        Task UpdateSlugAsync(TenantId id, string? slug, CancellationToken ct = default);
+
         /// <summary>Suspends an active tenant (reversible).</summary>
         Task SuspendAsync(TenantId id, string reason, CancellationToken ct = default);
 
@@ -49,5 +52,6 @@ namespace VanAn.CoreHub.Services
         string? ContactEmail,
         string? ContactPhone,
         string? Address,
-        string? TaxCode);
+        string? TaxCode,
+        string? Slug = null);
 }

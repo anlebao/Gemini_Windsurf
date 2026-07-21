@@ -59,6 +59,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 // Store Finder coordinates (migrated from Shop entity, 2026-07-21)
                 settings.Property(s => s.Latitude).HasColumnName("Settings_Latitude");
                 settings.Property(s => s.Longitude).HasColumnName("Settings_Longitude");
+                // Tenant Profile Page (2026-07-21): URL slug for /store/{slug} route.
+                // Unique index — null allowed (tenants without public profile page).
+                settings.Property(s => s.Slug).HasColumnName("Settings_Slug").HasMaxLength(100);
+                settings.HasIndex(s => s.Slug).IsUnique();
             });
 
             // Audit fields from BaseEntity

@@ -16,6 +16,11 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         public double? Latitude { get; private set; }
         public double? Longitude { get; private set; }
 
+        // Tenant Profile Page (2026-07-21): URL slug for /store/{slug} route.
+        // Unique across tenants. Lowercase, alphanumeric + hyphens only. Max 100 chars.
+        // Null = no public profile page (use GUID fallback).
+        public string? Slug { get; private set; }
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 
@@ -26,7 +31,8 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             string? logoUrl = null,
             string? taxCode = null,
             double? latitude = null,
-            double? longitude = null)
+            double? longitude = null,
+            string? slug = null)
         {
             ContactEmail = contactEmail;
             ContactPhone = contactPhone;
@@ -35,22 +41,26 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             TaxCode = taxCode;
             Latitude = latitude;
             Longitude = longitude;
+            Slug = slug;
         }
 
         public TenantSettings WithContactEmail(string email)
-            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude);
+            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug);
 
         public TenantSettings WithContactPhone(string phone)
-            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude);
+            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug);
 
         public TenantSettings WithAddress(string address)
-            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude);
+            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug);
 
         public TenantSettings WithTaxCode(string taxCode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug);
 
         public TenantSettings WithCoordinates(double latitude, double longitude)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug);
+
+        public TenantSettings WithSlug(string? slug)
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug);
 
         public static TenantSettings Empty() => new(null, null, null);
     }

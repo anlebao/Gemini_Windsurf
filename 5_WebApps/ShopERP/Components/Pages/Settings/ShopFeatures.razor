@@ -127,6 +127,70 @@
                     </div>
                 </div>
 
+                <VanACard Header="Hiển thị trang cửa hàng (Tenant Profile Page)" CssClass="mt-4" data-testid="profile-card">
+                    <div class="features-form">
+                        <p class="text-muted small mb-3">
+                            Trang <code>/store/{slug}</code> trên KhachLink hiển thị 4 phần: Khuyến mãi, Showcase sản phẩm, Google Maps, Social Hub.
+                            Bật/tắt từng phần theo nhu cầu kinh doanh. Khách hàng truy cập qua nút "Tìm cửa hàng gần bạn nhất".
+                        </p>
+
+                        <div class="feature-row" data-testid="toggle-campaign-section">
+                            <div class="feature-info">
+                                <strong>Hiển thị phần Khuyến mãi (Campaign)</strong>
+                                <p class="text-muted small">Hiển thị các chương trình khuyến mãi đang hoạt động. Tắt nếu không có khuyến mãi.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="campaign-section" @bind="settings.Campaign_Section_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-vibeshowcase-section">
+                            <div class="feature-info">
+                                <strong>Hiển thị Showcase sản phẩm (VibeShowcase)</strong>
+                                <p class="text-muted small">Hiển thị sản phẩm nổi bật theo theme (Teen/Lady/Classic/Premium). Tắt nếu muốn trang tối giản.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="vibeshowcase-section" @bind="settings.VibeShowcase_Section_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-googlemap-section">
+                            <div class="feature-info">
+                                <strong>Hiển thị Google Maps</strong>
+                                <p class="text-muted small">Nhúng bản đồ Google Maps với tọa độ cửa hàng. Tắt nếu kinh doanh online (không có cửa hàng vật lý).</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="googlemap-section" @bind="settings.GoogleMap_Section_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-socialhub-section">
+                            <div class="feature-info">
+                                <strong>Hiển thị Social Hub (Facebook/TikTok)</strong>
+                                <p class="text-muted small">Nhúng trang Facebook + TikTok của cửa hàng. Tắt nếu chưa có mạng xã hội.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="socialhub-section" @bind="settings.SocialHub_Section_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-aichat">
+                            <div class="feature-info">
+                                <strong>AI Chatbox (sắp ra mắt)</strong>
+                                <p class="text-muted small">Widget chat gợi ý câu trả lời bằng AI cho khách hàng. Owner review trước khi gửi. Khi owner offline, AI tự động trả lời. <em>Hiện đang phát triển — bật sẽ không có tác dụng ngay.</em></p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="aichat" @bind="settings.AIChat_Enabled" disabled />
+                            </div>
+                        </div>
+                    </div>
+                </VanACard>
+
                 <div class="feature-row mt-4 pt-3 border-top" data-testid="setting-polling-interval">
                     <div class="feature-info">
                         <strong>Thời gian làm mới theo dõi đơn hàng (giây)</strong>

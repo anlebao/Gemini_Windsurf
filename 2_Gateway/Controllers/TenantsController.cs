@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
@@ -73,6 +74,34 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        /// <summary>
+        /// Tenant Profile Page (2026-07-21): Update URL slug for /store/{slug} route.
+        /// Slug must be lowercase, alphanumeric + hyphens, max 100 chars. Null clears the slug.
+        /// Returns 409 if slug already taken by another tenant.
+        /// </summary>
+        [HttpPut("{tenantId:guid}/slug")]
+        public async Task<ActionResult> UpdateSlug(Guid tenantId, [FromBody] UpdateSlugRequest request)
+        {
+            try
+            {
+                await _tenantService.UpdateSlugAsync(new TenantId(tenantId), request.Slug);
+                return Ok(new { success = true });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_Tenants_Settings_Slug") == true)
+            {
+                return Conflict(new { error = "Slug đã được sử dụng bởi tenant khác. Vui lòng chọn slug khác." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating slug for tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         private static TenantDto MapToDto(Tenant t) => new()
         {
             Id = t.Id,
@@ -84,6 +113,7 @@ namespace VanAn.Gateway.Controllers
             ContactPhone = t.Settings?.ContactPhone,
             Address = t.Settings?.Address,
             TaxCode = t.Settings?.TaxCode,
+            Slug = t.Settings?.Slug,
             CreatedAt = t.CreatedAt
         };
     }
@@ -99,7 +129,16 @@ namespace VanAn.Gateway.Controllers
         public string? ContactPhone { get; init; }
         public string? Address { get; init; }
         public string? TaxCode { get; init; }
+        /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
+        public string? Slug { get; init; }
         public DateTime CreatedAt { get; init; }
+    }
+
+    /// <summary>Tenant Profile Page (2026-07-21): Request body for PUT /api/v1/tenants/{id}/slug.</summary>
+    public record UpdateSlugRequest
+    {
+        /// <summary>Lowercase, alphanumeric + hyphens, max 100 chars. Null clears the slug.</summary>
+        public string? Slug { get; init; }
     }
 
     public record UpdateTenantProfileApiRequest

@@ -72,11 +72,27 @@ namespace VanAn.CoreHub.Services
                 request.ContactEmail,
                 request.ContactPhone,
                 request.Address,
-                taxCode: request.TaxCode);
+                taxCode: request.TaxCode,
+                slug: tenant.Settings?.Slug); // preserve existing slug — updated via dedicated UpdateSlugAsync
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("Tenant profile updated: {TenantId}", id.Value);
+        }
+
+        /// <summary>
+        /// Tenant Profile Page (2026-07-21): Update URL slug for /store/{slug} route.
+        /// Slug uniqueness is enforced by DB unique index (TenantConfiguration).
+        /// Throws DbUpdateException if slug already taken by another tenant.
+        /// </summary>
+        public async Task UpdateSlugAsync(TenantId id, string? slug, CancellationToken ct = default)
+        {
+            var tenant = await GetTenantByIdAsync(id, ct)
+                ?? throw new KeyNotFoundException($"Tenant {id.Value} not found.");
+
+            tenant.UpdateSlug(slug);
+            await dbContext.SaveChangesAsync(ct);
+            logger.LogInformation("Tenant slug updated: {TenantId} -> {Slug}", id.Value, slug ?? "(null)");
         }
 
         public async Task SuspendAsync(TenantId id, string reason, CancellationToken ct = default)

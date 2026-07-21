@@ -275,10 +275,16 @@ namespace VanAn.ShopERP.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("AIChat_Enabled")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("Accounting_Sync_Enabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("Campaign_Section_Enabled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
@@ -290,6 +296,9 @@ namespace VanAn.ShopERP.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
+
+                    b.Property<bool>("GoogleMap_Section_Enabled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
@@ -319,6 +328,9 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("SocialHub_Section_Enabled")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
@@ -332,6 +344,9 @@ namespace VanAn.ShopERP.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("VibeShowcase_Section_Enabled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("Voice_Note_Enabled")
                         .ValueGeneratedOnAdd()
@@ -2008,12 +2023,20 @@ namespace VanAn.ShopERP.Migrations
                                 .HasColumnType("REAL")
                                 .HasColumnName("Settings_Longitude");
 
+                            b1.Property<string>("Slug")
+                                .HasMaxLength(100)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Settings_Slug");
+
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_TaxCode");
 
                             b1.HasKey("TenantId");
+
+                            b1.HasIndex("Slug")
+                                .IsUnique();
 
                             b1.ToTable("Tenants");
 

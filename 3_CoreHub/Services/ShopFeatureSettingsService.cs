@@ -52,7 +52,12 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.EInvoice_Auto_Export_Enabled,
             settings.PollingIntervalSeconds,
             settings.VAT_Display_Enabled,
-            settings.Price_Validation_Enabled);
+            settings.Price_Validation_Enabled,
+            settings.Campaign_Section_Enabled,
+            settings.VibeShowcase_Section_Enabled,
+            settings.GoogleMap_Section_Enabled,
+            settings.SocialHub_Section_Enabled,
+            settings.AIChat_Enabled);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -72,6 +77,11 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.EInvoice_Auto_Export_Enabled) => settings.EInvoice_Auto_Export_Enabled,
             nameof(ShopFeatureSettingsDto.VAT_Display_Enabled) => settings.VAT_Display_Enabled,
             nameof(ShopFeatureSettingsDto.Price_Validation_Enabled) => settings.Price_Validation_Enabled,
+            nameof(ShopFeatureSettingsDto.Campaign_Section_Enabled) => settings.Campaign_Section_Enabled,
+            nameof(ShopFeatureSettingsDto.VibeShowcase_Section_Enabled) => settings.VibeShowcase_Section_Enabled,
+            nameof(ShopFeatureSettingsDto.GoogleMap_Section_Enabled) => settings.GoogleMap_Section_Enabled,
+            nameof(ShopFeatureSettingsDto.SocialHub_Section_Enabled) => settings.SocialHub_Section_Enabled,
+            nameof(ShopFeatureSettingsDto.AIChat_Enabled) => settings.AIChat_Enabled,
             _ => false
         };
     }
@@ -96,6 +106,11 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         EInvoice_Auto_Export_Enabled = entity.EInvoice_Auto_Export_Enabled,
         VAT_Display_Enabled = entity.VAT_Display_Enabled,
         Price_Validation_Enabled = entity.Price_Validation_Enabled,
-        PollingIntervalSeconds = entity.PollingIntervalSeconds
+        PollingIntervalSeconds = entity.PollingIntervalSeconds,
+        Campaign_Section_Enabled = entity.Campaign_Section_Enabled,
+        VibeShowcase_Section_Enabled = entity.VibeShowcase_Section_Enabled,
+        GoogleMap_Section_Enabled = entity.GoogleMap_Section_Enabled,
+        SocialHub_Section_Enabled = entity.SocialHub_Section_Enabled,
+        AIChat_Enabled = entity.AIChat_Enabled
     };
 }

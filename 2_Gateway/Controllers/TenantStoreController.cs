@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
@@ -9,7 +10,8 @@ using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 namespace VanAn.Gateway.Controllers
 {
     /// <summary>
-    /// Public Store Finder endpoints — replaced ShopsController (Shop entity removed 2026-07-21).
+    /// Public Store Finder + Tenant Profile Page endpoints.
+    /// Replaced ShopsController (Shop entity removed 2026-07-21).
     /// Queries Tenant.Settings.Latitude/Longitude for Store Finder functionality.
     /// All endpoints are anonymous (KhachLink customer app is unauthenticated).
     /// </summary>
@@ -17,13 +19,15 @@ namespace VanAn.Gateway.Controllers
     [Route("api/tenants")]
     public class TenantStoreController(
         IVanAnDbContext dbContext,
+        IShopFeatureSettingsService featureSettingsService,
         ILogger<TenantStoreController> logger) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IShopFeatureSettingsService _featureSettingsService = featureSettingsService;
         private readonly ILogger<TenantStoreController> _logger = logger;
 
         /// <summary>
-        /// Get tenant store info (name, address, phone, lat/lng) by TenantId.
+        /// Get tenant store info (name, address, phone, lat/lng, slug) by TenantId.
         /// Replaces GET /api/shops/by-tenant/{tenantId}.
         /// </summary>
         [HttpGet("{tenantId:guid}/store-info")]
@@ -50,6 +54,60 @@ namespace VanAn.Gateway.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting store info for tenant {TenantId}", tenantId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Tenant Profile Page (2026-07-21): Get tenant store info by URL slug.
+        /// Returns 404 if slug is null or not found.
+        /// Used by KhachLink /store/{slug} route.
+        /// </summary>
+        [HttpGet("by-slug/{slug}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<TenantStoreDto>> GetBySlug(string slug)
+        {
+            if (string.IsNullOrWhiteSpace(slug))
+                return NotFound();
+
+            try
+            {
+                // Normalize: lowercase, trim (matches Tenant.UpdateSlug normalization)
+                var normalizedSlug = slug.Trim().ToLowerInvariant();
+                var tenant = await _dbContext.Tenants
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Settings != null && t.Settings.Slug == normalizedSlug);
+
+                if (tenant == null)
+                    return NotFound();
+
+                return Ok(MapToStoreDto(tenant));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting tenant by slug {Slug}", slug);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        /// <summary>
+        /// Tenant Profile Page (2026-07-21): Get public feature settings for a tenant.
+        /// Returns which sections (Campaign, VibeShowcase, GoogleMap, SocialHub, AIChat) are enabled.
+        /// Anonymous — KhachLink needs this to render /store/{slug} page.
+        /// </summary>
+        [HttpGet("{tenantId:guid}/feature-settings")]
+        [AllowAnonymous]
+        public async Task<ActionResult<ShopFeatureSettingsDto>> GetFeatureSettings(Guid tenantId)
+        {
+            try
+            {
+                var settings = await _featureSettingsService.GetSettingsAsync(tenantId);
+                return Ok(settings);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting feature settings for tenant {TenantId}", tenantId);
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -93,7 +151,7 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
-        /// Search tenants by name.
+        /// Search tenants by name or slug.
         /// Replaces GET /api/shops/search.
         /// </summary>
         [HttpGet("search")]
@@ -124,7 +182,8 @@ namespace VanAn.Gateway.Controllers
             Phone = t.Settings?.ContactPhone ?? string.Empty,
             Email = t.Settings?.ContactEmail ?? string.Empty,
             Latitude = t.Settings?.Latitude,
-            Longitude = t.Settings?.Longitude
+            Longitude = t.Settings?.Longitude,
+            Slug = t.Settings?.Slug
         };
 
         private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
@@ -149,5 +208,7 @@ namespace VanAn.Gateway.Controllers
         public string Email { get; init; } = string.Empty;
         public double? Latitude { get; init; }
         public double? Longitude { get; init; }
+        /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
+        public string? Slug { get; init; }
     }
 }

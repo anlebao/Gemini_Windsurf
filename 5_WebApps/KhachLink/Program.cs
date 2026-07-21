@@ -68,6 +68,10 @@ namespace VanAn.KhachLink
             // Replaces the former IShopConfigService (CoreHub direct inject) — architectural violation fixed.
             _ = builder.Services.AddScoped<Services.Http.ShopConfigHttpService>();
 
+            // TenantProfileHttpService (2026-07-21): /store/{slug} page data loader.
+            // Loads tenant store info by slug + public feature settings (section toggles).
+            _ = builder.Services.AddScoped<Services.Http.TenantProfileHttpService>();
+
 
 
             // Register Cart Services

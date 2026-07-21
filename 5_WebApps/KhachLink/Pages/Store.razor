@@ -1,0 +1,267 @@
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Components
+@using VanAn.KhachLink.Components.Shared
+@using VanAn.KhachLink.Models
+@using VanAn.KhachLink.Services.Http
+@using VanAn.Shared.Domain
+@using VanAn.CoreHub.Services
+@page "/store/{Slug}"
+@rendermode InteractiveServer
+@inject TenantProfileHttpService TenantProfileService
+@inject ShopConfigHttpService ShopConfigService
+@inject ProductHttpService ProductService
+@inject ISocialCampaignService CampaignService
+@inject NavigationManager Navigation
+@inject ILogger<Store> Logger
+
+<PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
+
+<KhachLinkLayout>
+    @if (_loading)
+    {
+        <VanAnCard CssClass="text-center py-5 my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
+            </div>
+            <p class="mt-3 text-muted">Đang tải thông tin cửa hàng...</p>
+        </VanAnCard>
+    }
+    else if (_store is null)
+    {
+        <VanAnCard CssClass="text-center py-5 my-5">
+            <i class="bi bi-shop text-muted" style="font-size: 4rem;"></i>
+            <h3 class="mt-3">Không tìm thấy cửa hàng</h3>
+            <p class="text-muted">Trang <code>/store/@Slug</code> không tồn tại hoặc đã bị gỡ.</p>
+            <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/store-finder"))">
+                <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
+            </VanAnButton>
+        </VanAnCard>
+    }
+    else
+    {
+        // ── Store header ──────────────────────────────────────────────
+        <VanAnCard CssClass="store-header mb-4 text-center">
+            <h1 class="store-name">@_store.Name</h1>
+            @if (!string.IsNullOrWhiteSpace(_store.Address))
+            {
+                <p class="text-muted mb-1">
+                    <i class="bi bi-geo-alt"></i> @_store.Address
+                </p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_store.Phone))
+            {
+                <p class="mb-1">
+                    <i class="bi bi-telephone"></i>
+                    <a href="tel:@_store.Phone">@_store.Phone</a>
+                </p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_store.Email))
+            {
+                <p class="mb-0">
+                    <i class="bi bi-envelope"></i>
+                    <a href="mailto:@_store.Email">@_store.Email</a>
+                </p>
+            }
+        </VanAnCard>
+
+        // ── Campaign section (toggle) ─────────────────────────────────
+        @if (_features.Campaign_Section_Enabled)
+        {
+            <VanAnCard CssClass="campaign-section mb-4">
+                <div class="container">
+                    <h2 class="mb-3">
+                        <i class="bi bi-megaphone-fill text-primary"></i> Khuyến Mãi
+                    </h2>
+                    @if (_campaignLoading)
+                    {
+                        <div class="text-center py-3">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted">Đang tải khuyến mãi...</p>
+                        </div>
+                    }
+                    else if (_campaigns.Count > 0)
+                    {
+                        <div class="row g-3">
+                            @foreach (var campaign in _campaigns.Take(6))
+                            {
+                                <div class="col-12 col-md-6">
+                                    <VanAnCard Shadow="true" CssClass="h-100 campaign-card">
+                                        <div class="d-flex align-items-start gap-3">
+                                            <div class="campaign-media">
+                                                @if (!string.IsNullOrEmpty(campaign.ImageUrl))
+                                                {
+                                                    <img src="@campaign.ImageUrl" alt="@campaign.CampaignName" class="campaign-img" />
+                                                }
+                                                else if (!string.IsNullOrEmpty(campaign.VideoUrl))
+                                                {
+                                                    <div class="campaign-video-thumb" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
+                                                        <i class="bi bi-play-circle-fill text-primary" style="font-size:2rem;"></i>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="campaign-icon">
+                                                        <i class="bi bi-tag-fill text-danger" style="font-size:2rem;"></i>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="mb-1">@campaign.CampaignName</h5>
+                                                <div class="d-flex gap-3 small text-muted mb-2">
+                                                    <span><i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click</span>
+                                                    <span><i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn</span>
+                                                </div>
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
+                                                             OnClick="@(() => OpenCampaign(campaign.TrackingCode))">
+                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
+                                                </VanAnButton>
+                                            </div>
+                                        </div>
+                                    </VanAnCard>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào." />
+                    }
+                </div>
+            </VanAnCard>
+        }
+
+        // ── VibeShowcase section (toggle) ─────────────────────────────
+        @if (_features.VibeShowcase_Section_Enabled)
+        {
+            <div class="mb-4">
+                <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCart" />
+            </div>
+        }
+
+        // ── Google Maps section (toggle) ──────────────────────────────
+        @if (_features.GoogleMap_Section_Enabled)
+        {
+            <div class="mb-4">
+                <GoogleMaps ShopConfig="@_shopConfig" />
+            </div>
+        }
+
+        // ── Social Hub section (toggle) ───────────────────────────────
+        @if (_features.SocialHub_Section_Enabled)
+        {
+            <div class="mb-4">
+                <SocialHub ShopConfig="@_shopConfig" />
+            </div>
+        }
+
+        // ── AI Chatbox placeholder (Phase 4-5 — deferred) ─────────────
+        @if (_features.AIChat_Enabled)
+        {
+            <VanAnAlert Variant="AlertVariant.Info"
+                        Message="AI Chatbox đang được phát triển — sẽ ra mắt trong sprint tới." />
+        }
+    }
+</KhachLinkLayout>
+
+<style>
+    .store-header { padding: 2rem 1rem; }
+    .store-name { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .campaign-media { flex-shrink: 0; width: 100px; height: 100px; overflow: hidden; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; }
+    .campaign-img { width: 100%; height: 100%; object-fit: cover; }
+    .campaign-video-thumb { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: linear-gradient(135deg, #e9ecef, #dee2e6); }
+    .campaign-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fff3f3; border-radius: 8px; }
+</style>
+
+@code {
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    private bool _loading = true;
+    private ShopDto? _store;
+    private ShopConfig? _shopConfig;
+    private TenantFeatureSettingsDto _features = new();
+    private List<ProductDto> _products = new();
+    private List<VanAn.Shared.Domain.SocialCampaign> _campaigns = new();
+    private bool _campaignLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            // 1. Load tenant by slug
+            _store = await TenantProfileService.GetBySlugAsync(Slug);
+            if (_store is null)
+            {
+                _loading = false;
+                return;
+            }
+
+            // 2. Build ShopConfig from store data (reuse existing service logic)
+            _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_store.Id);
+
+            // 3. Load feature settings (section toggles)
+            _features = await TenantProfileService.GetFeatureSettingsAsync(_store.Id);
+
+            // 4. Parallel load: products + campaigns
+            var productsTask = LoadProductsAsync(_store.Id);
+            var campaignsTask = LoadCampaignsAsync(_store.Id);
+            await Task.WhenAll(productsTask, campaignsTask);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading Store page for slug '{Slug}'", Slug);
+            _store = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadProductsAsync(Guid tenantId)
+    {
+        try
+        {
+            // GET /api/products?shopId={tenantId} — YARP forwards to correct ShopERP (multi-VPS)
+            _products = await ProductService.GetProductsAsync(tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load products for tenant {TenantId}", tenantId);
+            _products = new();
+        }
+    }
+
+    private async Task LoadCampaignsAsync(Guid tenantId)
+    {
+        _campaignLoading = true;
+        try
+        {
+            _campaigns = await CampaignService.GetCampaignsByTenantAsync(tenantId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load campaigns for tenant {TenantId}", tenantId);
+            _campaigns = new();
+        }
+        finally
+        {
+            _campaignLoading = false;
+        }
+    }
+
+    private void AddToCart(ProductDto product)
+    {
+        // Phase 4: wire to CartService. For now, navigate to product page.
+        Logger.LogInformation("AddToCart clicked for product {ProductId} on Store page", product.ProductId);
+    }
+
+    private void OpenCampaign(string trackingCode)
+    {
+        if (!string.IsNullOrEmpty(trackingCode))
+        {
+            Navigation.NavigateTo($"/campaign/{trackingCode}", forceLoad: true);
+        }
+    }
+}

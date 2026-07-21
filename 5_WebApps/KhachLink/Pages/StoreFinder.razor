@@ -1,9 +1,11 @@
 @page "/stores"
+@page "/store-finder"
 @rendermode InteractiveServer
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Tìm cửa hàng gần bạn</PageTitle>
 
@@ -75,6 +77,15 @@
                                             </a>
                                         </div>
                                     }
+                                    @if (!string.IsNullOrEmpty(store.Slug))
+                                    {
+                                        <div class="mt-2">
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
+                                                         OnClick="@(() => Navigation.NavigateTo($"/store/{store.Slug}"))">
+                                                <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
+                                            </VanAnButton>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </VanAnCard>
@@ -127,9 +138,11 @@
         try
         {
             var client = HttpClientFactory.CreateClient("gateway");
+            // Bug fix (2026-07-21): /api/shops/nearby was removed when Shop entity was removed.
+            // Use /api/tenants/nearby (TenantStoreController) — returns TenantStoreDto list.
             var url = _userLat.HasValue && _userLng.HasValue
-                ? $"/api/shops/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_radiusKm}"
-                : "/api/shops/nearby";
+                ? $"/api/tenants/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_radiusKm}"
+                : "/api/tenants/nearby";
 
             var response = await client.GetAsync(url);
             if (response.IsSuccessStatusCode)
@@ -167,6 +180,8 @@
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public double? DistanceKm { get; set; }
+        /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
+        public string? Slug { get; set; }
     }
 
     public class GeolocationResult

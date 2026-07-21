@@ -27,6 +27,8 @@ public class ShopDto
     public bool IsActive { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+    /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
+    public string? Slug { get; set; }
 }
 
 /// <summary>

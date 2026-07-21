@@ -40,6 +40,26 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// Default OFF (trust QR snapshot). When ON, KhachLink calls /api/products/{id}/validate-price.</summary>
     public bool Price_Validation_Enabled { get; private set; }
 
+    /// <summary>Tenant Profile Page (2026-07-21): Toggle: show Campaign section on /store/{slug}.
+    /// Default ON. Owner can hide if no active campaigns.</summary>
+    public bool Campaign_Section_Enabled { get; private set; } = true;
+
+    /// <summary>Tenant Profile Page (2026-07-21): Toggle: show VibeShowcase (product showcase) section.
+    /// Default ON. Owner can hide if no products or wants minimal page.</summary>
+    public bool VibeShowcase_Section_Enabled { get; private set; } = true;
+
+    /// <summary>Tenant Profile Page (2026-07-21): Toggle: show Google Maps embed section.
+    /// Default ON. Owner can hide if no physical store (online-only business).</summary>
+    public bool GoogleMap_Section_Enabled { get; private set; } = true;
+
+    /// <summary>Tenant Profile Page (2026-07-21): Toggle: show Social Hub section (Facebook/TikTok embeds).
+    /// Default ON. Owner can hide if no social media presence.</summary>
+    public bool SocialHub_Section_Enabled { get; private set; } = true;
+
+    /// <summary>Tenant Profile Page (2026-07-21): Toggle: enable AI Chatbox widget on /store/{slug}.
+    /// Default OFF. Owner opts in to AI-assisted customer service.</summary>
+    public bool AIChat_Enabled { get; private set; }
+
     /// <summary>KhachLink OrderTracking polling interval in seconds. Default: 15. Range: 5-120.</summary>
     public int PollingIntervalSeconds { get; private set; } = 15;
 
@@ -56,6 +76,11 @@ public class ShopFeatureSettingsEntity : BaseEntity
         EInvoice_Auto_Export_Enabled = false;
         VAT_Display_Enabled = true;
         Price_Validation_Enabled = false;
+        Campaign_Section_Enabled = true;
+        VibeShowcase_Section_Enabled = true;
+        GoogleMap_Section_Enabled = true;
+        SocialHub_Section_Enabled = true;
+        AIChat_Enabled = false;
         PollingIntervalSeconds = 15;
     }
 
@@ -69,7 +94,12 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool einvoiceAutoExport,
         int pollingIntervalSeconds = 15,
         bool vatDisplay = true,
-        bool priceValidation = false)
+        bool priceValidation = false,
+        bool campaignSection = true,
+        bool vibeShowcaseSection = true,
+        bool googleMapSection = true,
+        bool socialHubSection = true,
+        bool aiChat = false)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -79,6 +109,11 @@ public class ShopFeatureSettingsEntity : BaseEntity
         EInvoice_Auto_Export_Enabled = einvoiceAutoExport;
         VAT_Display_Enabled = vatDisplay;
         Price_Validation_Enabled = priceValidation;
+        Campaign_Section_Enabled = campaignSection;
+        VibeShowcase_Section_Enabled = vibeShowcaseSection;
+        GoogleMap_Section_Enabled = googleMapSection;
+        SocialHub_Section_Enabled = socialHubSection;
+        AIChat_Enabled = aiChat;
         PollingIntervalSeconds = Math.Clamp(pollingIntervalSeconds, 5, 120);
         UpdateAudit();
     }

@@ -397,6 +397,15 @@
                     <input id="edit-taxcode" class="vanan-input" @bind="_editForm.TaxCode" />
                 </div>
                 <div class="form-group">
+                    <label for="edit-slug">URL Slug (trang cửa hàng)</label>
+                    <input id="edit-slug" class="vanan-input" @bind="_editForm.Slug"
+                           placeholder="vd: trung-nguyen-cafe (để trống = không có trang riêng)" />
+                    <small class="text-muted">
+                        Trang khách hàng: <code>/store/@(_editForm.Slug ?? "slug")</code> trên KhachLink.
+                        Chỉ chữ thường, số, dấu gạch ngang. Tối đa 100 ký tự.
+                    </small>
+                </div>
+                <div class="form-group">
                     <label for="edit-shopinstance">ShopERP Instance *</label>
                     @if (_shopInstances.Any())
                     {
@@ -709,7 +718,7 @@
         finally { _isSaving = false; }
     }
 
-    // ── Edit (assign ShopInstance + update profile) ───────────────────────────
+    // ── Edit (assign ShopInstance + update profile + slug) ───────────────────
     private void OpenEditModal(TenantApiDto t)
     {
         _selectedTenant = t;
@@ -720,6 +729,7 @@
             ContactPhone = t.ContactPhone,
             Address = t.Address,
             TaxCode = t.TaxCode,
+            Slug = t.Slug,
             ShopInstanceId = t.ShopInstanceId
         };
         _showEditModal = true;
@@ -753,6 +763,13 @@
                 Address = _editForm.Address,
                 TaxCode = _editForm.TaxCode
             });
+
+            // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
+            var normalizedSlug = string.IsNullOrWhiteSpace(_editForm.Slug) ? null : _editForm.Slug.Trim().ToLowerInvariant();
+            if (_selectedTenant.Slug != normalizedSlug)
+            {
+                await TenantApi.UpdateSlugAsync(_selectedTenant.Id, normalizedSlug);
+            }
 
             // 2. Assign ShopInstance via Gateway API (PostgreSQL) — only if changed
             if (_selectedTenant.ShopInstanceId != _editForm.ShopInstanceId)
@@ -860,6 +877,7 @@
         public string? ContactPhone { get; set; }
         public string? Address { get; set; }
         public string? TaxCode { get; set; }
+        public string? Slug { get; set; }
         public Guid? ShopInstanceId { get; set; }
     }
 

@@ -43,6 +43,15 @@ namespace VanAn.ShopERP.Services
             var resp = await HttpClient.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
         }
+
+        /// <summary>Tenant Profile Page (2026-07-21): Update URL slug for /store/{slug} route.</summary>
+        public async Task UpdateSlugAsync(Guid tenantId, string? slug, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Put, $"api/v1/tenants/{tenantId}/slug",
+                new { Slug = slug });
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
     }
 
     public record TenantApiDto
@@ -56,6 +65,8 @@ namespace VanAn.ShopERP.Services
         public string? ContactPhone { get; init; }
         public string? Address { get; init; }
         public string? TaxCode { get; init; }
+        /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
+        public string? Slug { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 

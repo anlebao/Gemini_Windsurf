@@ -17,6 +17,17 @@ public record ShopFeatureSettingsDto
     /// before checkout. Prevents stale QR codes from charging wrong amount. Default OFF (trust QR).</summary>
     public bool Price_Validation_Enabled { get; set; }
     public int PollingIntervalSeconds { get; set; } = 15;
+
+    /// <summary>Tenant Profile Page (2026-07-21): show Campaign section on /store/{slug}.</summary>
+    public bool Campaign_Section_Enabled { get; set; } = true;
+    /// <summary>Tenant Profile Page (2026-07-21): show VibeShowcase (product showcase) section.</summary>
+    public bool VibeShowcase_Section_Enabled { get; set; } = true;
+    /// <summary>Tenant Profile Page (2026-07-21): show Google Maps embed section.</summary>
+    public bool GoogleMap_Section_Enabled { get; set; } = true;
+    /// <summary>Tenant Profile Page (2026-07-21): show Social Hub section (Facebook/TikTok embeds).</summary>
+    public bool SocialHub_Section_Enabled { get; set; } = true;
+    /// <summary>Tenant Profile Page (2026-07-21): enable AI Chatbox widget. Default OFF (owner opts in).</summary>
+    public bool AIChat_Enabled { get; set; }
 }
 
 /// <summary>

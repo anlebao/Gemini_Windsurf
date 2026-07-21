@@ -173,6 +173,33 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         }
 
         /// <summary>
+        /// Tenant Profile Page (2026-07-21): Update URL slug for /store/{slug} route.
+        /// Slug must be lowercase, alphanumeric + hyphens, max 100 chars. Null clears the slug.
+        /// Uniqueness is enforced at the infrastructure layer (unique index in TenantConfiguration).
+        /// </summary>
+        public void UpdateSlug(string? slug)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update slug of an inactive tenant.");
+
+            if (!string.IsNullOrWhiteSpace(slug))
+            {
+                slug = slug.Trim().ToLowerInvariant();
+                if (slug.Length > 100)
+                    throw new ArgumentException("Slug must be at most 100 characters.", nameof(slug));
+                if (!System.Text.RegularExpressions.Regex.IsMatch(slug, @"^[a-z0-9]+(?:-[a-z0-9]+)*$"))
+                    throw new ArgumentException("Slug must be lowercase, alphanumeric, hyphen-separated.", nameof(slug));
+            }
+            else
+            {
+                slug = null;
+            }
+
+            Settings = Settings.WithSlug(slug);
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// W8 (H4 deferred from W2): Set TenantType + AccountingStandard for feature flag routing.
         /// Used to classify existing tenants created via CreateCompany (which doesn't set Type).
         /// Cannot change Type of an already-classified tenant (one-way classification).
