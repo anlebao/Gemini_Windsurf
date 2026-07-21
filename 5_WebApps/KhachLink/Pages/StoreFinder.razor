@@ -23,13 +23,15 @@
         <div class="search-box-wrapper mb-4">
             <div class="search-box-card">
                 <div class="input-group input-group-lg">
-                    <span class="input-group-text bg-white border-end-0">
+                    <button type="button" class="input-group-text bg-white border-end-0 btn-search-icon"
+                            @onclick="LoadStores" aria-label="Tìm kiếm" title="Tìm kiếm">
                         <i class="bi bi-search text-primary"></i>
-                    </span>
+                    </button>
                     <input type="text" class="form-control border-start-0 ps-0"
                            id="search-input"
                            @bind="_searchKeyword"
                            @oninput="OnSearchInput"
+                           @onkeyup="OnSearchKeyUp"
                            placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
                            aria-label="Tìm cửa hàng" />
                     @if (!string.IsNullOrWhiteSpace(_searchKeyword))
@@ -193,6 +195,13 @@
     .search-box-card .input-group-text { border-radius: 12px 0 0 12px; }
     .search-box-card .form-control { border-radius: 0 12px 12px 0; }
     .search-box-card .form-control:focus { box-shadow: none; border-color: #dee2e6; }
+    .btn-search-icon {
+        cursor: pointer;
+        border: 1px solid #dee2e6;
+        background: #fff;
+    }
+    .btn-search-icon:hover { background: #f8f9fa; }
+    .btn-search-icon:focus { outline: none; box-shadow: none; }
     .store-card-hover { transition: transform 0.2s, box-shadow 0.2s; }
     .store-card-hover:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important; }
     .store-icon-wrap {
@@ -254,6 +263,15 @@
             await LoadStores();
         }
         catch (TaskCanceledException) { /* debounce */ }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _searchDebounce?.Cancel();
+            await LoadStores();
+        }
     }
 
     private async Task ClearSearch()

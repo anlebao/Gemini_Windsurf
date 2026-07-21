@@ -30,7 +30,23 @@
 
 ## 2. Current Objective
 
-**Post-Shop-Removal Runtime Verification + Tenant.Id LINQ Bug Fix — COMPLETE (2026-07-21)**
+**KhachLink /stores Search Button Fix — COMPLETE (2026-07-21)**
+
+User reported search button on `https://diemthuong.khachvip.online/stores` not clickable. Root cause: the magnifier-glass icon in the search box was a decorative `<span class="input-group-text">` — NOT a button, so clicking it did nothing. Search was only triggered via `@oninput` debounce (300ms after typing) with no dedicated search button or Enter-key handler.
+
+**Fix (1 file):** `5_WebApps/KhachLink/Pages/StoreFinder.razor`
+- Converted search icon `<span>` → `<button type="button" @onclick="LoadStores">` — now clickable.
+- Added `@onkeyup="OnSearchKeyUp"` on the input — pressing **Enter** triggers immediate search (cancels running debounce).
+- Added `OnSearchKeyUp(KeyboardEventArgs e)` method.
+- Added `.btn-search-icon` CSS (cursor pointer, hover, no outline) to preserve input-group look.
+
+**Verification:** `dotnet build VanAn.KhachLink.csproj` → Build succeeded, 0 errors, 11 pre-existing warnings (unrelated). Ready for commit + push to trigger CD deploy.
+
+**Status: COMPLETE. Awaiting CD deploy after push.**
+
+---
+
+**PREVIOUS OBJECTIVE — Post-Shop-Removal Runtime Verification + Tenant.Id LINQ Bug Fix — COMPLETE (2026-07-21)**
 
 Shop entity removal (previous session, 221 files) deployed to VPS via CD. This session performed comprehensive runtime verification (RV) and fixed a regression batch.
 
@@ -122,7 +138,7 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `e876cf53` fix(gateway): Tenant.Id value object LINQ translation — all endpoints
+- **Last commit:** (pending) fix(khachlink): /stores search button clickable + Enter key handler
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-21):** 0 errors. VanAn.Gateway.csproj build PASS. CD runs #29825307857 + #29826651443 + #29827864998 ALL PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink + vanan-postgres + vanan-nats all healthy.
@@ -285,6 +301,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-21 -- KHACHLINK /STORES SEARCH BUTTON FIX COMPLETE.** User reported the magnifier-glass "search button" on `https://diemthuong.khachvip.online/stores` was not clickable. Root cause: the icon was a decorative `<span class="input-group-text">` (no event handler), not a `<button>`. Search only fired via `@oninput` debounce (300ms after typing) — no explicit search button or Enter-key handler. Fix in `5_WebApps/KhachLink/Pages/StoreFinder.razor`: (1) Converted search icon `<span>` → `<button type="button" @onclick="LoadStores">` with `.btn-search-icon` CSS (cursor pointer, hover, no outline) preserving input-group look. (2) Added `@onkeyup="OnSearchKeyUp"` on the input — pressing Enter triggers immediate search (cancels running debounce). (3) Added `OnSearchKeyUp(KeyboardEventArgs e)` method. `dotnet build VanAn.KhachLink.csproj` → 0 errors, 11 pre-existing warnings (unrelated). Branch: `main`. Awaiting CD deploy after push.
 
 * **2026-07-21 -- POST-SHOP-REMOVAL RV + TENANT.ID LINQ BUG FIX (PATTERN #8) COMPLETE.** Previous session removed Shop entity (221 files). This session: (1) Verified VPS deployment — all 5 VanAn containers healthy, DB schema correct (Shops dropped, SocialCampaigns.ShopId dropped, Tenants.Settings_Latitude/Longitude added, 3 tenants). (2) Discovered `TenantStoreController.GetStoreInfo` returned HTTP 500 — root cause: `Tenant.Id` is `TenantId` value object with `HasConversion`, `EF.Property<Guid>(t, "Id")` triggers IConvertible error (Pattern #1 variant). (3) First fix attempt `t.Id.Value == tenantId` failed — LINQ translation error (value object member access not translatable). (4) Final fix: `t.Id == new TenantId(tenantId)` — matches `TenantManagementService` pattern. (5) Preventive fix in `PublicOrdersController.checkout` + `CatalogController.recommended` — `guidList.Contains(t.Id)` converted to `List<TenantId>` for type-matched LINQ translation. (6) Added Known Error Pattern #8 to `.devin/rules/governance.md` — `Tenant.Id` value object LINQ translation. Reference implementations: `TenantManagementService.GetTenantByIdAsync`, `SocialCampaignRepository.GetActiveByTenantIdValueAsync`. 2 commits: `20697063` (initial TenantStore fix), `e876cf53` (batch fix all 3 controllers + Pattern #8). 3 CD runs ALL PASS. RV 6/6 PASS for tenant-based endpoints (store-info valid 200, store-info invalid 404, nearby 200, search 200, catalog/recommended 200, health 200). No errors in gateway logs after fix. Branch: `main`.
 
