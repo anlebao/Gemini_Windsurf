@@ -8,35 +8,34 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
     public class TestDataBuilder(ILogger? logger = null)
     {
         private readonly ILogger? _logger = logger;
-        private readonly List<Shop> _shops = [];
+        // Shop entity removed 2026-07-21 — track TenantIds directly instead.
+        private readonly List<TenantId> _tenantIds = [];
         private readonly List<Order> _orders = [];
         private readonly List<Customer> _customers = [];
 
         public TestDataBuilder WithShops(int count, Guid? primaryTenantId = null)
         {
+            // Shop entity removed — method kept for backward compat, now just tracks tenantIds.
             for (int i = 1; i <= count; i++)
             {
-                // First shop uses primaryTenantId (if provided) so tests can seed data
-                // that is visible through the global query filter (which filters by current tenant).
                 Guid rawId = (i == 1 && primaryTenantId.HasValue) ? primaryTenantId.Value : Guid.NewGuid();
-                TenantId tenantId = new(rawId);
-                _shops.Add(new Shop(tenantId, $"Shop {i}", $"Address {i}", $"09{i:D8}", $"shop{i}@vanan.com"));
+                _tenantIds.Add(new TenantId(rawId));
             }
             return this;
         }
 
         public TestDataBuilder WithOrders(int count, bool synced = true)
         {
-            if (_shops.Count == 0)
+            if (_tenantIds.Count == 0)
             {
-                _ = WithShops(1); // Auto-create a shop if none exists
+                _ = WithShops(1); // Auto-create a tenantId if none exists
             }
 
             for (int i = 1; i <= count; i++)
             {
-                Shop shop = _shops[i % _shops.Count]; // Round-robin shop assignment
+                TenantId tenantId = _tenantIds[i % _tenantIds.Count]; // Round-robin tenant assignment
                 decimal totalAmount = (i * 110) + (i % 2 == 0 ? 0m : 5m) - (i % 3 == 0 ? 10m : 0m);
-                _orders.Add(new Order(shop.TenantId, null, totalAmount)); // null customerId avoids FK constraint
+                _orders.Add(new Order(tenantId, null, totalAmount)); // null customerId avoids FK constraint
             }
             return this;
         }
@@ -45,7 +44,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         {
             for (int i = 1; i <= count; i++)
             {
-                TenantId customerTenantId = _shops.Count > 0 ? _shops[i % _shops.Count].TenantId : new TenantId(Guid.NewGuid());
+                TenantId customerTenantId = _tenantIds.Count > 0 ? _tenantIds[i % _tenantIds.Count] : new TenantId(Guid.NewGuid());
                 _customers.Add(new Customer(customerTenantId, $"Customer {i}", $"555000{i:D4}", $"customer{i}@example.com"));
             }
             return this;
@@ -82,17 +81,10 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM OrderItems");
                 _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM Orders");
                 _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM Customers");
-                _ = await context.Database.ExecuteSqlRawAsync("DELETE FROM Shops");
 
-                _logger?.LogInformation("[TestDataBuilder] Cleared existing data. Shops: {ShopsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", _shops.Count, _orders.Count, _customers.Count);
+                _logger?.LogInformation("[TestDataBuilder] Cleared existing data. TenantIds: {TenantIdsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", _tenantIds.Count, _orders.Count, _customers.Count);
 
                 // Add new data in proper order (parent first)
-                if (_shops.Count > 0)
-                {
-                    await context.Shops.AddRangeAsync(_shops);
-                    _ = await context.SaveChangesAsync();
-                }
-
                 if (_customers.Count > 0)
                 {
                     await context.Customers.AddRangeAsync(_customers);
@@ -106,7 +98,7 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                 }
 
                 await transaction.CommitAsync();
-                _logger?.LogInformation("[TestDataBuilder] Test data built successfully. Final counts - Shops: {ShopsCount}, Orders: {OrdersCount}, Customers: {CustomersCount}", await context.Shops.CountAsync(), await context.Orders.CountAsync(), await context.Customers.CountAsync());
+                _logger?.LogInformation("[TestDataBuilder] Test data built successfully. Final counts - Orders: {OrdersCount}, Customers: {CustomersCount}", await context.Orders.CountAsync(), await context.Customers.CountAsync());
             }
             catch
             {

@@ -20,7 +20,7 @@ namespace VanAn.CoreHub.Services
             await Task.Delay(10);
             return new ShopConfig
             {
-                ShopId = shopId,
+                TenantId = shopId,
                 ShopName = "Vạn An Group",
                 PrimaryColor = "#8B4513",
                 SecondaryColor = "#D2691E",

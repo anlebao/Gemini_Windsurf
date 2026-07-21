@@ -10,7 +10,7 @@
 @using VanAn.Shared.Domain.Common
 @using VanAn.ShopERP.Services
 @inject CampaignApiClient CampaignApi
-@inject ShopApiClient ShopApi
+@* ShopApiClient removed 2026-07-21 — Shop entity deleted. *@
 @inject ITenantManagementService TenantService
 @inject IThemeProvider ThemeProvider
 @inject ILogger<CampaignsAdmin> Logger
@@ -76,14 +76,7 @@
                             <td><strong>@item.CampaignName</strong></td>
                             <td>@GetTenantName(item.TenantId)</td>
                             <td>
-                                @if (item.ShopId.HasValue && item.ShopId != Guid.Empty)
-                                {
-                                    <span class="badge badge-shop">1 Shop</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-tenant">Toàn Tenant</span>
-                                }
+                                <span class="badge badge-tenant">Toàn Tenant</span>
                             </td>
                             <td>@(string.IsNullOrEmpty(item.UtmSource) ? "-" : item.UtmSource)</td>
                             <td><code>@item.TrackingCode</code></td>
@@ -131,26 +124,6 @@
                     }
                 </div>
                 <div class="form-group">
-                    <label>Cửa hàng (Shop) — không bắt buộc</label>
-                    <select class="vanan-input" @bind="_form.ShopId" disabled="@_isEdit">
-                        <option value="">-- Toàn bộ cửa hàng trong Tenant --</option>
-                        @foreach (var s in _shops)
-                        {
-                            <option value="@s.Id">@s.Name</option>
-                        }
-                    </select>
-                    <small class="form-text text-muted">
-                        @if (_shops.Count == 0 && _form.TenantId != Guid.Empty)
-                        {
-                            <span class="text-danger">Tenant này chưa có Shop. Campaign sẽ áp dụng cho toàn bộ tenant.</span>
-                        }
-                        else
-                        {
-                            <span>Để trống = áp dụng cho toàn bộ tenant. Chọn 1 shop = chỉ áp dụng cho shop đó.</span>
-                        }
-                    </small>
-                </div>
-                <div class="form-group">
                     <VanAInput Id="campaign-name" Label="Tên Campaign *"
                                Value="@_form.CampaignName"
                                ValueChanged="v => _form.CampaignName = v"
@@ -196,7 +169,6 @@
 @code {
     private List<CampaignDto> _items = new();
     private List<TenantInfo> _tenants = new();
-    private List<ShopDto> _shops = new();
     private bool _isLoading = true;
     private bool _showModal;
     private bool _isEdit;
@@ -257,28 +229,6 @@
     {
         var tenantId = Guid.TryParse(e.Value?.ToString(), out var tid) ? tid : Guid.Empty;
         _form.TenantId = tenantId;
-        _form.ShopId = null;
-        await LoadShopsForTenant(tenantId);
-    }
-
-    private async Task LoadShopsForTenant(Guid tenantId)
-    {
-        if (tenantId == Guid.Empty)
-        {
-            _shops = new();
-            return;
-        }
-
-        try
-        {
-            var allShops = await ShopApi.ListAllAsync();
-            _shops = allShops.Where(s => s.TenantId == tenantId).ToList();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to load shops for tenant {TenantId}", tenantId);
-            _shops = new();
-        }
     }
 
     private void OpenCreateModal()
@@ -286,7 +236,6 @@
         _isEdit = false;
         _editId = null;
         _form = new CampaignForm { IsActive = true };
-        _shops = new();
         _showModal = true;
     }
 
@@ -297,7 +246,6 @@
         _form = new CampaignForm
         {
             TenantId = item.TenantId,
-            ShopId = item.ShopId,
             CampaignName = item.CampaignName,
             UtmSource = item.UtmSource,
             TrackingCode = item.TrackingCode,
@@ -305,7 +253,6 @@
             VideoUrl = item.VideoUrl,
             IsActive = item.IsActive
         };
-        await LoadShopsForTenant(item.TenantId);
         _showModal = true;
     }
 
@@ -347,7 +294,6 @@
                 await CampaignApi.CreateAsync(new CreateCampaignRequest
                 {
                     TenantId = _form.TenantId,
-                    ShopId = _form.ShopId,
                     CampaignName = _form.CampaignName,
                     UtmSource = _form.UtmSource,
                     TrackingCode = _form.TrackingCode,
@@ -387,7 +333,6 @@
     private class CampaignForm
     {
         public Guid TenantId { get; set; }
-        public Guid? ShopId { get; set; }       // null = all shops in tenant
         public string CampaignName { get; set; } = string.Empty;
         public string UtmSource { get; set; } = string.Empty;
         public string? TrackingCode { get; set; }

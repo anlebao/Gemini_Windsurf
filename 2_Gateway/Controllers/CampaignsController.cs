@@ -100,14 +100,16 @@ namespace VanAn.Gateway.Controllers
         [AllowAnonymous]
         public async Task<ActionResult<List<SocialCampaign>>> GetByShop(Guid shopId)
         {
+            // Shop entity removed 2026-07-21 — redirect to by-tenant endpoint.
+            // shopId parameter is now interpreted as tenantId for backward compat.
             try
             {
-                List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByShopAsync(shopId);
+                List<SocialCampaign> campaigns = await _socialCampaignService.GetCampaignsByTenantAsync(shopId);
                 return Ok(campaigns);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching campaigns for shop {ShopId}", shopId);
+                _logger.LogError(ex, "Error fetching campaigns for tenant (legacy shopId) {ShopId}", shopId);
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
@@ -183,8 +185,7 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(new { error = "CampaignName is required" });
                 }
 
-                // ShopId is OPTIONAL — null means campaign applies to ALL shops in the tenant
-                Guid? shopId = (request.ShopId == null || request.ShopId == Guid.Empty) ? null : request.ShopId;
+                // ShopId removed 2026-07-21 — campaigns are tenant-wide only.
 
                 // Generate tracking code if not provided
                 var trackingCode = string.IsNullOrWhiteSpace(request.TrackingCode)
@@ -193,7 +194,6 @@ namespace VanAn.Gateway.Controllers
 
                 var campaign = new SocialCampaign(
                     new TenantId(request.TenantId),
-                    shopId,
                     request.UtmSource ?? string.Empty,
                     request.CampaignName,
                     trackingCode);
@@ -222,10 +222,9 @@ namespace VanAn.Gateway.Controllers
                     return NotFound(new { error = "Campaign not found" });
                 }
 
-                // Build updated campaign with same Id/TenantId/ShopId
+                // Build updated campaign with same Id/TenantId
                 var updated = new SocialCampaign(
                     existing.TenantId,
-                    existing.ShopId,
                     request.UtmSource ?? existing.UtmSource,
                     request.CampaignName ?? existing.CampaignName,
                     request.TrackingCode ?? existing.TrackingCode);
@@ -264,7 +263,6 @@ namespace VanAn.Gateway.Controllers
     public record CreateCampaignRequest
     {
         public Guid TenantId { get; init; }
-        public Guid? ShopId { get; init; }       // null = applies to all shops in tenant
         public string CampaignName { get; init; } = string.Empty;
         public string UtmSource { get; init; } = string.Empty;
         public string? TrackingCode { get; init; }

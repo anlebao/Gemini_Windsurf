@@ -87,12 +87,11 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
                     return false;
                 }
 
-                // Test basic query on key tables
-                int shopCount = await context.Shops.CountAsync();
+                // Test basic query on key tables (Shop entity removed 2026-07-21)
                 int orderCount = await context.Orders.CountAsync();
 
-                _logger?.LogInformation("Schema validation successful - Shops: {ShopCount}, Orders: {OrderCount}",
-                    shopCount, orderCount);
+                _logger?.LogInformation("Schema validation successful - Orders: {OrderCount}",
+                    orderCount);
 
                 return true;
             }

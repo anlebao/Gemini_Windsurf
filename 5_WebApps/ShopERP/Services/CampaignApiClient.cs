@@ -61,7 +61,6 @@ namespace VanAn.ShopERP.Services
         public Guid Id { get; set; }
         [JsonPropertyName("tenantId")]
         public JsonElement TenantIdElement { get; set; }
-        public Guid? ShopId { get; set; }
         public string CampaignName { get; set; } = "";
         public string UtmSource { get; set; } = "";
         public string TrackingCode { get; set; } = "";
@@ -88,7 +87,6 @@ namespace VanAn.ShopERP.Services
     public record CreateCampaignRequest
     {
         public Guid TenantId { get; init; }
-        public Guid? ShopId { get; init; }       // null = all shops in tenant
         public string CampaignName { get; init; } = "";
         public string UtmSource { get; init; } = "";
         public string? TrackingCode { get; init; }

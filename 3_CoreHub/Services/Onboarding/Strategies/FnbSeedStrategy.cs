@@ -22,8 +22,6 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             CancellationToken ct = default)
         {
             // ── 1. Default Shop ───────────────────────────────────────────────────
-            var shop = new Shop(tenantId, "Vạn An F&B", "123 Nguyễn Huệ, Q1, TP.HCM", "1900-1234", "fnb@vanan.vn");
-            await dbContext.Shops.AddAsync(shop, ct);
 
             // ── 2. Products — Cà phê (7) ──────────────────────────────────────────
             var cafeDenDa = new Product(tenantId, "Cà phê đen đá", "Cà phê pha phin truyền thống", 25_000m, "Cà phê");

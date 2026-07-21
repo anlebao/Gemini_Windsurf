@@ -52,8 +52,7 @@ namespace VanAn.CoreHub.Infrastructure
         // Demo Users for Multi-Role ShopERP
         public DbSet<DemoUser> Users { get; set; }
 
-        // Multi-tenant Shops
-        public DbSet<Shop> Shops { get; set; }
+        // Shop entity removed 2026-07-21 — Tenant is the single identity.
 
         // HKD Business Tenants — Wave 5: now uses Rich Domain TenantAggregate.Tenant
         public DbSet<Tenant> Tenants { get; set; }
@@ -130,7 +129,6 @@ namespace VanAn.CoreHub.Infrastructure
             modelBuilder.Ignore<IngredientId>();
             modelBuilder.Ignore<RecipeId>();
             modelBuilder.Ignore<InventoryId>();
-            modelBuilder.Ignore<ShopId>();
             modelBuilder.Ignore<JournalEntryId>();
             modelBuilder.Ignore<OrderItemId>();
             modelBuilder.Ignore<OrderStatusId>();
@@ -219,10 +217,11 @@ namespace VanAn.CoreHub.Infrastructure
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // NOTE: Shop, DemoUser, SocialCampaign, LoyaltyRewards configurations moved to
+            // NOTE: DemoUser, SocialCampaign, LoyaltyRewards configurations moved to
             // dedicated IEntityTypeConfiguration files to support TenantId value object converter
-            // Configurations: ShopConfiguration.cs, DemoUserConfiguration.cs,
-            //                 SocialCampaignConfiguration.cs, LoyaltyRewardsConfiguration.cs
+            // Configurations: DemoUserConfiguration.cs, SocialCampaignConfiguration.cs,
+            //                 LoyaltyRewardsConfiguration.cs
+            // (ShopConfiguration removed 2026-07-21 — Shop entity deleted)
 
 
             // 🛡️ GLOBAL QUERY FILTERS - Multi-tenancy isolation for other entities

@@ -39,20 +39,7 @@ public static class TestEntityBuilder
         );
     }
 
-    /// <summary>
-    /// Creates a test Shop with proper tenant context
-    /// Uses public constructor: Shop(TenantId tenantId, string name, string address, string phone, string email)
-    /// </summary>
-    public static Shop CreateShop(TenantId tenantId, string? name = null, string? address = null, string? phone = null, string? email = null)
-    {
-        return new Shop(
-            tenantId,
-            name ?? "Test Shop",
-            address ?? "123 Test Street",
-            phone ?? "1234567890",
-            email ?? "shop@example.com"
-        );
-    }
+    // CreateShop removed 2026-07-21 — Shop entity deleted.
 
     /// <summary>
     /// Creates a test Order with proper tenant context
@@ -169,16 +156,16 @@ public static class TestEntityBuilder
     }
 
     /// <summary>
-    /// Creates a complete test scenario with Customer, Shop, and Order
+    /// Creates a complete test scenario with Customer and Order.
+    /// Shop entity removed 2026-07-21 — scenario now returns (Customer, Order) only.
     /// </summary>
-    public static (Customer customer, Shop shop, Order order) CreateTestScenario(TenantId? tenantId = null)
+    public static (Customer customer, Order order) CreateTestScenario(TenantId? tenantId = null)
     {
         var testTenantId = tenantId ?? CreateTenantId();
         var customer = CreateCustomer(testTenantId);
-        var shop = CreateShop(testTenantId);
         var order = CreateOrder(testTenantId, customer.Id);
 
-        return (customer, shop, order);
+        return (customer, order);
     }
 
     /// <summary>

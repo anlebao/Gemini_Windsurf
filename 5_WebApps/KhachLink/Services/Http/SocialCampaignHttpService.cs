@@ -42,9 +42,9 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<List<SocialCampaign>> GetCampaignsByShopAsync(Guid shopId)
         {
-            var response = await _httpClient.GetAsync($"api/campaigns/by-shop/{shopId}");
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<List<SocialCampaign>>() ?? [];
+            // Shop entity removed 2026-07-21 — by-shop endpoint now redirects to by-tenant.
+            // shopId parameter is interpreted as tenantId for backward compat.
+            return await GetCampaignsByTenantAsync(shopId);
         }
 
         /// <summary>

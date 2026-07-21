@@ -431,7 +431,6 @@ namespace VanAn.Shared.Domain
         public static readonly OrderStatusId Cancelled = new("cancelled");
         public static readonly OrderStatusId Processing = new("preparing"); // Alias for compatibility
     };
-    public record ShopId(Guid Value);
 
     // Identity Schema - RBAC for ShopERP
     [Obsolete("Use VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole instead.")]
@@ -510,51 +509,8 @@ namespace VanAn.Shared.Domain
     }
 
     // Core Entities với Multi-tenancy
-    public class Shop : BaseEntity, IMustHaveTenant
-    {
-        public string Name { get; protected set; } = string.Empty;
-        public string Address { get; protected set; } = string.Empty;
-        public string Phone { get; protected set; } = string.Empty;
-        public string Email { get; protected set; } = string.Empty;
-        public bool IsActive { get; protected set; } = true;
-
-        // W17-T5: Store Finder — geographic coordinates (approved Domain change)
-        public double? Latitude { get; protected set; }
-        public double? Longitude { get; protected set; }
-
-        // PHASE 2: Navigation Properties for Social Flywheel
-        public virtual ICollection<SocialCampaign> SocialCampaigns { get; } = new Collection<SocialCampaign>();
-
-        protected Shop() { }
-
-        public Shop(TenantId tenantId, string name, string address, string phone, string email)
-            : base(tenantId)
-        {
-            Name = name;
-            Address = address;
-            Phone = phone;
-            Email = email;
-        }
-
-        // Business methods for shop management
-        public void UpdateShopDetails(string name, string address, string phone, string email, bool isActive)
-        {
-            Name = name;
-            Address = address;
-            Phone = phone;
-            Email = email;
-            IsActive = isActive;
-            UpdateAudit();
-        }
-
-        // W17-T5: Set geographic coordinates for Store Finder
-        public void SetCoordinates(double latitude, double longitude)
-        {
-            Latitude = latitude;
-            Longitude = longitude;
-            UpdateAudit();
-        }
-    }
+    // NOTE: Shop entity removed 2026-07-21 — Tenant is the single identity (shop/company/HKD).
+    // Store Finder coordinates moved to TenantSettings.Latitude/Longitude.
 
     public class Product : BaseEntity
     {
@@ -1328,10 +1284,11 @@ namespace VanAn.Shared.Domain
     }
 
     // Multi-Tenant UI Models
+    // Renamed from ShopConfig → TenantConfig (2026-07-21, Shop entity removed)
     public record ShopConfig
     {
-        public Guid ShopId { get; init; } = Guid.TryParse("00000000-0000-0000-0000-000000000001", out Guid defaultShopId) ? defaultShopId : Guid.NewGuid();
-        public string ShopName { get; init; } = "Vạn An Group"; // Default name
+        public Guid TenantId { get; init; } = Guid.TryParse("00000000-0000-0000-0000-000000000001", out Guid defaultTenantId) ? defaultTenantId : Guid.NewGuid();
+        public string ShopName { get; init; } = "Vạn An Group"; // Default name (kept for UI compat)
         public string PrimaryColor { get; init; } = "#8B4513"; // Default brown
         public string SecondaryColor { get; init; } = "#D2691E"; // Default chocolate
         public Uri LogoUrl { get; init; } = new Uri("/images/vanan-default-logo.png", UriKind.Relative);
@@ -1381,7 +1338,6 @@ namespace VanAn.Shared.Domain
     // Social Campaign for O2O Flywheel
     public class SocialCampaign : BaseEntity, IMustHaveTenant
     {
-        public Guid? ShopId { get; protected set; }
         public string UtmSource { get; protected set; } = string.Empty;
         public string CampaignName { get; protected set; } = string.Empty;
         public string TrackingCode { get; protected set; } = string.Empty;
@@ -1391,15 +1347,11 @@ namespace VanAn.Shared.Domain
         public int ConvertedOrders { get; protected set; }
         public bool IsActive { get; protected set; } = true;
 
-        // Navigation Properties
-        public virtual Shop? Shop { get; protected set; }
-
         protected SocialCampaign() { }
 
-        public SocialCampaign(TenantId tenantId, Guid? shopId, string utmSource, string campaignName, string trackingCode)
+        public SocialCampaign(TenantId tenantId, string utmSource, string campaignName, string trackingCode)
             : base(tenantId)
         {
-            ShopId = shopId;
             UtmSource = utmSource;
             CampaignName = campaignName;
             TrackingCode = trackingCode;

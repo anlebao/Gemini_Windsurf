@@ -189,18 +189,7 @@ namespace VanAn.Core.Tests.Services.Onboarding
             Assert.All(recipes, r => Assert.Equal(TestTenantId, r.TenantId));
         }
 
-        [Fact]
-        public async Task SeedAsync_AllShops_HaveCorrectTenantId()
-        {
-            await _strategy.SeedAsync(TestTenantId, _scope.Context);
-            await _scope.Context.SaveChangesAsync();
-
-            var shops = await _scope.Context.Shops
-                .IgnoreQueryFilters()
-                .ToListAsync();
-
-            Assert.All(shops, s => Assert.Equal(TestTenantId, s.TenantId));
-        }
+        // SeedAsync_AllShops_HaveCorrectTenantId test removed 2026-07-21 — Shop entity deleted.
 
         // ── Products are active ───────────────────────────────────────────────────
 
@@ -290,20 +279,7 @@ namespace VanAn.Core.Tests.Services.Onboarding
             Assert.Equal(ingredientCount, inventoryCount);
         }
 
-        // ── Default shop has correct name ─────────────────────────────────────────
-
-        [Fact]
-        public async Task SeedAsync_DefaultShop_HasCorrectName()
-        {
-            await _strategy.SeedAsync(TestTenantId, _scope.Context);
-            await _scope.Context.SaveChangesAsync();
-
-            var shop = await _scope.Context.Shops
-                .IgnoreQueryFilters()
-                .FirstAsync();
-
-            Assert.Equal("Vạn An F&B", shop.Name);
-        }
+        // SeedAsync_DefaultShop_HasCorrectName test removed 2026-07-21 — Shop entity deleted.
 
         // ── Products include both drink and food categories ───────────────────────
 

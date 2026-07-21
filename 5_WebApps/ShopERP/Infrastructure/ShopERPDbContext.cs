@@ -27,8 +27,7 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
 
-        // Shop entity (W17-T5: Store Finder)
-        public DbSet<Shop> Shops { get; set; }
+        // Shop entity removed 2026-07-21 — Tenant is the single identity.
 
         // Outbox pattern tables
         public DbSet<CoreOutboxMessage> OutboxMessages { get; set; }
@@ -128,9 +127,6 @@ namespace VanAn.ShopERP.Infrastructure
 
             _ = configurationBuilder.Properties<OrderStatusId>()
                 .HaveConversion<OrderStatusIdConverter>();
-
-            _ = configurationBuilder.Properties<ShopId>()
-                .HaveConversion<ShopIdConverter>();
 
             _ = configurationBuilder.Properties<OrderItemId>()
                 .HaveConversion<OrderItemIdConverter>();

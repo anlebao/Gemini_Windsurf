@@ -159,12 +159,7 @@ public class TenantOnboardingIntegrationTests : IClassFixture<GatewayWebApplicat
         Assert.Equal(UserRole.Owner, userTenant.Role);
 
         // SC4 (Phase 3.6): NO seed data created for the new tenant (seeding deferred to QuickSetup)
-        var shopCount = await db.Shops
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .CountAsync(s => s.TenantId == new TenantId(tenantIdGuid));
-        Assert.Equal(0, shopCount);
-
+        // Shop entity removed 2026-07-21 — no Shops table to check.
         var productCount = await db.Products
             .IgnoreQueryFilters()
             .AsNoTracking()

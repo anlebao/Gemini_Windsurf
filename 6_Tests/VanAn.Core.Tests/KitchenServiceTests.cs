@@ -30,9 +30,6 @@ namespace VanAn.CoreHub.Tests
 
             // Create shop
             TenantId shopTenantId = new(shopId);
-            Shop shop = new(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
-            _ = await Context.Shops.AddAsync(shop);
-
             Product product = new(shopTenantId, "Cà phê noir", "Cà phê nguyên chất", 25000m, "Coffee", true, null, 0.10m);
             _ = await Context.Products.AddAsync(product);
 
@@ -79,7 +76,7 @@ namespace VanAn.CoreHub.Tests
         public async Task GetGroupedItems_Should_OrderGroups_ByOldestOrderTime_FIFO()
         {
             // Arrange
-            Guid shopId = Context.Shops.FirstOrDefault()?.Id ?? Guid.Empty;
+            Guid shopId = ActiveTenantId;
             if (shopId == Guid.Empty)
             {
                 Assert.True(true, "Test data not properly seeded");
@@ -204,7 +201,7 @@ namespace VanAn.CoreHub.Tests
         public async Task GetGroupedItems_Should_IncludeVoiceNotes_InGroupedItems()
         {
             // Arrange
-            Guid shopId = Context.Shops.FirstOrDefault()?.Id ?? Guid.Empty;
+            Guid shopId = ActiveTenantId;
             Guid productId = Context.Products.FirstOrDefault(p => p.Name == "Cà phê đen")?.Id ?? Guid.Empty;
             string voiceNoteText = "Cà phê đen không đường, nhiều đá";
 
@@ -263,10 +260,6 @@ namespace VanAn.CoreHub.Tests
             // Arrange
             Guid shopId = ActiveTenantId;
             TenantId shopTenantId = new(shopId);
-
-            Shop shop = new(shopTenantId, "Test Shop", "Test Address", "0901234567", "test@shop.com");
-            _ = await Context.Shops.AddAsync(shop);
-
             Product product = new(shopTenantId, "Cà phê sữa", "Cà phê sữa đá", 30000m, "Coffee", true, null, 0.10m);
             _ = await Context.Products.AddAsync(product);
 
@@ -313,10 +306,6 @@ namespace VanAn.CoreHub.Tests
             // Arrange
             Guid shopId = ActiveTenantId;
             TenantId shopTenantId = new(shopId);
-
-            Shop shop = new(shopTenantId, "Test Shop 2", "Test Address", "0901234567", "test@shop.com");
-            _ = await Context.Shops.AddAsync(shop);
-
             Product product = new(shopTenantId, "Trà đào", "Trà đào cam sả", 35000m, "Tea", true, null, 0.10m);
             _ = await Context.Products.AddAsync(product);
 

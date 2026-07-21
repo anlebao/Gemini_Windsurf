@@ -17,6 +17,7 @@ namespace VanAn.KhachLink.Pages
         public string Keyframes { get; set; } = "fade-in";
         public List<ProductDto> Products { get; set; } = [];
 
+        // shopId query param kept for backward compat with old campaign URLs — now interpreted as tenantId.
         [FromQuery(Name = "shopId")]
         public Guid? ShopId { get; set; }
 
@@ -37,8 +38,9 @@ namespace VanAn.KhachLink.Pages
                 return NotFound();
             }
 
-            Guid resolvedShopId = ShopId ?? Campaign.ShopId ?? Guid.Empty;
-            Products = await _productService.GetProductsAsync(resolvedShopId);
+            // Shop entity removed 2026-07-21 — use Campaign.TenantId (or legacy shopId param as fallback).
+            Guid resolvedTenantId = ShopId ?? Campaign.TenantId.Value;
+            Products = await _productService.GetProductsAsync(resolvedTenantId);
 
             return Page();
         }

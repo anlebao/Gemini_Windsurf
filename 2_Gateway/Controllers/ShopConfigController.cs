@@ -33,9 +33,9 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                if (config.ShopId != shopId)
+                if (config.TenantId != shopId)
                 {
-                    return BadRequest(new { error = "Shop ID mismatch" });
+                    return BadRequest(new { error = "Tenant ID mismatch" });
                 }
 
                 Task<ShopConfig> updated = _shopConfigService.UpdateShopConfigAsync(config);

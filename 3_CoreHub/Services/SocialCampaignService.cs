@@ -19,7 +19,7 @@ namespace VanAn.CoreHub.Services
             _ = await _repository.AddAsync(campaign);
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation("Created social campaign {CampaignId} for shop {ShopId}", campaign.Id, campaign.ShopId);
+            _logger.LogInformation("Created social campaign {CampaignId} for tenant {TenantId}", campaign.Id, campaign.TenantId.Value);
             return campaign;
         }
 

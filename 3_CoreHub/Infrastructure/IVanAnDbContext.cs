@@ -24,7 +24,6 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Inventory> Inventories { get; }
         DbSet<Ingredient> Ingredients { get; }
         DbSet<Recipe> Recipes { get; }
-        DbSet<Shop> Shops { get; }
         DbSet<LoyaltyRewards> LoyaltyRewards { get; }
         DbSet<SocialCampaign> SocialCampaigns { get; }
         DbSet<OutboxMessage> OutboxMessages { get; }

@@ -268,7 +268,9 @@
         }
 
         // Legacy path: old QR codes (no price/VAT/name in payload) → fetch product from API.
-        var products = await ProductService.GetProductsAsync(qrPayload.ShopId);
+        // Shop entity removed 2026-07-21 — prefer TenantId; fall back to legacy ShopId (which was the tenantId).
+        Guid legacyTenantId = qrPayload.TenantId != Guid.Empty ? qrPayload.TenantId : qrPayload.ShopId;
+        var products = await ProductService.GetProductsAsync(legacyTenantId);
         _scannedProduct = products.FirstOrDefault(p => p.ProductId == qrPayload.ProductId);
 
         if (_scannedProduct == null)

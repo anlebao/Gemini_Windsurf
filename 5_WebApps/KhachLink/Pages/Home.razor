@@ -463,7 +463,7 @@
         try
         {
             var client = HttpClientFactory.CreateClient("gateway");
-            var response = await client.GetAsync($"/api/shops/by-tenant/{tenantId}");
+            var response = await client.GetAsync($"/api/tenants/{tenantId}/store-info");
             if (response.IsSuccessStatusCode)
             {
                 _store = await response.Content.ReadFromJsonAsync<StoreInfoDto>();

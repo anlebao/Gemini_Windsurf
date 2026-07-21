@@ -47,9 +47,10 @@ namespace VanAn.KhachLink.Services.Http
         }
 
         /// <summary>
-        /// SC2: Load ShopConfig by TenantId. Calls GET shoperp/api/shops/by-tenant/{tenantId}
-        /// (YARP forwards to ShopERP). Returns DefaultShopConfig on 404 or any error (SC3).
-        /// Builds ShopConfig from real Shop entity data (SC4); branding fields keep defaults (SC5).
+        /// SC2: Load ShopConfig by TenantId. Calls GET /api/tenants/{tenantId}/store-info
+        /// (TenantStoreController — replaces old shops/by-tenant endpoint, 2026-07-21).
+        /// Returns DefaultShopConfig on 404 or any error (SC3).
+        /// Builds ShopConfig from real Tenant store data (SC4); branding fields keep defaults (SC5).
         /// </summary>
         public async Task<ShopConfig> GetShopConfigByTenantIdAsync(Guid tenantId)
         {
@@ -60,16 +61,16 @@ namespace VanAn.KhachLink.Services.Http
 
             try
             {
-                var response = await _httpClient.GetAsync($"shoperp/api/shops/by-tenant/{tenantId}");
+                var response = await _httpClient.GetAsync($"api/tenants/{tenantId}/store-info");
                 if (!response.IsSuccessStatusCode)
                 {
                     if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
-                        _logger.LogInformation("Shop not found for tenant {TenantId}, returning DefaultShopConfig", tenantId);
+                        _logger.LogInformation("Tenant store-info not found for tenant {TenantId}, returning DefaultShopConfig", tenantId);
                     }
                     else
                     {
-                        _logger.LogWarning("by-tenant endpoint returned {Status} for tenant {TenantId}, returning DefaultShopConfig", response.StatusCode, tenantId);
+                        _logger.LogWarning("store-info endpoint returned {Status} for tenant {TenantId}, returning DefaultShopConfig", response.StatusCode, tenantId);
                     }
                     return DefaultShopConfig;
                 }
@@ -77,7 +78,7 @@ namespace VanAn.KhachLink.Services.Http
                 ShopDto? shop = await response.Content.ReadFromJsonAsync<ShopDto>();
                 if (shop is null)
                 {
-                    _logger.LogWarning("by-tenant endpoint returned empty body for tenant {TenantId}, returning DefaultShopConfig", tenantId);
+                    _logger.LogWarning("store-info endpoint returned empty body for tenant {TenantId}, returning DefaultShopConfig", tenantId);
                     return DefaultShopConfig;
                 }
 
@@ -91,16 +92,16 @@ namespace VanAn.KhachLink.Services.Http
         }
 
         /// <summary>
-        /// SC4: Map ShopDto → ShopConfig. Real shop data (Name, Address, Phone, Email,
+        /// SC4: Map ShopDto → ShopConfig. Real tenant store data (Name, Address, Phone, Email,
         /// Latitude, Longitude) overrides defaults. Branding fields (PrimaryColor,
         /// SecondaryColor, Theme, LogoUrl, SocialLinks, Features, LoyaltyConfig) stay at
-        /// ShopConfig defaults because they are not stored on the Shop entity (SC5).
+        /// ShopConfig defaults because they are not stored on the Tenant entity (SC5).
         /// </summary>
         private static ShopConfig BuildShopConfigFromShop(ShopDto shop)
         {
             return DefaultShopConfig with
             {
-                ShopId = shop.Id,
+                TenantId = shop.Id,
                 ShopName = string.IsNullOrWhiteSpace(shop.Name) ? DefaultShopConfig.ShopName : shop.Name,
                 Address = shop.Address,
                 Phone = shop.Phone,

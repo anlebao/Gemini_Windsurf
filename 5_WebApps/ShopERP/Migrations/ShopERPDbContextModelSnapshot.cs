@@ -999,6 +999,12 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("VatRate")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(5, 4)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue(0.10m);
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProductId", "TenantId")
@@ -1774,68 +1780,6 @@ namespace VanAn.ShopERP.Migrations
                     b.ToTable("Recipes");
                 });
 
-            modelBuilder.Entity("VanAn.Shared.Domain.Shop", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Phone")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId", "Name");
-
-                    b.ToTable("Shops");
-                });
-
             modelBuilder.Entity("VanAn.Shared.Domain.ShopInstance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1930,14 +1874,15 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
-
-                    b.Property<Guid>("ShopId")
-                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
@@ -1961,15 +1906,17 @@ namespace VanAn.ShopERP.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("VideoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("ShopId");
+                    b.HasIndex("TenantId");
 
                     b.HasIndex("TrackingCode");
-
-                    b.HasIndex("TenantId", "ShopId");
 
                     b.ToTable("SocialCampaigns");
                 });
@@ -2048,10 +1995,18 @@ namespace VanAn.ShopERP.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_ContactPhone");
 
+                            b1.Property<double?>("Latitude")
+                                .HasColumnType("REAL")
+                                .HasColumnName("Settings_Latitude");
+
                             b1.Property<string>("LogoUrl")
                                 .HasMaxLength(500)
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_LogoUrl");
+
+                            b1.Property<double?>("Longitude")
+                                .HasColumnType("REAL")
+                                .HasColumnName("Settings_Longitude");
 
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)
@@ -2293,17 +2248,6 @@ namespace VanAn.ShopERP.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("VanAn.Shared.Domain.SocialCampaign", b =>
-                {
-                    b.HasOne("VanAn.Shared.Domain.Shop", "Shop")
-                        .WithMany("SocialCampaigns")
-                        .HasForeignKey("ShopId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Shop");
-                });
-
             modelBuilder.Entity("VanAn.Shared.Domain.Customer", b =>
                 {
                     b.Navigation("LoyaltyRewards")
@@ -2320,11 +2264,6 @@ namespace VanAn.ShopERP.Migrations
             modelBuilder.Entity("VanAn.Shared.Domain.Order", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("VanAn.Shared.Domain.Shop", b =>
-                {
-                    b.Navigation("SocialCampaigns");
                 });
 #pragma warning restore 612, 618
         }

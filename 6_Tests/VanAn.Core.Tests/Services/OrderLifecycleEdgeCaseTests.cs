@@ -42,10 +42,6 @@ public class OrderLifecycleEdgeCaseTests : IntegrationTestBase
     {
         Guid shopId = ActiveTenantId;
         TenantId shopTenantId = new(shopId);
-
-        Shop shop = new(shopTenantId, "Edge Case Shop", "Addr", "0901234567", "test@shop.com");
-        _ = await Context.Shops.AddAsync(shop);
-
         Product product = new(shopTenantId, "Test Product", "Desc", amount, "Coffee", true, null, 0.10m);
         _ = await Context.Products.AddAsync(product);
 
@@ -237,10 +233,6 @@ public class OrderLifecycleEdgeCaseTests : IntegrationTestBase
         // Arrange
         Guid shopId = ActiveTenantId;
         TenantId shopTenantId = new(shopId);
-
-        Shop shop = new(shopTenantId, "Partial Shop", "Addr", "0901234567", "test@shop.com");
-        _ = await Context.Shops.AddAsync(shop);
-
         Product product = new(shopTenantId, "Trà sữa", "Trà sữa trân châu", 45000m, "Tea", true, null, 0.10m);
         _ = await Context.Products.AddAsync(product);
 

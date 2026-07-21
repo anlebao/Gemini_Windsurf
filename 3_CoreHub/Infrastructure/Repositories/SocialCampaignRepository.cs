@@ -14,7 +14,6 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             // from any tenant for admin operations (update/delete)
             return await _context.SocialCampaigns
                 .IgnoreQueryFilters()
-                .Include(c => c.Shop)
                 .FirstOrDefaultAsync(c => c.Id == campaignId, cancellationToken);
         }
 
@@ -22,7 +21,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             return await _context.SocialCampaigns
                 .IgnoreQueryFilters()
-                .Where(c => c.ShopId == tenantId.Value)
+                .Where(c => c.TenantId == tenantId)
                 .ToListAsync(cancellationToken);
         }
 
@@ -30,7 +29,7 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         {
             return await _context.SocialCampaigns
                 .IgnoreQueryFilters()
-                .Where(c => c.ShopId == tenantId.Value && c.IsActive)
+                .Where(c => c.TenantId == tenantId && c.IsActive)
                 .ToListAsync(cancellationToken);
         }
 

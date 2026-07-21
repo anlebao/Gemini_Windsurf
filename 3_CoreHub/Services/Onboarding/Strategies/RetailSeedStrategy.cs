@@ -21,8 +21,6 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             CancellationToken ct = default)
         {
             // ── 1. Default Shop ───────────────────────────────────────────────────
-            var shop = new Shop(tenantId, "Cửa hàng tổng hợp", "123 Nguyễn Huệ, Q1, TP.HCM", "1900-1234", "retail@vanan.vn");
-            await dbContext.Shops.AddAsync(shop, ct);
 
             // ── 2. Products — across retail categories ────────────────────────────
             var products = new[]

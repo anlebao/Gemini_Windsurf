@@ -18,8 +18,6 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             IVanAnDbContext dbContext,
             CancellationToken ct = default)
         {
-            var shop = new Shop(tenantId, "Healthy Food & Juice", "123 Nguyễn Huệ, Q1, TP.HCM", "1900-1234", "healthy@vanan.vn");
-            await dbContext.Shops.AddAsync(shop, ct);
 
             var products = new[]
             {

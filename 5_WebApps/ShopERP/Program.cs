@@ -424,7 +424,6 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.ShopInstanceApiClient>();
             _ = builder.Services.AddScoped<Services.FeaturedProductApiClient>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
-            _ = builder.Services.AddScoped<Services.ShopApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // Wave 14: API Key management
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, CoreHub.Infrastructure.Repositories.ApiKeyRepository>();

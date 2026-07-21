@@ -63,13 +63,13 @@ namespace VanAn.Gateway.Controllers
                     ]
                 };
 
-                Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, campaign.ShopId ?? Guid.Empty);
+                Order createdOrder = await _orderService.CreateOrderFromCommandAsync(command, campaign.TenantId.Value);
 
                 _logger.LogInformation(
-                    "Guest order {OrderId} created for campaign {TrackingCode} on shop {ShopId}",
+                    "Guest order {OrderId} created for campaign {TrackingCode} for tenant {TenantId}",
                     createdOrder.Id,
                     request.TrackingCode,
-                    campaign.ShopId);
+                    campaign.TenantId.Value);
 
                 return Ok(createdOrder);
             }

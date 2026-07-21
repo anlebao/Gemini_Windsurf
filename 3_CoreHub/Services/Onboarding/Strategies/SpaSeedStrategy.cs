@@ -19,8 +19,6 @@ namespace VanAn.CoreHub.Services.Onboarding.Strategies
             IVanAnDbContext dbContext,
             CancellationToken ct = default)
         {
-            var shop = new Shop(tenantId, "Spa & Beauty", "123 Nguyễn Huệ, Q1, TP.HCM", "1900-1234", "spa@vanan.vn");
-            await dbContext.Shops.AddAsync(shop, ct);
 
             // ── Products (services) from Menu_Toc_Spa_Hotel_TroChoi.md §2 ─────────
             var products = new[]

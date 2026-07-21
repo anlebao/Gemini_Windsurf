@@ -131,7 +131,8 @@ public class AuthorizationEnforcementTests
             "CustomersController",
             "LoyaltyController",
             "CustomerOrdersController",
-            "ShopsController",
+            // ShopsController removed 2026-07-21 — replaced by TenantStoreController (public Store Finder)
+            "TenantStoreController",
             "NotificationsController",
             // Tiered Auth Phase 2: Customer identity upgrade endpoints (X-Customer-Token header auth)
             "CustomerIdentityController",
@@ -165,27 +166,8 @@ public class AuthorizationEnforcementTests
             .FirstOrDefault(a => a.GetName().Name == "VanAn.ShopERP")
         ?? Assembly.Load("VanAn.ShopERP");
 
-    [Fact(DisplayName = "W12-S1: ShopsController write operations must NOT be [AllowAnonymous]")]
-    public void ShopsController_WriteOperations_MustNotBeAllowAnonymous()
-    {
-        var controller = ShopErpAssembly.GetTypes()
-            .Single(t => t.Name == "ShopsController");
-
-        // POST (Create), PUT (Update), DELETE (Delete) must require auth
-        var writeMethods = GetActionMethods(controller)
-            .Where(m => m.GetCustomAttribute<HttpPostAttribute>() != null
-                        || m.GetCustomAttribute<HttpPutAttribute>() != null
-                        || m.GetCustomAttribute<HttpDeleteAttribute>() != null)
-            .ToList();
-
-        var anonymousWrites = writeMethods
-            .Where(m => IsAllowAnonymous(m))
-            .Select(m => m.Name)
-            .ToList();
-
-        Assert.True(anonymousWrites.Count == 0,
-            $"ShopsController write methods should not be [AllowAnonymous]. Found: {string.Join(", ", anonymousWrites)}");
-    }
+    // W12-S1 test removed 2026-07-21 — ShopsController deleted (Shop entity removed).
+    // Shop write operations no longer exist; tenant management is handled by TenantsController (SystemAdmin-gated).
 
     [Fact(DisplayName = "W12-S2: OrderWorkflowController TransitionStatus must NOT be [AllowAnonymous]")]
     public void OrderWorkflowController_TransitionStatus_MustNotBeAllowAnonymous()

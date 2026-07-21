@@ -56,6 +56,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 settings.Property(s => s.Address).HasColumnName("Settings_Address").HasMaxLength(500);
                 settings.Property(s => s.LogoUrl).HasColumnName("Settings_LogoUrl").HasMaxLength(500);
                 settings.Property(s => s.TaxCode).HasColumnName("Settings_TaxCode").HasMaxLength(20);
+                // Store Finder coordinates (migrated from Shop entity, 2026-07-21)
+                settings.Property(s => s.Latitude).HasColumnName("Settings_Latitude");
+                settings.Property(s => s.Longitude).HasColumnName("Settings_Longitude");
             });
 
             // Audit fields from BaseEntity
