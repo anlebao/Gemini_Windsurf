@@ -10,13 +10,32 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Services
+@using VanAn.ShopERP.Components.Shared
+@using VanAn.ShopERP.Services
 @inject IOrderService OrderService
 @inject ITenantProvider TenantProvider
 @inject ILogger<Index> Logger
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+@inject TenantApiClient TenantApi
 
 <div class="orders-page @ThemeProvider.CurrentTheme">
+    <!-- Tenant Filter (SystemAdmin only) -->
+    @if (_isSystemAdmin)
+    {
+        <div class="tenant-filter-dropdown" data-testid="tenant-filter">
+            <label class="tenant-filter-label"><i class="bi bi-building"></i> Tenant:</label>
+            <select class="tenant-filter-select" @bind="_selectedTenantFilter" @bind:after="OnTenantFilterChangedAsync">
+                <option value="ALL">📋 Tất cả tenant</option>
+                @foreach (var t in _tenants)
+                {
+                    <option value="@t.Id">@t.Name</option>
+                }
+            </select>
+        </div>
+    }
+
     <header class="page-header">
         <h1>Danh sách đơn hàng</h1>
         <div class="header-actions">
@@ -75,6 +94,14 @@
                             <a href="@GetDetailUrl(o.Id)" data-testid="link-order-detail">@o.TrackingCode</a>
                         </Template>
                     </VanAnColumn>
+                    @if (_isSystemAdmin)
+                    {
+                        <VanAnColumn TItem="OrderListItem" Title="Tenant" Width="2">
+                            <Template Context="o">
+                                <span class="tenant-badge">@o.TenantName</span>
+                            </Template>
+                        </VanAnColumn>
+                    }
                     <VanAnColumn TItem="OrderListItem" Title="Thời gian" Width="2">
                         <Template Context="o">
                             @o.OrderDate.ToVietnamTimeString()
@@ -123,8 +150,36 @@
     private HubConnection? _hubConnection;
     private System.Threading.Timer? _pollTimer;
 
+    // SystemAdmin cross-tenant filter
+    private bool _isSystemAdmin;
+    private string _selectedTenantFilter = "ALL";
+    private List<VanAn.ShopERP.Services.TenantApiDto> _tenants = new();
+    private Dictionary<Guid, string> _tenantNameMap = new();
+
     protected override async Task OnInitializedAsync()
     {
+        // Check if current user is SystemAdmin
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
+        }
+        catch { _isSystemAdmin = false; }
+
+        // Load tenant list for SystemAdmin filter dropdown
+        if (_isSystemAdmin)
+        {
+            try
+            {
+                _tenants = await TenantApi.ListAllAsync();
+                _tenantNameMap = _tenants.ToDictionary(t => t.Id, t => t.Name);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to load tenants for filter dropdown");
+            }
+        }
+
         await ReloadOrders();
         await StartSignalRConnection();
 
@@ -134,6 +189,16 @@
             null,
             TimeSpan.FromSeconds(10),
             TimeSpan.FromSeconds(10));
+    }
+
+    private async Task OnTenantFilterChangedAsync()
+    {
+        // If specific tenant selected, override TenantProvider so detail/confirm works
+        if (_selectedTenantFilter != "ALL" && Guid.TryParse(_selectedTenantFilter, out Guid tid))
+        {
+            TenantProvider.SetTenant(tid);
+        }
+        await ReloadOrders();
     }
 
     private async Task OnStatusChanged(ChangeEventArgs e)
@@ -154,34 +219,68 @@
         errorMessage = null;
         try
         {
-            Guid tenantId = TenantProvider.TenantId;
-            IEnumerable<Order> rawOrders;
+            // SystemAdmin "ALL tenants" mode — query all orders across tenants
+            bool allTenants = _isSystemAdmin && _selectedTenantFilter == "ALL";
 
-            if (!string.IsNullOrEmpty(selectedStatus))
+            IEnumerable<Order> rawOrders;
+            var filtered = new List<Order>();
+
+            if (allTenants)
             {
-                var statusId = new OrderStatusId(selectedStatus);
-                rawOrders = await OrderService.GetOrdersByStatusAsync(statusId, tenantId);
+                // SystemAdmin: query all orders (no tenant filter)
+                if (!string.IsNullOrEmpty(selectedStatus))
+                {
+                    var statusId = new OrderStatusId(selectedStatus);
+                    rawOrders = await OrderService.GetAllOrdersByStatusAsync(statusId);
+                }
+                else
+                {
+                    DateTime today = DateTime.UtcNow.Date;
+                    rawOrders = await OrderService.GetAllOrdersByDateRangeAsync(today, today.AddDays(1));
+                }
+
+                filtered = rawOrders.ToList();
+                if (selectedDateRange == "7days" && string.IsNullOrEmpty(selectedStatus))
+                {
+                    DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
+                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
+                    filtered = (await OrderService.GetAllOrdersByDateRangeAsync(weekAgo, tomorrow)).ToList();
+                }
+                else if (selectedDateRange == "all" && string.IsNullOrEmpty(selectedStatus))
+                {
+                    DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
+                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
+                    filtered = (await OrderService.GetAllOrdersByDateRangeAsync(longAgo, tomorrow)).ToList();
+                }
             }
             else
             {
-                // Default: today's orders. Date range filter applied client-side.
-                DateTime today = DateTime.UtcNow.Date;
-                rawOrders = await OrderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
-            }
+                // Normal mode — query for specific tenant
+                Guid tenantId = TenantProvider.TenantId;
+                if (!string.IsNullOrEmpty(selectedStatus))
+                {
+                    var statusId = new OrderStatusId(selectedStatus);
+                    rawOrders = await OrderService.GetOrdersByStatusAsync(statusId, tenantId);
+                }
+                else
+                {
+                    DateTime today = DateTime.UtcNow.Date;
+                    rawOrders = await OrderService.GetOrdersByDateRangeAsync(tenantId, today, today.AddDays(1));
+                }
 
-            // Apply date range filter client-side (API returns today by default)
-            var filtered = rawOrders.ToList();
-            if (selectedDateRange == "7days" && string.IsNullOrEmpty(selectedStatus))
-            {
-                DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
-                DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
-                filtered = (await OrderService.GetOrdersByDateRangeAsync(tenantId, weekAgo, tomorrow)).ToList();
-            }
-            else if (selectedDateRange == "all" && string.IsNullOrEmpty(selectedStatus))
-            {
-                DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
-                DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
-                filtered = (await OrderService.GetOrdersByDateRangeAsync(tenantId, longAgo, tomorrow)).ToList();
+                filtered = rawOrders.ToList();
+                if (selectedDateRange == "7days" && string.IsNullOrEmpty(selectedStatus))
+                {
+                    DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
+                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
+                    filtered = (await OrderService.GetOrdersByDateRangeAsync(tenantId, weekAgo, tomorrow)).ToList();
+                }
+                else if (selectedDateRange == "all" && string.IsNullOrEmpty(selectedStatus))
+                {
+                    DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
+                    DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
+                    filtered = (await OrderService.GetOrdersByDateRangeAsync(tenantId, longAgo, tomorrow)).ToList();
+                }
             }
 
             orders = filtered.Select(MapToListItem).OrderByDescending(o => o.OrderDate).ToList();
@@ -264,15 +363,22 @@
         _ => status
     };
 
-    private static OrderListItem MapToListItem(Order o) => new()
+    private OrderListItem MapToListItem(Order o)
     {
-        Id = o.Id,
-        TrackingCode = o.TrackingCode ?? o.Id.ToString()[..8],
-        OrderDate = o.OrderDate,
-        Status = o.Status?.Value ?? "pending",
-        PaymentStatus = o.PaymentStatus ?? "Pending",
-        TotalAmount = o.TotalAmount
-    };
+        string tenantName = "—";
+        if (_isSystemAdmin && _tenantNameMap.TryGetValue(o.TenantId.Value, out string? name))
+            tenantName = name;
+        return new OrderListItem
+        {
+            Id = o.Id,
+            TrackingCode = o.TrackingCode ?? o.Id.ToString()[..8],
+            OrderDate = o.OrderDate,
+            Status = o.Status?.Value ?? "pending",
+            PaymentStatus = o.PaymentStatus ?? "Pending",
+            TotalAmount = o.TotalAmount,
+            TenantName = tenantName
+        };
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -291,5 +397,45 @@
         public string Status { get; set; } = "";
         public string PaymentStatus { get; set; } = "";
         public decimal TotalAmount { get; set; }
+        public string TenantName { get; set; } = "";
     }
 }
+
+<style>
+    .tenant-filter-dropdown {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--vanan-surface, #f8f9fa);
+        border: 1px solid var(--vanan-border, #dee2e6);
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    }
+    .tenant-filter-label { font-size: 0.875rem; font-weight: 600; white-space: nowrap; margin: 0; }
+    .tenant-filter-label i { color: var(--vanan-primary, #0d6efd); }
+    .tenant-filter-select {
+        padding: 0.375rem 0.75rem;
+        border: 1px solid var(--vanan-border, #ced4da);
+        border-radius: 4px;
+        font-size: 0.875rem;
+        background: var(--vanan-surface, #fff);
+        color: var(--vanan-text, #212529);
+        cursor: pointer;
+        min-width: 200px;
+    }
+    .tenant-filter-select:focus {
+        outline: none;
+        border-color: var(--vanan-primary, #0d6efd);
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    }
+    .tenant-badge {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: #e7f1ff;
+        color: #0d6efd;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>

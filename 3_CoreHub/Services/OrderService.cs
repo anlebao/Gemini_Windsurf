@@ -79,6 +79,30 @@ namespace VanAn.CoreHub.Services
             return await _orderRepository.GetByDateRangeAsync(tenantIdObj, startDate, endDate);
         }
 
+        /// <summary>SystemAdmin: Get ALL orders across all tenants (no tenant filter).</summary>
+        public async Task<IEnumerable<Order>> GetAllOrdersByDateRangeAsync(DateTime startDate, DateTime endDate)
+        {
+            if (_dbContext == null)
+                return new List<Order>();
+            return await _dbContext.Orders
+                .IgnoreQueryFilters()
+                .Where(o => o.CreatedAt.Date >= startDate.Date && o.CreatedAt.Date <= endDate.Date)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
+        /// <summary>SystemAdmin: Get ALL orders by status across all tenants.</summary>
+        public async Task<List<Order>> GetAllOrdersByStatusAsync(OrderStatusId status)
+        {
+            if (_dbContext == null)
+                return new List<Order>();
+            return await _dbContext.Orders
+                .IgnoreQueryFilters()
+                .Where(o => o.Status == status)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
         /// <summary>
         /// Get order by ID
         /// </summary>

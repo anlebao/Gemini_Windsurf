@@ -19,6 +19,16 @@ namespace VanAn.CoreHub.Services
         Task<IEnumerable<Order>> GetOrdersByDateRangeAsync(Guid tenantId, DateTime startDate, DateTime endDate);
 
         /// <summary>
+        /// Get ALL orders across all tenants (SystemAdmin only — no tenant filter).
+        /// </summary>
+        Task<IEnumerable<Order>> GetAllOrdersByDateRangeAsync(DateTime startDate, DateTime endDate);
+
+        /// <summary>
+        /// Get ALL orders by status across all tenants (SystemAdmin only).
+        /// </summary>
+        Task<List<Order>> GetAllOrdersByStatusAsync(OrderStatusId status);
+
+        /// <summary>
         /// Get order by ID
         /// </summary>
         Task<Order?> GetOrderByIdAsync(Guid orderId, Guid tenantId);
