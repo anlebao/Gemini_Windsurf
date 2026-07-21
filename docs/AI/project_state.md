@@ -1,4 +1,4 @@
-# Project State
+﻿# Project State
 
 > **M?c d�ch:** Single Source of Truth cho AI v? tr?ng th�i d? �n. B?T BU?C d?c d?u m?i phi�n.
 > **Archived:** 2026-07-17 — completed Single-Identity Refactor moved to `docs/AI/project_state_archive.md`
@@ -19,10 +19,10 @@
 ## 1. Project Overview
 
 **D? �n:** V?n An Accounting System MVP � gi?i ph�p k? to�n HKD theo TT 152/2025/TT-BTC.
-**Stack:** .NET 8 � EF Core � SQLite � Blazor Server (ShopERP) � Blazor WebAssembly (KhachLink PWA) � SignalR � YARP Gateway � xUnit � Playwright.
+**Stack:** .NET 8 � EF Core � SQLite � Blazor Server (ShopERP) � Blazor Server (KhachLink PWA, NOT WASM — see TD-PWA-001) � SignalR � YARP Gateway � xUnit � Playwright.
 **Ki?n tr�c:** Clean Architecture + DDD + Multi-tenancy. Data flow: `KhachLink (5002) ? Gateway (5001) ? ShopERP (5003) ? SQLite`.
 
-**Modules:** `1_Shared` (Domain) � `2_Gateway` (YARP) � `3_CoreHub` (Services, in-process) � `5_WebApps/ShopERP` (Blazor Server) � `5_WebApps/KhachLink` (Blazor WASM) � `UI.Platform` (Shared components) � `6_Tests/6_Testing`.
+**Modules:** `1_Shared` (Domain) � `2_Gateway` (YARP) � `3_CoreHub` (Services, in-process) � `5_WebApps/ShopERP` (Blazor Server) � `5_WebApps/KhachLink` (Blazor Server, NOT WASM — see TD-PWA-001) � `UI.Platform` (Shared components) � `6_Tests/6_Testing`.
 
 **Hard stops:** Domain PURE � `AccountingEntry` immutable � Gateway STATELESS � KhachLink HTTP-only � ShopERP SQLite (Business) + PostgreSQL (Accounting) � ALWAYS d�ng UI Platform components.
 
@@ -183,7 +183,7 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 
 3. **Multi-VPS production rollout** — when first real customer needs separate VPS. Phase 8 E2E validation should pass first.
 
-4. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping).
+4. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping) + **TD-PWA-001 KhachLink Blazor Server → WASM conversion** (master plan: `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`, 6 phases, awaiting Tech Lead approval — PWA install is real but app does NOT work offline because Blazor Server needs live WebSocket).
 
 **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md updated to Option C + ADR-001 v3 addendum + Phase 8 task card placeholder + tech debt register + final verification (Core.Tests 1044/0/16, Architecture 38/38, guard-check PASS, Integration.Tests CircuitBreaker 6/6 — 43 pre-existing failures require full local app stack, documented as TD-MVPS-003).
 
@@ -301,6 +301,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-21 -- PWA INVESTIGATION + TD-PWA-001 CREATED.** User asked whether KhachLink PWA install is a stub and whether the app works offline. Investigation: (1) PWA install is REAL — manifest.json + service-worker.js + PWAInstallPrompt.razor + pwa.js all functional, `beforeinstallprompt` captured on Android Chrome, iOS shows manual "Add to Home Screen" instructions. (2) App does NOT work offline — KhachLink is Blazor **Server** (not WebAssembly as `project_state.md` Section 1 previously claimed). Evidence: `VanAn.KhachLink.csproj` uses `Microsoft.NET.Sdk.Web`, `Program.cs` calls `AddInteractiveServerComponents()`, `App.razor` loads `blazor.web.js`, all 13 Pages use `@rendermode InteractiveServer`. Blazor Server requires live WebSocket (SignalR) for every UI event — when network drops, circuit dies, UI freezes. Service worker caches static assets + API GET responses but cached assets are useless because no Blazor DLL runs on client. (3) Created master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md` — 6-phase conversion Blazor Server → Blazor WebAssembly (Option A recommended): Phase 1 project SDK conversion + build green, Phase 2 service worker DLL caching, Phase 3 offline API fallback hardening (update `dynamicCachePatterns` to current Option C endpoints `/api/tenants/*`, `/api/catalog/*`, `/api/campaigns/*`), Phase 4 offline write queue (IndexedDB + Background Sync API for checkout POSTs), Phase 5 push notification wiring + PWA polish, Phase 6 E2E validation + governance. (4) Added TD-PWA-001 to `docs/AI/tasks/tech_debt_multi_vps_checkout.md` cross-cutting section. (5) Corrected `project_state.md` Section 1 Stack + Modules lines: "Blazor WebAssembly (KhachLink PWA)" → "Blazor Server (KhachLink PWA, NOT WASM — see TD-PWA-001)". No code changes — investigation + documentation only. Branch: `main`.
 
 * **2026-07-21 -- KHACHLINK /STORES SEARCH BUTTON FIX COMPLETE.** User reported the magnifier-glass "search button" on `https://diemthuong.khachvip.online/stores` was not clickable. Root cause: the icon was a decorative `<span class="input-group-text">` (no event handler), not a `<button>`. Search only fired via `@oninput` debounce (300ms after typing) — no explicit search button or Enter-key handler. Fix in `5_WebApps/KhachLink/Pages/StoreFinder.razor`: (1) Converted search icon `<span>` → `<button type="button" @onclick="LoadStores">` with `.btn-search-icon` CSS (cursor pointer, hover, no outline) preserving input-group look. (2) Added `@onkeyup="OnSearchKeyUp"` on the input — pressing Enter triggers immediate search (cancels running debounce). (3) Added `OnSearchKeyUp(KeyboardEventArgs e)` method. `dotnet build VanAn.KhachLink.csproj` → 0 errors, 11 pre-existing warnings (unrelated). Branch: `main`. Awaiting CD deploy after push.
 

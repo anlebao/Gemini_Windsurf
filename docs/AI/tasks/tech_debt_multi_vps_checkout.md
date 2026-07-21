@@ -95,3 +95,28 @@ Manually-created users (via admin UI or seeding) don't get a `UserTenants` junct
 **Resolution:** Order stays in Gateway PG (Option C). Webhook loads from PG as before — no migration needed.
 
 ---
+
+## Cross-cutting Tech Debt (non-Multi-VPS)
+
+### TD-PWA-001: KhachLink is Blazor Server, not WebAssembly — PWA does not work offline
+
+**Status:** Documented (master plan created, awaiting Tech Lead approval)
+**Source:** PWA investigation 2026-07-21
+**Location:** `5_WebApps/KhachLink/` (entire project)
+**Master plan:** `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`
+
+**Context:**
+`docs/AI/project_state.md` Section 1 claims KhachLink is "Blazor WebAssembly (KhachLink PWA)" but the actual implementation is Blazor Server (`Microsoft.NET.Sdk.Web` + `AddInteractiveServerComponents()` + `blazor.web.js` + `@rendermode InteractiveServer` on all 13 Pages). PWA install is real (manifest + service worker + install prompt all functional), but the app does NOT work offline because Blazor Server requires a live WebSocket (SignalR) connection for every UI event. When the network drops, the circuit dies and the UI freezes completely — cached static assets are useless because no Blazor DLL runs on the client.
+
+**Cleanup plan:**
+6-phase conversion: Blazor Server → Blazor WebAssembly (Option A in master plan).
+1. Project SDK conversion + build green (no behavior change online).
+2. Service worker DLL caching (`_framework/*.dll` + `blazor.boot.json`).
+3. Offline API fallback hardening (update `dynamicCachePatterns` to current Option C endpoints).
+4. Offline write queue (IndexedDB + Background Sync API for checkout POSTs).
+5. Push notification wiring + PWA polish.
+6. E2E validation + governance (correct `project_state.md` Section 1 claim + ADR-001 update).
+
+**Risk if not addressed:** PWA install misleads users — they expect offline app but get frozen UI when network drops. Customer-facing UX defect on mobile (the primary platform for KhachLink).
+
+---
