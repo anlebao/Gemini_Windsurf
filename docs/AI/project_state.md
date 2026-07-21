@@ -30,7 +30,50 @@
 
 ## 2. Current Objective
 
-**KhachLink Home Page Personalization + Campaigns/Shops CRUD Admin UI — COMPLETE (2026-07-20)**
+**Post-Shop-Removal Runtime Verification + Tenant.Id LINQ Bug Fix — COMPLETE (2026-07-21)**
+
+Shop entity removal (previous session, 221 files) deployed to VPS via CD. This session performed comprehensive runtime verification (RV) and fixed a regression batch.
+
+### A. Tenant.Id Value Object LINQ Translation Bug (Known Error Pattern #8 — NEW)
+After Shop removal, `TenantStoreController` (new replacement for `ShopsController`) failed on `/api/tenants/{tenantId}/store-info` with HTTP 500. Root cause: `Tenant.Id` is a `TenantId` value object with `HasConversion` — three failing patterns discovered across 3 controllers:
+1. `EF.Property<Guid>(t, "Id") == guid` → IConvertible cast error (Pattern #1 variant)
+2. `t.Id.Value == guid` in `Where` → LINQ translation fails
+3. `guidList.Contains(t.Id)` with `List<Guid>` → type mismatch
+
+**Fix (1 commit, 3 files):** Construct `TenantId` value object before comparison. `t.Id == new TenantId(tenantId)`. For `Contains`, convert collection: `tenantIds.Select(id => new TenantId(id)).ToList()`.
+- `TenantStoreController.GetStoreInfo` — fixed
+- `PublicOrdersController.checkout` — fixed (preventive, was working but pattern risky)
+- `CatalogController.recommended` — fixed (preventive)
+
+**Commits:** `20697063` (initial TenantStore fix), `e876cf53` (batch fix all 3 controllers + Pattern #8 added to governance.md).
+
+### B. RV Results on VPS (2026-07-21)
+- All 5 VanAn containers healthy (gateway, shoperp, khachlink, postgres, nats)
+- DB schema verified: `Shops` table dropped, `SocialCampaigns.ShopId` dropped, `Tenants.Settings_Latitude/Longitude` added
+- 3 tenants in DB (coordinates null — expected, no migration data on this VPS)
+- All tenant-based endpoints PASS:
+  - `GET /api/tenants/{id}/store-info` (valid): 200 ✅
+  - `GET /api/tenants/{id}/store-info` (invalid): 404 ✅
+  - `GET /api/tenants/nearby`: 200 ✅
+  - `GET /api/tenants/search`: 200 ✅
+  - `GET /api/catalog/recommended`: 200 ✅
+  - `GET /health`: 200 ✅
+- No errors in gateway logs after fix deployed
+
+### C. Governance Update
+Added Known Error Pattern #8 to `.devin/rules/governance.md` — `Tenant.Id` value object LINQ translation. Reference implementations: `TenantManagementService.GetTenantByIdAsync`, `SocialCampaignRepository.GetActiveByTenantIdValueAsync`.
+
+**Status: COMPLETE. All deployed to VPS. RV 6/6 PASS for tenant-based endpoints.**
+
+---
+
+**PREVIOUS OBJECTIVE — Shop Entity Removal — COMPLETE (2026-07-21)**
+
+Removed `Shop` entity from system (221 files). `Tenant` is now single identity for all business operations (aligns with TT 152/2025/TT-BTC — each HKD = separate legal entity). `Latitude/Longitude` migrated to `TenantSettings`. `ShopsController` replaced by `TenantStoreController`. All migrations applied (PostgreSQL + SQLite). See Section 6 + `docs/AI/tasks/` for details.
+
+---
+
+**PREVIOUS OBJECTIVE — KhachLink Home Page Personalization + Campaigns/Shops CRUD Admin UI — COMPLETE (2026-07-20)**
 
 Two features delivered this session:
 
@@ -79,10 +122,12 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `a83b797c` fix: SocialCampaignRepository.GetByIdAsync — add IgnoreQueryFilters for SystemAdmin
+- **Last commit:** `e876cf53` fix(gateway): Tenant.Id value object LINQ translation — all endpoints
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-20):** 0 errors. VanAn.sln build PASS. guard-check PASS. CD pipeline runs #29776141070 + #29778019923 + #29779191727 + #29780321445 + #29780972830 + #29781843892 + #29782508938 + #29783164308 ALL PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink all healthy.
+- **Build (2026-07-21):** 0 errors. VanAn.Gateway.csproj build PASS. CD runs #29825307857 + #29826651443 + #29827864998 ALL PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink + vanan-postgres + vanan-nats all healthy.
+- **Post-Shop-Removal RV (2026-07-21 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** Tenant.Id LINQ bug fixed across 3 controllers (TenantStore/PublicOrders/Catalog). Pattern #8 added to governance.md. All tenant-based endpoints 200/404 as expected. No errors in gateway logs. Commits: `20697063`, `e876cf53`.
+- **Shop Entity Removal (2026-07-21 - COMPLETE + VPS DEPLOYED):** 221 files refactored. `Shop` entity + `ShopId` VO removed from Domain. `SocialCampaign.ShopId` removed. `TenantConfig` (renamed from `ShopConfig`) uses `TenantId`. `TenantSettings.Latitude/Longitude` added (preserves Store Finder). `ShopsController` deleted → replaced by `TenantStoreController`. `ShopService`/`IShopService` deleted. PostgreSQL + SQLite migrations applied (drop Shops table, drop SocialCampaigns.ShopId, add Tenants.Settings_Latitude/Longitude). All clients (KhachLink, ShopERP) migrated to TenantId.
 - **Home Page Personalization + Campaigns/Shops CRUD (2026-07-20 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** 8 commits. LastInteractionService + Home.razor Campaign/StoreFinder sections + Gateway Campaigns/Shops CRUD endpoints + ShopERP admin pages `/admin/campaigns` + `/admin/shops`. Campaigns CRUD RV 6/6 PASS. Shops admin UI works via DbContext (Gateway forwarding limited by ShopERP cookie auth — known limitation). Commits: `e292166c`, `2725e28d`, `226c4260`, `c8765aeb`, `6b9cf88d`, `4e6cbafd`, `f79c5f46`, `a83b797c`.
 - **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md + ADR-001 v3 addendum + Phase 8 task card + tech debt register. Final verification PASS.
 - **Phase 6 COMPLETE + VPS DEPLOYED (2026-07-20):** Admin UI for ShopInstances + FeaturedProducts + Home.razor catalog refactor. RV 8/8 PASS on VPS. Commit `5b51c09d`.
@@ -111,9 +156,14 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 
 **NEXT (recommended priority order):**
 
-1. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
+1. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS:
+   - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
+   - Payment confirmation flow (webhook → OrderService.MarkPaid → AccountingEntry)
+   - Kitchen display flow (SignalR + status update)
+   - Accounting flow (JournalEntry + AccountingEntry immutable)
+   Use `scripts/rv-comprehensive.sh` as template. SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
 
-2. **Shops Gateway forwarding fix (optional, low priority)** — ShopERP uses cookie auth (OIDC), not JWT. Gateway `POST /api/shops` forwards Authorization header but ShopERP doesn't accept JWT → returns login HTML. Options: (a) Add JWT bearer auth to ShopERP alongside cookie auth (medium effort, enables API clients); (b) Remove Gateway shops write forwarding, document admin UI as only interface (low effort, current state); (c) Use API Key auth for service-to-service (medium effort, more secure). Admin UI `ShopsAdmin.razor` works correctly via DbContext — this is not a user-facing issue.
+2. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
 
 3. **Multi-VPS production rollout** — when first real customer needs separate VPS. Phase 8 E2E validation should pass first.
 
@@ -235,6 +285,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-21 -- POST-SHOP-REMOVAL RV + TENANT.ID LINQ BUG FIX (PATTERN #8) COMPLETE.** Previous session removed Shop entity (221 files). This session: (1) Verified VPS deployment — all 5 VanAn containers healthy, DB schema correct (Shops dropped, SocialCampaigns.ShopId dropped, Tenants.Settings_Latitude/Longitude added, 3 tenants). (2) Discovered `TenantStoreController.GetStoreInfo` returned HTTP 500 — root cause: `Tenant.Id` is `TenantId` value object with `HasConversion`, `EF.Property<Guid>(t, "Id")` triggers IConvertible error (Pattern #1 variant). (3) First fix attempt `t.Id.Value == tenantId` failed — LINQ translation error (value object member access not translatable). (4) Final fix: `t.Id == new TenantId(tenantId)` — matches `TenantManagementService` pattern. (5) Preventive fix in `PublicOrdersController.checkout` + `CatalogController.recommended` — `guidList.Contains(t.Id)` converted to `List<TenantId>` for type-matched LINQ translation. (6) Added Known Error Pattern #8 to `.devin/rules/governance.md` — `Tenant.Id` value object LINQ translation. Reference implementations: `TenantManagementService.GetTenantByIdAsync`, `SocialCampaignRepository.GetActiveByTenantIdValueAsync`. 2 commits: `20697063` (initial TenantStore fix), `e876cf53` (batch fix all 3 controllers + Pattern #8). 3 CD runs ALL PASS. RV 6/6 PASS for tenant-based endpoints (store-info valid 200, store-info invalid 404, nearby 200, search 200, catalog/recommended 200, health 200). No errors in gateway logs after fix. Branch: `main`.
 
 * **2026-07-20 -- HOME PAGE PERSONALIZATION + CAMPAIGNS/SHOPS CRUD ADMIN UI COMPLETE + RV 6/6 PASS.** Two features: (A) Dynamic Home page content — replaced static Hero + Stats with Campaign + StoreFinder sections personalized by last-interaction tenantId. New `LastInteractionService` tracks tenantId in localStorage via JS interop. `Scan.razor` + `Home.razor AddFeaturedToCart` record interactions. Home.razor auto-refreshes sections when tenant changes. Fallback empty state with "Quét QR Ngay" CTA for new users. (B) Campaigns + Shops CRUD admin UI — Gateway `CampaignsController` added POST create + fixed auth (`[AllowAnonymous]` → `[Authorize(Policy="SystemAdmin")]` on PUT/DELETE). Gateway `ShopsController` added POST/PUT/DELETE forward with Authorization header forwarding. Two new ShopERP Blazor admin pages: `/admin/campaigns` (CampaignsAdmin.razor — list + create/edit modal with Tenant + Shop dropdowns + delete) + `/admin/shops` (ShopsAdmin.razor — list + create/edit modal with Tenant dropdown + lat/lng + delete). Both `@attribute [Authorize(Policy="SystemAdmin")]`. 8 commits: `e292166c` (Home personalization initial), `2725e28d` (admin UI + backend), `226c4260` (campaign tenant filter + shop auth forwarding), `c8765aeb` (TenantId VO Known Error Pattern #1), `6b9cf88d` (SaveChangesAsync missing), `4e6cbafd` (ShopId FK + admin UI shop dropdown), `f79c5f46` (by-tenant service method + PUT DTO), `a83b797c` (IgnoreQueryFilters for SystemAdmin). 8 CD runs ALL PASS. RV 6/6 PASS for Campaigns CRUD (POST 201 + GET all 200 + GET by-tenant 200 + PUT 200 + DELETE 200 + auth 302). Shops admin UI works via DbContext (Gateway forwarding limited by ShopERP cookie auth — known limitation, documented in Section 4). 6 bugs found + fixed during RV: missing SaveChangesAsync, FK violation Guid.Empty ShopId, wrong service method for by-tenant, domain entity JSON binding, missing IgnoreQueryFilters, TenantId VO SQL translation. Branch: `main`.
 
