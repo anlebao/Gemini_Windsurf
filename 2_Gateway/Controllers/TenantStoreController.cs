@@ -130,6 +130,7 @@ namespace VanAn.Gateway.Controllers
             {
                 var tenants = await _dbContext.Tenants
                     .AsNoTracking()
+                    .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
                     .Where(t => t.Status == TenantStatus.Active)
                     .ToListAsync();
 
@@ -160,7 +161,10 @@ namespace VanAn.Gateway.Controllers
         {
             try
             {
-                var query = _dbContext.Tenants.AsNoTracking().Where(t => t.Status == TenantStatus.Active);
+                var query = _dbContext.Tenants
+                    .AsNoTracking()
+                    .IgnoreQueryFilters() // public endpoint — show all tenants regardless of caller's tenant context
+                    .Where(t => t.Status == TenantStatus.Active);
                 if (!string.IsNullOrWhiteSpace(name))
                     query = query.Where(t => EF.Functions.ILike(t.Name, $"%{name}%"));
 
