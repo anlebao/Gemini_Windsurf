@@ -33,11 +33,13 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 // Use IgnoreQueryFilters in case any global filter blocks the query.
-                // TenantId value object has a converter — use EF.Property to compare by Guid value.
+                // Tenant.Id is a TenantId value object with HasConversion — compare directly
+                // (implicit Guid→TenantId operator applies). NEVER use EF.Property<Guid> for Tenant.Id
+                // (Known Error Pattern #1: IConvertible cast failure).
                 var tenant = await _dbContext.Tenants
                     .IgnoreQueryFilters()
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(t => EF.Property<Guid>(t, "Id") == tenantId);
+                    .FirstOrDefaultAsync(t => t.Id.Value == tenantId);
 
                 if (tenant == null)
                     return NotFound();
