@@ -1,6 +1,6 @@
-const CACHE_NAME = 'vanan-khachlink-v7';
-const STATIC_CACHE = 'vanan-static-v7';
-const DYNAMIC_CACHE = 'vanan-dynamic-v7';
+const CACHE_NAME = 'vanan-khachlink-v8-offline-shell';
+const STATIC_CACHE = 'vanan-static-v8-offline-shell';
+const DYNAMIC_CACHE = 'vanan-dynamic-v8-offline-shell';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -125,15 +125,96 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Default: network-first for navigation, fallback to cache, then offline page
+  // Default: network-first for navigation, fallback to cache, then offline shell
   event.respondWith(
     fetch(request)
       .catch(() => caches.match(request).then(cached => cached || new Response(
-        '<html><body><h1>Offline</h1><p>Vui lòng kết nối internet và thử lại.</p></body></html>',
-        { headers: { 'Content-Type': 'text/html' } }
+        OFFLINE_SHELL_HTML,
+        { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
       )))
   );
 });
+
+// Phase 0 quick fix: Beautiful offline shell (replaces plain "Vui lòng kết nối internet" text)
+// Inline CSS + cached icon (icon-192x192.png is in staticUrlsToCache, available offline).
+// No JS interactivity — this is a static fallback shown when Blazor circuit is dead.
+const OFFLINE_SHELL_HTML = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Vạn An — Ngoại tuyến</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .offline-card {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      padding: 40px 28px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .logo {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 20px;
+      background: #fff;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .logo img { width: 72px; height: 72px; border-radius: 16px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    p { font-size: 15px; line-height: 1.6; opacity: 0.92; margin-bottom: 24px; }
+    .icon-offline {
+      font-size: 56px;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+    .retry-btn {
+      background: #fff;
+      color: #8B4513;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 30px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .retry-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+    .retry-btn:active { transform: translateY(0); }
+    .footer { margin-top: 24px; font-size: 12px; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="offline-card">
+    <div class="logo">
+      <img src="/icons/icon-192x192.png" alt="Vạn An" onerror="this.style.display='none'">
+    </div>
+    <div class="icon-offline" aria-hidden="true">📡</div>
+    <h1> Bạn đang ngoại tuyến</h1>
+    <p>App Vạn An cần kết nối internet để đặt hàng và xem cửa hàng.<br>Vui lòng kiểm tra mạng và thử lại.</p>
+    <button class="retry-btn" onclick="window.location.reload()"> Thử lại</button>
+    <div class="footer">Vạn An Group — Hệ thống đặt hàng thông minh</div>
+  </div>
+</body>
+</html>`;
 
 // Enhanced activation with cache cleanup
 self.addEventListener('activate', event => {
