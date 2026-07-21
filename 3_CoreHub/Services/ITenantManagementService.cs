@@ -55,5 +55,8 @@ namespace VanAn.CoreHub.Services
         string? TaxCode,
         string? Slug = null,
         double? Latitude = null,
-        double? Longitude = null);
+        double? Longitude = null,
+        string? SocialLinksFb = null,
+        string? SocialLinksTiktok = null,
+        string? BrandStory = null);
 }

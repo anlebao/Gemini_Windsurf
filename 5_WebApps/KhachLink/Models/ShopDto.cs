@@ -29,6 +29,10 @@ public class ShopDto
     public double? Longitude { get; set; }
     /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
     public string? Slug { get; set; }
+    public string? SocialLinksFb { get; set; }
+    public string? SocialLinksTiktok { get; set; }
+    public string? BrandStory { get; set; }
+    public string? LogoUrl { get; set; }
 }
 
 /// <summary>

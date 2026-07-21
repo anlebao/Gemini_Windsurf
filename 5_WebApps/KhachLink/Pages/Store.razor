@@ -6,6 +6,7 @@
 @using VanAn.Shared.Domain
 @using VanAn.CoreHub.Services
 @page "/store/{Slug}"
+@page "/store/by-id/{TenantId}"
 @rendermode InteractiveServer
 @inject TenantProfileHttpService TenantProfileService
 @inject ShopConfigHttpService ShopConfigService
@@ -16,165 +17,495 @@
 
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
-<KhachLinkLayout>
-    @if (_loading)
-    {
-        <VanAnCard CssClass="text-center py-5 my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Đang tải...</span>
-            </div>
-            <p class="mt-3 text-muted">Đang tải thông tin cửa hàng...</p>
-        </VanAnCard>
-    }
-    else if (_store is null)
-    {
-        <VanAnCard CssClass="text-center py-5 my-5">
-            <i class="bi bi-shop text-muted" style="font-size: 4rem;"></i>
-            <h3 class="mt-3">Không tìm thấy cửa hàng</h3>
-            <p class="text-muted">Trang <code>/store/@Slug</code> không tồn tại hoặc đã bị gỡ.</p>
-            <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => Navigation.NavigateTo("/store-finder"))">
+@if (_loading)
+{
+    <div class="store-loading">
+        <div class="spinner-border text-light" role="status" style="width: 3.5rem; height: 3.5rem;">
+            <span class="visually-hidden">Đang tải...</span>
+        </div>
+        <p class="mt-3">Đang tải thông tin cửa hàng...</p>
+    </div>
+}
+else if (_store is null)
+{
+    <div class="store-not-found">
+        <div class="not-found-card">
+            <i class="bi bi-shop"></i>
+            <h2>Không tìm thấy cửa hàng</h2>
+            <p>Trang bạn tìm không tồn tại hoặc đã bị gỡ.</p>
+            <button class="btn-cta" OnClick="@(() => Navigation.NavigateTo("/store-finder"))">
                 <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
-            </VanAnButton>
-        </VanAnCard>
-    }
-    else
-    {
-        // ── Store header ──────────────────────────────────────────────
-        <VanAnCard CssClass="store-header mb-4 text-center">
-            <h1 class="store-name">@_store.Name</h1>
-            @if (!string.IsNullOrWhiteSpace(_store.Address))
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <!-- ════════════════════════════════════════════════════════════════════
+         HERO SECTION — full-width banner with brand name + story
+         (inspired by tocotocotea.com hero)
+    ════════════════════════════════════════════════════════════════════ -->
+    <section class="store-hero">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            @if (!string.IsNullOrWhiteSpace(_store.LogoUrl))
             {
-                <p class="text-muted mb-1">
-                    <i class="bi bi-geo-alt"></i> @_store.Address
-                </p>
+                <img src="@_store.LogoUrl" alt="@_store.Name" class="hero-logo" />
             }
-            @if (!string.IsNullOrWhiteSpace(_store.Phone))
+            else
             {
-                <p class="mb-1">
-                    <i class="bi bi-telephone"></i>
-                    <a href="tel:@_store.Phone">@_store.Phone</a>
-                </p>
+                <div class="hero-logo-placeholder">
+                    <i class="bi bi-shop"></i>
+                </div>
             }
-            @if (!string.IsNullOrWhiteSpace(_store.Email))
+            <h1 class="hero-title">@_store.Name</h1>
+            @if (!string.IsNullOrWhiteSpace(_store.BrandStory))
             {
-                <p class="mb-0">
-                    <i class="bi bi-envelope"></i>
-                    <a href="mailto:@_store.Email">@_store.Email</a>
-                </p>
+                <p class="hero-story">@_store.BrandStory</p>
             }
-        </VanAnCard>
+            <div class="hero-meta">
+                @if (!string.IsNullOrWhiteSpace(_store.Address))
+                {
+                    <span><i class="bi bi-geo-alt-fill"></i> @_store.Address</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(_store.Phone))
+                {
+                    <span><i class="bi bi-telephone-fill"></i> <a href="tel:@_store.Phone">@_store.Phone</a></span>
+                }
+                @if (!string.IsNullOrWhiteSpace(_store.Email))
+                {
+                    <span><i class="bi bi-envelope-fill"></i> <a href="mailto:@_store.Email">@_store.Email</a></span>
+                }
+            </div>
+            <div class="hero-cta-group">
+                @if (_features.GoogleMap_Section_Enabled && _store.Latitude.HasValue && _store.Longitude.HasValue)
+                {
+                    <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude" target="_blank" class="btn-cta">
+                    <i class="bi bi-compass"></i> Chỉ đường
+                    </a>
+                }
+                @if (!string.IsNullOrWhiteSpace(_store.SocialLinksFb))
+                {
+                    <a href="@_store.SocialLinksFb" target="_blank" class="btn-cta-outline">
+                        <i class="bi bi-facebook"></i> Facebook
+                    </a>
+                }
+                @if (!string.IsNullOrWhiteSpace(_store.SocialLinksTiktok))
+                {
+                    <a href="@_store.SocialLinksTiktok" target="_blank" class="btn-cta-outline">
+                        <i class="bi bi-tiktok"></i> TikTok
+                    </a>
+                }
+            </div>
+        </div>
+    </section>
 
-        // ── Campaign section (toggle) ─────────────────────────────────
+    <div class="store-body">
+
+        <!-- ════════════════════════════════════════════════════════════════
+             CAMPAIGN SECTION — promotions as beautiful cards
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.Campaign_Section_Enabled)
         {
-            <VanAnCard CssClass="campaign-section mb-4">
-                <div class="container">
-                    <h2 class="mb-3">
-                        <i class="bi bi-megaphone-fill text-primary"></i> Khuyến Mãi
+            <section class="store-section" id="campaigns">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon"><i class="bi bi-megaphone-fill"></i></span>
+                        Khuyến Mãi Nổi Bật
                     </h2>
-                    @if (_campaignLoading)
-                    {
-                        <div class="text-center py-3">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <p class="mt-2 text-muted">Đang tải khuyến mãi...</p>
-                        </div>
-                    }
-                    else if (_campaigns.Count > 0)
-                    {
-                        <div class="row g-3">
-                            @foreach (var campaign in _campaigns.Take(6))
-                            {
-                                <div class="col-12 col-md-6">
-                                    <VanAnCard Shadow="true" CssClass="h-100 campaign-card">
-                                        <div class="d-flex align-items-start gap-3">
-                                            <div class="campaign-media">
-                                                @if (!string.IsNullOrEmpty(campaign.ImageUrl))
-                                                {
-                                                    <img src="@campaign.ImageUrl" alt="@campaign.CampaignName" class="campaign-img" />
-                                                }
-                                                else if (!string.IsNullOrEmpty(campaign.VideoUrl))
-                                                {
-                                                    <div class="campaign-video-thumb" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
-                                                        <i class="bi bi-play-circle-fill text-primary" style="font-size:2rem;"></i>
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <div class="campaign-icon">
-                                                        <i class="bi bi-tag-fill text-danger" style="font-size:2rem;"></i>
-                                                    </div>
-                                                }
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="mb-1">@campaign.CampaignName</h5>
-                                                <div class="d-flex gap-3 small text-muted mb-2">
-                                                    <span><i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click</span>
-                                                    <span><i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn</span>
-                                                </div>
-                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
-                                                             OnClick="@(() => OpenCampaign(campaign.TrackingCode))">
-                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
-                                                </VanAnButton>
-                                            </div>
-                                        </div>
-                                    </VanAnCard>
-                                </div>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào." />
-                    }
+                    <div class="section-divider"></div>
                 </div>
-            </VanAnCard>
+                @if (_campaignLoading)
+                {
+                    <div class="section-loading">
+                        <div class="spinner-border text-primary"></div>
+                        <p>Đang tải khuyến mãi...</p>
+                    </div>
+                }
+                else if (_campaigns.Count > 0)
+                {
+                    <div class="campaign-grid">
+                        @foreach (var campaign in _campaigns.Take(6))
+                        {
+                            <article class="campaign-card" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
+                                <div class="campaign-media">
+                                    @if (!string.IsNullOrEmpty(campaign.ImageUrl))
+                                    {
+                                        <img src="@campaign.ImageUrl" alt="@campaign.CampaignName" loading="lazy" />
+                                    }
+                                    else if (!string.IsNullOrEmpty(campaign.VideoUrl))
+                                    {
+                                        <div class="campaign-video-thumb">
+                                            <i class="bi bi-play-circle-fill"></i>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="campaign-icon-fallback">
+                                            <i class="bi bi-tag-fill"></i>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="campaign-body">
+                                    <h5>@campaign.CampaignName</h5>
+                                    <div class="campaign-stats">
+                                        <span><i class="bi bi-mouse"></i> @campaign.TotalClicks</span>
+                                        <span><i class="bi bi-bag-check"></i> @campaign.ConvertedOrders</span>
+                                    </div>
+                                    <span class="campaign-cta">Xem khuyến mãi <i class="bi bi-arrow-right"></i></span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="section-empty">Cửa hàng hiện chưa có chương trình khuyến mãi nào.</p>
+                }
+            </section>
         }
 
-        // ── VibeShowcase section (toggle) ─────────────────────────────
+        <!-- ════════════════════════════════════════════════════════════════
+             VIBE SHOWCASE — product gallery (display only, not for sale)
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.VibeShowcase_Section_Enabled)
         {
-            <div class="mb-4">
+            <section class="store-section" id="products">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon"><i class="bi bi-grid-fill"></i></span>
+                        Bộ Sưu Tập Sản Phẩm
+                    </h2>
+                    <div class="section-divider"></div>
+                </div>
                 <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCart" />
-            </div>
+            </section>
         }
 
-        // ── Google Maps section (toggle) ──────────────────────────────
+        <!-- ════════════════════════════════════════════════════════════════
+             GOOGLE MAP SECTION
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.GoogleMap_Section_Enabled)
         {
-            <div class="mb-4">
+            <section class="store-section" id="location">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon"><i class="bi bi-geo-alt-fill"></i></span>
+                        Vị Trí Cửa Hàng
+                    </h2>
+                    <div class="section-divider"></div>
+                </div>
                 <GoogleMaps ShopConfig="@_shopConfig" />
-            </div>
+            </section>
         }
 
-        // ── Social Hub section (toggle) ───────────────────────────────
+        <!-- ════════════════════════════════════════════════════════════════
+             SOCIAL HUB — Facebook + TikTok embeds
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.SocialHub_Section_Enabled)
         {
-            <div class="mb-4">
+            <section class="store-section" id="social">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon"><i class="bi bi-share-fill"></i></span>
+                        Kết Nối Mạng Xã Hội
+                    </h2>
+                    <div class="section-divider"></div>
+                </div>
                 <SocialHub ShopConfig="@_shopConfig" />
-            </div>
+            </section>
         }
 
-        // ── AI Chatbox placeholder (Phase 4-5 — deferred) ─────────────
+        <!-- ════════════════════════════════════════════════════════════════
+             AI CHATBOX placeholder (Phase 4-5 — deferred)
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.AIChat_Enabled)
         {
-            <VanAnAlert Variant="AlertVariant.Info"
-                        Message="AI Chatbox đang được phát triển — sẽ ra mắt trong sprint tới." />
+            <section class="store-section">
+                <div class="ai-chat-placeholder">
+                    <i class="bi bi-robot"></i>
+                    <h3>AI Chatbox sắp ra mắt</h3>
+                    <p>Tính năng này đang được phát triển — sẽ có trong sprint tới.</p>
+                </div>
+            </section>
         }
-    }
-</KhachLinkLayout>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             FOOTER
+        ════════════════════════════════════════════════════════════════ -->
+        <footer class="store-footer">
+            <p>&copy; @DateTime.UtcNow.Year @_store.Name. All rights reserved.</p>
+            <p class="powered-by">Powered by <strong>KhachLink</strong></p>
+        </footer>
+    </div>
+}
 
 <style>
-    .store-header { padding: 2rem 1rem; }
-    .store-name { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
-    .campaign-media { flex-shrink: 0; width: 100px; height: 100px; overflow: hidden; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; }
-    .campaign-img { width: 100%; height: 100%; object-fit: cover; }
-    .campaign-video-thumb { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; background: linear-gradient(135deg, #e9ecef, #dee2e6); }
-    .campaign-icon { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #fff3f3; border-radius: 8px; }
+    /* ════════════════════════════════════════════════════════════════════
+         STORE PROFILE PAGE — Showcase layout (not e-commerce)
+         Inspired by tocotocotea.com: warm gradients, big hero, gallery feel
+    ════════════════════════════════════════════════════════════════════ */
+
+    /* Loading state */
+    .store-loading {
+        min-height: 100vh;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    /* Not found state */
+    .store-not-found {
+        min-height: 100vh;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 2rem;
+    }
+    .not-found-card {
+        background: white; padding: 3rem; border-radius: 24px;
+        text-align: center; max-width: 480px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .not-found-card i { font-size: 5rem; color: #d97706; }
+    .not-found-card h2 { margin: 1rem 0 0.5rem; font-weight: 700; }
+    .not-found-card p { color: #6b7280; margin-bottom: 1.5rem; }
+
+    /* ── HERO ─────────────────────────────────────────────────────────── */
+    .store-hero {
+        position: relative;
+        min-height: 70vh;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center;
+        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+        color: white;
+        padding: 4rem 1.5rem;
+        overflow: hidden;
+    }
+    .hero-overlay {
+        position: absolute; inset: 0;
+        background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%);
+    }
+    .hero-content {
+        position: relative; z-index: 2;
+        max-width: 900px;
+        animation: fadeUp 0.8s ease-out;
+    }
+    @@keyframes fadeUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .hero-logo, .hero-logo-placeholder {
+        width: 120px; height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin: 0 auto 1.5rem;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+        border: 3px solid rgba(255,255,255,0.5);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .hero-logo-placeholder i { font-size: 3rem; color: white; }
+    .hero-title {
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        font-weight: 800;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+        letter-spacing: -0.02em;
+    }
+    .hero-story {
+        font-size: clamp(1rem, 2vw, 1.25rem);
+        max-width: 700px;
+        margin: 0 auto 2rem;
+        line-height: 1.7;
+        opacity: 0.95;
+        font-style: italic;
+    }
+    .hero-meta {
+        display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        font-size: 0.95rem;
+    }
+    .hero-meta span { display: inline-flex; align-items: center; gap: 0.5rem; }
+    .hero-meta a { color: white; text-decoration: underline; }
+    .hero-cta-group {
+        display: flex; flex-wrap: wrap; justify-content: center;
+        gap: 1rem;
+    }
+
+    /* ── BUTTONS ─────────────────────────────────────────────────────── */
+    .btn-cta, .btn-cta-outline {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.75rem 1.75rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 1rem;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: all 0.25s ease;
+    }
+    .btn-cta {
+        background: white;
+        color: #ff5e62;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .btn-cta:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+    }
+    .btn-cta-outline {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border: 2px solid rgba(255,255,255,0.6);
+        backdrop-filter: blur(10px);
+    }
+    .btn-cta-outline:hover {
+        background: rgba(255,255,255,0.25);
+        border-color: white;
+    }
+
+    /* ── BODY CONTAINER ──────────────────────────────────────────────── */
+    .store-body {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+    }
+
+    /* ── SECTIONS ────────────────────────────────────────────────────── */
+    .store-section { margin-bottom: 5rem; }
+    .section-header { text-align: center; margin-bottom: 3rem; }
+    .section-title {
+        display: inline-flex; align-items: center; gap: 0.75rem;
+        font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0;
+    }
+    .section-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 48px; height: 48px;
+        background: linear-gradient(135deg, #ff9966, #ff5e62);
+        color: white;
+        border-radius: 14px;
+        font-size: 1.5rem;
+    }
+    .section-divider {
+        width: 80px; height: 4px;
+        background: linear-gradient(90deg, #ff9966, #ff5e62);
+        border-radius: 2px;
+        margin: 1rem auto 0;
+    }
+
+    /* ── CAMPAIGN GRID ───────────────────────────────────────────────── */
+    .campaign-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    .campaign-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        border: 1px solid #f3f4f6;
+    }
+    .campaign-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.15);
+    }
+    .campaign-media {
+        width: 100%; height: 220px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+    }
+    .campaign-media img {
+        width: 100%; height: 100%; object-fit: cover;
+        transition: transform 0.4s ease;
+    }
+    .campaign-card:hover .campaign-media img { transform: scale(1.05); }
+    .campaign-video-thumb, .campaign-icon-fallback {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 3rem; color: #d97706;
+    }
+    .campaign-video-thumb { background: linear-gradient(135deg, #fde68a, #fbbf24); }
+    .campaign-body { padding: 1.25rem; }
+    .campaign-body h5 {
+        font-size: 1.1rem; font-weight: 700;
+        margin: 0 0 0.75rem;
+        color: #1f2937;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .campaign-stats {
+        display: flex; gap: 1rem;
+        font-size: 0.85rem; color: #6b7280;
+        margin-bottom: 0.75rem;
+    }
+    .campaign-cta {
+        color: #ff5e62;
+        font-weight: 600;
+        font-size: 0.9rem;
+        display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .campaign-cta i { transition: transform 0.2s; }
+    .campaign-card:hover .campaign-cta i { transform: translateX(4px); }
+
+    /* ── SECTION STATES ──────────────────────────────────────────────── */
+    .section-loading {
+        text-align: center; padding: 3rem;
+        color: #6b7280;
+    }
+    .section-empty {
+        text-align: center; padding: 2rem;
+        color: #9ca3af;
+        font-style: italic;
+    }
+
+    /* ── AI CHAT PLACEHOLDER ─────────────────────────────────────────── */
+    .ai-chat-placeholder {
+        text-align: center;
+        padding: 3rem 2rem;
+        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        border-radius: 24px;
+    }
+    .ai-chat-placeholder i { font-size: 4rem; color: #6b7280; }
+    .ai-chat-placeholder h3 { margin: 1rem 0 0.5rem; }
+    .ai-chat-placeholder p { color: #6b7280; }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────── */
+    .store-footer {
+        text-align: center;
+        padding: 3rem 1rem 2rem;
+        border-top: 1px solid #e5e7eb;
+        color: #6b7280;
+    }
+    .store-footer p { margin: 0.25rem 0; }
+    .powered-by { font-size: 0.85rem; }
+    .powered-by strong { color: #ff5e62; }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        .store-hero { min-height: 60vh; padding: 3rem 1rem; }
+        .store-body { padding: 3rem 1rem; }
+        .campaign-grid { grid-template-columns: 1fr; }
+        .hero-meta { flex-direction: column; gap: 0.75rem; }
+    }
 </style>
 
 @code {
     [Parameter]
     public string Slug { get; set; } = string.Empty;
+
+    [Parameter]
+    public string TenantId { get; set; } = string.Empty;
 
     private bool _loading = true;
     private ShopDto? _store;
@@ -189,28 +520,37 @@
         _loading = true;
         try
         {
-            // 1. Load tenant by slug
-            _store = await TenantProfileService.GetBySlugAsync(Slug);
+            // Support two routes: /store/{slug} and /store/by-id/{tenantId}
+            if (!string.IsNullOrWhiteSpace(TenantId))
+            {
+                // by-id fallback — load store-info by tenant GUID
+                _store = await LoadStoreByTenantIdAsync(TenantId);
+            }
+            else
+            {
+                _store = await TenantProfileService.GetBySlugAsync(Slug);
+            }
+
             if (_store is null)
             {
                 _loading = false;
                 return;
             }
 
-            // 2. Build ShopConfig from store data (reuse existing service logic)
+            // Build ShopConfig from tenant store data
             _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(_store.Id);
 
-            // 3. Load feature settings (section toggles)
+            // Load feature settings (section toggles)
             _features = await TenantProfileService.GetFeatureSettingsAsync(_store.Id);
 
-            // 4. Parallel load: products + campaigns
+            // Parallel load: products + campaigns
             var productsTask = LoadProductsAsync(_store.Id);
             var campaignsTask = LoadCampaignsAsync(_store.Id);
             await Task.WhenAll(productsTask, campaignsTask);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error loading Store page for slug '{Slug}'", Slug);
+            Logger.LogError(ex, "Error loading Store page for slug '{Slug}' / tenantId '{TenantId}'", Slug, TenantId);
             _store = null;
         }
         finally
@@ -219,11 +559,50 @@
         }
     }
 
+    /// <summary>
+    /// Fallback for tenants without a slug: load store-info by tenant GUID.
+    /// Calls GET /api/tenants/{tenantId}/store-info directly.
+    /// </summary>
+    private async Task<ShopDto?> LoadStoreByTenantIdAsync(string tenantIdStr)
+    {
+        if (!Guid.TryParse(tenantIdStr, out var tenantId) || tenantId == Guid.Empty)
+        {
+            return null;
+        }
+        // Reuse ShopConfigHttpService's endpoint via direct HTTP — but we need a separate
+        // call here because TenantProfileHttpService only has GetBySlugAsync. We use the
+        // store-info endpoint through ShopConfigService and reconstruct the ShopDto from
+        // the resulting ShopConfig. Simpler: just use ShopConfigService and build a
+        // minimal ShopDto from it.
+        try
+        {
+            _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(tenantId);
+            // ShopConfig has all the fields we need — build a ShopDto from it
+            return new ShopDto
+            {
+                Id = _shopConfig.TenantId,
+                Name = _shopConfig.ShopName,
+                Address = _shopConfig.Address,
+                Phone = _shopConfig.Phone,
+                Email = _shopConfig.Email,
+                Latitude = _shopConfig.Latitude,
+                Longitude = _shopConfig.Longitude,
+                SocialLinksFb = _shopConfig.SocialLinksFb,
+                SocialLinksTiktok = _shopConfig.SocialLinksTiktok,
+                LogoUrl = _shopConfig.LogoUrl?.ToString()
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "LoadStoreByTenantIdAsync failed for {TenantId}", tenantId);
+            return null;
+        }
+    }
+
     private async Task LoadProductsAsync(Guid tenantId)
     {
         try
         {
-            // GET /api/products?shopId={tenantId} — YARP forwards to correct ShopERP (multi-VPS)
             _products = await ProductService.GetProductsAsync(tenantId);
         }
         catch (Exception ex)
@@ -253,7 +632,7 @@
 
     private void AddToCart(ProductDto product)
     {
-        // Phase 4: wire to CartService. For now, navigate to product page.
+        // Phase 4: wire to CartService. For now, just log.
         Logger.LogInformation("AddToCart clicked for product {ProductId} on Store page", product.ProductId);
     }
 

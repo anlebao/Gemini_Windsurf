@@ -63,6 +63,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 // Unique index — null allowed (tenants without public profile page).
                 settings.Property(s => s.Slug).HasColumnName("Settings_Slug").HasMaxLength(100);
                 settings.HasIndex(s => s.Slug).IsUnique();
+                // Tenant Profile Page (2026-07-21): Social media links + brand story
+                settings.Property(s => s.SocialLinksFb).HasColumnName("Settings_SocialLinksFb").HasMaxLength(500);
+                settings.Property(s => s.SocialLinksTiktok).HasColumnName("Settings_SocialLinksTiktok").HasMaxLength(500);
+                settings.Property(s => s.BrandStory).HasColumnName("Settings_BrandStory").HasMaxLength(500);
             });
 
             // Audit fields from BaseEntity

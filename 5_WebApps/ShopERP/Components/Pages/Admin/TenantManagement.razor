@@ -11,6 +11,7 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
 @using VanAn.ShopERP.Services
+@using System.Threading.Tasks
 @inject ITenantManagementService TenantService
 @inject TenantOnboardingApiClient OnboardingApiClient
 @inject ShopInstanceApiClient ShopInstanceApi
@@ -407,6 +408,23 @@
                     </small>
                 </div>
                 <div class="form-group">
+                    <label for="edit-brandstory">Câu chuyện thương hiệu (Brand Story)</label>
+                    <textarea id="edit-brandstory" class="vanan-input" rows="3"
+                              @bind="_editForm.BrandStory"
+                              placeholder="vd: Khởi đầu từ một quán trà nhỏ năm 2010, chúng tôi tự hào mang đến những ly trà sữa tươi ngon..."></textarea>
+                    <small class="text-muted">Hiển thị ở hero section trang /store/{slug}. Tối đa 500 ký tự.</small>
+                </div>
+                <div class="form-group">
+                    <label>Mạng xã hội (Social Hub)</label>
+                    <input id="edit-socialfb" class="vanan-input mb-2"
+                           @bind="_editForm.SocialLinksFb"
+                           placeholder="Facebook URL (vd: https://facebook.com/yourshop)" />
+                    <input id="edit-socialtiktok" class="vanan-input"
+                           @bind="_editForm.SocialLinksTiktok"
+                           placeholder="TikTok URL (vd: https://tiktok.com/yourshop)" />
+                    <small class="text-muted">Hiển thị ở Social Hub section. Để trống = ẩn section.</small>
+                </div>
+                <div class="form-group">
                     <label>Vị trí cửa hàng (Google Maps)</label>
                     <small class="text-muted d-block mb-2">
                         Kéo con trỏ trên bản đồ để chọn vị trí, hoặc nhập tay vĩ độ/kinh độ.
@@ -750,6 +768,7 @@
     }
 
     // ── Edit (assign ShopInstance + update profile + slug + location) ────────
+    private bool _mapInitialized;
     private void OpenEditModal(TenantApiDto t)
     {
         _selectedTenant = t;
@@ -763,27 +782,33 @@
             Slug = t.Slug,
             Latitude = t.Latitude,
             Longitude = t.Longitude,
+            SocialLinksFb = t.SocialLinksFb,
+            SocialLinksTiktok = t.SocialLinksTiktok,
+            BrandStory = t.BrandStory,
             ShopInstanceId = t.ShopInstanceId
         };
         _showEditModal = true;
-        // Init map after modal renders. Default to existing coords, or HCM center.
-        _ = InitMapAsync();
+        _mapInitialized = false;
+        // Map init deferred to OnAfterRenderAsync (DOM must be ready before JS call)
     }
 
-    /// <summary>Init Leaflet map. Called after edit modal opens.</summary>
-    private async Task InitMapAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Wait for modal DOM to render
-        await Task.Delay(150);
-        var lat = _editForm.Latitude ?? 10.7769;  // Default: HCM center
-        var lng = _editForm.Longitude ?? 106.7009;
-        try
+        // Init map when edit modal is shown AND not yet initialized
+        if (_showEditModal && !_mapInitialized)
         {
-            await JSRuntime.InvokeVoidAsync("vananTenantMap.init", "tenant-edit-map", lat, lng, OnMapMarkerMoved);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to init tenant edit map");
+            _mapInitialized = true;
+            var lat = _editForm.Latitude ?? 10.7769;  // Default: HCM center
+            var lng = _editForm.Longitude ?? 106.7009;
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("vananTenantMap.init",
+                    "tenant-edit-map", lat, lng, DotNetObjectReference.Create(this));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to init tenant edit map");
+            }
         }
     }
 
@@ -793,7 +818,8 @@
     {
         _editForm.Latitude = lat;
         _editForm.Longitude = lng;
-        StateHasChanged();
+        // Avoid StateHasChanged during render — schedule for next cycle
+        _ = InvokeAsync(StateHasChanged);
     }
 
     /// <summary>When user types in lat/lng inputs, move the marker.</summary>
@@ -877,7 +903,10 @@
                 Address = _editForm.Address,
                 TaxCode = _editForm.TaxCode,
                 Latitude = _editForm.Latitude,
-                Longitude = _editForm.Longitude
+                Longitude = _editForm.Longitude,
+                SocialLinksFb = string.IsNullOrWhiteSpace(_editForm.SocialLinksFb) ? null : _editForm.SocialLinksFb,
+                SocialLinksTiktok = string.IsNullOrWhiteSpace(_editForm.SocialLinksTiktok) ? null : _editForm.SocialLinksTiktok,
+                BrandStory = string.IsNullOrWhiteSpace(_editForm.BrandStory) ? null : _editForm.BrandStory
             });
 
             // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
@@ -996,6 +1025,9 @@
         public string? Slug { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
+        public string? SocialLinksFb { get; set; }
+        public string? SocialLinksTiktok { get; set; }
+        public string? BrandStory { get; set; }
         public Guid? ShopInstanceId { get; set; }
     }
 

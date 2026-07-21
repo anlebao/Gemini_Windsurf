@@ -34,8 +34,12 @@
     }
 
     function notifyDotNet(lat, lng) {
-        if (dotNetRef && dotNetRef.invokeMethod) {
-            dotNetRef.invokeMethod('OnMapMarkerMoved', lat, lng);
+        if (dotNetRef) {
+            try {
+                dotNetRef.invokeMethodAsync('OnMapMarkerMoved', lat, lng);
+            } catch (e) {
+                console.warn('[vananTenantMap] notifyDotNet failed:', e);
+            }
         }
     }
 
@@ -48,7 +52,10 @@
             this.destroy();
 
             const el = document.getElementById(elementId);
-            if (!el) return;
+            if (!el) {
+                console.warn('[vananTenantMap] element not found:', elementId);
+                return;
+            }
 
             map = L.map(elementId, { scrollWheelZoom: true }).setView([lat, lng], 13);
 
@@ -70,7 +77,8 @@
             });
 
             // Force map to recalculate size after modal animation
-            setTimeout(() => map.invalidateSize(), 200);
+            setTimeout(() => { if (map) map.invalidateSize(); }, 250);
+            setTimeout(() => { if (map) map.invalidateSize(); }, 500);
         },
 
         setMarker(lat, lng) {

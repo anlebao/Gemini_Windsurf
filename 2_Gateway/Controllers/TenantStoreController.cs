@@ -183,7 +183,11 @@ namespace VanAn.Gateway.Controllers
             Email = t.Settings?.ContactEmail ?? string.Empty,
             Latitude = t.Settings?.Latitude,
             Longitude = t.Settings?.Longitude,
-            Slug = t.Settings?.Slug
+            Slug = t.Settings?.Slug,
+            SocialLinksFb = t.Settings?.SocialLinksFb,
+            SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
+            BrandStory = t.Settings?.BrandStory,
+            LogoUrl = t.Settings?.LogoUrl
         };
 
         private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
@@ -210,5 +214,9 @@ namespace VanAn.Gateway.Controllers
         public double? Longitude { get; init; }
         /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
         public string? Slug { get; init; }
+        public string? SocialLinksFb { get; init; }
+        public string? SocialLinksTiktok { get; init; }
+        public string? BrandStory { get; init; }
+        public string? LogoUrl { get; init; }
     }
 }

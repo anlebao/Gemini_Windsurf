@@ -71,6 +71,9 @@ namespace VanAn.ShopERP.Services
         public double? Latitude { get; init; }
         /// <summary>Store Finder: longitude in decimal degrees. Null if not set.</summary>
         public double? Longitude { get; init; }
+        public string? SocialLinksFb { get; init; }
+        public string? SocialLinksTiktok { get; init; }
+        public string? BrandStory { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 
@@ -85,5 +88,8 @@ namespace VanAn.ShopERP.Services
         public double? Latitude { get; init; }
         /// <summary>Store Finder: longitude in decimal degrees. Null = clear.</summary>
         public double? Longitude { get; init; }
+        public string? SocialLinksFb { get; init; }
+        public string? SocialLinksTiktok { get; init; }
+        public string? BrandStory { get; init; }
     }
 }

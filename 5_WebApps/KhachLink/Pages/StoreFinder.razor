@@ -7,21 +7,67 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 
-<PageTitle>Tìm cửa hàng gần bạn</PageTitle>
+<PageTitle>Tìm cửa hàng gần bạn — KhachLink</PageTitle>
 
 <KhachLinkLayout>
-    <div class="container py-4">
-        <h2 class="mb-4">
-            <i class="bi bi-geo-alt-fill text-primary"></i> Cửa hàng gần bạn
-        </h2>
+    <div class="container py-4 store-finder-page">
+        <!-- Hero header -->
+        <div class="store-finder-hero text-center mb-4">
+            <h1 class="display-5 fw-bold mb-2">
+                <i class="bi bi-geo-alt-fill"></i> Tìm cửa hàng gần bạn
+            </h1>
+            <p class="text-muted mb-0">Khám phá các cửa hàng trong khu vực của bạn</p>
+        </div>
+
+        <!-- Search box -->
+        <div class="search-box-wrapper mb-4">
+            <div class="search-box-card">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="bi bi-search text-primary"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0 ps-0"
+                           id="search-input"
+                           @bind="_searchKeyword"
+                           @oninput="OnSearchInput"
+                           placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
+                           aria-label="Tìm cửa hàng" />
+                    @if (!string.IsNullOrWhiteSpace(_searchKeyword))
+                    {
+                        <button class="btn btn-outline-secondary" type="button" OnClick="ClearSearch">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    }
+                </div>
+                <div class="d-flex gap-2 mt-3 flex-wrap">
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="UseMyLocation">
+                        <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
+                    </VanAnButton>
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllStores">
+                        <i class="bi bi-list me-1"></i> Tất cả cửa hàng
+                    </VanAnButton>
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                        <label class="small text-muted mb-0">Bán kính:</label>
+                        <select class="form-select form-select-sm" style="width: auto;" value="@_radiusKm" @onchange="OnRadiusChanged">
+                            <option value="2">2 km</option>
+                            <option value="5">5 km</option>
+                            <option value="10">10 km</option>
+                            <option value="25">25 km</option>
+                            <option value="50">50 km</option>
+                            <option value="100">100 km</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         @if (_loading)
         {
             <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
                     <span class="visually-hidden">Đang tải...</span>
                 </div>
-                <p class="mt-2">Đang tìm cửa hàng...</p>
+                <p class="mt-3 text-muted">Đang tìm cửa hàng...</p>
             </div>
         }
         else if (_error != null)
@@ -33,29 +79,58 @@
         }
         else if (_stores.Count == 0)
         {
-            <VanAnCard Shadow="true" CssClass="text-center py-5">
-                <i class="bi bi-geo fa-3x text-muted mb-3 d-block" style="font-size:3rem;"></i>
-                <p class="text-muted">Không tìm thấy cửa hàng nào trong bán kính @_radiusKm km.</p>
-                <VanAnButton Variant="ButtonVariant.Outline" OnClick="LoadAllStores">Xem tất cả cửa hàng</VanAnButton>
+            <VanAnCard Shadow="true" CssClass="text-center py-5 empty-state-card">
+                <i class="bi bi-emoji-frown text-muted mb-3 d-block" style="font-size: 4rem;"></i>
+                <h4 class="text-muted">Không tìm thấy cửa hàng nào</h4>
+                <p class="text-muted mb-3">
+                    @if (!string.IsNullOrWhiteSpace(_searchKeyword))
+                    {
+                        <span>Không có cửa hàng phù hợp với "<strong>@_searchKeyword</strong>".</span>
+                    }
+                    else if (_userLat.HasValue)
+                    {
+                        <span>Không có cửa hàng trong bán kính @_radiusKm km.</span>
+                    }
+                    else
+                    {
+                        <span>Chưa có cửa hàng nào đăng ký. Hãy quay lại sau!</span>
+                    }
+                </p>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="LoadAllStores">
+                    <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
+                </VanAnButton>
             </VanAnCard>
         }
         else
         {
-            <p class="text-muted mb-3">Tìm thấy @_stores.Count cửa hàng</p>
+            <p class="text-muted mb-3">
+                Tìm thấy <strong>@_stores.Count</strong> cửa hàng
+                @if (_userLat.HasValue)
+                {
+                    <span> trong bán kính @_radiusKm km</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(_searchKeyword))
+                {
+                    <span> phù hợp "<strong>@_searchKeyword</strong>"</span>
+                }
+            </p>
             <div class="row g-3">
                 @foreach (var store in _stores)
                 {
                     <div class="col-12 col-md-6 col-lg-4">
-                        <VanAnCard Shadow="true" CssClass="h-100">
+                        <VanAnCard Shadow="true" CssClass="h-100 store-card-hover">
                             <div class="d-flex align-items-start gap-3">
-                                <div class="store-icon">
-                                    <i class="bi bi-shop text-primary" style="font-size:2rem;"></i>
+                                <div class="store-icon-wrap">
+                                    <i class="bi bi-shop-fill" style="font-size: 2rem;"></i>
                                 </div>
                                 <div class="flex-grow-1">
-                                    <h5 class="mb-1">@store.Name</h5>
-                                    <p class="text-muted small mb-1">
-                                        <i class="bi bi-geo-alt"></i> @store.Address
-                                    </p>
+                                    <h5 class="mb-1 fw-bold">@store.Name</h5>
+                                    @if (!string.IsNullOrEmpty(store.Address))
+                                    {
+                                        <p class="text-muted small mb-1">
+                                            <i class="bi bi-geo-alt"></i> @store.Address
+                                        </p>
+                                    }
                                     @if (!string.IsNullOrEmpty(store.Phone))
                                     {
                                         <p class="mb-1">
@@ -64,28 +139,37 @@
                                             </a>
                                         </p>
                                     }
-                                    @if (store.DistanceKm.HasValue)
-                                    {
-                                        <span class="badge bg-primary">@store.DistanceKm.Value.ToString("F1") km</span>
-                                    }
-                                    @if (store.Latitude.HasValue && store.Longitude.HasValue)
-                                    {
-                                        <div class="mt-2">
+                                    <div class="d-flex gap-2 align-items-center flex-wrap mt-2">
+                                        @if (store.DistanceKm.HasValue)
+                                        {
+                                            <span class="badge bg-primary rounded-pill">
+                                                <i class="bi bi-compass"></i> @store.DistanceKm.Value.ToString("F1") km
+                                            </span>
+                                        }
+                                        @if (store.Latitude.HasValue && store.Longitude.HasValue)
+                                        {
                                             <a href="https://maps.google.com/?q=@store.Latitude,@store.Longitude"
                                                target="_blank" class="btn btn-sm btn-outline-primary">
                                                 <i class="bi bi-map"></i> Chỉ đường
                                             </a>
-                                        </div>
-                                    }
-                                    @if (!string.IsNullOrEmpty(store.Slug))
-                                    {
-                                        <div class="mt-2">
+                                        }
+                                    </div>
+                                    <div class="mt-2 d-flex gap-2">
+                                        @if (!string.IsNullOrEmpty(store.Slug))
+                                        {
                                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
                                                          OnClick="@(() => Navigation.NavigateTo($"/store/{store.Slug}"))">
                                                 <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
                                             </VanAnButton>
-                                        </div>
-                                    }
+                                        }
+                                        else
+                                        {
+                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                         OnClick="@(() => Navigation.NavigateTo($"/store/by-id/{store.Id}"))">
+                                                <i class="bi bi-eye me-1"></i> Xem trang cửa hàng
+                                            </VanAnButton>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </VanAnCard>
@@ -96,6 +180,32 @@
     </div>
 </KhachLinkLayout>
 
+<style>
+    .store-finder-page { max-width: 1200px; margin: 0 auto; }
+    .store-finder-hero h1 { color: var(--bs-primary, #0d6efd); }
+    .search-box-wrapper { max-width: 700px; margin: 0 auto; }
+    .search-box-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .search-box-card .input-group-text { border-radius: 12px 0 0 12px; }
+    .search-box-card .form-control { border-radius: 0 12px 12px 0; }
+    .search-box-card .form-control:focus { box-shadow: none; border-color: #dee2e6; }
+    .store-card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+    .store-card-hover:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important; }
+    .store-icon-wrap {
+        width: 56px; height: 56px;
+        background: linear-gradient(135deg, #fff3cd, #ffe5b4);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        color: #d97706;
+        flex-shrink: 0;
+    }
+    .empty-state-card { border-radius: 16px; }
+</style>
+
 @code {
     private List<StoreDto> _stores = new();
     private bool _loading = true;
@@ -103,6 +213,8 @@
     private double _radiusKm = 10.0;
     private double? _userLat;
     private double? _userLng;
+    private string _searchKeyword = "";
+    private System.Threading.CancellationTokenSource? _searchDebounce;
 
     protected override async Task OnInitializedAsync()
     {
@@ -131,6 +243,52 @@
         }
     }
 
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _searchKeyword = e.Value?.ToString() ?? "";
+        _searchDebounce?.Cancel();
+        _searchDebounce = new System.Threading.CancellationTokenSource();
+        try
+        {
+            await Task.Delay(300, _searchDebounce.Token);
+            await LoadStores();
+        }
+        catch (TaskCanceledException) { /* debounce */ }
+    }
+
+    private async Task ClearSearch()
+    {
+        _searchKeyword = "";
+        await LoadStores();
+    }
+
+    private async Task OnRadiusChanged(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var r))
+        {
+            _radiusKm = r;
+        }
+        await LoadStores();
+    }
+
+    private async Task UseMyLocation()
+    {
+        try
+        {
+            var location = await JSRuntime.InvokeAsync<GeolocationResult>("vananPWA.getCurrentPosition");
+            if (location != null)
+            {
+                _userLat = location.Latitude;
+                _userLng = location.Longitude;
+                await LoadStores();
+            }
+        }
+        catch
+        {
+            _error = "Không lấy được vị trí. Trình duyệt có thể chặn geolocation.";
+        }
+    }
+
     private async Task LoadStores()
     {
         _loading = true;
@@ -138,11 +296,21 @@
         try
         {
             var client = HttpClientFactory.CreateClient("gateway");
-            // Bug fix (2026-07-21): /api/shops/nearby was removed when Shop entity was removed.
-            // Use /api/tenants/nearby (TenantStoreController) — returns TenantStoreDto list.
-            var url = _userLat.HasValue && _userLng.HasValue
-                ? $"/api/tenants/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_radiusKm}"
-                : "/api/tenants/nearby";
+            string url;
+            if (!string.IsNullOrWhiteSpace(_searchKeyword))
+            {
+                // Keyword search — calls /api/tenants/search?name={keyword}
+                url = $"/api/tenants/search?name={Uri.EscapeDataString(_searchKeyword)}";
+            }
+            else if (_userLat.HasValue && _userLng.HasValue)
+            {
+                url = $"/api/tenants/nearby?lat={_userLat}&lng={_userLng}&radiusKm={_radiusKm}";
+            }
+            else
+            {
+                // No location + no keyword — list all active tenants via search with empty name
+                url = "/api/tenants/search";
+            }
 
             var response = await client.GetAsync(url);
             if (response.IsSuccessStatusCode)
@@ -168,6 +336,7 @@
     {
         _userLat = null;
         _userLng = null;
+        _searchKeyword = "";
         await LoadStores();
     }
 
@@ -180,7 +349,6 @@
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public double? DistanceKm { get; set; }
-        /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
         public string? Slug { get; set; }
     }
 

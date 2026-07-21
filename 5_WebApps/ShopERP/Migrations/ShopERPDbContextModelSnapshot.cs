@@ -2000,6 +2000,11 @@ namespace VanAn.ShopERP.Migrations
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_Address");
 
+                            b1.Property<string>("BrandStory")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Settings_BrandStory");
+
                             b1.Property<string>("ContactEmail")
                                 .HasMaxLength(200)
                                 .HasColumnType("TEXT")
@@ -2027,6 +2032,16 @@ namespace VanAn.ShopERP.Migrations
                                 .HasMaxLength(100)
                                 .HasColumnType("TEXT")
                                 .HasColumnName("Settings_Slug");
+
+                            b1.Property<string>("SocialLinksFb")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Settings_SocialLinksFb");
+
+                            b1.Property<string>("SocialLinksTiktok")
+                                .HasMaxLength(500)
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Settings_SocialLinksTiktok");
 
                             b1.Property<string>("TaxCode")
                                 .HasMaxLength(20)

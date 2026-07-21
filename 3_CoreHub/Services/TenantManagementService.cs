@@ -73,6 +73,10 @@ namespace VanAn.CoreHub.Services
             var existingSettings = tenant.Settings;
             var latitude = request.Latitude ?? existingSettings?.Latitude;
             var longitude = request.Longitude ?? existingSettings?.Longitude;
+            // Social links + brand story: preserve existing if request omits them
+            var socialFb = request.SocialLinksFb ?? existingSettings?.SocialLinksFb;
+            var socialTiktok = request.SocialLinksTiktok ?? existingSettings?.SocialLinksTiktok;
+            var brandStory = request.BrandStory ?? existingSettings?.BrandStory;
 
             var settings = new TenantSettings(
                 request.ContactEmail,
@@ -81,7 +85,10 @@ namespace VanAn.CoreHub.Services
                 taxCode: request.TaxCode,
                 latitude: latitude,
                 longitude: longitude,
-                slug: tenant.Settings?.Slug);
+                slug: tenant.Settings?.Slug,
+                socialLinksFb: socialFb,
+                socialLinksTiktok: socialTiktok,
+                brandStory: brandStory);
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);

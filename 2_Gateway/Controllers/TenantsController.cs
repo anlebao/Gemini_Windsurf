@@ -47,7 +47,10 @@ namespace VanAn.Gateway.Controllers
                     request.Address, request.TaxCode,
                     Slug: null,
                     Latitude: request.Latitude,
-                    Longitude: request.Longitude);
+                    Longitude: request.Longitude,
+                    SocialLinksFb: request.SocialLinksFb,
+                    SocialLinksTiktok: request.SocialLinksTiktok,
+                    BrandStory: request.BrandStory);
                 await _tenantService.UpdateProfileAsync(new TenantId(tenantId), profileRequest);
                 return Ok(new { success = true });
             }
@@ -119,6 +122,9 @@ namespace VanAn.Gateway.Controllers
             Slug = t.Settings?.Slug,
             Latitude = t.Settings?.Latitude,
             Longitude = t.Settings?.Longitude,
+            SocialLinksFb = t.Settings?.SocialLinksFb,
+            SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
+            BrandStory = t.Settings?.BrandStory,
             CreatedAt = t.CreatedAt
         };
     }
@@ -140,6 +146,9 @@ namespace VanAn.Gateway.Controllers
         public double? Latitude { get; init; }
         /// <summary>Store Finder: longitude in decimal degrees. Null if not set.</summary>
         public double? Longitude { get; init; }
+        public string? SocialLinksFb { get; init; }
+        public string? SocialLinksTiktok { get; init; }
+        public string? BrandStory { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 
@@ -161,6 +170,9 @@ namespace VanAn.Gateway.Controllers
         public double? Latitude { get; init; }
         /// <summary>Store Finder: longitude in decimal degrees. Null = preserve existing.</summary>
         public double? Longitude { get; init; }
+        public string? SocialLinksFb { get; init; }
+        public string? SocialLinksTiktok { get; init; }
+        public string? BrandStory { get; init; }
     }
 
     public record AssignShopInstanceRequest

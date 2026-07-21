@@ -93,9 +93,9 @@ namespace VanAn.KhachLink.Services.Http
 
         /// <summary>
         /// SC4: Map ShopDto → ShopConfig. Real tenant store data (Name, Address, Phone, Email,
-        /// Latitude, Longitude) overrides defaults. Branding fields (PrimaryColor,
-        /// SecondaryColor, Theme, LogoUrl, SocialLinks, Features, LoyaltyConfig) stay at
-        /// ShopConfig defaults because they are not stored on the Tenant entity (SC5).
+        /// Latitude, Longitude, SocialLinks, LogoUrl) overrides defaults. Branding fields
+        /// (PrimaryColor, SecondaryColor, Theme, Features, LoyaltyConfig) stay at ShopConfig
+        /// defaults because they are not stored on the Tenant entity (SC5).
         /// </summary>
         private static ShopConfig BuildShopConfigFromShop(ShopDto shop)
         {
@@ -107,7 +107,9 @@ namespace VanAn.KhachLink.Services.Http
                 Phone = shop.Phone,
                 Email = shop.Email,
                 Latitude = shop.Latitude,
-                Longitude = shop.Longitude
+                Longitude = shop.Longitude,
+                SocialLinksFb = shop.SocialLinksFb,
+                SocialLinksTiktok = shop.SocialLinksTiktok
             };
         }
     }
