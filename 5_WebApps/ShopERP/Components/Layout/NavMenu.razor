@@ -106,8 +106,8 @@
             </Authorized>
         </AuthorizeView>
 
-        @* E-Invoice: Owner + StoreKeeper *@
-        <AuthorizeView Roles="Owner,StoreKeeper">
+        @* E-Invoice: Owner + StoreKeeper + SystemAdmin (cross-tenant view) *@
+        <AuthorizeView Roles="Owner,StoreKeeper,SystemAdmin">
             <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="einvoice">
@@ -119,22 +119,37 @@
                         <span class="bi bi-receipt-nav-menu" aria-hidden="true"></span> Quản Lý Hóa Đơn
                     </NavLink>
                 </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* E-Invoice Provider Config: Owner only *@
-        <AuthorizeView Roles="Owner">
-            <Authorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="einvoice/providers">
-                        <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Cấu Hình Provider
+                    <NavLink class="nav-link" href="einvoice/alerts">
+                        <span class="bi bi-bell-nav-menu" aria-hidden="true"></span> Quản Lý Cảnh Báo
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="einvoice/health">
+                        <span class="bi bi-heart-pulse-nav-menu" aria-hidden="true"></span> Health Monitoring
                     </NavLink>
                 </div>
             </Authorized>
         </AuthorizeView>
 
-        @* Admin / Audit: Admin role *@
-        <AuthorizeView Roles="Admin">
+        @* E-Invoice Provider Config: Owner + SystemAdmin *@
+        <AuthorizeView Roles="Owner,SystemAdmin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="einvoice/providers">
+                        <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Quản Lý Provider
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="einvoice/configuration">
+                        <span class="bi bi-sliders-nav-menu" aria-hidden="true"></span> Cấu Hình Provider
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* Admin / Audit: Admin + SystemAdmin role *@
+        <AuthorizeView Roles="Admin,SystemAdmin">
             <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/audit-trail">
@@ -174,6 +189,12 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/shops">
                         <span class="bi bi-shop-nav-menu" aria-hidden="true"></span> Cửa hàng
+                    </NavLink>
+                </div>
+                @* User Management — SystemAdmin can manage all users across tenants *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Quản lý Người Dùng
                     </NavLink>
                 </div>
             </Authorized>

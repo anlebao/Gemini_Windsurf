@@ -1,0 +1,50 @@
+.tenant-filter-dropdown {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--vanan-surface, #f8f9fa);
+    border: 1px solid var(--vanan-border, #dee2e6);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.tenant-filter-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--vanan-text, #212529);
+    white-space: nowrap;
+    margin: 0;
+}
+
+.tenant-filter-label i {
+    color: var(--vanan-primary, #0d6efd);
+}
+
+.tenant-filter-select {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--vanan-border, #ced4da);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    background: var(--vanan-surface, #fff);
+    color: var(--vanan-text, #212529);
+    cursor: pointer;
+    min-width: 200px;
+}
+
+.tenant-filter-select:focus {
+    outline: none;
+    border-color: var(--vanan-primary, #0d6efd);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+:root[data-theme="dark"] .tenant-filter-dropdown {
+    background: var(--vanan-surface, #2d2d2d);
+    border-color: var(--vanan-border, #444);
+}
+
+:root[data-theme="dark"] .tenant-filter-select {
+    background: var(--vanan-surface, #2d2d2d);
+    color: var(--vanan-text, #e0e0e0);
+    border-color: var(--vanan-border, #555);
+}

@@ -12,6 +12,7 @@
 @inject ILogger<HealthMonitoring> Logger
 
 <div class="health-monitoring-page @ThemeProvider.CurrentTheme" data-testid="health-monitoring">
+    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
     <header class="page-header">
         <h1>Giám Sát Hệ Thống</h1>
         <div class="header-actions">
@@ -173,6 +174,12 @@
     }
 
     private async Task RefreshHealth() => await LoadHealthData();
+
+    private async Task OnTenantFilterChanged(Guid tenantId)
+    {
+        await LoadHealthData();
+        StateHasChanged();
+    }
 
     private static string GetHealthClass(string status) => status switch
     {

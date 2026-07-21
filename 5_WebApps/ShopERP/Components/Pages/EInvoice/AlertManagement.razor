@@ -12,6 +12,7 @@
 @inject ILogger<AlertManagement> Logger
 
 <div class="alert-management-page @ThemeProvider.CurrentTheme" data-testid="alert-management">
+    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
     <header class="page-header">
         <h1>Quản Lý Cảnh Báo</h1>
         <div class="header-actions">
@@ -153,6 +154,12 @@
         {
             isLoading = false;
         }
+    }
+
+    private async Task OnTenantFilterChanged(Guid tenantId)
+    {
+        await LoadAlerts();
+        StateHasChanged();
     }
 
     private void AcknowledgeAlert(Guid alertId)

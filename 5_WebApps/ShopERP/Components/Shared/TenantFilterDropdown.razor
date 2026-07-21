@@ -1,0 +1,71 @@
+@* TenantFilterDropdown — SystemAdmin tenant selector for cross-tenant admin pages.
+   Shows a dropdown of all tenants (loaded from Gateway API).
+   When selected, overrides ITenantProvider so the page loads data for that tenant.
+   For non-SystemAdmin users, this component is hidden (they see their own tenant). *@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Logging
+@using VanAn.Shared.Domain.Common
+@using VanAn.ShopERP.Services
+@inject TenantApiClient TenantApi
+@inject ITenantProvider TenantProvider
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<TenantFilterDropdown> Logger
+
+@if (_isVisible)
+{
+    <div class="tenant-filter-dropdown" data-testid="tenant-filter">
+        <label class="tenant-filter-label">
+            <i class="bi bi-building"></i> Tenant:
+        </label>
+        <select class="tenant-filter-select" @bind="_selectedTenantId" @bind:after="OnTenantChanged">
+            @foreach (var t in _tenants)
+            {
+                <option value="@t.Id">@t.Name</option>
+            }
+        </select>
+    </div>
+}
+
+@code {
+    private List<TenantApiDto> _tenants = new();
+    private Guid _selectedTenantId = Guid.Empty;
+    private bool _isVisible;
+
+    [Parameter]
+    public EventCallback<Guid> TenantChanged { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _isVisible = authState.User.IsInRole("SystemAdmin");
+            if (!_isVisible)
+            {
+                // Non-SystemAdmin: no dropdown needed, use their own tenant
+                return;
+            }
+
+            _tenants = await TenantApi.ListAllAsync();
+            if (_tenants.Count > 0)
+            {
+                _selectedTenantId = _tenants[0].Id;
+                TenantProvider.SetTenant(_selectedTenantId);
+                await TenantChanged.InvokeAsync(_selectedTenantId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenants for filter dropdown");
+        }
+    }
+
+    private async Task OnTenantChanged()
+    {
+        if (_selectedTenantId != Guid.Empty)
+        {
+            TenantProvider.SetTenant(_selectedTenantId);
+            await TenantChanged.InvokeAsync(_selectedTenantId);
+        }
+    }
+}

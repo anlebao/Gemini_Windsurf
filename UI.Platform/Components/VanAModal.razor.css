@@ -1,0 +1,160 @@
+/* VanAModal — modal dialog with backdrop overlay */
+.vanan-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 1050;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+}
+
+.vanan-modal-backdrop--visible {
+    opacity: 1;
+}
+
+.vanan-modal {
+    background: var(--vanan-surface, #ffffff);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: vanan-modal-fade-in 0.2s ease-out;
+}
+
+@keyframes vanan-modal-fade-in {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.vanan-modal--small { width: 100%; max-width: 400px; }
+.vanan-modal--medium { width: 100%; max-width: 600px; }
+.vanan-modal--large { width: 100%; max-width: 900px; }
+.vanan-modal--fullscreen { width: 95vw; max-width: 95vw; max-height: 95vh; }
+
+.vanan-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--vanan-border, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.vanan-modal__title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--vanan-text, #212529);
+}
+
+.vanan-modal__close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--vanan-text-muted, #6c757d);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+.vanan-modal__close:hover {
+    background: var(--vanan-surface-hover, #f0f0f0);
+    color: var(--vanan-text, #212529);
+}
+
+.vanan-modal__body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.vanan-modal__footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--vanan-border, #e0e0e0);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* Dark theme support */
+:root[data-theme="dark"] .vanan-modal {
+    background: var(--vanan-surface, #2d2d2d);
+    color: var(--vanan-text, #e0e0e0);
+}
+
+:root[data-theme="dark"] .vanan-modal__header {
+    border-bottom-color: var(--vanan-border, #444);
+}
+
+:root[data-theme="dark"] .vanan-modal__footer {
+    border-top-color: var(--vanan-border, #444);
+}
+
+:root[data-theme="dark"] .vanan-modal__close:hover {
+    background: var(--vanan-surface-hover, #3d3d3d);
+}
+
+/* Form elements inside modal */
+.vanan-modal .form-group {
+    margin-bottom: 1rem;
+}
+
+.vanan-modal .form-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.vanan-modal .vanan-input,
+.vanan-modal .vanan-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--vanan-border, #ced4da);
+    border-radius: 4px;
+    font-size: 0.875rem;
+    background: var(--vanan-surface, #fff);
+    color: var(--vanan-text, #212529);
+}
+
+.vanan-modal .vanan-input:focus,
+.vanan-modal .vanan-select:focus {
+    outline: none;
+    border-color: var(--vanan-primary, #0d6efd);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.vanan-modal .form-actions,
+.vanan-modal .modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.vanan-modal .form-text {
+    font-size: 0.75rem;
+    color: var(--vanan-text-muted, #6c757d);
+}
+
+.vanan-modal .text-danger {
+    color: #dc3545;
+}
+
+.vanan-modal .text-warning {
+    color: #ffc107;
+}
+
+.vanan-modal .text-muted {
+    color: var(--vanan-text-muted, #6c757d);
+}

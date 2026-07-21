@@ -10,9 +10,11 @@
 @using VanAn.CoreHub.Services.Onboarding
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Aggregates.TenantAggregate
+@using VanAn.ShopERP.Services
 @inject ITenantManagementService TenantService
 @inject TenantOnboardingApiClient OnboardingApiClient
 @inject ShopInstanceApiClient ShopInstanceApi
+@inject TenantApiClient TenantApi
 @inject IThemeProvider ThemeProvider
 @inject ILogger<TenantManagement> Logger
 @inject NavigationManager NavigationManager
@@ -95,13 +97,13 @@
                     {
                         <tr>
                             <td><strong>@t.Name</strong></td>
-                            <td>@(t.IsHouseholdBusiness() ? "Hộ kinh doanh" : "Công ty")</td>
+                            <td>@(t.BusinessType == BusinessType.HouseholdBusiness ? "Hộ kinh doanh" : "Công ty")</td>
                             <td>
                                 <span class="status-badge status-@t.Status.ToString().ToLower()">
                                     @StatusLabel(t.Status)
                                 </span>
                             </td>
-                            <td>@(t.Settings.ContactEmail ?? "-")</td>
+                            <td>@(t.ContactEmail ?? "-")</td>
                             <td>
                                 @if (t.ShopInstanceId.HasValue && t.ShopInstanceId.Value != Guid.Empty)
                                 {
@@ -149,7 +151,7 @@
                                 }
                                 @if (t.Status == TenantStatus.Active)
                                 {
-                                    <VanAButton Variant="primary" Size="small" OnClick="() => ImpersonateTenant(t)" IsLoading="@(_impersonatingTenantId == t.Id.Value)">
+                                    <VanAButton Variant="primary" Size="small" OnClick="() => ImpersonateTenant(t)" IsLoading="@(_impersonatingTenantId == t.Id)">
                                         Truy cập
                                     </VanAButton>
                                 }
@@ -435,8 +437,8 @@
 
 @code {
 #pragma warning disable CS0618 // Tenant obsolete — using new TenantAggregate.Tenant explicitly below
-    // Use FQN to disambiguate: both VanAn.Shared.Domain.Tenant and TenantAggregate.Tenant exist
-    private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = [];
+    // Tenants loaded from Gateway API (PostgreSQL) — NOT local SQLite
+    private List<TenantApiDto> _tenants = [];
     // Phase 6: ShopInstance list for dropdown + column display
     private List<ShopInstanceDto> _shopInstances = [];
     private bool _isLoading;
@@ -482,7 +484,7 @@
     // Suspend / deactivate modals
     private bool _showSuspendModal;
     private bool _showDeactivateModal;
-    private VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant? _selectedTenant;
+    private TenantApiDto? _selectedTenant;
     private string _reasonInput = string.Empty;
 
     // Edit modal (assign ShopInstance + update profile)
@@ -516,13 +518,13 @@
         _isLoading = true;
         try
         {
-            var list = await TenantService.ListTenantsAsync();
-            _tenants = [.. list];
+            // Load from Gateway API (PostgreSQL) — NOT local SQLite
+            _tenants = await TenantApi.ListAllAsync();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to load tenants");
-            ShowAlert("error", "Không thể tải danh sách tenant.");
+            Logger.LogError(ex, "Failed to load tenants from Gateway API");
+            ShowAlert("error", "Không thể tải danh sách tenant từ Gateway.");
         }
         finally
         {
@@ -656,7 +658,7 @@
     }
 
     // ── Suspend ───────────────────────────────────────────────────────────────
-    private void OpenSuspendModal(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showSuspendModal = true; }
+    private void OpenSuspendModal(TenantApiDto t) { _selectedTenant = t; _reasonInput = string.Empty; _showSuspendModal = true; }
     private void CloseSuspendModal() => _showSuspendModal = false;
 
     private async Task ConfirmSuspend()
@@ -665,7 +667,7 @@
         _isSaving = true;
         try
         {
-            await TenantService.SuspendAsync(_selectedTenant.Id, _reasonInput);
+            await TenantService.SuspendAsync(new TenantId(_selectedTenant.Id), _reasonInput);
             _showSuspendModal = false;
             ShowAlert("success", $"Tenant '{_selectedTenant.Name}' đã được tạm ngưng.");
             await LoadTenants();
@@ -675,12 +677,12 @@
     }
 
     // ── Reactivate ────────────────────────────────────────────────────────────
-    private async Task ReactivateTenant(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t)
+    private async Task ReactivateTenant(TenantApiDto t)
     {
         _isSaving = true;
         try
         {
-            await TenantService.ReactivateAsync(t.Id);
+            await TenantService.ReactivateAsync(new TenantId(t.Id));
             ShowAlert("success", $"Tenant '{t.Name}' đã được kích hoạt lại.");
             await LoadTenants();
         }
@@ -689,7 +691,7 @@
     }
 
     // ── Deactivate ────────────────────────────────────────────────────────────
-    private void OpenDeactivateModal(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t) { _selectedTenant = t; _reasonInput = string.Empty; _showDeactivateModal = true; }
+    private void OpenDeactivateModal(TenantApiDto t) { _selectedTenant = t; _reasonInput = string.Empty; _showDeactivateModal = true; }
     private void CloseDeactivateModal() => _showDeactivateModal = false;
 
     private async Task ConfirmDeactivate()
@@ -698,7 +700,7 @@
         _isSaving = true;
         try
         {
-            await TenantService.DeactivateAsync(_selectedTenant.Id, _reasonInput);
+            await TenantService.DeactivateAsync(new TenantId(_selectedTenant.Id), _reasonInput);
             _showDeactivateModal = false;
             ShowAlert("success", $"Tenant '{_selectedTenant.Name}' đã bị vô hiệu hoá.");
             await LoadTenants();
@@ -708,16 +710,16 @@
     }
 
     // ── Edit (assign ShopInstance + update profile) ───────────────────────────
-    private void OpenEditModal(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant t)
+    private void OpenEditModal(TenantApiDto t)
     {
         _selectedTenant = t;
         _editForm = new EditForm
         {
             Name = t.Name,
-            ContactEmail = t.Settings.ContactEmail,
-            ContactPhone = t.Settings.ContactPhone,
-            Address = t.Settings.Address,
-            TaxCode = t.Settings.TaxCode,
+            ContactEmail = t.ContactEmail,
+            ContactPhone = t.ContactPhone,
+            Address = t.Address,
+            TaxCode = t.TaxCode,
             ShopInstanceId = t.ShopInstanceId
         };
         _showEditModal = true;
@@ -742,19 +744,20 @@
         _isSaving = true;
         try
         {
-            // 1. Update profile (name + contact info)
-            var profileRequest = new UpdateTenantProfileRequest(
-                _editForm.Name,
-                _editForm.ContactEmail,
-                _editForm.ContactPhone,
-                _editForm.Address,
-                _editForm.TaxCode);
-            await TenantService.UpdateProfileAsync(_selectedTenant.Id, profileRequest);
+            // 1. Update profile via Gateway API (PostgreSQL)
+            await TenantApi.UpdateProfileAsync(_selectedTenant.Id, new UpdateTenantProfileApiRequest
+            {
+                Name = _editForm.Name,
+                ContactEmail = _editForm.ContactEmail,
+                ContactPhone = _editForm.ContactPhone,
+                Address = _editForm.Address,
+                TaxCode = _editForm.TaxCode
+            });
 
-            // 2. Assign ShopInstance (only if changed)
+            // 2. Assign ShopInstance via Gateway API (PostgreSQL) — only if changed
             if (_selectedTenant.ShopInstanceId != _editForm.ShopInstanceId)
             {
-                await TenantService.AssignShopInstanceAsync(_selectedTenant.Id, _editForm.ShopInstanceId.Value);
+                await TenantApi.AssignShopInstanceAsync(_selectedTenant.Id, _editForm.ShopInstanceId.Value);
             }
 
             _showEditModal = false;
@@ -775,18 +778,18 @@
     // because the injected HttpClient has no BaseAddress (relative URLs fail silently).
     private string Api(string path) => $"{NavigationManager.BaseUri.TrimEnd('/')}/{path.TrimStart('/')}";
 
-    private void NavigateToQuickSetup(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant tenant)
+    private void NavigateToQuickSetup(TenantApiDto tenant)
     {
-        NavigationManager.NavigateTo($"/quick-setup?tenantId={tenant.Id.Value}");
+        NavigationManager.NavigateTo($"/quick-setup?tenantId={tenant.Id}");
     }
 
-    private async Task ImpersonateTenant(VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant tenant)
+    private async Task ImpersonateTenant(TenantApiDto tenant)
     {
-        _impersonatingTenantId = tenant.Id.Value;
+        _impersonatingTenantId = tenant.Id;
         try
         {
             var client = HttpClientFactory.CreateClient("CookieForwarding");
-            var response = await client.PostAsync(Api($"/api/admin/impersonate/{tenant.Id.Value}"), null);
+            var response = await client.PostAsync(Api($"/api/admin/impersonate/{tenant.Id}"), null);
             if (response.IsSuccessStatusCode)
             {
                 NavigationManager.NavigateTo("/", forceLoad: true);
@@ -798,7 +801,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to impersonate tenant {TenantId}", tenant.Id.Value);
+            Logger.LogError(ex, "Failed to impersonate tenant {TenantId}", tenant.Id);
             ShowAlert("error", $"Lỗi kết nối: {ex.Message}");
         }
         finally { _impersonatingTenantId = Guid.Empty; }

@@ -18,9 +18,10 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject VanAn.CoreHub.Infrastructure.IVanAnDbContext DbContext
 
-@attribute [Authorize(Policy = "OwnerOnly")]
+@attribute [Authorize(Policy = "OwnerOnly", Roles = "Owner,SystemAdmin")]
 
 <div class="user-management-page @ThemeProvider.CurrentTheme">
+    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
     <header class="page-header">
         <h1>Quản lý người dùng</h1>
         <div class="header-actions">

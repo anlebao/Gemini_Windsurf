@@ -13,6 +13,7 @@
 @inject NavigationManager NavigationManager
 
 <div class="provider-configuration-page @ThemeProvider.CurrentTheme" data-testid="provider-configuration">
+    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
     <header class="page-header">
         <h1>Cấu Hình Nhà Cung Cấp</h1>
         <div class="header-actions">
@@ -124,6 +125,14 @@
         selectedProvider = e.Value?.ToString() ?? string.Empty;
         if (!string.IsNullOrEmpty(selectedProvider))
             LoadProviderConfig(selectedProvider);
+    }
+
+    private Task OnTenantFilterChanged(Guid tenantId)
+    {
+        if (!string.IsNullOrEmpty(selectedProvider))
+            LoadProviderConfig(selectedProvider);
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private void LoadProviderConfig(string providerId)

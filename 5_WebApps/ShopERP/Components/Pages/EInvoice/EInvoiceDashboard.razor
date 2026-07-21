@@ -13,6 +13,9 @@
 @inject NavigationManager NavigationManager
 
 <div class="einvoice-dashboard @ThemeProvider.CurrentTheme" data-testid="einvoice-dashboard">
+    <!-- Tenant Filter (SystemAdmin only) -->
+    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
+
     <!-- Header -->
     <header class="page-header">
         <h1>Dashboard Hóa Đơn Điện Tử</h1>
@@ -162,6 +165,12 @@
     }
 
     private Task RefreshData() => LoadDashboardData();
+
+    private async Task OnTenantFilterChanged(Guid tenantId)
+    {
+        await LoadDashboardData();
+        StateHasChanged();
+    }
 
     private void NavigateToInvoices() => NavigationManager.NavigateTo("/einvoice/invoices");
 

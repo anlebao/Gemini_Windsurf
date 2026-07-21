@@ -83,6 +83,12 @@ namespace VanAn.ShopERP.Components.Pages.Admin
             }
         }
 
+        private async Task OnTenantFilterChanged(Guid tenantId)
+        {
+            await LoadUsers();
+            StateHasChanged();
+        }
+
         private void OpenCreateModal()
         {
             _createForm.Reset();

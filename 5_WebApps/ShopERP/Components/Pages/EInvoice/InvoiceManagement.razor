@@ -16,6 +16,7 @@
 @inject NavigationManager NavigationManager
 
 <div class="invoice-management-page @ThemeProvider.CurrentTheme" data-testid="invoice-management">
+    <TenantFilterDropdown TenantChanged="OnTenantFilterChanged" />
     <header class="page-header">
         <h1>Quản Lý Hóa Đơn Điện Tử</h1>
         <div class="header-actions">
@@ -216,6 +217,12 @@
         {
             isLoading = false;
         }
+    }
+
+    private async Task OnTenantFilterChanged(Guid tenantId)
+    {
+        await LoadInvoices();
+        StateHasChanged();
     }
 
     private async Task SubmitInvoice(Guid invoiceId)
