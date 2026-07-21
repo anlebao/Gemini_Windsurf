@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
+using VanAn.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Interfaces;
+using IInventoryService = VanAn.CoreHub.Interfaces.IInventoryService;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.CoreHub.Common;

@@ -261,7 +261,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<IHKDBookRepository, HKDBookRepository>();
             _ = builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.ISocialCampaignRepository, VanAn.CoreHub.Infrastructure.Repositories.SocialCampaignRepository>();
-            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ISocialCampaignService, VanAn.CoreHub.Services.SocialCampaignService>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.ISocialCampaignService, VanAn.CoreHub.Services.SocialCampaignService>();
             // P3 FIX: Register missing repositories needed by services
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IOrderRepository, VanAn.CoreHub.Repositories.OrderRepository>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Repositories.IProductRepository, VanAn.CoreHub.Repositories.ProductRepository>();
@@ -278,7 +278,7 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IKitchenService, VanAn.CoreHub.Services.KitchenService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IOrderService, VanAn.CoreHub.Services.OrderService>();
             // W2-T6: Shop feature toggle settings — needed by OrderService.ConfirmPaymentAsync for accounting bypass
-            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IShopFeatureSettingsService, VanAn.CoreHub.Services.ShopFeatureSettingsService>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IShopFeatureSettingsService, VanAn.CoreHub.Services.ShopFeatureSettingsService>();
             _ = builder.Services.AddHttpClient<VanAn.CoreHub.Services.IShopInstanceService, VanAn.CoreHub.Services.ShopInstanceService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProviderManager, VanAn.CoreHub.Services.ProviderManager>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IExcelExportService, VanAn.CoreHub.Services.ExcelExportService>();

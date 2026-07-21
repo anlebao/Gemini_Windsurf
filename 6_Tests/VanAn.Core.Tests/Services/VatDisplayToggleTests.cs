@@ -1,6 +1,7 @@
 using FluentAssertions;
 using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Services;
+using VanAn.Shared.Services;
 using Xunit;
 
 namespace VanAn.Core.Tests.Services

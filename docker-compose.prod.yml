@@ -181,25 +181,24 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/anlebao}/vanan-khachlink:${IMAGE_TAG:-latest}
     container_name: vanan-khachlink
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
-      - Gateway__BaseUrl=https://api.${VANAN_DOMAIN}
-      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      # Phase 1 WASM conversion: KhachLink is now Blazor WebAssembly served by nginx.
+      # No ASPNETCORE env vars needed — nginx serves static files.
+      # Gateway URL is configured in wwwroot/appsettings.json (baked into image at publish time).
     networks:
       - vanan-network
     depends_on:
       - gateway
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 10s
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 512m
+          memory: 256m
     logging:
       driver: "json-file"
       options:

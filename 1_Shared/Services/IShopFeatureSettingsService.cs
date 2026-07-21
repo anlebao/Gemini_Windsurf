@@ -1,4 +1,4 @@
-namespace VanAn.CoreHub.Services;
+namespace VanAn.Shared.Services;
 
 /// <summary>
 /// DTO for shop feature toggle settings (6 toggles).

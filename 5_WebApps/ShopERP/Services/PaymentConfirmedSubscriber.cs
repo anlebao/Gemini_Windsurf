@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VanAn.Shared.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

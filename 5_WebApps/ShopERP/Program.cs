@@ -1,4 +1,5 @@
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -164,7 +165,7 @@ namespace VanAn.ShopERP
 
             // Register CoreHub Services (FIX: Use CoreHub interfaces and implementations)
             _ = builder.Services.AddScoped<CoreHub.Services.IShopConfigService, CoreHub.Services.ShopConfigService>();
-            _ = builder.Services.AddScoped<CoreHub.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
+            _ = builder.Services.AddScoped<Shared.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOnboardingService, CoreHub.Services.OnboardingService>();
             // Industry seed strategies — registered for IOnboardingService.ApplyTemplateAsync to resolve by IndustryCode.
@@ -180,10 +181,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IVoiceCommandService, CoreHub.Services.VoiceCommandService>();
             _ = builder.Services.AddScoped<Shared.Services.ICustomerService, CoreHub.Services.CustomerService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
-            _ = builder.Services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+            _ = builder.Services.AddScoped<Shared.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IAccountingService, CoreHub.Services.AccountingEntryService>();
             // KhachLink Full Flow W0: Shop feature toggle settings
-            _ = builder.Services.AddScoped<CoreHub.Services.IShopFeatureSettingsService, CoreHub.Services.ShopFeatureSettingsService>();
+            _ = builder.Services.AddScoped<Shared.Services.IShopFeatureSettingsService, CoreHub.Services.ShopFeatureSettingsService>();
             _ = builder.Services.AddScoped<Services.Accounting.AccountingUIService>();
             _ = builder.Services.AddHttpContextAccessor();
 

@@ -95,7 +95,7 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
 
         // FIX: Session 2 - Apply pattern from ShopERP/Program.cs for missing services
-        services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+        services.AddScoped<Shared.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
         services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
         services.AddScoped<CoreHub.Services.IDashboardService, CoreHub.Services.DashboardService>();
         services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();
@@ -188,7 +188,7 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddScoped<CoreHub.Services.INotificationService, CoreHub.Services.CompositeNotificationService>();
 
         // FIX: Session 2 - Apply pattern from ShopERP/Program.cs for missing services
-        services.AddScoped<CoreHub.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
+        services.AddScoped<Shared.Services.IOrderWorkflowService, CoreHub.Services.OrderWorkflowService>();
         services.AddScoped<CoreHub.Repositories.ISystemMetricsRepository, CoreHub.Infrastructure.Repositories.SystemMetricsRepository>();
         services.AddScoped<CoreHub.Services.IDashboardService, CoreHub.Services.DashboardService>();
         services.AddScoped<CoreHub.Services.IReversalService, CoreHub.Services.ReversalService>();

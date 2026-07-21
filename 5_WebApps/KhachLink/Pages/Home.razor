@@ -5,10 +5,8 @@
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Services.Http
-@using VanAn.CoreHub.Services
 @page "/home"
 @page "/"
-@rendermode InteractiveServer
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject NavigationManager Navigation
 @inject IThemeProvider ThemeProvider
@@ -401,7 +399,7 @@
             {
                 try
                 {
-                    _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.CoreHub.Services.ShopFeatureSettingsDto.VAT_Display_Enabled));
+                    _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.VAT_Display_Enabled));
                 }
                 catch { /* non-critical — default to true */ }
             }

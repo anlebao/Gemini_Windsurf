@@ -1,26 +1,12 @@
 # syntax=docker/dockerfile:1
-# Use .NET 8 runtime with ICU support for internationalization
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
+# Blazor WebAssembly — served as static files via nginx.
+# Phase 1 WASM conversion: replaced dotnet runtime with nginx static file server.
 
-# Install ICU libraries for globalization support and curl for healthcheck
-RUN apt-get update && apt-get install -y \
-    icu-devtools \
-    libicu-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set environment variable for proper globalization
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-ENV LC_ALL=en_US.UTF-8
-ENV LANG=en_US.UTF-8
-
-# Use .NET 8 SDK for building
+# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Pin NuGet global packages folder for BuildKit cache mount (NuGet.Config uses %USERPROFILE% which is Windows-only)
+# Pin NuGet global packages folder for BuildKit cache mount
 ENV NUGET_PACKAGES=/root/.nuget/packages
 
 # Copy csproj files and restore as distinct layers
@@ -37,20 +23,26 @@ COPY ["5_WebApps/ShopERP/VanAn.ShopERP.csproj", "5_WebApps/ShopERP/"]
 COPY ["5_WebApps/KhachLink/VanAn.KhachLink.csproj", "5_WebApps/KhachLink/"]
 RUN dotnet restore "5_WebApps/KhachLink/VanAn.KhachLink.csproj"
 
-# Copy everything else and build
+# Copy everything else and publish
 COPY . .
 WORKDIR "/src/5_WebApps/KhachLink"
-
-# TODO: Add tests back when test project is properly configured
-# RUN dotnet test "6_Tests/VanAn.Tests.csproj" --no-restore --logger "console;verbosity=detailed" --results-directory /test-results
-
-# Build application
-RUN dotnet build "VanAn.KhachLink.csproj" -c Release -o /app/build
-
-FROM build AS publish
 RUN dotnet publish "VanAn.KhachLink.csproj" -c Release -o /app/publish
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "VanAn.KhachLink.dll"]
+# Runtime stage — nginx serving static files
+FROM nginx:alpine AS final
+WORKDIR /usr/share/nginx/html
+
+# Remove default nginx static assets
+RUN rm -rf ./*
+
+# Copy published Blazor WASM static files
+COPY --from=build /app/publish/wwwroot ./
+
+# Copy custom nginx config for Blazor WASM SPA routing
+COPY 5_WebApps/KhachLink/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+# nginx serves static files — no ENTRYPOINT needed (nginx image has default CMD)
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
+  CMD wget -q --spider http://localhost/ || exit 1

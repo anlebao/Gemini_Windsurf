@@ -1,6 +1,6 @@
 using VanAn.Shared.Domain;
 
-namespace VanAn.CoreHub.Services
+namespace VanAn.Shared.Services
 {
     public interface ISocialCampaignService
     {
