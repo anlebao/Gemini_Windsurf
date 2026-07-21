@@ -19,10 +19,10 @@
 ## 1. Project Overview
 
 **D? �n:** V?n An Accounting System MVP � gi?i ph�p k? to�n HKD theo TT 152/2025/TT-BTC.
-**Stack:** .NET 8 � EF Core � SQLite � Blazor Server (ShopERP) � Blazor Server (KhachLink PWA, NOT WASM — see TD-PWA-001) � SignalR � YARP Gateway � xUnit � Playwright.
-**Ki?n tr�c:** Clean Architecture + DDD + Multi-tenancy. Data flow: `KhachLink (5002) ? Gateway (5001) ? ShopERP (5003) ? SQLite`.
+**Stack:** .NET 8 � EF Core � SQLite � Blazor Server (ShopERP) � Blazor WebAssembly (KhachLink PWA — Phase 1 conversion complete 2026-07-21) � SignalR � YARP Gateway � xUnit � Playwright.
+**Ki?n tr�c:** Clean Architecture + DDD + Multi-tenancy. Data flow: `KhachLink WASM (static files via nginx, 5002) ? Gateway (5001) ? ShopERP (5003) ? SQLite`.
 
-**Modules:** `1_Shared` (Domain) � `2_Gateway` (YARP) � `3_CoreHub` (Services, in-process) � `5_WebApps/ShopERP` (Blazor Server) � `5_WebApps/KhachLink` (Blazor Server, NOT WASM — see TD-PWA-001) � `UI.Platform` (Shared components) � `6_Tests/6_Testing`.
+**Modules:** `1_Shared` (Domain + Services contracts — IOrderWorkflowService, ISocialCampaignService, IShopFeatureSettingsService moved here 2026-07-21) � `2_Gateway` (YARP) � `3_CoreHub` (Services, in-process) � `5_WebApps/ShopERP` (Blazor Server) � `5_WebApps/KhachLink` (Blazor WebAssembly, served by nginx) � `UI.Platform` (Shared components) � `6_Tests/6_Testing`.
 
 **Hard stops:** Domain PURE � `AccountingEntry` immutable � Gateway STATELESS � KhachLink HTTP-only � ShopERP SQLite (Business) + PostgreSQL (Accounting) � ALWAYS d�ng UI Platform components.
 
@@ -30,7 +30,49 @@
 
 ## 2. Current Objective
 
-**KhachLink /stores Search Button Fix — COMPLETE (2026-07-21)**
+**KhachLink PWA Phase 1 — Blazor Server → WebAssembly Conversion — COMPLETE (2026-07-21)**
+
+Phase 1 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Converts KhachLink from Blazor Server to Blazor WebAssembly so the PWA can work offline (UI events run client-side, no WebSocket required). Commit `b642662b` pushed, CI PASSED.
+
+### Architecture changes
+- `VanAn.KhachLink.csproj`: SDK `Microsoft.NET.Sdk.Web` → `Microsoft.NET.Sdk.BlazorWebAssembly`
+- `Program.cs`: `WebApplication.CreateBuilder` → `WebAssemblyHostBuilder.CreateDefault` + removed `AddInteractiveServerComponents` (WASM interactive by default)
+- `App.razor`: `blazor.web.js` → `blazor.webassembly.js`
+- Removed `@rendermode InteractiveServer` from all 13 Pages + PWAInstallPrompt.razor
+- Removed `Serilog.AspNetCore` (server-only, pulls `Microsoft.AspNetCore.App` FrameworkReference incompatible with `browser-wasm` RuntimeIdentifier)
+- Removed `Microsoft.EntityFrameworkCore.Sqlite` from `VanAn.Shared.csproj` (unused)
+
+### Contract extraction (Option 2 — user-approved)
+- Moved 3 contract files `3_CoreHub/Services/` → `1_Shared/Services/`: `IOrderWorkflowService.cs`, `ISocialCampaignService.cs`, `IShopFeatureSettingsService.cs` (includes `ShopFeatureSettingsDto` + `PriceValidationResult`). Namespace `VanAn.CoreHub.Services` → `VanAn.Shared.Services`.
+- Added `using VanAn.Shared.Services;` to ~20 files in CoreHub, Gateway, ShopERP, Tests
+- Updated fully-qualified DI registrations in `Gateway/Program.cs` + `ShopERP/Program.cs`
+- Added `IInventoryService` alias in `OrderService.cs` to disambiguate (exists in both `CoreHub.Interfaces` + `Shared.Services`)
+- Removed `VanAn.CoreHub` ProjectReference from `KhachLink.csproj` (KhachLink uses only Shared contracts + HTTP services)
+
+### Dead code cleanup (files that referenced CoreHub directly)
+- Deleted `DashboardHttpService.cs`, `OfflineOrderService.cs` + `.ts`, `EnhancedCartService.cs` + `.ts`, `SyncConflictResolver.cs`, `ConflictResolutionService.cs` + `.ts` (all dead — not registered in DI)
+- Deleted `Campaign.cshtml` + `Campaign.cshtml.cs` (legacy MVC Razor Page — incompatible with WASM), replaced by `Campaign.razor` Blazor component at `/c/{trackingCode}`
+- Deleted 6 dead test files (tests for deleted dead code): `RetryStrategyTests`, `TimeBasedBugTests`, `UIStateMachineTests`, `FinancialSafetyTests`, `ProductionDataTests`, `SyncConflictResolverTests`
+
+### Deployment changes
+- `Dockerfile`: dotnet runtime → `nginx:alpine` serving static files
+- `nginx.conf`: SPA routing (`try_files` → `index.html`), gzip, cache headers for `_framework/` (immutable), no-cache for `service-worker.js` + `blazor.boot.json`
+- `docker-compose.prod.yml`: removed ASPNETCORE env vars + Serilog config, memory limit 512m → 256m
+- `wwwroot/appsettings.json`: Gateway BaseUrl for WASM config loading
+
+### Test impact
+- Unit tests: **984 passed / 0 failed** (33 dead tests removed from 6 deleted files)
+- KhachLink Startup: **6 passed / 4 skipped / 0 failed** (4 server-startup tests skipped — `WebApplicationFactory` can't boot WASM, marked Skip with reason, rewrite planned for Phase 6)
+- Build: `dotnet build VanAn.sln` → **0 errors**
+
+**Status: COMPLETE. Pushed to main, CI PASSED. Awaiting CD deploy + VPS RV.**
+
+### Next: Phase 2 (Service Worker DLL Caching)
+Per master plan, Phase 2 updates `service-worker.js` to cache Blazor WASM DLLs (`_framework/*.dll`) for true offline support. See `docs/AI/tasks/khachlink_pwa_phase2_sw_dll_caching_task_card.md`.
+
+---
+
+**PREVIOUS OBJECTIVE — KhachLink /stores Search Button Fix — COMPLETE (2026-07-21)**
 
 User reported search button on `https://diemthuong.khachvip.online/stores` not clickable. Root cause: the magnifier-glass icon in the search box was a decorative `<span class="input-group-text">` — NOT a button, so clicking it did nothing. Search was only triggered via `@oninput` debounce (300ms after typing) with no dedicated search button or Enter-key handler.
 
@@ -138,10 +180,11 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `65356ba3` fix(khachlink): /stores search button clickable + Enter key handler
+- **Last commit:** `b642662b` feat(khachlink): Phase 1 — Blazor Server → WebAssembly conversion
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-21):** 0 errors. VanAn.Gateway.csproj build PASS. CD runs #29825307857 + #29826651443 + #29827864998 ALL PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink + vanan-postgres + vanan-nats all healthy.
+- **Build (2026-07-21):** `dotnet build VanAn.sln` 0 errors. KhachLink WASM build PASS. CI PASSED on push `84bf577f..b642662b`. Awaiting CD deploy + VPS RV for nginx static serving.
+- **KhachLink PWA Phase 1 (2026-07-21 - COMPLETE + PUSHED + CI PASSED):** Blazor Server → WebAssembly conversion. 85 files (+901/-5319). 3 contracts moved CoreHub→Shared. 8 dead code files + 6 dead test files deleted. Dockerfile rewritten for nginx. 4 KhachLink startup tests skipped (WebApplicationFactory incompatible with WASM, rewrite planned for Phase 6). Unit 984/0, KhachLink Startup 6/4skip/0fail. Commit `b642662b`.
 - **Post-Shop-Removal RV (2026-07-21 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** Tenant.Id LINQ bug fixed across 3 controllers (TenantStore/PublicOrders/Catalog). Pattern #8 added to governance.md. All tenant-based endpoints 200/404 as expected. No errors in gateway logs. Commits: `20697063`, `e876cf53`.
 - **Shop Entity Removal (2026-07-21 - COMPLETE + VPS DEPLOYED):** 221 files refactored. `Shop` entity + `ShopId` VO removed from Domain. `SocialCampaign.ShopId` removed. `TenantConfig` (renamed from `ShopConfig`) uses `TenantId`. `TenantSettings.Latitude/Longitude` added (preserves Store Finder). `ShopsController` deleted → replaced by `TenantStoreController`. `ShopService`/`IShopService` deleted. PostgreSQL + SQLite migrations applied (drop Shops table, drop SocialCampaigns.ShopId, add Tenants.Settings_Latitude/Longitude). All clients (KhachLink, ShopERP) migrated to TenantId.
 - **Home Page Personalization + Campaigns/Shops CRUD (2026-07-20 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** 8 commits. LastInteractionService + Home.razor Campaign/StoreFinder sections + Gateway Campaigns/Shops CRUD endpoints + ShopERP admin pages `/admin/campaigns` + `/admin/shops`. Campaigns CRUD RV 6/6 PASS. Shops admin UI works via DbContext (Gateway forwarding limited by ShopERP cookie auth — known limitation). Commits: `e292166c`, `2725e28d`, `226c4260`, `c8765aeb`, `6b9cf88d`, `4e6cbafd`, `f79c5f46`, `a83b797c`.
@@ -172,18 +215,26 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 
 **NEXT (recommended priority order):**
 
-1. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS:
+1. **VPS RV for KhachLink Phase 1 WASM deploy** — after CD completes, verify on VPS:
+   - `vanan-khachlink` container healthy (nginx serving static files, not dotnet)
+   - PWA loads at `https://diemthuong.khachvip.online` (Blazor WASM boot)
+   - All Pages render without 500 (Home, Store, Cart, Checkout, Campaigns, Campaign `/c/{trackingCode}`, OrderTracking, OrderHistory, Login, Profile, Scan, VoiceNote, LoyaltyCard, StoreFinder)
+   - Service worker registers + caches static assets
+   - PWA install prompt still works
+   - HTTP API calls to Gateway succeed (CORS + appsettings.json Gateway.BaseUrl)
+   SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
+
+2. **Phase 2 — Service Worker DLL Caching** — per `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Task card: `khachlink_pwa_phase2_sw_dll_caching_task_card.md`. Update `service-worker.js` to cache Blazor WASM DLLs (`_framework/*.dll`) + `blazor.boot.json` for true offline support. Verify offline mode: disconnect network, reload app, UI still renders + interacts (read-only — checkout needs Phase 4 offline write queue).
+
+3. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
    - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
    - Payment confirmation flow (webhook → OrderService.MarkPaid → AccountingEntry)
    - Kitchen display flow (SignalR + status update)
    - Accounting flow (JournalEntry + AccountingEntry immutable)
-   Use `scripts/rv-comprehensive.sh` as template. SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
 
-2. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
+4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
 
-3. **Multi-VPS production rollout** — when first real customer needs separate VPS. Phase 8 E2E validation should pass first.
-
-4. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping) + **TD-PWA-001 KhachLink Blazor Server → WASM conversion** (master plan: `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`, 6 phases, awaiting Tech Lead approval — PWA install is real but app does NOT work offline because Blazor Server needs live WebSocket).
+5. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping). **TD-PWA-001 KhachLink Blazor Server → WASM conversion** is now IN PROGRESS — Phase 1 complete, Phases 2-6 remaining (see master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`).
 
 **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md updated to Option C + ADR-001 v3 addendum + Phase 8 task card placeholder + tech debt register + final verification (Core.Tests 1044/0/16, Architecture 38/38, guard-check PASS, Integration.Tests CircuitBreaker 6/6 — 43 pre-existing failures require full local app stack, documented as TD-MVPS-003).
 
@@ -301,6 +352,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-21 -- KHACHLINK PWA PHASE 1 (BLAZOR SERVER → WEBASSEMBLY) COMPLETE.** Phase 1 of `khachlink_pwa_offline_master_plan.md`. Converted KhachLink from Blazor Server to Blazor WebAssembly so PWA can work offline (UI events run client-side, no WebSocket required). Architecture: `VanAn.KhachLink.csproj` SDK `Microsoft.NET.Sdk.Web` → `BlazorWebAssembly`; `Program.cs` rewritten for `WebAssemblyHostBuilder`; `App.razor` `blazor.web.js` → `blazor.webassembly.js`; removed `@rendermode InteractiveServer` from 13 Pages + PWAInstallPrompt. Removed `Serilog.AspNetCore` (server-only, pulls `Microsoft.AspNetCore.App` FrameworkReference incompatible with `browser-wasm` RuntimeIdentifier). Contract extraction (Option 2 — user-approved): moved 3 contract files `3_CoreHub/Services/` → `1_Shared/Services/` (`IOrderWorkflowService`, `ISocialCampaignService`, `IShopFeatureSettingsService` + `ShopFeatureSettingsDto` + `PriceValidationResult`), namespace `VanAn.CoreHub.Services` → `VanAn.Shared.Services`. Added `using VanAn.Shared.Services;` to ~20 files in CoreHub, Gateway, ShopERP, Tests. Updated fully-qualified DI registrations in `Gateway/Program.cs` + `ShopERP/Program.cs`. Added `IInventoryService` alias in `OrderService.cs` to disambiguate (exists in both `CoreHub.Interfaces` + `Shared.Services`). Removed `VanAn.CoreHub` ProjectReference from `KhachLink.csproj`. Dead code cleanup: deleted `DashboardHttpService.cs`, `OfflineOrderService.cs` + `.ts`, `EnhancedCartService.cs` + `.ts`, `SyncConflictResolver.cs`, `ConflictResolutionService.cs` + `.ts` (all dead — not registered in DI); deleted `Campaign.cshtml` + `Campaign.cshtml.cs` (legacy MVC Razor Page — incompatible with WASM), replaced by `Campaign.razor` Blazor component at `/c/{trackingCode}`; deleted 6 dead test files (tests for deleted dead code). Deployment: `Dockerfile` dotnet runtime → `nginx:alpine` serving static files; new `nginx.conf` (SPA routing, gzip, cache headers); `docker-compose.prod.yml` removed ASPNETCORE env vars + memory 512m → 256m; new `wwwroot/appsettings.json` with Gateway BaseUrl. Test impact: Unit 984/0 (33 dead tests removed), KhachLink Startup 6/4skip/0fail (4 server-startup tests skipped — `WebApplicationFactory` can't boot WASM, rewrite planned for Phase 6), `dotnet build VanAn.sln` 0 errors. 1 commit `b642662b` (85 files, +901/-5319), pushed to main, CI PASSED. Branch: `main`. Next: Phase 2 (Service Worker DLL Caching) per master plan.
 
 * **2026-07-21 -- PWA INVESTIGATION + TD-PWA-001 CREATED.** User asked whether KhachLink PWA install is a stub and whether the app works offline. Investigation: (1) PWA install is REAL — manifest.json + service-worker.js + PWAInstallPrompt.razor + pwa.js all functional, `beforeinstallprompt` captured on Android Chrome, iOS shows manual "Add to Home Screen" instructions. (2) App does NOT work offline — KhachLink is Blazor **Server** (not WebAssembly as `project_state.md` Section 1 previously claimed). Evidence: `VanAn.KhachLink.csproj` uses `Microsoft.NET.Sdk.Web`, `Program.cs` calls `AddInteractiveServerComponents()`, `App.razor` loads `blazor.web.js`, all 13 Pages use `@rendermode InteractiveServer`. Blazor Server requires live WebSocket (SignalR) for every UI event — when network drops, circuit dies, UI freezes. Service worker caches static assets + API GET responses but cached assets are useless because no Blazor DLL runs on client. (3) Created master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md` — 6-phase conversion Blazor Server → Blazor WebAssembly (Option A recommended): Phase 1 project SDK conversion + build green, Phase 2 service worker DLL caching, Phase 3 offline API fallback hardening (update `dynamicCachePatterns` to current Option C endpoints `/api/tenants/*`, `/api/catalog/*`, `/api/campaigns/*`), Phase 4 offline write queue (IndexedDB + Background Sync API for checkout POSTs), Phase 5 push notification wiring + PWA polish, Phase 6 E2E validation + governance. (4) Added TD-PWA-001 to `docs/AI/tasks/tech_debt_multi_vps_checkout.md` cross-cutting section. (5) Corrected `project_state.md` Section 1 Stack + Modules lines: "Blazor WebAssembly (KhachLink PWA)" → "Blazor Server (KhachLink PWA, NOT WASM — see TD-PWA-001)". No code changes — investigation + documentation only. Branch: `main`.
 
