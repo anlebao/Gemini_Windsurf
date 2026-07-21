@@ -138,7 +138,7 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** (pending) fix(khachlink): /stores search button clickable + Enter key handler
+- **Last commit:** `65356ba3` fix(khachlink): /stores search button clickable + Enter key handler
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-21):** 0 errors. VanAn.Gateway.csproj build PASS. CD runs #29825307857 + #29826651443 + #29827864998 ALL PASS. VPS: vanan-gateway + vanan-shoperp + vanan-khachlink + vanan-postgres + vanan-nats all healthy.
