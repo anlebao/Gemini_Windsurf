@@ -20,6 +20,7 @@
 @inject NavigationManager NavigationManager
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
 
 @attribute [Authorize(Policy = "SystemAdmin")]
 
@@ -406,6 +407,36 @@
                     </small>
                 </div>
                 <div class="form-group">
+                    <label>Vị trí cửa hàng (Google Maps)</label>
+                    <small class="text-muted d-block mb-2">
+                        Kéo con trỏ trên bản đồ để chọn vị trí, hoặc nhập tay vĩ độ/kinh độ.
+                        Dùng cho Store Finder "Tìm cửa hàng gần bạn" trên KhachLink.
+                    </small>
+                    <div id="tenant-edit-map" style="height: 300px; border-radius: 8px; overflow: hidden; margin-bottom: 8px; border: 1px solid #dee2e6;"></div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label for="edit-latitude" class="small">Vĩ độ (Latitude)</label>
+                            <input id="edit-latitude" class="vanan-input" type="number"
+                                   step="any" @bind="_editForm.Latitude"
+                                   @oninput="OnLatLonChanged" placeholder="vd: 10.966" />
+                        </div>
+                        <div class="col-6">
+                            <label for="edit-longitude" class="small">Kinh độ (Longitude)</label>
+                            <input id="edit-longitude" class="vanan-input" type="number"
+                                   step="any" @bind="_editForm.Longitude"
+                                   @oninput="OnLatLonChanged" placeholder="vd: 106.594" />
+                        </div>
+                    </div>
+                    <div class="mt-2 d-flex gap-2 flex-wrap">
+                        <VanAButton Variant="outline" Size="small" OnClick="UseMyLocation">
+                            <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
+                        </VanAButton>
+                        <VanAButton Variant="outline" Size="small" OnClick="ClearLocation">
+                            <i class="bi bi-x-circle me-1"></i> Xoá vị trí
+                        </VanAButton>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="edit-shopinstance">ShopERP Instance *</label>
                     @if (_shopInstances.Any())
                     {
@@ -718,7 +749,7 @@
         finally { _isSaving = false; }
     }
 
-    // ── Edit (assign ShopInstance + update profile + slug) ───────────────────
+    // ── Edit (assign ShopInstance + update profile + slug + location) ────────
     private void OpenEditModal(TenantApiDto t)
     {
         _selectedTenant = t;
@@ -730,12 +761,95 @@
             Address = t.Address,
             TaxCode = t.TaxCode,
             Slug = t.Slug,
+            Latitude = t.Latitude,
+            Longitude = t.Longitude,
             ShopInstanceId = t.ShopInstanceId
         };
         _showEditModal = true;
+        // Init map after modal renders. Default to existing coords, or HCM center.
+        _ = InitMapAsync();
     }
 
-    private void CloseEditModal() => _showEditModal = false;
+    /// <summary>Init Leaflet map. Called after edit modal opens.</summary>
+    private async Task InitMapAsync()
+    {
+        // Wait for modal DOM to render
+        await Task.Delay(150);
+        var lat = _editForm.Latitude ?? 10.7769;  // Default: HCM center
+        var lng = _editForm.Longitude ?? 106.7009;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananTenantMap.init", "tenant-edit-map", lat, lng, OnMapMarkerMoved);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to init tenant edit map");
+        }
+    }
+
+    /// <summary>JS callback: marker dragged or map clicked → update form fields.</summary>
+    [JSInvokable]
+    public void OnMapMarkerMoved(double lat, double lng)
+    {
+        _editForm.Latitude = lat;
+        _editForm.Longitude = lng;
+        StateHasChanged();
+    }
+
+    /// <summary>When user types in lat/lng inputs, move the marker.</summary>
+    private async Task OnLatLonChanged()
+    {
+        if (_editForm.Latitude.HasValue && _editForm.Longitude.HasValue)
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("vananTenantMap.setMarker",
+                    _editForm.Latitude.Value, _editForm.Longitude.Value);
+            }
+            catch { /* map not yet ready — ignore */ }
+        }
+    }
+
+    /// <summary>"Use my location" button — browser geolocation.</summary>
+    private async Task UseMyLocation()
+    {
+        try
+        {
+            var result = await JSRuntime.InvokeAsync<GeoLocationResult>("vananTenantMap.getCurrentLocation");
+            if (result is not null)
+            {
+                _editForm.Latitude = result.Latitude;
+                _editForm.Longitude = result.Longitude;
+                await OnLatLonChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Geolocation denied or unavailable");
+            ShowAlert("error", "Không lấy được vị trí. Trình duyệt có thể chặn geolocation.");
+        }
+    }
+
+    /// <summary>"Clear location" button.</summary>
+    private async Task ClearLocation()
+    {
+        _editForm.Latitude = null;
+        _editForm.Longitude = null;
+        try { await JSRuntime.InvokeVoidAsync("vananTenantMap.clear"); } catch { }
+    }
+
+    private sealed class GeoLocationResult
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
+    private void CloseEditModal()
+    {
+        _showEditModal = false;
+        // Cleanup map instance to avoid leak when modal reopens
+        _ = JSRuntime.InvokeVoidAsync("vananTenantMap.destroy");
+    }
 
     private async Task HandleEditSubmit()
     {
@@ -761,7 +875,9 @@
                 ContactEmail = _editForm.ContactEmail,
                 ContactPhone = _editForm.ContactPhone,
                 Address = _editForm.Address,
-                TaxCode = _editForm.TaxCode
+                TaxCode = _editForm.TaxCode,
+                Latitude = _editForm.Latitude,
+                Longitude = _editForm.Longitude
             });
 
             // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
@@ -878,6 +994,8 @@
         public string? Address { get; set; }
         public string? TaxCode { get; set; }
         public string? Slug { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
         public Guid? ShopInstanceId { get; set; }
     }
 

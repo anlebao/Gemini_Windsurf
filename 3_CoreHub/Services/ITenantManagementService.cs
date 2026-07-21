@@ -53,5 +53,7 @@ namespace VanAn.CoreHub.Services
         string? ContactPhone,
         string? Address,
         string? TaxCode,
-        string? Slug = null);
+        string? Slug = null,
+        double? Latitude = null,
+        double? Longitude = null);
 }

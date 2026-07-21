@@ -67,6 +67,10 @@ namespace VanAn.ShopERP.Services
         public string? TaxCode { get; init; }
         /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
         public string? Slug { get; init; }
+        /// <summary>Store Finder: latitude in decimal degrees. Null if not set.</summary>
+        public double? Latitude { get; init; }
+        /// <summary>Store Finder: longitude in decimal degrees. Null if not set.</summary>
+        public double? Longitude { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 
@@ -77,5 +81,9 @@ namespace VanAn.ShopERP.Services
         public string? ContactPhone { get; init; }
         public string? Address { get; init; }
         public string? TaxCode { get; init; }
+        /// <summary>Store Finder: latitude in decimal degrees. Null = clear.</summary>
+        public double? Latitude { get; init; }
+        /// <summary>Store Finder: longitude in decimal degrees. Null = clear.</summary>
+        public double? Longitude { get; init; }
     }
 }

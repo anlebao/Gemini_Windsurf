@@ -44,7 +44,10 @@ namespace VanAn.Gateway.Controllers
             {
                 var profileRequest = new UpdateTenantProfileRequest(
                     request.Name, request.ContactEmail, request.ContactPhone,
-                    request.Address, request.TaxCode);
+                    request.Address, request.TaxCode,
+                    Slug: null,
+                    Latitude: request.Latitude,
+                    Longitude: request.Longitude);
                 await _tenantService.UpdateProfileAsync(new TenantId(tenantId), profileRequest);
                 return Ok(new { success = true });
             }
@@ -114,6 +117,8 @@ namespace VanAn.Gateway.Controllers
             Address = t.Settings?.Address,
             TaxCode = t.Settings?.TaxCode,
             Slug = t.Settings?.Slug,
+            Latitude = t.Settings?.Latitude,
+            Longitude = t.Settings?.Longitude,
             CreatedAt = t.CreatedAt
         };
     }
@@ -131,6 +136,10 @@ namespace VanAn.Gateway.Controllers
         public string? TaxCode { get; init; }
         /// <summary>Tenant Profile Page (2026-07-21): URL slug for /store/{slug}. Null if not set.</summary>
         public string? Slug { get; init; }
+        /// <summary>Store Finder: latitude in decimal degrees. Null if not set.</summary>
+        public double? Latitude { get; init; }
+        /// <summary>Store Finder: longitude in decimal degrees. Null if not set.</summary>
+        public double? Longitude { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 
@@ -148,6 +157,10 @@ namespace VanAn.Gateway.Controllers
         public string? ContactPhone { get; init; }
         public string? Address { get; init; }
         public string? TaxCode { get; init; }
+        /// <summary>Store Finder: latitude in decimal degrees. Null = preserve existing.</summary>
+        public double? Latitude { get; init; }
+        /// <summary>Store Finder: longitude in decimal degrees. Null = preserve existing.</summary>
+        public double? Longitude { get; init; }
     }
 
     public record AssignShopInstanceRequest

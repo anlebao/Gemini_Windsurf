@@ -68,12 +68,20 @@ namespace VanAn.CoreHub.Services
             var tenant = await GetTenantByIdAsync(id, ct)
                 ?? throw new KeyNotFoundException($"Tenant {id.Value} not found.");
 
+            // Preserve existing slug — updated via dedicated UpdateSlugAsync.
+            // Apply new coordinates if provided; otherwise preserve existing.
+            var existingSettings = tenant.Settings;
+            var latitude = request.Latitude ?? existingSettings?.Latitude;
+            var longitude = request.Longitude ?? existingSettings?.Longitude;
+
             var settings = new TenantSettings(
                 request.ContactEmail,
                 request.ContactPhone,
                 request.Address,
                 taxCode: request.TaxCode,
-                slug: tenant.Settings?.Slug); // preserve existing slug — updated via dedicated UpdateSlugAsync
+                latitude: latitude,
+                longitude: longitude,
+                slug: tenant.Settings?.Slug);
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);
