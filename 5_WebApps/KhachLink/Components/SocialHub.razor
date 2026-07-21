@@ -2,94 +2,132 @@
 @using VanAn.KhachLink.Models
 @using VanAn.UI.Platform.Components.Atomic
 
-@if (ShopConfig?.SocialLinksFb != null || ShopConfig?.SocialLinksTiktok != null)
+@if (!string.IsNullOrWhiteSpace(ShopConfig?.SocialLinksFb) || !string.IsNullOrWhiteSpace(ShopConfig?.SocialLinksTiktok))
 {
-    <VanAnCard CssClass="social-hub-section" Shadow="true">
-        <div class="container">
-            <h3 class="text-center mb-4">Kết nối với chúng tôi</h3>
-            <div class="row">
-                @if (!string.IsNullOrEmpty(ShopConfig?.SocialLinksFb))
-                {
-                    <div class="col-md-6 mb-3">
-                        <VanAnCard CssClass="social-card" Shadow="false">
-                            <div class="social-header">
-                                <h5>📘 Facebook</h5>
-                            </div>
-                            <div class="social-embed">
-                                <iframe src="@GetFacebookEmbedUrl(ShopConfig.SocialLinksFb)" 
-                                        width="100%" 
-                                        height="300" 
-                                        style="border:none;overflow:hidden" 
-                                        scrolling="no" 
-                                        frameborder="0" 
-                                        allowfullscreen="true" 
-                                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share">
-                                </iframe>
-                            </div>
-                        </VanAnCard>
+    <div class="social-hub-wrap">
+        <div class="social-hub-grid">
+            @if (!string.IsNullOrWhiteSpace(ShopConfig?.SocialLinksFb))
+            {
+                <a href="@ShopConfig.SocialLinksFb" target="_blank" rel="noopener noreferrer" class="social-card social-card-fb">
+                    <div class="social-card-icon">
+                        <i class="bi bi-facebook"></i>
                     </div>
-                }
-                
-                @if (!string.IsNullOrEmpty(ShopConfig?.SocialLinksTiktok))
-                {
-                    <div class="col-md-6 mb-3">
-                        <VanAnCard CssClass="social-card" Shadow="false">
-                            <div class="social-header">
-                                <h5>🎵 TikTok</h5>
-                            </div>
-                            <div class="social-embed">
-                                <blockquote class="tiktok-embed" 
-                                           cite="@ShopConfig.SocialLinksTiktok" 
-                                           data-video-id="@GetTikTokVideoId(ShopConfig.SocialLinksTiktok)" 
-                                           style="max-width: 605px;min-width: 325px;">
-                                    <section>&nbsp;</section>
-                                </blockquote>
-                                <script async src="https://www.tiktok.com/embed.js"></script>
-                            </div>
-                        </VanAnCard>
+                    <div class="social-card-body">
+                        <div class="social-card-label">Facebook</div>
+                        <div class="social-card-handle">@ExtractHandle(ShopConfig.SocialLinksFb, "facebook.com")</div>
+                        <div class="social-card-desc">Xem bài viết, reel và cập nhật mới nhất</div>
                     </div>
-                }
-            </div>
+                    <div class="social-card-cta">
+                        <i class="bi bi-box-arrow-up-right"></i> Theo dõi
+                    </div>
+                </a>
+            }
+            @if (!string.IsNullOrWhiteSpace(ShopConfig?.SocialLinksTiktok))
+            {
+                <a href="@ShopConfig.SocialLinksTiktok" target="_blank" rel="noopener noreferrer" class="social-card social-card-tiktok">
+                    <div class="social-card-icon">
+                        <i class="bi bi-tiktok"></i>
+                    </div>
+                    <div class="social-card-body">
+                        <div class="social-card-label">TikTok</div>
+                        <div class="social-card-handle">@ExtractHandle(ShopConfig.SocialLinksTiktok, "tiktok.com")</div>
+                        <div class="social-card-desc">Xem video viral và nội dung hấp dẫn</div>
+                    </div>
+                    <div class="social-card-cta">
+                        <i class="bi bi-box-arrow-up-right"></i> Xem video
+                    </div>
+                </a>
+            }
         </div>
-    </VanAnCard>
+    </div>
 }
 
 <style>
-    .social-hub-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+    .social-hub-wrap { max-width: 900px; margin: 0 auto; }
+    .social-hub-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
     }
-    
-    .social-hub-section ::deep .card-body {
-        padding: 2rem;
-    }
-    
     .social-card {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    
-    .social-card ::deep .card-body {
-        padding: 1rem;
-    }
-    
-    .social-header {
-        margin-bottom: 1rem;
-    }
-    
-    .social-header h5 {
+        display: flex; align-items: center; gap: 1rem;
+        padding: 1.5rem;
+        border-radius: 20px;
+        text-decoration: none;
         color: white;
-        margin: 0;
-    }
-    
-    .social-embed {
-        border-radius: 8px;
+        position: relative;
         overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        min-height: 130px;
     }
-    
-    .social-embed iframe {
-        border-radius: 8px;
+    .social-card::before {
+        content: '';
+        position: absolute; inset: 0;
+        background: radial-gradient(circle at top right, rgba(255,255,255,0.15), transparent 60%);
+        pointer-events: none;
+    }
+    .social-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.2);
+        color: white;
+    }
+    .social-card-fb { background: linear-gradient(135deg, #1877f2 0%, #0a5ed8 100%); }
+    .social-card-tiktok { background: linear-gradient(135deg, #000000 0%, #252525 100%); }
+    .social-card-tiktok::after {
+        content: '';
+        position: absolute;
+        bottom: -20px; right: -20px;
+        width: 100px; height: 100px;
+        background: radial-gradient(circle, #ff0050 0%, transparent 70%);
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    .social-card-icon {
+        flex-shrink: 0;
+        width: 64px; height: 64px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 16px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.25);
+    }
+    .social-card-body { flex-grow: 1; min-width: 0; }
+    .social-card-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.85;
+        margin-bottom: 0.25rem;
+    }
+    .social-card-handle {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .social-card-desc {
+        font-size: 0.85rem;
+        opacity: 0.85;
+        line-height: 1.4;
+    }
+    .social-card-cta {
+        flex-shrink: 0;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.2);
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.3);
+        white-space: nowrap;
+    }
+    @@media (max-width: 576px) {
+        .social-card { flex-direction: column; text-align: center; padding: 1.25rem; }
+        .social-card-cta { margin-top: 0.5rem; }
     }
 </style>
 
@@ -97,26 +135,29 @@
     [Parameter]
     public ShopConfig? ShopConfig { get; set; }
 
-    private string GetFacebookEmbedUrl(string facebookUrl)
+    /// <summary>Extract handle/username from social URL for display.</summary>
+    private string ExtractHandle(string url, string domain)
     {
-        if (facebookUrl.Contains("/posts/"))
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+        try
         {
-            var postId = facebookUrl.Split("/posts/").Last().Split('?').First();
-            return $"https://www.facebook.com/plugins/post.php?href={Uri.EscapeDataString(facebookUrl)}&show_posts=true&width=100%";
+            // Remove protocol + www
+            var clean = url.Replace("https://", "").Replace("http://", "").Replace("www.", "");
+            // Remove domain
+            var idx = clean.IndexOf(domain, StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                clean = clean[(idx + domain.Length)..].TrimStart('/', '@');
+            }
+            // Take part before ? or #
+            var qIdx = clean.IndexOfAny(['?', '#']);
+            if (qIdx >= 0) clean = clean[..qIdx];
+            // For TikTok profile like "@user" or "user"
+            return string.IsNullOrWhiteSpace(clean) ? url : clean;
         }
-        else if (facebookUrl.Contains("/pages/"))
+        catch
         {
-            return $"https://www.facebook.com/plugins/page.php?href={Uri.EscapeDataString(facebookUrl)}&tabs=timeline&width=100%&height=300&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true&appId";
+            return url;
         }
-        return facebookUrl;
-    }
-
-    private string GetTikTokVideoId(string tiktokUrl)
-    {
-        if (tiktokUrl.Contains("/video/"))
-        {
-            return tiktokUrl.Split("/video/").Last().Split('?').First();
-        }
-        return "";
     }
 }
