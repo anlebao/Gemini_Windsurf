@@ -14,7 +14,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasKey(e => e.Id);
 
 
-            // Note: ShopId is Guid (not value object)
+            // ShopId is nullable Guid — campaign can apply to all shops in tenant (null) or specific shop
+            _ = builder.Property(e => e.ShopId)
+                .IsRequired(false);
 
             _ = builder.Property(e => e.UtmSource)
                 .IsRequired()
@@ -28,14 +30,22 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 .IsRequired()
                 .HasMaxLength(50);
 
+            // Media fields (optional)
+            _ = builder.Property(e => e.ImageUrl)
+                .HasMaxLength(500);
+
+            _ = builder.Property(e => e.VideoUrl)
+                .HasMaxLength(500);
+
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-            // Navigation properties
+            // Navigation properties — optional (ShopId can be null for tenant-wide campaigns)
             _ = builder.HasOne(e => e.Shop)
                 .WithMany(s => s.SocialCampaigns)
                 .HasForeignKey(e => e.ShopId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
 
             // Indexes
             _ = builder.HasIndex(e => new { e.TenantId, e.ShopId });

@@ -37,7 +37,7 @@ namespace VanAn.KhachLink.Pages
                 return NotFound();
             }
 
-            Guid resolvedShopId = ShopId ?? Campaign.ShopId;
+            Guid resolvedShopId = ShopId ?? Campaign.ShopId ?? Guid.Empty;
             Products = await _productService.GetProductsAsync(resolvedShopId);
 
             return Page();

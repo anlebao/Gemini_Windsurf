@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
 using VanAn.CoreHub.Services;
 
@@ -11,6 +13,12 @@ namespace VanAn.ShopERP.Services
     /// </summary>
     public sealed class CampaignApiClient : GatewayAdminApiClientBase
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+
         public CampaignApiClient(
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
@@ -46,28 +54,46 @@ namespace VanAn.ShopERP.Services
         }
     }
 
-    // DTOs mirror Gateway CampaignsController DTOs
+    // DTO mirrors Gateway SocialCampaign JSON shape.
+    // IMPORTANT: tenantId is a value object {"value":"..."} in JSON — use JsonElement + helper.
     public record CampaignDto
     {
         public Guid Id { get; set; }
-        public Guid TenantId { get; set; }
-        public Guid ShopId { get; set; }
+        [JsonPropertyName("tenantId")]
+        public JsonElement TenantIdElement { get; set; }
+        public Guid? ShopId { get; set; }
         public string CampaignName { get; set; } = "";
         public string UtmSource { get; set; } = "";
         public string TrackingCode { get; set; } = "";
+        public string? ImageUrl { get; set; }
+        public string? VideoUrl { get; set; }
         public int TotalClicks { get; set; }
         public int ConvertedOrders { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        [JsonIgnore]
+        public Guid TenantId => ExtractGuid(TenantIdElement);
+
+        private static Guid ExtractGuid(JsonElement el)
+        {
+            if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("value", out var v))
+                return v.GetGuid();
+            if (el.ValueKind == JsonValueKind.String)
+                return el.GetGuid();
+            return Guid.Empty;
+        }
     }
 
     public record CreateCampaignRequest
     {
         public Guid TenantId { get; init; }
-        public Guid ShopId { get; init; }
+        public Guid? ShopId { get; init; }       // null = all shops in tenant
         public string CampaignName { get; init; } = "";
         public string UtmSource { get; init; } = "";
         public string? TrackingCode { get; init; }
+        public string? ImageUrl { get; init; }
+        public string? VideoUrl { get; init; }
     }
 
     public record UpdateCampaignRequest
@@ -76,5 +102,7 @@ namespace VanAn.ShopERP.Services
         public string? UtmSource { get; init; }
         public string? TrackingCode { get; init; }
         public bool IsActive { get; init; } = true;
+        public string? ImageUrl { get; init; }
+        public string? VideoUrl { get; init; }
     }
 }

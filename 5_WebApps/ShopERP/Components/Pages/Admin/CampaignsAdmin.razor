@@ -60,6 +60,7 @@
                     <tr>
                         <th>Tên Campaign</th>
                         <th>Tenant</th>
+                        <th>Phạm vi áp dụng</th>
                         <th>UTM Source</th>
                         <th>Tracking Code</th>
                         <th>Clicks</th>
@@ -74,6 +75,16 @@
                         <tr>
                             <td><strong>@item.CampaignName</strong></td>
                             <td>@GetTenantName(item.TenantId)</td>
+                            <td>
+                                @if (item.ShopId.HasValue && item.ShopId != Guid.Empty)
+                                {
+                                    <span class="badge badge-shop">1 Shop</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-tenant">Toàn Tenant</span>
+                                }
+                            </td>
                             <td>@(string.IsNullOrEmpty(item.UtmSource) ? "-" : item.UtmSource)</td>
                             <td><code>@item.TrackingCode</code></td>
                             <td>@item.TotalClicks</td>
@@ -114,20 +125,30 @@
                             <option value="@t.Id">@t.Name</option>
                         }
                     </select>
+                    @if (_tenants.Count == 0)
+                    {
+                        <small class="text-danger">Không tải được danh sách tenant. Vui lòng tải lại trang.</small>
+                    }
                 </div>
                 <div class="form-group">
-                    <label>Cửa hàng (Shop) *</label>
+                    <label>Cửa hàng (Shop) — không bắt buộc</label>
                     <select class="vanan-input" @bind="_form.ShopId" disabled="@_isEdit">
-                        <option value="@Guid.Empty">-- Chọn Cửa hàng --</option>
+                        <option value="">-- Toàn bộ cửa hàng trong Tenant --</option>
                         @foreach (var s in _shops)
                         {
                             <option value="@s.Id">@s.Name</option>
                         }
                     </select>
-                    @if (_shops.Count == 0 && _form.TenantId != Guid.Empty)
-                    {
-                        <small class="text-danger">Tenant này chưa có Shop. Vui lòng tạo Shop trước ở mục "Cửa hàng".</small>
-                    }
+                    <small class="form-text text-muted">
+                        @if (_shops.Count == 0 && _form.TenantId != Guid.Empty)
+                        {
+                            <span class="text-danger">Tenant này chưa có Shop. Campaign sẽ áp dụng cho toàn bộ tenant.</span>
+                        }
+                        else
+                        {
+                            <span>Để trống = áp dụng cho toàn bộ tenant. Chọn 1 shop = chỉ áp dụng cho shop đó.</span>
+                        }
+                    </small>
                 </div>
                 <div class="form-group">
                     <VanAInput Id="campaign-name" Label="Tên Campaign *"
@@ -146,6 +167,18 @@
                                Value="@(_form.TrackingCode ?? "")"
                                ValueChanged="v => _form.TrackingCode = string.IsNullOrEmpty(v) ? null : v"
                                Placeholder="camp_summer2026" />
+                </div>
+                <div class="form-group">
+                    <VanAInput Id="campaign-image" Label="Hình ảnh (URL)"
+                               Value="@(_form.ImageUrl ?? "")"
+                               ValueChanged="v => _form.ImageUrl = string.IsNullOrEmpty(v) ? null : v"
+                               Placeholder="https://example.com/campaign.jpg" />
+                </div>
+                <div class="form-group">
+                    <VanAInput Id="campaign-video" Label="Video clip (URL)"
+                               Value="@(_form.VideoUrl ?? "")"
+                               ValueChanged="v => _form.VideoUrl = string.IsNullOrEmpty(v) ? null : v"
+                               Placeholder="https://youtube.com/watch?v=..." />
                 </div>
                 <div class="form-group">
                     <label>Hoạt động</label>
@@ -183,10 +216,10 @@
         _isLoading = true;
         try
         {
-            _items = await CampaignApi.ListAsync();
-            _tenants = (await TenantService.ListTenantsAsync())
-                .Select(t => new TenantInfo { Id = t.Id, Name = t.Name })
-                .ToList();
+            var loadCampaigns = CampaignApi.ListAsync();
+            var loadTenants = LoadTenantsAsync();
+            await Task.WhenAll(loadCampaigns, loadTenants);
+            _items = loadCampaigns.Result;
         }
         catch (Exception ex)
         {
@@ -200,6 +233,20 @@
         }
     }
 
+    private async Task LoadTenantsAsync()
+    {
+        try
+        {
+            var tenants = await TenantService.ListTenantsAsync();
+            _tenants = tenants.Select(t => new TenantInfo { Id = t.Id, Name = t.Name }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenants");
+            _tenants = new();
+        }
+    }
+
     private string GetTenantName(Guid tenantId)
     {
         var t = _tenants.FirstOrDefault(x => x.Id == tenantId);
@@ -210,7 +257,7 @@
     {
         var tenantId = Guid.TryParse(e.Value?.ToString(), out var tid) ? tid : Guid.Empty;
         _form.TenantId = tenantId;
-        _form.ShopId = Guid.Empty;
+        _form.ShopId = null;
         await LoadShopsForTenant(tenantId);
     }
 
@@ -224,7 +271,6 @@
 
         try
         {
-            // Fetch all shops from Gateway (PG), filter by tenant in-memory
             var allShops = await ShopApi.ListAllAsync();
             _shops = allShops.Where(s => s.TenantId == tenantId).ToList();
         }
@@ -255,6 +301,8 @@
             CampaignName = item.CampaignName,
             UtmSource = item.UtmSource,
             TrackingCode = item.TrackingCode,
+            ImageUrl = item.ImageUrl,
+            VideoUrl = item.VideoUrl,
             IsActive = item.IsActive
         };
         await LoadShopsForTenant(item.TenantId);
@@ -274,13 +322,6 @@
                 return;
             }
 
-            if (_form.ShopId == Guid.Empty)
-            {
-                _alertMessage = "Vui lòng chọn Cửa hàng (Shop)";
-                _alertType = "danger";
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(_form.CampaignName))
             {
                 _alertMessage = "Vui lòng nhập tên campaign";
@@ -295,7 +336,9 @@
                     CampaignName = _form.CampaignName,
                     UtmSource = _form.UtmSource,
                     TrackingCode = _form.TrackingCode,
-                    IsActive = _form.IsActive
+                    IsActive = _form.IsActive,
+                    ImageUrl = _form.ImageUrl,
+                    VideoUrl = _form.VideoUrl
                 });
                 _alertMessage = "Đã cập nhật khuyến mãi.";
             }
@@ -307,7 +350,9 @@
                     ShopId = _form.ShopId,
                     CampaignName = _form.CampaignName,
                     UtmSource = _form.UtmSource,
-                    TrackingCode = _form.TrackingCode
+                    TrackingCode = _form.TrackingCode,
+                    ImageUrl = _form.ImageUrl,
+                    VideoUrl = _form.VideoUrl
                 });
                 _alertMessage = "Đã tạo khuyến mãi mới.";
             }
@@ -342,10 +387,12 @@
     private class CampaignForm
     {
         public Guid TenantId { get; set; }
-        public Guid ShopId { get; set; }
+        public Guid? ShopId { get; set; }       // null = all shops in tenant
         public string CampaignName { get; set; } = string.Empty;
         public string UtmSource { get; set; } = string.Empty;
         public string? TrackingCode { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? VideoUrl { get; set; }
         public bool IsActive { get; set; } = true;
     }
 

@@ -183,11 +183,8 @@ namespace VanAn.Gateway.Controllers
                     return BadRequest(new { error = "CampaignName is required" });
                 }
 
-                // ShopId is required (FK constraint: SocialCampaigns.ShopId → Shops.Id)
-                if (request.ShopId == Guid.Empty)
-                {
-                    return BadRequest(new { error = "ShopId is required — campaign must belong to an existing shop" });
-                }
+                // ShopId is OPTIONAL — null means campaign applies to ALL shops in the tenant
+                Guid? shopId = (request.ShopId == null || request.ShopId == Guid.Empty) ? null : request.ShopId;
 
                 // Generate tracking code if not provided
                 var trackingCode = string.IsNullOrWhiteSpace(request.TrackingCode)
@@ -196,10 +193,11 @@ namespace VanAn.Gateway.Controllers
 
                 var campaign = new SocialCampaign(
                     new TenantId(request.TenantId),
-                    request.ShopId,
+                    shopId,
                     request.UtmSource ?? string.Empty,
                     request.CampaignName,
                     trackingCode);
+                campaign.SetMedia(request.ImageUrl, request.VideoUrl);
 
                 var created = await _socialCampaignService.CreateCampaignAsync(campaign);
                 return CreatedAtAction(nameof(GetCampaignById), new { campaignId = created.Id }, created);
@@ -233,6 +231,7 @@ namespace VanAn.Gateway.Controllers
                     request.TrackingCode ?? existing.TrackingCode);
                 typeof(BaseEntity).GetProperty("Id")!.SetValue(updated, existing.Id);
                 typeof(BaseEntity).GetProperty("CreatedAt")!.SetValue(updated, existing.CreatedAt);
+                updated.SetMedia(request.ImageUrl ?? existing.ImageUrl, request.VideoUrl ?? existing.VideoUrl);
 
                 var result = await _socialCampaignService.UpdateCampaignAsync(updated);
                 return Ok(result);
@@ -265,10 +264,12 @@ namespace VanAn.Gateway.Controllers
     public record CreateCampaignRequest
     {
         public Guid TenantId { get; init; }
-        public Guid ShopId { get; init; }
+        public Guid? ShopId { get; init; }       // null = applies to all shops in tenant
         public string CampaignName { get; init; } = string.Empty;
         public string UtmSource { get; init; } = string.Empty;
         public string? TrackingCode { get; init; }
+        public string? ImageUrl { get; init; }
+        public string? VideoUrl { get; init; }
     }
 
     // DTO for update campaign request — SystemAdmin admin UI
@@ -278,5 +279,7 @@ namespace VanAn.Gateway.Controllers
         public string? UtmSource { get; init; }
         public string? TrackingCode { get; init; }
         public bool IsActive { get; init; } = true;
+        public string? ImageUrl { get; init; }
+        public string? VideoUrl { get; init; }
     }
 }

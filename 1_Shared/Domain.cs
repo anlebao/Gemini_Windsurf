@@ -1381,20 +1381,22 @@ namespace VanAn.Shared.Domain
     // Social Campaign for O2O Flywheel
     public class SocialCampaign : BaseEntity, IMustHaveTenant
     {
-        public Guid ShopId { get; protected set; }
+        public Guid? ShopId { get; protected set; }
         public string UtmSource { get; protected set; } = string.Empty;
         public string CampaignName { get; protected set; } = string.Empty;
         public string TrackingCode { get; protected set; } = string.Empty;
+        public string? ImageUrl { get; protected set; }
+        public string? VideoUrl { get; protected set; }
         public int TotalClicks { get; protected set; }
         public int ConvertedOrders { get; protected set; }
         public bool IsActive { get; protected set; } = true;
 
         // Navigation Properties
-        public virtual Shop Shop { get; protected set; } = null!;
+        public virtual Shop? Shop { get; protected set; }
 
         protected SocialCampaign() { }
 
-        public SocialCampaign(TenantId tenantId, Guid shopId, string utmSource, string campaignName, string trackingCode)
+        public SocialCampaign(TenantId tenantId, Guid? shopId, string utmSource, string campaignName, string trackingCode)
             : base(tenantId)
         {
             ShopId = shopId;
@@ -1421,6 +1423,13 @@ namespace VanAn.Shared.Domain
             CampaignName = campaignName;
             UtmSource = utmSource;
             IsActive = isActive;
+            UpdateAudit();
+        }
+
+        public void SetMedia(string? imageUrl, string? videoUrl)
+        {
+            ImageUrl = imageUrl;
+            VideoUrl = videoUrl;
             UpdateAudit();
         }
     }

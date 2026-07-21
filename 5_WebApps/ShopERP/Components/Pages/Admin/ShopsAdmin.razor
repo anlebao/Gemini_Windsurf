@@ -192,10 +192,10 @@
         _isLoading = true;
         try
         {
-            _items = await ShopApi.ListAllAsync();
-            _tenants = (await TenantService.ListTenantsAsync())
-                .Select(t => new TenantInfo { Id = t.Id, Name = t.Name })
-                .ToList();
+            var loadShops = ShopApi.ListAllAsync();
+            var loadTenants = LoadTenantsAsync();
+            await Task.WhenAll(loadShops, loadTenants);
+            _items = loadShops.Result;
         }
         catch (Exception ex)
         {
@@ -206,6 +206,20 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task LoadTenantsAsync()
+    {
+        try
+        {
+            var tenants = await TenantService.ListTenantsAsync();
+            _tenants = tenants.Select(t => new TenantInfo { Id = t.Id, Name = t.Name }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenants");
+            _tenants = new();
         }
     }
 

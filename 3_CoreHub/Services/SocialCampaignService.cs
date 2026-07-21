@@ -109,6 +109,7 @@ namespace VanAn.CoreHub.Services
         {
             SocialCampaign? existing = await GetCampaignByIdAsync(campaign.Id) ?? throw new InvalidOperationException($"Campaign {campaign.Id} not found");
             existing.UpdateCampaignDetails(campaign.CampaignName, campaign.UtmSource, campaign.IsActive);
+            existing.SetMedia(campaign.ImageUrl, campaign.VideoUrl);
 
             _ = await _repository.UpdateAsync(existing);
             await _dbContext.SaveChangesAsync();

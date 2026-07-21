@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
 using VanAn.CoreHub.Services;
 
@@ -18,14 +20,6 @@ namespace VanAn.ShopERP.Services
             AuthenticationStateProvider authStateProvider,
             ILogger<ShopApiClient> logger)
             : base(httpClientFactory, configuration, jwtTokenService, authStateProvider, logger) { }
-
-        public async Task<List<ShopDto>> ListByTenantAsync(Guid tenantId, CancellationToken ct = default)
-        {
-            var req = await CreateRequestAsync(HttpMethod.Get, $"api/shops/by-tenant/{tenantId}");
-            // by-tenant returns a single shop or 404. For admin list, we need all shops.
-            // Use the search endpoint with empty query to get all.
-            return await ListAllAsync(ct);
-        }
 
         public async Task<List<ShopDto>> ListAllAsync(CancellationToken ct = default)
         {
@@ -62,11 +56,13 @@ namespace VanAn.ShopERP.Services
         }
     }
 
-    // DTOs mirror ShopERP ShopsController response shape
+    // DTO mirrors Gateway Shop JSON shape.
+    // tenantId is a value object {"value":"..."} in JSON — use JsonElement + helper.
     public record ShopDto
     {
         public Guid Id { get; set; }
-        public Guid TenantId { get; set; }
+        [JsonPropertyName("tenantId")]
+        public JsonElement TenantIdElement { get; set; }
         public string Name { get; set; } = "";
         public string Address { get; set; } = "";
         public string Phone { get; set; } = "";
@@ -74,6 +70,18 @@ namespace VanAn.ShopERP.Services
         public bool IsActive { get; set; }
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
+
+        [JsonIgnore]
+        public Guid TenantId => ExtractGuid(TenantIdElement);
+
+        private static Guid ExtractGuid(JsonElement el)
+        {
+            if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("value", out var v))
+                return v.GetGuid();
+            if (el.ValueKind == JsonValueKind.String)
+                return el.GetGuid();
+            return Guid.Empty;
+        }
     }
 
     public record CreateShopRequest
