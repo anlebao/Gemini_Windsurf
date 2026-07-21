@@ -12,6 +12,7 @@
 @using VanAn.Shared.DTOs
 @using CoreAccountingService = VanAn.CoreHub.Services
 @using Microsoft.JSInterop
+@using VanAn.ShopERP.Services
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
@@ -48,22 +49,12 @@
         <VanACard Header="Bộ Lọc">
             <div class="filter-panel">
                 <div class="filter-row">
-                    <label>Tháng:</label>
-                    <select class="form-select" @onchange="HandleMonthChange">
-                        @for (int i = 1; i <= 12; i++)
-                        {
-                            <option value="@i" selected="@(selectedMonth == i)">Tháng @i</option>
-                        }
-                    </select>
+                    <label>Từ ngày:</label>
+                    <input type="date" class="form-control" value="@fromDateStr" @onchange="HandleFromDateChange" data-testid="filter-from-date" />
                 </div>
                 <div class="filter-row">
-                    <label>Năm:</label>
-                    <select class="form-select" @onchange="HandleYearChange">
-                        @for (int i = DateTime.Now.Year; i >= DateTime.Now.Year - 5; i--)
-                        {
-                            <option value="@i" selected="@(selectedYear == i)">@i</option>
-                        }
-                    </select>
+                    <label>Đến ngày:</label>
+                    <input type="date" class="form-control" value="@toDateStr" @onchange="HandleToDateChange" data-testid="filter-to-date" />
                 </div>
                 <div class="filter-row">
                     <label>Loại tài khoản:</label>
@@ -88,7 +79,7 @@
             <Columns>
                 <VanAnColumn TItem="AccountingEntryDto" Title="Ngày" Width="1">
                     <Template Context="item">
-                        @item.TransactionDate.ToString("dd/MM/yyyy")
+                        @item.TransactionDate.ToVietnamTime().ToString("dd/MM/yyyy")
                     </Template>
                 </VanAnColumn>
                 <VanAnColumn TItem="AccountingEntryDto" Title="Loại" Width="1">
@@ -123,38 +114,41 @@
     <!-- Transaction Detail Modal -->
     @if (showDetailModal)
     {
-        <VanAModal 
+        <VanAModal
             Title="Chi Tiết Giao Dịch"
+            IsVisible="true"
             OnClose="CloseDetailModal">
-            <div class="transaction-detail">
-                <div class="detail-row">
-                    <label>Ngày:</label>
-                    <span>@selectedTransaction?.TransactionDate.ToString("dd/MM/yyyy")</span>
-                </div>
-                <div class="detail-row">
-                    <label>Loại:</label>
-                    <span>@selectedTransaction?.EntryType</span>
-                </div>
-                <div class="detail-row">
-                    <label>Tài Khoản:</label>
-                    <span>@selectedTransaction?.AccountCode</span>
-                </div>
-                <div class="detail-row">
-                    <label>Số Tiền:</label>
-                    <span>@selectedTransaction?.Amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", ".") ₫</span>
-                </div>
-                <div class="detail-row">
-                    <label>Diễn Giải:</label>
-                    <span>@selectedTransaction?.Description</span>
-                </div>
-                @if (!string.IsNullOrEmpty(selectedTransaction?.Reference))
-                {
+            <Body>
+                <div class="transaction-detail">
                     <div class="detail-row">
-                        <label>Số Chứng Từ:</label>
-                        <span>@selectedTransaction.Reference</span>
+                        <label>Ngày:</label>
+                        <span>@selectedTransaction?.TransactionDate.ToVietnamTime().ToString("dd/MM/yyyy")</span>
                     </div>
-                }
-            </div>
+                    <div class="detail-row">
+                        <label>Loại:</label>
+                        <span>@selectedTransaction?.EntryType</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Tài Khoản:</label>
+                        <span>@selectedTransaction?.AccountCode</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Số Tiền:</label>
+                        <span>@selectedTransaction?.Amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", ".") ₫</span>
+                    </div>
+                    <div class="detail-row">
+                        <label>Diễn Giải:</label>
+                        <span>@selectedTransaction?.Description</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(selectedTransaction?.Reference))
+                    {
+                        <div class="detail-row">
+                            <label>Số Chứng Từ:</label>
+                            <span>@selectedTransaction.Reference</span>
+                        </div>
+                    }
+                </div>
+            </Body>
         </VanAModal>
     }
 </div>
@@ -164,17 +158,25 @@
     private List<AccountingEntryDto> filteredTransactions = new();
     private string searchTerm = string.Empty;
     private bool showFilterPanel = false;
-    private int selectedMonth = DateTime.Now.Month;
-    private int selectedYear = DateTime.Now.Year;
+    private DateTime? fromDate;
+    private DateTime? toDate;
     private string selectedAccountType = string.Empty;
     private decimal? amountMin;
     private decimal? amountMax;
     private bool showDetailModal = false;
     private AccountingEntryDto? selectedTransaction;
+
+    private string fromDateStr => fromDate?.ToString("yyyy-MM-dd") ?? "";
+    private string toDateStr => toDate?.ToString("yyyy-MM-dd") ?? "";
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
+            // Default: current month range
+            var now = DateTime.Now;
+            fromDate = new DateTime(now.Year, now.Month, 1);
+            toDate = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month));
             await LoadTransactions();
         }
         catch (Exception ex)
@@ -193,14 +195,26 @@
                 return;
             }
 
-            var period = new AccountingPeriod(selectedYear, selectedMonth);
-            var tenantId = new TenantId(TenantProvider.TenantId);
+            var tenantId = TenantProvider.TenantId;
 
-            var entries = await AccountingService.GetEntriesByTenantAndPeriodAsync(tenantId, period);
+            // Use date range if both dates are set, otherwise load all for tenant
+            IEnumerable<AccountingEntryDto> entries;
+            if (fromDate.HasValue && toDate.HasValue)
+            {
+                // Convert local date to UTC range (start of from-date to end of to-date)
+                DateTime startUtc = fromDate.Value.Date;
+                DateTime endUtc = toDate.Value.Date.AddDays(1);
+                entries = await AccountingService.GetEntriesByDateRangeAsync(tenantId, startUtc, endUtc);
+            }
+            else
+            {
+                var tid = new TenantId(tenantId);
+                entries = await AccountingService.GetEntriesByTenantAsync(tid);
+            }
 
             transactions = entries.ToList();
-            Logger.LogInformation("LoadTransactions: tenant={TenantId}, period={Start}..{End}, count={Count}",
-                TenantProvider.TenantId, period.StartDate, period.EndDate, transactions.Count);
+            Logger.LogInformation("LoadTransactions: tenant={TenantId}, range={From}..{To}, count={Count}",
+                tenantId, fromDate, toDate, transactions.Count);
             ApplyFilters();
         }
         catch (Exception ex)
@@ -232,19 +246,19 @@
         ApplyFilters();
     }
 
-    private void HandleMonthChange(ChangeEventArgs e)
+    private void HandleFromDateChange(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out var month))
+        if (DateTime.TryParse(e.Value?.ToString(), out var date))
         {
-            selectedMonth = month;
+            fromDate = date.Date;
         }
     }
 
-    private void HandleYearChange(ChangeEventArgs e)
+    private void HandleToDateChange(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out var year))
+        if (DateTime.TryParse(e.Value?.ToString(), out var date))
         {
-            selectedYear = year;
+            toDate = date.Date;
         }
     }
 
@@ -260,8 +274,9 @@
 
     private void ResetFilter()
     {
-        selectedMonth = DateTime.Now.Month;
-        selectedYear = DateTime.Now.Year;
+        var now = DateTime.Now;
+        fromDate = new DateTime(now.Year, now.Month, 1);
+        toDate = new DateTime(now.Year, now.Month, DateTime.DaysInMonth(now.Year, now.Month));
         selectedAccountType = string.Empty;
         amountMin = null;
         amountMax = null;
@@ -329,7 +344,7 @@
             sb.AppendLine("Ngay,Loai,Tai khoan,So tien,Dien giai,So chung tu");
             foreach (var t in filteredTransactions)
             {
-                var date = t.TransactionDate.ToString("dd/MM/yyyy");
+                var date = t.TransactionDate.ToVietnamTime().ToString("dd/MM/yyyy");
                 var type = t.EntryType.ToString();
                 var acct = t.AccountCode ?? "";
                 var amt = t.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -340,7 +355,7 @@
 
             byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
             string base64 = Convert.ToBase64String(bytes);
-            string fileName = "transactions_" + selectedYear + "_" + selectedMonth.ToString("D2") + ".csv";
+            string fileName = "transactions_" + (fromDate?.ToString("yyyyMMdd") ?? "all") + "_" + (toDate?.ToString("yyyyMMdd") ?? "all") + ".csv";
             await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, "text/csv", fileName);
         }
         catch (Exception ex)

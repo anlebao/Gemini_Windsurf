@@ -55,13 +55,14 @@
         <div class="filter-row">
             <label>Trạng thái:</label>
             <select value="@selectedStatus" @onchange="OnStatusChanged" class="filter-select" data-testid="filter-status">
-                <option value="">Tất cả</option>
+                <option value="EMPTY">===Lọc dữ liệu===</option>
                 <option value="pending">Chờ xác nhận</option>
                 <option value="confirmed">Đã xác nhận</option>
                 <option value="preparing">Đang làm</option>
                 <option value="ready">Sẵn sàng</option>
                 <option value="completed">Hoàn thành</option>
                 <option value="cancelled">Đã hủy</option>
+                <option value="ALL">Tất cả</option>
             </select>
 
             <label>Thời gian:</label>
@@ -146,7 +147,7 @@
     private List<OrderListItem> orders = new();
     private bool loading = true;
     private string? errorMessage;
-    private string selectedStatus = "";
+    private string selectedStatus = "EMPTY";
     private string selectedDateRange = "today";
     private HubConnection? _hubConnection;
     private System.Threading.Timer? _pollTimer;
@@ -216,7 +217,14 @@
 
     private async Task OnStatusChanged(ChangeEventArgs e)
     {
-        selectedStatus = e.Value?.ToString() ?? "";
+        selectedStatus = e.Value?.ToString() ?? "EMPTY";
+        if (selectedStatus == "EMPTY")
+        {
+            // Empty state — no data, no query
+            orders = new List<OrderListItem>();
+            StateHasChanged();
+            return;
+        }
         await ReloadOrders();
     }
 
@@ -232,6 +240,15 @@
         errorMessage = null;
         try
         {
+            // EMPTY = no data (defensive — OnStatusChanged/OnTenantFilterChanged short-circuit before here)
+            if (selectedStatus == "EMPTY" || (_isSystemAdmin && _selectedTenantFilter == "EMPTY"))
+            {
+                orders = new List<OrderListItem>();
+                return;
+            }
+
+            // "ALL" status = no status filter; specific status = filter by it
+            bool filterByStatus = selectedStatus != "ALL";
             // SystemAdmin "ALL tenants" mode — query all orders across tenants
             bool allTenants = _isSystemAdmin && _selectedTenantFilter == "ALL";
 
@@ -241,7 +258,7 @@
             if (allTenants)
             {
                 // SystemAdmin: query all orders (no tenant filter)
-                if (!string.IsNullOrEmpty(selectedStatus))
+                if (filterByStatus)
                 {
                     var statusId = new OrderStatusId(selectedStatus);
                     rawOrders = await OrderService.GetAllOrdersByStatusAsync(statusId);
@@ -253,13 +270,13 @@
                 }
 
                 filtered = rawOrders.ToList();
-                if (selectedDateRange == "7days" && string.IsNullOrEmpty(selectedStatus))
+                if (selectedDateRange == "7days" && !filterByStatus)
                 {
                     DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
                     DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
                     filtered = (await OrderService.GetAllOrdersByDateRangeAsync(weekAgo, tomorrow)).ToList();
                 }
-                else if (selectedDateRange == "all" && string.IsNullOrEmpty(selectedStatus))
+                else if (selectedDateRange == "all" && !filterByStatus)
                 {
                     DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
                     DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
@@ -270,7 +287,7 @@
             {
                 // Normal mode — query for specific tenant
                 Guid tenantId = TenantProvider.TenantId;
-                if (!string.IsNullOrEmpty(selectedStatus))
+                if (filterByStatus)
                 {
                     var statusId = new OrderStatusId(selectedStatus);
                     rawOrders = await OrderService.GetOrdersByStatusAsync(statusId, tenantId);
@@ -282,13 +299,13 @@
                 }
 
                 filtered = rawOrders.ToList();
-                if (selectedDateRange == "7days" && string.IsNullOrEmpty(selectedStatus))
+                if (selectedDateRange == "7days" && !filterByStatus)
                 {
                     DateTime weekAgo = DateTime.UtcNow.Date.AddDays(-7);
                     DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
                     filtered = (await OrderService.GetOrdersByDateRangeAsync(tenantId, weekAgo, tomorrow)).ToList();
                 }
-                else if (selectedDateRange == "all" && string.IsNullOrEmpty(selectedStatus))
+                else if (selectedDateRange == "all" && !filterByStatus)
                 {
                     DateTime longAgo = DateTime.UtcNow.Date.AddDays(-365);
                     DateTime tomorrow = DateTime.UtcNow.Date.AddDays(1);
