@@ -52,13 +52,14 @@
     {
         if (ShopConfig?.Latitude == null || ShopConfig?.Longitude == null)
             return "";
-            
+
         var lat = ShopConfig.Latitude.Value;
         var lng = ShopConfig.Longitude.Value;
-        
-        // Google Maps embed URL with custom styling
-        var apiKey = Configuration["GoogleMaps:ApiKey"] ?? "";
-        return $"https://www.google.com/maps/embed/v1/place?key={apiKey}&q={lat},{lng}&zoom=16&maptype=roadmap&language=vi";
+
+        // Free Google Maps embed URL — no API key required.
+        // Uses the public maps.google.com endpoint (same as "Share → Embed a map" feature).
+        // The Embed API (maps/embed/v1/place) requires a key; this endpoint does not.
+        return $"https://maps.google.com/maps?q={lat},{lng}&z=16&output=embed&hl=vi";
     }
 }
 
