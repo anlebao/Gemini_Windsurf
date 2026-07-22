@@ -58,7 +58,26 @@ Feature cho phép SysAdmin chọn 1 trong 5 theme (Classic, Modern, Teen, Lady, 
 
 **Build:** `dotnet build VanAn.sln` 0 errors. Unit tests `TenantManagementServiceTests` 10/10 PASS.
 
-**Status: COMPLETE. Build pass, unit tests pass. Ready for commit + deploy + runtime verification.**
+**Status: COMPLETE. Build pass, unit tests pass. CD deployed. RV 6/6 PASS on live VPS.**
+
+### Runtime Verification (6/6 PASS, live VPS `diemthuong.khachvip.online`, 2026-07-22)
+
+| # | Test | Result | Evidence |
+|---|------|--------|----------|
+| RV1 | KhachLink app loads after deploy | PASS | HTTP 200, content 6905 bytes |
+| RV2 | Gateway store-info returns Theme field | PASS | `"theme":0` in JSON response |
+| RV3 | Admin tenants API returns Theme field | PASS | All tenants have `"theme":0` (Classic) |
+| RV4 | Theme round-trip: Teen(2) → Classic(0) | PASS | Set Teen → `theme:2`, reset Classic → `theme:0` |
+| RV5 | Admin API shows updated theme | PASS | Coffee An An `theme:2` after update |
+| RV6 | KhachLink app stable after theme changes | PASS | HTTP 200, no crash |
+
+### Post-deploy fix (commit `ab1bc9f7`)
+
+**Bug:** EF Core `HasDefaultValue(ThemeType.Classic)` treated `0` (Classic) as sentinel — when theme value equals default (0), EF Core skipped `Settings_Theme` in UPDATE SQL, leaving old value in DB. Made it impossible to reset theme to Classic after changing it.
+
+**Fix:** Removed `.HasDefaultValue(ThemeType.Classic)` from `TenantConfiguration.cs`. DB column keeps `DEFAULT 0` from migration for INSERTs. For UPDATEs, EF Core now always includes `Settings_Theme` regardless of value.
+
+**Also fixed (commit `517ddd66`):** `ThemeType?` (nullable) in request DTOs caused System.Text.Json to deserialize `"theme":0` as `null` (0 is default enum value). Changed to non-nullable `ThemeType` (default Classic) in all 3 request DTOs.
 
 ---
 
