@@ -10,6 +10,11 @@
     <AnalysisMode>Default</AnalysisMode>
     <NoWarn>$(NoWarn);CA1707;CA1848;CA1716</NoWarn>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <!-- Enable NullabilityInfoContext for System.Text.Json reflection-based serialization.
+         Blazor WASM SDK disables this feature switch by default, causing
+         NullabilityInfoContext_NotSupported when STJ tries to read nullable annotations.
+         See: https://github.com/dotnet/runtime/issues/118333 -->
+    <NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>
   </PropertyGroup>
 
   <ItemGroup>
