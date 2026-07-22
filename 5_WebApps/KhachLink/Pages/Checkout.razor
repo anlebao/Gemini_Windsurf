@@ -1,4 +1,4 @@
-@page "/checkout"
+﻿@page "/checkout"
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Models
@@ -13,19 +13,19 @@
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
-@* W1-T1: Payment method � "cash" shows ProcessingBar, "transfer" shows QR modal. *@
+@* W1-T1: Payment method → "cash" shows ProcessingBar, "transfer" shows QR modal. *@
 
-<PageTitle>KhachLink - Thanh to�n don h�ng</PageTitle>
+<PageTitle>KhachLink - Thanh toán đơn hàng</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4">
-        <h3 class="mb-4">?? Thanh to�n don h�ng</h3>
+        <h3 class="mb-4">🛒 Thanh toán đơn hàng</h3>
 
         @if (isProcessing)
         {
             <VanAnCard>
                 <div class="text-center">
-                    <VanASpinner Label="�ang t?o don h�ng v� m� QR thanh to�n..." />
+                    <VanASpinner Label="Đang tạo đơn hàng với mã QR thanh toán..." />
                 </div>
             </VanAnCard>
         }
@@ -33,36 +33,36 @@
         {
             <div class="row">
                 <div class="col-md-6">
-                    <VanAnCard Header="?? Chi ti?t don h�ng">
+                    <VanAnCard Header="📋 Chi tiết đơn hàng">
                         <div class="order-success alert-success" role="status">
-                            <p><strong>? �?t h�ng th�nh c�ng!</strong></p>
-                            <p>�� t?o <strong>@_createdOrders.Count</strong> don h�ng t? gi? h�ng c?a b?n.</p>
+                            <p><strong>? Đặt hàng thành công!</strong></p>
+                            <p>?Đã tạo <strong>@_createdOrders.Count</strong> đơn hàng từ giỏ hàng của bạn.</p>
                         </div>
                         <hr />
 
                         @foreach (var order in _createdOrders)
                         {
                             <div class="mb-3 p-2 border rounded">
-                                <p><strong>�on h�ng:</strong> <span class="order-id">@order.OrderId</span></p>
-                                <p><strong>C?a h�ng:</strong> @(string.IsNullOrEmpty(order.TenantName) ? order.TenantId.ToString() : order.TenantName)</p>
+                                <p><strong>Đơn hàng:</strong> <span class="order-id">@order.OrderId</span></p>
+                                <p><strong>Cửa hàng:</strong> @(string.IsNullOrEmpty(order.TenantName) ? order.TenantId.ToString() : order.TenantName)</p>
                                 @if (_vatDisplayEnabled && order.SubTotal > 0)
                                 {
                                     <div class="d-flex justify-content-between mb-1">
-                                        <span>T?m t�nh (chua VAT):</span>
-                                        <span>@order.SubTotal.ToString("N0") VN�</span>
+                                        <span>Tạm tính (chưa VAT):</span>
+                                        <span>@order.SubTotal.ToString("N0") VNĐ</span>
                                     </div>
                                     <div class="d-flex justify-content-between mb-1">
                                         <span>VAT:</span>
-                                        <span>@order.TotalVatAmount.ToString("N0") VN�</span>
+                                        <span>@order.TotalVatAmount.ToString("N0") VNĐ</span>
                                     </div>
                                 }
                                 <div class="d-flex justify-content-between">
-                                    <strong>T?ng:</strong>
-                                    <strong>@order.Amount.ToString("N0") VN�</strong>
+                                    <strong>Tổng:</strong>
+                                    <strong>@order.Amount.ToString("N0") VNĐ</strong>
                                 </div>
                                 <div class="mt-2">
                                     <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{order.OrderId}"))">
-                                        Theo d�i don h�ng
+                                        Theo dõi đơn hàng
                                     </VanAnButton>
                                 </div>
                             </div>
@@ -70,16 +70,16 @@
 
                         <hr />
                         <div class="d-flex justify-content-between">
-                            <h5 class="text-danger">T?ng t?t c?:</h5>
-                            <h5 class="text-danger">@orderTotal.ToString("N0") VN�</h5>
+                            <h5 class="text-danger">Tổng tất cả:</h5>
+                            <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
                         </div>
 
                         <div class="mt-3 d-flex gap-2">
                             <VanAnButton Variant="ButtonVariant.Primary" OnClick="OpenQrModal" data-testid="checkout-btn-qr-payment">
-                                ?? Thanh to�n QR
+                                📱 Thanh toán QR
                             </VanAnButton>
                             <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}"))" data-testid="checkout-link-tracking">
-                                Theo d�i don h�ng d?u ti�n
+                                Theo dõi đơn hàng đầu tiên
                             </VanAnButton>
                         </div>
                     </VanAnCard>
@@ -88,14 +88,14 @@
                 @if (_checkoutErrors.Count > 0)
                 {
                     <div class="col-md-6">
-                        <VanAnCard Header="?? �on h�ng th?t b?i">
+                        <VanAnCard Header="❌ Đơn hàng thất bại">
                             <VanAnAlert Variant="AlertVariant.Warning"
-                                        Message="@($"M?t s? don h�ng kh�ng th? t?o ({_checkoutErrors.Count} th?t b?i). C�c s?n ph?m li�n quan v?n c�n trong gi? h�ng d? b?n th? l?i.")"
+                                        Message="@($"Một số đơn hàng không thể tạo ({_checkoutErrors.Count} thất bại). Các sản phẩm liên quan vẫn còn trong giỏ hàng để bạn thử lại.")"
                                         Dismissible="false" />
                             @foreach (var err in _checkoutErrors)
                             {
                                 <div class="mb-2 p-2 border rounded">
-                                    <p><strong>C?a h�ng:</strong> @(string.IsNullOrEmpty(err.TenantName) ? err.TenantId.ToString() : err.TenantName)</p>
+                                    <p><strong>Cửa hàng:</strong> @(string.IsNullOrEmpty(err.TenantName) ? err.TenantId.ToString() : err.TenantName)</p>
                                     <p class="text-danger">@err.Error</p>
                                 </div>
                             }
@@ -105,10 +105,10 @@
                 else if (!string.IsNullOrEmpty(qrImageUrl))
                 {
                     <div class="col-md-6">
-                        <VanAnCard Header="?? Qu�t m� QR d? thanh to�n">
+                        <VanAnCard Header="📱 Quét mã QR để thanh toán">
                             <div class="text-center">
                                 <img src="@qrImageUrl" alt="VietQR Code" class="img-fluid" style="max-width: 300px;" />
-                                <VanAnAlert Variant="AlertVariant.Info" Message="@($"M? ?ng d?ng ng�n h�ng v� qu�t m� QR d? thanh to�n {orderTotal:N0} VN�")" Dismissible="false" />
+                                <VanAnAlert Variant="AlertVariant.Info" Message="@($"Mở ứng dụng ngân hàng và quét mã QR để thanh toán {orderTotal:N0} VNĐ")" Dismissible="false" />
                             </div>
                         </VanAnCard>
                     </div>
@@ -125,31 +125,31 @@
         {
             <div class="row">
                 <div class="col-md-7">
-                    <VanAnCard Header="@(_isLoggedIn ? "?? X�c nh?n th�ng tin giao h�ng" : "?? Th�ng tin kh�ch h�ng")">
+                    <VanAnCard Header="@(_isLoggedIn ? "✅ Xác nhận thông tin giao hàng" : "✅ Thông tin khách hàng")">
                         @if (_isLoggedIn)
                         {
                             <VanAnAlert Variant="AlertVariant.Info"
-                                        Message="Th�ng tin d� du?c di?n s?n t? t�i kho?n c?a b?n. Vui l�ng ki?m tra v� ch?nh s?a n?u c?n."
+                                        Message="Thông tin đã được điền sẵn từ tài khoản của bạn. Vui lòng kiểm tra và chỉnh sửa nếu cần."
                                         Dismissible="false" CssClass="mb-3" />
                         }
                         <div class="mb-3">
-                            <label for="guest-name" class="form-label">H? v� t�n @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
-                            <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nh?p h? v� t�n" aria-label="H? v� t�n" name="name" data-testid="checkout-input-name" />
+                            <label for="guest-name" class="form-label">Họ và tên @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
+                            <input id="guest-name" type="text" class="form-control" @bind="guestName" @bind:event="oninput" placeholder="Nhập họ và tên" aria-label="Họ và tên" name="name" data-testid="checkout-input-name" />
                         </div>
 
                         <div class="mb-3">
-                            <label for="guest-phone" class="form-label">S? di?n tho?i @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
-                            <input id="guest-phone" type="tel" class="form-control" @bind="guestPhone" @bind:event="oninput" placeholder="Nh?p s? di?n tho?i" aria-label="S? di?n tho?i" name="phone" data-testid="checkout-input-phone" />
+                            <label for="guest-phone" class="form-label">Số điện thoại @if (selectedPaymentMethod == "transfer") { <span class="text-danger">*</span> }</label>
+                            <input id="guest-phone" type="tel" class="form-control" @bind="guestPhone" @bind:event="oninput" placeholder="Nhập số điện thoại" aria-label="Số điện thoại" name="phone" data-testid="checkout-input-phone" />
                         </div>
 
                         <div class="mb-3">
-                            <label for="guest-address" class="form-label">�?a ch? giao h�ng</label>
-                            <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput" placeholder="Nh?p d?a ch? giao h�ng" aria-label="�?a ch? giao h�ng" name="address" data-testid="checkout-input-address" />
+                            <label for="guest-address" class="form-label">Địa chỉ giao hàng</label>
+                            <input id="guest-address" type="text" class="form-control" @bind="guestAddress" @bind:event="oninput" placeholder="Nhập địa chỉ giao hàng" aria-label="Địa chỉ giao hàng" name="address" data-testid="checkout-input-address" />
                         </div>
 
                         @if (selectedPaymentMethod == "transfer")
                         {
-                            <VanAnAlert Variant="AlertVariant.Info" Message="Vui l�ng nh?p h? t�n d? d?i so�t giao d?ch chuy?n kho?n." Dismissible="false" />
+                            <VanAnAlert Variant="AlertVariant.Info" Message="Vui lòng nhập họ tên để đối soát giao dịch chuyển khoản." Dismissible="false" />
                         }
 
                         @if (!string.IsNullOrEmpty(formError))
@@ -159,21 +159,21 @@
 
                         <!-- W1-T1: Payment method selector -->
                         <div class="mb-3" data-testid="payment-method-selector">
-                            <label class="form-label fw-bold">H�nh th?c thanh to�n</label>
+                            <label class="form-label fw-bold">Hình thức thanh toán</label>
                             <div class="d-flex gap-3">
                                 <div class="form-check">
                                     <input id="payment-cash" type="radio" name="paymentMethod" value="cash"
                                            class="form-check-input" checked="@(selectedPaymentMethod == "cash")"
                                            @onchange="@(() => selectedPaymentMethod = "cash")"
                                            data-testid="payment-option-cash" />
-                                    <label for="payment-cash" class="form-check-label">?? Ti?n m?t</label>
+                                    <label for="payment-cash" class="form-check-label">💵 Tiền mặt</label>
                                 </div>
                                 <div class="form-check">
                                     <input id="payment-transfer" type="radio" name="paymentMethod" value="transfer"
                                            class="form-check-input" checked="@(selectedPaymentMethod == "transfer")"
                                            @onchange="@(() => selectedPaymentMethod = "transfer")"
                                            data-testid="payment-option-transfer" />
-                                    <label for="payment-transfer" class="form-check-label">?? Chuy?n kho?n (VietQR)</label>
+                                    <label for="payment-transfer" class="form-check-label">🏦 Chuyển khoản (VietQR)</label>
                                 </div>
                             </div>
                         </div>
@@ -182,36 +182,36 @@
                         <ProcessingBar IsVisible="@isSendingCash" />
 
                         <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" OnClick="SubmitGuestOrder" data-testid="checkout-btn-place-order" disabled="@isSendingCash">
-                            @(selectedPaymentMethod == "cash" ? "�?t h�ng (Ti?n m?t)" : "�?t h�ng (Chuy?n kho?n)")
+                            @(selectedPaymentMethod == "cash" ? "Đặt hàng (Tiền mặt)" : "Đặt hàng (Chuyển khoản)")
                         </VanAnButton>
                     </VanAnCard>
                 </div>
 
                 <div class="col-md-5">
-                    <VanAnCard Header="?? T�m t?t don h�ng">
+                    <VanAnCard Header="📋 Tóm tắt đơn hàng">
                         @foreach (var item in cartSnapshot)
                         {
                             <div class="d-flex justify-content-between mb-2">
                                 <span>@item.ProductName x @item.Quantity</span>
-                                <span>@item.TotalPrice.ToString("N0") VN�</span>
+                                <span>@item.TotalPrice.ToString("N0") VNĐ</span>
                             </div>
                         }
                         <hr />
                         @if (_vatDisplayEnabled)
                         {
                             <div class="d-flex justify-content-between mb-2">
-                                <span>T?m t�nh (chua VAT):</span>
-                                <span>@cartState.NetSubTotal.ToString("N0") VN�</span>
+                                <span>Tạm tính (chưa VAT):</span>
+                                <span>@cartState.NetSubTotal.ToString("N0") VNĐ</span>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span>VAT:</span>
-                                <span>@cartState.TotalVatAmount.ToString("N0") VN�</span>
+                                <span>@cartState.TotalVatAmount.ToString("N0") VNĐ</span>
                             </div>
                             <hr />
                         }
                         <div class="d-flex justify-content-between">
-                            <h5 class="text-danger">T?ng c?ng:</h5>
-                            <h5 class="text-danger">@orderTotal.ToString("N0") VN�</h5>
+                            <h5 class="text-danger">Tổng cộng:</h5>
+                            <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
                         </div>
                     </VanAnCard>
                 </div>
@@ -219,10 +219,10 @@
         }
         else
         {
-            <VanAnAlert Variant="AlertVariant.Warning" Message="Kh�ng th? t?o don h�ng. Vui l�ng th? l?i." Dismissible="false" />
+            <VanAnAlert Variant="AlertVariant.Warning" Message="Không thể tạo đơn hàng. Vui lòng thử lại." Dismissible="false" />
             <div class="text-center mt-3">
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="@(() => NavigationManager.NavigateTo("/cart"))" data-testid="checkout-btn-back-cart">
-                    Quay l?i gi? h�ng
+                    Quay lại giỏ hàng
                 </VanAnButton>
             </div>
         }
@@ -246,7 +246,7 @@
     private List<CartItem> cartSnapshot = new();
     private bool _vatDisplayEnabled = true;
 
-    // Phase 5: Multi-tenant checkout � multiple orders from one cart.
+    // Phase 5: Multi-tenant checkout ? multiple orders from one cart.
     private List<CreatedOrderItem> _createdOrders = new();
     private List<CheckoutErrorItem> _checkoutErrors = new();
 
@@ -255,7 +255,7 @@
     private string guestPhone = string.Empty;
     private string guestAddress = string.Empty;
     private string? formError;
-    // W1-T1: Payment method � "cash" or "transfer" (default: transfer for QR flow)
+    // W1-T1: Payment method → "cash" or "transfer" (default: transfer for QR flow)
     private string selectedPaymentMethod = "transfer";
     // W1-T2: Cash flow processing state
     private bool isSendingCash;
@@ -263,7 +263,7 @@
     // Post-checkout loyalty signup: show IdentityUpgradeModal after order success for anonymous users
     private bool _showLoyaltySignupModal = false;
     private bool _isLoggedIn = false;
-    // Logged-in customer ID (from localStorage "customer_id") � sent with checkout request
+    // Logged-in customer ID (from localStorage "customer_id") ? sent with checkout request
     // so the created order is linked to the Customer entity and appears in order history.
     private Guid? _customerId = null;
 
@@ -322,7 +322,7 @@
                         }
                     }
                 }
-                catch { /* non-critical � pre-fill is a convenience, not a hard requirement */ }
+                catch { /* non-critical ? pre-fill is a convenience, not a hard requirement */ }
             }
 
             StateHasChanged();
@@ -332,7 +332,7 @@
     private async Task SubmitGuestOrder()
     {
         // Online guard: checkout requires real-time validation from Gateway (price, inventory).
-        // Do NOT queue offline � financial transactions must be confirmed immediately.
+        // Do NOT queue offline ? financial transactions must be confirmed immediately.
         var isOnline = await JSRuntime.InvokeAsync<bool>("eval", "navigator.onLine");
         if (!isOnline)
         {
@@ -341,17 +341,17 @@
             return;
         }
 
-        // Bug 2: Conditional validation � transfer requires name+phone for reconciliation, cash does not
+        // Bug 2: Conditional validation ? transfer requires name+phone for reconciliation, cash does not
         if (selectedPaymentMethod == "transfer")
         {
             if (string.IsNullOrWhiteSpace(guestName))
             {
-                formError = "Vui l�ng nh?p h? v� t�n d? d?i so�t giao d?ch chuy?n kho?n.";
+                formError = "Vui lòng nhập họ và tên để đối soát giao dịch chuyển khoản.";
                 return;
             }
             if (string.IsNullOrWhiteSpace(guestPhone))
             {
-                formError = "Vui l�ng nh?p s? di?n tho?i d? d?i so�t giao d?ch chuy?n kho?n.";
+                formError = "Vui lòng nhập số điện thoại để đối soát giao dịch chuyển khoản.";
                 return;
             }
         }
@@ -399,7 +399,7 @@
                     if (checkResp.IsSuccessStatusCode)
                         customerIdForOrder = _customerId;
                     else
-                        _isLoggedIn = false; // token invalid � treat as guest
+                        _isLoggedIn = false; // token invalid ? treat as guest
                 }
                 catch { /* if check fails, proceed as guest */ }
             }
@@ -418,7 +418,7 @@
                     UnitPrice = i.UnitPrice,
                     Notes = "",
                 }).ToList(),
-                CustomerNotes = "�?t h�ng t? web KhachLink",
+                CustomerNotes = "Đặt hàng từ web KhachLink",
                 CustomerName = guestName,
                 CustomerPhone = guestPhone,
                 CustomerAddress = guestAddress,
@@ -445,14 +445,14 @@
                     {
                         _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(firstTenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
                     }
-                    catch { /* non-critical � default to true */ }
+                    catch { /* non-critical ? default to true */ }
 
                     try
                     {
                         var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(firstTenantId);
                         shopName = shopConfig?.ShopName;
                     }
-                    catch { /* non-critical � shop name is optional display */ }
+                    catch { /* non-critical ? shop name is optional display */ }
                 }
 
                 // Phase 5: Store created_orders in localStorage for OrderHistory.
@@ -468,7 +468,7 @@
                     await JSRuntime.InvokeVoidAsync("localStorage.setItem", "created_orders", ordersJson);
                 }
 
-                // Phase 5: Partial cart clear � only remove items belonging to successful tenants.
+                // Phase 5: Partial cart clear ? only remove items belonging to successful tenants.
                 var successfulTenantIds = _createdOrders.Select(o => o.TenantId).ToHashSet();
                 var itemsToKeep = cartState.Items.Where(i => !successfulTenantIds.Contains(i.TenantId)).ToList();
                 if (itemsToKeep.Count == 0)
@@ -484,7 +484,7 @@
                     // SaveCartToStorageAsync is called by ClearCartAsync; we need to persist the re-added items.
                     // CartService doesn't expose a public Save method for direct item manipulation,
                     // so we trigger a save by calling UpdateQuantityAsync on a kept item (no-op if single item).
-                    // This is a workaround � a proper fix would add CartService.PersistAsync().
+                    // This is a workaround ? a proper fix would add CartService.PersistAsync().
                     if (itemsToKeep.Count > 0)
                     {
                         await CartService.UpdateQuantityAsync(itemsToKeep[0].ProductId, itemsToKeep[0].Quantity);
@@ -507,8 +507,8 @@
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Checkout API error: {response.StatusCode} � {errorContent}");
-                formError = $"L?i t?o don h�ng ({response.StatusCode}). Vui l�ng th? l?i ho?c li�n h? qu�n.";
+                Console.WriteLine($"Checkout API error: {response.StatusCode} ? {errorContent}");
+                formError = $"L?i t?o đơn hàng ({response.StatusCode}). Vui lòng thử lại ho?c li?n h? qu?n.";
                 showGuestForm = true;
             }
         }

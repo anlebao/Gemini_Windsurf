@@ -20,13 +20,23 @@
         </div>
     </header>
 
-    <!-- Main content -->
-    <main class="khachlink-app-main">
-        @Body
-    </main>
+    <!-- Desktop: sidebar + main content side-by-side. Mobile: main only (tab bar at bottom) -->
+    <div class="khachlink-body">
+        <!-- Desktop sidebar nav (hidden on mobile, rendered left of main) -->
+        <div class="khachlink-sidebar d-none d-md-block">
+            <NavMenu />
+        </div>
 
-    <!-- Mobile bottom tab bar -->
-    <NavMenu />
+        <!-- Main content -->
+        <main class="khachlink-app-main">
+            @Body
+        </main>
+    </div>
+
+    <!-- Mobile bottom tab bar (rendered after body, fixed at bottom) -->
+    <div class="d-md-none">
+        <NavMenu />
+    </div>
 </div>
 
 <div id="blazor-error-ui">
@@ -72,14 +82,31 @@
         transition: background 0.2s;
     }
     .app-header-btn:hover { background: rgba(255,255,255,0.25); color: white; }
+
+    /* Body: sidebar + main side-by-side on desktop, stacked on mobile */
+    .khachlink-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+    }
+    .khachlink-sidebar {
+        width: 240px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 56px; /* header height */
+        height: calc(100vh - 56px);
+        overflow-y: auto;
+    }
     .khachlink-app-main {
         flex: 1;
         padding: 1rem;
         padding-bottom: 80px; /* Space for mobile tab bar */
+        min-width: 0;
     }
     @@media (min-width: 769px) {
         .khachlink-app-main {
             padding: 1.5rem;
+            padding-bottom: 1.5rem; /* No mobile tab bar on desktop */
         }
     }
 </style>

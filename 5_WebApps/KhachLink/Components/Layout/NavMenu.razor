@@ -2,8 +2,8 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 
-<!-- Desktop sidebar nav (hidden on mobile) -->
-<div class="d-none d-md-block">
+<!-- Desktop sidebar nav (hidden on mobile via parent .khachlink-sidebar) -->
+<div class="nav-desktop">
     <VanAnCard CssClass="nav-menu-card" Shadow="false">
         <div class="nav-header">
             <a class="nav-brand" href="/">Vạn An KhachLink</a>
@@ -67,8 +67,8 @@
     </VanAnCard>
 </div>
 
-<!-- Mobile bottom tab bar (visible only on mobile) -->
-<div class="d-md-none mobile-bottom-nav">
+<!-- Mobile bottom tab bar (visible only on mobile via parent .d-md-none) -->
+<div class="mobile-bottom-nav">
     <a class="mobile-tab-item @IsActive("/")" href="/">
         <i class="bi bi-house-door-fill"></i>
         <span>Trang chủ</span>
