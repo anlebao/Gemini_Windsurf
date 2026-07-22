@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e-tests',
-  testMatch: /khachlink-pwa-(offline-rt|install-debug|manifest-verify)\.spec\.ts/,
+  testMatch: /khachlink-pwa-(offline-rt|install-debug|manifest-verify|deep-debug|engagement-test)\.spec\.ts/,
   fullyParallel: false,
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'reports/rt-report' }]],
