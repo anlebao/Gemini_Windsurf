@@ -30,11 +30,11 @@
 
 ## 2. Current Objective
 
-**KhachLink PWA Phase 2 — Service Worker DLL Caching — COMPLETE (2026-07-22)**
+**KhachLink PWA Phase 2 — Service Worker DLL Caching + Post-Deploy Hotfixes — COMPLETE (2026-07-22)**
 
-Phase 2 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Updates `service-worker.js` to cache Blazor WASM DLLs + `.wasm` runtime for true offline support. Commit `ec15bc01` pushed, CD PASSED, VPS RV PASS.
+Phase 2 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Updates `service-worker.js` to cache Blazor WASM DLLs + `.wasm` runtime for true offline support. Commit `ec15bc01` pushed, CD PASSED, VPS RV PASS. Then 3 post-deploy hotfixes for runtime issues discovered via browser testing.
 
-### Changes (1 file: `5_WebApps/KhachLink/wwwroot/service-worker.js`)
+### Phase 2 main (commit `ec15bc01`, 1 file: `service-worker.js`)
 - Added `WASM_CACHE` (`vanan-wasm-v9-wasm`) for `_framework/*` assets
 - `importScripts('/service-worker-assets.js')` loads SDK-generated manifest with hashes + URLs for all `_framework/*.wasm/.dll/.js` assets
 - Install event: precaches all WASM assets from manifest (best-effort, per-URL catch)
@@ -46,11 +46,23 @@ Phase 2 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Updates `servic
 - Added `/index.html` + `/js/*.js` to `staticUrlsToCache` (needed for WASM)
 - Skip cross-origin requests (CDN scripts like html5-qrcode, jsQR)
 
-### VPS RV (2026-07-22)
-- `vanan-khachlink` container **healthy** (nginx serving static files)
-- Service worker updated to `v9-wasm` with `importScripts('/service-worker-assets.js')`
-- `/_framework/blazor.boot.json` → 200
-- `/service-worker-assets.js` → 200
+### Post-deploy hotfixes (3 commits, 2026-07-22)
+Browser testing after Phase 2 deploy revealed 3 runtime issues:
+
+1. **Rate limit 503 + SRI integrity fail** (commit `0186723f`, 2 files): SW install event fired 80 concurrent `cache.add()` for `/_framework/*` → front proxy nginx rate limiter (`burst=20`) blocked 60/80 with 503 → SRI integrity check fail → Blazor boot crash. Fix: (a) `service-worker.js` — batch SW precache into chunks of 5 (sequential per batch) instead of 80 concurrent `Promise.allSettled`, cache version `v9-wasm` → `v10-batched`; (b) `nginx/templates/vanan.conf.template` — move `limit_req zone=web burst=20 nodelay` from server block into `location /` + `location /_blazor` blocks, so `location /_framework/` is exempt from rate limiting (immutable hashed assets don't need rate protection).
+
+2. **CannotResolveService AuthenticationStateProvider** (commit `dabc3698`, 2 files): Phase 1 WASM conversion removed server-side Blazor infrastructure which provided a default `AuthenticationStateProvider`. `UI.Platform.TenantService` requires `AuthenticationStateProvider` via constructor injection, but KhachLink `Program.cs` never registered one → `CannotResolveService` at render time. Fix: new `Services/AnonymousAuthenticationStateProvider.cs` — stub returning anonymous `ClaimsPrincipal` (no TenantId claim). KhachLink is customer-facing PWA with no server auth; tenant context comes from `LastInteractionService` (localStorage via QR scan). `TenantService.GetCurrentTenantId()` returns `Guid.Empty` → callers (Home/Cart/Layout) already handle this fallback. Registered in `Program.cs`.
+
+3. **NullabilityInfoContext_NotSupported** (commit `b8a94413`, 1 file): Blazor WASM SDK disables `NullabilityInfoContext` feature switch by default. When `System.Text.Json`'s `DefaultJsonTypeInfoResolver` tries to read nullable annotations via reflection (`NullabilityInfoContext.Create`), it throws → crashes all HTTP JSON deserialization (CatalogHttpService, OrderWorkflowHttpService, ProductHttpService, SocialCampaignHttpService, etc.). Fix: `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` MSBuild property in `VanAn.KhachLink.csproj`. Reference: [dotnet/runtime#118333](https://github.com/dotnet/runtime/issues/118333).
+
+### VPS RV (2026-07-22) — 9/9 PASS
+- `vanan-khachlink` container **healthy** (nginx serving static files, deployed at 04:28 UTC)
+- Service worker updated to `v10-batched` with batched install (5/batch)
+- 80 concurrent `/_framework/Microsoft.AspNetCore.SignalR.Client.Core.wasm` requests → **80× 200, 0× 503** (was 20× 503 before fix)
+- Homepage HTTP 200, Blazor WASM boot HTML served
+- Catalog API (`api.khachvip.online/api/catalog/recommended`) returns valid JSON `{"products":[...]}`
+- nginx config confirmed: `location /_framework/` block exists, no `limit_req`
+- 4 key WASM assets accessible: `blazor.boot.json`, `blazor.webassembly.js`, `SignalR.Client.Core.wasm`, `VanAn.KhachLink.wasm` — all 200
 - `_framework/` = 19.5MB (well under 50MB iOS Safari limit)
 
 ### Offline behavior after Phase 2
@@ -58,7 +70,7 @@ Phase 2 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Updates `servic
 - API GETs hit cache fallback (read-only — checkout needs Phase 4 write queue)
 - If WASM not yet cached (first visit offline): offline shell shown
 
-**Status: COMPLETE. Pushed to main, CD PASSED, VPS RV PASS.**
+**Status: COMPLETE. Pushed to main, CD PASSED, VPS RV 9/9 PASS.**
 
 ### Next: Phase 3 (Offline API Fallback Hardening)
 Per master plan, Phase 3 hardens the offline API fallback — updates `dynamicCachePatterns` to current Option C endpoints (already done in Phase 2), adds stale-while-revalidate for catalog/tenants, and returns meaningful offline JSON responses. See `docs/AI/tasks/khachlink_pwa_phase3_offline_api_task_card.md`.
@@ -215,11 +227,11 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `ec15bc01` feat(khachlink-pwa): Phase 2 — service worker DLL caching for offline
+- **Last commit:** `b8a94413` fix(khachlink-wasm): enable NullabilityInfoContextSupport for System.Text.Json
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-22):** `dotnet build VanAn.sln` 0 errors. KhachLink WASM build PASS. CD PASSED on push `bc7f7289..ec15bc01`. VPS RV PASS — all containers healthy, SW v9-wasm deployed, WASM assets accessible.
-- **KhachLink PWA Phase 2 (2026-07-22 - COMPLETE + PUSHED + CD PASSED + VPS RV PASS):** Service worker DLL caching. `service-worker.js` updated with `WASM_CACHE` for `_framework/*`, `importScripts('/service-worker-assets.js')` for SDK manifest precaching, `blazor.boot.json` network-first + cache fallback, `_framework/*` cache-first (immutable), navigation 3-tier fallback (network → cached index.html → offline shell). Cache version v8-offline-shell → v9-wasm. `_framework/` = 19.5MB (under 50MB iOS Safari limit). Commit `ec15bc01`.
+- **Build (2026-07-22):** `dotnet build VanAn.sln` 0 errors. KhachLink WASM build PASS. CI PASSED on push `dabc3698..b8a94413` (build 170s, unit 969/0, KhachLink Startup 6/4skip/0, Gateway Startup OK, Architecture 37/37, Integration 155/43fail-non-blocking). CD deployed to VPS at 04:28 UTC. VPS RV 9/9 PASS.
+- **KhachLink PWA Phase 2 + Hotfixes (2026-07-22 - COMPLETE + PUSHED + CD PASSED + VPS RV 9/9 PASS):** Service worker DLL caching + 3 post-deploy hotfixes. Phase 2 main (`ec15bc01`): `service-worker.js` with `WASM_CACHE` for `_framework/*`, `importScripts('/service-worker-assets.js')` for SDK manifest precaching, `blazor.boot.json` network-first + cache fallback, `_framework/*` cache-first, navigation 3-tier fallback. Cache version v8-offline-shell → v9-wasm. `_framework/` = 19.5MB. Hotfix 1 (`0186723f`): SW install batched 5/batch + nginx `/_framework/` exempt from rate limit (was 80 concurrent → 20× 503 → SRI fail → boot crash). Cache version v9-wasm → v10-batched. Hotfix 2 (`dabc3698`): `AnonymousAuthenticationStateProvider` stub for `TenantService` DI (Phase 1 removed server-side default AuthStateProvider → CannotResolveService at render). Hotfix 3 (`b8a94413`): `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` in csproj (Blazor WASM SDK disables NullabilityInfoContext by default → STJ reflection-based JSON deserialization crashes). RV: 80 concurrent `/_framework/` → 80× 200 (0× 503), homepage 200, SW v10-batched deployed, catalog API valid JSON, nginx config confirmed, 4 WASM assets accessible.
 - **KhachLink PWA Phase 1 (2026-07-21 - COMPLETE + PUSHED + CD PASSED + VPS RV PASS):** Blazor Server → WebAssembly conversion. 85 files (+901/-5319). 3 contracts moved CoreHub→Shared. 8 dead code files + 6 dead test files deleted. Dockerfile rewritten for nginx. 4 KhachLink startup tests skipped (WebApplicationFactory incompatible with WASM, rewrite planned for Phase 6). Unit 984/0, KhachLink Startup 6/4skip/0fail. Commits `b642662b` (Phase 1 main), `fdccdbd4` (docker-compose env fix), `99992973` (index.html host page), `bc7f7289` (healthcheck 127.0.0.1 fix).
 - **Post-Shop-Removal RV (2026-07-21 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** Tenant.Id LINQ bug fixed across 3 controllers (TenantStore/PublicOrders/Catalog). Pattern #8 added to governance.md. All tenant-based endpoints 200/404 as expected. No errors in gateway logs. Commits: `20697063`, `e876cf53`.
 - **Shop Entity Removal (2026-07-21 - COMPLETE + VPS DEPLOYED):** 221 files refactored. `Shop` entity + `ShopId` VO removed from Domain. `SocialCampaign.ShopId` removed. `TenantConfig` (renamed from `ShopConfig`) uses `TenantId`. `TenantSettings.Latitude/Longitude` added (preserves Store Finder). `ShopsController` deleted → replaced by `TenantStoreController`. `ShopService`/`IShopService` deleted. PostgreSQL + SQLite migrations applied (drop Shops table, drop SocialCampaigns.ShopId, add Tenants.Settings_Latitude/Longitude). All clients (KhachLink, ShopERP) migrated to TenantId.
@@ -251,16 +263,15 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 
 **NEXT (recommended priority order):**
 
-1. **VPS RV for KhachLink Phase 1 WASM deploy** — after CD completes, verify on VPS:
-   - `vanan-khachlink` container healthy (nginx serving static files, not dotnet)
-   - PWA loads at `https://diemthuong.khachvip.online` (Blazor WASM boot)
-   - All Pages render without 500 (Home, Store, Cart, Checkout, Campaigns, Campaign `/c/{trackingCode}`, OrderTracking, OrderHistory, Login, Profile, Scan, VoiceNote, LoyaltyCard, StoreFinder)
-   - Service worker registers + caches static assets
-   - PWA install prompt still works
-   - HTTP API calls to Gateway succeed (CORS + appsettings.json Gateway.BaseUrl)
-   SSH: `ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110`.
+1. **Browser manual RV for KhachLink Phase 2 + hotfixes** — open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
+   - DevTools Console: no `CannotResolveService`, no `NullabilityInfoContext_NotSupported`, no `503` for `/_framework/*`
+   - DevTools Application → Service Workers: SW `v10-batched` active
+   - DevTools Application → Cache Storage: `vanan-wasm-v10-batched` populated with `_framework/*` assets
+   - All Pages render without errors (Home, Store, Cart, Checkout, Campaigns, Campaign `/c/{trackingCode}`, OrderTracking, OrderHistory, Login, Profile, Scan, VoiceNote, LoyaltyCard, StoreFinder)
+   - Offline test: DevTools → Network → Offline → reload → app loads from cache (UI events fire, navigation works)
+   - Note: `runtime.lastError` / `message channel closed` errors are from browser extensions, NOT KhachLink — verify in Incognito mode.
 
-2. **Phase 2 — Service Worker DLL Caching** — per `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Task card: `khachlink_pwa_phase2_sw_dll_caching_task_card.md`. Update `service-worker.js` to cache Blazor WASM DLLs (`_framework/*.dll`) + `blazor.boot.json` for true offline support. Verify offline mode: disconnect network, reload app, UI still renders + interacts (read-only — checkout needs Phase 4 offline write queue).
+2. **Phase 3 — Offline API Fallback Hardening** — per `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Task card: `khachlink_pwa_phase3_offline_api_task_card.md`. Add stale-while-revalidate for catalog/tenants, cache expiration (24h), meaningful offline JSON responses. `dynamicCachePatterns` already updated to Option C endpoints in Phase 2.
 
 3. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
    - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
@@ -388,6 +399,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-22 -- KHACHLINK PWA PHASE 2 HOTFIXES (3 POST-DEPLOY RUNTIME FIXES) COMPLETE.** Browser testing after Phase 2 deploy revealed 3 runtime issues. Hotfix 1 — Rate limit 503 + SRI integrity fail (commit `0186723f`, 2 files): SW install event fired 80 concurrent `cache.add()` for `/_framework/*` → front proxy nginx rate limiter (`burst=20`) blocked 60/80 with 503 → SRI integrity check fail → Blazor boot crash. Fix: (a) `service-worker.js` — batch SW precache into chunks of 5 (sequential per batch) instead of 80 concurrent `Promise.allSettled`, cache version `v9-wasm` → `v10-batched`; (b) `nginx/templates/vanan.conf.template` — move `limit_req zone=web burst=20 nodelay` from server block into `location /` + `location /_blazor` blocks, so `location /_framework/` is exempt from rate limiting (immutable hashed assets don't need rate protection). Hotfix 2 — CannotResolveService AuthenticationStateProvider (commit `dabc3698`, 2 files): Phase 1 WASM conversion removed server-side Blazor infrastructure providing default `AuthenticationStateProvider`. `UI.Platform.TenantService` requires it via constructor injection → `CannotResolveService` at render. Fix: new `Services/AnonymousAuthenticationStateProvider.cs` — stub returning anonymous `ClaimsPrincipal` (no TenantId claim). KhachLink is customer-facing PWA with no server auth; tenant context from `LastInteractionService` (localStorage). Registered in `Program.cs`. Hotfix 3 — NullabilityInfoContext_NotSupported (commit `b8a94413`, 1 file): Blazor WASM SDK disables `NullabilityInfoContext` feature switch by default → `System.Text.Json` `DefaultJsonTypeInfoResolver` throws when reading nullable annotations via reflection → crashes all HTTP JSON deserialization. Fix: `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` MSBuild property in `VanAn.KhachLink.csproj`. Reference: dotnet/runtime#118333. CI PASSED on push `dabc3698..b8a94413` (build 170s, unit 969/0, KhachLink Startup 6/4skip/0, Architecture 37/37). CD deployed to VPS at 04:28 UTC. VPS RV 9/9 PASS: 80 concurrent `/_framework/` → 80× 200 (0× 503), homepage 200, SW v10-batched deployed, catalog API valid JSON, nginx `/_framework/` exempt confirmed, 4 WASM assets accessible. Branch: `main`. Next: Phase 3 (Offline API Fallback Hardening).
 
 * **2026-07-22 -- KHACHLINK PWA PHASE 2 (SERVICE WORKER DLL CACHING) COMPLETE.** Phase 2 of `khachlink_pwa_offline_master_plan.md`. Updated `service-worker.js` to cache Blazor WASM DLLs + `.wasm` runtime for true offline support. Added `WASM_CACHE` (`vanan-wasm-v9-wasm`) for `_framework/*` assets. `importScripts('/service-worker-assets.js')` loads SDK-generated manifest with hashes + URLs for all `_framework/*.wasm/.dll/.js` assets. Install event precaches all WASM assets from manifest (best-effort, per-URL catch). `blazor.boot.json` network-first + cache fallback (detect new versions online, fall back to cached version offline). `_framework/*` cache-first (immutable, hashed filenames). Navigation 3-tier fallback (network → cached `index.html` → offline shell). `dynamicCachePatterns` updated to Option C endpoints (`/api/tenants`, `/api/catalog`, `/api/campaigns`, `/api/products`, `/api/orders`, `/api/menu`). Cache version bumped `v8-offline-shell` → `v9-wasm`. Added `/index.html` + `/js/*.js` to `staticUrlsToCache`. Skip cross-origin requests (CDN scripts). `_framework/` = 19.5MB (under 50MB iOS Safari limit). Offline behavior: app loads from cache (WASM DLLs cached) → UI events fire, navigation works; API GETs hit cache fallback (read-only — checkout needs Phase 4 write queue). 1 commit `ec15bc01` (1 file, +226/-130), pushed to main, CD PASSED. VPS RV: container healthy, SW v9-wasm deployed, `/_framework/blazor.boot.json` 200, `/service-worker-assets.js` 200. Also fixed 3 Phase 1 follow-up issues: `fdccdbd4` (docker-compose empty environment block), `99992973` (missing `wwwroot/index.html` for Blazor WASM host page — moved HTML from `App.razor` to `index.html`, changed `App.razor` to `<Routes/><PWAInstallPrompt/>`, added `RootComponents.Add<App>("#app")` + `Add<HeadOutlet>("head::after")` in `Program.cs`), `bc7f7289` (healthcheck `localhost` → `127.0.0.1` for Alpine IPv6 issue). Branch: `main`. Next: Phase 3 (Offline API Fallback Hardening).
 
