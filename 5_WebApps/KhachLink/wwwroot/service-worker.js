@@ -1,8 +1,12 @@
 // ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 (Offline API Fallback Hardening)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix (v12-sri-fix)
 // ============================================================================
 // Cache strategy:
-//   - _framework/*.wasm/.dll/.js (immutable, hashed) → cache-first (WASM_CACHE)
+//   - _framework/*.wasm/.dll/.js → network-first + cache fallback (WASM_CACHE)
+//     · Was cache-first — caused SRI mismatch after deploys (stale cached wasm
+//       vs fresh blazor.boot.json integrity hashes). Network-first ensures wasm
+//       always matches the fresh boot.json. Offline: cached fallback (same deploy
+//       as cached boot.json → SRI passes).
 //   - blazor.boot.json → network-first + cache fallback (detect updates)
 //   - Static assets (CSS/JS/icons) → cache-first (STATIC_CACHE)
 //   - API GETs (whitelisted) → network-first + cache fallback (DYNAMIC_CACHE)
@@ -18,16 +22,24 @@
 //   - Stale-while-revalidate for /api/catalog/ and /api/campaigns/
 //   - 24h cache expiration (x-sw-cached-at header, evict on retrieval)
 //   - Cache version bumped v10-batched → v11-phase3
+//
+// SRI Hotfix (v12-sri-fix, 2026-07-22):
+//   - WASM/DLL assets changed from cache-first → network-first + cache fallback
+//     (cache-first caused SRI integrity mismatch after deploys: stale cached wasm
+//     vs fresh blazor.boot.json integrity hashes → browser blocked wasm load)
+//   - Added activate event to delete stale caches from old SW versions
+//     (caches.match() checks ALL caches — old entries caused SRI mismatches)
+//   - Cache version bumped v11-phase3 → v12-sri-fix
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v11-phase3';
-const STATIC_CACHE = 'vanan-static-v11-phase3';
-const DYNAMIC_CACHE = 'vanan-dynamic-v11-phase3';
-const WASM_CACHE = 'vanan-wasm-v11-phase3';
+const CACHE_NAME = 'vanan-khachlink-v12-sri-fix';
+const STATIC_CACHE = 'vanan-static-v12-sri-fix';
+const DYNAMIC_CACHE = 'vanan-dynamic-v12-sri-fix';
+const WASM_CACHE = 'vanan-wasm-v12-sri-fix';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -136,6 +148,26 @@ self.addEventListener('install', event => {
 });
 
 // ============================================================================
+// Activate: clean up old cache versions + claim clients immediately
+// ============================================================================
+// Without this, caches.match() could return stale entries from old SW versions
+// (e.g., v10-batched, v11-phase3) — causing SRI mismatches after deploys.
+self.addEventListener('activate', event => {
+  const allowedCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE, WASM_CACHE];
+  event.waitUntil(
+    caches.keys()
+      .then(keys => {
+        const staleKeys = keys.filter(key => !allowedCaches.includes(key));
+        return Promise.all(staleKeys.map(key => {
+          console.log('SW activate: deleting stale cache', key);
+          return caches.delete(key);
+        }));
+      })
+      .then(() => self.clients.claim())
+  );
+});
+
+// ============================================================================
 // Helpers: cache timestamp + expiration check
 // ============================================================================
 // Stamp a response with x-sw-cached-at header (ms since epoch) so we can evict
@@ -204,25 +236,26 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // --- 2. _framework/* (DLLs, .wasm, .wasm.br, .wasm.gz): cache-first (immutable) ---
+  // --- 2. _framework/* (DLLs, .wasm, .wasm.br, .wasm.gz): network-first + cache fallback ---
+  // Network-first ensures wasm content always matches the fresh blazor.boot.json
+  // integrity hashes. Was cache-first — caused SRI mismatch after deploys because
+  // stale cached wasm (old build) was returned with fresh boot.json (new hashes).
+  // Offline fallback: cached wasm from same deploy as cached boot.json → SRI passes.
   if (wasmCachePattern.test(url.pathname)) {
     event.respondWith(
-      caches.match(request)
+      fetch(request)
         .then(response => {
-          if (response) {
-            return response; // Cache hit — immutable asset
-          }
-          // Cache miss: fetch from network + cache
-          return fetch(request).then(response => {
-            if (!response || response.status !== 200) {
-              return response;
-            }
+          if (response && response.status === 200) {
             const responseToCache = response.clone();
             caches.open(WASM_CACHE).then(cache => {
               cache.put(request, responseToCache);
             });
-            return response;
-          });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline: return cached wasm (from same deploy as cached boot.json)
+          return caches.match(request).then(cached => cached || Response.error());
         })
     );
     return;
