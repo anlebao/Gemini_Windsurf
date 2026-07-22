@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 using VanAn.ShopERP.Services;
 using UUIDNext;
 
@@ -14,10 +15,13 @@ namespace VanAn.ShopERP.Controllers
     public class OrdersController(
         IOrderService orderService,
         IOrderManagementService orderManagementService,
+        IOrderWorkflowService orderWorkflowService,
         ILogger<OrdersController> logger) : ControllerBase
     {
         private readonly IOrderService _orderService = orderService;
         private readonly IOrderManagementService _orderManagementService = orderManagementService;
+        // Section 5 fix (2026-07-23): Unified status transitions via OrderWorkflowService.
+        private readonly IOrderWorkflowService _orderWorkflowService = orderWorkflowService;
         private readonly ILogger<OrdersController> _logger = logger;
 
         [HttpGet]
@@ -69,28 +73,25 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
-                Guid tenantId = GetTenantId();
+                // Section 5 fix (2026-07-23): Delegate to OrderWorkflowService.TransitionStatusAsync
+                // for unified state-machine validation + Outbox event sync. Previously called
+                // deprecated OrderService.UpdateOrderStatusAsync which had stale 4-state machine.
+                Order? result = await _orderWorkflowService.TransitionStatusAsync(
+                    id,
+                    new OrderStatusId(request.Status),
+                    request.Reason);
 
-                // Validate transition using CoreHub service
-                Order? currentOrder = await _orderService.GetOrderByIdAsync(id, tenantId);
-                if (currentOrder == null)
+                if (result == null)
                 {
-                    return NotFound();
-                }
-
-                OrderStatusId newStatus = new(request.Status);
-                bool isValidTransition = await _orderService.IsTransitionValidAsync(currentOrder.Status, newStatus);
-
-                if (!isValidTransition)
-                {
+                    // Could be: order not found OR invalid transition — both return null.
+                    // Distinguish via existence check for better error message.
+                    Guid tenantId = GetTenantId();
+                    Order? currentOrder = await _orderService.GetOrderByIdAsync(id, tenantId);
+                    if (currentOrder == null)
+                    {
+                        return NotFound();
+                    }
                     return BadRequest($"Invalid status transition from {currentOrder.Status} to {request.Status}");
-                }
-
-                bool success = await _orderService.UpdateOrderStatusAsync(id, request.Status, tenantId);
-
-                if (!success)
-                {
-                    return NotFound();
                 }
 
                 // Log status change for audit

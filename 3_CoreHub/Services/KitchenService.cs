@@ -14,12 +14,17 @@ namespace VanAn.CoreHub.Services
     public class KitchenService(
         IVanAnDbContext context,
         ILogger<KitchenService> logger,
-        IOrderNotificationService? orderNotificationService = null) : IKitchenService
+        IOrderNotificationService? orderNotificationService = null,
+        IOrderWorkflowService? orderWorkflowService = null) : IKitchenService
     {
         private readonly IVanAnDbContext _context = context;
         private readonly ILogger<KitchenService> _logger = logger;
         // W1-T2: SignalR notification (nullable — null in ShopERP scope, real in Gateway scope)
         private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
+        // Section 5 fix (2026-07-23): Delegate order status transitions to OrderWorkflowService
+        // so Outbox events are enqueued + status syncs to Gateway PG (KhachLink sees "ready").
+        // Null in test scope → fallback to direct entity mutation (preserves test behavior).
+        private readonly IOrderWorkflowService? _orderWorkflowService = orderWorkflowService;
 
         // 🎯 CORE FIFO GROUPING LOGIC - ARCHITECT'S HYBRID APPROACH
         public async Task<List<KitchenItemGroupDto>> GetGroupedKitchenItemsAsync(Guid shopId)
@@ -118,7 +123,42 @@ namespace VanAn.CoreHub.Services
                     // Completed = customer received order (manual transition, separate flow).
                     string oldOrderStatus = orderItem.Order.Status.Value;
                     orderItem.Order.UpdateKitchenStatus(KitchenStatus.Completed);
-                    orderItem.Order.UpdateOrderStatus(OrderStatusId.Ready);
+
+                    // Section 5 fix (2026-07-23): Delegate order status transition to OrderWorkflowService
+                    // so Outbox event is enqueued → status syncs to Gateway PG → KhachLink sees "ready".
+                    // Fallback to direct mutation when OrderWorkflowService unavailable (test scope).
+                    bool delegated = false;
+                    if (_orderWorkflowService != null)
+                    {
+                        try
+                        {
+                            Order? transitioned = await _orderWorkflowService.TransitionStatusAsync(
+                                orderItem.OrderId,
+                                OrderStatusId.Ready,
+                                reason: "Kitchen: all items completed");
+                            delegated = transitioned != null;
+                            if (!delegated)
+                            {
+                                _logger.LogWarning(
+                                    "OrderWorkflowService.TransitionStatusAsync returned null for order {OrderId} (ready) — " +
+                                    "falling back to direct mutation. Status may not sync to Gateway.",
+                                    orderItem.OrderId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex,
+                                "OrderWorkflowService.TransitionStatusAsync threw for order {OrderId} (ready) — " +
+                                "falling back to direct mutation. Status may not sync to Gateway.",
+                                orderItem.OrderId);
+                        }
+                    }
+
+                    if (!delegated)
+                    {
+                        // Fallback: direct entity mutation (preserves pre-fix behavior for tests + null scope).
+                        orderItem.Order.UpdateOrderStatus(OrderStatusId.Ready);
+                    }
 
                     _ = await _context.SaveChangesAsync();
 
@@ -130,8 +170,8 @@ namespace VanAn.CoreHub.Services
                             oldStatus: oldOrderStatus, newStatus: "ready");
                     }
 
-                    _logger.LogInformation("All kitchen items completed for order {OrderId} → status transitioned to Ready",
-                        orderItem.OrderId);
+                    _logger.LogInformation("All kitchen items completed for order {OrderId} → status transitioned to Ready (delegated={Delegated})",
+                        orderItem.OrderId, delegated);
                     return true;
                 }
             }

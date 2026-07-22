@@ -336,6 +336,14 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Update order status
         /// </summary>
+        /// <remarks>
+        /// [Obsolete] Section 5 fix (2026-07-23): All order status updates should go through
+        /// <see cref="IOrderWorkflowService.TransitionStatusAsync"/> for unified state-machine validation
+        /// + Outbox event sync. This method bypasses transition validation and is kept only for
+        /// backward compatibility with existing callers + tests. New callers MUST use
+        /// OrderWorkflowService.TransitionStatusAsync.
+        /// </remarks>
+        [Obsolete("Use OrderWorkflowService.TransitionStatusAsync for unified state-machine validation + Outbox sync. See Section 5 of featured_product_picker_master_plan.md.")]
         public async Task<bool> UpdateOrderStatusAsync(Guid orderId, string newStatus, Guid tenantId)
         {
             OrderId orderIdObj = new(orderId);

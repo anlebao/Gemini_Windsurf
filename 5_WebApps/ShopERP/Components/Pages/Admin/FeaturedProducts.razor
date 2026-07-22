@@ -2,14 +2,18 @@
 @rendermode InteractiveServer
 @layout AdminLayout
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.EntityFrameworkCore
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Infrastructure
+@using VanAn.Shared.Domain
 @inject FeaturedProductApiClient FeaturedProductApi
 @inject ITenantManagementService TenantService
 @inject IThemeProvider ThemeProvider
 @inject ILogger<FeaturedProducts> Logger
+@inject ShopERPDbContext ShopERPDb
 
 @attribute [Authorize(Policy = "SystemAdmin")]
 
@@ -17,7 +21,7 @@
     <header class="page-header">
         <h1>Sản phẩm nổi bật</h1>
         <div class="header-actions">
-            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModalAsync">
                 + Thêm sản phẩm nổi bật
             </VanAButton>
             <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
@@ -101,34 +105,76 @@
                IsVisible="true" OnClose="CloseModal" Size="medium">
         <Body>
             <VanAForm OnValidSubmit="HandleSubmit">
-                <div class="form-group">
-                    <VanAInput Id="fp-productid" Label="ProductId (GUID) *"
-                               Value="@_form.ProductId.ToString()"
-                               ValueChanged="v => _form = _form with { ProductId = Guid.TryParse(v, out var g) ? g : Guid.Empty }"
-                               Placeholder="00000000-0000-0000-0000-000000000000" Required="true" />
-                </div>
+                @if (!_isEdit)
+                {
+                    <div class="form-group">
+                        <label for="fp-tenant">Tenant *</label>
+                        <select id="fp-tenant" class="vanan-select" value="@_form.TenantId"
+                                @onchange="OnTenantSelectedAsync"
+                                aria-label="Tenant" required>
+                            @foreach (var t in _tenants)
+                            {
+                                <option value="@t.Id.Value" selected="@(t.Id.Value == _form.TenantId)">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fp-product">Sản phẩm *</label>
+                        @if (_products.Count == 0)
+                        {
+                            <small class="text-muted">Chọn Tenant trước để load danh sách sản phẩm.</small>
+                        }
+                        else
+                        {
+                            <select id="fp-product" class="vanan-select" value="@_form.ProductId"
+                                    @onchange="OnProductSelectedAsync"
+                                    aria-label="Sản phẩm" required>
+                                <option value="">-- Chọn sản phẩm --</option>
+                                @foreach (var p in _products)
+                                {
+                                    <option value="@p.Id" selected="@(p.Id == _form.ProductId)">@p.Name (@p.Price.ToString("N0") đ)</option>
+                                }
+                            </select>
+                            <small class="text-muted">Chỉ hiển thị sản phẩm active của Tenant đã chọn. ProductId + giá + VAT được snapshot từ Product.</small>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <VanAInput Id="fp-productid-readonly" Label="ProductId"
+                                   Value="@_form.ProductId.ToString()"
+                                   Disabled="true" />
+                        <small class="text-muted">ProductId cố định sau khi tạo. Không thể thay đổi.</small>
+                    </div>
+                    <div class="form-group">
+                        <VanAButton Variant="outline" Size="small" OnClick="RefreshFromProductAsync">
+                            ↻ Refresh từ Product
+                        </VanAButton>
+                        <small class="text-muted">Cập nhật lại giá + VAT từ Product hiện tại (khi owner đổi giá). DisplayName/mô tả/ảnh giữ nguyên.</small>
+                    </div>
+                }
                 <div class="form-group">
                     <VanAInput Id="fp-displayname" Label="Tên hiển thị *"
                                Value="@_form.DisplayName"
                                ValueChanged="v => _form = _form with { DisplayName = v }"
                                Placeholder="Tên sản phẩm..." Required="true" />
+                    <small class="text-muted">Tên marketing — có thể khác Product.Name.</small>
                 </div>
                 <div class="form-group">
                     <VanAInput Id="fp-displayprice" Label="Giá hiển thị (VND) *"
                                Type="number" Value="@_form.DisplayPrice.ToString()"
-                               ValueChanged="v => _form = _form with { DisplayPrice = decimal.TryParse(v, out var p) ? p : 0 }"
-                               Placeholder="100000" Required="true" Step="1000" Min="0" />
+                               Disabled="true" />
                     @if (_form.DisplayPrice > 0)
                     {
-                        <small class="text-muted">@_form.DisplayPrice.ToString("N0") đ</small>
+                        <small class="text-muted">@_form.DisplayPrice.ToString("N0") đ — snapshot từ Product. Bấm "Refresh từ Product" để cập nhật.</small>
                     }
                 </div>
                 <div class="form-group">
                     <VanAInput Id="fp-vatrate" Label="VAT (%) *"
                                Type="number" Value="@_form.VatRate.ToString()"
-                               ValueChanged="v => _form = _form with { VatRate = decimal.TryParse(v, out var r) ? r : 0.10m }"
-                               Placeholder="0.10 (10%)" Required="true" Step="0.01" Min="0" Max="1" />
-                    <small class="text-muted">@( (_form.VatRate * 100).ToString("N0") )% — 0.10 = 10%, 0.08 = 8%, 0 = không thuế</small>
+                               Disabled="true" />
+                    <small class="text-muted">@( (_form.VatRate * 100).ToString("N0") )% — snapshot từ Product. Bấm "Refresh từ Product" để cập nhật.</small>
                 </div>
                 <div class="form-group">
                     <VanAInput Id="fp-description" Label="Mô tả"
@@ -154,18 +200,6 @@
                                ValueChanged="v => _form = _form with { SortOrder = int.TryParse(v, out var s) ? s : 0 }"
                                Step="1" Min="0" />
                 </div>
-                @if (!_isEdit)
-                {
-                    <div class="form-group">
-                        <label for="fp-tenant">Tenant *</label>
-                        <select id="fp-tenant" class="vanan-select" @bind="_form.TenantId" aria-label="Tenant" required>
-                            @foreach (var t in _tenants)
-                            {
-                                <option value="@t.Id.Value">@t.Name</option>
-                            }
-                        </select>
-                    </div>
-                }
                 @if (_isEdit)
                 {
                     <div class="form-group">
@@ -188,6 +222,8 @@
 @code {
     private List<FeaturedProductDto> _items = new();
     private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = new();
+    // Section A fix (2026-07-23): Product picker — load from ShopERP SQLite, filter by selected tenant.
+    private List<Product> _products = new();
     private bool _isLoading = true;
     private bool _showModal;
     private bool _isEdit;
@@ -238,19 +274,118 @@
         return t?.Name ?? tenantId.ToString()[..8];
     }
 
-    private void OpenCreateModal()
+    /// <summary>
+    /// Section A fix: Load active products for the selected tenant from ShopERP SQLite.
+    /// Filter by TenantId so sysadmin can only feature products that actually belong to the tenant.
+    /// </summary>
+    private async Task LoadProductsForTenantAsync(Guid tenantId)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            _products = new();
+            return;
+        }
+        try
+        {
+            var tenantIdObj = new TenantId(tenantId);
+            _products = await ShopERPDb.Products
+                .AsNoTracking()
+                .Where(p => p.TenantId == tenantIdObj && p.IsActive)
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load products for tenant {TenantId}", tenantId);
+            _products = new();
+            _alertMessage = $"Lỗi tải sản phẩm: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    /// <summary>Section A fix: Tenant dropdown change → reload product list for new tenant.</summary>
+    private async Task OnTenantSelectedAsync(ChangeEventArgs e)
+    {
+        Guid tenantId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty;
+        _form = _form with { TenantId = tenantId, ProductId = Guid.Empty, DisplayName = "", DisplayPrice = 0, VatRate = 0.10m };
+        await LoadProductsForTenantAsync(tenantId);
+    }
+
+    /// <summary>Section A fix: Product dropdown change → auto-fill snapshot (DisplayName, DisplayPrice, VatRate).</summary>
+    private async Task OnProductSelectedAsync(ChangeEventArgs e)
+    {
+        Guid productId = Guid.TryParse(e.Value?.ToString(), out var g) ? g : Guid.Empty;
+        var product = _products.FirstOrDefault(p => p.Id == productId);
+        if (product != null)
+        {
+            // Snapshot from Product — DisplayName defaults to Product.Name (user can override after).
+            // Price + VatRate are locked (read-only) — only refreshable via "Refresh from Product" button.
+            _form = _form with
+            {
+                ProductId = product.Id,
+                DisplayName = product.Name,
+                DisplayPrice = product.Price,
+                VatRate = product.VatRate
+            };
+        }
+        else
+        {
+            _form = _form with { ProductId = Guid.Empty, DisplayName = "", DisplayPrice = 0, VatRate = 0.10m };
+        }
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Section A fix: "Refresh from Product" button (edit mode only).
+    /// Re-snapshot DisplayPrice + VatRate from current Product entity in SQLite.
+    /// DisplayName/Description/ImageUrl are preserved (marketing content owned by sysadmin).
+    /// </summary>
+    private async Task RefreshFromProductAsync()
+    {
+        if (_form.ProductId == Guid.Empty) return;
+        try
+        {
+            var product = await ShopERPDb.Products
+                .AsNoTracking()
+                .Where(p => p.Id == _form.ProductId)
+                .FirstOrDefaultAsync();
+            if (product == null)
+            {
+                _alertMessage = $"Không tìm thấy Product {_form.ProductId} trong SQLite. Có thể product đã bị xoá.";
+                _alertType = "danger";
+                return;
+            }
+            _form = _form with
+            {
+                DisplayPrice = product.Price,
+                VatRate = product.VatRate
+            };
+            _alertMessage = $"Đã refresh giá + VAT từ Product '{product.Name}'.";
+            _alertType = "info";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to refresh from product {ProductId}", _form.ProductId);
+            _alertMessage = $"Lỗi refresh: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task OpenCreateModalAsync()
     {
         _isEdit = false;
         _editId = null;
+        Guid defaultTenantId = _tenants.FirstOrDefault()?.Id.Value ?? Guid.Empty;
         _form = new CreateFeaturedProductRequest
         {
             ProductId = Guid.Empty,
-            TenantId = _tenants.FirstOrDefault()?.Id.Value ?? Guid.Empty,
+            TenantId = defaultTenantId,
             DisplayName = "",
             DisplayPrice = 0,
             VatRate = 0.10m,
             SortOrder = 0
         };
+        await LoadProductsForTenantAsync(defaultTenantId);
         _showModal = true;
     }
 

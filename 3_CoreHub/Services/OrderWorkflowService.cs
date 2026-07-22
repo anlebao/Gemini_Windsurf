@@ -340,7 +340,8 @@ namespace VanAn.CoreHub.Services
                 // Normal kitchen flow
                 validTransitions = new()
                 {
-                    ["pending"] = ["preparing", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
+                    ["pending"] = ["preparing", "confirmed", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed; confirmed = owner manually accepted
+                    ["confirmed"] = ["preparing", "cancelled", "completed"], // Section 5 fix: confirmed can transition to preparing (kitchen takes over)
                     ["preparing"] = ["ready", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
                     ["ready"] = ["completed", "cancelled", "delivered"], // W2-T3: Customer confirm receipt
                     ["delivered"] = ["completed", "cancelled"], // W2-T3: delivered is intermediate state

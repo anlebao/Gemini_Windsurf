@@ -41,6 +41,11 @@ namespace VanAn.CoreHub.Services
         /// <summary>
         /// Update order status
         /// </summary>
+        /// <remarks>
+        /// [Obsolete] Section 5 fix (2026-07-23): Use <see cref="IOrderWorkflowService.TransitionStatusAsync"/>
+        /// for unified state-machine validation + Outbox sync. Kept for backward compatibility.
+        /// </remarks>
+        [Obsolete("Use OrderWorkflowService.TransitionStatusAsync for unified state-machine validation + Outbox sync.")]
         Task<bool> UpdateOrderStatusAsync(Guid orderId, string newStatus, Guid tenantId);
         Task<bool> UpdateOrderVoiceNoteAsync(Guid orderId, string voiceNoteText, Guid tenantId);
 

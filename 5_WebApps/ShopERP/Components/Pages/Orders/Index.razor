@@ -10,9 +10,11 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Services
+@using VanAn.Shared.Services
 @using VanAn.ShopERP.Components.Shared
 @using VanAn.ShopERP.Services
 @inject IOrderService OrderService
+@inject IOrderWorkflowService OrderWorkflowService
 @inject ITenantProvider TenantProvider
 @inject ILogger<Index> Logger
 @inject NavigationManager NavigationManager
@@ -334,10 +336,15 @@
     {
         try
         {
-            Guid tenantId = TenantProvider.TenantId;
-            bool success = await OrderService.UpdateOrderStatusAsync(orderId, "confirmed", tenantId);
+            // Section 5 fix (2026-07-23): Use OrderWorkflowService.TransitionStatusAsync for unified
+            // state-machine validation + Outbox event sync. Previously called deprecated
+            // OrderService.UpdateOrderStatusAsync which bypassed validation + had stale 4-state machine.
+            Order? result = await OrderWorkflowService.TransitionStatusAsync(
+                orderId,
+                new OrderStatusId("confirmed"),
+                reason: "Owner confirmed order");
 
-            if (success)
+            if (result != null)
             {
                 await ReloadOrders();
             }

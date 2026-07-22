@@ -16,11 +16,14 @@ namespace VanAn.Gateway.Controllers
         IOrderService orderService,
         IVietQrService vietQrService,
         IHubContext<OrderHub> orderHub,
+        IOrderWorkflowService orderWorkflowService,
         ILogger<OrdersController> logger) : ControllerBase
     {
         private readonly IOrderService _orderService = orderService;
         private readonly IVietQrService _vietQrService = vietQrService;
         private readonly IHubContext<OrderHub> _orderHub = orderHub;
+        // Section 5 fix (2026-07-23): Unified status transitions via OrderWorkflowService.
+        private readonly IOrderWorkflowService _orderWorkflowService = orderWorkflowService;
         private readonly ILogger<OrdersController> _logger = logger;
 
         [HttpPost]
@@ -185,10 +188,16 @@ namespace VanAn.Gateway.Controllers
                     return Unauthorized(new { error = "Tenant ID required in JWT claim" });
                 }
 
-                bool success = await _orderService.UpdateOrderStatusAsync(id, request.Status, tenantId);
-                if (!success)
+                // Section 5 fix (2026-07-23): Delegate to OrderWorkflowService.TransitionStatusAsync
+                // for unified state-machine validation + Outbox event sync. Previously called
+                // deprecated OrderService.UpdateOrderStatusAsync which had stale 4-state machine.
+                Order? result = await _orderWorkflowService.TransitionStatusAsync(
+                    id,
+                    new OrderStatusId(request.Status),
+                    request.Reason);
+                if (result == null)
                 {
-                    return NotFound(new { error = "Order not found" });
+                    return NotFound(new { error = "Order not found or invalid status transition" });
                 }
 
                 // Broadcast status change via SignalR — ShopERP dashboard auto-updates
@@ -249,5 +258,6 @@ namespace VanAn.Gateway.Controllers
     public class UpdateStatusRequest
     {
         public string Status { get; set; } = string.Empty;
+        public string? Reason { get; set; }
     }
 }
