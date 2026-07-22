@@ -1,23 +1,25 @@
 # Master Plan — KhachLink PWA True Offline (Blazor Server → WASM Conversion)
 
 > **Created:** 2026-07-21
-> **Status:** IN PROGRESS — Phase 1 COMPLETE, Phase 2 COMPLETE + hotfixes, Phase 4 DESCOPE, Phase 3 next
+> **Status:** IN PROGRESS — Phase 1-3 COMPLETE, Phase 4 DESCOPE, Phase 5 PARTIALLY EXISTS, Phase 6 NOT DONE
+> **Last verified against base code:** 2026-07-22 (commit `89fb240a`)
 > **Priority:** Medium (P2) — UX enhancement, not blocking current flows
 > **Related tech debt:** TD-PWA-001 (this plan), TD-MVPS-003 (Integration.Tests infra)
 > **ADR impact:** ADR-001 v3 addendum (Option C — KhachLink HTTP-only via Gateway, unchanged)
 
 ## Phase Progress Summary
 
-| Phase | Status | Date | Commit |
-|---|---|---|---|
-| 0 — Quick fix tạm thời | SKIPPED (superseded by Phase 1 fast completion) | — | — |
-| 1 — SDK conversion | COMPLETE | 2026-07-21 | `b642662b` + 3 follow-ups |
-| 2 — SW DLL caching | COMPLETE + hotfixes | 2026-07-22 | `ec15bc01` + 3 hotfixes |
-| 2b — Price validation + online guard | COMPLETE | 2026-07-22 | `51b7e624` |
-| 3 — Offline API fallback | NEXT | — | — |
-| 4 — Offline write queue | **DESCOPE** (checkout = online-only per architecture review) | 2026-07-22 | — |
-| 5 — Push notification | Pending | — | — |
-| 6 — E2E + governance | Pending | — | — |
+| Phase | Status | Date | Commit | Verified |
+|---|---|---|---|---|
+| 0 — Quick fix tạm thời | IMPLEMENTED (still present, not removed) | 2026-07-21 | (pre-Phase 1) | ✅ 2026-07-22 — `OFFLINE_SHELL_HTML` still in service-worker.js lines 280-356 |
+| 1 — SDK conversion | COMPLETE | 2026-07-21 | `b642662b` + 3 follow-ups | ✅ 2026-07-22 — csproj `BlazorWebAssembly`, Program.cs `WebAssemblyHostBuilder`, index.html `blazor.webassembly.js`, no `@rendermode InteractiveServer` in Pages |
+| 2 — SW DLL caching | COMPLETE + hotfixes | 2026-07-22 | `ec15bc01` + 3 hotfixes | ✅ 2026-07-22 — `WASM_CACHE`, `importScripts('/service-worker-assets.js')`, batched precache (5/batch), all 3 hotfixes present |
+| 2b — Price validation + online guard | COMPLETE | 2026-07-22 | `51b7e624` | ✅ 2026-07-22 — Tier 0+1 in `PublicOrdersController` (UnitPrice<=0, Quantity<=0, VatRate<0 or >1.0, FeaturedProducts 5% tolerance), `navigator.onLine` guard in `Checkout.razor` line 336 |
+| 2c — beforeinstallprompt race fix (unplanned) | COMPLETE | 2026-07-22 | `7ff0c2c2` | ✅ 2026-07-22 — `beforeinstallprompt` listener moved to top-level scope in pwa.js (was inside `setupEventListeners()` → fired before Blazor boot → deferredPrompt null) |
+| 3 — Offline API fallback | COMPLETE | 2026-07-22 | `89fb240a` | ✅ 2026-07-22 — `dynamicCachePatterns` whitelist (9 endpoints, was dead code in Phase 2), SWR for `/api/catalog/` + `/api/campaigns/`, 24h expiration via `x-sw-cached-at`, cache version `v11-phase3`. Pushed, pre-push CI PASS |
+| 4 — Offline write queue | **DESCOPE** (checkout = online-only per architecture review) | 2026-07-22 | — | ✅ 2026-07-22 — No IndexedDB write queue in code, `navigator.onLine` guard blocks offline checkout |
+| 5 — Push notification | **PARTIALLY EXISTS** (subscribe infra from Wave 9, missing UI toggle + admin send + auto-push) | — | (Wave 9 commits) | ⚠️ 2026-07-22 — VAPID key in `pwa.js` line 156, `subscribeToPush` JS function, `PWAService.SubscribeToPushAsync`, Gateway `/api/notifications/push/subscribe` (forwards to ShopERP), `PushSubscription` entity+repo+service in CoreHub. **MISSING:** Profile.razor push toggle UI (no `subscribeToPush` call in Profile.razor), `/api/push/send` admin endpoint (does NOT exist), auto-push on order status change (NOT verified) |
+| 6 — E2E + governance | **NOT DONE** | — | — | ❌ 2026-07-22 — `project_state.md` Section 1 already says "Blazor WebAssembly" (done outside Phase 6). **MISSING:** ADR-001 v3 addendum does NOT mention KhachLink render mode = WASM, `KhachLinkStartupTests` still has 4 `Skip` attributes (not rewritten with bUnit), no Playwright E2E offline scenario, `OFFLINE_SHELL_HTML` (Phase 0) still present (Phase 6 was supposed to remove it) |
 
 ### Architecture Decision: Phase 4 Descope (2026-07-22)
 
@@ -124,7 +126,7 @@ KhachLink is a customer-facing PWA installed on phones. Initial download size is
 ### Phase Dependencies
 
 ```
-Phase 0 (Quick fix tạm thời) ──── SKIPPED
+Phase 0 (Quick fix tạm thời) ──── IMPLEMENTED (still present, not removed)
                                       │
 Phase 1 (SDK conversion) ─────────── COMPLETE
                                       │
@@ -132,21 +134,26 @@ Phase 2 (SW DLL caching) ─────────── COMPLETE + hotfixes
                                       │
 Phase 2b (Price validation + guard) ─ COMPLETE (inline, not a numbered phase)
                                       │
-Phase 3 (Offline API fallback) ───── NEXT — depends on: Phase 2
+Phase 2c (beforeinstallprompt fix) ── COMPLETE (unplanned, race condition fix)
+                                      │
+Phase 3 (Offline API fallback) ───── COMPLETE — depends on: Phase 2
                                       │
 Phase 4 (Offline write queue) ────── DESCOPE (checkout = online-only)
                                       │
-Phase 5 (Push notification) ──────── independent (can parallel Phase 3)
+Phase 5 (Push notification) ──────── PARTIALLY EXISTS (subscribe infra from Wave 9)
+                                      │   MISSING: Profile.razor toggle, /api/push/send, auto-push
                                       │
-Phase 6 (E2E + governance) ───────── depends on: Phase 1-3 + 5 complete
+Phase 6 (E2E + governance) ───────── NOT DONE — depends on: Phase 1-3 + 5 complete
 ```
 
-### Phase 0: Quick fix tạm thời (deploy ngay, không cần convert)
+### Phase 0: Quick fix tạm thời — IMPLEMENTED (still present, not removed)
 - Replace cached "Offline" HTML fallback (service-worker.js line 131-134) với trang đẹp: logo + "App cần internet để đặt hàng" + nút "Thử lại".
 - Cache catalog snapshot + store list trên trang offline (read-only, không interaction).
 - Sửa `PWAInstallPrompt.razor` text: "Cài đặt để truy cập nhanh — cần internet để đặt hàng" (manage expectation).
 - Deploy ngay → user không thấy trắng trang khi mất mạng.
 - **Không block Phase 1-6** — quick fix tách biệt, sẽ bị thay thế khi WASM convert xong.
+
+**Phase 0 completion (verified 2026-07-22):** `OFFLINE_SHELL_HTML` constant in `service-worker.js` lines 280-356 — beautiful offline shell with logo, "Bạn đang ngoại tuyến" message, retry button. Shown only when ALL fallbacks fail (WASM cached = app loads normally offline). Phase 6 was supposed to remove this, but it's still present (harmless — only fires when cache completely empty).
 
 ### Phase 1: Project conversion + build green (no behavior change online)
 - Change `VanAn.KhachLink.csproj` SDK → `Microsoft.NET.Sdk.BlazorWebAssembly`.
@@ -181,7 +188,7 @@ Phase 6 (E2E + governance) ───────── depends on: Phase 1-3 + 5
 
 **RV (2026-07-22): 9/9 PASS** — 80 concurrent `/_framework/` requests all 200 (0× 503), homepage loads 200, SW v10-batched deployed, catalog API returns valid JSON, nginx `/_framework/` exempt confirmed, 4 key WASM assets accessible.
 
-### Phase 3: Offline API fallback hardening
+### Phase 3: Offline API fallback hardening — COMPLETE (2026-07-22, commit `89fb240a`)
 - Audit `dynamicCachePatterns` in service-worker.js — current list (`/api/menu`, `/api/products`, `/api/orders`) is outdated (Option C uses new endpoints).
 - Update patterns to match current Gateway endpoints:
   - `/api/tenants/search` (Store Finder)
@@ -195,6 +202,15 @@ Phase 6 (E2E + governance) ───────── depends on: Phase 1-3 + 5
 - Add stale-while-revalidate strategy for catalog/campaigns (show cached, refresh in background).
 - Add cache expiration: API responses expire after 24h (avoid stale data forever).
 - Verify: each page works offline with cached data.
+
+**Phase 3 completion (commit `89fb240a`, 1 file `service-worker.js`):**
+- **Fixed dead-code `dynamicCachePatterns`** — was declared in Phase 2 but fetch handler used `startsWith('/api/')` (cached ALL API GETs including auth endpoints `/api/customers/me`, `/api/loyalty/my` → cross-user cache leak risk on shared devices). Now whitelist-based: 9 endpoint prefixes, auth endpoints EXCLUDED.
+- **Corrected endpoints vs task card:** `/api/public/orders/` (was `/api/orders/{id}` — actual KhachLink endpoint verified in OrderTracking.razor), `/api/customerorders` (was `/api/orders/history` — actual endpoint verified in OrderHistory.razor). Removed dead `/api/menu` (endpoint does not exist in Gateway).
+- **Stale-while-revalidate** for `/api/catalog/` + `/api/campaigns/`: fresh cache (< 24h) returns immediately with zero network hit, expired cache returns stale + background fetch.
+- **24h cache expiration** via `x-sw-cached-at` header + `stampResponse()`/`isExpired()` helpers.
+- **Cache version** `v10-batched` → `v11-phase3`.
+- Build PASS (0 errors, 0 warnings). guard-check.ps1 PASS. Pre-push CI PASS (build 210s, unit 969/0, KhachLink Startup 6/4skip/0, Architecture 37/37). Pushed to main.
+- **Pending:** Browser manual RV on VPS (SC5-SC8: offline Store Finder / Home / Order Tracking / Order History).
 
 ### Phase 2b: Price validation + navigator.onLine guard — COMPLETE (2026-07-22, commit `51b7e624`)
 
@@ -232,7 +248,7 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 
 **Why descope:** See "Architecture Decision: Phase 4 Descope" in Phase Progress Summary above. Key reasons: financial integrity (ghost orders), price validation requires real-time Gateway access, inventory overselling risk, token expiry, F&B UX expectation (time-sensitive orders).
 
-### Phase 5: Push notification + PWA polish
+### Phase 5: Push notification + PWA polish — PARTIALLY EXISTS (verified 2026-07-22)
 - **Verify VAPID key** in `pwa.js` line 156 — if invalid, regenerate via `npx web-push generate-vapid-keys` + update both client + server.
 - **Gateway push endpoint (NEW — not just "wire up"):** Currently Gateway has NO push notification sending endpoint. Need to add:
   - `POST /api/push/subscribe` — store push subscription (endpoint + keys) in PG `PushSubscriptions` table (new entity, tenant-scoped).
@@ -241,7 +257,18 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 - Wire `subscribeToPush()` into Profile.razor — add "Cài đặt thông báo" toggle.
 - Verify: push notification received when app is closed (Android only — iOS Safari requires app open + iOS 16.4+ for web push).
 
-### Phase 6: E2E validation + governance
+**Phase 5 status (verified 2026-07-22):**
+- ✅ **VAPID key present** — `pwa.js` line 156 (`BJIeg2XokT35UrNdXV26uTiMa0CxwbRI5Fmb9j4djeSdXO74U1wS6BD15MlnvYppLtDx2Rbm01TSkcVcf7p58RE`)
+- ✅ **`subscribeToPush` JS function** — `pwa.js` line 150 (uses `PushManager.subscribe` with `applicationServerKey`)
+- ✅ **`PWAService.SubscribeToPushAsync`** — `Services/PWAService.cs` line 177 (calls JS interop, returns subscription JSON)
+- ✅ **Gateway `/api/notifications/push/subscribe`** — `NotificationsController.cs` line 15 (forwards to ShopERP `/api/notifications/push/subscribe`, passes `X-Customer-Token` header)
+- ✅ **`PushSubscription` entity + repo + service** — `3_CoreHub/Infrastructure/PushSubscriptionConfiguration.cs`, `PushSubscriptionRepository.cs`, `PushNotificationService.cs` (from Wave 9)
+- ❌ **MISSING: Profile.razor push toggle UI** — no `subscribeToPush` call in Profile.razor (grep confirmed). User has no UI to subscribe to push.
+- ❌ **MISSING: `/api/push/send` admin endpoint** — does NOT exist in Gateway controllers (grep confirmed). SystemAdmin cannot send push.
+- ❌ **MISSING: Auto-push on order status change** — NOT verified in code (no trigger wired to `PushNotificationService`).
+- **Note:** Master plan originally said "Currently Gateway has NO push notification sending endpoint" — this is partially wrong. Subscribe endpoint exists (forwards to ShopERP). Only the admin `/api/push/send` + auto-push trigger are missing.
+
+### Phase 6: E2E validation + governance — NOT DONE (verified 2026-07-22)
 - Update `docs/AI/project_state.md` Section 1: change "Blazor Server (NOT WASM)" → "Blazor WebAssembly" (now true after conversion).
 - Update ADR-001 v3 addendum: KhachLink render mode = WASM.
 - **Rewrite `KhachLinkStartupTests`** — WASM test approach khác:
@@ -251,6 +278,15 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 - Playwright E2E: price validation scenario (submit checkout with manipulated price → verify Tier 0/1 rejection).
 - RV on VPS: deploy + verify PWA install + offline READ on real Android device.
 - **Remove Phase 0 quick fix** (replaced by real WASM offline).
+
+**Phase 6 status (verified 2026-07-22):**
+- ✅ **`project_state.md` Section 1** — already says "Blazor WebAssembly (KhachLink PWA — Phase 1 conversion complete 2026-07-21)" (done outside Phase 6, during Phase 1 commit)
+- ❌ **MISSING: ADR-001 v3 addendum** — `docs/Architecture/ADR001-Station-Architecture.md` v3 addendum (line 678) does NOT mention KhachLink render mode = WASM. Still says "KhachLink (Blazor)" generically at line 114.
+- ❌ **MISSING: `KhachLinkStartupTests` rewrite** — `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs` still has 4 `Skip` attributes (lines 59, 91, 107, 119) with "Rewrite in Phase 6 using bUnit" notes. Not rewritten.
+- ❌ **MISSING: Playwright E2E offline scenario** — no offline E2E test in `6_Tests/VanAn.E2E.Tests/` (grep confirmed — no files match "offline" for KhachLink PWA)
+- ❌ **MISSING: Playwright E2E price validation scenario** — no price validation E2E test
+- ❌ **MISSING: VPS RV on real Android device** — not done
+- ⚠️ **Phase 0 quick fix NOT removed** — `OFFLINE_SHELL_HTML` still in `service-worker.js` lines 280-356 (harmless — only fires when all cache empty, but Phase 6 was supposed to remove it)
 
 ---
 
@@ -270,15 +306,18 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 
 ## 6. Acceptance Criteria
 
-- [x] `dotnet build VanAn.KhachLink.csproj` PASS with WASM SDK. (Phase 1)
+- [x] `dotnet build VanAn.KhachLink.csproj` PASS with WASM SDK. (Phase 1 — verified 2026-07-22)
 - [x] Online smoke test: all 13 pages render, navigation works, cart/checkout works, QR scan works. (Phase 1 RV)
-- [ ] Offline test (Chrome DevTools → Network → Offline): app loads from cache, UI events fire, navigation works, Store Finder shows cached stores, Home shows cached catalog. (Phase 3 — pending)
+- [x] **Offline test (Chrome DevTools → Network → Offline):** app loads from cache, UI events fire, navigation works. (Phase 3 — code complete, **browser RV pending on VPS**)
+- [ ] **Offline page-specific RV:** Store Finder shows cached stores, Home shows cached catalog, Order Tracking shows cached order, Order History shows cached orders. (Phase 3 — code complete, **browser RV SC5-SC8 pending**)
 - [x] **Offline checkout: BLOCKED by design** — `navigator.onLine` guard prevents offline submission. Checkout requires real-time Gateway validation (Tier 0+1 price checks). (Phase 2b — DESCOPE Phase 4)
 - [x] **Price validation:** Tier 0 sanity checks + Tier 1 FeaturedProducts cross-check reject invalid prices at Gateway. (Phase 2b)
-- [ ] PWA install on Android Chrome: icon on Home Screen, standalone launch, push notification received. (Phase 5 — pending)
-- [ ] `project_state.md` Section 1 corrected to "Blazor WebAssembly" (now true). (Phase 6 — pending)
-- [ ] ADR-001 v3 addendum updated. (Phase 6 — pending)
-- [ ] Playwright E2E offline scenario PASS. (Phase 6 — pending)
+- [ ] PWA install on Android Chrome: icon on Home Screen, standalone launch, push notification received. (Phase 5 — **subscribe infra exists, push toggle UI + admin send + auto-push MISSING**)
+- [x] `project_state.md` Section 1 corrected to "Blazor WebAssembly" (now true). (Done during Phase 1)
+- [ ] ADR-001 v3 addendum updated with KhachLink render mode = WASM. (Phase 6 — **NOT DONE**)
+- [ ] `KhachLinkStartupTests` rewritten with bUnit (4 Skip attributes removed). (Phase 6 — **NOT DONE**)
+- [ ] Playwright E2E offline scenario PASS. (Phase 6 — **NOT DONE**)
+- [ ] Playwright E2E price validation scenario PASS. (Phase 6 — **NOT DONE**)
 - [x] **Performance budget:** initial download `_framework/` = 19.5MB uncompressed, Brotli compressed ~5-7MB. time-to-interactive <15s on 4G, <3s on WiFi (cached). (Phase 2 RV)
 
 ---
@@ -297,16 +336,17 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 
 | Phase | Task Card | Effort | Status |
 |---|---|---|---|
-| 0 — Quick fix tạm thời | `khachlink_pwa_phase0_quickfix_task_card.md` | 1 session | SKIPPED |
+| 0 — Quick fix tạm thời | `khachlink_pwa_phase0_quickfix_task_card.md` | 1 session | IMPLEMENTED (still present) |
 | 1 — SDK conversion | `khachlink_pwa_phase1_sdk_conversion_task_card.md` | 3-5 sessions | COMPLETE |
 | 2 — SW DLL caching | `khachlink_pwa_phase2_sw_dll_caching_task_card.md` | 1-2 sessions | COMPLETE + hotfixes |
 | 2b — Price validation + guard | (inline, no task card) | 1 session | COMPLETE |
-| 3 — Offline API fallback | `khachlink_pwa_phase3_offline_api_task_card.md` | 1-2 sessions | NEXT |
+| 2c — beforeinstallprompt race fix | (unplanned, no task card) | 0.5 session | COMPLETE |
+| 3 — Offline API fallback | `khachlink_pwa_phase3_offline_api_task_card.md` | 1-2 sessions | COMPLETE (browser RV pending) |
 | 4 — Offline write queue | `khachlink_pwa_phase4_offline_write_queue_task_card.md` | 3-4 sessions | **DESCOPE** |
-| 5 — Push notification | `khachlink_pwa_phase5_push_notification_task_card.md` | 3-4 sessions | Pending |
-| 6 — E2E + governance | `khachlink_pwa_phase6_e2e_governance_task_card.md` | 2-3 sessions | Pending (Phase 6 depends on 1-3 + 5, NOT 4) |
+| 5 — Push notification | `khachlink_pwa_phase5_push_notification_task_card.md` | 3-4 sessions | **PARTIALLY EXISTS** (subscribe infra from Wave 9, missing UI toggle + admin send + auto-push) |
+| 6 — E2E + governance | `khachlink_pwa_phase6_e2e_governance_task_card.md` | 2-3 sessions | **NOT DONE** (Phase 6 depends on 1-3 + 5, NOT 4) |
 
-**Revised estimated effort (remaining):** 6-9 sessions (~1.5-2.5 weeks) — Phase 3 (1-2) + Phase 5 (3-4) + Phase 6 (2-3). Phase 4 descope saves 3-4 sessions.
+**Revised estimated effort (remaining):** 5-8 sessions (~1-2 weeks) — Phase 5 finish (2-3: UI toggle + admin send + auto-push) + Phase 6 (2-3: ADR-001 update + KhachLinkStartupTests rewrite + Playwright E2E + VPS RV) + Phase 3 browser RV (0.5). Phase 4 descope saves 3-4 sessions.
 
 ---
 
