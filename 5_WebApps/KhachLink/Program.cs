@@ -16,6 +16,8 @@ namespace VanAn.KhachLink
         public static async Task Main(string[] args)
         {
             WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
+            builder.RootComponents.Add<App>("#app");
+            builder.RootComponents.Add<HeadOutlet>("head::after");
 
             // UI Platform Services
             _ = builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
