@@ -3,6 +3,8 @@ using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Services;
 using VanAn.UI.Platform.Adapters;
 using VanAn.KhachLink.Components;
+using VanAn.KhachLink.Services;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
@@ -23,6 +25,11 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<ICssAdapter, BootstrapAdapter>();
             _ = builder.Services.AddScoped<IThemeProvider, ThemeProvider>();
             _ = builder.Services.AddScoped<ITenantService, TenantService>();
+
+            // AuthenticationStateProvider: KhachLink WASM is customer-facing (no server auth).
+            // Anonymous stub satisfies TenantService's dependency; tenant context comes from
+            // LastInteractionService (localStorage), not auth claims.
+            _ = builder.Services.AddScoped<AuthenticationStateProvider, AnonymousAuthenticationStateProvider>();
 
             // Register KhachLink HTTP-backed services (call Gateway, no direct DB access)
             // ARCHITECTURAL NOTE: KhachLink MUST use HTTP via Gateway only — no CoreHub DI.
