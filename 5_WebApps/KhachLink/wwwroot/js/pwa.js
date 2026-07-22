@@ -351,6 +351,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     window.vananPWA.deferredPrompt = e;
     console.log('[PWA] beforeinstallprompt captured (immediate listener)');
+    // Notify Blazor so it can show the install button at the right time
+    // (only when the browser confirms the app is installable)
+    if (window.vananPWA.dotNetRef) {
+        window.vananPWA.dotNetRef.invokeMethodAsync('HandleBeforeInstallPromptFired')
+            .catch(() => { /* Blazor not ready yet — prompt will show on next render */ });
+    }
 });
 
 window.addEventListener('appinstalled', () => {

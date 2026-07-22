@@ -212,6 +212,7 @@
     private bool _isInitialized = false;
     private bool _isLoggedIn = false;
     private bool _isIOS = false;
+    private bool _canInstallNative = false;
 
     public bool IsOnline => _isOnline;
     public bool ShowOfflineIndicator => _showOfflineIndicator;
@@ -221,7 +222,8 @@
         // Subscribe to events (no JS interop here)
         PWAService.OnInstallStateChanged += HandleInstallStateChanged;
         PWAService.OnOnlineStateChanged += HandleOnlineStateChanged;
-        
+        PWAService.OnBeforeInstallPromptFired += HandleBeforeInstallPromptFired;
+
         // Check initial state from PWA service (no JS interop)
         _isOnline = PWAService.IsOnline;
         _showOfflineIndicator = true;
@@ -232,10 +234,10 @@
         if (firstRender && !_isInitialized)
         {
             _isInitialized = true;
-            
+
             // Initialize PWA service (JS interop only after render)
             await PWAService.InitializeAsync();
-            
+
             // Check if previously dismissed (persisted in localStorage)
             var dismissedFlag = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "pwa_dismissed");
             _dismissed = dismissedFlag == "true";
@@ -251,18 +253,43 @@
             }
             catch { /* ignore */ }
 
-            // Show install prompt if not installed and not dismissed
-            // On iOS, beforeinstallprompt never fires — show prompt with instructions
+            // Check if beforeinstallprompt already fired before Blazor booted
+            // (race condition: Chrome may fire it during page load before WASM is ready)
+            try
+            {
+                _canInstallNative = await JSRuntime.InvokeAsync<bool>("vananPWA.canInstallNative");
+            }
+            catch { /* ignore */ }
+
+            // Show install prompt ONLY when everything is ready:
+            // - iOS: beforeinstallprompt never fires → show instructions immediately after delay
+            // - Android/Desktop: only show when beforeinstallprompt has fired (CanInstallNative=true)
             if (!PWAService.IsInstalled && !_dismissed)
             {
-                // Show after a delay (with CancellationToken to avoid ObjectDisposedException)
-                try
+                if (_isIOS)
                 {
-                    await Task.Delay(3000, _cts.Token);
-                    _showInstallPrompt = true;
-                    StateHasChanged();
+                    // iOS: show instructions prompt after a short delay
+                    try
+                    {
+                        await Task.Delay(3000, _cts.Token);
+                        _showInstallPrompt = true;
+                        StateHasChanged();
+                    }
+                    catch (OperationCanceledException) { /* Component disposed */ }
                 }
-                catch (OperationCanceledException) { /* Component disposed */ }
+                else if (_canInstallNative)
+                {
+                    // beforeinstallprompt already fired before Blazor booted — show now
+                    try
+                    {
+                        await Task.Delay(2000, _cts.Token);
+                        _showInstallPrompt = true;
+                        StateHasChanged();
+                    }
+                    catch (OperationCanceledException) { /* Component disposed */ }
+                }
+                // else: Android/Desktop without beforeinstallprompt yet — wait for
+                // HandleBeforeInstallPromptFired callback (fired by pwa.js when event fires)
             }
         }
     }
@@ -308,6 +335,18 @@
         StateHasChanged();
     }
 
+    private void HandleBeforeInstallPromptFired()
+    {
+        // Called by pwa.js when beforeinstallprompt fires — everything is ready now.
+        // Show the install prompt (only if not dismissed/installed).
+        _canInstallNative = true;
+        if (!_dismissed && !PWAService.IsInstalled)
+        {
+            _showInstallPrompt = true;
+            StateHasChanged();
+        }
+    }
+
     private async Task ShowNotificationAsync(string title, string message)
     {
         await PWAService.ShowNotificationAsync(title, message);
@@ -321,6 +360,7 @@
         {
             PWAService.OnInstallStateChanged -= HandleInstallStateChanged;
             PWAService.OnOnlineStateChanged -= HandleOnlineStateChanged;
+            PWAService.OnBeforeInstallPromptFired -= HandleBeforeInstallPromptFired;
             await PWAService.DisposeAsync();
         }
     }

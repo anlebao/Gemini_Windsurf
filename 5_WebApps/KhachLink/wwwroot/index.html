@@ -61,20 +61,23 @@
         /* Custom reconnect indicator — small spinner bottom-left */
         #vanan-reconnect-indicator {
             position: fixed;
-            bottom: 16px;
+            bottom: 36px;
             left: 16px;
             z-index: 9999;
             display: none;
             align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            border-radius: 20px;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 50%;
             background: rgba(139, 69, 19, 0.9);
             color: white;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
             transition: opacity 0.3s ease;
+            width: 32px;
+            height: 32px;
+            justify-content: center;
         }
         #vanan-reconnect-indicator.show {
             display: flex;
@@ -92,9 +95,9 @@
         }
     </style>
     <!-- Custom reconnect indicator (replaces intrusive Blazor modal) -->
-    <div id="vanan-reconnect-indicator">
+    <!-- Small icon-only indicator — moved up 20px to avoid covering buttons -->
+    <div id="vanan-reconnect-indicator" title="Đang kết nối lại...">
         <div class="spinner"></div>
-        <span>Đang kết nối lại...</span>
     </div>
     <script>
         // Issue 6: Show/hide custom reconnect indicator based on Blazor connection state
@@ -114,13 +117,29 @@
                 document.addEventListener('components-reconnect-show', show);
                 document.addEventListener('components-reconnect-hide', hide);
                 document.addEventListener('components-reconnect-failed', function() {
-                    indicator.querySelector('span').textContent = 'Mất kết nối';
+                    // Expand to show text when connection fully lost
+                    indicator.title = 'Mất kết nối';
                     indicator.style.background = 'rgba(220, 53, 69, 0.9)';
+                    indicator.style.borderRadius = '20px';
+                    indicator.style.width = 'auto';
+                    indicator.style.padding = '6px 14px';
+                    var span = indicator.querySelector('span');
+                    if (!span) {
+                        span = document.createElement('span');
+                        indicator.appendChild(span);
+                    }
+                    span.textContent = 'Mất kết nối';
                 });
                 // Reset on successful reconnect
                 document.addEventListener('components-reconnect-hide', function() {
-                    indicator.querySelector('span').textContent = 'Đang kết nối lại...';
+                    // Collapse back to icon-only
+                    indicator.title = 'Đang kết nối lại...';
                     indicator.style.background = 'rgba(139, 69, 19, 0.9)';
+                    indicator.style.borderRadius = '50%';
+                    indicator.style.width = '32px';
+                    indicator.style.padding = '6px 10px';
+                    var span = indicator.querySelector('span');
+                    if (span) span.remove();
                 });
             });
         })();

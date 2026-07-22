@@ -17,9 +17,11 @@ namespace VanAn.KhachLink.Services.PWA
         public event Action<bool>? OnInstallStateChanged;
         public event Action<bool>? OnOnlineStateChanged;
         public event Action<string>? OnNotificationReceived;
+        public event Action? OnBeforeInstallPromptFired;
 
         public bool IsInstalled { get; private set; }
         public bool IsOnline { get; private set; } = true;
+        public bool CanInstallNative { get; private set; }
 
         public PWAService(
             IJSRuntime jsRuntime,
@@ -256,6 +258,14 @@ namespace VanAn.KhachLink.Services.PWA
         {
             _logger.LogInformation("Service worker updated - refresh recommended");
             // Could trigger a user notification to refresh
+        }
+
+        [JSInvokable]
+        public void HandleBeforeInstallPromptFired()
+        {
+            CanInstallNative = true;
+            OnBeforeInstallPromptFired?.Invoke();
+            _logger.LogInformation("beforeinstallprompt fired — app is installable");
         }
 
         [JSInvokable]
