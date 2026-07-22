@@ -507,3 +507,6 @@ deploy_log.txt
 # Guard check auto-generated reports
 guard-report-*.txt
 
+# Temporary dotnet publish outputs (local verification only)
+.tmp-publish-*/
+

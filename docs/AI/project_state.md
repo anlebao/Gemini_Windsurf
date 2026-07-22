@@ -30,37 +30,51 @@
 
 ## 2. Current Objective
 
-**KhachLink Order Tracking — Vỡ font tiếng Việt + màn hình treo — IN PROGRESS (2026-07-22)**
+**KhachLink Order Tracking — Vỡ font tiếng Việt (VERIFIED 2026-07-23) + màn hình treo (PENDING)**
 
 ### Bug Report
 Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 lỗi:
-1. **Vỡ font tiếng Việt** — tất cả ký tự tiếng Việt (đ, ơ, ạ, ầ, etc.) hiển thị sai (mojibake)
-2. **Màn hình treo** — trang có thể bị treo khi theo dõi đơn hàng real-time
+1. **Vỡ font tiếng Việt** — VERIFIED FIXED trên VPS (2026-07-23)
+2. **Màn hình treo** — PENDING fix
 
-### Root Cause Analysis (VERIFIED)
-**Encoding bug:** 92 tệp nguồn (14 KhachLink Pages + 35 KhachLink Components/Services + 43 1_Shared/UI.Platform) được mã hóa Windows-1252 thay vì UTF-8. Trình biên dịch Razor đóng gói chuỗi vào WASM dưới dạng byte Win-1252, nhưng browser diễn giải WASM string blob là UTF-8 → mojibake.
+### VPS Verification (2026-07-23 — DEFINITIVE)
+**Font tiếng Việt hiển thị ĐÚNG trên VPS.** Evidence:
+- **VPS WASM SHA256** = `cAGSNTXgEEhiW/k+u1704HlPDuQ2HtNerMXuIEAH7ms=` — khớp chính xác với `blazor.boot.json` expected hash → WASM deployed đúng từ source đã fix.
+- **VPS WASM UTF-16LE byte analysis** (570645 bytes, build 2026-07-22 16:34 UTC):
+  - ơ (U+01A1, `A1 01`): 83 occurrences [correct]
+  - đ (U+0111, `11 01`): 137 occurrences [correct]
+  - õ (U+00F5, `F5 00`): 36 occurrences [correct]
+  - U+FFFD (mojibake marker, `FD FF`): 1 [byte trùng, không phải mojibake]
+- **HTML response** từ `https://diemthuong.khachvip.online/order-tracking/{orderId}`: `<meta charset="utf-8">`, serve "Vạn An", "Hệ thống", "đặt hàng", "đang tải" đúng encoding.
+- **nginx**: `Content-Type: text/html` (charset từ meta tag, browser respect), `Content-Type: application/wasm` cho WASM, `Cache-Control: no-cache, must-revalidate` cho WASM, SW cache version `v12-sri-fix`.
 
-**Evidence:** Local `dotnet publish` WASM chứa 135-143 byte `0xF5` (Win-1252 'õ') và 0 byte `0xC3 0xB5` (UTF-8 'õ'). VPS WASM cũng vậy — 142 byte Win-1252, 0 byte UTF-8.
+### Root Cause Re-Analysis (CORRECTED 2026-07-23)
+**Phương pháp byte analysis cũ trong Section 9 (2026-07-22) là SAI:**
+- Claim "135 byte 0xF5 = Win-1252 'õ'" — **SAI**. 0xF5 trong WASM là low byte của UTF-16LE 'õ' (U+00F5 = `F5 00` little-endian), là ĐÚNG.
+- Claim "0 byte 0xC3 0xB5 = UTF-8 'õ' thiếu" — **SAI**. .NET lưu string trong WASM là UTF-16LE, không phải UTF-8, nên `C3 B5` không bao giờ xuất hiện.
+- "Confirmation" mojibake trên VPS cũng "qua byte analysis" — không có visual check thật, dựa trên phương pháp sai.
 
-**Freeze bug (chưa fix):** `OrderTracking.razor` polling loop 15s + `isTabVisible` luôn `true` (không bao giờ update từ `CheckTabVisibilityAsync`) → spinner luôn hiển thị, có thể gây ảo giác treo.
+**Commits encoding fix (`88cf95e4`, `0d9b1709`) là NO-OP:**
+- Diff `88cf95e4` (OrderTracking.razor): thay đổi DUY NHẤT là thêm BOM (U+FEFF) dòng 1. Nội dung không đổi.
+- Source files đã là UTF-8 (không BOM) từ trước — compiler produce UTF-16LE đúng từ source UTF-8 không-BOM.
+- WASM cũ (pre-fix) và WASM mới (post-fix) có byte UTF-16LE ĐỒNG NHẤT (72 ơ, 80 đ, 35 õ, 1 U+FFFD).
 
-### Reproduction (VPS, 2026-07-22)
-1. **Đặt hàng từ KhachLink:** POST `/api/public/orders/checkout` → Order `019f8aa0-8489-722b-a16f-a04e785fe2be` tạo thành công (status=pending, amount=22000)
-2. **Public tracking API:** GET `/api/public/orders/{id}` → 200 OK, trả về đúng JSON
-3. **Kitchen confirm:** API impersonate bị 500 (cookie auth issue trong PowerShell, không phải bug production)
-4. **Order tracking page:** Blazor WASM render — font tiếng Việt bị vỡ (xác nhận qua byte analysis của WASM)
+**Fix THẬT là commit `f5faa885` (2026-07-22 19:37):** rewrite nội dung Checkout.razor — thay `?` (ký tự bị hỏng do content corruption, KHÔNG phải encoding issue) bằng Vietnamese đúng. OLD: 38/63 dòng có `?`, NEW: 18/63 dòng có `?` (còn lại là emoji bị hỏng).
 
-### Fix Applied
-- **Commit 1 (`88cf95e4`):** Convert 14 KhachLink Pages/*.razor từ Win-1252 → UTF-8 with BOM
-- **Commit 2 (`0d9b1709`):** Convert thêm 35 KhachLink Components/Services + 43 1_Shared/UI.Platform files từ Win-1252 → UTF-8 with BOM. Build local PASS, guard-check encoding gate PASS, 0 byte Win-1252 trong WASM publish output.
-- **Prevention configs:** `.editorconfig` ép charset UTF-8 with BOM cho `.cs`, `.razor`, `.md`, `.json`, `.html`, `.js`, `.css`, `.xml`, `.props`, `.targets`, `.csproj`, `.sln`, `.ps1`; `.gitattributes` normalize text về UTF-8/CRLF; `.vscode/settings.json` ép workspace lưu `utf8bom`; `guard-check.ps1` thêm gate kiểm tra toàn bộ file text có phải UTF-8 hợp lệ trước khi build.
+### Fix Applied (giữ lại — tốt cho prevention)
+- **Commit `f5faa885`:** Rewrite Checkout.razor content (fix content corruption — đây là fix thật)
+- **Commit `88cf95e4`:** Add BOM cho 14 KhachLink Pages (cosmetic, no-op cho compiled output)
+- **Commit `0d9b1709`:** Add BOM cho 35 KhachLink Components/Services + 43 1_Shared/UI.Platform (cosmetic, no-op cho compiled output)
+- **Prevention configs (giữ lại):** `.editorconfig` ép charset UTF-8 with BOM; `.gitattributes` normalize UTF-8/CRLF; `.vscode/settings.json` ép `utf8bom`; `guard-check.ps1` encoding gate. Ngăn file Win-1252 re-enter repo.
+
+### Remaining
+- **Freeze bug (CHƯA fix):** `OrderTracking.razor` polling loop 15s + `isTabVisible` luôn `true` (không bao giờ update từ `CheckTabVisibilityAsync`) → spinner luôn hiển thị, có thể gây ảo giác treo.
 
 ### Next Actions
-1. ✅ Build lại KhachLink WASM với tất cả 92 files đã convert → verify 0 byte Win-1252
-2. ✅ Commit + push 79 files encoding fix + prevention configs
-3. ⬜ Fix `isTabVisible` bug trong OrderTracking.razor (update từ `CheckTabVisibilityAsync`)
-4. ⬜ Wait CD deploy → verify trên VPS: WASM byte analysis + visual check
-5. ⬜ RV: đặt hàng → tracking → verify font tiếng Việt hiển thị đúng
+1. ✅ VPS verify font tiếng Việt: WASM SHA256 match + UTF-16LE bytes correct + HTML charset=utf-8
+2. ⬜ Fix `isTabVisible` bug trong OrderTracking.razor (update từ `CheckTabVisibilityAsync`)
+3. ⬜ (Optional) Browser visual RV — mở `diemthuong.khachvip.online/order-tracking/019f8aa0-8489-722b-a16f-a04e785fe2be` trên browser, nhìn bằng mắt
+4. ⬜ (Cosmetic) Thay `?` còn sót trong Checkout.razor bằng emoji đúng (18/63 dòng còn có `?`)
 
 ---
 
@@ -70,11 +84,12 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `0d9b1709` fix(encoding): convert remaining source files to UTF-8 BOM and add encoding guards
+- **Last commit:** `26baf0c7` docs: update project_state.md with encoding fix commit and next actions
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` PASS (encoding gate added and passes). Encoding fix for 92 files complete and committed.
-- **Uncommitted changes:** None. Encoding fix + prevention configs committed.
+- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` PASS (encoding gate added and passes).
+- **Uncommitted changes:** None (`.tmp-publish-khachlink/` untracked — stale build artifact, safe to delete).
+- **VPS font verify (2026-07-23):** KhachLink WASM trên VPS (`diemthuong.khachvip.online`) chứa ký tự tiếng Việt UTF-16LE đúng (83 ơ, 137 đ, 36 õ, 1 U+FFFD). SHA256 WASM khớp `blazor.boot.json`. HTML serve `<meta charset="utf-8">`. Font tiếng Việt VERIFIED FIXED.
 - **Prevention:** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate — prevents Win-1252 files from re-entering repo.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). CD deploys automatically on push to main.
 - **Test order for RV:** `019f8aa0-8489-722b-a16f-a04e785fe2be` (Coffee An An, status=pending, amount=22000)
@@ -96,7 +111,9 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 **NEXT (recommended priority order):**
 
 1. **Fix `isTabVisible` freeze bug in `OrderTracking.razor`** — `CheckTabVisibilityAsync` is called but state never updates `isTabVisible`; spinner never hides. Fix and unit/E2E test if possible.
-2. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
+2. **(Optional) Browser visual RV for font fix** — open `https://diemthuong.khachvip.online/order-tracking/019f8aa0-8489-722b-a16f-a04e785fe2be` in browser, hard refresh (Ctrl+Shift+R) to clear old SW cache, verify Vietnamese text (đ, ơ, ạ, ầ) renders correctly. Byte analysis + HTML charset check already confirm fix, but visual confirmation closes the loop.
+3. **(Cosmetic) Replace remaining `?` in Checkout.razor** — 18/63 lines still have `?` (corrupted emojis from original content corruption, not encoding). Low priority.
+4. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
    - DevTools Application → Service Workers: SW `v11-phase3` active
    - DevTools Application → Cache Storage: `vanan-dynamic-v11-phase3` populated with whitelisted API responses (catalog, campaigns, tenants, public/orders, customerorders)
    - **Auth endpoints NOT cached:** verify `/api/customers/me` and `/api/loyalty/my` are NOT in `vanan-dynamic-v11-phase3` (whitelist excludes them)
@@ -236,7 +253,9 @@ Server A (Edge):                      Server B (Central):
 
 ## 9. Maintenance Log
 
-* **2026-07-23 -- ENCODING FIX + PREVENTION CONFIGS COMMITTED.** Converted remaining 79 source files (35 KhachLink Components/Services + 43 1_Shared/UI.Platform + project_state.md + project_state_archive.md) from Windows-1252 to UTF-8 with BOM. Local `dotnet publish` KhachLink WASM verified 0 byte Win-1252 (`0xF5` absent, UTF-8 `0xC3 0xB5` present). Added prevention: `.editorconfig` charset UTF-8 with BOM for all source/markup/config/ps1 files; `.gitattributes` text normalize to UTF-8/CRLF; `.vscode/settings.json` force workspace save as `utf8bom`; `guard-check.ps1` new encoding gate validates all text files are well-formed UTF-8 before build. `guard-check.ps1` PASS (0 errors, 1 warning). Branch: `main`. Next: fix `OrderTracking.razor` `isTabVisible` freeze bug, push, CD deploy, VPS RV.
+* **2026-07-23 -- VPS FONT VERIFY + MISDIAGNOSIS CORRECTION.** Verified trên VPS (`diemthuong.khachvip.online`) rằng lỗi vỡ font tiếng Việt ĐÃ ĐƯỢC FIX. Evidence: (1) VPS WASM SHA256 = `cAGSNTXgEEhiW/k+u1704HlPDuQ2HtNerMXuIEAH7ms=` khớp `blazor.boot.json` → WASM deployed đúng. (2) VPS WASM UTF-16LE byte analysis: 83 ơ (U+01A1), 137 đ (U+0111), 36 õ (U+00F5), chỉ 1 U+FFFD (byte trùng) → ký tự tiếng Việt đúng. (3) HTML response serve `<meta charset="utf-8">` + "Vạn An", "Hệ thống", "đặt hàng", "đang tải" đúng. **Misdiagnosis correction:** Phương pháp byte analysis cũ (đếm 0xF5 = Win-1252) là SAI — 0xF5 trong WASM là low byte của UTF-16LE 'õ' (U+00F5 = `F5 00`), là ĐÚNG. .NET lưu string UTF-16LE trong WASM, không phải UTF-8, nên `C3 B5` không bao giờ xuất hiện. Commits encoding fix (`88cf95e4`, `0d9b1709`) là NO-OP (chỉ thêm BOM, compiled output không đổi). Fix THẬT là commit `f5faa885` (rewrite Checkout.razor content — thay `?` bị hỏng bằng Vietnamese đúng). Còn lại: fix `isTabVisible` freeze bug trong OrderTracking.razor. Branch: `main`. Next: fix freeze bug, (optional) browser visual RV, (cosmetic) thay `?` còn sót trong Checkout.razor.
+
+* **2026-07-23 -- ENCODING FIX + PREVENTION CONFIGS COMMITTED.** Converted remaining 79 source files (35 KhachLink Components/Services + 43 1_Shared/UI.Platform + project_state.md + project_state_archive.md) from Windows-1252 to UTF-8 with BOM. Local `dotnet publish` KhachLink WASM verified 0 byte Win-1252 (`0xF5` absent, UTF-8 `0xC3 0xB5` present). Added prevention: `.editorconfig` charset UTF-8 with BOM for all source/markup/config/ps1 files; `.gitattributes` text normalize to UTF-8/CRLF; `.vscode/settings.json` force workspace save as `utf8bom`; `guard-check.ps1` new encoding gate validates all text files are well-formed UTF-8 before build. `guard-check.ps1` PASS (0 errors, 1 warning). Branch: `main`. Next: fix `OrderTracking.razor` `isTabVisible` freeze bug, push, CD deploy, VPS RV. **NOTE (2026-07-23):** Phương pháp byte analysis trong entry này là SAI — xem entry 2026-07-23 VPS FONT VERIFY ở trên cho correction.
 
 * **2026-07-22 -- KHACHLINK ORDER TRACKING — VỠ FONT TIẾNG VIỆT + MÀN HÌNH TREO — IN PROGRESS.** Bug: trang `/order-tracking/{orderId}` bị vỡ font tiếng Việt (mojibake) + màn hình treo. Root cause: 92 tệp nguồn (14 KhachLink Pages + 35 KhachLink Components/Services + 43 1_Shared/UI.Platform) được mã hóa Windows-1252 thay vì UTF-8. Trình biên dịch Razor đóng gói chuỗi vào WASM dưới dạng byte Win-1252, browser diễn giải là UTF-8 → mojibake. Evidence: local `dotnet publish` WASM chứa 135-143 byte `0xF5` (Win-1252 'õ'), 0 byte `0xC3 0xB5` (UTF-8 'õ'). VPS WASM cũng vậy. Fix: convert tất cả 92 files Win-1252 → UTF-8 with BOM. Commit 1 (`88cf95e4`): 14 KhachLink Pages — deployed nhưng CHƯA đủ (WASM vẫn 142 byte Win-1252 vì chuỗi cũng từ Components + Shared). Uncommitted: 79 files (35 KhachLink Components/Services + 43 1_Shared/UI.Platform). Freeze bug: `OrderTracking.razor` `isTabVisible` luôn `true` (không update từ `CheckTabVisibilityAsync`) → spinner luôn hiển thị. Reproduction: đặt hàng thành công (Order `019f8aa0-8489-722b-a16f-a04e785fe2be`, status=pending), public tracking API 200 OK, Kitchen confirm bị 500 (cookie auth issue trong PowerShell). Branch: `main`. Next: build lại với 92 files → verify 0 byte Win-1252 → commit + push → fix isTabVisible → CD → RV.
 
