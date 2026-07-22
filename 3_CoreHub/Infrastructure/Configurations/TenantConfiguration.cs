@@ -68,10 +68,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 settings.Property(s => s.SocialLinksTiktok).HasColumnName("Settings_SocialLinksTiktok").HasMaxLength(500);
                 settings.Property(s => s.BrandStory).HasColumnName("Settings_BrandStory").HasMaxLength(500);
                 // Theme Customization (2026-07-22): KhachLink UI theme (enum → int, default Classic=0)
+                // NOTE: No HasDefaultValue() — EF Core treats default(0) as sentinel and skips UPDATE
+                // when value equals default. The DB column has DEFAULT 0 from migration for inserts.
                 settings.Property(s => s.Theme)
                     .HasColumnName("Settings_Theme")
-                    .HasConversion<int>()
-                    .HasDefaultValue(ThemeType.Classic);
+                    .HasConversion<int>();
             });
 
             // Audit fields from BaseEntity
