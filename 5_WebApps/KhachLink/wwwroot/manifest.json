@@ -1,8 +1,8 @@
-﻿{
+﻿?{
   "id": "/",
-  "name": "Váº¡n An Group - Äáº·t hÃ ng nhanh",
-  "short_name": "Váº¡n An",
-  "description": "Há»‡ thá»‘ng Ä‘áº·t hÃ ng thÃ´ng minh cá»§a Váº¡n An Group",
+  "name": "Vạn An Group - Đặt hàng nhanh",
+  "short_name": "Vạn An",
+  "description": "Hệ thống đặt hàng thông minh của Vạn An Group",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#8B4513",
@@ -77,9 +77,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Äáº·t trÃ  sá»¯a",
-      "short_name": "TrÃ  sá»¯a",
-      "description": "Äáº·t trÃ  sá»¯a nhanh chÃ³ng",
+      "name": "Đặt trà sữa",
+      "short_name": "Trà sữa",
+      "description": "Đặt trà sữa nhanh chóng",
       "url": "/menu/tra-sua",
       "icons": [
         {
@@ -89,9 +89,9 @@
       ]
     },
     {
-      "name": "Äáº·t cÃ  phÃª",
-      "short_name": "CÃ  phÃª",
-      "description": "Äáº·t cÃ  phÃª nhanh chÃ³ng",
+      "name": "Đặt cà phê",
+      "short_name": "Cà phê",
+      "description": "Đặt cà phê nhanh chóng",
       "url": "/menu/ca-phe",
       "icons": [
         {

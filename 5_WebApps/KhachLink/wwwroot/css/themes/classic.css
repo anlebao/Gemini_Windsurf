@@ -1,4 +1,4 @@
-﻿/* Classic Theme - Traditional list, Earth tones, Clear fonts */
+﻿?/* Classic Theme - Traditional list, Earth tones, Clear fonts */
 :root {
     --classic-brown: #8B4513;
     --classic-tan: #D2691E;
@@ -151,7 +151,7 @@ body {
 
 .classic-welcome::before,
 .classic-welcome::after {
-    content: 'â¦';
+    content: '❦';
     position: absolute;
     font-size: 2rem;
     color: var(--classic-tan);

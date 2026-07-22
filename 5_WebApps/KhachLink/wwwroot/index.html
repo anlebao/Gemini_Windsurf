@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿?<!DOCTYPE html>
 <html lang="vi">
 
 <head>
@@ -15,9 +15,9 @@
     <meta name="theme-color" content="#8B4513" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Váº¡n An" />
+    <meta name="apple-mobile-web-app-title" content="Vạn An" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="description" content="Há»‡ thá»‘ng Ä‘áº·t hÃ ng thÃ´ng minh cá»§a Váº¡n An Group" />
+    <meta name="description" content="Hệ thống đặt hàng thông minh của Vạn An Group" />
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"
             integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+"
             crossorigin="anonymous"></script>
@@ -29,7 +29,7 @@
         <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8B4513,#D2691E);color:white;font-family:system-ui,sans-serif;">
             <div style="text-align:center;">
                 <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:vanan-spin 0.8s linear infinite;margin:0 auto 16px;"></div>
-                <p style="font-size:18px;font-weight:500;">Váº¡n An Ä‘ang táº£i...</p>
+                <p style="font-size:18px;font-weight:500;">Vạn An đang tải...</p>
             </div>
         </div>
         <style>
@@ -53,12 +53,12 @@
         });
     </script>
     <style>
-        /* Issue 6: áº¨n Blazor default reconnect dialog (modal full-screen) */
-        /* Thay báº±ng indicator nhá» á»Ÿ gÃ³c dÆ°á»›i trÃ¡i â€” khÃ´ng gÃ¢y giÃ¡n Ä‘oáº¡n UX */
+        /* Issue 6: Ẩn Blazor default reconnect dialog (modal full-screen) */
+        /* Thay bằng indicator nhỏ ở góc dưới trái — không gây gián đoạn UX */
         #components-reconnect-modal {
             display: none !important;
         }
-        /* Custom reconnect indicator â€” small spinner bottom-left */
+        /* Custom reconnect indicator — small spinner bottom-left */
         #vanan-reconnect-indicator {
             position: fixed;
             bottom: 36px;
@@ -95,8 +95,8 @@
         }
     </style>
     <!-- Custom reconnect indicator (replaces intrusive Blazor modal) -->
-    <!-- Small icon-only indicator â€” moved up 20px to avoid covering buttons -->
-    <div id="vanan-reconnect-indicator" title="Äang káº¿t ná»‘i láº¡i...">
+    <!-- Small icon-only indicator — moved up 20px to avoid covering buttons -->
+    <div id="vanan-reconnect-indicator" title="Đang kết nối lại...">
         <div class="spinner"></div>
     </div>
     <script>
@@ -118,7 +118,7 @@
                 document.addEventListener('components-reconnect-hide', hide);
                 document.addEventListener('components-reconnect-failed', function() {
                     // Expand to show text when connection fully lost
-                    indicator.title = 'Máº¥t káº¿t ná»‘i';
+                    indicator.title = 'Mất kết nối';
                     indicator.style.background = 'rgba(220, 53, 69, 0.9)';
                     indicator.style.borderRadius = '20px';
                     indicator.style.width = 'auto';
@@ -128,12 +128,12 @@
                         span = document.createElement('span');
                         indicator.appendChild(span);
                     }
-                    span.textContent = 'Máº¥t káº¿t ná»‘i';
+                    span.textContent = 'Mất kết nối';
                 });
                 // Reset on successful reconnect
                 document.addEventListener('components-reconnect-hide', function() {
                     // Collapse back to icon-only
-                    indicator.title = 'Äang káº¿t ná»‘i láº¡i...';
+                    indicator.title = 'Đang kết nối lại...';
                     indicator.style.background = 'rgba(139, 69, 19, 0.9)';
                     indicator.style.borderRadius = '50%';
                     indicator.style.width = '32px';
