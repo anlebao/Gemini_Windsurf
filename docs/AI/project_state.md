@@ -52,7 +52,7 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 
 ### Fix Applied
 - **Commit 1 (`88cf95e4`):** Convert 14 KhachLink Pages/*.razor từ Win-1252 → UTF-8 with BOM
-- **Commit 2 (`PENDING_HASH`):** Convert thêm 35 KhachLink Components/Services + 43 1_Shared/UI.Platform files từ Win-1252 → UTF-8 with BOM. Build local PASS, guard-check encoding gate PASS, 0 byte Win-1252 trong WASM publish output.
+- **Commit 2 (`0d9b1709`):** Convert thêm 35 KhachLink Components/Services + 43 1_Shared/UI.Platform files từ Win-1252 → UTF-8 with BOM. Build local PASS, guard-check encoding gate PASS, 0 byte Win-1252 trong WASM publish output.
 - **Prevention configs:** `.editorconfig` ép charset UTF-8 with BOM cho `.cs`, `.razor`, `.md`, `.json`, `.html`, `.js`, `.css`, `.xml`, `.props`, `.targets`, `.csproj`, `.sln`, `.ps1`; `.gitattributes` normalize text về UTF-8/CRLF; `.vscode/settings.json` ép workspace lưu `utf8bom`; `guard-check.ps1` thêm gate kiểm tra toàn bộ file text có phải UTF-8 hợp lệ trước khi build.
 
 ### Next Actions
@@ -70,11 +70,11 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `PENDING_HASH` fix(encoding): convert remaining source files to UTF-8 BOM and add encoding guards
+- **Last commit:** `0d9b1709` fix(encoding): convert remaining source files to UTF-8 BOM and add encoding guards
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
 - **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` PASS (encoding gate added and passes). Encoding fix for 92 files complete and committed.
-- **Uncommitted changes:** None. Encoding fix + prevention configs staged for commit.
+- **Uncommitted changes:** None. Encoding fix + prevention configs committed.
 - **Prevention:** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate — prevents Win-1252 files from re-entering repo.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). CD deploys automatically on push to main.
 - **Test order for RV:** `019f8aa0-8489-722b-a16f-a04e785fe2be` (Coffee An An, status=pending, amount=22000)
