@@ -30,12 +30,12 @@
 
 ## 2. Current Objective
 
-**KhachLink Order Tracking — Vỡ font tiếng Việt (COMPLETE + VPS VERIFIED 2026-07-23) + màn hình treo (PENDING)**
+**KhachLink Order Tracking — Vỡ font tiếng Việt (COMPLETE + VPS VERIFIED 2026-07-23) + màn hình treo (FIX APPLIED 2026-07-23, VPS RV PENDING)**
 
 ### Bug Report
 Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 lỗi:
 1. **Vỡ font tiếng Việt** — COMPLETE + VPS VERIFIED (2026-07-23)
-2. **Màn hình treo** — PENDING fix
+2. **Màn hình treo** — FIX APPLIED (2026-07-23), VPS RV PENDING
 
 ### Root Cause (DEFINITIVE — corrected twice)
 **Real root cause: 6 static files trong `5_WebApps/KhachLink/wwwroot/` bị double-encoding** (UTF-8 bytes misinterpreted as Windows-1252, then re-encoded as UTF-8). Browser nhận HTML tĩnh TRƯỚC khi Blazor WASM load → user thấy mojibake ngay từ loading screen. WASM compile output (`.razor` files) đã đúng từ trước — bug chỉ nằm ở static files.
@@ -63,13 +63,29 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 - **WASM SHA256:** `qv/EEHt7ARYn0kfjzJI/LNNRoOW2pjB3GeuQK0F+QEU=` matches `blazor.boot.json` → integrity OK.
 - **Public API:** `Coffee An An` tenant, 200 OK, JSON valid.
 
+### Freeze Bug — Root Cause (DEFINITIVE, 2026-07-23)
+**Real root cause: `OrderTracking.razor` thiếu `@implements IAsyncDisposable`** → Blazor không bao giờ gọi `DisposeAsync()` khi user navigate away → vòng lặp `Task.Run(PollingLoopAsync)` leak vĩnh viễn, tiếp tục InvokeAsync(StateHasChanged) trên component đã disposed → renderer thread đơ (UI freeze). Secondary: `OnParametersSetAsync` không cancel CTS cũ trước khi reload → race condition trên `_publicOrder` field.
+
+**Prior misdiagnosis (corrected):** project_state.md trước đó ghi "isTabVisible luôn true gây treo" — sai. `isTabVisible` chỉ là display bug (spinner luôn hiện), không gây freeze. Race condition + missing IAsyncDisposable mới là root cause thật.
+
+### Freeze Bug — Fix Applied (2026-07-23)
+4 fixes trong `OrderTracking.razor`:
+1. **`@implements IAsyncDisposable`** (line 11) — Blazor giờ gọi `DisposeAsync()` → polling loop được cancel khi navigate away. **FIX CỐT LÕI.**
+2. **Cancel + dispose CTS cũ trong `OnParametersSetAsync`** (lines 283-292) — triệt tiêu race condition trên `_publicOrder` field.
+3. **Bỏ `Task.Run`** (line 469) — WASM single-thread, fire-and-forget `PollingLoopAsync` trực tiếp.
+4. **Exponential backoff trong `GetPollingInterval`** (lines 532-549) — 5s (first 30s) → configurable (30s–3min) → 30s (after 3min); terminal states vẫn return 0 (stop). Giảm tải server, không phải fix freeze.
+
+Build: `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings. Không sửa Domain layer. Không bypass UI Platform.
+
 ### Remaining
-- **Freeze bug (CHƯA fix):** `OrderTracking.razor` polling loop 15s + `isTabVisible` luôn `true` (không bao giờ update từ `CheckTabVisibilityAsync`) → spinner luôn hiển thị, có thể gây ảo giác treo.
+- **`isTabVisible` display bug (CHƯA fix, cosmetic):** spinner luôn hiện vì `isPolling && isTabVisible` đều true. Không gây treo. Để sau.
+- **(Cosmetic) `?` trong Checkout.razor** — 18/63 dòng còn có `?` (corrupted emojis). Low priority.
 
 ### Next Actions
 1. ✅ VPS verify font tiếng Việt: HTML + manifest + SW + WASM SHA256 + order tracking page — ALL PASS
-2. ⬜ Fix `isTabVisible` bug trong OrderTracking.razor (update từ `CheckTabVisibilityAsync`)
-3. ⬜ (Cosmetic) Thay `?` còn sót trong Checkout.razor bằng emoji đúng (18/63 dòng còn có `?`)
+2. ✅ Fix freeze bug trong OrderTracking.razor (4 fixes: IAsyncDisposable + CTS cancel + bỏ Task.Run + exponential backoff)
+3. ⬜ Localhost runtime verify KhachLink 5002 + commit/push + chờ CD + VPS RV order tracking page (verify polling dừng khi navigate away, không freeze)
+4. ⬜ (Cosmetic) Thay `?` còn sót trong Checkout.razor bằng emoji đúng (18/63 dòng còn có `?`)
 
 ---
 
@@ -79,11 +95,11 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `d9e2728f` fix(font): repair double-encoded Vietnamese in KhachLink static files
+- **Last commit:** `d9e2728f` fix(font): repair double-encoded Vietnamese in KhachLink static files (pending: OrderTracking polling fix)
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` PASS (encoding gate added and passes).
-- **Uncommitted changes:** None.
+- **Build (2026-07-23):** `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings. `guard-check.ps1` PASS (encoding gate).
+- **Uncommitted changes:** `5_WebApps/KhachLink/Pages/OrderTracking.razor` (4 fixes: IAsyncDisposable + CTS cancel + bỏ Task.Run + exponential backoff).
 - **VPS font fix (2026-07-23 — COMPLETE + VERIFIED):** Double-encoded Vietnamese in 6 KhachLink static files (`index.html`, `manifest.json`, `service-worker.js`, `pwa.js`, `cart-animation.js`, `classic.css`) repaired by commit `d9e2728f`. CD deployed. VPS RV PASS: HTML serve `Vạn An`, `Hệ thống đặt hàng`, `Đang kết nối lại`, `Mất kết nối` đúng; manifest `Đặt trà sữa`/`Đặt cà phê` đúng; WASM SHA256 match; order tracking page 200 OK với Vietnamese đúng.
 - **Prevention:** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate — prevents Win-1252 files from re-entering repo.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). CD deploys automatically on push to main.
@@ -105,7 +121,7 @@ Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 l
 
 **NEXT (recommended priority order):**
 
-1. **Fix `isTabVisible` freeze bug in `OrderTracking.razor`** — `CheckTabVisibilityAsync` is called but state never updates `isTabVisible`; spinner never hides. Fix and unit/E2E test if possible.
+1. **Localhost runtime verify + commit/push OrderTracking fix + chờ CD + VPS RV** — verify KhachLink 5002 order tracking page không freeze khi navigate away, polling dừng đúng cách. Commit `OrderTracking.razor` + `project_state.md`, push to main, chờ CD run done, RV trên VPS.
 2. **(Cosmetic) Replace remaining `?` in Checkout.razor** — 18/63 lines still have `?` (corrupted emojis from original content corruption, not encoding). Low priority.
 3. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
    - DevTools Application → Service Workers: SW `v11-phase3` active
@@ -246,6 +262,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-23 -- ORDER TRACKING FREEZE BUG FIX APPLIED.** Root cause DEFINITIVE: `OrderTracking.razor` thiếu `@implements IAsyncDisposable` → Blazor không gọi `DisposeAsync()` khi navigate away → polling loop `Task.Run(PollingLoopAsync)` leak vĩnh viễn, InvokeAsync(StateHasChanged) trên component đã disposed → renderer thread đơ (UI freeze). Secondary: `OnParametersSetAsync` không cancel CTS cũ trước khi reload → race condition trên `_publicOrder` field. Misdiagnosis trước đó ("isTabVisible luôn true gây treo") corrected — `isTabVisible` chỉ là display bug (spinner luôn hiện), không gây freeze. Fix 4 điểm trong `OrderTracking.razor`: (1) `@implements IAsyncDisposable` line 11 — fix cốt lõi; (2) cancel + dispose CTS cũ trong `OnParametersSetAsync` lines 283-292 — triệt tiêu race condition; (3) bỏ `Task.Run` line 469 — WASM single-thread, fire-and-forget trực tiếp; (4) exponential backoff trong `GetPollingInterval` lines 532-549 — 5s (first 30s) → configurable (30s–3min) → 30s (after 3min), terminal states vẫn return 0 (stop). Build `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings. Không sửa Domain layer. Không bypass UI Platform. Branch: `main`. Next: localhost runtime verify → commit/push → chờ CD → VPS RV order tracking page (verify polling dừng khi navigate away, không freeze).
 
 * **2026-07-23 -- FONT FIX COMPLETE + VPS VERIFIED (DEFINITIVE).** Root cause thật: 6 static files trong `5_WebApps/KhachLink/wwwroot/` bị double-encoding (UTF-8 → Win-1252 interpretation → re-encode UTF-8). Browser nhận HTML tĩnh TRƯỚC khi WASM load → mojibake từ loading screen. Affected: `index.html` (meta tags, loading text, reconnect indicator), `manifest.json` (app name, shortcuts), `service-worker.js` (comments), `js/pwa.js` (78 mojibake pairs), `js/cart-animation.js` (2 pairs), `css/themes/classic.css` (1 pair). Fix commit `d9e2728f`: read UTF-8 → encode Win-1252 → decode UTF-8 (reverses double-encoding). 0 mojibake pairs remaining. CD deployed. VPS RV PASS: HTML serve `Vạn An`, `Hệ thống đặt hàng thông minh`, `Vạn An đang tải...`, `Đang kết nối lại...`, `Mất kết nối` đúng; manifest `Vạn An Group - Đặt hàng nhanh`, `Đặt trà sữa`, `Đặt cà phê` đúng; SW comments `—` (em-dash) đúng; order tracking page 200 OK với Vietnamese đúng; WASM SHA256 `qv/EEHt7ARYn0kfjzJI/LNNRoOW2pjB3GeuQK0F+QEU=` match `blazor.boot.json`. **2 misdiagnoses trước đó corrected:** (1) "92 source files Win-1252" — sai, commits `88cf95e4`+`0d9b1709` no-op; (2) "Font VERIFIED via WASM bytes" — sai, chỉ check WASM không check HTML tĩnh. Branch: `main`. Next: fix `isTabVisible` freeze bug trong OrderTracking.razor.
 

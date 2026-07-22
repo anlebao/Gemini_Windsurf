@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject ShopFeatureSettingsHttpService FeatureSettings
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
+@implements IAsyncDisposable
 
 <PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
 
@@ -270,6 +271,7 @@
     private bool isPolling = false;
     private bool isTabVisible = true;
     private bool _pollingStopped = false; // W4: stops polling when order reaches final state
+    private DateTime _pollingStartedAt;   // Exponential backoff baseline
 
     // IdentityUpgradeModal — only shown when order reaches "delivered" status
     private bool _showUpgradeModal = false;
@@ -280,6 +282,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        // Cancel + dispose any existing polling loop before reloading.
+        // Prevents race condition on _publicOrder field between old loop and new load.
+        StopPolling();
+        if (_pollingCts != null)
+        {
+            await _pollingCts.CancelAsync();
+            _pollingCts.Dispose();
+            _pollingCts = null;
+        }
+
         isLoading = true;
         errorMessage = null;
         await LoadOrderFromGateway();
@@ -453,8 +465,10 @@
         _pollingCts = new CancellationTokenSource();
         _pollingStopped = false;
         isPolling = true;
+        _pollingStartedAt = DateTime.UtcNow;
 
-        _ = Task.Run(async () => await PollingLoopAsync(_pollingCts.Token));
+        // WASM is single-threaded — Task.Run is unnecessary; fire-and-forget the loop directly.
+        _ = PollingLoopAsync(_pollingCts.Token);
     }
 
     private void StopPolling()
@@ -464,9 +478,8 @@
     }
 
     /// <summary>
-    /// W4: Adaptive polling loop — interval changes based on order status.
-    /// pending/ready = 5s (need fast updates), confirmed/preparing = 10s (stable),
-    /// completed/delivered/cancelled = STOP (no more requests).
+    /// Adaptive polling loop with exponential backoff (see GetPollingInterval).
+    /// Terminal states (completed/delivered/cancelled) stop polling entirely.
     /// </summary>
     private async Task PollingLoopAsync(CancellationToken cancellationToken)
     {
@@ -517,20 +530,22 @@
     }
 
     /// <summary>
-    /// Returns configurable polling interval from ShopFeatureSettings (admin-configurable per tenant).
-    /// Returns 0 to signal "stop polling" for final states.
+    /// Adaptive polling interval with exponential backoff based on elapsed time since polling started.
+    /// Terminal states return 0 to stop polling entirely.
+    /// - First 30s: 5s (fast feedback right after order placement)
+    /// - 30s–3min: admin-configured interval (default 15s)
+    /// - After 3min: 30s (slow drift)
     /// </summary>
-    private int GetPollingInterval(string? status) => status switch
+    private int GetPollingInterval(string? status)
     {
-        "pending"   => _pollingIntervalSeconds,
-        "confirmed" => _pollingIntervalSeconds,
-        "preparing" => _pollingIntervalSeconds,
-        "ready"     => _pollingIntervalSeconds,
-        "completed" => 0,   // Hoàn thành — STOP polling
-        "delivered" => 0,   // Đã giao — STOP polling
-        "cancelled" => 0,   // Đã hủy — STOP polling
-        _           => _pollingIntervalSeconds  // Unknown — default to configured interval
-    };
+        // Terminal states — stop polling entirely
+        if (status is "completed" or "delivered" or "cancelled") return 0;
+
+        var elapsed = DateTime.UtcNow - _pollingStartedAt;
+        if (elapsed < TimeSpan.FromSeconds(30)) return 5;
+        if (elapsed < TimeSpan.FromMinutes(3)) return _pollingIntervalSeconds;
+        return 30;
+    }
 
     private async Task<bool> CheckTabVisibilityAsync()
     {
