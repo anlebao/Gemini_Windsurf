@@ -455,6 +455,20 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label for="edit-theme">Phong cách giao diện (KhachLink)</label>
+                    <select id="edit-theme" class="vanan-select" @bind="_editForm.Theme" aria-label="Phong cách giao diện">
+                        <option value="Classic">Classic — Cà phê truyền thống (kem nâu)</option>
+                        <option value="Modern">Modern — Tối giản hiện đại (trắng)</option>
+                        <option value="Teen">Teen — Trẻ trung (gradient hồng-tím)</option>
+                        <option value="Lady">Lady — Nữ tính (gradient hồng pastel)</option>
+                        <option value="Premium">Premium — Cao cấp (đen + vàng gold)</option>
+                    </select>
+                    <small class="text-muted">
+                        Áp dụng cho trang khách hàng KhachLink của tenant này.
+                        Mỗi phong cách đổi background, màu sắc, và vibe chung.
+                    </small>
+                </div>
+                <div class="form-group">
                     <label for="edit-shopinstance">ShopERP Instance *</label>
                     @if (_shopInstances.Any())
                     {
@@ -785,6 +799,7 @@
             SocialLinksFb = t.SocialLinksFb,
             SocialLinksTiktok = t.SocialLinksTiktok,
             BrandStory = t.BrandStory,
+            Theme = t.Theme,
             ShopInstanceId = t.ShopInstanceId
         };
         _showEditModal = true;
@@ -906,7 +921,8 @@
                 Longitude = _editForm.Longitude,
                 SocialLinksFb = string.IsNullOrWhiteSpace(_editForm.SocialLinksFb) ? null : _editForm.SocialLinksFb,
                 SocialLinksTiktok = string.IsNullOrWhiteSpace(_editForm.SocialLinksTiktok) ? null : _editForm.SocialLinksTiktok,
-                BrandStory = string.IsNullOrWhiteSpace(_editForm.BrandStory) ? null : _editForm.BrandStory
+                BrandStory = string.IsNullOrWhiteSpace(_editForm.BrandStory) ? null : _editForm.BrandStory,
+                Theme = _editForm.Theme
             });
 
             // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
@@ -1028,6 +1044,7 @@
         public string? SocialLinksFb { get; set; }
         public string? SocialLinksTiktok { get; set; }
         public string? BrandStory { get; set; }
+        public ThemeType Theme { get; set; } = ThemeType.Classic;
         public Guid? ShopInstanceId { get; set; }
     }
 

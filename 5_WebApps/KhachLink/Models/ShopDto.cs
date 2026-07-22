@@ -1,6 +1,7 @@
 namespace VanAn.KhachLink.Models;
 
 using System.Text.Json.Serialization;
+using VanAn.Shared.Domain;
 
 /// <summary>
 /// DTO for Shop data received from ShopERP via Gateway (GET /api/shops/by-tenant/{tenantId}).
@@ -33,6 +34,7 @@ public class ShopDto
     public string? SocialLinksTiktok { get; set; }
     public string? BrandStory { get; set; }
     public string? LogoUrl { get; set; }
+    public ThemeType Theme { get; set; } = ThemeType.Classic;
 }
 
 /// <summary>

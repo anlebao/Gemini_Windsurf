@@ -77,6 +77,8 @@ namespace VanAn.CoreHub.Services
             var socialFb = request.SocialLinksFb ?? existingSettings?.SocialLinksFb;
             var socialTiktok = request.SocialLinksTiktok ?? existingSettings?.SocialLinksTiktok;
             var brandStory = request.BrandStory ?? existingSettings?.BrandStory;
+            // Theme: preserve existing if request omits it (null = no change)
+            var theme = request.Theme ?? existingSettings?.Theme ?? ThemeType.Classic;
 
             var settings = new TenantSettings(
                 request.ContactEmail,
@@ -88,7 +90,8 @@ namespace VanAn.CoreHub.Services
                 slug: tenant.Settings?.Slug,
                 socialLinksFb: socialFb,
                 socialLinksTiktok: socialTiktok,
-                brandStory: brandStory);
+                brandStory: brandStory,
+                theme: theme);
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);

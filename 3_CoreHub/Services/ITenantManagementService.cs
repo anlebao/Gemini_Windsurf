@@ -58,5 +58,6 @@ namespace VanAn.CoreHub.Services
         double? Longitude = null,
         string? SocialLinksFb = null,
         string? SocialLinksTiktok = null,
-        string? BrandStory = null);
+        string? BrandStory = null,
+        ThemeType? Theme = null);
 }

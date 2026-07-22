@@ -30,6 +30,10 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         // Max 500 chars. Null = no story section.
         public string? BrandStory { get; private set; }
 
+        // Theme Customization (2026-07-22): KhachLink UI theme selected by SysAdmin.
+        // Stored as int in DB (ThemeType enum). Default Classic = 0.
+        public ThemeType Theme { get; private set; } = ThemeType.Classic;
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 
@@ -44,7 +48,8 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             string? slug = null,
             string? socialLinksFb = null,
             string? socialLinksTiktok = null,
-            string? brandStory = null)
+            string? brandStory = null,
+            ThemeType theme = ThemeType.Classic)
         {
             ContactEmail = contactEmail;
             ContactPhone = contactPhone;
@@ -57,31 +62,35 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             SocialLinksFb = socialLinksFb;
             SocialLinksTiktok = socialLinksTiktok;
             BrandStory = brandStory;
+            Theme = theme;
         }
 
         public TenantSettings WithContactEmail(string email)
-            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory);
+            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme);
 
         public TenantSettings WithContactPhone(string phone)
-            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory);
+            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme);
 
         public TenantSettings WithAddress(string address)
-            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory);
+            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme);
 
         public TenantSettings WithTaxCode(string taxCode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme);
 
         public TenantSettings WithCoordinates(double latitude, double longitude)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme);
 
         public TenantSettings WithSlug(string? slug)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme);
 
         public TenantSettings WithSocialLinks(string? fb, string? tiktok)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme);
 
         public TenantSettings WithBrandStory(string? story)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme);
+
+        public TenantSettings WithTheme(ThemeType theme)
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme);
 
         public static TenantSettings Empty() => new(null, null, null);
     }

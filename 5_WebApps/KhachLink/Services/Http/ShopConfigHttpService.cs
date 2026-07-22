@@ -110,7 +110,8 @@ namespace VanAn.KhachLink.Services.Http
                 Latitude = shop.Latitude,
                 Longitude = shop.Longitude,
                 SocialLinksFb = shop.SocialLinksFb,
-                SocialLinksTiktok = shop.SocialLinksTiktok
+                SocialLinksTiktok = shop.SocialLinksTiktok,
+                ActiveTheme = shop.Theme
             };
         }
     }

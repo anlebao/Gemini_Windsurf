@@ -50,7 +50,8 @@ namespace VanAn.Gateway.Controllers
                     Longitude: request.Longitude,
                     SocialLinksFb: request.SocialLinksFb,
                     SocialLinksTiktok: request.SocialLinksTiktok,
-                    BrandStory: request.BrandStory);
+                    BrandStory: request.BrandStory,
+                    Theme: request.Theme);
                 await _tenantService.UpdateProfileAsync(new TenantId(tenantId), profileRequest);
                 return Ok(new { success = true });
             }
@@ -125,6 +126,7 @@ namespace VanAn.Gateway.Controllers
             SocialLinksFb = t.Settings?.SocialLinksFb,
             SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
             BrandStory = t.Settings?.BrandStory,
+            Theme = t.Settings?.Theme ?? ThemeType.Classic,
             CreatedAt = t.CreatedAt
         };
     }
@@ -149,6 +151,7 @@ namespace VanAn.Gateway.Controllers
         public string? SocialLinksFb { get; init; }
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
+        public ThemeType Theme { get; init; } = ThemeType.Classic;
         public DateTime CreatedAt { get; init; }
     }
 
@@ -173,6 +176,7 @@ namespace VanAn.Gateway.Controllers
         public string? SocialLinksFb { get; init; }
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
+        public ThemeType? Theme { get; init; }
     }
 
     public record AssignShopInstanceRequest

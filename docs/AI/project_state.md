@@ -30,7 +30,39 @@
 
 ## 2. Current Objective
 
-**KhachLink PWA — SRI Hotfix + Full RT Verification — COMPLETE (2026-07-22)**
+**KhachLink Theme Customization — SysAdmin chọn 5 phong cách giao diện per tenant — COMPLETE (2026-07-22)**
+
+Feature cho phép SysAdmin chọn 1 trong 5 theme (Classic, Modern, Teen, Lady, Premium) cho mỗi tenant. Theme persist vào PostgreSQL, truyền qua API đến KhachLink, render cho cả KhachLink pages (Home, Cart, Checkout) và Store profile page (/store/{slug}).
+
+### Implementation (4 phases, 12 files modified, 1 migration created)
+
+**Phase 1 — Domain + EF + Migration:**
+- `TenantSettings.cs`: Thêm `ThemeType Theme` property + `WithTheme()` method + update 8 `With*` methods truyền Theme
+- `TenantConfiguration.cs`: Map `Settings_Theme` column (int, default 0=Classic)
+- Migration `20260722141255_AddTenantTheme`: `ALTER TABLE Tenants ADD COLUMN Settings_Theme integer NOT NULL DEFAULT 0`
+
+**Phase 2 — Service + Gateway API:**
+- `ITenantManagementService.cs`: `UpdateTenantProfileRequest` thêm `ThemeType? Theme` (nullable = preserve existing)
+- `TenantManagementService.cs`: `UpdateProfileAsync` apply `request.Theme ?? existingSettings?.Theme ?? Classic`
+- `TenantsController.cs`: `TenantDto` + `UpdateTenantProfileApiRequest` thêm Theme
+- `TenantStoreController.cs`: `TenantStoreDto` thêm Theme (anonymous endpoint cho KhachLink)
+- `TenantApiClient.cs` (ShopERP): `TenantApiDto` + `UpdateTenantProfileApiRequest` thêm Theme
+
+**Phase 3 — ShopERP Admin UI:**
+- `TenantManagement.razor`: Edit modal thêm dropdown 5 theme (vanan-select) với mô tả tiếng Việt. `EditForm` class + `OpenEditModal` + `HandleEditSubmit` thêm Theme field.
+
+**Phase 4 — KhachLink render theme:**
+- `ShopDto.cs`: Thêm `ThemeType Theme` property
+- `ShopConfigHttpService.cs`: `BuildShopConfigFromShop` set `ActiveTheme = shop.Theme`
+- `Store.razor`: Wrap content trong `.store-page theme-@GetThemeClass()`, thay hardcoded gradient `#ff9966→#ff5e62` bằng CSS variables (`--store-hero-gradient`, `--store-accent-gradient`, `--store-accent-color`). 5 theme class blocks define gradient per theme.
+
+**Build:** `dotnet build VanAn.sln` 0 errors. Unit tests `TenantManagementServiceTests` 10/10 PASS.
+
+**Status: COMPLETE. Build pass, unit tests pass. Ready for commit + deploy + runtime verification.**
+
+---
+
+**PREVIOUS OBJECTIVE — KhachLink PWA — SRI Hotfix + Full RT Verification — COMPLETE (2026-07-22)**
 
 SRI integrity mismatch hotfix deployed + full RT (runtime) test suite executed against live site `https://diemthuong.khachvip.online`. All 10 RT tests PASS. Covers Phase 1 (WASM), Phase 2 (SW caching), Phase 2b (online guard), Phase 3 SC5-SC8 (offline API fallback), SRI hotfix.
 
@@ -522,6 +554,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-22 -- KHACHLINK THEME CUSTOMIZATION (SYSADMIN → TENANT → KHACHLINK UI) COMPLETE.** Feature: SysAdmin chọn 1 trong 5 theme (Classic, Modern, Teen, Lady, Premium) per tenant. 4 phases, 12 files modified, 1 migration created. Phase 1 (Domain+EF+Migration): `TenantSettings.cs` thêm `ThemeType Theme` + `WithTheme()`, `TenantConfiguration.cs` map `Settings_Theme` (int, default 0), migration `20260722141255_AddTenantTheme` (`ALTER TABLE Tenants ADD COLUMN Settings_Theme integer NOT NULL DEFAULT 0`). Phase 2 (Service+API): `UpdateTenantProfileRequest` thêm `ThemeType? Theme` (nullable=preserve existing), `TenantManagementService.UpdateProfileAsync` apply `request.Theme ?? existingSettings?.Theme ?? Classic`, `TenantsController` + `TenantStoreController` + `TenantApiClient` DTOs thêm Theme. Phase 3 (Admin UI): `TenantManagement.razor` Edit modal thêm dropdown 5 theme (vanan-select) với mô tả tiếng Việt. Phase 4 (KhachLink render): `ShopDto.cs` thêm Theme, `ShopConfigHttpService.BuildShopConfigFromShop` set `ActiveTheme = shop.Theme`, `Store.razor` wrap content trong `.store-page theme-@GetThemeClass()`, thay hardcoded gradient `#ff9966→#ff5e62` bằng CSS variables (`--store-hero-gradient`, `--store-accent-gradient`, `--store-accent-color`), 5 theme class blocks define gradient per theme. Build PASS (0 errors). Unit tests `TenantManagementServiceTests` 10/10 PASS. Branch: `main`. Not yet committed — next: commit + push + CI + CD deploy + runtime verification (đổi theme admin → refresh KhachLink → thấy theme mới). Master plan: `docs/AI/tasks/khachlink_theme_customization_master_plan.md`.
 
 * **2026-07-22 -- KHACHLINK PWA PHASE 3 (OFFLINE API FALLBACK HARDENING) COMPLETE.** 1 file `5_WebApps/KhachLink/wwwroot/service-worker.js`. Fixed dead-code `dynamicCachePatterns` (was declared in Phase 2 but fetch handler used `startsWith('/api/')` — cached ALL API GETs including auth endpoints `/api/customers/me`, `/api/loyalty/my` → cross-user cache leak risk on shared devices). Now whitelist-based: 9 endpoint prefixes (`/api/tenants/search`, `/api/tenants/nearby`, `/api/tenants/by-slug/`, `/api/tenants/`, `/api/catalog/`, `/api/campaigns/`, `/api/products/`, `/api/public/orders/`, `/api/customerorders`); auth endpoints intentionally EXCLUDED. Corrected endpoints vs task card: `/api/public/orders/` (was `/api/orders/{id}`), `/api/customerorders` (was `/api/orders/history`); removed dead `/api/menu` (endpoint does not exist). Stale-while-revalidate for `/api/catalog/` + `/api/campaigns/`: fresh cache (< 24h) returns immediately with zero network hit, expired cache returns stale + background fetch. 24h cache expiration via `x-sw-cached-at` header + `stampResponse()`/`isExpired()` helpers. Cache version `v10-batched` → `v11-phase3`. Build PASS (0 errors, 0 warnings). guard-check.ps1 PASS (Windsurf Guard v6.0, Architecture Guard v1.0, Roslyn Analyzers, fast test gate). Branch: `main`. Not yet pushed — next: push + CI + browser RV (SC5-SC8 offline Store Finder/Home/Order Tracking/Order History). Phase 4 (offline write queue) remains DESCOPE.
 

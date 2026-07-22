@@ -192,7 +192,8 @@ namespace VanAn.Gateway.Controllers
             SocialLinksFb = t.Settings?.SocialLinksFb,
             SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
             BrandStory = t.Settings?.BrandStory,
-            LogoUrl = t.Settings?.LogoUrl
+            LogoUrl = t.Settings?.LogoUrl,
+            Theme = t.Settings?.Theme ?? ThemeType.Classic
         };
 
         private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
@@ -223,5 +224,6 @@ namespace VanAn.Gateway.Controllers
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
         public string? LogoUrl { get; init; }
+        public ThemeType Theme { get; init; } = ThemeType.Classic;
     }
 }

@@ -67,6 +67,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 settings.Property(s => s.SocialLinksFb).HasColumnName("Settings_SocialLinksFb").HasMaxLength(500);
                 settings.Property(s => s.SocialLinksTiktok).HasColumnName("Settings_SocialLinksTiktok").HasMaxLength(500);
                 settings.Property(s => s.BrandStory).HasColumnName("Settings_BrandStory").HasMaxLength(500);
+                // Theme Customization (2026-07-22): KhachLink UI theme (enum → int, default Classic=0)
+                settings.Property(s => s.Theme)
+                    .HasColumnName("Settings_Theme")
+                    .HasConversion<int>()
+                    .HasDefaultValue(ThemeType.Classic);
             });
 
             // Audit fields from BaseEntity

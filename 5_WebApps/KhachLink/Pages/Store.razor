@@ -39,6 +39,7 @@ else if (_store is null)
 }
 else
 {
+    <div class="store-page theme-@GetThemeClass()">
     <!-- ════════════════════════════════════════════════════════════════════
          HERO SECTION — full-width banner with brand name + story
          (inspired by tocotocotea.com hero)
@@ -236,6 +237,7 @@ else
             <p class="powered-by">Powered by <strong>KhachLink</strong></p>
         </footer>
     </div>
+    </div>
 }
 
 <style>
@@ -275,7 +277,7 @@ else
         min-height: 70vh;
         display: flex; align-items: center; justify-content: center;
         text-align: center;
-        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+        background: var(--store-hero-gradient, linear-gradient(135deg, #ff9966 0%, #ff5e62 100%));
         color: white;
         padding: 4rem 1.5rem;
         overflow: hidden;
@@ -347,7 +349,7 @@ else
     }
     .btn-cta {
         background: white;
-        color: #ff5e62;
+        color: var(--store-accent-color, #ff5e62);
         box-shadow: 0 8px 24px rgba(0,0,0,0.2);
     }
     .btn-cta:hover {
@@ -385,14 +387,14 @@ else
     .section-icon {
         display: inline-flex; align-items: center; justify-content: center;
         width: 48px; height: 48px;
-        background: linear-gradient(135deg, #ff9966, #ff5e62);
+        background: var(--store-accent-gradient, linear-gradient(135deg, #ff9966, #ff5e62));
         color: white;
         border-radius: 14px;
         font-size: 1.5rem;
     }
     .section-divider {
         width: 80px; height: 4px;
-        background: linear-gradient(90deg, #ff9966, #ff5e62);
+        background: var(--store-accent-gradient, linear-gradient(90deg, #ff9966, #ff5e62));
         border-radius: 2px;
         margin: 1rem auto 0;
     }
@@ -448,7 +450,7 @@ else
         margin-bottom: 0.75rem;
     }
     .campaign-cta {
-        color: #ff5e62;
+        color: var(--store-accent-color, #ff5e62);
         font-weight: 600;
         font-size: 0.9rem;
         display: inline-flex; align-items: center; gap: 0.4rem;
@@ -487,7 +489,37 @@ else
     }
     .store-footer p { margin: 0.25rem 0; }
     .powered-by { font-size: 0.85rem; }
-    .powered-by strong { color: #ff5e62; }
+    .powered-by strong { color: var(--store-accent-color, #ff5e62); }
+
+    /* ── THEME VARIABLES ─────────────────────────────────────────────── */
+    /* Each theme defines gradient + accent color variables used by
+       .store-hero, .section-icon, .section-divider, .btn-cta, .campaign-cta.
+       Applied via .store-page wrapper class (set from _shopConfig.ActiveTheme). */
+    .theme-classic {
+        --store-hero-gradient: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+        --store-accent-gradient: linear-gradient(135deg, #8B4513, #D2691E);
+        --store-accent-color: #8B4513;
+    }
+    .theme-modern {
+        --store-hero-gradient: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        --store-accent-gradient: linear-gradient(135deg, #2c3e50, #3498db);
+        --store-accent-color: #2c3e50;
+    }
+    .theme-teen {
+        --store-hero-gradient: linear-gradient(135deg, #ff6b9d 0%, #c44dff 100%);
+        --store-accent-gradient: linear-gradient(135deg, #ff6b9d, #c44dff);
+        --store-accent-color: #c44dff;
+    }
+    .theme-lady {
+        --store-hero-gradient: linear-gradient(135deg, #f8a5c2 0%, #fbc5d8 100%);
+        --store-accent-gradient: linear-gradient(135deg, #f8a5c2, #fbc5d8);
+        --store-accent-color: #d63384;
+    }
+    .theme-premium {
+        --store-hero-gradient: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+        --store-accent-gradient: linear-gradient(135deg, #f0e68c, #daa520);
+        --store-accent-color: #f0e68c;
+    }
 
     /* ── RESPONSIVE ──────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
@@ -512,6 +544,15 @@ else
     private List<ProductDto> _products = new();
     private List<VanAn.Shared.Domain.SocialCampaign> _campaigns = new();
     private bool _campaignLoading = true;
+
+    private string GetThemeClass() => _shopConfig?.ActiveTheme switch
+    {
+        ThemeType.Modern => "modern",
+        ThemeType.Teen => "teen",
+        ThemeType.Lady => "lady",
+        ThemeType.Premium => "premium",
+        _ => "classic"
+    };
 
     protected override async Task OnInitializedAsync()
     {
