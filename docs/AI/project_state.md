@@ -30,7 +30,38 @@
 
 ## 2. Current Objective
 
-**KhachLink PWA Phase 3 — Offline API Fallback Hardening — COMPLETE (2026-07-22)**
+**KhachLink PWA — SRI Hotfix + Full RT Verification — COMPLETE (2026-07-22)**
+
+SRI integrity mismatch hotfix deployed + full RT (runtime) test suite executed against live site `https://diemthuong.khachvip.online`. All 10 RT tests PASS. Covers Phase 1 (WASM), Phase 2 (SW caching), Phase 2b (online guard), Phase 3 SC5-SC8 (offline API fallback), SRI hotfix.
+
+### SRI Hotfix (commit `0bb404e9`, 2 files)
+- **Root cause:** After deploys, browser blocked `VanAn.KhachLink.wasm` + `VanAn.Shared.wasm` with "Failed to find a valid digest in the integrity attribute" — stale cached wasm (old build) served with fresh `blazor.boot.json` (new integrity hashes).
+- **Fix `service-worker.js`:** WASM/DLL fetch handler cache-first → network-first + cache fallback. Added `activate` event to delete stale caches from old SW versions. Cache version `v11-phase3` → `v12-sri-fix`.
+- **Fix `nginx.conf`:** `/_framework/` cache header `immutable, max-age=31536000` → `no-cache, must-revalidate` (wasm filenames NOT content-hashed).
+
+### RT Test Results (10/10 PASS, live site, 2026-07-22)
+Test spec: `6_Testing/e2e-tests/khachlink-pwa-offline-rt.spec.ts` | Config: `6_Testing/playwright-rt.config.ts`
+
+| # | Test ID | Phase | Result | Time |
+|---|---------|-------|--------|------|
+| 1 | RT-SRI-01 | SRI+P1 | PASS — App loads, no SRI integrity errors, Blazor error UI not visible | 11.9s |
+| 2 | RT-SRI-02 | SRI+P1 | PASS — VanAn.KhachLink.wasm + VanAn.Shared.wasm both 200 (not blocked) | 10.8s |
+| 3 | RT-SW-01 | P2 | PASS — Service worker registered, state=activated, scriptURL=service-worker.js | 8.1s |
+| 4 | RT-SW-02 | P2 | PASS — WASM cache populated, old caches (v10-batched, v11-phase3) deleted | 13.3s |
+| 5 | RT-SC5 | P3 | PASS — Offline Store Finder: page loads from cache, content visible | 16.3s |
+| 6 | RT-SC6 | P3 | PASS — Offline Home: page loads from cache, content visible | 16.5s |
+| 7 | RT-SC7 | P3 | PASS — Offline Order Tracking: WASM renders from cache | 16.0s |
+| 8 | RT-SC8 | P3 | PASS — Offline Order History: page loads from cache, content visible | 16.3s |
+| 9 | RT-ONLINE-01 | P2b | PASS — navigator.onLine=false when offline, app renders for browsing | 12.1s |
+| 10 | RT-SEC-01 | P3 | PASS — Auth endpoints NOT in dynamic cache (no cross-user leak risk) | 26.0s |
+
+**CD:** GitHub Actions CD run `29901024876` — Build & Push Images SUCCESS, Pre-Deploy Validation SUCCESS, Deploy to VPS SUCCESS.
+
+**Status: COMPLETE. Pushed, CD deployed, RT verified 10/10 PASS.**
+
+---
+
+**PREVIOUS OBJECTIVE — KhachLink PWA Phase 3 — Offline API Fallback Hardening — COMPLETE (2026-07-22)**
 
 Phase 3 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Hardens the service worker's offline API fallback: whitelist-based cache patterns, stale-while-revalidate for catalog/campaigns, 24h cache expiration. Fixes dead-code `dynamicCachePatterns` (was declared but never used in Phase 2 — fetch handler cached ALL `/api/*` GETs including auth endpoints).
 
@@ -66,17 +97,7 @@ Phase 3 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Hardens the ser
 
 **Build:** `dotnet build VanAn.sln` 0 errors, 0 warnings. guard-check.ps1 PASS (Windsurf Guard, Architecture Guard, Roslyn Analyzers, fast test gate).
 
-**Status: COMPLETE. Not yet pushed. Next: push + CI + browser RV.**
-
-### Next: Browser manual RV for Phase 3
-Per task card SC5-SC8, verify on `https://diemthuong.khachvip.online` after push + CD:
-- SC5: Offline Store Finder → cached stores show
-- SC6: Offline Home → cached catalog + campaigns show
-- SC7: Offline Order Tracking → cached order shows
-- SC8: Offline Order History → cached orders show
-- SW `v11-phase3` active in DevTools → Application → Service Workers
-- Cache Storage: `vanan-dynamic-v11-phase3` populated with whitelisted API responses
-- Verify auth endpoints (`/api/customers/me`) are NOT in dynamic cache
+**Status: COMPLETE. Pushed, CI PASS, CD deployed, RT 10/10 PASS.**
 
 ---
 
