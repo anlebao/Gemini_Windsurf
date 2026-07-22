@@ -1,4 +1,4 @@
-// Van An PWA JavaScript Helper - Phase 2.5.1
+﻿// Van An PWA JavaScript Helper - Phase 2.5.1
 // Handles PWA installation, notifications, and offline capabilities
 
 window.vananPWA = {
@@ -25,7 +25,7 @@ window.vananPWA = {
                 // Auto-reload when new service worker takes control (purges stale cache)
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.addEventListener('controllerchange', () => {
-                        console.log('Service Worker controller changed — reloading to purge stale cache');
+                        console.log('Service Worker controller changed â€” reloading to purge stale cache');
                         window.location.reload();
                     });
                 }
@@ -80,10 +80,10 @@ window.vananPWA = {
             }
         }
 
-        // iOS Safari: no beforeinstallprompt support — show instructions
+        // iOS Safari: no beforeinstallprompt support â€” show instructions
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (isIOS) {
-            alert('Để cài đặt app Vạn An trên iPhone:\n\n1. Nhấn nút Share (hình vuông có mũi tên lên) ở thanh công cụ Safari\n2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen)\n3. Nhấn "Thêm" (Add)');
+            alert('Äá»ƒ cÃ i Ä‘áº·t app Váº¡n An trÃªn iPhone:\n\n1. Nháº¥n nÃºt Share (hÃ¬nh vuÃ´ng cÃ³ mÅ©i tÃªn lÃªn) á»Ÿ thanh cÃ´ng cá»¥ Safari\n2. Chá»n "ThÃªm vÃ o MÃ n hÃ¬nh chÃ­nh" (Add to Home Screen)\n3. Nháº¥n "ThÃªm" (Add)');
             return false;
         }
 
@@ -93,10 +93,10 @@ window.vananPWA = {
         // returning false silently so the user gets actionable feedback.
         const isAndroid = /Android/i.test(navigator.userAgent);
         if (isAndroid) {
-            alert('Để cài đặt app Vạn An trên Android:\n\n1. Nhấn nút menu (⋮) ở góc trên bên phải Chrome\n2. Chọn "Thêm vào màn hình chính" (Add to Home screen)\n3. Nhấn "Thêm" (Add)');
+            alert('Äá»ƒ cÃ i Ä‘áº·t app Váº¡n An trÃªn Android:\n\n1. Nháº¥n nÃºt menu (â‹®) á»Ÿ gÃ³c trÃªn bÃªn pháº£i Chrome\n2. Chá»n "ThÃªm vÃ o mÃ n hÃ¬nh chÃ­nh" (Add to Home screen)\n3. Nháº¥n "ThÃªm" (Add)');
         } else {
             // Desktop Chrome/Edge
-            alert('Để cài đặt app Vạn An trên máy tính:\n\n1. Nhấn nút menu (⋮ hoặc ...) ở góc trên bên phải trình duyệt\n2. Chọn "Cài đặt Vạn An..." (Install Vạn An...) hoặc "Cài đặt ứng dụng"\n3. Xác nhận cài đặt');
+            alert('Äá»ƒ cÃ i Ä‘áº·t app Váº¡n An trÃªn mÃ¡y tÃ­nh:\n\n1. Nháº¥n nÃºt menu (â‹® hoáº·c ...) á»Ÿ gÃ³c trÃªn bÃªn pháº£i trÃ¬nh duyá»‡t\n2. Chá»n "CÃ i Ä‘áº·t Váº¡n An..." (Install Váº¡n An...) hoáº·c "CÃ i Ä‘áº·t á»©ng dá»¥ng"\n3. XÃ¡c nháº­n cÃ i Ä‘áº·t');
         }
         return false;
     },
@@ -340,7 +340,7 @@ window.applyThemeClass = (themeClass) => {
 };
 
 // ============================================================================
-// IMMEDIATE EVENT LISTENERS — registered on script load, NOT waiting for Blazor.
+// IMMEDIATE EVENT LISTENERS â€” registered on script load, NOT waiting for Blazor.
 // Race condition fix: Chrome fires `beforeinstallprompt` right after evaluating
 // manifest.json (during page load), but Blazor WASM takes 3-5s to boot before
 // calling setupEventListeners(). By then the event is already gone.
@@ -355,7 +355,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // (only when the browser confirms the app is installable)
     if (window.vananPWA.dotNetRef) {
         window.vananPWA.dotNetRef.invokeMethodAsync('HandleBeforeInstallPromptFired')
-            .catch(() => { /* Blazor not ready yet — prompt will show on next render */ });
+            .catch(() => { /* Blazor not ready yet â€” prompt will show on next render */ });
     }
 });
 

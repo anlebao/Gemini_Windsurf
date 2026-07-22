@@ -1,9 +1,9 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 {
     /// <summary>
-    /// Raised when a new Tenant is created — triggers welcome email — Wave 5
+    /// Raised when a new Tenant is created â€” triggers welcome email â€” Wave 5
     /// </summary>
     public sealed record TenantCreatedEvent(
         Guid TenantId,
@@ -15,7 +15,7 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
     }
 
     /// <summary>
-    /// Raised when a Tenant is suspended — Wave 5
+    /// Raised when a Tenant is suspended â€” Wave 5
     /// </summary>
     public sealed record TenantSuspendedEvent(
         Guid TenantId,
@@ -26,7 +26,7 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
     }
 
     /// <summary>
-    /// Raised when a Tenant is permanently deactivated — Wave 5
+    /// Raised when a Tenant is permanently deactivated â€” Wave 5
     /// </summary>
     public sealed record TenantDeactivatedEvent(
         Guid TenantId,
@@ -38,7 +38,7 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 
     /// <summary>
     /// Raised when an HKD tenant is converted to a DN tenant (D9 Option B).
-    /// Wave 2: Domain event only — outbox handler/consumer is W8 scope.
+    /// Wave 2: Domain event only â€” outbox handler/consumer is W8 scope.
     /// </summary>
     public sealed record TenantConvertedEvent(
         Guid TenantId,           // HKD tenant being converted

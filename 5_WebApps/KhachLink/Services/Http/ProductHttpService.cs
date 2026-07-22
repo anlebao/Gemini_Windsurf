@@ -1,11 +1,11 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using VanAn.KhachLink.Models;
 
 namespace VanAn.KhachLink.Services.Http
 {
     /// <summary>
     /// Thin HTTP client for ShopERP product catalog API.
-    /// KhachLink calls Gateway/shoperp/api/products — YARP forwards to ShopERP.
+    /// KhachLink calls Gateway/shoperp/api/products â€” YARP forwards to ShopERP.
     /// </summary>
     public class ProductHttpService(IHttpClientFactory httpClientFactory, ILogger<ProductHttpService> logger)
     {
@@ -33,7 +33,7 @@ namespace VanAn.KhachLink.Services.Http
         }
 
         /// <summary>
-        /// Bug 3: Get products grouped by tenant — top 5 tenants, 1-2 products each.
+        /// Bug 3: Get products grouped by tenant â€” top 5 tenants, 1-2 products each.
         /// </summary>
         public async Task<List<ProductDto>> GetProductsGroupedByTenantAsync(int tenantsCount = 5, int productsPerTenant = 2)
         {

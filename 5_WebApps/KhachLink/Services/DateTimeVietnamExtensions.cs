@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 
 namespace VanAn.KhachLink.Services;
 
 /// <summary>
 /// Extension methods for DateTime formatting in Vietnam timezone (ICT, UTC+7).
-/// Issue 8: Server stores UTC time, but UI displayed raw UTC → wrong time for Vietnam users.
-/// These extensions convert UTC → Vietnam time before formatting.
+/// Issue 8: Server stores UTC time, but UI displayed raw UTC â†’ wrong time for Vietnam users.
+/// These extensions convert UTC â†’ Vietnam time before formatting.
 /// </summary>
 public static class DateTimeVietnamExtensions
 {

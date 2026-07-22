@@ -1,4 +1,4 @@
-namespace VanAn.Shared.DTOs
+﻿namespace VanAn.Shared.DTOs
 {
     /// <summary>
     /// QR code data structure for product scanning
@@ -10,13 +10,13 @@ namespace VanAn.Shared.DTOs
         public Guid ShopId { get; set; }
         public long Timestamp { get; set; }
         /// <summary>
-        /// W3-T7: Optional table number — only included when QR_TableNumber_Enabled = ON.
-        /// Null when toggle OFF (backward compat — old QR codes still scan correctly).
+        /// W3-T7: Optional table number â€” only included when QR_TableNumber_Enabled = ON.
+        /// Null when toggle OFF (backward compat â€” old QR codes still scan correctly).
         /// </summary>
         public string? TableNumber { get; set; }
 
         /// <summary>Phase 5: Product unit price snapshot at QR print time. 0 for legacy QR codes
-        /// (printed before Phase 5) — Scan.razor falls back to API call when 0.</summary>
+        /// (printed before Phase 5) â€” Scan.razor falls back to API call when 0.</summary>
         public decimal UnitPrice { get; set; }
 
         /// <summary>Phase 5: VAT rate snapshot at QR print time. 0 for legacy QR codes.</summary>
@@ -27,7 +27,7 @@ namespace VanAn.Shared.DTOs
         public string? ProductName { get; set; }
 
         /// <summary>Phase 5: Tenant ID that owns this product. Guid.Empty for legacy QR codes.
-        /// Required for multi-tenant cart grouping — without it, checkout can't route items to the correct tenant.</summary>
+        /// Required for multi-tenant cart grouping â€” without it, checkout can't route items to the correct tenant.</summary>
         public Guid TenantId { get; set; }
 
         /// <summary>
@@ -63,7 +63,7 @@ namespace VanAn.Shared.DTOs
         }
 
         /// <summary>
-        /// Phase 5: Full constructor with TenantId — required for multi-tenant cart grouping.
+        /// Phase 5: Full constructor with TenantId â€” required for multi-tenant cart grouping.
         /// Use this overload when generating new QR codes so Scan.razor can add to cart without ANY API call.
         /// </summary>
         public QRCodePayload(Guid productId, Guid shopId, string? tableNumber,
@@ -90,7 +90,7 @@ namespace VanAn.Shared.DTOs
         }
 
         /// <summary>
-        /// Parse QR content — supports both raw JSON (legacy) and URL format (Zalo-compatible).
+        /// Parse QR content â€” supports both raw JSON (legacy) and URL format (Zalo-compatible).
         /// URL format: https://diemthuong.khachvip.online/scan?data={base64(json)}
         /// </summary>
         public static QRCodePayload? FromJson(string qrContent)
@@ -101,7 +101,7 @@ namespace VanAn.Shared.DTOs
                 if (qrContent.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
                     var uri = new Uri(qrContent);
-                    // Parse query string manually (avoid System.Web.HttpUtility — not reliable on Linux)
+                    // Parse query string manually (avoid System.Web.HttpUtility â€” not reliable on Linux)
                     string query = uri.Query.TrimStart('?');
                     string? dataParam = null;
                     foreach (string pair in query.Split('&'))

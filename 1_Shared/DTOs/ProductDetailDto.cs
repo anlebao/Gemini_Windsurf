@@ -1,7 +1,7 @@
-namespace VanAn.Shared.DTOs
+﻿namespace VanAn.Shared.DTOs
 {
     /// <summary>
-    /// Product detail DTO — API response shape for product management endpoints.
+    /// Product detail DTO â€” API response shape for product management endpoints.
     /// Maps from <see cref="VanAn.Shared.Domain.Product"/> domain entity.
     /// </summary>
     public class ProductDetailDto

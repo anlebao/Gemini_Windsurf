@@ -1,4 +1,4 @@
-@inject IHttpClientFactory HttpClientFactory
+﻿@inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Extensions
@@ -9,7 +9,7 @@
         <div class="spinner-border spinner-border-sm" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
-        <span class="ms-2">Đang tải giao diện...</span>
+        <span class="ms-2">Äang táº£i giao diá»‡n...</span>
     </div>
 }
 else if (ShopConfig != null)
@@ -105,7 +105,7 @@ else if (ShopConfig != null)
 
     protected override async Task OnInitializedAsync()
     {
-        // P4 FIX: Only load HTTP data here — JSRuntime is NOT available during prerender.
+        // P4 FIX: Only load HTTP data here â€” JSRuntime is NOT available during prerender.
         // JS interop calls (updatePageTitle, applyThemeClass) moved to OnAfterRenderAsync.
         await LoadShopConfigAsync();
     }
@@ -131,7 +131,7 @@ else if (ShopConfig != null)
             ShopConfig = new ShopConfig
             {
                 TenantId = ShopId,
-                ShopName = "Vạn An Group",
+                ShopName = "Váº¡n An Group",
                 PrimaryColor = "#8B4513",
                 SecondaryColor = "#FFA500",
                 LogoUrl = new Uri("/favicon.png", UriKind.Relative),
@@ -149,17 +149,17 @@ else if (ShopConfig != null)
     {
         if (firstRender && ShopConfig != null)
         {
-            // P4 FIX: JSRuntime calls moved here — only available after hydration.
+            // P4 FIX: JSRuntime calls moved here â€” only available after hydration.
             try
             {
-                var displayTitle = ShopConfig?.ShopName ?? "Vạn An Group";
+                var displayTitle = ShopConfig?.ShopName ?? "Váº¡n An Group";
                 await JSRuntime.InvokeVoidAsync("updatePageTitle", displayTitle);
 
                 await JSRuntime.InvokeVoidAsync("applyThemeClass", $"theme-{(ShopConfig?.ActiveTheme ?? ThemeType.Classic).ToCssClass()}");
             }
             catch (Exception)
             {
-                // JS interop may fail if JS functions not defined — non-fatal
+                // JS interop may fail if JS functions not defined â€” non-fatal
             }
         }
     }

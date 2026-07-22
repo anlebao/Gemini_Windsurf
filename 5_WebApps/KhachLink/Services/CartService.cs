@@ -1,4 +1,4 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 using System.Text.Json;
 using VanAn.KhachLink.Models;
 using VanAn.Shared.Domain;
@@ -73,7 +73,7 @@ namespace VanAn.KhachLink.Services
 
         /// <summary>
         /// Phase 5: Add a pre-constructed CartItem directly (used by partial cart clear
-        /// after multi-tenant checkout — items from failed tenants are re-added for retry).
+        /// after multi-tenant checkout â€” items from failed tenants are re-added for retry).
         /// </summary>
         public async Task AddItemAsync(CartItem item)
         {

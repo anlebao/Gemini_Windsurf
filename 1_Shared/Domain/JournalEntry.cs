@@ -1,4 +1,4 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain
 {
@@ -27,7 +27,7 @@ namespace VanAn.Shared.Domain
         private JournalEntry() { }
 #pragma warning restore CS8618
 
-        // ✅ FIXED: Add Create static method for TemplateFactory compatibility
+        // âœ… FIXED: Add Create static method for TemplateFactory compatibility
         public static JournalEntry Create(
             TenantId tenantId,
             string accountNumber,

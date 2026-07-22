@@ -1,10 +1,10 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain
 {
     /// <summary>
     /// Phase 6 (Admin UI): Value object for FeaturedProduct business key.
-    /// Follows Single-Identity Pattern — ignored in EF config (Id = PK only).
+    /// Follows Single-Identity Pattern â€” ignored in EF config (Id = PK only).
     /// </summary>
     public record FeaturedProductId(Guid Value)
     {
@@ -36,7 +36,7 @@ namespace VanAn.Shared.Domain
         /// <summary>Marketing image URL.</summary>
         public string? ImageUrl { get; protected set; }
 
-        /// <summary>Display price (may differ from actual — show "from" price).</summary>
+        /// <summary>Display price (may differ from actual â€” show "from" price).</summary>
         public decimal DisplayPrice { get; protected set; }
 
         /// <summary>VAT rate snapshot at time of featuring (e.g., 0.10 = 10%).

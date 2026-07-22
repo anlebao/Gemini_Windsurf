@@ -1,4 +1,4 @@
-using VanAn.Shared.Domain;
+﻿using VanAn.Shared.Domain;
 
 namespace VanAn.Shared.DTOs
 {
@@ -28,7 +28,7 @@ namespace VanAn.Shared.DTOs
         public IndustrySector? IndustrySector { get; set; }
 
         /// <summary>
-        /// Alias for TransactionDate — used in form submission
+        /// Alias for TransactionDate â€” used in form submission
         /// </summary>
         public DateTime Date
         {

@@ -1,4 +1,4 @@
-@using VanAn.UI.Platform.Components.Atomic
+﻿@using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
@@ -13,7 +13,7 @@
             <VanAnButton Variant="ButtonVariant.Error" 
                        Size="ButtonSize.Small"
                        OnClick="StopRecording">
-                ⏹️ @LocalizationService.GetString("Voice.StopRecording")
+                â¹ï¸ @LocalizationService.GetString("Voice.StopRecording")
             </VanAnButton>
         </div>
     }
@@ -23,7 +23,7 @@
             <VanAnButton Variant="ButtonVariant.Primary" 
                        OnClick="StartRecording"
                        Disabled="string.IsNullOrEmpty(currentOrderId)">
-                🎤 @LocalizationService.GetString("Voice.StartRecording")
+                ðŸŽ¤ @LocalizationService.GetString("Voice.StartRecording")
             </VanAnButton>
             <select class="language-select" @bind="selectedLanguage" @bind:after="OnLanguageChanged">
                 <option value="vi">@LocalizationService.GetString("Voice.Vietnamese")</option>

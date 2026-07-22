@@ -1,5 +1,5 @@
-// Cart fly-to-cart animation
-// Called from Blazor AddToCart — clones product image and animates to cart icon
+﻿// Cart fly-to-cart animation
+// Called from Blazor AddToCart â€” clones product image and animates to cart icon
 window.vananFlyToCart = function (sourceElementId, cartIconSelector) {
     try {
         var sourceEl = document.getElementById(sourceElementId);
@@ -16,7 +16,7 @@ window.vananFlyToCart = function (sourceElementId, cartIconSelector) {
         }
         if (!sourceEl) return false;
 
-        var cartEl = document.querySelector(cartIconSelector || 'a[href="/cart"] .bi-cart3, a[aria-label="Giỏ hàng"] .bi-cart3, .header-icon-btn .bi-cart3');
+        var cartEl = document.querySelector(cartIconSelector || 'a[href="/cart"] .bi-cart3, a[aria-label="Giá» hÃ ng"] .bi-cart3, .header-icon-btn .bi-cart3');
         if (!cartEl) {
             // Fallback: find any cart icon
             cartEl = document.querySelector('.bi-cart3');

@@ -1,8 +1,8 @@
-namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
+﻿namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 {
     /// <summary>
-    /// Value object for tenant configuration settings — Wave 5
-    /// Owned entity — stored in Tenants table (no separate table needed)
+    /// Value object for tenant configuration settings â€” Wave 5
+    /// Owned entity â€” stored in Tenants table (no separate table needed)
     /// </summary>
     public class TenantSettings
     {
@@ -12,7 +12,7 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         public string? LogoUrl { get; private set; }
         public string? TaxCode { get; private set; }
 
-        // Store Finder — geographic coordinates (migrated from Shop entity, 2026-07-21)
+        // Store Finder â€” geographic coordinates (migrated from Shop entity, 2026-07-21)
         public double? Latitude { get; private set; }
         public double? Longitude { get; private set; }
 

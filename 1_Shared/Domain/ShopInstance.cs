@@ -1,12 +1,12 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain
 {
     /// <summary>
     /// Phase 1 (Multi-VPS Checkout): Represents a ShopERP hosting instance.
-    /// Platform-level routing entity — maps tenants to the VPS that hosts their ShopERP.
+    /// Platform-level routing entity â€” maps tenants to the VPS that hosts their ShopERP.
     /// Not a business aggregate; no business key VO. Follows Single-Identity Pattern (Id = PK only).
-    /// TenantId is set to a platform sentinel (Guid.Empty) — this entity is NOT tenant-scoped.
+    /// TenantId is set to a platform sentinel (Guid.Empty) â€” this entity is NOT tenant-scoped.
     /// Query with <c>IgnoreQueryFilters()</c> to bypass the multi-tenancy query filter.
     /// </summary>
     public class ShopInstance : BaseEntity

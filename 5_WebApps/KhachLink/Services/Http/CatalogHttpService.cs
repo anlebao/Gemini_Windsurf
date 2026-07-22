@@ -1,11 +1,11 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using VanAn.KhachLink.Models;
 
 namespace VanAn.KhachLink.Services.Http
 {
     /// <summary>
     /// Phase 6: Thin HTTP client for Gateway catalog recommended API.
-    /// Calls GET /api/catalog/recommended — public endpoint (no auth required).
+    /// Calls GET /api/catalog/recommended â€” public endpoint (no auth required).
     /// Returns union of FeaturedProducts + customer purchase history.
     /// </summary>
     public class CatalogHttpService(IHttpClientFactory httpClientFactory, ILogger<CatalogHttpService> logger)

@@ -1,7 +1,7 @@
-namespace VanAn.Shared.DTOs
+﻿namespace VanAn.Shared.DTOs
 {
     /// <summary>
-    /// R2-0c: Shared display DTO for order items — used by OrderSummaryCard component.
+    /// R2-0c: Shared display DTO for order items â€” used by OrderSummaryCard component.
     /// Decouples UI.Platform from domain entities and page-specific DTOs.
     /// Consumers map their items (CartItem, OrderItem, OrderItemDto) to this DTO.
     /// </summary>

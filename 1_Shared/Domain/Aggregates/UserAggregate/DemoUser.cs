@@ -1,15 +1,15 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain.Aggregates.UserAggregate
 {
     /// <summary>
-    /// DemoUser Aggregate Root — Rich Domain Model.
+    /// DemoUser Aggregate Root â€” Rich Domain Model.
     /// Replaces the anemic <see cref="VanAn.Shared.Domain.DemoUser"/> class (marked [Obsolete] in Domain.cs).
     /// Wave 6: God File split + lifecycle management.
     /// </summary>
     public class DemoUser : AggregateRoot
     {
-        // ── Identity & Profile ─────────────────────────────────────────────────
+        // â”€â”€ Identity & Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         public string Username { get; private set; } = string.Empty;
         public string PasswordHash { get; private set; } = string.Empty;
         public string DisplayName { get; private set; } = string.Empty;
@@ -39,7 +39,7 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
             IsActive = true;
         }
 
-        // ── Factory ────────────────────────────────────────────────────────────
+        // â”€â”€ Factory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         /// <summary>Creates a new user and raises <see cref="UserCreatedEvent"/>.</summary>
         public static DemoUser Create(TenantId tenantId, string username, string passwordHash, string displayName, UserRole role)
         {
@@ -54,7 +54,7 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
             return user;
         }
 
-        // ── Domain Methods ─────────────────────────────────────────────────────
+        // â”€â”€ Domain Methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         /// <summary>Deactivate this user. Domain-level guard only checks current state.</summary>
         public void Deactivate()
         {

@@ -1,4 +1,4 @@
-@* VanAMetricsCard Component - Phase 2.5.3: ShopERP Dashboard *@
+﻿@* VanAMetricsCard Component - Phase 2.5.3: ShopERP Dashboard *@
 @inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
 
 <div class="vanan-metrics-card @GetColorClass()" @attributes="AdditionalAttributes">
@@ -68,6 +68,6 @@
     {
         if (string.IsNullOrEmpty(Trend)) return string.Empty;
         
-        return Trend.StartsWith("+") ? "📈" : "📉";
+        return Trend.StartsWith("+") ? "ðŸ“ˆ" : "ðŸ“‰";
     }
 }

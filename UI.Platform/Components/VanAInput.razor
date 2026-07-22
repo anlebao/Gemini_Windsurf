@@ -1,4 +1,4 @@
-@* VanAInput Component - Wave 5: lightweight input wrapper for UI Platform *@
+﻿@* VanAInput Component - Wave 5: lightweight input wrapper for UI Platform *@
 @inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
 @using Microsoft.AspNetCore.Components.Web
 
@@ -65,7 +65,7 @@
 
     protected override void OnParametersSet()
     {
-        // Sync from parent → internal (only when parent value differs, avoid loop)
+        // Sync from parent â†’ internal (only when parent value differs, avoid loop)
         if (!_syncing && _currentValue != Value)
         {
             _currentValue = Value;

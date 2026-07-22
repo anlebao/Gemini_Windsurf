@@ -1,4 +1,4 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain.Audit;
 
@@ -7,17 +7,17 @@ namespace VanAn.Shared.Domain.Audit;
 /// </summary>
 public enum AuditActionType
 {
-    Create = 1,           // Tạo mới
-    Update = 2,           // Cập nhật
-    Delete = 3,           // Xóa (soft delete)
-    PeriodClose = 4,      // Đóng kỳ kế toán
-    PeriodReopen = 5,     // Mở lại kỳ kế toán
-    Correction = 6,       // Điều chỉnh bút toán
-    Reversal = 7,         // Bút toán đảo ngược
-    Export = 8,           // Xuất dữ liệu
-    Login = 9,            // Đăng nhập
-    Logout = 10,          // Đăng xuất
-    PermissionChange = 11 // Thay đổi quyền
+    Create = 1,           // Táº¡o má»›i
+    Update = 2,           // Cáº­p nháº­t
+    Delete = 3,           // XÃ³a (soft delete)
+    PeriodClose = 4,      // ÄÃ³ng ká»³ káº¿ toÃ¡n
+    PeriodReopen = 5,     // Má»Ÿ láº¡i ká»³ káº¿ toÃ¡n
+    Correction = 6,       // Äiá»u chá»‰nh bÃºt toÃ¡n
+    Reversal = 7,         // BÃºt toÃ¡n Ä‘áº£o ngÆ°á»£c
+    Export = 8,           // Xuáº¥t dá»¯ liá»‡u
+    Login = 9,            // ÄÄƒng nháº­p
+    Logout = 10,          // ÄÄƒng xuáº¥t
+    PermissionChange = 11 // Thay Ä‘á»•i quyá»n
 }
 
 /// <summary>

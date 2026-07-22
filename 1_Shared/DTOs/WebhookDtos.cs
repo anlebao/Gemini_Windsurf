@@ -1,10 +1,10 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Shared.DTOs;
 
 /// <summary>
-/// ViettelWebhookDto — Typed DTO for Viettel SInvoicer webhook callbacks.
+/// ViettelWebhookDto â€” Typed DTO for Viettel SInvoicer webhook callbacks.
 /// Status codes: 1=Pending, 2=Processing, 3=Approved, 4=Rejected
 /// Per Viettel SInvoicer API spec (2025).
 /// </summary>
@@ -53,7 +53,7 @@ public sealed class ViettelWebhookDto
 }
 
 /// <summary>
-/// MisaWebhookDto — Typed DTO for MISA meInvoice webhook callbacks.
+/// MisaWebhookDto â€” Typed DTO for MISA meInvoice webhook callbacks.
 /// ProcessStatus codes: 1=Success/Approved, 2=Failed/Rejected, 3=Processing
 /// Per MISA meInvoice API spec (2025).
 /// </summary>

@@ -1,4 +1,4 @@
-@* R2-0b: PaymentMethodSelector — shared radio group for cash/transfer payment method.
+﻿@* R2-0b: PaymentMethodSelector â€” shared radio group for cash/transfer payment method.
    Replaces inline radio buttons in KhachLink/Checkout.razor and ShopERP POS Payment.
    Two-way bindable via @bind-Value. *@
 @inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
@@ -37,7 +37,7 @@
     /// Label for the selector group.
     /// </summary>
     [Parameter]
-    public string Label { get; set; } = "Hình thức thanh toán";
+    public string Label { get; set; } = "HÃ¬nh thá»©c thanh toÃ¡n";
 
     /// <summary>
     /// Radio group name (must be unique per form to avoid conflicts).
@@ -51,8 +51,8 @@
     [Parameter]
     public List<PaymentOption> Options { get; set; } = new()
     {
-        new() { Value = "cash", Label = "💵 Tiền mặt" },
-        new() { Value = "transfer", Label = "🏦 Chuyển khoản (VietQR)" }
+        new() { Value = "cash", Label = "ðŸ’µ Tiá»n máº·t" },
+        new() { Value = "transfer", Label = "ðŸ¦ Chuyá»ƒn khoáº£n (VietQR)" }
     };
 
     [Parameter(CaptureUnmatchedValues = true)]

@@ -1,9 +1,9 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain.Aggregates.UserAggregate
 {
     /// <summary>
-    /// Raised when a new user is created — triggers welcome email — Wave 6.
+    /// Raised when a new user is created â€” triggers welcome email â€” Wave 6.
     /// </summary>
     public sealed record UserCreatedEvent(
         Guid UserId,
@@ -17,7 +17,7 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
     }
 
     /// <summary>
-    /// Raised when a user is deactivated — Wave 6.
+    /// Raised when a user is deactivated â€” Wave 6.
     /// </summary>
     public sealed record UserDeactivatedEvent(
         Guid UserId,
@@ -28,7 +28,7 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
     }
 
     /// <summary>
-    /// Raised when a user changes password — Wave 6.
+    /// Raised when a user changes password â€” Wave 6.
     /// </summary>
     public sealed record UserPasswordChangedEvent(
         Guid UserId,
@@ -39,7 +39,7 @@ namespace VanAn.Shared.Domain.Aggregates.UserAggregate
     }
 
     /// <summary>
-    /// Raised when a user role changes — Wave 6.
+    /// Raised when a user role changes â€” Wave 6.
     /// </summary>
     public sealed record UserRoleChangedEvent(
         Guid UserId,

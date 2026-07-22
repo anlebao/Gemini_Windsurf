@@ -1,4 +1,4 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 using Microsoft.AspNetCore.Components;
 
 namespace VanAn.KhachLink.Services.PWA
@@ -265,14 +265,14 @@ namespace VanAn.KhachLink.Services.PWA
         {
             CanInstallNative = true;
             OnBeforeInstallPromptFired?.Invoke();
-            _logger.LogInformation("beforeinstallprompt fired — app is installable");
+            _logger.LogInformation("beforeinstallprompt fired â€” app is installable");
         }
 
         [JSInvokable]
         public void HandlePageVisible()
         {
             // Called by pwa.js when document visibility changes (tab switch/navigate back).
-            // No-op for now — prevents circuit crash from invoking a missing JSInvokable method.
+            // No-op for now â€” prevents circuit crash from invoking a missing JSInvokable method.
             // Future: could trigger data sync or refresh order status.
             _logger.LogDebug("Page became visible - visibilitychange event");
         }

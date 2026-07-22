@@ -1,7 +1,7 @@
-namespace VanAn.KhachLink.Components.Shared
+﻿namespace VanAn.KhachLink.Components.Shared
 {
     /// <summary>
-    /// KhachLink CurrencyHelper — delegates to shared VanAn.Shared.Helpers.CurrencyHelper (G4).
+    /// KhachLink CurrencyHelper â€” delegates to shared VanAn.Shared.Helpers.CurrencyHelper (G4).
     /// Kept for backward compatibility with existing KhachLink references.
     /// </summary>
     public static class CurrencyHelper

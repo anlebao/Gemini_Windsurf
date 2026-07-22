@@ -5,5 +5,9 @@
     "workbench.preferredHighContrastColorTheme": "Default High Contrast Light",
     "workbench.preferredHighContrastLightColorTheme": "Visual Studio Light",
     "workbench.preferredLightColorTheme": "Default High Contrast Light",
-    "extensions.allowOpenInModalEditor": false
+    "extensions.allowOpenInModalEditor": false,
+
+    // Prevent Vietnamese mojibake: force UTF-8 with BOM for all text files
+    "files.encoding": "utf8bom",
+    "files.autoGuessEncoding": false
 }

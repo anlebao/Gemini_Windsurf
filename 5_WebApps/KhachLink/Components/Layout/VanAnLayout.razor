@@ -1,4 +1,4 @@
-@using Microsoft.AspNetCore.Components
+﻿@using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
 
 <div class="vanan-layout">
@@ -10,8 +10,8 @@
                     <i class="fas fa-bars text-lg"></i>
                 </button>
                 <div class="flex items-center gap-2">
-                    <img src="/icons/icon-192x192.png" alt="Vạn An" class="w-8 h-8" />
-                    <span class="font-bold text-lg">Vạn An</span>
+                    <img src="/icons/icon-192x192.png" alt="Váº¡n An" class="w-8 h-8" />
+                    <span class="font-bold text-lg">Váº¡n An</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -35,13 +35,13 @@
             <div class="flex items-center justify-between py-4">
                 <div class="flex items-center gap-8">
                     <div class="flex items-center gap-3">
-                        <img src="/icons/icon-192x192.png" alt="Vạn An" class="w-10 h-10" />
-                        <span class="font-bold text-xl">Vạn An Group</span>
+                        <img src="/icons/icon-192x192.png" alt="Váº¡n An" class="w-10 h-10" />
+                        <span class="font-bold text-xl">Váº¡n An Group</span>
                     </div>
                     <nav class="hidden lg:flex items-center gap-6">
-                        <a href="/" class="text-gray-600 hover:text-primary transition-colors">Trang chủ</a>
-                        <a href="/menu" class="text-gray-600 hover:text-primary transition-colors">Thực đơn</a>
-                        <a href="/orders" class="text-gray-600 hover:text-primary transition-colors">Đơn hàng</a>
+                        <a href="/" class="text-gray-600 hover:text-primary transition-colors">Trang chá»§</a>
+                        <a href="/menu" class="text-gray-600 hover:text-primary transition-colors">Thá»±c Ä‘Æ¡n</a>
+                        <a href="/orders" class="text-gray-600 hover:text-primary transition-colors">ÄÆ¡n hÃ ng</a>
                         <a href="/dashboard" class="text-gray-600 hover:text-primary transition-colors">Dashboard</a>
                     </nav>
                 </div>
@@ -72,8 +72,8 @@
                 <div class="p-4">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-2">
-                            <img src="/icons/icon-192x192.png" alt="Vạn An" class="w-8 h-8" />
-                            <span class="font-bold text-lg">Vạn An</span>
+                            <img src="/icons/icon-192x192.png" alt="Váº¡n An" class="w-8 h-8" />
+                            <span class="font-bold text-lg">Váº¡n An</span>
                         </div>
                         <button class="btn btn-ghost p-2" @onclick="CloseMobileMenu">
                             <i class="fas fa-times"></i>
@@ -81,13 +81,13 @@
                     </div>
                     <nav class="space-y-2">
                         <a href="/" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
-                            <i class="fas fa-home me-3"></i>Trang chủ
+                            <i class="fas fa-home me-3"></i>Trang chá»§
                         </a>
                         <a href="/menu" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
-                            <i class="fas fa-utensils me-3"></i>Thực đơn
+                            <i class="fas fa-utensils me-3"></i>Thá»±c Ä‘Æ¡n
                         </a>
                         <a href="/orders" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
-                            <i class="fas fa-shopping-cart me-3"></i>Đơn hàng
+                            <i class="fas fa-shopping-cart me-3"></i>ÄÆ¡n hÃ ng
                         </a>
                         <a href="/dashboard" class="block px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" @onclick="CloseMobileMenu">
                             <i class="fas fa-chart-line me-3"></i>Dashboard
@@ -107,15 +107,15 @@
     <nav class="vanan-bottom-nav md:hidden">
         <a href="/" class="nav-item @(ActivePage == "home" ? "active" : "")">
             <i class="fas fa-home"></i>
-            <span>Trang chủ</span>
+            <span>Trang chá»§</span>
         </a>
         <a href="/menu" class="nav-item @(ActivePage == "menu" ? "active" : "")">
             <i class="fas fa-utensils"></i>
-            <span>Thực đơn</span>
+            <span>Thá»±c Ä‘Æ¡n</span>
         </a>
         <a href="/orders" class="nav-item @(ActivePage == "orders" ? "active" : "")">
             <i class="fas fa-shopping-cart"></i>
-            <span>Đơn hàng</span>
+            <span>ÄÆ¡n hÃ ng</span>
         </a>
         <a href="/dashboard" class="nav-item @(ActivePage == "dashboard" ? "active" : "")">
             <i class="fas fa-chart-line"></i>

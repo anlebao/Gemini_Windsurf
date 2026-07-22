@@ -1,422 +1,83 @@
 ﻿# Project State
 
-> **M?c d�ch:** Single Source of Truth cho AI v? tr?ng th�i d? �n. B?T BU?C d?c d?u m?i phi�n.
+> **Mục đích:** Single Source of Truth cho AI về trạng thái dự án. BẮT BUỘC đọc đầu mỗi phiên.
 > **Archived:** 2026-07-17 — completed Single-Identity Refactor moved to `docs/AI/project_state_archive.md`
 
 ---
 
 ## 0. Maintenance Rules
 
-1. One-and-only-one: M?i section ch? t?n t?i 1 l?n.
-2. No contradiction: M?t h?ng m?c ch? c� 1 tr?ng th�i.
-3. Ground Truth first: Verify path/branch v?i codebase tru?c khi ghi.
-4. Now over History: Section 2-4 ch? m� t? vi?c �ANG l�m v� K? TI?P. Vi?c xong ? gom v�o Section 6.
-5. Actionable Next Actions: X�a action d� qu� h?n/sai b?i c?nh.
-6. Stamp every edit: C?p nh?t Section 9 m?i l?n s?a.
+1. One-and-only-one: Mỗi section chỉ tồn tại 1 lần.
+2. No contradiction: Một hạng mục chỉ có 1 trạng thái.
+3. Ground Truth first: Verify path/branch với codebase trước khi ghi.
+4. Now over History: Section 2-4 chỉ mô tả việc ĐANG làm và KẾ TIẾP. Việc xong gom vào Section 6.
+5. Actionable Next Actions: Xóa action đã quá hạn/sai bối cảnh.
+6. Stamp every edit: Cập nhật Section 9 mỗi lần sửa.
 
 ---
 
 ## 1. Project Overview
 
-**D? �n:** V?n An Accounting System MVP � gi?i ph�p k? to�n HKD theo TT 152/2025/TT-BTC.
-**Stack:** .NET 8 � EF Core � SQLite � Blazor Server (ShopERP) � Blazor WebAssembly (KhachLink PWA — Phase 1 conversion complete 2026-07-21) � SignalR � YARP Gateway � xUnit � Playwright.
-**Ki?n tr�c:** Clean Architecture + DDD + Multi-tenancy. Data flow: `KhachLink WASM (static files via nginx, 5002) ? Gateway (5001) ? ShopERP (5003) ? SQLite`.
+**Dự án:** Vạn An Accounting System MVP — giải pháp kế toán HKD theo TT 152/2025/TT-BTC.
+**Stack:** .NET 8 — EF Core — SQLite — Blazor Server (ShopERP) — Blazor WebAssembly (KhachLink PWA — Phase 1 conversion complete 2026-07-21) — SignalR — YARP Gateway — xUnit — Playwright.
+**Kiến trúc:** Clean Architecture + DDD + Multi-tenancy. Data flow: `KhachLink WASM (static files via nginx, 5002) -> Gateway (5001) -> ShopERP (5003) -> SQLite`.
 
-**Modules:** `1_Shared` (Domain + Services contracts — IOrderWorkflowService, ISocialCampaignService, IShopFeatureSettingsService moved here 2026-07-21) � `2_Gateway` (YARP) � `3_CoreHub` (Services, in-process) � `5_WebApps/ShopERP` (Blazor Server) � `5_WebApps/KhachLink` (Blazor WebAssembly, served by nginx) � `UI.Platform` (Shared components) � `6_Tests/6_Testing`.
+**Modules:** `1_Shared` (Domain + Services contracts — IOrderWorkflowService, ISocialCampaignService, IShopFeatureSettingsService moved here 2026-07-21) — `2_Gateway` (YARP) — `3_CoreHub` (Services, in-process) — `5_WebApps/ShopERP` (Blazor Server) — `5_WebApps/KhachLink` (Blazor WebAssembly, served by nginx) — `UI.Platform` (Shared components) — `6_Tests/6_Testing`.
 
-**Hard stops:** Domain PURE � `AccountingEntry` immutable � Gateway STATELESS � KhachLink HTTP-only � ShopERP SQLite (Business) + PostgreSQL (Accounting) � ALWAYS d�ng UI Platform components.
+**Hard stops:** Domain PURE — `AccountingEntry` immutable — Gateway STATELESS — KhachLink HTTP-only — ShopERP SQLite (Business) + PostgreSQL (Accounting) — ALWAYS dùng UI Platform components.
 
 ---
 
 ## 2. Current Objective
 
-**KhachLink Theme Customization — SysAdmin chọn 5 phong cách giao diện per tenant — COMPLETE (2026-07-22)**
+**KhachLink Order Tracking — Vỡ font tiếng Việt + màn hình treo — IN PROGRESS (2026-07-22)**
 
-Feature cho phép SysAdmin chọn 1 trong 5 theme (Classic, Modern, Teen, Lady, Premium) cho mỗi tenant. Theme persist vào PostgreSQL, truyền qua API đến KhachLink, render cho cả KhachLink pages (Home, Cart, Checkout) và Store profile page (/store/{slug}).
+### Bug Report
+Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 lỗi:
+1. **Vỡ font tiếng Việt** — tất cả ký tự tiếng Việt (đ, ơ, ạ, ầ, etc.) hiển thị sai (mojibake)
+2. **Màn hình treo** — trang có thể bị treo khi theo dõi đơn hàng real-time
 
-### Implementation (4 phases, 12 files modified, 1 migration created)
+### Root Cause Analysis (VERIFIED)
+**Encoding bug:** 92 tệp nguồn (14 KhachLink Pages + 35 KhachLink Components/Services + 43 1_Shared/UI.Platform) được mã hóa Windows-1252 thay vì UTF-8. Trình biên dịch Razor đóng gói chuỗi vào WASM dưới dạng byte Win-1252, nhưng browser diễn giải WASM string blob là UTF-8 → mojibake.
 
-**Phase 1 — Domain + EF + Migration:**
-- `TenantSettings.cs`: Thêm `ThemeType Theme` property + `WithTheme()` method + update 8 `With*` methods truyền Theme
-- `TenantConfiguration.cs`: Map `Settings_Theme` column (int, default 0=Classic)
-- Migration `20260722141255_AddTenantTheme`: `ALTER TABLE Tenants ADD COLUMN Settings_Theme integer NOT NULL DEFAULT 0`
+**Evidence:** Local `dotnet publish` WASM chứa 135-143 byte `0xF5` (Win-1252 'õ') và 0 byte `0xC3 0xB5` (UTF-8 'õ'). VPS WASM cũng vậy — 142 byte Win-1252, 0 byte UTF-8.
 
-**Phase 2 — Service + Gateway API:**
-- `ITenantManagementService.cs`: `UpdateTenantProfileRequest` thêm `ThemeType? Theme` (nullable = preserve existing)
-- `TenantManagementService.cs`: `UpdateProfileAsync` apply `request.Theme ?? existingSettings?.Theme ?? Classic`
-- `TenantsController.cs`: `TenantDto` + `UpdateTenantProfileApiRequest` thêm Theme
-- `TenantStoreController.cs`: `TenantStoreDto` thêm Theme (anonymous endpoint cho KhachLink)
-- `TenantApiClient.cs` (ShopERP): `TenantApiDto` + `UpdateTenantProfileApiRequest` thêm Theme
+**Freeze bug (chưa fix):** `OrderTracking.razor` polling loop 15s + `isTabVisible` luôn `true` (không bao giờ update từ `CheckTabVisibilityAsync`) → spinner luôn hiển thị, có thể gây ảo giác treo.
 
-**Phase 3 — ShopERP Admin UI:**
-- `TenantManagement.razor`: Edit modal thêm dropdown 5 theme (vanan-select) với mô tả tiếng Việt. `EditForm` class + `OpenEditModal` + `HandleEditSubmit` thêm Theme field.
+### Reproduction (VPS, 2026-07-22)
+1. **Đặt hàng từ KhachLink:** POST `/api/public/orders/checkout` → Order `019f8aa0-8489-722b-a16f-a04e785fe2be` tạo thành công (status=pending, amount=22000)
+2. **Public tracking API:** GET `/api/public/orders/{id}` → 200 OK, trả về đúng JSON
+3. **Kitchen confirm:** API impersonate bị 500 (cookie auth issue trong PowerShell, không phải bug production)
+4. **Order tracking page:** Blazor WASM render — font tiếng Việt bị vỡ (xác nhận qua byte analysis của WASM)
 
-**Phase 4 — KhachLink render theme:**
-- `ShopDto.cs`: Thêm `ThemeType Theme` property
-- `ShopConfigHttpService.cs`: `BuildShopConfigFromShop` set `ActiveTheme = shop.Theme`
-- `Store.razor`: Wrap content trong `.store-page theme-@GetThemeClass()`, thay hardcoded gradient `#ff9966→#ff5e62` bằng CSS variables (`--store-hero-gradient`, `--store-accent-gradient`, `--store-accent-color`). 5 theme class blocks define gradient per theme.
+### Fix Applied
+- **Commit 1 (`88cf95e4`):** Convert 14 KhachLink Pages/*.razor từ Win-1252 → UTF-8 with BOM
+- **Commit 2 (`PENDING_HASH`):** Convert thêm 35 KhachLink Components/Services + 43 1_Shared/UI.Platform files từ Win-1252 → UTF-8 with BOM. Build local PASS, guard-check encoding gate PASS, 0 byte Win-1252 trong WASM publish output.
+- **Prevention configs:** `.editorconfig` ép charset UTF-8 with BOM cho `.cs`, `.razor`, `.md`, `.json`, `.html`, `.js`, `.css`, `.xml`, `.props`, `.targets`, `.csproj`, `.sln`, `.ps1`; `.gitattributes` normalize text về UTF-8/CRLF; `.vscode/settings.json` ép workspace lưu `utf8bom`; `guard-check.ps1` thêm gate kiểm tra toàn bộ file text có phải UTF-8 hợp lệ trước khi build.
 
-**Build:** `dotnet build VanAn.sln` 0 errors. Unit tests `TenantManagementServiceTests` 10/10 PASS.
-
-**Status: COMPLETE. Build pass, unit tests pass. CD deployed. RV 6/6 PASS on live VPS.**
-
-### Runtime Verification (6/6 PASS, live VPS `diemthuong.khachvip.online`, 2026-07-22)
-
-| # | Test | Result | Evidence |
-|---|------|--------|----------|
-| RV1 | KhachLink app loads after deploy | PASS | HTTP 200, content 6905 bytes |
-| RV2 | Gateway store-info returns Theme field | PASS | `"theme":0` in JSON response |
-| RV3 | Admin tenants API returns Theme field | PASS | All tenants have `"theme":0` (Classic) |
-| RV4 | Theme round-trip: Teen(2) → Classic(0) | PASS | Set Teen → `theme:2`, reset Classic → `theme:0` |
-| RV5 | Admin API shows updated theme | PASS | Coffee An An `theme:2` after update |
-| RV6 | KhachLink app stable after theme changes | PASS | HTTP 200, no crash |
-
-### Post-deploy fix (commit `ab1bc9f7`)
-
-**Bug:** EF Core `HasDefaultValue(ThemeType.Classic)` treated `0` (Classic) as sentinel — when theme value equals default (0), EF Core skipped `Settings_Theme` in UPDATE SQL, leaving old value in DB. Made it impossible to reset theme to Classic after changing it.
-
-**Fix:** Removed `.HasDefaultValue(ThemeType.Classic)` from `TenantConfiguration.cs`. DB column keeps `DEFAULT 0` from migration for INSERTs. For UPDATEs, EF Core now always includes `Settings_Theme` regardless of value.
-
-**Also fixed (commit `517ddd66`):** `ThemeType?` (nullable) in request DTOs caused System.Text.Json to deserialize `"theme":0` as `null` (0 is default enum value). Changed to non-nullable `ThemeType` (default Classic) in all 3 request DTOs.
+### Next Actions
+1. ✅ Build lại KhachLink WASM với tất cả 92 files đã convert → verify 0 byte Win-1252
+2. ✅ Commit + push 79 files encoding fix + prevention configs
+3. ⬜ Fix `isTabVisible` bug trong OrderTracking.razor (update từ `CheckTabVisibilityAsync`)
+4. ⬜ Wait CD deploy → verify trên VPS: WASM byte analysis + visual check
+5. ⬜ RV: đặt hàng → tracking → verify font tiếng Việt hiển thị đúng
 
 ---
 
-**PREVIOUS OBJECTIVE — KhachLink PWA — SRI Hotfix + Full RT Verification — COMPLETE (2026-07-22)**
+**Archived (2026-07-22):** KhachLink Theme Customization, PWA Phases 1-3 + SRI Hotfix, Shop Entity Removal, Multi-VPS Checkout (Option C), Home Page Personalization, and all prior waves. See docs/AI/project_state_archive.md.
 
-SRI integrity mismatch hotfix deployed + full RT (runtime) test suite executed against live site `https://diemthuong.khachvip.online`. All 10 RT tests PASS. Covers Phase 1 (WASM), Phase 2 (SW caching), Phase 2b (online guard), Phase 3 SC5-SC8 (offline API fallback), SRI hotfix.
-
-### SRI Hotfix (commit `0bb404e9`, 2 files)
-- **Root cause:** After deploys, browser blocked `VanAn.KhachLink.wasm` + `VanAn.Shared.wasm` with "Failed to find a valid digest in the integrity attribute" — stale cached wasm (old build) served with fresh `blazor.boot.json` (new integrity hashes).
-- **Fix `service-worker.js`:** WASM/DLL fetch handler cache-first → network-first + cache fallback. Added `activate` event to delete stale caches from old SW versions. Cache version `v11-phase3` → `v12-sri-fix`.
-- **Fix `nginx.conf`:** `/_framework/` cache header `immutable, max-age=31536000` → `no-cache, must-revalidate` (wasm filenames NOT content-hashed).
-
-### RT Test Results (10/10 PASS, live site, 2026-07-22)
-Test spec: `6_Testing/e2e-tests/khachlink-pwa-offline-rt.spec.ts` | Config: `6_Testing/playwright-rt.config.ts`
-
-| # | Test ID | Phase | Result | Time |
-|---|---------|-------|--------|------|
-| 1 | RT-SRI-01 | SRI+P1 | PASS — App loads, no SRI integrity errors, Blazor error UI not visible | 11.9s |
-| 2 | RT-SRI-02 | SRI+P1 | PASS — VanAn.KhachLink.wasm + VanAn.Shared.wasm both 200 (not blocked) | 10.8s |
-| 3 | RT-SW-01 | P2 | PASS — Service worker registered, state=activated, scriptURL=service-worker.js | 8.1s |
-| 4 | RT-SW-02 | P2 | PASS — WASM cache populated, old caches (v10-batched, v11-phase3) deleted | 13.3s |
-| 5 | RT-SC5 | P3 | PASS — Offline Store Finder: page loads from cache, content visible | 16.3s |
-| 6 | RT-SC6 | P3 | PASS — Offline Home: page loads from cache, content visible | 16.5s |
-| 7 | RT-SC7 | P3 | PASS — Offline Order Tracking: WASM renders from cache | 16.0s |
-| 8 | RT-SC8 | P3 | PASS — Offline Order History: page loads from cache, content visible | 16.3s |
-| 9 | RT-ONLINE-01 | P2b | PASS — navigator.onLine=false when offline, app renders for browsing | 12.1s |
-| 10 | RT-SEC-01 | P3 | PASS — Auth endpoints NOT in dynamic cache (no cross-user leak risk) | 26.0s |
-
-**CD:** GitHub Actions CD run `29901024876` — Build & Push Images SUCCESS, Pre-Deploy Validation SUCCESS, Deploy to VPS SUCCESS.
-
-**Status: COMPLETE. Pushed, CD deployed, RT verified 10/10 PASS.**
-
----
-
-**PREVIOUS OBJECTIVE — KhachLink PWA Phase 3 — Offline API Fallback Hardening — COMPLETE (2026-07-22)**
-
-Phase 3 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Hardens the service worker's offline API fallback: whitelist-based cache patterns, stale-while-revalidate for catalog/campaigns, 24h cache expiration. Fixes dead-code `dynamicCachePatterns` (was declared but never used in Phase 2 — fetch handler cached ALL `/api/*` GETs including auth endpoints).
-
-### Phase 3 changes (1 file: `5_WebApps/KhachLink/wwwroot/service-worker.js`)
-
-**SC1 — dynamicCachePatterns now actually used (whitelist):**
-- Was dead code in Phase 2 — fetch handler used `startsWith('/api/')` (cached ALL API GETs including `/api/customers/me`, `/api/loyalty/my` → cross-user cache leak risk on shared devices)
-- Now whitelist-based: only 9 endpoint prefixes are cacheable
-- Corrected endpoints (was wrong in task card + Phase 2):
-  - `/api/tenants/search`, `/api/tenants/nearby`, `/api/tenants/by-slug/`, `/api/tenants/` (covers `/{id}/store-info`, `/{id}/feature-settings`)
-  - `/api/catalog/` (`/api/catalog/recommended`)
-  - `/api/campaigns/` (`/by-tenant/{id}`, `/{trackingCode}`, `/{id}`)
-  - `/api/products/` (`/recommended`, `/grouped-by-tenant`, `/{id}/qr`)
-  - `/api/public/orders/` (OrderTracking — was incorrectly listed as `/api/orders/{id}` in task card)
-  - `/api/customerorders` (OrderHistory — was incorrectly listed as `/api/orders/history` in task card)
-- Removed dead `/api/menu` pattern (endpoint does not exist in Gateway)
-- Auth endpoints (`/api/customers/me`, `/api/loyalty/my`, `/api/customer-identity/me`) intentionally EXCLUDED
-
-**SC2 — Stale-while-revalidate for catalog/campaigns:**
-- `swrPatterns = ['/api/catalog/', '/api/campaigns/']`
-- Fresh cache (< 24h): return immediately, NO background fetch (zero network hit)
-- Expired cache: return stale immediately + background fetch to refresh (true SWR)
-- No cache: wait for network
-
-**SC3 — 24h cache expiration:**
-- `CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000` (24 hours)
-- `stampResponse()` adds `x-sw-cached-at` header (ms since epoch) to cached responses
-- `isExpired()` checks timestamp on retrieval
-- Network-first path: any cache hit wins offline (stale > blank)
-- SWR path: fresh cache skips network entirely; expired cache triggers bg refresh
-
-**Cache version bumped:** `v10-batched` → `v11-phase3` (forces SW update to clear old cache entries that lack `x-sw-cached-at` header)
-
-**Build:** `dotnet build VanAn.sln` 0 errors, 0 warnings. guard-check.ps1 PASS (Windsurf Guard, Architecture Guard, Roslyn Analyzers, fast test gate).
-
-**Status: COMPLETE. Pushed, CI PASS, CD deployed, RT 10/10 PASS.**
-
----
-
-**PREVIOUS OBJECTIVE — KhachLink PWA Phase 2b — Price Validation + navigator.onLine Guard + Phase 4 Descope — COMPLETE (2026-07-22)**
-
-Architecture review of offline checkout strategy concluded that Phase 4 (offline write queue / IndexedDB + Background Sync) creates unacceptable risks for financial integrity. Phase 4 is **DESCOPED**. Checkout is now **online-only** with `navigator.onLine` guard. Price validation gap (Gateway trusted client-sent prices) fixed with Tier 0+1 validation.
-
-### Phase 2b — Price validation + online guard (commit `51b7e624`, 2 files)
-
-**Tier 0 — Sanity checks (Gateway `PublicOrdersController.checkout`, 0ms):**
-- Reject 400 if `UnitPrice <= 0`, `Quantity <= 0`, `VatRate < 0` or `> 1.0`
-- Returns specific error per item (product name + invalid value)
-- Catches client bugs, DevTools manipulation, corrupted cache
-
-**Tier 1 — FeaturedProducts cross-check (Gateway, ~5ms):**
-- Query `FeaturedProducts` from Gateway PG (local — does NOT call ShopERP, no latency, no coupling)
-- Compare client `UnitPrice` vs `FeaturedProduct.DisplayPrice` with 5% tolerance
-- If mismatch > 5% → reject 400 "giá đã thay đổi, vui lòng tải lại trang"
-- QR-scanned products (not in FeaturedProducts) skip Tier 1 — QR price is system-generated, trustworthy
-
-**navigator.onLine guard (KhachLink `Checkout.razor`):**
-- Check `navigator.onLine` before submit via JS interop
-- If offline → show error "Khong co ket noi mang. Vui long kiem tra 4G/Wifi de gui don hang"
-- Financial transactions = online real-time only
-
-**Tier 2 — Async reconciliation (DEFERRED):** ShopERP-side price comparison via NATS reply. Not needed for MVP — Tier 0+1 covers Featured products (most common checkout path).
-
-### Phase 4 — Offline write queue DESCOPE (2026-07-22)
-
-**Decision:** Phase 4 (offline write queue / IndexedDB + Background Sync for checkout POST) is **DESCOPED** from the master plan.
-
-**Rationale (from architecture review):**
-1. **Financial integrity:** Offline checkout creates "ghost orders" — order timestamp, price, and inventory state are ambiguous when replayed later. Gateway is order creator (Option C) and must validate in real-time.
-2. **Price validation:** Tier 0+1 price validation requires Gateway PG access — cannot run offline.
-3. **Inventory overselling:** Without real-time inventory check, offline orders can cause overbooking. Gateway has no inventory table (products live in ShopERP SQLite per-tenant).
-4. **Token expiry:** Background Sync replay may fire after auth token expires → 401 → order stuck in queue silently.
-5. **F&B UX:** Customer-facing PWA for food ordering — "order saved, will send later" is confusing for time-sensitive F&B orders. Better UX: clear error "no connection, check 4G/Wifi".
-
-**What this means for offline capability:**
-- **Offline READ works:** catalog browse, store finder, order history, campaign view — all cached by service worker (Phase 2+3).
-- **Offline WRITE blocked:** checkout, order creation — requires real-time Gateway validation. `navigator.onLine` guard + clear error message.
-- **iOS Safari:** no Background Sync API needed (was a risk in original plan — now moot).
-
-**Revised master plan effort:** 6-9 sessions remaining (Phase 3 + 5 + 6). Phase 4 descope saves 3-4 sessions.
-
-**Status: COMPLETE. Pushed to main, CI PASSED (build 128s, unit 969/0, KhachLink Startup 6/4skip/0, Architecture 37/37). CD deployed to VPS.**
-
-### Next: Phase 3 (Offline API Fallback Hardening)
-Per master plan, Phase 3 hardens the offline API fallback — updates `dynamicCachePatterns` to current Option C endpoints (already done in Phase 2), adds stale-while-revalidate for catalog/tenants, and returns meaningful offline JSON responses. See `docs/AI/tasks/khachlink_pwa_phase3_offline_api_task_card.md`.
-
----
-
-**PREVIOUS OBJECTIVE — KhachLink PWA Phase 2 — Service Worker DLL Caching + Post-Deploy Hotfixes — COMPLETE (2026-07-22)**
-
-Phase 2 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Updates `service-worker.js` to cache Blazor WASM DLLs + `.wasm` runtime for true offline support. Commit `ec15bc01` pushed, CD PASSED, VPS RV PASS. Then 3 post-deploy hotfixes for runtime issues discovered via browser testing.
-
-### Phase 2 main (commit `ec15bc01`, 1 file: `service-worker.js`)
-- Added `WASM_CACHE` (`vanan-wasm-v9-wasm`) for `_framework/*` assets
-- `importScripts('/service-worker-assets.js')` loads SDK-generated manifest with hashes + URLs for all `_framework/*.wasm/.dll/.js` assets
-- Install event: precaches all WASM assets from manifest (best-effort, per-URL catch)
-- `blazor.boot.json`: network-first + cache fallback (detect new versions online, fall back to cached version offline)
-- `_framework/*` (DLLs, `.wasm`, `.wasm.br`, `.wasm.gz`): cache-first (immutable, hashed filenames)
-- Navigation: network-first → cached `index.html` → offline shell (3-tier fallback)
-- `dynamicCachePatterns` updated to Option C endpoints (`/api/tenants`, `/api/catalog`, `/api/campaigns`, `/api/products`, `/api/orders`, `/api/menu`)
-- Cache version bumped `v8-offline-shell` → `v9-wasm` (forces SW update)
-- Added `/index.html` + `/js/*.js` to `staticUrlsToCache` (needed for WASM)
-- Skip cross-origin requests (CDN scripts like html5-qrcode, jsQR)
-
-### Post-deploy hotfixes (3 commits, 2026-07-22)
-Browser testing after Phase 2 deploy revealed 3 runtime issues:
-
-1. **Rate limit 503 + SRI integrity fail** (commit `0186723f`, 2 files): SW install event fired 80 concurrent `cache.add()` for `/_framework/*` → front proxy nginx rate limiter (`burst=20`) blocked 60/80 with 503 → SRI integrity check fail → Blazor boot crash. Fix: (a) `service-worker.js` — batch SW precache into chunks of 5 (sequential per batch) instead of 80 concurrent `Promise.allSettled`, cache version `v9-wasm` → `v10-batched`; (b) `nginx/templates/vanan.conf.template` — move `limit_req zone=web burst=20 nodelay` from server block into `location /` + `location /_blazor` blocks, so `location /_framework/` is exempt from rate limiting (immutable hashed assets don't need rate protection).
-
-2. **CannotResolveService AuthenticationStateProvider** (commit `dabc3698`, 2 files): Phase 1 WASM conversion removed server-side Blazor infrastructure which provided a default `AuthenticationStateProvider`. `UI.Platform.TenantService` requires `AuthenticationStateProvider` via constructor injection, but KhachLink `Program.cs` never registered one → `CannotResolveService` at render time. Fix: new `Services/AnonymousAuthenticationStateProvider.cs` — stub returning anonymous `ClaimsPrincipal` (no TenantId claim). KhachLink is customer-facing PWA with no server auth; tenant context comes from `LastInteractionService` (localStorage via QR scan). `TenantService.GetCurrentTenantId()` returns `Guid.Empty` → callers (Home/Cart/Layout) already handle this fallback. Registered in `Program.cs`.
-
-3. **NullabilityInfoContext_NotSupported** (commit `b8a94413`, 1 file): Blazor WASM SDK disables `NullabilityInfoContext` feature switch by default. When `System.Text.Json`'s `DefaultJsonTypeInfoResolver` tries to read nullable annotations via reflection (`NullabilityInfoContext.Create`), it throws → crashes all HTTP JSON deserialization (CatalogHttpService, OrderWorkflowHttpService, ProductHttpService, SocialCampaignHttpService, etc.). Fix: `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` MSBuild property in `VanAn.KhachLink.csproj`. Reference: [dotnet/runtime#118333](https://github.com/dotnet/runtime/issues/118333).
-
-### VPS RV (2026-07-22) — 9/9 PASS
-- `vanan-khachlink` container **healthy** (nginx serving static files, deployed at 04:28 UTC)
-- Service worker updated to `v10-batched` with batched install (5/batch)
-- 80 concurrent `/_framework/Microsoft.AspNetCore.SignalR.Client.Core.wasm` requests → **80× 200, 0× 503** (was 20× 503 before fix)
-- Homepage HTTP 200, Blazor WASM boot HTML served
-- Catalog API (`api.khachvip.online/api/catalog/recommended`) returns valid JSON `{"products":[...]}`
-- nginx config confirmed: `location /_framework/` block exists, no `limit_req`
-- 4 key WASM assets accessible: `blazor.boot.json`, `blazor.webassembly.js`, `SignalR.Client.Core.wasm`, `VanAn.KhachLink.wasm` — all 200
-- `_framework/` = 19.5MB (well under 50MB iOS Safari limit)
-
-### Offline behavior after Phase 2 + 2b
-- App loads from cache (WASM DLLs cached) → UI events fire, navigation works
-- API GETs hit cache fallback (read-only)
-- **Checkout = online-only** (navigator.onLine guard + Tier 0+1 price validation at Gateway)
-- If WASM not yet cached (first visit offline): offline shell shown
-
-**Status: COMPLETE. Pushed to main, CD PASSED, VPS RV 9/9 PASS.**
-
----
-
-**PREVIOUS OBJECTIVE — KhachLink PWA Phase 1 — Blazor Server → WebAssembly Conversion — COMPLETE (2026-07-21)**
-
-Phase 1 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Converts KhachLink from Blazor Server to Blazor WebAssembly so the PWA can work offline (UI events run client-side, no WebSocket required). Commit `b642662b` pushed, CI PASSED.
-
-### Architecture changes
-- `VanAn.KhachLink.csproj`: SDK `Microsoft.NET.Sdk.Web` → `Microsoft.NET.Sdk.BlazorWebAssembly`
-- `Program.cs`: `WebApplication.CreateBuilder` → `WebAssemblyHostBuilder.CreateDefault` + removed `AddInteractiveServerComponents` (WASM interactive by default)
-- `App.razor`: `blazor.web.js` → `blazor.webassembly.js`
-- Removed `@rendermode InteractiveServer` from all 13 Pages + PWAInstallPrompt.razor
-- Removed `Serilog.AspNetCore` (server-only, pulls `Microsoft.AspNetCore.App` FrameworkReference incompatible with `browser-wasm` RuntimeIdentifier)
-- Removed `Microsoft.EntityFrameworkCore.Sqlite` from `VanAn.Shared.csproj` (unused)
-
-### Contract extraction (Option 2 — user-approved)
-- Moved 3 contract files `3_CoreHub/Services/` → `1_Shared/Services/`: `IOrderWorkflowService.cs`, `ISocialCampaignService.cs`, `IShopFeatureSettingsService.cs` (includes `ShopFeatureSettingsDto` + `PriceValidationResult`). Namespace `VanAn.CoreHub.Services` → `VanAn.Shared.Services`.
-- Added `using VanAn.Shared.Services;` to ~20 files in CoreHub, Gateway, ShopERP, Tests
-- Updated fully-qualified DI registrations in `Gateway/Program.cs` + `ShopERP/Program.cs`
-- Added `IInventoryService` alias in `OrderService.cs` to disambiguate (exists in both `CoreHub.Interfaces` + `Shared.Services`)
-- Removed `VanAn.CoreHub` ProjectReference from `KhachLink.csproj` (KhachLink uses only Shared contracts + HTTP services)
-
-### Dead code cleanup (files that referenced CoreHub directly)
-- Deleted `DashboardHttpService.cs`, `OfflineOrderService.cs` + `.ts`, `EnhancedCartService.cs` + `.ts`, `SyncConflictResolver.cs`, `ConflictResolutionService.cs` + `.ts` (all dead — not registered in DI)
-- Deleted `Campaign.cshtml` + `Campaign.cshtml.cs` (legacy MVC Razor Page — incompatible with WASM), replaced by `Campaign.razor` Blazor component at `/c/{trackingCode}`
-- Deleted 6 dead test files (tests for deleted dead code): `RetryStrategyTests`, `TimeBasedBugTests`, `UIStateMachineTests`, `FinancialSafetyTests`, `ProductionDataTests`, `SyncConflictResolverTests`
-
-### Deployment changes
-- `Dockerfile`: dotnet runtime → `nginx:alpine` serving static files
-- `nginx.conf`: SPA routing (`try_files` → `index.html`), gzip, cache headers for `_framework/` (immutable), no-cache for `service-worker.js` + `blazor.boot.json`
-- `docker-compose.prod.yml`: removed ASPNETCORE env vars + Serilog config, memory limit 512m → 256m
-- `wwwroot/appsettings.json`: Gateway BaseUrl for WASM config loading
-
-### Test impact
-- Unit tests: **984 passed / 0 failed** (33 dead tests removed from 6 deleted files)
-- KhachLink Startup: **6 passed / 4 skipped / 0 failed** (4 server-startup tests skipped — `WebApplicationFactory` can't boot WASM, marked Skip with reason, rewrite planned for Phase 6)
-- Build: `dotnet build VanAn.sln` → **0 errors**
-
-**Status: COMPLETE. Pushed to main, CI PASSED. Awaiting CD deploy + VPS RV.**
-
-### Next: Phase 2 (Service Worker DLL Caching)
-Per master plan, Phase 2 updates `service-worker.js` to cache Blazor WASM DLLs (`_framework/*.dll`) for true offline support. See `docs/AI/tasks/khachlink_pwa_phase2_sw_dll_caching_task_card.md`.
-
----
-
-**PREVIOUS OBJECTIVE — KhachLink /stores Search Button Fix — COMPLETE (2026-07-21)**
-
-User reported search button on `https://diemthuong.khachvip.online/stores` not clickable. Root cause: the magnifier-glass icon in the search box was a decorative `<span class="input-group-text">` — NOT a button, so clicking it did nothing. Search was only triggered via `@oninput` debounce (300ms after typing) with no dedicated search button or Enter-key handler.
-
-**Fix (1 file):** `5_WebApps/KhachLink/Pages/StoreFinder.razor`
-- Converted search icon `<span>` → `<button type="button" @onclick="LoadStores">` — now clickable.
-- Added `@onkeyup="OnSearchKeyUp"` on the input — pressing **Enter** triggers immediate search (cancels running debounce).
-- Added `OnSearchKeyUp(KeyboardEventArgs e)` method.
-- Added `.btn-search-icon` CSS (cursor pointer, hover, no outline) to preserve input-group look.
-
-**Verification:** `dotnet build VanAn.KhachLink.csproj` → Build succeeded, 0 errors, 11 pre-existing warnings (unrelated). Ready for commit + push to trigger CD deploy.
-
-**Status: COMPLETE. Awaiting CD deploy after push.**
-
----
-
-**PREVIOUS OBJECTIVE — Post-Shop-Removal Runtime Verification + Tenant.Id LINQ Bug Fix — COMPLETE (2026-07-21)**
-
-Shop entity removal (previous session, 221 files) deployed to VPS via CD. This session performed comprehensive runtime verification (RV) and fixed a regression batch.
-
-### A. Tenant.Id Value Object LINQ Translation Bug (Known Error Pattern #8 — NEW)
-After Shop removal, `TenantStoreController` (new replacement for `ShopsController`) failed on `/api/tenants/{tenantId}/store-info` with HTTP 500. Root cause: `Tenant.Id` is a `TenantId` value object with `HasConversion` — three failing patterns discovered across 3 controllers:
-1. `EF.Property<Guid>(t, "Id") == guid` → IConvertible cast error (Pattern #1 variant)
-2. `t.Id.Value == guid` in `Where` → LINQ translation fails
-3. `guidList.Contains(t.Id)` with `List<Guid>` → type mismatch
-
-**Fix (1 commit, 3 files):** Construct `TenantId` value object before comparison. `t.Id == new TenantId(tenantId)`. For `Contains`, convert collection: `tenantIds.Select(id => new TenantId(id)).ToList()`.
-- `TenantStoreController.GetStoreInfo` — fixed
-- `PublicOrdersController.checkout` — fixed (preventive, was working but pattern risky)
-- `CatalogController.recommended` — fixed (preventive)
-
-**Commits:** `20697063` (initial TenantStore fix), `e876cf53` (batch fix all 3 controllers + Pattern #8 added to governance.md).
-
-### B. RV Results on VPS (2026-07-21)
-- All 5 VanAn containers healthy (gateway, shoperp, khachlink, postgres, nats)
-- DB schema verified: `Shops` table dropped, `SocialCampaigns.ShopId` dropped, `Tenants.Settings_Latitude/Longitude` added
-- 3 tenants in DB (coordinates null — expected, no migration data on this VPS)
-- All tenant-based endpoints PASS:
-  - `GET /api/tenants/{id}/store-info` (valid): 200 ✅
-  - `GET /api/tenants/{id}/store-info` (invalid): 404 ✅
-  - `GET /api/tenants/nearby`: 200 ✅
-  - `GET /api/tenants/search`: 200 ✅
-  - `GET /api/catalog/recommended`: 200 ✅
-  - `GET /health`: 200 ✅
-- No errors in gateway logs after fix deployed
-
-### C. Governance Update
-Added Known Error Pattern #8 to `.devin/rules/governance.md` — `Tenant.Id` value object LINQ translation. Reference implementations: `TenantManagementService.GetTenantByIdAsync`, `SocialCampaignRepository.GetActiveByTenantIdValueAsync`.
-
-**Status: COMPLETE. All deployed to VPS. RV 6/6 PASS for tenant-based endpoints.**
-
----
-
-**PREVIOUS OBJECTIVE — Shop Entity Removal — COMPLETE (2026-07-21)**
-
-Removed `Shop` entity from system (221 files). `Tenant` is now single identity for all business operations (aligns with TT 152/2025/TT-BTC — each HKD = separate legal entity). `Latitude/Longitude` migrated to `TenantSettings`. `ShopsController` replaced by `TenantStoreController`. All migrations applied (PostgreSQL + SQLite). See Section 6 + `docs/AI/tasks/` for details.
-
----
-
-**PREVIOUS OBJECTIVE — KhachLink Home Page Personalization + Campaigns/Shops CRUD Admin UI — COMPLETE (2026-07-20)**
-
-Two features delivered this session:
-
-### A. Dynamic Home Page Content (replaces static Hero + Stats)
-- **LastInteractionService** — tracks `lastTenantId` in localStorage via JS interop. `RecordInteractionAsync(tenantId)` called from `Scan.razor` (QR scan add-to-cart, both fast + legacy paths) + `Home.razor AddFeaturedToCart` (Featured product add).
-- **Home.razor** — Hero section replaced with Campaign section (shows active campaigns for last-interaction tenant, fallback empty state with "Quét QR Ngay" CTA for new users). Stats section replaced with StoreFinder section (shows shop info: name, address, phone, Google Maps link). Auto-refresh when customer adds product from different tenant.
-- **Backend:** `GET /api/campaigns/by-tenant/{tenantId}` (Gateway, AllowAnonymous) + `GET /api/shops/by-tenant/{tenantId}` (Gateway, AllowAnonymous, pre-existing).
-- **Commits:** `e292166c` (initial), `c8765aeb` (TenantId VO fix), `6b9cf88d` (SaveChangesAsync fix), `4e6cbafd` (ShopId FK fix), `f79c5f46` (by-tenant service method + PUT DTO), `a83b797c` (IgnoreQueryFilters).
-
-### B. Campaigns + Shops CRUD Admin UI (SystemAdmin only)
-- **Backend:** Gateway `CampaignsController` — added POST create + fixed auth on PUT/DELETE (`[AllowAnonymous]` → `[Authorize(Policy="SystemAdmin")]`). Gateway `ShopsController` — added POST/PUT/DELETE forward to ShopERP with SystemAdmin auth + Authorization header forwarding.
-- **Admin UI:** Two new ShopERP Blazor pages — `/admin/campaigns` (CampaignsAdmin.razor: list + create/edit modal with Tenant + Shop dropdowns + delete) + `/admin/shops` (ShopsAdmin.razor: list + create/edit modal with Tenant dropdown + lat/lng coordinates + delete). Both `@attribute [Authorize(Policy="SystemAdmin")]`.
-- **Commits:** `2725e28d` (admin UI + backend), `4e6cbafd` (FK fix + shop dropdown), `f79c5f46` (PUT DTO), `a83b797c` (IgnoreQueryFilters).
-
-### RV Test Results (2026-07-20)
-**Campaigns CRUD — ALL PASS ✅** (tested via curl on VPS with SystemAdmin JWT):
-| Test | HTTP | Result |
-|---|---|---|
-| POST no token | 302 | Redirect login ✅ |
-| POST create | 201 | Campaign persisted to PG ✅ |
-| GET all | 200 | Contains new campaign ✅ |
-| GET by-tenant (Home endpoint) | 200 | Contains new campaign ✅ |
-| PUT update | 200 | Contains "Updated" ✅ |
-| DELETE | 200 | Soft-delete (IsActive=false) ✅ |
-
-**Shops CRUD via Gateway — Known Limitation ⚠️** POST returns login HTML because ShopERP uses cookie auth (OIDC), not JWT. Admin UI `ShopsAdmin.razor` uses `DbContext` directly (in-process, cookie auth) — works correctly. Gateway shops write forwarding is secondary; admin UI is primary interface.
-
-### Bugs Found & Fixed During RV
-1. `CreateCampaignAsync` missing `SaveChangesAsync` — campaigns never persisted (commit `6b9cf88d`)
-2. FK violation `FK_SocialCampaigns_Shops_ShopId` — `Guid.Empty` ShopId (commit `4e6cbafd`)
-3. `GET by-tenant` used `GetCampaignsByShopAsync` (queries ShopId not TenantId) (commit `f79c5f46`)
-4. PUT 400 — `[FromBody] SocialCampaign` has protected setters → use `UpdateCampaignRequest` DTO (commit `f79c5f46`)
-5. PUT 404 — `GetByIdAsync` didn't use `IgnoreQueryFilters` for SystemAdmin cross-tenant (commit `a83b797c`)
-6. `GetActiveByTenantIdValueAsync` used `c.TenantId.Value == tenantId` (can't translate) → use `c.TenantId == new TenantId(tenantId)` per Known Error Pattern #1 (commit `c8765aeb`)
-
-**Status: COMPLETE. All deployed to VPS. RV 6/6 PASS for Campaigns CRUD.**
-
----
-
-**PREVIOUS OBJECTIVE — Multi-VPS Checkout Architecture (Option C) — ALL 8 PHASES COMPLETE (2026-07-20)**
-
-Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7 all complete. See Section 6 History Log + `docs/Architecture/ADR001-Station-Architecture.md` v3 addendum + `docs/AI/tasks/tech_debt_multi_vps_checkout.md`. NEXT: Phase 8 (Multi-VPS E2E Validation — Playwright).
-
-**Archived (2026-07-17):** QuickSetup + Product Management Phases 4–6 and the Single-Identity Refactor (Hướng A). See `docs/AI/project_state_archive.md`.
 
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `7ff0c2c2` fix(pwa): register beforeinstallprompt listener immediately to fix race condition (HEAD; Phase 3 not yet committed)
+- **Last commit:** `PENDING_HASH` fix(encoding): convert remaining source files to UTF-8 BOM and add encoding guards
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-22):** `dotnet build VanAn.sln` 0 errors, 0 warnings. guard-check.ps1 PASS (Windsurf Guard v6.0, Architecture Guard v1.0, Roslyn Analyzers, fast test gate Domain+Architecture+CircuitBreaker). Phase 3 changes in `service-worker.js` only (no C# compile impact).
-- **KhachLink PWA Phase 3 — Offline API Fallback Hardening (2026-07-22 - COMPLETE, NOT YET PUSHED):** 1 file `service-worker.js`. (1) Fixed dead-code `dynamicCachePatterns` — was declared in Phase 2 but fetch handler used `startsWith('/api/')` (cached ALL API GETs including auth endpoints → cross-user cache leak risk). Now whitelist-based: 9 endpoint prefixes, auth endpoints excluded. (2) Corrected endpoints: `/api/public/orders/` (was `/api/orders/{id}`), `/api/customerorders` (was `/api/orders/history`), removed dead `/api/menu`. (3) Stale-while-revalidate for `/api/catalog/` + `/api/campaigns/` — fresh cache (< 24h) returns immediately with zero network hit, expired cache returns stale + bg refresh. (4) 24h cache expiration via `x-sw-cached-at` header + `stampResponse()`/`isExpired()` helpers. (5) Cache version `v10-batched` → `v11-phase3`. Build PASS, guard-check PASS.
-- **KhachLink PWA Phase 2b + Phase 4 Descope (2026-07-22 - COMPLETE + PUSHED + CI PASSED):** Price validation + navigator.onLine guard + Phase 4 offline write queue DESCOPE. Phase 2b (`51b7e624`): Tier 0 sanity checks (Gateway rejects UnitPrice<=0, Quantity<=0, VatRate<0 or >1.0) + Tier 1 FeaturedProducts cross-check (5% tolerance, local PG query, no ShopERP call) + navigator.onLine guard in Checkout.razor (blocks offline submission). Phase 4 DESCOPE: offline write queue (IndexedDB + Background Sync) removed from master plan — checkout is online-only per architecture review (financial integrity, price validation requires real-time Gateway, inventory overselling risk, token expiry, F&B UX). Master plan revised: 6-9 sessions remaining (Phase 3 + 5 + 6), Phase 4 saves 3-4 sessions.
-- **KhachLink PWA Phase 2 + Hotfixes (2026-07-22 - COMPLETE + PUSHED + CD PASSED + VPS RV 9/9 PASS):** Service worker DLL caching + 3 post-deploy hotfixes. Phase 2 main (`ec15bc01`): `service-worker.js` with `WASM_CACHE` for `_framework/*`, `importScripts('/service-worker-assets.js')` for SDK manifest precaching, `blazor.boot.json` network-first + cache fallback, `_framework/*` cache-first, navigation 3-tier fallback. Cache version v8-offline-shell → v9-wasm. `_framework/` = 19.5MB. Hotfix 1 (`0186723f`): SW install batched 5/batch + nginx `/_framework/` exempt from rate limit (was 80 concurrent → 20× 503 → SRI fail → boot crash). Cache version v9-wasm → v10-batched. Hotfix 2 (`dabc3698`): `AnonymousAuthenticationStateProvider` stub for `TenantService` DI (Phase 1 removed server-side default AuthStateProvider → CannotResolveService at render). Hotfix 3 (`b8a94413`): `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` in csproj (Blazor WASM SDK disables NullabilityInfoContext by default → STJ reflection-based JSON deserialization crashes). RV: 80 concurrent `/_framework/` → 80× 200 (0× 503), homepage 200, SW v10-batched deployed, catalog API valid JSON, nginx config confirmed, 4 WASM assets accessible.
-- **KhachLink PWA Phase 1 (2026-07-21 - COMPLETE + PUSHED + CD PASSED + VPS RV PASS):** Blazor Server → WebAssembly conversion. 85 files (+901/-5319). 3 contracts moved CoreHub→Shared. 8 dead code files + 6 dead test files deleted. Dockerfile rewritten for nginx. 4 KhachLink startup tests skipped (WebApplicationFactory incompatible with WASM, rewrite planned for Phase 6). Unit 984/0, KhachLink Startup 6/4skip/0fail. Commits `b642662b` (Phase 1 main), `fdccdbd4` (docker-compose env fix), `99992973` (index.html host page), `bc7f7289` (healthcheck 127.0.0.1 fix).
-- **Post-Shop-Removal RV (2026-07-21 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** Tenant.Id LINQ bug fixed across 3 controllers (TenantStore/PublicOrders/Catalog). Pattern #8 added to governance.md. All tenant-based endpoints 200/404 as expected. No errors in gateway logs. Commits: `20697063`, `e876cf53`.
-- **Shop Entity Removal (2026-07-21 - COMPLETE + VPS DEPLOYED):** 221 files refactored. `Shop` entity + `ShopId` VO removed from Domain. `SocialCampaign.ShopId` removed. `TenantConfig` (renamed from `ShopConfig`) uses `TenantId`. `TenantSettings.Latitude/Longitude` added (preserves Store Finder). `ShopsController` deleted → replaced by `TenantStoreController`. `ShopService`/`IShopService` deleted. PostgreSQL + SQLite migrations applied (drop Shops table, drop SocialCampaigns.ShopId, add Tenants.Settings_Latitude/Longitude). All clients (KhachLink, ShopERP) migrated to TenantId.
-- **Home Page Personalization + Campaigns/Shops CRUD (2026-07-20 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** 8 commits. LastInteractionService + Home.razor Campaign/StoreFinder sections + Gateway Campaigns/Shops CRUD endpoints + ShopERP admin pages `/admin/campaigns` + `/admin/shops`. Campaigns CRUD RV 6/6 PASS. Shops admin UI works via DbContext (Gateway forwarding limited by ShopERP cookie auth — known limitation). Commits: `e292166c`, `2725e28d`, `226c4260`, `c8765aeb`, `6b9cf88d`, `4e6cbafd`, `f79c5f46`, `a83b797c`.
-- **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md + ADR-001 v3 addendum + Phase 8 task card + tech debt register. Final verification PASS.
-- **Phase 6 COMPLETE + VPS DEPLOYED (2026-07-20):** Admin UI for ShopInstances + FeaturedProducts + Home.razor catalog refactor. RV 8/8 PASS on VPS. Commit `5b51c09d`.
-- **Phase 3.6 COMPLETE + VPS DEPLOYED (2026-07-20):** Onboarding refactor (removed product seeding — deferred to QuickSetup) + Products forwarding port fix (explicit `ShopERP__BaseUrl` env var). RV 2/2 PASS on VPS. Commit `a6413668`.
-- **Phase 4 + 5 COMPLETE + VPS DEPLOYED (2026-07-20):** 6 commits. ShopERP routed subscriber + KhachLink multi-tenant checkout + QR with prices + Price validation toggle. RV 9/9 PASS on VPS. Commits: `c38b51e5` (Phase 4+5 main), `e27727b1` (migration FK fix), `e03bbebf` (SHOP_INSTANCE_ID env), `8f54270f` (hardcode Guid), `b2dc22c0` (RV script), `8718cb84` (task card update).
-- **Multi-tenant bug-fix batch (2026-07-18 - COMPLETE + VPS DEPLOYED):** 5 commits fixing tenant filtering, login tenant_id, order history, Kitchen display, and Quick-Setup stub. All deployed to VPS via CD. Commits: `0309e559` (Bug 1,3,4), `68a34af8` (Login tenant_id), `f40d162b` (Quick-Setup real impl).
-- **Quick-Setup Onboarding (2026-07-18 - COMPLETE):** `OnboardingService.ApplyTemplateAsync` rewritten to delegate to `IIndustrySeedStrategy`. All 8 strategies implemented with real data from menu requirement docs. New `RetailSeedStrategy` added (IndustryCode "RETAIL"). 4th QuickSetup template "Thời trang" (d444 → CLOTHES). Idempotent: skips seeding if tenant already has products. IIndustrySeedStrategy registered in ShopERP DI (was only in Gateway).
-- **RC-7 fix COMPLETE (2026-07-17):** `OrderService.CreateOrderFromCommandAsync` now loads Product entities and snapshots `ProductName` + actual `VatRate` into `OrderItem` at creation time. TT 152/2025/TT-BTC compliance restored. Missing-product policy: throw `KeyNotFoundException` (no ghost "Unknown" stubs). Domain `OrderItem.Create` factory extended with `vatRate` param (backward-compatible default). Sync subscribers (OrderSyncSubscriber, DataSyncSubscriber) reflection hacks replaced with factory param. 998/998 Core.Tests pass.
-- **VAT Display UI COMPLETE (2026-07-17):** VAT breakdown (Tạm tính / VAT / Tổng cộng) now shown on Cart, Checkout, OrderTracking, OrderHistory, POS, and CartDrawer — conditional on new `VAT_Display_Enabled` shop feature toggle (default ON). Small HKDs turn it OFF in Shop Settings. `CartItem` record extended with `VatRate`/`VatAmount`/`NetAmount`. `CartState.TotalVatAmount` computes real VAT (was hardcoded 0). `PublicOrderTrackingDto` + `PublicOrderItemDto` + `CustomerOrderDto` + checkout response extended with VAT fields. 1006/1007 Core.Tests pass (1 flaky perf test unrelated).
-- **Environment parity fix (2026-07-17):** `appsettings.Development.json` Gateway connection fixed from SQLite to PostgreSQL (matching VPS). VPS PostgreSQL DB dumped to local Docker PostgreSQL 15-alpine. Local infra: Docker PostgreSQL 5432 + NATS 4222 + ShopERP 5003 + KhachLink 5002 + Gateway 5001. All 3 servers verified healthy + NATS order sync verified (order created via Gateway API → synced to SQLite via NATS → kitchen display can query it).
-- **Circuit init + kitchen display fix (2026-07-17):** Root cause: 3 orphaned `OrderItems` rows in SQLite (referencing deleted ProductId `192330A9-...`) blocked `SingleIdentity_DropBusinessKeyColumns` migration → `MigrateAsync()` crash → server won't start → Blazor circuit failure + kitchen display empty. Fix: deleted orphaned rows + applied pending SQLite migrations. NATS was also not running locally → order sync Gateway→ShopERP broken → kitchen never received orders. Fix: started NATS in Docker.
+- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` PASS (encoding gate added and passes). Encoding fix for 92 files complete and committed.
+- **Uncommitted changes:** None. Encoding fix + prevention configs staged for commit.
+- **Prevention:** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate — prevents Win-1252 files from re-entering repo.
+- **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). CD deploys automatically on push to main.
+- **Test order for RV:** `019f8aa0-8489-722b-a16f-a04e785fe2be` (Coffee An An, status=pending, amount=22000)
 - **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure.
 - **Order Sync Fix (2026-07-15 - COMPLETE):** Track E1 T1-T8 done. Sync PG->SQLite works for both SaaS and Edge Mode.
@@ -434,7 +95,8 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 
 **NEXT (recommended priority order):**
 
-1. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
+1. **Fix `isTabVisible` freeze bug in `OrderTracking.razor`** — `CheckTabVisibilityAsync` is called but state never updates `isTabVisible`; spinner never hides. Fix and unit/E2E test if possible.
+2. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
    - DevTools Application → Service Workers: SW `v11-phase3` active
    - DevTools Application → Cache Storage: `vanan-dynamic-v11-phase3` populated with whitelisted API responses (catalog, campaigns, tenants, public/orders, customerorders)
    - **Auth endpoints NOT cached:** verify `/api/customers/me` and `/api/loyalty/my` are NOT in `vanan-dynamic-v11-phase3` (whitelist excludes them)
@@ -447,15 +109,15 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
    - Combined with prior Phase 2 + 2b RV: no `CannotResolveService`, no `NullabilityInfoContext_NotSupported`, no `503` for `/_framework/*`, all pages render, price validation + offline guard still work
    - Note: `runtime.lastError` / `message channel closed` errors are from browser extensions, NOT KhachLink — verify in Incognito mode.
 
-2. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
+3. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
    - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
    - Payment confirmation flow (webhook → OrderService.MarkPaid → AccountingEntry)
    - Kitchen display flow (SignalR + status update)
    - Accounting flow (JournalEntry + AccountingEntry immutable)
 
-3. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
+4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
 
-4. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping). **TD-PWA-001 KhachLink Blazor Server → WASM conversion** — Phase 1-3 complete, Phases 5-6 remaining (see master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`; Phase 4 DESCOPE).
+5. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping). **TD-PWA-001 KhachLink Blazor Server → WASM conversion** — Phase 1-3 complete, Phases 5-6 remaining (see master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`; Phase 4 DESCOPE).
 
 **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md updated to Option C + ADR-001 v3 addendum + Phase 8 task card placeholder + tech debt register + final verification (Core.Tests 1044/0/16, Architecture 38/38, guard-check PASS, Integration.Tests CircuitBreaker 6/6 — 43 pre-existing failures require full local app stack, documented as TD-MVPS-003).
 
@@ -573,6 +235,10 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-23 -- ENCODING FIX + PREVENTION CONFIGS COMMITTED.** Converted remaining 79 source files (35 KhachLink Components/Services + 43 1_Shared/UI.Platform + project_state.md + project_state_archive.md) from Windows-1252 to UTF-8 with BOM. Local `dotnet publish` KhachLink WASM verified 0 byte Win-1252 (`0xF5` absent, UTF-8 `0xC3 0xB5` present). Added prevention: `.editorconfig` charset UTF-8 with BOM for all source/markup/config/ps1 files; `.gitattributes` text normalize to UTF-8/CRLF; `.vscode/settings.json` force workspace save as `utf8bom`; `guard-check.ps1` new encoding gate validates all text files are well-formed UTF-8 before build. `guard-check.ps1` PASS (0 errors, 1 warning). Branch: `main`. Next: fix `OrderTracking.razor` `isTabVisible` freeze bug, push, CD deploy, VPS RV.
+
+* **2026-07-22 -- KHACHLINK ORDER TRACKING — VỠ FONT TIẾNG VIỆT + MÀN HÌNH TREO — IN PROGRESS.** Bug: trang `/order-tracking/{orderId}` bị vỡ font tiếng Việt (mojibake) + màn hình treo. Root cause: 92 tệp nguồn (14 KhachLink Pages + 35 KhachLink Components/Services + 43 1_Shared/UI.Platform) được mã hóa Windows-1252 thay vì UTF-8. Trình biên dịch Razor đóng gói chuỗi vào WASM dưới dạng byte Win-1252, browser diễn giải là UTF-8 → mojibake. Evidence: local `dotnet publish` WASM chứa 135-143 byte `0xF5` (Win-1252 'õ'), 0 byte `0xC3 0xB5` (UTF-8 'õ'). VPS WASM cũng vậy. Fix: convert tất cả 92 files Win-1252 → UTF-8 with BOM. Commit 1 (`88cf95e4`): 14 KhachLink Pages — deployed nhưng CHƯA đủ (WASM vẫn 142 byte Win-1252 vì chuỗi cũng từ Components + Shared). Uncommitted: 79 files (35 KhachLink Components/Services + 43 1_Shared/UI.Platform). Freeze bug: `OrderTracking.razor` `isTabVisible` luôn `true` (không update từ `CheckTabVisibilityAsync`) → spinner luôn hiển thị. Reproduction: đặt hàng thành công (Order `019f8aa0-8489-722b-a16f-a04e785fe2be`, status=pending), public tracking API 200 OK, Kitchen confirm bị 500 (cookie auth issue trong PowerShell). Branch: `main`. Next: build lại với 92 files → verify 0 byte Win-1252 → commit + push → fix isTabVisible → CD → RV.
 
 * **2026-07-22 -- KHACHLINK THEME CUSTOMIZATION (SYSADMIN → TENANT → KHACHLINK UI) COMPLETE.** Feature: SysAdmin chọn 1 trong 5 theme (Classic, Modern, Teen, Lady, Premium) per tenant. 4 phases, 12 files modified, 1 migration created. Phase 1 (Domain+EF+Migration): `TenantSettings.cs` thêm `ThemeType Theme` + `WithTheme()`, `TenantConfiguration.cs` map `Settings_Theme` (int, default 0), migration `20260722141255_AddTenantTheme` (`ALTER TABLE Tenants ADD COLUMN Settings_Theme integer NOT NULL DEFAULT 0`). Phase 2 (Service+API): `UpdateTenantProfileRequest` thêm `ThemeType? Theme` (nullable=preserve existing), `TenantManagementService.UpdateProfileAsync` apply `request.Theme ?? existingSettings?.Theme ?? Classic`, `TenantsController` + `TenantStoreController` + `TenantApiClient` DTOs thêm Theme. Phase 3 (Admin UI): `TenantManagement.razor` Edit modal thêm dropdown 5 theme (vanan-select) với mô tả tiếng Việt. Phase 4 (KhachLink render): `ShopDto.cs` thêm Theme, `ShopConfigHttpService.BuildShopConfigFromShop` set `ActiveTheme = shop.Theme`, `Store.razor` wrap content trong `.store-page theme-@GetThemeClass()`, thay hardcoded gradient `#ff9966→#ff5e62` bằng CSS variables (`--store-hero-gradient`, `--store-accent-gradient`, `--store-accent-color`), 5 theme class blocks define gradient per theme. Build PASS (0 errors). Unit tests `TenantManagementServiceTests` 10/10 PASS. Branch: `main`. Not yet committed — next: commit + push + CI + CD deploy + runtime verification (đổi theme admin → refresh KhachLink → thấy theme mới). Master plan: `docs/AI/tasks/khachlink_theme_customization_master_plan.md`.
 

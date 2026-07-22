@@ -1,6 +1,44 @@
-# guard-check.ps1 - Van An Strict Guard v7.2 (Updated June 2026)
+﻿# guard-check.ps1 - Van An Strict Guard v7.2 (Updated June 2026)
 
 Write-Host "Running Van An Strict Guard v7.2..." -ForegroundColor Cyan
+
+# Helper: validate that a file is well-formed UTF-8 (no Windows-1252 / ANSI mojibake)
+function Test-ValidUtf8 {
+    param([string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $i = 0
+    while ($i -lt $bytes.Length) {
+        $b = $bytes[$i]
+        if ($b -lt 0x80) { $i++; continue }
+        # 2-byte UTF-8 sequence
+        if ($b -ge 0xC2 -and $b -le 0xDF) {
+            if ($i + 1 -ge $bytes.Length) { return $false }
+            $b1 = $bytes[$i + 1]
+            if ($b1 -lt 0x80 -or $b1 -gt 0xBF) { return $false }
+            $i += 2; continue
+        }
+        # 3-byte UTF-8 sequence
+        if ($b -ge 0xE0 -and $b -le 0xEF) {
+            if ($i + 2 -ge $bytes.Length) { return $false }
+            $b1 = $bytes[$i + 1]; $b2 = $bytes[$i + 2]
+            if ($b -eq 0xE0 -and ($b1 -lt 0xA0 -or $b1 -gt 0xBF)) { return $false }
+            if ($b -eq 0xED -and ($b1 -lt 0x80 -or $b1 -gt 0x9F)) { return $false }
+            if ($b1 -lt 0x80 -or $b1 -gt 0xBF -or $b2 -lt 0x80 -or $b2 -gt 0xBF) { return $false }
+            $i += 3; continue
+        }
+        # 4-byte UTF-8 sequence
+        if ($b -ge 0xF0 -and $b -le 0xF4) {
+            if ($i + 3 -ge $bytes.Length) { return $false }
+            $b1 = $bytes[$i + 1]; $b2 = $bytes[$i + 2]; $b3 = $bytes[$i + 3]
+            if ($b -eq 0xF0 -and ($b1 -lt 0x90 -or $b1 -gt 0xBF)) { return $false }
+            if ($b -eq 0xF4 -and ($b1 -lt 0x80 -or $b1 -gt 0x8F)) { return $false }
+            if ($b1 -lt 0x80 -or $b1 -gt 0xBF -or $b2 -lt 0x80 -or $b2 -gt 0xBF -or $b3 -lt 0x80 -or $b3 -gt 0xBF) { return $false }
+            $i += 4; continue
+        }
+        return $false
+    }
+    return $true
+}
 
 # 0. PRE-CHECK: Untracked source files (Local Developer Discipline)
 # Prevents "lost code" - files created but never git-added
@@ -23,6 +61,26 @@ if ($untrackedFiles) {
 }
 
 Write-Host "[OK] Untracked source files: PASSED" -ForegroundColor Green
+
+# 0.5 PRE-CHECK: Source file encoding (UTF-8 only) - prevent Vietnamese mojibake
+Write-Host "Checking source file encodings..." -ForegroundColor Yellow
+
+$textExtensions = @('*.cs', '*.razor', '*.md', '*.html', '*.cshtml', '*.css', '*.js', '*.json', '*.xml', '*.props', '*.targets', '*.csproj', '*.sln')
+$nonUtf8Files = Get-ChildItem -Path . -Recurse -File -Include $textExtensions |
+    Where-Object { $_.FullName -notmatch '\\obj\\|\\bin\\|\\.git\\|node_modules|\\.tmp-' } |
+    Where-Object { -not (Test-ValidUtf8 $_.FullName) } |
+    Select-Object -ExpandProperty FullName
+
+if ($nonUtf8Files) {
+    Write-Host "`n[FAIL] NON-UTF-8 SOURCE FILES DETECTED:" -ForegroundColor Red
+    $nonUtf8Files | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
+    Write-Host "`nThese files are encoded as Windows-1252/ANSI instead of UTF-8 and will break Vietnamese text in Blazor WASM." -ForegroundColor Yellow
+    Write-Host "FIX: Open in VS/VS Code, choose 'Save with Encoding' -> UTF-8 (with BOM), then commit." -ForegroundColor Cyan
+    Write-Host "`nGuard check FAILED - encoding must be UTF-8." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "[OK] Source file encodings: PASSED" -ForegroundColor Green
 
 # 1. Run windsurf-guard.js
 Write-Host "Running windsurf-guard.js v6.0..." -ForegroundColor Yellow

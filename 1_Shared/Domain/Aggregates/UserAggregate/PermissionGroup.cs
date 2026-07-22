@@ -1,10 +1,10 @@
-using VanAn.Shared.Domain.Common;
+﻿using VanAn.Shared.Domain.Common;
 
 namespace VanAn.Shared.Domain.Aggregates.UserAggregate
 {
     /// <summary>
-    /// Permission Group — bundles a set of <see cref="UserRole"/> values.
-    /// Replaces granular permission lists with role bundles (Phán quyết D2).
+    /// Permission Group â€” bundles a set of <see cref="UserRole"/> values.
+    /// Replaces granular permission lists with role bundles (PhÃ¡n quyáº¿t D2).
     /// Wave 6.
     /// </summary>
     public class PermissionGroup : AggregateRoot

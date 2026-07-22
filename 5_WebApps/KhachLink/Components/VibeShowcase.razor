@@ -1,4 +1,4 @@
-@using VanAn.Shared.Domain
+﻿@using VanAn.Shared.Domain
 @using VanAn.Shared.Extensions
 @using VanAn.KhachLink.Models
 @using VanAn.KhachLink.Components.Shared
@@ -8,7 +8,7 @@
 
 <VanAnCard CssClass="vibe-showcase-container" Shadow="false">
     <div class="container">
-        <h2 class="section-title text-center mb-4">🍹 Thực đơn đặc sắc</h2>
+        <h2 class="section-title text-center mb-4">ðŸ¹ Thá»±c Ä‘Æ¡n Ä‘áº·c sáº¯c</h2>
         
         @if (ShopConfig?.ActiveTheme != null)
         {
@@ -23,14 +23,14 @@
                                 <div class="col-md-6 col-lg-4" key="@product.ProductId">
                                     <VanAnCard CssClass="teen-card" Shadow="true" Hoverable="true">
                                         <div class="teen-image">
-                                            <img src="/images/teen-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                            <img src="/images/teen-product.jpg" alt="@(product?.Name ?? "Sáº£n pháº©m")" />
                                             <div class="teen-overlay">
                                                 <span class="teen-badge">HOT</span>
                                             </div>
                                         </div>
                                         <div class="teen-content">
-                                            <h4 class="neon-text">@(product?.Name ?? "Sản phẩm")</h4>
-                                            <p class="teen-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                            <h4 class="neon-text">@(product?.Name ?? "Sáº£n pháº©m")</h4>
+                                            <p class="teen-desc">@(product?.Description ?? "MÃ´ táº£ sáº£n pháº©m")</p>
                                             <div class="teen-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</div>
                                             <VanAnButton Variant="ButtonVariant.Primary" 
                                                        Size="ButtonSize.Medium"
@@ -54,16 +54,16 @@
                                 <div class="col-md-6 col-lg-4" key="@product.ProductId">
                                     <VanAnCard CssClass="lady-card" Shadow="true">
                                         <div class="lady-header">
-                                            <h4 class="elegant-title">@(product?.Name ?? "Sản phẩm")</h4>
-                                            <div class="lady-icon">🌸</div>
+                                            <h4 class="elegant-title">@(product?.Name ?? "Sáº£n pháº©m")</h4>
+                                            <div class="lady-icon">ðŸŒ¸</div>
                                         </div>
-                                        <p class="lady-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                        <p class="lady-desc">@(product?.Description ?? "MÃ´ táº£ sáº£n pháº©m")</p>
                                         <div class="lady-footer">
                                             <span class="lady-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</span>
                                             <VanAnButton Variant="ButtonVariant.Secondary" 
                                                        Size="ButtonSize.Small"
                                                        OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                Thêm vào giỏ
+                                                ThÃªm vÃ o giá»
                                             </VanAnButton>
                                         </div>
                                     </VanAnCard>
@@ -82,14 +82,14 @@
                                     <VanAnCard CssClass="classic-card" Shadow="true">
                                         <div class="classic-row">
                                             <div class="classic-info">
-                                                <h4>@(product?.Name ?? "Sản phẩm")</h4>
-                                                <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                                <h4>@(product?.Name ?? "Sáº£n pháº©m")</h4>
+                                                <p>@(product?.Description ?? "MÃ´ táº£ sáº£n pháº©m")</p>
                                                 <span class="classic-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</span>
                                             </div>
                                             <VanAnButton Variant="ButtonVariant.Primary" 
                                                        Size="ButtonSize.Small"
                                                        OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                Đặt hàng
+                                                Äáº·t hÃ ng
                                             </VanAnButton>
                                         </div>
                                     </VanAnCard>
@@ -107,20 +107,20 @@
                                 <VanAnCard CssClass="premium-card" Shadow="true">
                                     <div class="premium-layout">
                                         <div class="premium-image">
-                                            <img src="/images/premium-product.jpg" alt="@(product?.Name ?? "Sản phẩm")" />
+                                            <img src="/images/premium-product.jpg" alt="@(product?.Name ?? "Sáº£n pháº©m")" />
                                         </div>
                                         <div class="premium-content">
                                             <div class="premium-header">
-                                                <h3 class="premium-title">@(product?.Name ?? "Sản phẩm")</h3>
+                                                <h3 class="premium-title">@(product?.Name ?? "Sáº£n pháº©m")</h3>
                                                 <div class="premium-badge">PREMIUM</div>
                                             </div>
-                                            <p class="premium-desc">@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                            <p class="premium-desc">@(product?.Description ?? "MÃ´ táº£ sáº£n pháº©m")</p>
                                             <div class="premium-footer">
                                                 <span class="premium-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</span>
                                                 <VanAnButton Variant="ButtonVariant.Success" 
                                                            Size="ButtonSize.Large"
                                                            OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                                    Đặt ngay
+                                                    Äáº·t ngay
                                                 </VanAnButton>
                                             </div>
                                         </div>
@@ -142,14 +142,14 @@
                         <div class="col-md-4 mb-3" key="@product.ProductId">
                             <VanAnCard CssClass="product-card" Shadow="true">
                                 <div class="product-info">
-                                    <h5>@(product?.Name ?? "Sản phẩm")</h5>
-                                    <p>@(product?.Description ?? "Mô tả sản phẩm")</p>
+                                    <h5>@(product?.Name ?? "Sáº£n pháº©m")</h5>
+                                    <p>@(product?.Description ?? "MÃ´ táº£ sáº£n pháº©m")</p>
                                     <p class="product-price">@CurrencyHelper.FormatVND(product?.Price ?? 0m)</p>
                                     <VanAnButton Variant="ButtonVariant.Primary" 
                                                Size="ButtonSize.Medium"
                                                FullWidth="true"
                                                OnClick="() => { if (product is not null) AddToCart?.Invoke(product); }">
-                                        Thêm vào giỏ
+                                        ThÃªm vÃ o giá»
                                     </VanAnButton>
                                 </div>
                             </VanAnCard>

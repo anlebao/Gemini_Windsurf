@@ -1,4 +1,4 @@
-@using VanAn.UI.Platform.Components.Atomic
+﻿@using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
 @using VanAn.KhachLink.Services.Http
@@ -6,9 +6,9 @@
 @inject IJSRuntime JSRuntime
 
 @* Identity Upgrade Modal - Tiered Auth Phase 3 *@
-@* Wire up: send OTP → OTP input → verify OTP → upgrade to Verified *@
+@* Wire up: send OTP â†’ OTP input â†’ verify OTP â†’ upgrade to Verified *@
 <VanAnModal IsOpen="ShowModal"
-          Title="Nâng Cấp Tài Khoản"
+          Title="NÃ¢ng Cáº¥p TÃ i Khoáº£n"
           OnClose="OnDismiss"
           Closable="true">
     <div class="text-center">
@@ -17,13 +17,13 @@
             <div class="mb-4">
                 <i class="fas fa-shield-alt text-primary" style="font-size: 3rem;"></i>
             </div>
-            <h4 class="text-primary mb-3">Xác thực tài khoản</h4>
+            <h4 class="text-primary mb-3">XÃ¡c thá»±c tÃ i khoáº£n</h4>
             <p class="mb-3">
-                Xác thực bằng SMS OTP để bảo vệ và đổi điểm thưởng.
+                XÃ¡c thá»±c báº±ng SMS OTP Ä‘á»ƒ báº£o vá»‡ vÃ  Ä‘á»•i Ä‘iá»ƒm thÆ°á»Ÿng.
             </p>
             <p class="text-muted small mb-3">
                 <i class="fas fa-lock me-1"></i>
-                OTP sẽ được gửi đến số điện thoại đã đăng ký của bạn.
+                OTP sáº½ Ä‘Æ°á»£c gá»­i Ä‘áº¿n sá»‘ Ä‘iá»‡n thoáº¡i Ä‘Ã£ Ä‘Äƒng kÃ½ cá»§a báº¡n.
             </p>
             @if (_error != null)
             {
@@ -35,11 +35,11 @@
             <div class="mb-3">
                 <i class="fas fa-sms text-success" style="font-size: 2.5rem;"></i>
             </div>
-            <h5 class="mb-3">Nhập mã OTP</h5>
+            <h5 class="mb-3">Nháº­p mÃ£ OTP</h5>
             @if (!string.IsNullOrEmpty(_phoneSuffix))
             {
                 <p class="text-muted small mb-3">
-                    Mã OTP đã gửi đến số: <strong>@_phoneSuffix</strong>
+                    MÃ£ OTP Ä‘Ã£ gá»­i Ä‘áº¿n sá»‘: <strong>@_phoneSuffix</strong>
                 </p>
             }
             <input type="number" class="form-control form-control-lg text-center mb-3"
@@ -56,7 +56,7 @@
         {
             <div class="py-3">
                 <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
-                <h5 class="mt-2">Nâng cấp thành công!</h5>
+                <h5 class="mt-2">NÃ¢ng cáº¥p thÃ nh cÃ´ng!</h5>
                 <p class="text-muted">@_successMessage</p>
             </div>
         }
@@ -66,25 +66,25 @@
         @if (_upgradeStep == UpgradeStep.Intro)
         {
             <VanAnButton Variant="ButtonVariant.Secondary" OnClick="OnDismiss" Disabled="@_loading">
-                Bây giờ sau
+                BÃ¢y giá» sau
             </VanAnButton>
             <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendUpgradeOtp" Disabled="@_loading">
-                @(_loading ? "Đang gửi..." : "Nâng cấp ngay")
+                @(_loading ? "Äang gá»­i..." : "NÃ¢ng cáº¥p ngay")
             </VanAnButton>
         }
         else if (_upgradeStep == UpgradeStep.OtpSent)
         {
             <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToIntro" Disabled="@_loading">
-                Quay lại
+                Quay láº¡i
             </VanAnButton>
             <VanAnButton Variant="ButtonVariant.Primary" OnClick="VerifyUpgradeOtp" Disabled="@_loading">
-                @(_loading ? "Đang xác nhận..." : "Xác nhận OTP")
+                @(_loading ? "Äang xÃ¡c nháº­n..." : "XÃ¡c nháº­n OTP")
             </VanAnButton>
         }
         else if (_upgradeStep == UpgradeStep.Success)
         {
             <VanAnButton Variant="ButtonVariant.Primary" OnClick="HandleUpgradeComplete">
-                Hoàn tất
+                HoÃ n táº¥t
             </VanAnButton>
         }
     </FooterContent>
@@ -113,7 +113,7 @@
     private string _otp = "";
     private string? _error;
     private string _phoneSuffix = "";
-    private string _successMessage = "Tài khoản đã được xác thực.";
+    private string _successMessage = "TÃ i khoáº£n Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c thá»±c.";
     private bool _loading = false;
     private string? _cachedToken;
 
@@ -144,7 +144,7 @@
             var token = await GetTokenAsync();
             if (string.IsNullOrEmpty(token))
             {
-                _error = "Vui lòng đăng nhập trước khi nâng cấp.";
+                _error = "Vui lÃ²ng Ä‘Äƒng nháº­p trÆ°á»›c khi nÃ¢ng cáº¥p.";
                 return;
             }
 
@@ -167,7 +167,7 @@
         _error = null;
         if (string.IsNullOrWhiteSpace(_otp))
         {
-            _error = "Vui lòng nhập mã OTP.";
+            _error = "Vui lÃ²ng nháº­p mÃ£ OTP.";
             return;
         }
         _loading = true;
@@ -176,7 +176,7 @@
             var token = await GetTokenAsync();
             if (string.IsNullOrEmpty(token))
             {
-                _error = "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.";
+                _error = "PhiÃªn Ä‘Äƒng nháº­p háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i.";
                 return;
             }
 

@@ -1,20 +1,20 @@
-namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
+﻿namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 {
     /// <summary>
-    /// Lifecycle states for a Tenant — Wave 5 Rich Domain Model
+    /// Lifecycle states for a Tenant â€” Wave 5 Rich Domain Model
     /// </summary>
     public enum TenantStatus
     {
         /// <summary>Tenant is fully operational</summary>
         Active = 1,
 
-        /// <summary>Temporarily suspended — no new orders, read-only data access</summary>
+        /// <summary>Temporarily suspended â€” no new orders, read-only data access</summary>
         Suspended = 2,
 
-        /// <summary>Permanently deactivated — archived, no access</summary>
+        /// <summary>Permanently deactivated â€” archived, no access</summary>
         Inactive = 3,
 
-        /// <summary>HKD đã chuyển đổi thành DN — read-only, historical reports vẫn truy cập (D9 Option B).</summary>
+        /// <summary>HKD Ä‘Ã£ chuyá»ƒn Ä‘á»•i thÃ nh DN â€” read-only, historical reports váº«n truy cáº­p (D9 Option B).</summary>
         Converted = 4
     }
 }

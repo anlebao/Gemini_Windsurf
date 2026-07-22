@@ -1,4 +1,4 @@
-@* R2-0c: OrderSummaryCard — shared order summary display.
+﻿@* R2-0c: OrderSummaryCard â€” shared order summary display.
    Replaces inline item list + total in KhachLink/Checkout.razor and ShopERP Detail.razor.
    Takes IEnumerable<OrderItemDisplayDto> + total amounts. *@
 @inherits VanAn.UI.Platform.Components.Base.VanAnComponentBase
@@ -12,7 +12,7 @@
             {
                 <div class="vanan-order-summary__item">
                     <span class="vanan-order-summary__name">@item.ProductName x @item.Quantity</span>
-                    <span class="vanan-order-summary__amount">@item.TotalAmount.ToString("N0") VNĐ</span>
+                    <span class="vanan-order-summary__amount">@item.TotalAmount.ToString("N0") VNÄ</span>
                 </div>
             }
 
@@ -20,8 +20,8 @@
             {
                 <hr class="vanan-order-summary__divider" />
                 <div class="vanan-order-summary__row">
-                    <span>Tạm tính:</span>
-                    <span>@SubTotal.ToString("N0") VNĐ</span>
+                    <span>Táº¡m tÃ­nh:</span>
+                    <span>@SubTotal.ToString("N0") VNÄ</span>
                 </div>
             }
 
@@ -29,14 +29,14 @@
             {
                 <div class="vanan-order-summary__row">
                     <span>VAT:</span>
-                    <span>@VatAmount.ToString("N0") VNĐ</span>
+                    <span>@VatAmount.ToString("N0") VNÄ</span>
                 </div>
             }
 
             <hr class="vanan-order-summary__divider" />
             <div class="vanan-order-summary__total">
                 <span class="vanan-order-summary__total-label">@TotalLabel:</span>
-                <span class="vanan-order-summary__total-amount">@TotalAmount.ToString("N0") VNĐ</span>
+                <span class="vanan-order-summary__total-amount">@TotalAmount.ToString("N0") VNÄ</span>
             </div>
         </div>
     }
@@ -64,7 +64,7 @@
     /// Card header text.
     /// </summary>
     [Parameter]
-    public string Header { get; set; } = "🛒 Tóm tắt đơn hàng";
+    public string Header { get; set; } = "ðŸ›’ TÃ³m táº¯t Ä‘Æ¡n hÃ ng";
 
     /// <summary>
     /// Total amount (grand total including VAT).
@@ -91,10 +91,10 @@
     public bool ShowVat { get; set; } = true;
 
     [Parameter]
-    public string TotalLabel { get; set; } = "Tổng cộng";
+    public string TotalLabel { get; set; } = "Tá»•ng cá»™ng";
 
     [Parameter]
-    public string EmptyMessage { get; set; } = "Không có sản phẩm";
+    public string EmptyMessage { get; set; } = "KhÃ´ng cÃ³ sáº£n pháº©m";
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }

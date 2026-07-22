@@ -1,9 +1,9 @@
-using VanAn.Shared.Domain;
+﻿using VanAn.Shared.Domain;
 
 namespace VanAn.Shared.DTOs
 {
     /// <summary>
-    /// Data Transfer Object for HKD Book — API response shape for Wave 7 endpoint.
+    /// Data Transfer Object for HKD Book â€” API response shape for Wave 7 endpoint.
     /// Maps from <see cref="GenericHKDBook"/> domain record without exposing Domain entities directly.
     /// </summary>
     public class HKDBookDto
@@ -39,7 +39,7 @@ namespace VanAn.Shared.DTOs
     }
 
     /// <summary>
-    /// Simplified JournalEntry projection — exposes only API-safe fields.
+    /// Simplified JournalEntry projection â€” exposes only API-safe fields.
     /// </summary>
     public class HKDBookEntryDto
     {

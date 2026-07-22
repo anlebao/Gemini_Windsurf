@@ -1,4 +1,4 @@
-@using Microsoft.AspNetCore.Components
+﻿@using Microsoft.AspNetCore.Components
 @using VanAn.UI.Platform.Components.Base
 @using VanAn.UI.Platform.Core.Interfaces
 @using VanAn.UI.Platform.Adapters
@@ -90,7 +90,7 @@
 
     /// <summary>
     /// Bug 1 fix: After first render, child VanAnColumn components have registered themselves
-    /// via OnInitialized → RegisterColumn. But the @if (_columns.Count > 0) check in the markup
+    /// via OnInitialized â†’ RegisterColumn. But the @if (_columns.Count > 0) check in the markup
     /// runs BEFORE child components initialize (during BuildRenderTree). Force a re-render
     /// on first render to ensure the table appears once columns are registered.
     /// </summary>

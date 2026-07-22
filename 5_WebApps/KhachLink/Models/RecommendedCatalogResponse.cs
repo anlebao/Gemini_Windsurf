@@ -1,4 +1,4 @@
-namespace VanAn.KhachLink.Models;
+﻿namespace VanAn.KhachLink.Models;
 
 /// <summary>
 /// Phase 6: Response from Gateway GET /api/catalog/recommended.
@@ -27,6 +27,6 @@ public class RecommendedCatalogItem
     public string? Description { get; set; }
     public string Source { get; set; } = "Featured"; // "Featured" | "History"
     public DateTime? LastOrderedAt { get; set; }
-    /// <summary>Tenant display name — resolved from PG Tenants table by Gateway.</summary>
+    /// <summary>Tenant display name â€” resolved from PG Tenants table by Gateway.</summary>
     public string TenantName { get; set; } = string.Empty;
 }

@@ -1,4 +1,4 @@
-namespace VanAn.KhachLink.Models;
+﻿namespace VanAn.KhachLink.Models;
 
 using System.Text.Json.Serialization;
 using VanAn.Shared.Domain;
@@ -6,7 +6,7 @@ using VanAn.Shared.Domain;
 /// <summary>
 /// DTO for Shop data received from ShopERP via Gateway (GET /api/shops/by-tenant/{tenantId}).
 /// Mirrors the subset of Shop entity fields needed to build a ShopConfig.
-/// Branding fields (PrimaryColor, SecondaryColor, Theme) are NOT stored on Shop —
+/// Branding fields (PrimaryColor, SecondaryColor, Theme) are NOT stored on Shop â€”
 /// they remain at their defaults in ShopConfig.
 /// </summary>
 public class ShopDto

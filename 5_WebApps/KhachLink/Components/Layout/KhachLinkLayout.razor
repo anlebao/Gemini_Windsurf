@@ -1,4 +1,4 @@
-@using VanAn.UI.Platform.Components.Atomic
+﻿@using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Components.Composite
 @using VanAn.UI.Platform.Tokens
 @using VanAn.Shared.Domain
@@ -33,19 +33,19 @@
                 {
                     <i class="bi bi-shop text-white" style="font-size:1.5rem;"></i>
                 }
-                <span class="shop-name fw-bold text-white">@(_shopConfig?.ShopName ?? "Vạn An")</span>
+                <span class="shop-name fw-bold text-white">@(_shopConfig?.ShopName ?? "Váº¡n An")</span>
             </div>
             <div class="d-flex gap-2 align-items-center">
                 @if (_showInstallButton)
                 {
-                    <button class="header-icon-btn" aria-label="Cài app" @onclick="InstallAppAsync" title="Cài đặt ứng dụng">
+                    <button class="header-icon-btn" aria-label="CÃ i app" @onclick="InstallAppAsync" title="CÃ i Ä‘áº·t á»©ng dá»¥ng">
                         <i class="bi bi-download text-white"></i>
                     </button>
                 }
-                <a href="/cart" class="header-icon-btn" aria-label="Giỏ hàng">
+                <a href="/cart" class="header-icon-btn" aria-label="Giá» hÃ ng">
                     <i class="bi bi-cart3 text-white"></i>
                 </a>
-                <a href="/profile" class="header-icon-btn" aria-label="Tài khoản">
+                <a href="/profile" class="header-icon-btn" aria-label="TÃ i khoáº£n">
                     <i class="bi bi-person text-white"></i>
                 </a>
             </div>
@@ -60,7 +60,7 @@
     <!-- Footer -->
     <footer class="khachlink-footer mt-4">
         <div class="text-center py-3 px-3">
-            <div class="fw-semibold">@(_shopConfig?.ShopName ?? "Vạn An Group")</div>
+            <div class="fw-semibold">@(_shopConfig?.ShopName ?? "Váº¡n An Group")</div>
             @if (!string.IsNullOrEmpty(_shopConfig?.Phone))
             {
                 <div class="small"><a href="tel:@_shopConfig.Phone" class="footer-link">@_shopConfig.Phone</a></div>
@@ -152,7 +152,7 @@
                 _showInstallButton = await PWAService.CanInstallAsync();
                 StateHasChanged();
             }
-            catch { /* PWA service not available — hide button */ }
+            catch { /* PWA service not available â€” hide button */ }
         }
     }
 
@@ -163,8 +163,8 @@
         {
             // Fallback: show instructions if browser doesn't support auto-install
             await PWAService.ShowNotificationAsync(
-                "Cài đặt ứng dụng",
-                "Trên iPhone/iPad: nhấn nút Share → 'Thêm vào Màn hình chính'. Trên Android: menu ⋮ → 'Cài đặt ứng dụng'. Trên Desktop: nhấn icon Install trong thanh địa chỉ.");
+                "CÃ i Ä‘áº·t á»©ng dá»¥ng",
+                "TrÃªn iPhone/iPad: nháº¥n nÃºt Share â†’ 'ThÃªm vÃ o MÃ n hÃ¬nh chÃ­nh'. TrÃªn Android: menu â‹® â†’ 'CÃ i Ä‘áº·t á»©ng dá»¥ng'. TrÃªn Desktop: nháº¥n icon Install trong thanh Ä‘á»‹a chá»‰.");
         }
         if (success)
         {

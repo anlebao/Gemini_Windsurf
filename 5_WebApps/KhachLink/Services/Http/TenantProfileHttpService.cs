@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using VanAn.KhachLink.Models;
 
 namespace VanAn.KhachLink.Services.Http;
@@ -6,7 +6,7 @@ namespace VanAn.KhachLink.Services.Http;
 /// <summary>
 /// Tenant Profile Page (2026-07-21): HTTP client for /store/{slug} page data.
 /// Loads tenant store info by slug + public feature settings (section toggles).
-/// Calls Gateway endpoints (anonymous — KhachLink is unauthenticated).
+/// Calls Gateway endpoints (anonymous â€” KhachLink is unauthenticated).
 /// </summary>
 public class TenantProfileHttpService(IHttpClientFactory httpClientFactory, ILogger<TenantProfileHttpService> logger)
 {
@@ -60,7 +60,7 @@ public class TenantProfileHttpService(IHttpClientFactory httpClientFactory, ILog
 
 /// <summary>
 /// Tenant Profile Page (2026-07-21): Public feature settings for /store/{slug} page.
-/// Subset of ShopFeatureSettingsDto — only the section toggles relevant to customers.
+/// Subset of ShopFeatureSettingsDto â€” only the section toggles relevant to customers.
 /// Defaults match ShopFeatureSettingsEntity defaults (4 sections ON, AIChat OFF).
 /// </summary>
 public class TenantFeatureSettingsDto

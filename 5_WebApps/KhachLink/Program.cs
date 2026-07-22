@@ -1,4 +1,4 @@
-using VanAn.Shared.Services;
+﻿using VanAn.Shared.Services;
 using VanAn.UI.Platform.Core.Interfaces;
 using VanAn.UI.Platform.Services;
 using VanAn.UI.Platform.Adapters;
@@ -32,11 +32,11 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<AuthenticationStateProvider, AnonymousAuthenticationStateProvider>();
 
             // Register KhachLink HTTP-backed services (call Gateway, no direct DB access)
-            // ARCHITECTURAL NOTE: KhachLink MUST use HTTP via Gateway only — no CoreHub DI.
+            // ARCHITECTURAL NOTE: KhachLink MUST use HTTP via Gateway only â€” no CoreHub DI.
             _ = builder.Services.AddScoped<IOrderWorkflowService, Services.Http.OrderWorkflowHttpService>();
             _ = builder.Services.AddScoped<ISocialCampaignService, Services.Http.SocialCampaignHttpService>();
 
-            // ShopConfigHttpService (Phase 2 — product-based, HTTP via Gateway only).
+            // ShopConfigHttpService (Phase 2 â€” product-based, HTTP via Gateway only).
             _ = builder.Services.AddScoped<Services.Http.ShopConfigHttpService>();
 
             // TenantProfileHttpService (2026-07-21): /store/{slug} page data loader.

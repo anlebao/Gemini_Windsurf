@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using VanAn.KhachLink.Models;
 using VanAn.Shared.Domain;
 
@@ -6,8 +6,8 @@ namespace VanAn.KhachLink.Services.Http
 {
     /// <summary>
     /// HTTP-backed ShopConfig loader for KhachLink.
-    /// Approach 2 (product-based): products → extract TenantId → GET /api/shops/by-tenant/{tenantId}
-    /// → build ShopConfig from real Shop entity. No direct CoreHub DI — calls Gateway via HTTP only.
+    /// Approach 2 (product-based): products â†’ extract TenantId â†’ GET /api/shops/by-tenant/{tenantId}
+    /// â†’ build ShopConfig from real Shop entity. No direct CoreHub DI â€” calls Gateway via HTTP only.
     /// Branding fields (PrimaryColor, SecondaryColor, Theme) remain at ShopConfig defaults
     /// because they are not stored on the Shop entity.
     /// Fallbacks to DefaultShopConfig on any error / empty / not-found case.
@@ -27,7 +27,7 @@ namespace VanAn.KhachLink.Services.Http
         /// <summary>
         /// SC1: Build ShopConfig from a list of products. Extracts the TenantId from the
         /// first product, then loads the Shop entity for that tenant. Caller is responsible
-        /// for loading products (separation of concerns — no ProductHttpService injection).
+        /// for loading products (separation of concerns â€” no ProductHttpService injection).
         /// </summary>
         public async Task<ShopConfig> GetShopConfigFromProductsAsync(List<ProductDto> products)
         {
@@ -49,7 +49,7 @@ namespace VanAn.KhachLink.Services.Http
 
         /// <summary>
         /// SC2: Load ShopConfig by TenantId. Calls GET /api/tenants/{tenantId}/store-info
-        /// (TenantStoreController — replaces old shops/by-tenant endpoint, 2026-07-21).
+        /// (TenantStoreController â€” replaces old shops/by-tenant endpoint, 2026-07-21).
         /// Returns DefaultShopConfig on 404 or any error (SC3).
         /// Builds ShopConfig from real Tenant store data (SC4); branding fields keep defaults (SC5).
         /// </summary>
@@ -93,7 +93,7 @@ namespace VanAn.KhachLink.Services.Http
         }
 
         /// <summary>
-        /// SC4: Map ShopDto → ShopConfig. Real tenant store data (Name, Address, Phone, Email,
+        /// SC4: Map ShopDto â†’ ShopConfig. Real tenant store data (Name, Address, Phone, Email,
         /// Latitude, Longitude, SocialLinks, LogoUrl) overrides defaults. Branding fields
         /// (PrimaryColor, SecondaryColor, Theme, Features, LoyaltyConfig) stay at ShopConfig
         /// defaults because they are not stored on the Tenant entity (SC5).

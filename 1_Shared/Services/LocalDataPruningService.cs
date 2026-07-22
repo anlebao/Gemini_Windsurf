@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
@@ -7,9 +7,9 @@ using System.Globalization;
 namespace VanAn.Shared.Services
 {
     /// <summary>
-    /// 🛡️ PHASE 5: Local Data Pruning Service for Edge Nodes
-    /// Mục đích: Cắt tỉa dữ liệu cũ giữ file SQLite siêu nhẹ
-    /// Chạy ngầm mỗi ngày, xóa Orders cũ > 7 ngày đã sync thành công
+    /// ðŸ›¡ï¸ PHASE 5: Local Data Pruning Service for Edge Nodes
+    /// Má»¥c Ä‘Ã­ch: Cáº¯t tá»‰a dá»¯ liá»‡u cÅ© giá»¯ file SQLite siÃªu nháº¹
+    /// Cháº¡y ngáº§m má»—i ngÃ y, xÃ³a Orders cÅ© > 7 ngÃ y Ä‘Ã£ sync thÃ nh cÃ´ng
     /// </summary>
     public partial class LocalDataPruningService(
         ILogger<LocalDataPruningService> logger,
@@ -17,14 +17,14 @@ namespace VanAn.Shared.Services
     {
         private readonly ILogger<LocalDataPruningService> _logger = logger;
         private readonly IServiceProvider _serviceProvider = serviceProvider;
-        private readonly TimeSpan _pruningInterval = TimeSpan.FromDays(1); // Chạy mỗi ngày
-        private readonly TimeSpan _retentionPeriod = TimeSpan.FromDays(7); // Giữ 7 ngày
+        private readonly TimeSpan _pruningInterval = TimeSpan.FromDays(1); // Cháº¡y má»—i ngÃ y
+        private readonly TimeSpan _retentionPeriod = TimeSpan.FromDays(7); // Giá»¯ 7 ngÃ y
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             LogPruningServiceStarted();
 
-            // Đợi 1 phút sau khi start để đảm bảo app khởi động xong
+            // Äá»£i 1 phÃºt sau khi start Ä‘á»ƒ Ä‘áº£m báº£o app khá»Ÿi Ä‘á»™ng xong
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -57,13 +57,13 @@ namespace VanAn.Shared.Services
 
             try
             {
-                // 🛡️ PHASE 5: Xóa Orders cũ hơn retention period VÀ đã sync thành công
+                // ðŸ›¡ï¸ PHASE 5: XÃ³a Orders cÅ© hÆ¡n retention period VÃ€ Ä‘Ã£ sync thÃ nh cÃ´ng
                 DateTime cutoffDate = DateTime.UtcNow.Subtract(_retentionPeriod);
 
                 // TODO: Move EF Core DbContext usage to Infrastructure layer
                 // var oldSyncedOrders = await context.Set<Order>()
                 //     .Where(o => o.OrderDate < cutoffDate && 
-                //                o.IsSyncedToCoreHub == true) // 🛡️ PHASE 5: Chỉ xóa orders đã sync
+                //                o.IsSyncedToCoreHub == true) // ðŸ›¡ï¸ PHASE 5: Chá»‰ xÃ³a orders Ä‘Ã£ sync
                 //     .ToListAsync(cancellationToken);
 
                 List<Order> oldSyncedOrders = []; // Placeholder
@@ -78,7 +78,7 @@ namespace VanAn.Shared.Services
 
                     LogOrdersPruned(deletedCount, cutoffDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 
-                    // 🛡️ PHASE 5: VACUUM để chống phân mảnh file
+                    // ðŸ›¡ï¸ PHASE 5: VACUUM Ä‘á»ƒ chá»‘ng phÃ¢n máº£nh file
                     // TODO: Move EF Core DbContext usage to Infrastructure layer
                     // await PerformVacuumAsync(context, cancellationToken);
                 }
@@ -87,7 +87,7 @@ namespace VanAn.Shared.Services
                     LogNoOrdersToPrune();
                 }
 
-                // 🛡️ PHASE 5: Kiểm tra kích thước file database
+                // ðŸ›¡ï¸ PHASE 5: Kiá»ƒm tra kÃ­ch thÆ°á»›c file database
                 // TODO: Move EF Core DbContext usage to Infrastructure layer
                 // await CheckDatabaseSizeAsync(context, cancellationToken);
             }
@@ -106,7 +106,7 @@ namespace VanAn.Shared.Services
         //         await context.Database.OpenConnectionAsync();
         //         var command = context.Database.GetDbConnection().CreateCommand();
         //         
-        //         // 🛡️ PHASE 5: VACUUM để chống phân mảnh file SQLite
+        //         // ðŸ›¡ï¸ PHASE 5: VACUUM Ä‘á»ƒ chá»‘ng phÃ¢n máº£nh file SQLite
         //         command.CommandText = "VACUUM;";
         //         await command.ExecuteNonQueryAsync();
         //         
@@ -129,7 +129,7 @@ namespace VanAn.Shared.Services
         //         await context.Database.OpenConnectionAsync();
         //         var command = context.Database.GetDbConnection().CreateCommand();
         //         
-        //         // 🛡️ PHASE 5: Kiểm tra kích thước file database
+        //         // ðŸ›¡ï¸ PHASE 5: Kiá»ƒm tra kÃ­ch thÆ°á»›c file database
         //         command.CommandText = "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();";
         //         var result = await command.ExecuteScalarAsync();
         //         
@@ -155,43 +155,43 @@ namespace VanAn.Shared.Services
         }
 
         // High-Performance Logging Methods
-        [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "🛡️ PHASE 5: Local Data Pruning Service started")]
+        [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "ðŸ›¡ï¸ PHASE 5: Local Data Pruning Service started")]
         private partial void LogPruningServiceStarted();
 
-        [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "🔄 Starting data pruning process...")]
+        [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "ðŸ”„ Starting data pruning process...")]
         private partial void LogPruningProcessStarted();
 
-        [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "❌ Error during data pruning. Retrying in 1 hour...")]
+        [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "âŒ Error during data pruning. Retrying in 1 hour...")]
         private partial void LogPruningError(Exception ex);
 
-        [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "✅ Pruned {Count} old orders (older than {Date})")]
+        [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "âœ… Pruned {Count} old orders (older than {Date})")]
         private partial void LogOrdersPruned(int count, string date);
 
-        [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "ℹ️ No orders to prune. All data within retention period.")]
+        [LoggerMessage(EventId = 5, Level = LogLevel.Information, Message = "â„¹ï¸ No orders to prune. All data within retention period.")]
         private partial void LogNoOrdersToPrune();
 
-        [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "❌ Failed to perform data pruning")]
+        [LoggerMessage(EventId = 6, Level = LogLevel.Error, Message = "âŒ Failed to perform data pruning")]
         private partial void LogPruningFailed(Exception ex);
 
-        [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "🧹 Performing VACUUM to compact database...")]
+        [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "ðŸ§¹ Performing VACUUM to compact database...")]
         private partial void LogVacuumStarted();
 
-        [LoggerMessage(EventId = 8, Level = LogLevel.Information, Message = "✅ VACUUM completed successfully")]
+        [LoggerMessage(EventId = 8, Level = LogLevel.Information, Message = "âœ… VACUUM completed successfully")]
         private partial void LogVacuumCompleted();
 
-        [LoggerMessage(EventId = 9, Level = LogLevel.Error, Message = "❌ Failed to perform VACUUM")]
+        [LoggerMessage(EventId = 9, Level = LogLevel.Error, Message = "âŒ Failed to perform VACUUM")]
         private partial void LogVacuumFailed(Exception ex);
 
-        [LoggerMessage(EventId = 10, Level = LogLevel.Information, Message = "📊 Database size: {Size:F2} MB")]
+        [LoggerMessage(EventId = 10, Level = LogLevel.Information, Message = "ðŸ“Š Database size: {Size:F2} MB")]
         private partial void LogDatabaseSize(double size);
 
-        [LoggerMessage(EventId = 11, Level = LogLevel.Warning, Message = "⚠️ Database size is large ({Size:F2} MB). Consider reducing retention period.")]
+        [LoggerMessage(EventId = 11, Level = LogLevel.Warning, Message = "âš ï¸ Database size is large ({Size:F2} MB). Consider reducing retention period.")]
         private partial void LogDatabaseSizeWarning(double size);
 
-        [LoggerMessage(EventId = 12, Level = LogLevel.Error, Message = "❌ Failed to check database size")]
+        [LoggerMessage(EventId = 12, Level = LogLevel.Error, Message = "âŒ Failed to check database size")]
         private partial void LogDatabaseSizeCheckFailed(Exception ex);
 
-        [LoggerMessage(EventId = 13, Level = LogLevel.Information, Message = "🛡️ PHASE 5: Local Data Pruning Service stopping...")]
+        [LoggerMessage(EventId = 13, Level = LogLevel.Information, Message = "ðŸ›¡ï¸ PHASE 5: Local Data Pruning Service stopping...")]
         private partial void LogPruningServiceStopping();
     }
 }

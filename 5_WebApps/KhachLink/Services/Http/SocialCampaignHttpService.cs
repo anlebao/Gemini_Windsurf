@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using VanAn.Shared.Services;
 using VanAn.Shared.Domain;
@@ -43,7 +43,7 @@ namespace VanAn.KhachLink.Services.Http
 
         public async Task<List<SocialCampaign>> GetCampaignsByShopAsync(Guid shopId)
         {
-            // Shop entity removed 2026-07-21 — by-shop endpoint now redirects to by-tenant.
+            // Shop entity removed 2026-07-21 â€” by-shop endpoint now redirects to by-tenant.
             // shopId parameter is interpreted as tenantId for backward compat.
             return await GetCampaignsByTenantAsync(shopId);
         }

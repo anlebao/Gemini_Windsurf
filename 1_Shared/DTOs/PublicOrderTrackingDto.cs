@@ -1,4 +1,4 @@
-namespace VanAn.Shared.DTOs
+﻿namespace VanAn.Shared.DTOs
 {
     /// <summary>
     /// W6/Bucket D: Limited DTO for public customer-facing order tracking.
@@ -19,9 +19,9 @@ namespace VanAn.Shared.DTOs
         public decimal TotalVatAmount { get; init; }
         public int ItemCount { get; init; }
         public List<PublicOrderItemDto> Items { get; init; } = new();
-        /// <summary>W1-T9: Tenant GUID — needed by KhachLink to fetch shop feature toggles (kitchen workflow visibility).</summary>
+        /// <summary>W1-T9: Tenant GUID â€” needed by KhachLink to fetch shop feature toggles (kitchen workflow visibility).</summary>
         public Guid TenantId { get; init; }
-        /// <summary>Tenant display name — resolved from PG Tenants table by Gateway. Shown to customer instead of raw GUID.</summary>
+        /// <summary>Tenant display name â€” resolved from PG Tenants table by Gateway. Shown to customer instead of raw GUID.</summary>
         public string TenantName { get; init; } = string.Empty;
     }
 
