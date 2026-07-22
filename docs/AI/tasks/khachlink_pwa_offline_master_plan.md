@@ -1,7 +1,7 @@
 # Master Plan — KhachLink PWA True Offline (Blazor Server → WASM Conversion)
 
 > **Created:** 2026-07-21
-> **Status:** IN PROGRESS — Phase 1 COMPLETE, Phase 2 COMPLETE + hotfixes, Phase 3 next
+> **Status:** IN PROGRESS — Phase 1 COMPLETE, Phase 2 COMPLETE + hotfixes, Phase 4 DESCOPE, Phase 3 next
 > **Priority:** Medium (P2) — UX enhancement, not blocking current flows
 > **Related tech debt:** TD-PWA-001 (this plan), TD-MVPS-003 (Integration.Tests infra)
 > **ADR impact:** ADR-001 v3 addendum (Option C — KhachLink HTTP-only via Gateway, unchanged)
@@ -13,10 +13,27 @@
 | 0 — Quick fix tạm thời | SKIPPED (superseded by Phase 1 fast completion) | — | — |
 | 1 — SDK conversion | COMPLETE | 2026-07-21 | `b642662b` + 3 follow-ups |
 | 2 — SW DLL caching | COMPLETE + hotfixes | 2026-07-22 | `ec15bc01` + 3 hotfixes |
+| 2b — Price validation + online guard | COMPLETE | 2026-07-22 | `51b7e624` |
 | 3 — Offline API fallback | NEXT | — | — |
-| 4 — Offline write queue | Pending | — | — |
+| 4 — Offline write queue | **DESCOPE** (checkout = online-only per architecture review) | 2026-07-22 | — |
 | 5 — Push notification | Pending | — | — |
 | 6 — E2E + governance | Pending | — | — |
+
+### Architecture Decision: Phase 4 Descope (2026-07-22)
+
+**Decision:** Phase 4 (offline write queue / IndexedDB + Background Sync for checkout POST) is **DESCOPED** from the master plan. Checkout is now **online-only** — `navigator.onLine` guard in Checkout.razor blocks submission when offline.
+
+**Rationale (from architecture review):**
+1. **Financial integrity:** Offline checkout creates "ghost orders" — order timestamp, price, and inventory state are ambiguous when replayed later. Gateway is order creator (Option C) and must validate in real-time.
+2. **Price validation:** Tier 0+1 price validation (commit `51b7e624`) requires Gateway PG access — cannot run offline. Client-sent prices must be validated server-side before order creation.
+3. **Inventory overselling:** Without real-time inventory check, offline orders can cause overbooking. Gateway has no inventory table (products live in ShopERP SQLite per-tenant).
+4. **Token expiry:** Background Sync replay may fire after auth token expires → 401 → order stuck in queue silently.
+5. **UX expectation:** Customer-facing PWA for food ordering — "order saved, will send later" is confusing for time-sensitive F&B orders. Better UX: clear error "no connection, please check 4G/Wifi".
+
+**What this means for offline capability:**
+- **Offline READ works:** catalog browse, store finder, order history, campaign view — all cached by service worker (Phase 2+3).
+- **Offline WRITE blocked:** checkout, order creation — requires real-time Gateway validation. `navigator.onLine` guard + clear error message.
+- **iOS Safari:** no Background Sync API needed (was a risk in original plan — now moot).
 
 ---
 
@@ -107,19 +124,21 @@ KhachLink is a customer-facing PWA installed on phones. Initial download size is
 ### Phase Dependencies
 
 ```
-Phase 0 (Quick fix tạm thời) ──── independent, deploy ngay
+Phase 0 (Quick fix tạm thời) ──── SKIPPED
                                       │
-Phase 1 (SDK conversion) ─────────── depends on: approval
+Phase 1 (SDK conversion) ─────────── COMPLETE
                                       │
-Phase 2 (SW DLL caching) ─────────── depends on: Phase 1
+Phase 2 (SW DLL caching) ─────────── COMPLETE + hotfixes
                                       │
-Phase 3 (Offline API fallback) ───── depends on: Phase 2
+Phase 2b (Price validation + guard) ─ COMPLETE (inline, not a numbered phase)
                                       │
-Phase 4 (Offline write queue) ────── depends on: Phase 3
+Phase 3 (Offline API fallback) ───── NEXT — depends on: Phase 2
                                       │
-Phase 5 (Push notification) ──────── independent (can parallel Phase 2-4)
+Phase 4 (Offline write queue) ────── DESCOPE (checkout = online-only)
                                       │
-Phase 6 (E2E + governance) ───────── depends on: Phase 1-5 ALL complete
+Phase 5 (Push notification) ──────── independent (can parallel Phase 3)
+                                      │
+Phase 6 (E2E + governance) ───────── depends on: Phase 1-3 + 5 complete
 ```
 
 ### Phase 0: Quick fix tạm thời (deploy ngay, không cần convert)
@@ -177,24 +196,41 @@ Phase 6 (E2E + governance) ───────── depends on: Phase 1-5 ALL
 - Add cache expiration: API responses expire after 24h (avoid stale data forever).
 - Verify: each page works offline with cached data.
 
-### Phase 4: Offline write queue (checkout POST)
-- **Client-side UUIDv7 generation** — order ID generated on client BEFORE queue, stable across retries (Gateway không regenerate).
-- **Idempotency key** — mỗi queued order có `Idempotency-Key` header (UUIDv7). Gateway `PublicOrdersController.checkout` phải check duplicate (if `Idempotency-Key` seen → return existing order, không tạo mới). **CRITICAL** — Background Sync có thể fire nhiều lần.
-- Implement `OfflineQueueService` (C#) wrapping IndexedDB `sync-queue` store (already defined in `pwa.js` line 310).
-- Modify `Checkout.razor` submit handler: if offline, queue order payload in IndexedDB + call `serviceWorkerRegistration.sync.register('vanan-checkout-sync')` via JS interop.
-- Add service worker `sync` event handler (currently missing in service-worker.js):
-  ```js
-  self.addEventListener('sync', event => {
-    if (event.tag === 'vanan-checkout-sync') {
-      event.waitUntil(replayQueuedCheckouts());
-    }
-  });
-  ```
-- `replayQueuedCheckouts()`: read IndexedDB `sync-queue`, POST each to Gateway with `Idempotency-Key` header, mark as sent on 2xx.
-- **iOS Safari fallback** (no Background Sync API): replay queue on `online` event + `visibilitychange` (app focus).
-- UI: show "Đơn hàng đã lưu, sẽ gửi khi có mạng" toast when queued.
-- **Gateway change required:** `PublicOrdersController.checkout` add `Idempotency-Key` header check (small server-side change — within scope).
-- Verify: queue checkout offline → reconnect → order appears in Gateway PG + syncs to ShopERP via NATS. Verify duplicate sync fires don't create duplicate orders.
+### Phase 2b: Price validation + navigator.onLine guard — COMPLETE (2026-07-22, commit `51b7e624`)
+
+Implemented as inline hardening after Phase 2, not a numbered phase. Addresses price validation gap identified during architecture review.
+
+**Tier 0 — Sanity checks (Gateway, 0ms):**
+- Reject 400 if `UnitPrice <= 0`, `Quantity <= 0`, `VatRate < 0` or `> 1.0`
+- Returns specific error per item (product name + invalid value)
+- Catches client bugs, DevTools manipulation, corrupted cache
+
+**Tier 1 — FeaturedProducts cross-check (Gateway, ~5ms):**
+- Query `FeaturedProducts` from Gateway PG (local, does NOT call ShopERP)
+- Compare client `UnitPrice` vs `FeaturedProduct.DisplayPrice` with 5% tolerance
+- If mismatch > 5% → reject 400 "price has changed, please refresh"
+- QR-scanned products (not in FeaturedProducts) skip Tier 1 — QR price is system-generated, trustworthy
+
+**navigator.onLine guard (KhachLink Checkout.razor):**
+- Check `navigator.onLine` before submit
+- If offline → show error "no connection, check 4G/Wifi to send order"
+- Financial transactions = online real-time only
+
+**Tier 2 — Async reconciliation (DEFERRED):** ShopERP-side price comparison via NATS reply. Not needed for MVP — Tier 0+1 covers Featured products (most common checkout path). Can add later if non-Featured product price manipulation becomes a real problem.
+
+### Phase 4: Offline write queue (checkout POST) — DESCOPE (2026-07-22)
+
+**Status: DESCOPE.** Checkout is online-only. `navigator.onLine` guard blocks offline submission with clear error message.
+
+**Original plan (archived for reference):**
+- ~~Client-side UUIDv7 generation — order ID generated on client BEFORE queue~~
+- ~~Idempotency key — each queued order has `Idempotency-Key` header~~
+- ~~Implement `OfflineQueueService` (C#) wrapping IndexedDB `sync-queue` store~~
+- ~~Modify `Checkout.razor` submit handler: if offline, queue in IndexedDB + Background Sync~~
+- ~~Add service worker `sync` event handler~~
+- ~~iOS Safari fallback: replay queue on `online` event + `visibilitychange`~~
+
+**Why descope:** See "Architecture Decision: Phase 4 Descope" in Phase Progress Summary above. Key reasons: financial integrity (ghost orders), price validation requires real-time Gateway access, inventory overselling risk, token expiry, F&B UX expectation (time-sensitive orders).
 
 ### Phase 5: Push notification + PWA polish
 - **Verify VAPID key** in `pwa.js` line 156 — if invalid, regenerate via `npx web-push generate-vapid-keys` + update both client + server.
@@ -211,8 +247,9 @@ Phase 6 (E2E + governance) ───────── depends on: Phase 1-5 ALL
 - **Rewrite `KhachLinkStartupTests`** — WASM test approach khác:
   - Server startup tests (DI container smoke) → replace với bUnit `TestContext` for component rendering tests.
   - Or: keep DI smoke tests by instantiating `Program` partially (WASM `WebAssemblyHostBuilder`).
-- Playwright E2E: offline scenario (load online → disconnect → navigate → checkout → reconnect → verify order).
-- RV on VPS: deploy + verify PWA install + offline on real Android device.
+- Playwright E2E: offline READ scenario (load online → disconnect → navigate → browse catalog → verify cached data). **No offline checkout test** (Phase 4 descope — checkout is online-only).
+- Playwright E2E: price validation scenario (submit checkout with manipulated price → verify Tier 0/1 rejection).
+- RV on VPS: deploy + verify PWA install + offline READ on real Android device.
 - **Remove Phase 0 quick fix** (replaced by real WASM offline).
 
 ---
@@ -226,23 +263,23 @@ Phase 6 (E2E + governance) ───────── depends on: Phase 1-5 ALL
 | JS interop differences (Server vs WASM) | Runtime errors | Audit all `IJSRuntime` calls — most work identically; `vananPWA.*` functions are pure browser APIs |
 | Authentication cookie vs JWT | Auth breaks | KhachLink uses `customer_token` in localStorage (not server cookie) — WASM compatible |
 | Blazor Server-only APIs (`HttpContext`, `IHttpContextAccessor`) | Build break | Audit + replace with WASM equivalents (`NavigationManager` for URL state) |
-| Service worker cache size limit (~50MB on iOS Safari) | Cache eviction | Prune old API responses; cache only essential DLLs |
-| Background Sync API not supported on iOS Safari | Offline checkout queue doesn't replay on iOS | Fallback: replay queue on `online` event + on app focus (`visibilitychange`) |
+| Service worker cache size limit (~50MB on iOS Safari) | Cache eviction | Prune old API responses; cache only essential DLLs. Verified: `_framework/` = 19.5MB (under limit) |
+| ~~Background Sync API not supported on iOS Safari~~ | ~~Offline checkout queue doesn't replay on iOS~~ | **MOOT** — Phase 4 descope, checkout is online-only. No Background Sync needed. |
 
 ---
 
 ## 6. Acceptance Criteria
 
-- [ ] `dotnet build VanAn.KhachLink.csproj` PASS with WASM SDK.
-- [ ] Online smoke test: all 13 pages render, navigation works, cart/checkout works, QR scan works.
-- [ ] Offline test (Chrome DevTools → Network → Offline): app loads from cache, UI events fire, navigation works, Store Finder shows cached stores, Home shows cached catalog.
-- [ ] Offline checkout: order queued in IndexedDB → reconnect → order appears in Gateway PG + syncs to ShopERP SQLite via NATS.
-- [ ] **Idempotency:** Background Sync fires 3 times for same queued order → only 1 order created in Gateway PG (Idempotency-Key dedup).
-- [ ] PWA install on Android Chrome: icon on Home Screen, standalone launch, push notification received.
-- [ ] `project_state.md` Section 1 corrected to "Blazor WebAssembly" (now true).
-- [ ] ADR-001 v3 addendum updated.
-- [ ] Playwright E2E offline scenario PASS.
-- [ ] **Performance budget:** initial download <8MB compressed (Brotli), time-to-interactive <15s on 4G, <3s on WiFi (cached).
+- [x] `dotnet build VanAn.KhachLink.csproj` PASS with WASM SDK. (Phase 1)
+- [x] Online smoke test: all 13 pages render, navigation works, cart/checkout works, QR scan works. (Phase 1 RV)
+- [ ] Offline test (Chrome DevTools → Network → Offline): app loads from cache, UI events fire, navigation works, Store Finder shows cached stores, Home shows cached catalog. (Phase 3 — pending)
+- [x] **Offline checkout: BLOCKED by design** — `navigator.onLine` guard prevents offline submission. Checkout requires real-time Gateway validation (Tier 0+1 price checks). (Phase 2b — DESCOPE Phase 4)
+- [x] **Price validation:** Tier 0 sanity checks + Tier 1 FeaturedProducts cross-check reject invalid prices at Gateway. (Phase 2b)
+- [ ] PWA install on Android Chrome: icon on Home Screen, standalone launch, push notification received. (Phase 5 — pending)
+- [ ] `project_state.md` Section 1 corrected to "Blazor WebAssembly" (now true). (Phase 6 — pending)
+- [ ] ADR-001 v3 addendum updated. (Phase 6 — pending)
+- [ ] Playwright E2E offline scenario PASS. (Phase 6 — pending)
+- [x] **Performance budget:** initial download `_framework/` = 19.5MB uncompressed, Brotli compressed ~5-7MB. time-to-interactive <15s on 4G, <3s on WiFi (cached). (Phase 2 RV)
 
 ---
 
@@ -250,25 +287,26 @@ Phase 6 (E2E + governance) ───────── depends on: Phase 1-5 ALL
 
 - **Branch strategy:** All work on `feature/khachlink-wasm` branch. Fast-forward merge to `main` only after Phase 6 RV PASS.
 - **If Phase 1 build fails irrecoverably:** `git checkout main` — no production impact (changes never merged).
-- **If Phase 2-4 offline behavior broken after merge:** Revert merge commit on `main` → CD redeploys previous Server version. KhachLink is stateless (no server-side state) → safe revert.
+- **If Phase 2-3 offline behavior broken after merge:** Revert merge commit on `main` → CD redeploys previous version. KhachLink is stateless (no server-side state) → safe revert.
 - **If Phase 5 push notifications break:** Disable push toggle in Profile.razor (feature flag) — doesn't affect core app.
-- **Data safety:** IndexedDB `sync-queue` is client-side only. Reverting to Server mode loses queued offline orders (acceptable — user sees "cần internet" message, re-submits).
+- **Data safety:** No IndexedDB write queue (Phase 4 descope). Checkout is online-only — no client-side order data to lose on revert.
 
 ---
 
 ## 8. Task Cards
 
-| Phase | Task Card | Effort | Dependencies |
+| Phase | Task Card | Effort | Status |
 |---|---|---|---|
-| 0 — Quick fix tạm thời | `khachlink_pwa_phase0_quickfix_task_card.md` | 1 session | None (deploy ngay) |
-| 1 — SDK conversion | `khachlink_pwa_phase1_sdk_conversion_task_card.md` | 3-5 sessions | Tech Lead approval |
-| 2 — SW DLL caching | `khachlink_pwa_phase2_sw_dll_caching_task_card.md` | 1-2 sessions | Phase 1 |
-| 3 — Offline API fallback | `khachlink_pwa_phase3_offline_api_task_card.md` | 1-2 sessions | Phase 2 |
-| 4 — Offline write queue | `khachlink_pwa_phase4_offline_write_queue_task_card.md` | 3-4 sessions | Phase 3 |
-| 5 — Push notification | `khachlink_pwa_phase5_push_notification_task_card.md` | 3-4 sessions | None (parallel Phase 2-4) |
-| 6 — E2E + governance | `khachlink_pwa_phase6_e2e_governance_task_card.md` | 2-3 sessions | Phase 1-5 ALL |
+| 0 — Quick fix tạm thời | `khachlink_pwa_phase0_quickfix_task_card.md` | 1 session | SKIPPED |
+| 1 — SDK conversion | `khachlink_pwa_phase1_sdk_conversion_task_card.md` | 3-5 sessions | COMPLETE |
+| 2 — SW DLL caching | `khachlink_pwa_phase2_sw_dll_caching_task_card.md` | 1-2 sessions | COMPLETE + hotfixes |
+| 2b — Price validation + guard | (inline, no task card) | 1 session | COMPLETE |
+| 3 — Offline API fallback | `khachlink_pwa_phase3_offline_api_task_card.md` | 1-2 sessions | NEXT |
+| 4 — Offline write queue | `khachlink_pwa_phase4_offline_write_queue_task_card.md` | 3-4 sessions | **DESCOPE** |
+| 5 — Push notification | `khachlink_pwa_phase5_push_notification_task_card.md` | 3-4 sessions | Pending |
+| 6 — E2E + governance | `khachlink_pwa_phase6_e2e_governance_task_card.md` | 2-3 sessions | Pending (Phase 6 depends on 1-3 + 5, NOT 4) |
 
-**Total estimated effort:** 14-21 sessions (~3-5 weeks with approval gates).
+**Revised estimated effort (remaining):** 6-9 sessions (~1.5-2.5 weeks) — Phase 3 (1-2) + Phase 5 (3-4) + Phase 6 (2-3). Phase 4 descope saves 3-4 sessions.
 
 ---
 

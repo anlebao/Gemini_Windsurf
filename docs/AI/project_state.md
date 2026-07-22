@@ -30,7 +30,56 @@
 
 ## 2. Current Objective
 
-**KhachLink PWA Phase 2 — Service Worker DLL Caching + Post-Deploy Hotfixes — COMPLETE (2026-07-22)**
+**KhachLink PWA Phase 2b — Price Validation + navigator.onLine Guard + Phase 4 Descope — COMPLETE (2026-07-22)**
+
+Architecture review of offline checkout strategy concluded that Phase 4 (offline write queue / IndexedDB + Background Sync) creates unacceptable risks for financial integrity. Phase 4 is **DESCOPED**. Checkout is now **online-only** with `navigator.onLine` guard. Price validation gap (Gateway trusted client-sent prices) fixed with Tier 0+1 validation.
+
+### Phase 2b — Price validation + online guard (commit `51b7e624`, 2 files)
+
+**Tier 0 — Sanity checks (Gateway `PublicOrdersController.checkout`, 0ms):**
+- Reject 400 if `UnitPrice <= 0`, `Quantity <= 0`, `VatRate < 0` or `> 1.0`
+- Returns specific error per item (product name + invalid value)
+- Catches client bugs, DevTools manipulation, corrupted cache
+
+**Tier 1 — FeaturedProducts cross-check (Gateway, ~5ms):**
+- Query `FeaturedProducts` from Gateway PG (local — does NOT call ShopERP, no latency, no coupling)
+- Compare client `UnitPrice` vs `FeaturedProduct.DisplayPrice` with 5% tolerance
+- If mismatch > 5% → reject 400 "giá đã thay đổi, vui lòng tải lại trang"
+- QR-scanned products (not in FeaturedProducts) skip Tier 1 — QR price is system-generated, trustworthy
+
+**navigator.onLine guard (KhachLink `Checkout.razor`):**
+- Check `navigator.onLine` before submit via JS interop
+- If offline → show error "Khong co ket noi mang. Vui long kiem tra 4G/Wifi de gui don hang"
+- Financial transactions = online real-time only
+
+**Tier 2 — Async reconciliation (DEFERRED):** ShopERP-side price comparison via NATS reply. Not needed for MVP — Tier 0+1 covers Featured products (most common checkout path).
+
+### Phase 4 — Offline write queue DESCOPE (2026-07-22)
+
+**Decision:** Phase 4 (offline write queue / IndexedDB + Background Sync for checkout POST) is **DESCOPED** from the master plan.
+
+**Rationale (from architecture review):**
+1. **Financial integrity:** Offline checkout creates "ghost orders" — order timestamp, price, and inventory state are ambiguous when replayed later. Gateway is order creator (Option C) and must validate in real-time.
+2. **Price validation:** Tier 0+1 price validation requires Gateway PG access — cannot run offline.
+3. **Inventory overselling:** Without real-time inventory check, offline orders can cause overbooking. Gateway has no inventory table (products live in ShopERP SQLite per-tenant).
+4. **Token expiry:** Background Sync replay may fire after auth token expires → 401 → order stuck in queue silently.
+5. **F&B UX:** Customer-facing PWA for food ordering — "order saved, will send later" is confusing for time-sensitive F&B orders. Better UX: clear error "no connection, check 4G/Wifi".
+
+**What this means for offline capability:**
+- **Offline READ works:** catalog browse, store finder, order history, campaign view — all cached by service worker (Phase 2+3).
+- **Offline WRITE blocked:** checkout, order creation — requires real-time Gateway validation. `navigator.onLine` guard + clear error message.
+- **iOS Safari:** no Background Sync API needed (was a risk in original plan — now moot).
+
+**Revised master plan effort:** 6-9 sessions remaining (Phase 3 + 5 + 6). Phase 4 descope saves 3-4 sessions.
+
+**Status: COMPLETE. Pushed to main, CI PASSED (build 128s, unit 969/0, KhachLink Startup 6/4skip/0, Architecture 37/37). CD deployed to VPS.**
+
+### Next: Phase 3 (Offline API Fallback Hardening)
+Per master plan, Phase 3 hardens the offline API fallback — updates `dynamicCachePatterns` to current Option C endpoints (already done in Phase 2), adds stale-while-revalidate for catalog/tenants, and returns meaningful offline JSON responses. See `docs/AI/tasks/khachlink_pwa_phase3_offline_api_task_card.md`.
+
+---
+
+**PREVIOUS OBJECTIVE — KhachLink PWA Phase 2 — Service Worker DLL Caching + Post-Deploy Hotfixes — COMPLETE (2026-07-22)**
 
 Phase 2 of `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Updates `service-worker.js` to cache Blazor WASM DLLs + `.wasm` runtime for true offline support. Commit `ec15bc01` pushed, CD PASSED, VPS RV PASS. Then 3 post-deploy hotfixes for runtime issues discovered via browser testing.
 
@@ -65,15 +114,13 @@ Browser testing after Phase 2 deploy revealed 3 runtime issues:
 - 4 key WASM assets accessible: `blazor.boot.json`, `blazor.webassembly.js`, `SignalR.Client.Core.wasm`, `VanAn.KhachLink.wasm` — all 200
 - `_framework/` = 19.5MB (well under 50MB iOS Safari limit)
 
-### Offline behavior after Phase 2
+### Offline behavior after Phase 2 + 2b
 - App loads from cache (WASM DLLs cached) → UI events fire, navigation works
-- API GETs hit cache fallback (read-only — checkout needs Phase 4 write queue)
+- API GETs hit cache fallback (read-only)
+- **Checkout = online-only** (navigator.onLine guard + Tier 0+1 price validation at Gateway)
 - If WASM not yet cached (first visit offline): offline shell shown
 
 **Status: COMPLETE. Pushed to main, CD PASSED, VPS RV 9/9 PASS.**
-
-### Next: Phase 3 (Offline API Fallback Hardening)
-Per master plan, Phase 3 hardens the offline API fallback — updates `dynamicCachePatterns` to current Option C endpoints (already done in Phase 2), adds stale-while-revalidate for catalog/tenants, and returns meaningful offline JSON responses. See `docs/AI/tasks/khachlink_pwa_phase3_offline_api_task_card.md`.
 
 ---
 
@@ -227,10 +274,11 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `b8a94413` fix(khachlink-wasm): enable NullabilityInfoContextSupport for System.Text.Json
+- **Last commit:** `51b7e624` feat(checkout): Tier 0+1 price validation + navigator.onLine guard
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-22):** `dotnet build VanAn.sln` 0 errors. KhachLink WASM build PASS. CI PASSED on push `dabc3698..b8a94413` (build 170s, unit 969/0, KhachLink Startup 6/4skip/0, Gateway Startup OK, Architecture 37/37, Integration 155/43fail-non-blocking). CD deployed to VPS at 04:28 UTC. VPS RV 9/9 PASS.
+- **Build (2026-07-22):** `dotnet build VanAn.sln` 0 errors. Gateway 0 errors, KhachLink WASM 0 errors. CI PASSED on push `7418391e..51b7e624` (build 128s, unit 969/0, KhachLink Startup 6/4skip/0, Gateway Startup OK, Architecture 37/37, Integration 155/43fail-non-blocking). CD deployed to VPS.
+- **KhachLink PWA Phase 2b + Phase 4 Descope (2026-07-22 - COMPLETE + PUSHED + CI PASSED):** Price validation + navigator.onLine guard + Phase 4 offline write queue DESCOPE. Phase 2b (`51b7e624`): Tier 0 sanity checks (Gateway rejects UnitPrice<=0, Quantity<=0, VatRate<0 or >1.0) + Tier 1 FeaturedProducts cross-check (5% tolerance, local PG query, no ShopERP call) + navigator.onLine guard in Checkout.razor (blocks offline submission). Phase 4 DESCOPE: offline write queue (IndexedDB + Background Sync) removed from master plan — checkout is online-only per architecture review (financial integrity, price validation requires real-time Gateway, inventory overselling risk, token expiry, F&B UX). Master plan revised: 6-9 sessions remaining (Phase 3 + 5 + 6), Phase 4 saves 3-4 sessions.
 - **KhachLink PWA Phase 2 + Hotfixes (2026-07-22 - COMPLETE + PUSHED + CD PASSED + VPS RV 9/9 PASS):** Service worker DLL caching + 3 post-deploy hotfixes. Phase 2 main (`ec15bc01`): `service-worker.js` with `WASM_CACHE` for `_framework/*`, `importScripts('/service-worker-assets.js')` for SDK manifest precaching, `blazor.boot.json` network-first + cache fallback, `_framework/*` cache-first, navigation 3-tier fallback. Cache version v8-offline-shell → v9-wasm. `_framework/` = 19.5MB. Hotfix 1 (`0186723f`): SW install batched 5/batch + nginx `/_framework/` exempt from rate limit (was 80 concurrent → 20× 503 → SRI fail → boot crash). Cache version v9-wasm → v10-batched. Hotfix 2 (`dabc3698`): `AnonymousAuthenticationStateProvider` stub for `TenantService` DI (Phase 1 removed server-side default AuthStateProvider → CannotResolveService at render). Hotfix 3 (`b8a94413`): `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` in csproj (Blazor WASM SDK disables NullabilityInfoContext by default → STJ reflection-based JSON deserialization crashes). RV: 80 concurrent `/_framework/` → 80× 200 (0× 503), homepage 200, SW v10-batched deployed, catalog API valid JSON, nginx config confirmed, 4 WASM assets accessible.
 - **KhachLink PWA Phase 1 (2026-07-21 - COMPLETE + PUSHED + CD PASSED + VPS RV PASS):** Blazor Server → WebAssembly conversion. 85 files (+901/-5319). 3 contracts moved CoreHub→Shared. 8 dead code files + 6 dead test files deleted. Dockerfile rewritten for nginx. 4 KhachLink startup tests skipped (WebApplicationFactory incompatible with WASM, rewrite planned for Phase 6). Unit 984/0, KhachLink Startup 6/4skip/0fail. Commits `b642662b` (Phase 1 main), `fdccdbd4` (docker-compose env fix), `99992973` (index.html host page), `bc7f7289` (healthcheck 127.0.0.1 fix).
 - **Post-Shop-Removal RV (2026-07-21 - COMPLETE + VPS DEPLOYED + RV 6/6 PASS):** Tenant.Id LINQ bug fixed across 3 controllers (TenantStore/PublicOrders/Catalog). Pattern #8 added to governance.md. All tenant-based endpoints 200/404 as expected. No errors in gateway logs. Commits: `20697063`, `e876cf53`.
@@ -263,15 +311,17 @@ Multi-VPS Checkout Option C master plan — Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7
 
 **NEXT (recommended priority order):**
 
-1. **Browser manual RV for KhachLink Phase 2 + hotfixes** — open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
+1. **Browser manual RV for KhachLink Phase 2 + 2b + hotfixes** — open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
    - DevTools Console: no `CannotResolveService`, no `NullabilityInfoContext_NotSupported`, no `503` for `/_framework/*`
    - DevTools Application → Service Workers: SW `v10-batched` active
    - DevTools Application → Cache Storage: `vanan-wasm-v10-batched` populated with `_framework/*` assets
    - All Pages render without errors (Home, Store, Cart, Checkout, Campaigns, Campaign `/c/{trackingCode}`, OrderTracking, OrderHistory, Login, Profile, Scan, VoiceNote, LoyaltyCard, StoreFinder)
-   - Offline test: DevTools → Network → Offline → reload → app loads from cache (UI events fire, navigation works)
+   - **Price validation RV:** try checkout with UnitPrice=0 → expect 400 "giá không hợp lệ"; try checkout with manipulated FeaturedProduct price → expect 400 "giá đã thay đổi"
+   - **Offline guard RV:** DevTools → Network → Offline → try checkout → expect error "Khong co ket noi mang..."
+   - Offline READ test: DevTools → Network → Offline → reload → app loads from cache (UI events fire, navigation works, catalog browse works)
    - Note: `runtime.lastError` / `message channel closed` errors are from browser extensions, NOT KhachLink — verify in Incognito mode.
 
-2. **Phase 3 — Offline API Fallback Hardening** — per `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Task card: `khachlink_pwa_phase3_offline_api_task_card.md`. Add stale-while-revalidate for catalog/tenants, cache expiration (24h), meaningful offline JSON responses. `dynamicCachePatterns` already updated to Option C endpoints in Phase 2.
+2. **Phase 3 — Offline API Fallback Hardening** — per `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`. Task card: `khachlink_pwa_phase3_offline_api_task_card.md`. Add stale-while-revalidate for catalog/tenants, cache expiration (24h), meaningful offline JSON responses. `dynamicCachePatterns` already updated to Option C endpoints in Phase 2. **Phase 4 (offline write queue) is DESCOPE — checkout is online-only, no IndexedDB queue needed.**
 
 3. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
    - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
@@ -399,6 +449,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-22 -- KHACHLINK PWA PHASE 2b (PRICE VALIDATION + NAVIGATOR.ONLINE GUARD) + PHASE 4 DESCOPE COMPLETE.** Architecture review of offline checkout strategy concluded Phase 4 (offline write queue / IndexedDB + Background Sync) creates unacceptable risks for financial integrity → DESCOPE. Checkout is now online-only. Price validation gap (Gateway trusted client-sent prices without validation) fixed with Tier 0+1 validation. Phase 2b (commit `51b7e624`, 2 files): (1) Tier 0 sanity checks in `PublicOrdersController.checkout` — reject 400 if UnitPrice<=0, Quantity<=0, VatRate<0 or >1.0, returns specific error per item; (2) Tier 1 FeaturedProducts cross-check — query FeaturedProducts from Gateway PG (local, does NOT call ShopERP, no latency), compare client UnitPrice vs DisplayPrice with 5% tolerance, reject 400 if mismatch > 5%, QR-scanned products skip Tier 1 (QR price is system-generated); (3) navigator.onLine guard in Checkout.razor — check navigator.onLine before submit via JS interop, if offline show error "Khong co ket noi mang. Vui long kiem tra 4G/Wifi de gui don hang". Tier 2 (async reconciliation via NATS reply) DEFERRED — not needed for MVP. Phase 4 DESCOPE rationale: (a) ghost orders — offline order timestamp ≠ Gateway creation timestamp → accounting period ambiguity; (b) price validation requires real-time Gateway PG access — cannot run offline; (c) inventory overselling — no real-time inventory check → overbooking risk; (d) token expiry — Background Sync replay may fire after auth token expires → silent 401; (e) F&B UX — time-sensitive orders, "saved will send later" is confusing. Master plan revised: 6-9 sessions remaining (Phase 3 + 5 + 6), Phase 4 descope saves 3-4 sessions. CI PASSED on push `7418391e..51b7e624` (build 128s, unit 969/0, KhachLink Startup 6/4skip/0, Gateway Startup OK, Architecture 37/37, Integration 155/43fail-non-blocking). CD deployed to VPS. Branch: `main`. Next: Phase 3 (Offline API Fallback Hardening) — offline READ only, no offline WRITE.
 
 * **2026-07-22 -- KHACHLINK PWA PHASE 2 HOTFIXES (3 POST-DEPLOY RUNTIME FIXES) COMPLETE.** Browser testing after Phase 2 deploy revealed 3 runtime issues. Hotfix 1 — Rate limit 503 + SRI integrity fail (commit `0186723f`, 2 files): SW install event fired 80 concurrent `cache.add()` for `/_framework/*` → front proxy nginx rate limiter (`burst=20`) blocked 60/80 with 503 → SRI integrity check fail → Blazor boot crash. Fix: (a) `service-worker.js` — batch SW precache into chunks of 5 (sequential per batch) instead of 80 concurrent `Promise.allSettled`, cache version `v9-wasm` → `v10-batched`; (b) `nginx/templates/vanan.conf.template` — move `limit_req zone=web burst=20 nodelay` from server block into `location /` + `location /_blazor` blocks, so `location /_framework/` is exempt from rate limiting (immutable hashed assets don't need rate protection). Hotfix 2 — CannotResolveService AuthenticationStateProvider (commit `dabc3698`, 2 files): Phase 1 WASM conversion removed server-side Blazor infrastructure providing default `AuthenticationStateProvider`. `UI.Platform.TenantService` requires it via constructor injection → `CannotResolveService` at render. Fix: new `Services/AnonymousAuthenticationStateProvider.cs` — stub returning anonymous `ClaimsPrincipal` (no TenantId claim). KhachLink is customer-facing PWA with no server auth; tenant context from `LastInteractionService` (localStorage). Registered in `Program.cs`. Hotfix 3 — NullabilityInfoContext_NotSupported (commit `b8a94413`, 1 file): Blazor WASM SDK disables `NullabilityInfoContext` feature switch by default → `System.Text.Json` `DefaultJsonTypeInfoResolver` throws when reading nullable annotations via reflection → crashes all HTTP JSON deserialization. Fix: `<NullabilityInfoContextSupport>true</NullabilityInfoContextSupport>` MSBuild property in `VanAn.KhachLink.csproj`. Reference: dotnet/runtime#118333. CI PASSED on push `dabc3698..b8a94413` (build 170s, unit 969/0, KhachLink Startup 6/4skip/0, Architecture 37/37). CD deployed to VPS at 04:28 UTC. VPS RV 9/9 PASS: 80 concurrent `/_framework/` → 80× 200 (0× 503), homepage 200, SW v10-batched deployed, catalog API valid JSON, nginx `/_framework/` exempt confirmed, 4 WASM assets accessible. Branch: `main`. Next: Phase 3 (Offline API Fallback Hardening).
 

@@ -1,12 +1,14 @@
 # TASK CARD: PWA-OFFLINE - Phase 4 - Offline Write Queue (Checkout POST)
 
+> **Status: DESCOPE (2026-07-22).** Checkout is online-only. `navigator.onLine` guard in Checkout.razor blocks offline submission. See master plan "Architecture Decision: Phase 4 Descope" for rationale.
+
 ## 1. GOAL & CONTEXT
-- **Mục tiêu cốt lõi:** Queue checkout POST trong IndexedDB khi offline → replay via Background Sync API khi có mạng lại. Idempotency đảm bảo không duplicate orders.
-- **Nghiệp vụ áp dụng:** Khách trong quán mất mạng → vẫn đặt hàng được → order queue → có mạng lại → auto-sync → Gateway tạo order → NATS → ShopERP kitchen display.
+- **Mục tiêu cốt lõi:** ~~Queue checkout POST trong IndexedDB khi offline → replay via Background Sync API khi có mạng lại.~~ **DESCOPE.**
+- **Nghiệp vụ áp dụng:** ~~Khách trong quán mất mạng → vẫn đặt hàng được → order queue → có mạng lại → auto-sync.~~ **Replaced by:** `navigator.onLine` guard — if offline, show error "no connection, check 4G/Wifi to send order". Customer must reconnect to checkout.
 
 ## 2. ACTIVE WORKFLOW ROUTING
-- **Target Workflow:** `.devin/workflows/newfeaturebuild.md`
-- **Execution Mode:** IMPLEMENT (involves Gateway change — Idempotency-Key)
+- **Target Workflow:** N/A — task descope
+- **Execution Mode:** DESCOPE (not implemented, not planned)
 
 ## 3. RELEVANT FILES (CONTEXT BOUNDARY)
 - **Files được phép đọc/sửa:**
@@ -24,28 +26,27 @@
   - Idempotency check = lookup existing order by Idempotency-Key header → return existing order if found.
 
 ## 4. TECHNICAL & REGULATORY CONSTRAINTS
-- [ ] **Client-side UUIDv7:** Order ID generated on client BEFORE queue (stable across retries).
-- [ ] **Idempotency-Key header:** Mỗi queued order có `Idempotency-Key` (UUIDv7). Gateway check duplicate.
-- [ ] **Background Sync API:** `serviceWorkerRegistration.sync.register('vanan-checkout-sync')` via JS interop.
-- [ ] **Service worker `sync` event:** Add handler (currently missing).
-- [ ] **iOS Safari fallback:** Replay queue on `online` event + `visibilitychange` (no Background Sync on iOS).
-- [ ] **Domain protection:** Idempotency logic ở Gateway controller level, KHÔNG sửa Domain.
+**N/A — task descope.** All constraints below are archived for reference only.
+
+- [~] ~~Client-side UUIDv7~~ — DESCOPE
+- [~] ~~Idempotency-Key header~~ — DESCOPE
+- [~] ~~Background Sync API~~ — DESCOPE
+- [~] ~~Service worker `sync` event~~ — DESCOPE
+- [~] ~~iOS Safari fallback~~ — DESCOPE (moot — no Background Sync needed)
+- [~] ~~Domain protection~~ — N/A (no Gateway change)
 
 ## 5. SUCCESS CRITERIA
-- [ ] SC1: `OfflineQueueService.cs` created — wraps IndexedDB `sync-queue` store.
-- [ ] SC2: `Checkout.razor` submit handler: if offline → queue + register sync + show toast.
-- [ ] SC3: Service worker `sync` event handler added — replays queued POSTs.
-- [ ] SC4: `replayQueuedCheckouts()` in pwa.js — reads IndexedDB, POST to Gateway with `Idempotency-Key`, marks sent on 2xx.
-- [ ] SC5: Gateway `PublicOrdersController.checkout` — checks `Idempotency-Key` header, returns existing order if duplicate.
-- [ ] SC6: iOS Safari fallback — `online` event + `visibilitychange` triggers replay.
-- [ ] SC7: `dotnet build VanAn.sln` PASS.
-- [ ] SC8: RV: queue checkout offline → reconnect → order appears in Gateway PG.
-- [ ] SC9: **Idempotency RV:** Background Sync fires 3x → only 1 order in PG.
-- [ ] SC10: Order syncs to ShopERP SQLite via NATS (verify kitchen display).
-- [ ] SC11: Toast UI: "Đơn hàng đã lưu, sẽ gửi khi có mạng".
+**N/A — task descope.** All criteria below are archived for reference only.
 
-**Implementation Date:** _TBD_
-**Branch:** `feature/khachlink-wasm`
+- [~] ~~SC1-SC11~~ — DESCOPE
+
+**Replaced by (commit `51b7e624`):**
+- [x] `navigator.onLine` guard in Checkout.razor — blocks offline submission with clear error
+- [x] Tier 0 price sanity checks at Gateway — rejects invalid prices instantly
+- [x] Tier 1 FeaturedProducts cross-check — rejects stale/manipulated prices for featured products
+
+**Implementation Date:** N/A (DESCOPE 2026-07-22)
+**Branch:** N/A
 
 ## 6. ACTIVE SKILLS (MAX 3)
 - `outbox-pattern-implementation` — queue + replay pattern tương tự Outbox
@@ -92,4 +93,14 @@
 | S5 | RV idempotency (fire 3x → 1 order) + NATS sync verify | RV |
 
 ## 12. ESTIMATED EFFORT
-- 3-4 sessions. **BLOCKER:** Phase 3 must be complete. **Risk:** Gateway change cần careful idempotency design.
+~~3-4 sessions.~~ **DESCOPE — 0 sessions.** Savings: 3-4 sessions.
+
+### Descope Rationale (2026-07-22)
+Architecture review concluded offline checkout creates unacceptable risks for financial integrity:
+1. **Ghost orders:** Offline order timestamp ≠ Gateway creation timestamp → accounting period ambiguity
+2. **Price validation:** Tier 0+1 requires real-time Gateway PG access — cannot run offline
+3. **Inventory overselling:** No real-time inventory check → overbooking risk
+4. **Token expiry:** Background Sync replay may fire after auth token expires → silent 401
+5. **F&B UX:** Time-sensitive orders — "saved, will send later" is confusing for customers
+
+**Replacement:** `navigator.onLine` guard (commit `51b7e624`) — clear error message, customer reconnects to checkout. Offline READ still works (Phase 2+3).
