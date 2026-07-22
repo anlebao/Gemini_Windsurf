@@ -331,6 +331,16 @@
 
     private async Task SubmitGuestOrder()
     {
+        // Online guard: checkout requires real-time validation from Gateway (price, inventory).
+        // Do NOT queue offline — financial transactions must be confirmed immediately.
+        var isOnline = await JSRuntime.InvokeAsync<bool>("eval", "navigator.onLine");
+        if (!isOnline)
+        {
+            formError = "Khong co ket noi mang. Vui long kiem tra 4G/Wifi de gui don hang.";
+            StateHasChanged();
+            return;
+        }
+
         // Bug 2: Conditional validation — transfer requires name+phone for reconciliation, cash does not
         if (selectedPaymentMethod == "transfer")
         {

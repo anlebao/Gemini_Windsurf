@@ -112,6 +112,64 @@ namespace VanAn.Gateway.Controllers
                     });
                 }
 
+                // TIER 0: Sanity checks — reject obviously invalid prices/quantities instantly.
+                // Protects against client bugs, DevTools manipulation, and corrupted cached data.
+                var sanityFailures = new List<string>();
+                foreach (var item in request.Items)
+                {
+                    if (item.UnitPrice <= 0)
+                        sanityFailures.Add($"Sản phẩm '{item.ProductName}': giá không hợp lệ (UnitPrice={item.UnitPrice}).");
+                    if (item.Quantity <= 0)
+                        sanityFailures.Add($"Sản phẩm '{item.ProductName}': số lượng phải lớn hơn 0 (Quantity={item.Quantity}).");
+                    if (item.VatRate < 0 || item.VatRate > 1.0m)
+                        sanityFailures.Add($"Sản phẩm '{item.ProductName}': thuế suất không hợp lệ (VatRate={item.VatRate}, phải từ 0 đến 1.0).");
+                }
+                if (sanityFailures.Count > 0)
+                {
+                    _logger.LogWarning("Checkout rejected — Tier 0 sanity check failed: {Failures}", string.Join("; ", sanityFailures));
+                    return BadRequest(new { error = "Dữ liệu đơn hàng không hợp lệ.", details = sanityFailures });
+                }
+
+                // TIER 1: FeaturedProducts cross-check — compare client UnitPrice against
+                // Gateway PG FeaturedProducts.DisplayPrice (local query, ~5ms).
+                // Only applies to products that ARE in FeaturedProducts (QR-scanned products skip).
+                // Tolerance: 5% — catches obvious manipulation (100k→1k) while allowing minor
+                // price drift between featured time and checkout time.
+                if (_dbContext != null)
+                {
+                    var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+                    var featuredPrices = await _dbContext.FeaturedProducts
+                        .IgnoreQueryFilters()
+                        .Where(fp => productIds.Contains(fp.ProductId) && fp.IsActive)
+                        .Select(fp => new { fp.ProductId, fp.DisplayPrice, fp.DisplayName })
+                        .ToListAsync();
+
+                    if (featuredPrices.Count > 0)
+                    {
+                        var priceMismatches = new List<string>();
+                        foreach (var fp in featuredPrices)
+                        {
+                            var clientItem = request.Items.FirstOrDefault(i => i.ProductId == fp.ProductId);
+                            if (clientItem != null && fp.DisplayPrice > 0)
+                            {
+                                decimal tolerance = fp.DisplayPrice * 0.05m; // 5% tolerance
+                                decimal diff = Math.Abs(clientItem.UnitPrice - fp.DisplayPrice);
+                                if (diff > tolerance)
+                                {
+                                    priceMismatches.Add(
+                                        $"Sản phẩm '{fp.DisplayName}': giá đã thay đổi (đơn hàng gửi {clientItem.UnitPrice:N0}đ, " +
+                                        $"giá hiện tại {fp.DisplayPrice:N0}đ). Vui lòng tải lại trang để xem giá mới nhất.");
+                                }
+                            }
+                        }
+                        if (priceMismatches.Count > 0)
+                        {
+                            _logger.LogWarning("Checkout rejected — Tier 1 price mismatch: {Mismatches}", string.Join("; ", priceMismatches));
+                            return BadRequest(new { error = "Giá sản phẩm đã thay đổi.", details = priceMismatches });
+                        }
+                    }
+                }
+
                 Guid customerDeviceId = Guid.TryParse(request.CustomerDeviceId, out Guid parsedId)
                     ? parsedId
                     : Guid.NewGuid();
