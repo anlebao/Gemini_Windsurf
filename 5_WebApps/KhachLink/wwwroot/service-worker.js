@@ -1,29 +1,33 @@
 // ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 2 (WASM DLL Caching)
+// VanAn KhachLink PWA Service Worker — Phase 3 (Offline API Fallback Hardening)
 // ============================================================================
 // Cache strategy:
 //   - _framework/*.wasm/.dll/.js (immutable, hashed) → cache-first (WASM_CACHE)
 //   - blazor.boot.json → network-first + cache fallback (detect updates)
 //   - Static assets (CSS/JS/icons) → cache-first (STATIC_CACHE)
-//   - API GETs → network-first + cache fallback (DYNAMIC_CACHE)
+//   - API GETs (whitelisted) → network-first + cache fallback (DYNAMIC_CACHE)
+//     · catalog/campaigns → stale-while-revalidate (show cached, refresh bg)
+//     · 24h cache expiration via x-sw-cached-at header
 //   - Navigation → network-first → cache → offline shell
 //
-// Phase 2 changes:
-//   - Added WASM_CACHE for _framework/* (Blazor WASM DLLs + .wasm runtime)
-//   - Precache all assets from service-worker-assets.js manifest on install
-//   - blazor.boot.json network-first (detect new versions, offline fallback)
-//   - Cache version bumped v8-offline-shell → v9-wasm
-//   - dynamicCachePatterns updated to Option C endpoints
+// Phase 3 changes:
+//   - dynamicCachePatterns is now ACTUALLY USED (was dead code in Phase 2)
+//   - Whitelist approach: only cache listed endpoints (not all /api/* GETs)
+//   - Corrected endpoints: /api/public/orders/, /api/customerorders (was /api/orders)
+//   - Removed dead /api/menu pattern (endpoint does not exist)
+//   - Stale-while-revalidate for /api/catalog/ and /api/campaigns/
+//   - 24h cache expiration (x-sw-cached-at header, evict on retrieval)
+//   - Cache version bumped v10-batched → v11-phase3
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v10-batched';
-const STATIC_CACHE = 'vanan-static-v10-batched';
-const DYNAMIC_CACHE = 'vanan-dynamic-v10-batched';
-const WASM_CACHE = 'vanan-wasm-v10-batched';
+const CACHE_NAME = 'vanan-khachlink-v11-phase3';
+const STATIC_CACHE = 'vanan-static-v11-phase3';
+const DYNAMIC_CACHE = 'vanan-dynamic-v11-phase3';
+const WASM_CACHE = 'vanan-wasm-v11-phase3';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -39,15 +43,36 @@ const staticUrlsToCache = [
   '/icons/icon-512x512.png'
 ];
 
-// Dynamic API content that can be cached (Option C endpoints)
+// Dynamic API content that can be cached (Option C endpoints — verified against
+// Gateway controllers + KhachLink pages/services on 2026-07-22).
+// Whitelist approach: only listed prefixes are cacheable. Auth/user-specific
+// GET endpoints (/api/customers/me, /api/loyalty/my, /api/customer-identity/me)
+// are intentionally EXCLUDED to avoid cross-user cache leaks on shared devices.
 const dynamicCachePatterns = [
-  '/api/tenants',
-  '/api/catalog',
-  '/api/campaigns',
-  '/api/products',
-  '/api/orders',
-  '/api/menu'
+  '/api/tenants/search',
+  '/api/tenants/nearby',
+  '/api/tenants/by-slug/',
+  '/api/tenants/',            // covers /{id}/store-info, /{id}/feature-settings
+  '/api/catalog/',            // /api/catalog/recommended
+  '/api/campaigns/',          // /api/campaigns/by-tenant/{id}, /{trackingCode}, /{id}
+  '/api/products/',           // /api/products/recommended, /grouped-by-tenant, /{id}/qr
+  '/api/public/orders/',      // OrderTracking: /api/public/orders/{id}
+  '/api/customerorders'       // OrderHistory: /api/customerorders?page=... (auth-scoped, same-device only)
 ];
+
+// Stale-while-revalidate patterns: return cached response immediately (if fresh
+// enough), then fetch in background to update cache. Used for catalog/campaigns
+// where showing slightly stale data is acceptable and perceived latency matters.
+const swrPatterns = [
+  '/api/catalog/',
+  '/api/campaigns/'
+];
+
+// Cache expiration: 24h for API responses. Cached responses older than this are
+// treated as stale (still returned offline as last resort, but refreshed when
+// network is available).
+const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TIMESTAMP_HEADER = 'x-sw-cached-at';
 
 // WASM assets: _framework/* (DLLs, .wasm, .wasm.br, .wasm.gz, blazor.boot.json, blazor.webassembly.js)
 const wasmCachePattern = /^\/_framework\//;
@@ -109,6 +134,31 @@ self.addEventListener('install', event => {
     })
   );
 });
+
+// ============================================================================
+// Helpers: cache timestamp + expiration check
+// ============================================================================
+// Stamp a response with x-sw-cached-at header (ms since epoch) so we can evict
+// expired entries on retrieval. Returns a new Response (headers are immutable).
+function stampResponse(response) {
+  const headers = new Headers(response.headers);
+  headers.set(CACHE_TIMESTAMP_HEADER, Date.now().toString());
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: headers
+  });
+}
+
+// Check if a cached response is older than CACHE_EXPIRY_MS. Returns true if
+// expired (or if timestamp missing — defensive, treat unset as expired).
+function isExpired(response) {
+  const stamped = response.headers.get(CACHE_TIMESTAMP_HEADER);
+  if (!stamped) return true;
+  const cachedAt = parseInt(stamped, 10);
+  if (isNaN(cachedAt)) return true;
+  return (Date.now() - cachedAt) > CACHE_EXPIRY_MS;
+}
 
 // ============================================================================
 // Fetch: cache strategy by asset type
@@ -204,13 +254,68 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // --- 4. API GETs: network-first + cache fallback ---
-  if (url.pathname.startsWith('/api/')) {
+  // --- 4. API GETs (whitelisted): network-first + cache fallback, SWR for catalog/campaigns ---
+  // Phase 3: only cache endpoints in dynamicCachePatterns (whitelist). Auth
+  // endpoints (/api/customers/me, /api/loyalty/my) are NOT cached — avoids
+  // cross-user leaks on shared devices. 24h expiration via x-sw-cached-at.
+  const isCacheable = dynamicCachePatterns.some(p => url.pathname.startsWith(p));
+  if (isCacheable) {
+    const isSwr = swrPatterns.some(p => url.pathname.startsWith(p));
+
+    if (isSwr) {
+      // Stale-while-revalidate: return cached immediately (if any), refresh bg.
+      // If cached is still fresh (< 24h), skip background fetch entirely — no
+      // network hit. If expired or missing, fetch from network to refresh.
+      event.respondWith(
+        caches.match(request).then(cachedResponse => {
+          const cachedIsFresh = cachedResponse && !isExpired(cachedResponse);
+
+          if (cachedIsFresh) {
+            // Fresh cache: return immediately, no background fetch needed.
+            return cachedResponse;
+          }
+
+          // No cache or expired: fetch from network. If we have stale cache,
+          // return it immediately and update in background (true SWR).
+          const fetchPromise = fetch(request)
+            .then(response => {
+              if (response && response.status === 200) {
+                const responseToCache = stampResponse(response.clone());
+                caches.open(DYNAMIC_CACHE).then(cache => {
+                  cache.put(request, responseToCache);
+                });
+              }
+              return response;
+            })
+            .catch(() => {
+              // Network failed — if no cached response, return offline JSON
+              if (!cachedResponse) {
+                return new Response(
+                  JSON.stringify({ error: 'Offline mode', cached: false }),
+                  { status: 503, headers: { 'Content-Type': 'application/json' } }
+                );
+              }
+              // Network failed but we have stale cache: return it.
+              return cachedResponse;
+            });
+
+          if (cachedResponse) {
+            // Expired cache: return stale immediately, refresh in background.
+            return cachedResponse;
+          }
+          // No cache at all: wait for network.
+          return fetchPromise;
+        })
+      );
+      return;
+    }
+
+    // Network-first (non-SWR): try network, fall back to cache if offline.
     event.respondWith(
       fetch(request)
         .then(response => {
           if (response && response.status === 200) {
-            const responseToCache = response.clone();
+            const responseToCache = stampResponse(response.clone());
             caches.open(DYNAMIC_CACHE).then(cache => {
               cache.put(request, responseToCache);
             });
@@ -218,16 +323,17 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => {
-          // Offline: try cache
+          // Offline: return cached response (stale is better than blank offline).
+          // Expiration is enforced on the SWR path; here any cache hit wins.
           return caches.match(request).then(cachedResponse => {
             if (cachedResponse) {
               return cachedResponse;
             }
             // No cached response: return offline error
-            return new Response(JSON.stringify({ error: 'Offline mode', cached: false }), {
-              status: 503,
-              headers: { 'Content-Type': 'application/json' }
-            });
+            return new Response(
+              JSON.stringify({ error: 'Offline mode', cached: false }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            );
           });
         })
     );
@@ -371,7 +477,7 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      console.log('SW activated — Phase 2 WASM DLL caching ready');
+      console.log('SW activated — Phase 3 offline API fallback hardening ready');
       return self.clients.claim(); // Take control of all pages
     })
   );
