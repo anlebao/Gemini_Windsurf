@@ -1,7 +1,7 @@
 ﻿namespace VanAn.Shared.Domain
 {
     /// <summary>
-    /// S1a_HKD Template (KhÃ´ng chá»‹u thuáº¿ GTGT, khÃ´ng ná»™p thuáº¿ TNCN)
+    /// S1a_HKD Template (Không chịu thuế GTGT, không nộp thuế TNCN)
     /// For HKD Group 1 businesses
     /// </summary>
     public record S1aHKDTemplate : HKDBookTemplate
@@ -9,7 +9,7 @@
         public S1aHKDTemplate()
         {
             TemplateCode = "S1a_HKD";
-            TemplateName = "Sá»• káº¿ toÃ¡n cho há»™ kinh doanh khÃ´ng chá»‹u thuáº¿ GTGT";
+            TemplateName = "Sổ kế toán cho hộ kinh doanh không chịu thuế GTGT";
             TargetGroup = HKDGroup.Group1;
 
             Fields =
@@ -17,7 +17,7 @@
                 new()
                 {
                     FieldName = "TotalRevenue",
-                    DisplayName = "Tá»•ng doanh thu",
+                    DisplayName = "Tổng doanh thu",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""5"", ""Credit"")"
@@ -25,7 +25,7 @@
                 new()
                 {
                     FieldName = "TotalExpense",
-                    DisplayName = "Tá»•ng chi phÃ­",
+                    DisplayName = "Tổng chi phí",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""6"", ""Debit"")"
@@ -33,7 +33,7 @@
                 new()
                 {
                     FieldName = "NetProfit",
-                    DisplayName = "Lá»£i nhuáº­n",
+                    DisplayName = "Lợi nhuận",
                     Type = FieldType.Decimal,
                     Formula = "TotalRevenue - TotalExpense"
                 }
@@ -72,22 +72,22 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” Káº¾ TOÃN S1a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ KẾ TOÁN S1a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("TotalRevenue", out decimal revenue))
             {
-                report += $"Tá»•ng doanh thu: {revenue:N0} VNÄ\n";
+                report += $"Tổng doanh thu: {revenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalExpense", out decimal expense))
             {
-                report += $"Tá»•ng chi phÃ­: {expense:N0} VNÄ\n";
+                report += $"Tổng chi phí: {expense:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetProfit", out decimal profit))
             {
-                report += $"Lá»£i nhuáº­n: {profit:N0} VNÄ\n";
+                report += $"Lợi nhuận: {profit:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -95,43 +95,43 @@
     }
 
     /// <summary>
-    /// S2a_HKD Template (Ná»™p thuáº¿ GTGT vÃ  TNCN theo tá»· lá»‡ % trÃªn doanh thu)
+    /// S2a_HKD Template (Nộp thuế GTGT và TNCN theo tỷ lệ % trên doanh thu)
     /// For HKD Group 2 businesses.
-    /// Wave 5 (TT 152/2025/TT-BTC): 4 industry groups Ã— 3 fields (Revenue, VatAmount, PIT per group).
-    /// Tax rates per Luáº­t Thuáº¿ GTGT/TNCN sá»­a Ä‘á»•i 2025 + ND 117/2025.
+    /// Wave 5 (TT 152/2025/TT-BTC): 4 industry groups × 3 fields (Revenue, VatAmount, PIT per group).
+    /// Tax rates per Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025.
     /// </summary>
     public record S2aHKDTemplate : HKDBookTemplate
     {
         public S2aHKDTemplate()
         {
             TemplateCode = "S2a_HKD";
-            TemplateName = "Sá»• káº¿ toÃ¡n cho há»™ kinh doanh ná»™p thuáº¿ GTGT vÃ  TNCN";
+            TemplateName = "Sổ kế toán cho hộ kinh doanh nộp thuế GTGT và TNCN";
             TargetGroup = HKDGroup.Group2;
 
-            // Wave 5: 4 industry groups Ã— 3 fields. NULL IndustrySector â†’ OtherBusiness bucket.
+            // Wave 5: 4 industry groups × 3 fields. NULL IndustrySector → OtherBusiness bucket.
             Fields =
             [
-                // â”€â”€ Distribution (GTGT 1%, TNCN 0.5%) â”€â”€
-                new() { FieldName = "Revenue_Distribution", DisplayName = "Doanh thu â€” PhÃ¢n phá»‘i", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Distribution"")" },
-                new() { FieldName = "VatAmount_Distribution", DisplayName = "Thuáº¿ GTGT â€” PhÃ¢n phá»‘i", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.01" },
-                new() { FieldName = "PIT_Distribution", DisplayName = "Thuáº¿ TNCN â€” PhÃ¢n phá»‘i", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.005" },
-                // â”€â”€ ProductionTransport (GTGT 3%, TNCN 1.5%) â”€â”€
-                new() { FieldName = "Revenue_ProductionTransport", DisplayName = "Doanh thu â€” Sáº£n xuáº¥t, váº­n táº£i", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""ProductionTransport"")" },
-                new() { FieldName = "VatAmount_ProductionTransport", DisplayName = "Thuáº¿ GTGT â€” Sáº£n xuáº¥t, váº­n táº£i", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.03" },
-                new() { FieldName = "PIT_ProductionTransport", DisplayName = "Thuáº¿ TNCN â€” Sáº£n xuáº¥t, váº­n táº£i", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.015" },
-                // â”€â”€ Service (GTGT 5%, TNCN 2%) â”€â”€
-                new() { FieldName = "Revenue_Service", DisplayName = "Doanh thu â€” Dá»‹ch vá»¥", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Service"")" },
-                new() { FieldName = "VatAmount_Service", DisplayName = "Thuáº¿ GTGT â€” Dá»‹ch vá»¥", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.05" },
-                new() { FieldName = "PIT_Service", DisplayName = "Thuáº¿ TNCN â€” Dá»‹ch vá»¥", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.02" },
-                // â”€â”€ OtherBusiness (GTGT 2%, TNCN 1%) â€” includes NULL IndustrySector entries â”€â”€
-                new() { FieldName = "Revenue_OtherBusiness", DisplayName = "Doanh thu â€” Hoáº¡t Ä‘á»™ng khÃ¡c", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""OtherBusiness"")" },
-                new() { FieldName = "VatAmount_OtherBusiness", DisplayName = "Thuáº¿ GTGT â€” Hoáº¡t Ä‘á»™ng khÃ¡c", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.02" },
-                new() { FieldName = "PIT_OtherBusiness", DisplayName = "Thuáº¿ TNCN â€” Hoáº¡t Ä‘á»™ng khÃ¡c", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.01" },
-                // â”€â”€ Totals â”€â”€
-                new() { FieldName = "TotalRevenue", DisplayName = "Tá»•ng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
-                new() { FieldName = "TotalVat", DisplayName = "Tá»•ng thuáº¿ GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" },
-                new() { FieldName = "TotalPIT", DisplayName = "Tá»•ng thuáº¿ TNCN", Type = FieldType.Decimal, Formula = "PIT_Distribution + PIT_ProductionTransport + PIT_Service + PIT_OtherBusiness" },
-                new() { FieldName = "NetRevenue", DisplayName = "Doanh thu sau thuáº¿", Type = FieldType.Decimal, Formula = "TotalRevenue - TotalVat - TotalPIT" }
+                // ── Distribution (GTGT 1%, TNCN 0.5%) ──
+                new() { FieldName = "Revenue_Distribution", DisplayName = "Doanh thu — Phân phối", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Distribution"")" },
+                new() { FieldName = "VatAmount_Distribution", DisplayName = "Thuế GTGT — Phân phối", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.01" },
+                new() { FieldName = "PIT_Distribution", DisplayName = "Thuế TNCN — Phân phối", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.005" },
+                // ── ProductionTransport (GTGT 3%, TNCN 1.5%) ──
+                new() { FieldName = "Revenue_ProductionTransport", DisplayName = "Doanh thu — Sản xuất, vận tải", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""ProductionTransport"")" },
+                new() { FieldName = "VatAmount_ProductionTransport", DisplayName = "Thuế GTGT — Sản xuất, vận tải", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.03" },
+                new() { FieldName = "PIT_ProductionTransport", DisplayName = "Thuế TNCN — Sản xuất, vận tải", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.015" },
+                // ── Service (GTGT 5%, TNCN 2%) ──
+                new() { FieldName = "Revenue_Service", DisplayName = "Doanh thu — Dịch vụ", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Service"")" },
+                new() { FieldName = "VatAmount_Service", DisplayName = "Thuế GTGT — Dịch vụ", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.05" },
+                new() { FieldName = "PIT_Service", DisplayName = "Thuế TNCN — Dịch vụ", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.02" },
+                // ── OtherBusiness (GTGT 2%, TNCN 1%) — includes NULL IndustrySector entries ──
+                new() { FieldName = "Revenue_OtherBusiness", DisplayName = "Doanh thu — Hoạt động khác", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""OtherBusiness"")" },
+                new() { FieldName = "VatAmount_OtherBusiness", DisplayName = "Thuế GTGT — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.02" },
+                new() { FieldName = "PIT_OtherBusiness", DisplayName = "Thuế TNCN — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.01" },
+                // ── Totals ──
+                new() { FieldName = "TotalRevenue", DisplayName = "Tổng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
+                new() { FieldName = "TotalVat", DisplayName = "Tổng thuế GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" },
+                new() { FieldName = "TotalPIT", DisplayName = "Tổng thuế TNCN", Type = FieldType.Decimal, Formula = "PIT_Distribution + PIT_ProductionTransport + PIT_Service + PIT_OtherBusiness" },
+                new() { FieldName = "NetRevenue", DisplayName = "Doanh thu sau thuế", Type = FieldType.Decimal, Formula = "TotalRevenue - TotalVat - TotalPIT" }
             ];
         }
 
@@ -167,45 +167,45 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” Káº¾ TOÃN S2a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ KẾ TOÁN S2a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             foreach (string sector in new[] { "Distribution", "ProductionTransport", "Service", "OtherBusiness" })
             {
                 if (book.NumericValues.TryGetValue($"Revenue_{sector}", out decimal revenue))
                 {
-                    report += $"  Doanh thu {sector}: {revenue:N0} VNÄ\n";
+                    report += $"  Doanh thu {sector}: {revenue:N0} VNĐ\n";
                 }
 
                 if (book.NumericValues.TryGetValue($"VatAmount_{sector}", out decimal vat))
                 {
-                    report += $"  Thuáº¿ GTGT {sector}: {vat:N0} VNÄ\n";
+                    report += $"  Thuế GTGT {sector}: {vat:N0} VNĐ\n";
                 }
 
                 if (book.NumericValues.TryGetValue($"PIT_{sector}", out decimal pit))
                 {
-                    report += $"  Thuáº¿ TNCN {sector}: {pit:N0} VNÄ\n";
+                    report += $"  Thuế TNCN {sector}: {pit:N0} VNĐ\n";
                 }
             }
 
             if (book.NumericValues.TryGetValue("TotalRevenue", out decimal totalRevenue))
             {
-                report += $"Tá»•ng doanh thu: {totalRevenue:N0} VNÄ\n";
+                report += $"Tổng doanh thu: {totalRevenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalVat", out decimal totalVat))
             {
-                report += $"Tá»•ng thuáº¿ GTGT: {totalVat:N0} VNÄ\n";
+                report += $"Tổng thuế GTGT: {totalVat:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalPIT", out decimal totalPit))
             {
-                report += $"Tá»•ng thuáº¿ TNCN: {totalPit:N0} VNÄ\n";
+                report += $"Tổng thuế TNCN: {totalPit:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetRevenue", out decimal net))
             {
-                report += $"Doanh thu sau thuáº¿: {net:N0} VNÄ\n";
+                report += $"Doanh thu sau thuế: {net:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -213,37 +213,37 @@
     }
 
     /// <summary>
-    /// S2b_HKD Template (Sá»• doanh thu bÃ¡n hÃ ng hÃ³a, dá»‹ch vá»¥)
+    /// S2b_HKD Template (Sổ doanh thu bán hàng hóa, dịch vụ)
     /// For HKD Group 2 businesses.
-    /// Wave 5 (TT 152/2025/TT-BTC): 4 industry groups Ã— 2 fields (Revenue, VatAmount per group).
-    /// Split by industry sector (NOT goods-vs-service â€” that was a TT 200 hallucination).
+    /// Wave 5 (TT 152/2025/TT-BTC): 4 industry groups × 2 fields (Revenue, VatAmount per group).
+    /// Split by industry sector (NOT goods-vs-service — that was a TT 200 hallucination).
     /// </summary>
     public record S2bHKDTemplate : HKDBookTemplate
     {
         public S2bHKDTemplate()
         {
             TemplateCode = "S2b_HKD";
-            TemplateName = "Sá»• doanh thu bÃ¡n hÃ ng hÃ³a, dá»‹ch vá»¥";
+            TemplateName = "Sổ doanh thu bán hàng hóa, dịch vụ";
             TargetGroup = HKDGroup.Group2;
 
-            // Wave 5: 4 industry groups Ã— 2 fields. NULL IndustrySector â†’ OtherBusiness bucket.
+            // Wave 5: 4 industry groups × 2 fields. NULL IndustrySector → OtherBusiness bucket.
             Fields =
             [
-                // â”€â”€ Distribution (GTGT 1%) â”€â”€
-                new() { FieldName = "Revenue_Distribution", DisplayName = "Doanh thu â€” PhÃ¢n phá»‘i", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Distribution"")" },
-                new() { FieldName = "VatAmount_Distribution", DisplayName = "Thuáº¿ GTGT â€” PhÃ¢n phá»‘i", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.01" },
-                // â”€â”€ ProductionTransport (GTGT 3%) â”€â”€
-                new() { FieldName = "Revenue_ProductionTransport", DisplayName = "Doanh thu â€” Sáº£n xuáº¥t, váº­n táº£i", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""ProductionTransport"")" },
-                new() { FieldName = "VatAmount_ProductionTransport", DisplayName = "Thuáº¿ GTGT â€” Sáº£n xuáº¥t, váº­n táº£i", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.03" },
-                // â”€â”€ Service (GTGT 5%) â”€â”€
-                new() { FieldName = "Revenue_Service", DisplayName = "Doanh thu â€” Dá»‹ch vá»¥", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Service"")" },
-                new() { FieldName = "VatAmount_Service", DisplayName = "Thuáº¿ GTGT â€” Dá»‹ch vá»¥", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.05" },
-                // â”€â”€ OtherBusiness (GTGT 2%) â€” includes NULL IndustrySector entries â”€â”€
-                new() { FieldName = "Revenue_OtherBusiness", DisplayName = "Doanh thu â€” Hoáº¡t Ä‘á»™ng khÃ¡c", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""OtherBusiness"")" },
-                new() { FieldName = "VatAmount_OtherBusiness", DisplayName = "Thuáº¿ GTGT â€” Hoáº¡t Ä‘á»™ng khÃ¡c", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.02" },
-                // â”€â”€ Totals â”€â”€
-                new() { FieldName = "TotalRevenue", DisplayName = "Tá»•ng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
-                new() { FieldName = "TotalVat", DisplayName = "Tá»•ng thuáº¿ GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" }
+                // ── Distribution (GTGT 1%) ──
+                new() { FieldName = "Revenue_Distribution", DisplayName = "Doanh thu — Phân phối", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Distribution"")" },
+                new() { FieldName = "VatAmount_Distribution", DisplayName = "Thuế GTGT — Phân phối", Type = FieldType.Decimal, Formula = "Revenue_Distribution * 0.01" },
+                // ── ProductionTransport (GTGT 3%) ──
+                new() { FieldName = "Revenue_ProductionTransport", DisplayName = "Doanh thu — Sản xuất, vận tải", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""ProductionTransport"")" },
+                new() { FieldName = "VatAmount_ProductionTransport", DisplayName = "Thuế GTGT — Sản xuất, vận tải", Type = FieldType.Decimal, Formula = "Revenue_ProductionTransport * 0.03" },
+                // ── Service (GTGT 5%) ──
+                new() { FieldName = "Revenue_Service", DisplayName = "Doanh thu — Dịch vụ", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""Service"")" },
+                new() { FieldName = "VatAmount_Service", DisplayName = "Thuế GTGT — Dịch vụ", Type = FieldType.Decimal, Formula = "Revenue_Service * 0.05" },
+                // ── OtherBusiness (GTGT 2%) — includes NULL IndustrySector entries ──
+                new() { FieldName = "Revenue_OtherBusiness", DisplayName = "Doanh thu — Hoạt động khác", Type = FieldType.Decimal, IsRequired = true, Formula = @"SUM_ACCOUNT_BY_INDUSTRY(""5"", ""Credit"", ""OtherBusiness"")" },
+                new() { FieldName = "VatAmount_OtherBusiness", DisplayName = "Thuế GTGT — Hoạt động khác", Type = FieldType.Decimal, Formula = "Revenue_OtherBusiness * 0.02" },
+                // ── Totals ──
+                new() { FieldName = "TotalRevenue", DisplayName = "Tổng doanh thu", Type = FieldType.Decimal, IsRequired = true, Formula = "Revenue_Distribution + Revenue_ProductionTransport + Revenue_Service + Revenue_OtherBusiness" },
+                new() { FieldName = "TotalVat", DisplayName = "Tổng thuế GTGT", Type = FieldType.Decimal, Formula = "VatAmount_Distribution + VatAmount_ProductionTransport + VatAmount_Service + VatAmount_OtherBusiness" }
             ];
         }
 
@@ -279,30 +279,30 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” DOANH THU S2b_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ DOANH THU S2b_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             foreach (string sector in new[] { "Distribution", "ProductionTransport", "Service", "OtherBusiness" })
             {
                 if (book.NumericValues.TryGetValue($"Revenue_{sector}", out decimal revenue))
                 {
-                    report += $"Doanh thu {sector}: {revenue:N0} VNÄ\n";
+                    report += $"Doanh thu {sector}: {revenue:N0} VNĐ\n";
                 }
 
                 if (book.NumericValues.TryGetValue($"VatAmount_{sector}", out decimal vat))
                 {
-                    report += $"Thuáº¿ GTGT {sector}: {vat:N0} VNÄ\n";
+                    report += $"Thuế GTGT {sector}: {vat:N0} VNĐ\n";
                 }
             }
 
             if (book.NumericValues.TryGetValue("TotalRevenue", out decimal total))
             {
-                report += $"Tá»•ng doanh thu: {total:N0} VNÄ\n";
+                report += $"Tổng doanh thu: {total:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalVat", out decimal totalVat))
             {
-                report += $"Tá»•ng thuáº¿ GTGT: {totalVat:N0} VNÄ\n";
+                report += $"Tổng thuế GTGT: {totalVat:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -310,7 +310,7 @@
     }
 
     /// <summary>
-    /// S2c_HKD Template (Sá»• chi tiáº¿t doanh thu, chi phÃ­)
+    /// S2c_HKD Template (Sổ chi tiết doanh thu, chi phí)
     /// For HKD Group 2 businesses
     /// </summary>
     public record S2cHKDTemplate : HKDBookTemplate
@@ -318,7 +318,7 @@
         public S2cHKDTemplate()
         {
             TemplateCode = "S2c_HKD";
-            TemplateName = "Sá»• chi tiáº¿t doanh thu, chi phÃ­";
+            TemplateName = "Sổ chi tiết doanh thu, chi phí";
             TargetGroup = HKDGroup.Group2;
 
             Fields =
@@ -334,7 +334,7 @@
                 new()
                 {
                     FieldName = "CostOfGoodsSold",
-                    DisplayName = "GiÃ¡ vá»‘n hÃ ng bÃ¡n",
+                    DisplayName = "Giá vốn hàng bán",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""632"", ""Debit"")"
@@ -342,7 +342,7 @@
                 new()
                 {
                     FieldName = "OperatingExpenses",
-                    DisplayName = "Chi phÃ­ hoáº¡t Ä‘á»™ng",
+                    DisplayName = "Chi phí hoạt động",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""641"", ""Debit"") + SUM_ACCOUNT(""642"", ""Debit"")"
@@ -350,7 +350,7 @@
                 new()
                 {
                     FieldName = "NetProfit",
-                    DisplayName = "Lá»£i nhuáº­n",
+                    DisplayName = "Lợi nhuận",
                     Type = FieldType.Decimal,
                     Formula = "Revenue - CostOfGoodsSold - OperatingExpenses"
                 }
@@ -389,27 +389,27 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” CHI TIáº¾T DOANH THU, CHI PHÃ S2c_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ CHI TIẾT DOANH THU, CHI PHÍ S2c_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("Revenue", out decimal revenue))
             {
-                report += $"Doanh thu: {revenue:N0} VNÄ\n";
+                report += $"Doanh thu: {revenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("CostOfGoodsSold", out decimal cogs))
             {
-                report += $"GiÃ¡ vá»‘n hÃ ng bÃ¡n: {cogs:N0} VNÄ\n";
+                report += $"Giá vốn hàng bán: {cogs:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("OperatingExpenses", out decimal expenses))
             {
-                report += $"Chi phÃ­ hoáº¡t Ä‘á»™ng: {expenses:N0} VNÄ\n";
+                report += $"Chi phí hoạt động: {expenses:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetProfit", out decimal profit))
             {
-                report += $"Lá»£i nhuáº­n: {profit:N0} VNÄ\n";
+                report += $"Lợi nhuận: {profit:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -417,7 +417,7 @@
     }
 
     /// <summary>
-    /// S2d_HKD Template (Sá»• chi tiáº¿t váº­t liá»‡u, dá»¥ng cá»¥, sáº£n pháº©m, hÃ ng hÃ³a)
+    /// S2d_HKD Template (Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa)
     /// For HKD Group 2 businesses
     /// </summary>
     public record S2dHKDTemplate : HKDBookTemplate
@@ -425,7 +425,7 @@
         public S2dHKDTemplate()
         {
             TemplateCode = "S2d_HKD";
-            TemplateName = "Sá»• chi tiáº¿t váº­t liá»‡u, dá»¥ng cá»¥, sáº£n pháº©m, hÃ ng hÃ³a";
+            TemplateName = "Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa";
             TargetGroup = HKDGroup.Group2;
 
             Fields =
@@ -433,7 +433,7 @@
                 new()
                 {
                     FieldName = "Materials",
-                    DisplayName = "Váº­t liá»‡u",
+                    DisplayName = "Vật liệu",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""152"", ""Debit"")"
@@ -441,7 +441,7 @@
                 new()
                 {
                     FieldName = "Tools",
-                    DisplayName = "Dá»¥ng cá»¥",
+                    DisplayName = "Dụng cụ",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""153"", ""Debit"")"
@@ -449,7 +449,7 @@
                 new()
                 {
                     FieldName = "Products",
-                    DisplayName = "Sáº£n pháº©m",
+                    DisplayName = "Sản phẩm",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""155"", ""Debit"")"
@@ -457,7 +457,7 @@
                 new()
                 {
                     FieldName = "Goods",
-                    DisplayName = "HÃ ng hÃ³a",
+                    DisplayName = "Hàng hóa",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""156"", ""Debit"")"
@@ -465,7 +465,7 @@
                 new()
                 {
                     FieldName = "TotalInventory",
-                    DisplayName = "Tá»•ng tá»“n kho",
+                    DisplayName = "Tổng tồn kho",
                     Type = FieldType.Decimal,
                     Formula = "Materials + Tools + Products + Goods"
                 }
@@ -504,32 +504,32 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” CHI TIáº¾T Váº¬T LIá»†U, Dá»¤NG Cá»¤, Sáº¢N PHáº¨M, HÃ€NG HÃ“A S2d_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ CHI TIẾT VẬT LIỆU, DỤNG CỤ, SẢN PHẨM, HÀNG HÓA S2d_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("Materials", out decimal materials))
             {
-                report += $"Váº­t liá»‡u: {materials:N0} VNÄ\n";
+                report += $"Vật liệu: {materials:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("Tools", out decimal tools))
             {
-                report += $"Dá»¥ng cá»¥: {tools:N0} VNÄ\n";
+                report += $"Dụng cụ: {tools:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("Products", out decimal products))
             {
-                report += $"Sáº£n pháº©m: {products:N0} VNÄ\n";
+                report += $"Sản phẩm: {products:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("Goods", out decimal goods))
             {
-                report += $"HÃ ng hÃ³a: {goods:N0} VNÄ\n";
+                report += $"Hàng hóa: {goods:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalInventory", out decimal total))
             {
-                report += $"Tá»•ng tá»“n kho: {total:N0} VNÄ\n";
+                report += $"Tổng tồn kho: {total:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -537,7 +537,7 @@
     }
 
     /// <summary>
-    /// S2e_HKD Template (Sá»• chi tiáº¿t tiá»n)
+    /// S2e_HKD Template (Sổ chi tiết tiền)
     /// For HKD Group 2 businesses
     /// </summary>
     public record S2eHKDTemplate : HKDBookTemplate
@@ -545,7 +545,7 @@
         public S2eHKDTemplate()
         {
             TemplateCode = "S2e_HKD";
-            TemplateName = "Sá»• chi tiáº¿t tiá»n";
+            TemplateName = "Sổ chi tiết tiền";
             TargetGroup = HKDGroup.Group2;
 
             Fields =
@@ -553,7 +553,7 @@
                 new()
                 {
                     FieldName = "CashOnHand",
-                    DisplayName = "Tiá»n máº·t",
+                    DisplayName = "Tiền mặt",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""111"", ""Debit"") - SUM_ACCOUNT(""111"", ""Credit"")"
@@ -561,7 +561,7 @@
                 new()
                 {
                     FieldName = "BankDeposits",
-                    DisplayName = "Tiá»n gá»­i ngÃ¢n hÃ ng",
+                    DisplayName = "Tiền gửi ngân hàng",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = @"SUM_ACCOUNT(""112"", ""Debit"") - SUM_ACCOUNT(""112"", ""Credit"")"
@@ -569,7 +569,7 @@
                 new()
                 {
                     FieldName = "TotalCash",
-                    DisplayName = "Tá»•ng tiá»n",
+                    DisplayName = "Tổng tiền",
                     Type = FieldType.Decimal,
                     Formula = "CashOnHand + BankDeposits"
                 }
@@ -608,22 +608,22 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” CHI TIáº¾T TIá»€N S2e_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ CHI TIẾT TIỀN S2e_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("CashOnHand", out decimal cash))
             {
-                report += $"Tiá»n máº·t: {cash:N0} VNÄ\n";
+                report += $"Tiền mặt: {cash:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("BankDeposits", out decimal bank))
             {
-                report += $"Tiá»n gá»­i ngÃ¢n hÃ ng: {bank:N0} VNÄ\n";
+                report += $"Tiền gửi ngân hàng: {bank:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("TotalCash", out decimal total))
             {
-                report += $"Tá»•ng tiá»n: {total:N0} VNÄ\n";
+                report += $"Tổng tiền: {total:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);
@@ -631,7 +631,7 @@
     }
 
     /// <summary>
-    /// S3a_HKD Template (Há»™ kinh doanh cÃ³ hoáº¡t Ä‘á»™ng thuá»™c diá»‡n chá»‹u cÃ¡c loáº¡i thuáº¿ khÃ¡c)
+    /// S3a_HKD Template (Hộ kinh doanh có hoạt động thuộc diện chịu các loại thuế khác)
     /// For HKD Group 3 businesses
     /// </summary>
     public record S3aHKDTemplate : HKDBookTemplate
@@ -639,7 +639,7 @@
         public S3aHKDTemplate()
         {
             TemplateCode = "S3a_HKD";
-            TemplateName = "Sá»• cho há»™ kinh doanh cÃ³ hoáº¡t Ä‘á»™ng thuá»™c diá»‡n chá»‹u cÃ¡c loáº¡i thuáº¿ khÃ¡c";
+            TemplateName = "Sổ cho hộ kinh doanh có hoạt động thuộc diện chịu các loại thuế khác";
             TargetGroup = HKDGroup.Group3;
 
             Fields =
@@ -655,7 +655,7 @@
                 new()
                 {
                     FieldName = "SpecialTax",
-                    DisplayName = "Thuáº¿ Ä‘áº·c biá»‡t",
+                    DisplayName = "Thuế đặc biệt",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = "Revenue * 0.1"
@@ -663,7 +663,7 @@
                 new()
                 {
                     FieldName = "OtherTax",
-                    DisplayName = "Thuáº¿ khÃ¡c",
+                    DisplayName = "Thuế khác",
                     Type = FieldType.Decimal,
                     IsRequired = true,
                     Formula = "Revenue * 0.05"
@@ -671,7 +671,7 @@
                 new()
                 {
                     FieldName = "NetRevenue",
-                    DisplayName = "Doanh thu sau thuáº¿",
+                    DisplayName = "Doanh thu sau thuế",
                     Type = FieldType.Decimal,
                     Formula = "Revenue - SpecialTax - OtherTax"
                 }
@@ -710,27 +710,27 @@
 
         public override async Task<string> GenerateReportAsync(GenericHKDBook book)
         {
-            string report = $"Sá»” THUáº¾ KHÃC S3a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
-            report += $"Há»™ kinh doanh: {book.TenantId.Value}\n";
+            string report = $"SỔ THUẾ KHÁC S3a_HKD - {book.Period.Year}/{book.Period.Month:D2}\n";
+            report += $"Hộ kinh doanh: {book.TenantId.Value}\n";
 
             if (book.NumericValues.TryGetValue("Revenue", out decimal revenue))
             {
-                report += $"Doanh thu: {revenue:N0} VNÄ\n";
+                report += $"Doanh thu: {revenue:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("SpecialTax", out decimal special))
             {
-                report += $"Thuáº¿ Ä‘áº·c biá»‡t: {special:N0} VNÄ\n";
+                report += $"Thuế đặc biệt: {special:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("OtherTax", out decimal other))
             {
-                report += $"Thuáº¿ khÃ¡c: {other:N0} VNÄ\n";
+                report += $"Thuế khác: {other:N0} VNĐ\n";
             }
 
             if (book.NumericValues.TryGetValue("NetRevenue", out decimal net))
             {
-                report += $"Doanh thu sau thuáº¿: {net:N0} VNÄ\n";
+                report += $"Doanh thu sau thuế: {net:N0} VNĐ\n";
             }
 
             return await Task.FromResult(report);

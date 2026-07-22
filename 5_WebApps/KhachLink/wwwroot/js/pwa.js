@@ -1,4 +1,4 @@
-﻿?// Van An PWA JavaScript Helper - Phase 2.5.1
+﻿// Van An PWA JavaScript Helper - Phase 2.5.1
 // Handles PWA installation, notifications, and offline capabilities
 
 window.vananPWA = {

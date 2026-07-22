@@ -13,9 +13,9 @@ namespace VanAn.Shared.Domain
     public enum AccountingEntryType
     {
         Revenue = 1,        // Doanh thu
-        Expense = 2,        // Chi phÃ­
-        TaxPayment = 3,     // Thuáº¿
-        Adjustment = 4      // Äiá»u chá»‰nh
+        Expense = 2,        // Chi phí
+        TaxPayment = 3,     // Thuế
+        Adjustment = 4      // Điều chỉnh
     }
 
     // Financial Safety Infrastructure
@@ -39,8 +39,8 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public enum BusinessType
     {
-        Company = 1,           // Doanh nghiá»‡p (Company)
-        HouseholdBusiness = 2  // Há»™ kinh doanh (Household Business)
+        Company = 1,           // Doanh nghiệp (Company)
+        HouseholdBusiness = 2  // Hộ kinh doanh (Household Business)
     }
 
     /// <summary>
@@ -48,54 +48,54 @@ namespace VanAn.Shared.Domain
     /// </summary>
     public enum HKDGroup
     {
-        Group1 = 1,  // S1a-HKD: KhÃ´ng chá»‹u thuáº¿ GTGT, khÃ´ng ná»™p thuáº¿ TNCN
-        Group2 = 2,  // S2a-HKD, S2b-HKD, S2c-HKD, S2d-HKD, S2e-HKD: Ná»™p thuáº¿ GTGT vÃ  TNCN
-        Group3 = 3   // S3a-HKD: Há»™ kinh doanh cÃ³ hoáº¡t Ä‘á»™ng thuá»™c diá»‡n chá»‹u cÃ¡c loáº¡i thuáº¿ khÃ¡c
+        Group1 = 1,  // S1a-HKD: Không chịu thuế GTGT, không nộp thuế TNCN
+        Group2 = 2,  // S2a-HKD, S2b-HKD, S2c-HKD, S2d-HKD, S2e-HKD: Nộp thuế GTGT và TNCN
+        Group3 = 3   // S3a-HKD: Hộ kinh doanh có hoạt động thuộc diện chịu các loại thuế khác
     }
 
     /// <summary>
-    /// Accounting Book Types - Company vs HKD (7 types for HKD per ThÃ´ng tÆ° 152/2025/TT-BTC)
+    /// Accounting Book Types - Company vs HKD (7 types for HKD per Thông tư 152/2025/TT-BTC)
     /// </summary>
     public enum AccountingBookType
     {
         // COMPANY BOOKS
-        RevenueBook = 1,    // SÃ¡ch chi doanh thu
-        ExpenseBook = 2,    // SÃ¡ch chi chi phÃ­
-        CashBankBook = 3,   // SÃ¡ch chi tiá»n máº·t ngÃ¢n hÃ ng
-        TaxDeclarationBook = 4,  // SÃ¡ch chi kÃª khai thuáº¿
+        RevenueBook = 1,    // Sách chi doanh thu
+        ExpenseBook = 2,    // Sách chi chi phí
+        CashBankBook = 3,   // Sách chi tiền mặt ngân hàng
+        TaxDeclarationBook = 4,  // Sách chi kê khai thuế
 
-        // HKD BOOKS - 7 types per ThÃ´ng tÆ° 152/2025/TT-BTC
-        S1a_HKD = 5,        // Sá»• theo dÃµi hÃ ng hÃ³a, dá»‹ch vá»¥ cung á»©ng (khÃ´ng chá»‹u thuáº¿ GTGT)
-        S2a_HKD = 6,        // Sá»• theo dÃµi hÃ ng hÃ³a, dá»‹ch vá»¥ cung á»©ng (ná»™p thuáº¿ GTGT theo tá»· lá»‡ %)
-        S2b_HKD = 7,        // Sá»• doanh thu bÃ¡n hÃ ng hÃ³a, dá»‹ch vá»¥
-        S2c_HKD = 8,        // Sá»• chi tiáº¿t doanh thu, chi phÃ­
-        S2d_HKD = 9,        // Sá»• chi tiáº¿t váº­t liá»‡u, dá»¥ng cá»¥, sáº£n pháº©m, hÃ ng hÃ³a
-        S2e_HKD = 10,       // Sá»• chi tiáº¿t tiá»n
-        S3a_HKD = 11        // Sá»• theo dÃµi hoáº¡t Ä‘á»™ng thuá»™c diá»‡n chá»‹u cÃ¡c loáº¡i thuáº¿ khÃ¡c
+        // HKD BOOKS - 7 types per Thông tư 152/2025/TT-BTC
+        S1a_HKD = 5,        // Sổ theo dõi hàng hóa, dịch vụ cung ứng (không chịu thuế GTGT)
+        S2a_HKD = 6,        // Sổ theo dõi hàng hóa, dịch vụ cung ứng (nộp thuế GTGT theo tỷ lệ %)
+        S2b_HKD = 7,        // Sổ doanh thu bán hàng hóa, dịch vụ
+        S2c_HKD = 8,        // Sổ chi tiết doanh thu, chi phí
+        S2d_HKD = 9,        // Sổ chi tiết vật liệu, dụng cụ, sản phẩm, hàng hóa
+        S2e_HKD = 10,       // Sổ chi tiết tiền
+        S3a_HKD = 11        // Sổ theo dõi hoạt động thuộc diện chịu các loại thuế khác
     }
 
     public enum VatRate
     {
-        Exempt = -1,        // Miá»…n thuáº¿
+        Exempt = -1,        // Miễn thuế
         Zero = 0,           // 0%
         Five = 5,           // 5%
         Ten = 10            // 10%
     }
 
     /// <summary>
-    /// 4 industry sector groups per Luáº­t Thuáº¿ GTGT/TNCN sá»­a Ä‘á»•i 2025 + ND 117/2025.
+    /// 4 industry sector groups per Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025.
     /// Determines VAT + PIT rate for HKD Group 2 businesses (TT 152/2025/TT-BTC S2a/S2b layout).
     /// TT 152 allows up to 5 industry groups; the 5th group maps to <see cref="OtherBusiness"/>.
     /// </summary>
     public enum IndustrySector
     {
-        /// <summary>PhÃ¢n phá»‘i, cung cáº¥p hÃ ng hÃ³a â€” GTGT 1%, TNCN 0.5%.</summary>
+        /// <summary>Phân phối, cung cấp hàng hóa — GTGT 1%, TNCN 0.5%.</summary>
         Distribution = 1,
-        /// <summary>Sáº£n xuáº¥t, váº­n táº£i, dá»‹ch vá»¥ gáº¯n hÃ ng hÃ³a, xÃ¢y dá»±ng bao tháº§u NVL â€” GTGT 3%, TNCN 1.5%.</summary>
+        /// <summary>Sản xuất, vận tải, dịch vụ gắn hàng hóa, xây dựng bao thầu NVL — GTGT 3%, TNCN 1.5%.</summary>
         ProductionTransport = 2,
-        /// <summary>Dá»‹ch vá»¥, xÃ¢y dá»±ng khÃ´ng bao tháº§u NVL â€” GTGT 5%, TNCN 2%.</summary>
+        /// <summary>Dịch vụ, xây dựng không bao thầu NVL — GTGT 5%, TNCN 2%.</summary>
         Service = 3,
-        /// <summary>Hoáº¡t Ä‘á»™ng kinh doanh khÃ¡c â€” GTGT 2%, TNCN 1%. Also the fallback bucket for entries with NULL IndustrySector (ensures TotalRevenue = SUM(all sector revenues) always holds).</summary>
+        /// <summary>Hoạt động kinh doanh khác — GTGT 2%, TNCN 1%. Also the fallback bucket for entries with NULL IndustrySector (ensures TotalRevenue = SUM(all sector revenues) always holds).</summary>
         OtherBusiness = 4
     }
 
@@ -171,7 +171,7 @@ namespace VanAn.Shared.Domain
     /// Tenant with Business Type and HKD Classification
     /// </summary>
     /// <remarks>
-    /// [Wave 5] OBSOLETE â€” use <see cref="VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant"/> (Rich Domain class).
+    /// [Wave 5] OBSOLETE — use <see cref="VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant"/> (Rich Domain class).
     /// This record is kept to avoid breaking existing EF mappings until TenantConfiguration.cs is migrated.
     /// </remarks>
     [Obsolete("Use VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant instead. Will be removed in Wave 6.")]
@@ -185,7 +185,7 @@ namespace VanAn.Shared.Domain
         public bool IsActive { get; init; } = true;
 
         // Wave 5 (approved 2026-07-03): Default industry sector for HKD Group 2 tenants.
-        // Nullable â€” existing tenants get NULL, must be set before generating S2a/S2b.
+        // Nullable — existing tenants get NULL, must be set before generating S2a/S2b.
         // Used as fallback when Order.IndustrySector is not set.
         public IndustrySector? DefaultIndustrySector { get; init; }
 
@@ -299,18 +299,18 @@ namespace VanAn.Shared.Domain
         public string? ReferenceType { get; }
 
         // DMD-1 fix (approved 2026-06-20): Accounting classification fields
-        // AccountCode: mÃ£ tÃ i khoáº£n káº¿ toÃ¡n (511, 621, 642...) â€” báº¯t buá»™c TT 152/2025/TT-BTC
-        // Vendor: nhÃ  cung cáº¥p (dÃ¹ng cho bÃºt toÃ¡n chi phÃ­)
-        // Category: danh má»¥c chi phÃ­/doanh thu (materials, utilities, services...)
-        // Reference: sá»‘ hÃ³a Ä‘Æ¡n/chá»©ng tá»« tham chiáº¿u
+        // AccountCode: mã tài khoản kế toán (511, 621, 642...) — bắt buộc TT 152/2025/TT-BTC
+        // Vendor: nhà cung cấp (dùng cho bút toán chi phí)
+        // Category: danh mục chi phí/doanh thu (materials, utilities, services...)
+        // Reference: số hóa đơn/chứng từ tham chiếu
         public string? AccountCode { get; }
         public string? Vendor { get; }
         public string? Category { get; }
         public string? Reference { get; }
 
         // Wave 5 (approved 2026-07-03): Industry sector for TT 152 S2a/S2b industry-group split.
-        // Nullable for backward compatibility (existing entries get NULL â†’ counted in OtherBusiness group).
-        // Immutable after creation (no setter) â€” preserves AccountingEntry immutability.
+        // Nullable for backward compatibility (existing entries get NULL → counted in OtherBusiness group).
+        // Immutable after creation (no setter) — preserves AccountingEntry immutability.
         public IndustrySector? IndustrySector { get; }
 
         public AccountingPeriod Period => new(PeriodYear, PeriodMonth);
@@ -421,7 +421,7 @@ namespace VanAn.Shared.Domain
     public record OrderId(Guid Value);
     public record OrderStatusId(string Value)
     {
-        // âœ… FIXED: Add static properties for UI compatibility
+        // ✅ FIXED: Add static properties for UI compatibility
         public static readonly OrderStatusId Pending = new("pending");
         public static readonly OrderStatusId Confirmed = new("confirmed");
         public static readonly OrderStatusId Preparing = new("preparing");
@@ -437,11 +437,11 @@ namespace VanAn.Shared.Domain
     public enum UserRole
     {
         None = 0,
-        Owner = 1,        // Chá»§ quÃ¡n - Full access
-        StoreKeeper = 2,  // Thá»§ kho - Quáº£n lÃ½ inventory
-        Guard = 3,        // Báº£o vá»‡ - Check-in/out
-        Staff = 4,        // Phá»¥c vá»¥ - Order management
-        Masterchef = 5    // ðŸ†• GOLDEN FLOW: Báº¿p trÆ°á»Ÿng - Kitchen operations
+        Owner = 1,        // Chủ quán - Full access
+        StoreKeeper = 2,  // Thủ kho - Quản lý inventory
+        Guard = 3,        // Bảo vệ - Check-in/out
+        Staff = 4,        // Phục vụ - Order management
+        Masterchef = 5    // 🆕 GOLDEN FLOW: Bếp trưởng - Kitchen operations
     }
 
     public record OrderStatusDefinition
@@ -460,7 +460,7 @@ namespace VanAn.Shared.Domain
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("pending"),
-                DisplayName = "Chá» xÃ¡c nháº­n",
+                DisplayName = "Chờ xác nhận",
                 Sequence = 1,
                 IsActive = true,
                 RequiresInventoryDeduction = false
@@ -468,7 +468,7 @@ namespace VanAn.Shared.Domain
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("confirmed"),
-                DisplayName = "ÄÃ£ xÃ¡c nháº­n",
+                DisplayName = "Đã xác nhận",
                 Sequence = 2,
                 IsActive = true,
                 RequiresInventoryDeduction = true
@@ -476,7 +476,7 @@ namespace VanAn.Shared.Domain
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("preparing"),
-                DisplayName = "Äang pha cháº¿",
+                DisplayName = "Đang pha chế",
                 Sequence = 3,
                 IsActive = true,
                 RequiresInventoryDeduction = false
@@ -484,7 +484,7 @@ namespace VanAn.Shared.Domain
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("ready"),
-                DisplayName = "Sáºµn sÃ ng",
+                DisplayName = "Sẵn sàng",
                 Sequence = 4,
                 IsActive = true,
                 RequiresInventoryDeduction = false
@@ -492,7 +492,7 @@ namespace VanAn.Shared.Domain
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("completed"),
-                DisplayName = "HoÃ n thÃ nh",
+                DisplayName = "Hoàn thành",
                 Sequence = 5,
                 IsActive = true,
                 RequiresInventoryDeduction = false
@@ -500,7 +500,7 @@ namespace VanAn.Shared.Domain
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("cancelled"),
-                DisplayName = "ÄÃ£ há»§y",
+                DisplayName = "Đã hủy",
                 Sequence = 6,
                 IsActive = true,
                 RequiresInventoryDeduction = false
@@ -508,8 +508,8 @@ namespace VanAn.Shared.Domain
         ];
     }
 
-    // Core Entities vá»›i Multi-tenancy
-    // NOTE: Shop entity removed 2026-07-21 â€” Tenant is the single identity (shop/company/HKD).
+    // Core Entities với Multi-tenancy
+    // NOTE: Shop entity removed 2026-07-21 — Tenant is the single identity (shop/company/HKD).
     // Store Finder coordinates moved to TenantSettings.Latitude/Longitude.
 
     public class Product : BaseEntity
@@ -518,7 +518,7 @@ namespace VanAn.Shared.Domain
         public string Name { get; protected set; } = string.Empty;
         public string Description { get; protected set; } = string.Empty;
         public decimal Price { get; protected set; }
-        public decimal CostPrice { get; protected set; } = 0m; // GiÃ¡ vá»‘n (cost of goods) â€” DMD-2 fix
+        public decimal CostPrice { get; protected set; } = 0m; // Giá vốn (cost of goods) — DMD-2 fix
         public string Category { get; protected set; } = string.Empty;
         public bool IsActive { get; protected set; } = true;
         public string? ImageUrl { get; protected set; }
@@ -531,7 +531,7 @@ namespace VanAn.Shared.Domain
         {
             // DMD-FK1: Align BaseEntity.Id (PK) with ProductId (business key).
             // FK_OrderItems_Products_ProductId references Products.Id (PK), but DTOs/code use ProductId.
-            // Without alignment, newly created products have Id != ProductId â†’ FK violation on order creation.
+            // Without alignment, newly created products have Id != ProductId → FK violation on order creation.
             Id = ProductId.Value;
             Name = name;
             Price = price;
@@ -584,7 +584,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Deactivate product â€” hide from public catalog, still visible in management.
+        /// Deactivate product — hide from public catalog, still visible in management.
         /// G6: IsActive = false (NOT a true delete).
         /// </summary>
         public void Deactivate(string? updatedBy = null)
@@ -594,7 +594,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Activate product â€” show in public catalog again.
+        /// Activate product — show in public catalog again.
         /// </summary>
         public void Activate(string? updatedBy = null)
         {
@@ -603,7 +603,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Mark product as deleted â€” true soft delete (IsDeleted = true), hidden from all queries.
+        /// Mark product as deleted — true soft delete (IsDeleted = true), hidden from all queries.
         /// G6: separate from Deactivate(). DELETE endpoint calls this.
         /// </summary>
         public void MarkAsDeleted(string? updatedBy = null)
@@ -748,7 +748,7 @@ namespace VanAn.Shared.Domain
         public decimal VatRate { get; protected set; } = 0.10m;
         public string? Notes { get; protected set; } // Customizations (size, sugar level, etc.)
 
-        // âœ… FIXED: Add missing properties for UI compatibility
+        // ✅ FIXED: Add missing properties for UI compatibility
         public string ProductName { get; protected set; } = string.Empty;
         public decimal TotalPrice => TotalAmount; // Alias for UI compatibility
 
@@ -757,7 +757,7 @@ namespace VanAn.Shared.Domain
 
         //  GOLDEN FLOW: Voice Note Properties (Operational Only)
         public string? ItemNoteText { get; protected set; }
-        [Obsolete("Audio storage removed per requirements v1.2 â€” STT only. TTS reads text at kitchen.")]
+        [Obsolete("Audio storage removed per requirements v1.2 — STT only. TTS reads text at kitchen.")]
         public string? ItemNoteAudioBlob { get; protected set; }
 
         protected OrderItem() { }
@@ -805,7 +805,7 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
-        // Calculated Fields (ðŸ›¡ï¸ FINANCIAL PROTECTION - DO NOT MUTATE)
+        // Calculated Fields (🛡️ FINANCIAL PROTECTION - DO NOT MUTATE)
         public decimal SubTotal => Quantity * UnitPrice;
         public decimal VatAmount => SubTotal * VatRate;
         public decimal TotalAmount => SubTotal + VatAmount;
@@ -843,8 +843,8 @@ namespace VanAn.Shared.Domain
     public class Recipe : BaseEntity
     {
         public RecipeId RecipeId { get; set; } = new RecipeId(Guid.NewGuid());
-        public Guid ProductId { get; set; } // ðŸ›¡ï¸ PHASE 3 FIX: Use Guid instead of ProductId
-        public Guid IngredientId { get; set; } // ðŸ›¡ï¸ PHASE 3 FIX: Use Guid instead of IngredientId
+        public Guid ProductId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of ProductId
+        public Guid IngredientId { get; set; } // 🛡️ PHASE 3 FIX: Use Guid instead of IngredientId
         public decimal QuantityNeeded { get; set; }
 
         // Navigation properties
@@ -903,7 +903,7 @@ namespace VanAn.Shared.Domain
         public Guid? CustomerId { get; protected set; }
         public string? CustomerDeviceId { get; protected set; } // Zero-friction identity fallback
 
-        // âœ… FIXED: Add CustomerInfo property for UI compatibility
+        // ✅ FIXED: Add CustomerInfo property for UI compatibility
         public CustomerInfo? CustomerInfo { get; protected set; }
 
         // Order Details
@@ -916,7 +916,7 @@ namespace VanAn.Shared.Domain
 
         //  GOLDEN FLOW: Voice Note Properties (Operational Only)
         public string? VoiceNoteText { get; protected set; }
-        [Obsolete("Audio storage removed per requirements v1.2 â€” STT only. TTS reads text at kitchen.")]
+        [Obsolete("Audio storage removed per requirements v1.2 — STT only. TTS reads text at kitchen.")]
         public string? VoiceNoteAudioBlob { get; protected set; }
 
         // GOLDEN FLOW: Kitchen Status (Operational Only)
@@ -946,7 +946,7 @@ namespace VanAn.Shared.Domain
         public bool IsSyncedToCoreHub { get; protected set; }
 
         // Wave 5 (approved 2026-07-03): Industry sector override for this order.
-        // Nullable â€” existing orders get NULL, falls back to Tenant.DefaultIndustrySector.
+        // Nullable — existing orders get NULL, falls back to Tenant.DefaultIndustrySector.
         // Per-order override: if set, takes precedence over Tenant default.
         public IndustrySector? IndustrySector { get; protected set; }
 
@@ -954,7 +954,7 @@ namespace VanAn.Shared.Domain
         public Customer? Customer { get; protected set; }
         public virtual ICollection<OrderItem> Items { get; protected set; } = new List<OrderItem>();
 
-        // Calculated Methods (ðŸ›¡ï¸ FINANCIAL PROTECTION - DO NOT MUTATE)
+        // Calculated Methods (🛡️ FINANCIAL PROTECTION - DO NOT MUTATE)
         public void CalculateTotals()
         {
             // Calculate SubTotal from all items
@@ -1014,7 +1014,7 @@ namespace VanAn.Shared.Domain
             System.Reflection.PropertyInfo? idProperty = orderType.GetProperty("Id");
             idProperty?.SetValue(order, id);
 
-            // Sync OrderId domain value object to PK Id (single identity â€” UUIDv7 refactor)
+            // Sync OrderId domain value object to PK Id (single identity — UUIDv7 refactor)
             System.Reflection.PropertyInfo? orderIdProperty = orderType.GetProperty("OrderId");
             orderIdProperty?.SetValue(order, new OrderId(id));
 
@@ -1100,9 +1100,9 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Sprint B: Confirm payment â€” marks order as Paid and records transaction.
+        /// Sprint B: Confirm payment — marks order as Paid and records transaction.
         /// Accounting entries MUST only be generated AFTER this is called.
-        /// TT 152/2025/TT-BTC: doanh thu ghi nháº­n theo thá»±c thu (cash-basis).
+        /// TT 152/2025/TT-BTC: doanh thu ghi nhận theo thực thu (cash-basis).
         /// </summary>
         public void ConfirmPayment(string transactionId, string paymentMethod = "VIETQR")
         {
@@ -1116,7 +1116,7 @@ namespace VanAn.Shared.Domain
         }
     }
 
-    // Demo User cho ShopERP vá»›i Multi-tenancy
+    // Demo User cho ShopERP với Multi-tenancy
     [Obsolete("Use VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser instead.")]
     public class DemoUser : BaseEntity
     {
@@ -1132,7 +1132,7 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// User-Tenant mapping entity â€” Cross-tenant entity (khÃ´ng káº¿ thá»«a BaseEntity Ä‘á»ƒ trÃ¡nh query filter)
+    /// User-Tenant mapping entity — Cross-tenant entity (không kế thừa BaseEntity để tránh query filter)
     /// Domain Purity: NO EF Core, NO DataAnnotations
     /// </summary>
     [Obsolete("Use VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant instead.")]
@@ -1143,10 +1143,10 @@ namespace VanAn.Shared.Domain
         // Reference to User (DemoUser)
         public Guid UserId { get; protected set; }
 
-        // Reference to Tenant â€” cross-tenant entity nÃªn dÃ¹ng Guid thay vÃ¬ TenantId strongly-typed
+        // Reference to Tenant — cross-tenant entity nên dùng Guid thay vì TenantId strongly-typed
         public Guid TenantId { get; protected set; }
 
-        // Role within this tenant (cÃ³ thá»ƒ khÃ¡c vá»›i global role)
+        // Role within this tenant (có thể khác với global role)
         public string Role { get; protected set; } = string.Empty;
 
         // Assignment timestamp
@@ -1188,7 +1188,7 @@ namespace VanAn.Shared.Domain
         }
     }
 
-    // Legacy record types cho compatibility - sáº½ Ä‘Æ°á»£c migrate
+    // Legacy record types cho compatibility - sẽ được migrate
     public record ProductLegacy
     {
         public required ProductId Id { get; init; }
@@ -1206,7 +1206,7 @@ namespace VanAn.Shared.Domain
     {
         public required IngredientId Id { get; init; }
         public string Name { get; init; } = string.Empty;
-        public string Unit { get; init; } = string.Empty; // g, ml, cÃ¡i, v.v.
+        public string Unit { get; init; } = string.Empty; // g, ml, cái, v.v.
         public decimal CostPerUnit { get; init; }
         public bool IsActive { get; init; } = true;
         public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
@@ -1215,7 +1215,7 @@ namespace VanAn.Shared.Domain
     public record RecipeItem
     {
         public required IngredientId IngredientId { get; init; }
-        public decimal Quantity { get; init; } // Sá»‘ lÆ°á»£ng Ä‘á»‹nh má»©c
+        public decimal Quantity { get; init; } // Số lượng định mức
     }
 
     public record RecipeLegacy
@@ -1284,11 +1284,11 @@ namespace VanAn.Shared.Domain
     }
 
     // Multi-Tenant UI Models
-    // Renamed from ShopConfig â†’ TenantConfig (2026-07-21, Shop entity removed)
+    // Renamed from ShopConfig → TenantConfig (2026-07-21, Shop entity removed)
     public record ShopConfig
     {
         public Guid TenantId { get; init; } = Guid.TryParse("00000000-0000-0000-0000-000000000001", out Guid defaultTenantId) ? defaultTenantId : Guid.NewGuid();
-        public string ShopName { get; init; } = "Váº¡n An Group"; // Default name (kept for UI compat)
+        public string ShopName { get; init; } = "Vạn An Group"; // Default name (kept for UI compat)
         public string PrimaryColor { get; init; } = "#8B4513"; // Default brown
         public string SecondaryColor { get; init; } = "#D2691E"; // Default chocolate
         public Uri LogoUrl { get; init; } = new Uri("/images/vanan-default-logo.png", UriKind.Relative);
@@ -1319,7 +1319,7 @@ namespace VanAn.Shared.Domain
         public int MinOrdersForUpgrade { get; set; } = 3;
         public decimal MinTotalAmountForUpgrade { get; set; } = 500000m; // 500K VND
         public IReadOnlyCollection<string> RequiredFeatures { get; set; } = new List<string> { "loyalty", "identity" };
-        public string UpgradeMessage { get; set; } = "Báº£o vá»‡ Ä‘iá»ƒm cá»§a báº¡n vÃ  nháº­n thÃªm quÃ  táº·ng!";
+        public string UpgradeMessage { get; set; } = "Bảo vệ điểm của bạn và nhận thêm quà tặng!";
         public int BonusPointsOnUpgrade { get; set; } = 100;
     }
 
@@ -1333,7 +1333,7 @@ namespace VanAn.Shared.Domain
         Premium
     }
 
-    // ðŸ›¡ï¸ PHASE 2: SOCIAL FLYWHEEL DOMAIN MODELS
+    // 🛡️ PHASE 2: SOCIAL FLYWHEEL DOMAIN MODELS
 
     // Social Campaign for O2O Flywheel
     public class SocialCampaign : BaseEntity, IMustHaveTenant
@@ -1559,7 +1559,7 @@ namespace VanAn.Shared.Domain
     // ====================== HKD BOOKS DOMAIN ENTITIES ======================
 
     /// <summary>
-    /// General Ledger entry with running balance - Sá»• CÃ¡i
+    /// General Ledger entry with running balance - Sổ Cái
     /// </summary>
     public record GeneralLedgerEntry(
         string AccountNumber,
@@ -1574,7 +1574,7 @@ namespace VanAn.Shared.Domain
     );
 
     /// <summary>
-    /// Detailed Ledger entry for specific account - Sá»• Chi tiáº¿t
+    /// Detailed Ledger entry for specific account - Sổ Chi tiết
     /// </summary>
     public record DetailedLedgerEntry(
         DateTime TransactionDate,
@@ -1587,7 +1587,7 @@ namespace VanAn.Shared.Domain
     );
 
     /// <summary>
-    /// Trial Balance summary for period - Sá»• Tá»•ng há»£p
+    /// Trial Balance summary for period - Sổ Tổng hợp
     /// </summary>
     public record TrialBalance(
         AccountingPeriod Period,
@@ -1642,13 +1642,13 @@ namespace VanAn.Shared.Domain
     public record PeriodClosingCheckResult(bool IsValid, List<string> Errors, List<string> Warnings);
 
     /// <summary>
-    /// Immutable record of a period closing action â€” Reversal Entry pattern for reopening
+    /// Immutable record of a period closing action — Reversal Entry pattern for reopening
     /// </summary>
     public record ClosingEntry(Guid PeriodId, AccountingPeriod Period, DateTime ClosingDate, Guid CreatedBy);
 
     // ====================== VALUE OBJECTS & EF CORE CONFIGURATIONS ======================
 
-    // Value Objects (LeadId thÃªm vÃ o, CustomerId Ã£ tÃ³n tai Ã³ dÃ²ng 180)
+    // Value Objects (LeadId thêm vào, CustomerId ã tón tai ó dòng 180)
     public record LeadId(Guid Value);
 
     // REMOVED: Value Objects must NOT use IEntityTypeConfiguration
@@ -1659,7 +1659,7 @@ namespace VanAn.Shared.Domain
 
     /// <summary>
     /// Invoice Status - State Machine for E-Invoice lifecycle
-    /// Enforced transitions: Draft â†’ PendingSend â†’ SentToProvider â†’ TaxApproved/Failed
+    /// Enforced transitions: Draft → PendingSend → SentToProvider → TaxApproved/Failed
     /// </summary>
     public enum InvoiceStatus
     {
@@ -1672,27 +1672,27 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// Invoice Type - Goods, Services, Mixed, or HKD (per Nghá»‹ Ä‘á»‹nh 123/2020/NÄ-CP)
+    /// Invoice Type - Goods, Services, Mixed, or HKD (per Nghị định 123/2020/NĐ-CP)
     /// </summary>
     public enum InvoiceType
     {
         Goods = 1,
         Services = 2,
         Mixed = 3,
-        HKD = 4  // Há»™ kinh doanh (Nghá»‹ Ä‘á»‹nh 123/2020/NÄ-CP)
+        HKD = 4  // Hộ kinh doanh (Nghị định 123/2020/NĐ-CP)
     }
 
     /// <summary>
-    /// HKD Revenue Group - 4-level classification per Luáº­t Thuáº¿ GTGT/TNCN sá»­a Ä‘á»•i 2025 +
-    /// ND 117/2025/NÄ-CP + Nghá»‹ quyáº¿t 198/2025/QH15 (Ã¡p dá»¥ng tá»« 01/01/2026).
-    /// Wave 5c (2026-07-03): thresholds updated 500M/1B/3B â†’ 1B/3B/50B per 2026 regulatory compliance.
+    /// HKD Revenue Group - 4-level classification per Luật Thuế GTGT/TNCN sửa đổi 2025 +
+    /// ND 117/2025/NĐ-CP + Nghị quyết 198/2025/QH15 (áp dụng từ 01/01/2026).
+    /// Wave 5c (2026-07-03): thresholds updated 500M/1B/3B → 1B/3B/50B per 2026 regulatory compliance.
     /// </summary>
     public enum HKDRevenueGroup
     {
-        Group1 = 1,  // â‰¤1B (khÃ´ng chá»‹u thuáº¿ GTGT + TNCN)
-        Group2 = 2,  // >1B - â‰¤3B (GTGT theo ngÃ nh nghá», TNCN theo doanh thu hoáº·c lá»£i nhuáº­n)
-        Group3 = 3,  // >3B - â‰¤50B (TNCN báº¯t buá»™c theo lá»£i nhuáº­n 17%)
-        Group4 = 4   // >50B (TNCN báº¯t buá»™c theo lá»£i nhuáº­n 20%)
+        Group1 = 1,  // ≤1B (không chịu thuế GTGT + TNCN)
+        Group2 = 2,  // >1B - ≤3B (GTGT theo ngành nghề, TNCN theo doanh thu hoặc lợi nhuận)
+        Group3 = 3,  // >3B - ≤50B (TNCN bắt buộc theo lợi nhuận 17%)
+        Group4 = 4   // >50B (TNCN bắt buộc theo lợi nhuận 20%)
     }
 
     /// <summary>
@@ -1793,7 +1793,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Submit invoice for processing - State transition: Draft â†’ PendingSend
+        /// Submit invoice for processing - State transition: Draft → PendingSend
         /// </summary>
         public void Submit()
         {
@@ -1805,7 +1805,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Mark as sent to provider - State transition: PendingSend â†’ SentToProvider
+        /// Mark as sent to provider - State transition: PendingSend → SentToProvider
         /// </summary>
         public void MarkAsSentToProvider(ProviderId providerId)
         {
@@ -1819,7 +1819,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Mark as tax approved - State transition: SentToProvider â†’ TaxApproved
+        /// Mark as tax approved - State transition: SentToProvider → TaxApproved
         /// </summary>
         public void MarkAsTaxApproved(string providerInvoiceNumber)
         {
@@ -1833,7 +1833,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Mark as failed - State transition: SentToProvider â†’ Failed
+        /// Mark as failed - State transition: SentToProvider → Failed
         /// </summary>
         public void MarkAsFailed(string failureReason)
         {
@@ -1846,7 +1846,7 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Mark as rejected - State transition: SentToProvider â†’ Rejected
+        /// Mark as rejected - State transition: SentToProvider → Rejected
         /// </summary>
         public void MarkAsRejected(string rejectionReason)
         {
@@ -1870,7 +1870,7 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
-    /// Invoice Item - Line item for electronic invoice (HKD mandatory per Nghá»‹ Ä‘á»‹nh 123/2020/NÄ-CP)
+    /// Invoice Item - Line item for electronic invoice (HKD mandatory per Nghị định 123/2020/NĐ-CP)
     /// Domain Purity: NO EF Core, NO DbContext, NO DataAnnotations
     /// </summary>
     public class InvoiceItem : BaseEntity
@@ -1879,42 +1879,42 @@ namespace VanAn.Shared.Domain
         public ElectronicInvoiceId InvoiceId { get; protected set; } = null!;
 
         /// <summary>
-        /// MÃ£ hÃ ng hÃ³a/dá»‹ch vá»¥
+        /// Mã hàng hóa/dịch vụ
         /// </summary>
         public string ItemCode { get; protected set; } = string.Empty;
 
         /// <summary>
-        /// TÃªn hÃ ng hÃ³a/dá»‹ch vá»¥
+        /// Tên hàng hóa/dịch vụ
         /// </summary>
         public string ItemName { get; protected set; } = string.Empty;
 
         /// <summary>
-        /// ÄÆ¡n vá»‹ tÃ­nh
+        /// Đơn vị tính
         /// </summary>
         public string Unit { get; protected set; } = string.Empty;
 
         /// <summary>
-        /// Sá»‘ lÆ°á»£ng
+        /// Số lượng
         /// </summary>
         public decimal Quantity { get; protected set; }
 
         /// <summary>
-        /// ÄÆ¡n giÃ¡
+        /// Đơn giá
         /// </summary>
         public decimal UnitPrice { get; protected set; }
 
         /// <summary>
-        /// Thuáº¿ suáº¥t (%)
+        /// Thuế suất (%)
         /// </summary>
         public decimal VatRate { get; protected set; }
 
         /// <summary>
-        /// ThÃ nh tiá»n (Quantity * UnitPrice)
+        /// Thành tiền (Quantity * UnitPrice)
         /// </summary>
         public decimal Amount { get; protected set; }
 
         /// <summary>
-        /// Tiá»n thuáº¿ (Amount * VatRate / 100)
+        /// Tiền thuế (Amount * VatRate / 100)
         /// </summary>
         public decimal VatAmount { get; protected set; }
 
@@ -2035,7 +2035,7 @@ namespace VanAn.Shared.Domain
 
         // Phase 3 (Multi-VPS Checkout): Routing key for NATS subject.
         // When set, NatsSyncWorker.BuildSubject appends ".{routingKey}" to the subject.
-        // Used for ShopInstanceId routing â€” only the correct ShopERP receives the event.
+        // Used for ShopInstanceId routing — only the correct ShopERP receives the event.
         public string? RoutingKey { get; protected set; }
 
         protected OutboxEvent() { }
@@ -2159,12 +2159,12 @@ namespace VanAn.Shared.Domain
 
         /// <summary>
         /// Calculate revenue group based on 2026 regulatory thresholds
-        /// (Luáº­t Thuáº¿ GTGT/TNCN sá»­a Ä‘á»•i 2025 + ND 117/2025 + NQ 198/2025/QH15).
-        /// Wave 5c (2026-07-03): thresholds updated 500M/1B/3B â†’ 1B/3B/50B.
-        ///   Group1: â‰¤ 1B (khÃ´ng chá»‹u thuáº¿)
-        ///   Group2: > 1B - â‰¤ 3B (GTGT + TNCN theo tá»· lá»‡ ngÃ nh nghá»)
-        ///   Group3: > 3B - â‰¤ 50B (TNCN báº¯t buá»™c theo lá»£i nhuáº­n 17%)
-        ///   Group4: > 50B (TNCN báº¯t buá»™c theo lá»£i nhuáº­n 20%)
+        /// (Luật Thuế GTGT/TNCN sửa đổi 2025 + ND 117/2025 + NQ 198/2025/QH15).
+        /// Wave 5c (2026-07-03): thresholds updated 500M/1B/3B → 1B/3B/50B.
+        ///   Group1: ≤ 1B (không chịu thuế)
+        ///   Group2: > 1B - ≤ 3B (GTGT + TNCN theo tỷ lệ ngành nghề)
+        ///   Group3: > 3B - ≤ 50B (TNCN bắt buộc theo lợi nhuận 17%)
+        ///   Group4: > 50B (TNCN bắt buộc theo lợi nhuận 20%)
         /// </summary>
         public static HKDRevenueGroup CalculateGroup(decimal totalRevenue)
         {
@@ -2175,40 +2175,40 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
-        /// Calculate TNCN (Thuáº¿ Thu nháº­p cÃ¡ nhÃ¢n) per 2026 regulatory formulas
-        /// (Luáº­t Thuáº¿ TNCN sá»­a Ä‘á»•i 2025 + ND 117/2025 + NQ 198/2025/QH15).
-        /// Wave 5c (2026-07-03): replaces hardcoded 5%/10% + flat RevenueÃ—rate formulas.
-        ///   Group1: 0 (khÃ´ng chá»‹u thuáº¿ TNCN â€” doanh thu â‰¤ 1B)
-        ///   Group2: (totalRevenue - 1B) Ã— industryRate  (trá»« ngÆ°á»¡ng 1B trÆ°á»›c khi Ã¡p suáº¥t thuáº¿)
-        ///   Group3: (totalRevenue - totalExpense) Ã— 17%  (báº¯t buá»™c theo lá»£i nhuáº­n)
-        ///   Group4: (totalRevenue - totalExpense) Ã— 20%  (báº¯t buá»™c theo lá»£i nhuáº­n)
+        /// Calculate TNCN (Thuế Thu nhập cá nhân) per 2026 regulatory formulas
+        /// (Luật Thuế TNCN sửa đổi 2025 + ND 117/2025 + NQ 198/2025/QH15).
+        /// Wave 5c (2026-07-03): replaces hardcoded 5%/10% + flat Revenue×rate formulas.
+        ///   Group1: 0 (không chịu thuế TNCN — doanh thu ≤ 1B)
+        ///   Group2: (totalRevenue - 1B) × industryRate  (trừ ngưỡng 1B trước khi áp suất thuế)
+        ///   Group3: (totalRevenue - totalExpense) × 17%  (bắt buộc theo lợi nhuận)
+        ///   Group4: (totalRevenue - totalExpense) × 20%  (bắt buộc theo lợi nhuận)
         /// </summary>
         /// <param name="group">Revenue group (determined by CalculateGroup)</param>
         /// <param name="totalRevenue">Total annual revenue (doanh thu)</param>
-        /// <param name="totalExpense">Total annual deductible expense (chi phÃ­) â€” used for Group3/4 profit-based formula</param>
-        /// <param name="industryRate">Industry-specific TNCN rate as fraction (e.g., 0.005m = 0.5%) â€” used for Group2 revenue-based formula (per ND 117/2025)</param>
+        /// <param name="totalExpense">Total annual deductible expense (chi phí) — used for Group3/4 profit-based formula</param>
+        /// <param name="industryRate">Industry-specific TNCN rate as fraction (e.g., 0.005m = 0.5%) — used for Group2 revenue-based formula (per ND 117/2025)</param>
         /// <returns>TNCN amount in VND</returns>
         public static decimal CalculateTNCN(HKDRevenueGroup group, decimal totalRevenue, decimal totalExpense, decimal industryRate)
         {
             return group switch
             {
-                HKDRevenueGroup.Group1 => 0m,                                              // â‰¤1B: khÃ´ng chá»‹u thuáº¿
-                HKDRevenueGroup.Group2 => Math.Max(0m, totalRevenue - 1_000_000_000m) * industryRate,  // (Doanh thu - 1B) Ã— rate
-                HKDRevenueGroup.Group3 => (totalRevenue - totalExpense) * 0.17m,          // (Doanh thu - chi phÃ­) Ã— 17%
-                HKDRevenueGroup.Group4 => (totalRevenue - totalExpense) * 0.20m,          // (Doanh thu - chi phÃ­) Ã— 20%
+                HKDRevenueGroup.Group1 => 0m,                                              // ≤1B: không chịu thuế
+                HKDRevenueGroup.Group2 => Math.Max(0m, totalRevenue - 1_000_000_000m) * industryRate,  // (Doanh thu - 1B) × rate
+                HKDRevenueGroup.Group3 => (totalRevenue - totalExpense) * 0.17m,          // (Doanh thu - chi phí) × 17%
+                HKDRevenueGroup.Group4 => (totalRevenue - totalExpense) * 0.20m,          // (Doanh thu - chi phí) × 20%
                 _ => 0m
             };
         }
 
         /// <summary>
-        /// Calculate GTGT (Thuáº¿ GiÃ¡ trá»‹ gia tÄƒng) per 2026 regulatory formulas.
-        /// Wave 5c (2026-07-03): Group1 exemption (revenue â‰¤ 1B â†’ GTGT = 0).
-        ///   Group1: 0 (exemption â€” khÃ´ng chá»‹u thuáº¿ GTGT)
-        ///   Group2/3/4: totalRevenue Ã— industryRate (theo suáº¥t thuáº¿ ngÃ nh nghá» per ND 117/2025)
+        /// Calculate GTGT (Thuế Giá trị gia tăng) per 2026 regulatory formulas.
+        /// Wave 5c (2026-07-03): Group1 exemption (revenue ≤ 1B → GTGT = 0).
+        ///   Group1: 0 (exemption — không chịu thuế GTGT)
+        ///   Group2/3/4: totalRevenue × industryRate (theo suất thuế ngành nghề per ND 117/2025)
         /// </summary>
         /// <param name="group">Revenue group (determined by CalculateGroup)</param>
         /// <param name="totalRevenue">Total annual revenue (doanh thu)</param>
-        /// <param name="industryRate">Industry-specific GTGT rate as fraction (e.g., 0.01m = 1%) â€” per ND 117/2025</param>
+        /// <param name="industryRate">Industry-specific GTGT rate as fraction (e.g., 0.01m = 1%) — per ND 117/2025</param>
         /// <returns>GTGT amount in VND</returns>
         public static decimal CalculateGTGT(HKDRevenueGroup group, decimal totalRevenue, decimal industryRate)
         {
@@ -2403,23 +2403,23 @@ namespace VanAn.Shared.Domain
         public bool IsValid() => IsActive && !IsExpired();
     }
 
-    // ====================== VAS ENTERPRISE REPORTS â€” Domain Records (Wave 2) ======================
+    // ====================== VAS ENTERPRISE REPORTS — Domain Records (Wave 2) ======================
     // D5 approved: Domain modification for VAS Enterprise Financial Reports (TT 99/2025 + TT 133/2016 + TT 58/2026)
-    // D9 approved: HKDâ†”DN conversion = Option B (New Tenant + Link)
-    // Review 2026-07-04: BCTC records use ReportItemCode (MÃ£ chá»‰ tiÃªu) + 2-column comparative (Ending/Opening)
-    //   per Vietnamese accounting law (Máº«u B01-DN/B02-DN/B03-DN). NOT AccountCode-based (that's Trial Balance).
-    // Domain Purity: NO EF Core, NO DbContext, NO DataAnnotations â€” records only
+    // D9 approved: HKD↔DN conversion = Option B (New Tenant + Link)
+    // Review 2026-07-04: BCTC records use ReportItemCode (Mã chỉ tiêu) + 2-column comparative (Ending/Opening)
+    //   per Vietnamese accounting law (Mẫu B01-DN/B02-DN/B03-DN). NOT AccountCode-based (that's Trial Balance).
+    // Domain Purity: NO EF Core, NO DbContext, NO DataAnnotations — records only
 
     /// <summary>
-    /// Tenant business type â€” determines which accounting standard applies.
+    /// Tenant business type — determines which accounting standard applies.
     /// Wave 2 (D9): drives feature flag routing in W8.
     /// </summary>
     public enum TenantType
     {
-        HKD = 1,                    // Há»™ kinh doanh (TT 152/2025/TT-BTC)
-        Enterprise_SuperSmall = 2,  // DN siÃªu nhá» (TT 58/2026)
-        Enterprise_SME = 3,         // DN vá»«a vÃ  nhá» (TT 133/2016)
-        Enterprise_Large = 4        // DN lá»›n (TT 99/2025)
+        HKD = 1,                    // Hộ kinh doanh (TT 152/2025/TT-BTC)
+        Enterprise_SuperSmall = 2,  // DN siêu nhỏ (TT 58/2026)
+        Enterprise_SME = 3,         // DN vừa và nhỏ (TT 133/2016)
+        Enterprise_Large = 4        // DN lớn (TT 99/2025)
     }
 
     /// <summary>
@@ -2432,22 +2432,22 @@ namespace VanAn.Shared.Domain
     public enum AccountingStandard { TT99_2025, TT133_2016, TT58_2026 }
 
     /// <summary>
-    /// Chuáº©n cáº¥u trÃºc má»™t dÃ²ng Chá»‰ tiÃªu BÃ¡o cÃ¡o TÃ i chÃ­nh theo phÃ¡p luáº­t Viá»‡t Nam.
-    /// Sá»­ dá»¥ng MÃ£ chá»‰ tiÃªu (ReportItemCode), KHÃ”NG dÃ¹ng AccountCode.
-    /// Báº¯t buá»™c cÃ³ 2 cá»™t sá»‘ liá»‡u Ä‘á»ƒ Ä‘á»‘i chiáº¿u thá»i ká»³ (Sá»‘ cuá»‘i ká»³ / Sá»‘ Ä‘áº§u nÄƒm).
+    /// Chuẩn cấu trúc một dòng Chỉ tiêu Báo cáo Tài chính theo pháp luật Việt Nam.
+    /// Sử dụng Mã chỉ tiêu (ReportItemCode), KHÔNG dùng AccountCode.
+    /// Bắt buộc có 2 cột số liệu để đối chiếu thời kỳ (Số cuối kỳ / Số đầu năm).
     /// </summary>
     public record FinancialStatementLine(
-        string ReportItemCode,      // MÃ£ chá»‰ tiÃªu (VD: "100", "110", "01", "20")
-        string ReportItemName,      // TÃªn chá»‰ tiÃªu (VD: "TÃ i sáº£n ngáº¯n háº¡n", "Doanh thu bÃ¡n hÃ ng")
-        decimal EndingAmount,       // Sá»‘ cuá»‘i ká»³ / NÄƒm nay
-        decimal OpeningAmount,      // Sá»‘ Ä‘áº§u nÄƒm / NÄƒm trÆ°á»›c (So sÃ¡nh)
-        int Level,                  // Cáº¥p báº­c phÃ¢n cáº¥p cha-con trÃ¬nh bÃ y UI
-        bool IsNormalNegative       // Hiá»ƒn thá»‹ sá»‘ Ã¢m trong ngoáº·c Ä‘Æ¡n VD: (20,000,000)
+        string ReportItemCode,      // Mã chỉ tiêu (VD: "100", "110", "01", "20")
+        string ReportItemName,      // Tên chỉ tiêu (VD: "Tài sản ngắn hạn", "Doanh thu bán hàng")
+        decimal EndingAmount,       // Số cuối kỳ / Năm nay
+        decimal OpeningAmount,      // Số đầu năm / Năm trước (So sánh)
+        int Level,                  // Cấp bậc phân cấp cha-con trình bày UI
+        bool IsNormalNegative       // Hiển thị số âm trong ngoặc đơn VD: (20,000,000)
     );
 
-    // â”€â”€ 1. Báº¢NG CÃ‚N Äá»I Káº¾ TOÃN (Máº«u B01-DN / B01-DNN) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 1. BẢNG CÂN ĐỐI KẾ TOÁN (Mẫu B01-DN / B01-DNN) ──────────────────────────────────
     // Invariant: TotalAssetsEnding == TotalLiabilitiesAndEquityEnding (enforced at factory/service in W4).
-    // No IsBalanced flag â€” unbalanced data throws, never stored.
+    // No IsBalanced flag — unbalanced data throws, never stored.
     public record BalanceSheet(
         TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
         IEnumerable<FinancialStatementLine> Assets,
@@ -2457,7 +2457,7 @@ namespace VanAn.Shared.Domain
         decimal TotalLiabilitiesAndEquityEnding, decimal TotalLiabilitiesAndEquityOpening
     );
 
-    // â”€â”€ 2. BÃO CÃO Káº¾T QUáº¢ HOáº T Äá»˜NG KINH DOANH (Máº«u B02-DN / B02-DNN) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 2. BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH (Mẫu B02-DN / B02-DNN) ────────────────
     public record IncomeStatement(
         TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
         decimal TotalRevenueEnding, decimal TotalRevenueOpening,
@@ -2465,7 +2465,7 @@ namespace VanAn.Shared.Domain
         IEnumerable<FinancialStatementLine> Lines
     );
 
-    // â”€â”€ 3. BÃO CÃO LÆ¯U CHUYá»‚N TIá»€N Tá»† (Máº«u B03-DN / B03-DNN) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 3. BÁO CÁO LƯU CHUYỂN TIỀN TỆ (Mẫu B03-DN / B03-DNN) ──────────────────────────
     public record CashFlowStatement(
         TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
         decimal OpeningCash, decimal ClosingCash, decimal NetChange,
@@ -2474,9 +2474,9 @@ namespace VanAn.Shared.Domain
         IEnumerable<FinancialStatementLine> FinancingActivities
     );
 
-    // TrialBalance already exists above (Domain.cs ~line 1518) â€” keep as-is, W4 service wraps with TenantId.
+    // TrialBalance already exists above (Domain.cs ~line 1518) — keep as-is, W4 service wraps with TenantId.
 
-    // â”€â”€ 4. Sá» DÆ¯ Äáº¦U Ká»² (Má»Ÿ sá»• / Khá»Ÿi táº¡o dá»¯ liá»‡u) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 4. SỐ DƯ ĐẦU KỲ (Mở sổ / Khởi tạo dữ liệu) ─────────────────────────────────────
     public record OpeningBalance(
         TenantId TenantId, AccountingPeriod Period,
         IEnumerable<OpeningBalanceLine> Lines
@@ -2485,7 +2485,7 @@ namespace VanAn.Shared.Domain
 
     /// <summary>
     /// In-memory chart-of-accounts entry. Storage decision (DB vs dictionary) deferred to W3.
-    /// IsNormalCredit: true for contra accounts (e.g., TK 214 Hao mÃ²n TSCÄ) â€” normal credit balance.
+    /// IsNormalCredit: true for contra accounts (e.g., TK 214 Hao mòn TSCĐ) — normal credit balance.
     /// </summary>
     public record AccountChartEntry(
         string AccountCode, string AccountName, AccountType Type,

@@ -1,17 +1,17 @@
 ﻿@using VanAn.UI.Platform.Components
 
-@* W1-T2: Processing Bar â€” shown during cash payment order submission.
+@* W1-T2: Processing Bar — shown during cash payment order submission.
    Displays a spinner + 3-step progress indicator while the order is being sent to ShopERP. *@
 @if (IsVisible)
 {
     <div class="processing-bar" data-testid="processing-bar">
         <VanAnCard>
             <div class="text-center py-4">
-                <VanASpinner Label="Äang gá»­i Ä‘Æ¡n hÃ ng..." />
+                <VanASpinner Label="Đang gửi đơn hàng..." />
                 <div class="progress-steps mt-3 d-flex justify-content-center gap-3">
-                    <span class="step active">ðŸ“‹ Gá»­i Ä‘Æ¡n</span>
-                    <span class="step text-muted">â˜• Pha cháº¿</span>
-                    <span class="step text-muted">âœ… HoÃ n thÃ nh</span>
+                    <span class="step active">📋 Gửi đơn</span>
+                    <span class="step text-muted">☕ Pha chế</span>
+                    <span class="step text-muted">✅ Hoàn thành</span>
                 </div>
             </div>
         </VanAnCard>

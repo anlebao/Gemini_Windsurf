@@ -8,18 +8,18 @@
 @inject ShopFeatureSettingsHttpService FeatureSettings
 @implements IDisposable
 
-<PageTitle>Giá» hÃ ng - KhachLink</PageTitle>
+<PageTitle>Giỏ hàng - KhachLink</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4">
-        <h2 class="mb-4">ðŸ›’ Giá» hÃ ng cá»§a báº¡n</h2>
+        <h2 class="mb-4">🛒 Giỏ hàng của bạn</h2>
 
         @if (cartState.GetTotalItems() == 0)
         {
-            <VanAnAlert Variant="AlertVariant.Info" Message="Giá» hÃ ng cá»§a báº¡n Ä‘ang trá»‘ng. HÃ£y thÃªm sáº£n pháº©m Ä‘á»ƒ tiáº¿p tá»¥c!" />
+            <VanAnAlert Variant="AlertVariant.Info" Message="Giỏ hàng của bạn đang trống. Hãy thêm sản phẩm để tiếp tục!" />
             <div class="text-center mt-3">
                 <VanAnButton Icon="house" OnClick="@(() => Navigation.NavigateTo("/"))" data-testid="cart-btn-back-home">
-                    Quay láº¡i trang chá»§
+                    Quay lại trang chủ
                 </VanAnButton>
             </div>
         }
@@ -27,7 +27,7 @@
         {
             <div class="row">
                 <div class="col-md-8">
-                    <VanAnCard Header="Sáº£n pháº©m Ä‘Ã£ chá»n">
+                    <VanAnCard Header="Sản phẩm đã chọn">
                         <div class="cart-items">
                             @foreach (var item in cartState.Items)
                             {
@@ -41,21 +41,21 @@
                                             }
                                             <small class="text-muted">@item.Description</small>
                                             <div class="mt-2">
-                                                <span class="badge bg-success">@item.UnitPrice.ToString("N0") VNÄ</span>
+                                                <span class="badge bg-success">@item.UnitPrice.ToString("N0") VNĐ</span>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
                                             <div class="quantity-control">
                                                 <div class="input-group" style="width: 120px;">
-                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)" aria-label="@($"Giáº£m sá»‘ lÆ°á»£ng {item.ProductName}")" data-testid="cart-btn-qty-decrease">-</VanAnButton>
-                                                    <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" aria-label="@($"Sá»‘ lÆ°á»£ng {item.ProductName}")" data-testid="cart-input-quantity" />
-                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)" aria-label="@($"TÄƒng sá»‘ lÆ°á»£ng {item.ProductName}")" data-testid="cart-btn-qty-increase">+</VanAnButton>
+                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity - 1)" aria-label="@($"Giảm số lượng {item.ProductName}")" data-testid="cart-btn-qty-decrease">-</VanAnButton>
+                                                    <input type="number" class="form-control text-center" value="@item.Quantity" @oninput="@(e => UpdateQuantity(item.ProductId, Convert.ToInt32(e.Value ?? "0")))" min="1" aria-label="@($"Số lượng {item.ProductName}")" data-testid="cart-input-quantity" />
+                                                    <VanAnButton Size="ButtonSize.Small" CssClass="btn-outline-secondary" OnClick="() => UpdateQuantity(item.ProductId, item.Quantity + 1)" aria-label="@($"Tăng số lượng {item.ProductName}")" data-testid="cart-btn-qty-increase">+</VanAnButton>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-md-3 text-end">
                                             <VanAnButton Variant="ButtonVariant.Error" Size="ButtonSize.Small" Icon="trash" OnClick="() => RemoveItem(item.ProductId)" data-testid="cart-btn-remove">
-                                                XÃ³a
+                                                Xóa
                                             </VanAnButton>
                                         </div>
                                     </div>
@@ -66,29 +66,29 @@
                 </div>
                 
                 <div class="col-md-4">
-                    <VanAnCard Header="ðŸ’° Chi tiáº¿t thanh toÃ¡n">
+                    <VanAnCard Header="💰 Chi tiết thanh toán">
                         <div class="payment-summary">
                             <div class="d-flex justify-content-between mb-2">
-                                <span>Táº¡m tÃ­nh:</span>
-                                <strong>@cartState.SubTotal.ToString("N0") VNÄ</strong>
+                                <span>Tạm tính:</span>
+                                <strong>@cartState.SubTotal.ToString("N0") VNĐ</strong>
                             </div>
                             @if (_vatDisplayEnabled)
                             {
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>VAT:</span>
-                                    <strong>@cartState.TotalVatAmount.ToString("N0") VNÄ</strong>
+                                    <strong>@cartState.TotalVatAmount.ToString("N0") VNĐ</strong>
                                 </div>
                             }
                             <hr />
                             <div class="d-flex justify-content-between mb-3">
-                                <h5>Tá»•ng cá»™ng:</h5>
-                                <h5 class="text-danger">@cartState.TotalAmount.ToString("N0") VNÄ</h5>
+                                <h5>Tổng cộng:</h5>
+                                <h5 class="text-danger">@cartState.TotalAmount.ToString("N0") VNĐ</h5>
                             </div>
                             <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="qr-code" OnClick="ProceedToCheckout" data-testid="cart-btn-checkout">
-                                Thanh toÃ¡n
+                                Thanh toán
                             </VanAnButton>
                             <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" CssClass="mt-2" OnClick="ClearCart" data-testid="cart-btn-clear">
-                                XÃ³a giá» hÃ ng
+                                Xóa giỏ hàng
                             </VanAnButton>
                         </div>
                     </VanAnCard>

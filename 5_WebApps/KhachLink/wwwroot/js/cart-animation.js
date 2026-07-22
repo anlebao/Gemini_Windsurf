@@ -1,4 +1,4 @@
-﻿?// Cart fly-to-cart animation
+﻿// Cart fly-to-cart animation
 // Called from Blazor AddToCart — clones product image and animates to cart icon
 window.vananFlyToCart = function (sourceElementId, cartIconSelector) {
     try {

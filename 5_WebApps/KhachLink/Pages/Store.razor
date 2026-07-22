@@ -13,15 +13,15 @@
 @inject NavigationManager Navigation
 @inject ILogger<Store> Logger
 
-<PageTitle>@(_store?.Name ?? "Cá»­a hÃ ng") â€” KhachLink</PageTitle>
+<PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
 
 @if (_loading)
 {
     <div class="store-loading">
         <div class="spinner-border text-light" role="status" style="width: 3.5rem; height: 3.5rem;">
-            <span class="visually-hidden">Äang táº£i...</span>
+            <span class="visually-hidden">Đang tải...</span>
         </div>
-        <p class="mt-3">Äang táº£i thÃ´ng tin cá»­a hÃ ng...</p>
+        <p class="mt-3">Đang tải thông tin cửa hàng...</p>
     </div>
 }
 else if (_store is null)
@@ -29,10 +29,10 @@ else if (_store is null)
     <div class="store-not-found">
         <div class="not-found-card">
             <i class="bi bi-shop"></i>
-            <h2>KhÃ´ng tÃ¬m tháº¥y cá»­a hÃ ng</h2>
-            <p>Trang báº¡n tÃ¬m khÃ´ng tá»“n táº¡i hoáº·c Ä‘Ã£ bá»‹ gá»¡.</p>
+            <h2>Không tìm thấy cửa hàng</h2>
+            <p>Trang bạn tìm không tồn tại hoặc đã bị gỡ.</p>
             <button class="btn-cta" OnClick="@(() => Navigation.NavigateTo("/store-finder"))">
-                <i class="bi bi-search me-1"></i> TÃ¬m cá»­a hÃ ng khÃ¡c
+                <i class="bi bi-search me-1"></i> Tìm cửa hàng khác
             </button>
         </div>
     </div>
@@ -40,10 +40,10 @@ else if (_store is null)
 else
 {
     <div class="store-page theme-@GetThemeClass()">
-    <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-         HERO SECTION â€” full-width banner with brand name + story
+    <!-- ════════════════════════════════════════════════════════════════════
+         HERO SECTION — full-width banner with brand name + story
          (inspired by tocotocotea.com hero)
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+    ════════════════════════════════════════════════════════════════════ -->
     <section class="store-hero">
         <div class="hero-overlay"></div>
         <div class="hero-content">
@@ -80,7 +80,7 @@ else
                 @if (_features.GoogleMap_Section_Enabled && _store.Latitude.HasValue && _store.Longitude.HasValue)
                 {
                     <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude" target="_blank" class="btn-cta">
-                    <i class="bi bi-compass"></i> Chá»‰ Ä‘Æ°á»ng
+                    <i class="bi bi-compass"></i> Chỉ đường
                     </a>
                 }
                 @if (!string.IsNullOrWhiteSpace(_store.SocialLinksFb))
@@ -101,16 +101,16 @@ else
 
     <div class="store-body">
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             CAMPAIGN SECTION â€” promotions as beautiful cards
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ════════════════════════════════════════════════════════════════
+             CAMPAIGN SECTION — promotions as beautiful cards
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.Campaign_Section_Enabled)
         {
             <section class="store-section" id="campaigns">
                 <div class="section-header">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-megaphone-fill"></i></span>
-                        Khuyáº¿n MÃ£i Ná»•i Báº­t
+                        Khuyến Mãi Nổi Bật
                     </h2>
                     <div class="section-divider"></div>
                 </div>
@@ -118,7 +118,7 @@ else
                 {
                     <div class="section-loading">
                         <div class="spinner-border text-primary"></div>
-                        <p>Äang táº£i khuyáº¿n mÃ£i...</p>
+                        <p>Đang tải khuyến mãi...</p>
                     </div>
                 }
                 else if (_campaigns.Count > 0)
@@ -151,7 +151,7 @@ else
                                         <span><i class="bi bi-mouse"></i> @campaign.TotalClicks</span>
                                         <span><i class="bi bi-bag-check"></i> @campaign.ConvertedOrders</span>
                                     </div>
-                                    <span class="campaign-cta">Xem khuyáº¿n mÃ£i <i class="bi bi-arrow-right"></i></span>
+                                    <span class="campaign-cta">Xem khuyến mãi <i class="bi bi-arrow-right"></i></span>
                                 </div>
                             </article>
                         }
@@ -159,21 +159,21 @@ else
                 }
                 else
                 {
-                    <p class="section-empty">Cá»­a hÃ ng hiá»‡n chÆ°a cÃ³ chÆ°Æ¡ng trÃ¬nh khuyáº¿n mÃ£i nÃ o.</p>
+                    <p class="section-empty">Cửa hàng hiện chưa có chương trình khuyến mãi nào.</p>
                 }
             </section>
         }
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             VIBE SHOWCASE â€” product gallery (display only, not for sale)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ════════════════════════════════════════════════════════════════
+             VIBE SHOWCASE — product gallery (display only, not for sale)
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.VibeShowcase_Section_Enabled)
         {
             <section class="store-section" id="products">
                 <div class="section-header">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-grid-fill"></i></span>
-                        Bá»™ SÆ°u Táº­p Sáº£n Pháº©m
+                        Bộ Sưu Tập Sản Phẩm
                     </h2>
                     <div class="section-divider"></div>
                 </div>
@@ -181,16 +181,16 @@ else
             </section>
         }
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ════════════════════════════════════════════════════════════════
              GOOGLE MAP SECTION
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.GoogleMap_Section_Enabled)
         {
             <section class="store-section" id="location">
                 <div class="section-header">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-geo-alt-fill"></i></span>
-                        Vá»‹ TrÃ­ Cá»­a HÃ ng
+                        Vị Trí Cửa Hàng
                     </h2>
                     <div class="section-divider"></div>
                 </div>
@@ -198,16 +198,16 @@ else
             </section>
         }
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             SOCIAL HUB â€” Facebook + TikTok embeds
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ════════════════════════════════════════════════════════════════
+             SOCIAL HUB — Facebook + TikTok embeds
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.SocialHub_Section_Enabled)
         {
             <section class="store-section" id="social">
                 <div class="section-header">
                     <h2 class="section-title">
                         <span class="section-icon"><i class="bi bi-share-fill"></i></span>
-                        Káº¿t Ná»‘i Máº¡ng XÃ£ Há»™i
+                        Kết Nối Mạng Xã Hội
                     </h2>
                     <div class="section-divider"></div>
                 </div>
@@ -215,23 +215,23 @@ else
             </section>
         }
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             AI CHATBOX placeholder (Phase 4-5 â€” deferred)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ════════════════════════════════════════════════════════════════
+             AI CHATBOX placeholder (Phase 4-5 — deferred)
+        ════════════════════════════════════════════════════════════════ -->
         @if (_features.AIChat_Enabled)
         {
             <section class="store-section">
                 <div class="ai-chat-placeholder">
                     <i class="bi bi-robot"></i>
-                    <h3>AI Chatbox sáº¯p ra máº¯t</h3>
-                    <p>TÃ­nh nÄƒng nÃ y Ä‘ang Ä‘Æ°á»£c phÃ¡t triá»ƒn â€” sáº½ cÃ³ trong sprint tá»›i.</p>
+                    <h3>AI Chatbox sắp ra mắt</h3>
+                    <p>Tính năng này đang được phát triển — sẽ có trong sprint tới.</p>
                 </div>
             </section>
         }
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ════════════════════════════════════════════════════════════════
              FOOTER
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ════════════════════════════════════════════════════════════════ -->
         <footer class="store-footer">
             <p>&copy; @DateTime.UtcNow.Year @_store.Name. All rights reserved.</p>
             <p class="powered-by">Powered by <strong>KhachLink</strong></p>
@@ -241,10 +241,10 @@ else
 }
 
 <style>
-    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-         STORE PROFILE PAGE â€” Showcase layout (not e-commerce)
+    /* ════════════════════════════════════════════════════════════════════
+         STORE PROFILE PAGE — Showcase layout (not e-commerce)
          Inspired by tocotocotea.com: warm gradients, big hero, gallery feel
-    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    ════════════════════════════════════════════════════════════════════ */
 
     /* Loading state */
     .store-loading {
@@ -271,7 +271,7 @@ else
     .not-found-card h2 { margin: 1rem 0 0.5rem; font-weight: 700; }
     .not-found-card p { color: #6b7280; margin-bottom: 1.5rem; }
 
-    /* â”€â”€ HERO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── HERO ─────────────────────────────────────────────────────────── */
     .store-hero {
         position: relative;
         min-height: 70vh;
@@ -335,7 +335,7 @@ else
         gap: 1rem;
     }
 
-    /* â”€â”€ BUTTONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── BUTTONS ─────────────────────────────────────────────────────── */
     .btn-cta, .btn-cta-outline {
         display: inline-flex; align-items: center; gap: 0.5rem;
         padding: 0.75rem 1.75rem;
@@ -367,14 +367,14 @@ else
         border-color: white;
     }
 
-    /* â”€â”€ BODY CONTAINER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── BODY CONTAINER ──────────────────────────────────────────────── */
     .store-body {
         max-width: 1200px;
         margin: 0 auto;
         padding: 4rem 1.5rem;
     }
 
-    /* â”€â”€ SECTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── SECTIONS ────────────────────────────────────────────────────── */
     .store-section { margin-bottom: 5rem; }
     .section-header { text-align: center; margin-bottom: 3rem; }
     .section-title {
@@ -399,7 +399,7 @@ else
         margin: 1rem auto 0;
     }
 
-    /* â”€â”€ CAMPAIGN GRID â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── CAMPAIGN GRID ───────────────────────────────────────────────── */
     .campaign-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -458,7 +458,7 @@ else
     .campaign-cta i { transition: transform 0.2s; }
     .campaign-card:hover .campaign-cta i { transform: translateX(4px); }
 
-    /* â”€â”€ SECTION STATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── SECTION STATES ──────────────────────────────────────────────── */
     .section-loading {
         text-align: center; padding: 3rem;
         color: #6b7280;
@@ -469,7 +469,7 @@ else
         font-style: italic;
     }
 
-    /* â”€â”€ AI CHAT PLACEHOLDER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── AI CHAT PLACEHOLDER ─────────────────────────────────────────── */
     .ai-chat-placeholder {
         text-align: center;
         padding: 3rem 2rem;
@@ -480,7 +480,7 @@ else
     .ai-chat-placeholder h3 { margin: 1rem 0 0.5rem; }
     .ai-chat-placeholder p { color: #6b7280; }
 
-    /* â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── FOOTER ──────────────────────────────────────────────────────── */
     .store-footer {
         text-align: center;
         padding: 3rem 1rem 2rem;
@@ -491,7 +491,7 @@ else
     .powered-by { font-size: 0.85rem; }
     .powered-by strong { color: var(--store-accent-color, #ff5e62); }
 
-    /* â”€â”€ THEME VARIABLES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── THEME VARIABLES ─────────────────────────────────────────────── */
     /* Each theme defines gradient + accent color variables used by
        .store-hero, .section-icon, .section-divider, .btn-cta, .campaign-cta.
        Applied via .store-page wrapper class (set from _shopConfig.ActiveTheme). */
@@ -521,7 +521,7 @@ else
         --store-accent-color: #f0e68c;
     }
 
-    /* â”€â”€ RESPONSIVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* ── RESPONSIVE ──────────────────────────────────────────────────── */
     @@media (max-width: 768px) {
         .store-hero { min-height: 60vh; padding: 3rem 1rem; }
         .store-body { padding: 3rem 1rem; }
@@ -562,7 +562,7 @@ else
             // Support two routes: /store/{slug} and /store/by-id/{tenantId}
             if (!string.IsNullOrWhiteSpace(TenantId))
             {
-                // by-id fallback â€” load store-info by tenant GUID
+                // by-id fallback — load store-info by tenant GUID
                 _store = await LoadStoreByTenantIdAsync(TenantId);
             }
             else
@@ -608,7 +608,7 @@ else
         {
             return null;
         }
-        // Reuse ShopConfigHttpService's endpoint via direct HTTP â€” but we need a separate
+        // Reuse ShopConfigHttpService's endpoint via direct HTTP — but we need a separate
         // call here because TenantProfileHttpService only has GetBySlugAsync. We use the
         // store-info endpoint through ShopConfigService and reconstruct the ShopDto from
         // the resulting ShopConfig. Simpler: just use ShopConfigService and build a
@@ -616,7 +616,7 @@ else
         try
         {
             _shopConfig = await ShopConfigService.GetShopConfigByTenantIdAsync(tenantId);
-            // ShopConfig has all the fields we need â€” build a ShopDto from it
+            // ShopConfig has all the fields we need — build a ShopDto from it
             return new ShopDto
             {
                 Id = _shopConfig.TenantId,

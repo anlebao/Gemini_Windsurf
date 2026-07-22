@@ -5,14 +5,14 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 
-@* T-03b: Wrapper div with id="qrPaymentModal" â€” required by E2E selector contract.
+@* T-03b: Wrapper div with id="qrPaymentModal" — required by E2E selector contract.
    VanAnModal renders its own <div class="modal"> but doesn't expose an id param.
    Wrapping here ensures #qrPaymentModal is always in the DOM when IsOpen=true. *@
 @if (IsOpen)
 {
     <div id="qrPaymentModal">
         <VanAnModal IsOpen="true"
-                    Title="Thanh toÃ¡n qua VietQR"
+                    Title="Thanh toán qua VietQR"
                     OnClose="HandleClose"
                     Closable="true">
             <ChildContent>
@@ -21,9 +21,9 @@
                 {
                     <div class="loading-container">
                         <span class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Äang táº¡o mÃ£ QR...</span>
+                            <span class="visually-hidden">Đang tạo mã QR...</span>
                         </span>
-                        <p class="mt-3">Äang táº¡o mÃ£ QR thanh toÃ¡n...</p>
+                        <p class="mt-3">Đang tạo mã QR thanh toán...</p>
                     </div>
                 }
                 else if (!string.IsNullOrEmpty(QrImageUrl))
@@ -33,18 +33,18 @@
                             <img src="@QrImageUrl" alt="VietQR Payment Code" class="qr-image" />
                         </div>
                         <div class="qr-info mt-3">
-                            <h6>ThÃ´ng tin thanh toÃ¡n</h6>
-                            <p class="mb-1"><strong>Sá»‘ tiá»n:</strong> @Amount.ToString("N0")Ä‘</p>
-                            <p class="mb-1"><strong>MÃ£ Ä‘Æ¡n hÃ ng:</strong> @OrderId</p>
-                            <p class="mb-1"><strong>NgÃ¢n hÃ ng:</strong> @BankName</p>
-                            <p class="mb-0"><small class="text-muted">QuÃ©t mÃ£ QR báº±ng á»©ng dá»¥ng ngÃ¢n hÃ ng Ä‘á»ƒ thanh toÃ¡n</small></p>
+                            <h6>Thông tin thanh toán</h6>
+                            <p class="mb-1"><strong>Số tiền:</strong> @Amount.ToString("N0")đ</p>
+                            <p class="mb-1"><strong>Mã đơn hàng:</strong> @OrderId</p>
+                            <p class="mb-1"><strong>Ngân hàng:</strong> @BankName</p>
+                            <p class="mb-0"><small class="text-muted">Quét mã QR bằng ứng dụng ngân hàng để thanh toán</small></p>
                         </div>
                     </VanAnCard>
 
-                    <!-- W1-T3: Dual status bars â€” order processing + payment status -->
+                    <!-- W1-T3: Dual status bars — order processing + payment status -->
                     <div class="dual-status-bars mt-3 text-start" data-testid="dual-status-bars">
                         <div class="status-bar mb-2">
-                            <label class="fw-bold small">Xá»­ lÃ½ Ä‘Æ¡n hÃ ng</label>
+                            <label class="fw-bold small">Xử lý đơn hàng</label>
                             <div class="progress" style="height: 8px;">
                                 <div class="progress-bar @(_paymentConfirmed ? "bg-success" : "bg-info")"
                                      role="progressbar"
@@ -52,10 +52,10 @@
                                      aria-valuenow="@(_paymentConfirmed ? 100 : 60)"
                                      aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
-                            <span class="small text-muted">@(_paymentConfirmed ? "ÄÃ£ xÃ¡c nháº­n" : "Äang xá»­ lÃ½...")</span>
+                            <span class="small text-muted">@(_paymentConfirmed ? "Đã xác nhận" : "Đang xử lý...")</span>
                         </div>
                         <div class="status-bar mb-2">
-                            <label class="fw-bold small">Chá» thanh toÃ¡n</label>
+                            <label class="fw-bold small">Chờ thanh toán</label>
                             <div class="progress" style="height: 8px;">
                                 <div class="progress-bar @(_paymentConfirmed ? "bg-success" : "bg-warning")"
                                      role="progressbar"
@@ -63,7 +63,7 @@
                                      aria-valuenow="@(_paymentConfirmed ? 100 : 50)"
                                      aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
-                            <span class="small text-muted">@(_paymentConfirmed ? "ÄÃ£ thanh toÃ¡n" : "Chá» khÃ¡ch quÃ©t QR...")</span>
+                            <span class="small text-muted">@(_paymentConfirmed ? "Đã thanh toán" : "Chờ khách quét QR...")</span>
                         </div>
                     </div>
                 }
@@ -79,12 +79,12 @@
             </div>
             </ChildContent>
 
-            @* T-03b: FooterContent â†’ Footer (correct VanAnModal RenderFragment parameter name) *@
+            @* T-03b: FooterContent → Footer (correct VanAnModal RenderFragment parameter name) *@
             <Footer>
                 <VanAnButton Variant="ButtonVariant.Secondary"
                              OnClick="HandleClose"
                              data-testid="qr-modal-btn-close">
-                    ÄÃ³ng
+                    Đóng
                 </VanAnButton>
                 @if (!string.IsNullOrEmpty(QrImageUrl))
                 {
@@ -92,13 +92,13 @@
                                  Icon="download"
                                  OnClick="DownloadQr"
                                  data-testid="qr-modal-btn-download">
-                        LÆ°u mÃ£ QR
+                        Lưu mã QR
                     </VanAnButton>
-                    @* W3-T2: Self-confirm payment â€” KhachLink sends POST api/webhooks/payment *@
+                    @* W3-T2: Self-confirm payment — KhachLink sends POST api/webhooks/payment *@
                     <VanAnButton Variant="ButtonVariant.Success"
                                  OnClick="ConfirmPayment"
                                  data-testid="btn-confirm-payment">
-                        âœ… TÃ´i Ä‘Ã£ thanh toÃ¡n
+                        ✅ Tôi đã thanh toán
                     </VanAnButton>
                 }
             </Footer>
@@ -142,7 +142,7 @@
 @code {
     [Parameter] public decimal Amount     { get; set; }
     [Parameter] public string  OrderId   { get; set; } = string.Empty;
-    // W3-T2: TenantId passed from parent (Checkout/OrderTracking) â€” from Order.TenantId.Value
+    // W3-T2: TenantId passed from parent (Checkout/OrderTracking) — from Order.TenantId.Value
     [Parameter] public Guid    TenantId  { get; set; }
     [Parameter] public bool    IsOpen    { get; set; }
     [Parameter] public EventCallback OnPaymentCompleted { get; set; }
@@ -194,12 +194,12 @@
             }
             else
             {
-                Error = "KhÃ´ng thá»ƒ táº¡o mÃ£ QR. Vui lÃ²ng thá»­ láº¡i.";
+                Error = "Không thể tạo mã QR. Vui lòng thử lại.";
             }
         }
         catch (Exception)
         {
-            Error = "Lá»—i káº¿t ná»‘i. Vui lÃ²ng kiá»ƒm tra máº¡ng vÃ  thá»­ láº¡i.";
+            Error = "Lỗi kết nối. Vui lòng kiểm tra mạng và thử lại.";
         }
         finally
         {
@@ -222,14 +222,14 @@
     /// <summary>
     /// W3-T2: KhachLink self-confirm payment via POST api/webhooks/payment.
     /// KhachLink has TenantId from Order.TenantId.Value (Order inherits from Product).
-    /// After confirm â†’ OrderService.ConfirmPaymentAsync â†’ OrderHub.PaymentConfirmed broadcast (W0).
+    /// After confirm → OrderService.ConfirmPaymentAsync → OrderHub.PaymentConfirmed broadcast (W0).
     /// </summary>
     private async Task ConfirmPayment()
     {
         if (_paymentConfirmed) return; // Idempotent UI guard
         if (TenantId == Guid.Empty)
         {
-            Error = "KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c cá»­a hÃ ng (TenantId). Vui lÃ²ng liÃªn há»‡ nhÃ¢n viÃªn.";
+            Error = "Không xác định được cửa hàng (TenantId). Vui lòng liên hệ nhân viên.";
             return;
         }
 
@@ -253,12 +253,12 @@
             }
             else
             {
-                Error = $"KhÃ´ng thá»ƒ xÃ¡c nháº­n thanh toÃ¡n: {(int)response.StatusCode}";
+                Error = $"Không thể xác nhận thanh toán: {(int)response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            Error = $"Lá»—i káº¿t ná»‘i: {ex.Message}";
+            Error = $"Lỗi kết nối: {ex.Message}";
         }
     }
 

@@ -9,22 +9,22 @@
 @inject SocialAuthHttpService SocialAuthHttp
 @using Microsoft.AspNetCore.Components.Web
 
-<PageTitle>Äiá»ƒm thÆ°á»Ÿng cá»§a tÃ´i</PageTitle>
+<PageTitle>Điểm thưởng của tôi</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4" style="max-width:600px;">
         @if (_loading)
         {
             <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Äang táº£i...</span></div>
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
             </div>
         }
         else if (!_isLoggedIn)
         {
             <VanAnCard Shadow="true" CssClass="text-center p-5">
                 <i class="bi bi-gem text-warning" style="font-size:3rem;"></i>
-                <h5 class="mt-3">ÄÄƒng nháº­p Ä‘á»ƒ xem Ä‘iá»ƒm thÆ°á»Ÿng</h5>
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">ÄÄƒng nháº­p</VanAnButton>
+                <h5 class="mt-3">Đăng nhập để xem điểm thưởng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
             </VanAnCard>
         }
         else if (_loyalty != null)
@@ -33,11 +33,11 @@
             <VanAnCard Shadow="true" CssClass="loyalty-tier-card mb-4">
                 <div class="text-center p-4">
                     <div class="tier-badge @GetTierBadgeClass() mb-3">@_loyalty.Tier</div>
-                    <h2 class="points-display">@_loyalty.PointBalance.ToString("N0") Ä‘iá»ƒm</h2>
+                    <h2 class="points-display">@_loyalty.PointBalance.ToString("N0") điểm</h2>
                     @if (_loyalty.NextTierThreshold > 0)
                     {
                         <p class="text-muted small mb-2">
-                            CÃ²n @(_loyalty.NextTierThreshold - _loyalty.PointBalance).ToString("N0") Ä‘iá»ƒm Ä‘á»ƒ lÃªn háº¡ng tiáº¿p theo
+                            Còn @(_loyalty.NextTierThreshold - _loyalty.PointBalance).ToString("N0") điểm để lên hạng tiếp theo
                         </p>
                         <div class="progress" style="height:8px;">
                             <div class="progress-bar bg-warning" style="width:@_loyalty.ProgressPercent%;"></div>
@@ -45,16 +45,16 @@
                     }
                     else
                     {
-                        <p class="text-muted small">Báº¡n Ä‘ang á»Ÿ háº¡ng cao nháº¥t!</p>
+                        <p class="text-muted small">Bạn đang ở hạng cao nhất!</p>
                     }
                 </div>
             </VanAnCard>
 
             @* Tiered Auth Phase 3: Redeem section with verification gate *@
             <VanAnCard Shadow="true" CssClass="mb-4">
-                <h5 class="mb-3">Äá»•i Ä‘iá»ƒm thÆ°á»Ÿng</h5>
+                <h5 class="mb-3">Đổi điểm thưởng</h5>
                 <div class="mb-2">
-                    <label class="form-label small">Sá»‘ Ä‘iá»ƒm muá»‘n Ä‘á»•i</label>
+                    <label class="form-label small">Số điểm muốn đổi</label>
                     <input type="number" class="form-control"
                            placeholder="100" min="1" max="@_loyalty.PointBalance"
                            @bind="_redeemPoints" @bind:event="oninput" />
@@ -72,19 +72,19 @@
                              OnClick="RedeemPoints"
                              Disabled="@_redeeming"
                              TestId="btn-redeem-points">
-                    @(_redeeming ? "Äang xá»­ lÃ½..." : "Äá»•i Ä‘iá»ƒm")
+                    @(_redeeming ? "Đang xử lý..." : "Đổi điểm")
                 </VanAnButton>
             </VanAnCard>
 
             <!-- Tier Info -->
             <VanAnCard Shadow="true" CssClass="mb-4">
-                <h5 class="mb-3">Quyá»n lá»£i theo háº¡ng</h5>
+                <h5 class="mb-3">Quyền lợi theo hạng</h5>
                 <div class="tier-table">
                     @foreach (var tier in _tiers)
                     {
                         <div class="tier-row @(tier.Name == _loyalty.Tier ? "active-tier" : "")">
                             <span class="badge @tier.BadgeClass me-2">@tier.Name</span>
-                            <span class="text-muted small">@tier.Threshold Ä‘iá»ƒm</span>
+                            <span class="text-muted small">@tier.Threshold điểm</span>
                             <span class="ms-auto small">@tier.Benefit</span>
                         </div>
                     }
@@ -95,7 +95,7 @@
             @if (_loyalty.History?.Count > 0)
             {
                 <VanAnCard Shadow="true">
-                    <h5 class="mb-3">Lá»‹ch sá»­ tÃ­ch Ä‘iá»ƒm</h5>
+                    <h5 class="mb-3">Lịch sử tích điểm</h5>
                     @foreach (var item in _loyalty.History)
                     {
                         <div class="history-item d-flex align-items-center py-2 border-bottom">
@@ -116,7 +116,7 @@
         }
     </div>
 
-    @* Tiered Auth Phase 3: Upgrade modal â€” shown when redeem returns 403 *@
+    @* Tiered Auth Phase 3: Upgrade modal — shown when redeem returns 403 *@
     <IdentityUpgradeModal ShowModal="_showUpgradeModal"
                           OnDismiss="OnUpgradeModalDismiss"
                           OnUpgradeComplete="OnUpgradeComplete" />
@@ -144,10 +144,10 @@
 
     private static readonly List<TierInfo> _tiers = new()
     {
-        new("Bronze",   "bg-warning",           "0",      "5% Æ°u Ä‘Ã£i"),
-        new("Silver",   "bg-secondary",          "1.000",  "8% Æ°u Ä‘Ã£i + giao hÃ ng miá»…n phÃ­"),
-        new("Gold",     "bg-warning text-dark",  "5.000",  "12% Æ°u Ä‘Ã£i + quÃ  sinh nháº­t"),
-        new("Platinum", "bg-info text-dark",     "20.000", "15% Æ°u Ä‘Ã£i + VIP hotline")
+        new("Bronze",   "bg-warning",           "0",      "5% ưu đãi"),
+        new("Silver",   "bg-secondary",          "1.000",  "8% ưu đãi + giao hàng miễn phí"),
+        new("Gold",     "bg-warning text-dark",  "5.000",  "12% ưu đãi + quà sinh nhật"),
+        new("Platinum", "bg-info text-dark",     "20.000", "15% ưu đãi + VIP hotline")
     };
 
     private void GoToLogin() => Navigation.NavigateTo("/login");
@@ -182,7 +182,7 @@
         finally { _loading = false; }
     }
 
-    /// <summary>Tiered Auth Phase 3: Redeem points â€” calls POST /api/loyalty/redeem.</summary>
+    /// <summary>Tiered Auth Phase 3: Redeem points — calls POST /api/loyalty/redeem.</summary>
     private async Task RedeemPoints()
     {
         _redeemError = null;
@@ -190,7 +190,7 @@
 
         if (_redeemPoints <= 0)
         {
-            _redeemError = "Vui lÃ²ng nháº­p sá»‘ Ä‘iá»ƒm há»£p lá»‡.";
+            _redeemError = "Vui lòng nhập số điểm hợp lệ.";
             return;
         }
 
@@ -200,7 +200,7 @@
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             if (string.IsNullOrEmpty(token))
             {
-                _redeemError = "Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ Ä‘á»•i Ä‘iá»ƒm.";
+                _redeemError = "Vui lòng đăng nhập để đổi điểm.";
                 return;
             }
 
@@ -208,14 +208,14 @@
 
             if (result.Success)
             {
-                _redeemSuccess = $"Äá»•i thÃ nh cÃ´ng {result.PointsRedeemed} Ä‘iá»ƒm. Sá»‘ dÆ° má»›i: {result.NewBalance:N0} Ä‘iá»ƒm.";
+                _redeemSuccess = $"Đổi thành công {result.PointsRedeemed} điểm. Số dư mới: {result.NewBalance:N0} điểm.";
                 _redeemPoints = 0;
                 // Refresh loyalty data
                 await LoadLoyalty();
             }
             else if (result.RequiresUpgrade)
             {
-                // Show upgrade modal â€” customer needs OTP verification to redeem
+                // Show upgrade modal — customer needs OTP verification to redeem
                 _showUpgradeModal = true;
             }
             else
@@ -235,7 +235,7 @@
     {
         _showUpgradeModal = false;
         _redeemError = null;
-        _redeemSuccess = "NÃ¢ng cáº¥p thÃ nh cÃ´ng! Báº¡n cÃ³ thá»ƒ Ä‘á»•i Ä‘iá»ƒm ngay bÃ¢y giá».";
+        _redeemSuccess = "Nâng cấp thành công! Bạn có thể đổi điểm ngay bây giờ.";
         // Refresh loyalty data to reflect any changes
         await LoadLoyalty();
     }

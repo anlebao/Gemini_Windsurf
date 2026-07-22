@@ -6,16 +6,16 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 
-<PageTitle>TÃ¬m cá»­a hÃ ng gáº§n báº¡n â€” KhachLink</PageTitle>
+<PageTitle>Tìm cửa hàng gần bạn — KhachLink</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4 store-finder-page">
         <!-- Hero header -->
         <div class="store-finder-hero text-center mb-4">
             <h1 class="display-5 fw-bold mb-2">
-                <i class="bi bi-geo-alt-fill"></i> TÃ¬m cá»­a hÃ ng gáº§n báº¡n
+                <i class="bi bi-geo-alt-fill"></i> Tìm cửa hàng gần bạn
             </h1>
-            <p class="text-muted mb-0">KhÃ¡m phÃ¡ cÃ¡c cá»­a hÃ ng trong khu vá»±c cá»§a báº¡n</p>
+            <p class="text-muted mb-0">Khám phá các cửa hàng trong khu vực của bạn</p>
         </div>
 
         <!-- Search box -->
@@ -23,7 +23,7 @@
             <div class="search-box-card">
                 <div class="input-group input-group-lg">
                     <button type="button" class="input-group-text bg-white border-end-0 btn-search-icon"
-                            @onclick="LoadStores" aria-label="TÃ¬m kiáº¿m" title="TÃ¬m kiáº¿m">
+                            @onclick="LoadStores" aria-label="Tìm kiếm" title="Tìm kiếm">
                         <i class="bi bi-search text-primary"></i>
                     </button>
                     <input type="text" class="form-control border-start-0 ps-0"
@@ -31,8 +31,8 @@
                            @bind="_searchKeyword"
                            @oninput="OnSearchInput"
                            @onkeyup="OnSearchKeyUp"
-                           placeholder="TÃ¬m theo tÃªn cá»­a hÃ ng, sáº£n pháº©m, dá»‹ch vá»¥..."
-                           aria-label="TÃ¬m cá»­a hÃ ng" />
+                           placeholder="Tìm theo tên cửa hàng, sản phẩm, dịch vụ..."
+                           aria-label="Tìm cửa hàng" />
                     @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                     {
                         <button class="btn btn-outline-secondary" type="button" OnClick="ClearSearch">
@@ -42,13 +42,13 @@
                 </div>
                 <div class="d-flex gap-2 mt-3 flex-wrap">
                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="UseMyLocation">
-                        <i class="bi bi-geo-alt me-1"></i> DÃ¹ng vá»‹ trÃ­ cá»§a tÃ´i
+                        <i class="bi bi-geo-alt me-1"></i> Dùng vị trí của tôi
                     </VanAnButton>
                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllStores">
-                        <i class="bi bi-list me-1"></i> Táº¥t cáº£ cá»­a hÃ ng
+                        <i class="bi bi-list me-1"></i> Tất cả cửa hàng
                     </VanAnButton>
                     <div class="ms-auto d-flex align-items-center gap-2">
-                        <label class="small text-muted mb-0">BÃ¡n kÃ­nh:</label>
+                        <label class="small text-muted mb-0">Bán kính:</label>
                         <select class="form-select form-select-sm" style="width: auto;" value="@_radiusKm" @onchange="OnRadiusChanged">
                             <option value="2">2 km</option>
                             <option value="5">5 km</option>
@@ -66,53 +66,53 @@
         {
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                    <span class="visually-hidden">Äang táº£i...</span>
+                    <span class="visually-hidden">Đang tải...</span>
                 </div>
-                <p class="mt-3 text-muted">Äang tÃ¬m cá»­a hÃ ng...</p>
+                <p class="mt-3 text-muted">Đang tìm cửa hàng...</p>
             </div>
         }
         else if (_error != null)
         {
             <VanAnAlert Variant="AlertVariant.Warning" Message="@_error" />
             <div class="text-center mt-3">
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadStores">Thá»­ láº¡i</VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadStores">Thử lại</VanAnButton>
             </div>
         }
         else if (_stores.Count == 0)
         {
             <VanAnCard Shadow="true" CssClass="text-center py-5 empty-state-card">
                 <i class="bi bi-emoji-frown text-muted mb-3 d-block" style="font-size: 4rem;"></i>
-                <h4 class="text-muted">KhÃ´ng tÃ¬m tháº¥y cá»­a hÃ ng nÃ o</h4>
+                <h4 class="text-muted">Không tìm thấy cửa hàng nào</h4>
                 <p class="text-muted mb-3">
                     @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                     {
-                        <span>KhÃ´ng cÃ³ cá»­a hÃ ng phÃ¹ há»£p vá»›i "<strong>@_searchKeyword</strong>".</span>
+                        <span>Không có cửa hàng phù hợp với "<strong>@_searchKeyword</strong>".</span>
                     }
                     else if (_userLat.HasValue)
                     {
-                        <span>KhÃ´ng cÃ³ cá»­a hÃ ng trong bÃ¡n kÃ­nh @_radiusKm km.</span>
+                        <span>Không có cửa hàng trong bán kính @_radiusKm km.</span>
                     }
                     else
                     {
-                        <span>ChÆ°a cÃ³ cá»­a hÃ ng nÃ o Ä‘Äƒng kÃ½. HÃ£y quay láº¡i sau!</span>
+                        <span>Chưa có cửa hàng nào đăng ký. Hãy quay lại sau!</span>
                     }
                 </p>
                 <VanAnButton Variant="ButtonVariant.Outline" OnClick="LoadAllStores">
-                    <i class="bi bi-list me-1"></i> Xem táº¥t cáº£ cá»­a hÃ ng
+                    <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
                 </VanAnButton>
             </VanAnCard>
         }
         else
         {
             <p class="text-muted mb-3">
-                TÃ¬m tháº¥y <strong>@_stores.Count</strong> cá»­a hÃ ng
+                Tìm thấy <strong>@_stores.Count</strong> cửa hàng
                 @if (_userLat.HasValue)
                 {
-                    <span> trong bÃ¡n kÃ­nh @_radiusKm km</span>
+                    <span> trong bán kính @_radiusKm km</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(_searchKeyword))
                 {
-                    <span> phÃ¹ há»£p "<strong>@_searchKeyword</strong>"</span>
+                    <span> phù hợp "<strong>@_searchKeyword</strong>"</span>
                 }
             </p>
             <div class="row g-3">
@@ -151,7 +151,7 @@
                                         {
                                             <a href="https://maps.google.com/?q=@store.Latitude,@store.Longitude"
                                                target="_blank" class="btn btn-sm btn-outline-primary">
-                                                <i class="bi bi-map"></i> Chá»‰ Ä‘Æ°á»ng
+                                                <i class="bi bi-map"></i> Chỉ đường
                                             </a>
                                         }
                                     </div>
@@ -160,14 +160,14 @@
                                         {
                                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary"
                                                          OnClick="@(() => Navigation.NavigateTo($"/store/{store.Slug}"))">
-                                                <i class="bi bi-shop me-1"></i> Xem trang cá»­a hÃ ng
+                                                <i class="bi bi-shop me-1"></i> Xem trang cửa hàng
                                             </VanAnButton>
                                         }
                                         else
                                         {
                                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                          OnClick="@(() => Navigation.NavigateTo($"/store/by-id/{store.Id}"))">
-                                                <i class="bi bi-eye me-1"></i> Xem trang cá»­a hÃ ng
+                                                <i class="bi bi-eye me-1"></i> Xem trang cửa hàng
                                             </VanAnButton>
                                         }
                                     </div>
@@ -246,7 +246,7 @@
             }
             catch
             {
-                // User denied geolocation or not supported â€” show all stores
+                // User denied geolocation or not supported — show all stores
             }
         }
     }
@@ -302,7 +302,7 @@
         }
         catch
         {
-            _error = "KhÃ´ng láº¥y Ä‘Æ°á»£c vá»‹ trÃ­. TrÃ¬nh duyá»‡t cÃ³ thá»ƒ cháº·n geolocation.";
+            _error = "Không lấy được vị trí. Trình duyệt có thể chặn geolocation.";
         }
     }
 
@@ -316,7 +316,7 @@
             string url;
             if (!string.IsNullOrWhiteSpace(_searchKeyword))
             {
-                // Keyword search â€” calls /api/tenants/search?name={keyword}
+                // Keyword search — calls /api/tenants/search?name={keyword}
                 url = $"/api/tenants/search?name={Uri.EscapeDataString(_searchKeyword)}";
             }
             else if (_userLat.HasValue && _userLng.HasValue)
@@ -325,7 +325,7 @@
             }
             else
             {
-                // No location + no keyword â€” list all active tenants via search with empty name
+                // No location + no keyword — list all active tenants via search with empty name
                 url = "/api/tenants/search";
             }
 
@@ -336,12 +336,12 @@
             }
             else
             {
-                _error = "KhÃ´ng thá»ƒ táº£i danh sÃ¡ch cá»­a hÃ ng. Vui lÃ²ng thá»­ láº¡i.";
+                _error = "Không thể tải danh sách cửa hàng. Vui lòng thử lại.";
             }
         }
         catch (Exception ex)
         {
-            _error = $"Lá»—i káº¿t ná»‘i: {ex.Message}";
+            _error = $"Lỗi kết nối: {ex.Message}";
         }
         finally
         {

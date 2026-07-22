@@ -3,7 +3,7 @@
 @inject IConfiguration Configuration
 
 <VanAnCard CssClass="location-section" Shadow="true">
-    <h3 class="text-center mb-4">TÃ¬m chÃºng tÃ´i</h3>
+    <h3 class="text-center mb-4">Tìm chúng tôi</h3>
     
     @if (ShopConfig?.Latitude != null && ShopConfig?.Longitude != null)
     {
@@ -38,7 +38,7 @@
         <VanAnCard CssClass="no-gps-card" Shadow="true">
             <div class="text-center p-4">
                 <i class="fas fa-map-marked-alt fa-3x text-muted mb-3"></i>
-                <p class="text-muted">ChÆ°a cáº­p nháº­t tá»a Ä‘á»™ GPS</p>
+                <p class="text-muted">Chưa cập nhật tọa độ GPS</p>
             </div>
         </VanAnCard>
     }
@@ -56,8 +56,8 @@
         var lat = ShopConfig.Latitude.Value;
         var lng = ShopConfig.Longitude.Value;
 
-        // Free Google Maps embed URL â€” no API key required.
-        // Uses the public maps.google.com endpoint (same as "Share â†’ Embed a map" feature).
+        // Free Google Maps embed URL — no API key required.
+        // Uses the public maps.google.com endpoint (same as "Share → Embed a map" feature).
         // The Embed API (maps/embed/v1/place) requires a key; this endpoint does not.
         return $"https://maps.google.com/maps?q={lat},{lng}&z=16&output=embed&hl=vi";
     }

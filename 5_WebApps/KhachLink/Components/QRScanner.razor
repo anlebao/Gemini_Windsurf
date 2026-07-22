@@ -6,19 +6,19 @@
     {
         <div class="scanner-placeholder">
             <i class="bi bi-qr-code-scan display-3 text-primary mb-2"></i>
-            <h5 class="mb-2">QuÃ©t mÃ£ QR</h5>
+            <h5 class="mb-2">Quét mã QR</h5>
 
             @if (!_hasCameraPermission)
             {
-                <VanAnAlert Variant="AlertVariant.Warning" Message="Cáº§n quyá»n truy cáº­p camera Ä‘á»ƒ quÃ©t mÃ£ QR" />
+                <VanAnAlert Variant="AlertVariant.Warning" Message="Cần quyền truy cập camera để quét mã QR" />
                 <VanAnButton Variant="ButtonVariant.Primary" OnClick="@RequestCameraPermission">
-                    Cáº¥p Quyá»n Camera
+                    Cấp Quyền Camera
                 </VanAnButton>
             }
             else
             {
                 <VanAnButton Variant="ButtonVariant.Primary" Icon="camera" OnClick="@StartScanning">
-                    QuÃ©t
+                    Quét
                 </VanAnButton>
             }
 
@@ -27,11 +27,11 @@
                     <i class="bi @(_floatingMode ? "bi-fullscreen" : "bi-fullscreen-exit")"></i>
                     @if (_floatingMode)
                     {
-                        <span>ThoÃ¡t dialog</span>
+                        <span>Thoát dialog</span>
                     }
                     else
                     {
-                        <span>Má»Ÿ dialog</span>
+                        <span>Mở dialog</span>
                     }
                 </button>
             </div>
@@ -43,7 +43,7 @@
             <div id="qr-reader" class="qr-reader-container"></div>
             <div class="scan-controls">
                 <VanAnButton Variant="ButtonVariant.Error" OnClick="@StopScanning">
-                    Dá»«ng QuÃ©t
+                    Dừng Quét
                 </VanAnButton>
             </div>
         </div>
@@ -102,7 +102,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"KhÃ´ng thá»ƒ cáº¥p quyá»n camera: {ex.Message}";
+            _errorMessage = $"Không thể cấp quyền camera: {ex.Message}";
             StateHasChanged();
         }
     }
@@ -119,7 +119,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"KhÃ´ng thá»ƒ khá»Ÿi Ä‘á»™ng camera: {ex.Message}";
+            _errorMessage = $"Không thể khởi động camera: {ex.Message}";
             _isScanning = false;
             StateHasChanged();
         }
@@ -136,7 +136,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Lá»—i khi dá»«ng quÃ©t: {ex.Message}";
+            _errorMessage = $"Lỗi khi dừng quét: {ex.Message}";
             StateHasChanged();
         }
     }
@@ -156,7 +156,7 @@
     [JSInvokable]
     public void OnQRError(string errorMessage)
     {
-        _errorMessage = $"Lá»—i quÃ©t mÃ£ QR: {errorMessage}";
+        _errorMessage = $"Lỗi quét mã QR: {errorMessage}";
         _isScanning = false;
         StateHasChanged();
     }
@@ -172,7 +172,7 @@
 }
 
 <style>
-    /* Full-width mode â€” scan frame fills container, button right below */
+    /* Full-width mode — scan frame fills container, button right below */
     .qr-scanner-wrap.qr-fullwidth {
         width: 100%;
         max-width: 100%;
@@ -203,7 +203,7 @@
         text-align: center;
     }
 
-    /* Floating dialog mode â€” overlay center, large scan frame */
+    /* Floating dialog mode — overlay center, large scan frame */
     .qr-scanner-wrap.qr-floating {
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
@@ -247,7 +247,7 @@
         text-align: center;
     }
 
-    /* Scan mode toggle button â€” subtle */
+    /* Scan mode toggle button — subtle */
     .scan-mode-toggle {
         font-size: 0.8rem;
     }

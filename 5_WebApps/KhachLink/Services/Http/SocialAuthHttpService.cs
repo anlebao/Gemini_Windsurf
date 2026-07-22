@@ -5,7 +5,7 @@ namespace VanAn.KhachLink.Services.Http;
 
 /// <summary>
 /// Tiered Auth Phase 3: HTTP client for identity upgrade + loyalty redeem endpoints.
-/// KhachLink calls Gateway â†’ ShopERP via YARP.
+/// KhachLink calls Gateway → ShopERP via YARP.
 /// All methods require X-Customer-Token header (authenticated customer).
 /// </summary>
 public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger<SocialAuthHttpService> logger)
@@ -13,7 +13,7 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("gateway");
     private readonly ILogger<SocialAuthHttpService> _logger = logger;
 
-    /// <summary>POST /api/customer-identity/upgrade/send-otp â€” send OTP to customer's registered phone.</summary>
+    /// <summary>POST /api/customer-identity/upgrade/send-otp — send OTP to customer's registered phone.</summary>
     public async Task<UpgradeSendOtpResult> SendUpgradeOtpAsync(string customerToken)
     {
         try
@@ -28,7 +28,7 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
                 return new UpgradeSendOtpResult
                 {
                     Success = true,
-                    Message = body?.Message ?? "OTP Ä‘Ã£ Ä‘Æ°á»£c gá»­i.",
+                    Message = body?.Message ?? "OTP đã được gửi.",
                     PhoneNumberSuffix = body?.PhoneNumberSuffix ?? ""
                 };
             }
@@ -40,11 +40,11 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception during SendUpgradeOtpAsync");
-            return new UpgradeSendOtpResult { Success = false, Message = "Lá»—i káº¿t ná»‘i. Vui lÃ²ng thá»­ láº¡i." };
+            return new UpgradeSendOtpResult { Success = false, Message = "Lỗi kết nối. Vui lòng thử lại." };
         }
     }
 
-    /// <summary>POST /api/customer-identity/upgrade/verify-otp â€” verify OTP and upgrade to Verified.</summary>
+    /// <summary>POST /api/customer-identity/upgrade/verify-otp — verify OTP and upgrade to Verified.</summary>
     public async Task<UpgradeVerifyOtpResult> VerifyUpgradeOtpAsync(string customerToken, string otp)
     {
         try
@@ -61,7 +61,7 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
                 {
                     Success = true,
                     IdentityLevel = body?.IdentityLevel ?? "Verified",
-                    Message = body?.Message ?? "NÃ¢ng cáº¥p thÃ nh cÃ´ng."
+                    Message = body?.Message ?? "Nâng cấp thành công."
                 };
             }
 
@@ -72,11 +72,11 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception during VerifyUpgradeOtpAsync");
-            return new UpgradeVerifyOtpResult { Success = false, Message = "Lá»—i káº¿t ná»‘i. Vui lÃ²ng thá»­ láº¡i." };
+            return new UpgradeVerifyOtpResult { Success = false, Message = "Lỗi kết nối. Vui lòng thử lại." };
         }
     }
 
-    /// <summary>POST /api/loyalty/redeem â€” deduct points. Returns 403 payload if IdentityLevel insufficient.</summary>
+    /// <summary>POST /api/loyalty/redeem — deduct points. Returns 403 payload if IdentityLevel insufficient.</summary>
     public async Task<RedeemResult> RedeemPointsAsync(string customerToken, int points, string reason)
     {
         try
@@ -108,7 +108,7 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
                     RequiresUpgrade = blocked?.RequiresUpgrade ?? false,
                     CurrentLevel = blocked?.CurrentLevel ?? "",
                     RequiredLevel = blocked?.RequiredLevel ?? "",
-                    Message = blocked?.Error ?? "KhÃ´ng Ä‘á»§ quyá»n Ä‘á»ƒ Ä‘á»•i Ä‘iá»ƒm."
+                    Message = blocked?.Error ?? "Không đủ quyền để đổi điểm."
                 };
             }
 
@@ -121,7 +121,7 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception during RedeemPointsAsync");
-            return new RedeemResult { Success = false, Message = "Lá»—i káº¿t ná»‘i. Vui lÃ²ng thá»­ láº¡i." };
+            return new RedeemResult { Success = false, Message = "Lỗi kết nối. Vui lòng thử lại." };
         }
     }
 
@@ -131,10 +131,10 @@ public class SocialAuthHttpService(IHttpClientFactory httpClientFactory, ILogger
         {
             var doc = System.Text.Json.JsonDocument.Parse(body);
             if (doc.RootElement.TryGetProperty("error", out var err))
-                return err.GetString() ?? "ÄÃ£ cÃ³ lá»—i xáº£y ra.";
+                return err.GetString() ?? "Đã có lỗi xảy ra.";
         }
         catch { }
-        return "ÄÃ£ cÃ³ lá»—i xáº£y ra. Vui lÃ²ng thá»­ láº¡i.";
+        return "Đã có lỗi xảy ra. Vui lòng thử lại.";
     }
 
     // Response DTOs (match ShopERP controller response shapes)

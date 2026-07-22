@@ -22,7 +22,7 @@
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
-<PageTitle>KhachLink - Cá»— MÃ¡y Giá»¯ KhÃ¡ch Váº¡n An</PageTitle>
+<PageTitle>KhachLink - Cỗ Máy Giữ Khách Vạn An</PageTitle>
 
 <!-- Cart Drawer Component -->
 <CartDrawer
@@ -34,20 +34,20 @@
     Checkout="async () => await GoToCheckout()" />
 
 <KhachLinkLayout>
-    <!-- Campaign Section (replaces Hero) â€” filtered by last interaction tenantId -->
+    <!-- Campaign Section (replaces Hero) — filtered by last interaction tenantId -->
     <VanAnCard CssClass="campaign-section mb-4">
         <div class="container">
             <h2 class="mb-3">
-                <i class="bi bi-megaphone-fill text-primary"></i> Khuyáº¿n MÃ£i Cá»­a HÃ ng
+                <i class="bi bi-megaphone-fill text-primary"></i> Khuyến Mãi Cửa Hàng
             </h2>
 
             @if (_campaignLoading)
             {
                 <div class="text-center py-4">
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Äang táº£i...</span>
+                        <span class="visually-hidden">Đang tải...</span>
                     </div>
-                    <p class="mt-2 text-muted">Äang táº£i khuyáº¿n mÃ£i...</p>
+                    <p class="mt-2 text-muted">Đang tải khuyến mãi...</p>
                 </div>
             }
             else if (_campaigns.Count > 0)
@@ -86,15 +86,15 @@
                                         }
                                         <div class="d-flex gap-3 small text-muted mb-3">
                                             <span>
-                                                <i class="bi bi-mouse"></i> @campaign.TotalClicks lÆ°á»£t click
+                                                <i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click
                                             </span>
                                             <span>
-                                                <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders Ä‘Æ¡n
+                                                <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn
                                             </span>
                                         </div>
                                         <div class="d-flex gap-2 flex-wrap">
                                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => OpenCampaign(campaign.TrackingCode))">
-                                                <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyáº¿n mÃ£i
+                                                <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
                                             </VanAnButton>
                                             @if (!string.IsNullOrEmpty(campaign.VideoUrl))
                                             {
@@ -112,35 +112,35 @@
             }
             else if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
             {
-                <VanAnAlert Variant="AlertVariant.Info" Message="Cá»­a hÃ ng hiá»‡n chÆ°a cÃ³ chÆ°Æ¡ng trÃ¬nh khuyáº¿n mÃ£i nÃ o. Vui lÃ²ng quay láº¡i sau!" />
+                <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào. Vui lòng quay lại sau!" />
             }
             else
             {
                 <div class="text-center py-4">
                     <i class="bi bi-megaphone text-muted mb-3 d-block" style="font-size:3rem;"></i>
-                    <p class="text-muted mb-3">HÃ£y quÃ©t QR hoáº·c mua sáº£n pháº©m Ä‘á»ƒ xem khuyáº¿n mÃ£i cá»§a cá»­a hÃ ng.</p>
+                    <p class="text-muted mb-3">Hãy quét QR hoặc mua sản phẩm để xem khuyến mãi của cửa hàng.</p>
                     <VanAnButton Variant="ButtonVariant.Primary" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                        QuÃ©t QR Ngay
+                        Quét QR Ngay
                     </VanAnButton>
                 </div>
             }
         </div>
     </VanAnCard>
 
-    <!-- StoreFinder Section (replaces Stats) â€” show store info for last interaction tenantId -->
+    <!-- StoreFinder Section (replaces Stats) — show store info for last interaction tenantId -->
     <VanAnCard CssClass="store-section mb-4">
         <div class="container">
             <h2 class="mb-3">
-                <i class="bi bi-geo-alt-fill text-primary"></i> Cá»­a HÃ ng Cá»§a Báº¡n
+                <i class="bi bi-geo-alt-fill text-primary"></i> Cửa Hàng Của Bạn
             </h2>
 
             @if (_storeLoading)
             {
                 <div class="text-center py-4">
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Äang táº£i...</span>
+                        <span class="visually-hidden">Đang tải...</span>
                     </div>
-                    <p class="mt-2 text-muted">Äang táº£i thÃ´ng tin cá»­a hÃ ng...</p>
+                    <p class="mt-2 text-muted">Đang tải thông tin cửa hàng...</p>
                 </div>
             }
             else if (_store != null)
@@ -171,7 +171,7 @@
                                 <div class="mt-2">
                                     <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude"
                                        target="_blank" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-map"></i> Chá»‰ Ä‘Æ°á»ng
+                                        <i class="bi bi-map"></i> Chỉ đường
                                     </a>
                                 </div>
                             }
@@ -181,19 +181,19 @@
             }
             else if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
             {
-                <VanAnAlert Variant="AlertVariant.Info" Message="KhÃ´ng tÃ¬m tháº¥y thÃ´ng tin cá»­a hÃ ng. Cá»­a hÃ ng cÃ³ thá»ƒ chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh." />
+                <VanAnAlert Variant="AlertVariant.Info" Message="Không tìm thấy thông tin cửa hàng. Cửa hàng có thể chưa được cấu hình." />
             }
             else
             {
                 <div class="text-center py-4">
                     <i class="bi bi-shop text-muted mb-3 d-block" style="font-size:3rem;"></i>
-                    <p class="text-muted mb-3">QuÃ©t QR sáº£n pháº©m Ä‘á»ƒ xem thÃ´ng tin cá»­a hÃ ng báº¡n Ä‘ang quan tÃ¢m.</p>
+                    <p class="text-muted mb-3">Quét QR sản phẩm để xem thông tin cửa hàng bạn đang quan tâm.</p>
                     <div class="d-flex justify-content-center gap-2">
                         <VanAnButton Variant="ButtonVariant.Primary" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                            QuÃ©t QR
+                            Quét QR
                         </VanAnButton>
                         <VanAnButton Variant="ButtonVariant.Outline" Icon="geo-alt" OnClick="@(() => Navigation.NavigateTo("/stores"))">
-                            Xem Táº¥t Cáº£ Cá»­a HÃ ng
+                            Xem Tất Cả Cửa Hàng
                         </VanAnButton>
                     </div>
                 </div>
@@ -201,16 +201,16 @@
         </div>
     </VanAnCard>
 
-    <!-- Phase 6: Recommended Catalog â€” Featured products + customer history (replaces multi-VPS product browse) -->
+    <!-- Phase 6: Recommended Catalog — Featured products + customer history (replaces multi-VPS product browse) -->
     <VanAnCard CssClass="products-section mb-4">
         <div class="container">
             <h2 class="text-center mb-4">
-                <i class="bi bi-star-fill text-warning"></i> Sáº£n Pháº©m Ná»•i Báº­t
+                <i class="bi bi-star-fill text-warning"></i> Sản Phẩm Nổi Bật
             </h2>
             @if (_catalogLoading)
             {
                 <div class="text-center py-4">
-                    <VanAnAlert Variant="AlertVariant.Info" Message="Äang táº£i sáº£n pháº©m ná»•i báº­t..." />
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Đang tải sản phẩm nổi bật..." />
                 </div>
             }
             else if (_catalog != null && _catalog.Products.Any(p => p.Source == "Featured"))
@@ -250,7 +250,7 @@
             else
             {
                 <div class="col-12 text-center">
-                    <VanAnAlert Variant="AlertVariant.Info" Message="ChÆ°a cÃ³ sáº£n pháº©m ná»•i báº­t. Vui lÃ²ng quay láº¡i sau." />
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Chưa có sản phẩm nổi bật. Vui lòng quay lại sau." />
                 </div>
             }
         </div>
@@ -262,7 +262,7 @@
         <VanAnCard CssClass="recommendations-section mb-4">
             <div class="container">
                 <h2 class="text-center mb-4">
-                    <i class="bi bi-clock-history text-info"></i> Gá»£i Ã Dá»±a TrÃªn Lá»‹ch Sá»­ Mua HÃ ng
+                    <i class="bi bi-clock-history text-info"></i> Gợi Ý Dựa Trên Lịch Sử Mua Hàng
                 </h2>
                 <div class="row">
                     @foreach (var item in _catalog.Products.Where(p => p.Source == "History").Take(4))
@@ -281,11 +281,11 @@
                                     {
                                         <small class="text-muted d-block mb-1"><i class="bi bi-shop"></i> @item.TenantName</small>
                                     }
-                                    <small class="text-muted">Mua láº§n cuá»‘i: @(item.LastOrderedAt?.ToLocalTime().ToString("yyyy-MM-dd") ?? "-")</small>
+                                    <small class="text-muted">Mua lần cuối: @(item.LastOrderedAt?.ToLocalTime().ToString("yyyy-MM-dd") ?? "-")</small>
                                     <div class="d-flex justify-content-between align-items-center mt-2">
                                         <span class="text-primary fw-bold">@CurrencyHelper.FormatVND(item.DisplayPrice)</span>
                                         <VanAnButton Size="ButtonSize.Small" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                                            Mua láº¡i
+                                            Mua lại
                                         </VanAnButton>
                                     </div>
                                 </div>
@@ -303,7 +303,7 @@
         <VanAnCard CssClass="recently-viewed-section mb-4">
             <div class="container">
                 <h2 class="text-center mb-4">
-                    <i class="bi bi-clock-history text-info"></i> ÄÃ£ Xem Gáº§n ÄÃ¢y
+                    <i class="bi bi-clock-history text-info"></i> Đã Xem Gần Đây
                 </h2>
                 <div class="row">
                     @foreach (var item in recentlyViewed.Take(4))
@@ -323,9 +323,9 @@
                                         <small class="text-muted d-block mb-1"><i class="bi bi-shop"></i> @item.TenantName</small>
                                     }
                                     <div class="d-flex justify-content-between align-items-center mt-2">
-                                        <span class="text-primary fw-bold">@item.Price.ToString("N0")Ä‘</span>
+                                        <span class="text-primary fw-bold">@item.Price.ToString("N0")đ</span>
                                         <VanAnButton Size="ButtonSize.Small" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                                            Scan QR Ä‘á»ƒ mua
+                                            Scan QR để mua
                                         </VanAnButton>
                                     </div>
                                 </div>
@@ -357,12 +357,12 @@
     private bool _isLoggedIn = false;
     private bool _vatDisplayEnabled = true;
 
-    // Phase 6: Catalog recommended (Featured + History) â€” replaces multi-VPS product browse
+    // Phase 6: Catalog recommended (Featured + History) — replaces multi-VPS product browse
     private RecommendedCatalogResponse? _catalog;
     private bool _catalogLoading = true;
     private Guid? _customerId;
 
-    // Campaign + Store sections (replace Hero + Stats) â€” personalized by last interaction tenantId
+    // Campaign + Store sections (replace Hero + Stats) — personalized by last interaction tenantId
     private List<SocialCampaign> _campaigns = new();
     private bool _campaignLoading = true;
     private StoreInfoDto? _store;
@@ -413,7 +413,7 @@
                 {
                     _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.VAT_Display_Enabled));
                 }
-                catch { /* non-critical â€” default to true */ }
+                catch { /* non-critical — default to true */ }
             }
 
             // Phase 6: Load recommended catalog (Featured + customer history if logged in)
@@ -443,7 +443,7 @@
         }
         else
         {
-            // New user â€” no interaction yet. Show empty state with CTA.
+            // New user — no interaction yet. Show empty state with CTA.
             _campaignLoading = false;
             _storeLoading = false;
         }
@@ -508,7 +508,7 @@
         }
     }
 
-    // Phase 3: derive ShopConfig from products (Approach 2 â€” product-based TenantId).
+    // Phase 3: derive ShopConfig from products (Approach 2 — product-based TenantId).
     // Anonymous visitors get correct branding without login. Falls back to DefaultShopConfig
     // when no products or any API error (handled inside ShopConfigHttpService).
     private async Task LoadShopConfigAsync()
@@ -564,13 +564,13 @@
         recentlyViewed = await RecentlyViewedService.GetRecentlyViewedAsync();
 
         // Show notification
-        await ShowNotification($"ÄÃ£ thÃªm {product.Name} vÃ o giá» hÃ ng!", "success");
+        await ShowNotification($"Đã thêm {product.Name} vào giỏ hàng!", "success");
     }
 
     /// <summary>
     /// Add a Featured product (from Catalog API) directly to cart.
     /// Featured products have full snapshot: ProductId + TenantId + DisplayName + DisplayPrice + VatRate.
-    /// No QR scan needed â€” admin curated the display info + VAT when creating the featured product.
+    /// No QR scan needed — admin curated the display info + VAT when creating the featured product.
     /// </summary>
     private async Task AddFeaturedToCart(RecommendedCatalogItem item, string? imgElementId = null)
     {
@@ -606,7 +606,7 @@
             await LoadLastTenantDataAsync();
         }
 
-        await ShowNotification($"ÄÃ£ thÃªm {item.DisplayName} vÃ o giá» hÃ ng!", "success");
+        await ShowNotification($"Đã thêm {item.DisplayName} vào giỏ hàng!", "success");
     }
 
     private async Task ShowNotification(string message, string type)

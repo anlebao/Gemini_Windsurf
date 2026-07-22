@@ -3,27 +3,27 @@
 namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
 {
     /// <summary>
-    /// Tenant Aggregate Root â€” Rich Domain Model.
+    /// Tenant Aggregate Root — Rich Domain Model.
     /// Replaces the anemic <see cref="VanAn.Shared.Domain.Tenant"/> record (marked [Obsolete] in Domain.cs).
     /// Wave 5: God File split + lifecycle management.
     /// </summary>
     public class Tenant : AggregateRoot
     {
-        // â”€â”€ Identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Identity ──────────────────────────────────────────────────────────
         public new TenantId Id { get; private set; } = null!;
         public string Name { get; private set; } = string.Empty;
         public BusinessType BusinessType { get; private set; }
         public HKDGroup? HKDGroup { get; private set; }
 
         // Wave 5 (approved 2026-07-03): Default industry sector for HKD Group 2 tenants.
-        // Nullable â€” existing tenants get NULL, must be set before generating S2a/S2b.
+        // Nullable — existing tenants get NULL, must be set before generating S2a/S2b.
         // Used as fallback when Order.IndustrySector is not set.
         public IndustrySector? DefaultIndustrySector { get; private set; }
 
-        // â”€â”€ D9: HKDâ†”DN Conversion Link (Option B â€” New Tenant + Link) â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // Predecessor: Tenant cÅ© (HKD) mÃ  DN nÃ y Ä‘Æ°á»£c convert tá»« (set on new DN tenant).
+        // ── D9: HKD↔DN Conversion Link (Option B — New Tenant + Link) ─────────
+        // Predecessor: Tenant cũ (HKD) mà DN này được convert từ (set on new DN tenant).
         public TenantId? PredecessorTenantId { get; private set; }
-        // Successor: Tenant má»›i (DN) mÃ  HKD nÃ y Ä‘Ã£ convert sang (set on old HKD tenant).
+        // Successor: Tenant mới (DN) mà HKD này đã convert sang (set on old HKD tenant).
         public TenantId? SuccessorTenantId { get; private set; }
         public DateTime? ConvertedAt { get; private set; }
         // Accounting standard applies to ALL tenants (not just converted ones).
@@ -37,20 +37,20 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         // DN created directly via CreateCompany: Type=null until W8 SetTenantType() method added.
         public TenantType? Type { get; private set; }
 
-        // Phase 1 (Multi-VPS Checkout): FK to ShopInstance â€” which VPS hosts this tenant's ShopERP.
-        // Nullable for backward compat â€” existing tenants get backfilled in migration.
+        // Phase 1 (Multi-VPS Checkout): FK to ShopInstance — which VPS hosts this tenant's ShopERP.
+        // Nullable for backward compat — existing tenants get backfilled in migration.
         public Guid? ShopInstanceId { get; private set; }
 
-        // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Lifecycle ─────────────────────────────────────────────────────────
         public TenantStatus Status { get; private set; } = TenantStatus.Active;
 
-        // â”€â”€ Settings (owned value object) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Settings (owned value object) ─────────────────────────────────────
         public TenantSettings Settings { get; private set; } = TenantSettings.Empty();
 
         // EF Core requires parameterless constructor
         private Tenant() { }
 
-        // â”€â”€ Factory methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Factory methods ───────────────────────────────────────────────────
 
         /// <summary>Creates a new Company tenant and raises TenantCreatedEvent.</summary>
         public static Tenant CreateCompany(TenantId id, string name, TenantSettings? settings = null)
@@ -91,10 +91,10 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         /// <summary>
         /// D9 Option B: Create a new DN tenant from HKD conversion.
         /// The new tenant links back to its HKD predecessor via PredecessorTenantId.
-        /// Raises TenantCreatedEvent (standard lifecycle) â€” successor link set by caller via MarkConvertedTo.
+        /// Raises TenantCreatedEvent (standard lifecycle) — successor link set by caller via MarkConvertedTo.
         /// Note: SetTenantId sets BaseEntity.TenantId (Guid, for multi-tenancy filtering),
-        ///       distinct from Tenant.Id (TenantId, strongly-typed) â€” NOT redundant.
-        /// H3 fix: predecessorTenantId must not be empty (Guid.Empty) â€” would create untraceable link.
+        ///       distinct from Tenant.Id (TenantId, strongly-typed) — NOT redundant.
+        /// H3 fix: predecessorTenantId must not be empty (Guid.Empty) — would create untraceable link.
         /// </summary>
         public static Tenant CreateFromConversion(
             TenantId newId, string name, TenantType newType,
@@ -119,12 +119,12 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
                 AccountingStandard = standard,
                 Type = newType  // C1 fix: use newType parameter (was dead code before)
             };
-            tenant.SetTenantId(newId); // sets BaseEntity.TenantId (multi-tenancy) â€” distinct from Tenant.Id
+            tenant.SetTenantId(newId); // sets BaseEntity.TenantId (multi-tenancy) — distinct from Tenant.Id
             tenant.AddDomainEvent(new TenantCreatedEvent(newId.Value, name, settings?.ContactEmail, DateTime.UtcNow));
             return tenant;
         }
 
-        // â”€â”€ Domain Methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Domain Methods ────────────────────────────────────────────────────
 
         /// <summary>Suspend tenant. Cannot suspend an already suspended or inactive tenant.</summary>
         public void Suspend(string reason)
@@ -237,11 +237,11 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         /// Guards:
         /// - Inactive tenant cannot convert (archived, no business activity to migrate).
         /// - Already-converted tenant cannot re-convert (one-way conversion per D9).
-        /// - H2 decision 2026-07-04: Suspended tenant CAN convert â€” business rationale:
-        ///   HKD bá»‹ Ä‘Ã¬nh chá»‰ do ná»£/thá»§ tá»¥c, chá»§ muá»‘n chuyá»ƒn sang DN Ä‘á»ƒ hoáº¡t Ä‘á»™ng láº¡i dÆ°á»›i tÆ° cÃ¡ch phÃ¡p nhÃ¢n má»›i.
-        ///   Conversion táº¡o DN má»›i (Active) + HKD cÅ© thÃ nh read-only historical. Ná»£/thá»§ tá»¥c cá»§a HKD
-        ///   khÃ´ng tá»± Ä‘á»™ng chuyá»ƒn sang DN â€” Ä‘Ã³ lÃ  quyáº¿t Ä‘á»‹nh cá»§a cÆ¡ quan thuáº¿, khÃ´ng pháº£i há»‡ thá»‘ng káº¿ toÃ¡n.
-        /// - H3 fix: successorTenantId must not be empty (Guid.Empty) â€” would create untraceable link.
+        /// - H2 decision 2026-07-04: Suspended tenant CAN convert — business rationale:
+        ///   HKD bị đình chỉ do nợ/thủ tục, chủ muốn chuyển sang DN để hoạt động lại dưới tư cách pháp nhân mới.
+        ///   Conversion tạo DN mới (Active) + HKD cũ thành read-only historical. Nợ/thủ tục của HKD
+        ///   không tự động chuyển sang DN — đó là quyết định của cơ quan thuế, không phải hệ thống kế toán.
+        /// - H3 fix: successorTenantId must not be empty (Guid.Empty) — would create untraceable link.
         /// </summary>
         public void MarkConvertedTo(TenantId successorTenantId)
         {
@@ -259,7 +259,7 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             AddDomainEvent(new TenantConvertedEvent(Id.Value, successorTenantId.Value, DateTime.UtcNow));
         }
 
-        // â”€â”€ Query helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Query helpers ─────────────────────────────────────────────────────
         public bool IsActive() => Status == TenantStatus.Active;
         public bool IsSuspended() => Status == TenantStatus.Suspended;
         public bool IsConverted() => Status == TenantStatus.Converted;
@@ -267,7 +267,7 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         public bool IsHouseholdBusiness() => BusinessType == BusinessType.HouseholdBusiness;
         public bool IsCompany() => BusinessType == BusinessType.Company;
 
-        // â”€â”€ Phase 1: Multi-VPS routing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Phase 1: Multi-VPS routing ────────────────────────────────────────
 
         /// <summary>
         /// Phase 1 (Multi-VPS Checkout): Assign this tenant to a ShopERP hosting instance.
