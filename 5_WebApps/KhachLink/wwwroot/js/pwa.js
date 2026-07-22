@@ -203,21 +203,9 @@ window.vananPWA = {
     setupEventListeners(dotNetRef) {
         this.dotNetRef = dotNetRef;
 
-        // Install prompt event
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            this.deferredPrompt = e;
-            console.log('Install prompt ready');
-        });
-
-        // Installed event
-        window.addEventListener('appinstalled', () => {
-            this.isInstalled = true;
-            console.log('PWA installed successfully');
-            if (this.dotNetRef) {
-                this.dotNetRef.invokeMethodAsync('HandleInstallStateChanged', true);
-            }
-        });
+        // beforeinstallprompt + appinstalled listeners are registered at bottom of file
+        // (immediately on script load) to avoid race condition where Chrome fires
+        // beforeinstallprompt before Blazor WASM boots and calls setupEventListeners().
 
         // Network status events
         window.addEventListener('online', () => {
@@ -350,6 +338,28 @@ window.applyThemeClass = (themeClass) => {
     body.classList.forEach(c => { if (c.startsWith('theme-')) body.classList.remove(c); });
     body.classList.add(themeClass);
 };
+
+// ============================================================================
+// IMMEDIATE EVENT LISTENERS — registered on script load, NOT waiting for Blazor.
+// Race condition fix: Chrome fires `beforeinstallprompt` right after evaluating
+// manifest.json (during page load), but Blazor WASM takes 3-5s to boot before
+// calling setupEventListeners(). By then the event is already gone.
+// These listeners capture the event immediately and store it in deferredPrompt.
+// ============================================================================
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.vananPWA.deferredPrompt = e;
+    console.log('[PWA] beforeinstallprompt captured (immediate listener)');
+});
+
+window.addEventListener('appinstalled', () => {
+    window.vananPWA.isInstalled = true;
+    console.log('[PWA] appinstalled fired (immediate listener)');
+    if (window.vananPWA.dotNetRef) {
+        window.vananPWA.dotNetRef.invokeMethodAsync('HandleInstallStateChanged', true);
+    }
+});
 
 // Initialize PWA on page load
 document.addEventListener('DOMContentLoaded', () => {
