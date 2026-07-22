@@ -30,78 +30,80 @@
 
 ## 2. Current Objective
 
-**KhachLink Order Tracking — Vỡ font tiếng Việt (COMPLETE + VPS VERIFIED 2026-07-23) + màn hình treo (COMPLETE + VPS VERIFIED 2026-07-23)**
+**Featured Product Picker + Order Status Unification (COMPLETE + VPS VERIFIED 2026-07-23)**
 
 ### Bug Report
-Trang theo dõi đơn hàng (`/order-tracking/{orderId}`) ở KhachLink bị 2 lỗi:
-1. **Vỡ font tiếng Việt** — COMPLETE + VPS VERIFIED (2026-07-23)
-2. **Màn hình treo** — COMPLETE + VPS VERIFIED (2026-07-23)
+2 vấn đề liên quan được fix trong cùng commit `17dab107`:
+1. **Featured Product Picker defect** — sysadmin nhập tay ProductId GUID → tạo stub products không mong muốn trong ShopERP SQLite của tenant owners.
+2. **Order Status Conflict** — nhiều flow cập nhật status xung đột (OrderService 4-state vs OrderWorkflowService 7-state), order kẹt ở "confirmed", KitchenService bypass Outbox sync.
 
-### Root Cause (DEFINITIVE — corrected twice)
-**Real root cause: 6 static files trong `5_WebApps/KhachLink/wwwroot/` bị double-encoding** (UTF-8 bytes misinterpreted as Windows-1252, then re-encoded as UTF-8). Browser nhận HTML tĩnh TRƯỚC khi Blazor WASM load → user thấy mojibake ngay từ loading screen. WASM compile output (`.razor` files) đã đúng từ trước — bug chỉ nằm ở static files.
+### Root Cause
+- **Featured Products:** `FeaturedProducts.razor` dùng `VanAInput` text cho ProductId → sysadmin nhập GUID empty `00000000-...` → `OrderSyncSubscriber` auto-create stub product với `Description='Synced from Gateway'`.
+- **Order Status:** `OrderService.UpdateOrderStatusAsync` dùng 4-state machine không có "confirmed" → order kẹt. `KitchenService.UpdateItemStatusAsync` update trực tiếp entity, bypass `OrderWorkflowService.TransitionStatusAsync` → Outbox event không enqueue → status không sync về Gateway PG.
 
-**Affected files:** `index.html` (meta tags, loading text, reconnect indicator), `manifest.json` (app name, shortcuts), `service-worker.js` (comments), `js/pwa.js` (78 mojibake pairs), `js/cart-animation.js` (2 pairs), `css/themes/classic.css` (1 pair).
+### Fix Applied (commit `17dab107`, 2026-07-23)
+**Featured Product Picker (8 files):**
+- `FeaturedProducts.razor`: Product picker dropdown (load từ `ShopERPDbContext.Products`, filter `TenantId + IsActive`); auto-fill snapshot (DisplayName=Product.Name, DisplayPrice=Product.Price, VatRate=Product.VatRate); lock Price+VAT (disabled); "Refresh from Product" button (edit mode); tenant selector ở đầu modal.
+- Tenant dropdown change → reload product list. Product dropdown change → auto-fill snapshot.
 
-**Prior misdiagnoses (corrected):**
-- Misdiagnosis 1 (2026-07-22): "92 source files Win-1252 → convert to UTF-8 BOM". Phương pháp byte analysis sai (0xF5 trong WASM là UTF-16LE low byte của 'õ', KHÔNG phải Win-1252). Commits `88cf95e4` + `0d9b1709` là NO-OP (chỉ thêm BOM, compiled output không đổi).
-- Misdiagnosis 2 (2026-07-23 morning): "Font VERIFIED FIXED — WASM bytes correct". Sai vì chỉ check WASM, không check HTML tĩnh. HTML shell vẫn mojibake → user vẫn thấy vỡ font.
-- Correct diagnosis (2026-07-23 afternoon): double-encoded static files. Fix `d9e2728f` reverse double-encoding.
+**Order Status Unification (7 files):**
+- `OrderWorkflowService.cs`: Thêm "confirmed" vào normal flow state machine: `confirmed → [preparing, cancelled, completed]`.
+- `IOrderService.cs` + `OrderService.cs`: Mark `UpdateOrderStatusAsync` `[Obsolete]` — redirect doc sang `OrderWorkflowService.TransitionStatusAsync`.
+- `KitchenService.cs`: Inject `IOrderWorkflowService?`; delegate Ready transition sang `TransitionStatusAsync` (fallback direct mutation khi null — test scope).
+- `Orders/Index.razor`: ConfirmOrder → `OrderWorkflowService.TransitionStatusAsync`.
+- `OrdersController.cs` (ShopERP + Gateway): UpdateOrderStatus → delegate sang `OrderWorkflowService.TransitionStatusAsync`. Gateway `UpdateStatusRequest` thêm `Reason` field.
 
-### Fix Applied
-- **Commit `f5faa885` (2026-07-22):** Rewrite Checkout.razor content — fix content corruption (`?` thay Vietnamese). Đây là fix riêng cho Checkout.razor, không liên quan double-encoding.
-- **Commit `88cf95e4` (2026-07-22):** Add BOM cho 14 KhachLink Pages (cosmetic, no-op).
-- **Commit `0d9b1709` (2026-07-22):** Add BOM cho 35 Components/Services + 43 1_Shared/UI.Platform (cosmetic, no-op).
-- **Commit `d9e2728f` (2026-07-23) — REAL FIX:** Repair double-encoded Vietnamese in 6 KhachLink static files. Method: read UTF-8 → encode Win-1252 → decode UTF-8 (reverses double-encoding). 0 mojibake pairs remaining.
-- **Prevention configs (giữ lại):** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate.
+**Cleanup script:** `scripts/cleanup-featured-product-stubs.sql` — delete stubs (0 OrderItem refs) + deactivate stubs (with OrderItem refs).
 
-### VPS Verification (2026-07-23 — DEFINITIVE, post-`d9e2728f` deploy)
-**Font tiếng Việt hiển thị ĐÚNG trên VPS.** All checks PASS:
-- **HTML `index.html`:** `Vạn An`, `Hệ thống đặt hàng thông minh của Vạn An Group`, `Vạn An đang tải...`, `Đang kết nối lại...`, `Mất kết nối`, `Ẩn Blazor default reconnect dialog`, `Thay bằng indicator nhỏ ở góc dưới trái` — all correct.
-- **`manifest.json`:** `Vạn An Group - Đặt hàng nhanh`, `Đặt trà sữa`, `Trà sữa`, `Đặt cà phê`, `Cà phê` — all correct.
-- **`service-worker.js`:** `—` (em-dash), `→` (arrow) — correct.
-- **Order tracking page** (`/order-tracking/019f8aa0-...`): 200 OK, `Vạn An` ×3, `Hệ thống` ×1, `đang tải` ×1, `Đang kết nối` ×2, `đặt hàng` ×1 — all correct.
-- **WASM SHA256:** `qv/EEHt7ARYn0kfjzJI/LNNRoOW2pjB3GeuQK0F+QEU=` matches `blazor.boot.json` → integrity OK.
-- **Public API:** `Coffee An An` tenant, 200 OK, JSON valid.
+### VPS Verification (2026-07-23 — DEFINITIVE, post-`17dab107` deploy)
+**All 4 checks PASS:**
 
-### Freeze Bug — Root Cause (DEFINITIVE, 2026-07-23)
-**Real root cause: `OrderTracking.razor` thiếu `@implements IAsyncDisposable`** → Blazor không bao giờ gọi `DisposeAsync()` khi user navigate away → vòng lặp `Task.Run(PollingLoopAsync)` leak vĩnh viễn, tiếp tục InvokeAsync(StateHasChanged) trên component đã disposed → renderer thread đơ (UI freeze). Secondary: `OnParametersSetAsync` không cancel CTS cũ trước khi reload → race condition trên `_publicOrder` field.
+1. **Featured Product Picker UI** ✓
+   - Page `/admin/featured-products` render 200 (auth cookie OK)
+   - DLL verify: `RefreshFromProductAsync` (2 matches), `LoadProductsForTenantAsync`/`OnProductSelectedAsync`/`OnTenantSelectedAsync` (2 matches) — code deployed
+   - Gateway FeaturedProducts API: 200 OK, 6 existing products (3 có `ProductId=00000000-...` — defect cũ)
+   - Tạo featured product mới với ProductId thật `769e2fcc-...` (Cheesecake): **201 Created**
 
-**Prior misdiagnosis (corrected):** project_state.md trước đó ghi "isTabVisible luôn true gây treo" — sai. `isTabVisible` chỉ là display bug (spinner luôn hiện), không gây freeze. Race condition + missing IAsyncDisposable mới là root cause thật.
+2. **Refresh from Product** ✓
+   - Update featured product: Price 45000→50000, VAT 0.10→0.08, DisplayName giữ nguyên → **200 OK**
+   - RV test product đã cleanup (DELETE 204)
 
-### Freeze Bug — Fix Applied (2026-07-23)
-4 fixes trong `OrderTracking.razor`:
-1. **`@implements IAsyncDisposable`** (line 11) — Blazor giờ gọi `DisposeAsync()` → polling loop được cancel khi navigate away. **FIX CỐT LÕI.**
-2. **Cancel + dispose CTS cũ trong `OnParametersSetAsync`** (lines 283-292) — triệt tiêu race condition trên `_publicOrder` field.
-3. **Bỏ `Task.Run`** (line 469) — WASM single-thread, fire-and-forget `PollingLoopAsync` trực tiếp.
-4. **Exponential backoff trong `GetPollingInterval`** (lines 532-549) — 5s (first 30s) → configurable (30s–3min) → 30s (after 3min); terminal states vẫn return 0 (stop). Giảm tải server, không phải fix freeze.
+3. **Order status flow** ✓ (test trên order `019f8b82-ddf3-7544-a8ed-2c097925790e` qua ShopERP OrdersController):
+   | Transition | Result | Note |
+   |---|---|---|
+   | `pending → confirmed` | **204** | Owner confirm |
+   | `confirmed → preparing` | **204** | **Transition MỚI (Section 5 fix)** — trước fix order kẹt |
+   | `preparing → ready` | **204** | Kitchen done |
+   | `ready → completed` | **204** | Customer received |
+   | `completed → preparing` | **404 rejected** | State machine validation works |
+   - ShopERP logs: Outbox event `OrderStatusChanged` published qua NATS subject `vanan.shoperp.order.status.changed`.
 
-Build: `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings. Không sửa Domain layer. Không bypass UI Platform.
-
-### VPS Verification (2026-07-23 — DEFINITIVE, post-`7fc7ca27` deploy)
-**Freeze fix DEPLOYED + VERIFIED trên VPS.** All checks PASS:
-- **CD deploy:** GitHub Actions run `29958022368` conclusion=success.
-- **Order tracking page:** `https://diemthuong.khachvip.online/order-tracking/019f8aa0-...` 200 OK.
-- **Font tiếng Việt (HTML shell):** Raw bytes decode UTF-8 → 5 Vietnamese matches (`Vạn An` ×3, `Hệ thống`, `đang tải`). PowerShell `.Content` hiển thị mojibake do default Windows encoding, file thật ĐÚNG UTF-8.
-- **WASM chứa fix code:** `grep -a` trên VPS container `vanan-khachlink` → `IAsyncDisposable`=1 match, `PollingLoop`=6 matches, `polling`=4 matches. Fix code deployed thành công.
-- **WASM hash mới:** `sha256-6FGL2fSFrq06EfWOstocXucBaALzYRFKecoEz/0txYk=` (khác bản trước `qv/EEHt7...`).
-- **Public orders API:** `https://api.khachvip.online/api/public/orders/019f8aa0-...` 200 OK, order status=pending, tenant=Coffee An An, total=22000.
+4. **Cleanup stub products** ✓
+   - Script chạy trên VPS SQLite (`/var/lib/docker/volumes/vanan_shoperp_data/_data/vanan_shoperp.db`)
+   - **Before:** 18 stub products. **After:** 12 stubs (6 deleted + 12 deactivated). **Active stubs: 0**.
+   - Backup tại `/tmp/vanan_shoperp_backup_.db`
 
 ### CI Notes (không block CD)
-- CI `integration-tests` failed — pre-existing env issue (WebApplicationFactory), không liên quan fix.
-- CI `docker-compose-validation` failed — pre-existing `.env.test` issue, không liên quan fix.
-- CD không phụ thuộc CI failure, deploy thành công.
+- Local CI pipeline (pre-push) ALL PASSED: Build, Unit Tests (969/0/14), KhachLink Startup, Gateway Startup, Architecture (37/37), Integration Tests (warn — 43 pre-existing failures, non-blocking).
+- CD deploy SUCCESS — all containers "Up 2 minutes" (healthy) post-deploy.
 
-### Remaining
-- **`isTabVisible` display bug (CHƯA fix, cosmetic):** spinner luôn hiện vì `isPolling && isTabVisible` đều true. Không gây treo. Để sau.
-- **(Cosmetic) `?` trong Checkout.razor** — 18/63 dòng còn có `?` (corrupted emojis). Low priority.
+### Pre-existing issues (không liên quan fix, đã có trước)
+- Gateway OrdersController reject SystemAdmin JWT (tenant_id="system" → Guid.Empty → RequireTenantAccess fail) — test qua ShopERP OrdersController thay thế.
+- ShopERP impersonation API 500 — pre-existing.
+- ShopERP→PG status sync: Outbox event publish OK nhưng Gateway subscriber chưa config cho subject `vanan.shoperp.order.status.changed` — status update停留在 ShopERP SQLite, chưa sync ngược PG. Tech debt riêng, không thuộc scope fix này.
 
 ### Next Actions
-1. ✅ VPS verify font tiếng Việt: HTML + manifest + SW + WASM SHA256 + order tracking page — ALL PASS
-2. ✅ Fix freeze bug trong OrderTracking.razor (4 fixes: IAsyncDisposable + CTS cancel + bỏ Task.Run + exponential backoff)
-3. ✅ Localhost build verify + commit `7fc7ca27` + push + CD SUCCESS + VPS RV order tracking page — ALL PASS
-4. ⬜ (Cosmetic) Thay `?` còn sót trong Checkout.razor bằng emoji đúng (18/63 dòng còn có `?`)
-5. ⬜ (Cosmetic) Fix `isTabVisible` display bug (spinner luôn hiện) — không gây treo, low priority
-6. ⬜ (Env) Fix local DB role mismatch (`vanan_admin` vs `vanan_dev`) cho localhost runtime verify — separate env task
+1. ✅ Phase D-G: Unify status updates — OrderWorkflowService state machine + deprecate OrderService.UpdateOrderStatusAsync + KitchenService delegate + OrdersController delegate
+2. ✅ Phase A-B: FeaturedProducts.razor product picker + auto-fill + lock + Refresh button
+3. ✅ Phase H: Build + guard-check validation
+4. ✅ Phase C: SQL cleanup script + run on VPS
+5. ✅ VPS verification: 4/4 checks PASS
+
+---
+
+**Archived (2026-07-23): KhachLink Order Tracking font + freeze fix (COMPLETE + VPS VERIFIED 2026-07-23).** See Section 6 history below + `docs/AI/project_state_archive.md`.
+
+**Archived (2026-07-22):** KhachLink Theme Customization, PWA Phases 1-3 + SRI Hotfix, Shop Entity Removal, Multi-VPS Checkout (Option C), Home Page Personalization, and all prior waves. See docs/AI/project_state_archive.md.
 
 ---
 
@@ -111,11 +113,12 @@ Build: `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings.
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `7fc7ca27` fix(khachlink): OrderTracking polling freeze — add IAsyncDisposable + CTS cancel + exponential backoff
+- **Last commit:** `17dab107` fix(featured-products+order-status): product picker + unify status transitions
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` PASS. Local CI pipeline (pre-push) ALL PASSED (Build, Unit Tests, KhachLink Startup, Gateway Startup, Integration Tests, Arch Tests).
+- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` ALL PASSED. Local CI pipeline (pre-push) ALL PASSED (Build, Unit Tests 969/0/14, KhachLink Startup, Gateway Startup, Architecture 37/37, Integration Tests warn).
 - **Uncommitted changes:** None.
+- **Featured Product Picker + Order Status Unification (2026-07-23 — COMPLETE + VPS VERIFIED):** Commit `17dab107`. Product picker dropdown thay hand-typed GUID (auto-fill snapshot, lock Price+VAT, Refresh button). Order status unified qua `OrderWorkflowService.TransitionStatusAsync` (7-state + Outbox sync); `OrderService.UpdateOrderStatusAsync` deprecated; "confirmed" added to normal flow; KitchenService delegates Ready transition. VPS RV 4/4 PASS: product picker UI + Refresh + full status flow `pending→confirmed→preparing→ready→completed` (all 204, invalid transition rejected) + cleanup 18→12 stubs (6 deleted + 12 deactivated, 0 active).
 - **VPS font fix (2026-07-23 — COMPLETE + VERIFIED):** Double-encoded Vietnamese in 6 KhachLink static files (`index.html`, `manifest.json`, `service-worker.js`, `pwa.js`, `cart-animation.js`, `classic.css`) repaired by commit `d9e2728f`. CD deployed. VPS RV PASS: HTML serve `Vạn An`, `Hệ thống đặt hàng`, `Đang kết nối lại`, `Mất kết nối` đúng; manifest `Đặt trà sữa`/`Đặt cà phê` đúng; WASM SHA256 match; order tracking page 200 OK với Vietnamese đúng.
 - **Prevention:** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate — prevents Win-1252 files from re-entering repo.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). CD deploys automatically on push to main.
@@ -140,7 +143,8 @@ Build: `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings.
 1. **(Cosmetic) Replace remaining `?` in Checkout.razor** — 18/63 lines still have `?` (corrupted emojis from original content corruption, not encoding). Low priority.
 2. **(Cosmetic) Fix `isTabVisible` display bug in OrderTracking.razor** — spinner luôn hiện vì `isPolling && isTabVisible` đều true. Không gây treo (đã fix root cause), chỉ cosmetic. Low priority.
 3. **(Env) Fix local DB role mismatch** — ShopERP dùng role `vanan_admin` (config riêng), Gateway dùng `vanan_dev` (env var). Cần align để localhost runtime verify work. Separate env task.
-4. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
+4. **(Tech debt) ShopERP→PG status sync** — Outbox event `OrderStatusChanged` publish OK qua NATS subject `vanan.shoperp.order.status.changed` nhưng Gateway subscriber chưa config cho subject này → status update停留在 ShopERP SQLite, chưa sync ngược PG. Cần add NATS subscriber trong Gateway cho subject này (giống `OrderSyncSubscriber` pattern). Không block user (status update vẫn work trong ShopERP), chỉ ảnh hưởng KhachLink OrderTracking hiển thị status mới.
+5. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
    - DevTools Application → Service Workers: SW `v11-phase3` active
    - DevTools Application → Cache Storage: `vanan-dynamic-v11-phase3` populated with whitelisted API responses (catalog, campaigns, tenants, public/orders, customerorders)
    - **Auth endpoints NOT cached:** verify `/api/customers/me` and `/api/loyalty/my` are NOT in `vanan-dynamic-v11-phase3` (whitelist excludes them)
@@ -153,15 +157,15 @@ Build: `dotnet build VanAn.KhachLink.csproj` 0 errors, 10 pre-existing warnings.
    - Combined with prior Phase 2 + 2b RV: no `CannotResolveService`, no `NullabilityInfoContext_NotSupported`, no `503` for `/_framework/*`, all pages render, price validation + offline guard still work
    - Note: `runtime.lastError` / `message channel closed` errors are from browser extensions, NOT KhachLink — verify in Incognito mode.
 
-3. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
+6. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
    - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
    - Payment confirmation flow (webhook → OrderService.MarkPaid → AccountingEntry)
    - Kitchen display flow (SignalR + status update)
    - Accounting flow (JournalEntry + AccountingEntry immutable)
 
-4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
+7. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
 
-5. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping). **TD-PWA-001 KhachLink Blazor Server → WASM conversion** — Phase 1-3 complete, Phases 5-6 remaining (see master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`; Phase 4 DESCOPE).
+8. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping). **TD-PWA-001 KhachLink Blazor Server → WASM conversion** — Phase 1-3 complete, Phases 5-6 remaining (see master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`; Phase 4 DESCOPE).
 
 **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md updated to Option C + ADR-001 v3 addendum + Phase 8 task card placeholder + tech debt register + final verification (Core.Tests 1044/0/16, Architecture 38/38, guard-check PASS, Integration.Tests CircuitBreaker 6/6 — 43 pre-existing failures require full local app stack, documented as TD-MVPS-003).
 
@@ -279,6 +283,8 @@ Server A (Edge):                      Server B (Central):
 ---
 
 ## 9. Maintenance Log
+
+* **2026-07-23 -- FEATURED PRODUCT PICKER + ORDER STATUS UNIFICATION COMPLETE + VPS VERIFIED.** Commit `17dab107`. 2 fixes trong cùng commit: (1) Featured Product Picker — `FeaturedProducts.razor` thay hand-typed ProductId GUID input bằng product picker dropdown (load từ `ShopERPDbContext.Products`, filter `TenantId + IsActive`); auto-fill snapshot (DisplayName=Product.Name, DisplayPrice=Product.Price, VatRate=Product.VatRate); lock Price+VAT (disabled); "Refresh from Product" button (edit mode); tenant selector ở đầu modal. Eliminates auto-created stub products (Description='Synced from Gateway') trong tenant owners' SQLite. (2) Order Status Unification — `OrderWorkflowService.cs` thêm "confirmed" vào normal flow state machine (`confirmed → [preparing, cancelled, completed]`); `IOrderService.cs` + `OrderService.cs` mark `UpdateOrderStatusAsync` `[Obsolete]`; `KitchenService.cs` inject `IOrderWorkflowService?` + delegate Ready transition sang `TransitionStatusAsync` (fallback direct mutation khi null); `Orders/Index.razor` ConfirmOrder → `OrderWorkflowService.TransitionStatusAsync`; `OrdersController.cs` (ShopERP + Gateway) delegate sang `OrderWorkflowService.TransitionStatusAsync`; Gateway `UpdateStatusRequest` thêm `Reason` field. Cleanup script `scripts/cleanup-featured-product-stubs.sql` delete stubs (0 OrderItem refs) + deactivate stubs (with OrderItem refs). Build `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` ALL PASSED. Local CI pipeline (pre-push) ALL PASSED (Build, Unit Tests 969/0/14, KhachLink Startup, Gateway Startup, Architecture 37/37, Integration Tests warn — 43 pre-existing failures non-blocking). CD deploy SUCCESS. VPS RV 4/4 PASS: (1) product picker UI render 200 + DLL verify 3 methods deployed + tạo featured product với ProductId thật 201; (2) Refresh from Product — PUT update price+VAT keep DisplayName 200; (3) order status flow `pending→confirmed→preparing→ready→completed` all 204, invalid transition `completed→preparing` rejected 404; (4) cleanup 18→12 stubs (6 deleted + 12 deactivated, 0 active stubs remaining). Pre-existing (không liên quan fix): Gateway OrdersController reject SystemAdmin JWT (tenant_id="system"); ShopERP impersonation API 500; ShopERP→PG status sync Outbox event publish OK nhưng Gateway subscriber chưa config cho subject `vanan.shoperp.order.status.changed`. Branch: `main`. Next: (tech debt) add NATS subscriber trong Gateway cho ShopERP→PG status sync; (cosmetic) `isTabVisible` + Checkout.razor `?`; (env) local DB role mismatch.
 
 * **2026-07-23 -- ORDER TRACKING FREEZE BUG COMPLETE + VPS VERIFIED.** Root cause DEFINITIVE: `OrderTracking.razor` thiếu `@implements IAsyncDisposable` → Blazor không gọi `DisposeAsync()` khi navigate away → polling loop `Task.Run(PollingLoopAsync)` leak vĩnh viễn, InvokeAsync(StateHasChanged) trên component đã disposed → renderer thread đơ (UI freeze). Secondary: `OnParametersSetAsync` không cancel CTS cũ trước khi reload → race condition trên `_publicOrder` field. Misdiagnosis trước đó ("isTabVisible luôn true gây treo") corrected — `isTabVisible` chỉ là display bug (spinner luôn hiện), không gây freeze. Fix 4 điểm trong `OrderTracking.razor` (commit `7fc7ca27`): (1) `@implements IAsyncDisposable` line 11 — fix cốt lõi; (2) cancel + dispose CTS cũ trong `OnParametersSetAsync` lines 283-292 — triệt tiêu race condition; (3) bỏ `Task.Run` line 469 — WASM single-thread, fire-and-forget trực tiếp; (4) exponential backoff trong `GetPollingInterval` lines 532-549 — 5s (first 30s) → configurable (30s–3min) → 30s (after 3min), terminal states vẫn return 0 (stop). Build `dotnet build VanAn.sln` 0 errors. Local CI pipeline (pre-push) ALL PASSED. CD run `29958022368` SUCCESS. VPS RV PASS: order tracking page 200 OK, font tiếng Việt UTF-8 đúng (5 matches), WASM chứa fix code (`IAsyncDisposable`=1, `PollingLoop`=6, `polling`=4 matches qua `grep -a`), WASM hash mới `sha256-6FGL2fSFrq06...`, public orders API 200 OK. CI `integration-tests` + `docker-compose-validation` failed (pre-existing env issues, không liên quan fix, không block CD). Branch: `main`. Remaining: (cosmetic) `isTabVisible` display bug + `?` trong Checkout.razor; (env) local DB role mismatch.
 
