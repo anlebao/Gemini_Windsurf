@@ -1,4 +1,4 @@
-@page "/campaigns"
+﻿@page "/campaigns"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.Http
@@ -6,40 +6,40 @@
 @inject ISocialCampaignService CampaignService
 @inject NavigationManager Navigation
 
-<PageTitle>Khuyến mãi</PageTitle>
+<PageTitle>Khuyáº¿n mÃ£i</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4" style="max-width:900px;">
         <h2 class="mb-4">
-            <i class="bi bi-megaphone-fill text-primary"></i> Khuyến mãi
+            <i class="bi bi-megaphone-fill text-primary"></i> Khuyáº¿n mÃ£i
         </h2>
 
         @if (_loading)
         {
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Đang tải...</span>
+                    <span class="visually-hidden">Äang táº£i...</span>
                 </div>
-                <p class="mt-2">Đang tải khuyến mãi...</p>
+                <p class="mt-2">Äang táº£i khuyáº¿n mÃ£i...</p>
             </div>
         }
         else if (_error != null)
         {
             <VanAnAlert Variant="AlertVariant.Warning" Message="@_error" />
             <div class="text-center mt-3">
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadCampaigns">Thử lại</VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="LoadCampaigns">Thá»­ láº¡i</VanAnButton>
             </div>
         }
         else if (_campaigns.Count == 0)
         {
             <VanAnCard Shadow="true" CssClass="text-center py-5">
                 <i class="bi bi-megaphone text-muted mb-3 d-block" style="font-size:3rem;"></i>
-                <p class="text-muted">Hiện chưa có chương trình khuyến mãi nào.</p>
+                <p class="text-muted">Hiá»‡n chÆ°a cÃ³ chÆ°Æ¡ng trÃ¬nh khuyáº¿n mÃ£i nÃ o.</p>
             </VanAnCard>
         }
         else
         {
-            <p class="text-muted mb-3">@_campaigns.Count chương trình đang diễn ra</p>
+            <p class="text-muted mb-3">@_campaigns.Count chÆ°Æ¡ng trÃ¬nh Ä‘ang diá»…n ra</p>
             <div class="row g-3">
                 @foreach (var campaign in _campaigns)
                 {
@@ -59,14 +59,14 @@
                                     }
                                     <div class="d-flex gap-3 small text-muted mb-3">
                                         <span>
-                                            <i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click
+                                            <i class="bi bi-mouse"></i> @campaign.TotalClicks lÆ°á»£t click
                                         </span>
                                         <span>
-                                            <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn
+                                            <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders Ä‘Æ¡n
                                         </span>
                                     </div>
                                     <VanAnButton Variant="ButtonVariant.Primary" OnClick="() => OpenCampaign(campaign.TrackingCode)">
-                                        <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
+                                        <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyáº¿n mÃ£i
                                     </VanAnButton>
                                 </div>
                             </div>
@@ -112,11 +112,11 @@
         }
         catch (HttpRequestException ex)
         {
-            _error = $"Không tải được danh sách khuyến mãi: {ex.Message}";
+            _error = $"KhÃ´ng táº£i Ä‘Æ°á»£c danh sÃ¡ch khuyáº¿n mÃ£i: {ex.Message}";
         }
         catch (Exception ex)
         {
-            _error = $"Lỗi: {ex.Message}";
+            _error = $"Lá»—i: {ex.Message}";
         }
         finally
         {

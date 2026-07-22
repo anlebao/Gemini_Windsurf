@@ -1,4 +1,4 @@
-@page "/scan"
+﻿@page "/scan"
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.Shared.DTOs
@@ -7,14 +7,14 @@
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
 
-<PageTitle>Quét Mã QR - KhachLink</PageTitle>
+<PageTitle>QuÃ©t MÃ£ QR - KhachLink</PageTitle>
 
 <KhachLinkLayout>
     <div class="container-fluid scan-page-container py-2 px-2">
         <div class="row justify-content-center g-0">
             <div class="col-12 col-md-8 col-lg-6">
                 <h3 class="text-center mb-2 scan-page-title">
-                    <i class="bi bi-qr-code-scan text-primary"></i> Quét Mã QR
+                    <i class="bi bi-qr-code-scan text-primary"></i> QuÃ©t MÃ£ QR
                 </h3>
 
                 <QRScanner OnQRCodeDetected="HandleQRCodeDetected" />
@@ -22,13 +22,13 @@
                 @if (_scannedProduct != null)
                 {
                     <VanAnAlert Variant="AlertVariant.Success"
-                               Message="Đã thêm sản phẩm vào giỏ hàng!"
+                               Message="ÄÃ£ thÃªm sáº£n pháº©m vÃ o giá» hÃ ng!"
                                class="mt-2" />
 
                     @if (!string.IsNullOrEmpty(_tableNumber))
                     {
                         <VanAnAlert Variant="AlertVariant.Info"
-                                   Message="@($"Bàn số: {_tableNumber}")"
+                                   Message="@($"BÃ n sá»‘: {_tableNumber}")"
                                    class="mt-2"
                                    data-testid="table-number-display" />
                     }
@@ -46,15 +46,15 @@
                                     <h5 class="mb-1 scan-product-name">@_scannedProduct.Name</h5>
                                     <p class="text-muted small mb-2 scan-product-desc">@_scannedProduct.Description</p>
                                     <div class="scan-product-bottom">
-                                        <span class="h5 text-primary mb-0 scan-product-price">@_scannedProduct.Price.ToString("N0")đ</span>
+                                        <span class="h5 text-primary mb-0 scan-product-price">@_scannedProduct.Price.ToString("N0")Ä‘</span>
                                         <div class="scan-product-actions">
                                             <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                        OnClick="@(() => { _scannedProduct = null; StateHasChanged(); })">
-                                                Quét Tiếp
+                                                QuÃ©t Tiáº¿p
                                             </VanAnButton>
                                             <VanAnButton Size="ButtonSize.Small" Icon="cart-plus"
                                                        OnClick="@(() => Navigation.NavigateTo("/cart"))">
-                                                Xem Giỏ
+                                                Xem Giá»
                                             </VanAnButton>
                                         </div>
                                     </div>
@@ -70,7 +70,7 @@
 
                     <div class="text-center mt-2">
                         <VanAnButton Variant="ButtonVariant.Outline" OnClick="@(() => Navigation.NavigateTo("/"))">
-                            Về Trang Chủ
+                            Vá» Trang Chá»§
                         </VanAnButton>
                     </div>
                 }
@@ -94,7 +94,7 @@
         font-size: 1.25rem;
     }
 
-    /* Product result row — flex row on desktop, stacked on mobile */
+    /* Product result row â€” flex row on desktop, stacked on mobile */
     .scan-product-row {
         display: flex;
         align-items: flex-start;
@@ -139,7 +139,7 @@
         flex-wrap: wrap;
     }
 
-    /* Mobile breakpoint — stack product card vertically */
+    /* Mobile breakpoint â€” stack product card vertically */
     @@media (max-width: 576px) {
         .scan-product-row {
             flex-direction: column;
@@ -171,7 +171,7 @@
         }
     }
 
-    /* Tablet breakpoint — keep row but tighten spacing */
+    /* Tablet breakpoint â€” keep row but tighten spacing */
     @@media (max-width: 768px) {
         .scan-page-container {
             padding-left: 0.5rem;
@@ -188,7 +188,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Bug 2b: When Zalo scans QR, it opens the URL https://.../scan?data={base64}
-        // The page loads with the query param — parse it directly instead of waiting for camera scan
+        // The page loads with the query param â€” parse it directly instead of waiting for camera scan
         if (firstRender)
         {
             var uri = Navigation.Uri;
@@ -216,7 +216,7 @@
 
             if (qrPayload == null)
             {
-                _errorMessage = "Mã QR không hợp lệ. Vui lòng quét mã QR sản phẩm của Vạn An.";
+                _errorMessage = "MÃ£ QR khÃ´ng há»£p lá»‡. Vui lÃ²ng quÃ©t mÃ£ QR sáº£n pháº©m cá»§a Váº¡n An.";
                 StateHasChanged();
                 return;
             }
@@ -225,7 +225,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Lỗi khi xử lý mã QR: {ex.Message}";
+            _errorMessage = $"Lá»—i khi xá»­ lÃ½ mÃ£ QR: {ex.Message}";
             StateHasChanged();
         }
     }
@@ -240,12 +240,12 @@
 
         if (DateTimeOffset.UtcNow - qrTimestamp > maxAge)
         {
-            _errorMessage = "Mã QR đã hết hạn. Vui lòng yêu cầu mã QR mới.";
+            _errorMessage = "MÃ£ QR Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng yÃªu cáº§u mÃ£ QR má»›i.";
             StateHasChanged();
             return;
         }
 
-        // Phase 5: Fast path — if QR has price + tenantId (new QR codes printed after Phase 5),
+        // Phase 5: Fast path â€” if QR has price + tenantId (new QR codes printed after Phase 5),
         // add to cart directly WITHOUT an API call. Much faster for the customer.
         if (qrPayload.UnitPrice > 0 && qrPayload.TenantId != Guid.Empty)
         {
@@ -253,7 +253,7 @@
             {
                 ProductId = qrPayload.ProductId,
                 TenantId = qrPayload.TenantId,
-                Name = qrPayload.ProductName ?? "Sản phẩm",
+                Name = qrPayload.ProductName ?? "Sáº£n pháº©m",
                 Price = qrPayload.UnitPrice,
                 VatRate = qrPayload.VatRate,
                 Description = null,
@@ -266,15 +266,15 @@
             return;
         }
 
-        // Legacy path: old QR codes (no price/VAT/name in payload) → fetch product from API.
-        // Shop entity removed 2026-07-21 — prefer TenantId; fall back to legacy ShopId (which was the tenantId).
+        // Legacy path: old QR codes (no price/VAT/name in payload) â†’ fetch product from API.
+        // Shop entity removed 2026-07-21 â€” prefer TenantId; fall back to legacy ShopId (which was the tenantId).
         Guid legacyTenantId = qrPayload.TenantId != Guid.Empty ? qrPayload.TenantId : qrPayload.ShopId;
         var products = await ProductService.GetProductsAsync(legacyTenantId);
         _scannedProduct = products.FirstOrDefault(p => p.ProductId == qrPayload.ProductId);
 
         if (_scannedProduct == null)
         {
-            _errorMessage = "Không tìm thấy sản phẩm từ mã QR. Sản phẩm có thể đã bị xóa hoặc không tồn tại.";
+            _errorMessage = "KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m tá»« mÃ£ QR. Sáº£n pháº©m cÃ³ thá»ƒ Ä‘Ã£ bá»‹ xÃ³a hoáº·c khÃ´ng tá»“n táº¡i.";
             StateHasChanged();
             return;
         }

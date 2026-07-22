@@ -1,4 +1,4 @@
-@page "/c/{trackingCode}"
+﻿@page "/c/{trackingCode}"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.Http
@@ -7,7 +7,7 @@
 @inject ProductHttpService ProductService
 @inject NavigationManager Navigation
 
-<PageTitle>@(CampaignData?.CampaignName ?? "Khuyến mãi")</PageTitle>
+<PageTitle>@(CampaignData?.CampaignName ?? "Khuyáº¿n mÃ£i")</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4" style="max-width:900px;">
@@ -15,16 +15,16 @@
         {
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Đang tải...</span>
+                    <span class="visually-hidden">Äang táº£i...</span>
                 </div>
-                <p class="mt-2">Đang tải khuyến mãi...</p>
+                <p class="mt-2">Äang táº£i khuyáº¿n mÃ£i...</p>
             </div>
         }
         else if (_notFound)
         {
-            <VanAnAlert Variant="AlertVariant.Warning" Message="Không tìm thấy khuyến mãi." />
+            <VanAnAlert Variant="AlertVariant.Warning" Message="KhÃ´ng tÃ¬m tháº¥y khuyáº¿n mÃ£i." />
             <div class="text-center mt-3">
-                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoHome">Về trang chủ</VanAnButton>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoHome">Vá» trang chá»§</VanAnButton>
             </div>
         }
         else if (CampaignData != null)
@@ -38,7 +38,7 @@
 
                 @if (Products.Count > 0)
                 {
-                    <h4 class="mb-3">Sản phẩm khuyến mãi</h4>
+                    <h4 class="mb-3">Sáº£n pháº©m khuyáº¿n mÃ£i</h4>
                     <div class="row g-3">
                         @foreach (var product in Products)
                         {
@@ -50,7 +50,7 @@
                                     }
                                     <div class="card-body">
                                         <h6 class="card-title">@product.Name</h6>
-                                        <p class="card-text text-primary fw-bold">@product.Price.ToString("N0") đ</p>
+                                        <p class="card-text text-primary fw-bold">@product.Price.ToString("N0") Ä‘</p>
                                     </div>
                                 </div>
                             </div>

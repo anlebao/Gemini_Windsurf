@@ -1,4 +1,4 @@
-@page "/voice-note"
+﻿@page "/voice-note"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.UI.Platform.Tokens
 @using VanAn.KhachLink.Services.Http
@@ -9,9 +9,9 @@
 @inject ShopFeatureSettingsHttpService FeatureSettings
 @implements IDisposable
 
-<PageTitle>Voice Note - Vạn An</PageTitle>
+<PageTitle>Voice Note - Váº¡n An</PageTitle>
 
-@* Alerts thay thế alert() native *@
+@* Alerts thay tháº¿ alert() native *@
 @if (!string.IsNullOrEmpty(_successMessage))
 {
     <VanAnAlert Variant="AlertVariant.Success" Message="@_successMessage" />
@@ -23,39 +23,39 @@
 
 @if (!voiceNoteEnabled)
 {
-    @* W3-T1: Voice note toggle OFF — show text-only note input *@
+    @* W3-T1: Voice note toggle OFF â€” show text-only note input *@
     <div class="voice-note-container" data-testid="voice-note-disabled">
         <div class="voice-header">
-            <h2>📝 Ghi chú đơn hàng</h2>
-            <p>Ghi chú giọng nói đã tắt — vui lòng nhập văn bản</p>
+            <h2>ðŸ“ Ghi chÃº Ä‘Æ¡n hÃ ng</h2>
+            <p>Ghi chÃº giá»ng nÃ³i Ä‘Ã£ táº¯t â€” vui lÃ²ng nháº­p vÄƒn báº£n</p>
         </div>
-        <textarea class="form-control" rows="3" placeholder="Nhập ghi chú cho đơn hàng..."
+        <textarea class="form-control" rows="3" placeholder="Nháº­p ghi chÃº cho Ä‘Æ¡n hÃ ng..."
                   @bind="transcriptionText" data-testid="text-note-input"></textarea>
         <div class="voice-actions mt-3">
             <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
-                📤 Gửi ghi chú
+                ðŸ“¤ Gá»­i ghi chÃº
             </VanAnButton>
             <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
-                ❌ Hủy
+                âŒ Há»§y
             </VanAnButton>
         </div>
     </div>
 }
 else
 {
-    @* W3-T1: Voice note toggle ON — show STT UI *@
+    @* W3-T1: Voice note toggle ON â€” show STT UI *@
     <div class="voice-note-container" data-testid="voice-note-container">
         <div class="voice-header">
-            <h2 data-testid="voice-note-header">🎤 Ghi chú giọng nói</h2>
-            <p>Thêm ghi chú giọng nói cho đơn hàng của bạn</p>
+            <h2 data-testid="voice-note-header">ðŸŽ¤ Ghi chÃº giá»ng nÃ³i</h2>
+            <p>ThÃªm ghi chÃº giá»ng nÃ³i cho Ä‘Æ¡n hÃ ng cá»§a báº¡n</p>
         </div>
 
         <div class="voice-controls">
             <VanAnButton OnClick="ToggleRecording" Disabled="@isRecording">
-                @(isRecording ? "⏹️ Dừng ghi âm" : "🎤 Bắt đầu ghi âm")
+                @(isRecording ? "â¹ï¸ Dá»«ng ghi Ã¢m" : "ðŸŽ¤ Báº¯t Ä‘áº§u ghi Ã¢m")
             </VanAnButton>
             <VanAnButton Variant="ButtonVariant.Outline" OnClick="ClearRecording" Disabled="@isRecording">
-                🗑️ Xóa
+                ðŸ—‘ï¸ XÃ³a
             </VanAnButton>
         </div>
 
@@ -64,14 +64,14 @@ else
             {
                 <div class="recording-indicator">
                     <span class="recording-dot"></span>
-                    <span>Đang ghi âm...</span>
+                    <span>Äang ghi Ã¢m...</span>
                 </div>
             }
 
             @if (!string.IsNullOrEmpty(transcriptionText))
             {
                 <div class="transcription-result">
-                    <h4>Văn bản chuyển đổi:</h4>
+                    <h4>VÄƒn báº£n chuyá»ƒn Ä‘á»•i:</h4>
                     <p data-testid="transcription-text">@transcriptionText</p>
                 </div>
             }
@@ -79,10 +79,10 @@ else
 
         <div class="voice-actions">
             <VanAnButton OnClick="SubmitVoiceNote" Disabled="@string.IsNullOrEmpty(transcriptionText)">
-                📤 Gửi ghi chú
+                ðŸ“¤ Gá»­i ghi chÃº
             </VanAnButton>
             <VanAnButton Variant="ButtonVariant.Outline" OnClick="Cancel">
-                ❌ Hủy
+                âŒ Há»§y
             </VanAnButton>
         </div>
     </div>
@@ -96,7 +96,7 @@ else
     private string? _successMessage;
     private string? _errorMessage;
     private DotNetObjectReference<VoiceNote>? dotNetRef;
-    // W3-T1: Voice note toggle — default OFF (per seed default)
+    // W3-T1: Voice note toggle â€” default OFF (per seed default)
     private bool voiceNoteEnabled = false;
 
     private HttpClient Http => HttpClientFactory.CreateClient("gateway");
@@ -106,7 +106,7 @@ else
         // W3-T1: Load voice note toggle from shop feature settings
         try
         {
-            // TenantId from query string or default — VoiceNote page is customer-facing
+            // TenantId from query string or default â€” VoiceNote page is customer-facing
             // For now, use the default tenant (00000000-...001) since customer hasn't logged in
             voiceNoteEnabled = await FeatureSettings.IsEnabledAsync(
                 new Guid("00000000-0000-0000-0000-000000000001"),
@@ -171,7 +171,7 @@ else
             var response = await Http.PostAsJsonAsync("/api/v1/voicecommand/text-command", payload);
             if (response.IsSuccessStatusCode)
             {
-                _successMessage = "Ghi chú đã được gửi thành công!";
+                _successMessage = "Ghi chÃº Ä‘Ã£ Ä‘Æ°á»£c gá»­i thÃ nh cÃ´ng!";
                 _errorMessage = null;
                 StateHasChanged();
                 await Task.Delay(1500);
@@ -179,13 +179,13 @@ else
             }
             else
             {
-                _errorMessage = $"Lỗi khi gửi ghi chú (HTTP {(int)response.StatusCode}). Vui lòng thử lại.";
+                _errorMessage = $"Lá»—i khi gá»­i ghi chÃº (HTTP {(int)response.StatusCode}). Vui lÃ²ng thá»­ láº¡i.";
                 StateHasChanged();
             }
         }
         catch (Exception ex)
         {
-            _errorMessage = "Lỗi kết nối. Vui lòng thử lại.";
+            _errorMessage = "Lá»—i káº¿t ná»‘i. Vui lÃ²ng thá»­ láº¡i.";
             Console.WriteLine($"VoiceNote submit error: {ex.Message}");
             StateHasChanged();
         }
@@ -197,7 +197,7 @@ else
 }
 
 <script>
-    // 🎤 NATIVE BROWSER SPEECH RECOGNITION API (ZERO-COST)
+    // ðŸŽ¤ NATIVE BROWSER SPEECH RECOGNITION API (ZERO-COST)
     let recognition = null;
     let dotNetRef = null;
 
@@ -208,12 +208,12 @@ else
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
-            alert('Trình duyệt của bạn không hỗ trợ nhận dạng giọng nói. Vui lòng sử dụng Chrome.');
+            alert('TrÃ¬nh duyá»‡t cá»§a báº¡n khÃ´ng há»— trá»£ nháº­n dáº¡ng giá»ng nÃ³i. Vui lÃ²ng sá»­ dá»¥ng Chrome.');
             return;
         }
 
         recognition = new SpeechRecognition();
-        recognition.lang = 'vi-VN'; // 🇻🇳 Vietnamese language
+        recognition.lang = 'vi-VN'; // ðŸ‡»ðŸ‡³ Vietnamese language
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
@@ -226,20 +226,20 @@ else
 
         recognition.onerror = function(event) {
             console.error('Speech recognition error:', event.error);
-            let errorMessage = 'Lỗi nhận dạng giọng nói.';
+            let errorMessage = 'Lá»—i nháº­n dáº¡ng giá»ng nÃ³i.';
 
             switch(event.error) {
                 case 'no-speech':
-                    errorMessage = 'Không phát hiện giọng nói. Vui lòng thử lại.';
+                    errorMessage = 'KhÃ´ng phÃ¡t hiá»‡n giá»ng nÃ³i. Vui lÃ²ng thá»­ láº¡i.';
                     break;
                 case 'audio-capture':
-                    errorMessage = 'Không thể truy cập micro. Vui lòng cấp quyền micro.';
+                    errorMessage = 'KhÃ´ng thá»ƒ truy cáº­p micro. Vui lÃ²ng cáº¥p quyá»n micro.';
                     break;
                 case 'not-allowed':
-                    errorMessage = 'Quyền truy cập micro bị từ chối.';
+                    errorMessage = 'Quyá»n truy cáº­p micro bá»‹ tá»« chá»‘i.';
                     break;
                 case 'network':
-                    errorMessage = 'Lỗi mạng. Vui lòng kiểm tra kết nối.';
+                    errorMessage = 'Lá»—i máº¡ng. Vui lÃ²ng kiá»ƒm tra káº¿t ná»‘i.';
                     break;
             }
 

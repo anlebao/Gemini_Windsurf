@@ -1,4 +1,4 @@
-@page "/order-tracking/{orderId:guid}"
+Ôªø@page "/order-tracking/{orderId:guid}"
 @using VanAn.Shared.DTOs
 @using VanAn.KhachLink.Components
 @using VanAn.KhachLink.Services.Http
@@ -9,9 +9,9 @@
 @inject ShopFeatureSettingsHttpService FeatureSettings
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
 
-<PageTitle>KhachLink - Theo dıi don h‡ng</PageTitle>
+<PageTitle>KhachLink - Theo d√µi don h√†ng</PageTitle>
 
-<!-- Identity Upgrade Modal ó only shown when order is delivered (end of order flow) -->
+<!-- Identity Upgrade Modal ‚Äî only shown when order is delivered (end of order flow) -->
 <IdentityUpgradeModal ShowModal="@_showUpgradeModal"
                       ShopConfig="@null"
                       OnDismiss="@DismissUpgradeModal"
@@ -61,7 +61,7 @@
     }
 </style>
 
-<!-- T-02d: .order-tracking container ó required by E2E spec selector contract -->
+<!-- T-02d: .order-tracking container ‚Äî required by E2E spec selector contract -->
 <div class="container order-tracking" data-testid="order-tracking-container">
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -71,9 +71,9 @@
                 <div class="card">
                     <div class="card-body text-center py-5">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">–ang t?i...</span>
+                            <span class="visually-hidden">√êang t?i...</span>
                         </div>
-                        <p class="mt-3">–ang t?i thÙng tin don h‡ng...</p>
+                        <p class="mt-3">√êang t?i th√¥ng tin don h√†ng...</p>
                     </div>
                 </div>
             }
@@ -82,8 +82,8 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="alert alert-warning not-found" data-testid="order-tracking-not-found">
-                            <h5>? KhÙng tÏm th?y don h‡ng</h5>
-                            <p>M„ don h‡ng <strong>@orderId.ToString()[..8]Ö</strong> khÙng t?n t?i trong h? th?ng.</p>
+                            <h5>? Kh√¥ng t√¨m th?y don h√†ng</h5>
+                            <p>M√£ don h√†ng <strong>@orderId.ToString()[..8]‚Ä¶</strong> kh√¥ng t?n t?i trong h? th?ng.</p>
                             <p class="text-muted small">@errorMessage</p>
                             <a href="/home" class="btn btn-primary" data-testid="order-tracking-btn-back-home">Quay l?i trang ch?</a>
                         </div>
@@ -94,18 +94,18 @@
             {
                 <div class="card">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0" data-testid="order-tracking-heading">?? Theo dıi don h‡ng #@orderId.ToString()[..8]</h4>
+                        <h4 class="mb-0" data-testid="order-tracking-heading">?? Theo d√µi don h√†ng #@orderId.ToString()[..8]</h4>
                         @if (isPolling && isTabVisible)
                         {
-                            <div class="spinner-border spinner-border-sm text-light" role="status" title="–ang c?p nh?t...">
-                                <span class="visually-hidden">–ang c?p nh?t...</span>
+                            <div class="spinner-border spinner-border-sm text-light" role="status" title="√êang c?p nh?t...">
+                                <span class="visually-hidden">√êang c?p nh?t...</span>
                             </div>
                         }
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-8">
-                                <h5>Tr?ng th·i don h‡ng</h5>
+                                <h5>Tr?ng th√°i don h√†ng</h5>
 
                                 <!-- Status Timeline -->
                                 <div class="timeline status-timeline" data-testid="order-tracking-timeline">
@@ -135,38 +135,38 @@
                             </div>
 
                             <div class="col-md-4">
-                                <h5>ThÙng tin don h‡ng</h5>
+                                <h5>Th√¥ng tin don h√†ng</h5>
                                 <div class="order-info">
                                     @if (!string.IsNullOrEmpty(_publicOrder.TenantName))
                                     {
-                                        <p><strong>C?a h‡ng:</strong> @_publicOrder.TenantName</p>
+                                        <p><strong>C?a h√†ng:</strong> @_publicOrder.TenantName</p>
                                     }
                                     else if (!string.IsNullOrEmpty(_shopName))
                                     {
-                                        <p><strong>C?a h‡ng:</strong> @_shopName</p>
+                                        <p><strong>C?a h√†ng:</strong> @_shopName</p>
                                     }
-                                    <p><strong>M„ don:</strong> #@_publicOrder.OrderId.ToString()[..8]</p>
-                                    <p><strong>Tr?ng th·i:</strong>
+                                    <p><strong>M√£ don:</strong> #@_publicOrder.OrderId.ToString()[..8]</p>
+                                    <p><strong>Tr?ng th√°i:</strong>
                                         <span class="badge bg-@GetStatusColor(_publicOrder.Status ?? "")" data-testid="order-tracking-status">
-                                            @(_publicOrder.Status ?? "ó")
+                                            @(_publicOrder.Status ?? "‚Äî")
                                         </span>
                                     </p>
-                                    <p><strong>Ng‡y d?t:</strong> @_publicOrder.CreatedAt.ToVietnamString()</p>
+                                    <p><strong>Ng√†y d?t:</strong> @_publicOrder.CreatedAt.ToVietnamString()</p>
                                     @if (_vatDisplayEnabled && _publicOrder.TotalVatAmount > 0)
                                     {
-                                        <p><strong>T?m tÌnh:</strong> @_publicOrder.SubTotal.ToString("N0")d</p>
+                                        <p><strong>T?m t√≠nh:</strong> @_publicOrder.SubTotal.ToString("N0")d</p>
                                         <p><strong>VAT:</strong> @_publicOrder.TotalVatAmount.ToString("N0")d</p>
                                     }
                                     <p><strong>T?ng ti?n:</strong> @_publicOrder.TotalPrice.ToString("N0")d</p>
                                 </div>
 
                                 <div class="mt-3">
-                                    <h6>Chi ti?t don h‡ng</h6>
+                                    <h6>Chi ti?t don h√†ng</h6>
                                     <ul class="list-group">
                                         @foreach (var item in _publicOrder.Items)
                                         {
                                             <li class="list-group-item d-flex justify-content-between">
-                                                <span>@item.Quantity ◊ @item.UnitPrice.ToString("N0")d</span>
+                                                <span>@item.Quantity √ó @item.UnitPrice.ToString("N0")d</span>
                                                 <span class="text-muted">@item.TotalPrice.ToString("N0")d</span>
                                             </li>
                                         }
@@ -174,26 +174,26 @@
                                 </div>
 
                                 <div class="mt-3">
-                                    <!-- W2-T1: Customer confirm receipt button ó visible when status=ready -->
+                                    <!-- W2-T1: Customer confirm receipt button ‚Äî visible when status=ready -->
                                     @if (_publicOrder?.Status == "ready" && !_confirmingReceipt)
                                     {
                                         <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
                                                      OnClick="ConfirmReceived" data-testid="btn-confirm-received">
-                                            ? X·c nh?n d„ nh?n h‡ng
+                                            ? X√°c nh?n d√£ nh?n h√†ng
                                         </VanAnButton>
                                     }
                                     else if (_publicOrder?.Status == "ready" && _confirmingReceipt)
                                     {
                                         <VanAnButton Variant="ButtonVariant.Secondary" FullWidth="true" disabled="true">
-                                            –ang x·c nh?n...
+                                            √êang x√°c nh?n...
                                         </VanAnButton>
                                     }
 
-                                    <!-- W2-T4: Loyalty bypass ó when toggle OFF, show "C?m on" instead of IdentityUpgradeModal -->
+                                    <!-- W2-T4: Loyalty bypass ‚Äî when toggle OFF, show "C?m on" instead of IdentityUpgradeModal -->
                                     @if (_publicOrder?.Status == "delivered" && !loyaltyEnabled && !_hasShownUpgradeModal)
                                     {
                                         <VanAnAlert Variant="AlertVariant.Success"
-                                                    Message="C?m on qu˝ kh·ch! ?? H?n g?p l?i!" Dismissible="false" />
+                                                    Message="C?m on qu√Ω kh√°ch! ?? H?n g?p l?i!" Dismissible="false" />
                                         _hasShownUpgradeModal = true; // Prevent re-render flicker
                                     }
 
@@ -211,8 +211,8 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="alert alert-warning not-found">
-                            <h5>? KhÙng tÏm th?y don h‡ng</h5>
-                            <p>–on h‡ng khÙng t?n t?i ho?c d„ b? xÛa.</p>
+                            <h5>? Kh√¥ng t√¨m th?y don h√†ng</h5>
+                            <p>√êon h√†ng kh√¥ng t?n t?i ho?c d√£ b? x√≥a.</p>
                             <a href="/home" class="btn btn-primary">Quay l?i trang ch?</a>
                         </div>
                     </div>
@@ -223,15 +223,15 @@
             {
                 <div class="card mt-3">
                     <div class="card-body">
-                        <h6>?? –on h‡ng kh·c t? phiÍn thanh to·n n‡y</h6>
+                        <h6>?? √êon h√†ng kh√°c t? phi√™n thanh to√°n n√†y</h6>
                         <ul class="list-group">
                             @foreach (var other in _otherOrdersFromSession)
                             {
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>–on h‡ng #@other.OrderId[..8]}</span>
+                                    <span>√êon h√†ng #@other.OrderId[..8]}</span>
                                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                OnClick="@(() => Navigation.NavigateTo($"/order-tracking/{other.OrderId}"))">
-                                        Theo dıi
+                                        Theo d√µi
                                     </VanAnButton>
                                 </li>
                             }
@@ -252,11 +252,11 @@
     private List<TrackingStep> statusTimeline = new();
     private bool isLoading = true;
     private string? errorMessage;
-    // W1-T9: Kitchen toggle ó controls visibility of preparing/ready steps in timeline
+    // W1-T9: Kitchen toggle ‚Äî controls visibility of preparing/ready steps in timeline
     private bool kitchenEnabled = true;
-    // W2-T4: Loyalty toggle ó controls IdentityUpgradeModal vs "C?m on" message
+    // W2-T4: Loyalty toggle ‚Äî controls IdentityUpgradeModal vs "C?m on" message
     private bool loyaltyEnabled = true;
-    // RC-7: VAT display toggle ó show/hide VAT breakdown on tracking page
+    // RC-7: VAT display toggle ‚Äî show/hide VAT breakdown on tracking page
     private bool _vatDisplayEnabled = true;
     // W2-T1: Customer confirm receipt state
     private bool _confirmingReceipt = false;
@@ -271,7 +271,7 @@
     private bool isTabVisible = true;
     private bool _pollingStopped = false; // W4: stops polling when order reaches final state
 
-    // IdentityUpgradeModal ó only shown when order reaches "delivered" status
+    // IdentityUpgradeModal ‚Äî only shown when order reaches "delivered" status
     private bool _showUpgradeModal = false;
     private bool _hasShownUpgradeModal = false;
 
@@ -342,7 +342,7 @@
                     }
                 }
             }
-            catch { /* non-critical ó localStorage may not be available during prerender */ }
+            catch { /* non-critical ‚Äî localStorage may not be available during prerender */ }
         }
     }
 
@@ -357,7 +357,7 @@
         }
     }
 
-    // T-02d: Call Gateway public API (no auth required) ó W6/Bucket D
+    // T-02d: Call Gateway public API (no auth required) ‚Äî W6/Bucket D
     private async Task LoadOrderFromGateway()
     {
         try
@@ -386,12 +386,12 @@
             }
             else
             {
-                errorMessage = $"L?i t?i don h‡ng: {(int)response.StatusCode}";
+                errorMessage = $"L?i t?i don h√†ng: {(int)response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"KhÙng th? k?t n?i d?n m·y ch?: {ex.Message}";
+            errorMessage = $"Kh√¥ng th? k?t n?i d?n m√°y ch?: {ex.Message}";
         }
     }
 
@@ -401,11 +401,11 @@
         // W1-T9: When kitchen toggle OFF, hide preparing/ready steps
         var allSteps = new[]
         {
-            new { Id = "pending",    DisplayName = "Ch? x·c nh?n",  Sequence = 1 },
-            new { Id = "confirmed",  DisplayName = "–„ x·c nh?n",   Sequence = 2 },
-            new { Id = "preparing",  DisplayName = "–ang ch? bi?n", Sequence = 3 },
-            new { Id = "ready",      DisplayName = "S?n s‡ng",      Sequence = 4 },
-            new { Id = "delivered",  DisplayName = "–„ giao",       Sequence = 5 },
+            new { Id = "pending",    DisplayName = "Ch? x√°c nh?n",  Sequence = 1 },
+            new { Id = "confirmed",  DisplayName = "√ê√£ x√°c nh?n",   Sequence = 2 },
+            new { Id = "preparing",  DisplayName = "√êang ch? bi?n", Sequence = 3 },
+            new { Id = "ready",      DisplayName = "S?n s√†ng",      Sequence = 4 },
+            new { Id = "delivered",  DisplayName = "√ê√£ giao",       Sequence = 5 },
         };
 
         // W1-T9: Filter out kitchen statuses when toggle is OFF
@@ -464,7 +464,7 @@
     }
 
     /// <summary>
-    /// W4: Adaptive polling loop ó interval changes based on order status.
+    /// W4: Adaptive polling loop ‚Äî interval changes based on order status.
     /// pending/ready = 5s (need fast updates), confirmed/preparing = 10s (stable),
     /// completed/delivered/cancelled = STOP (no more requests).
     /// </summary>
@@ -479,7 +479,7 @@
 
                 if (intervalSeconds == 0)
                 {
-                    // Final state reached ó stop polling entirely
+                    // Final state reached ‚Äî stop polling entirely
                     _pollingStopped = true;
                     isPolling = false;
                     break;
@@ -521,10 +521,10 @@
         "confirmed" => _pollingIntervalSeconds,
         "preparing" => _pollingIntervalSeconds,
         "ready"     => _pollingIntervalSeconds,
-        "completed" => 0,   // Ho‡n th‡nh ó STOP polling
-        "delivered" => 0,   // –„ giao ó STOP polling
-        "cancelled" => 0,   // –„ h?y ó STOP polling
-        _           => _pollingIntervalSeconds  // Unknown ó default to configured interval
+        "completed" => 0,   // Ho√†n th√†nh ‚Äî STOP polling
+        "delivered" => 0,   // √ê√£ giao ‚Äî STOP polling
+        "cancelled" => 0,   // √ê√£ h?y ‚Äî STOP polling
+        _           => _pollingIntervalSeconds  // Unknown ‚Äî default to configured interval
     };
 
     private async Task<bool> CheckTabVisibilityAsync()
@@ -579,7 +579,7 @@
 
     /// <summary>
     /// Show IdentityUpgradeModal only when order reaches "delivered" status.
-    /// This ensures the modal does NOT block the order flow ó it appears at the very end.
+    /// This ensures the modal does NOT block the order flow ‚Äî it appears at the very end.
     /// </summary>
     private void CheckOrderDelivered()
     {
@@ -628,7 +628,7 @@
             }
             else
             {
-                errorMessage = $"KhÙng th? x·c nh?n d„ nh?n h‡ng: {(int)response.StatusCode}";
+                errorMessage = $"Kh√¥ng th? x√°c nh?n d√£ nh?n h√†ng: {(int)response.StatusCode}";
             }
         }
         catch (Exception ex)
