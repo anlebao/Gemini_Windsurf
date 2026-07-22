@@ -35,8 +35,8 @@
                 <div class="col-md-6">
                     <VanAnCard Header="📋 Chi tiết đơn hàng">
                         <div class="order-success alert-success" role="status">
-                            <p><strong>? Đặt hàng thành công!</strong></p>
-                            <p>?Đã tạo <strong>@_createdOrders.Count</strong> đơn hàng từ giỏ hàng của bạn.</p>
+                            <p><strong>✅ Đặt hàng thành công!</strong></p>
+                            <p>📦 Đã tạo <strong>@_createdOrders.Count</strong> đơn hàng từ giỏ hàng của bạn.</p>
                         </div>
                         <hr />
 
@@ -246,7 +246,7 @@
     private List<CartItem> cartSnapshot = new();
     private bool _vatDisplayEnabled = true;
 
-    // Phase 5: Multi-tenant checkout ? multiple orders from one cart.
+    // Phase 5: Multi-tenant checkout — multiple orders from one cart.
     private List<CreatedOrderItem> _createdOrders = new();
     private List<CheckoutErrorItem> _checkoutErrors = new();
 
@@ -263,7 +263,7 @@
     // Post-checkout loyalty signup: show IdentityUpgradeModal after order success for anonymous users
     private bool _showLoyaltySignupModal = false;
     private bool _isLoggedIn = false;
-    // Logged-in customer ID (from localStorage "customer_id") ? sent with checkout request
+    // Logged-in customer ID (from localStorage "customer_id") — sent with checkout request
     // so the created order is linked to the Customer entity and appears in order history.
     private Guid? _customerId = null;
 
@@ -322,7 +322,7 @@
                         }
                     }
                 }
-                catch { /* non-critical ? pre-fill is a convenience, not a hard requirement */ }
+                catch { /* non-critical — pre-fill is a convenience, not a hard requirement */ }
             }
 
             StateHasChanged();
@@ -332,7 +332,7 @@
     private async Task SubmitGuestOrder()
     {
         // Online guard: checkout requires real-time validation from Gateway (price, inventory).
-        // Do NOT queue offline ? financial transactions must be confirmed immediately.
+        // Do NOT queue offline — financial transactions must be confirmed immediately.
         var isOnline = await JSRuntime.InvokeAsync<bool>("eval", "navigator.onLine");
         if (!isOnline)
         {
@@ -341,7 +341,7 @@
             return;
         }
 
-        // Bug 2: Conditional validation ? transfer requires name+phone for reconciliation, cash does not
+        // Bug 2: Conditional validation — transfer requires name+phone for reconciliation, cash does not
         if (selectedPaymentMethod == "transfer")
         {
             if (string.IsNullOrWhiteSpace(guestName))
@@ -384,7 +384,7 @@
 
             // Bug 1a fix: Don't pass CustomerId if no Customer entity exists in DB.
             // FK constraint requires Customer to exist. Since Customers table may be empty,
-            // passing an invalid CustomerId causes FK violation ? checkout fails.
+            // passing an invalid CustomerId causes FK violation — checkout fails.
             // Instead, rely on CustomerDeviceId for order history linking.
             Guid? customerIdForOrder = null;
             if (_isLoggedIn && _customerId.HasValue)
@@ -399,7 +399,7 @@
                     if (checkResp.IsSuccessStatusCode)
                         customerIdForOrder = _customerId;
                     else
-                        _isLoggedIn = false; // token invalid ? treat as guest
+                        _isLoggedIn = false; // token invalid — treat as guest
                 }
                 catch { /* if check fails, proceed as guest */ }
             }
@@ -445,14 +445,14 @@
                     {
                         _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(firstTenantId, nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
                     }
-                    catch { /* non-critical ? default to true */ }
+                    catch { /* non-critical — default to true */ }
 
                     try
                     {
                         var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(firstTenantId);
                         shopName = shopConfig?.ShopName;
                     }
-                    catch { /* non-critical ? shop name is optional display */ }
+                    catch { /* non-critical — shop name is optional display */ }
                 }
 
                 // Phase 5: Store created_orders in localStorage for OrderHistory.
@@ -468,7 +468,7 @@
                     await JSRuntime.InvokeVoidAsync("localStorage.setItem", "created_orders", ordersJson);
                 }
 
-                // Phase 5: Partial cart clear ? only remove items belonging to successful tenants.
+                // Phase 5: Partial cart clear — only remove items belonging to successful tenants.
                 var successfulTenantIds = _createdOrders.Select(o => o.TenantId).ToHashSet();
                 var itemsToKeep = cartState.Items.Where(i => !successfulTenantIds.Contains(i.TenantId)).ToList();
                 if (itemsToKeep.Count == 0)
@@ -484,7 +484,7 @@
                     // SaveCartToStorageAsync is called by ClearCartAsync; we need to persist the re-added items.
                     // CartService doesn't expose a public Save method for direct item manipulation,
                     // so we trigger a save by calling UpdateQuantityAsync on a kept item (no-op if single item).
-                    // This is a workaround ? a proper fix would add CartService.PersistAsync().
+                    // This is a workaround — a proper fix would add CartService.PersistAsync().
                     if (itemsToKeep.Count > 0)
                     {
                         await CartService.UpdateQuantityAsync(itemsToKeep[0].ProductId, itemsToKeep[0].Quantity);
@@ -497,7 +497,7 @@
                     _showLoyaltySignupModal = true;
                 }
 
-                // W1-T1: Cash flow with single successful order ? redirect to OrderTracking immediately.
+                // W1-T1: Cash flow with single successful order — redirect to OrderTracking immediately.
                 if (selectedPaymentMethod == "cash" && _createdOrders.Count == 1 && _checkoutErrors.Count == 0)
                 {
                     NavigationManager.NavigateTo($"/order-tracking/{_createdOrders[0].OrderId}");
@@ -507,15 +507,15 @@
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Checkout API error: {response.StatusCode} ? {errorContent}");
-                formError = $"L?i t?o đơn hàng ({response.StatusCode}). Vui lòng thử lại ho?c li?n h? qu?n.";
+                Console.WriteLine($"Checkout API error: {response.StatusCode} — {errorContent}");
+                formError = $"Lỗi tạo đơn hàng ({response.StatusCode}). Vui lòng thử lại hoặc liên hệ quản.";
                 showGuestForm = true;
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Exception creating order: {ex.Message}");
-            formError = $"L?i k?t n?i: {ex.Message}";
+            formError = $"Lỗi kết nối: {ex.Message}";
             showGuestForm = true;
         }
         finally

@@ -9,7 +9,7 @@
 @inject ShopFeatureSettingsHttpService FeatureSettings
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
 
-<PageTitle>KhachLink - Theo dõi don hàng</PageTitle>
+<PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
 
 <!-- Identity Upgrade Modal — only shown when order is delivered (end of order flow) -->
 <IdentityUpgradeModal ShowModal="@_showUpgradeModal"
@@ -71,9 +71,9 @@
                 <div class="card">
                     <div class="card-body text-center py-5">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Ðang t?i...</span>
+                            <span class="visually-hidden">Đang tải...</span>
                         </div>
-                        <p class="mt-3">Ðang t?i thông tin don hàng...</p>
+                        <p class="mt-3">Đang tải thông tin đơn hàng...</p>
                     </div>
                 </div>
             }
@@ -82,10 +82,10 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="alert alert-warning not-found" data-testid="order-tracking-not-found">
-                            <h5>? Không tìm th?y don hàng</h5>
-                            <p>Mã don hàng <strong>@orderId.ToString()[..8]…</strong> không t?n t?i trong h? th?ng.</p>
+                            <h5>⚠ Không tìm thấy đơn hàng</h5>
+                            <p>Mã đơn hàng <strong>@orderId.ToString()[..8]…</strong> không tồn tại trong hệ thống.</p>
                             <p class="text-muted small">@errorMessage</p>
-                            <a href="/home" class="btn btn-primary" data-testid="order-tracking-btn-back-home">Quay l?i trang ch?</a>
+                            <a href="/home" class="btn btn-primary" data-testid="order-tracking-btn-back-home">Quay lại trang chủ</a>
                         </div>
                     </div>
                 </div>
@@ -94,18 +94,18 @@
             {
                 <div class="card">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0" data-testid="order-tracking-heading">?? Theo dõi don hàng #@orderId.ToString()[..8]</h4>
+                        <h4 class="mb-0" data-testid="order-tracking-heading">?? Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
                         @if (isPolling && isTabVisible)
                         {
-                            <div class="spinner-border spinner-border-sm text-light" role="status" title="Ðang c?p nh?t...">
-                                <span class="visually-hidden">Ðang c?p nh?t...</span>
+                            <div class="spinner-border spinner-border-sm text-light" role="status" title="Đang cập nhật...">
+                                <span class="visually-hidden">Đang cập nhật...</span>
                             </div>
                         }
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-8">
-                                <h5>Tr?ng thái don hàng</h5>
+                                <h5>Trạng thái đơn hàng</h5>
 
                                 <!-- Status Timeline -->
                                 <div class="timeline status-timeline" data-testid="order-tracking-timeline">
@@ -115,11 +115,11 @@
                                             <div class="timeline-marker">
                                                 @if (step.IsCompleted)
                                                 {
-                                                    <span>?</span>
+                                                    <span>✓</span>
                                                 }
                                                 else
                                                 {
-                                                    <span>?</span>
+                                                    <span>⏳</span>
                                                 }
                                             </div>
                                             <div class="timeline-content">
@@ -135,33 +135,33 @@
                             </div>
 
                             <div class="col-md-4">
-                                <h5>Thông tin don hàng</h5>
+                                <h5>Thông tin đơn hàng</h5>
                                 <div class="order-info">
                                     @if (!string.IsNullOrEmpty(_publicOrder.TenantName))
                                     {
-                                        <p><strong>C?a hàng:</strong> @_publicOrder.TenantName</p>
+                                        <p><strong>Cửa hàng:</strong> @_publicOrder.TenantName</p>
                                     }
                                     else if (!string.IsNullOrEmpty(_shopName))
                                     {
-                                        <p><strong>C?a hàng:</strong> @_shopName</p>
+                                        <p><strong>Cửa hàng:</strong> @_shopName</p>
                                     }
-                                    <p><strong>Mã don:</strong> #@_publicOrder.OrderId.ToString()[..8]</p>
-                                    <p><strong>Tr?ng thái:</strong>
+                                    <p><strong>Mã đơn:</strong> #@_publicOrder.OrderId.ToString()[..8]</p>
+                                    <p><strong>Trạng thái:</strong>
                                         <span class="badge bg-@GetStatusColor(_publicOrder.Status ?? "")" data-testid="order-tracking-status">
                                             @(_publicOrder.Status ?? "—")
                                         </span>
                                     </p>
-                                    <p><strong>Ngày d?t:</strong> @_publicOrder.CreatedAt.ToVietnamString()</p>
+                                    <p><strong>Ngày đặt:</strong> @_publicOrder.CreatedAt.ToVietnamString()</p>
                                     @if (_vatDisplayEnabled && _publicOrder.TotalVatAmount > 0)
                                     {
-                                        <p><strong>T?m tính:</strong> @_publicOrder.SubTotal.ToString("N0")d</p>
+                                        <p><strong>Tạm tính:</strong> @_publicOrder.SubTotal.ToString("N0")d</p>
                                         <p><strong>VAT:</strong> @_publicOrder.TotalVatAmount.ToString("N0")d</p>
                                     }
-                                    <p><strong>T?ng ti?n:</strong> @_publicOrder.TotalPrice.ToString("N0")d</p>
+                                    <p><strong>Tổng tiền:</strong> @_publicOrder.TotalPrice.ToString("N0")d</p>
                                 </div>
 
                                 <div class="mt-3">
-                                    <h6>Chi ti?t don hàng</h6>
+                                    <h6>Chi tiết đơn hàng</h6>
                                     <ul class="list-group">
                                         @foreach (var item in _publicOrder.Items)
                                         {
@@ -179,26 +179,26 @@
                                     {
                                         <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
                                                      OnClick="ConfirmReceived" data-testid="btn-confirm-received">
-                                            ? Xác nh?n dã nh?n hàng
+                                            ✓ Xác nhận đã nhận hàng
                                         </VanAnButton>
                                     }
                                     else if (_publicOrder?.Status == "ready" && _confirmingReceipt)
                                     {
                                         <VanAnButton Variant="ButtonVariant.Secondary" FullWidth="true" disabled="true">
-                                            Ðang xác nh?n...
+                                            Đang xác nhận...
                                         </VanAnButton>
                                     }
 
-                                    <!-- W2-T4: Loyalty bypass — when toggle OFF, show "C?m on" instead of IdentityUpgradeModal -->
+                                    <!-- W2-T4: Loyalty bypass — when toggle OFF, show "Cảm ơn" instead of IdentityUpgradeModal -->
                                     @if (_publicOrder?.Status == "delivered" && !loyaltyEnabled && !_hasShownUpgradeModal)
                                     {
                                         <VanAnAlert Variant="AlertVariant.Success"
-                                                    Message="C?m on quý khách! ?? H?n g?p l?i!" Dismissible="false" />
+                                                    Message="Cảm ơn quý khách! 🌸 Hẹn gặp lại!" Dismissible="false" />
                                         _hasShownUpgradeModal = true; // Prevent re-render flicker
                                     }
 
                                     <a href="/home" class="btn btn-outline-primary w-100 mt-2" data-testid="order-tracking-btn-back-home-success">
-                                        Quay l?i trang ch?
+                                        Quay lại trang chủ
                                     </a>
                                 </div>
                             </div>
@@ -211,9 +211,9 @@
                 <div class="card">
                     <div class="card-body">
                         <div class="alert alert-warning not-found">
-                            <h5>? Không tìm th?y don hàng</h5>
-                            <p>Ðon hàng không t?n t?i ho?c dã b? xóa.</p>
-                            <a href="/home" class="btn btn-primary">Quay l?i trang ch?</a>
+                            <h5>⚠ Không tìm thấy đơn hàng</h5>
+                            <p>Đơn hàng không tồn tại hoặc đã bị xóa.</p>
+                            <a href="/home" class="btn btn-primary">Quay lại trang chủ</a>
                         </div>
                     </div>
                 </div>
@@ -223,12 +223,12 @@
             {
                 <div class="card mt-3">
                     <div class="card-body">
-                        <h6>?? Ðon hàng khác t? phiên thanh toán này</h6>
+                        <h6>📦 Đơn hàng khác từ phiên thanh toán này</h6>
                         <ul class="list-group">
                             @foreach (var other in _otherOrdersFromSession)
                             {
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>Ðon hàng #@other.OrderId[..8]}</span>
+                                    <span>Đơn hàng #@other.OrderId[..8]}</span>
                                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                OnClick="@(() => Navigation.NavigateTo($"/order-tracking/{other.OrderId}"))">
                                         Theo dõi
@@ -254,7 +254,7 @@
     private string? errorMessage;
     // W1-T9: Kitchen toggle — controls visibility of preparing/ready steps in timeline
     private bool kitchenEnabled = true;
-    // W2-T4: Loyalty toggle — controls IdentityUpgradeModal vs "C?m on" message
+    // W2-T4: Loyalty toggle — controls IdentityUpgradeModal vs "Cảm ơn" message
     private bool loyaltyEnabled = true;
     // RC-7: VAT display toggle — show/hide VAT breakdown on tracking page
     private bool _vatDisplayEnabled = true;
@@ -386,12 +386,12 @@
             }
             else
             {
-                errorMessage = $"L?i t?i don hàng: {(int)response.StatusCode}";
+                errorMessage = $"Lỗi tải đơn hàng: {(int)response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Không th? k?t n?i d?n máy ch?: {ex.Message}";
+            errorMessage = $"Không thể kết nối đến máy chủ: {ex.Message}";
         }
     }
 
@@ -401,11 +401,11 @@
         // W1-T9: When kitchen toggle OFF, hide preparing/ready steps
         var allSteps = new[]
         {
-            new { Id = "pending",    DisplayName = "Ch? xác nh?n",  Sequence = 1 },
-            new { Id = "confirmed",  DisplayName = "Ðã xác nh?n",   Sequence = 2 },
-            new { Id = "preparing",  DisplayName = "Ðang ch? bi?n", Sequence = 3 },
-            new { Id = "ready",      DisplayName = "S?n sàng",      Sequence = 4 },
-            new { Id = "delivered",  DisplayName = "Ðã giao",       Sequence = 5 },
+            new { Id = "pending",    DisplayName = "Chờ xác nhận",  Sequence = 1 },
+            new { Id = "confirmed",  DisplayName = "Đã xác nhận",   Sequence = 2 },
+            new { Id = "preparing",  DisplayName = "Đang chế biến", Sequence = 3 },
+            new { Id = "ready",      DisplayName = "Sẵn sàng",      Sequence = 4 },
+            new { Id = "delivered",  DisplayName = "Đã giao",       Sequence = 5 },
         };
 
         // W1-T9: Filter out kitchen statuses when toggle is OFF
@@ -491,6 +491,11 @@
 
                 // Check visibility using JS interop for battery-friendly polling
                 var isVisible = await CheckTabVisibilityAsync();
+                if (isTabVisible != isVisible)
+                {
+                    isTabVisible = isVisible;
+                    await InvokeAsync(StateHasChanged);
+                }
                 if (!isVisible) continue; // Skip polling when tab is hidden
 
                 await InvokeAsync(async () =>
@@ -522,8 +527,8 @@
         "preparing" => _pollingIntervalSeconds,
         "ready"     => _pollingIntervalSeconds,
         "completed" => 0,   // Hoàn thành — STOP polling
-        "delivered" => 0,   // Ðã giao — STOP polling
-        "cancelled" => 0,   // Ðã h?y — STOP polling
+        "delivered" => 0,   // Đã giao — STOP polling
+        "cancelled" => 0,   // Đã hủy — STOP polling
         _           => _pollingIntervalSeconds  // Unknown — default to configured interval
     };
 
@@ -628,12 +633,12 @@
             }
             else
             {
-                errorMessage = $"Không th? xác nh?n dã nh?n hàng: {(int)response.StatusCode}";
+                errorMessage = $"Không thể xác nhận đã nhận hàng: {(int)response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"L?i: {ex.Message}";
+            errorMessage = $"Lỗi: {ex.Message}";
         }
         finally
         {
