@@ -77,8 +77,8 @@ namespace VanAn.CoreHub.Services
             var socialFb = request.SocialLinksFb ?? existingSettings?.SocialLinksFb;
             var socialTiktok = request.SocialLinksTiktok ?? existingSettings?.SocialLinksTiktok;
             var brandStory = request.BrandStory ?? existingSettings?.BrandStory;
-            // Theme: preserve existing if request omits it (null = no change)
-            var theme = request.Theme ?? existingSettings?.Theme ?? ThemeType.Classic;
+            // Theme: always apply from request (admin UI always sends the actual theme value)
+            var theme = request.Theme;
 
             var settings = new TenantSettings(
                 request.ContactEmail,

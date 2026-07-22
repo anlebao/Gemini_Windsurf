@@ -92,6 +92,6 @@ namespace VanAn.ShopERP.Services
         public string? SocialLinksFb { get; init; }
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
-        public ThemeType? Theme { get; init; }
+        public ThemeType Theme { get; init; } = ThemeType.Classic;
     }
 }
