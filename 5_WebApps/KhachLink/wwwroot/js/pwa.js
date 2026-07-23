@@ -22,11 +22,32 @@ window.vananPWA = {
                     }
                 });
 
-                // Auto-reload when new service worker takes control (purges stale cache)
+                // Silent SW update: when new service worker takes control, do NOT auto-reload.
+                // Previous behavior (auto-reload on controllerchange) caused disruptive page
+                // refresh every ~60s on Home page after deploys. Instead, show a subtle toast
+                // so the user can refresh at their convenience. Next page load picks up new SW.
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.addEventListener('controllerchange', () => {
-                        console.log('Service Worker controller changed — reloading to purge stale cache');
-                        window.location.reload();
+                        console.log('Service Worker controller changed — new version active (silent update)');
+                        // Show subtle toast notification instead of disruptive reload
+                        if (window.vananPWA && window.vananPWA.dotNetRef) {
+                            window.vananPWA.dotNetRef.invokeMethodAsync('HandleServiceWorkerUpdated')
+                                .catch(() => { /* Blazor not ready — silent */ });
+                        }
+                        // Show non-blocking toast
+                        var toast = document.createElement('div');
+                        toast.id = 'vanan-sw-update-toast';
+                        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(139,69,19,0.95);color:white;padding:10px 20px;border-radius:24px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);cursor:pointer;transition:opacity 0.3s;';
+                        toast.textContent = 'App đã cập nhật — nhấn để tải lại';
+                        toast.onclick = function() { window.location.reload(); };
+                        document.body.appendChild(toast);
+                        // Auto-dismiss after 8s if user doesn't click
+                        setTimeout(function() {
+                            if (toast && toast.parentNode) {
+                                toast.style.opacity = '0';
+                                setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
+                            }
+                        }, 8000);
                     });
                 }
                 

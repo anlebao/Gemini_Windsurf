@@ -1,5 +1,5 @@
 ﻿// ============================================================================
-// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix (v12-sri-fix)
+// VanAn KhachLink PWA Service Worker — Phase 3 + SRI Hotfix + Silent Update (v13-silent-update)
 // ============================================================================
 // Cache strategy:
 //   - _framework/*.wasm/.dll/.js → network-first + cache fallback (WASM_CACHE)
@@ -30,16 +30,21 @@
 //   - Added activate event to delete stale caches from old SW versions
 //     (caches.match() checks ALL caches — old entries caused SRI mismatches)
 //   - Cache version bumped v11-phase3 → v12-sri-fix
+//
+// Silent Update (v13-silent-update, 2026-07-23):
+//   - Removed auto-reload on controllerchange (was causing disruptive 60s reload loop
+//     on Home page after deploys). Now shows subtle toast instead.
+//   - Cache version bumped v12-sri-fix → v13-silent-update
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v12-sri-fix';
-const STATIC_CACHE = 'vanan-static-v12-sri-fix';
-const DYNAMIC_CACHE = 'vanan-dynamic-v12-sri-fix';
-const WASM_CACHE = 'vanan-wasm-v12-sri-fix';
+const CACHE_NAME = 'vanan-khachlink-v13-silent-update';
+const STATIC_CACHE = 'vanan-static-v13-silent-update';
+const DYNAMIC_CACHE = 'vanan-dynamic-v13-silent-update';
+const WASM_CACHE = 'vanan-wasm-v13-silent-update';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -154,7 +159,6 @@ self.addEventListener('install', event => {
 // (e.g., v10-batched, v11-phase3) — causing SRI mismatches after deploys.
 self.addEventListener('activate', event => {
   const allowedCaches = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE, WASM_CACHE];
-  event.waitUntil(
     caches.keys()
       .then(keys => {
         const staleKeys = keys.filter(key => !allowedCaches.includes(key));
@@ -498,7 +502,7 @@ const OFFLINE_SHELL_HTML = `<!DOCTYPE html>
 // Activate: clean old caches + claim clients
 // ============================================================================
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [STATIC_CACHE, DYNAMIC_CACHE, WASM_CACHE];
+  const cacheWhitelist = [CACHE_NAME, STATIC_CACHE, DYNAMIC_CACHE, WASM_CACHE];
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -510,7 +514,7 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      console.log('SW activated — Phase 3 offline API fallback hardening ready');
+      console.log('SW activated — v13-silent-update (Phase 3 offline API fallback + silent SW update)');
       return self.clients.claim(); // Take control of all pages
     })
   );

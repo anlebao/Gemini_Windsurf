@@ -383,10 +383,11 @@
     {
         cartState = CartService.GetCartState();
         CartService.OnCartChanged += StateHasChanged;
-        await CartService.LoadCartFromStorageAsync();
-        await LoadProductsAsync();
-        await LoadShopConfigAsync();
-        await LoadRecentlyViewedAsync();
+        // Phase 1 (fast, localStorage): cart + recently viewed — no HTTP, runs in parallel
+        await Task.WhenAll(
+            CartService.LoadCartFromStorageAsync(),
+            LoadRecentlyViewedAsync()
+        );
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -405,22 +406,28 @@
                     _customerId = cid;
             }
 
-            // RC-7: Load VAT display toggle for CartDrawer.
+            // Phase 2 (parallel HTTP): products + catalog + campaigns/store + VAT toggle
+            // All 4 HTTP calls run concurrently → total wait = slowest call (not sum of all)
+            var productsTask = LoadProductsAsync();
+            var catalogTask = LoadCatalogAsync();
+            var tenantDataTask = LoadLastTenantDataAsync();
+
+            // VAT toggle (needs tenantId — fast, may fail silently)
             Guid tenantId = TenantService.GetCurrentTenantId();
+            Task vatTask = Task.CompletedTask;
             if (tenantId != Guid.Empty)
             {
-                try
-                {
-                    _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.VAT_Display_Enabled));
-                }
-                catch { /* non-critical — default to true */ }
+                vatTask = FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.VAT_Display_Enabled))
+                    .ContinueWith(t =>
+                    {
+                        if (t.IsCompletedSuccessfully) _vatDisplayEnabled = t.Result;
+                    }, TaskScheduler.Default);
             }
 
-            // Phase 6: Load recommended catalog (Featured + customer history if logged in)
-            await LoadCatalogAsync();
+            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask);
 
-            // Campaign + Store sections: load by last interaction tenantId
-            await LoadLastTenantDataAsync();
+            // Phase 3 (dependent): ShopConfig needs products list (derived from product TenantIds)
+            await LoadShopConfigAsync();
 
             StateHasChanged();
         }

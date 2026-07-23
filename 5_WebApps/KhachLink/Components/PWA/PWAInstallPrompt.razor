@@ -28,7 +28,10 @@
     <div class="offline-indicator @(IsOnline ? "online" : "offline")">
         <div class="offline-content">
             <i class="fas @(IsOnline ? "fa-wifi" : "fa-wifi-slash")"></i>
-            <span>@(IsOnline ? "Đã kết nối" : "Ngoại tuyến")</span>
+            @if (!IsOnline)
+            {
+                <span>Ngoại tuyến</span>
+            }
         </div>
     </div>
 }
@@ -137,6 +140,13 @@
     .offline-indicator.online {
         background: #28a745;
         color: white;
+        /* Icon-only when online — no text label, minimal footprint */
+        padding: 8px 10px;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        justify-content: center;
+        opacity: 0.6;
     }
 
     .offline-indicator.offline {
@@ -193,6 +203,12 @@
             bottom: 10px;
             left: 10px;
             font-size: 13px;
+        }
+
+        .offline-indicator.online {
+            width: 28px;
+            height: 28px;
+            padding: 6px 8px;
         }
     }
 
