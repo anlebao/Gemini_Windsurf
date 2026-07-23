@@ -10,7 +10,7 @@
     <VanAnCard CssClass="cart-drawer-card" Shadow="true">
         <HeaderContent>
             <div class="d-flex justify-content-between align-items-center w-100">
-                <h5 class="mb-0 text-white">ðŸ›’ Giá» hÃ ng cá»§a báº¡n</h5>
+                <h5 class="mb-0 text-white">🛒 Giỏ hàng của bạn</h5>
                 <VanAnButton Variant="ButtonVariant.Ghost" 
                            Size="ButtonSize.Small"
                            Icon="chevron-down"
@@ -27,7 +27,7 @@
                         <VanAnCard CssClass="cart-item-card" Shadow="false">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="cart-item-info">
-                                    <span class="cart-item-name">@(item?.ProductName ?? "Sáº£n pháº©m")</span>
+                                    <span class="cart-item-name">@(item?.ProductName ?? "Sản phẩm")</span>
                                     <span class="cart-item-quantity">x @(item?.Quantity ?? 0)</span>
                                 </div>
                                 <div class="cart-item-actions">
@@ -35,7 +35,7 @@
                                     <VanAnButton Variant="ButtonVariant.Error" 
                                                Size="ButtonSize.Small"
                                                OnClick="() => RemoveFromCart?.Invoke(item?.ProductId ?? Guid.Empty)">
-                                        âœ•
+                                        ✕
                                     </VanAnButton>
                                 </div>
                             </div>
@@ -53,14 +53,14 @@
                             </div>
                         }
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <span>Tá»•ng cá»™ng:</span>
+                            <span>Tổng cộng:</span>
                             <strong class="text-success">@CurrencyHelper.FormatVND(TotalAmount)</strong>
                         </div>
                         <VanAnButton Variant="ButtonVariant.Success" 
                                    Size="ButtonSize.Large"
                                    FullWidth="true"
                                    OnClick="async () => await Checkout()">
-                            Thanh toÃ¡n
+                            Thanh toán
                         </VanAnButton>
                     </VanAnCard>
                 </div>

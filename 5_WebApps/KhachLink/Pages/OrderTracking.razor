@@ -95,7 +95,7 @@
             {
                 <div class="card">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0" data-testid="order-tracking-heading">?? Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
+                        <h4 class="mb-0" data-testid="order-tracking-heading">📦 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
                         @if (isPolling && isTabVisible)
                         {
                             <div class="spinner-border spinner-border-sm text-light" role="status" title="Đang cập nhật...">
@@ -229,7 +229,7 @@
                             @foreach (var other in _otherOrdersFromSession)
                             {
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>Đơn hàng #@other.OrderId[..8]}</span>
+                                    <span>Đơn hàng #@GetShortId(other.OrderId)</span>
                                     <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
                                                OnClick="@(() => Navigation.NavigateTo($"/order-tracking/{other.OrderId}"))">
                                         Theo dõi
@@ -669,5 +669,8 @@
         public string TenantId { get; set; } = string.Empty;
         public decimal Amount { get; set; }
     }
+
+    /// <summary>Safe short ID display — handles short/empty strings without throwing.</summary>
+    private static string GetShortId(string id) => id.Length > 8 ? id[..8] : id;
 }
 
