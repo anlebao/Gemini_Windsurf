@@ -37,6 +37,30 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        /// <summary>
+        /// Get a single tenant by ID. Used by ShopERP AdminController.Impersonate
+        /// to validate tenant existence + status against the PG source of truth (Option C)
+        /// instead of querying ShopERP SQLite (which has no Tenants table).
+        /// </summary>
+        [HttpGet("{tenantId:guid}")]
+        public async Task<ActionResult<TenantDto>> GetById(Guid tenantId)
+        {
+            try
+            {
+                var tenant = await _tenantService.GetTenantByIdAsync(new TenantId(tenantId));
+                if (tenant == null)
+                {
+                    return NotFound(new { error = $"Tenant {tenantId} not found." });
+                }
+                return Ok(MapToDto(tenant));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
         [HttpPut("{tenantId:guid}/profile")]
         public async Task<ActionResult> UpdateProfile(Guid tenantId, [FromBody] UpdateTenantProfileApiRequest request)
         {
