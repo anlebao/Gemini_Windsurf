@@ -159,13 +159,8 @@
     private async Task InstallAppAsync()
     {
         var success = await PWAService.ShowInstallPromptAsync();
-        if (!success)
-        {
-            // Fallback: show instructions if browser doesn't support auto-install
-            await PWAService.ShowNotificationAsync(
-                "Cài đặt ứng dụng",
-                "Trên iPhone/iPad: nhấn nút Share → 'Thêm vào Màn hình chính'. Trên Android: menu ⋮ → 'Cài đặt ứng dụng'. Trên Desktop: nhấn icon Install trong thanh địa chỉ.");
-        }
+        // JS showInstallHelpToast() handles failure case with actionable toast + reload button.
+        // No Blazor notification needed — avoids double notification.
         if (success)
         {
             _showInstallButton = false;

@@ -35,16 +35,23 @@
 //   - Removed auto-reload on controllerchange (was causing disruptive 60s reload loop
 //     on Home page after deploys). Now shows subtle toast instead.
 //   - Cache version bumped v12-sri-fix → v13-silent-update
+//
+// Install Prompt Fix (v14-install-fix, 2026-07-23):
+//   - PWA install prompt: replaced static alert() with actionable toast that includes
+//     "Tải lại trang" button. Chrome 120+ removed menu ⋮ → "Install app" option when
+//     beforeinstallprompt is suppressed — old instructions no longer work.
+//   - Clear deferredPrompt after prompt() consumed (Chrome only allows 1 call per event).
+//   - Cache version bumped v13-silent-update → v14-install-fix
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v13-silent-update';
-const STATIC_CACHE = 'vanan-static-v13-silent-update';
-const DYNAMIC_CACHE = 'vanan-dynamic-v13-silent-update';
-const WASM_CACHE = 'vanan-wasm-v13-silent-update';
+const CACHE_NAME = 'vanan-khachlink-v14-install-fix';
+const STATIC_CACHE = 'vanan-static-v14-install-fix';
+const DYNAMIC_CACHE = 'vanan-dynamic-v14-install-fix';
+const WASM_CACHE = 'vanan-wasm-v14-install-fix';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -514,7 +521,7 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      console.log('SW activated — v13-silent-update (Phase 3 offline API fallback + silent SW update)');
+      console.log('SW activated — v14-install-fix (silent SW update + install prompt fix)');
       return self.clients.claim(); // Take control of all pages
     })
   );

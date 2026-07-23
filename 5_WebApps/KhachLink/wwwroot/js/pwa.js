@@ -86,17 +86,22 @@ window.vananPWA = {
             try {
                 const result = await this.deferredPrompt.prompt();
                 const outcome = await result.userChoice;
-                
+
                 if (outcome === 'accepted') {
                     this.isInstalled = true;
                     console.log('PWA installation accepted');
                     return true;
                 } else {
                     console.log('PWA installation dismissed');
+                    // Clear deferredPrompt — Chrome only allows prompt() once per event.
+                    // Next page load may fire beforeinstallprompt again (if engagement heuristic met).
+                    this.deferredPrompt = null;
                     return false;
                 }
             } catch (error) {
                 console.error('Failed to show install prompt:', error);
+                // Clear stale deferredPrompt — prompt() may have already been called
+                this.deferredPrompt = null;
                 return false;
             }
         }
@@ -104,22 +109,45 @@ window.vananPWA = {
         // iOS Safari: no beforeinstallprompt support — show instructions
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (isIOS) {
-            alert('Để cài đặt app Vạn An trên iPhone:\n\n1. Nhấn nút Share (hình vuông có mũi tên lên) ở thanh công cụ Safari\n2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen)\n3. Nhấn "Thêm" (Add)');
+            this.showInstallHelpToast('iOS', 'Nhấn nút Share → "Thêm vào Màn hình chính"');
             return false;
         }
 
-        // Android/Desktop Chrome: beforeinstallprompt may not have fired yet, or the
-        // browser may have suppressed it (e.g. user dismissed too many times, or the
-        // engagement heuristic hasn't been met). Show manual instructions instead of
-        // returning false silently so the user gets actionable feedback.
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        if (isAndroid) {
-            alert('Để cài đặt app Vạn An trên Android:\n\n1. Nhấn nút menu (⋮) ở góc trên bên phải Chrome\n2. Chọn "Thêm vào màn hình chính" (Add to Home screen)\n3. Nhấn "Thêm" (Add)');
-        } else {
-            // Desktop Chrome/Edge
-            alert('Để cài đặt app Vạn An trên máy tính:\n\n1. Nhấn nút menu (⋮ hoặc ...) ở góc trên bên phải trình duyệt\n2. Chọn "Cài đặt Vạn An..." (Install Vạn An...) hoặc "Cài đặt ứng dụng"\n3. Xác nhận cài đặt');
-        }
+        // Android/Desktop: beforeinstallprompt hasn't fired or was already consumed.
+        // Show actionable toast with reload button (Chrome re-fires event after page reload
+        // if engagement heuristic is met). Old behavior showed a static alert with manual
+        // instructions that no longer work in Chrome 120+ (menu ⋮ → "Install app" removed
+        // when beforeinstallprompt is suppressed).
+        this.showInstallHelpToast('Android', 'Tải lại trang để hiện prompt cài đặt');
         return false;
+    },
+
+    // Show non-blocking toast with install help (replaces intrusive alert())
+    showInstallHelpToast(platform, hint) {
+        // Remove any existing toast
+        var existing = document.getElementById('vanan-install-help-toast');
+        if (existing) existing.remove();
+
+        var toast = document.createElement('div');
+        toast.id = 'vanan-install-help-toast';
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(139,69,19,0.95);color:white;padding:14px 20px;border-radius:16px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:90vw;text-align:center;line-height:1.5;';
+        toast.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">Cài đặt Vạn An App</div>' +
+            '<div style="opacity:0.9;margin-bottom:10px;">' + hint + '</div>' +
+            '<button id="vanan-install-reload-btn" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Tải lại trang</button>';
+        document.body.appendChild(toast);
+
+        document.getElementById('vanan-install-reload-btn').onclick = function() {
+            window.location.reload();
+        };
+
+        // Auto-dismiss after 15s
+        setTimeout(function() {
+            if (toast && toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
+            }
+        }, 15000);
     },
 
     // Detect if running on iOS (no beforeinstallprompt support)
