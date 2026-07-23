@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client;
 using System.Text;
 using System.Text.Json;
+using VanAn.CoreHub.Hubs;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
@@ -24,16 +26,19 @@ namespace VanAn.ShopERP.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _configuration;
         private readonly ILogger<OrderSyncSubscriber> _logger;
+        private readonly IHubContext<OrderHub> _hubContext;
         private IConnection? _subscriptionConnection;
 
         public OrderSyncSubscriber(
             IServiceProvider serviceProvider,
             IConfiguration configuration,
-            ILogger<OrderSyncSubscriber> logger)
+            ILogger<OrderSyncSubscriber> logger,
+            IHubContext<OrderHub> hubContext)
         {
             _serviceProvider = serviceProvider;
             _configuration = configuration;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -250,6 +255,18 @@ namespace VanAn.ShopERP.Services
 
                 await dbContext.Orders.AddAsync(order, cancellationToken);
                 await dbContext.SaveChangesAsync(cancellationToken);
+
+                // A: Broadcast OrderCreated via SignalR so Blazor UI auto-refreshes instantly.
+                // Without this, UI only updates via 10s poll timer or manual F5.
+                try
+                {
+                    await _hubContext.Clients.All.SendAsync("OrderCreated", orderId, tenantId, cancellationToken);
+                    _logger.LogDebug("OrderSyncSubscriber: broadcast OrderCreated SignalR event for {OrderId}", orderId);
+                }
+                catch (Exception hubEx)
+                {
+                    _logger.LogWarning(hubEx, "OrderSyncSubscriber: SignalR broadcast failed for {OrderId} (order already in SQLite)", orderId);
+                }
 
                 _logger.LogInformation("OrderSyncSubscriber: synced order {OrderId} → SQLite ({ItemCount} items, {Total} VND)",
                     orderId, items.Count, order.TotalAmount);

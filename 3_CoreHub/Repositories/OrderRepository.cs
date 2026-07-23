@@ -34,6 +34,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
+                    .AsNoTracking()
                     .Where(o => o.TenantId == tenantId)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
@@ -54,6 +55,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
+                    .AsNoTracking()
                     .Where(o => o.TenantId == tenantId &&
                                o.CreatedAt.Date >= startDate.Date &&
                                o.CreatedAt.Date <= endDate.Date)
@@ -76,6 +78,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
+                    .AsNoTracking()
                     .Where(o => o.TenantId == tenantId && o.Status == new OrderStatusId(status))
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
@@ -93,6 +96,7 @@ namespace VanAn.CoreHub.Repositories
             {
                 DateTime today = DateTime.UtcNow.Date;
                 return await _context.Orders
+                    .AsNoTracking()
                     .Where(o => o.TenantId == tenantId && o.CreatedAt.Date == today)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);
@@ -173,6 +177,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
+                    .AsNoTracking()
                     .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
                     .Include(o => o.Customer)
@@ -194,6 +199,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
+                    .AsNoTracking()
                     .IgnoreQueryFilters()
                     .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
@@ -226,6 +232,7 @@ namespace VanAn.CoreHub.Repositories
             try
             {
                 return await _context.Orders
+                    .AsNoTracking()
                     .Where(o => o.CustomerDeviceId == deviceId && o.CustomerId == null)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync(cancellationToken);

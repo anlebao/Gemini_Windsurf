@@ -1,10 +1,12 @@
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NATS.Client;
+using VanAn.CoreHub.Hubs;
 using VanAn.ShopERP.Services;
 
 namespace VanAn.Integration.Tests;
@@ -31,9 +33,21 @@ public class OrderSyncSubscriberRoutingTests
             IServiceProvider serviceProvider,
             IConfiguration configuration,
             IConnection connection)
-            : base(serviceProvider, configuration, NullLogger<OrderSyncSubscriber>.Instance)
+            : base(serviceProvider, configuration, NullLogger<OrderSyncSubscriber>.Instance, BuildMockHubContext())
         {
             _connection = connection;
+        }
+
+        private static IHubContext<OrderHub> BuildMockHubContext()
+        {
+            var mockClients = new Mock<IHubClients>();
+            var mockProxy = new Mock<IClientProxy>();
+            mockProxy.Setup(p => p.SendCoreAsync(It.IsAny<string>(), It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            mockClients.Setup(c => c.All).Returns(mockProxy.Object);
+            var mockHub = new Mock<IHubContext<OrderHub>>();
+            mockHub.Setup(h => h.Clients).Returns(mockClients.Object);
+            return mockHub.Object;
         }
 
         protected override IConnection CreateSubscriptionConnection(string url)

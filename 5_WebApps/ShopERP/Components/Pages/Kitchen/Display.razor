@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [Authorize(Policy = "KitchenAccess")]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
 @using VanAn.Shared.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.UI.Platform.Components
@@ -11,6 +12,7 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Hubs
 @inject IOrderWorkflowService OrderWorkflowService
 @inject IShopFeatureSettingsService FeatureSettings
 @inject ITenantProvider TenantProvider
@@ -18,7 +20,8 @@
 @inject ILogger<Display> Logger
 @inject NavigationManager NavigationManager
 @inject IThemeProvider ThemeProvider
-@implements IDisposable
+@inject Microsoft.Extensions.DependencyInjection.IServiceScopeFactory ScopeFactory
+@implements IAsyncDisposable
 
 <div class="kitchen-display-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
@@ -164,9 +167,12 @@
 
 @code {
     private bool kitchenEnabled = true;
-    private bool loading = false;
+    // P1: Split loading state — initialLoading shows spinner, backgroundRefreshing is silent.
+    private bool initialLoading = true;
+    private bool backgroundRefreshing;
     private string? errorMessage;
     private System.Threading.Timer? _pollTimer;
+    private HubConnection? _hubConnection;
 
     private List<KitchenOrderDto> confirmedOrders = new();
     private List<KitchenOrderDto> preparingOrders = new();
@@ -200,20 +206,72 @@
         {
             await RefreshOrders();
 
-            // T11: Polling 5s — simpler for Edge, no SignalR needed.
+            // P1: SignalR is now primary real-time channel (OrderCreated + OrderStatusChanged).
+            // Poll timer is fallback only — increased 5s → 30s to reduce SQLite load 6×.
+            // Kitchen is real-time critical, but SignalR push delivers <1s latency when connected.
             _pollTimer = new System.Threading.Timer(
-                async _ => await InvokeAsync(async () => await RefreshOrders()),
+                async _ => await InvokeAsync(async () => await RefreshOrders(isBackground: true)),
                 null,
-                TimeSpan.FromSeconds(5),
-                TimeSpan.FromSeconds(5));
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromSeconds(30));
+
+            await StartSignalRConnection();
         }
     }
 
-    private async Task RefreshOrders()
+    private async Task StartSignalRConnection()
+    {
+        try
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/orderHub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // P1: OrderCreated — new order arrived from KhachLink checkout (via OrderSyncSubscriber broadcast).
+            _hubConnection.On<Guid, Guid>("OrderCreated",
+                async (orderId, tenantId) =>
+                {
+                    await InvokeAsync(async () => await RefreshOrders(isBackground: true));
+                });
+
+            // P1: OrderStatusChanged — order moved between kitchen columns (pending→confirmed→preparing→ready→completed).
+            _hubConnection.On<Guid, Guid, string, string>("OrderStatusChanged",
+                async (orderId, tenantId, oldStatus, newStatus) =>
+                {
+                    await InvokeAsync(async () => await RefreshOrders(isBackground: true));
+                });
+
+            // P1: PaymentConfirmed — paid order may transition to "confirmed" → appears in kitchen column 1.
+            _hubConnection.On<Guid, Guid, string>("PaymentConfirmed",
+                async (orderId, tenantId, transactionId) =>
+                {
+                    await InvokeAsync(async () => await RefreshOrders(isBackground: true));
+                });
+
+            await _hubConnection.StartAsync();
+            Logger.LogDebug("Kitchen Display: SignalR connected to /orderHub");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Kitchen Display: SignalR connection failed — 30s poll fallback active");
+        }
+    }
+
+    private async Task RefreshOrders() => await RefreshOrders(isBackground: false);
+
+    private async Task RefreshOrders(bool isBackground)
     {
         if (!kitchenEnabled) return;
-        loading = true;
+        // P1: Silent refresh — only show loading state on initial load, not on poll/SignalR background reloads.
+        if (isBackground)
+            backgroundRefreshing = true;
+        else
+            initialLoading = true;
         errorMessage = null;
+        // C: Fresh DI scope per refresh — avoids Blazor Server circuit-scoped DbContext stale reads.
+        using var scope = ScopeFactory.CreateScope();
+        var scopedWorkflowService = scope.ServiceProvider.GetRequiredService<IOrderWorkflowService>();
         try
         {
             // Load orders by status — direct service call (Edge offline-first).
@@ -222,15 +280,26 @@
             // Kitchen column 1 "Chờ tiếp nhận" must show BOTH "pending" (unpaid) AND "confirmed" (paid, awaiting prep).
             // Without this, paid orders disappear from Kitchen and kitchen staff never see them.
             Guid tenantId = TenantProvider.TenantId;
-            List<Order> pending = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("pending"), tenantId);
-            List<Order> confirmed = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("confirmed"), tenantId);
-            List<Order> preparing = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("preparing"), tenantId);
-            List<Order> ready = await OrderWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("ready"), tenantId);
+            List<Order> pending = await scopedWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("pending"), tenantId);
+            List<Order> confirmed = await scopedWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("confirmed"), tenantId);
+            List<Order> preparing = await scopedWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("preparing"), tenantId);
+            List<Order> ready = await scopedWorkflowService.GetOrdersByStatusAsync(new OrderStatusId("ready"), tenantId);
 
             // Merge pending + confirmed into column 1 (all orders waiting to be prepared)
-            confirmedOrders = pending.Concat(confirmed).Select(MapToDto).ToList();
-            preparingOrders = preparing.Select(MapToDto).ToList();
-            readyOrders = ready.Select(MapToDto).ToList();
+            var newConfirmed = pending.Concat(confirmed).Select(MapToDto).ToList();
+            var newPreparing = preparing.Select(MapToDto).ToList();
+            var newReady = ready.Select(MapToDto).ToList();
+
+            // P1: Diff check — only update lists if content changed (prevents flicker on 30s poll with no changes).
+            bool changed = !KitchenListsEqual(confirmedOrders, newConfirmed)
+                || !KitchenListsEqual(preparingOrders, newPreparing)
+                || !KitchenListsEqual(readyOrders, newReady);
+            if (changed)
+            {
+                confirmedOrders = newConfirmed;
+                preparingOrders = newPreparing;
+                readyOrders = newReady;
+            }
         }
         catch (Exception ex)
         {
@@ -239,8 +308,25 @@
         }
         finally
         {
-            loading = false;
+            if (isBackground)
+                backgroundRefreshing = false;
+            else
+                initialLoading = false;
         }
+    }
+
+    // P1: Lightweight diff for kitchen columns — compares Id + Status + OrderDate + item count.
+    private static bool KitchenListsEqual(List<KitchenOrderDto> a, List<KitchenOrderDto> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].Id != b[i].Id) return false;
+            if (a[i].Status != b[i].Status) return false;
+            if (a[i].OrderDate != b[i].OrderDate) return false;
+            if (a[i].Items.Count != b[i].Items.Count) return false;
+        }
+        return true;
     }
 
     // T12: Transition via direct IOrderWorkflowService call (no HTTP).
@@ -252,7 +338,7 @@
                 orderId,
                 new OrderStatusId(newStatus),
                 reason: $"Kitchen display transition to {newStatus}");
-            await RefreshOrders();
+            await RefreshOrders(isBackground: true);
         }
         catch (Exception ex)
         {
@@ -279,7 +365,7 @@
                 new OrderStatusId("completed"),
                 reason: "Kitchen: đơn đã giao");
 
-            await RefreshOrders();
+            await RefreshOrders(isBackground: true);
         }
         catch (Exception ex)
         {
@@ -310,9 +396,17 @@
         };
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _pollTimer?.Dispose();
+        if (_hubConnection is not null)
+        {
+            try
+            {
+                await _hubConnection.DisposeAsync();
+            }
+            catch { /* ignore disposal errors */ }
+        }
     }
 
     private class KitchenOrderDto

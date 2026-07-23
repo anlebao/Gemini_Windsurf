@@ -1,9 +1,11 @@
-@implements IDisposable
+@implements IAsyncDisposable
 @using VanAn.ShopERP.Services
 @using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Services
 @using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Hubs
 @using VanAn.UI.Platform.Models
 @using VanAn.UI.Platform.Components
 @using VanAn.Shared.Models
@@ -17,6 +19,7 @@
 @inject NavigationManager NavigationManager
 @inject IErrorNotificationService ErrorNotification
 @inject IJSRuntime JSRuntime
+@inject Microsoft.Extensions.DependencyInjection.IServiceScopeFactory ScopeFactory
 
 <div class="vanan-dashboard @ThemeProvider.CurrentTheme">
     <VanALayout>
@@ -114,7 +117,11 @@
 
 @code {
     private OrderDashboardData Metrics = new();
+    // P2: Split loading state — isRefreshing shows spinner on manual Refresh button,
+    // backgroundRefreshing is silent (poll timer + SignalR). initialLoading gates first render.
+    private bool initialLoading = true;
     private bool isRefreshing = false;
+    private bool backgroundRefreshing;
     private bool showStaffModal = false;
     private bool showStatusModal = false;
     private Guid selectedOrderId;
@@ -133,6 +140,7 @@
     private IDisposable? _orderUpdatesSubscription;
     private IDisposable? _metricsUpdatesSubscription;
     private System.Threading.Timer? _pollTimer;
+    private HubConnection? _hubConnection;
     
     // ✅ FIXED: Authentication state management
     private ClaimsPrincipal? _currentUser;
@@ -215,17 +223,57 @@
             
             Logger.LogDebug("Setting up real-time subscriptions");
 
-            // Issue 8 fix: SignalR not available — use polling timer (same pattern as Kitchen/Display.razor)
+            // P2: SignalR is now primary real-time channel for dashboard metrics.
+            // Poll timer is fallback only — increased 10s → 60s (dashboard stats don't need sub-minute freshness).
+            await StartSignalRConnection();
+
             _pollTimer = new System.Threading.Timer(
-                async _ => await InvokeAsync(async () => await LoadData()),
+                async _ => await InvokeAsync(async () => await LoadData(isBackground: true)),
                 null,
-                TimeSpan.FromSeconds(10),
-                TimeSpan.FromSeconds(10));
-            Logger.LogDebug("Polling timer started (10s interval)");
+                TimeSpan.FromSeconds(60),
+                TimeSpan.FromSeconds(60));
+            Logger.LogDebug("Polling timer started (60s fallback interval)");
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error setting up real-time subscriptions");
+        }
+    }
+
+    private async Task StartSignalRConnection()
+    {
+        try
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/orderHub"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            // P2: Any order event → re-query dashboard stats (counts/revenue change).
+            _hubConnection.On<Guid, Guid>("OrderCreated",
+                async (orderId, tenantId) =>
+                {
+                    await InvokeAsync(async () => await LoadData(isBackground: true));
+                });
+
+            _hubConnection.On<Guid, Guid, string, string>("OrderStatusChanged",
+                async (orderId, tenantId, oldStatus, newStatus) =>
+                {
+                    await InvokeAsync(async () => await LoadData(isBackground: true));
+                });
+
+            _hubConnection.On<Guid, Guid, string>("PaymentConfirmed",
+                async (orderId, tenantId, transactionId) =>
+                {
+                    await InvokeAsync(async () => await LoadData(isBackground: true));
+                });
+
+            await _hubConnection.StartAsync();
+            Logger.LogDebug("VanADashboard: SignalR connected to /orderHub");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "VanADashboard: SignalR connection failed — 60s poll fallback active");
         }
     }
 
@@ -282,31 +330,56 @@
         }
     }
 
-    private async Task LoadData()
+    private async Task LoadData() => await LoadData(isBackground: false);
+
+    private async Task LoadData(bool isBackground)
     {
         if (!_isClientSide || _tenantId == Guid.Empty) return;
         
-        isRefreshing = true;
+        // P2: Silent refresh — isRefreshing (spinner on Refresh button) only for manual clicks.
+        // Background reloads (poll, SignalR) update silently without flickering metrics cards.
+        if (isBackground)
+            backgroundRefreshing = true;
+        else
+            isRefreshing = true;
+        // C: Fresh DI scope per load — avoids Blazor Server circuit-scoped DbContext stale reads.
+        using var scope = ScopeFactory.CreateScope();
+        var scopedOrderService = scope.ServiceProvider.GetRequiredService<IOrderManagementService>();
         try
         {
             Logger.LogDebug("Loading dashboard data for tenant {TenantId}", _tenantId);
             
             // ✅ FIXED: Load metrics
-            Metrics = await OrderService.GetDashboardDataAsync(_tenantId);
+            var newMetrics = await scopedOrderService.GetDashboardDataAsync(_tenantId);
             
             // ✅ FIXED: Load orders with atomic collection update
-            var orders = await OrderService.GetOrdersByDateRangeAsync(
+            var orders = await scopedOrderService.GetOrdersByDateRangeAsync(
                 DateTime.Today, 
                 DateTime.Today.AddDays(1));
             
-            // ✅ FIXED: Replace entire collection atomically
-            _orders.Clear();
-            foreach (var order in orders.OrderByDescending(o => o.CreatedAt))
+            var newOrders = orders.OrderByDescending(o => o.CreatedAt).ToList();
+
+            // P2: Diff check — only update if metrics or order list actually changed.
+            // Prevents re-render on 60s poll when nothing changed.
+            bool metricsChanged = !MetricsEquals(Metrics, newMetrics);
+            bool ordersChanged = !OrdersListEquals(_orders.ToList(), newOrders);
+
+            if (metricsChanged)
             {
-                _orders.Add(order);
+                Metrics = newMetrics;
+            }
+
+            if (ordersChanged)
+            {
+                _orders.Clear();
+                foreach (var order in newOrders)
+                {
+                    _orders.Add(order);
+                }
             }
             
-            Logger.LogDebug("Loaded {Count} orders and metrics", _orders.Count);
+            Logger.LogDebug("Loaded {Count} orders and metrics (changed: metrics={M}, orders={O})",
+                _orders.Count, metricsChanged, ordersChanged);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -331,14 +404,39 @@
         }
         finally
         {
-            isRefreshing = false;
+            if (isBackground)
+                backgroundRefreshing = false;
+            else
+                isRefreshing = false;
+            initialLoading = false;
             StateHasChanged();
         }
     }
 
+    // P2: Diff for metrics — compares the 4 displayed counters.
+    private static bool MetricsEquals(OrderDashboardData a, OrderDashboardData b)
+    {
+        return a.TodayOrderCount == b.TodayOrderCount
+            && a.TodayRevenue == b.TodayRevenue
+            && a.PendingOrders == b.PendingOrders
+            && a.ProcessingOrders == b.ProcessingOrders;
+    }
+
+    // P2: Diff for orders list — compares count + Id + Status for each order.
+    private static bool OrdersListEquals(List<Order> a, List<Order> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].Id != b[i].Id) return false;
+            if (a[i].Status?.Value != b[i].Status?.Value) return false;
+        }
+        return true;
+    }
+
     private async Task RefreshData()
     {
-        await LoadData();
+        await LoadData(isBackground: false);
     }
 
     private void HandleStaffAssignment(Order order)
@@ -375,13 +473,13 @@
     private async Task ConfirmStaffAssignment()
     {
         CloseStaffModal();
-        await LoadData();
+        await LoadData(isBackground: false);
     }
 
     private async Task ConfirmStatusUpdate()
     {
         CloseStatusModal();
-        await LoadData();
+        await LoadData(isBackground: false);
     }
 
     private List<NavigationItem> GetDashboardMenu()
@@ -425,13 +523,21 @@
     }
 
     // ✅ FIXED: Proper disposal
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         try
         {
             _pollTimer?.Dispose();
             _orderUpdatesSubscription?.Dispose();
             _metricsUpdatesSubscription?.Dispose();
+            if (_hubConnection is not null)
+            {
+                try
+                {
+                    await _hubConnection.DisposeAsync();
+                }
+                catch { /* ignore disposal errors */ }
+            }
             
             // ✅ FIXED: Cleanup ObservableCollection
             _orders.CollectionChanged -= null;

@@ -13,6 +13,7 @@ using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Entities;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
+using VanAn.CoreHub.Hubs;
 using VanAn.CoreHub.Services;
 using VanAn.CoreHub.Services.Providers.EInvoice;
 using VanAn.ShopERP.Infrastructure;
@@ -863,6 +864,11 @@ namespace VanAn.ShopERP
 
             // PROPER RAZOR PAGES ROUTING - ANTI-CHEATING RULE #2
             _ = app.MapControllers(); // If you have API controllers in ShopERP
+
+            // A: Map OrderHub for SignalR real-time order notifications.
+            // OrderSyncSubscriber broadcasts "OrderCreated" after syncing order from Gateway NATS → SQLite.
+            // Blazor components (Orders/Index.razor, Orders/Detail.razor) listen on /orderHub.
+            _ = app.MapHub<OrderHub>("/orderHub");
 
             // T-20: Dev-only login endpoint for Playwright E2E tests.
             // W5 hardening: Wrapped in #if DEBUG so the route is compiled out of Release builds.
