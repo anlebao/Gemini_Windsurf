@@ -117,6 +117,7 @@ namespace VanAn.ShopERP.Controllers
         /// W2-T2: Customer confirms receipt of order (ready → delivered).
         /// Called by KhachLink OrderTracking when customer clicks "Xác nhận đã nhận hàng".
         /// Routes through TransitionStatusAsync for validation + outbox events.
+        /// Idempotent: if order is already "delivered" or "completed", returns success (no-op).
         /// </summary>
         [HttpPost("{orderId:guid}/confirm-received")]
         [AllowAnonymous]
@@ -124,6 +125,22 @@ namespace VanAn.ShopERP.Controllers
         {
             try
             {
+                // Check current status first — if already delivered/completed, return success (idempotent).
+                // This handles race conditions where kitchen staff marks order completed while customer
+                // is viewing the tracking page with the confirm button still visible.
+                Order? existingOrder = await _orderWorkflowService.GetOrderAsync(orderId);
+                if (existingOrder == null)
+                {
+                    return NotFound(new { error = "Order not found" });
+                }
+
+                if (existingOrder.Status.Value == "delivered" || existingOrder.Status.Value == "completed")
+                {
+                    _logger.LogInformation("ConfirmReceived: order {OrderId} already {Status} — returning success (idempotent)",
+                        orderId, existingOrder.Status.Value);
+                    return Ok(new { success = true, orderId, status = existingOrder.Status.Value });
+                }
+
                 Order? order = await _orderWorkflowService.TransitionStatusAsync(
                     orderId,
                     new OrderStatusId("delivered"),
@@ -131,7 +148,7 @@ namespace VanAn.ShopERP.Controllers
 
                 if (order == null)
                 {
-                    return NotFound(new { error = "Order not found or invalid transition (ready→delivered required)" });
+                    return NotFound(new { error = "Invalid status transition (ready→delivered required)" });
                 }
 
                 return Ok(new { success = true, orderId, status = "delivered" });

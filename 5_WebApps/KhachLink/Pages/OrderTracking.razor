@@ -190,6 +190,13 @@
                                         </VanAnButton>
                                     }
 
+                                    @if (!string.IsNullOrEmpty(_actionError))
+                                    {
+                                        <VanAnAlert Variant="AlertVariant.Warning"
+                                                    Message="@_actionError" Dismissible="true"
+                                                    OnDismiss="@(() => _actionError = null)" />
+                                    }
+
                                     <!-- W2-T4: Loyalty bypass — when toggle OFF, show "Cảm ơn" instead of IdentityUpgradeModal -->
                                     @if (_publicOrder?.Status == "delivered" && !loyaltyEnabled && !_hasShownUpgradeModal)
                                     {
@@ -261,6 +268,8 @@
     private bool _vatDisplayEnabled = true;
     // W2-T1: Customer confirm receipt state
     private bool _confirmingReceipt = false;
+    // Action-level error (e.g. confirm-received 404) — shown inline, not replacing order details
+    private string? _actionError;
 
     // Configurable polling interval (fetched from ShopFeatureSettings per tenant)
     private int _pollingIntervalSeconds = 15;
@@ -631,6 +640,7 @@
         if (_publicOrder == null || _confirmingReceipt) return;
 
         _confirmingReceipt = true;
+        _actionError = null;
         StateHasChanged();
 
         try
@@ -648,12 +658,12 @@
             }
             else
             {
-                errorMessage = $"Không thể xác nhận đã nhận hàng: {(int)response.StatusCode}";
+                _actionError = $"Không thể xác nhận đã nhận hàng: {(int)response.StatusCode}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Lỗi: {ex.Message}";
+            _actionError = $"Lỗi: {ex.Message}";
         }
         finally
         {
