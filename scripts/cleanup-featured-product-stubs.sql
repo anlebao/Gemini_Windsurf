@@ -1,5 +1,6 @@
 -- ============================================================================
 -- Featured Product Picker Refactor — Cleanup Stub Products
+-- Updated 2026-07-23: trigger CD redeploy (disk space cleared on VPS)
 -- ============================================================================
 -- Purpose: Remove auto-created stub products in ShopERP SQLite that were created
 --          by OrderSyncSubscriber when orders referenced ProductIds not in SQLite
