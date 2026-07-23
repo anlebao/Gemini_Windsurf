@@ -114,15 +114,15 @@ window.vananPWA = {
         }
 
         // Android/Desktop: beforeinstallprompt hasn't fired or was already consumed.
-        // Show actionable toast with reload button (Chrome re-fires event after page reload
-        // if engagement heuristic is met). Old behavior showed a static alert with manual
-        // instructions that no longer work in Chrome 120+ (menu ⋮ → "Install app" removed
-        // when beforeinstallprompt is suppressed).
-        this.showInstallHelpToast('Android', 'Tải lại trang để hiện prompt cài đặt');
+        // This means Chrome has SUPPRESSED the install prompt — reloading won't help.
+        // Common causes: user dismissed prompt too many times, or app was previously installed.
+        // Fix: user must clear site data in Chrome settings, then reload.
+        this.showInstallHelpToast('Android', null);
         return false;
     },
 
-    // Show non-blocking toast with install help (replaces intrusive alert())
+    // Show non-blocking toast with install help.
+    // When hint is null, shows clear-site-data instructions (Chrome suppressed prompt).
     showInstallHelpToast(platform, hint) {
         // Remove any existing toast
         var existing = document.getElementById('vanan-install-help-toast');
@@ -130,24 +130,36 @@ window.vananPWA = {
 
         var toast = document.createElement('div');
         toast.id = 'vanan-install-help-toast';
-        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(139,69,19,0.95);color:white;padding:14px 20px;border-radius:16px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:90vw;text-align:center;line-height:1.5;';
-        toast.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">Cài đặt Vạn An App</div>' +
-            '<div style="opacity:0.9;margin-bottom:10px;">' + hint + '</div>' +
-            '<button id="vanan-install-reload-btn" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Tải lại trang</button>';
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(139,69,19,0.95);color:white;padding:16px 20px;border-radius:16px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:92vw;text-align:center;line-height:1.5;';
+
+        if (hint) {
+            // iOS: show Share → Add to Home Screen instructions
+            toast.innerHTML = '<div style="font-weight:600;margin-bottom:8px;">Cài đặt Vạn An App</div>' +
+                '<div style="opacity:0.9;margin-bottom:12px;">' + hint + '</div>' +
+                '<button onclick="window.location.reload()" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
+        } else {
+            // Android/Desktop: Chrome suppressed beforeinstallprompt — need clear site data
+            toast.innerHTML =
+                '<div style="font-weight:600;margin-bottom:8px;font-size:15px;">Chrome đã tắt prompt cài đặt</div>' +
+                '<div style="opacity:0.9;margin-bottom:10px;font-size:13px;">Để cài app, cần xóa dữ liệu site:</div>' +
+                '<div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:10px;margin-bottom:12px;text-align:left;font-size:12px;line-height:1.6;">' +
+                '1. Mở <b>chrome://settings/content/all</b><br>' +
+                '2. Tìm <b>diemthuong.khachvip.online</b><br>' +
+                '3. Nhấn <b>Xóa dữ liệu</b> (Delete data)<br>' +
+                '4. Quay lại đây — prompt cài đặt sẽ hiện' +
+                '</div>' +
+                '<button onclick="var t=document.getElementById(\'vanan-install-help-toast\'); if(t) t.remove();" style="background:white;color:#8B4513;border:none;padding:8px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Đã hiểu</button>';
+        }
         document.body.appendChild(toast);
 
-        document.getElementById('vanan-install-reload-btn').onclick = function() {
-            window.location.reload();
-        };
-
-        // Auto-dismiss after 15s
+        // Auto-dismiss after 30s (longer for reading instructions)
         setTimeout(function() {
             if (toast && toast.parentNode) {
                 toast.style.opacity = '0';
                 toast.style.transition = 'opacity 0.3s';
                 setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
             }
-        }, 15000);
+        }, 30000);
     },
 
     // Detect if running on iOS (no beforeinstallprompt support)
@@ -399,7 +411,8 @@ window.applyThemeClass = (themeClass) => {
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     window.vananPWA.deferredPrompt = e;
-    console.log('[PWA] beforeinstallprompt captured (immediate listener)');
+    console.log('[PWA] beforeinstallprompt FIRED — app is installable, deferredPrompt captured');
+    console.log('[PWA] platforms:', e.platforms, 'userChoice result:', e.userChoice);
     // Notify Blazor so it can show the install button at the right time
     // (only when the browser confirms the app is installable)
     if (window.vananPWA.dotNetRef) {
@@ -407,6 +420,18 @@ window.addEventListener('beforeinstallprompt', (e) => {
             .catch(() => { /* Blazor not ready yet — prompt will show on next render */ });
     }
 });
+
+// Debug: log if beforeinstallprompt did NOT fire after 5s (helps diagnose install issues)
+setTimeout(() => {
+    if (!window.vananPWA.deferredPrompt && !window.vananPWA.isInstalled) {
+        console.log('[PWA] beforeinstallprompt did NOT fire after 5s — possible causes:');
+        console.log('[PWA]   1. Chrome suppressed prompt (user dismissed too many times)');
+        console.log('[PWA]   2. App already installed (check matchMedia standalone)');
+        console.log('[PWA]   3. Engagement heuristic not met (visit + interact more)');
+        console.log('[PWA]   4. Chrome version too old (need Chrome 70+)');
+        console.log('[PWA] Fix: chrome://settings/content/all → search "diemthuong" → Delete data → reload');
+    }
+}, 5000);
 
 window.addEventListener('appinstalled', () => {
     window.vananPWA.isInstalled = true;

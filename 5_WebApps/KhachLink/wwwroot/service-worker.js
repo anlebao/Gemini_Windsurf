@@ -42,16 +42,26 @@
 //     beforeinstallprompt is suppressed — old instructions no longer work.
 //   - Clear deferredPrompt after prompt() consumed (Chrome only allows 1 call per event).
 //   - Cache version bumped v13-silent-update → v14-install-fix
+//
+// Install Prompt Fix v2 (v15-install-fix2, 2026-07-23):
+//   - "Tải lại trang" toast caused infinite loop — reload doesn't re-fire
+//     beforeinstallprompt when Chrome has suppressed it.
+//   - Replaced with clear-site-data instructions: chrome://settings/content/all
+//     → search "diemthuong" → Delete data → reload. This is the ONLY way to reset
+//     Chrome's install prompt suppression.
+//   - Added debug logging: console.log when beforeinstallprompt fires + diagnostic
+//     log after 5s if it didn't fire (helps user diagnose via DevTools console).
+//   - Cache version bumped v14-install-fix → v15-install-fix2
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v14-install-fix';
-const STATIC_CACHE = 'vanan-static-v14-install-fix';
-const DYNAMIC_CACHE = 'vanan-dynamic-v14-install-fix';
-const WASM_CACHE = 'vanan-wasm-v14-install-fix';
+const CACHE_NAME = 'vanan-khachlink-v15-install-fix2';
+const STATIC_CACHE = 'vanan-static-v15-install-fix2';
+const DYNAMIC_CACHE = 'vanan-dynamic-v15-install-fix2';
+const WASM_CACHE = 'vanan-wasm-v15-install-fix2';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -521,7 +531,7 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      console.log('SW activated — v14-install-fix (silent SW update + install prompt fix)');
+      console.log('SW activated — v15-install-fix2 (clear-site-data install instructions + debug logging)');
       return self.clients.claim(); // Take control of all pages
     })
   );
