@@ -1424,6 +1424,17 @@ namespace VanAn.Shared.Domain
         public int BonusPointsOnUpgrade { get; set; } = 100;
     }
 
+    // Loyalty-A: Configurable points formula (replaces hardcoded 10% + Math.Max(10, ...) in OrderWorkflowService).
+    // Bound from appsettings.json "LoyaltyPoints" section via IOptions<LoyaltyPointsConfig>.
+    // Config DTO — NOT an entity, no migration needed.
+    public class LoyaltyPointsConfig
+    {
+        public decimal PointsRate { get; set; } = 0.1m;        // 10% default
+        public int MinPointsPerOrder { get; set; } = 10;       // min 10 points
+        public int? MaxPointsPerOrder { get; set; } = null;    // null = no cap
+        public bool AwardOnAllOrders { get; set; } = true;     // true = bỏ TrackingCode guard, tất cả order tích điểm
+    }
+
     // Theme Types for Dynamic Vibe Engine
     public enum ThemeType
     {

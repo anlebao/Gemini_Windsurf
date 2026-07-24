@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Options;
 using VanAn.Shared.Services;
 using System.Text.Json;
 using VanAn.CoreHub.Repositories;
@@ -20,7 +21,8 @@ namespace VanAn.CoreHub.Services
         INatsEventPublisher? natsEventPublisher,
         IShopFeatureSettingsService? shopFeatureSettingsService = null,
         IOutboxRepository? outboxRepository = null,
-        IOrderNotificationService? orderNotificationService = null) : IOrderWorkflowService
+        IOrderNotificationService? orderNotificationService = null,
+        IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -34,6 +36,8 @@ namespace VanAn.CoreHub.Services
         private readonly IOutboxRepository? _outboxRepository = outboxRepository;
         // W0-T4: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
         private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
+        // Loyalty-A: Configurable points formula (replaces hardcoded 10% + Math.Max(10, ...))
+        private readonly LoyaltyPointsConfig _loyaltyPointsConfig = loyaltyPointsConfig?.Value ?? new LoyaltyPointsConfig();
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
         private static readonly JsonSerializerOptions EventJsonOptions = new()
@@ -111,9 +115,19 @@ namespace VanAn.CoreHub.Services
                 RecordOrderCompletedEvent(order);
 
                 // 🔄 NHIỆM VỤ B: Kích hoạt Flywheel
-                if (!string.IsNullOrEmpty(order.TrackingCode))
+                // Loyalty-A: Guard TrackingCode now configurable via LoyaltyPointsConfig.AwardOnAllOrders.
+                //   AwardOnAllOrders=true  → all orders get loyalty points (bỏ guard).
+                //   AwardOnAllOrders=false → only orders with TrackingCode get points (giữ behavior cũ).
+                bool hasTrackingCode = !string.IsNullOrEmpty(order.TrackingCode);
+                bool shouldAwardLoyalty = _loyaltyPointsConfig.AwardOnAllOrders || hasTrackingCode;
+
+                if (hasTrackingCode)
                 {
-                    await ProcessSocialCampaignConversionAsync(order.TrackingCode);
+                    await ProcessSocialCampaignConversionAsync(order.TrackingCode!);
+                }
+
+                if (shouldAwardLoyalty)
+                {
                     await ProcessLoyaltyPointsAsync(order);
                 }
 
@@ -272,12 +286,23 @@ namespace VanAn.CoreHub.Services
                 return;
             }
 
-            // Tính điểm thưởng (10% giá trị đơn hàng, tối thiểu 10 điểm)
-            int pointsToAward = Math.Max(10, (int)(order.TotalAmount * 0.1m));
+            // Loyalty-A: Configurable points formula (replaces hardcoded 10% + Math.Max(10, ...)).
+            //   PointsRate * TotalAmount, clamped to [MinPointsPerOrder, MaxPointsPerOrder].
+            int pointsToAward = (int)(order.TotalAmount * _loyaltyPointsConfig.PointsRate);
+            pointsToAward = Math.Max(_loyaltyPointsConfig.MinPointsPerOrder, pointsToAward);
+            if (_loyaltyPointsConfig.MaxPointsPerOrder.HasValue)
+            {
+                pointsToAward = Math.Min(_loyaltyPointsConfig.MaxPointsPerOrder.Value, pointsToAward);
+            }
 
-            // Lấy thông tin campaign để ghi lịch sử
-            SocialCampaign? campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(order.TrackingCode!);
-            string campaignName = campaign?.CampaignName ?? "Unknown Campaign";
+            // Lấy thông tin campaign để ghi lịch sử (null if no tracking code — AwardOnAllOrders mode)
+            SocialCampaign? campaign = null;
+            string campaignName = "Direct Order";
+            if (!string.IsNullOrEmpty(order.TrackingCode))
+            {
+                campaign = await _socialCampaignService.GetCampaignByTrackingCodeAsync(order.TrackingCode!);
+                campaignName = campaign?.CampaignName ?? "Unknown Campaign";
+            }
 
             string reason = $"Hoàn tiền từ chiến dịch {campaignName} - Đơn hàng #{order.Id}";
 
@@ -285,8 +310,9 @@ namespace VanAn.CoreHub.Services
 
             if (success)
             {
-                _logger.LogInformation("🎁 LOYALTY: Awarded {Points} points to customer {CustomerId} from order {OrderId}",
-                    pointsToAward, customer.Id, order.Id);
+                _logger.LogInformation("🎁 LOYALTY: Awarded {Points} points to customer {CustomerId} from order {OrderId} (rate={Rate}, min={Min}, max={Max})",
+                    pointsToAward, customer.Id, order.Id, _loyaltyPointsConfig.PointsRate, _loyaltyPointsConfig.MinPointsPerOrder,
+                    _loyaltyPointsConfig.MaxPointsPerOrder?.ToString() ?? "none");
             }
         }
 

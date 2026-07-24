@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
@@ -30,7 +31,10 @@ public class OrderWorkflowServiceTests
         services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
         services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
-        
+
+        // Loyalty-A: Default config (AwardOnAllOrders=true, 10% rate, min 10, no cap)
+        services.Configure<LoyaltyPointsConfig>(opts => { });
+
         // 🛡️ PHASE 3 FIX: Add Tenant Provider Mock
         _tenantProvider = new TestTenantProvider();
         _tenantProvider.SetTenant(Guid.NewGuid());
@@ -41,6 +45,39 @@ public class OrderWorkflowServiceTests
         _orderWorkflowService = _serviceProvider.GetRequiredService<IOrderWorkflowService>();
         _socialCampaignService = _serviceProvider.GetRequiredService<ISocialCampaignService>();
         _loyaltyRewardsService = _serviceProvider.GetRequiredService<ILoyaltyRewardsService>();
+    }
+
+    /// <summary>
+    /// Helper: build a service provider with a custom LoyaltyPointsConfig for per-test override.
+    /// </summary>
+    private (ServiceProvider, VanAnDbContext, IOrderWorkflowService, ILoyaltyRewardsService, ITenantProvider)
+        BuildServicesWithLoyaltyConfig(LoyaltyPointsConfig config)
+    {
+        var services = new ServiceCollection();
+        services.AddDbContext<VanAnDbContext>(options =>
+            options.UseSqlite("DataSource=:memory:"))
+                   .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
+        services.AddScoped<ISocialCampaignService, SocialCampaignService>();
+        services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
+        services.AddScoped<IOrderWorkflowService, OrderWorkflowService>();
+        services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning));
+        services.Configure<LoyaltyPointsConfig>(opts =>
+        {
+            opts.PointsRate = config.PointsRate;
+            opts.MinPointsPerOrder = config.MinPointsPerOrder;
+            opts.MaxPointsPerOrder = config.MaxPointsPerOrder;
+            opts.AwardOnAllOrders = config.AwardOnAllOrders;
+        });
+
+        var tenantProvider = new TestTenantProvider();
+        tenantProvider.SetTenant(Guid.NewGuid());
+        services.AddSingleton<ITenantProvider>(tenantProvider);
+
+        var sp = services.BuildServiceProvider();
+        return (sp, sp.GetRequiredService<VanAnDbContext>(),
+            sp.GetRequiredService<IOrderWorkflowService>(),
+            sp.GetRequiredService<ILoyaltyRewardsService>(),
+            tenantProvider);
     }
 
     [Fact]
@@ -170,48 +207,46 @@ public class OrderWorkflowServiceTests
     [Fact]
     public async Task OrderCompleted_ShouldNotAwardPoints_WhenNotFromSocialCampaign()
     {
-        // PHASE 3 FIX: Use consistent tenant ID
+        // Loyalty-A: With AwardOnAllOrders=false (legacy behavior), orders without tracking code get NO points.
+        // Build a dedicated service provider with AwardOnAllOrders=false.
+        var config = new LoyaltyPointsConfig { AwardOnAllOrders = false };
+        var (sp, ctx, workflow, loyalty, tenantProvider) = BuildServicesWithLoyaltyConfig(config);
+
         var testTenantId = Guid.NewGuid();
-        _tenantProvider.SetTenant(testTenantId);
-        
+        tenantProvider.SetTenant(testTenantId);
+
         var productId = Guid.NewGuid();
 
-        // 🛡️ PHASE 3 FIX: Create customer for loyalty rewards
         var customer = new DemoUser(
             new TenantId(testTenantId),
             "test_customer",
             "dummy_hash",
             "Test Customer",
             UserRole.Staff);
-        _context.Users.Add(customer);
+        ctx.Users.Add(customer);
 
-        // Create product
         var product = new Product
         {
             ProductId = new ProductId(productId),
-            Id = productId, // PHASE 3 FIX: Set Id property
+            Id = productId,
             TenantId = testTenantId,
             Name = "Test Product",
             Description = "Test Description",
             Price = 100000m,
             Category = "Test Category"
         };
-        _context.Products.Add(product);
+        ctx.Products.Add(product);
 
-        // 🛡️ PHASE 3 FIX: SaveChanges before creating order
-        await _context.SaveChangesAsync();
+        await ctx.SaveChangesAsync();
 
-        // Create order WITHOUT tracking code
         var order = new Order
         {
             Id = Guid.NewGuid(),
             TenantId = testTenantId,
             CustomerDeviceId = "test_customer",
             Status = new OrderStatusId("preparing")
-            // No TrackingCode
         };
-        
-        // Add order items
+
         var orderItem = new OrderItem
         {
             OrderItemId = new OrderItemId(Guid.NewGuid()),
@@ -224,35 +259,251 @@ public class OrderWorkflowServiceTests
         };
         order.Items.Add(orderItem);
         order.CalculateTotals();
-        _context.Orders.Add(order);
-        
-        // 🛡️ PHASE 3 FIX: SaveChanges before test
-        await _context.SaveChangesAsync();
+        ctx.Orders.Add(order);
 
-        // Act - Complete the order
-        var result = await _orderWorkflowService.TransitionStatusAsync(
-            order.Id, // 🛡️ PHASE 3 FIX: Use Id property instead of OrderId.Value
-            new OrderStatusId("completed"));
+        await ctx.SaveChangesAsync();
 
-        // Assert
+        var result = await workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+
         Assert.NotNull(result);
         Assert.Equal("completed", result.Status.Value);
 
-        // 🛡️ PHASE 4.5 FIX: Create customer for loyalty rewards lookup
-        // Since order has no tracking code, loyalty rewards should not be created
-        // Let's check if rewards exist - they should be null or have 0 points
-        var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customer.Id);
-        
-        // If no rewards exist, that's expected for orders without tracking codes
+        var rewards = await loyalty.GetCustomerRewardsAsync(customer.Id);
+
         if (rewards == null)
         {
-            // This is the expected behavior - no rewards created without tracking code
-            Assert.True(true, "No rewards created for order without tracking code - this is correct");
+            Assert.True(true, "No rewards created for order without tracking code - this is correct (legacy guard)");
         }
         else
         {
-            // If rewards exist, they should have 0 points
             Assert.Equal(0, rewards.PointBalance);
         }
+
+        await sp.DisposeAsync();
+    }
+
+    /// <summary>
+    /// Loyalty-A: With AwardOnAllOrders=true (default), orders WITHOUT tracking code DO get points.
+    /// </summary>
+    [Fact]
+    public async Task OrderCompleted_ShouldAwardPoints_WhenAwardOnAllOrdersTrue_AndNoTrackingCode()
+    {
+        var config = new LoyaltyPointsConfig { AwardOnAllOrders = true, PointsRate = 0.1m, MinPointsPerOrder = 10 };
+        var (sp, ctx, workflow, loyalty, tenantProvider) = BuildServicesWithLoyaltyConfig(config);
+
+        var testTenantId = Guid.NewGuid();
+        tenantProvider.SetTenant(testTenantId);
+
+        var productId = Guid.NewGuid();
+
+        var customer = new DemoUser(
+            new TenantId(testTenantId),
+            "test_customer",
+            "dummy_hash",
+            "Test Customer",
+            UserRole.Staff);
+        ctx.Users.Add(customer);
+
+        var product = new Product
+        {
+            ProductId = new ProductId(productId),
+            Id = productId,
+            TenantId = testTenantId,
+            Name = "Test Product",
+            Description = "Test Description",
+            Price = 100000m,
+            Category = "Test Category"
+        };
+        ctx.Products.Add(product);
+
+        await ctx.SaveChangesAsync();
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            TenantId = testTenantId,
+            CustomerDeviceId = "test_customer",
+            Status = new OrderStatusId("preparing")
+            // No TrackingCode — should still get points because AwardOnAllOrders=true
+        };
+
+        var orderItem = new OrderItem
+        {
+            OrderItemId = new OrderItemId(Guid.NewGuid()),
+            OrderId = order.Id,
+            ProductId = productId,
+            Quantity = 1,
+            UnitPrice = 100000m,
+            VatRate = 0.10m,
+            TenantId = testTenantId
+        };
+        order.Items.Add(orderItem);
+        order.CalculateTotals();
+        ctx.Orders.Add(order);
+
+        await ctx.SaveChangesAsync();
+
+        var result = await workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+
+        Assert.NotNull(result);
+        Assert.Equal("completed", result.Status.Value);
+
+        var rewards = await loyalty.GetCustomerRewardsAsync(customer.Id);
+        Assert.NotNull(rewards);
+        Assert.True(rewards.PointBalance > 0, "Points should be awarded for direct order when AwardOnAllOrders=true");
+        // 142400 * 0.1 = 14240
+        Assert.Equal(14240, rewards.PointBalance);
+
+        await sp.DisposeAsync();
+    }
+
+    /// <summary>
+    /// Loyalty-A: Configurable PointsRate — 5% rate should yield half the points of 10%.
+    /// </summary>
+    [Fact]
+    public async Task OrderCompleted_ConfigurableFormula_5PercentRate_YieldsHalfPoints()
+    {
+        var config = new LoyaltyPointsConfig { AwardOnAllOrders = true, PointsRate = 0.05m, MinPointsPerOrder = 10 };
+        var (sp, ctx, workflow, loyalty, tenantProvider) = BuildServicesWithLoyaltyConfig(config);
+
+        var testTenantId = Guid.NewGuid();
+        tenantProvider.SetTenant(testTenantId);
+
+        var productId = Guid.NewGuid();
+
+        var customer = new DemoUser(
+            new TenantId(testTenantId),
+            "test_customer",
+            "dummy_hash",
+            "Test Customer",
+            UserRole.Staff);
+        ctx.Users.Add(customer);
+
+        var product = new Product
+        {
+            ProductId = new ProductId(productId),
+            Id = productId,
+            TenantId = testTenantId,
+            Name = "Test Product",
+            Description = "Test Description",
+            Price = 100000m,
+            Category = "Test Category"
+        };
+        ctx.Products.Add(product);
+
+        await ctx.SaveChangesAsync();
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            TenantId = testTenantId,
+            CustomerDeviceId = "test_customer",
+            Status = new OrderStatusId("preparing")
+        };
+
+        var orderItem = new OrderItem
+        {
+            OrderItemId = new OrderItemId(Guid.NewGuid()),
+            OrderId = order.Id,
+            ProductId = productId,
+            Quantity = 1,
+            UnitPrice = 100000m,
+            VatRate = 0.10m,
+            TenantId = testTenantId
+        };
+        order.Items.Add(orderItem);
+        order.CalculateTotals();
+        ctx.Orders.Add(order);
+
+        await ctx.SaveChangesAsync();
+
+        var result = await workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+
+        Assert.NotNull(result);
+
+        var rewards = await loyalty.GetCustomerRewardsAsync(customer.Id);
+        Assert.NotNull(rewards);
+        // 142400 * 0.05 = 7120
+        Assert.Equal(7120, rewards.PointBalance);
+
+        await sp.DisposeAsync();
+    }
+
+    /// <summary>
+    /// Loyalty-A: MaxPointsPerOrder cap — 1000 point cap even on 100M VND order.
+    /// </summary>
+    [Fact]
+    public async Task OrderCompleted_ConfigurableFormula_MaxPointsCap_LimitsLargeOrder()
+    {
+        var config = new LoyaltyPointsConfig
+        {
+            AwardOnAllOrders = true,
+            PointsRate = 0.1m,
+            MinPointsPerOrder = 10,
+            MaxPointsPerOrder = 1000
+        };
+        var (sp, ctx, workflow, loyalty, tenantProvider) = BuildServicesWithLoyaltyConfig(config);
+
+        var testTenantId = Guid.NewGuid();
+        tenantProvider.SetTenant(testTenantId);
+
+        var productId = Guid.NewGuid();
+
+        var customer = new DemoUser(
+            new TenantId(testTenantId),
+            "test_customer",
+            "dummy_hash",
+            "Test Customer",
+            UserRole.Staff);
+        ctx.Users.Add(customer);
+
+        var product = new Product
+        {
+            ProductId = new ProductId(productId),
+            Id = productId,
+            TenantId = testTenantId,
+            Name = "Test Product",
+            Description = "Test Description",
+            Price = 100000000m, // 100M VND
+            Category = "Test Category"
+        };
+        ctx.Products.Add(product);
+
+        await ctx.SaveChangesAsync();
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            TenantId = testTenantId,
+            CustomerDeviceId = "test_customer",
+            Status = new OrderStatusId("preparing")
+        };
+
+        var orderItem = new OrderItem
+        {
+            OrderItemId = new OrderItemId(Guid.NewGuid()),
+            OrderId = order.Id,
+            ProductId = productId,
+            Quantity = 1,
+            UnitPrice = 100000000m,
+            VatRate = 0.10m,
+            TenantId = testTenantId
+        };
+        order.Items.Add(orderItem);
+        order.CalculateTotals();
+        ctx.Orders.Add(order);
+
+        await ctx.SaveChangesAsync();
+
+        var result = await workflow.TransitionStatusAsync(order.Id, new OrderStatusId("completed"));
+
+        Assert.NotNull(result);
+
+        var rewards = await loyalty.GetCustomerRewardsAsync(customer.Id);
+        Assert.NotNull(rewards);
+        // 110000000 * 0.1 = 11M, but capped at 1000
+        Assert.Equal(1000, rewards.PointBalance);
+
+        await sp.DisposeAsync();
     }
 }
