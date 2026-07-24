@@ -79,100 +79,71 @@ SC1 VAPID verified · SC2 CampaignPushJob + migration · SC3 LoyaltyPointsChange
 - Task card: `docs/AI/tasks/khachlink_pwa_phase5_push_notification_task_card.md` (rewritten 2026-07-23).
 
 ### Next Actions
-1. ✅ **Phase 5 COMPLETE 2026-07-24** — Session 1 (5.1-5.4) + Session 2 (5.5-5.9). All 17 Success Criteria achieved. Build PASS, guard-check PASS, CD success, VPS RV PASS.
-2. ✅ **Loyalty L-A COMPLETE 2026-07-24** (guard fix + configurable formula) — Commit `aae5fba2`. LoyaltyPointsConfig record (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders). appsettings.json LoyaltyPoints section (Gateway + CoreHub + ShopERP). OrderWorkflowService injects IOptions<LoyaltyPointsConfig>, replaces hardcoded 10% + Math.Max(10, ...). Guard TrackingCode now configurable (AwardOnAllOrders=true → all orders get points). Build PASS, guard-check PASS, CD success, VPS RV PASS.
-3. ✅ **Loyalty L-B COMPLETE 2026-07-24** (Redemption system) — Commit `8f6162a5`. 3 new entities (RedemptionCatalogItem, RedemptionRecord, Voucher). IRedemptionRepository + RedemptionService (RedeemAsync with ACID transaction, FulfillAsync, CancelAsync with refund). ShopERP RedemptionController (admin CRUD + customer redeem + fulfillment) + Gateway RedemptionController (forward). KhachLink /rewards page (browse + redeem + QR voucher modal). ShopERP /admin/redemption-catalog + /admin/redemption-history. Code review fix: wrapped RedeemAsync in single transaction (IVanAnDbContext.BeginTransactionAsync) for ACID; removed BeginTransactionAsync from Domain interface (VA-DDD-002). Build PASS, guard-check PASS, Architecture 37/37, CD success, VPS RV PASS (catalog endpoint 200, returns []).
-4. ⏳ **Loyalty L-C** (Task-based awards / gamification) — after L-B. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
+1. ✅ **Phase 5 COMPLETE 2026-07-24** — Session 1 (5.1-5.4) + Session 2 (5.5-5.9). All 17 Success Criteria achieved. Build PASS, guard-check PASS, CD success, VPS RV PASS. **Archived to `project_state_archive.md` 2026-07-24.**
+2. ✅ **Loyalty L-A COMPLETE 2026-07-24** (guard fix + configurable formula) — Commit `aae5fba2` + `8b8f97bc`. LoyaltyPointsConfig record (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders) bound via `IOptions<LoyaltyPointsConfig>` from appsettings.json `LoyaltyPoints` section (Gateway + CoreHub + ShopERP). OrderWorkflowService.HandleOrderCompletedAsync replaces hardcoded 10% + Math.Max(10, ...) with configurable formula. AwardOnAllOrders replaces TrackingCode guard. Build PASS, guard-check PASS, CD success, VPS RV PASS. **Gap identified 2026-07-24:** config is **appsettings.json-only — NO admin UI** for owner to set formula. Per-tenant override NOT supported. Will be fixed in L-C (task card expanded).
+3. ✅ **Loyalty L-B COMPLETE 2026-07-24** (Redemption system) — Commits `8f6162a5` + `88a74ab6` + `891869eb`. 3 new entities (RedemptionCatalogItem, RedemptionRecord, Voucher). IRedemptionRepository + RedemptionService (RedeemAsync with ACID transaction via IVanAnDbContext.BeginTransactionAsync, FulfillAsync, CancelAsync with refund). ShopERP RedemptionController (admin CRUD + customer redeem + fulfillment) + Gateway RedemptionController (forward). KhachLink `/rewards` page (browse + redeem + QR voucher modal) + header gift/gem icons. ShopERP `/admin/redemption-catalog` + `/admin/redemption-history` admin pages. Nav links in AdminLayout sidebar + NavMenu (SystemAdmin) + Sitemap card. Code review fix (commit `8f6162a5`): wrapped RedeemAsync in single transaction for ACID; removed BeginTransactionAsync from Domain interface (VA-DDD-002). Build PASS, guard-check PASS, Architecture 37/37, CD success. **VPS RV 13/13 PASS** (2026-07-24): 8 containers healthy, KhachLink /rewards + /my-loyalty 200, ShopERP /admin/redemption-catalog + /admin/redemption-history 200 (content verified), Sitemap + NavMenu have redemption links, Gateway `GET /api/redemption/catalog/active` 200 (returns `[]` then 2 items after admin POST create), ShopERP `POST /api/redemption/catalog` 201 (created 2 real items), `GET /api/redemption/history` 200 (`[]`), migration applied (tables exist, queries run).
+4. ⏳ **Loyalty L-C** (Task-based awards / gamification) — IN PROGRESS. Task card: `docs/AI/tasks/loyalty_phase_c_task_based_awards_task_card.md` **reviewed + expanded 2026-07-24** to add 3 missing workstreams (see below). **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
 
-### Phase 5 Session 1 Implementation Summary (2026-07-24)
-- **5.1 Domain + EF + Migration:** CampaignPushJob + PushNotificationDelivery entities, Customer.UpdateOrderStats() method, EventTypes.LoyaltyPointsChanged, 2 EF configs, 2 migrations (PG + SQLite), 6 DbSets updated.
-- **5.2 Loyalty outbox + auto-push:** LoyaltyRewardsService enqueues outbox + publishes NATS "loyalty.points.changed" on AddPoints/SubtractPoints. PushNotificationService.SendLoyaltyPointsChangedNotificationAsync. PushNotificationBackgroundService subscribes "loyalty.points.changed".
-- **5.3 Order status auto-push SC8:** Already wired from Wave 9 — no code changes needed.
-- **5.4 Customer segmentation + bulk push + stats:** CustomerSegmentCriteria record + ICustomerRepository.GetBySegmentAsync + CustomerRepository impl. CustomerSegmentationService. PushNotificationService.SendBulkNotificationAsync. OrderWorkflowService.UpdateCustomerOrderStatsAsync (ALL orders update Customer stats).
-- **Build:** `dotnet build VanAn.sln` — 0 errors ✅
-- **Guard:** `guard-check.ps1` — ALL CHECKS PASSED ✅
-- **SC achieved:** SC2, SC3, SC4, SC5, SC6, SC7, SC8, SC13, SC15 (9/17)
+### Loyalty L-C Task Card Review (2026-07-24) — 3 gaps added
 
-### Loyalty System Audit (2026-07-23)
-3 subagents audited loyalty system. Findings:
-- **Award on purchase: 85%** ✅ REAL — OrderWorkflowService.ProcessLoyaltyPointsAsync + LoyaltyRewardsService.AddPointsAsync. Gap: hardcoded formula, guard TrackingCode.
-- **Task-based awards: 0%** ❌ DOES NOT EXIST — no Mission/Quest framework, no PWA install/OTP/birthday/social share rewards.
-- **Spend/Redeem: 25%** ⚠️ PARTIAL — only SubtractPointsAsync (deduct points). NO catalog, voucher, fulfillment, pay-with-points.
-- **Implementation order:** Phase 5 → L-A → L-B → L-C (dependency chain, avoid file conflicts).
-- **Master plan:** `docs/AI/tasks/khachlink_pwa_offline_master_plan.md` — Loyalty System Enhancements section (added 2026-07-23).
+User review found task card missing 3 workstreams. Task card updated to include:
+
+**Gap 1 — Owner config UI for loyalty formula (L-A gap fix):**
+- Currently `LoyaltyPointsConfig` (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders) is **appsettings.json-only** — owner cannot self-edit, must dev commit + redeploy.
+- **Fix:** Extend `ShopFeatureSettingsDto` + `ShopFeatureSettingsEntity` (per-tenant, DB-backed) with 4 new fields:
+  - `Loyalty_PointsRate` (decimal, default 0.1 = 10%)
+  - `Loyalty_MinPointsPerOrder` (int, default 10)
+  - `Loyalty_MaxPointsPerOrder` (int? nullable, default null = ∞)
+  - `Loyalty_AwardOnAllOrders` (bool, default true)
+- Update `ShopFeatureSettingsService` read/write + `ShopFeatures.razor` UI section "Công thức điểm thưởng".
+- Update `OrderWorkflowService.HandleOrderCompletedAsync` to read from `IShopFeatureSettingsService.GetSettingsAsync(tenantId)` (per-tenant) with `IOptions<LoyaltyPointsConfig>` fallback (global default if tenant has no config).
+- Migration: add 4 columns to `ShopFeatureSettings` table.
+- **Benefit:** Owner self-edits formula via UI; per-tenant override (each quán can have different rate).
+
+**Gap 2 — Customer mission tracking UI audit (L-C scope check):**
+- Reviewed existing KhachLink pages for customer-facing mission/loyalty tracking UX.
+- **Existing pages:**
+  - `/my-loyalty` (LoyaltyCard.razor): shows PointBalance + tier badges + history list (with +/− icons + reason + timestamp). ✅ History tracking exists.
+  - `/profile` (Profile.razor): shows name + tier + point balance + identity level badge + push toggle + upgrade button. ✅ Profile hub.
+  - `/rewards` (RedemptionCatalog.razor, L-B): browse catalog + redeem + voucher QR modal. ✅ Redeem flow.
+  - `/my-orders` (OrderHistory.razor): order history. ✅ Purchase history.
+- **Missing for L-C:**
+  - `/missions` page (NEW, in task card SC11): list missions + progress + complete button. **NOT YET IMPLEMENTED** — task card SC11 covers it.
+  - Profile.razor birthday input (SC12): **NOT YET IMPLEMENTED** — task card covers it.
+  - Mission completion proof UI (e.g., share URL submit form for Facebook/TikTok missions): **NOT EXPLICITLY in task card** — added as SC15 (proof submission form + URL validation feedback).
+  - Mission completion history (separate from loyalty points history): **NOT in task card** — added as SC16 (MissionCompletion list in `/missions` page showing completed missions + points awarded + date).
+- **Verdict:** Task card SC11-12 + 2 new SC15-16 cover customer mission tracking UI. Loyalty history already exists in `/my-loyalty`.
+
+**Gap 3 — Notification rules for loyalty events (NEW workstream):**
+- Current notification infra: `PushNotificationService.SendLoyaltyPointsChangedNotificationAsync` (Phase 5) fires on every AddPoints/SubtractPoints via NATS + Outbox. ✅ Points change notification exists.
+- **Missing notification rules (admin-configurable per tenant):**
+  - Mission completed → push "Hoàn thành nhiệm vụ X, +Y điểm" (currently only generic points-changed push fires).
+  - Birthday bonus → push "Chúc mừng sinh nhật +100 điểm" (currently only generic points-changed push fires).
+  - Redemption fulfilled → push "Voucher X đã được xác nhận" (currently NO notification — `RedemptionService.FulfillAsync` does not call push).
+  - Redemption cancelled + refunded → push "Đổi điểm đã hủy, hoàn Y điểm" (currently only generic points-changed push fires via SubtractPoints refund).
+  - Voucher expiring soon (T-24h) → push "Voucher X sắp hết hạn" (currently does NOT exist).
+- **Fix:** Add `LoyaltyNotificationRules` to `ShopFeatureSettingsDto` (per-tenant toggles):
+  - `Notify_MissionCompleted` (bool, default true)
+  - `Notify_BirthdayBonus` (bool, default true)
+  - `Notify_RedemptionFulfilled` (bool, default true)
+  - `Notify_RedemptionCancelled` (bool, default true)
+  - `Notify_VoucherExpiringSoon` (bool, default true)
+  - `VoucherExpiryNotifyHours` (int, default 24 — hours before expiry to send reminder)
+- `MissionService.CompleteMissionAsync` → check `Notify_MissionCompleted` → call `PushNotificationService.SendLoyaltyPointsChangedNotificationAsync` with mission-specific reason.
+- `RedemptionService.FulfillAsync` → check `Notify_RedemptionFulfilled` → call new `PushNotificationService.SendRedemptionFulfilledNotificationAsync(customerId, voucherCode, productName)`.
+- `RedemptionService.CancelAsync` → check `Notify_RedemptionCancelled` → push with refund reason.
+- **NEW scheduled job:** `VoucherExpiryReminderJob` (HostedService, daily) → query vouchers expiring within `VoucherExpiryNotifyHours` → push reminder. Add to `MissionService` or new `LoyaltyNotificationService`.
+- UI: `ShopFeatures.razor` new section "Thông báo điểm thưởng" with 5 toggles + expiry hours input.
+
+### Phase 5 + Loyalty L-A/L-B Implementation Details
+- **Phase 5 + L-A + L-B all COMPLETE 2026-07-24.** Full implementation details archived to `docs/AI/project_state_archive.md` (Section "Archived 2026-07-24").
+- **Loyalty System Audit (2026-07-23):** Award on purchase 85% (L-A fixed to 100%), Task-based awards 0% (L-C will build), Spend/Redeem 25% (L-B fixed to 100%). Implementation order: Phase 5 → L-A → L-B → L-C (dependency chain). Master plan: `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`.
 
 ---
 
-**Previous Objective (archived 2026-07-23):**
+**Previous Objective (archived 2026-07-24):**
 
-**Featured Product Picker + Order Status Unification (COMPLETE + VPS VERIFIED 2026-07-23)**
-
-### Bug Report
-2 vấn đề liên quan được fix trong cùng commit `17dab107`:
-1. **Featured Product Picker defect** — sysadmin nhập tay ProductId GUID → tạo stub products không mong muốn trong ShopERP SQLite của tenant owners.
-2. **Order Status Conflict** — nhiều flow cập nhật status xung đột (OrderService 4-state vs OrderWorkflowService 7-state), order kẹt ở "confirmed", KitchenService bypass Outbox sync.
-
-### Root Cause
-- **Featured Products:** `FeaturedProducts.razor` dùng `VanAInput` text cho ProductId → sysadmin nhập GUID empty `00000000-...` → `OrderSyncSubscriber` auto-create stub product với `Description='Synced from Gateway'`.
-- **Order Status:** `OrderService.UpdateOrderStatusAsync` dùng 4-state machine không có "confirmed" → order kẹt. `KitchenService.UpdateItemStatusAsync` update trực tiếp entity, bypass `OrderWorkflowService.TransitionStatusAsync` → Outbox event không enqueue → status không sync về Gateway PG.
-
-### Fix Applied (commit `17dab107`, 2026-07-23)
-**Featured Product Picker (8 files):**
-- `FeaturedProducts.razor`: Product picker dropdown (load từ `ShopERPDbContext.Products`, filter `TenantId + IsActive`); auto-fill snapshot (DisplayName=Product.Name, DisplayPrice=Product.Price, VatRate=Product.VatRate); lock Price+VAT (disabled); "Refresh from Product" button (edit mode); tenant selector ở đầu modal.
-- Tenant dropdown change → reload product list. Product dropdown change → auto-fill snapshot.
-
-**Order Status Unification (7 files):**
-- `OrderWorkflowService.cs`: Thêm "confirmed" vào normal flow state machine: `confirmed → [preparing, cancelled, completed]`.
-- `IOrderService.cs` + `OrderService.cs`: Mark `UpdateOrderStatusAsync` `[Obsolete]` — redirect doc sang `OrderWorkflowService.TransitionStatusAsync`.
-- `KitchenService.cs`: Inject `IOrderWorkflowService?`; delegate Ready transition sang `TransitionStatusAsync` (fallback direct mutation khi null — test scope).
-- `Orders/Index.razor`: ConfirmOrder → `OrderWorkflowService.TransitionStatusAsync`.
-- `OrdersController.cs` (ShopERP + Gateway): UpdateOrderStatus → delegate sang `OrderWorkflowService.TransitionStatusAsync`. Gateway `UpdateStatusRequest` thêm `Reason` field.
-
-**Cleanup script:** `scripts/cleanup-featured-product-stubs.sql` — delete stubs (0 OrderItem refs) + deactivate stubs (with OrderItem refs).
-
-### VPS Verification (2026-07-23 — DEFINITIVE, post-`17dab107` deploy)
-**All 4 checks PASS:**
-
-1. **Featured Product Picker UI** ✓
-   - Page `/admin/featured-products` render 200 (auth cookie OK)
-   - DLL verify: `RefreshFromProductAsync` (2 matches), `LoadProductsForTenantAsync`/`OnProductSelectedAsync`/`OnTenantSelectedAsync` (2 matches) — code deployed
-   - Gateway FeaturedProducts API: 200 OK, 6 existing products (3 có `ProductId=00000000-...` — defect cũ)
-   - Tạo featured product mới với ProductId thật `769e2fcc-...` (Cheesecake): **201 Created**
-
-2. **Refresh from Product** ✓
-   - Update featured product: Price 45000→50000, VAT 0.10→0.08, DisplayName giữ nguyên → **200 OK**
-   - RV test product đã cleanup (DELETE 204)
-
-3. **Order status flow** ✓ (test trên order `019f8b82-ddf3-7544-a8ed-2c097925790e` qua ShopERP OrdersController):
-   | Transition | Result | Note |
-   |---|---|---|
-   | `pending → confirmed` | **204** | Owner confirm |
-   | `confirmed → preparing` | **204** | **Transition MỚI (Section 5 fix)** — trước fix order kẹt |
-   | `preparing → ready` | **204** | Kitchen done |
-   | `ready → completed` | **204** | Customer received |
-   | `completed → preparing` | **404 rejected** | State machine validation works |
-   - ShopERP logs: Outbox event `OrderStatusChanged` published qua NATS subject `vanan.shoperp.order.status.changed`.
-
-4. **Cleanup stub products** ✓
-   - Script chạy trên VPS SQLite (`/var/lib/docker/volumes/vanan_shoperp_data/_data/vanan_shoperp.db`)
-   - **Before:** 18 stub products. **After:** 12 stubs (6 deleted + 12 deactivated). **Active stubs: 0**.
-   - Backup tại `/tmp/vanan_shoperp_backup_.db`
-
-### CI Notes (không block CD)
-- Local CI pipeline (pre-push) ALL PASSED: Build, Unit Tests (969/0/14), KhachLink Startup, Gateway Startup, Architecture (37/37), Integration Tests (warn — 43 pre-existing failures, non-blocking).
-- CD deploy SUCCESS — all containers "Up 2 minutes" (healthy) post-deploy.
-
-### Pre-existing issues (không liên quan fix, đã có trước)
-- **Issue 2 — FIXED + VPS VERIFIED (2026-07-23):** ShopERP impersonation API 500 — root cause: `AdminController.Impersonate` query `ITenantManagementService` (ShopERP SQLite) cho Tenants data, nhưng per Option C Gateway PG là source of truth cho Tenants → SQLite không có bảng Tenants → throw → 500. Fix: refactor `AdminController.Impersonate` delegate tenant validation qua Gateway HTTP (`GET /api/v1/tenants/{id}`, endpoint mới thêm ở `TenantsController`). Mint SystemAdmin JWT từ current user claims → Bearer call Gateway → deserialize `GatewayTenantDto` (Id, Name, Status). 404 → NotFound, non-Active → BadRequest, success → cookie sign-in + JWT re-issuance giữ nguyên. Build 0 errors, guard-check ALL PASSED. **VPS RV 3/3 PASS (2026-07-23):** (1) Platform login `POST /api/platform/login` 200 + cookie + JWT; (2) Impersonate `POST /api/admin/impersonate/81e168d4-...` 200 + `{"success":true,"tenantId":"81e168d4-...","tenantName":"Ngô Gia Trà","token":"eyJ..."}` + new cookie với tenant_id; (3) Gateway `GET /api/v1/tenants/81e168d4-...` 200 + full TenantDto từ PG (name, status=Active, slug, theme, ...).
-- **Issue 1 — AUTO-RESOLVED (2026-07-23, VPS verified):** Gateway OrdersController reject SystemAdmin JWT (tenant_id="system" → Guid.Empty → RequireTenantAccess fail) — by design (Order là tenant-scoped, SystemAdmin là platform-level). Sau khi Issue 2 fix deploy, SystemAdmin impersonate trước → nhận tenant-scoped JWT (`tenant_id="81e168d4-..."` thay vì "system") → Gateway OrdersController accept. Không cần fix code riêng.
-- **Issue 3 — đính chính (code đúng, không phải bug):** ShopERP→PG status sync — ghi chú cũ "Gateway subscriber chưa config cho subject `vanan.shoperp.order.status.changed`" **SAI**. Code verify: `DataSyncSubscriber` subscribe wildcard `vanan.shoperp.>` (line 63-66), có `case "order.status.changed"` (line 109-113) → `SyncOrderStatusAsync` update PG (line 205-246). Payload shape khớp `OrderWorkflowService.EnqueueOrderStatusChangedEvent` (orderId/tenantId/newStatus camelCase). `NatsSyncWorker.BuildSubject("OrderStatusChanged","shoperp")` → `vanan.shoperp.order.status.changed` (line 124-131). `NatsSyncWorker` registered default `Sync:Enabled=true` (Program.cs line 144-152). Nếu VPS vẫn không sync, nguyên nhân runtime: (a) test order tạo trực tiếp ở ShopERP SQLite không tồn tại trong PG → `SyncOrderStatusAsync` log warning + skip (đúng behavior — PG là source of truth cho Orders); (b) NATS disconnect (degraded mode); (c) tenantId mismatch. Cần `docker logs vanan-gateway | grep SyncOrderStatusAsync` để xác nhận.
-
-### Next Actions
-1. ✅ Phase D-G: Unify status updates — OrderWorkflowService state machine + deprecate OrderService.UpdateOrderStatusAsync + KitchenService delegate + OrdersController delegate
-2. ✅ Phase A-B: FeaturedProducts.razor product picker + auto-fill + lock + Refresh button
-3. ✅ Phase H: Build + guard-check validation
-4. ✅ Phase C: SQL cleanup script + run on VPS
-5. ✅ VPS verification: 4/4 checks PASS
+**Featured Product Picker + Order Status Unification (COMPLETE + VPS VERIFIED 2026-07-23)** — Commit `17dab107`. Product picker dropdown thay hand-typed GUID (auto-fill snapshot, lock Price+VAT, Refresh button). Order status unified qua `OrderWorkflowService.TransitionStatusAsync` (7-state + Outbox sync); `OrderService.UpdateOrderStatusAsync` deprecated; "confirmed" added to normal flow; KitchenService delegates Ready transition. VPS RV 4/4 PASS. **Full details archived to `docs/AI/project_state_archive.md` (Section "Archived 2026-07-24").**
 
 ---
 
@@ -188,15 +159,18 @@ SC1 VAPID verified · SC2 CampaignPushJob + migration · SC3 LoyaltyPointsChange
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `17dab107` fix(featured-products+order-status): product picker + unify status transitions
+- **Last commit:** `891869eb` docs(loyalty-b): mark task card COMPLETE + VPS RV 13/13 PASS
 - **.NET SDK:** 8.0.422 (system path, CVEs patched, global.json pinned)
 - **DB:** SQLite `vanan_shoperp.db` (local dev + VPS, business) - PostgreSQL `VanAnCoreHub` (local Docker + VPS, accounting + Gateway business + ShopInstances + FeaturedProducts + SocialCampaigns tables) - PostgreSQL `vanan_accounting` (local, accounting)
-- **Build (2026-07-23):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` ALL PASSED. Local CI pipeline (pre-push) ALL PASSED (Build, Unit Tests 969/0/14, KhachLink Startup, Gateway Startup, Architecture 37/37, Integration Tests warn).
+- **Build (2026-07-24):** `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` ALL PASSED. Architecture.Tests 37/37 PASS. CD success. VPS RV 13/13 PASS (L-B).
 - **Uncommitted changes:** None.
 - **Featured Product Picker + Order Status Unification (2026-07-23 — COMPLETE + VPS VERIFIED):** Commit `17dab107`. Product picker dropdown thay hand-typed GUID (auto-fill snapshot, lock Price+VAT, Refresh button). Order status unified qua `OrderWorkflowService.TransitionStatusAsync` (7-state + Outbox sync); `OrderService.UpdateOrderStatusAsync` deprecated; "confirmed" added to normal flow; KitchenService delegates Ready transition. VPS RV 4/4 PASS: product picker UI + Refresh + full status flow `pending→confirmed→preparing→ready→completed` (all 204, invalid transition rejected) + cleanup 18→12 stubs (6 deleted + 12 deactivated, 0 active).
 - **VPS font fix (2026-07-23 — COMPLETE + VERIFIED):** Double-encoded Vietnamese in 6 KhachLink static files (`index.html`, `manifest.json`, `service-worker.js`, `pwa.js`, `cart-animation.js`, `classic.css`) repaired by commit `d9e2728f`. CD deployed. VPS RV PASS: HTML serve `Vạn An`, `Hệ thống đặt hàng`, `Đang kết nối lại`, `Mất kết nối` đúng; manifest `Đặt trà sữa`/`Đặt cà phê` đúng; WASM SHA256 match; order tracking page 200 OK với Vietnamese đúng.
 - **Prevention:** `.editorconfig`, `.gitattributes`, `.vscode/settings.json`, `guard-check.ps1` encoding gate — prevents Win-1252 files from re-entering repo.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). CD deploys automatically on push to main.
+- **Loyalty L-B COMPLETE (2026-07-24):** Commits `8f6162a5` + `88a74ab6` + `891869eb`. 3 entities (RedemptionCatalogItem, RedemptionRecord, Voucher) + IRedemptionRepository + RedemptionService (ACID RedeemAsync + FulfillAsync + CancelAsync) + ShopERP/Gateway controllers + KhachLink `/rewards` + ShopERP `/admin/redemption-catalog` + `/admin/redemption-history` + nav links + sitemap. VPS RV 13/13 PASS.
+- **Loyalty L-A COMPLETE (2026-07-24):** Commits `aae5fba2` + `8b8f97bc`. LoyaltyPointsConfig (PointsRate, Min/MaxPointsPerOrder, AwardOnAllOrders) via IOptions from appsettings.json. OrderWorkflowService uses configurable formula. **Gap: no admin UI — L-C will fix.**
+- **Phase 5 Push Notification COMPLETE (2026-07-24):** 17 SC achieved. Profile.razor push toggle, LoyaltyPointsChanged outbox + NATS auto-push, CampaignPushJob bulk push + CustomerSegmentationService, PushNotificationDelivery click tracking, CampaignsAdmin UI. **Archived 2026-07-24.**
 - **Test order for RV:** `019f8aa0-8489-722b-a16f-a04e785fe2be` (Coffee An An, status=pending, amount=22000)
 - **Order UUIDv7 Refactor (2026-07-16 - COMPLETE + VPS VERIFIED):** 5 phases done + VPS runtime verified. Commits: `362b219c`, `a79ce830`. CD run #4 SUCCESS.
 - **UI Fix Batch (2026-07-16 - COMPLETE):** VanAForm preventDefault fix + RevenueEntry/ExpenseEntry accountCode pass-through + TransactionHistory CSV export + Sitemap restructure.
@@ -215,32 +189,23 @@ SC1 VAPID verified · SC2 CampaignPushJob + migration · SC3 LoyaltyPointsChange
 
 **NEXT (recommended priority order):**
 
-1. **(Cosmetic) Replace remaining `?` in Checkout.razor** — 18/63 lines still have `?` (corrupted emojis from original content corruption, not encoding). Low priority.
-2. **(Cosmetic) Fix `isTabVisible` display bug in OrderTracking.razor** — spinner luôn hiện vì `isPolling && isTabVisible` đều true. Không gây treo (đã fix root cause), chỉ cosmetic. Low priority.
-3. **(Env) Fix local DB role mismatch** — ShopERP dùng role `vanan_admin` (config riêng), Gateway dùng `vanan_dev` (env var). Cần align để localhost runtime verify work. Separate env task.
-4. **(VPS log check) ShopERP→PG status sync** — Code đúng (DataSyncSubscriber subscribe `vanan.shoperp.>` + `case "order.status.changed"` → `SyncOrderStatusAsync` update PG). Nếu VPS vẫn không sync, chạy `docker logs vanan-gateway | grep SyncOrderStatusAsync` để xác nhận runtime cause: (a) test order không tồn tại trong PG (tạo trực tiếp ở SQLite), (b) NATS disconnect, (c) tenantId mismatch.
-5. **Push Phase 3 + browser manual RV** — commit `service-worker.js` + `project_state.md`, push to main, wait for CI + CD, then open `https://diemthuong.khachvip.online` in browser, **hard refresh (Ctrl+Shift+R)** to clear old SW cache, verify:
-   - DevTools Application → Service Workers: SW `v11-phase3` active
-   - DevTools Application → Cache Storage: `vanan-dynamic-v11-phase3` populated with whitelisted API responses (catalog, campaigns, tenants, public/orders, customerorders)
-   - **Auth endpoints NOT cached:** verify `/api/customers/me` and `/api/loyalty/my` are NOT in `vanan-dynamic-v11-phase3` (whitelist excludes them)
-   - **SC5 Offline Store Finder:** DevTools → Network → Offline → open Store Finder → cached stores show
-   - **SC6 Offline Home:** DevTools → Network → Offline → open Home → cached catalog + campaigns show (SWR returns immediately)
-   - **SC7 Offline Order Tracking:** DevTools → Network → Offline → open Order Tracking with cached order ID → cached order shows
-   - **SC8 Offline Order History:** DevTools → Network → Offline → open Order History → cached orders show
-   - **SWR behavior:** online → open Home → catalog loads from cache instantly (no network spinner) → DevTools Network shows bg fetch for `/api/catalog/recommended` after page render
-   - **24h expiration:** (hard to test manually — would need to mock time or wait 24h; verify `x-sw-cached-at` header present in cached responses via DevTools → Cache Storage → response headers)
-   - Combined with prior Phase 2 + 2b RV: no `CannotResolveService`, no `NullabilityInfoContext_NotSupported`, no `503` for `/_framework/*`, all pages render, price validation + offline guard still work
-   - Note: `runtime.lastError` / `message channel closed` errors are from browser extensions, NOT KhachLink — verify in Incognito mode.
+1. **Loyalty L-C — Task-based Awards + Owner Config UI + Notification Rules** — task card `docs/AI/tasks/loyalty_phase_c_task_based_awards_task_card.md` reviewed + expanded 2026-07-24 with 3 new workstreams:
+   - **WS-A (L-A gap fix):** Owner admin UI for loyalty formula (PointsRate, Min/MaxPointsPerOrder, AwardOnAllOrders) via `ShopFeatureSettingsDto` + `ShopFeatures.razor` + per-tenant DB storage. `OrderWorkflowService` reads from `IShopFeatureSettingsService` (per-tenant) with `IOptions` fallback.
+   - **WS-B (Customer mission tracking UI):** `/missions` page (SC11) + Profile.razor birthday input (SC12) + mission proof submit form (SC15 NEW) + MissionCompletion history (SC16 NEW). Loyalty history already in `/my-loyalty`.
+   - **WS-C (Notification rules):** 5 new per-tenant toggles in `ShopFeatureSettingsDto` (Notify_MissionCompleted, Notify_BirthdayBonus, Notify_RedemptionFulfilled, Notify_RedemptionCancelled, Notify_VoucherExpiringSoon) + `VoucherExpiryNotifyHours` + new `VoucherExpiryReminderJob` HostedService + `SendRedemptionFulfilledNotificationAsync` method + UI section in `ShopFeatures.razor`.
+   - **Prerequisites met:** Phase 5 COMPLETE (push infra), L-A COMPLETE (configurable formula), L-B COMPLETE (redemption + voucher entity).
+   - **Decisions chốt 2026-07-23:** Share verification → Require share URL; Birthday bonus → Auto scheduled job; Mission config → Per tenant.
+   - **SC count:** 14 original + 4 new (SC15-18 for proof UI + mission history + notification rules + expiry job) = 18 total.
 
-6. **Continue Post-Shop-Removal RV** — verify remaining business flows on VPS (if not already done):
-   - Order creation flow (KhachLink → Gateway → NATS → ShopERP)
-   - Payment confirmation flow (webhook → OrderService.MarkPaid → AccountingEntry)
-   - Kitchen display flow (SignalR + status update)
-   - Accounting flow (JournalEntry + AccountingEntry immutable)
+2. **(Cosmetic) Replace remaining `?` in Checkout.razor** — 18/63 lines still have `?` (corrupted emojis). Low priority.
 
-7. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md` (placeholder created in Phase 7). 7 E2E scenarios: single-tenant checkout, multi-tenant checkout, FeaturedProduct display, customer history, admin ShopInstances CRUD, admin TenantManagement new column, multi-VPS routing simulation (2 ShopERP containers with different SHOP_INSTANCE_ID).
+3. **(Cosmetic) Fix `isTabVisible` display bug in OrderTracking.razor** — spinner luôn hiện. Low priority.
 
-8. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 NATS sync dead code, TD-MVPS-002 CustomerRecommendationService retirement, TD-MVPS-003 Integration.Tests infra, TD-MVPS-004 UserTenant mapping). **TD-PWA-001 KhachLink Blazor Server → WASM conversion** — Phase 1-3 complete, Phases 5-6 remaining (see master plan `docs/AI/tasks/khachlink_pwa_offline_master_plan.md`; Phase 4 DESCOPE).
+4. **(Env) Fix local DB role mismatch** — ShopERP role `vanan_admin` vs Gateway `vanan_dev`. Separate env task.
+
+5. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `gateway_router_multi_vps_master_plan.md`. Task card: `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
+
+6. **Tech debt cleanup** — see `docs/AI/tasks/tech_debt_multi_vps_checkout.md` (TD-MVPS-001 through TD-MVPS-004) + TD-PWA-001 (KhachLink WASM conversion Phases 5-6 remaining).
 
 **Phase 7 COMPLETE (2026-07-20):** Verification + Governance. governance.md updated to Option C + ADR-001 v3 addendum + Phase 8 task card placeholder + tech debt register + final verification (Core.Tests 1044/0/16, Architecture 38/38, guard-check PASS, Integration.Tests CircuitBreaker 6/6 — 43 pre-existing failures require full local app stack, documented as TD-MVPS-003).
 
@@ -359,7 +324,11 @@ Server A (Edge):                      Server B (Central):
 
 ## 9. Maintenance Log
 
-* **2026-07-23 -- SHOPERP IMPERSONATION API FIX + VPS VERIFIED (Issue 2 of pre-existing issues review).** Root cause: `AdminController.Impersonate` (ShopERP) inject `ITenantManagementService` → query `dbContext.Tenants` từ `ShopERPDbContext` (SQLite). Per Option C, Gateway PG là source of truth cho Tenants — ShopERP SQLite không có bảng Tenants → query throw → 500. Fix 2 files: (1) `2_Gateway/Controllers/TenantsController.cs` — thêm `GET /api/v1/tenants/{tenantId}` endpoint (policy `SystemAdmin`, query PG qua `ITenantManagementService.GetTenantByIdAsync`, return `TenantDto` hoặc 404). (2) `5_WebApps/ShopERP/Controllers/AdminController.cs` — refactor `Impersonate`: bỏ `ITenantManagementService` dependency, thay bằng `GetTenantFromGatewayAsync` (mint SystemAdmin JWT từ current user claims → Bearer call `GET {Gateway:BaseUrl}/api/v1/tenants/{id}` → deserialize `GatewayTenantDto` với Id/Name/Status). 404 → `NotFound`, non-Active → `BadRequest`, success → cookie sign-in + JWT re-issuance giữ nguyên. `ExitImpersonation` giữ nguyên. Build `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` ALL PASSED (Architecture, Roslyn, Fast test gate, Integration test gate). Commit `5a65b606`. CD deployed (containers up 16 min healthy, DLL verify: `GetTenantFromGatewayAsync`=2 matches, `GatewayTenantDto`=1 match in ShopERP.dll; `GetById`=2 matches in Gateway.dll). **VPS RV 3/3 PASS:** (1) Platform login `POST /api/platform/login` 200 + `.VanAn.Auth` cookie + SystemAdmin JWT; (2) Impersonate `POST /api/admin/impersonate/81e168d4-e44a-4728-a1ea-55151b168c96` 200 + `{"success":true,"tenantId":"81e168d4-...","tenantName":"Ngô Gia Trà","token":"eyJ..."}` + new cookie với tenant_id GUID thật; (3) Gateway `GET /api/v1/tenants/81e168d4-...` 200 + full TenantDto từ PG (name="Ngô Gia Trà", status=1 Active, slug="ngo-gia-tra", theme=2, address, socialLinks, ...). **Issue 1 (Gateway OrdersController reject SystemAdmin JWT) AUTO-RESOLVED** — impersonated JWT có `tenant_id="81e168d4-..."` (real GUID, không còn "system") → `GetTenantId()` parse OK → Gateway OrdersController accept. **Issue 3 đính chính:** ghi chú cũ "Gateway subscriber chưa config cho subject `vanan.shoperp.order.status.changed`" SAI — `DataSyncSubscriber` subscribe wildcard `vanan.shoperp.>` + có `case "order.status.changed"` → `SyncOrderStatusAsync` update PG. Code đúng, "không sync trên VPS" là runtime cause (test order không có trong PG / NATS disconnect / tenantId mismatch) — cần `docker logs vanan-gateway | grep SyncOrderStatusAsync` để xác nhận. Branch: `main`. Next: (optional) VPS log check status sync; (cosmetic) `isTabVisible` + Checkout.razor `?`; (env) local DB role mismatch.
+* **2026-07-24 -- LOYALTY L-B COMPLETE + VPS RV 13/13 PASS + L-C TASK CARD REVIEW.** 3 commits: `8f6162a5` (feat: redemption system + ACID transaction fix + DDD violation fix), `88a74ab6` (feat: nav links + sitemap entries for redemption pages), `891869eb` (docs: mark task card COMPLETE). L-B deliverables: 3 new entities (RedemptionCatalogItem, RedemptionRecord, Voucher) + 3 EF configs + ShopERP SQLite migration + IRedemptionRepository + RedemptionService (RedeemAsync with ACID transaction via IVanAnDbContext.BeginTransactionAsync, FulfillAsync, CancelAsync with refund) + ShopERP RedemptionController (admin CRUD + customer redeem + fulfillment) + Gateway RedemptionController (forward) + KhachLink `/rewards` page (browse + redeem + QR voucher modal) + KhachLink header gift/gem icons + ShopERP `/admin/redemption-catalog` + `/admin/redemption-history` admin pages + nav links in AdminLayout + NavMenu + Sitemap card. Code review fix: wrapped RedeemAsync in single transaction for ACID (SubtractPoints + record + voucher + stock decrement all atomic); removed BeginTransactionAsync from Domain interface (VA-DDD-002 violation — EF Core type in Domain layer). Architecture.Tests 37/37 PASS (RedemptionController added to Gateway [Authorize] exempt list — consistent with 8+ customer-facing controllers, auth enforced at ShopERP via CustomerTokenService.ValidateToken with IDataProtector). Build 0 errors. guard-check ALL PASSED. CD success. **VPS RV 13/13 PASS** (2026-07-24): 8 containers healthy, KhachLink `/rewards` + `/my-loyalty` 200, ShopERP `/admin/redemption-catalog` + `/admin/redemption-history` 200 (content verified: "Redemption Catalog" + "Lịch sử đổi điểm"), Sitemap + NavMenu have redemption links (HTML content check True/True/True), Gateway `GET /api/redemption/catalog/active` 200 (returns `[]` then 2 items after admin POST create with real sysadmin@vanan.vn login), ShopERP `POST /api/redemption/catalog` 201 (created 2 real items: "Ca phe mien phi" 500pts + "Tra sua" 1000pts stock=50), `GET /api/redemption/history` 200 (`[]`), migration applied (tables exist, queries run, "SQLite database migrated" log). **L-C task card reviewed + expanded 2026-07-24** with 3 new workstreams: WS-A owner config UI for loyalty formula (L-A gap fix via ShopFeatureSettingsDto per-tenant DB storage), WS-B customer mission tracking UI audit (existing `/my-loyalty` has history, `/missions` page + birthday input + proof submit form + MissionCompletion history added as SC15-16), WS-C notification rules (5 per-tenant toggles + VoucherExpiryReminderJob + SendRedemptionFulfilledNotificationAsync). SC count: 14 original + 4 new = 18 total. Branch: `main`.
+
+* **2026-07-24 -- LOYALTY L-A COMPLETE + VPS RV PASS.** 2 commits: `aae5fba2` (feat: configurable points formula + AwardOnAllOrders guard), `8b8f97bc` (docs: update task card + state). L-A deliverables: LoyaltyPointsConfig record (PointsRate=0.1, MinPointsPerOrder=10, MaxPointsPerOrder=null, AwardOnAllOrders=true) in 1_Shared/Domain.cs bound via IOptions<LoyaltyPointsConfig> from appsettings.json `LoyaltyPoints` section (Gateway + CoreHub + ShopERP). OrderWorkflowService.HandleOrderCompletedAsync updated: inject IOptions<LoyaltyPointsConfig>, replace hardcoded 10% + Math.Max(10, ...) with `(int)(order.TotalAmount * config.PointsRate)` clamped to [Min, Max]. AwardOnAllOrders replaces TrackingCode guard (true = all orders get points, false = only orders with TrackingCode). OrderWorkflowServiceTests updated (orphaned file, not compiled — noted). Build 0 errors. guard-check ALL PASSED. CD success. VPS RV PASS. **Gap identified 2026-07-24:** config is appsettings.json-only, NO admin UI for owner — L-C WS-A will fix.
+
+* **2026-07-24 -- PHASE 5 PUSH NOTIFICATION COMPLETE + VPS RV PASS.** Session 1 (5.1-5.4) + Session 2 (5.5-5.9). All 17 Success Criteria achieved. CampaignPushJob + PushNotificationDelivery entities (Gateway PG) + Customer.UpdateOrderStats method + EventTypes.LoyaltyPointsChanged + 2 EF configs + 2 migrations. LoyaltyRewardsService enqueues outbox + publishes NATS "loyalty.points.changed" on AddPoints/SubtractPoints. PushNotificationService.SendLoyaltyPointsChangedNotificationAsync + SendBulkNotificationAsync. PushNotificationBackgroundService subscribes "loyalty.points.changed". CustomerSegmentationService + GetBySegmentAsync. Gateway admin endpoints (POST send-push, POST push/send, POST push/track, DELETE subscribe). KhachLink Profile.razor push toggle + full unsubscribe (browser + server). ShopERP CampaignsAdmin.razor segment builder + history + Sent/Clicked/CTR stats. Click tracking via SW notificationclick beacon + POST /api/push/track. Build PASS, guard-check PASS, CD success, VPS RV PASS. **Archived to project_state_archive.md 2026-07-24.**
 
 * **2026-07-23 -- FEATURED PRODUCT PICKER + ORDER STATUS UNIFICATION COMPLETE + VPS VERIFIED.** Commit `17dab107`. 2 fixes trong cùng commit: (1) Featured Product Picker — `FeaturedProducts.razor` thay hand-typed ProductId GUID input bằng product picker dropdown (load từ `ShopERPDbContext.Products`, filter `TenantId + IsActive`); auto-fill snapshot (DisplayName=Product.Name, DisplayPrice=Product.Price, VatRate=Product.VatRate); lock Price+VAT (disabled); "Refresh from Product" button (edit mode); tenant selector ở đầu modal. Eliminates auto-created stub products (Description='Synced from Gateway') trong tenant owners' SQLite. (2) Order Status Unification — `OrderWorkflowService.cs` thêm "confirmed" vào normal flow state machine (`confirmed → [preparing, cancelled, completed]`); `IOrderService.cs` + `OrderService.cs` mark `UpdateOrderStatusAsync` `[Obsolete]`; `KitchenService.cs` inject `IOrderWorkflowService?` + delegate Ready transition sang `TransitionStatusAsync` (fallback direct mutation khi null); `Orders/Index.razor` ConfirmOrder → `OrderWorkflowService.TransitionStatusAsync`; `OrdersController.cs` (ShopERP + Gateway) delegate sang `OrderWorkflowService.TransitionStatusAsync`; Gateway `UpdateStatusRequest` thêm `Reason` field. Cleanup script `scripts/cleanup-featured-product-stubs.sql` delete stubs (0 OrderItem refs) + deactivate stubs (with OrderItem refs). Build `dotnet build VanAn.sln` 0 errors. `guard-check.ps1` ALL PASSED. Local CI pipeline (pre-push) ALL PASSED (Build, Unit Tests 969/0/14, KhachLink Startup, Gateway Startup, Architecture 37/37, Integration Tests warn — 43 pre-existing failures non-blocking). CD deploy SUCCESS. VPS RV 4/4 PASS: (1) product picker UI render 200 + DLL verify 3 methods deployed + tạo featured product với ProductId thật 201; (2) Refresh from Product — PUT update price+VAT keep DisplayName 200; (3) order status flow `pending→confirmed→preparing→ready→completed` all 204, invalid transition `completed→preparing` rejected 404; (4) cleanup 18→12 stubs (6 deleted + 12 deactivated, 0 active stubs remaining). Pre-existing (không liên quan fix): Gateway OrdersController reject SystemAdmin JWT (tenant_id="system"); ShopERP impersonation API 500; ShopERP→PG status sync Outbox event publish OK nhưng Gateway subscriber chưa config cho subject `vanan.shoperp.order.status.changed`. Branch: `main`. Next: (tech debt) add NATS subscriber trong Gateway cho ShopERP→PG status sync; (cosmetic) `isTabVisible` + Checkout.razor `?`; (env) local DB role mismatch.
 
