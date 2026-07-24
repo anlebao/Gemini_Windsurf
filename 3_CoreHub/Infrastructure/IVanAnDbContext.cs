@@ -63,6 +63,10 @@ namespace VanAn.CoreHub.Infrastructure
         // Phase 6 (Admin UI): Sysadmin-curated featured products (PG-only, tenant-scoped)
         DbSet<FeaturedProduct> FeaturedProducts { get; }
 
+        // Phase 5: Campaign push jobs + delivery tracking (PG-only, tenant-scoped)
+        DbSet<CampaignPushJob> CampaignPushJobs { get; }
+        DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

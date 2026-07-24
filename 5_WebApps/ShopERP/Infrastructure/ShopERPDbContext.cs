@@ -83,6 +83,11 @@ namespace VanAn.ShopERP.Infrastructure
         // DbSet exists to satisfy IVanAnDbContext interface contract; never queried from ShopERP.
         public DbSet<FeaturedProduct> FeaturedProducts { get; set; }
 
+        // Phase 5: CampaignPushJob + PushNotificationDelivery are PG-only (Gateway).
+        // DbSet exists to satisfy IVanAnDbContext interface contract; never queried from ShopERP.
+        public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
+        public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

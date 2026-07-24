@@ -679,6 +679,107 @@ namespace VanAn.Shared.Domain
         {
             MarkAsDeleted();
         }
+
+        // Phase 5: Update order statistics when an order is completed.
+        // Called by OrderWorkflowService.HandleOrderCompletedAsync after order transitions to "completed".
+        public void UpdateOrderStats(DateTime orderDate, decimal amount)
+        {
+            if (amount < 0)
+                throw new ArgumentException("Order amount cannot be negative.", nameof(amount));
+
+            LastOrderDate = orderDate;
+            TotalSpent += amount;
+            UpdateAudit();
+        }
+    }
+
+    // Phase 5: Campaign Push Job — bulk push notification job for a SocialCampaign.
+    // Stores segmentation criteria + send statistics. PG-only (Gateway), same as SocialCampaign.
+    public class CampaignPushJob : BaseEntity, IMustHaveTenant
+    {
+        public Guid CampaignId { get; protected set; }
+        public string CriteriaJson { get; protected set; } = string.Empty;
+        public string Status { get; protected set; } = "Pending"; // Pending/Sending/Completed/Failed
+        public int SentCount { get; protected set; }
+        public int FailedCount { get; protected set; }
+        public int ClickedCount { get; protected set; }
+        public DateTime? SentAt { get; protected set; }
+        public string? ErrorMessage { get; protected set; }
+
+        protected CampaignPushJob() { }
+
+        public CampaignPushJob(TenantId tenantId, Guid campaignId, string criteriaJson)
+            : base(tenantId)
+        {
+            if (campaignId == Guid.Empty)
+                throw new ArgumentException("CampaignId cannot be empty.", nameof(campaignId));
+
+            CampaignId = campaignId;
+            CriteriaJson = criteriaJson ?? string.Empty;
+            Status = "Pending";
+        }
+
+        public void MarkAsSending()
+        {
+            Status = "Sending";
+            UpdateAudit();
+        }
+
+        public void MarkAsCompleted(int sentCount, int failedCount)
+        {
+            Status = "Completed";
+            SentCount = sentCount;
+            FailedCount = failedCount;
+            SentAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkAsFailed(string errorMessage)
+        {
+            Status = "Failed";
+            ErrorMessage = errorMessage;
+            SentAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void IncrementClickedCount()
+        {
+            ClickedCount++;
+            UpdateAudit();
+        }
+    }
+
+    // Phase 5: Push Notification Delivery — tracks per-notification delivery + click status.
+    // Created when a push is sent. Updated when user clicks (notificationclick SW event → beacon).
+    public class PushNotificationDelivery : BaseEntity, IMustHaveTenant
+    {
+        public Guid CustomerId { get; protected set; }
+        public Guid? CampaignPushJobId { get; protected set; } // Nullable for non-campaign pushes (e.g., order status)
+        public Guid NotificationId { get; protected set; } = Guid.NewGuid(); // Unique per notification, included in payload
+        public string Status { get; protected set; } = "Delivered"; // Delivered/Clicked/Expired
+        public DateTime? ClickedAt { get; protected set; }
+        public string? ActionUrl { get; protected set; }
+
+        protected PushNotificationDelivery() { }
+
+        public PushNotificationDelivery(TenantId tenantId, Guid customerId, Guid? campaignPushJobId, string? actionUrl = null)
+            : base(tenantId)
+        {
+            if (customerId == Guid.Empty)
+                throw new ArgumentException("CustomerId cannot be empty.", nameof(customerId));
+
+            CustomerId = customerId;
+            CampaignPushJobId = campaignPushJobId;
+            ActionUrl = actionUrl;
+            Status = "Delivered";
+        }
+
+        public void MarkAsClicked()
+        {
+            Status = "Clicked";
+            ClickedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
     }
 
     // Wave 9: Push Subscription Entity for Web Push Notifications

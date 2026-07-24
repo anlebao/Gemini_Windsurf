@@ -125,6 +125,177 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
+        /// Phase 5: Send a push notification for loyalty points change.
+        /// Triggered by NATS "loyalty.points.changed" event via PushNotificationBackgroundService.
+        /// </summary>
+        /// <param name="customerId">Customer ID to send notification to</param>
+        /// <param name="pointsChange">Points change (positive for earn, negative for spend)</param>
+        /// <param name="newBalance">New point balance after change</param>
+        /// <param name="reason">Reason for the change</param>
+        /// <returns>Number of notifications sent successfully</returns>
+        public async Task<int> SendLoyaltyPointsChangedNotificationAsync(
+            Guid customerId,
+            int pointsChange,
+            int newBalance,
+            string? reason = null)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+
+                if (!subscriptions.Any())
+                {
+                    _logger.LogInformation("No active push subscriptions found for customer {CustomerId}", customerId);
+                    return 0;
+                }
+
+                int successCount = 0;
+                var payload = CreateLoyaltyPointsPayload(pointsChange, newBalance, reason);
+                var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+                var webPushClient = new WebPushClient();
+
+                foreach (var subscription in subscriptions)
+                {
+                    try
+                    {
+                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        if (pushSubscription == null)
+                        {
+                            _logger.LogWarning("Failed to deserialize subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                            continue;
+                        }
+
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        subscription.Renew();
+                        await _subscriptionRepository.UpdateAsync(subscription);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send loyalty push notification for subscription {SubscriptionId}",
+                            subscription.PushSubscriptionId);
+                    }
+                }
+
+                _logger.LogInformation("Loyalty push notifications sent: {SuccessCount}/{TotalCount} for CustomerId: {CustomerId}, PointsChange: {PointsChange}",
+                    successCount, subscriptions.Count, customerId, pointsChange);
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send loyalty push notifications for CustomerId: {CustomerId}", customerId);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Phase 5: Create loyalty points change notification payload.
+        /// </summary>
+        private string CreateLoyaltyPointsPayload(int pointsChange, int newBalance, string? reason)
+        {
+            string direction = pointsChange > 0 ? "+" : "";
+            var notification = new
+            {
+                type = "loyalty_points_changed",
+                pointsChange = pointsChange,
+                newBalance = newBalance,
+                reason = reason ?? "Cập nhật điểm thưởng",
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                message = $"{direction}{pointsChange} điểm. Số dư: {newBalance} điểm",
+                actionUrl = "/my-loyalty"
+            };
+
+            return JsonSerializer.Serialize(notification);
+        }
+
+        /// <summary>
+        /// Phase 5: Send bulk push notifications to a list of customers (for campaigns).
+        /// Creates PushNotificationDelivery records for click tracking.
+        /// </summary>
+        /// <param name="customerIds">List of customer IDs to send to</param>
+        /// <param name="title">Notification title</param>
+        /// <param name="body">Notification body</param>
+        /// <param name="actionUrl">URL to open on click</param>
+        /// <param name="campaignPushJobId">Optional CampaignPushJob ID for tracking</param>
+        /// <returns>Tuple of (sentCount, failedCount)</returns>
+        public async Task<(int SentCount, int FailedCount)> SendBulkNotificationAsync(
+            IReadOnlyList<Guid> customerIds,
+            string title,
+            string body,
+            string? actionUrl = null,
+            Guid? campaignPushJobId = null)
+        {
+            if (customerIds.Count == 0)
+                return (0, 0);
+
+            int sentCount = 0;
+            int failedCount = 0;
+            var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+            var webPushClient = new WebPushClient();
+
+            foreach (Guid customerId in customerIds)
+            {
+                try
+                {
+                    var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+                    if (!subscriptions.Any())
+                    {
+                        failedCount++;
+                        continue;
+                    }
+
+                    bool anySent = false;
+                    foreach (var subscription in subscriptions)
+                    {
+                        try
+                        {
+                            var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                            if (pushSubscription == null) continue;
+
+                            var payload = CreateCampaignPayload(title, body, actionUrl);
+                            await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                            subscription.Renew();
+                            await _subscriptionRepository.UpdateAsync(subscription);
+                            anySent = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to send bulk push for subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                        }
+                    }
+
+                    if (anySent) sentCount++; else failedCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send bulk push to customer {CustomerId}", customerId);
+                    failedCount++;
+                }
+            }
+
+            _logger.LogInformation("Bulk push complete: Sent={Sent}, Failed={Failed}, Total={Total}",
+                sentCount, failedCount, customerIds.Count);
+            return (sentCount, failedCount);
+        }
+
+        /// <summary>
+        /// Phase 5: Create campaign notification payload.
+        /// </summary>
+        private string CreateCampaignPayload(string title, string body, string? actionUrl)
+        {
+            var notification = new
+            {
+                type = "campaign",
+                title = title,
+                body = body,
+                actionUrl = actionUrl ?? "/",
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            };
+
+            return JsonSerializer.Serialize(notification);
+        }
+
+        /// <summary>
         /// Create order status notification payload.
         /// </summary>
         private string CreateOrderStatusPayload(Guid orderId, string newStatus, string? customerName)

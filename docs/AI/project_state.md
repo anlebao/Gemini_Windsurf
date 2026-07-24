@@ -30,6 +30,73 @@
 
 ## 2. Current Objective
 
+**KhachLink PWA Phase 5 — Push Notification + Loyalty Auto-Push + Campaign Bulk Push + Click Tracking (ANALYZE COMPLETE 2026-07-23, IMPLEMENT PENDING)**
+
+### Scope (expanded 2026-07-23 từ user request)
+4 yêu cầu:
+- **(A) Push notification cho khách hàng** — Profile.razor toggle + full unsubscribe (browser + server).
+- **(B) Auto-push khi điểm thưởng loyalty biến động** (tăng HOẶC giảm) — Outbox + NATS trigger → PushNotificationService.
+- **(C) Gửi push chủ động tới danh sách khách theo điều kiện** — SystemAdmin chọn khách theo tiêu chí (tier, spend, last order, identity level, has push) → gửi push thông báo campaign khuyến mãi.
+- **(D) Track click notification** — ghi nhận khách nào đã bấm xem thông báo (notificationclick SW event → beacon → server). Admin UI hiển thị Sent/Clicked/CTR. **KHÔNG track dismiss** (iOS limitation). **KHÔNG track "viewed but ignored"** (Web Push API không có signal — không giống email read receipt).
+
+### ANALYZE Findings (2026-07-23, 3 subagents verified)
+- **Push infra ĐÃ CÓ:** PushSubscription entity (Domain.cs:686-734), PushNotificationService (CoreHub), WebPush NuGet, subscribe endpoint (Gateway→ShopERP), VAPID key match. KHÔNG cần tạo entity mới (bỏ Hard Stop task card cũ).
+- **Loyalty ĐÃ CÓ entity + service** nhưng CHƯA có outbox event khi điểm biến động.
+- **SocialCampaign ĐÃ CÓ** nhưng KHÔNG có segmentation field → dùng CampaignPushJob entity mới (Gateway PG).
+- **Customer có segmentation fields** (Tier, LoyaltyPoints, LastOrderDate, TotalSpent, IdentityLevel) nhưng repo KHÔNG có filter methods + LastOrderDate/TotalSpent KHÔNG được update khi order complete.
+
+### Design Decisions (chốt 2026-07-23)
+1. CampaignPushJob entity mới → Gateway PG (cùng SocialCampaign).
+2. Outbox + NATS cho loyalty points trigger.
+3. Giữ auto-push order status (SC8 — method có sẵn, chỉ wire NATS).
+4. Update Customer.LastOrderDate + TotalSpent khi order complete.
+5. Unsubscribe đầy đủ — browser `pushManager.unsubscribe()` + server `DELETE /api/notifications/push/subscribe`.
+6. Chia 2 session — Session 1: 5.1-5.4 (backend infra), Session 2: 5.5-5.9 (API + UI + tracking + tests + RV).
+7. Track click notification only (KHÔNG track dismiss — iOS limitation, KHÔNG track "viewed but ignored" — Web Push API không có signal).
+
+### Domain Modifications (4 — THÊM, không sửa entity hiện có, approved as feature plan)
+1. `CampaignPushJob` entity mới trong `1_Shared/Domain.cs`.
+2. `PushNotificationDelivery` entity mới trong `1_Shared/Domain.cs` (track delivery + click per notification).
+3. `EventTypes.LoyaltyPointsChanged` constant trong `1_Shared/Domain/OutboxMessage.cs`.
+4. `Customer.UpdateOrderStats(DateTime, decimal)` method.
+
+### Sub-phases
+- **5.1** Domain + EF + Migration (CampaignPushJob, PushNotificationDelivery, EventTypes, CustomerConfiguration, Gateway PG migration)
+- **5.2** Loyalty points outbox + auto-push (LoyaltyRewardsService enqueue event, PushNotificationService.SendLoyaltyPointsChangedNotificationAsync, NATS subscriber)
+- **5.3** Order status auto-push SC8 (verify/wire NATS → SendOrderStatusNotificationAsync)
+- **5.4** Customer segmentation + bulk push + Customer stats update (GetBySegmentAsync, CustomerSegmentationService, SendBulkNotificationAsync, UpdateOrderStats)
+- **5.5** Gateway admin endpoints (POST /api/campaigns/{id}/send-push, POST /api/push/send, POST /api/push/track, DELETE subscribe)
+- **5.6** KhachLink Profile.razor toggle + full unsubscribe (pwa.js, PWAService, NotificationsController DELETE)
+- **5.7** ShopERP Admin UI (CampaignsAdmin.razor segment builder + CampaignPushJob history + Sent/Clicked/CTR stats)
+- **5.8** Tests + Build + RV VPS
+- **5.9** Click tracking (PushNotificationDelivery record on send + SW notificationclick beacon + POST /api/push/track update Status=Clicked)
+
+### Success Criteria (17)
+SC1 VAPID verified · SC2 CampaignPushJob + migration · SC3 LoyaltyPointsChanged outbox · SC4 SendLoyaltyPointsChangedNotificationAsync · SC5 SendBulkNotificationAsync · SC6 CustomerSegmentationService · SC7 Customer.UpdateOrderStats · SC8 auto-push order status · SC9 Profile.razor toggle + unsubscribe · SC10 send-push + push/send endpoints · SC11 DELETE subscribe · SC12 CampaignsAdmin UI · SC13 build + guard-check PASS · SC14 RV VPS Android · SC15 PushNotificationDelivery + migration · SC16 POST /api/push/track + SW notificationclick beacon · SC17 CampaignsAdmin Sent/Clicked/CTR stats
+
+### Reference Docs
+- Master plan: `docs/AI/tasks/khachlink_pwa_offline_master_plan.md` Phase 5 section (expanded 2026-07-23).
+- Task card: `docs/AI/tasks/khachlink_pwa_phase5_push_notification_task_card.md` (rewritten 2026-07-23).
+
+### Next Actions
+1. ⏳ IMPLEMENT Session 1 (5.1-5.4) — backend infra — awaiting user go-ahead.
+2. ⏳ IMPLEMENT Session 2 (5.5-5.9) — API + UI + tracking + tests + RV — after Session 1 COMPLETE.
+3. ⏳ **Loyalty L-A** (guard fix + configurable formula) — after Phase 5.4. Task card: `loyalty_phase_a_guard_fix_configurable_formula_task_card.md`. **Decisions chốt 2026-07-23:** Guard TrackingCode → Configurable per tenant (AwardOnAllOrders default true).
+4. ⏳ **Loyalty L-B** (Redemption system) — after Phase 5. Task card: `loyalty_phase_b_redemption_system_task_card.md`. **Decisions chốt 2026-07-23:** Catalog storage → ShopERP SQLite; Pay-with-points → Optional Phase B-2.
+5. ⏳ **Loyalty L-C** (Task-based awards / gamification) — after Phase 5.6 + L-A. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
+
+### Loyalty System Audit (2026-07-23)
+3 subagents audited loyalty system. Findings:
+- **Award on purchase: 85%** ✅ REAL — OrderWorkflowService.ProcessLoyaltyPointsAsync + LoyaltyRewardsService.AddPointsAsync. Gap: hardcoded formula, guard TrackingCode.
+- **Task-based awards: 0%** ❌ DOES NOT EXIST — no Mission/Quest framework, no PWA install/OTP/birthday/social share rewards.
+- **Spend/Redeem: 25%** ⚠️ PARTIAL — only SubtractPointsAsync (deduct points). NO catalog, voucher, fulfillment, pay-with-points.
+- **Implementation order:** Phase 5 → L-A → L-B → L-C (dependency chain, avoid file conflicts).
+- **Master plan:** `docs/AI/tasks/khachlink_pwa_offline_master_plan.md` — Loyalty System Enhancements section (added 2026-07-23).
+
+---
+
+**Previous Objective (archived 2026-07-23):**
+
 **Featured Product Picker + Order Status Unification (COMPLETE + VPS VERIFIED 2026-07-23)**
 
 ### Bug Report

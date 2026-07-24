@@ -1,14 +1,26 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 using VanAn.CoreHub.Repositories;
+using VanAn.CoreHub.Infrastructure.Messaging;
 using System.Text.Json;
 
 namespace VanAn.CoreHub.Services
 {
-    public class LoyaltyRewardsService(ILoyaltyRewardsRepository repository, ILogger<LoyaltyRewardsService> logger) : ILoyaltyRewardsService
+    public class LoyaltyRewardsService(
+        ILoyaltyRewardsRepository repository,
+        ILogger<LoyaltyRewardsService> logger,
+        INatsEventPublisher? natsEventPublisher = null,
+        IOutboxRepository? outboxRepository = null) : ILoyaltyRewardsService
     {
         private readonly ILoyaltyRewardsRepository _repository = repository;
         private readonly ILogger<LoyaltyRewardsService> _logger = logger;
+        private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
+        private readonly IOutboxRepository? _outboxRepository = outboxRepository;
+
+        private static readonly JsonSerializerOptions EventJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         public async Task<LoyaltyRewards> GetOrCreateCustomerRewardsAsync(Guid customerId, TenantId tenantId)
         {
@@ -63,7 +75,14 @@ namespace VanAn.CoreHub.Services
 
                 _ = await _repository.UpdateAsync(rewards);
                 await _repository.SaveChangesAsync();
+
+                // Phase 5: Enqueue LoyaltyPointsChanged outbox event (same transaction — reliable persistence)
+                EnqueueLoyaltyPointsChangedEvent(customer.TenantId, customerId, points, rewards.PointBalance, reason, isAdd: true);
+
                 await transaction.CommitAsync();
+
+                // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
+                await PublishLoyaltyPointsChangedNatsAsync(customerId, points, rewards.PointBalance, reason, isAdd: true);
 
                 _logger.LogInformation("Added {Points} points to customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
@@ -128,7 +147,14 @@ namespace VanAn.CoreHub.Services
 
                 _ = await _repository.UpdateAsync(rewards);
                 await _repository.SaveChangesAsync();
+
+                // Phase 5: Enqueue LoyaltyPointsChanged outbox event (same transaction — reliable persistence)
+                EnqueueLoyaltyPointsChangedEvent(customer.TenantId, customerId, -points, rewards.PointBalance, reason, isAdd: false);
+
                 await transaction.CommitAsync();
+
+                // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
+                await PublishLoyaltyPointsChangedNatsAsync(customerId, -points, rewards.PointBalance, reason, isAdd: false);
 
                 _logger.LogInformation("Subtracted {Points} points from customer {CustomerId}. New balance: {Balance}",
                     points, customerId, rewards.PointBalance);
@@ -187,6 +213,72 @@ namespace VanAn.CoreHub.Services
             catch
             {
                 return [];
+            }
+        }
+
+        /// <summary>
+        /// Phase 5: Enqueue LoyaltyPointsChanged outbox event for reliable NATS delivery + PG sync.
+        /// Called within the same transaction as the points change (before commit).
+        /// </summary>
+        private void EnqueueLoyaltyPointsChangedEvent(TenantId tenantId, Guid customerId, int pointsChange, int newBalance, string reason, bool isAdd)
+        {
+            if (_outboxRepository == null)
+            {
+                _logger.LogWarning("OutboxRepository not available — LoyaltyPointsChanged event for customer {CustomerId} not persisted", customerId);
+                return;
+            }
+
+            var payload = new
+            {
+                customerId = customerId,
+                pointsChange = pointsChange,
+                newBalance = newBalance,
+                reason = reason,
+                isAdd = isAdd,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            };
+            string eventData = JsonSerializer.Serialize(payload, EventJsonOptions);
+            var outboxEvent = new OutboxEvent(
+                tenantId,
+                new ElectronicInvoiceId(Guid.Empty),
+                EventTypes.LoyaltyPointsChanged,
+                eventData);
+            _ = _outboxRepository.EnqueueAsync(outboxEvent);
+            _logger.LogInformation("Enqueued LoyaltyPointsChanged event to Outbox for customer {CustomerId} (PointsChange={PointsChange}, NewBalance={NewBalance})",
+                customerId, pointsChange, newBalance);
+        }
+
+        /// <summary>
+        /// Phase 5: Direct NATS publish for immediate push notification.
+        /// Fire-and-forget — wrapped in try/catch to prevent loyalty workflow failures.
+        /// </summary>
+        private async Task PublishLoyaltyPointsChangedNatsAsync(Guid customerId, int pointsChange, int newBalance, string reason, bool isAdd)
+        {
+            if (_natsEventPublisher == null)
+            {
+                _logger.LogDebug("NATS event publisher not available - skipping loyalty points event publishing");
+                return;
+            }
+
+            try
+            {
+                var payload = new
+                {
+                    customerId = customerId,
+                    pointsChange = pointsChange,
+                    newBalance = newBalance,
+                    reason = reason,
+                    isAdd = isAdd,
+                    timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+                var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(payload, EventJsonOptions);
+                await _natsEventPublisher.PublishAsync("loyalty.points.changed", payloadBytes);
+                _logger.LogInformation("Published loyalty points changed event to NATS: CustomerId={CustomerId}, PointsChange={PointsChange}, NewBalance={NewBalance}",
+                    customerId, pointsChange, newBalance);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish loyalty points changed event to NATS for CustomerId: {CustomerId}", customerId);
             }
         }
 

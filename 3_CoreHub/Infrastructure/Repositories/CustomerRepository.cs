@@ -97,5 +97,47 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .Where(c => c.PhoneNumber == phoneNumber && !c.IsDeleted)
                 .FirstOrDefaultAsync();
         }
+
+        /// <summary>
+        /// Phase 5: Get customers matching segmentation criteria for bulk push campaigns.
+        /// </summary>
+        public async Task<IReadOnlyList<Customer>> GetBySegmentAsync(CustomerSegmentCriteria criteria)
+        {
+            IQueryable<Customer> query = _context.Customers
+                .Where(c => !c.IsDeleted && c.IsActive);
+
+            if (!string.IsNullOrEmpty(criteria.CustomerTier))
+                query = query.Where(c => c.CustomerTier == criteria.CustomerTier);
+
+            if (criteria.MinIdentityLevel.HasValue)
+                query = query.Where(c => c.IdentityLevel >= criteria.MinIdentityLevel.Value);
+
+            if (criteria.MinTotalSpent.HasValue)
+                query = query.Where(c => c.TotalSpent >= criteria.MinTotalSpent.Value);
+
+            if (criteria.MaxTotalSpent.HasValue)
+                query = query.Where(c => c.TotalSpent <= criteria.MaxTotalSpent.Value);
+
+            if (criteria.LastOrderAfter.HasValue)
+                query = query.Where(c => c.LastOrderDate >= criteria.LastOrderAfter.Value);
+
+            if (criteria.LastOrderBefore.HasValue)
+                query = query.Where(c => c.LastOrderDate <= criteria.LastOrderBefore.Value);
+
+            if (criteria.HasPushSubscription)
+            {
+                // Join with PushSubscriptions to find customers with active push subscriptions
+                var customerIdsWithPush = _context.PushSubscriptions
+                    .Where(ps => ps.IsActive && !ps.IsDeleted)
+                    .Select(ps => ps.CustomerId)
+                    .Distinct();
+
+                query = query.Where(c => customerIdsWithPush.Contains(c.Id));
+            }
+
+            return await query
+                .OrderBy(c => c.FullName)
+                .ToListAsync();
+        }
     }
 }

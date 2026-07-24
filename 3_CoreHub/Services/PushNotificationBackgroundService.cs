@@ -26,6 +26,7 @@ namespace VanAn.CoreHub.Services
         private readonly ILogger<PushNotificationBackgroundService> _logger;
         private IConnection? _subscriptionConnection;
         private IAsyncSubscription? _subscription;
+        private IAsyncSubscription? _loyaltySubscription;
         private CancellationTokenSource? _cts;
         private bool _disposed;
 
@@ -61,7 +62,13 @@ namespace VanAn.CoreHub.Services
                     _ = HandleEventAsync(args.Message.Data, _cts.Token);
                 });
 
-                _logger.LogInformation("PushNotificationBackgroundService subscribed to NATS subject 'order.status.changed'");
+                // Phase 5: Subscribe to loyalty points changes
+                _loyaltySubscription = _subscriptionConnection.SubscribeAsync("loyalty.points.changed", (sender, args) =>
+                {
+                    _ = HandleLoyaltyEventAsync(args.Message.Data, _cts.Token);
+                });
+
+                _logger.LogInformation("PushNotificationBackgroundService subscribed to NATS subjects 'order.status.changed' and 'loyalty.points.changed'");
             }
             catch (Exception ex)
             {
@@ -81,6 +88,7 @@ namespace VanAn.CoreHub.Services
             try
             {
                 _subscription?.Drain();
+                _loyaltySubscription?.Drain();
                 _subscriptionConnection?.Drain();
             }
             catch (Exception ex)
@@ -140,6 +148,48 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        /// <summary>
+        /// Phase 5: Parse loyalty points changed NATS payload and dispatch to PushNotificationService.
+        /// </summary>
+        private async Task HandleLoyaltyEventAsync(byte[] payload, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(payload);
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("customerId", out var customerIdEl) ||
+                    !root.TryGetProperty("pointsChange", out var pointsChangeEl) ||
+                    !root.TryGetProperty("newBalance", out var newBalanceEl))
+                {
+                    _logger.LogWarning("PushNotificationBackgroundService: loyalty payload missing required fields (customerId/pointsChange/newBalance). Payload: {Payload}",
+                        JsonSerializer.Serialize(root));
+                    return;
+                }
+
+                Guid customerId = customerIdEl.GetGuid();
+                int pointsChange = pointsChangeEl.GetInt32();
+                int newBalance = newBalanceEl.GetInt32();
+                string? reason = root.TryGetProperty("reason", out var r) && r.ValueKind != JsonValueKind.Null ? r.GetString() : null;
+
+                using var scope = _serviceProvider.CreateScope();
+                var pushService = scope.ServiceProvider.GetService<PushNotificationService>();
+                if (pushService == null)
+                {
+                    _logger.LogWarning("PushNotificationBackgroundService: PushNotificationService not registered in DI — skipping loyalty push");
+                    return;
+                }
+
+                int sent = await pushService.SendLoyaltyPointsChangedNotificationAsync(customerId, pointsChange, newBalance, reason);
+                _logger.LogInformation("PushNotificationBackgroundService dispatched {Sent} loyalty push notification(s) for CustomerId={CustomerId} PointsChange={PointsChange}",
+                    sent, customerId, pointsChange);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "PushNotificationBackgroundService: error handling loyalty NATS event");
+            }
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -147,6 +197,7 @@ namespace VanAn.CoreHub.Services
 
             _cts?.Dispose();
             try { _subscription?.Dispose(); } catch { }
+            try { _loyaltySubscription?.Dispose(); } catch { }
             try { _subscriptionConnection?.Dispose(); } catch { }
         }
     }

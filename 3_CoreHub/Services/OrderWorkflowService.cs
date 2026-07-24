@@ -116,12 +116,43 @@ namespace VanAn.CoreHub.Services
                     await ProcessSocialCampaignConversionAsync(order.TrackingCode);
                     await ProcessLoyaltyPointsAsync(order);
                 }
+
+                // Phase 5: Update customer order stats (LastOrderDate + TotalSpent) for ALL completed orders.
+                // This runs regardless of TrackingCode — all orders update customer stats for segmentation.
+                await UpdateCustomerOrderStatsAsync(order);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to handle order completed for order {OrderId}", order.Id);
                 throw; // Re-throw to trigger transaction rollback
             }
+        }
+
+        /// <summary>
+        /// Phase 5: Update Customer.LastOrderDate + TotalSpent when an order completes.
+        /// Runs for ALL orders (not just campaign orders) to keep segmentation data accurate.
+        /// </summary>
+        private async Task UpdateCustomerOrderStatsAsync(Order order)
+        {
+            if (order.CustomerId == null || order.CustomerId == Guid.Empty)
+            {
+                _logger.LogDebug("Order {OrderId} has no CustomerId — skipping customer stats update", order.Id);
+                return;
+            }
+
+            Customer? customer = await _customerRepository.GetByIdAsync(order.CustomerId.Value);
+            if (customer == null)
+            {
+                _logger.LogWarning("Customer {CustomerId} not found for order {OrderId} — skipping stats update",
+                    order.CustomerId, order.Id);
+                return;
+            }
+
+            customer.UpdateOrderStats(DateTime.UtcNow, order.TotalAmount);
+            await _customerRepository.UpdateAsync(customer);
+
+            _logger.LogInformation("Updated customer stats for {CustomerId}: LastOrderDate={Date}, TotalSpent+={Amount}",
+                customer.Id, DateTime.UtcNow.ToString("yyyy-MM-dd"), order.TotalAmount);
         }
 
         private void RecordOrderCompletedEvent(Order order)

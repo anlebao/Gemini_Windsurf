@@ -73,5 +73,6 @@ namespace VanAn.Shared.Domain
         public const string OrderCompleted = "OrderCompleted";
         public const string AccountingEntryCreated = "AccountingEntryCreated";
         public const string HKDBooksGenerated = "HKDBooksGenerated";
+        public const string LoyaltyPointsChanged = "LoyaltyPointsChanged";
     }
 }

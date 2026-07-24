@@ -114,6 +114,10 @@ namespace VanAn.CoreHub.Infrastructure
         // Phase 6 (Admin UI): Sysadmin-curated featured products for Home.razor (PG-only, tenant-scoped)
         public DbSet<FeaturedProduct> FeaturedProducts { get; set; }
 
+        // Phase 5: Campaign push jobs + delivery tracking (PG-only, tenant-scoped)
+        public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
+        public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

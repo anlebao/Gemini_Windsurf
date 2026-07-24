@@ -1,8 +1,8 @@
-# Master Plan — KhachLink PWA True Offline (Blazor Server → WASM Conversion)
+# Master Plan — KhachLink PWA True Offline (Blazor Server → WASM Conversion) + Loyalty System Enhancements
 
 > **Created:** 2026-07-21
-> **Status:** IN PROGRESS — Phase 1-3 COMPLETE, Phase 4 DESCOPE, Phase 5 PARTIALLY EXISTS, Phase 6 NOT DONE
-> **Last verified against base code:** 2026-07-22 (commit `89fb240a`)
+> **Status:** IN PROGRESS — Phase 1-3 COMPLETE, Phase 4 DESCOPE, Phase 5 EXPANDED SCOPE (ANALYZE COMPLETE 2026-07-23, IMPLEMENT PENDING), Phase 6 NOT DONE. **Loyalty Enhancements L-A/L-B/L-C AUDITED 2026-07-23, task cards created, IMPLEMENT PENDING (after Phase 5).**
+> **Last verified against base code:** 2026-07-23 (commit `17dab107`)
 > **Priority:** Medium (P2) — UX enhancement, not blocking current flows
 > **Related tech debt:** TD-PWA-001 (this plan), TD-MVPS-003 (Integration.Tests infra)
 > **ADR impact:** ADR-001 v3 addendum (Option C — KhachLink HTTP-only via Gateway, unchanged)
@@ -18,8 +18,11 @@
 | 2c — beforeinstallprompt race fix (unplanned) | COMPLETE | 2026-07-22 | `7ff0c2c2` | ✅ 2026-07-22 — `beforeinstallprompt` listener moved to top-level scope in pwa.js (was inside `setupEventListeners()` → fired before Blazor boot → deferredPrompt null) |
 | 3 — Offline API fallback | COMPLETE + SRI hotfix | 2026-07-22 | `89fb240a` + `0bb404e9` | ✅ 2026-07-22 — `dynamicCachePatterns` whitelist (9 endpoints, was dead code in Phase 2), SWR for `/api/catalog/` + `/api/campaigns/`, 24h expiration via `x-sw-cached-at`, cache version `v12-sri-fix`. Pushed, CD deployed, **RT 10/10 PASS** (live site `diemthuong.khachvip.online`). SRI hotfix: wasm cache-first→network-first, activate event cache cleanup, nginx `immutable`→`no-cache` |
 | 4 — Offline write queue | **DESCOPE** (checkout = online-only per architecture review) | 2026-07-22 | — | ✅ 2026-07-22 — No IndexedDB write queue in code, `navigator.onLine` guard blocks offline checkout |
-| 5 — Push notification | **PARTIALLY EXISTS** (subscribe infra from Wave 9, missing UI toggle + admin send + auto-push) | — | (Wave 9 commits) | ⚠️ 2026-07-22 — VAPID key in `pwa.js` line 156, `subscribeToPush` JS function, `PWAService.SubscribeToPushAsync`, Gateway `/api/notifications/push/subscribe` (forwards to ShopERP), `PushSubscription` entity+repo+service in CoreHub. **MISSING:** Profile.razor push toggle UI (no `subscribeToPush` call in Profile.razor), `/api/push/send` admin endpoint (does NOT exist), auto-push on order status change (NOT verified) |
+| 5 — Push notification + loyalty auto-push + campaign bulk push + click tracking | **EXPANDED SCOPE** (ANALYZE COMPLETE 2026-07-23, IMPLEMENT PENDING — split 5.1-5.9) | — | — | ⚠️ 2026-07-23 — ANALYZE done. Infra exists: PushSubscription entity (Domain.cs:686-734), PushNotificationService (CoreHub), WebPush NuGet, subscribe endpoint (Gateway→ShopERP), VAPID key match. **NEW SCOPE (4 requirements):** (A) Profile.razor push toggle + full unsubscribe, (B) auto-push on loyalty points change via Outbox+NATS, (C) admin campaign bulk push to customer segment, (D) track click notification (notificationclick SW event + beacon + PushNotificationDelivery entity). **Design decisions:** CampaignPushJob + PushNotificationDelivery entities (Gateway PG), Outbox+NATS trigger, keep SC8 order status auto-push, update Customer.LastOrderDate+TotalSpent on order complete, full unsubscribe (browser+server), click tracking only (no dismiss — iOS limitation, no "viewed but ignored" — Web Push API limitation). **MISSING:** all 5.1-5.9 implementation. See Phase 5 section below for sub-phases. |
 | 6 — E2E + governance | **NOT DONE** | — | — | ❌ 2026-07-22 — `project_state.md` Section 1 already says "Blazor WebAssembly" (done outside Phase 6). **MISSING:** ADR-001 v3 addendum does NOT mention KhachLink render mode = WASM, `KhachLinkStartupTests` still has 4 `Skip` attributes (not rewritten with bUnit), no Playwright E2E offline scenario, `OFFLINE_SHELL_HTML` (Phase 0) still present (Phase 6 was supposed to remove it) |
+| **L-A** — Loyalty guard fix + configurable formula | **AUDITED** (task card created 2026-07-23) | — | — | ⚠️ 2026-07-23 — Audit: 85% award-on-purchase complete. Guard TrackingCode blocks non-campaign orders. Formula hardcoded `Math.Max(10, order.TotalAmount * 0.1m)`. Task card: `loyalty_phase_a_guard_fix_configurable_formula_task_card.md`. **Prerequisite:** Phase 5.4 COMPLETE (cùng sửa OrderWorkflowService.ProcessLoyaltyPointsAsync). |
+| **L-B** — Loyalty Redemption system | **AUDITED** (task card created 2026-07-23) | — | — | ⚠️ 2026-07-23 — Audit: 25% spend/redeem complete. Only deduct points, NO catalog/voucher/fulfillment. Task card: `loyalty_phase_b_redemption_system_task_card.md`. **Prerequisite:** Phase 5 COMPLETE (cho clean Domain.cs). NO file conflict with Phase 5. |
+| **L-C** — Loyalty Task-based awards (gamification) | **AUDITED** (task card created 2026-07-23) | — | — | ❌ 2026-07-23 — Audit: 0% complete. No Mission/Quest framework. No PWA install/OTP/birthday/social share rewards. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Prerequisite:** Phase 5.6 COMPLETE (cùng sửa Profile.razor + PWAService.cs) + Loyalty Phase A COMPLETE. |
 
 ### Architecture Decision: Phase 4 Descope (2026-07-22)
 
@@ -140,8 +143,10 @@ Phase 3 (Offline API fallback) ───── COMPLETE — depends on: Phase 2
                                       │
 Phase 4 (Offline write queue) ────── DESCOPE (checkout = online-only)
                                       │
-Phase 5 (Push notification) ──────── PARTIALLY EXISTS (subscribe infra from Wave 9)
-                                      │   MISSING: Profile.razor toggle, /api/push/send, auto-push
+Phase 5 (Push notification) ──────── EXPANDED SCOPE (ANALYZE COMPLETE 2026-07-23)
+                                      │   Sub-phases 5.1-5.9 (see Phase 5 section below)
+                                      │   5.1-5.4 = Session 1 (backend infra)
+                                      │   5.5-5.9 = Session 2 (API + UI + tracking + tests + RV)
                                       │
 Phase 6 (E2E + governance) ───────── NOT DONE — depends on: Phase 1-3 + 5 complete
 ```
@@ -248,25 +253,174 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 
 **Why descope:** See "Architecture Decision: Phase 4 Descope" in Phase Progress Summary above. Key reasons: financial integrity (ghost orders), price validation requires real-time Gateway access, inventory overselling risk, token expiry, F&B UX expectation (time-sensitive orders).
 
-### Phase 5: Push notification + PWA polish — PARTIALLY EXISTS (verified 2026-07-22)
-- **Verify VAPID key** in `pwa.js` line 156 — if invalid, regenerate via `npx web-push generate-vapid-keys` + update both client + server.
-- **Gateway push endpoint (NEW — not just "wire up"):** Currently Gateway has NO push notification sending endpoint. Need to add:
-  - `POST /api/push/subscribe` — store push subscription (endpoint + keys) in PG `PushSubscriptions` table (new entity, tenant-scoped).
-  - `POST /api/push/send` — SystemAdmin sends push to tenant's subscribers (uses `WebPush` NuGet package with VAPID keys).
-  - Trigger: order status change → auto-push to customer (if subscribed).
-- Wire `subscribeToPush()` into Profile.razor — add "Cài đặt thông báo" toggle.
-- Verify: push notification received when app is closed (Android only — iOS Safari requires app open + iOS 16.4+ for web push).
+### Phase 5: Push notification + loyalty auto-push + campaign bulk push — EXPANDED SCOPE (ANALYZE COMPLETE 2026-07-23, IMPLEMENT PENDING)
 
-**Phase 5 status (verified 2026-07-22):**
-- ✅ **VAPID key present** — `pwa.js` line 156 (`BJIeg2XokT35UrNdXV26uTiMa0CxwbRI5Fmb9j4djeSdXO74U1wS6BD15MlnvYppLtDx2Rbm01TSkcVcf7p58RE`)
-- ✅ **`subscribeToPush` JS function** — `pwa.js` line 150 (uses `PushManager.subscribe` with `applicationServerKey`)
-- ✅ **`PWAService.SubscribeToPushAsync`** — `Services/PWAService.cs` line 177 (calls JS interop, returns subscription JSON)
-- ✅ **Gateway `/api/notifications/push/subscribe`** — `NotificationsController.cs` line 15 (forwards to ShopERP `/api/notifications/push/subscribe`, passes `X-Customer-Token` header)
-- ✅ **`PushSubscription` entity + repo + service** — `3_CoreHub/Infrastructure/PushSubscriptionConfiguration.cs`, `PushSubscriptionRepository.cs`, `PushNotificationService.cs` (from Wave 9)
-- ❌ **MISSING: Profile.razor push toggle UI** — no `subscribeToPush` call in Profile.razor (grep confirmed). User has no UI to subscribe to push.
-- ❌ **MISSING: `/api/push/send` admin endpoint** — does NOT exist in Gateway controllers (grep confirmed). SystemAdmin cannot send push.
-- ❌ **MISSING: Auto-push on order status change** — NOT verified in code (no trigger wired to `PushNotificationService`).
-- **Note:** Master plan originally said "Currently Gateway has NO push notification sending endpoint" — this is partially wrong. Subscribe endpoint exists (forwards to ShopERP). Only the admin `/api/push/send` + auto-push trigger are missing.
+**Original scope (Wave 9 + Phase 5 task card):** Profile.razor push toggle + `/api/push/send` admin endpoint + auto-push on order status change.
+
+**Expanded scope (2026-07-23, user request):** Thêm 3 yêu cầu mới:
+- **(B) Auto-push khi điểm thưởng loyalty biến động** (tăng HOẶC giảm) — khách nhận push "Điểm thưởng đã cập nhật: +50 điểm từ đơn hàng #xxx. Số dư: 1050 điểm".
+- **(C) Gửi push chủ động tới danh sách khách theo điều kiện** — SystemAdmin/tenant owner chọn danh sách khách theo tiêu chí (CustomerTier, MinTotalSpend, LastOrderAfter, IdentityLevel, HasPushSubscription) rồi gửi push thông báo chương trình khuyến mãi.
+- **(D) Track click notification** — ghi nhận khách nào đã bấm xem thông báo (notificationclick event → beacon → server). Admin UI hiển thị stats Sent/Clicked/Click-through-rate. **KHÔNG track dismiss** (iOS có thể không fire event). **KHÔNG track "viewed but ignored"** (Web Push API không có signal này — không giống email read receipt).
+
+**ANALYZE findings (2026-07-23, 3 subagents verified):**
+
+Push infrastructure (✅ đã có — KHÔNG cần tạo entity mới):
+- ✅ `PushSubscription` entity — `1_Shared/Domain.cs:686-734` (CustomerId, SubscriptionJson, IsActive, TenantId). EF config + repo đã có trong CoreHub.
+- ✅ `PushNotificationService` — `3_CoreHub/Services/PushNotificationService.cs:17-200` (SendOrderStatusNotificationAsync, WebPush NuGet, VAPID từ env/appsettings).
+- ✅ VAPID public key match — `pwa.js:217` == `ShopERP/appsettings.json:24` (`BJIeg2XokT35UrNdXV26uTiMa0CxwbRI5Fmb9j4djeSdXO74U1wS6BD15MlnvYppLtDx2Rbm01TSkcVcf7p58RE`).
+- ✅ Subscribe endpoint — Gateway `/api/notifications/push/subscribe` (forward) → ShopERP persist (X-Customer-Token auth).
+- ✅ `subscribeToPush()` JS — `pwa.js:211-229`. `PWAService.SubscribeToPushAsync` — `Services/PWAService.cs:179-197`.
+- ❌ Profile.razor push toggle — KHÔNG có.
+- ❌ `/api/push/send` admin endpoint — KHÔNG có.
+- ❌ Auto-push on order status change — chưa wire (method có sẵn nhưng chưa trigger).
+- ❌ VAPID config trong Gateway/CoreHub appsettings — chỉ có ShopERP.
+
+Loyalty points (✅ entity + service, ❌ chưa có outbox event):
+- ✅ `LoyaltyRewards` entity — `Domain.cs:1390-1429` (PointBalance, History JSON, AddPoints/DeductPoints).
+- ✅ `ILoyaltyRewardsService.AddPointsAsync` + `SubtractPointsAsync` — `3_CoreHub/Services/LoyaltyRewardsService.cs`.
+- ✅ Award on order complete — `OrderWorkflowService.ProcessLoyaltyPointsAsync:221-260` (10% order value, min 10 points).
+- ✅ Redeem (deduct) — ShopERP `POST /api/loyalty/redeem` (IdentityLevel >= Verified gate).
+- ❌ Outbox event khi điểm biến động — `EventTypes` chỉ có OrderCompleted/AccountingEntryCreated/HKDBooksGenerated.
+- ⚠️ `Customer.LoyaltyPoints` field redundant — `LoyaltyRewards.PointBalance` là source of truth.
+
+SocialCampaign + customer segmentation (✅ entity, ❌ segmentation):
+- ✅ `SocialCampaign` entity — `Domain.cs:1339-1387` (CampaignName, TrackingCode, Clicks, Conversions) — KHÔNG có TargetCriteria.
+- ✅ `ISocialCampaignService` — CRUD + tracking. Admin endpoints Gateway `POST/PUT/DELETE /api/campaigns` (SystemAdmin).
+- ✅ Admin UI — `CampaignsAdmin.razor` (`/admin/campaigns`) — nhưng KHÔNG có customer selection.
+- ✅ `Customer` segmentation fields — CustomerTier (Bronze/Silver/Gold/Platinum), LoyaltyPoints, LastOrderDate, TotalSpent, IdentityLevel.
+- ❌ Customer filtering methods — repo chỉ có GetAllActiveAsync, không filter.
+- ❌ LastOrderDate/TotalSpent update — không có code nào update 2 field này khi order tạo/complete.
+
+**Design decisions (chốt 2026-07-23):**
+1. **CampaignPushJob** entity mới (audit trail + retry) → lưu ở **Gateway PG** (cùng SocialCampaign).
+2. **Outbox + NATS** cho loyalty points trigger (consistent với OrderStatusChanged pattern).
+3. **Giữ** auto-push order status (SC8 — `SendOrderStatusNotificationAsync` đã có, chỉ cần wire NATS subscriber).
+4. **Update** Customer.LastOrderDate + TotalSpent khi order complete (cần cho segmentation chính xác).
+5. **Unsubscribe đầy đủ** — browser `pushManager.unsubscribe()` + server `DELETE /api/notifications/push/subscribe` (mark IsActive=false).
+6. **Chia 2 session** — Session 1: 5.1-5.4 (backend infra), Session 2: 5.5-5.8 (API + UI + tests + RV).
+7. **Track click notification only** (KHÔNG track dismiss) — `notificationclick` SW event → `navigator.sendBeacon('/api/push/track', {notificationId, status:'clicked'})` → server record. KHÔNG track "viewed but ignored" (Web Push API không có signal — không giống email read receipt).
+
+**Domain modifications (4 thay đổi — thêm, không sửa entity hiện có):**
+1. Thêm `CampaignPushJob` entity (mới) vào `1_Shared/Domain.cs`.
+2. Thêm `EventTypes.LoyaltyPointsChanged` constant vào `1_Shared/Domain/OutboxMessage.cs`.
+3. Thêm `Customer.UpdateOrderStats(DateTime orderDate, decimal amount)` method.
+4. Thêm `PushNotificationDelivery` entity (mới) vào `1_Shared/Domain.cs` — record per-notification: CustomerId, CampaignPushJobId (nullable), NotificationId, Status [Delivered/Clicked], DeliveredAt, ClickedAt, ActionUrl.
+
+→ Không vi phạm Single Source of Truth, không sửa AccountingEntry, không sửa entity hiện có (chỉ thêm).
+
+**Sub-phases:**
+
+#### Phase 5.1 — Domain + EF + Migration (Session 1)
+- `1_Shared/Domain.cs`: thêm `CampaignPushJob` entity (CampaignId, TenantId, CriteriaJson, Status [Pending/Sending/Sent/Failed], SentCount, FailedCount, SentAt, ErrorMessage) + `Customer.UpdateOrderStats()`.
+- `1_Shared/Domain/OutboxMessage.cs`: thêm `EventTypes.LoyaltyPointsChanged`.
+- `3_CoreHub/Infrastructure/Configurations/CampaignPushJobConfiguration.cs` (NEW).
+- `3_CoreHub/Infrastructure/Configurations/CustomerConfiguration.cs`: verify map LastOrderDate + TotalSpent.
+- `2_Gateway/Migrations/`: migration tạo `CampaignPushJobs` table trong PG.
+
+#### Phase 5.2 — Loyalty points outbox + auto-push (Session 1)
+- `3_CoreHub/Services/LoyaltyRewardsService.cs`: trong `AddPointsAsync` + `SubtractPointsAsync`, sau SaveChangesAsync, enqueue `LoyaltyPointsChanged` outbox event (payload: CustomerId, TenantId, ChangeType ["EARN"|"SPEND"], PointsChanged, NewBalance, Reason).
+- `3_CoreHub/Services/PushNotificationService.cs`: thêm `SendLoyaltyPointsChangedNotificationAsync(customerId, changeType, points, newBalance, reason)`.
+- NATS subscriber: thêm case `LoyaltyPointsChanged` → gọi `SendLoyaltyPointsChangedNotificationAsync`.
+
+#### Phase 5.3 — Order status auto-push SC8 (Session 1)
+- `3_CoreHub/Services/OrderWorkflowService.cs`: verify `TransitionStatusAsync` đã enqueue `OrderStatusChanged` outbox event (commit 17dab107 đã có).
+- NATS subscriber: verify case `order.status.changed` wire → `PushNotificationService.SendOrderStatusNotificationAsync` (method có sẵn line 17-200). Nếu chưa wire → wire nó.
+
+#### Phase 5.4 — Customer segmentation + bulk push + Customer stats update (Session 1)
+- `3_CoreHub/Domain/Repositories/ICustomerRepository.cs`: thêm `GetBySegmentAsync(CustomerSegmentCriteria)` + `CountBySegmentAsync(criteria)`.
+- `3_CoreHub/Infrastructure/Repositories/CustomerRepository.cs`: impl filter TenantId + CustomerTier + MinTotalSpent + LastOrderAfter + IdentityLevel + HasPushSubscription (LEFT JOIN PushSubscriptions WHERE IsActive=true).
+- `1_Shared/Services/ICustomerSegmentationService.cs` (NEW) + `3_CoreHub/Services/CustomerSegmentationService.cs` (NEW).
+- `3_CoreHub/Services/PushNotificationService.cs`: thêm `SendBulkNotificationAsync(IReadOnlyList<Guid> customerIds, string title, string body, string? actionUrl)` — return (sentCount, failedCount).
+- `3_CoreHub/Services/OrderWorkflowService.cs`: trong `ProcessLoyaltyPointsAsync`, thêm `customer.UpdateOrderStats(order.CreatedAt, order.TotalAmount)` trước khi save.
+
+**Session 1 output:** Build PASS + guard-check PASS + unit tests cho service mới. Chưa có UI/API endpoint.
+
+#### Phase 5.5 — Gateway admin endpoints (Session 2)
+- `2_Gateway/Controllers/CampaignsController.cs`: thêm `POST /api/campaigns/{campaignId}/send-push` (SystemAdmin) — tạo CampaignPushJob (Pending) → query customers by segment → bulk push → update job status.
+- `2_Gateway/Controllers/PushController.cs` (NEW): `POST /api/push/send` (SystemAdmin) ad-hoc + `GET /api/campaigns/{id}/push-jobs` (history).
+- `2_Gateway/appsettings.json`: thêm `PushNotifications` section (VapidPublicKey, VapidSubject; VapidPrivateKey từ env).
+
+#### Phase 5.6 — KhachLink Profile.razor toggle + full unsubscribe (Session 2)
+- `5_WebApps/KhachLink/Pages/Profile.razor`: section "Cài đặt thông báo" + toggle 2 chiều (đọc localStorage `vanan_push_subscribed`).
+- `5_WebApps/KhachLink/Services/PWAService.cs`: thêm `UnsubscribeFromPushAsync()` + `IsPushSubscribedAsync()`.
+- `5_WebApps/KhachLink/wwwroot/js/pwa.js`: thêm `unsubscribeFromPush()` JS function (gọi `registration.pushManager.unsubscribe()`).
+- `2_Gateway/Controllers/NotificationsController.cs` + `5_WebApps/ShopERP/Controllers/NotificationsController.cs`: thêm `DELETE /api/notifications/push/subscribe` (mark IsActive=false, body: `{ endpoint }`).
+
+**Unsubscribe flow đầy đủ:**
+```
+Profile.razor toggle OFF
+  ↓ PWAService.UnsubscribeFromPushAsync()
+  ↓ JS: registration.pushManager.unsubscribe()  ← browser hủy với push provider
+  ↓ HTTP DELETE /api/notifications/push/subscribe (Gateway → ShopERP)
+  ↓ ShopERP: PushSubscription.IsActive = false + SaveChanges
+  ↓ localStorage: vanan_push_subscribed = false
+```
+
+#### Phase 5.7 — ShopERP Admin UI (Session 2)
+- `5_WebApps/ShopERP/Components/Pages/Admin/CampaignsAdmin.razor`: nút "Gửi thông báo" cho mỗi campaign → modal:
+  - Tiêu chí: Tenant (auto-fill từ campaign), CustomerTier dropdown, MinTotalSpend input, LastOrderAfter date picker, IdentityLevel dropdown, "Chỉ khách đã đăng ký push" checkbox.
+  - Title + Body input (default: campaign name).
+  - Preview count (gọi API đếm customers match criteria).
+  - Nút "Gửi" → POST `/api/campaigns/{id}/send-push`.
+  - CampaignPushJob history (SentCount, FailedCount, SentAt, Status).
+
+#### Phase 5.8 — Tests + Build + RV (Session 2)
+- Unit tests: PushNotificationService (loyalty + bulk), CustomerSegmentationService, LoyaltyRewardsService outbox event.
+- Integration tests: POST /api/campaigns/{id}/send-push, DELETE /api/notifications/push/subscribe, POST /api/push/track.
+- `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
+- RV VPS: Android Chrome subscribe → trigger loyalty change → verify push; admin send campaign push → verify bulk; click notification → verify tracking recorded.
+
+#### Phase 5.9 — Click tracking (Session 2 — cross-cutting, touch multiple layers)
+**Web Push API limitation:** KHÔNG có "read receipt" như email. Browser không báo cho server "user đã thấy notification". Chỉ track được:
+- ✅ **Click** — service worker `notificationclick` event → user tap → app mở → beacon.
+- ❌ **Dismiss** — KHÔNG track (iOS có thể không fire `notificationclose`, user request chốt bỏ).
+- ❌ **Viewed but ignored** — KHÔNG có event nào fire.
+
+**Files:**
+- `1_Shared/Domain.cs`: thêm `PushNotificationDelivery` entity (CustomerId, CampaignPushJobId nullable, NotificationId, Status [Delivered/Clicked], DeliveredAt, ClickedAt, ActionUrl).
+- `3_CoreHub/Infrastructure/Configurations/PushNotificationDeliveryConfiguration.cs` (NEW).
+- `2_Gateway/Migrations/`: migration tạo `PushNotificationDeliveries` table trong PG.
+- `3_CoreHub/Services/PushNotificationService.cs`: trong `SendOrderStatusNotificationAsync` + `SendLoyaltyPointsChangedNotificationAsync` + `SendBulkNotificationAsync` — tạo `PushNotificationDelivery` record (Status=Delivered) sau khi gửi thành công. Push payload phải include `notificationId` (UUID) để client beacon ngược.
+- `2_Gateway/Controllers/PushController.cs`: thêm `POST /api/push/track` (anonymous — beacon không có auth header, dùng NotificationId làm key) — update `PushNotificationDelivery.Status = Clicked` + `ClickedAt = now`.
+- `5_WebApps/KhachLink/wwwroot/js/pwa.js`: thêm `notificationclick` event handler trong service worker — `navigator.sendBeacon('/api/push/track', JSON.stringify({notificationId, status:'clicked'}))` + focus/open ActionUrl.
+- `5_WebApps/ShopERP/Components/Pages/Admin/CampaignsAdmin.razor`: CampaignPushJob history hiển thị Sent / Clicked / CTR (Click-through-rate = Clicked/Sent).
+
+**Push payload shape (mới — include notificationId):**
+```json
+{
+  "notificationId": "uuid-v7",
+  "title": "Điểm thưởng đã cập nhật",
+  "body": "+50 điểm từ đơn hàng #xxx. Số dư: 1050 điểm",
+  "actionUrl": "/orders/{orderId}",
+  "data": { "notificationId": "uuid-v7", "actionUrl": "/orders/{orderId}" }
+}
+```
+Service worker `notificationclick` đọc `event.notification.data.notificationId` → beacon → `event.waitUntil(clients.openWindow(actionUrl))`.
+
+**Stats admin thấy:**
+- Sent = CampaignPushJob.SentCount (server-side, khi gửi)
+- Clicked = COUNT(PushNotificationDelivery WHERE CampaignPushJobId=X AND Status='Clicked')
+- CTR = Clicked / Sent
+- "Chưa xem" = Sent - Clicked (gần đúng — có thể user đã thấy nhưng không click, KHÔNG phân biệt được)
+
+**Success Criteria (expanded — 17):**
+- SC1: VAPID key verified (match client + server — đã verify ANALYZE).
+- SC2: `CampaignPushJob` entity + PG migration applied.
+- SC3: `EventTypes.LoyaltyPointsChanged` + outbox event publish trong LoyaltyRewardsService.
+- SC4: `PushNotificationService.SendLoyaltyPointsChangedNotificationAsync` — push khi điểm biến động.
+- SC5: `PushNotificationService.SendBulkNotificationAsync` — bulk push cho campaign.
+- SC6: `CustomerSegmentationService.GetBySegmentAsync` — filter customers by criteria.
+- SC7: `Customer.UpdateOrderStats` — update LastOrderDate + TotalSpent khi order complete.
+- SC8: Auto-push on order status change (wire NATS subscriber → SendOrderStatusNotificationAsync).
+- SC9: Profile.razor push toggle + full unsubscribe (browser + server).
+- SC10: `POST /api/campaigns/{id}/send-push` (SystemAdmin) + `POST /api/push/send` ad-hoc.
+- SC11: `DELETE /api/notifications/push/subscribe` (mark IsActive=false).
+- SC12: CampaignsAdmin.razor segment builder UI + CampaignPushJob history.
+- SC13: `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
+- SC14: RV VPS Android Chrome: subscribe → loyalty change push → campaign bulk push.
+- SC15: `PushNotificationDelivery` entity + PG migration — record per-notification delivery + click.
+- SC16: `POST /api/push/track` (anonymous beacon) — update delivery Status=Clicked. SW `notificationclick` handler gửi beacon.
+- SC17: CampaignsAdmin.razor hiển thị Sent / Clicked / CTR stats per CampaignPushJob.
 
 ### Phase 6: E2E validation + governance — NOT DONE (verified 2026-07-22)
 - Update `docs/AI/project_state.md` Section 1: change "Blazor Server (NOT WASM)" → "Blazor WebAssembly" (now true after conversion).
@@ -287,6 +441,86 @@ Implemented as inline hardening after Phase 2, not a numbered phase. Addresses p
 - ❌ **MISSING: Playwright E2E price validation scenario** — no price validation E2E test
 - ❌ **MISSING: VPS RV on real Android device** — not done
 - ⚠️ **Phase 0 quick fix NOT removed** — `OFFLINE_SHELL_HTML` still in `service-worker.js` lines 280-356 (harmless — only fires when all cache empty, but Phase 6 was supposed to remove it)
+
+---
+
+## Loyalty System Enhancements (audited 2026-07-23, IMPLEMENT PENDING)
+
+> **Context:** Audit 2026-07-23 (3 subagents) phát hiện loyalty system có 3 gap. 3 task card đã tạo. Implement sau Phase 5 để tránh file conflict.
+
+### Audit Summary (2026-07-23)
+
+| Khía cạnh | % Complete | Classification |
+|---|---|---|
+| **1. Tích điểm khi mua hàng** | 85% ✅ | REAL WORKING CODE — chạy thật, có test, persist DB. Gap: hardcoded formula, guard TrackingCode, không configurable |
+| **2. Tích điểm làm nhiệm vụ** | 0% ❌ | DOES NOT EXIST — toàn bộ gamification framework chưa build (PWA install, OTP, birthday, social share) |
+| **3. Sài / Tiêu thụ điểm** | 25% ⚠️ | PARTIAL — chỉ có deduct điểm (SubtractPointsAsync + endpoint + UI input). KHÔNG có catalog, voucher, fulfillment, pay-with-points |
+
+### Implementation Order (dependency chain)
+
+```
+Phase 5 (Push notification, 5.1-5.9)
+  │
+  ├── 5.4 modifies OrderWorkflowService.ProcessLoyaltyPointsAsync (adds UpdateOrderStats)
+  ├── 5.6 modifies Profile.razor + PWAService.cs (adds push toggle + unsubscribe)
+  │
+  ↓
+L-A (Loyalty guard fix + configurable formula)
+  │  CONFLICT: OrderWorkflowService.ProcessLoyaltyPointsAsync (same method as Phase 5.4)
+  │  PREREQUISITE: Phase 5.4 COMPLETE
+  │  Task card: loyalty_phase_a_guard_fix_configurable_formula_task_card.md
+  │  Effort: 2 sessions
+  │
+  ↓
+L-B (Loyalty Redemption system)
+  │  NO CONFLICT with Phase 5 (all new files)
+  │  PREREQUISITE: Phase 5 COMPLETE (for clean Domain.cs)
+  │  Task card: loyalty_phase_b_redemption_system_task_card.md
+  │  Effort: 6-7 sessions (+ 1-2 optional pay-with-points)
+  │
+  ↓
+L-C (Loyalty Task-based awards / gamification)
+     CONFLICT: Profile.razor + PWAService.cs (same files as Phase 5.6)
+     PREREQUISITE: Phase 5.6 COMPLETE + L-A COMPLETE (consistent formula)
+     Task card: loyalty_phase_c_task_based_awards_task_card.md
+     Effort: 9 sessions
+```
+
+### Conflict Matrix
+
+| Loyalty Phase | Conflict với Phase 5 | File conflict | Giải pháp |
+|---|---|---|---|
+| **L-A** | Phase 5.4 | `OrderWorkflowService.ProcessLoyaltyPointsAsync` — cả 2 sửa cùng method | Phase 5.4 trước → L-A sau |
+| **L-B** | KHÔNG | Toàn file mới (entities, services, controllers, pages) | Có thể song song, nhưng làm sau cho sạch Domain.cs |
+| **L-C** | Phase 5.6 | `Profile.razor` + `PWAService.cs` — cả 2 thêm vào cùng file | Phase 5.6 trước → L-C sau |
+
+### L-A: Guard Fix + Configurable Formula (85% → 100% award-on-purchase)
+- **Problem 1:** Guard `string.IsNullOrEmpty(order.TrackingCode)` → orders không qua campaign KHÔNG được tích điểm.
+- **Problem 2:** Formula `Math.Max(10, (int)(order.TotalAmount * 0.1m))` hardcoded.
+- **Fix:** `LoyaltyPointsConfig` record (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders) + appsettings + IOptions injection.
+- **Decision (chốt 2026-07-23):** Guard TrackingCode → **Configurable per tenant** (`AwardOnAllOrders` default true = bỏ guard, tất cả order tích điểm). Tenant owner chọn qua admin UI.
+- **Task card:** `docs/AI/tasks/loyalty_phase_a_guard_fix_configurable_formula_task_card.md`
+
+### L-B: Redemption System (25% → 100% spend/redeem)
+- **Problem:** Chỉ deduct điểm, KHÔNG có catalog/voucher/fulfillment. Khách không biết đổi được gì.
+- **Fix:** 3 entity mới (`RedemptionCatalogItem`, `RedemptionRecord`, `Voucher`) + RedemptionService + admin UI + customer catalog page.
+- **Optional Phase B-2:** Pay-with-points trong Checkout.razor (partial hoặc full).
+- **Decisions (chốt 2026-07-23):**
+  - Catalog storage → **ShopERP SQLite** (per-tenant business data, admin quản lý qua ShopERP).
+  - Pay-with-points → **Optional Phase B-2** (implement sau core L-B nếu user request, hỗ trợ partial + full).
+  - Voucher expiry → Default 30 days, configurable per catalog item.
+- **Task card:** `docs/AI/tasks/loyalty_phase_b_redemption_system_task_card.md`
+
+### L-C: Task-Based Awards / Gamification (0% → 100%)
+- **Problem:** Không có nhiệm vụ tích điểm (PWA install, OTP, birthday, social share).
+- **Fix:** `Mission` + `MissionCompletion` entity + Customer fields (Birthday, PWAInstalledAt, etc.) + MissionService + triggers + admin UI + customer missions page.
+- **Missions:** PWA install (+50), OTP verify (+100), Birthday entry (+30), Facebook share (+20 daily cap), TikTok share (+20 daily cap), Birthday annual bonus (+100 auto).
+- **Decisions (chốt 2026-07-23):**
+  - Social share verification → **Require share URL** (verify URL format `facebook.com/*/posts/*` / `tiktok.com/@*/*`, KHÔNG verify thật, daily cap 1 per platform).
+  - Birthday annual bonus → **Auto scheduled job** (HostedService daily check, không require claim).
+  - Mission config → **Per tenant** (mỗi tenant cấu hình nhiệm vụ + điểm thưởng riêng).
+- **Risk:** Social share URL verification — vẫn có thể abuse (URL fake). Mitigation: daily cap + admin disable mission + URL format validation.
+- **Task card:** `docs/AI/tasks/loyalty_phase_c_task_based_awards_task_card.md`
 
 ---
 

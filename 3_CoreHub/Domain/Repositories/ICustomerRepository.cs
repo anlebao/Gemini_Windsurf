@@ -3,6 +3,19 @@ using VanAn.Shared.Domain;
 namespace VanAn.CoreHub.Domain.Repositories
 {
     /// <summary>
+    /// Phase 5: Segmentation criteria for customer filtering (bulk push campaigns).
+    /// All fields optional — null means no filter on that field.
+    /// </summary>
+    public record CustomerSegmentCriteria(
+        string? CustomerTier = null,
+        IdentityLevel? MinIdentityLevel = null,
+        decimal? MinTotalSpent = null,
+        decimal? MaxTotalSpent = null,
+        DateTime? LastOrderAfter = null,
+        DateTime? LastOrderBefore = null,
+        bool HasPushSubscription = false);
+
+    /// <summary>
     /// Repository interface for Customer entity
     /// Follows Engineering Constitution: Always filter by tenant and soft delete
     /// </summary>
@@ -52,5 +65,11 @@ namespace VanAn.CoreHub.Domain.Repositories
         /// Get customer by phone number (only active, non-deleted, same tenant)
         /// </summary>
         Task<Customer?> GetByPhoneAsync(string phoneNumber);
+
+        /// <summary>
+        /// Phase 5: Get customers matching segmentation criteria (for bulk push campaigns).
+        /// Filters by tier, identity level, spend, last order date, and push subscription status.
+        /// </summary>
+        Task<IReadOnlyList<Customer>> GetBySegmentAsync(CustomerSegmentCriteria criteria);
     }
 }
