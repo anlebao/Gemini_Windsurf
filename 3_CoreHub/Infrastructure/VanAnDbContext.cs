@@ -118,6 +118,12 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
         public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
 
+        // Loyalty-B: Redemption system — DbSets for interface compliance.
+        // Storage is ShopERP SQLite; Gateway PG ignores these (configurations auto-applied but tables not used).
+        public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }
+        public DbSet<RedemptionRecord> RedemptionRecords { get; set; }
+        public DbSet<Voucher> Vouchers { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

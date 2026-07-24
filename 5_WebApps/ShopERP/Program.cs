@@ -350,6 +350,9 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.PushNotificationBackgroundService>();
             // Phase 5: Customer segmentation service for bulk push campaigns
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICustomerSegmentationService, VanAn.CoreHub.Services.CustomerSegmentationService>();
+            // Loyalty-B: Redemption system (catalog + redeem + fulfillment)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IRedemptionRepository, VanAn.CoreHub.Infrastructure.Repositories.RedemptionRepository>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IRedemptionService, VanAn.CoreHub.Services.RedemptionService>();
 
             // Sync: Subscribe to NATS "order.created" events from Gateway → sync to SQLite
             // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).

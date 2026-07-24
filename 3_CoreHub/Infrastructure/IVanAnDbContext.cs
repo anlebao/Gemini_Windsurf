@@ -67,6 +67,11 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<CampaignPushJob> CampaignPushJobs { get; }
         DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; }
 
+        // Loyalty-B: Redemption system (ShopERP SQLite, tenant-scoped)
+        DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; }
+        DbSet<RedemptionRecord> RedemptionRecords { get; }
+        DbSet<Voucher> Vouchers { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

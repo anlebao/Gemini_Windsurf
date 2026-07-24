@@ -143,7 +143,9 @@ public class AuthorizationEnforcementTests
             // Bug 2 fix (2026-07-15): VietQrController generates public VietQR URLs — KhachLink is anonymous customer app
             "VietQrController",
             // Phase 6: CatalogController is public [AllowAnonymous] — KhachLink Home.razor is anonymous customer app
-            "CatalogController"
+            "CatalogController",
+            // Loyalty-B: RedemptionController is customer-facing (X-Customer-Token header auth, like LoyaltyController)
+            "RedemptionController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

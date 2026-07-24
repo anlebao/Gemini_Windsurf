@@ -1,0 +1,288 @@
+@page "/rewards"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Web
+@using System.Net.Http.Json
+
+<PageTitle>Đổi điểm thưởng</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:600px;">
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-gem text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để đổi điểm thưởng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_catalog.Count == 0)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Hiện chưa có sản phẩm đổi điểm</h5>
+                <p class="text-muted">Vui lòng quay lại sau.</p>
+            </VanAnCard>
+        }
+        else
+        {
+            <h4 class="mb-3"><i class="bi bi-gift-fill text-danger"></i> Đổi điểm thưởng</h4>
+            <p class="text-muted small mb-3">Bạn có <strong>@_pointBalance.ToString("N0")</strong> điểm</p>
+
+            @if (_error != null)
+            {
+                <VanAnAlert Variant="AlertVariant.Error" Message="@_error" CssClass="mb-3" />
+            }
+            @if (_success != null)
+            {
+                <VanAnAlert Variant="AlertVariant.Success" Message="@_success" CssClass="mb-3" />
+            }
+
+            <div class="row g-3">
+                @foreach (var item in _catalog)
+                {
+                    <div class="col-12 col-md-6">
+                        <VanAnCard Shadow="true" CssClass="h-100 reward-card">
+                            <div class="p-3">
+                                @if (!string.IsNullOrEmpty(item.ImageUrl))
+                                {
+                                    <img src="@item.ImageUrl" class="img-fluid rounded mb-2" alt="@item.ProductName" style="max-height:120px;object-fit:cover;width:100%;" />
+                                }
+                                else
+                                {
+                                    <div class="bg-light rounded mb-2 d-flex align-items-center justify-content-center" style="height:120px;">
+                                        <i class="bi bi-gift" style="font-size:2.5rem;color:#6c757d;"></i>
+                                    </div>
+                                }
+                                <h6 class="mb-1">@item.ProductName</h6>
+                                <p class="text-muted small mb-2">@(item.Description ?? "")</p>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-warning text-dark">@item.PointsRequired.ToString("N0") điểm</span>
+                                    @if (item.StockCount.HasValue)
+                                    {
+                                        <span class="small text-muted">Còn: @item.StockCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="small text-muted">Không giới hạn</span>
+                                    }
+                                </div>
+                                <VanAnButton Variant="ButtonVariant.Primary"
+                                             OnClick="@(() => RedeemAsync(item.Id))"
+                                             Disabled="@(_redeeming || !item.IsAvailable || _pointBalance < item.PointsRequired)"
+                                             TestId="@($"btn-redeem-{item.Id}")"
+                                             CssClass="w-100">
+                                    @if (_redeeming && _selectedItemId == item.Id)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    else if (_pointBalance < item.PointsRequired)
+                                    {
+                                        @:Không đủ điểm
+                                    }
+                                    else if (!item.IsAvailable)
+                                    {
+                                        @:Không khả dụng
+                                    }
+                                    else
+                                    {
+                                        @:Đổi ngay
+                                    }
+                                </VanAnButton>
+                            </div>
+                        </VanAnCard>
+                    </div>
+                }
+            </div>
+
+            @if (_lastVoucher != null)
+            {
+                <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="bi bi-check-circle-fill text-success"></i> Đổi điểm thành công!</h5>
+                                <button type="button" class="btn-close" @onclick="CloseVoucherModal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <p>Mã voucher của bạn:</p>
+                                <h4 class="text-primary mb-3"><code>@_lastVoucher.VoucherCode</code></h4>
+                                @if (!string.IsNullOrEmpty(_lastVoucher.QrCodeData))
+                                {
+                                    <img src="data:image/png;base64,@_lastVoucher.QrCodeData" alt="QR Code" style="width:200px;height:200px;" class="mb-3" />
+                                }
+                                <p class="small text-muted">Hết hạn: @_lastVoucher.ExpiresAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p>
+                                <p class="small">Đến quán, đưa mã/QR cho nhân viên để nhận hàng.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <VanAnButton Variant="ButtonVariant.Secondary" OnClick="CloseVoucherModal">Đóng</VanAnButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _redeeming;
+    private Guid? _selectedItemId;
+    private int _pointBalance;
+    private string? _error;
+    private string? _success;
+    private List<CatalogItemDto> _catalog = new();
+    private VoucherResult? _lastVoucher;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+        _isLoggedIn = !string.IsNullOrEmpty(token);
+        if (!_isLoggedIn)
+        {
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            // Load catalog + loyalty balance in parallel
+            var client = HttpClientFactory.CreateClient("gateway");
+
+            var catalogTask = client.GetAsync("/api/redemption/catalog/active");
+            var loyaltyTask = SendWithTokenAsync(client, "/api/loyalty/my", token);
+
+            await Task.WhenAll(catalogTask, loyaltyTask);
+
+            var catalogResp = await catalogTask;
+            if (catalogResp.IsSuccessStatusCode)
+            {
+                _catalog = await catalogResp.Content.ReadFromJsonAsync<List<CatalogItemDto>>() ?? new();
+            }
+
+            var loyaltyResp = await loyaltyTask;
+            if (loyaltyResp.IsSuccessStatusCode)
+            {
+                var loyalty = await loyaltyResp.Content.ReadFromJsonAsync<LoyaltyMyResponse>();
+                _pointBalance = loyalty?.PointBalance ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Lỗi tải dữ liệu: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static async Task<HttpResponseMessage> SendWithTokenAsync(HttpClient client, string url, string? token)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, url);
+        if (!string.IsNullOrEmpty(token))
+            req.Headers.Add("X-Customer-Token", token);
+        return await client.SendAsync(req);
+    }
+
+    private async Task RedeemAsync(Guid catalogItemId)
+    {
+        _error = null;
+        _success = null;
+        _selectedItemId = catalogItemId;
+        _redeeming = true;
+
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _error = "Vui lòng đăng nhập để đổi điểm.";
+                return;
+            }
+
+            var client = HttpClientFactory.CreateClient("gateway");
+            var req = new HttpRequestMessage(HttpMethod.Post, "/api/redemption/redeem");
+            req.Headers.Add("X-Customer-Token", token);
+            req.Content = JsonContent.Create(new { CatalogItemId = catalogItemId });
+
+            var resp = await client.SendAsync(req);
+            var body = await resp.Content.ReadAsStringAsync();
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = System.Text.Json.JsonSerializer.Deserialize<VoucherResult>(body, _jsonOpts);
+                _lastVoucher = result;
+                _pointBalance = result?.NewPointBalance ?? _pointBalance;
+                _success = $"Đổi thành công! Đã dùng {result?.PointsSpent} điểm.";
+            }
+            else
+            {
+                _error = ExtractErrorMessage(body) ?? "Đổi điểm thất bại. Vui lòng thử lại.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _redeeming = false;
+            _selectedItemId = null;
+        }
+    }
+
+    private void CloseVoucherModal() => _lastVoucher = null;
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private static string? ExtractErrorMessage(string body)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("error", out var err))
+                return err.GetString();
+        }
+        catch { }
+        return null;
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    private class CatalogItemDto
+    {
+        public Guid Id { get; set; }
+        public string ProductName { get; set; } = "";
+        public string? Description { get; set; }
+        public string? ImageUrl { get; set; }
+        public int PointsRequired { get; set; }
+        public int? StockCount { get; set; }
+        public bool IsAvailable { get; set; }
+    }
+
+    private class LoyaltyMyResponse
+    {
+        public int PointBalance { get; set; }
+    }
+
+    private class VoucherResult
+    {
+        public bool Success { get; set; }
+        public int PointsSpent { get; set; }
+        public int NewPointBalance { get; set; }
+        public string? VoucherCode { get; set; }
+        public string? QrCodeData { get; set; }
+        public DateTime? ExpiresAt { get; set; }
+    }
+}

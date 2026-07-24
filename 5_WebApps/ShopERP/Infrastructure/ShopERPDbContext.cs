@@ -88,6 +88,11 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<CampaignPushJob> CampaignPushJobs { get; set; }
         public DbSet<PushNotificationDelivery> PushNotificationDeliveries { get; set; }
 
+        // Loyalty-B: Redemption system — ShopERP SQLite (tenant-scoped business data).
+        public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }
+        public DbSet<RedemptionRecord> RedemptionRecords { get; set; }
+        public DbSet<Voucher> Vouchers { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

@@ -1,0 +1,251 @@
+@page "/admin/redemption-history"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Services
+@using VanAn.Shared.Domain
+@inject IRedemptionService RedemptionService
+@inject ILogger<RedemptionHistory> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="redemption-history-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-clock-history"></i> Lịch sử đổi điểm</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="LoadHistory">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @* === Fulfill Voucher by Code === *@
+    <VanACard Title="Xác nhận voucher">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label">Mã voucher</label>
+                <input class="form-control" @bind="_fulfillCode" placeholder="VAN-XXXXXXXX" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Ghi chú (tùy chọn)</label>
+                <input class="form-control" @bind="_fulfillNotes" />
+            </div>
+            <div class="col-md-2">
+                <VanAButton Variant="primary" OnClick="FulfillAsync" Disabled="@_fulfilling">
+                    @if (_fulfilling)
+                    {
+                        <span class="spinner-border spinner-border-sm"></span>
+                    }
+                    else
+                    {
+                        <text>Xác nhận</text>
+                    }
+                </VanAButton>
+            </div>
+        </div>
+    </VanACard>
+
+    @* === Recent Redemption Records === *@
+    <VanACard Title="Lịch sử gần đây">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_records.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Chưa có lượt đổi điểm nào.</p>
+        }
+        else
+        {
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Khách hàng</th>
+                        <th>Điểm dùng</th>
+                        <th>Trạng thái</th>
+                        <th>Ngày đổi</th>
+                        <th>Voucher</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _records)
+                    {
+                        <tr>
+                            <td><code>@r.CustomerId.ToString()[..8]</code></td>
+                            <td>@r.PointsSpent.ToString("N0")</td>
+                            <td>
+                                @if (r.Status == "Pending")
+                                {
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                }
+                                else if (r.Status == "Fulfilled")
+                                {
+                                    <span class="badge bg-success">Fulfilled</span>
+                                }
+                                else if (r.Status == "Cancelled")
+                                {
+                                    <span class="badge bg-secondary">Cancelled</span>
+                                }
+                                else if (r.Status == "Expired")
+                                {
+                                    <span class="badge bg-danger">Expired</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light">@r.Status</span>
+                                }
+                            </td>
+                            <td>@r.RedeemedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                @if (r.VoucherId.HasValue)
+                                {
+                                    <code>@(GetVoucherCode(r.VoucherId.Value))</code>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (r.Status == "Pending")
+                                {
+                                    <VanAButton Variant="danger" OnClick="@(() => CancelAsync(r.Id))">Hủy + hoàn điểm</VanAButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _fulfilling;
+    private string _fulfillCode = "";
+    private string _fulfillNotes = "";
+    private string _alertMessage = "";
+    private string _alertType = "info";
+    private List<RedemptionRecordViewModel> _records = new();
+    private Dictionary<Guid, string> _voucherCodeCache = new();
+
+    protected override async Task OnInitializedAsync() => await LoadHistory();
+
+    private async Task LoadHistory()
+    {
+        _loading = true;
+        try
+        {
+            var records = await RedemptionService.GetRecentRedemptionsAsync(100);
+            _records = records.Select(r => new RedemptionRecordViewModel
+            {
+                Id = r.Id,
+                CustomerId = r.CustomerId,
+                CatalogItemId = r.CatalogItemId,
+                VoucherId = r.VoucherId,
+                PointsSpent = r.PointsSpent,
+                Status = r.Status,
+                RedeemedAt = r.RedeemedAt
+            }).ToList();
+
+            // Preload voucher codes for display
+            _voucherCodeCache.Clear();
+            foreach (var r in _records)
+            {
+                if (r.VoucherId.HasValue && !_voucherCodeCache.ContainsKey(r.VoucherId.Value))
+                {
+                    var vouchers = await RedemptionService.GetCustomerVouchersAsync(r.CustomerId);
+                    foreach (var v in vouchers)
+                    {
+                        _voucherCodeCache[v.Id] = v.VoucherCode;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải lịch sử: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally { _loading = false; }
+    }
+
+    private string GetVoucherCode(Guid voucherId) => _voucherCodeCache.TryGetValue(voucherId, out var code) ? code : "—";
+
+    private async Task FulfillAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_fulfillCode))
+        {
+            _alertMessage = "Vui lòng nhập mã voucher.";
+            _alertType = "danger";
+            return;
+        }
+
+        _fulfilling = true;
+        try
+        {
+            bool ok = await RedemptionService.FulfillAsync(_fulfillCode.Trim(), _fulfillNotes);
+            if (ok)
+            {
+                _alertMessage = "Xác nhận voucher thành công.";
+                _alertType = "success";
+                _fulfillCode = "";
+                _fulfillNotes = "";
+                await LoadHistory();
+            }
+            else
+            {
+                _alertMessage = "Voucher không hợp lệ, đã sử dụng, hoặc đã hết hạn.";
+                _alertType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally { _fulfilling = false; }
+    }
+
+    private async Task CancelAsync(Guid recordId)
+    {
+        try
+        {
+            bool ok = await RedemptionService.CancelAsync(recordId, "Cancelled by admin");
+            if (ok)
+            {
+                _alertMessage = "Đã hủy + hoàn điểm cho khách.";
+                _alertType = "success";
+                await LoadHistory();
+            }
+            else
+            {
+                _alertMessage = "Không thể hủy (không tồn tại hoặc không ở trạng thái Pending).";
+                _alertType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private class RedemptionRecordViewModel
+    {
+        public Guid Id { get; set; }
+        public Guid CustomerId { get; set; }
+        public Guid CatalogItemId { get; set; }
+        public Guid? VoucherId { get; set; }
+        public int PointsSpent { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime RedeemedAt { get; set; }
+    }
+}

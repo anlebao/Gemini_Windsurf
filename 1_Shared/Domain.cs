@@ -782,6 +782,182 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    // Loyalty-B: Redemption Catalog Item — admin-created redeemable product/voucher.
+    // Tenant-scoped (ShopERP SQLite). Admin manages via RedemptionCatalogAdmin.razor.
+    public class RedemptionCatalogItem : BaseEntity, IMustHaveTenant
+    {
+        public string ProductName { get; protected set; } = string.Empty;
+        public string? Description { get; protected set; }
+        public string? ImageUrl { get; protected set; }
+        public int PointsRequired { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public int? StockCount { get; protected set; } // null = unlimited
+        public DateTime ValidFrom { get; protected set; } = DateTime.UtcNow;
+        public DateTime? ValidTo { get; protected set; }
+        // Voucher expiry: how long a voucher is valid after redemption (days). Default 30.
+        public int VoucherExpiryDays { get; protected set; } = 30;
+
+        protected RedemptionCatalogItem() { }
+
+        public RedemptionCatalogItem(TenantId tenantId, string productName, int pointsRequired)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(productName))
+                throw new ArgumentException("ProductName cannot be empty.", nameof(productName));
+            if (pointsRequired <= 0)
+                throw new ArgumentException("PointsRequired must be positive.", nameof(pointsRequired));
+
+            ProductName = productName;
+            PointsRequired = pointsRequired;
+            IsActive = true;
+            ValidFrom = DateTime.UtcNow;
+            VoucherExpiryDays = 30;
+        }
+
+        public void UpdateDetails(string productName, string? description, string? imageUrl, int pointsRequired,
+            int? stockCount, DateTime? validTo, int voucherExpiryDays)
+        {
+            if (!string.IsNullOrWhiteSpace(productName)) ProductName = productName;
+            if (pointsRequired > 0) PointsRequired = pointsRequired;
+            Description = description;
+            ImageUrl = imageUrl;
+            StockCount = stockCount;
+            ValidTo = validTo;
+            if (voucherExpiryDays > 0) VoucherExpiryDays = voucherExpiryDays;
+            UpdateAudit();
+        }
+
+        public void Activate() { IsActive = true; UpdateAudit(); }
+        public void Deactivate() { IsActive = false; UpdateAudit(); }
+
+        public void DecrementStock()
+        {
+            if (StockCount.HasValue)
+            {
+                StockCount = Math.Max(0, StockCount.Value - 1);
+                UpdateAudit();
+            }
+        }
+
+        public void SoftDelete() { MarkAsDeleted(); }
+
+        public bool IsAvailable => IsActive && (StockCount == null || StockCount > 0)
+            && DateTime.UtcNow >= ValidFrom
+            && (ValidTo == null || DateTime.UtcNow <= ValidTo);
+    }
+
+    // Loyalty-B: Redemption Record — tracks a customer's redemption of a catalog item.
+    // Status: Pending → Fulfilled / Cancelled / Expired.
+    public class RedemptionRecord : BaseEntity, IMustHaveTenant
+    {
+        public Guid CustomerId { get; protected set; }
+        public Guid CatalogItemId { get; protected set; }
+        public Guid? VoucherId { get; protected set; }
+        public int PointsSpent { get; protected set; }
+        public string Status { get; protected set; } = "Pending"; // Pending/Fulfilled/Cancelled/Expired
+        public DateTime RedeemedAt { get; protected set; } = DateTime.UtcNow;
+        public DateTime? FulfilledAt { get; protected set; }
+        public DateTime? CancelledAt { get; protected set; }
+        public string? Notes { get; protected set; }
+
+        protected RedemptionRecord() { }
+
+        public RedemptionRecord(TenantId tenantId, Guid customerId, Guid catalogItemId, int pointsSpent)
+            : base(tenantId)
+        {
+            if (customerId == Guid.Empty) throw new ArgumentException("CustomerId cannot be empty.", nameof(customerId));
+            if (catalogItemId == Guid.Empty) throw new ArgumentException("CatalogItemId cannot be empty.", nameof(catalogItemId));
+            if (pointsSpent <= 0) throw new ArgumentException("PointsSpent must be positive.", nameof(pointsSpent));
+
+            CustomerId = customerId;
+            CatalogItemId = catalogItemId;
+            PointsSpent = pointsSpent;
+            Status = "Pending";
+            RedeemedAt = DateTime.UtcNow;
+        }
+
+        public void AssignVoucher(Guid voucherId)
+        {
+            if (voucherId == Guid.Empty) throw new ArgumentException("VoucherId cannot be empty.");
+            VoucherId = voucherId;
+            UpdateAudit();
+        }
+
+        public void MarkAsFulfilled(string? notes = null)
+        {
+            Status = "Fulfilled";
+            FulfilledAt = DateTime.UtcNow;
+            if (!string.IsNullOrEmpty(notes)) Notes = notes;
+            UpdateAudit();
+        }
+
+        public void MarkAsCancelled(string? notes = null)
+        {
+            Status = "Cancelled";
+            CancelledAt = DateTime.UtcNow;
+            if (!string.IsNullOrEmpty(notes)) Notes = notes;
+            UpdateAudit();
+        }
+
+        public void MarkAsExpired()
+        {
+            Status = "Expired";
+            UpdateAudit();
+        }
+    }
+
+    // Loyalty-B: Voucher — issued upon redemption, has unique code + QR data.
+    // Status: Active → Used / Expired.
+    public class Voucher : BaseEntity, IMustHaveTenant
+    {
+        public Guid RedemptionRecordId { get; protected set; }
+        public Guid CustomerId { get; protected set; }
+        public string VoucherCode { get; protected set; } = string.Empty; // Unique, human-readable
+        public string? QRCodeData { get; protected set; } // Base64 PNG or payload string
+        public string Status { get; protected set; } = "Active"; // Active/Used/Expired
+        public DateTime IssuedAt { get; protected set; } = DateTime.UtcNow;
+        public DateTime? UsedAt { get; protected set; }
+        public DateTime ExpiresAt { get; protected set; }
+
+        protected Voucher() { }
+
+        public Voucher(TenantId tenantId, Guid redemptionRecordId, Guid customerId, string voucherCode, DateTime expiresAt)
+            : base(tenantId)
+        {
+            if (redemptionRecordId == Guid.Empty) throw new ArgumentException("RedemptionRecordId cannot be empty.");
+            if (customerId == Guid.Empty) throw new ArgumentException("CustomerId cannot be empty.");
+            if (string.IsNullOrWhiteSpace(voucherCode)) throw new ArgumentException("VoucherCode cannot be empty.");
+
+            RedemptionRecordId = redemptionRecordId;
+            CustomerId = customerId;
+            VoucherCode = voucherCode;
+            Status = "Active";
+            IssuedAt = DateTime.UtcNow;
+            ExpiresAt = expiresAt;
+        }
+
+        public void SetQRCodeData(string qrCodeData)
+        {
+            QRCodeData = qrCodeData;
+            UpdateAudit();
+        }
+
+        public void MarkAsUsed()
+        {
+            Status = "Used";
+            UsedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkAsExpired()
+        {
+            Status = "Expired";
+            UpdateAudit();
+        }
+
+        public bool IsValid => Status == "Active" && DateTime.UtcNow <= ExpiresAt;
+    }
+
     // Wave 9: Push Subscription Entity for Web Push Notifications
     // Separate table (per user decision) to avoid Domain layer changes
     public class PushSubscription : BaseEntity, IMustHaveTenant

@@ -1,0 +1,281 @@
+@page "/admin/redemption-catalog"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Services
+@using VanAn.Shared.Domain
+@inject IRedemptionService RedemptionService
+@inject ILogger<RedemptionCatalogAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="redemption-catalog-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-gift"></i> Redemption Catalog</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="LoadCatalog">Làm mới</VanAButton>
+            <VanAButton Variant="primary" OnClick="ShowCreateModal">+ Thêm sản phẩm</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard>
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_catalog.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Chưa có sản phẩm đổi điểm nào.</p>
+        }
+        else
+        {
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tên sản phẩm</th>
+                        <th>Điểm yêu cầu</th>
+                        <th>Tồn kho</th>
+                        <th>Trạng thái</th>
+                        <th>Hết hạn</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _catalog)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@item.ProductName</strong>
+                                @if (!string.IsNullOrEmpty(item.Description))
+                                {
+                                    <br /><small class="text-muted">@item.Description</small>
+                                }
+                            </td>
+                            <td>@item.PointsRequired.ToString("N0")</td>
+                            <td>@(item.StockCount.HasValue ? item.StockCount.Value.ToString() : "∞")</td>
+                            <td>
+                                @if (item.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>@(item.ValidTo?.ToString("dd/MM/yyyy") ?? "—")</td>
+                            <td>
+                                <VanAButton Variant="secondary" OnClick="@(() => ShowEditModal(item))">Sửa</VanAButton>
+                                <VanAButton Variant="secondary" OnClick="@(() => ToggleActiveAsync(item.Id))">
+                                    @(item.IsActive ? "Tắt" : "Bật")
+                                </VanAButton>
+                                <VanAButton Variant="danger" OnClick="@(() => DeleteAsync(item.Id))">Xóa</VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </VanACard>
+</div>
+
+@* === Create/Edit Modal === *@
+@if (_showModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editingId.HasValue ? "Sửa sản phẩm" : "Thêm sản phẩm đổi điểm")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tên sản phẩm *</label>
+                        <input class="form-control" @bind="_form.ProductName" placeholder="Cà phê miễn phí" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" @bind="_form.Description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL hình ảnh</label>
+                        <input class="form-control" @bind="_form.ImageUrl" placeholder="https://..." />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Điểm yêu cầu *</label>
+                            <input type="number" class="form-control" @bind="_form.PointsRequired" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tồn kho (để trống = ∞)</label>
+                            <input type="number" class="form-control" @bind="_form.StockCount" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Voucher hết hạn (ngày)</label>
+                            <input type="number" class="form-control" @bind="_form.VoucherExpiryDays" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catalog hết hạn (để trống = không hết hạn)</label>
+                        <input type="date" class="form-control" @bind="_form.ValidTo" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" OnClick="CloseModal">Hủy</VanAButton>
+                    <VanAButton Variant="primary" OnClick="SaveAsync">Lưu</VanAButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showModal;
+    private Guid? _editingId;
+    private string _alertMessage = "";
+    private string _alertType = "info";
+    private List<CatalogItemViewModel> _catalog = new();
+    private CatalogForm _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadCatalog();
+
+    private async Task LoadCatalog()
+    {
+        _loading = true;
+        try
+        {
+            var items = await RedemptionService.GetAllCatalogAsync();
+            _catalog = items.Select(i => new CatalogItemViewModel
+            {
+                Id = i.Id,
+                ProductName = i.ProductName,
+                Description = i.Description,
+                ImageUrl = i.ImageUrl,
+                PointsRequired = i.PointsRequired,
+                IsActive = i.IsActive,
+                StockCount = i.StockCount,
+                ValidTo = i.ValidTo
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải catalog: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally { _loading = false; }
+    }
+
+    private void ShowCreateModal()
+    {
+        _editingId = null;
+        _form = new CatalogForm { VoucherExpiryDays = 30 };
+        _showModal = true;
+    }
+
+    private void ShowEditModal(CatalogItemViewModel item)
+    {
+        _editingId = item.Id;
+        _form = new CatalogForm
+        {
+            ProductName = item.ProductName,
+            Description = item.Description ?? "",
+            ImageUrl = item.ImageUrl ?? "",
+            PointsRequired = item.PointsRequired,
+            StockCount = item.StockCount,
+            ValidTo = item.ValidTo,
+            VoucherExpiryDays = 30
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.ProductName) || _form.PointsRequired <= 0)
+        {
+            _alertMessage = "Vui lòng nhập tên sản phẩm và điểm hợp lệ.";
+            _alertType = "danger";
+            return;
+        }
+
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                _ = await RedemptionService.UpdateCatalogItemAsync(
+                    _editingId.Value, _form.ProductName, _form.Description, _form.ImageUrl,
+                    _form.PointsRequired, _form.StockCount, _form.ValidTo, _form.VoucherExpiryDays);
+                _alertMessage = "Cập nhật thành công.";
+            }
+            else
+            {
+                _ = await RedemptionService.CreateCatalogItemAsync(
+                    _form.ProductName, _form.Description, _form.ImageUrl,
+                    _form.PointsRequired, _form.StockCount, _form.ValidTo, _form.VoucherExpiryDays);
+                _alertMessage = "Tạo sản phẩm thành công.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadCatalog();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task ToggleActiveAsync(Guid id)
+    {
+        var item = await RedemptionService.GetCatalogItemAsync(id);
+        if (item == null) return;
+        if (item.IsActive) _ = await RedemptionService.DeactivateCatalogItemAsync(id);
+        else
+        {
+            _ = await RedemptionService.UpdateCatalogItemAsync(id, item.ProductName, item.Description,
+                item.ImageUrl, item.PointsRequired, item.StockCount, item.ValidTo, item.VoucherExpiryDays);
+        }
+        await LoadCatalog();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _ = await RedemptionService.DeleteCatalogItemAsync(id);
+        _alertMessage = "Đã xóa sản phẩm.";
+        _alertType = "success";
+        await LoadCatalog();
+    }
+
+    private class CatalogItemViewModel
+    {
+        public Guid Id { get; set; }
+        public string ProductName { get; set; } = "";
+        public string? Description { get; set; }
+        public string? ImageUrl { get; set; }
+        public int PointsRequired { get; set; }
+        public bool IsActive { get; set; }
+        public int? StockCount { get; set; }
+        public DateTime? ValidTo { get; set; }
+    }
+
+    private class CatalogForm
+    {
+        public string ProductName { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string ImageUrl { get; set; } = "";
+        public int PointsRequired { get; set; }
+        public int? StockCount { get; set; }
+        public DateTime? ValidTo { get; set; }
+        public int VoucherExpiryDays { get; set; } = 30;
+    }
+}
