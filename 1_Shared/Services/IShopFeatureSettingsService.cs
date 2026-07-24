@@ -28,6 +28,30 @@ public record ShopFeatureSettingsDto
     public bool SocialHub_Section_Enabled { get; set; } = true;
     /// <summary>Tenant Profile Page (2026-07-21): enable AI Chatbox widget. Default OFF (owner opts in).</summary>
     public bool AIChat_Enabled { get; set; }
+
+    // === Loyalty-C WS-A: Per-tenant loyalty points formula (overrides global IOptions<LoyaltyPointsConfig> default) ===
+    /// <summary>Loyalty-C WS-A: Points rate (fraction of TotalAmount). 0 = use global default (appsettings.json). Default 0 = fallback.</summary>
+    public decimal Loyalty_PointsRate { get; set; } = 0m;
+    /// <summary>Loyalty-C WS-A: Min points awarded per order. 0 = use global default. Default 0 = fallback.</summary>
+    public int Loyalty_MinPointsPerOrder { get; set; } = 0;
+    /// <summary>Loyalty-C WS-A: Max points per order (null = no cap / use global default). Default null = fallback.</summary>
+    public int? Loyalty_MaxPointsPerOrder { get; set; } = null;
+    /// <summary>Loyalty-C WS-A: Award points on ALL orders (true) or only orders with TrackingCode (false). Default true.</summary>
+    public bool Loyalty_AwardOnAllOrders { get; set; } = true;
+
+    // === Loyalty-C WS-C: Per-tenant notification rules for loyalty events ===
+    /// <summary>Loyalty-C WS-C: Push notification when customer completes a mission. Default ON.</summary>
+    public bool Notify_MissionCompleted { get; set; } = true;
+    /// <summary>Loyalty-C WS-C: Push notification on birthday bonus award. Default ON.</summary>
+    public bool Notify_BirthdayBonus { get; set; } = true;
+    /// <summary>Loyalty-C WS-C: Push notification when admin fulfills a redemption voucher. Default ON.</summary>
+    public bool Notify_RedemptionFulfilled { get; set; } = true;
+    /// <summary>Loyalty-C WS-C: Push notification when admin cancels a redemption + refunds points. Default ON.</summary>
+    public bool Notify_RedemptionCancelled { get; set; } = true;
+    /// <summary>Loyalty-C WS-C: Push notification when voucher is expiring soon. Default ON.</summary>
+    public bool Notify_VoucherExpiringSoon { get; set; } = true;
+    /// <summary>Loyalty-C WS-C: Hours before voucher expiry to send reminder push. Default 24. Range 1-168 (7 days).</summary>
+    public int VoucherExpiryNotifyHours { get; set; } = 24;
 }
 
 /// <summary>

@@ -73,7 +73,52 @@ window.vananPWA = {
         this.isInstalled = window.matchMedia('(display-mode: standalone)').matches ||
                          window.navigator.standalone === true ||
                          document.referrer.includes('android-app://');
+        // Loyalty-C WS-B: If standalone mode detected (user already installed PWA, e.g., iOS Add to Home Screen),
+        // notify backend to award PWAInstall mission points. Fire-and-forget — silent on failure.
+        if (this.isInstalled) {
+            this.notifyPwaInstalledBackend();
+        }
         return this.isInstalled;
+    },
+
+    // Loyalty-C WS-B: Notify backend that PWA is installed (triggers PWAInstall mission — one-time reward).
+    // Fire-and-forget: silent on no-token, network error, or already-awarded (backend is idempotent).
+    async notifyPwaInstalledBackend() {
+        try {
+            var token = localStorage.getItem('customer_token');
+            if (!token) return; // Not logged in — mission will trigger on next login + install detection
+            var resp = await fetch('/api/customer-profile/pwa-installed', {
+                method: 'POST',
+                headers: { 'X-Customer-Token': token }
+            });
+            if (resp.ok) {
+                var data = await resp.json();
+                if (data && data.pointsAwarded > 0) {
+                    console.log('PWA install mission awarded: +' + data.pointsAwarded + ' points');
+                    // Show subtle toast for points reward
+                    if (window.vananPWA && window.vananPWA.showPointsToast) {
+                        window.vananPWA.showPointsToast(data.pointsAwarded);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('notifyPwaInstalledBackend failed (non-blocking):', e);
+        }
+    },
+
+    // Loyalty-C WS-B: Show subtle toast for awarded mission points.
+    showPointsToast(points) {
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(34,139,34,0.95);color:white;padding:10px 20px;border-radius:24px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);';
+        toast.textContent = '🎉 +' + points + ' điểm thưởng!';
+        document.body.appendChild(toast);
+        setTimeout(function() {
+            if (toast && toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.4s';
+                setTimeout(function() { if (toast.parentNode) toast.remove(); }, 400);
+            }
+        }, 3500);
     },
 
     async showInstallPrompt() {
@@ -90,6 +135,8 @@ window.vananPWA = {
                 if (outcome === 'accepted') {
                     this.isInstalled = true;
                     console.log('PWA installation accepted');
+                    // Loyalty-C WS-B: Notify backend to award PWAInstall mission points.
+                    this.notifyPwaInstalledBackend();
                     return true;
                 } else {
                     console.log('PWA installation dismissed');

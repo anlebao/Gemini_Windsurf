@@ -1,0 +1,42 @@
+feat(loyalty-b): Redemption system — catalog + voucher + fulfillment
+
+Loyalty Phase B complete — full redemption system with catalog management,
+customer redeem flow, voucher generation (code + QR), and admin fulfillment.
+
+New entities (1_Shared/Domain.cs):
+- RedemptionCatalogItem: admin-managed redeemable products (points, stock, expiry)
+- RedemptionRecord: tracks customer redemption (Pending/Fulfilled/Cancelled/Expired)
+- Voucher: issued upon redemption (unique code + QR PNG, Active/Used/Expired)
+
+New service layer:
+- IRedemptionService (1_Shared/Services) + RedemptionService (3_CoreHub/Services)
+- IRedemptionRepository + RedemptionRepository (3_CoreHub)
+- RedeemAsync: verify catalog available → SubtractPointsAsync (IdentityLevel gate)
+  → create RedemptionRecord + Voucher (with QR) → decrement stock
+- FulfillAsync: admin scan voucher code → mark Voucher.Used + Record.Fulfilled
+- CancelAsync: cancel Pending record → refund points (AddPointsAsync) → expire voucher
+
+New endpoints:
+- ShopERP RedemptionController: admin CRUD catalog + fulfill + cancel + history
+  + customer redeem + my vouchers/redemptions (token auth)
+- Gateway RedemptionController: forwards customer-facing endpoints to ShopERP
+
+New UI:
+- KhachLink /rewards (RedemptionCatalog.razor): browse catalog + redeem + voucher QR modal
+- ShopERP /admin/redemption-catalog (RedemptionCatalogAdmin.razor): catalog CRUD
+- ShopERP /admin/redemption-history (RedemptionHistory.razor): fulfill + cancel + history
+
+Infrastructure:
+- 3 EF configs (RedemptionCatalogItem/Record/VoucherConfiguration)
+- DbSets added to IVanAnDbContext + VanAnDbContext + ShopERPDbContext
+- ShopERP migration: AddRedemptionSystem (3 tables)
+- DI: IRedemptionRepository + IRedemptionService registered in ShopERP
+
+Verification:
+- dotnet build VanAn.sln — 0 errors
+- guard-check.ps1 — ALL CHECKS PASSED
+- Architecture.Tests — 37/37 PASS (RedemptionController added to Gateway exempt list)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

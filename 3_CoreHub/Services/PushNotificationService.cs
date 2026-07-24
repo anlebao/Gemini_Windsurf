@@ -386,6 +386,166 @@ namespace VanAn.CoreHub.Services
         };
 
         /// <summary>
+        /// Loyalty-C WS-C: Send a birthday notification + annual bonus points info to a customer.
+        /// Triggered by BirthdayBonusJob on the customer's birthday (UTC date match).
+        /// </summary>
+        /// <param name="customerId">Customer ID to send notification to</param>
+        /// <param name="customerName">Customer name for personalization</param>
+        /// <param name="pointsAwarded">Birthday bonus points awarded (0 if mission not configured)</param>
+        /// <returns>Number of notifications sent successfully</returns>
+        public async Task<int> SendBirthdayNotificationAsync(Guid customerId, string? customerName, int pointsAwarded)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+                if (!subscriptions.Any())
+                {
+                    _logger.LogInformation("No active push subscriptions for birthday notification: CustomerId={CustomerId}", customerId);
+                    return 0;
+                }
+
+                int successCount = 0;
+                var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+                var webPushClient = new WebPushClient();
+
+                foreach (var subscription in subscriptions)
+                {
+                    try
+                    {
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreateBirthdayPayload(notificationId, customerName, pointsAwarded);
+                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        if (pushSubscription == null) continue;
+
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/my-loyalty");
+                        subscription.Renew();
+                        await _subscriptionRepository.UpdateAsync(subscription);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send birthday push for subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                    }
+                }
+
+                _logger.LogInformation("Birthday push sent: {SuccessCount}/{TotalCount} for CustomerId={CustomerId}, PointsAwarded={Points}",
+                    successCount, subscriptions.Count, customerId, pointsAwarded);
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send birthday push notifications for CustomerId={CustomerId}", customerId);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Loyalty-C WS-C: Send a voucher expiry reminder to a customer.
+        /// Triggered by VoucherExpiryReminderJob when a voucher is N days from expiry.
+        /// </summary>
+        /// <param name="customerId">Customer ID to send notification to</param>
+        /// <param name="voucherCode">Voucher code for the notification</param>
+        /// <param name="productName">Product name the voucher is for</param>
+        /// <param name="expiresAt">Voucher expiry timestamp</param>
+        /// <param name="daysRemaining">Days until expiry (for urgency messaging)</param>
+        /// <returns>Number of notifications sent successfully</returns>
+        public async Task<int> SendVoucherExpiryReminderAsync(
+            Guid customerId,
+            string voucherCode,
+            string? productName,
+            DateTime expiresAt,
+            int daysRemaining)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+                if (!subscriptions.Any())
+                {
+                    _logger.LogInformation("No active push subscriptions for voucher expiry reminder: CustomerId={CustomerId}", customerId);
+                    return 0;
+                }
+
+                int successCount = 0;
+                var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+                var webPushClient = new WebPushClient();
+
+                foreach (var subscription in subscriptions)
+                {
+                    try
+                    {
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreateVoucherExpiryPayload(notificationId, voucherCode, productName, expiresAt, daysRemaining);
+                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        if (pushSubscription == null) continue;
+
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/rewards");
+                        subscription.Renew();
+                        await _subscriptionRepository.UpdateAsync(subscription);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send voucher expiry push for subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                    }
+                }
+
+                _logger.LogInformation("Voucher expiry push sent: {SuccessCount}/{TotalCount} for CustomerId={CustomerId}, VoucherCode={VoucherCode}, DaysRemaining={Days}",
+                    successCount, subscriptions.Count, customerId, voucherCode, daysRemaining);
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send voucher expiry push for CustomerId={CustomerId}, VoucherCode={VoucherCode}", customerId, voucherCode);
+                return 0;
+            }
+        }
+
+        /// <summary>Loyalty-C WS-C: Create birthday notification payload.</summary>
+        private string CreateBirthdayPayload(Guid notificationId, string? customerName, int pointsAwarded)
+        {
+            string name = string.IsNullOrWhiteSpace(customerName) ? "Bạn" : customerName;
+            string body = pointsAwarded > 0
+                ? $"Chúc sinh nhật {name}! +{pointsAwarded} điểm thưởng từ Vạn An."
+                : $"Chúc mừng sinh nhật {name}! Vạn An chúc bạn một ngày thật đặc biệt.";
+            var notification = new
+            {
+                type = "birthday_bonus",
+                title = "Vạn An Group",
+                body = body,
+                pointsAwarded = pointsAwarded,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                actionUrl = "/my-loyalty",
+                data = new { notificationId = notificationId, actionUrl = "/my-loyalty" }
+            };
+            return JsonSerializer.Serialize(notification);
+        }
+
+        /// <summary>Loyalty-C WS-C: Create voucher expiry reminder payload.</summary>
+        private string CreateVoucherExpiryPayload(Guid notificationId, string voucherCode, string? productName, DateTime expiresAt, int daysRemaining)
+        {
+            string product = string.IsNullOrWhiteSpace(productName) ? "voucher" : productName;
+            string body = daysRemaining <= 1
+                ? $"Voucher {product} của bạn hết hạn hôm nay! Sử dụng ngay."
+                : $"Voucher {product} của bạn sẽ hết hạn sau {daysRemaining} ngày. Đừng bỏ lỡ!";
+            var notification = new
+            {
+                type = "voucher_expiry_reminder",
+                title = "Vạn An Group",
+                body = body,
+                voucherCode = voucherCode,
+                productName = product,
+                expiresAt = expiresAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                daysRemaining = daysRemaining,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                actionUrl = "/rewards",
+                data = new { notificationId = notificationId, actionUrl = "/rewards" }
+            };
+            return JsonSerializer.Serialize(notification);
+        }
+
+        /// <summary>
         /// Validate VAPID configuration.
         /// </summary>
         public bool IsConfigured()

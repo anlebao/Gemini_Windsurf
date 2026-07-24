@@ -691,6 +691,190 @@ namespace VanAn.Shared.Domain
             TotalSpent += amount;
             UpdateAudit();
         }
+
+        // === Loyalty-C WS-B: Mission tracking fields ===
+        /// <summary>Loyalty-C WS-B: Customer birthday (date only, time = 00:00). Null if not provided.</summary>
+        public DateTime? Birthday { get; protected set; }
+        /// <summary>Loyalty-C WS-B: When customer installed PWA app. Null if never.</summary>
+        public DateTime? PWAInstalledAt { get; protected set; }
+        /// <summary>Loyalty-C WS-B: When customer upgraded to Verified via OTP. Null if Social/Full only.</summary>
+        public DateTime? OtpVerifiedAt { get; protected set; }
+        /// <summary>Loyalty-C WS-B: Count of Facebook share missions completed (for daily cap tracking).</summary>
+        public int FacebookShareCount { get; protected set; }
+        /// <summary>Loyalty-C WS-B: Count of TikTok share missions completed (for daily cap tracking).</summary>
+        public int TikTokShareCount { get; protected set; }
+
+        /// <summary>Loyalty-C WS-B: Set birthday (date only).</summary>
+        public void SetBirthday(DateTime birthday)
+        {
+            // Strip time portion — birthday is date-only
+            Birthday = birthday.Date;
+            UpdateAudit();
+        }
+
+        /// <summary>Loyalty-C WS-B: Mark PWA install timestamp.</summary>
+        public void MarkPWAInstalled()
+        {
+            PWAInstalledAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>Loyalty-C WS-B: Mark OTP verified timestamp (when upgrading to Verified).</summary>
+        public void MarkOtpVerified()
+        {
+            OtpVerifiedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>Loyalty-C WS-B: Increment Facebook share count (called after completing a FacebookShare mission).</summary>
+        public void IncrementFacebookShareCount()
+        {
+            FacebookShareCount++;
+            UpdateAudit();
+        }
+
+        /// <summary>Loyalty-C WS-B: Increment TikTok share count.</summary>
+        public void IncrementTikTokShareCount()
+        {
+            TikTokShareCount++;
+            UpdateAudit();
+        }
+    }
+
+    // ====================================================================
+    // Loyalty-C WS-B: Gamification framework — Mission + MissionCompletion
+    // ====================================================================
+
+    /// <summary>
+    /// Loyalty-C WS-B: Mission entity — admin-defined task that customers complete to earn points.
+    /// MissionType defines the trigger (PWAInstall, OtpVerify, BirthdayEntry, FacebookShare, TikTokShare, Custom).
+    /// IsOneTime=true → customer can complete once; DailyCap=null → unlimited; DailyCap=N → max N per day.
+    /// Tenant-scoped (each tenant configures their own missions).
+    /// </summary>
+    public class Mission : BaseEntity, IMustHaveTenant
+    {
+        public MissionType MissionType { get; protected set; }
+        public string Title { get; protected set; } = string.Empty;
+        public string? Description { get; protected set; }
+        public int PointsReward { get; protected set; }
+        public bool IsOneTime { get; protected set; } = true;
+        public int? DailyCap { get; protected set; } // null = unlimited
+        public bool IsActive { get; protected set; } = true;
+        public int SortOrder { get; protected set; } = 0;
+        public string? Config { get; protected set; } // JSON — mission-specific params (e.g., required URL patterns)
+
+        protected Mission() { }
+
+        public Mission(TenantId tenantId, MissionType missionType, string title, int pointsReward)
+            : base(tenantId)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Mission title cannot be empty.", nameof(title));
+            if (pointsReward < 0)
+                throw new ArgumentException("Points reward cannot be negative.", nameof(pointsReward));
+
+            MissionType = missionType;
+            Title = title;
+            PointsReward = pointsReward;
+            IsOneTime = true;
+            IsActive = true;
+            SortOrder = 0;
+        }
+
+        public void UpdateDetails(string title, string? description, int pointsReward, bool isOneTime, int? dailyCap, bool isActive, int sortOrder, string? config)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Mission title cannot be empty.", nameof(title));
+            if (pointsReward < 0)
+                throw new ArgumentException("Points reward cannot be negative.", nameof(pointsReward));
+
+            Title = title;
+            Description = description;
+            PointsReward = pointsReward;
+            IsOneTime = isOneTime;
+            DailyCap = dailyCap;
+            IsActive = isActive;
+            SortOrder = sortOrder;
+            Config = config;
+            UpdateAudit();
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+            UpdateAudit();
+        }
+
+        public void Activate()
+        {
+            IsActive = true;
+            UpdateAudit();
+        }
+
+        public void SoftDelete()
+        {
+            MarkAsDeleted();
+        }
+    }
+
+    /// <summary>
+    /// Loyalty-C WS-B: MissionType enum — defines the trigger/source of a mission.
+    /// PWAInstall — customer installs PWA app (one-time).
+    /// OtpVerify — customer upgrades identity to Verified via OTP (one-time).
+    /// BirthdayEntry — customer enters birthday (one-time).
+    /// FacebookShare — customer shares campaign page on Facebook (daily cap).
+    /// TikTokShare — customer shares campaign page on TikTok (daily cap).
+    /// Custom — admin-defined custom mission (e.g., birthday annual bonus).
+    /// </summary>
+    public enum MissionType
+    {
+        PWAInstall = 0,
+        OtpVerify = 1,
+        BirthdayEntry = 2,
+        FacebookShare = 3,
+        TikTokShare = 4,
+        Custom = 99
+    }
+
+    /// <summary>
+    /// Loyalty-C WS-B: MissionCompletion entity — records when a customer completes a mission.
+    /// Tracks: CustomerId, MissionId, CompletedAt, PointsAwarded, Metadata (JSON — e.g., Facebook post URL).
+    /// One record per completion (one-time missions have 1 record; daily cap missions have N records).
+    /// </summary>
+    public class MissionCompletion : BaseEntity, IMustHaveTenant
+    {
+        public Guid CustomerId { get; protected set; }
+        public Guid MissionId { get; protected set; }
+        public DateTime CompletedAt { get; protected set; }
+        public int PointsAwarded { get; protected set; }
+        public string? Metadata { get; protected set; } // JSON — mission-specific data (e.g., share URL)
+
+        // Navigation Properties
+        public virtual Mission Mission { get; protected set; } = null!;
+
+        protected MissionCompletion() { }
+
+        public MissionCompletion(TenantId tenantId, Guid customerId, Guid missionId, int pointsAwarded, string? metadata = null)
+            : base(tenantId)
+        {
+            if (customerId == Guid.Empty)
+                throw new ArgumentException("CustomerId cannot be empty.", nameof(customerId));
+            if (missionId == Guid.Empty)
+                throw new ArgumentException("MissionId cannot be empty.", nameof(missionId));
+            if (pointsAwarded < 0)
+                throw new ArgumentException("Points awarded cannot be negative.", nameof(pointsAwarded));
+
+            CustomerId = customerId;
+            MissionId = missionId;
+            CompletedAt = DateTime.UtcNow;
+            PointsAwarded = pointsAwarded;
+            Metadata = metadata;
+        }
+
+        public void SoftDelete()
+        {
+            MarkAsDeleted();
+        }
     }
 
     // Phase 5: Campaign Push Job — bulk push notification job for a SocialCampaign.

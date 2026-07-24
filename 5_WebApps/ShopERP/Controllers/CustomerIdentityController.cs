@@ -5,6 +5,7 @@ using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.ShopERP.Controllers
 {
@@ -20,12 +21,14 @@ namespace VanAn.ShopERP.Controllers
         ICustomerTokenService customerTokenService,
         ICustomerRepository customerRepository,
         ILoyaltyRewardsService loyaltyRewardsService,
+        IMissionService missionService,
         ILogger<CustomerIdentityController> logger) : ControllerBase
     {
         private readonly IOtpService _otpService = otpService;
         private readonly ICustomerTokenService _customerTokenService = customerTokenService;
         private readonly ICustomerRepository _customerRepository = customerRepository;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
+        private readonly IMissionService _missionService = missionService;
         private readonly ILogger<CustomerIdentityController> _logger = logger;
 
         /// <summary>
@@ -80,8 +83,12 @@ namespace VanAn.ShopERP.Controllers
             if (customer.IdentityLevel < IdentityLevel.Verified)
             {
                 customer.UpgradeIdentityLevel(IdentityLevel.Verified);
+                customer.MarkOtpVerified();
                 await _customerRepository.UpdateAsync(customer);
                 _logger.LogInformation("Customer {CustomerId} upgraded to Verified via OTP", customer.Id);
+
+                // Loyalty-C WS-B: Trigger OtpVerify mission (one-time reward for first OTP verification)
+                _ = await _missionService.CompleteMissionAsync(customer.Id, MissionType.OtpVerify);
             }
 
             var customerToken = _customerTokenService.CreateToken(customer.Id);
@@ -196,15 +203,21 @@ namespace VanAn.ShopERP.Controllers
                 return BadRequest(new { error = "OTP không đúng hoặc đã hết hạn." });
 
             customer.UpgradeIdentityLevel(IdentityLevel.Verified);
+            customer.MarkOtpVerified();
             await _customerRepository.UpdateAsync(customer);
             _logger.LogInformation("Customer {CustomerId} upgraded to Verified via upgrade OTP flow", customer.Id);
+
+            // Loyalty-C WS-B: Trigger OtpVerify mission (one-time reward for first OTP verification)
+            var missionResult = await _missionService.CompleteMissionAsync(customer.Id, MissionType.OtpVerify);
 
             return Ok(new UpgradeVerifyOtpResponse
             {
                 Success = true,
                 CustomerId = customer.Id,
                 IdentityLevel = customer.IdentityLevel.ToString(),
-                Message = "Nâng cấp xác thực thành công. Bạn có thể đổi điểm thưởng ngay bây giờ."
+                Message = missionResult.Success
+                    ? $"Nâng cấp xác thực thành công. +{missionResult.PointsAwarded} điểm thưởng!"
+                    : "Nâng cấp xác thực thành công. Bạn có thể đổi điểm thưởng ngay bây giờ."
             });
         }
 

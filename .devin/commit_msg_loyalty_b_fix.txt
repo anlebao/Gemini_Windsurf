@@ -1,0 +1,17 @@
+fix(loyalty-b): ACID transaction for RedeemAsync + DDD violation fix
+
+Code review fixes:
+- Wrap RedeemAsync in single transaction via IVanAnDbContext.BeginTransactionAsync()
+  SubtractPointsAsync uses same scoped DbContext, nested savepoint.
+  If any step fails, rollback undoes points deduction + record + voucher (atomic).
+  Fixes data inconsistency risk: previously each step committed independently.
+- Remove BeginTransactionAsync from IRedemptionRepository (Domain layer).
+  Domain interface must not reference EF Core types (VA-DDD-002 compliance).
+  Transaction management moved to Service layer (allowed to depend on Infrastructure).
+- Add RedemptionController to Gateway Authorize exempt list (consistent with
+  8+ existing customer-facing controllers. Auth enforced at ShopERP layer
+  via CustomerTokenService.ValidateToken with IDataProtector).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

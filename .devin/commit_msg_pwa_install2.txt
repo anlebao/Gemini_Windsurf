@@ -1,0 +1,30 @@
+fix(pwa): install prompt — replace reload loop with clear-site-data instructions
+
+Problem: Previous fix (v14) showed "Tải lại trang" toast when beforeinstallprompt
+didn't fire. But reloading does NOT re-fire beforeinstallprompt when Chrome has
+suppressed it — caused infinite reload loop, user still couldn't install.
+
+Root cause: Chrome suppresses beforeinstallprompt permanently when:
+1. User dismissed the prompt too many times (3+ in 90 days)
+2. App was previously installed (even if uninstalled, Chrome caches state)
+Reloading the page does NOT reset this suppression. The ONLY way to reset is
+clearing site data in Chrome settings.
+
+Fix (v15-install-fix2):
+- pwa.js showInstallHelpToast(): when beforeinstallprompt didn't fire (hint=null),
+  show clear-site-data instructions instead of reload button:
+  1. Mở chrome://settings/content/all
+  2. Tìm "diemthuong.khachvip.online"
+  3. Nhấn "Xóa dữ liệu" (Delete data)
+  4. Quay lại trang — prompt cài đặt sẽ hiện
+- pwa.js: added debug logging — console.log when beforeinstallprompt fires +
+  diagnostic log after 5s if it didn't fire (lists 4 possible causes + fix).
+  User can open DevTools console to diagnose.
+- pwa.js: iOS path unchanged (Share → Add to Home Screen instructions)
+- service-worker.js: bump cache version v14 → v15-install-fix2
+
+Verified: Build 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

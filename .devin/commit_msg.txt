@@ -1,0 +1,28 @@
+fix(orderworkflow): confirm-received 404 when order already completed/delivered
+
+Root cause: OrderWorkflowController.ConfirmReceived called
+TransitionStatusAsync(orderId, "delivered") unconditionally. When order
+was already in terminal status (completed/delivered) — e.g. kitchen
+staff marked it completed while customer still had the confirm button
+visible — the transition completed→delivered is invalid (completed is
+terminal with [] transitions) → returned null → 404.
+
+Worse, KhachLink OrderTracking stored the error in `errorMessage` which
+replaced the entire order details panel with "Không tìm thấy đơn hàng",
+hiding the actual order from the customer.
+
+Fix 1 (ShopERP OrderWorkflowController): ConfirmReceived now checks
+current status first via GetOrderAsync. If already delivered/completed,
+returns 200 success (idempotent, no-op). Only attempts transition if
+order is in a non-terminal state.
+
+Fix 2 (KhachLink OrderTracking): Separated action-level errors
+(_actionError) from page-level errors (errorMessage). Action errors
+now show as inline dismissible VanAnAlert below the confirm button,
+preserving order details visibility.
+
+Validation: dotnet build 0 errors, guard-check ALL PASSED.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

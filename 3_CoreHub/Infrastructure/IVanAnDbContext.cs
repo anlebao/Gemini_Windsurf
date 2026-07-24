@@ -72,6 +72,10 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<RedemptionRecord> RedemptionRecords { get; }
         DbSet<Voucher> Vouchers { get; }
 
+        // Loyalty-C WS-B: Gamification framework (ShopERP SQLite, tenant-scoped)
+        DbSet<Mission> Missions { get; }
+        DbSet<MissionCompletion> MissionCompletions { get; }
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }

@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "productId": "1DA2E20A-22A9-48DF-B065-FA6F57165BC6",
+      "tenantId": "81e168d4-e44a-4728-a1ea-55151b168c96",
+      "productName": "hồng trà ngô gia",
+      "unitPrice": 30000,
+      "vatRate": 0.1,
+      "quantity": 1
+    }
+  ],
+  "customerDeviceId": "rv3-test-device-002",
+  "customerName": "RV3 Test Real Product",
+  "customerPhone": "0900000001"
+}

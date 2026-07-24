@@ -92,6 +92,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<RedemptionCatalogItem> RedemptionCatalogItems { get; set; }
         public DbSet<RedemptionRecord> RedemptionRecords { get; set; }
         public DbSet<Voucher> Vouchers { get; set; }
+        // Loyalty-C WS-B: Gamification framework
+        public DbSet<Mission> Missions { get; set; }
+        public DbSet<MissionCompletion> MissionCompletions { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {

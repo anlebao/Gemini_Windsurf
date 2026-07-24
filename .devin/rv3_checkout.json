@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "productId": "00000000-0000-0000-0000-000000000000",
+      "tenantId": "81e168d4-e44a-4728-a1ea-55151b168c96",
+      "productName": "Khoai lang",
+      "unitPrice": 10000,
+      "vatRate": 0.08,
+      "quantity": 2
+    }
+  ],
+  "customerDeviceId": "rv3-test-device-001",
+  "customerName": "RV3 Test",
+  "customerPhone": "0900000000"
+}

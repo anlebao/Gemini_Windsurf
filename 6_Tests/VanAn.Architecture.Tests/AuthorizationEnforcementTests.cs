@@ -145,7 +145,10 @@ public class AuthorizationEnforcementTests
             // Phase 6: CatalogController is public [AllowAnonymous] — KhachLink Home.razor is anonymous customer app
             "CatalogController",
             // Loyalty-B: RedemptionController is customer-facing (X-Customer-Token header auth, like LoyaltyController)
-            "RedemptionController"
+            "RedemptionController",
+            // Loyalty-C WS-B/C: Customer profile + missions endpoints (X-Customer-Token header auth)
+            "CustomerProfileController",
+            "MissionsController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

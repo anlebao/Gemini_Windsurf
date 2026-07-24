@@ -308,7 +308,50 @@ namespace VanAn.ShopERP.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("Loyalty_AwardOnAllOrders")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<int?>("Loyalty_MaxPointsPerOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Loyalty_MinPointsPerOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<decimal>("Loyalty_PointsRate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue(0m);
+
                     b.Property<bool>("Loyalty_Program_Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Notify_BirthdayBonus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Notify_MissionCompleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Notify_RedemptionCancelled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Notify_RedemptionFulfilled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("Notify_VoucherExpiringSoon")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
@@ -352,6 +395,11 @@ namespace VanAn.ShopERP.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
+
+                    b.Property<int>("VoucherExpiryNotifyHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(24);
 
                     b.HasKey("Id");
 
@@ -869,6 +917,9 @@ namespace VanAn.ShopERP.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("Birthday")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -886,6 +937,9 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("FacebookShareCount")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("FullName")
                         .IsRequired()
@@ -907,6 +961,12 @@ namespace VanAn.ShopERP.Migrations
                     b.Property<int>("LoyaltyPoints")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("OtpVerifiedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PWAInstalledAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -914,6 +974,9 @@ namespace VanAn.ShopERP.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("TikTokShareCount")
+                        .HasColumnType("INTEGER");
 
                     b.Property<decimal>("TotalSpent")
                         .HasPrecision(18, 2)
@@ -1427,6 +1490,123 @@ namespace VanAn.ShopERP.Migrations
                         .IsUnique();
 
                     b.ToTable("LoyaltyRewards");
+                });
+
+            modelBuilder.Entity("VanAn.Shared.Domain.Mission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Config")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("DailyCap")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsOneTime")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MissionType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PointsReward")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "IsActive");
+
+                    b.ToTable("Missions", (string)null);
+                });
+
+            modelBuilder.Entity("VanAn.Shared.Domain.MissionCompletion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Metadata")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("MissionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PointsAwarded")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("MissionId");
+
+                    b.HasIndex("CustomerId", "MissionId", "CompletedAt");
+
+                    b.ToTable("MissionCompletions", (string)null);
                 });
 
             modelBuilder.Entity("VanAn.Shared.Domain.Order", b =>
@@ -2567,6 +2747,17 @@ namespace VanAn.ShopERP.Migrations
                         .IsRequired();
 
                     b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("VanAn.Shared.Domain.MissionCompletion", b =>
+                {
+                    b.HasOne("VanAn.Shared.Domain.Mission", "Mission")
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Mission");
                 });
 
             modelBuilder.Entity("VanAn.Shared.Domain.Order", b =>

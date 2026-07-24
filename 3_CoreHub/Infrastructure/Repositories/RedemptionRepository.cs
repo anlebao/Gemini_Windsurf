@@ -128,6 +128,20 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Loyalty-C WS-C: Get active vouchers expiring within the next N days (for expiry reminder job).
+        /// Filters: Status == "Active", not deleted, ExpiresAt within [now, now+days].
+        /// </summary>
+        public async Task<IReadOnlyList<Voucher>> GetVouchersExpiringWithinAsync(int days)
+        {
+            DateTime now = DateTime.UtcNow;
+            DateTime deadline = now.AddDays(days);
+            return await _context.Vouchers
+                .Where(v => v.Status == "Active" && !v.IsDeleted && v.ExpiresAt >= now && v.ExpiresAt <= deadline)
+                .OrderBy(v => v.ExpiresAt)
+                .ToListAsync();
+        }
+
         public async Task<Voucher> AddVoucherAsync(Voucher voucher)
         {
             _ = await _context.Vouchers.AddAsync(voucher);

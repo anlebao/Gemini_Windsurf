@@ -63,6 +63,24 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// <summary>KhachLink OrderTracking polling interval in seconds. Default: 15. Range: 5-120.</summary>
     public int PollingIntervalSeconds { get; private set; } = 15;
 
+    // === Loyalty-C WS-A: Per-tenant loyalty points formula ===
+    /// <summary>Loyalty-C WS-A: Points rate (fraction of TotalAmount). 0 = fallback to global IOptions default.</summary>
+    public decimal Loyalty_PointsRate { get; private set; } = 0m;
+    /// <summary>Loyalty-C WS-A: Min points per order. 0 = fallback to global default.</summary>
+    public int Loyalty_MinPointsPerOrder { get; private set; } = 0;
+    /// <summary>Loyalty-C WS-A: Max points per order. null = no cap / fallback to global default.</summary>
+    public int? Loyalty_MaxPointsPerOrder { get; private set; } = null;
+    /// <summary>Loyalty-C WS-A: Award on all orders (true) or only orders with TrackingCode (false).</summary>
+    public bool Loyalty_AwardOnAllOrders { get; private set; } = true;
+
+    // === Loyalty-C WS-C: Per-tenant notification rules ===
+    public bool Notify_MissionCompleted { get; private set; } = true;
+    public bool Notify_BirthdayBonus { get; private set; } = true;
+    public bool Notify_RedemptionFulfilled { get; private set; } = true;
+    public bool Notify_RedemptionCancelled { get; private set; } = true;
+    public bool Notify_VoucherExpiringSoon { get; private set; } = true;
+    public int VoucherExpiryNotifyHours { get; private set; } = 24;
+
     private ShopFeatureSettingsEntity() { } // EF Core materialization
 
     /// <summary>Factory: create with default toggle values for a tenant.</summary>
@@ -82,9 +100,19 @@ public class ShopFeatureSettingsEntity : BaseEntity
         SocialHub_Section_Enabled = true;
         AIChat_Enabled = false;
         PollingIntervalSeconds = 15;
+        Loyalty_PointsRate = 0m;
+        Loyalty_MinPointsPerOrder = 0;
+        Loyalty_MaxPointsPerOrder = null;
+        Loyalty_AwardOnAllOrders = true;
+        Notify_MissionCompleted = true;
+        Notify_BirthdayBonus = true;
+        Notify_RedemptionFulfilled = true;
+        Notify_RedemptionCancelled = true;
+        Notify_VoucherExpiringSoon = true;
+        VoucherExpiryNotifyHours = 24;
     }
 
-    /// <summary>Update all toggles + polling interval at once.</summary>
+    /// <summary>Update all toggles + polling interval + loyalty formula + notification rules at once.</summary>
     public void UpdateToggles(
         bool qrTableNumber,
         bool kitchenWorkflow,
@@ -99,7 +127,19 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool vibeShowcaseSection = true,
         bool googleMapSection = true,
         bool socialHubSection = true,
-        bool aiChat = false)
+        bool aiChat = false,
+        // Loyalty-C WS-A: loyalty formula (defaults preserve backward compat — callers can omit)
+        decimal loyaltyPointsRate = 0m,
+        int loyaltyMinPointsPerOrder = 0,
+        int? loyaltyMaxPointsPerOrder = null,
+        bool loyaltyAwardOnAllOrders = true,
+        // Loyalty-C WS-C: notification rules
+        bool notifyMissionCompleted = true,
+        bool notifyBirthdayBonus = true,
+        bool notifyRedemptionFulfilled = true,
+        bool notifyRedemptionCancelled = true,
+        bool notifyVoucherExpiringSoon = true,
+        int voucherExpiryNotifyHours = 24)
     {
         QR_TableNumber_Enabled = qrTableNumber;
         Kitchen_Workflow_Enabled = kitchenWorkflow;
@@ -115,6 +155,18 @@ public class ShopFeatureSettingsEntity : BaseEntity
         SocialHub_Section_Enabled = socialHubSection;
         AIChat_Enabled = aiChat;
         PollingIntervalSeconds = Math.Clamp(pollingIntervalSeconds, 5, 120);
+        // Loyalty-C WS-A
+        Loyalty_PointsRate = Math.Clamp(loyaltyPointsRate, 0m, 1m); // 0-100% (1.0 = 100% of order total)
+        Loyalty_MinPointsPerOrder = Math.Max(0, loyaltyMinPointsPerOrder);
+        Loyalty_MaxPointsPerOrder = loyaltyMaxPointsPerOrder;
+        Loyalty_AwardOnAllOrders = loyaltyAwardOnAllOrders;
+        // Loyalty-C WS-C
+        Notify_MissionCompleted = notifyMissionCompleted;
+        Notify_BirthdayBonus = notifyBirthdayBonus;
+        Notify_RedemptionFulfilled = notifyRedemptionFulfilled;
+        Notify_RedemptionCancelled = notifyRedemptionCancelled;
+        Notify_VoucherExpiringSoon = notifyVoucherExpiringSoon;
+        VoucherExpiryNotifyHours = Math.Clamp(voucherExpiryNotifyHours, 1, 168); // 1h - 7 days
         UpdateAudit();
     }
 }

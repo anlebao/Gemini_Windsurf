@@ -58,7 +58,19 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.VibeShowcase_Section_Enabled,
             settings.GoogleMap_Section_Enabled,
             settings.SocialHub_Section_Enabled,
-            settings.AIChat_Enabled);
+            settings.AIChat_Enabled,
+            // Loyalty-C WS-A: loyalty formula
+            settings.Loyalty_PointsRate,
+            settings.Loyalty_MinPointsPerOrder,
+            settings.Loyalty_MaxPointsPerOrder,
+            settings.Loyalty_AwardOnAllOrders,
+            // Loyalty-C WS-C: notification rules
+            settings.Notify_MissionCompleted,
+            settings.Notify_BirthdayBonus,
+            settings.Notify_RedemptionFulfilled,
+            settings.Notify_RedemptionCancelled,
+            settings.Notify_VoucherExpiringSoon,
+            settings.VoucherExpiryNotifyHours);
 
         await _context.SaveChangesAsync(ct);
         _logger.LogInformation("Updated shop feature settings for tenant {TenantId}", tenantId);
@@ -83,6 +95,12 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.GoogleMap_Section_Enabled) => settings.GoogleMap_Section_Enabled,
             nameof(ShopFeatureSettingsDto.SocialHub_Section_Enabled) => settings.SocialHub_Section_Enabled,
             nameof(ShopFeatureSettingsDto.AIChat_Enabled) => settings.AIChat_Enabled,
+            nameof(ShopFeatureSettingsDto.Loyalty_AwardOnAllOrders) => settings.Loyalty_AwardOnAllOrders,
+            nameof(ShopFeatureSettingsDto.Notify_MissionCompleted) => settings.Notify_MissionCompleted,
+            nameof(ShopFeatureSettingsDto.Notify_BirthdayBonus) => settings.Notify_BirthdayBonus,
+            nameof(ShopFeatureSettingsDto.Notify_RedemptionFulfilled) => settings.Notify_RedemptionFulfilled,
+            nameof(ShopFeatureSettingsDto.Notify_RedemptionCancelled) => settings.Notify_RedemptionCancelled,
+            nameof(ShopFeatureSettingsDto.Notify_VoucherExpiringSoon) => settings.Notify_VoucherExpiringSoon,
             _ => false
         };
     }
@@ -112,6 +130,18 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         VibeShowcase_Section_Enabled = entity.VibeShowcase_Section_Enabled,
         GoogleMap_Section_Enabled = entity.GoogleMap_Section_Enabled,
         SocialHub_Section_Enabled = entity.SocialHub_Section_Enabled,
-        AIChat_Enabled = entity.AIChat_Enabled
+        AIChat_Enabled = entity.AIChat_Enabled,
+        // Loyalty-C WS-A
+        Loyalty_PointsRate = entity.Loyalty_PointsRate,
+        Loyalty_MinPointsPerOrder = entity.Loyalty_MinPointsPerOrder,
+        Loyalty_MaxPointsPerOrder = entity.Loyalty_MaxPointsPerOrder,
+        Loyalty_AwardOnAllOrders = entity.Loyalty_AwardOnAllOrders,
+        // Loyalty-C WS-C
+        Notify_MissionCompleted = entity.Notify_MissionCompleted,
+        Notify_BirthdayBonus = entity.Notify_BirthdayBonus,
+        Notify_RedemptionFulfilled = entity.Notify_RedemptionFulfilled,
+        Notify_RedemptionCancelled = entity.Notify_RedemptionCancelled,
+        Notify_VoucherExpiringSoon = entity.Notify_VoucherExpiringSoon,
+        VoucherExpiryNotifyHours = entity.VoucherExpiryNotifyHours
     };
 }

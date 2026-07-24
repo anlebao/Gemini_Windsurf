@@ -71,5 +71,12 @@ namespace VanAn.CoreHub.Domain.Repositories
         /// Filters by tier, identity level, spend, last order date, and push subscription status.
         /// </summary>
         Task<IReadOnlyList<Customer>> GetBySegmentAsync(CustomerSegmentCriteria criteria);
+
+        /// <summary>
+        /// Loyalty-C WS-B: Get all active customers whose birthday (month + day) matches today's UTC date.
+        /// Used by BirthdayBonusJob to award annual birthday bonus points + send notification.
+        /// Birthday is stored as date-only (time = 00:00); comparison is on Month + Day only (year ignored).
+        /// </summary>
+        Task<IReadOnlyList<Customer>> GetCustomersWithBirthdayTodayAsync();
     }
 }

@@ -27,6 +27,20 @@ public class ShopFeatureSettingsConfiguration : IEntityTypeConfiguration<ShopFea
         builder.Property(e => e.Price_Validation_Enabled).IsRequired().HasDefaultValue(false);
         builder.Property(e => e.PollingIntervalSeconds).IsRequired().HasDefaultValue(15);
 
+        // Loyalty-C WS-A: per-tenant loyalty formula (defaults preserve backward compat)
+        builder.Property(e => e.Loyalty_PointsRate).IsRequired().HasDefaultValue(0m);
+        builder.Property(e => e.Loyalty_MinPointsPerOrder).IsRequired().HasDefaultValue(0);
+        builder.Property(e => e.Loyalty_MaxPointsPerOrder).IsRequired(false); // nullable
+        builder.Property(e => e.Loyalty_AwardOnAllOrders).IsRequired().HasDefaultValue(true);
+
+        // Loyalty-C WS-C: per-tenant notification rules
+        builder.Property(e => e.Notify_MissionCompleted).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.Notify_BirthdayBonus).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.Notify_RedemptionFulfilled).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.Notify_RedemptionCancelled).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.Notify_VoucherExpiringSoon).IsRequired().HasDefaultValue(true);
+        builder.Property(e => e.VoucherExpiryNotifyHours).IsRequired().HasDefaultValue(24);
+
         // One row per tenant — unique index on TenantId
         builder.HasIndex("TenantId").IsUnique();
     }

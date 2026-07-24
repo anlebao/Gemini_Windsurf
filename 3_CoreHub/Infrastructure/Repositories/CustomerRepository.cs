@@ -139,5 +139,21 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .OrderBy(c => c.FullName)
                 .ToListAsync();
         }
+
+        /// <summary>
+        /// Loyalty-C WS-B: Get all active customers whose birthday (month + day) matches today's UTC date.
+        /// Birthday is stored as date-only; comparison is on Month + Day only (year ignored for annual recurrence).
+        /// </summary>
+        public async Task<IReadOnlyList<Customer>> GetCustomersWithBirthdayTodayAsync()
+        {
+            DateTime todayUtc = DateTime.UtcNow.Date;
+            int month = todayUtc.Month;
+            int day = todayUtc.Day;
+
+            return await _context.Customers
+                .Where(c => !c.IsDeleted && c.IsActive && c.Birthday != null && c.Birthday.Value.Month == month && c.Birthday.Value.Day == day)
+                .OrderBy(c => c.FullName)
+                .ToListAsync();
+        }
     }
 }

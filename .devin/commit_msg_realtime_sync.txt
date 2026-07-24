@@ -1,0 +1,31 @@
+fix(shoperp-ui): real-time order sync + silent refresh (no flicker)
+
+3 root causes fixed for "ShopERP UI only shows new orders after F5":
+1. OrderHub not mapped in ShopERP Program.cs → SignalR /orderHub connection failed silently
+2. OrderSyncSubscriber inserted order to SQLite but did NOT broadcast SignalR OrderCreated event
+3. Blazor Server circuit-scoped DbContext returned stale reads on poll timer
+
+Changes (7 files):
+- Program.cs: MapHub<OrderHub>("/orderHub") + using VanAn.CoreHub.Hubs
+- OrderSyncSubscriber.cs: Inject IHubContext<OrderHub>, broadcast "OrderCreated" after SQLite insert
+- Orders/Index.razor: Listen OrderCreated, split initialLoading/backgroundRefreshing (silent refresh),
+  poll 10s→30s fallback, diff check (OrdersEqual), fresh DbContext per reload via IServiceScopeFactory
+- Kitchen/Display.razor: Add SignalR OrderCreated/OrderStatusChanged/PaymentConfirmed handlers,
+  poll 5s→30s fallback, split loading state, diff check (KitchenListsEqual), IDisposable→IAsyncDisposable,
+  fresh DbContext per refresh
+- VanADashboard.razor: Add SignalR 3 handlers, poll 10s→60s fallback, split loading state,
+  diff check (MetricsEquals + OrdersListEquals), IDisposable→IAsyncDisposable, fresh DbContext per load
+- OrderRepository.cs: AsNoTracking() on 7 read-only queries (NOT GetByIdAsync — used in write path)
+- OrderSyncSubscriberRoutingTests.cs: Add mock IHubContext<OrderHub> for new constructor param
+
+Result:
+- New orders from KhachLink checkout appear in ShopERP UI in <1s (SignalR push) instead of 10s poll / F5
+- Poll timer load reduced 3-6x (10s→30s, 5s→30s, 10s→60s)
+- No screen flicker — background reloads are silent, list stays visible during refresh
+- Diff check prevents unnecessary re-renders when data unchanged
+
+Verified: Build 0 errors, guard-check ALL PASSED, Core.Tests 984/0/15
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

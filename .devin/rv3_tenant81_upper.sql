@@ -1,0 +1,1 @@
+SELECT Id, Name, Price, VatRate, IsActive FROM Products WHERE TenantId = '81E168D4-E44A-4728-A1EA-55151B168C96' LIMIT 5;

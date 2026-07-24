@@ -1,0 +1,54 @@
+feat(phase5): Session 2 — push notification UI + admin + click tracking (5.5-5.9)
+
+Phase 5 Session 2 complete — API endpoints, KhachLink UI, ShopERP admin UI,
+click tracking, and VAPID key deployment fix.
+
+5.5 Gateway + ShopERP admin endpoints:
+- Gateway NotificationsController: + DELETE push/subscribe (unsubscribe forward)
+  + POST push/track (click tracking forward)
+- ShopERP NotificationsController: + DELETE push/subscribe (soft-delete all subs)
+  + POST push/track (update PushNotificationDelivery status to Clicked)
+- ShopERP PushAdminController (NEW): POST /api/push/send (bulk push to segment),
+  GET /api/push/jobs (list history), GET /api/push/jobs/{id} (detail + CTR)
+- ICustomerSegmentationService registered in Gateway + ShopERP DI
+- docker-compose.prod.yml: + VAPID_PRIVATE_KEY env var for shoperp
+- cd.yml: + VAPID_PRIVATE_KEY GitHub secret → .env on VPS
+
+5.6 KhachLink Profile.razor push toggle:
+- Push notification toggle switch (on/off) with permission request flow
+- Subscribe: request permission → SW subscribe → POST /api/notifications/push/subscribe
+- Unsubscribe: SW unsubscribe → DELETE /api/notifications/push/subscribe
+- PWAService.UnsubscribeFromPushAsync (NEW) — browser-side SW unsubscribe
+- pwa.js: + unsubscribeFromPush() function
+
+5.7 ShopERP PushCampaignsAdmin.razor (NEW):
+- /admin/push-campaigns page — segment builder + send bulk push
+- Criteria: CustomerTier, MinIdentityLevel, MinTotalSpent, MaxTotalSpent
+- Push job history table with Sent/Failed/Clicked/CTR columns
+- Direct service injection (PushNotificationService + ICustomerSegmentationService)
+
+5.9 Click tracking:
+- service-worker.js notificationclick: + sendBeacon to /api/notifications/push/track
+  with notificationId + actionUrl, + open/focus actionUrl
+- PushNotificationService: + notificationId in payload data field for all 3 push types
+  (order status, loyalty points, campaign)
+- PushNotificationService: + CreateDeliveryRecordAsync — creates PushNotificationDelivery
+  record per push send for click tracking
+- PushNotificationDelivery.MarkAsClicked() called on POST /api/push/track
+
+VAPID key deployment fix:
+- VAPID_PRIVATE_KEY was missing from VPS env (PushNotificationService silently failed)
+- Added to docker-compose.prod.yml + cd.yml + VPS .env manually
+- Verified on VPS: PushNotificationBackgroundService now subscribes successfully
+
+Architecture test fix:
+- VA-CONSISTENCY-004: added VAPID_ prefix to allowed env var patterns
+
+Verification:
+- dotnet build VanAn.sln — 0 errors
+- guard-check.ps1 — ALL CHECKS PASSED
+- Architecture.Tests — 37/37 PASS
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

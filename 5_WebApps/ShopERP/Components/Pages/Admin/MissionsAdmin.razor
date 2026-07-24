@@ -1,0 +1,341 @@
+@page "/admin/missions"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Services
+@using VanAn.Shared.Domain
+@inject IMissionService MissionService
+@inject ILogger<MissionsAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="missions-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-trophy"></i> Quản lý Nhiệm vụ</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="LoadMissions">Làm mới</VanAButton>
+            <VanAButton Variant="primary" OnClick="ShowCreateModal">+ Thêm nhiệm vụ</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard>
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_missions.Count == 0)
+        {
+            <p class="text-muted text-center py-4">Chưa có nhiệm vụ nào. Nhấn "Thêm nhiệm vụ" để tạo.</p>
+        }
+        else
+        {
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tiêu đề</th>
+                        <th>Loại</th>
+                        <th>Điểm thưởng</th>
+                        <th>Kiểu</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _missions)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@item.Title</strong>
+                                @if (!string.IsNullOrEmpty(item.Description))
+                                {
+                                    <br /><small class="text-muted">@item.Description</small>
+                                }
+                            </td>
+                            <td><span class="badge bg-info text-dark">@GetMissionTypeLabel(item.MissionType)</span></td>
+                            <td>@item.PointsReward.ToString("N0")</td>
+                            <td>
+                                @if (item.IsOneTime)
+                                {
+                                    <span class="badge bg-primary">Một lần</span>
+                                }
+                                else if (item.DailyCap.HasValue)
+                                {
+                                    <span class="badge bg-warning text-dark">@item.DailyCap/ngày</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">Không giới hạn</span>
+                                }
+                            </td>
+                            <td>
+                                @if (item.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <VanAButton Variant="secondary" OnClick="@(() => ShowEditModal(item))">Sửa</VanAButton>
+                                <VanAButton Variant="danger" OnClick="@(() => DeleteAsync(item.Id))">Xóa</VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </VanACard>
+</div>
+
+@* === Create/Edit Modal === *@
+@if (_showModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editingId.HasValue ? "Sửa nhiệm vụ" : "Thêm nhiệm vụ")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Loại nhiệm vụ *</label>
+                        <select class="form-control" @bind="_form.MissionType" disabled="@_editingId.HasValue">
+                            <option value="@MissionType.PWAInstall">Cài PWA (PWAInstall)</option>
+                            <option value="@MissionType.OtpVerify">Xác thực OTP (OtpVerify)</option>
+                            <option value="@MissionType.BirthdayEntry">Nhập ngày sinh (BirthdayEntry)</option>
+                            <option value="@MissionType.FacebookShare">Chia sẻ Facebook (FacebookShare)</option>
+                            <option value="@MissionType.TikTokShare">Chia sẻ TikTok (TikTokShare)</option>
+                            <option value="@MissionType.Custom">Tùy chỉnh (Custom)</option>
+                        </select>
+                        @if (_editingId.HasValue)
+                        {
+                            <small class="text-muted">Không thể đổi loại nhiệm vụ sau khi tạo.</small>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tiêu đề *</label>
+                        <input class="form-control" @bind="_form.Title" placeholder="Cài app nhận 100 điểm" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mô tả</label>
+                        <textarea class="form-control" @bind="_form.Description" rows="2"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Điểm thưởng *</label>
+                            <input type="number" class="form-control" @bind="_form.PointsReward" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Giới hạn/ngày (để trống = ∞)</label>
+                            <input type="number" class="form-control" @bind="_form.DailyCap" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Thứ tự hiển thị</label>
+                            <input type="number" class="form-control" @bind="_form.SortOrder" />
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" @bind="_form.IsOneTime" id="isOneTime" />
+                        <label class="form-check-label" for="isOneTime">Một lần (chỉ hoàn thành 1 lần)</label>
+                    </div>
+                    @if (_editingId.HasValue)
+                    {
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" @bind="_form.IsActive" id="isActive" />
+                            <label class="form-check-label" for="isActive">Kích hoạt</label>
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Config (JSON, nâng cao)</label>
+                        <input class="form-control" @bind="_form.Config" placeholder='{"kind":"birthday_annual"}' />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" OnClick="CloseModal">Hủy</VanAButton>
+                    <VanAButton Variant="primary" OnClick="SaveAsync">Lưu</VanAButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _showModal;
+    private Guid? _editingId;
+    private string _alertMessage = "";
+    private string _alertType = "info";
+    private List<MissionViewModel> _missions = new();
+    private MissionForm _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadMissions();
+
+    private async Task LoadMissions()
+    {
+        _loading = true;
+        try
+        {
+            var items = await MissionService.GetAllMissionsAsync();
+            _missions = items.Select(m => new MissionViewModel
+            {
+                Id = m.Id,
+                MissionType = m.MissionType,
+                Title = m.Title,
+                Description = m.Description,
+                PointsReward = m.PointsReward,
+                IsOneTime = m.IsOneTime,
+                DailyCap = m.DailyCap,
+                IsActive = m.IsActive,
+                SortOrder = m.SortOrder,
+                Config = m.Config
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải danh sách nhiệm vụ: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally { _loading = false; }
+    }
+
+    private void ShowCreateModal()
+    {
+        _editingId = null;
+        _form = new MissionForm { IsOneTime = true, PointsReward = 100, SortOrder = 0, IsActive = true };
+        _showModal = true;
+    }
+
+    private void ShowEditModal(MissionViewModel item)
+    {
+        _editingId = item.Id;
+        _form = new MissionForm
+        {
+            MissionType = item.MissionType,
+            Title = item.Title,
+            Description = item.Description ?? "",
+            PointsReward = item.PointsReward,
+            IsOneTime = item.IsOneTime,
+            DailyCap = item.DailyCap,
+            IsActive = item.IsActive,
+            SortOrder = item.SortOrder,
+            Config = item.Config ?? ""
+        };
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Title))
+        {
+            _alertMessage = "Tiêu đề không được để trống.";
+            _alertType = "danger";
+            return;
+        }
+        if (_form.PointsReward < 0)
+        {
+            _alertMessage = "Điểm thưởng không được âm.";
+            _alertType = "danger";
+            return;
+        }
+
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                _ = await MissionService.UpdateMissionAsync(
+                    _editingId.Value, _form.Title, _form.Description, _form.PointsReward,
+                    _form.IsOneTime, _form.DailyCap, _form.IsActive, _form.SortOrder, _form.Config);
+                _alertMessage = "Đã cập nhật nhiệm vụ.";
+            }
+            else
+            {
+                _ = await MissionService.CreateMissionAsync(
+                    _form.MissionType, _form.Title, _form.Description, _form.PointsReward,
+                    _form.IsOneTime, _form.DailyCap, _form.SortOrder, _form.Config);
+                _alertMessage = "Đã tạo nhiệm vụ mới.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadMissions();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        try
+        {
+            bool deleted = await MissionService.DeleteMissionAsync(id);
+            if (deleted)
+            {
+                _alertMessage = "Đã xóa nhiệm vụ.";
+                _alertType = "success";
+                await LoadMissions();
+            }
+            else
+            {
+                _alertMessage = "Không tìm thấy nhiệm vụ để xóa.";
+                _alertType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi xóa: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private static string GetMissionTypeLabel(MissionType type) => type switch
+    {
+        MissionType.PWAInstall => "Cài PWA",
+        MissionType.OtpVerify => "Xác thực OTP",
+        MissionType.BirthdayEntry => "Nhập ngày sinh",
+        MissionType.FacebookShare => "Chia sẻ FB",
+        MissionType.TikTokShare => "Chia sẻ TikTok",
+        MissionType.Custom => "Tùy chỉnh",
+        _ => type.ToString()
+    };
+
+    private class MissionViewModel
+    {
+        public Guid Id { get; set; }
+        public MissionType MissionType { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int PointsReward { get; set; }
+        public bool IsOneTime { get; set; }
+        public int? DailyCap { get; set; }
+        public bool IsActive { get; set; }
+        public int SortOrder { get; set; }
+        public string? Config { get; set; }
+    }
+
+    private class MissionForm
+    {
+        public MissionType MissionType { get; set; } = MissionType.PWAInstall;
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int PointsReward { get; set; } = 100;
+        public bool IsOneTime { get; set; } = true;
+        public int? DailyCap { get; set; }
+        public bool IsActive { get; set; } = true;
+        public int SortOrder { get; set; } = 0;
+        public string Config { get; set; } = string.Empty;
+    }
+}

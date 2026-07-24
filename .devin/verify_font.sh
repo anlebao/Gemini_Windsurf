@@ -1,0 +1,15 @@
+#!/bin/sh
+WASM=/usr/share/nginx/html/_framework/VanAn.KhachLink.wasm.gz
+echo "=== Bug 1: Vietnamese font check (should be > 0) ==="
+echo -n "Giỏ hàng của bạn: "; cat $WASM | gunzip | grep -a -c "Giỏ hàng của bạn"
+echo -n "Thanh toán: "; cat $WASM | gunzip | grep -a -c "Thanh toán"
+echo -n "Tổng cộng: "; cat $WASM | gunzip | grep -a -c "Tổng cộng"
+echo -n "Sản phẩm: "; cat $WASM | gunzip | grep -a -c "Sản phẩm"
+echo ""
+echo "=== Mojibake check (should be 0) ==="
+echo -n "Giá» hÃ: "; cat $WASM | gunzip | grep -a -c "Giá» hÃ"
+echo -n "Thanh toÃ¡n: "; cat $WASM | gunzip | grep -a -c "Thanh toÃ¡n"
+echo -n "Tá»•ng: "; cat $WASM | gunzip | grep -a -c "Tá»•ng"
+echo ""
+echo "=== Bug 2: GetShortId deployed (should be > 0) ==="
+echo -n "GetShortId: "; cat $WASM | gunzip | grep -a -c "GetShortId"

@@ -1,0 +1,27 @@
+feat(loyalty-a): Configurable points formula + AwardOnAllOrders guard
+
+Loyalty Phase A complete — replaces hardcoded 10% + Math.Max(10, ...) formula
+with configurable LoyaltyPointsConfig, and makes TrackingCode guard configurable.
+
+Changes:
+- LoyaltyPointsConfig record (NEW) in 1_Shared/Domain.cs:
+  PointsRate (0.1 default), MinPointsPerOrder (10), MaxPointsPerOrder (null=no cap),
+  AwardOnAllOrders (true = bỏ guard, tất cả order tích điểm)
+- appsettings.json: LoyaltyPoints section added to Gateway + CoreHub + ShopERP
+- OrderWorkflowService: inject IOptions<LoyaltyPointsConfig> (nullable, defaults to new())
+  - HandleOrderCompletedAsync: guard now checks AwardOnAllOrders config
+    (true → all orders get points; false → only tracking code orders, legacy behavior)
+  - ProcessLoyaltyPointsAsync: formula uses config.PointsRate * TotalAmount,
+    clamped to [MinPointsPerOrder, MaxPointsPerOrder]
+  - Campaign lookup now handles null TrackingCode (AwardOnAllOrders mode)
+- OrderWorkflowServiceTests.cs: updated for configurable formula
+  (4 new tests: AwardOnAllOrders true/false, 5% rate, max cap, min enforcement)
+
+Verification:
+- dotnet build VanAn.sln — 0 errors
+- guard-check.ps1 — ALL CHECKS PASSED
+- Architecture.Tests — 37/37 PASS
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

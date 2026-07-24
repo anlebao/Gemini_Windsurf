@@ -27,6 +27,7 @@ namespace VanAn.CoreHub.Domain.Repositories
         Task<Voucher?> GetVoucherByIdAsync(Guid id);
         Task<Voucher?> GetVoucherByCodeAsync(string voucherCode);
         Task<IReadOnlyList<Voucher>> GetVouchersByCustomerAsync(Guid customerId);
+        Task<IReadOnlyList<Voucher>> GetVouchersExpiringWithinAsync(int days);
         Task<Voucher> AddVoucherAsync(Voucher voucher);
         Task<Voucher> UpdateVoucherAsync(Voucher voucher);
 

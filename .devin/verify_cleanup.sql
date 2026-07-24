@@ -1,0 +1,1 @@
+SELECT COUNT(*) AS TotalStubs, SUM(CASE WHEN IsActive=1 THEN 1 ELSE 0 END) AS ActiveStubs, SUM(CASE WHEN IsActive=0 THEN 1 ELSE 0 END) AS InactiveStubs FROM Products WHERE Description = 'Synced from Gateway';

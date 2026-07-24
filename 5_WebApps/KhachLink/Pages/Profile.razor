@@ -95,6 +95,53 @@
                 }
             </VanAnCard>
 
+            @* Loyalty-C WS-B: Birthday input — triggers BirthdayEntry mission (one-time reward) *@
+            <VanAnCard Shadow="true" CssClass="mb-4">
+                <div class="p-2">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-cake2 text-danger"></i>
+                        <div>
+                            <div class="fw-medium">Ngày sinh</div>
+                            <div class="text-muted small">Nhập ngày sinh để nhận điểm thưởng sinh nhật hàng năm.</div>
+                        </div>
+                    </div>
+                    @if (_birthday.HasValue)
+                    {
+                        <div class="d-flex align-items-center justify-content-between">
+                            <span class="text-muted">Đã đặt: <strong>@_birthday.Value.ToString("dd/MM/yyyy")</strong></span>
+                            @if (_birthdaySaved)
+                            {
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Đã nhận điểm</span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="date" class="form-control" @bind="_birthdayInput" max="@DateTime.UtcNow.ToString("yyyy-MM-dd")" min="1900-01-01" />
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="SaveBirthdayAsync" Disabled="@_birthdaySaving">
+                                @if (_birthdaySaving)
+                                {
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                }
+                                else
+                                {
+                                    @:Lưu
+                                }
+                            </VanAnButton>
+                        </div>
+                        @if (_birthdayError != null)
+                        {
+                            <div class="text-danger small mt-1">@_birthdayError</div>
+                        }
+                        @if (_birthdaySuccess != null)
+                        {
+                            <div class="text-success small mt-1">@_birthdaySuccess</div>
+                        }
+                    }
+                </div>
+            </VanAnCard>
+
             @* Tiered Auth Phase 3: Upgrade button for Social customers *@
             @if (NeedsUpgrade)
             {
@@ -130,6 +177,14 @@
     private bool _pushToggling;
     private string? _pushStatusMessage;
     private AlertVariant _pushAlertVariant = AlertVariant.Info;
+
+    // Loyalty-C WS-B: Birthday input state
+    private DateTime? _birthday;
+    private DateTime? _birthdayInput;
+    private bool _birthdaySaved;
+    private bool _birthdaySaving;
+    private string? _birthdayError;
+    private string? _birthdaySuccess;
 
     // Tiered Auth Phase 3: IdentityLevel helpers
     private bool NeedsUpgrade => _identityLevel is "Social" or "Guest";
@@ -326,6 +381,67 @@
         _customerName = null;
     }
 
+    // Loyalty-C WS-B: Save birthday → triggers BirthdayEntry mission (one-time reward)
+    private async Task SaveBirthdayAsync()
+    {
+        _birthdayError = null;
+        _birthdaySuccess = null;
+
+        if (!_birthdayInput.HasValue)
+        {
+            _birthdayError = "Vui lòng chọn ngày sinh.";
+            return;
+        }
+
+        if (_birthdayInput.Value.Date > DateTime.UtcNow.Date)
+        {
+            _birthdayError = "Ngày sinh không thể ở tương lai.";
+            return;
+        }
+
+        _birthdaySaving = true;
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _birthdayError = "Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            var client = HttpClientFactory.CreateClient("gateway");
+            var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, "/api/customer-profile/birthday");
+            req.Headers.Add("X-Customer-Token", token);
+            req.Content = System.Net.Http.Json.JsonContent.Create(new { Birthday = _birthdayInput.Value });
+
+            var resp = await client.SendAsync(req);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<BirthdayResponse>();
+                _birthday = _birthdayInput;
+                _birthdaySaved = result?.PointsAwarded > 0;
+                _birthdaySuccess = result?.PointsAwarded > 0
+                    ? $"Đã lưu ngày sinh. +{result.PointsAwarded} điểm thưởng!"
+                    : "Đã lưu ngày sinh.";
+                _pointBalance += result?.PointsAwarded ?? 0;
+            }
+            else
+            {
+                _birthdayError = "Không thể lưu ngày sinh. Vui lòng thử lại.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _birthdayError = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _birthdaySaving = false;
+            StateHasChanged();
+        }
+    }
+
     private string GetTierBadgeClass() => _tier switch
     {
         "Platinum" => "bg-info text-dark",
@@ -340,5 +456,13 @@
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
         public string? IdentityLevel { get; set; }
+    }
+
+    private class BirthdayResponse
+    {
+        public bool Success { get; set; }
+        public string Birthday { get; set; } = string.Empty;
+        public int PointsAwarded { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

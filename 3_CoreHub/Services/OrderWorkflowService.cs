@@ -36,8 +36,9 @@ namespace VanAn.CoreHub.Services
         private readonly IOutboxRepository? _outboxRepository = outboxRepository;
         // W0-T4: SignalR notification service (null in ShopERP scope — Gateway has OrderHub)
         private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
-        // Loyalty-A: Configurable points formula (replaces hardcoded 10% + Math.Max(10, ...))
+        // Loyalty-A: Global default points formula (IOptions fallback when tenant has no per-tenant config)
         private readonly LoyaltyPointsConfig _loyaltyPointsConfig = loyaltyPointsConfig?.Value ?? new LoyaltyPointsConfig();
+        // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
         private static readonly JsonSerializerOptions EventJsonOptions = new()
@@ -286,13 +287,45 @@ namespace VanAn.CoreHub.Services
                 return;
             }
 
-            // Loyalty-A: Configurable points formula (replaces hardcoded 10% + Math.Max(10, ...)).
-            //   PointsRate * TotalAmount, clamped to [MinPointsPerOrder, MaxPointsPerOrder].
-            int pointsToAward = (int)(order.TotalAmount * _loyaltyPointsConfig.PointsRate);
-            pointsToAward = Math.Max(_loyaltyPointsConfig.MinPointsPerOrder, pointsToAward);
-            if (_loyaltyPointsConfig.MaxPointsPerOrder.HasValue)
+            // Loyalty-A + Loyalty-C WS-A: Configurable points formula.
+            //   Loyalty-A: global default via IOptions<LoyaltyPointsConfig> from appsettings.json.
+            //   Loyalty-C WS-A: per-tenant override via ShopFeatureSettingsService (DB-backed).
+            //     Fallback: if tenant has no per-tenant config (entity null or field 0/null), use global default.
+            decimal rate = _loyaltyPointsConfig.PointsRate;
+            int minPoints = _loyaltyPointsConfig.MinPointsPerOrder;
+            int? maxPoints = _loyaltyPointsConfig.MaxPointsPerOrder;
+            bool awardOnAll = _loyaltyPointsConfig.AwardOnAllOrders;
+
+            if (_shopFeatureSettingsService != null && customer.TenantId.Value != Guid.Empty)
             {
-                pointsToAward = Math.Min(_loyaltyPointsConfig.MaxPointsPerOrder.Value, pointsToAward);
+                try
+                {
+                    var tenantSettings = await _shopFeatureSettingsService.GetSettingsAsync(customer.TenantId);
+                    // Override only if tenant has explicitly configured (non-zero/non-null values)
+                    if (tenantSettings.Loyalty_PointsRate > 0m) rate = tenantSettings.Loyalty_PointsRate;
+                    if (tenantSettings.Loyalty_MinPointsPerOrder > 0) minPoints = tenantSettings.Loyalty_MinPointsPerOrder;
+                    if (tenantSettings.Loyalty_MaxPointsPerOrder.HasValue) maxPoints = tenantSettings.Loyalty_MaxPointsPerOrder;
+                    awardOnAll = tenantSettings.Loyalty_AwardOnAllOrders;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load per-tenant loyalty formula for tenant {TenantId}. Using global default.", customer.TenantId);
+                }
+            }
+
+            // AwardOnAllOrders=false: only award if order has TrackingCode (campaign-referred)
+            if (!awardOnAll && string.IsNullOrEmpty(order.TrackingCode))
+            {
+                _logger.LogInformation(" Loyalty: Skipped award for order {OrderId} — AwardOnAllOrders=false and no TrackingCode.", order.Id);
+                return;
+            }
+
+            // PointsRate * TotalAmount, clamped to [MinPointsPerOrder, MaxPointsPerOrder].
+            int pointsToAward = (int)(order.TotalAmount * rate);
+            pointsToAward = Math.Max(minPoints, pointsToAward);
+            if (maxPoints.HasValue)
+            {
+                pointsToAward = Math.Min(maxPoints.Value, pointsToAward);
             }
 
             // Lấy thông tin campaign để ghi lịch sử (null if no tracking code — AwardOnAllOrders mode)
@@ -311,8 +344,7 @@ namespace VanAn.CoreHub.Services
             if (success)
             {
                 _logger.LogInformation("🎁 LOYALTY: Awarded {Points} points to customer {CustomerId} from order {OrderId} (rate={Rate}, min={Min}, max={Max})",
-                    pointsToAward, customer.Id, order.Id, _loyaltyPointsConfig.PointsRate, _loyaltyPointsConfig.MinPointsPerOrder,
-                    _loyaltyPointsConfig.MaxPointsPerOrder?.ToString() ?? "none");
+                    pointsToAward, customer.Id, order.Id, rate, minPoints, maxPoints?.ToString() ?? "none");
             }
         }
 

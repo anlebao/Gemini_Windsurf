@@ -1,0 +1,45 @@
+feat(phase5): Session 1 — push notification backend infra (5.1-5.4)
+
+Phase 5 Session 1 complete — backend infrastructure for push notifications,
+loyalty auto-push, campaign bulk push, and click tracking.
+
+5.1 Domain + EF + Migration:
+- CampaignPushJob entity (Gateway PG) — bulk push job tracking
+- PushNotificationDelivery entity — per-notification delivery + click status
+- Customer.UpdateOrderStats() method — LastOrderDate + TotalSpent on order complete
+- EventTypes.LoyaltyPointsChanged constant in OutboxMessage
+- 2 EF configs (CampaignPushJobConfiguration, PushNotificationDeliveryConfiguration)
+- 2 migrations (PG + SQLite) — AddCampaignPushJobAndDelivery
+- 6 DbSets updated (IVanAnDbContext, VanAnDbContext, ShopERPDbContext)
+
+5.2 Loyalty points outbox + auto-push:
+- LoyaltyRewardsService: enqueue outbox + publish NATS "loyalty.points.changed"
+  on AddPointsAsync + SubtractPointsAsync (fire-and-forget NATS, reliable outbox)
+- PushNotificationService.SendLoyaltyPointsChangedNotificationAsync
+- PushNotificationBackgroundService: subscribe "loyalty.points.changed" +
+  HandleLoyaltyEventAsync dispatch
+
+5.3 Order status auto-push SC8:
+- Already wired from Wave 9 — no code changes needed
+
+5.4 Customer segmentation + bulk push + stats:
+- CustomerSegmentCriteria record (tier, identity, spend, lastorder, haspush)
+- ICustomerRepository.GetBySegmentAsync + CustomerRepository implementation
+- CustomerSegmentationService + ICustomerSegmentationService
+- PushNotificationService.SendBulkNotificationAsync (campaign bulk push)
+- OrderWorkflowService.UpdateCustomerOrderStatsAsync — ALL orders update
+  Customer stats (not just campaign orders)
+
+Verification:
+- dotnet build VanAn.sln — 0 errors
+- guard-check.ps1 — ALL CHECKS PASSED
+- 9/17 Success Criteria achieved (SC2-SC8, SC13, SC15)
+
+Also adds 3 loyalty task cards (L-A/L-B/L-C) from audit 2026-07-23:
+- L-A: Guard fix + configurable formula (configurable per tenant)
+- L-B: Redemption system (ShopERP SQLite, optional pay-with-points)
+- L-C: Task-based awards / gamification (require share URL, auto birthday, per tenant)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

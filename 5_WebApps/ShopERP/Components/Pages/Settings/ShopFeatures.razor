@@ -192,6 +192,131 @@
                     </div>
                 </VanACard>
 
+                <VanACard Header="🎁 Công thức điểm thưởng (Loyalty-C)" CssClass="mt-4" data-testid="loyalty-formula-card">
+                    <div class="features-form">
+                        <p class="text-muted small mb-3">
+                            Cấu hình công thức tích điểm cho khách hàng khi mua hàng.
+                            Để trống/0 để dùng giá trị mặc định toàn hệ thống (từ <code>appsettings.json</code>).
+                            Mỗi cửa hàng có thể cấu hình riêng.
+                        </p>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="loyalty-points-rate">Tỉ lệ tích điểm (0-1)</label>
+                                <input type="number" class="form-control" id="loyalty-points-rate"
+                                       min="0" max="1" step="0.01"
+                                       @bind="settings.Loyalty_PointsRate" />
+                                <small class="text-muted">Ví dụ: 0.1 = tích 10% giá trị đơn. 0 = dùng mặc định.</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="loyalty-min-points">Điểm tối thiểu / đơn</label>
+                                <input type="number" class="form-control" id="loyalty-min-points"
+                                       min="0" step="1"
+                                       @bind="settings.Loyalty_MinPointsPerOrder" />
+                                <small class="text-muted">0 = mặc định</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="loyalty-max-points">Điểm tối đa / đơn</label>
+                                <input type="number" class="form-control" id="loyalty-max-points"
+                                       min="0" step="1"
+                                       value="@settings.Loyalty_MaxPointsPerOrder"
+                                       @oninput="(e) => settings.Loyalty_MaxPointsPerOrder = string.IsNullOrEmpty(e.Value?.ToString()) ? null : int.Parse(e.Value!.ToString()!)" />
+                                <small class="text-muted">Để trống = không giới hạn</small>
+                            </div>
+                        </div>
+
+                        <div class="feature-row mt-3" data-testid="toggle-loyalty-award-all">
+                            <div class="feature-info">
+                                <strong>Tích điểm cho mọi đơn hàng</strong>
+                                <p class="text-muted small">
+                                    Bật: khách mua bất kỳ đơn nào cũng được tích điểm.
+                                    Tắt: chỉ tích điểm cho đơn có mã chiến dịch (TrackingCode) — dành cho hệ thống affiliate.
+                                </p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="loyalty-award-all" @bind="settings.Loyalty_AwardOnAllOrders" />
+                            </div>
+                        </div>
+                    </div>
+                </VanACard>
+
+                <VanACard Header="🔔 Thông báo điểm thưởng (Loyalty-C)" CssClass="mt-4" data-testid="loyalty-notification-card">
+                    <div class="features-form">
+                        <p class="text-muted small mb-3">
+                            Cấu hình khi nào gửi push notification cho khách hàng về sự kiện điểm thưởng.
+                            Khách phải đã bật thông báo đẩy trên điện thoại.
+                        </p>
+
+                        <div class="feature-row" data-testid="toggle-notify-mission">
+                            <div class="feature-info">
+                                <strong>Thông báo khi hoàn thành nhiệm vụ</strong>
+                                <p class="text-muted small">Push khi khách hoàn thành nhiệm vụ (cài app, OTP, sinh nhật, share MXH).</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="notify-mission" @bind="settings.Notify_MissionCompleted" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-notify-birthday">
+                            <div class="feature-info">
+                                <strong>Thông báo điểm sinh nhật</strong>
+                                <p class="text-muted small">Push +100 điểm tự động vào ngày sinh nhật khách.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="notify-birthday" @bind="settings.Notify_BirthdayBonus" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-notify-fulfill">
+                            <div class="feature-info">
+                                <strong>Thông báo khi voucher được xác nhận</strong>
+                                <p class="text-muted small">Push khi admin/quán xác nhận voucher đổi điểm.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="notify-fulfill" @bind="settings.Notify_RedemptionFulfilled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-notify-cancel">
+                            <div class="feature-info">
+                                <strong>Thông báo khi đổi điểm bị hủy</strong>
+                                <p class="text-muted small">Push khi admin hủy đổi điểm + hoàn điểm cho khách.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="notify-cancel" @bind="settings.Notify_RedemptionCancelled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-notify-expiry">
+                            <div class="feature-info">
+                                <strong>Thông báo voucher sắp hết hạn</strong>
+                                <p class="text-muted small">Push nhắc khách dùng voucher trước khi hết hạn.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="notify-expiry" @bind="settings.Notify_VoucherExpiringSoon" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row mt-3 pt-3 border-top" data-testid="setting-voucher-expiry-hours">
+                            <div class="feature-info">
+                                <strong>Nhắc trước (giờ)</strong>
+                                <p class="text-muted small">Số giờ trước khi voucher hết hạn để gửi push nhắc. Mặc định 24h.</p>
+                            </div>
+                            <div class="form-group" style="width: 120px;">
+                                <input type="number" class="form-control" id="voucher-expiry-hours"
+                                       min="1" max="168" step="1"
+                                       @bind="settings.VoucherExpiryNotifyHours" />
+                            </div>
+                        </div>
+                    </div>
+                </VanACard>
+
                 <div class="feature-row mt-4 pt-3 border-top" data-testid="setting-polling-interval">
                     <div class="feature-info">
                         <strong>Thời gian làm mới theo dõi đơn hàng (giây)</strong>

@@ -353,6 +353,13 @@ namespace VanAn.ShopERP
             // Loyalty-B: Redemption system (catalog + redeem + fulfillment)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IRedemptionRepository, VanAn.CoreHub.Infrastructure.Repositories.RedemptionRepository>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IRedemptionService, VanAn.CoreHub.Services.RedemptionService>();
+            // Loyalty-C WS-B: Mission system (gamification — PWA install, OTP verify, birthday, social share)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IMissionRepository, VanAn.CoreHub.Infrastructure.Repositories.MissionRepository>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IMissionService, VanAn.CoreHub.Services.MissionService>();
+            // Loyalty-C WS-B: Birthday annual bonus job — runs daily, awards birthday bonus points + sends notification
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.BirthdayBonusJob>();
+            // Loyalty-C WS-C: Voucher expiry reminder job — runs daily, sends push notification for vouchers expiring within N days
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.VoucherExpiryReminderJob>();
 
             // Sync: Subscribe to NATS "order.created" events from Gateway → sync to SQLite
             // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).

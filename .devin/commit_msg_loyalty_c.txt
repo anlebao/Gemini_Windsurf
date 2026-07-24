@@ -1,0 +1,41 @@
+feat(loyalty-c): gamification + configurable loyalty formula + notification jobs
+
+Loyalty-C implementation across 3 workstreams (WS-A, WS-B, WS-C):
+
+WS-A: Configurable loyalty formula + notification settings
+- ShopFeatureSettingsDto: 4 loyalty formula fields + 6 notification settings fields
+- ShopFeatureSettingsEntity + EF config + migration (10 new columns)
+- OrderWorkflowService: per-tenant loyalty formula with fallback to IOptions<LoyaltyPointsConfig>
+- ShopFeatures.razor: Owner config UI for loyalty formula + notification rules
+
+WS-B: Gamification framework (missions + completions)
+- Domain: Mission + MissionCompletion entities + MissionType enum
+- Customer: 5 new fields (Birthday, PWAInstalledAt, OtpVerifiedAt, FacebookShareCount, TikTokShareCount)
+- EF configs + migration (AddMissionSystem)
+- IMissionRepository + MissionRepository (tenant-scoped, soft-delete)
+- IMissionService + MissionService (ACID completion flow with one-time + daily cap + annual enforcement)
+- Triggers: PWA install, OTP verify, birthday entry, Facebook/TikTok social share
+- CustomerProfileController (ShopERP + Gateway): birthday, PWA install, share endpoints
+- CustomerIdentityController: OtpVerify mission trigger on both upgrade paths
+- pwa.js: notifyPwaInstalledBackend + showPointsToast on install detection
+- MissionsController (ShopERP + Gateway): admin CRUD + customer progress/completions
+- KhachLink Missions.razor: mission list + share modal + PWA install button
+- KhachLink Profile.razor: birthday input section with mission reward feedback
+- ShopERP MissionsAdmin.razor: admin CRUD UI for missions
+- Nav links + sitemap entries for missions pages
+
+WS-C: Notification jobs + push notification methods
+- PushNotificationService: SendBirthdayNotificationAsync + SendVoucherExpiryReminderAsync
+- BirthdayBonusJob (HostedService): daily, finds birthday customers, awards annual bonus + sends push
+- VoucherExpiryReminderJob (HostedService): daily, finds vouchers expiring within N days, sends push
+- IRedemptionRepository: GetVouchersExpiringWithinAsync
+- ICustomerRepository: GetCustomersWithBirthdayTodayAsync
+
+Architecture:
+- AuthorizationEnforcementTests: exempted CustomerProfileController + MissionsController (X-Customer-Token auth)
+- ShopERP MissionsController: [AllowAnonymous] on customer methods, [Authorize] on admin methods
+- All builds pass, guard-check PASSED, 37/37 architecture tests pass
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

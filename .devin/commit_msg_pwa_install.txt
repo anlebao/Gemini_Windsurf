@@ -1,0 +1,38 @@
+fix(pwa): install prompt shows actionable toast instead of useless alert
+
+Problem: PWA install button showed static alert with manual instructions
+("menu ⋮ → Cài đặt ứng dụng") that no longer work in Chrome 120+ — Chrome
+removed the menu option when beforeinstallprompt is suppressed. User clicked
+"Cài đặt" → got useless alert → could not install.
+
+Root cause: deferredPrompt was null when user clicked install button.
+This happens when:
+1. User already dismissed beforeinstallprompt once (Chrome only allows
+   prompt() to be called once per event — deferredPrompt is consumed)
+2. beforeinstallprompt hasn't fired yet (engagement heuristic not met)
+3. Browser suppressed the event (too many previous dismissals)
+
+Old behavior: static alert() with instructions that don't work anymore.
+New behavior: actionable toast with "Tải lại trang" button — reloading
+the page triggers Chrome to re-fire beforeinstallprompt (if engagement
+heuristic is met), restoring the native install prompt.
+
+Changes (4 files):
+- pwa.js showInstallPrompt(): clear deferredPrompt after prompt() consumed
+  (was staying stale, causing "prompt already shown" errors on next click)
+- pwa.js showInstallPrompt(): replace alert() with showInstallHelpToast() —
+  non-blocking toast with "Tải lại trang" button (auto-dismiss 15s)
+- pwa.js: new showInstallHelpToast(platform, hint) helper — styled toast
+  matching app theme, reload button, auto-dismiss
+- PWAInstallPrompt.razor InstallApp(): remove redundant "Không thể cài đặt
+  tự động" notification (JS toast already handles failure case)
+- KhachLinkLayout.razor InstallAppAsync(): same — remove redundant fallback
+  notification (JS toast handles it)
+- service-worker.js: bump cache version v13 → v14-install-fix to trigger
+  SW update for existing clients
+
+Verified: Build 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
