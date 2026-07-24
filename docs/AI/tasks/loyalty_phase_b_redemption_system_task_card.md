@@ -67,8 +67,9 @@
 - [ ] SC13: Checkout.razor — "Thanh toán bằng điểm" option (partial hoặc full).
 - [ ] SC14: Order total calculation with points deduction.
 
-**Implementation Date:** _TBD_
-**Branch:** `main` (sau Phase 5)
+**Implementation Date:** 2026-07-24
+**Branch:** `main` (commit `8f6162a5` + `88a74ab6`)
+**VPS RV:** 13/13 PASS — all pages render, nav links present, API endpoints live, migration applied, catalog CRUD verified.
 
 ## 6. ACTIVE SKILLS (MAX 3)
 - `domain-integrity-validation` — 3 entity mới, verify không phá existing
