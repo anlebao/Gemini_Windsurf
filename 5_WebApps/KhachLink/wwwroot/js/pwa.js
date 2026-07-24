@@ -228,6 +228,22 @@ window.vananPWA = {
         return null;
     },
 
+    // Phase 5: Unsubscribe from push (browser side — removes PushSubscription from SW)
+    async unsubscribeFromPush() {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    await subscription.unsubscribe();
+                    console.log('Push subscription removed (browser side)');
+                }
+            } catch (error) {
+                console.error('Failed to unsubscribe from push:', error);
+            }
+        }
+    },
+
     // Network status
     isOnline() {
         return navigator.onLine;

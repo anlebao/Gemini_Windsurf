@@ -1,9 +1,11 @@
 ﻿@page "/profile"
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.PWA
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject PWAService PWA
 
 <PageTitle>Tài khoản của tôi</PageTitle>
 
@@ -67,6 +69,32 @@
                 </a>
             </div>
 
+            @* Phase 5: Push notification toggle *@
+            <VanAnCard Shadow="true" CssClass="mb-4">
+                <div class="d-flex align-items-center justify-content-between p-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-bell-fill text-primary"></i>
+                        <div>
+                            <div class="fw-medium">Thông báo đẩy</div>
+                            <div class="text-muted small">Nhận push khi đơn hàng đổi trạng thái, điểm thưởng biến động.</div>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="pushToggle" checked="@_pushEnabled"
+                               disabled="@_pushToggling"
+                               @onchange="TogglePushAsync" />
+                        <label class="form-check-label" for="pushToggle">@( _pushToggling ? "..." : (_pushEnabled ? "Bật" : "Tắt") )</label>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(_pushStatusMessage))
+                {
+                    <div class="px-2 pb-2">
+                        <VanAnAlert Variant="@_pushAlertVariant" Message="@_pushStatusMessage" />
+                    </div>
+                }
+            </VanAnCard>
+
             @* Tiered Auth Phase 3: Upgrade button for Social customers *@
             @if (NeedsUpgrade)
             {
@@ -96,6 +124,12 @@
     private string _tier = "Bronze";
     private int _pointBalance = 0;
     private string _identityLevel = "Social";
+
+    // Phase 5: Push notification toggle state
+    private bool _pushEnabled;
+    private bool _pushToggling;
+    private string? _pushStatusMessage;
+    private AlertVariant _pushAlertVariant = AlertVariant.Info;
 
     // Tiered Auth Phase 3: IdentityLevel helpers
     private bool NeedsUpgrade => _identityLevel is "Social" or "Guest";
@@ -181,6 +215,106 @@
     private void GoToLogin() => Navigation.NavigateTo("/login");
 
     private void NavigateToLoyaltyUpgrade() => Navigation.NavigateTo("/my-loyalty");
+
+    // Phase 5: Push notification toggle
+    private async Task TogglePushAsync(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (_pushToggling) return;
+        _pushToggling = true;
+        _pushStatusMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            bool enable = (bool)e.Value;
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _pushStatusMessage = "Vui lòng đăng nhập để sử dụng thông báo đẩy.";
+                _pushAlertVariant = AlertVariant.Warning;
+                _pushToggling = false;
+                StateHasChanged();
+                return;
+            }
+
+            if (enable)
+            {
+                // 1. Request notification permission
+                bool granted = await PWA.RequestNotificationPermissionAsync();
+                if (!granted)
+                {
+                    _pushStatusMessage = "Bạn cần cấp quyền thông báo trong trình duyệt để bật tính năng này.";
+                    _pushAlertVariant = AlertVariant.Warning;
+                    _pushEnabled = false;
+                    _pushToggling = false;
+                    StateHasChanged();
+                    return;
+                }
+
+                // 2. Subscribe to push via SW (creates PushSubscription in browser)
+                string? subscriptionJson = await PWA.SubscribeToPushAsync();
+                if (string.IsNullOrEmpty(subscriptionJson))
+                {
+                    _pushStatusMessage = "Không thể đăng ký thông báo đẩy. Trình duyệt có thể không hỗ trợ.";
+                    _pushAlertVariant = AlertVariant.Error;
+                    _pushEnabled = false;
+                    _pushToggling = false;
+                    StateHasChanged();
+                    return;
+                }
+
+                // 3. Send subscription to server (Gateway → ShopERP)
+                var client = HttpClientFactory.CreateClient("gateway");
+                client.DefaultRequestHeaders.Add("X-Customer-Token", token);
+                var content = new System.Net.Http.StringContent(subscriptionJson, System.Text.Encoding.UTF8, "application/json");
+                var resp = await client.PostAsync("/api/notifications/push/subscribe", content);
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    _pushEnabled = true;
+                    _pushStatusMessage = "Đã bật thông báo đẩy. Bạn sẽ nhận được push khi có cập nhật.";
+                    _pushAlertVariant = AlertVariant.Success;
+                }
+                else
+                {
+                    _pushStatusMessage = "Lỗi khi đăng ký với máy chủ. Vui lòng thử lại.";
+                    _pushAlertVariant = AlertVariant.Error;
+                    _pushEnabled = false;
+                }
+            }
+            else
+            {
+                // Unsubscribe: 1. Browser unsubscribe via SW, 2. Server DELETE
+                await PWA.UnsubscribeFromPushAsync();
+
+                var client = HttpClientFactory.CreateClient("gateway");
+                client.DefaultRequestHeaders.Add("X-Customer-Token", token);
+                var resp = await client.DeleteAsync("/api/notifications/push/subscribe");
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    _pushEnabled = false;
+                    _pushStatusMessage = "Đã tắt thông báo đẩy.";
+                    _pushAlertVariant = AlertVariant.Info;
+                }
+                else
+                {
+                    _pushStatusMessage = "Lỗi khi hủy đăng ký. Vui lòng thử lại.";
+                    _pushAlertVariant = AlertVariant.Error;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _pushStatusMessage = $"Lỗi: {ex.Message}";
+            _pushAlertVariant = AlertVariant.Error;
+        }
+        finally
+        {
+            _pushToggling = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task Logout()
     {

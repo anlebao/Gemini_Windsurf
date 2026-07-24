@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using VanAn.CoreHub.Domain.Repositories;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Infrastructure.Messaging;
 using VanAn.Shared.Domain;
 
@@ -13,6 +14,7 @@ namespace VanAn.CoreHub.Services
     /// Handles VAPID authentication and push notification delivery for order status updates.
     /// 
     /// Session 3: NATS integration for event-driven push notifications
+    /// Phase 5: PushNotificationDelivery records for click tracking + notificationId in payload
     /// </summary>
     public class PushNotificationService
     {
@@ -22,16 +24,19 @@ namespace VanAn.CoreHub.Services
         private readonly string _vapidSubject;
         private readonly IPushSubscriptionRepository _subscriptionRepository;
         private readonly INatsEventPublisher? _natsPublisher; // Nullable for graceful degradation
+        private readonly IVanAnDbContext? _dbContext; // Phase 5: for PushNotificationDelivery records
 
         public PushNotificationService(
-            IConfiguration configuration, 
+            IConfiguration configuration,
             ILogger<PushNotificationService> logger,
             IPushSubscriptionRepository subscriptionRepository,
-            INatsEventPublisher? natsPublisher = null)
+            INatsEventPublisher? natsPublisher = null,
+            IVanAnDbContext? dbContext = null)
         {
             _logger = logger;
             _subscriptionRepository = subscriptionRepository;
             _natsPublisher = natsPublisher;
+            _dbContext = dbContext;
             
             // VAPID private key from environment variable (security requirement).
             // Dev fallback: read from configuration "PushNotifications:VapidPrivateKey" for local development.
@@ -62,16 +67,16 @@ namespace VanAn.CoreHub.Services
         /// <param name="customerName">Customer name (optional)</param>
         /// <returns>Number of notifications sent successfully</returns>
         public async Task<int> SendOrderStatusNotificationAsync(
-            Guid customerId, 
-            Guid orderId, 
-            string newStatus, 
+            Guid customerId,
+            Guid orderId,
+            string newStatus,
             string? customerName = null)
         {
             try
             {
                 // Get active subscriptions for customer
                 var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
-                
+
                 if (!subscriptions.Any())
                 {
                     _logger.LogInformation("No active push subscriptions found for customer {CustomerId}", customerId);
@@ -79,7 +84,6 @@ namespace VanAn.CoreHub.Services
                 }
 
                 int successCount = 0;
-                var payload = CreateOrderStatusPayload(orderId, newStatus, customerName);
                 var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
                 var webPushClient = new WebPushClient();
 
@@ -87,7 +91,10 @@ namespace VanAn.CoreHub.Services
                 {
                     try
                     {
-                        // Deserialize subscription JSON
+                        // Phase 5: Generate unique notificationId per push for click tracking
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreateOrderStatusPayload(notificationId, orderId, newStatus, customerName);
+
                         var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
                         if (pushSubscription == null)
                         {
@@ -95,30 +102,29 @@ namespace VanAn.CoreHub.Services
                             continue;
                         }
 
-                        // Send push notification
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
-                        
-                        // Update last used timestamp
+
+                        // Phase 5: Create PushNotificationDelivery record for click tracking
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, $"/order-tracking/{orderId}");
+
                         subscription.Renew();
                         await _subscriptionRepository.UpdateAsync(subscription);
-                        
+
                         successCount++;
                     }
                     catch (Exception ex)
                     {
-                        // Log failure for individual subscription but continue with others
-                        _logger.LogError(ex, "Failed to send push notification for subscription {SubscriptionId}", 
+                        _logger.LogError(ex, "Failed to send push notification for subscription {SubscriptionId}",
                             subscription.PushSubscriptionId);
                     }
                 }
 
-                _logger.LogInformation("Push notifications sent: {SuccessCount}/{TotalCount} for OrderId: {OrderId}, Status: {Status}", 
+                _logger.LogInformation("Push notifications sent: {SuccessCount}/{TotalCount} for OrderId: {OrderId}, Status: {Status}",
                     successCount, subscriptions.Count, orderId, newStatus);
                 return successCount;
             }
             catch (Exception ex)
             {
-                // Log failure but don't throw - push notifications are best-effort
                 _logger.LogError(ex, "Failed to send push notifications for OrderId: {OrderId}", orderId);
                 return 0;
             }
@@ -150,7 +156,6 @@ namespace VanAn.CoreHub.Services
                 }
 
                 int successCount = 0;
-                var payload = CreateLoyaltyPointsPayload(pointsChange, newBalance, reason);
                 var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
                 var webPushClient = new WebPushClient();
 
@@ -158,6 +163,10 @@ namespace VanAn.CoreHub.Services
                 {
                     try
                     {
+                        // Phase 5: Generate unique notificationId per push for click tracking
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreateLoyaltyPointsPayload(notificationId, pointsChange, newBalance, reason);
+
                         var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
                         if (pushSubscription == null)
                         {
@@ -166,6 +175,10 @@ namespace VanAn.CoreHub.Services
                         }
 
                         await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+
+                        // Phase 5: Create PushNotificationDelivery record for click tracking
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/my-loyalty");
+
                         subscription.Renew();
                         await _subscriptionRepository.UpdateAsync(subscription);
                         successCount++;
@@ -190,19 +203,22 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>
         /// Phase 5: Create loyalty points change notification payload.
+        /// Includes notificationId in data for click tracking.
         /// </summary>
-        private string CreateLoyaltyPointsPayload(int pointsChange, int newBalance, string? reason)
+        private string CreateLoyaltyPointsPayload(Guid notificationId, int pointsChange, int newBalance, string? reason)
         {
             string direction = pointsChange > 0 ? "+" : "";
             var notification = new
             {
                 type = "loyalty_points_changed",
+                title = "Vạn An Group",
+                body = $"{direction}{pointsChange} điểm. Số dư: {newBalance} điểm",
                 pointsChange = pointsChange,
                 newBalance = newBalance,
                 reason = reason ?? "Cập nhật điểm thưởng",
                 timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                message = $"{direction}{pointsChange} điểm. Số dư: {newBalance} điểm",
-                actionUrl = "/my-loyalty"
+                actionUrl = "/my-loyalty",
+                data = new { notificationId = notificationId, actionUrl = "/my-loyalty" }
             };
 
             return JsonSerializer.Serialize(notification);
@@ -252,8 +268,14 @@ namespace VanAn.CoreHub.Services
                             var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
                             if (pushSubscription == null) continue;
 
-                            var payload = CreateCampaignPayload(title, body, actionUrl);
+                            // Phase 5: Generate unique notificationId per push for click tracking
+                            var notificationId = Guid.NewGuid();
+                            var payload = CreateCampaignPayload(notificationId, title, body, actionUrl);
                             await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+
+                            // Phase 5: Create PushNotificationDelivery record for click tracking
+                            await CreateDeliveryRecordAsync(customerId, notificationId, campaignPushJobId, actionUrl);
+
                             subscription.Renew();
                             await _subscriptionRepository.UpdateAsync(subscription);
                             anySent = true;
@@ -279,9 +301,39 @@ namespace VanAn.CoreHub.Services
         }
 
         /// <summary>
-        /// Phase 5: Create campaign notification payload.
+        /// Phase 5: Create PushNotificationDelivery record for click tracking.
+        /// Called after each successful push send. Best-effort — failures logged but don't block push.
         /// </summary>
-        private string CreateCampaignPayload(string title, string body, string? actionUrl)
+        private async Task CreateDeliveryRecordAsync(Guid customerId, Guid notificationId, Guid? campaignPushJobId, string? actionUrl)
+        {
+            if (_dbContext == null) return;
+
+            try
+            {
+                var delivery = new PushNotificationDelivery(
+                    new TenantId(Guid.Empty), // Set by EF interceptor from current tenant context
+                    customerId,
+                    campaignPushJobId,
+                    actionUrl);
+
+                // Override the auto-generated NotificationId with our tracking ID
+                typeof(PushNotificationDelivery).GetProperty("NotificationId")?.SetValue(delivery, notificationId);
+
+                await _dbContext.PushNotificationDeliveries.AddAsync(delivery);
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create PushNotificationDelivery record for CustomerId={CustomerId}, NotificationId={NotificationId}",
+                    customerId, notificationId);
+            }
+        }
+
+        /// <summary>
+        /// Phase 5: Create campaign notification payload.
+        /// Includes notificationId in data for click tracking.
+        /// </summary>
+        private string CreateCampaignPayload(Guid notificationId, string title, string body, string? actionUrl)
         {
             var notification = new
             {
@@ -289,7 +341,8 @@ namespace VanAn.CoreHub.Services
                 title = title,
                 body = body,
                 actionUrl = actionUrl ?? "/",
-                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                data = new { notificationId = notificationId, actionUrl = actionUrl ?? "/" }
             };
 
             return JsonSerializer.Serialize(notification);
@@ -297,18 +350,22 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>
         /// Create order status notification payload.
+        /// Includes notificationId in data for click tracking (Phase 5).
         /// </summary>
-        private string CreateOrderStatusPayload(Guid orderId, string newStatus, string? customerName)
+        private string CreateOrderStatusPayload(Guid notificationId, Guid orderId, string newStatus, string? customerName)
         {
             var notification = new
             {
                 type = "order_status_changed",
+                title = "Vạn An Group",
+                body = GetStatusMessage(newStatus),
                 orderId = orderId,
                 status = newStatus,
                 customerName = customerName ?? "Khách hàng",
                 timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 message = GetStatusMessage(newStatus),
-                actionUrl = $"/order-tracking/{orderId}"
+                actionUrl = $"/order-tracking/{orderId}",
+                data = new { notificationId = notificationId, actionUrl = $"/order-tracking/{orderId}" }
             };
 
             return JsonSerializer.Serialize(notification);

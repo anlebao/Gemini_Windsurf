@@ -570,18 +570,47 @@ self.addEventListener('push', event => {
   );
 });
 
-// Notification click handler
+// Phase 5: Notification click handler — track click + open action URL
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const notificationData = event.notification.data || {};
+  const notificationId = notificationData.notificationId;
+  const actionUrl = notificationData.actionUrl || '/';
+
+  // Phase 5: Track click via sendBeacon (fire-and-forget, no await needed)
+  if (notificationId) {
+    try {
+      const trackPayload = JSON.stringify({
+        notificationId: notificationId,
+        actionUrl: actionUrl
+      });
+      const blob = new Blob([trackPayload], { type: 'application/json' });
+      // sendBeacon is ideal for click tracking — survives page navigation
+      navigator.sendBeacon('/api/notifications/push/track', blob);
+      console.log('[SW] Click tracked for notificationId:', notificationId);
+    } catch (err) {
+      console.error('[SW] Failed to track click:', err);
+    }
+  }
+
+  // Open or focus the action URL
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clientList => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Try to focus an existing window with the same URL
+      for (const client of clientList) {
+        if (client.url.includes(actionUrl) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Focus any existing window
       for (const client of clientList) {
         if ('focus' in client) {
           return client.focus();
         }
       }
+      // Open new window with action URL
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(actionUrl);
       }
     })
   );

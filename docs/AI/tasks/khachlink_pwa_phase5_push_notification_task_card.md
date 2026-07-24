@@ -139,22 +139,27 @@
 - **Manual RV:** Android Chrome real device → subscribe → trigger loyalty change (order complete) → verify push; admin send campaign push → verify bulk delivery.
 
 ## 10. JIT PLANNING + PURE EXECUTION
-| Session | JIT Planning | Pure Execution |
-|---|---|---|
-| S1 (5.1) | Domain modifications + EF config + migration | Code + build verify |
-| S2 (5.2) | Loyalty outbox event + PushNotificationService.SendLoyaltyPointsChanged | Code + unit test |
-| S3 (5.3) | Wire NATS subscriber order.status.changed + LoyaltyPointsChanged | Code + verify |
-| S4 (5.4) | CustomerSegmentationService + SendBulkNotificationAsync + UpdateOrderStats | Code + unit test |
-| S5 (5.5) | Gateway admin endpoints (send-push + push/send + DELETE subscribe) | Code + integration test |
-| S6 (5.6) | Profile.razor toggle + pwa.js unsubscribe + PWAService | Code + browser test |
-| S7 (5.7) | CampaignsAdmin.razor segment builder + history UI | Code |
-| S8 (5.8) | Full test suite + build + guard-check + RV VPS | Test + RV report |
-| S9 (5.9) | Click tracking — PushNotificationDelivery entity + SW notificationclick + POST /api/push/track + admin CTR stats | Code + integration test + RV click |
+| Session | JIT Planning | Pure Execution | Status |
+|---|---|---|---|
+| S1 (5.1) | Domain modifications + EF config + migration | Code + build verify | ✅ COMPLETE 2026-07-24 — 3 entities/methods added (CampaignPushJob, PushNotificationDelivery, Customer.UpdateOrderStats), EventTypes.LoyaltyPointsChanged, 2 EF configs, 2 migrations (PG + SQLite), 6 DbSets updated |
+| S2 (5.2) | Loyalty outbox event + PushNotificationService.SendLoyaltyPointsChanged | Code + unit test | ✅ COMPLETE 2026-07-24 — LoyaltyRewardsService enqueues outbox + publishes NATS "loyalty.points.changed" on AddPoints/SubtractPoints. PushNotificationService.SendLoyaltyPointsChangedNotificationAsync. PushNotificationBackgroundService subscribes "loyalty.points.changed" + HandleLoyaltyEventAsync |
+| S3 (5.3) | Wire NATS subscriber order.status.changed + LoyaltyPointsChanged | Code + verify | ✅ COMPLETE 2026-07-24 — Already wired from Wave 9 (OrderWorkflowService.PublishOrderStatusChangedEventAsync → NATS → PushNotificationBackgroundService → SendOrderStatusNotificationAsync). No code changes needed. |
+| S4 (5.4) | CustomerSegmentationService + SendBulkNotificationAsync + UpdateOrderStats | Code + unit test | ✅ COMPLETE 2026-07-24 — CustomerSegmentCriteria record + ICustomerRepository.GetBySegmentAsync + CustomerRepository impl (filter tier/identity/spend/lastorder/haspush). CustomerSegmentationService + ICustomerSegmentationService. PushNotificationService.SendBulkNotificationAsync. OrderWorkflowService.UpdateCustomerOrderStatsAsync (ALL orders update Customer stats, not just campaign). |
+| S5 (5.5) | Gateway admin endpoints (send-push + push/send + DELETE subscribe) | Code + integration test | ⏳ PENDING — Session 2 |
+| S6 (5.6) | Profile.razor toggle + pwa.js unsubscribe + PWAService | Code + browser test | ⏳ PENDING — Session 2 |
+| S7 (5.7) | CampaignsAdmin.razor segment builder + history UI | Code | ⏳ PENDING — Session 2 |
+| S8 (5.8) | Full test suite + build + guard-check + RV VPS | Test + RV report | ⏳ PENDING — Session 2 |
+| S9 (5.9) | Click tracking — PushNotificationDelivery entity + SW notificationclick + POST /api/push/track + admin CTR stats | Code + integration test + RV click | ⏳ PENDING — Session 2 |
 
-**Grouping:** S1-S4 = Session 1 (backend infra). S5-S9 = Session 2 (API + UI + tracking + tests + RV).
+**Grouping:** S1-S4 = Session 1 (backend infra) — ✅ COMPLETE 2026-07-24. S5-S9 = Session 2 (API + UI + tracking + tests + RV) — PENDING.
+
+### Session 1 Build Verification (2026-07-24)
+- `dotnet build VanAn.sln` — 0 errors, 0 critical warnings ✅
+- `guard-check.ps1` — ALL CHECKS PASSED (untracked, encodings, windsurf guard, architecture guard, Roslyn, fast test gate) ✅
+- 9 Success Criteria达成: SC2, SC3, SC4, SC5, SC6, SC7, SC8, SC13, SC15
 
 ## 12. ESTIMATED EFFORT
-- **Session 1 (5.1-5.4):** 4 sub-sessions, backend infra.
-- **Session 2 (5.5-5.9):** 5 sub-sessions, API + UI + tracking + tests + RV.
+- **Session 1 (5.1-5.4):** 4 sub-sessions, backend infra. — ✅ COMPLETE 2026-07-24
+- **Session 2 (5.5-5.9):** 5 sub-sessions, API + UI + tracking + tests + RV. — ⏳ PENDING
 - **Total:** 9 sub-sessions across 2 sessions.
 - **NO BLOCKER:** Domain modifications approved as part of feature plan (THÊM, không sửa entity hiện có). PushSubscription entity đã có — bỏ Hard Stop task card cũ.

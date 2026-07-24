@@ -210,6 +210,7 @@ namespace VanAn.Architecture.Tests
                     !varName.StartsWith("SHOP_INSTANCE_ID") && // Phase 4: fail-fast env var for OrderSyncSubscriber routing
                     !varName.StartsWith("IMAGE_") &&
                     !varName.StartsWith("VANAN_") &&
+                    !varName.StartsWith("VAPID_") && // Phase 5: Web Push VAPID key env var
                     !varName.Equals("ACCEPT_EULA") &&
                     !varName.Contains("__")) // Allow double underscore for nested config
                 {

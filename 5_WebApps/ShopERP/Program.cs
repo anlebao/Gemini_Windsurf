@@ -348,6 +348,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.PushNotificationService>();
             // FIX-BATCH-3: IHostedService that subscribes to NATS "order.status.changed" and dispatches to PushNotificationService
             _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.PushNotificationBackgroundService>();
+            // Phase 5: Customer segmentation service for bulk push campaigns
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICustomerSegmentationService, VanAn.CoreHub.Services.CustomerSegmentationService>();
 
             // Sync: Subscribe to NATS "order.created" events from Gateway → sync to SQLite
             // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).

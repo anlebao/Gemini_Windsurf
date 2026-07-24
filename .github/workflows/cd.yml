@@ -163,7 +163,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET
+          envs: DEPLOY_POSTGRES_PASSWORD,DEPLOY_JWT_SECRET_KEY,DEPLOY_GITHUB_TOKEN,DEPLOY_GITHUB_ACTOR,DEPLOY_REGISTRY,DEPLOY_REPO_OWNER,DEPLOY_IMAGE_TAG,DEPLOY_VANAN_DOMAIN,DEPLOY_GOOGLE_CLIENT_ID,DEPLOY_GOOGLE_CLIENT_SECRET,DEPLOY_VAPID_PRIVATE_KEY
           script: |
             set -e
 
@@ -187,6 +187,9 @@ jobs:
             EXISTING_GOOGLE_SECRET=$(grep -E '^GOOGLE_CLIENT_SECRET=' .env 2>/dev/null | cut -d= -f2- || echo "")
             FINAL_GOOGLE_ID="${DEPLOY_GOOGLE_CLIENT_ID:-$EXISTING_GOOGLE_ID}"
             FINAL_GOOGLE_SECRET="${DEPLOY_GOOGLE_CLIENT_SECRET:-$EXISTING_GOOGLE_SECRET}"
+            # Phase 5: Preserve existing VAPID_PRIVATE_KEY if GitHub secret is empty
+            EXISTING_VAPID_KEY=$(grep -E '^VAPID_PRIVATE_KEY=' .env 2>/dev/null | cut -d= -f2- || echo "")
+            FINAL_VAPID_KEY="${DEPLOY_VAPID_PRIVATE_KEY:-$EXISTING_VAPID_KEY}"
 
             printf '%s\n' \
               "VANAN_DOMAIN=${DEPLOY_VANAN_DOMAIN}" \
@@ -202,6 +205,7 @@ jobs:
               "GOOGLE_CLIENT_ID=${FINAL_GOOGLE_ID}" \
               "GOOGLE_CLIENT_SECRET=${FINAL_GOOGLE_SECRET}" \
               "GOOGLE_KHACHLINK_LOGIN_URL=https://diemthuong.khachvip.online/login" \
+              "VAPID_PRIVATE_KEY=${FINAL_VAPID_KEY}" \
               > .env
 
             # Login to GHCR (use sudo to ensure docker socket access)
@@ -229,3 +233,4 @@ jobs:
           DEPLOY_VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
           DEPLOY_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           DEPLOY_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          DEPLOY_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}

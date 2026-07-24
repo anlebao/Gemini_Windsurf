@@ -151,6 +151,9 @@ services:
       - Auth__CookieDomain=.${VANAN_DOMAIN}
       # SQLite DB persistent volume (survives container recreate/deploys)
       - ConnectionStrings__DefaultConnection=Data Source=/app/keys/vanan_shoperp.db
+      # Phase 5: Web Push VAPID private key (env var only — never in source code).
+      # Public key is in appsettings.json (not sensitive). See docs/AI/VAPID_KEY_GENERATION_GUIDE.md.
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
     volumes:
       - shoperp_data:/app/keys
     networks:

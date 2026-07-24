@@ -197,6 +197,23 @@ namespace VanAn.KhachLink.Services.PWA
         }
 
         /// <summary>
+        /// Phase 5: Unsubscribe from push notifications (browser side — removes PushSubscription from SW).
+        /// Server-side DELETE is called separately by Profile.razor.
+        /// </summary>
+        public async Task UnsubscribeFromPushAsync()
+        {
+            try
+            {
+                await _jsRuntime.InvokeVoidAsync("vananPWA.unsubscribeFromPush");
+                _logger.LogInformation("Push subscription removed (browser side)");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to unsubscribe from push notifications");
+            }
+        }
+
+        /// <summary>
         /// Check if app is running in standalone mode (installed PWA)
         /// </summary>
         public async Task<bool> IsStandaloneAsync()
