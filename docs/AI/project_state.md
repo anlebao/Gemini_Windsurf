@@ -80,9 +80,9 @@ SC1 VAPID verified · SC2 CampaignPushJob + migration · SC3 LoyaltyPointsChange
 
 ### Next Actions
 1. ✅ **Phase 5 COMPLETE 2026-07-24** — Session 1 (5.1-5.4) + Session 2 (5.5-5.9). All 17 Success Criteria achieved. Build PASS, guard-check PASS, CD success, VPS RV PASS.
-2. ⏳ **Loyalty L-A** (guard fix + configurable formula) — NEXT. Task card: `loyalty_phase_a_guard_fix_configurable_formula_task_card.md`. **Decisions chốt 2026-07-23:** Guard TrackingCode → Configurable per tenant (AwardOnAllOrders default true).
-3. ⏳ **Loyalty L-B** (Redemption system) — after L-A. Task card: `loyalty_phase_b_redemption_system_task_card.md`. **Decisions chốt 2026-07-23:** Catalog storage → ShopERP SQLite; Pay-with-points → Optional Phase B-2.
-4. ⏳ **Loyalty L-C** (Task-based awards / gamification) — after L-A. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
+2. ✅ **Loyalty L-A COMPLETE 2026-07-24** (guard fix + configurable formula) — Commit `aae5fba2`. LoyaltyPointsConfig record (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders). appsettings.json LoyaltyPoints section (Gateway + CoreHub + ShopERP). OrderWorkflowService injects IOptions<LoyaltyPointsConfig>, replaces hardcoded 10% + Math.Max(10, ...). Guard TrackingCode now configurable (AwardOnAllOrders=true → all orders get points). Build PASS, guard-check PASS, CD success, VPS RV PASS.
+3. ⏳ **Loyalty L-B** (Redemption system) — NEXT. Task card: `loyalty_phase_b_redemption_system_task_card.md`. **Decisions chốt 2026-07-23:** Catalog storage → ShopERP SQLite; Pay-with-points → Optional Phase B-2.
+4. ⏳ **Loyalty L-C** (Task-based awards / gamification) — after L-B. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
 
 ### Phase 5 Session 1 Implementation Summary (2026-07-24)
 - **5.1 Domain + EF + Migration:** CampaignPushJob + PushNotificationDelivery entities, Customer.UpdateOrderStats() method, EventTypes.LoyaltyPointsChanged, 2 EF configs, 2 migrations (PG + SQLite), 6 DbSets updated.

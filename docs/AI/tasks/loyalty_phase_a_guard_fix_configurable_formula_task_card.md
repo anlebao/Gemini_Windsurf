@@ -24,29 +24,29 @@
 
 ## 4. TECHNICAL & REGULATORY CONSTRAINTS
 - [x] **Decision: Guard TrackingCode** — **CONFIGURABLE PER TENANT** (chốt 2026-07-23). `LoyaltyConfig.AwardOnAllOrders` per tenant (default true = bỏ guard, tất cả order tích điểm). Tenant owner chọn qua admin UI.
-- [ ] **Configurable formula:** `LoyaltyPointsConfig` record:
+- [x] **Configurable formula:** `LoyaltyPointsConfig` record:
   ```csharp
-  public record LoyaltyPointsConfig
+  public class LoyaltyPointsConfig
   {
-      public decimal PointsRate { get; init; } = 0.1m;        // 10% default
-      public int MinPointsPerOrder { get; init; } = 10;       // min 10 points
-      public int? MaxPointsPerOrder { get; init; } = null;    // null = no cap
-      public bool AwardOnAllOrders { get; init; } = true;     // true = bỏ TrackingCode guard
+      public decimal PointsRate { get; set; } = 0.1m;        // 10% default
+      public int MinPointsPerOrder { get; set; } = 10;       // min 10 points
+      public int? MaxPointsPerOrder { get; set; } = null;    // null = no cap
+      public bool AwardOnAllOrders { get; set; } = true;     // true = bỏ TrackingCode guard
   }
   ```
-- [ ] **appsettings.json:** thêm section `LoyaltyPoints` với các field trên.
-- [ ] **OrderWorkflowService:** inject `IOptions<LoyaltyPointsConfig>` — thay hardcoded formula bằng config values.
+- [x] **appsettings.json:** thêm section `LoyaltyPoints` với các field trên. (Gateway + CoreHub + ShopERP)
+- [x] **OrderWorkflowService:** inject `IOptions<LoyaltyPointsConfig>` — thay hardcoded formula bằng config values.
 
 ## 5. SUCCESS CRITERIA (6)
-- [ ] SC1: `LoyaltyPointsConfig` record thêm vào `1_Shared/Domain.cs` (config DTO, không phải entity).
-- [ ] SC2: `appsettings.json` có section `LoyaltyPoints` (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders).
-- [ ] SC3: `OrderWorkflowService.ProcessLoyaltyPointsAsync` dùng config thay vì hardcoded `0.1m` + `Math.Max(10, ...)`.
-- [ ] SC4: Guard TrackingCode xử lý theo `AwardOnAllOrders` config (true = bỏ guard, false = giữ guard).
-- [ ] SC5: `OrderWorkflowServiceTests` update — test configurable formula (different rates, min, max, guard on/off).
-- [ ] SC6: `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
+- [x] SC1: `LoyaltyPointsConfig` record thêm vào `1_Shared/Domain.cs` (config DTO, không phải entity).
+- [x] SC2: `appsettings.json` có section `LoyaltyPoints` (PointsRate, MinPointsPerOrder, MaxPointsPerOrder, AwardOnAllOrders).
+- [x] SC3: `OrderWorkflowService.ProcessLoyaltyPointsAsync` dùng config thay vì hardcoded `0.1m` + `Math.Max(10, ...)`.
+- [x] SC4: Guard TrackingCode xử lý theo `AwardOnAllOrders` config (true = bỏ guard, false = giữ guard).
+- [x] SC5: `OrderWorkflowServiceTests` update — test configurable formula (different rates, min, max, guard on/off).
+- [x] SC6: `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
 
-**Implementation Date:** _TBD_
-**Branch:** `main` (sau Phase 5.4)
+**Implementation Date:** 2026-07-24
+**Branch:** `main` (commit `aae5fba2`)
 
 ## 6. ACTIVE SKILLS (MAX 3)
 - `domain-integrity-validation` — verify config record không phá entity
