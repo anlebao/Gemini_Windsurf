@@ -30,7 +30,7 @@
 
 ## 2. Current Objective
 
-**KhachLink PWA Phase 5 — Push Notification + Loyalty Auto-Push + Campaign Bulk Push + Click Tracking (SESSION 1 COMPLETE 2026-07-24, SESSION 2 PENDING)**
+**KhachLink PWA Phase 5 — Push Notification + Loyalty Auto-Push + Campaign Bulk Push + Click Tracking (COMPLETE 2026-07-24)**
 
 ### Scope (expanded 2026-07-23 từ user request)
 4 yêu cầu:
@@ -79,11 +79,10 @@ SC1 VAPID verified · SC2 CampaignPushJob + migration · SC3 LoyaltyPointsChange
 - Task card: `docs/AI/tasks/khachlink_pwa_phase5_push_notification_task_card.md` (rewritten 2026-07-23).
 
 ### Next Actions
-1. ✅ **Session 1 (5.1-5.4) COMPLETE 2026-07-24** — backend infra. Build PASS, guard-check PASS. Committed + pushed.
-2. ⏳ IMPLEMENT Session 2 (5.5-5.9) — API + UI + tracking + tests + RV — after CD + RV test.
-3. ⏳ **Loyalty L-A** (guard fix + configurable formula) — after Phase 5.4. Task card: `loyalty_phase_a_guard_fix_configurable_formula_task_card.md`. **Decisions chốt 2026-07-23:** Guard TrackingCode → Configurable per tenant (AwardOnAllOrders default true).
-4. ⏳ **Loyalty L-B** (Redemption system) — after Phase 5. Task card: `loyalty_phase_b_redemption_system_task_card.md`. **Decisions chốt 2026-07-23:** Catalog storage → ShopERP SQLite; Pay-with-points → Optional Phase B-2.
-5. ⏳ **Loyalty L-C** (Task-based awards / gamification) — after Phase 5.6 + L-A. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
+1. ✅ **Phase 5 COMPLETE 2026-07-24** — Session 1 (5.1-5.4) + Session 2 (5.5-5.9). All 17 Success Criteria achieved. Build PASS, guard-check PASS, CD success, VPS RV PASS.
+2. ⏳ **Loyalty L-A** (guard fix + configurable formula) — NEXT. Task card: `loyalty_phase_a_guard_fix_configurable_formula_task_card.md`. **Decisions chốt 2026-07-23:** Guard TrackingCode → Configurable per tenant (AwardOnAllOrders default true).
+3. ⏳ **Loyalty L-B** (Redemption system) — after L-A. Task card: `loyalty_phase_b_redemption_system_task_card.md`. **Decisions chốt 2026-07-23:** Catalog storage → ShopERP SQLite; Pay-with-points → Optional Phase B-2.
+4. ⏳ **Loyalty L-C** (Task-based awards / gamification) — after L-A. Task card: `loyalty_phase_c_task_based_awards_task_card.md`. **Decisions chốt 2026-07-23:** Share verification → Require share URL (format check); Birthday bonus → Auto scheduled job; Mission config → Per tenant.
 
 ### Phase 5 Session 1 Implementation Summary (2026-07-24)
 - **5.1 Domain + EF + Migration:** CampaignPushJob + PushNotificationDelivery entities, Customer.UpdateOrderStats() method, EventTypes.LoyaltyPointsChanged, 2 EF configs, 2 migrations (PG + SQLite), 6 DbSets updated.

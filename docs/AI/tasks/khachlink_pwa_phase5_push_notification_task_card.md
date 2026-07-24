@@ -145,21 +145,29 @@
 | S2 (5.2) | Loyalty outbox event + PushNotificationService.SendLoyaltyPointsChanged | Code + unit test | ✅ COMPLETE 2026-07-24 — LoyaltyRewardsService enqueues outbox + publishes NATS "loyalty.points.changed" on AddPoints/SubtractPoints. PushNotificationService.SendLoyaltyPointsChangedNotificationAsync. PushNotificationBackgroundService subscribes "loyalty.points.changed" + HandleLoyaltyEventAsync |
 | S3 (5.3) | Wire NATS subscriber order.status.changed + LoyaltyPointsChanged | Code + verify | ✅ COMPLETE 2026-07-24 — Already wired from Wave 9 (OrderWorkflowService.PublishOrderStatusChangedEventAsync → NATS → PushNotificationBackgroundService → SendOrderStatusNotificationAsync). No code changes needed. |
 | S4 (5.4) | CustomerSegmentationService + SendBulkNotificationAsync + UpdateOrderStats | Code + unit test | ✅ COMPLETE 2026-07-24 — CustomerSegmentCriteria record + ICustomerRepository.GetBySegmentAsync + CustomerRepository impl (filter tier/identity/spend/lastorder/haspush). CustomerSegmentationService + ICustomerSegmentationService. PushNotificationService.SendBulkNotificationAsync. OrderWorkflowService.UpdateCustomerOrderStatsAsync (ALL orders update Customer stats, not just campaign). |
-| S5 (5.5) | Gateway admin endpoints (send-push + push/send + DELETE subscribe) | Code + integration test | ⏳ PENDING — Session 2 |
-| S6 (5.6) | Profile.razor toggle + pwa.js unsubscribe + PWAService | Code + browser test | ⏳ PENDING — Session 2 |
-| S7 (5.7) | CampaignsAdmin.razor segment builder + history UI | Code | ⏳ PENDING — Session 2 |
-| S8 (5.8) | Full test suite + build + guard-check + RV VPS | Test + RV report | ⏳ PENDING — Session 2 |
-| S9 (5.9) | Click tracking — PushNotificationDelivery entity + SW notificationclick + POST /api/push/track + admin CTR stats | Code + integration test + RV click | ⏳ PENDING — Session 2 |
+| S5 (5.5) | Gateway admin endpoints (send-push + push/send + DELETE subscribe) | Code + integration test | ✅ COMPLETE 2026-07-24 — Gateway NotificationsController + DELETE push/subscribe + POST push/track. ShopERP NotificationsController + DELETE + push/track. PushAdminController (NEW): POST /api/push/send, GET /api/push/jobs, GET /api/push/jobs/{id}. ICustomerSegmentationService registered in Gateway + ShopERP DI. docker-compose.prod.yml + VAPID_PRIVATE_KEY env var. cd.yml + VAPID_PRIVATE_KEY secret. |
+| S6 (5.6) | Profile.razor toggle + pwa.js unsubscribe + PWAService | Code + browser test | ✅ COMPLETE 2026-07-24 — Profile.razor push toggle switch with permission request flow. PWAService.UnsubscribeFromPushAsync (NEW). pwa.js unsubscribeFromPush() (NEW). Subscribe: permission → SW subscribe → POST. Unsubscribe: SW unsubscribe → DELETE. |
+| S7 (5.7) | CampaignsAdmin.razor segment builder + history UI | Code | ✅ COMPLETE 2026-07-24 — PushCampaignsAdmin.razor (NEW page /admin/push-campaigns). Segment builder (tier, identity, spend). Push job history table with Sent/Failed/Clicked/CTR. Direct service injection. |
+| S8 (5.8) | Full test suite + build + guard-check + RV VPS | Test + RV report | ✅ COMPLETE 2026-07-24 — Build 0 errors, guard-check ALL PASSED, Architecture.Tests 37/37 PASS, CD success, VPS all healthy, endpoints verified (push/track 400 on empty Guid, push/jobs 200), VAPID_PRIVATE_KEY set, PushNotificationBackgroundService subscribed. |
+| S9 (5.9) | Click tracking — PushNotificationDelivery entity + SW notificationclick + POST /api/push/track + admin CTR stats | Code + integration test + RV click | ✅ COMPLETE 2026-07-24 — service-worker.js notificationclick: sendBeacon to /api/notifications/push/track + open actionUrl. PushNotificationService: notificationId in payload data + CreateDeliveryRecordAsync per push. PushNotificationDelivery.MarkAsClicked on POST /api/push/track. CTR stats in PushAdminController + PushCampaignsAdmin UI. |
 
-**Grouping:** S1-S4 = Session 1 (backend infra) — ✅ COMPLETE 2026-07-24. S5-S9 = Session 2 (API + UI + tracking + tests + RV) — PENDING.
+**Grouping:** S1-S4 = Session 1 (backend infra) — ✅ COMPLETE 2026-07-24. S5-S9 = Session 2 (API + UI + tracking + tests + RV) — ✅ COMPLETE 2026-07-24.
 
 ### Session 1 Build Verification (2026-07-24)
 - `dotnet build VanAn.sln` — 0 errors, 0 critical warnings ✅
 - `guard-check.ps1` — ALL CHECKS PASSED (untracked, encodings, windsurf guard, architecture guard, Roslyn, fast test gate) ✅
 - 9 Success Criteria达成: SC2, SC3, SC4, SC5, SC6, SC7, SC8, SC13, SC15
 
+### Session 2 Build Verification (2026-07-24)
+- `dotnet build VanAn.sln` — 0 errors ✅
+- `guard-check.ps1` — ALL CHECKS PASSED ✅
+- `Architecture.Tests` — 37/37 PASS ✅
+- CD deploy — success ✅
+- VPS RV — all services healthy, endpoints live, VAPID_PRIVATE_KEY set, PushNotificationBackgroundService subscribed ✅
+- 8 remaining Success Criteria达成: SC1 (VAPID verified on VPS), SC9 (Profile.razor toggle), SC10 (send-push + push/send), SC11 (DELETE subscribe), SC12 (PushCampaignsAdmin UI), SC14 (RV VPS), SC16 (POST /api/push/track + SW beacon), SC17 (CTR stats)
+
 ## 12. ESTIMATED EFFORT
 - **Session 1 (5.1-5.4):** 4 sub-sessions, backend infra. — ✅ COMPLETE 2026-07-24
-- **Session 2 (5.5-5.9):** 5 sub-sessions, API + UI + tracking + tests + RV. — ⏳ PENDING
-- **Total:** 9 sub-sessions across 2 sessions.
+- **Session 2 (5.5-5.9):** 5 sub-sessions, API + UI + tracking + tests + RV. — ✅ COMPLETE 2026-07-24
+- **Total:** 9 sub-sessions across 2 sessions. ALL COMPLETE.
 - **NO BLOCKER:** Domain modifications approved as part of feature plan (THÊM, không sửa entity hiện có). PushSubscription entity đã có — bỏ Hard Stop task card cũ.
