@@ -47,7 +47,10 @@ namespace VanAn.CoreHub.Services
             _cts = new CancellationTokenSource();
 
             // Create a dedicated NATS connection for subscription (separate from publisher)
-            string url = _configuration.GetValue<string>("NATS__Url") ?? "nats://localhost:4222";
+            // Phase 5 fix: read Nats:Url (maps from env var Nats__Url) — previous code read NATS__Url which never matched.
+            string url = _configuration.GetValue<string>("Nats:Url")
+                ?? _configuration.GetValue<string>("NATS__Url")
+                ?? "nats://localhost:4222";
             try
             {
                 var opts = ConnectionFactory.GetDefaultOptions();
