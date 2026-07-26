@@ -138,22 +138,22 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         IHost host = base.CreateHost(builder);
 
-        // Ensure the ShopERP schema is created exactly once on the owned connection.
-        // ShopERPDbContext is the single source of truth for the test database because
-        // IVanAnDbContext is mapped to it; calling EnsureCreated on VanAnDbContext as well
-        // would cause "table already exists" errors since both contexts share the same
-        // physical SQLite database.
+        // Ensure schema is created on the owned connection.
+        // VanAnDbContext is the SUPERSET model (includes accounting entities like JournalEntries,
+        // AccountCharts that ShopERPDbContext excludes). EnsureCreated on VanAnDbContext creates
+        // ALL tables. ShopERPDbContext shares the same connection and its tables are a subset,
+        // so no separate EnsureCreated is needed for it.
         using IServiceScope scope = host.Services.CreateScope();
-        var shopContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
-        if (!IsSchemaCreated(shopContext))
+        var vanAnContext = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+        if (!IsSchemaCreated(vanAnContext))
         {
-            _ = shopContext.Database.EnsureCreated();
+            _ = vanAnContext.Database.EnsureCreated();
         }
 
         return host;
     }
 
-    private static bool IsSchemaCreated(ShopERPDbContext context)
+    private static bool IsSchemaCreated(DbContext context)
     {
         try
         {

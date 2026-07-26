@@ -81,16 +81,19 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
     {
         IHost host = base.CreateHost(builder);
 
+        // Use VanAnDbContext (superset model) for EnsureCreated — includes accounting tables
+        // (JournalEntries, AccountCharts) that ShopERPDbContext excludes.
         using IServiceScope scope = host.Services.CreateScope();
-        var shopContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
-        if (!IsSchemaCreated(shopContext))
+        var vanAnContext = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
+        if (!IsSchemaCreated(vanAnContext))
         {
-            _ = shopContext.Database.EnsureCreated();
+            _ = vanAnContext.Database.EnsureCreated();
         }
 
         // Seed test data needed by AM-S* tests.
         // Program.Main seeding is skipped in Testing environment (Testing env guard),
         // so the factory must seed PlatformUser + test tenant itself.
+        var shopContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
         SeedTestData(shopContext);
 
         return host;
@@ -128,7 +131,7 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
         }
     }
 
-    private static bool IsSchemaCreated(ShopERPDbContext context)
+    private static bool IsSchemaCreated(DbContext context)
     {
         try
         {
