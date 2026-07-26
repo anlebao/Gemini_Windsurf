@@ -51,8 +51,10 @@ namespace VanAn.CoreHub.Services
 
             try
             {
-                // Lock last transaction row for this owner (PG SELECT FOR UPDATE)
-                // SQLite fallback: transaction isolation handles correctness for PoC scale
+                // Lock last transaction row for this owner (PG SELECT FOR UPDATE).
+                // Community entities are PG-only (v1.3) — this query always runs against PostgreSQL.
+                // If ever ported to SQLite, replace FOR UPDATE with a transaction-isolation-only approach
+                // (SQLite does not support FOR UPDATE clause — would throw syntax error).
                 var lastTx = await _dbContext.WalletTransactions
                     .FromSqlRaw(
                         "SELECT * FROM \"WalletTransactions\" WHERE \"OwnerId\" = {0} ORDER BY \"CreatedAt\" DESC LIMIT 1 FOR UPDATE",

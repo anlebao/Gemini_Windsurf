@@ -233,6 +233,8 @@ namespace VanAn.Gateway
             // Community Commerce Sprint 0 v1.2/v1.4: RiskScoringService + WalletService base (PG-only)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRiskScoringService, VanAn.CoreHub.Services.RiskScoringService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IWalletService, VanAn.CoreHub.Services.WalletService>();
+            // F3 fix 2026-07-26: DeviceRegistrationService — max 3 active devices per Customer enforcement
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeviceRegistrationService, VanAn.CoreHub.Services.DeviceRegistrationService>();
 
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();

@@ -186,6 +186,23 @@ namespace VanAn.ShopERP.Infrastructure
             // Phase 6: FeaturedProductId is a value object — never mapped as a separate entity
             _ = modelBuilder.Ignore<FeaturedProductId>();
 
+            // Community Commerce Sprint 0 (F8 fix 2026-07-26): 11 community entities are PG-only (v1.3).
+            // DbSet declarations remain for IVanAnDbContext interface contract, but entities are Ignored
+            // in the SQLite model so EF Core does not map them to non-existent SQLite tables.
+            // Any query against these DbSets from ShopERP will fail-fast with "entity not in model"
+            // rather than runtime SQL error against a missing table.
+            _ = modelBuilder.Ignore<CommunityRole>();
+            _ = modelBuilder.Ignore<DeliveryTask>();
+            _ = modelBuilder.Ignore<DeliveryTracking>();
+            _ = modelBuilder.Ignore<Conversation>();
+            _ = modelBuilder.Ignore<Message>();
+            _ = modelBuilder.Ignore<SalesReferral>();
+            _ = modelBuilder.Ignore<WalletTransaction>();
+            _ = modelBuilder.Ignore<ProductReferralConfig>();
+            _ = modelBuilder.Ignore<AppInstallAttribution>();
+            _ = modelBuilder.Ignore<DeviceRegistration>();
+            _ = modelBuilder.Ignore<FraudFlag>();
+
             // Apply configurations from CoreHub assembly via assembly scanning
             // This avoids direct reference to CoreHub.Infrastructure.Configurations
             System.Reflection.Assembly coreHubAssembly = typeof(CoreOutboxMessage).Assembly;
