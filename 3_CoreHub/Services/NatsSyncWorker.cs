@@ -64,7 +64,20 @@ public sealed class NatsSyncWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "NatsSyncWorker: unhandled error during poll cycle");
+                // Race condition during startup: OutboxMessages table may not exist yet
+                // if EF Core migration/EnsureCreated hasn't completed. This is expected
+                // in test environments (WebApplicationFactory creates schema after host
+                // starts). Log as warning (not error) — next poll cycle will succeed
+                // once the schema is ready.
+                if (ex.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "NatsSyncWorker: OutboxMessages table not ready yet, will retry on next poll cycle");
+                }
+                else
+                {
+                    _logger.LogError(ex, "NatsSyncWorker: unhandled error during poll cycle");
+                }
             }
 
             await Task.Delay(_pollInterval, stoppingToken);
