@@ -1,7 +1,10 @@
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +77,22 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
                 options.RefreshInterval = TimeSpan.FromDays(365);
                 options.AutomaticRefreshInterval = TimeSpan.FromDays(365);
             });
+
+            // Override Cookie SecurePolicy for testing.
+            // Program.cs sets CookieSecurePolicy.Always in non-Development mode (Testing is not Development).
+            // Always = cookies only sent over HTTPS. Test server uses HTTP → cookie dropped → auth fails.
+            // Fix: set SameAsRequest so cookies are sent over HTTP in tests.
+            services.PostConfigure<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+            {
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            });
+
+            // Mock the GatewayClient HttpClient for impersonation tests.
+            // AdminController.Impersonate validates tenants via Gateway HTTP (Option C — PG source of truth).
+            // In tests, Gateway isn't running. This mock intercepts GET api/v1/tenants/{id} and returns
+            // a fake tenant DTO for the test tenant ID, 404 for unknown IDs.
+            services.AddHttpClient("GatewayClient")
+                .ConfigurePrimaryHttpMessageHandler(() => new MockGatewayHandler());
         });
     }
 
@@ -188,5 +207,39 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
         }
 
         base.Dispose(disposing);
+    }
+}
+
+/// <summary>
+/// Mock HttpMessageHandler for GatewayClient — intercepts tenant validation calls
+/// from AdminController.Impersonate. Returns a fake active tenant for the test tenant ID,
+/// 404 for unknown IDs. This avoids needing a real Gateway server in integration tests.
+/// </summary>
+file sealed class MockGatewayHandler : HttpMessageHandler
+{
+    private static readonly Guid TestTenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var path = request.RequestUri?.AbsolutePath ?? "";
+        // Match: api/v1/tenants/{guid}
+        if (path.StartsWith("/api/v1/tenants/", StringComparison.OrdinalIgnoreCase) && request.Method == HttpMethod.Get)
+        {
+            var idPart = path["/api/v1/tenants/".Length..];
+            if (Guid.TryParse(idPart, out Guid tenantId))
+            {
+                if (tenantId == TestTenantId)
+                {
+                    // TenantStatus.Active = 1 (int enum — System.Text.Json expects numeric value, not string)
+                    var json = """{"id":"00000000-0000-0000-0000-000000000001","name":"Test Tenant","status":1}""";
+                    return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+                    });
+                }
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+            }
+        }
+        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
     }
 }
