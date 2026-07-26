@@ -1,0 +1,47 @@
+feat(community): Sprint 0 Foundation — 11 entities + 42 tests + EF configs + services
+
+Community Commerce Sprint 0 v1.2/v1.4 implementation:
+
+Domain (1_Shared/Domain.cs):
+- 11 entities: CommunityRole, DeliveryTask, DeliveryTracking, Conversation,
+  Message, SalesReferral (+RiskScore), WalletTransaction (+Reversal),
+  ProductReferralConfig, AppInstallAttribution (+RiskScore),
+  DeviceRegistration, FraudFlag
+- 9 enums: CommunityRoleType, DeliveryTaskStatus, WalletTransactionType,
+  CommissionStatus (+Rejected/Held), BonusStatus, AttributionStatus
+  (+Rejected/Held), FraudEntityType, FraudFlagType, FraudFlagStatus
+- IdentityLevel +DeviceVerified=4
+- Order +8 nullable fields (ShipperId, SalesmanId, ReferralCode,
+  ReferralProductId, DeliveryLat, DeliveryLng, CodAmount, CodCollectedAt)
+- Single-Identity Pattern: all entities use BaseEntity.Id directly
+
+EF Configurations (3_CoreHub/Infrastructure/Configurations/):
+- 11 new config files + OrderConfiguration modified (+8 fields +3 indexes)
+- 11 DbSets added to IVanAnDbContext + VanAnDbContext + ShopERPDbContext
+- Migration: 20260726105331_CommunitySprint0 (PG) — 11 tables + 8 Order cols
+
+Services (3_CoreHub/Services/):
+- IRiskScoringService + RiskScoringService — deterministic 8-factor scoring
+  (SameFingerprint=50, CustomerAgeDays<7=30, AppInstallTime<30s=40,
+  BlacklistedFingerprint=60, cap 100)
+- IWalletService + WalletService — v1.4 base atomic CreateTransactionAsync
+  (HR-SCALE-3 SELECT FOR UPDATE on PG)
+- DI registered in 2_Gateway/Program.cs
+
+FingerprintJS (5_WebApps/KhachLink/wwwroot/):
+- js/fingerprint.js — JS interop wrapper
+- lib/fingerprintjs/fingerprint.js — vendored stub (replace before production)
+
+Tests (42 cases — ALL PASS):
+- 40 community tests in 6_Tests/VanAn.Core.Tests/Community/
+- 2 architecture tests in VanAn.Architecture.Tests/WalletTransactionImmutabilityTests
+
+Verification:
+- dotnet build VanAn.sln — 0 errors
+- dotnet test --filter Community — 40/40 PASS
+- dotnet test --filter WalletTransactionImmutability — 2/2 PASS
+- EF migration applied to local PG (VanAnLocal) — 11 tables + 8 Order cols verified
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
