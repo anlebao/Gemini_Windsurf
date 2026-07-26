@@ -61,18 +61,23 @@ public class GuestCheckoutEndpointTests : IClassFixture<GatewayWebApplicationFac
             CustomerAddress = "123 Le Loi, Q1, HCM",
             Items = new[]
             {
-                new { ProductId = productId, Quantity = 2, UnitPrice = 50000m, Notes = "" }
+                new { ProductId = productId, Quantity = 2, UnitPrice = 50000m, Notes = "",
+                       TenantId = CheckoutTenantId, ProductName = "Test Product", VatRate = 0.08m }
             }
         };
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/public/orders/checkout", request);
 
-        // Assert — endpoint returns 200 with OrderId
+        // Assert — endpoint returns 200 with CheckoutResponse (Phase 3 multi-tenant format)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
         Assert.NotNull(result);
-        Assert.NotEqual(Guid.Empty, result!.OrderId);
+        Assert.Equal(1, result!.SuccessCount);
+        Assert.Equal(0, result.FailureCount);
+        Assert.Single(result.Orders);
+        var orderId = result.Orders[0].OrderId;
+        Assert.NotEqual(Guid.Empty, orderId);
 
         // Verify CustomerInfo persisted to DB (OwnsOne columns).
         // Use IgnoreQueryFilters because the order's TenantId (00000000-...001) differs
@@ -82,7 +87,7 @@ public class GuestCheckoutEndpointTests : IClassFixture<GatewayWebApplicationFac
         var order = await db.Orders
             .Include(o => o.CustomerInfo)
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(o => o.Id == result.OrderId);
+            .FirstOrDefaultAsync(o => o.Id == orderId);
 
         Assert.NotNull(order);
         Assert.NotNull(order!.CustomerInfo);
@@ -103,7 +108,8 @@ public class GuestCheckoutEndpointTests : IClassFixture<GatewayWebApplicationFac
             OrderType = "TAKEAWAY",
             Items = new[]
             {
-                new { ProductId = productId, Quantity = 1, UnitPrice = 25000m, Notes = "" }
+                new { ProductId = productId, Quantity = 1, UnitPrice = 25000m, Notes = "",
+                       TenantId = CheckoutTenantId, ProductName = "Test Product", VatRate = 0.08m }
             }
         };
 
@@ -114,7 +120,10 @@ public class GuestCheckoutEndpointTests : IClassFixture<GatewayWebApplicationFac
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<CheckoutResponse>();
         Assert.NotNull(result);
-        Assert.NotEqual(Guid.Empty, result!.OrderId);
+        Assert.Equal(1, result!.SuccessCount);
+        Assert.Single(result.Orders);
+        var orderId = result.Orders[0].OrderId;
+        Assert.NotEqual(Guid.Empty, orderId);
 
         // CustomerInfo should be null (no customer info provided)
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -122,7 +131,7 @@ public class GuestCheckoutEndpointTests : IClassFixture<GatewayWebApplicationFac
         var order = await db.Orders
             .Include(o => o.CustomerInfo)
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(o => o.Id == result.OrderId);
+            .FirstOrDefaultAsync(o => o.Id == orderId);
 
         Assert.NotNull(order);
         // CustomerInfo is null when no customer info was provided (backward compat)
@@ -145,9 +154,23 @@ public class GuestCheckoutEndpointTests : IClassFixture<GatewayWebApplicationFac
 
     private sealed class CheckoutResponse
     {
+        public List<CreatedOrderDto> Orders { get; set; } = new();
+        public int SuccessCount { get; set; }
+        public int FailureCount { get; set; }
+        public List<CheckoutErrorDto> Errors { get; set; } = new();
+    }
+
+    private sealed class CreatedOrderDto
+    {
         public Guid OrderId { get; set; }
-        public string? QrImageUrl { get; set; }
-        public string? PaymentUrl { get; set; }
+        public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = string.Empty;
         public decimal Amount { get; set; }
+    }
+
+    private sealed class CheckoutErrorDto
+    {
+        public Guid TenantId { get; set; }
+        public string Error { get; set; } = string.Empty;
     }
 }
