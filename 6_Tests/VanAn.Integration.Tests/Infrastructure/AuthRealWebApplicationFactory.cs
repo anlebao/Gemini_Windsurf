@@ -66,18 +66,16 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        // Ensure schema BEFORE host starts (race condition fix — same as CustomWebApplicationFactory).
-        // NatsSyncWorker starts polling OutboxMessages immediately on host startup.
-        var options = new DbContextOptionsBuilder<ShopERPDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-        using var tempContext = new ShopERPDbContext(options);
-        if (!IsSchemaCreated(tempContext))
+        IHost host = base.CreateHost(builder);
+
+        using IServiceScope scope = host.Services.CreateScope();
+        var shopContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+        if (!IsSchemaCreated(shopContext))
         {
-            _ = tempContext.Database.EnsureCreated();
+            _ = shopContext.Database.EnsureCreated();
         }
 
-        return base.CreateHost(builder);
+        return host;
     }
 
     private static bool IsSchemaCreated(ShopERPDbContext context)

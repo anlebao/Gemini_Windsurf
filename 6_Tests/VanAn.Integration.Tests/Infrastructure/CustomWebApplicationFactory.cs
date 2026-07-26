@@ -119,27 +119,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        // Ensure the ShopERP schema is created BEFORE the host starts.
-        // Race condition fix: NatsSyncWorker (IHostedService) starts polling OutboxMessages
-        // immediately when the host starts. If EnsureCreated() runs after base.CreateHost(),
-        // the worker queries a non-existent table → "no such table: OutboxMessages".
-        // Creating the schema directly on the shared connection before host startup ensures
-        // all tables exist before any IHostedService.StartAsync runs.
-        //
+        IHost host = base.CreateHost(builder);
+
+        // Ensure the ShopERP schema is created exactly once on the owned connection.
         // ShopERPDbContext is the single source of truth for the test database because
         // IVanAnDbContext is mapped to it; calling EnsureCreated on VanAnDbContext as well
         // would cause "table already exists" errors since both contexts share the same
         // physical SQLite database.
-        var options = new DbContextOptionsBuilder<ShopERPDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-        using var tempContext = new ShopERPDbContext(options);
-        if (!IsSchemaCreated(tempContext))
+        using IServiceScope scope = host.Services.CreateScope();
+        var shopContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
+        if (!IsSchemaCreated(shopContext))
         {
-            _ = tempContext.Database.EnsureCreated();
+            _ = shopContext.Database.EnsureCreated();
         }
 
-        return base.CreateHost(builder);
+        return host;
     }
 
     private static bool IsSchemaCreated(ShopERPDbContext context)
