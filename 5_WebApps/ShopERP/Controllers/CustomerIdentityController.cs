@@ -132,7 +132,8 @@ namespace VanAn.ShopERP.Controllers
                 CustomerToken = token,
                 Tier = tier,
                 PointBalance = rewards?.PointBalance ?? 0,
-                IdentityLevel = customer.IdentityLevel.ToString()
+                IdentityLevel = customer.IdentityLevel.ToString(),
+                Birthday = customer.Birthday
             });
         }
 
@@ -264,6 +265,8 @@ namespace VanAn.ShopERP.Controllers
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
         public string IdentityLevel { get; set; } = "Social";
+        /// <summary>Loyalty-C WS-B: Customer birthday (date-only, null if not set).</summary>
+        public DateTime? Birthday { get; set; }
     }
 
     // Tiered Auth Phase 2: Upgrade OTP flow DTOs (authenticated — for Social → Verified upgrade)

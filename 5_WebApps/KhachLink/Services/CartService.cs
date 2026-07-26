@@ -30,6 +30,8 @@ namespace VanAn.KhachLink.Services
                     {
                         _cartState.Items.Clear();
                         _cartState.Items.AddRange(cart.Items);
+                        // Issue 4: Restore order note from localStorage
+                        _cartState.OrderNote = cart.OrderNote ?? string.Empty;
                     }
                 }
             }
@@ -99,6 +101,15 @@ namespace VanAn.KhachLink.Services
         public async Task ClearCartAsync()
         {
             _cartState.Clear();
+            _cartState.OrderNote = string.Empty;
+            await SaveCartToStorageAsync();
+            NotifyCartChanged();
+        }
+
+        /// <summary>Issue 4: Update order note (entered on cart page, sent at checkout).</summary>
+        public async Task UpdateOrderNoteAsync(string note)
+        {
+            _cartState.OrderNote = note ?? string.Empty;
             await SaveCartToStorageAsync();
             NotifyCartChanged();
         }

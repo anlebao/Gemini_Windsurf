@@ -353,13 +353,13 @@
     {
         try
         {
-            // Step 1: ready → delivering
+            // Step 1: ready → delivered (customer confirms receipt — matches OrderWorkflowService valid transitions)
             _ = await OrderWorkflowService.TransitionStatusAsync(
                 orderId,
-                new OrderStatusId("delivering"),
+                new OrderStatusId("delivered"),
                 reason: "Kitchen: trả đơn cho khách");
 
-            // Step 2: delivering → completed (triggers accounting + outbox)
+            // Step 2: delivered → completed (triggers accounting + outbox)
             _ = await OrderWorkflowService.TransitionStatusAsync(
                 orderId,
                 new OrderStatusId("completed"),

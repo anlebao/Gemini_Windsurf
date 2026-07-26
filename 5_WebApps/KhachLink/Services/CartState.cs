@@ -7,6 +7,8 @@ namespace VanAn.KhachLink.Services
     public class CartState
     {
         public List<CartItem> Items { get; set; } = [];
+        /// <summary>Issue 4: Customer note for the order (entered on cart page, sent at checkout).</summary>
+        public string OrderNote { get; set; } = string.Empty;
         public decimal SubTotal => Items.Sum(item => item.TotalPrice);
         public decimal NetSubTotal => Items.Sum(item => item.NetAmount);
         public decimal TotalVatAmount => Items.Sum(item => item.VatAmount);

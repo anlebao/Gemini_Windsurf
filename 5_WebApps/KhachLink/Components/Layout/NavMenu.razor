@@ -44,11 +44,7 @@
                     <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
                 </NavLink>
             </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/voice-note">
-                    <span class="bi bi-mic me-2" aria-hidden="true"></span> Ghi âm
-                </NavLink>
-            </div>
+            @* Issue 4: Voice note page removed from nav — order notes now entered on cart page *@
             <div class="nav-item">
                 <NavLink class="nav-link" href="@(_isLoggedIn ? "/profile" : "/login")">
                     <span class="bi bi-person me-2" aria-hidden="true"></span> Tài khoản
@@ -97,10 +93,7 @@
         <i class="bi bi-qr-code-scan"></i>
         <span>Quét QR</span>
     </a>
-    <a class="mobile-tab-item @IsActive("/voice-note")" href="/voice-note">
-        <i class="bi bi-mic"></i>
-        <span>Ghi âm</span>
-    </a>
+    @* Issue 4: Voice note tab removed — order notes now entered on cart page *@
     <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
         <i class="bi bi-person"></i>
         <span>Tài khoản</span>

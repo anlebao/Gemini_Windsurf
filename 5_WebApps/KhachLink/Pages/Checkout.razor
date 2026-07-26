@@ -418,7 +418,8 @@
                     UnitPrice = i.UnitPrice,
                     Notes = "",
                 }).ToList(),
-                CustomerNotes = "Đặt hàng từ web KhachLink",
+                // Issue 4: Pass customer note from cart page (replaces hardcoded "Đặt hàng từ web KhachLink")
+                CustomerNotes = string.IsNullOrWhiteSpace(cartState.OrderNote) ? "Đặt hàng từ web KhachLink" : cartState.OrderNote.Trim(),
                 CustomerName = guestName,
                 CustomerPhone = guestPhone,
                 CustomerAddress = guestAddress,

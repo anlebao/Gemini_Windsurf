@@ -84,6 +84,15 @@
                                 <h5>Tổng cộng:</h5>
                                 <h5 class="text-danger">@cartState.TotalAmount.ToString("N0") VNĐ</h5>
                             </div>
+
+                            <!-- Issue 4: Order note input — saved to Order.CustomerNotes at checkout -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">📝 Ghi chú đơn hàng</label>
+                                <textarea class="form-control" rows="2" placeholder="VD: ít đá, giao trước 12h, không hành..."
+                                          @bind="cartState.OrderNote" @bind:event="oninput"
+                                          @onchange="SaveOrderNote" data-testid="cart-input-order-note"></textarea>
+                            </div>
+
                             <VanAnButton Variant="ButtonVariant.Success" FullWidth="true" Icon="qr-code" OnClick="ProceedToCheckout" data-testid="cart-btn-checkout">
                                 Thanh toán
                             </VanAnButton>
@@ -138,6 +147,12 @@
     private async Task ClearCart()
     {
         await CartService.ClearCartAsync();
+    }
+
+    /// <summary>Issue 4: Save order note to localStorage when user types.</summary>
+    private async Task SaveOrderNote()
+    {
+        await CartService.UpdateOrderNoteAsync(cartState.OrderNote);
     }
 
     private void ProceedToCheckout()

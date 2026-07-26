@@ -248,6 +248,9 @@
                         _tier = profile.Tier;
                         _pointBalance = profile.PointBalance;
                         _identityLevel = profile.IdentityLevel ?? "Social";
+                        // Issue 3: Load birthday from server so it persists across page reloads
+                        _birthday = profile.Birthday;
+                        _birthdaySaved = profile.Birthday.HasValue;
                     }
                 }
                 else
@@ -456,6 +459,7 @@
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
         public string? IdentityLevel { get; set; }
+        public DateTime? Birthday { get; set; }
     }
 
     private class BirthdayResponse

@@ -63,6 +63,7 @@
                 <option value="confirmed">Đã xác nhận</option>
                 <option value="preparing">Đang làm</option>
                 <option value="ready">Sẵn sàng</option>
+                <option value="delivered">Đã giao</option>
                 <option value="completed">Hoàn thành</option>
                 <option value="cancelled">Đã hủy</option>
                 <option value="ALL">Tất cả</option>
@@ -127,17 +128,55 @@
                             @o.TotalAmount.ToString("N0") đ
                         </Template>
                     </VanAnColumn>
-                    <VanAnColumn TItem="OrderListItem" Title="Hành động" Width="2">
+                    <VanAnColumn TItem="OrderListItem" Title="Hành động" Width="3">
                         <Template Context="o">
-                            @if (o.Status == "pending")
-                            {
-                                <VanAButton Variant="primary" Size="small" OnClick="() => ConfirmOrder(o.Id)" data-testid="btn-confirm-order">
-                                    ✓ Xác nhận
+                            <div class="d-flex gap-1 flex-wrap">
+                                @if (o.Status == "pending")
+                                {
+                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "confirmed"))" data-testid="btn-confirm-order">
+                                        ✓ Xác nhận
+                                    </VanAButton>
+                                }
+                                else if (o.Status == "confirmed")
+                                {
+                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "preparing"))" data-testid="btn-preparing-order">
+                                        ⏳ Làm
+                                    </VanAButton>
+                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
+                                        ✔️ Hoàn tất
+                                    </VanAButton>
+                                }
+                                else if (o.Status == "preparing")
+                                {
+                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "ready"))" data-testid="btn-ready-order">
+                                        ✅ Sẵn sàng
+                                    </VanAButton>
+                                }
+                                else if (o.Status == "ready")
+                                {
+                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => TransitionOrder(o.Id, "delivered"))" data-testid="btn-deliver-order">
+                                        📦 Giao
+                                    </VanAButton>
+                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
+                                        ✔️ Hoàn tất
+                                    </VanAButton>
+                                }
+                                else if (o.Status == "delivered")
+                                {
+                                    <VanAButton Variant="success" Size="small" OnClick="@(() => TransitionOrder(o.Id, "completed"))" data-testid="btn-complete-order">
+                                        ✔️ Hoàn tất
+                                    </VanAButton>
+                                }
+                                @if (o.Status is "pending" or "confirmed" or "preparing" or "ready")
+                                {
+                                    <VanAButton Variant="error" Size="small" OnClick="@(() => TransitionOrder(o.Id, "cancelled"))" data-testid="btn-cancel-order">
+                                        ✕ Hủy
+                                    </VanAButton>
+                                }
+                                <VanAButton Variant="secondary" Size="small" OnClick="@(() => GoToDetail(o.Id))">
+                                    Chi tiết
                                 </VanAButton>
-                            }
-                            <VanAButton Variant="secondary" Size="small" OnClick="() => GoToDetail(o.Id)">
-                                Chi tiết
-                            </VanAButton>
+                            </div>
                         </Template>
                     </VanAnColumn>
                 </Columns>
@@ -375,15 +414,21 @@
 
     private async Task ConfirmOrder(Guid orderId)
     {
+        await TransitionOrder(orderId, "confirmed");
+    }
+
+    /// <summary>
+    /// Issue 2: Inline status transition from list page — no need to open detail.
+    /// Uses OrderWorkflowService for unified state-machine validation + Outbox event sync.
+    /// </summary>
+    private async Task TransitionOrder(Guid orderId, string newStatus)
+    {
         try
         {
-            // Section 5 fix (2026-07-23): Use OrderWorkflowService.TransitionStatusAsync for unified
-            // state-machine validation + Outbox event sync. Previously called deprecated
-            // OrderService.UpdateOrderStatusAsync which bypassed validation + had stale 4-state machine.
             Order? result = await OrderWorkflowService.TransitionStatusAsync(
                 orderId,
-                new OrderStatusId("confirmed"),
-                reason: "Owner confirmed order");
+                new OrderStatusId(newStatus),
+                reason: $"List page transition to {newStatus}");
 
             if (result != null)
             {
@@ -391,12 +436,12 @@
             }
             else
             {
-                errorMessage = "Không thể xác nhận đơn hàng — có thể đơn không tồn tại hoặc đã đổi trạng thái.";
+                errorMessage = $"Không thể chuyển trạng thái sang '{TranslateStatus(newStatus)}' — chuyển đổi không hợp lệ hoặc đơn hàng không tồn tại.";
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error confirming order {OrderId}", orderId);
+            Logger.LogError(ex, "Error transitioning order {OrderId} to {Status}", orderId, newStatus);
             errorMessage = $"Lỗi: {ex.Message}";
         }
     }
@@ -444,6 +489,7 @@
         "confirmed" => "Đã xác nhận",
         "preparing" => "Đang làm",
         "ready" => "Sẵn sàng",
+        "delivered" => "Đã giao",
         "completed" => "Hoàn thành",
         "cancelled" => "Đã hủy",
         _ => status

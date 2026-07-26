@@ -34,172 +34,153 @@
     Checkout="async () => await GoToCheckout()" />
 
 <KhachLinkLayout>
-    <!-- Campaign Section (replaces Hero) — filtered by last interaction tenantId -->
-    <VanAnCard CssClass="campaign-section mb-4">
-        <div class="container">
-            <h2 class="mb-3">
-                <i class="bi bi-megaphone-fill text-primary"></i> Khuyến Mãi Cửa Hàng
-            </h2>
+    <!-- Issue 5a: Hide Campaign + Store sections for new customers (no _lastTenantId yet).
+         New users see only the catalog/featured products + scan CTA. Once they scan QR or
+         order from a tenant, _lastTenantId is set and these sections appear. -->
+    @if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
+    {
+        <!-- Campaign Section (replaces Hero) — filtered by last interaction tenantId -->
+        <VanAnCard CssClass="campaign-section mb-4">
+            <div class="container">
+                <h2 class="mb-3">
+                    <i class="bi bi-megaphone-fill text-primary"></i> Khuyến Mãi Cửa Hàng
+                </h2>
 
-            @if (_campaignLoading)
-            {
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Đang tải...</span>
+                @if (_campaignLoading)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Đang tải khuyến mãi...</p>
                     </div>
-                    <p class="mt-2 text-muted">Đang tải khuyến mãi...</p>
-                </div>
-            }
-            else if (_campaigns.Count > 0)
-            {
-                <div class="row g-3">
-                    @foreach (var campaign in _campaigns.Take(4))
-                    {
-                        <div class="col-12 col-md-6">
-                            <VanAnCard Shadow="true" CssClass="h-100 campaign-card">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="campaign-media">
-                                        @if (!string.IsNullOrEmpty(campaign.ImageUrl))
-                                        {
-                                            <img src="@campaign.ImageUrl" alt="@campaign.CampaignName" class="campaign-img" />
-                                        }
-                                        else if (!string.IsNullOrEmpty(campaign.VideoUrl))
-                                        {
-                                            <div class="campaign-video-thumb" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
-                                                <i class="bi bi-play-circle-fill text-primary" style="font-size:2rem;"></i>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="campaign-icon">
-                                                <i class="bi bi-tag-fill text-danger" style="font-size:2rem;"></i>
-                                            </div>
-                                        }
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <h5 class="mb-1">@campaign.CampaignName</h5>
-                                        @if (!string.IsNullOrEmpty(campaign.UtmSource))
-                                        {
-                                            <p class="text-muted small mb-2">
-                                                <i class="bi bi-share"></i> @campaign.UtmSource
-                                            </p>
-                                        }
-                                        <div class="d-flex gap-3 small text-muted mb-3">
-                                            <span>
-                                                <i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click
-                                            </span>
-                                            <span>
-                                                <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn
-                                            </span>
-                                        </div>
-                                        <div class="d-flex gap-2 flex-wrap">
-                                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => OpenCampaign(campaign.TrackingCode))">
-                                                <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
-                                            </VanAnButton>
-                                            @if (!string.IsNullOrEmpty(campaign.VideoUrl))
+                }
+                else if (_campaigns.Count > 0)
+                {
+                    <div class="row g-3">
+                        @foreach (var campaign in _campaigns.Take(4))
+                        {
+                            <div class="col-12 col-md-6">
+                                <VanAnCard Shadow="true" CssClass="h-100 campaign-card">
+                                    <div class="d-flex align-items-start gap-3">
+                                        <div class="campaign-media">
+                                            @if (!string.IsNullOrEmpty(campaign.ImageUrl))
                                             {
-                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => OpenVideo(campaign.VideoUrl))">
-                                                    <i class="bi bi-play-circle me-1"></i> Xem video
-                                                </VanAnButton>
+                                                <img src="@campaign.ImageUrl" alt="@campaign.CampaignName" class="campaign-img" />
+                                            }
+                                            else if (!string.IsNullOrEmpty(campaign.VideoUrl))
+                                            {
+                                                <div class="campaign-video-thumb" onclick="@(() => OpenCampaign(campaign.TrackingCode))">
+                                                    <i class="bi bi-play-circle-fill text-primary" style="font-size:2rem;"></i>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="campaign-icon">
+                                                    <i class="bi bi-tag-fill text-danger" style="font-size:2rem;"></i>
+                                                </div>
                                             }
                                         </div>
+                                        <div class="flex-grow-1">
+                                            <h5 class="mb-1">@campaign.CampaignName</h5>
+                                            @if (!string.IsNullOrEmpty(campaign.UtmSource))
+                                            {
+                                                <p class="text-muted small mb-2">
+                                                    <i class="bi bi-share"></i> @campaign.UtmSource
+                                                </p>
+                                            }
+                                            <div class="d-flex gap-3 small text-muted mb-3">
+                                                <span>
+                                                    <i class="bi bi-mouse"></i> @campaign.TotalClicks lượt click
+                                                </span>
+                                                <span>
+                                                    <i class="bi bi-bag-check"></i> @campaign.ConvertedOrders đơn
+                                                </span>
+                                            </div>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Primary" OnClick="@(() => OpenCampaign(campaign.TrackingCode))">
+                                                    <i class="bi bi-box-arrow-up-right me-1"></i> Xem khuyến mãi
+                                                </VanAnButton>
+                                                @if (!string.IsNullOrEmpty(campaign.VideoUrl))
+                                                {
+                                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="@(() => OpenVideo(campaign.VideoUrl))">
+                                                        <i class="bi bi-play-circle me-1"></i> Xem video
+                                                    </VanAnButton>
+                                                }
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </VanAnCard>
-                        </div>
-                    }
-                </div>
-            }
-            else if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
-            {
-                <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào. Vui lòng quay lại sau!" />
-            }
-            else
-            {
-                <div class="text-center py-4">
-                    <i class="bi bi-megaphone text-muted mb-3 d-block" style="font-size:3rem;"></i>
-                    <p class="text-muted mb-3">Hãy quét QR hoặc mua sản phẩm để xem khuyến mãi của cửa hàng.</p>
-                    <VanAnButton Variant="ButtonVariant.Primary" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                        Quét QR Ngay
-                    </VanAnButton>
-                </div>
-            }
-        </div>
-    </VanAnCard>
+                                </VanAnCard>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Cửa hàng hiện chưa có chương trình khuyến mãi nào. Vui lòng quay lại sau!" />
+                }
+            </div>
+        </VanAnCard>
 
-    <!-- StoreFinder Section (replaces Stats) — show store info for last interaction tenantId -->
-    <VanAnCard CssClass="store-section mb-4">
-        <div class="container">
-            <h2 class="mb-3">
-                <i class="bi bi-geo-alt-fill text-primary"></i> Cửa Hàng Của Bạn
-            </h2>
+        <!-- StoreFinder Section (replaces Stats) — show store info for last interaction tenantId -->
+        <VanAnCard CssClass="store-section mb-4">
+            <div class="container">
+                <h2 class="mb-3">
+                    <i class="bi bi-geo-alt-fill text-primary"></i> Cửa Hàng Của Bạn
+                </h2>
 
-            @if (_storeLoading)
-            {
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Đang tải...</span>
-                    </div>
-                    <p class="mt-2 text-muted">Đang tải thông tin cửa hàng...</p>
-                </div>
-            }
-            else if (_store != null)
-            {
-                <VanAnCard Shadow="true">
-                    <div class="d-flex align-items-start gap-3">
-                        <div class="store-icon">
-                            <i class="bi bi-shop text-primary" style="font-size:2rem;"></i>
+                @if (_storeLoading)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Đang tải...</span>
                         </div>
-                        <div class="flex-grow-1">
-                            <h5 class="mb-1">@_store.Name</h5>
-                            @if (!string.IsNullOrEmpty(_store.Address))
-                            {
-                                <p class="text-muted small mb-1">
-                                    <i class="bi bi-geo-alt"></i> @_store.Address
-                                </p>
-                            }
-                            @if (!string.IsNullOrEmpty(_store.Phone))
-                            {
-                                <p class="mb-1">
-                                    <a href="tel:@_store.Phone" class="text-decoration-none">
-                                        <i class="bi bi-telephone"></i> @_store.Phone
-                                    </a>
-                                </p>
-                            }
-                            @if (_store.Latitude.HasValue && _store.Longitude.HasValue)
-                            {
-                                <div class="mt-2">
-                                    <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude"
-                                       target="_blank" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-map"></i> Chỉ đường
-                                    </a>
-                                </div>
-                            }
+                        <p class="mt-2 text-muted">Đang tải thông tin cửa hàng...</p>
+                    </div>
+                }
+                else if (_store != null)
+                {
+                    <VanAnCard Shadow="true">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="store-icon">
+                                <i class="bi bi-shop text-primary" style="font-size:2rem;"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">@_store.Name</h5>
+                                @if (!string.IsNullOrEmpty(_store.Address))
+                                {
+                                    <p class="text-muted small mb-1">
+                                        <i class="bi bi-geo-alt"></i> @_store.Address
+                                    </p>
+                                }
+                                @if (!string.IsNullOrEmpty(_store.Phone))
+                                {
+                                    <p class="mb-1">
+                                        <a href="tel:@_store.Phone" class="text-decoration-none">
+                                            <i class="bi bi-telephone"></i> @_store.Phone
+                                        </a>
+                                    </p>
+                                }
+                                @if (_store.Latitude.HasValue && _store.Longitude.HasValue)
+                                {
+                                    <div class="mt-2">
+                                        <a href="https://maps.google.com/?q=@_store.Latitude,@_store.Longitude"
+                                           target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-map"></i> Chỉ đường
+                                        </a>
+                                    </div>
+                                }
+                            </div>
                         </div>
-                    </div>
-                </VanAnCard>
-            }
-            else if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
-            {
-                <VanAnAlert Variant="AlertVariant.Info" Message="Không tìm thấy thông tin cửa hàng. Cửa hàng có thể chưa được cấu hình." />
-            }
-            else
-            {
-                <div class="text-center py-4">
-                    <i class="bi bi-shop text-muted mb-3 d-block" style="font-size:3rem;"></i>
-                    <p class="text-muted mb-3">Quét QR sản phẩm để xem thông tin cửa hàng bạn đang quan tâm.</p>
-                    <div class="d-flex justify-content-center gap-2">
-                        <VanAnButton Variant="ButtonVariant.Primary" Icon="qr-code-scan" OnClick="@(() => Navigation.NavigateTo("/scan"))">
-                            Quét QR
-                        </VanAnButton>
-                        <VanAnButton Variant="ButtonVariant.Outline" Icon="geo-alt" OnClick="@(() => Navigation.NavigateTo("/stores"))">
-                            Xem Tất Cả Cửa Hàng
-                        </VanAnButton>
-                    </div>
-                </div>
-            }
-        </div>
-    </VanAnCard>
+                    </VanAnCard>
+                }
+                else
+                {
+                    <VanAnAlert Variant="AlertVariant.Info" Message="Không tìm thấy thông tin cửa hàng. Cửa hàng có thể chưa được cấu hình." />
+                }
+            </div>
+        </VanAnCard>
+    }
 
     <!-- Phase 6: Recommended Catalog — Featured products + customer history (replaces multi-VPS product browse) -->
     <VanAnCard CssClass="products-section mb-4">

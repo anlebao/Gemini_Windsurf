@@ -1546,6 +1546,16 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
+        /// Issue 4: Set customer notes for this order (e.g. "ít đá", "giao trước 12h").
+        /// Saved to Order.CustomerNotes column. Called during checkout from KhachLink cart note input.
+        /// </summary>
+        public void SetCustomerNotes(string? notes)
+        {
+            CustomerNotes = notes;
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set per-order industry sector override (TT 152 S2a/S2b).
         /// If set, takes precedence over Tenant.DefaultIndustrySector when generating accounting entries.
         /// </summary>

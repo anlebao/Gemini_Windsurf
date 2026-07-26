@@ -691,6 +691,12 @@ namespace VanAn.CoreHub.Services
                     order.SetCustomerInfo(info);
                 }
 
+                // Issue 4: Save customer note from checkout (cart page note input).
+                if (!string.IsNullOrWhiteSpace(command.CustomerNotes))
+                {
+                    order.SetCustomerNotes(command.CustomerNotes.Trim());
+                }
+
                 // Save order + Outbox event atomically (RC-1 fix: single transaction).
                 // Previously: AddAsync (SaveChangesAsync) then EnqueueAsync + SaveChangesAsync (2nd save).
                 // If 2nd save failed, order was committed but Outbox event was lost → sync never runs.

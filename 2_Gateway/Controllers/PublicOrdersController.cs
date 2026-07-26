@@ -257,7 +257,8 @@ namespace VanAn.Gateway.Controllers
                         CustomerName = request.CustomerName,
                         CustomerPhone = request.CustomerPhone,
                         CustomerAddress = request.CustomerAddress,
-                        CustomerId = request.CustomerId
+                        CustomerId = request.CustomerId,
+                        CustomerNotes = request.CustomerNotes
                     };
 
                     try

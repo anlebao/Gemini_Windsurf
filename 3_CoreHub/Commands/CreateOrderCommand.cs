@@ -20,6 +20,9 @@ namespace VanAn.CoreHub.Commands
         // appears in the customer's order history (/api/customerorders).
         // Null for anonymous/guest checkout.
         public Guid? CustomerId { get; set; }
+
+        /// <summary>Issue 4: Customer note for the order (e.g. "ít đá", "giao trước 12h"). Saved to Order.CustomerNotes.</summary>
+        public string? CustomerNotes { get; set; }
     }
 
     public class OrderItemRequest
