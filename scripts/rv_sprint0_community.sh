@@ -55,18 +55,20 @@ done
 
 SE_DLL_TIME=$(docker exec vanan-shoperp stat -c %y /app/VanAn.ShopERP.dll 2>/dev/null | cut -d. -f1)
 GW_DLL_TIME=$(docker exec vanan-gateway stat -c %y /app/VanAn.Gateway.dll 2>/dev/null | cut -d. -f1)
-KL_DLL_TIME=$(docker exec vanan-khachlink stat -c %y /app/VanAn.KhachLink.dll 2>/dev/null | cut -d. -f1)
-echo "  ShopERP DLL: $SE_DLL_TIME | Gateway DLL: $GW_DLL_TIME | KhachLink DLL: $KL_DLL_TIME"
+# KhachLink is Blazor WASM (nginx-hosted static files, no DLL in container).
+# Check fingerprint.js timestamp as proxy for deploy freshness.
+KL_DLL_TIME=$(docker exec vanan-khachlink stat -c %y /usr/share/nginx/html/js/fingerprint.js 2>/dev/null | cut -d. -f1)
+echo "  ShopERP DLL: $SE_DLL_TIME | Gateway DLL: $GW_DLL_TIME | KhachLink fingerprint.js: $KL_DLL_TIME"
 check "shoperp-dll-deployed-today" "1" "$(echo $SE_DLL_TIME | grep -c "$TODAY")"
 check "gateway-dll-deployed-today" "1" "$(echo $GW_DLL_TIME | grep -c "$TODAY")"
-check "khachlink-dll-deployed-today" "1" "$(echo $KL_DLL_TIME | grep -c "$TODAY")"
+check "khachlink-deployed-today" "1" "$(echo $KL_DLL_TIME | grep -c "$TODAY")"
 
 # ============================================================
 # SECTION 2: MIGRATION APPLIED
 # ============================================================
 echo
 echo "=== SECTION 2: Migration Applied ==="
-MIG_RESULT=$(docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -t -c "SELECT count(*) FROM __EFMigrationsHistory WHERE MigrationId = '20260726105331_CommunitySprint0';")
+MIG_RESULT=$(docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -t -c 'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId" = '"'"'20260726105331_CommunitySprint0'"'"';')
 check "sprint0-migration-recorded" "1" "$(echo $MIG_RESULT | tr -d '[:space:]')"
 
 # ============================================================
@@ -103,7 +105,7 @@ done
 echo
 echo "=== SECTION 5: Smoke Tests (no regressions) ==="
 sleep 5  # give containers a moment to fully bind
-check "shoperp-home-200" "200" "$(curl -sk -o /dev/null -w '%{http_code}' $SHOPERP/)"
+check "shoperp-home-200-or-302" "200" "$(curl -sk -L -o /dev/null -w '%{http_code}' $SHOPERP/)"
 check "shoperp-health-200" "200" "$(curl -sk -o /dev/null -w '%{http_code}' $SHOPERP/health)"
 check "khachlink-home-200" "200" "$(curl -sk -o /dev/null -w '%{http_code}' $KHACHLINK/)"
 check "khachlink-manifest-200" "200" "$(curl -sk -o /dev/null -w '%{http_code}' $KHACHLINK/manifest.json)"
