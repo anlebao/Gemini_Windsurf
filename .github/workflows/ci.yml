@@ -194,11 +194,21 @@ jobs:
           retention-days: 30
 
   # Job 2b: Integration Tests — BLOCKING (SaaS W3: re-enabled)
-  # Runs full integration suite via WebApplicationFactory (in-process, no external services needed).
+  # Runs full integration suite via WebApplicationFactory (in-process).
+  # NATS service container is required — DataSyncSubscriber/EInvoiceSyncSubscriber/OrderSyncSubscriber
+  # connect to nats://localhost:4222 on startup. Without NATS, ~43 tests fail with
+  # NATSConnectionException (Connection refused).
   integration-tests:
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 15
+
+    services:
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: --health-cmd "wget --spider -q http://localhost:8222/healthz || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
       - name: Checkout
