@@ -88,7 +88,44 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
             _ = shopContext.Database.EnsureCreated();
         }
 
+        // Seed test data needed by AM-S* tests.
+        // Program.Main seeding is skipped in Testing environment (Testing env guard),
+        // so the factory must seed PlatformUser + test tenant itself.
+        SeedTestData(shopContext);
+
         return host;
+    }
+
+    private static void SeedTestData(ShopERPDbContext context)
+    {
+        // Seed PlatformUser (sysadmin@vanan.vn / VanAn@2026) — needed by CreateSystemAdminClientAsync
+        var existingAdmin = context.PlatformUsers
+            .FirstOrDefault(u => u.Username == "sysadmin@vanan.vn");
+        if (existingAdmin == null)
+        {
+            var sysadminHash = BCrypt.Net.BCrypt.HashPassword("VanAn@2026", 12);
+            context.PlatformUsers.Add(new VanAn.CoreHub.Infrastructure.Entities.PlatformUser(
+                "sysadmin@vanan.vn",
+                sysadminHash,
+                "System Admin",
+                "sysadmin@vanan.vn"));
+            _ = context.SaveChanges();
+        }
+
+        // Seed test tenant (00000000-0000-0000-0000-000000000001) — needed by impersonation tests
+        var testTenantId = new TenantId(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var existingTenant = context.Tenants.IgnoreQueryFilters()
+            .FirstOrDefault(t => t.Id == testTenantId);
+        if (existingTenant == null)
+        {
+            var tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant.CreateCompany(
+                testTenantId,
+                "Test Tenant",
+                VanAn.Shared.Domain.Aggregates.TenantAggregate.TenantSettings.Empty());
+            context.Tenants.Add(tenant);
+            context.Entry(tenant).Property("TenantId").CurrentValue = testTenantId;
+            _ = context.SaveChanges();
+        }
     }
 
     private static bool IsSchemaCreated(ShopERPDbContext context)
