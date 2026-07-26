@@ -148,19 +148,22 @@ public class TenantOnboardingApiTests : IClassFixture<GatewayWebApplicationFacto
         _client.DefaultRequestHeaders.Authorization = null;
     }
 
-    // ── SC5: Invalid body → 400 ───────────────────────────────────────────────
+    // ── SC5: Unknown IndustryCode accepted (Phase 3.6 spec change) ──────────
 
-    [Fact(DisplayName = "W4-SC5: POST /tenants with unknown IndustryCode returns 400")]
-    public async Task CreateTenantOnboarding_UnknownIndustryCode_Returns400()
+    [Fact(DisplayName = "W4-SC5: POST /tenants with unknown IndustryCode returns 201 (Phase 3.6: IndustryCode kept for backward compat, no longer validated)")]
+    public async Task CreateTenantOnboarding_UnknownIndustryCode_Returns201()
     {
         var token = MintJwt(role: "SystemAdmin");
         _client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue(JwtBearerDefaults.AuthenticationScheme, token);
 
+        // Phase 3.6: IndustryCode is kept for backward API compat but is no longer used
+        // for seeding during onboarding (seeding deferred to QuickSetup). Unknown codes
+        // are accepted — onboarding succeeds with a warning.
         var request = BuildValidRequest() with { IndustryCode = "UNKNOWN_INDUSTRY" };
         var response = await _client.PostAsJsonAsync(EndpointUrl, request);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
         _client.DefaultRequestHeaders.Authorization = null;
     }
