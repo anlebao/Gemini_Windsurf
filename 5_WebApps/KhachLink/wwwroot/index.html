@@ -60,93 +60,54 @@
     </script>
     <style>
         /* Issue 6: Ẩn Blazor default reconnect dialog (modal full-screen) */
-        /* Thay bằng indicator nhỏ ở góc dưới trái — không gây gián đoạn UX */
         #components-reconnect-modal {
             display: none !important;
         }
-        /* Custom reconnect indicator — small spinner top-left (moved from top-right to avoid obscuring home icon) */
-        #vanan-reconnect-indicator {
-            position: fixed;
-            top: 16px;
-            left: 16px;
-            z-index: 9999;
-            display: none;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
-            border-radius: 50%;
-            background: rgba(139, 69, 19, 0.9);
-            color: white;
-            font-size: 12px;
-            font-weight: 500;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            transition: opacity 0.3s ease;
-            width: 32px;
-            height: 32px;
-            justify-content: center;
+        /* Issue 7: Merge reconnect indicator with home icon in mobile bottom nav.
+           Default (connected): home icon = blue.
+           Disconnected (body.vanan-disconnected): home icon = red + pulse animation.
+           Reconnecting (body.vanan-reconnecting): home icon = orange + spin animation. */
+        .mobile-bottom-nav a[href="/"] i.bi-house-door-fill {
+            color: #0d6efd !important; /* blue = connected */
+            transition: color 0.3s ease;
         }
-        #vanan-reconnect-indicator.show {
-            display: flex;
+        body.vanan-reconnecting .mobile-bottom-nav a[href="/"] i.bi-house-door-fill {
+            color: #fd7e14 !important; /* orange = reconnecting */
+            animation: vanan-home-pulse 1s ease-in-out infinite;
         }
-        #vanan-reconnect-indicator .spinner {
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: vanan-spin 0.8s linear infinite;
+        body.vanan-disconnected .mobile-bottom-nav a[href="/"] i.bi-house-door-fill {
+            color: #dc3545 !important; /* red = disconnected */
+            animation: vanan-home-pulse 0.8s ease-in-out infinite;
         }
-        @@keyframes vanan-spin {
-            to { transform: rotate(360deg); }
+        @@keyframes vanan-home-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.15); }
         }
     </style>
-    <!-- Custom reconnect indicator (replaces intrusive Blazor modal) -->
-    <!-- Small icon-only indicator — moved up 20px to avoid covering buttons -->
-    <div id="vanan-reconnect-indicator" title="Đang kết nối lại...">
-        <div class="spinner"></div>
-    </div>
     <script>
-        // Issue 6: Show/hide custom reconnect indicator based on Blazor connection state
+        // Issue 7: Toggle body classes based on Blazor connection state.
+        // Home icon color changes via CSS (blue=connected, orange=reconnecting, red=disconnected).
         (function() {
-            var indicator = document.getElementById('vanan-reconnect-indicator');
-            if (!indicator) return;
+            function setReconnecting() {
+                document.body.classList.add('vanan-reconnecting');
+                document.body.classList.remove('vanan-disconnected');
+            }
+            function setConnected() {
+                document.body.classList.remove('vanan-reconnecting', 'vanan-disconnected');
+            }
+            function setDisconnected() {
+                document.body.classList.remove('vanan-reconnecting');
+                document.body.classList.add('vanan-disconnected');
+            }
 
-            function show() { indicator.classList.add('show'); }
-            function hide() { indicator.classList.remove('show'); }
-
-            // Listen for Blazor reconnection events
             document.addEventListener('DOMContentLoaded', function() {
-                // Blazor fires these events on the document
-                // components-reconnect-show: when reconnection attempt starts
-                // components-reconnect-hide: when reconnection succeeds
-                // components-reconnect-failed: when all retries exhausted
-                document.addEventListener('components-reconnect-show', show);
-                document.addEventListener('components-reconnect-hide', hide);
-                document.addEventListener('components-reconnect-failed', function() {
-                    // Expand to show text when connection fully lost
-                    indicator.title = 'Mất kết nối';
-                    indicator.style.background = 'rgba(220, 53, 69, 0.9)';
-                    indicator.style.borderRadius = '20px';
-                    indicator.style.width = 'auto';
-                    indicator.style.padding = '6px 14px';
-                    var span = indicator.querySelector('span');
-                    if (!span) {
-                        span = document.createElement('span');
-                        indicator.appendChild(span);
-                    }
-                    span.textContent = 'Mất kết nối';
-                });
-                // Reset on successful reconnect
-                document.addEventListener('components-reconnect-hide', function() {
-                    // Collapse back to icon-only
-                    indicator.title = 'Đang kết nối lại...';
-                    indicator.style.background = 'rgba(139, 69, 19, 0.9)';
-                    indicator.style.borderRadius = '50%';
-                    indicator.style.width = '32px';
-                    indicator.style.padding = '6px 10px';
-                    var span = indicator.querySelector('span');
-                    if (span) span.remove();
-                });
+                // Blazor fires these events on the document:
+                // components-reconnect-show: reconnection attempt starts (orange)
+                // components-reconnect-hide: reconnection succeeds (blue)
+                // components-reconnect-failed: all retries exhausted (red)
+                document.addEventListener('components-reconnect-show', setReconnecting);
+                document.addEventListener('components-reconnect-hide', setConnected);
+                document.addEventListener('components-reconnect-failed', setDisconnected);
             });
         })();
     </script>

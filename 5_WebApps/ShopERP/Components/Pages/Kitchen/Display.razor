@@ -206,14 +206,14 @@
         {
             await RefreshOrders();
 
-            // P1: SignalR is now primary real-time channel (OrderCreated + OrderStatusChanged).
-            // Poll timer is fallback only — increased 5s → 30s to reduce SQLite load 6×.
-            // Kitchen is real-time critical, but SignalR push delivers <1s latency when connected.
+            // P1: SignalR is primary real-time channel (OrderCreated + OrderStatusChanged).
+            // Issue 8: Poll timer reduced 30s → 5s — kitchen is real-time critical.
+            // 5s poll guarantees auto-refresh even if SignalR fails silently (proxy/WebSocket issues).
             _pollTimer = new System.Threading.Timer(
                 async _ => await InvokeAsync(async () => await RefreshOrders(isBackground: true)),
                 null,
-                TimeSpan.FromSeconds(30),
-                TimeSpan.FromSeconds(30));
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(5));
 
             await StartSignalRConnection();
         }
@@ -254,7 +254,14 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Kitchen Display: SignalR connection failed — 30s poll fallback active");
+            Logger.LogWarning(ex, "Kitchen Display: SignalR connection failed — 5s poll fallback active. Retrying in 10s...");
+            // Issue 8: Auto-retry SignalR connection after 10s — handles transient proxy/WebSocket failures.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(10000);
+                try { if (_hubConnection is not null) await _hubConnection.StartAsync(); }
+                catch (Exception retryEx) { Logger.LogWarning(retryEx, "Kitchen Display: SignalR retry failed"); }
+            });
         }
     }
 

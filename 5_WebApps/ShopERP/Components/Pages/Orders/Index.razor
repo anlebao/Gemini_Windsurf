@@ -235,14 +235,14 @@
 
         await StartSignalRConnection();
 
-        // Issue 8 fix: Fallback polling timer — ensures auto-refresh even if SignalR fails.
-        // P1: Increased 10s → 30s (SignalR OrderCreated/OrderStatusChanged/PaymentConfirmed now primary).
-        // Poll is fallback only — reduces SQLite load 3× and eliminates unnecessary re-renders.
+        // Issue 8: Fallback polling timer — ensures auto-refresh even if SignalR fails silently.
+        // Reduced 30s → 5s: new orders from KhachLink checkout must appear within seconds, not minutes.
+        // SignalR remains primary (instant); poll is safety net for proxy/WebSocket failures.
         _pollTimer = new System.Threading.Timer(
             async _ => await InvokeAsync(async () => await ReloadOrders(isBackground: true)),
             null,
-            TimeSpan.FromSeconds(30),
-            TimeSpan.FromSeconds(30));
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5));
     }
 
     private async Task OnTenantFilterChangedAsync()
@@ -479,7 +479,14 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "SignalR connection failed — list will not auto-refresh");
+            Logger.LogWarning(ex, "SignalR connection failed — 5s poll fallback active. Retrying in 10s...");
+            // Issue 8: Auto-retry SignalR connection after 10s — handles transient proxy/WebSocket failures.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(10000);
+                try { if (_hubConnection != null) await _hubConnection.StartAsync(); }
+                catch (Exception retryEx) { Logger.LogWarning(retryEx, "SignalR retry failed"); }
+            });
         }
     }
 
