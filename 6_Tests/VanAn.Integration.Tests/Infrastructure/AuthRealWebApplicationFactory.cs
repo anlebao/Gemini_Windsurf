@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -34,6 +35,18 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Mark as "Testing" to skip dual-database migration in Program.Main (same as CustomWebApplicationFactory).
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            // OrderSyncSubscriber requires ShopInstance:Id (same as CustomWebApplicationFactory).
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ShopInstance:Id"] = "00000000-0000-0000-0000-000000000001"
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             // Same SQLite setup as CustomWebApplicationFactory

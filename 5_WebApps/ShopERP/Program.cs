@@ -561,6 +561,12 @@ namespace VanAn.ShopERP
             DataProtectionProviderAccessor.Initialize(app.Services.GetRequiredService<IDataProtectionProvider>());
 
             // Architect's Directive: Ensure SQLite schema exists and optimized for concurrency
+            // TESTING: Skip migration + seeding — WebApplicationFactory sets environment to "Testing"
+            // and handles schema via EnsureCreated() on the shared SQLite connection. Running MigrateAsync
+            // here would crash because VanAnDbContext and ShopERPDbContext share the same connection
+            // (both map AccountCharts → "table already exists"). Seeding also can't run because
+            // EnsureCreated() executes AFTER base.CreateHost() (which runs this Program.Main).
+            if (!app.Environment.IsEnvironment("Testing"))
             using (IServiceScope scope = app.Services.CreateScope())
             {
                 // MIGRATE POSTGRESQL FIRST — Gateway (in-process CoreHub) uses PostgreSQL directly.
