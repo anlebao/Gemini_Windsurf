@@ -92,14 +92,16 @@ public class GatewayWebApplicationFactory : WebApplicationFactory<VanAn.Gateway.
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        IHost host = base.CreateHost(builder);
+        // Ensure schema exists BEFORE the host starts (race condition fix — same as
+        // CustomWebApplicationFactory). Gateway hosted services (DataSyncSubscriber,
+        // EInvoiceSyncSubscriber) may query the database on startup.
+        var options = new DbContextOptionsBuilder<VanAnDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+        using var tempContext = new VanAnDbContext(options);
+        _ = tempContext.Database.EnsureCreated();
 
-        // Ensure schema exists on the shared connection so ApiKeyRepository can query.
-        using IServiceScope scope = host.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<VanAnDbContext>();
-        db.Database.EnsureCreated();
-
-        return host;
+        return base.CreateHost(builder);
     }
 
     protected override void Dispose(bool disposing)
