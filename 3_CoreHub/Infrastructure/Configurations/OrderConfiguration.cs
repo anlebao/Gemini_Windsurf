@@ -70,6 +70,19 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(o => o.IndustrySector)
                 .HasConversion<int?>();
 
+            // Community Commerce Sprint 0 — 8 new nullable fields (v1.1: +ReferralProductId)
+            _ = builder.Property(o => o.ShipperId);
+            _ = builder.Property(o => o.SalesmanId);
+            _ = builder.Property(o => o.ReferralCode).HasMaxLength(30); // composite "{salesmanCode}|{productShortCode}"
+            _ = builder.Property(o => o.ReferralProductId); // v1.1 NEW
+            _ = builder.Property(o => o.DeliveryLat);
+            _ = builder.Property(o => o.DeliveryLng);
+            _ = builder.Property(o => o.CodAmount).HasPrecision(18, 2);
+            _ = builder.Property(o => o.CodCollectedAt);
+            _ = builder.HasIndex(o => o.ShipperId);
+            _ = builder.HasIndex(o => o.SalesmanId);
+            _ = builder.HasIndex(o => o.ReferralProductId); // v1.1 NEW
+
             // Navigation properties
             _ = builder.HasOne(o => o.Customer)
                   .WithMany(c => c.Orders)

@@ -230,6 +230,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRoleAssignmentService, VanAn.CoreHub.Services.RoleAssignmentService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPermissionGroupService, VanAn.CoreHub.Services.PermissionGroupService>();
 
+            // Community Commerce Sprint 0 v1.2/v1.4: RiskScoringService + WalletService base (PG-only)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IRiskScoringService, VanAn.CoreHub.Services.RiskScoringService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IWalletService, VanAn.CoreHub.Services.WalletService>();
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();

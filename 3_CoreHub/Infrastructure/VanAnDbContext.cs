@@ -127,6 +127,19 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<Mission> Missions { get; set; }
         public DbSet<MissionCompletion> MissionCompletions { get; set; }
 
+        // Community Commerce Sprint 0 (v1.2: 11 DbSet) — Gateway PG only, tenant-scoped via IMustHaveTenant
+        public DbSet<CommunityRole> CommunityRoles { get; set; }
+        public DbSet<DeliveryTask> DeliveryTasks { get; set; }
+        public DbSet<DeliveryTracking> DeliveryTrackings { get; set; }
+        public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<SalesReferral> SalesReferrals { get; set; }
+        public DbSet<WalletTransaction> WalletTransactions { get; set; }
+        public DbSet<ProductReferralConfig> ProductReferralConfigs { get; set; } // v1.1 NEW
+        public DbSet<AppInstallAttribution> AppInstallAttributions { get; set; } // v1.1 NEW
+        public DbSet<DeviceRegistration> DeviceRegistrations { get; set; } // v1.2 NEW
+        public DbSet<FraudFlag> FraudFlags { get; set; } // v1.2 NEW
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

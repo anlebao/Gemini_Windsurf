@@ -616,8 +616,10 @@ namespace VanAn.Shared.Domain
     {
         Guest = 0,
         Social = 1,
-        Verified = 2,
-        Full = 3
+        Verified = 2,    // SMS OTP verified
+        Full = 3,
+        // v1.2 Community Commerce Sprint 0: device fingerprint + behavioral check passed (KHÔNG cần SMS)
+        DeviceVerified = 4
     }
 
     public record CustomerId(Guid Value);
@@ -1575,6 +1577,19 @@ namespace VanAn.Shared.Domain
             VietQR_TransactionId = transactionId;
             UpdateAudit();
         }
+
+        // ============================================================
+        // Community Commerce Sprint 0 — 8 new nullable fields (v1.1: +ReferralProductId)
+        // Backward compatible: existing orders get NULL. Used by Sprint 1-6.
+        // ============================================================
+        public Guid? ShipperId { get; protected set; }
+        public Guid? SalesmanId { get; protected set; }
+        public string? ReferralCode { get; protected set; } // composite "{salesmanCode}|{productShortCode}" (v1.1)
+        public Guid? ReferralProductId { get; protected set; } // v1.1 NEW — product salesman chọn giới thiệu
+        public double? DeliveryLat { get; protected set; }
+        public double? DeliveryLng { get; protected set; }
+        public decimal? CodAmount { get; protected set; }
+        public DateTime? CodCollectedAt { get; protected set; }
     }
 
     // Demo User cho ShopERP với Multi-tenancy
@@ -2963,4 +2978,678 @@ namespace VanAn.Shared.Domain
         string AccountCode, string AccountName, AccountType Type,
         AccountingStandard Standard, bool IsNormalCredit
     );
+
+    // ============================================================
+    // COMMUNITY COMMERCE SPRINT 0 — v1.2 (11 entities + 9 enums)
+    // Single-Identity Pattern: all entities use BaseEntity.Id directly (no business key VO).
+    // Cross-tenant on Gateway PG; tenant-scoped on ShopERP SQLite via IMustHaveTenant.
+    // ============================================================
+
+    // --- 9 Enums (v1.2) ---
+
+    public enum CommunityRoleType
+    {
+        Shipper = 1,
+        Salesman = 2
+    }
+
+    public enum DeliveryTaskStatus
+    {
+        Assigned = 1,
+        PickedUp = 2,
+        OutForDelivery = 3,
+        Delivered = 4,
+        Failed = 5,
+        Cancelled = 6
+    }
+
+    public enum WalletTransactionType
+    {
+        CODCollection = 1,
+        AdvancePayment = 2,
+        Commission = 3,
+        Withdrawal = 4,
+        Settlement = 5,
+        Reversal = 6 // v1.1 NEW — negating entry for wrong COD amount
+    }
+
+    public enum CommissionStatus
+    {
+        Pending = 1,
+        Paid = 2,
+        // v1.2 NEW — risk scoring outcomes
+        Rejected = 3, // RiskScore>=80 auto-reject hoặc admin
+        Held = 4      // RiskScore 60-79 hold 48h
+    }
+
+    public enum BonusStatus // v1.1 NEW
+    {
+        None = 0,
+        Pending = 1,
+        Paid = 2
+    }
+
+    public enum AttributionStatus // v1.1 NEW, v1.2: + Rejected, Held
+    {
+        Pending = 1,
+        Paid = 2,
+        Rejected = 3, // v1.2 NEW — RiskScore>=80 auto-reject hoặc admin
+        Held = 4      // v1.2 NEW — RiskScore 60-79 hold 48h
+    }
+
+    public enum FraudEntityType // v1.2 NEW
+    {
+        Customer = 1,
+        Order = 2,
+        SalesReferral = 3,
+        AppInstallAttribution = 4,
+        DeviceRegistration = 5
+    }
+
+    public enum FraudFlagType // v1.2 NEW
+    {
+        SelfDeal = 1,              // salesman + customer cùng fingerprint
+        AccountFarming = 2,        // 1 device nhiều accounts
+        BotBehavior = 3,           // app-install <30s, >3 accounts/device/day
+        WashTrading = 4,           // order → cancel → re-order
+        SuspiciousFingerprint = 5, // fingerprint match blacklisted
+        DeviceLimitExceeded = 6,   // >3 devices per customer
+        HighRiskScore = 7          // RiskScore>=60 catch-all
+    }
+
+    public enum FraudFlagStatus // v1.2 NEW
+    {
+        Pending = 1,
+        Reviewed = 2,
+        Confirmed = 3,
+        Dismissed = 4
+    }
+
+    // --- 11 Entities (v1.2) ---
+
+    /// <summary>
+    /// CommunityRole — assigns Shipper or Salesman role to a Customer.
+    /// Salesman gets a 6-char SalesmanCode (uniqueness enforced by DB index + Sprint 4 retry).
+    /// </summary>
+    public class CommunityRole : BaseEntity
+    {
+        public Guid CustomerId { get; protected set; }
+        public CommunityRoleType RoleType { get; protected set; }
+        public DateTime ActivatedAt { get; protected set; }
+        public Guid ActivatedBy { get; protected set; }
+        public DateTime? DeactivatedAt { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public string? SalesmanCode { get; protected set; }
+
+        protected CommunityRole() { }
+
+        public CommunityRole(TenantId tenantId, Guid customerId, CommunityRoleType roleType, Guid activatedBy)
+            : base(tenantId)
+        {
+            CustomerId = customerId;
+            RoleType = roleType;
+            ActivatedBy = activatedBy;
+            ActivatedAt = DateTime.UtcNow;
+            IsActive = true;
+            if (roleType == CommunityRoleType.Salesman)
+                SalesmanCode = GenerateSalesmanCode();
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+            DeactivatedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        private static string GenerateSalesmanCode()
+        {
+            // 6 chars, uppercase alphanumeric, exclude ambiguous chars (0, O, I, 1)
+            const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            var random = new Random();
+            return new string(Enumerable.Repeat(chars, 6).Select(s => s[random.Next(s.Length)]).ToArray());
+        }
+    }
+
+    /// <summary>
+    /// DeliveryTask — shipper's delivery assignment for an order. State machine:
+    /// Assigned → PickedUp → OutForDelivery → Delivered | Failed | Cancelled.
+    /// </summary>
+    public class DeliveryTask : BaseEntity
+    {
+        public Guid OrderId { get; protected set; }
+        public Guid ShipperId { get; protected set; }
+        public DeliveryTaskStatus Status { get; protected set; } = DeliveryTaskStatus.Assigned;
+        public DateTime AssignedAt { get; protected set; }
+        public DateTime? PickedUpAt { get; protected set; }
+        public DateTime? OutForDeliveryAt { get; protected set; }
+        public DateTime? DeliveredAt { get; protected set; }
+        public DateTime? FailedAt { get; protected set; }
+        public string? FailureReason { get; protected set; }
+        public double ShopLat { get; protected set; }
+        public double ShopLng { get; protected set; }
+        public double? CustomerLat { get; protected set; }
+        public double? CustomerLng { get; protected set; }
+
+        protected DeliveryTask() { }
+
+        public DeliveryTask(TenantId tenantId, Guid orderId, Guid shipperId, double shopLat, double shopLng, double? customerLat = null, double? customerLng = null)
+            : base(tenantId)
+        {
+            OrderId = orderId;
+            ShipperId = shipperId;
+            Status = DeliveryTaskStatus.Assigned;
+            AssignedAt = DateTime.UtcNow;
+            ShopLat = shopLat;
+            ShopLng = shopLng;
+            CustomerLat = customerLat;
+            CustomerLng = customerLng;
+        }
+
+        public void MarkPickedUp()
+        {
+            if (Status != DeliveryTaskStatus.Assigned)
+                throw new InvalidOperationException($"Cannot transition from {Status} to PickedUp");
+            Status = DeliveryTaskStatus.PickedUp;
+            PickedUpAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkOutForDelivery()
+        {
+            if (Status != DeliveryTaskStatus.PickedUp)
+                throw new InvalidOperationException($"Cannot transition from {Status} to OutForDelivery");
+            Status = DeliveryTaskStatus.OutForDelivery;
+            OutForDeliveryAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkDelivered()
+        {
+            if (Status != DeliveryTaskStatus.OutForDelivery)
+                throw new InvalidOperationException($"Cannot transition from {Status} to Delivered");
+            Status = DeliveryTaskStatus.Delivered;
+            DeliveredAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkFailed(string reason)
+        {
+            if (Status is DeliveryTaskStatus.Delivered or DeliveryTaskStatus.Cancelled)
+                throw new InvalidOperationException($"Cannot transition from {Status} to Failed");
+            Status = DeliveryTaskStatus.Failed;
+            FailedAt = DateTime.UtcNow;
+            FailureReason = reason ?? "Unknown";
+            UpdateAudit();
+        }
+
+        public void Cancel()
+        {
+            if (Status is DeliveryTaskStatus.Delivered or DeliveryTaskStatus.Failed)
+                throw new InvalidOperationException($"Cannot transition from {Status} to Cancelled");
+            Status = DeliveryTaskStatus.Cancelled;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// DeliveryTracking — append-only GPS ping per DeliveryTask. No update methods by design.
+    /// </summary>
+    public class DeliveryTracking : BaseEntity
+    {
+        public Guid DeliveryTaskId { get; protected set; }
+        public double Latitude { get; protected set; }
+        public double Longitude { get; protected set; }
+        public DateTime RecordedAt { get; protected set; }
+
+        protected DeliveryTracking() { }
+
+        public DeliveryTracking(TenantId tenantId, Guid deliveryTaskId, double lat, double lng)
+            : base(tenantId)
+        {
+            DeliveryTaskId = deliveryTaskId;
+            Latitude = lat;
+            Longitude = lng;
+            RecordedAt = DateTime.UtcNow;
+        }
+        // No update methods — append-only by design
+    }
+
+    /// <summary>
+    /// Conversation — 1 per Order (shipper ↔ customer chat).
+    /// </summary>
+    public class Conversation : BaseEntity
+    {
+        public Guid OrderId { get; protected set; }
+        public Guid ShipperId { get; protected set; }
+        public Guid CustomerId { get; protected set; }
+
+        protected Conversation() { }
+
+        public Conversation(TenantId tenantId, Guid orderId, Guid shipperId, Guid customerId)
+            : base(tenantId)
+        {
+            OrderId = orderId;
+            ShipperId = shipperId;
+            CustomerId = customerId;
+        }
+    }
+
+    /// <summary>
+    /// Message — chat message in a Conversation. IsRead toggled via MarkAsRead.
+    /// </summary>
+    public class Message : BaseEntity
+    {
+        public Guid ConversationId { get; protected set; }
+        public Guid SenderId { get; protected set; }
+        public string Content { get; protected set; } = string.Empty;
+        public DateTime SentAt { get; protected set; }
+        public bool IsRead { get; protected set; }
+
+        protected Message() { }
+
+        public Message(TenantId tenantId, Guid conversationId, Guid senderId, string content)
+            : base(tenantId)
+        {
+            ConversationId = conversationId;
+            SenderId = senderId;
+            Content = content;
+            SentAt = DateTime.UtcNow;
+            IsRead = false;
+        }
+
+        public void MarkAsRead()
+        {
+            IsRead = true;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// SalesReferral — composite referral: salesman + product. Per-product commission snapshot.
+    /// v1.2: +RiskScore/RiskFactors/HoldUntil + SetRiskScore/MarkHeld/MarkRejected/ApproveAfterHold.
+    /// </summary>
+    public class SalesReferral : BaseEntity, IMustHaveTenant
+    {
+        public Guid SalesmanId { get; protected set; }
+        public string SalesmanCode { get; protected set; } = string.Empty;
+        public Guid ProductId { get; protected set; } // v1.1 NEW — product salesman chọn giới thiệu
+        public string? ProductShortCode { get; protected set; } // v1.1 NEW — phần product của composite code
+        public Guid? ReferredCustomerId { get; protected set; }
+        public Guid? OrderId { get; protected set; }
+        public decimal CommissionAmount { get; protected set; }
+        public decimal CommissionRate { get; protected set; } // v1.1 NEW — snapshot rate tại thời điểm chốt đơn (audit)
+        public CommissionStatus CommissionStatus { get; protected set; } = CommissionStatus.Pending;
+        public decimal AppInstallBonusAmount { get; protected set; } = 0m; // v1.1 NEW
+        public BonusStatus AppInstallBonusStatus { get; protected set; } = BonusStatus.None; // v1.1 NEW
+        public Guid? AppInstallAttributionId { get; protected set; } // v1.1 NEW — link tới attribution nếu có
+
+        // v1.2 NEW — risk scoring fields
+        public int RiskScore { get; protected set; } = 0;
+        public string? RiskFactors { get; protected set; } // JSON
+        public DateTime? HoldUntil { get; protected set; }
+
+        protected SalesReferral() { }
+
+        public SalesReferral(TenantId tenantId, Guid salesmanId, string salesmanCode, Guid productId, string? productShortCode = null)
+            : base(tenantId)
+        {
+            SalesmanId = salesmanId;
+            SalesmanCode = salesmanCode;
+            ProductId = productId;
+            ProductShortCode = productShortCode;
+        }
+
+        public void AttachToOrder(Guid orderId, Guid customerId, decimal orderTotal, decimal commissionRate)
+        {
+            OrderId = orderId;
+            ReferredCustomerId = customerId;
+            CommissionRate = commissionRate; // snapshot từ ProductReferralConfig
+            CommissionAmount = orderTotal * commissionRate;
+            CommissionStatus = CommissionStatus.Pending;
+            UpdateAudit();
+        }
+
+        public void MarkCommissionPaid()
+        {
+            CommissionStatus = CommissionStatus.Paid;
+            UpdateAudit();
+        }
+
+        // v1.1 NEW — attach app-install bonus từ AppInstallAttribution
+        public void AttachAppInstallBonus(Guid attributionId, decimal bonusAmount)
+        {
+            AppInstallAttributionId = attributionId;
+            AppInstallBonusAmount = bonusAmount; // snapshot từ ProductReferralConfig.AppInstallBonus
+            AppInstallBonusStatus = BonusStatus.Pending;
+            UpdateAudit();
+        }
+
+        public void MarkAppInstallBonusPaid()
+        {
+            AppInstallBonusStatus = BonusStatus.Paid;
+            UpdateAudit();
+        }
+
+        // v1.2 NEW — risk scoring + hold/reject
+        public void SetRiskScore(int riskScore, string riskFactors)
+        {
+            RiskScore = riskScore;
+            RiskFactors = riskFactors;
+            if (riskScore >= 80)
+            {
+                CommissionStatus = CommissionStatus.Rejected;
+            }
+            else if (riskScore >= 60)
+            {
+                CommissionStatus = CommissionStatus.Held;
+                HoldUntil = DateTime.UtcNow.AddHours(48);
+            }
+            UpdateAudit();
+        }
+
+        public void MarkRejected(string reason)
+        {
+            CommissionStatus = CommissionStatus.Rejected;
+            UpdateAudit();
+        }
+
+        public void MarkHeld(DateTime holdUntil)
+        {
+            CommissionStatus = CommissionStatus.Held;
+            HoldUntil = holdUntil;
+            UpdateAudit();
+        }
+
+        public void ApproveAfterHold()
+        {
+            // Called sau cooling period (24h) hoặc admin review dismiss
+            CommissionStatus = CommissionStatus.Pending; // ready for payout
+            HoldUntil = null;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// WalletTransaction — immutable append-only ledger entry (like AccountingEntry).
+    /// Reversal pattern: create new entry Type=Reversal, Amount=-original, RelatedTransactionId=original.Id.
+    /// v1.4: Base atomic CreateTransactionAsync in WalletService (HR-SCALE-3 SELECT FOR UPDATE).
+    /// </summary>
+    public class WalletTransaction : BaseEntity, IMustHaveTenant
+    {
+        public Guid OwnerId { get; protected set; }
+        public WalletTransactionType Type { get; protected set; }
+        public decimal Amount { get; protected set; } // Reversal entry có Amount = -original (v1.1)
+        public string Description { get; protected set; } = string.Empty;
+        public Guid? RelatedOrderId { get; protected set; }
+        public Guid? RelatedTransactionId { get; protected set; } // v1.1 NEW — Reversal entry reference original
+        public decimal BalanceAfter { get; protected set; }
+
+        protected WalletTransaction() { }
+
+        public WalletTransaction(TenantId tenantId, Guid ownerId, WalletTransactionType type, decimal amount, decimal balanceBefore, string description, Guid? relatedOrderId = null, Guid? relatedTransactionId = null)
+            : base(tenantId)
+        {
+            OwnerId = ownerId;
+            Type = type;
+            Amount = amount;
+            BalanceAfter = balanceBefore + amount; // Reversal: amount âm → BalanceAfter giảm
+            Description = description;
+            RelatedOrderId = relatedOrderId;
+            RelatedTransactionId = relatedTransactionId; // v1.1 — set cho Reversal entry
+        }
+        // No update methods — immutable by design (like AccountingEntry)
+        // Reversal: tạo entry mới Type=Reversal, Amount=-original.Amount, RelatedTransactionId=original.Id
+    }
+
+    /// <summary>
+    /// ProductReferralConfig — per-product commission rate (2-5%) + app-install bonus.
+    /// Sysadmin sets; fallback to ProductId if ProductShortCode not set.
+    /// </summary>
+    public class ProductReferralConfig : BaseEntity, IMustHaveTenant
+    {
+        public Guid ProductId { get; protected set; } // unique (1 config per product)
+        public string? ProductShortCode { get; protected set; } // 20 chars, unique within tenant
+        public decimal CommissionRate { get; protected set; } // 2-5% (0.02m - 0.05m), do sysadmin set
+        public decimal AppInstallBonus { get; protected set; } // bonus cố định khi customer cài app qua referral
+        public bool IsActive { get; protected set; } = true;
+
+        protected ProductReferralConfig() { }
+
+        public ProductReferralConfig(TenantId tenantId, Guid productId, decimal commissionRate, decimal appInstallBonus, string? productShortCode = null)
+            : base(tenantId)
+        {
+            if (commissionRate < 0.02m || commissionRate > 0.05m)
+                throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0.02 and 0.05 (2-5%)");
+            if (appInstallBonus < 0m)
+                throw new ArgumentOutOfRangeException(nameof(appInstallBonus), "AppInstallBonus cannot be negative");
+            ProductId = productId;
+            CommissionRate = commissionRate;
+            AppInstallBonus = appInstallBonus;
+            ProductShortCode = productShortCode;
+            IsActive = true;
+        }
+
+        public void Update(decimal commissionRate, decimal appInstallBonus, string? productShortCode, bool isActive)
+        {
+            if (commissionRate < 0.02m || commissionRate > 0.05m)
+                throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0.02 and 0.05 (2-5%)");
+            if (appInstallBonus < 0m)
+                throw new ArgumentOutOfRangeException(nameof(appInstallBonus), "AppInstallBonus cannot be negative");
+            CommissionRate = commissionRate;
+            AppInstallBonus = appInstallBonus;
+            ProductShortCode = productShortCode;
+            IsActive = isActive;
+            UpdateAudit();
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// AppInstallAttribution — track app install cho salesman bonus. 1 customer = 1 attribution.
+    /// v1.2: +RiskScore/RiskFactors/HoldUntil/DeviceRegistrationId + SetRiskScore/MarkHeld/MarkRejected/ApproveAfterHold.
+    /// </summary>
+    public class AppInstallAttribution : BaseEntity, IMustHaveTenant
+    {
+        public Guid CustomerId { get; protected set; } // unique (1 customer 1 attribution)
+        public Guid SalesmanId { get; protected set; }
+        public Guid ProductId { get; protected set; } // product referral
+        public Guid? SalesReferralId { get; protected set; } // link tới SalesReferral nếu có order sau đó
+        public decimal BonusAmount { get; protected set; } // snapshot từ ProductReferralConfig.AppInstallBonus
+        public AttributionStatus AttributionStatus { get; protected set; } = AttributionStatus.Pending;
+        public DateTime InstalledAt { get; protected set; }
+        public Guid? WalletTransactionId { get; protected set; } // WalletTransaction tạo cho salesman
+
+        // v1.2 NEW — risk scoring
+        public int RiskScore { get; protected set; } = 0;
+        public string? RiskFactors { get; protected set; } // JSON
+        public DateTime? HoldUntil { get; protected set; }
+        public Guid? DeviceRegistrationId { get; protected set; } // v1.2 NEW — link tới device đã cài app
+
+        protected AppInstallAttribution() { }
+
+        public AppInstallAttribution(TenantId tenantId, Guid customerId, Guid salesmanId, Guid productId, decimal bonusAmount, Guid? deviceRegistrationId = null)
+            : base(tenantId)
+        {
+            CustomerId = customerId;
+            SalesmanId = salesmanId;
+            ProductId = productId;
+            BonusAmount = bonusAmount; // snapshot từ ProductReferralConfig.AppInstallBonus
+            AttributionStatus = AttributionStatus.Pending;
+            InstalledAt = DateTime.UtcNow;
+            DeviceRegistrationId = deviceRegistrationId; // v1.2
+        }
+
+        public void MarkPaid(Guid walletTransactionId)
+        {
+            AttributionStatus = AttributionStatus.Paid;
+            WalletTransactionId = walletTransactionId;
+            UpdateAudit();
+        }
+
+        // v1.2 NEW — risk scoring + hold/reject
+        public void SetRiskScore(int riskScore, string riskFactors)
+        {
+            RiskScore = riskScore;
+            RiskFactors = riskFactors;
+            if (riskScore >= 80)
+            {
+                AttributionStatus = AttributionStatus.Rejected;
+            }
+            else if (riskScore >= 60)
+            {
+                AttributionStatus = AttributionStatus.Held;
+                HoldUntil = DateTime.UtcNow.AddHours(48);
+            }
+            UpdateAudit();
+        }
+
+        public void MarkRejected(string reason)
+        {
+            AttributionStatus = AttributionStatus.Rejected;
+            UpdateAudit();
+        }
+
+        public void MarkHeld(DateTime holdUntil)
+        {
+            AttributionStatus = AttributionStatus.Held;
+            HoldUntil = holdUntil;
+            UpdateAudit();
+        }
+
+        public void ApproveAfterHold()
+        {
+            AttributionStatus = AttributionStatus.Pending; // ready for payout
+            HoldUntil = null;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// DeviceRegistration — self-hosted device fingerprint + token. Max 3 active per Customer
+    /// (application-layer enforce). Device 4+ → create IsActive=false + FraudFlag.
+    /// </summary>
+    public class DeviceRegistration : BaseEntity, IMustHaveTenant
+    {
+        public Guid CustomerId { get; protected set; }
+        public string DeviceToken { get; protected set; } = string.Empty; // 64 chars, server-signed UUIDv7+HMAC
+        public string FingerprintHash { get; protected set; } = string.Empty; // 64 chars SHA256
+        public string FingerprintSignals { get; protected set; } = string.Empty; // JSON raw signals
+        public DateTime FirstSeenAt { get; protected set; }
+        public DateTime LastSeenAt { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public bool IsVerified { get; protected set; } = false; // admin review passed
+        public string UserAgent { get; protected set; } = string.Empty; // 500 chars
+        public string Platform { get; protected set; } = string.Empty; // 50 chars
+        public string IpAddress { get; protected set; } = string.Empty; // 50 chars
+        public int RiskScore { get; protected set; } = 0; // device-level risk
+
+        protected DeviceRegistration() { }
+
+        public DeviceRegistration(TenantId tenantId, Guid customerId, string deviceToken, string fingerprintHash, string fingerprintSignals, string userAgent, string platform, string ipAddress)
+            : base(tenantId)
+        {
+            CustomerId = customerId;
+            DeviceToken = deviceToken;
+            FingerprintHash = fingerprintHash;
+            FingerprintSignals = fingerprintSignals;
+            UserAgent = userAgent;
+            Platform = platform;
+            IpAddress = ipAddress;
+            FirstSeenAt = DateTime.UtcNow;
+            LastSeenAt = DateTime.UtcNow;
+            IsActive = true;
+            IsVerified = false;
+        }
+
+        public void Touch(DateTime lastSeenAt, string ipAddress)
+        {
+            LastSeenAt = lastSeenAt;
+            IpAddress = ipAddress;
+            UpdateAudit();
+        }
+
+        public void Deactivate()
+        {
+            IsActive = false;
+            UpdateAudit();
+        }
+
+        public void Verify()
+        {
+            IsVerified = true;
+            UpdateAudit();
+        }
+
+        public void UpdateRiskScore(int score)
+        {
+            RiskScore = score;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// FraudFlag — admin review queue entry. 3-strike ban logic in Sprint 6.
+    /// </summary>
+    public class FraudFlag : BaseEntity, IMustHaveTenant
+    {
+        public FraudEntityType EntityType { get; protected set; }
+        public Guid EntityId { get; protected set; }
+        public Guid? CustomerId { get; protected set; } // customer liên quan (nullable — có thể flag device)
+        public FraudFlagType FlagType { get; protected set; }
+        public int RiskScore { get; protected set; } // snapshot tại thời điểm flag
+        public string RiskFactors { get; protected set; } = string.Empty; // JSON chi tiết factors
+        public string Description { get; protected set; } = string.Empty; // 500 chars human-readable
+        public FraudFlagStatus Status { get; protected set; } = FraudFlagStatus.Pending;
+        public Guid? ReviewedBy { get; protected set; } // admin user Id
+        public DateTime? ReviewedAt { get; protected set; }
+        public string? ReviewNote { get; protected set; } // 500 chars
+
+        protected FraudFlag() { }
+
+        public FraudFlag(TenantId tenantId, FraudEntityType entityType, Guid entityId, Guid? customerId, FraudFlagType flagType, int riskScore, string riskFactors, string description)
+            : base(tenantId)
+        {
+            EntityType = entityType;
+            EntityId = entityId;
+            CustomerId = customerId;
+            FlagType = flagType;
+            RiskScore = riskScore;
+            RiskFactors = riskFactors;
+            Description = description;
+            Status = FraudFlagStatus.Pending;
+        }
+
+        public void Confirm(Guid reviewedBy, string note)
+        {
+            Status = FraudFlagStatus.Confirmed;
+            ReviewedBy = reviewedBy;
+            ReviewedAt = DateTime.UtcNow;
+            ReviewNote = note;
+            UpdateAudit();
+        }
+
+        public void Dismiss(Guid reviewedBy, string note)
+        {
+            Status = FraudFlagStatus.Dismissed;
+            ReviewedBy = reviewedBy;
+            ReviewedAt = DateTime.UtcNow;
+            ReviewNote = note;
+            UpdateAudit();
+        }
+
+        public void MarkReviewed(Guid reviewedBy, string note)
+        {
+            Status = FraudFlagStatus.Reviewed;
+            ReviewedBy = reviewedBy;
+            ReviewedAt = DateTime.UtcNow;
+            ReviewNote = note;
+            UpdateAudit();
+        }
+    }
 }

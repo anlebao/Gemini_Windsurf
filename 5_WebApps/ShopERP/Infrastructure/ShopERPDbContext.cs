@@ -96,6 +96,21 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<Mission> Missions { get; set; }
         public DbSet<MissionCompletion> MissionCompletions { get; set; }
 
+        // Community Commerce Sprint 0 (v1.2: 11 DbSet) — PG-only on Gateway.
+        // DbSet exists to satisfy IVanAnDbContext interface contract; never queried from ShopERP SQLite.
+        // v1.3: Community entities are PG-only (cross-tenant nature, avoid 300K SQLite files migration).
+        public DbSet<CommunityRole> CommunityRoles { get; set; }
+        public DbSet<DeliveryTask> DeliveryTasks { get; set; }
+        public DbSet<DeliveryTracking> DeliveryTrackings { get; set; }
+        public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<SalesReferral> SalesReferrals { get; set; }
+        public DbSet<WalletTransaction> WalletTransactions { get; set; }
+        public DbSet<ProductReferralConfig> ProductReferralConfigs { get; set; }
+        public DbSet<AppInstallAttribution> AppInstallAttributions { get; set; }
+        public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
+        public DbSet<FraudFlag> FraudFlags { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters

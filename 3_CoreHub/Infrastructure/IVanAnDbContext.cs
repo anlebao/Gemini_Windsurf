@@ -76,6 +76,19 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Mission> Missions { get; }
         DbSet<MissionCompletion> MissionCompletions { get; }
 
+        // Community Commerce Sprint 0 (v1.2: 11 DbSet) — Gateway PG only, tenant-scoped via IMustHaveTenant
+        DbSet<CommunityRole> CommunityRoles { get; }
+        DbSet<DeliveryTask> DeliveryTasks { get; }
+        DbSet<DeliveryTracking> DeliveryTrackings { get; }
+        DbSet<Conversation> Conversations { get; }
+        DbSet<Message> Messages { get; }
+        DbSet<SalesReferral> SalesReferrals { get; }
+        DbSet<WalletTransaction> WalletTransactions { get; }
+        DbSet<ProductReferralConfig> ProductReferralConfigs { get; } // v1.1 NEW
+        DbSet<AppInstallAttribution> AppInstallAttributions { get; } // v1.1 NEW
+        DbSet<DeviceRegistration> DeviceRegistrations { get; } // v1.2 NEW
+        DbSet<FraudFlag> FraudFlags { get; } // v1.2 NEW
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
     }
