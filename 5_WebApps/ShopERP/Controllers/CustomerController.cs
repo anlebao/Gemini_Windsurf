@@ -173,6 +173,53 @@ namespace VanAn.ShopERP.Controllers
             return Ok(new { items = dtos, total = materialized.Count, page, pageSize });
         }
 
+        /// <summary>
+        /// AF-P3-T3: Export the current segment filter result as CSV.
+        /// Accepts the same SegmentRequest body as POST /segment. Returns a CSV file with
+        /// columns: Name, Phone, Tier, Points, TotalSpent, LastOrder, Birthday, IdentityLevel.
+        /// Auth: OwnerOnly (controller-level). Tenant-scoped via repository global filter.
+        /// </summary>
+        [HttpPost("export")]
+        public async Task<IActionResult> ExportCsv([FromBody] SegmentRequest request)
+        {
+            var criteria = BuildCriteria(request);
+            IReadOnlyList<Customer> customers = await _customerSegmentationService.GetCustomersBySegmentAsync(criteria);
+
+            // AF-P2-T5: batch-load push subscription CustomerIds once per request
+            var pushCustomerIds = await GetCustomerIdsWithPushAsync();
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Name,Phone,Tier,Points,TotalSpent,LastOrder,Birthday,IdentityLevel,HasPush");
+            foreach (var c in customers)
+            {
+                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
+                int points = rewards?.PointBalance ?? 0;
+                sb.Append(CsvEscape(c.FullName)).Append(',')
+                  .Append(CsvEscape(c.PhoneNumber ?? string.Empty)).Append(',')
+                  .Append(CsvEscape(c.CustomerTier ?? string.Empty)).Append(',')
+                  .Append(points).Append(',')
+                  .Append(c.TotalSpent).Append(',')
+                  .Append(c.LastOrderDate?.ToString("yyyy-MM-dd") ?? string.Empty).Append(',')
+                  .Append(c.Birthday?.ToString("yyyy-MM-dd") ?? string.Empty).Append(',')
+                  .Append(CsvEscape(c.IdentityLevel.ToString())).Append(',')
+                  .Append(pushCustomerIds.Contains(c.Id) ? "true" : "false")
+                  .AppendLine();
+            }
+
+            _logger.LogInformation("ExportCsv: {Count} customers exported", customers.Count);
+
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+            return File(bytes, "text/csv", "customers.csv");
+        }
+
+        /// <summary>Minimal CSV field escaping — wraps in quotes if it contains comma/quote/newline, doubles inner quotes.</summary>
+        private static string CsvEscape(string? field)
+        {
+            if (string.IsNullOrEmpty(field)) return string.Empty;
+            if (field.IndexOfAny(new[] { ',', '"', '\n', '\r' }) < 0) return field;
+            return "\"" + field.Replace("\"", "\"\"") + "\"";
+        }
+
         // === Helpers ===
 
         internal static CustomerSegmentCriteria BuildCriteria(SegmentRequest r)

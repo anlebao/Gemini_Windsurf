@@ -167,61 +167,14 @@
         }
     </VanACard>
 
-    @* === Promo Push Composer Modal === *@
-    @if (_showPromoModal)
-    {
-        <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="bi bi-megaphone-fill"></i> Gửi thông báo khuyến mãi</h5>
-                        <button type="button" class="btn-close" @onclick="ClosePromoModal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="small text-muted">
-                            @if (_promoMode == PromoMode.Selection)
-                            {
-                                <text>Sẽ gửi cho <strong>@_promoSelectionCount khách hàng đã chọn</strong> (danh sách tĩnh).</text>
-                            }
-                            else
-                            {
-                                <text>Sẽ gửi cho <strong>@_filteredCustomers.Count khách hàng</strong> (theo bộ lọc hiện tại).</text>
-                            }
-                        </p>
-                        <div class="mb-3">
-                            <label class="form-label">Tiêu đề</label>
-                            <input class="form-control" @bind="_promoTitle" maxlength="100" placeholder="vd: Khuyến mãi cuối tuần" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Nội dung thông báo</label>
-                            <textarea class="form-control" @bind="_promoMessage" rows="3" maxlength="500" placeholder="vd: Giảm 20% cho tất cả món nước từ 15h-17h hôm nay!"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Link đích (tùy chọn)</label>
-                            <input class="form-control" @bind="_promoUrl" placeholder="/rewards hoặc https://..." />
-                        </div>
-                        @if (_promoError != null)
-                        {
-                            <div class="text-danger small">@_promoError</div>
-                        }
-                    </div>
-                    <div class="modal-footer">
-                        <VanAButton Variant="secondary" OnClick="ClosePromoModal">Hủy</VanAButton>
-                        <VanAButton Variant="primary" OnClick="SubmitPromoAsync" Disabled="@_promoSubmitting">
-                            @if (_promoSubmitting)
-                            {
-                                <span class="spinner-border spinner-border-sm"></span>
-                            }
-                            else
-                            {
-                                <text>Tạo chiến dịch</text>
-                            }
-                        </VanAButton>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
+    @* === Promo Push Composer Modal (AF-P3-T1: extracted to PromoPushComposer.razor) === *@
+    <PromoPushComposer
+        Show="@_showPromoModal"
+        RecipientCount="@_promoSelectionCount"
+        IsSubmitting="@_promoSubmitting"
+        ErrorMessage="@_promoError"
+        OnSubmit="SubmitPromoAsync"
+        OnClose="ClosePromoModal" />
 </div>
 
 @code {
@@ -245,14 +198,11 @@
     // AF-P2-T2: selection state (across all pages — survives pagination)
     private HashSet<Guid> _selectedCustomerIds = new();
 
-    // Promo modal state
+    // Promo modal state (AF-P3-T1: form fields moved to PromoPushComposer; parent owns visibility/submitting/error)
     private bool _showPromoModal;
     private PromoMode _promoMode = PromoMode.Filter;
     private int _promoSelectionCount;
     private List<Guid>? _promoSelectionIds;
-    private string _promoTitle = string.Empty;
-    private string _promoMessage = string.Empty;
-    private string _promoUrl = string.Empty;
     private string? _promoError;
     private bool _promoSubmitting;
 
@@ -390,14 +340,14 @@
         else _selectedCustomerIds.Remove(id);
     }
 
-    // === AF-P2-T1/T2: promo modal openers ===
+    // === AF-P2-T1/T2: promo modal openers (AF-P3-T1: form state owned by PromoPushComposer) ===
 
     private void OpenPromoModalFromFilter()
     {
         _promoMode = PromoMode.Filter;
         _promoSelectionIds = null;
         _promoSelectionCount = _filteredCustomers.Count;
-        ResetPromoForm();
+        _promoError = null;
         _showPromoModal = true;
     }
 
@@ -407,7 +357,7 @@
         _promoMode = PromoMode.Selection;
         _promoSelectionIds = _selectedCustomerIds.ToList();
         _promoSelectionCount = _promoSelectionIds.Count;
-        ResetPromoForm();
+        _promoError = null;
         _showPromoModal = true;
     }
 
@@ -416,16 +366,8 @@
         _promoMode = PromoMode.Selection;
         _promoSelectionIds = new List<Guid> { c.Id };
         _promoSelectionCount = 1;
-        ResetPromoForm();
-        _showPromoModal = true;
-    }
-
-    private void ResetPromoForm()
-    {
-        _promoTitle = string.Empty;
-        _promoMessage = string.Empty;
-        _promoUrl = string.Empty;
         _promoError = null;
+        _showPromoModal = true;
     }
 
     private void ClosePromoModal()
@@ -434,15 +376,17 @@
         _promoError = null;
     }
 
-    private async Task SubmitPromoAsync()
+    // AF-P3-T1: receives composed payload from PromoPushComposer. Validation runs here so the
+    // composer stays free of business rules; error string flows back via ErrorMessage parameter.
+    private async Task SubmitPromoAsync(PromoPushComposer.PromoPushPayload payload)
     {
         _promoError = null;
-        if (string.IsNullOrWhiteSpace(_promoTitle))
+        if (string.IsNullOrWhiteSpace(payload.Title))
         {
             _promoError = "Vui lòng nhập tiêu đề.";
             return;
         }
-        if (string.IsNullOrWhiteSpace(_promoMessage))
+        if (string.IsNullOrWhiteSpace(payload.Message))
         {
             _promoError = "Vui lòng nhập nội dung thông báo.";
             return;
@@ -456,8 +400,8 @@
             {
                 // AF-P2-T1/T2: explicit recipient list
                 campaign = await PromoCampaignService.CreateCampaignAsync(
-                    _promoTitle, _promoMessage,
-                    string.IsNullOrWhiteSpace(_promoUrl) ? null : _promoUrl,
+                    payload.Title, payload.Message,
+                    string.IsNullOrWhiteSpace(payload.Url) ? null : payload.Url,
                     _promoSelectionIds);
             }
             else
@@ -472,13 +416,13 @@
                     MaxTotalSpent: _filterMaxSpent);
 
                 campaign = await PromoCampaignService.CreateCampaignAsync(
-                    _promoTitle, _promoMessage,
-                    string.IsNullOrWhiteSpace(_promoUrl) ? null : _promoUrl,
+                    payload.Title, payload.Message,
+                    string.IsNullOrWhiteSpace(payload.Url) ? null : payload.Url,
                     criteria);
             }
 
             _showPromoModal = false;
-            _alertMessage = $"Đã tạo chiến dịch '{_promoTitle}' với {campaign.TotalRecipients} người nhận. Đang xử lý — xem tiến độ tại /admin/promo-campaigns.";
+            _alertMessage = $"Đã tạo chiến dịch '{payload.Title}' với {campaign.TotalRecipients} người nhận. Đang xử lý — xem tiến độ tại /admin/promo-campaigns.";
             _alertType = "success";
         }
         catch (InvalidOperationException ex)

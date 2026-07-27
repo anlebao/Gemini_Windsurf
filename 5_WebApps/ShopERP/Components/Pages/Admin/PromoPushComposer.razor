@@ -1,0 +1,94 @@
+@* AF-P3-T1: Extracted from CustomerList.razor — pure modal composer for promo push campaigns. *@
+@using VanAn.UI.Platform.Components
+
+@if (Show)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-megaphone-fill"></i> Gửi thông báo khuyến mãi</h5>
+                    <button type="button" class="btn-close" @onclick="OnClose"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Sẽ gửi cho <strong>@RecipientCount khách hàng</strong>.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Tiêu đề</label>
+                        <input class="form-control" @bind="_title" maxlength="100" placeholder="vd: Khuyến mãi cuối tuần" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nội dung thông báo</label>
+                        <textarea class="form-control" @bind="_message" rows="3" maxlength="500" placeholder="vd: Giảm 20% cho tất cả món nước từ 15h-17h hôm nay!"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Link đích (tùy chọn)</label>
+                        <input class="form-control" @bind="_url" placeholder="/rewards hoặc https://..." />
+                    </div>
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <div class="text-danger small">@ErrorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" OnClick="OnClose">Hủy</VanAButton>
+                    <VanAButton Variant="primary" OnClick="SubmitAsync" Disabled="@IsSubmitting">
+                        @if (IsSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm"></span>
+                        }
+                        else
+                        {
+                            <text>Tạo chiến dịch</text>
+                        }
+                    </VanAButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Controls modal visibility (parent-owned).</summary>
+    [Parameter] public bool Show { get; set; }
+
+    /// <summary>Number of recipients the campaign will target (display only).</summary>
+    [Parameter] public int RecipientCount { get; set; }
+
+    /// <summary>Parent sets true while the campaign is being created — disables submit button + shows spinner.</summary>
+    [Parameter] public bool IsSubmitting { get; set; }
+
+    /// <summary>Parent-supplied error message to display inline (null/empty = no error).</summary>
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    /// <summary>Invoked with the composed payload when the user clicks "Tạo chiến dịch".</summary>
+    [Parameter] public EventCallback<PromoPushPayload> OnSubmit { get; set; }
+
+    /// <summary>Invoked when the user closes the modal (cancel button or X).</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _title = string.Empty;
+    private string _message = string.Empty;
+    private string _url = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        // Reset form fields each time the modal is opened (Show transitions to true).
+        if (Show)
+        {
+            _title = string.Empty;
+            _message = string.Empty;
+            _url = string.Empty;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (IsSubmitting) return;
+        await OnSubmit.InvokeAsync(new PromoPushPayload(_title, _message, _url));
+    }
+
+    /// <summary>Payload delivered to the parent via OnSubmit.</summary>
+    public sealed record PromoPushPayload(string Title, string Message, string Url);
+}
