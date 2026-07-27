@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Filters;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
@@ -16,6 +17,7 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/customer-identity")]
     [AllowAnonymous]
+    [ResolveCustomerTenant]
     public class CustomerIdentityController(
         IOtpService otpService,
         ICustomerTokenService customerTokenService,

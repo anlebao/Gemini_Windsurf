@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Filters;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
 
@@ -14,6 +15,7 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/loyalty")]
     [AllowAnonymous]
+    [ResolveCustomerTenant]
     public class LoyaltyController(
         ILoyaltyRewardsService loyaltyService,
         ICustomerTokenService customerTokenService,

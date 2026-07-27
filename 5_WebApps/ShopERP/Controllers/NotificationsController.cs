@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using VanAn.ShopERP.Filters;
 using VanAn.ShopERP.Services;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Infrastructure;
@@ -17,6 +18,7 @@ namespace VanAn.ShopERP.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [AllowAnonymous]
+    [ResolveCustomerTenant]
     public class NotificationsController(
         ICustomerTokenService customerTokenService,
         IPushSubscriptionRepository pushSubscriptionRepository,

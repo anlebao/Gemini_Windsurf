@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Services;
+using VanAn.ShopERP.Filters;
 using VanAn.ShopERP.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
@@ -25,6 +26,7 @@ namespace VanAn.ShopERP.Controllers
     /// </summary>
     [ApiController]
     [Route("api/missions")]
+    [ResolveCustomerTenant]
     public class MissionsController(
         IMissionService missionService,
         ICustomerTokenService customerTokenService,
