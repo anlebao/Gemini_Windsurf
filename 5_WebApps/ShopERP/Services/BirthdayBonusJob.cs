@@ -79,7 +79,7 @@ namespace VanAn.ShopERP.Services
             _logger.LogInformation("BirthdayBonusJob stopped");
         }
 
-        private async Task RunBirthdayBonusAsync(CancellationToken cancellationToken)
+        internal async Task RunBirthdayBonusAsync(CancellationToken cancellationToken)
         {
             // Resolve tenant ID from configuration (same key as seeding logic)
             string tenantIdStr = _configuration["Seed:TenantId"]

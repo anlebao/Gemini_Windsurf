@@ -23,6 +23,8 @@ using Serilog;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserRole = VanAn.Shared.Domain.Aggregates.UserAggregate.UserRole;
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Tests")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Core.Tests")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("VanAn.Integration.Tests")]
 
 namespace VanAn.ShopERP
 {

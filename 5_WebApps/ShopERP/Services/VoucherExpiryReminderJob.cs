@@ -78,7 +78,7 @@ namespace VanAn.ShopERP.Services
             _logger.LogInformation("VoucherExpiryReminderJob stopped");
         }
 
-        private async Task RunExpiryRemindersAsync(CancellationToken cancellationToken)
+        internal async Task RunExpiryRemindersAsync(CancellationToken cancellationToken)
         {
             // Resolve tenant ID from configuration
             string tenantIdStr = _configuration["Seed:TenantId"]

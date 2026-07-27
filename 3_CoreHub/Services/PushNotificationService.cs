@@ -139,7 +139,7 @@ namespace VanAn.CoreHub.Services
         /// <param name="newBalance">New point balance after change</param>
         /// <param name="reason">Reason for the change</param>
         /// <returns>Number of notifications sent successfully</returns>
-        public async Task<int> SendLoyaltyPointsChangedNotificationAsync(
+        public virtual async Task<int> SendLoyaltyPointsChangedNotificationAsync(
             Guid customerId,
             int pointsChange,
             int newBalance,
@@ -393,7 +393,7 @@ namespace VanAn.CoreHub.Services
         /// <param name="customerName">Customer name for personalization</param>
         /// <param name="pointsAwarded">Birthday bonus points awarded (0 if mission not configured)</param>
         /// <returns>Number of notifications sent successfully</returns>
-        public async Task<int> SendBirthdayNotificationAsync(Guid customerId, string? customerName, int pointsAwarded)
+        public virtual async Task<int> SendBirthdayNotificationAsync(Guid customerId, string? customerName, int pointsAwarded)
         {
             try
             {
@@ -450,7 +450,7 @@ namespace VanAn.CoreHub.Services
         /// <param name="expiresAt">Voucher expiry timestamp</param>
         /// <param name="daysRemaining">Days until expiry (for urgency messaging)</param>
         /// <returns>Number of notifications sent successfully</returns>
-        public async Task<int> SendVoucherExpiryReminderAsync(
+        public virtual async Task<int> SendVoucherExpiryReminderAsync(
             Guid customerId,
             string voucherCode,
             string? productName,
@@ -506,7 +506,7 @@ namespace VanAn.CoreHub.Services
         /// Loyalty-C WS-C: Send a redemption fulfilled notification to a customer.
         /// Triggered by RedemptionService.FulfillAsync after admin marks voucher as used.
         /// </summary>
-        public async Task<int> SendRedemptionFulfilledNotificationAsync(Guid customerId, string voucherCode, string? productName)
+        public virtual async Task<int> SendRedemptionFulfilledNotificationAsync(Guid customerId, string voucherCode, string? productName)
         {
             try
             {
