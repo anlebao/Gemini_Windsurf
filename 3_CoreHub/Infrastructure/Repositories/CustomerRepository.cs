@@ -184,5 +184,21 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .OrderBy(c => c.FullName)
                 .ToListAsync();
         }
+
+        /// <summary>
+        /// AF-P1-T1: Get ALL active, non-deleted customers across ALL tenants (SystemAdmin only).
+        /// IgnoreQueryFilters bypasses the global TenantId filter so customers from every tenant
+        /// are returned regardless of the ambient ITenantProvider context. Ordered by TenantId
+        /// then FullName for stable cross-tenant grouping in the SystemAdmin UI.
+        /// </summary>
+        public async Task<IReadOnlyList<Customer>> GetAllCustomersAcrossTenantsAsync()
+        {
+            return await _context.Customers
+                .IgnoreQueryFilters()  // Bypass global TenantId filter — SystemAdmin only
+                .Where(c => !c.IsDeleted && c.IsActive)
+                .OrderBy(c => c.TenantId)  // Group by tenant for UI
+                .ThenBy(c => c.FullName)
+                .ToListAsync();
+        }
     }
 }

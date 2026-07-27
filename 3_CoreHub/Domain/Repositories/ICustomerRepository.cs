@@ -66,5 +66,15 @@ namespace VanAn.CoreHub.Domain.Repositories
         /// Birthday is stored as date-only (time = 00:00); comparison is on Month + Day only (year ignored).
         /// </summary>
         Task<IReadOnlyList<Customer>> GetCustomersWithBirthdayTodayAsync();
+
+        /// <summary>
+        /// AF-P1-T1: Get ALL active, non-deleted customers across ALL tenants (SystemAdmin only).
+        /// Bypasses the global TenantId query filter via IgnoreQueryFilters() so customers from
+        /// every tenant are returned regardless of the ambient ITenantProvider context.
+        /// DO NOT expose to Owner/Staff roles — only the SystemAdmin-scoped controller action
+        /// (GET /api/customers/global with [Authorize(Policy = "SystemAdmin")]) consumes this.
+        /// Results are ordered by TenantId then FullName for stable cross-tenant grouping in the UI.
+        /// </summary>
+        Task<IReadOnlyList<Customer>> GetAllCustomersAcrossTenantsAsync();
     }
 }

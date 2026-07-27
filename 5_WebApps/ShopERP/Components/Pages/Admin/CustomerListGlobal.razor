@@ -4,17 +4,18 @@
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Domain.Repositories
 @using VanAn.CoreHub.Services
 @using VanAn.Shared.Domain
-@using VanAn.Shared.Services
-@inject IPromoCampaignService PromoCampaignService
+@inject ICustomerRepository CustomerRepository
+@inject ILoyaltyRewardsService LoyaltyRewardsService
 @inject ILogger<CustomerListGlobal> Logger
 
 @attribute [Authorize(Policy = "SystemAdmin")]
 
 <div class="customer-list-global-admin-page">
     <header class="page-header">
-        <h1><i class="bi bi-globe"></i> Cross-Tenant Overview</h1>
+        <h1><i class="bi bi-globe"></i> Khách hàng toàn hệ thống (Cross-Tenant)</h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" OnClick="LoadData">Làm mới</VanAButton>
         </div>
@@ -25,16 +26,55 @@
         <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
     }
 
-    <VanACard Title="Tất cả chiến dịch khuyến mãi (cross-tenant)">
+    <VanACard Title="Bộ lọc khách hàng (toàn hệ thống)">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Điểm thưởng từ</label>
+                <input type="number" class="form-control" @bind="_filterMinPoints" placeholder="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Điểm thưởng đến</label>
+                <input type="number" class="form-control" @bind="_filterMaxPoints" placeholder="∞" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lần mua gần nhất (trong N ngày)</label>
+                <input type="number" class="form-control" @bind="_filterLastOrderDays" placeholder="vd: 30" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sinh nhật trong tháng</label>
+                <select class="form-select" @bind="_filterBirthdayMonth">
+                    <option value="0">— Tất cả —</option>
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">Tháng @m</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Doanh số từ (VND)</label>
+                <input type="number" class="form-control" @bind="_filterMinSpent" placeholder="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Doanh số đến (VND)</label>
+                <input type="number" class="form-control" @bind="_filterMaxSpent" placeholder="∞" />
+            </div>
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <VanAButton Variant="primary" OnClick="ApplyFilter">Lọc</VanAButton>
+                <VanAButton Variant="secondary" OnClick="ClearFilter">Xóa lọc</VanAButton>
+            </div>
+        </div>
+    </VanACard>
+
+    <VanACard Title="Danh sách khách hàng (tất cả tenant)">
         @if (_loading)
         {
             <div class="text-center py-4"><div class="spinner-border"></div></div>
         }
-        else if (_campaigns.Count == 0)
+        else if (_displayCustomers.Count == 0)
         {
             <div class="text-center py-4 text-muted">
                 <i class="bi bi-inbox" style="font-size:2rem;"></i>
-                <p class="mt-2">Chưa có chiến dịch nào trên hệ thống.</p>
+                <p class="mt-2">Không có khách hàng nào thỏa bộ lọc.</p>
             </div>
         }
         else
@@ -43,35 +83,53 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Tiêu đề</th>
                             <th>Tenant</th>
-                            <th class="text-end">Người nhận</th>
-                            <th class="text-end">Đã gửi</th>
-                            <th class="text-end">Lỗi</th>
+                            <th>Họ tên</th>
+                            <th>Điện thoại</th>
+                            <th>Hạng</th>
+                            <th class="text-end">Điểm</th>
+                            <th class="text-end">Tổng chi</th>
+                            <th>Lần mua cuối</th>
+                            <th>Sinh nhật</th>
+                            <th>Định danh</th>
                             <th>Trạng thái</th>
-                            <th>Ngày tạo</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var c in _campaigns)
+                        @foreach (var c in _displayCustomers)
                         {
                             <tr>
-                                <td>@c.Title</td>
-                                <td><code>@c.TenantId.ToString().Substring(0, 8)</code></td>
-                                <td class="text-end">@c.TotalRecipients</td>
-                                <td class="text-end text-success">@c.SentCount</td>
-                                <td class="text-end text-danger">@c.FailedCount</td>
-                                <td>@RenderStatusBadge(c.Status)</td>
-                                <td>@c.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><code title="@c.TenantId.ToString()">@c.TenantId.ToString()[..8]</code></td>
+                                <td>@c.FullName</td>
+                                <td>@(c.PhoneNumber ?? "—")</td>
+                                <td><span class="badge bg-info text-dark">@(string.IsNullOrEmpty(c.CustomerTier) ? "—" : c.CustomerTier)</span></td>
+                                <td class="text-end">@c.PointBalance.ToString("N0")</td>
+                                <td class="text-end">@c.TotalSpent.ToString("N0")</td>
+                                <td>@(c.LastOrderDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td>@(c.Birthday?.ToString("dd/MM") ?? "—")</td>
+                                <td>@c.IdentityLevel</td>
+                                <td>
+                                    @if (c.IsActive)
+                                    {
+                                        <span class="badge bg-success">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Ngừng</span>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
-            <p class="text-muted small mt-3">
-                <i class="bi bi-info-circle"></i> Cross-tenant customer list (tất cả khách hàng từ mọi tenant) sẽ được thêm trong phase tiếp theo.
-                Hiện tại trang này hiển thị tổng quan chiến dịch khuyến mãi trên toàn hệ thống.
-            </p>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <span class="text-muted small">Hiển thị @_displayCustomers.Count / @_filteredCustomers.Count khách (toàn hệ thống)</span>
+                <div class="btn-group">
+                    <VanAButton Variant="secondary" OnClick="PrevPage" Disabled="@(_page <= 1)">‹ Trước</VanAButton>
+                    <VanAButton Variant="secondary" OnClick="NextPage" Disabled="@(_page >= _totalPages)">Sau ›</VanAButton>
+                </div>
+            </div>
         }
     </VanACard>
 </div>
@@ -80,7 +138,19 @@
     private bool _loading = true;
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
-    private List<PromoCampaign> _campaigns = new();
+    private List<GlobalCustomerRow> _filteredCustomers = new();
+    private List<GlobalCustomerRow> _displayCustomers = new();
+    private int _page = 1;
+    private const int PageSize = 20;
+    private int _totalPages = 1;
+
+    // Filter state
+    private int? _filterMinPoints;
+    private int? _filterMaxPoints;
+    private int? _filterLastOrderDays;
+    private int _filterBirthdayMonth;
+    private decimal? _filterMinSpent;
+    private decimal? _filterMaxSpent;
 
     protected override async Task OnInitializedAsync()
     {
@@ -92,12 +162,37 @@
         _loading = true;
         try
         {
-            // Load all campaigns across tenants (SystemAdmin view)
-            _campaigns = (await PromoCampaignService.GetCampaignsAsync(1, 100)).ToList();
+            // SystemAdmin-only: bypass global TenantId filter via IgnoreQueryFilters in repo.
+            IReadOnlyList<Customer> all = await CustomerRepository.GetAllCustomersAcrossTenantsAsync();
+
+            // Enrich with loyalty point balance + project to UI rows
+            var rows = new List<GlobalCustomerRow>(all.Count);
+            foreach (var c in all)
+            {
+                var rewards = await LoyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
+                rows.Add(new GlobalCustomerRow
+                {
+                    Id = c.Id,
+                    TenantId = c.TenantId.Value,
+                    FullName = c.FullName,
+                    PhoneNumber = c.PhoneNumber,
+                    CustomerTier = c.CustomerTier,
+                    PointBalance = rewards?.PointBalance ?? 0,
+                    TotalSpent = c.TotalSpent,
+                    LastOrderDate = c.LastOrderDate,
+                    Birthday = c.Birthday,
+                    IdentityLevel = c.IdentityLevel.ToString(),
+                    IsActive = c.IsActive
+                });
+            }
+
+            _filteredCustomers = ApplyFilters(rows);
+            _page = Math.Min(_page, Math.Max(1, (int)Math.Ceiling((double)_filteredCustomers.Count / PageSize)));
+            ApplyPagination();
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to load global campaign data");
+            Logger.LogError(ex, "Failed to load global customer data");
             _alertMessage = $"Lỗi: {ex.Message}";
             _alertType = "danger";
         }
@@ -107,13 +202,81 @@
         }
     }
 
-    private static Microsoft.AspNetCore.Components.MarkupString RenderStatusBadge(string status) => status switch
+    private List<GlobalCustomerRow> ApplyFilters(List<GlobalCustomerRow> rows)
     {
-        "Pending" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Chờ xử lý</span>"),
-        "Processing" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-primary\">Đang gửi</span>"),
-        "Completed" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-success\">Hoàn thành</span>"),
-        "Failed" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-danger\">Lỗi</span>"),
-        "Cancelled" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Đã hủy</span>"),
-        _ => new Microsoft.AspNetCore.Components.MarkupString($"<span class=\"badge bg-light text-dark\">{status}</span>")
-    };
+        IEnumerable<GlobalCustomerRow> filtered = rows;
+
+        if (_filterMinPoints.HasValue)
+            filtered = filtered.Where(c => c.PointBalance >= _filterMinPoints.Value);
+        if (_filterMaxPoints.HasValue)
+            filtered = filtered.Where(c => c.PointBalance <= _filterMaxPoints.Value);
+
+        if (_filterLastOrderDays.HasValue && _filterLastOrderDays.Value > 0)
+        {
+            DateTime cutoff = DateTime.UtcNow.AddDays(-_filterLastOrderDays.Value);
+            filtered = filtered.Where(c => c.LastOrderDate.HasValue && c.LastOrderDate.Value >= cutoff);
+        }
+
+        if (_filterBirthdayMonth > 0)
+            filtered = filtered.Where(c => c.Birthday.HasValue && c.Birthday.Value.Month == _filterBirthdayMonth);
+
+        if (_filterMinSpent.HasValue)
+            filtered = filtered.Where(c => c.TotalSpent >= _filterMinSpent.Value);
+        if (_filterMaxSpent.HasValue)
+            filtered = filtered.Where(c => c.TotalSpent <= _filterMaxSpent.Value);
+
+        return filtered.ToList();
+    }
+
+    private void ApplyPagination()
+    {
+        _totalPages = Math.Max(1, (int)Math.Ceiling((double)_filteredCustomers.Count / PageSize));
+        _displayCustomers = _filteredCustomers
+            .Skip((_page - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+    }
+
+    private async Task ApplyFilter()
+    {
+        _page = 1;
+        await LoadData();
+    }
+
+    private async Task ClearFilter()
+    {
+        _filterMinPoints = null;
+        _filterMaxPoints = null;
+        _filterLastOrderDays = null;
+        _filterBirthdayMonth = 0;
+        _filterMinSpent = null;
+        _filterMaxSpent = null;
+        _page = 1;
+        await LoadData();
+    }
+
+    private void PrevPage()
+    {
+        if (_page > 1) { _page--; ApplyPagination(); }
+    }
+
+    private void NextPage()
+    {
+        if (_page < _totalPages) { _page++; ApplyPagination(); }
+    }
+
+    private class GlobalCustomerRow
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public string CustomerTier { get; set; } = string.Empty;
+        public int PointBalance { get; set; }
+        public decimal TotalSpent { get; set; }
+        public DateTime? LastOrderDate { get; set; }
+        public DateTime? Birthday { get; set; }
+        public string IdentityLevel { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
 }
