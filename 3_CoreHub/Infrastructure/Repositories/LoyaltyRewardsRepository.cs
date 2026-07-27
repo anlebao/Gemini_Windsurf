@@ -11,13 +11,21 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<LoyaltyRewards?> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default)
         {
+            // Bug 6 fix: IgnoreQueryFilters — loyalty rewards lookup by CustomerId should
+            // not be restricted by tenant filter (CustomerId is globally unique PK).
             return await _context.LoyaltyRewards
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(r => r.CustomerId == customerId, cancellationToken);
         }
 
         public async Task<Customer?> GetCustomerByIdAsync(Guid customerId, CancellationToken cancellationToken = default)
         {
+            // Bug 6 fix: IgnoreQueryFilters — customer ID is globally unique (PK).
+            // Without this, the global TenantId query filter excludes the customer stub
+            // when ITenantProvider.TenantId doesn't match (e.g., SystemAdmin impersonation
+            // context, or customer created in a different tenant scope).
             return await _context.Customers
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(c => c.Id == customerId, cancellationToken);
         }
 
