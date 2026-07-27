@@ -1,18 +1,10 @@
 name: E2E Tests
 
+# Disabled automatic triggers — E2E tests are not appropriate for GitHub CI
+# (require live services + DB + NATS; too slow + flaky on shared runners).
+# Run manually via workflow_dispatch when needed, or locally via Playwright.
+# Tracked separately in Phase 8 — Multi-VPS E2E Validation task card.
 on:
-  push:
-    branches: [ main, develop, 'feature/**' ]
-    paths:
-      - '5_WebApps/**'
-      - 'UI.Platform/**'
-      - '6_Testing/e2e-tests/**'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - '5_WebApps/**'
-      - 'UI.Platform/**'
-      - '6_Testing/e2e-tests/**'
   workflow_dispatch:
     inputs:
       spec:
