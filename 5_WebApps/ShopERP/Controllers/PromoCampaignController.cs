@@ -62,6 +62,10 @@ namespace VanAn.ShopERP.Controllers
         }
 
         /// <summary>Create a new campaign (Pending → processed async by PromoCampaignJob).</summary>
+        /// <remarks>
+        /// AF-P2-T1/T2: If <see cref="CreateCampaignRequest.SelectedCustomerIds"/> is non-empty, the campaign
+        /// targets that explicit list (per-row "Gửi" + bulk select). Otherwise falls back to segment criteria.
+        /// </remarks>
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateCampaignRequest request)
         {
@@ -70,12 +74,23 @@ namespace VanAn.ShopERP.Controllers
             if (string.IsNullOrWhiteSpace(request.Message))
                 return BadRequest(new { error = "Nội dung thông báo không được để trống." });
 
-            var criteria = CustomerController.BuildCriteria(request.Segment);
-
             try
             {
-                var campaign = await _campaignService.CreateCampaignAsync(
-                    request.Title, request.Message, request.Url, criteria);
+                PromoCampaign campaign;
+                if (request.SelectedCustomerIds is { Count: > 0 } ids)
+                {
+                    // Explicit recipient list (per-row + bulk select flows)
+                    campaign = await _campaignService.CreateCampaignAsync(
+                        request.Title, request.Message, request.Url, ids);
+                }
+                else
+                {
+                    // Segment-criteria flow (existing behavior)
+                    var criteria = CustomerController.BuildCriteria(request.Segment);
+                    campaign = await _campaignService.CreateCampaignAsync(
+                        request.Title, request.Message, request.Url, criteria);
+                }
+
                 _logger.LogInformation("PromoCampaign created: {CampaignId} ('{Title}') with {Count} recipients",
                     campaign.Id, campaign.Title, campaign.TotalRecipients);
                 return Ok(new { campaignId = campaign.Id, totalRecipients = campaign.TotalRecipients });
@@ -159,6 +174,12 @@ namespace VanAn.ShopERP.Controllers
         public string Message { get; set; } = string.Empty;
         public string? Url { get; set; }
         public SegmentRequest Segment { get; set; } = new();
+
+        /// <summary>
+        /// AF-P2-T1/T2: Explicit recipient list (per-row "Gửi" + bulk select).
+        /// When non-empty, takes precedence over <see cref="Segment"/> criteria.
+        /// </summary>
+        public List<Guid>? SelectedCustomerIds { get; set; }
     }
 
     public class CampaignDto

@@ -15,6 +15,15 @@ namespace VanAn.Shared.Services
         Task<PromoCampaign> CreateCampaignAsync(
             string title, string message, string? url, CustomerSegmentCriteria criteria);
 
+        /// <summary>
+        /// AF-P2-T1/T2: Create a new campaign targeting an explicit list of customer IDs
+        /// (per-row "Gửi" + bulk select). Recipients are resolved by ICustomerRepository.GetByIdAsync
+        /// (tenant-scoped, active, non-deleted). Unknown/inactive IDs are silently skipped.
+        /// SegmentSnapshotJson captures the explicit ID list for audit trail.
+        /// </summary>
+        Task<PromoCampaign> CreateCampaignAsync(
+            string title, string message, string? url, IReadOnlyList<Guid> selectedCustomerIds);
+
         /// <summary>Get campaign by ID.</summary>
         Task<PromoCampaign?> GetCampaignAsync(Guid id);
 

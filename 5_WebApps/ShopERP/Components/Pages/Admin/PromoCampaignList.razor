@@ -5,10 +5,13 @@
 @using VanAn.UI.Platform.Components.Composite
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Domain.Repositories
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Services
 @inject IPromoCampaignService PromoCampaignService
+@inject ICustomerRepository CustomerRepository
 @inject ILogger<PromoCampaignList> Logger
+@implements IAsyncDisposable
 
 @attribute [Authorize]
 
@@ -63,19 +66,88 @@
                                 <td class="text-end">@c.TotalRecipients</td>
                                 <td class="text-end text-success">@c.SentCount</td>
                                 <td class="text-end text-danger">@c.FailedCount</td>
-                                <td>@RenderStatusBadge(c.Status)</td>
-                                <td>@c.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>
-                                    @if (c.Status is "Pending" or "Processing")
+                                    @RenderStatusBadge(c.Status)
+                                    @if (c.Status == "Processing" && c.TotalRecipients > 0)
                                     {
-                                        <VanAButton Variant="secondary" OnClick="@(() => CancelCampaignAsync(c.Id))">Hủy</VanAButton>
+                                        var pct = (int)Math.Round((double)c.SentCount / c.TotalRecipients * 100);
+                                        <div class="progress mt-1" style="height:6px; min-width:120px;">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                                                 role="progressbar" style="width:@(pct)%" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <span class="small text-muted">@pct%</span>
                                     }
                                 </td>
+                                <td>@c.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <VanAButton Variant="secondary" OnClick="@(() => ToggleDetail(c.Id))">
+                                            <i class="bi bi-list-ul"></i> Chi tiết
+                                        </VanAButton>
+                                        @if (c.Status is "Pending" or "Processing")
+                                        {
+                                            <VanAButton Variant="secondary" OnClick="@(() => CancelCampaignAsync(c.Id))">Hủy</VanAButton>
+                                        }
+                                    </div>
+                                </td>
                             </tr>
+                            @if (_expandedCampaignIds.Contains(c.Id))
+                            {
+                                <tr>
+                                    <td colspan="8" class="bg-light">
+                                        @if (_recipientLoadingFor == c.Id)
+                                        {
+                                            <div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div> Đang tải danh sách người nhận…</div>
+                                        }
+                                        else if (_recipientRows.TryGetValue(c.Id, out var recipients) && recipients.Count > 0)
+                                        {
+                                            <table class="table table-sm mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Khách hàng</th>
+                                                        <th>Trạng thái</th>
+                                                        <th>Đã gửi lúc</th>
+                                                        <th>Lỗi</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var r in recipients)
+                                                    {
+                                                        <tr>
+                                                            <td>@r.CustomerName</td>
+                                                            <td>@RenderRecipientStatusBadge(r.Status)</td>
+                                                            <td>@(r.SentAt?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+                                                            <td class="text-danger small">@(r.ErrorMessage ?? "—")</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                            @if (_recipientHasMore.TryGetValue(c.Id, out var hasMore) && hasMore)
+                                            {
+                                                <div class="text-center py-2">
+                                                    <VanAButton Variant="secondary" OnClick="@(() => LoadMoreRecipientsAsync(c.Id))">
+                                                        Tải thêm
+                                                    </VanAButton>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <div class="text-center text-muted py-2">Không có người nhận.</div>
+                                        }
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
             </div>
+            @if (_hasProcessingCampaigns)
+            {
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-arrow-repeat"></i> Tự động làm mới mỗi 5 giây khi có chiến dịch đang xử lý…
+                </div>
+            }
         }
     </VanACard>
 </div>
@@ -85,10 +157,35 @@
     private string _alertMessage = string.Empty;
     private string _alertType = "info";
     private List<PromoCampaign> _campaigns = new();
+    private bool _hasProcessingCampaigns;
+
+    // AF-P2-T4: detail expand state
+    private HashSet<Guid> _expandedCampaignIds = new();
+    private Dictionary<Guid, List<RecipientRow>> _recipientRows = new();
+    private Dictionary<Guid, bool> _recipientHasMore = new();
+    private Dictionary<Guid, int> _recipientPage = new();
+    private Guid? _recipientLoadingFor;
+    private const int RecipientPageSize = 20;
+
+    // AF-P2-T3: auto-refresh timer
+    private PeriodicTimer? _refreshTimer;
+    private CancellationTokenSource? _refreshCts;
+    private Task? _refreshTask;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCampaigns();
+        StartAutoRefreshIfNeeded();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Restart timer whenever processing state may have changed
+        if (!firstRender)
+        {
+            StartAutoRefreshIfNeeded();
+        }
+        await Task.CompletedTask;
     }
 
     private async Task LoadCampaigns()
@@ -97,6 +194,7 @@
         try
         {
             _campaigns = (await PromoCampaignService.GetCampaignsAsync(1, 50)).ToList();
+            _hasProcessingCampaigns = _campaigns.Any(c => c.Status == "Processing" || c.Status == "Pending");
         }
         catch (Exception ex)
         {
@@ -110,6 +208,69 @@
         }
     }
 
+    // AF-P2-T3: poll every 5s while any campaign is Processing/Pending; stop when none.
+    private void StartAutoRefreshIfNeeded()
+    {
+        bool shouldRun = _hasProcessingCampaigns && !_loading;
+        bool isRunning = _refreshTask != null && !_refreshTask.IsCompleted;
+
+        if (shouldRun && !isRunning)
+        {
+            _refreshCts = new CancellationTokenSource();
+            _refreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+            _refreshTask = RunRefreshLoopAsync(_refreshCts.Token);
+        }
+        else if (!shouldRun && isRunning)
+        {
+            StopAutoRefresh();
+        }
+    }
+
+    private async Task RunRefreshLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (await _refreshTimer!.WaitForNextTickAsync(ct))
+            {
+                if (ct.IsCancellationRequested) break;
+                await InvokeAsync(async () =>
+                {
+                    // Silent refresh — do not toggle _loading (avoid spinner flash)
+                    try
+                    {
+                        _campaigns = (await PromoCampaignService.GetCampaignsAsync(1, 50)).ToList();
+                        _hasProcessingCampaigns = _campaigns.Any(c => c.Status == "Processing" || c.Status == "Pending");
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Auto-refresh failed — will retry next tick");
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException) { /* expected on stop */ }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Auto-refresh loop terminated unexpectedly");
+        }
+    }
+
+    private void StopAutoRefresh()
+    {
+        _refreshCts?.Cancel();
+        _refreshTimer?.Dispose();
+        _refreshTimer = null;
+        _refreshCts = null;
+        _refreshTask = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        StopAutoRefresh();
+        await ValueTask.CompletedTask;
+    }
+
     private async Task CancelCampaignAsync(Guid id)
     {
         try
@@ -120,6 +281,7 @@
                 _alertMessage = "Đã hủy chiến dịch.";
                 _alertType = "success";
                 await LoadCampaigns();
+                StartAutoRefreshIfNeeded();
             }
             else
             {
@@ -134,6 +296,81 @@
         }
     }
 
+    // AF-P2-T4: detail expand / collapse
+    private async Task ToggleDetail(Guid campaignId)
+    {
+        if (_expandedCampaignIds.Contains(campaignId))
+        {
+            _expandedCampaignIds.Remove(campaignId);
+            return;
+        }
+
+        _expandedCampaignIds.Add(campaignId);
+        if (!_recipientRows.ContainsKey(campaignId))
+        {
+            await LoadRecipientsAsync(campaignId);
+        }
+    }
+
+    private async Task LoadRecipientsAsync(Guid campaignId)
+    {
+        _recipientLoadingFor = campaignId;
+        try
+        {
+            int page = _recipientPage.GetValueOrDefault(campaignId, 1);
+            var recipients = await PromoCampaignService.GetRecipientsAsync(campaignId, page, RecipientPageSize);
+
+            // Enrich with customer names (bounded by RecipientPageSize — typically 20 lookups per expand)
+            var nameById = new Dictionary<Guid, string>();
+            foreach (var r in recipients)
+            {
+                if (nameById.ContainsKey(r.CustomerId)) continue;
+                var c = await CustomerRepository.GetByIdAsync(r.CustomerId);
+                nameById[r.CustomerId] = c?.FullName ?? $"#{r.CustomerId.ToString()[..8]}";
+            }
+
+            var rows = recipients.Select(r => new RecipientRow
+            {
+                CustomerId = r.CustomerId,
+                CustomerName = nameById.GetValueOrDefault(r.CustomerId, $"#{r.CustomerId.ToString()[..8]}"),
+                Status = r.Status,
+                SentAt = r.SentAt,
+                ErrorMessage = r.ErrorMessage
+            }).ToList();
+
+            if (page == 1)
+            {
+                _recipientRows[campaignId] = rows;
+            }
+            else
+            {
+                if (!_recipientRows.TryGetValue(campaignId, out var existing))
+                {
+                    existing = new List<RecipientRow>();
+                    _recipientRows[campaignId] = existing;
+                }
+                existing.AddRange(rows);
+            }
+            _recipientPage[campaignId] = page;
+            _recipientHasMore[campaignId] = rows.Count == RecipientPageSize;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load recipients for campaign {CampaignId}", campaignId);
+        }
+        finally
+        {
+            _recipientLoadingFor = null;
+        }
+    }
+
+    private async Task LoadMoreRecipientsAsync(Guid campaignId)
+    {
+        int next = _recipientPage.GetValueOrDefault(campaignId, 1) + 1;
+        _recipientPage[campaignId] = next;
+        await LoadRecipientsAsync(campaignId);
+    }
+
     private static Microsoft.AspNetCore.Components.MarkupString RenderStatusBadge(string status) => status switch
     {
         "Pending" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Chờ xử lý</span>"),
@@ -143,4 +380,21 @@
         "Cancelled" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Đã hủy</span>"),
         _ => new Microsoft.AspNetCore.Components.MarkupString($"<span class=\"badge bg-light text-dark\">{status}</span>")
     };
+
+    private static Microsoft.AspNetCore.Components.MarkupString RenderRecipientStatusBadge(string status) => status switch
+    {
+        "Pending" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Chờ</span>"),
+        "Sent" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-success\">Đã gửi</span>"),
+        "Failed" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-danger\">Lỗi</span>"),
+        _ => new Microsoft.AspNetCore.Components.MarkupString($"<span class=\"badge bg-light text-dark\">{status}</span>")
+    };
+
+    private class RecipientRow
+    {
+        public Guid CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime? SentAt { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
 }

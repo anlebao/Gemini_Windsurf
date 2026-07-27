@@ -18,18 +18,36 @@ namespace VanAn.ShopERP.Controllers
         private readonly ICustomerRepository _customerRepository;
         private readonly ICustomerSegmentationService _customerSegmentationService;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService;
+        private readonly IPushSubscriptionRepository _pushSubscriptionRepository;
         private readonly ILogger<CustomerController> _logger;
 
         public CustomerController(
             ICustomerRepository customerRepository,
             ICustomerSegmentationService customerSegmentationService,
             ILoyaltyRewardsService loyaltyRewardsService,
+            IPushSubscriptionRepository pushSubscriptionRepository,
             ILogger<CustomerController> logger)
         {
             _customerRepository = customerRepository;
             _customerSegmentationService = customerSegmentationService;
             _loyaltyRewardsService = loyaltyRewardsService;
+            _pushSubscriptionRepository = pushSubscriptionRepository;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// AF-P2-T5: Build a HashSet of CustomerIds that have at least one active push subscription
+        /// in the current tenant. Single query per request — used to enrich CustomerDto.HasPushSubscription.
+        /// </summary>
+        private async Task<HashSet<Guid>> GetCustomerIdsWithPushAsync()
+        {
+            var subs = await _pushSubscriptionRepository.GetAllActiveAsync();
+            var set = new HashSet<Guid>(subs.Count);
+            foreach (var s in subs)
+            {
+                if (s.IsActive && !s.IsDeleted) set.Add(s.CustomerId);
+            }
+            return set;
         }
 
         /// <summary>List all active customers (paginated, tenant-scoped).</summary>
@@ -46,12 +64,15 @@ namespace VanAn.ShopERP.Controllers
                 .Take(pageSize)
                 .ToList();
 
+            // AF-P2-T5: batch-load push subscription CustomerIds once per request
+            var pushCustomerIds = await GetCustomerIdsWithPushAsync();
+
             // Enrich with loyalty point balance (lookup from LoyaltyRewards table)
             var dtos = new List<CustomerDto>(pageItems.Count);
             foreach (var c in pageItems)
             {
                 var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                dtos.Add(MapCustomerDto(c, rewards?.PointBalance ?? 0));
+                dtos.Add(MapCustomerDto(c, rewards?.PointBalance ?? 0, pushCustomerIds.Contains(c.Id)));
             }
 
             return Ok(new { items = dtos, total = all.Count, page, pageSize });
@@ -64,12 +85,15 @@ namespace VanAn.ShopERP.Controllers
             var criteria = BuildCriteria(request);
             var customers = await _customerSegmentationService.GetCustomersBySegmentAsync(criteria);
 
+            // AF-P2-T5: batch-load push subscription CustomerIds once per request
+            var pushCustomerIds = await GetCustomerIdsWithPushAsync();
+
             // Enrich with loyalty point balance
             var dtos = new List<CustomerDto>(customers.Count);
             foreach (var c in customers)
             {
                 var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                dtos.Add(MapCustomerDto(c, rewards?.PointBalance ?? 0));
+                dtos.Add(MapCustomerDto(c, rewards?.PointBalance ?? 0, pushCustomerIds.Contains(c.Id)));
             }
 
             _logger.LogInformation("PreviewSegment: {Count} customers matched criteria", customers.Count);
@@ -170,7 +194,7 @@ namespace VanAn.ShopERP.Controllers
                 LastOrderWithinDays: r.LastOrderWithinDays);
         }
 
-        internal static CustomerDto MapCustomerDto(Customer c, int pointBalance) => new()
+        internal static CustomerDto MapCustomerDto(Customer c, int pointBalance, bool hasPushSubscription = false) => new()
         {
             Id = c.Id,
             FullName = c.FullName,
@@ -181,7 +205,8 @@ namespace VanAn.ShopERP.Controllers
             LastOrderDate = c.LastOrderDate,
             Birthday = c.Birthday,
             IdentityLevel = c.IdentityLevel.ToString(),
-            IsActive = c.IsActive
+            IsActive = c.IsActive,
+            HasPushSubscription = hasPushSubscription
         };
 
         internal static GlobalCustomerDto MapGlobalCustomerDto(Customer c, int pointBalance) => new()
@@ -230,6 +255,8 @@ namespace VanAn.ShopERP.Controllers
         public DateTime? Birthday { get; set; }
         public string IdentityLevel { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+        /// <summary>AF-P2-T5: true if customer has ≥1 active push subscription in this tenant.</summary>
+        public bool HasPushSubscription { get; set; }
     }
 
     /// <summary>

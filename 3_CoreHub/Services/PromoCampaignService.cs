@@ -15,11 +15,13 @@ namespace VanAn.CoreHub.Services
     public class PromoCampaignService(
         IPromoCampaignRepository campaignRepository,
         ICustomerSegmentationService customerSegmentationService,
+        ICustomerRepository customerRepository,
         ITenantProvider tenantProvider,
         ILogger<PromoCampaignService> logger) : IPromoCampaignService
     {
         private readonly IPromoCampaignRepository _campaignRepository = campaignRepository;
         private readonly ICustomerSegmentationService _customerSegmentationService = customerSegmentationService;
+        private readonly ICustomerRepository _customerRepository = customerRepository;
         private readonly ITenantProvider _tenantProvider = tenantProvider;
         private readonly ILogger<PromoCampaignService> _logger = logger;
 
@@ -56,6 +58,49 @@ namespace VanAn.CoreHub.Services
 
             _logger.LogInformation("CreateCampaign: campaign {CampaignId} created with {Count} recipients (title='{Title}')",
                 campaign.Id, customers.Count, title);
+            return campaign;
+        }
+
+        /// <summary>
+        /// AF-P2-T1/T2: Create a campaign targeting an explicit list of customer IDs.
+        /// Used by per-row "Gửi" (1 ID) and bulk select (N IDs) UI flows.
+        /// Resolves recipients via ICustomerRepository.GetByIdAsync (tenant-scoped, active, non-deleted);
+        /// unknown/inactive/inaccessible IDs are silently skipped (defensive — UI only shows active customers).
+        /// </summary>
+        public async Task<PromoCampaign> CreateCampaignAsync(
+            string title, string message, string? url, IReadOnlyList<Guid> selectedCustomerIds)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("Title is required.", nameof(title));
+            if (string.IsNullOrWhiteSpace(message))
+                throw new ArgumentException("Message is required.", nameof(message));
+            if (selectedCustomerIds == null || selectedCustomerIds.Count == 0)
+                throw new InvalidOperationException("Danh sách khách hàng nhận khuyến mãi trống. Vui lòng chọn ít nhất 1 khách.");
+
+            // 1. Resolve recipients (tenant-scoped lookup skips unknown/inactive IDs)
+            var resolved = new List<Customer>(selectedCustomerIds.Count);
+            foreach (var id in selectedCustomerIds.Distinct())
+            {
+                var c = await _customerRepository.GetByIdAsync(id);
+                if (c != null && c.IsActive && !c.IsDeleted) resolved.Add(c);
+            }
+            if (resolved.Count == 0)
+                throw new InvalidOperationException("Không tìm thấy khách hàng hợp lệ trong danh sách đã chọn.");
+
+            // 2. Snapshot explicit ID list for audit trail (segment criteria not applicable here)
+            string segmentJson = JsonSerializer.Serialize(new { kind = "explicit", ids = selectedCustomerIds.Distinct().ToArray() });
+
+            // 3. Create campaign entity
+            var tenantId = new TenantId(_tenantProvider.TenantId);
+            var campaign = new PromoCampaign(tenantId, title, message, url, resolved.Count, segmentJson);
+            campaign = await _campaignRepository.AddAsync(campaign);
+
+            // 4. Create recipient records (one per resolved customer)
+            var recipients = resolved.Select(c => new PromoCampaignRecipient(tenantId, campaign.Id, c.Id)).ToList();
+            await _campaignRepository.AddRecipientsAsync(recipients);
+
+            _logger.LogInformation("CreateCampaign(explicit): campaign {CampaignId} created with {Count} recipients (title='{Title}')",
+                campaign.Id, resolved.Count, title);
             return campaign;
         }
 

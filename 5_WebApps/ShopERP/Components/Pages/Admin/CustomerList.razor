@@ -12,6 +12,7 @@
 @inject ICustomerSegmentationService CustomerSegmentationService
 @inject ICustomerRepository CustomerRepository
 @inject ILoyaltyRewardsService LoyaltyRewardsService
+@inject IPushSubscriptionRepository PushSubscriptionRepository
 @inject ILogger<CustomerList> Logger
 
 @attribute [Authorize]
@@ -66,9 +67,12 @@
                 <VanAButton Variant="primary" OnClick="ApplyFilter">Lọc</VanAButton>
                 <VanAButton Variant="secondary" OnClick="ClearFilter">Xóa lọc</VanAButton>
             </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <VanAButton Variant="primary" OnClick="OpenPromoModal" Disabled="@(_filteredCustomers.Count == 0)">
-                    <i class="bi bi-megaphone"></i> Gửi khuyến mãi (@_filteredCustomers.Count khách)
+            <div class="col-md-3 d-flex align-items-end gap-2 flex-wrap">
+                <VanAButton Variant="primary" OnClick="OpenPromoModalFromFilter" Disabled="@(_filteredCustomers.Count == 0)">
+                    <i class="bi bi-megaphone"></i> Gửi theo lọc (@_filteredCustomers.Count)
+                </VanAButton>
+                <VanAButton Variant="primary" OnClick="OpenPromoModalFromSelection" Disabled="@(_selectedCustomerIds.Count == 0)">
+                    <i class="bi bi-send"></i> Gửi cho @_selectedCustomerIds.Count đã chọn
                 </VanAButton>
             </div>
         </div>
@@ -93,6 +97,11 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
+                            <th style="width:40px;">
+                                <input type="checkbox" class="form-check-input"
+                                       checked="@IsAllOnPageSelected()"
+                                       @onchange="ToggleSelectAllOnPage" />
+                            </th>
                             <th>Họ tên</th>
                             <th>Điện thoại</th>
                             <th>Hạng</th>
@@ -101,12 +110,19 @@
                             <th>Lần mua cuối</th>
                             <th>Sinh nhật</th>
                             <th>Định danh</th>
+                            <th class="text-center">Push</th>
+                            <th class="text-center">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var c in _displayCustomers)
                         {
                             <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input"
+                                           checked="@_selectedCustomerIds.Contains(c.Id)"
+                                       @onchange="@(e => ToggleRowSelection(c.Id, e.Value))" />
+                                </td>
                                 <td>@c.FullName</td>
                                 <td>@(c.PhoneNumber ?? "—")</td>
                                 <td><span class="badge bg-info text-dark">@(string.IsNullOrEmpty(c.CustomerTier) ? "—" : c.CustomerTier)</span></td>
@@ -115,13 +131,34 @@
                                 <td>@(c.LastOrderDate?.ToString("dd/MM/yyyy") ?? "—")</td>
                                 <td>@(c.Birthday?.ToString("dd/MM") ?? "—")</td>
                                 <td>@c.IdentityLevel</td>
+                                <td class="text-center">
+                                    @if (c.HasPushSubscription)
+                                    {
+                                        <i class="bi bi-check-circle-fill text-success" title="Đã đăng ký push"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-x-circle text-muted" title="Chưa đăng ký push"></i>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <VanAButton Variant="secondary" OnClick="@(() => OpenPromoModalForSingle(c))">
+                                        <i class="bi bi-send"></i> Gửi
+                                    </VanAButton>
+                                </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-3">
-                <span class="text-muted small">Hiển thị @_displayCustomers.Count / @_filteredCustomers.Count khách</span>
+                <span class="text-muted small">
+                    Hiển thị @_displayCustomers.Count / @_filteredCustomers.Count khách
+                    @if (_selectedCustomerIds.Count > 0)
+                    {
+                        <text> · Đã chọn @_selectedCustomerIds.Count</text>
+                    }
+                </span>
                 <div class="btn-group">
                     <VanAButton Variant="secondary" OnClick="PrevPage" Disabled="@(_page <= 1)">‹ Trước</VanAButton>
                     <VanAButton Variant="secondary" OnClick="NextPage" Disabled="@(_page >= _totalPages)">Sau ›</VanAButton>
@@ -141,7 +178,16 @@
                         <button type="button" class="btn-close" @onclick="ClosePromoModal"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="small text-muted">Sẽ gửi cho <strong>@_filteredCustomers.Count khách hàng</strong> (theo bộ lọc hiện tại).</p>
+                        <p class="small text-muted">
+                            @if (_promoMode == PromoMode.Selection)
+                            {
+                                <text>Sẽ gửi cho <strong>@_promoSelectionCount khách hàng đã chọn</strong> (danh sách tĩnh).</text>
+                            }
+                            else
+                            {
+                                <text>Sẽ gửi cho <strong>@_filteredCustomers.Count khách hàng</strong> (theo bộ lọc hiện tại).</text>
+                            }
+                        </p>
                         <div class="mb-3">
                             <label class="form-label">Tiêu đề</label>
                             <input class="form-control" @bind="_promoTitle" maxlength="100" placeholder="vd: Khuyến mãi cuối tuần" />
@@ -196,13 +242,21 @@
     private decimal? _filterMinSpent;
     private decimal? _filterMaxSpent;
 
+    // AF-P2-T2: selection state (across all pages — survives pagination)
+    private HashSet<Guid> _selectedCustomerIds = new();
+
     // Promo modal state
     private bool _showPromoModal;
+    private PromoMode _promoMode = PromoMode.Filter;
+    private int _promoSelectionCount;
+    private List<Guid>? _promoSelectionIds;
     private string _promoTitle = string.Empty;
     private string _promoMessage = string.Empty;
     private string _promoUrl = string.Empty;
     private string? _promoError;
     private bool _promoSubmitting;
+
+    private enum PromoMode { Filter, Selection }
 
     protected override async Task OnInitializedAsync()
     {
@@ -231,7 +285,15 @@
                 ? await CustomerSegmentationService.GetCustomersBySegmentAsync(criteria)
                 : await CustomerRepository.GetAllActiveAsync();
 
-            // Enrich with loyalty point balance
+            // AF-P2-T5: batch-load push subscription CustomerIds once per load
+            var pushSubs = await PushSubscriptionRepository.GetAllActiveAsync();
+            var pushCustomerIds = new HashSet<Guid>(pushSubs.Count);
+            foreach (var ps in pushSubs)
+            {
+                if (ps.IsActive && !ps.IsDeleted) pushCustomerIds.Add(ps.CustomerId);
+            }
+
+            // Enrich with loyalty point balance + push subscription flag
             _filteredCustomers = new List<CustomerRow>(customers.Count);
             foreach (var c in customers)
             {
@@ -247,9 +309,13 @@
                     LastOrderDate = c.LastOrderDate,
                     Birthday = c.Birthday,
                     IdentityLevel = c.IdentityLevel.ToString(),
-                    IsActive = c.IsActive
+                    IsActive = c.IsActive,
+                    HasPushSubscription = pushCustomerIds.Contains(c.Id)
                 });
             }
+
+            // Prune selection for customers no longer in the filtered set
+            _selectedCustomerIds.RemoveWhere(id => !_filteredCustomers.Exists(c => c.Id == id));
 
             ApplyPagination();
         }
@@ -302,13 +368,64 @@
         if (_page < _totalPages) { _page++; ApplyPagination(); }
     }
 
-    private void OpenPromoModal()
+    // === AF-P2-T2: selection helpers ===
+
+    private bool IsAllOnPageSelected() =>
+        _displayCustomers.Count > 0 && _displayCustomers.All(c => _selectedCustomerIds.Contains(c.Id));
+
+    private void ToggleSelectAllOnPage(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        bool checkedNow = (bool)e.Value;
+        foreach (var c in _displayCustomers)
+        {
+            if (checkedNow) _selectedCustomerIds.Add(c.Id);
+            else _selectedCustomerIds.Remove(c.Id);
+        }
+    }
+
+    private void ToggleRowSelection(Guid id, object? value)
+    {
+        bool checkedNow = value is bool b && b;
+        if (checkedNow) _selectedCustomerIds.Add(id);
+        else _selectedCustomerIds.Remove(id);
+    }
+
+    // === AF-P2-T1/T2: promo modal openers ===
+
+    private void OpenPromoModalFromFilter()
+    {
+        _promoMode = PromoMode.Filter;
+        _promoSelectionIds = null;
+        _promoSelectionCount = _filteredCustomers.Count;
+        ResetPromoForm();
+        _showPromoModal = true;
+    }
+
+    private void OpenPromoModalFromSelection()
+    {
+        if (_selectedCustomerIds.Count == 0) return;
+        _promoMode = PromoMode.Selection;
+        _promoSelectionIds = _selectedCustomerIds.ToList();
+        _promoSelectionCount = _promoSelectionIds.Count;
+        ResetPromoForm();
+        _showPromoModal = true;
+    }
+
+    private void OpenPromoModalForSingle(CustomerRow c)
+    {
+        _promoMode = PromoMode.Selection;
+        _promoSelectionIds = new List<Guid> { c.Id };
+        _promoSelectionCount = 1;
+        ResetPromoForm();
+        _showPromoModal = true;
+    }
+
+    private void ResetPromoForm()
     {
         _promoTitle = string.Empty;
         _promoMessage = string.Empty;
         _promoUrl = string.Empty;
         _promoError = null;
-        _showPromoModal = true;
     }
 
     private void ClosePromoModal()
@@ -334,18 +451,31 @@
         _promoSubmitting = true;
         try
         {
-            var criteria = new CustomerSegmentCriteria(
-                MinPointBalance: _filterMinPoints,
-                MaxPointBalance: _filterMaxPoints,
-                LastOrderWithinDays: _filterLastOrderDays,
-                BirthdayMonth: _filterBirthdayMonth > 0 ? _filterBirthdayMonth : null,
-                MinTotalSpent: _filterMinSpent,
-                MaxTotalSpent: _filterMaxSpent);
+            PromoCampaign campaign;
+            if (_promoMode == PromoMode.Selection && _promoSelectionIds is { Count: > 0 })
+            {
+                // AF-P2-T1/T2: explicit recipient list
+                campaign = await PromoCampaignService.CreateCampaignAsync(
+                    _promoTitle, _promoMessage,
+                    string.IsNullOrWhiteSpace(_promoUrl) ? null : _promoUrl,
+                    _promoSelectionIds);
+            }
+            else
+            {
+                // Existing filter-segment flow
+                var criteria = new CustomerSegmentCriteria(
+                    MinPointBalance: _filterMinPoints,
+                    MaxPointBalance: _filterMaxPoints,
+                    LastOrderWithinDays: _filterLastOrderDays,
+                    BirthdayMonth: _filterBirthdayMonth > 0 ? _filterBirthdayMonth : null,
+                    MinTotalSpent: _filterMinSpent,
+                    MaxTotalSpent: _filterMaxSpent);
 
-            var campaign = await PromoCampaignService.CreateCampaignAsync(
-                _promoTitle, _promoMessage,
-                string.IsNullOrWhiteSpace(_promoUrl) ? null : _promoUrl,
-                criteria);
+                campaign = await PromoCampaignService.CreateCampaignAsync(
+                    _promoTitle, _promoMessage,
+                    string.IsNullOrWhiteSpace(_promoUrl) ? null : _promoUrl,
+                    criteria);
+            }
 
             _showPromoModal = false;
             _alertMessage = $"Đã tạo chiến dịch '{_promoTitle}' với {campaign.TotalRecipients} người nhận. Đang xử lý — xem tiến độ tại /admin/promo-campaigns.";
@@ -377,5 +507,6 @@
         public DateTime? Birthday { get; set; }
         public string IdentityLevel { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+        public bool HasPushSubscription { get; set; }
     }
 }
