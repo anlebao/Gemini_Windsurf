@@ -30,15 +30,21 @@
 
 ## 2. Current Objective
 
-**Loyalty/CRM Audit Fix — P1-T2 + P1-T3 (COMPLETE 2026-07-27, S3+S4)**
+**Loyalty/CRM Audit Fix — P2 UX Completions (COMPLETE 2026-07-27)**
 
-P1-T2: 15 missing tests (5 notification toggle + 10 URL validation) — TDD. Toggle tests verify per-tenant ShopFeatureSettings toggles gate push notifications without blocking core logic. URL validation tests verify Facebook/TikTok share URL pattern validation (post/video accepted, homepage/profile/empty rejected). 4 cross-tenant tests from P1-T1 already done (6 total in P1-T1). All 15 new tests PASS. Commit `e58184da`.
+P2-T1: Per-row "Gửi" button in CustomerList — opens promo modal with single customer ID via new `CreateCampaignAsync(title, msg, url, IReadOnlyList<Guid>)` overload.
+P2-T2: Checkbox bulk select (cross-page, survives pagination) + "Gửi cho N đã chọn" button — explicit ID list flow. Select-all-on-page header checkbox + per-row toggle.
+P2-T3: Progress bar in PromoCampaignList for Processing rows (`width = SentCount/TotalRecipients * 100%`, striped+animated) + auto-refresh every 5s via `PeriodicTimer` while any campaign is Processing/Pending (stops when none). `IAsyncDisposable` for cleanup.
+P2-T4: "Chi tiết" expand/collapse per campaign row — loads recipients via `IPromoCampaignService.GetRecipientsAsync` (paginated 20/page with "Tải thêm") + customer name enrichment via `ICustomerRepository.GetByIdAsync`.
+P2-T5: "Push" column in CustomerList (✓/✗ icon) — `CustomerDto.HasPushSubscription` via batch-loaded `IPushSubscriptionRepository.GetAllActiveAsync` per request (single query, HashSet lookup). `MapCustomerDto` gains `hasPushSubscription` param (default false — backward compatible).
 
-P1-T3: Missions pagination — `GetCompletionsByCustomerPagedAsync` (repo + service) + `MissionsController.GetMyCompletions` accepts `page`/`pageSize` query params (default 1/20) + returns `{ items, total, page, pageSize, hasMore }` + Gateway forwards query string + KhachLink `Missions.razor` loads 20/page with "Xem thêm" button. Commit `756f1dac`.
+Backend changes: `IPromoCampaignService` new overload + `PromoCampaignService` impl (resolves via `ICustomerRepository.GetByIdAsync`, skips unknown/inactive, snapshots ID list for audit) + `PromoCampaignController.Create` accepts `SelectedCustomerIds` (non-empty → explicit flow, else falls back to segment) + `CustomerController` injects `IPushSubscriptionRepository`. Commit `56926b44`.
 
-**Next in audit fix plan: P2 (UX Completions) — per `loyalty_crm_audit_fix_master_plan-2c5017.md`. Merge to `main` after P3 + VPS RV pass.**
+Build: 0 errors, 1113 warnings (pre-existing CA). Core.Tests 1023/1037 PASS (Release, exit 0). guard-check fast-test-gate has transient `$LASTEXITCODE` false-positive with `Out-Null` pipeline (direct `dotnet test` with identical args → exit 0); pre-commit guard PASSED.
 
-Branch: `fix/loyalty-crm-audit-fix`. Commits: P0 `4aa0c6e2`, P1-T1 `2059f403`, P1-T2 `e58184da`, P1-T3 `756f1dac`.
+**Next in audit fix plan: P3 (Cosmetic) — per `loyalty_crm_audit_fix_master_plan-2c5017.md`. Merge to `main` after P3 + VPS RV pass.**
+
+Branch: `fix/loyalty-crm-audit-fix`. Commits: P0 `4aa0c6e2`, P1-T1 `2059f403`, P1-T2 `e58184da`, P1-T3 `756f1dac`, P2 `56926b44`.
 
 ---
 
@@ -49,10 +55,11 @@ Branch: `fix/loyalty-crm-audit-fix`. Commits: P0 `4aa0c6e2`, P1-T1 `2059f403`, P
 ## 3. Current Status
 
 - **Branch:** `fix/loyalty-crm-audit-fix`
-- **Last commit:** `756f1dac` feat(loyalty): AF-P1-T3 Missions pagination — 20/page + "Xem thêm" button
+- **Last commit:** `56926b44` feat(crm): AF-P2 UX completions — per-row/bulk promo send + progress bar + detail expand + push column
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
-- **Build (2026-07-27):** 0 errors, 1047 warnings (pre-existing CA). guard-check ALL PASSED.
+- **Build (2026-07-27):** 0 errors, 1113 warnings (pre-existing CA). Core.Tests 1023/1037 PASS (Release). guard-check fast-test-gate has transient `$LASTEXITCODE` false-positive with `Out-Null` pipeline (direct `dotnet test` identical args → exit 0); pre-commit guard PASSED.
+- **Loyalty/CRM Audit Fix — P2 (2026-07-27 COMPLETE, commit `56926b44`, NOT yet merged):** UX completions (5 tasks). (1) P2-T1 Per-row "Gửi" button: `CustomerList.razor` per-row button opens promo modal with single customer ID via new `IPromoCampaignService.CreateCampaignAsync(title, msg, url, IReadOnlyList<Guid>)` overload. (2) P2-T2 Bulk select: checkbox column + select-all-on-page header checkbox + "Gửi cho N đã chọn" button; `HashSet<Guid> _selectedCustomerIds` survives pagination, pruned on filter change; modal dispatches to explicit-ID overload. (3) P2-T3 Progress bar: `PromoCampaignList.razor` renders striped+animated progress bar for Processing rows (`width = SentCount/TotalRecipients*100%`); `PeriodicTimer` auto-refreshes every 5s while any campaign Processing/Pending, stops when none; `IAsyncDisposable` cleanup. (4) P2-T4 Detail expand: "Chi tiết" button toggles inline recipient table; loads via `IPromoCampaignService.GetRecipientsAsync` (20/page + "Tải thêm"); enriches with customer names via `ICustomerRepository.GetByIdAsync`. (5) P2-T5 Push column: `CustomerDto.HasPushSubscription` field; `CustomerController` injects `IPushSubscriptionRepository`, batch-loads active push CustomerIds per request (single query → HashSet); `MapCustomerDto` gains `hasPushSubscription` param (default false — backward compatible); UI shows ✓/✗ icon. Backend: `PromoCampaignService` new ctor param `ICustomerRepository` (DI-resolved); `PromoCampaignController.Create` accepts `SelectedCustomerIds` (non-empty → explicit flow, else segment fallback); `CreateCampaignRequest.SelectedCustomerIds` field. No regressions (1023 Core.Tests PASS).
 - **Loyalty/CRM Audit Fix — P1-T3 (2026-07-27 COMPLETE, commit `756f1dac`, NOT yet merged):** Missions pagination full-stack. (1) Repo: `IMissionRepository.GetCompletionsByCustomerPagedAsync(customerId, page, pageSize)` → `(Items, Total)` with Skip/Take + CountAsync, page 1-based, pageSize clamped 1-100. (2) Service: `IMissionService.GetCustomerCompletionsPagedAsync` delegates to repo. (3) Controller: `MissionsController.GetMyCompletions` accepts `[FromQuery] page` + `[FromQuery] pageSize` (default 1/20), returns `{ items, total, page, pageSize, hasMore }` instead of flat list. (4) Gateway: `MissionsController.ForwardAsync` now forwards `Request.QueryString` (enables `?page=2&pageSize=20`). (5) UI: KhachLink `Missions.razor` loads page 1 (20 items) on init, "Xem thêm" button appends next page via `LoadMoreCompletionsAsync`. State: `_completionsPage`, `_completionsHasMore`, `_completionsTotal`, `_completionsLoadingMore`. New `PaginatedCompletionsResponse` DTO. No regressions (14/14 mission+toggle tests PASS).
 - **Loyalty/CRM Audit Fix — P1-T2 (2026-07-27 COMPLETE, commit `e58184da`, NOT yet merged):** 15 missing tests (TDD). (1) 5 toggle tests (`NotificationToggleTests.cs`): Notify_RedemptionFulfilled ON→push sent / OFF→push skipped+fulfillment succeeds; Notify_MissionCompleted ON→push sent; Notify_BirthdayBonus OFF→push skipped+points awarded; Notify_VoucherExpiringSoon OFF→push skipped+job still queries. (2) 10 URL validation tests (`CustomerProfileShareUrlValidationTests.cs`): Facebook /posts/ + /permalink?story_id= → 200; homepage + profile + empty → 400. TikTok /@user/video/ + /user/video/ → 200; homepage + profile + empty → 400. All 15 tests PASS. Production code changes (minimal, non-breaking): PushNotificationService 4 Send*NotificationAsync methods → `virtual` (Moq intercept); BirthdayBonusJob.RunBirthdayBonusAsync + VoucherExpiryReminderJob.RunExpiryRemindersAsync: `private` → `internal`; ShopERP InternalsVisibleTo VanAn.Core.Tests + VanAn.Integration.Tests.
 - **Loyalty/CRM Audit Fix — P1-T1 (2026-07-27 COMPLETE, commit `2059f403`, NOT yet merged):** Cross-tenant customer list full-stack TDD. (1) Repo: `ICustomerRepository.GetAllCustomersAcrossTenantsAsync` + `CustomerRepository` impl using `IgnoreQueryFilters()` (bypasses global TenantId filter — SystemAdmin only), filters `!IsDeleted && IsActive`, ordered by TenantId then FullName. (2) Controller: `CustomerController.ListGlobal` `[HttpGet("global")]` + `[Authorize(Policy = "SystemAdmin")]` (combines with controller-level `[Authorize(Policy = "OwnerOnly")]` from P0 → SystemAdmin only; Owner/Staff → 403). New `GlobalCustomerDto` with `TenantId` field. Optional filters: minPoints/maxPoints, lastOrderWithinDays, birthdayMonth, minTotalSpent/maxTotalSpent. (3) Blazor: `CustomerListGlobal.razor` REWRITE — removed campaign overview + "coming soon" note; now renders customer table with Tenant column + filter bar + pagination 20/page + empty state. Keeps `[Authorize(Policy = "SystemAdmin")]` + route `/admin/customers-global`. Uses UI Platform components. (4) Tests: 6 new (3 repo cross-tenant + 3 HTTP auth: SystemAdmin→200, Staff→403, Anonymous→auth-enforced). All PASS. No regressions (31/31 Customer/Excel/LoyaltyRewards tests PASS). **Deviation:** "Push Subscribed" column deferred to P2 (requires PushSubscriptions join); replaced with "Trạng thái" (Active/Inactive).
@@ -77,16 +84,15 @@ Branch: `fix/loyalty-crm-audit-fix`. Commits: P0 `4aa0c6e2`, P1-T1 `2059f403`, P
 
 ## 4. Next Actions
 
-1. **Loyalty/CRM Audit Fix — P1-T2 (S3):** 19 missing tests (5 toggle + 10 URL validation + 4 cross-tenant) per `loyalty_crm_audit_fix_master_plan-2c5017.md` §2 P1-T2. TDD violation fix.
-2. **Loyalty/CRM Audit Fix — P1-T3 (S4):** Missions pagination — `GET /api/missions/my/completions?page=2&pageSize=20` + `Missions.razor` "Xem thêm" button. Per master plan §2 P1-T3.
-3. **Loyalty/CRM Audit Fix — P2 (S5):** UX completions (row action, bulk, progress, expand, column) — includes deferred "Push Subscribed" column from P1-T1.
-4. **Loyalty/CRM Audit Fix — P3 (S6) + Final (S7):** Cosmetic (file extract + CSV) + build/guard-check/VPS RV/merge to `main`.
-5. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.**
-6. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
-7. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
-8. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-9. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
-10. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+1. **Loyalty/CRM Audit Fix — P3 (S6):** Cosmetic — extract `PromoPushComposer.razor` to separate file + extract `PromoCampaignRecipientConfiguration.cs` to separate file + optional CSV export endpoint. Per master plan §4.
+2. **Loyalty/CRM Audit Fix — Final (S7):** Build/guard-check/VPS RV (RV-AF-1 through RV-AF-16)/merge `fix/loyalty-crm-audit-fix` to `main`.
+3. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.**
+4. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
+5. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
+6. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+7. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
+8. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+9. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL.
 
 ---
 
@@ -178,7 +184,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=fix/loyalty-crm-audit-fix, commit=2059f403, Build=0 errors (1047 warnings pre-existing CA), guard-check ALL PASSED, 6/6 P1-T1 tests PASS (3 repo cross-tenant + 3 HTTP auth), 31/31 Customer/Excel/LoyaltyRewards tests PASS (no regression)
+- **Verified Facts:** Branch=fix/loyalty-crm-audit-fix, commit=56926b44, Build=0 errors (1113 warnings pre-existing CA), Core.Tests 1023/1037 PASS (Release, exit 0), pre-commit guard PASSED. guard-check fast-test-gate has transient `$LASTEXITCODE` false-positive (direct `dotnet test` identical args → exit 0).
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions < Verified Facts, Open Questions < 3
 
@@ -186,6 +192,7 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
+* **2026-07-27 — LOYALTY/CRM AUDIT FIX P2 (S5).** Commit `56926b44` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 6 files: `IPromoCampaignService.cs` (+`CreateCampaignAsync(title,msg,url,IReadOnlyList<Guid>)` overload), `PromoCampaignService.cs` (explicit-ID impl + new `ICustomerRepository` ctor param), `PromoCampaignController.cs` (`CreateCampaignRequest.SelectedCustomerIds` + dispatch logic), `CustomerController.cs` (inject `IPushSubscriptionRepository` + batch push lookup + `MapCustomerDto` gains `hasPushSubscription`), `CustomerList.razor` (checkbox col + select-all + per-row "Gửi" + bulk "Gửi cho N đã chọn" + Push column + modal selection mode), `PromoCampaignList.razor` (progress bar for Processing + auto-refresh 5s via PeriodicTimer + "Chi tiết" expand/collapse recipients with name enrichment). Build 0 errors, 1023 Core.Tests PASS. Branch: `fix/loyalty-crm-audit-fix`.
 * **2026-07-27 — LOYALTY/CRM AUDIT FIX P1-T3 (S4).** Commit `756f1dac` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 7 files: `IMissionRepository.cs` (+`GetCompletionsByCustomerPagedAsync`), `MissionRepository.cs` (Skip/Take+CountAsync impl), `IMissionService.cs` (+`GetCustomerCompletionsPagedAsync`), `MissionService.cs` (delegate), `MissionsController.cs` (ShopERP — page/pageSize query params + `{items,total,page,pageSize,hasMore}` response), `MissionsController.cs` (Gateway — forward Request.QueryString), `Missions.razor` (KhachLink — 20/page + "Xem thêm" button + `LoadMoreCompletionsAsync` + `PaginatedCompletionsResponse` DTO). Build 0 errors, guard-check ALL PASSED, 14/14 mission+toggle tests PASS. Branch: `fix/loyalty-crm-audit-fix`.
 * **2026-07-27 — LOYALTY/CRM AUDIT FIX P1-T2 (S3).** Commit `e58184da` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 6 files: `PushNotificationService.cs` (4 Send*NotificationAsync → `virtual`), `BirthdayBonusJob.cs` (`RunBirthdayBonusAsync` private→internal), `VoucherExpiryReminderJob.cs` (`RunExpiryRemindersAsync` private→internal), `Program.cs` (InternalsVisibleTo VanAn.Core.Tests + VanAn.Integration.Tests), `NotificationToggleTests.cs` (NEW — 5 toggle tests), `CustomerProfileShareUrlValidationTests.cs` (NEW — 10 URL validation tests). All 15 tests PASS. Build 0 errors, guard-check ALL PASSED. Branch: `fix/loyalty-crm-audit-fix`.
 * **2026-07-27 — LOYALTY/CRM AUDIT FIX P1-T1 (S2).** Commit `2059f403` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 6 files: `ICustomerRepository.cs` (+`GetAllCustomersAcrossTenantsAsync`), `CustomerRepository.cs` (impl with `IgnoreQueryFilters`), `CustomerController.cs` (+`ListGlobal` action `[Authorize(Policy="SystemAdmin")]` + `GlobalCustomerDto` with TenantId), `CustomerListGlobal.razor` (REWRITE — customer table + Tenant column + filter bar, replaces campaign overview), `CustomerRepositoryCrossTenantTests.cs` (3 tests), `CustomerGlobalEndpointAuthTests.cs` (3 tests + `StaffRoleWebApplicationFactory`). Build 0 errors, guard-check ALL PASSED, 6/6 new tests PASS, 31/31 regression tests PASS. Deviation: "Push Subscribed" column deferred to P2. Branch: `fix/loyalty-crm-audit-fix`.
