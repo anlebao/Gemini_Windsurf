@@ -47,7 +47,12 @@ namespace VanAn.CoreHub.Services
                 return false;
             }
 
-            using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await _repository.BeginTransactionAsync();
+            // Bug 6 fix: Support ambient transaction. OrderWorkflowService.TransitionStatusAsync
+            // begins a transaction before calling ProcessLoyaltyPointsAsync → AddPointsAsync.
+            // SQLite does not support nested transactions → BeginTransactionAsync throws.
+            // If an ambient transaction exists, join it (no explicit commit/rollback — caller owns it).
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+            bool ownsTransaction = false;
             try
             {
                 // Get customer to retrieve tenant ID
@@ -56,7 +61,7 @@ namespace VanAn.CoreHub.Services
                 {
                     throw new ArgumentException($"Customer with ID {customerId} not found");
                 }
-                
+
                 LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
 
                 rewards.AddPoints(points, reason);
@@ -79,8 +84,6 @@ namespace VanAn.CoreHub.Services
                 // Phase 5: Enqueue LoyaltyPointsChanged outbox event (same transaction — reliable persistence)
                 EnqueueLoyaltyPointsChangedEvent(customer.TenantId, customerId, points, rewards.PointBalance, reason, isAdd: true);
 
-                await transaction.CommitAsync();
-
                 // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
                 await PublishLoyaltyPointsChangedNatsAsync(customerId, points, rewards.PointBalance, reason, isAdd: true);
 
@@ -90,9 +93,19 @@ namespace VanAn.CoreHub.Services
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                if (ownsTransaction && transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
                 _logger.LogError(ex, "Failed to add points to customer {CustomerId}", customerId);
                 return false;
+            }
+            finally
+            {
+                if (ownsTransaction && transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
         }
 
