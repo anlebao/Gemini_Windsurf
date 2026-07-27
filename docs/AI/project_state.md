@@ -41,15 +41,16 @@ Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `4af5672e` fix(orders): resolve 4 checkout-to-kitchen flow bugs
+- **Last commit:** `30e42e69` fix(orders): Bug 5+6 — SignalR 401 + loyalty points not awarded
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
-- **Build (2026-07-27):** 0 errors, 1014 warnings (pre-existing CA). Pre-push CI ALL PASS (build 112s + 1015 unit + 39 arch + 198 integration). CD #30238460473 ALL PASS (Build & Push 3m30s + Validation 13s + Deploy 1m14s). VPS RV: 3/3 services healthy, checkout flow verified.
+- **Build (2026-07-27):** 0 errors, 1014 warnings (pre-existing CA). Pre-push CI ALL PASS. CD #30241063324 ALL PASS (Build & Push 3m44s + Validation 14s + Deploy 1m14s). VPS RV: 3/3 services healthy.
+- **Bug 5+6 Fix (2026-07-27 COMPLETE + MERGED + DEPLOYED):** (5) OrderHub `[Authorize]`→`[AllowAnonymous]` — SignalR `/orderHub/negotiate` was returning 401 (Blazor Server client cannot pass auth cookie), breaking real-time updates. Also added explicit `StateHasChanged()` after diff check in Index.razor + Kitchen/Display.razor. RV: `/orderHub/negotiate` now returns 200 (was 401). (6) `ProcessLoyaltyPointsAsync` only looked up customer by CustomerId — all 77 completed orders had CustomerId=NULL (guest checkout) → points skipped. Fix: added DeviceId fallback lookup + Customer stub creation from DeviceId + Order.CustomerInfo. RV: new order `019FA22A-EADE-7194-A248-3D01328345E0` confirmed has CustomerDeviceId + CustomerInfo_FullName in SQLite (conditions for fix satisfied).
 - **4-Bug Fix (2026-07-27 COMPLETE + MERGED + DEPLOYED):** (1) Order List default filter EMPTY→ALL, (2) CustomerNotes sync PG→SQLite + UI render, (3) Remove AsNoTracking from GetByIdWithIncludesAsync (fix confirm order exception), (4) Parse CustomerId in OrderSyncSubscriber + auto-create Customer stub. RV verified: CustomerNotes + CustomerId sync to SQLite confirmed via direct DB query.
 - **Sprint 0 (2026-07-26 COMPLETE + MERGED + DEPLOYED):** 11 entities + 42 tests + migration `20260726105331_CommunitySprint0` applied to local + VPS PG. RiskScoringService (8-factor deterministic) + WalletService base (atomic SELECT FOR UPDATE). FingerprintJS stub vendored.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). 7 containers healthy. CD deploys automatically on push to main.
 - **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
-- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (NEW 2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. This breaks loyalty points for customers who only exist in SQLite. Fix requires Customer sync SQLite→PG (feature work, needs Domain approval).
+- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity.
 
 ---
 
@@ -88,6 +89,7 @@ Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-07-27] **BUG 5+6 FIX COMPLETE.** Commit `30e42e69`. (5) OrderHub `[Authorize]`→`[AllowAnonymous]` — SignalR negotiate 401→200, real-time updates restored. Explicit `StateHasChanged()` added to Index.razor + Kitchen/Display.razor. (6) `ProcessLoyaltyPointsAsync` DeviceId fallback + Customer stub creation — fixes loyalty points for guest checkout orders (CustomerId=NULL). CD #30241063324 PASS. RV: `/orderHub/negotiate` 200, new order has CustomerDeviceId+CustomerInfo.
 * [2026-07-27] **4-BUG CHECKOUT-TO-KITCHEN FIX COMPLETE.** Commit `4af5672e`. (1) Order List default filter, (2) CustomerNotes sync+UI, (3) AsNoTracking confirm fix, (4) CustomerId sync+stub. CD PASS. RV: CustomerNotes + CustomerId sync verified via SQLite query. TD-CUSTSYNC-001 logged.
 * [2026-07-26] **SPRINT 0 COMPLETE.** 11 entities + 42 tests + migration. Merged + deployed. RV 18/18.
 * [2026-07-26] **DOC v1.4-v1.1 COMPLETE.** 4 doc-only sessions. Hybrid architecture + cost + review fixes + anti-fraud.
@@ -151,7 +153,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=main, commit=4af5672e, Build=0 errors, 1015 unit + 39 arch + 198 integration PASS, CD #30238460473 PASS, 3/3 VPS services healthy, CustomerNotes+CustomerId sync verified via SQLite query
+- **Verified Facts:** Branch=main, commit=30e42e69, Build=0 errors, CD #30241063324 PASS, 3/3 VPS services healthy, `/orderHub/negotiate` 200 (was 401), new order 019FA22A has CustomerDeviceId+CustomerInfo in SQLite
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions < Verified Facts, Open Questions < 3
 
@@ -159,6 +161,7 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
+* **2026-07-27 — BUG 5+6 FIX.** Commit `30e42e69` merged + deployed. 4 files: OrderHub.cs (`[Authorize]`→`[AllowAnonymous]`), OrderWorkflowService.cs (DeviceId fallback + Customer stub creation in ProcessLoyaltyPointsAsync), Index.razor (explicit StateHasChanged), Display.razor (explicit StateHasChanged). CD #30241063324 PASS. RV: `/orderHub/negotiate` 200 (was 401), new order `019FA22A` confirmed has CustomerDeviceId+CustomerInfo in SQLite. Branch: `main`.
 * **2026-07-27 — 4-BUG CHECKOUT-TO-KITCHEN FIX.** Commit `4af5672e` merged + deployed. 5 files: OrderRepository.cs (AsNoTracking), OrderService.cs (CustomerNotes payload), OrderSyncSubscriber.cs (parse notes + CustomerId + Customer stub), Index.razor (default filter + notes column), Display.razor (notes block). CD PASS. RV: checkout flow verified on VPS — CustomerNotes + CustomerId sync to SQLite confirmed. TD-CUSTSYNC-001 logged (Customer SQLite→PG sync gap). Branch: `main`.
 * **2026-07-26 — PROJECT STATE ARCHIVED.** Reduced from 627 → ~170 lines. All Previous Objectives (Doc v1.1-v1.4, Phase 5, Loyalty L-A/L-B/L-C, Product Picker, Font/Freeze Fix, Theme, PWA Phases 1-3, Multi-VPS Option C) + full History Log + full Maintenance Log moved to `docs/AI/project_state_archive.md` (Section "Archived 2026-07-26"). Branch: `main`.
 * **2026-07-26 — SPRINT 0 REVIEW + PARTIAL FIX.** Review-only audit found 8 items marked COMPLETE but not 100% production. Part 1: F2/F4/F5a (dead code pending callers) added to correct downstream sprint task cards (Sprint 1: AssignShipper/SetDeliveryLocation; Sprint 4: AssignSalesman + RiskScoringService caller + WalletService app-install caller; Sprint 5: MarkCodCollected + WalletService COD/Advance/Settlement caller). Sprint 4 + Sprint 5 task cards fixed: WalletService "Files cần CREATE" → "MODIFY" (Sprint 0 đã tạo base). Part 2 in progress: F5b (WalletService SQLite comment fixed), F6 (migration scope note added to SC9), F7 (SC13 phrasing fixed). Branch: `main`.
