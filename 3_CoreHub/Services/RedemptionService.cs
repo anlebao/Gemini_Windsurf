@@ -22,12 +22,16 @@ namespace VanAn.CoreHub.Services
         ILoyaltyRewardsService loyaltyRewardsService,
         ITenantProvider tenantProvider,
         IVanAnDbContext dbContext,
+        IShopFeatureSettingsService? shopFeatureSettingsService,
+        PushNotificationService? pushNotificationService,
         ILogger<RedemptionService> logger) : IRedemptionService
     {
         private readonly IRedemptionRepository _repository = repository;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly ITenantProvider _tenantProvider = tenantProvider;
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
+        private readonly PushNotificationService? _pushNotificationService = pushNotificationService;
         private readonly ILogger<RedemptionService> _logger = logger;
 
         // === Catalog CRUD (admin) ===
@@ -184,10 +188,32 @@ namespace VanAn.CoreHub.Services
 
             // Mark redemption record as fulfilled
             var record = await _repository.GetRecordByIdAsync(voucher.RedemptionRecordId);
+            string? productName = null;
             if (record != null)
             {
                 record.MarkAsFulfilled(notes);
                 _ = await _repository.UpdateRecordAsync(record);
+                // Look up catalog item for product name (notification personalization)
+                var catalogItem = await _repository.GetCatalogItemByIdAsync(record.CatalogItemId);
+                productName = catalogItem?.ProductName;
+            }
+
+            // Loyalty-C WS-C: Send redemption fulfilled push notification (if toggle enabled)
+            try
+            {
+                if (_shopFeatureSettingsService != null && _pushNotificationService != null && record != null)
+                {
+                    var settings = await _shopFeatureSettingsService.GetSettingsAsync(record.TenantId);
+                    if (settings.Notify_RedemptionFulfilled)
+                    {
+                        _ = await _pushNotificationService.SendRedemptionFulfilledNotificationAsync(
+                            voucher.CustomerId, voucher.VoucherCode, productName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send redemption fulfilled notification for voucher {VoucherCode}", voucherCode);
             }
 
             _logger.LogInformation("Fulfill success: voucher {VoucherCode} fulfilled", voucherCode);
@@ -217,14 +243,33 @@ namespace VanAn.CoreHub.Services
             _ = await _repository.UpdateRecordAsync(record);
 
             // Mark voucher as expired (if exists)
+            Voucher? cancelledVoucher = null;
             if (record.VoucherId.HasValue)
             {
-                var voucher = await _repository.GetVoucherByIdAsync(record.VoucherId.Value);
-                if (voucher != null && voucher.Status == "Active")
+                cancelledVoucher = await _repository.GetVoucherByIdAsync(record.VoucherId.Value);
+                if (cancelledVoucher != null && cancelledVoucher.Status == "Active")
                 {
-                    voucher.MarkAsExpired();
-                    _ = await _repository.UpdateVoucherAsync(voucher);
+                    cancelledVoucher.MarkAsExpired();
+                    _ = await _repository.UpdateVoucherAsync(cancelledVoucher);
                 }
+            }
+
+            // Loyalty-C WS-C: Send redemption cancelled push notification (if toggle enabled)
+            try
+            {
+                if (_shopFeatureSettingsService != null && _pushNotificationService != null)
+                {
+                    var settings = await _shopFeatureSettingsService.GetSettingsAsync(record.TenantId);
+                    if (settings.Notify_RedemptionCancelled)
+                    {
+                        _ = await _pushNotificationService.SendRedemptionCancelledNotificationAsync(
+                            record.CustomerId, cancelledVoucher?.VoucherCode ?? "", record.PointsSpent);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send redemption cancelled notification for record {RecordId}", redemptionRecordId);
             }
 
             _logger.LogInformation("Cancel success: redemption record {RecordId} cancelled + {Points} points refunded",

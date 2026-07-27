@@ -1144,6 +1144,103 @@ namespace VanAn.Shared.Domain
         public bool IsValid => Status == "Active" && DateTime.UtcNow <= ExpiresAt;
     }
 
+    // WS-2: Promo Campaign entity — bulk marketing push to segmented customers.
+    // Created by admin (Owner/SystemAdmin) with filter criteria + message.
+    // Processed async by PromoCampaignJob (HostedService) — Outbox pattern with per-recipient tracking.
+    public class PromoCampaign : BaseEntity, IMustHaveTenant
+    {
+        public string Title { get; protected set; } = string.Empty;
+        public string Message { get; protected set; } = string.Empty;
+        public string? Url { get; protected set; }                     // Optional deep link (e.g., /rewards)
+        public string Status { get; protected set; } = "Pending";      // Pending/Processing/Completed/Failed/Cancelled
+        public int TotalRecipients { get; protected set; }
+        public int SentCount { get; protected set; }
+        public int FailedCount { get; protected set; }
+        public DateTime? StartedAt { get; protected set; }
+        public DateTime? CompletedAt { get; protected set; }
+        public string? SegmentSnapshotJson { get; protected set; }     // Criteria used (audit trail)
+        public string? ErrorMessage { get; protected set; }
+
+        // Internal constructor for EF Core
+        protected PromoCampaign() { }
+
+        public PromoCampaign(TenantId tenantId, string title, string message, string? url,
+            int totalRecipients, string? segmentSnapshotJson) : base(tenantId)
+        {
+            Title = title;
+            Message = message;
+            Url = url;
+            TotalRecipients = totalRecipients;
+            SegmentSnapshotJson = segmentSnapshotJson;
+            Status = "Pending";
+        }
+
+        public void MarkProcessing()
+        {
+            Status = "Processing";
+            StartedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void IncrementSent() { SentCount++; UpdateAudit(); }
+        public void IncrementFailed() { FailedCount++; UpdateAudit(); }
+
+        public void MarkCompleted()
+        {
+            Status = "Completed";
+            CompletedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkFailed(string error)
+        {
+            Status = "Failed";
+            ErrorMessage = error;
+            CompletedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkCancelled()
+        {
+            Status = "Cancelled";
+            CompletedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+    }
+
+    // WS-2: Per-recipient delivery tracking for PromoCampaign.
+    // One row per customer targeted by a campaign — tracks Sent/Failed status + error.
+    public class PromoCampaignRecipient : BaseEntity, IMustHaveTenant
+    {
+        public Guid PromoCampaignId { get; protected set; }
+        public Guid CustomerId { get; protected set; }
+        public string Status { get; protected set; } = "Pending";  // Pending/Sent/Failed
+        public DateTime? SentAt { get; protected set; }
+        public string? ErrorMessage { get; protected set; }
+
+        protected PromoCampaignRecipient() { }
+
+        public PromoCampaignRecipient(TenantId tenantId, Guid promoCampaignId, Guid customerId) : base(tenantId)
+        {
+            PromoCampaignId = promoCampaignId;
+            CustomerId = customerId;
+        }
+
+        public void MarkSent()
+        {
+            Status = "Sent";
+            SentAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void MarkFailed(string error)
+        {
+            Status = "Failed";
+            ErrorMessage = error;
+            UpdateAudit();
+        }
+    }
+
     // Wave 9: Push Subscription Entity for Web Push Notifications
     // Separate table (per user decision) to avoid Domain layer changes
     public class PushSubscription : BaseEntity, IMustHaveTenant

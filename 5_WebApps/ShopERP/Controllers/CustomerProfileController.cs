@@ -149,12 +149,31 @@ namespace VanAn.ShopERP.Controllers
             if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != "http" && uri.Scheme != "https"))
                 return BadRequest(new { error = "URL không hợp lệ (phải bắt đầu bằng http:// hoặc https://)." });
 
+            // WS-1.3 SC9/SC10: Validate URL pattern (not just domain) to filter out homepage/profile URLs.
+            // Facebook: accept /<user>/posts/<id>, /permalink.php?story_id=, /share/v/, /share/<id>
+            // TikTok: accept /@<user>/video/<id>, /<user>/video/<id>
+            // Note: We do NOT verify the URL is real (Facebook/TikTok have no callback API — trust-based per task card Q1).
+            // We only filter obvious format errors (homepage, profile, empty path).
             string host = uri.Host.ToLowerInvariant();
+            string path = uri.AbsolutePath;
             MissionType missionType;
-            if (host.Contains("facebook.com"))
+            if (host.Contains("facebook.com") || host.Contains("fb.com"))
+            {
+                bool validFb = path.Contains("/posts/", StringComparison.OrdinalIgnoreCase)
+                            || path.Contains("/permalink", StringComparison.OrdinalIgnoreCase)
+                            || uri.Query.Contains("story_id=", StringComparison.OrdinalIgnoreCase)
+                            || path.Contains("/share/", StringComparison.OrdinalIgnoreCase);
+                if (!validFb)
+                    return BadRequest(new { error = "URL Facebook phải là link bài viết (vd: facebook.com/.../posts/...), không phải trang chủ hoặc profile." });
                 missionType = MissionType.FacebookShare;
+            }
             else if (host.Contains("tiktok.com"))
+            {
+                bool validTt = path.Contains("/video/", StringComparison.OrdinalIgnoreCase);
+                if (!validTt)
+                    return BadRequest(new { error = "URL TikTok phải là link video (vd: tiktok.com/@user/video/...), không phải trang chủ hoặc profile." });
                 missionType = MissionType.TikTokShare;
+            }
             else
                 return BadRequest(new { error = "URL phải thuộc facebook.com hoặc tiktok.com." });
 

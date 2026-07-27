@@ -76,6 +76,10 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<Mission> Missions { get; }
         DbSet<MissionCompletion> MissionCompletions { get; }
 
+        // WS-2: Promo campaign system (ShopERP SQLite, tenant-scoped)
+        DbSet<PromoCampaign> PromoCampaigns { get; }
+        DbSet<PromoCampaignRecipient> PromoCampaignRecipients { get; }
+
         // Community Commerce Sprint 0 (v1.2: 11 DbSet) — Gateway PG only, tenant-scoped via IMustHaveTenant
         DbSet<CommunityRole> CommunityRoles { get; }
         DbSet<DeliveryTask> DeliveryTasks { get; }

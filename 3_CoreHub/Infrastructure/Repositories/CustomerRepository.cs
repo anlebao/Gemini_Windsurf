@@ -99,7 +99,8 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// Phase 5: Get customers matching segmentation criteria for bulk push campaigns.
+        /// Phase 5 + WS-2: Get customers matching segmentation criteria for bulk push campaigns + CRM list.
+        /// WS-2 additions: MinPointBalance/MaxPointBalance (join LoyaltyRewards), BirthdayMonth, LastOrderWithinDays.
         /// </summary>
         public async Task<IReadOnlyList<Customer>> GetBySegmentAsync(CustomerSegmentCriteria criteria)
         {
@@ -118,11 +119,23 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
             if (criteria.MaxTotalSpent.HasValue)
                 query = query.Where(c => c.TotalSpent <= criteria.MaxTotalSpent.Value);
 
-            if (criteria.LastOrderAfter.HasValue)
-                query = query.Where(c => c.LastOrderDate >= criteria.LastOrderAfter.Value);
+            // WS-2: LastOrderWithinDays convenience filter (convert to LastOrderAfter)
+            DateTime? lastOrderAfter = criteria.LastOrderAfter;
+            if (criteria.LastOrderWithinDays.HasValue && criteria.LastOrderWithinDays.Value > 0)
+            {
+                DateTime computed = DateTime.UtcNow.AddDays(-criteria.LastOrderWithinDays.Value);
+                lastOrderAfter = lastOrderAfter.HasValue && lastOrderAfter.Value > computed ? lastOrderAfter.Value : computed;
+            }
+
+            if (lastOrderAfter.HasValue)
+                query = query.Where(c => c.LastOrderDate >= lastOrderAfter.Value);
 
             if (criteria.LastOrderBefore.HasValue)
                 query = query.Where(c => c.LastOrderDate <= criteria.LastOrderBefore.Value);
+
+            // WS-2: Birthday month filter (1-12)
+            if (criteria.BirthdayMonth.HasValue && criteria.BirthdayMonth.Value >= 1 && criteria.BirthdayMonth.Value <= 12)
+                query = query.Where(c => c.Birthday != null && c.Birthday.Value.Month == criteria.BirthdayMonth.Value);
 
             if (criteria.HasPushSubscription)
             {
@@ -133,6 +146,22 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                     .Distinct();
 
                 query = query.Where(c => customerIdsWithPush.Contains(c.Id));
+            }
+
+            // WS-2: Loyalty points range filter (join LoyaltyRewards table)
+            if (criteria.MinPointBalance.HasValue || criteria.MaxPointBalance.HasValue)
+            {
+                var rewardsQuery = _context.LoyaltyRewards.AsQueryable();
+                if (criteria.MinPointBalance.HasValue)
+                    rewardsQuery = rewardsQuery.Where(r => r.PointBalance >= criteria.MinPointBalance.Value);
+                if (criteria.MaxPointBalance.HasValue)
+                    rewardsQuery = rewardsQuery.Where(r => r.PointBalance <= criteria.MaxPointBalance.Value);
+
+                var customerIdsWithPoints = rewardsQuery
+                    .Select(r => r.CustomerId)
+                    .Distinct();
+
+                query = query.Where(c => customerIdsWithPoints.Contains(c.Id));
             }
 
             return await query

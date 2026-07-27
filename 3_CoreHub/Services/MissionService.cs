@@ -22,6 +22,8 @@ namespace VanAn.CoreHub.Services
         ILoyaltyRewardsService loyaltyRewardsService,
         ITenantProvider tenantProvider,
         IVanAnDbContext dbContext,
+        IShopFeatureSettingsService? shopFeatureSettingsService,
+        PushNotificationService? pushNotificationService,
         ILogger<MissionService> logger) : IMissionService
     {
         private readonly IMissionRepository _repository = repository;
@@ -29,6 +31,8 @@ namespace VanAn.CoreHub.Services
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly ITenantProvider _tenantProvider = tenantProvider;
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
+        private readonly PushNotificationService? _pushNotificationService = pushNotificationService;
         private readonly ILogger<MissionService> _logger = logger;
 
         // === Admin CRUD ===
@@ -150,6 +154,25 @@ namespace VanAn.CoreHub.Services
                 // Read new balance for response (after commit — reflects final state)
                 var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customerId);
                 int newBalance = rewards?.PointBalance ?? 0;
+
+                // Loyalty-C WS-C: Send mission completed push notification (if toggle enabled)
+                try
+                {
+                    if (_shopFeatureSettingsService != null && _pushNotificationService != null)
+                    {
+                        var settings = await _shopFeatureSettingsService.GetSettingsAsync(customer.TenantId);
+                        if (settings.Notify_MissionCompleted)
+                        {
+                            _ = await _pushNotificationService.SendLoyaltyPointsChangedNotificationAsync(
+                                customerId, mission.PointsReward, newBalance, $"Hoàn thành nhiệm vụ: {mission.Title}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send mission completed notification for customer {CustomerId}, mission {MissionId}",
+                        customerId, mission.Id);
+                }
 
                 _logger.LogInformation("CompleteMission success: customer {CustomerId} completed mission {MissionId} ({MissionType}), awarded {Points} points. New balance: {Balance}",
                     customerId, mission.Id, missionType, mission.PointsReward, newBalance);

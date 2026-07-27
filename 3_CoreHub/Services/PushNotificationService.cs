@@ -502,6 +502,211 @@ namespace VanAn.CoreHub.Services
             }
         }
 
+        /// <summary>
+        /// Loyalty-C WS-C: Send a redemption fulfilled notification to a customer.
+        /// Triggered by RedemptionService.FulfillAsync after admin marks voucher as used.
+        /// </summary>
+        public async Task<int> SendRedemptionFulfilledNotificationAsync(Guid customerId, string voucherCode, string? productName)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+                if (!subscriptions.Any())
+                {
+                    _logger.LogInformation("No active push subscriptions for redemption fulfilled: CustomerId={CustomerId}", customerId);
+                    return 0;
+                }
+
+                int successCount = 0;
+                var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+                var webPushClient = new WebPushClient();
+
+                foreach (var subscription in subscriptions)
+                {
+                    try
+                    {
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreateRedemptionFulfilledPayload(notificationId, voucherCode, productName);
+                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        if (pushSubscription == null) continue;
+
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/rewards");
+                        subscription.Renew();
+                        await _subscriptionRepository.UpdateAsync(subscription);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send redemption fulfilled push for subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                    }
+                }
+
+                _logger.LogInformation("Redemption fulfilled push sent: {SuccessCount}/{TotalCount} for CustomerId={CustomerId}, VoucherCode={VoucherCode}",
+                    successCount, subscriptions.Count, customerId, voucherCode);
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send redemption fulfilled push for CustomerId={CustomerId}, VoucherCode={VoucherCode}", customerId, voucherCode);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Loyalty-C WS-C: Send a redemption cancelled notification (with points refund info) to a customer.
+        /// Triggered by RedemptionService.CancelAsync after admin cancels + refunds points.
+        /// </summary>
+        public async Task<int> SendRedemptionCancelledNotificationAsync(Guid customerId, string voucherCode, int pointsRefunded)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+                if (!subscriptions.Any())
+                {
+                    _logger.LogInformation("No active push subscriptions for redemption cancelled: CustomerId={CustomerId}", customerId);
+                    return 0;
+                }
+
+                int successCount = 0;
+                var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+                var webPushClient = new WebPushClient();
+
+                foreach (var subscription in subscriptions)
+                {
+                    try
+                    {
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreateRedemptionCancelledPayload(notificationId, voucherCode, pointsRefunded);
+                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        if (pushSubscription == null) continue;
+
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, "/my-loyalty");
+                        subscription.Renew();
+                        await _subscriptionRepository.UpdateAsync(subscription);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send redemption cancelled push for subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                    }
+                }
+
+                _logger.LogInformation("Redemption cancelled push sent: {SuccessCount}/{TotalCount} for CustomerId={CustomerId}, VoucherCode={VoucherCode}, PointsRefunded={Points}",
+                    successCount, subscriptions.Count, customerId, voucherCode, pointsRefunded);
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send redemption cancelled push for CustomerId={CustomerId}, VoucherCode={VoucherCode}", customerId, voucherCode);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// WS-2: Send a promo campaign notification to a customer.
+        /// Triggered by PromoCampaignJob for bulk marketing pushes.
+        /// </summary>
+        public async Task<int> SendPromoNotificationAsync(Guid customerId, string title, string message, string? url = null)
+        {
+            try
+            {
+                var subscriptions = await _subscriptionRepository.GetByCustomerIdAsync(customerId);
+                if (!subscriptions.Any())
+                {
+                    _logger.LogInformation("No active push subscriptions for promo: CustomerId={CustomerId}", customerId);
+                    return 0;
+                }
+
+                int successCount = 0;
+                var vapidDetails = new VapidDetails(_vapidSubject, _vapidPublicKey, _vapidPrivateKey);
+                var webPushClient = new WebPushClient();
+
+                foreach (var subscription in subscriptions)
+                {
+                    try
+                    {
+                        var notificationId = Guid.NewGuid();
+                        var payload = CreatePromoPayload(notificationId, title, message, url);
+                        var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
+                        if (pushSubscription == null) continue;
+
+                        await webPushClient.SendNotificationAsync(pushSubscription, payload, vapidDetails);
+                        await CreateDeliveryRecordAsync(customerId, notificationId, null, url ?? "/");
+                        subscription.Renew();
+                        await _subscriptionRepository.UpdateAsync(subscription);
+                        successCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send promo push for subscription {SubscriptionId}", subscription.PushSubscriptionId);
+                    }
+                }
+
+                _logger.LogInformation("Promo push sent: {SuccessCount}/{TotalCount} for CustomerId={CustomerId}, Title={Title}",
+                    successCount, subscriptions.Count, customerId, title);
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send promo push for CustomerId={CustomerId}", customerId);
+                return 0;
+            }
+        }
+
+        /// <summary>Loyalty-C WS-C: Create redemption fulfilled notification payload.</summary>
+        private static string CreateRedemptionFulfilledPayload(Guid notificationId, string voucherCode, string? productName)
+        {
+            string product = string.IsNullOrWhiteSpace(productName) ? "voucher" : productName;
+            string body = $"Voucher {product} ({voucherCode}) đã được xác nhận. Đến quán để nhận hàng.";
+            var notification = new
+            {
+                type = "redemption_fulfilled",
+                title = "Vạn An Group",
+                body = body,
+                voucherCode = voucherCode,
+                productName = product,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                actionUrl = "/rewards",
+                data = new { notificationId = notificationId, actionUrl = "/rewards" }
+            };
+            return JsonSerializer.Serialize(notification);
+        }
+
+        /// <summary>Loyalty-C WS-C: Create redemption cancelled notification payload.</summary>
+        private static string CreateRedemptionCancelledPayload(Guid notificationId, string voucherCode, int pointsRefunded)
+        {
+            string body = $"Đổi điểm đã hủy — hoàn {pointsRefunded} điểm. Voucher {voucherCode} đã hết hiệu lực.";
+            var notification = new
+            {
+                type = "redemption_cancelled",
+                title = "Vạn An Group",
+                body = body,
+                voucherCode = voucherCode,
+                pointsRefunded = pointsRefunded,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                actionUrl = "/my-loyalty",
+                data = new { notificationId = notificationId, actionUrl = "/my-loyalty" }
+            };
+            return JsonSerializer.Serialize(notification);
+        }
+
+        /// <summary>WS-2: Create promo campaign notification payload.</summary>
+        private static string CreatePromoPayload(Guid notificationId, string title, string message, string? url)
+        {
+            var notification = new
+            {
+                type = "promo",
+                title = string.IsNullOrWhiteSpace(title) ? "Khuyến mãi" : title,
+                body = message,
+                timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                actionUrl = url ?? "/",
+                data = new { notificationId = notificationId, actionUrl = url ?? "/" }
+            };
+            return JsonSerializer.Serialize(notification);
+        }
+
         /// <summary>Loyalty-C WS-C: Create birthday notification payload.</summary>
         private string CreateBirthdayPayload(Guid notificationId, string? customerName, int pointsAwarded)
         {

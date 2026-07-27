@@ -95,6 +95,9 @@ namespace VanAn.ShopERP.Infrastructure
         // Loyalty-C WS-B: Gamification framework
         public DbSet<Mission> Missions { get; set; }
         public DbSet<MissionCompletion> MissionCompletions { get; set; }
+        // WS-2: Promo campaign system — bulk marketing push with per-recipient tracking
+        public DbSet<PromoCampaign> PromoCampaigns { get; set; }
+        public DbSet<PromoCampaignRecipient> PromoCampaignRecipients { get; set; }
 
         // Community Commerce Sprint 0 (v1.2: 11 DbSet) — PG-only on Gateway.
         // DbSet exists to satisfy IVanAnDbContext interface contract; never queried from ShopERP SQLite.

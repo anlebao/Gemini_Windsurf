@@ -154,7 +154,19 @@ namespace VanAn.ShopERP.Controllers
                 return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
 
             var completions = await _missionService.GetCustomerCompletionsAsync(customerId.Value);
-            return Ok(completions.Select(MapCompletionDto).ToList());
+            // Enrich with mission type + title for UI display (WS-1.2 SC16)
+            var allMissions = await _missionService.GetAllMissionsAsync();
+            var missionLookup = allMissions.ToDictionary(m => m.Id);
+            return Ok(completions.Select(c =>
+            {
+                var dto = MapCompletionDto(c);
+                if (missionLookup.TryGetValue(c.MissionId, out var mission))
+                {
+                    dto.MissionType = mission.MissionType.ToString();
+                    dto.MissionTitle = mission.Title;
+                }
+                return dto;
+            }).ToList());
         }
 
         // === DTO Mappers ===
@@ -219,6 +231,8 @@ namespace VanAn.ShopERP.Controllers
         public Guid Id { get; set; }
         public Guid MissionId { get; set; }
         public Guid CustomerId { get; set; }
+        public string MissionType { get; set; } = string.Empty;
+        public string MissionTitle { get; set; } = string.Empty;
         public DateTime CompletedAt { get; set; }
         public int PointsAwarded { get; set; }
         public string? Metadata { get; set; }

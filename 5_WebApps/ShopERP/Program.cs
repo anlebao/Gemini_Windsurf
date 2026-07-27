@@ -360,6 +360,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.BirthdayBonusJob>();
             // Loyalty-C WS-C: Voucher expiry reminder job — runs daily, sends push notification for vouchers expiring within N days
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.VoucherExpiryReminderJob>();
+            // WS-2: Promo campaign job — polls for pending campaigns and sends bulk push notifications
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IPromoCampaignRepository, VanAn.CoreHub.Infrastructure.Repositories.PromoCampaignRepository>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPromoCampaignService, VanAn.CoreHub.Services.PromoCampaignService>();
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.PromoCampaignJob>();
 
             // Sync: Subscribe to NATS "order.created" events from Gateway → sync to SQLite
             // Without this, ShopERP Owner cannot see orders created via Gateway (KhachLink checkout).

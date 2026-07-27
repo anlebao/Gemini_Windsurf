@@ -7,6 +7,7 @@ using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.Services;
 
 namespace VanAn.ShopERP.Services
 {
@@ -98,12 +99,40 @@ namespace VanAn.ShopERP.Services
 
             var redemptionRepository = scope.ServiceProvider.GetRequiredService<IRedemptionRepository>();
             var pushNotificationService = scope.ServiceProvider.GetService<PushNotificationService>();
+            var shopFeatureSettingsService = scope.ServiceProvider.GetService<IShopFeatureSettingsService>();
+
+            // Loyalty-C WS-C: Check Notify_VoucherExpiringSoon toggle before sending notifications.
+            // Also honor VoucherExpiryNotifyHours (per-tenant override of reminderDays).
+            bool notifyExpiry = true;
+            if (shopFeatureSettingsService != null)
+            {
+                try
+                {
+                    var settings = await shopFeatureSettingsService.GetSettingsAsync(tenantId);
+                    notifyExpiry = settings.Notify_VoucherExpiringSoon;
+                    // Per-tenant override: convert hours → days (round up)
+                    if (settings.VoucherExpiryNotifyHours > 0)
+                        reminderDays = (int)Math.Ceiling(settings.VoucherExpiryNotifyHours / 24.0);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "VoucherExpiryReminderJob: failed to load Notify_VoucherExpiringSoon toggle — defaulting to true");
+                }
+            }
 
             // Find active vouchers expiring within the reminder window
             var expiringVouchers = await redemptionRepository.GetVouchersExpiringWithinAsync(reminderDays);
             if (expiringVouchers.Count == 0)
             {
                 _logger.LogInformation("VoucherExpiryReminderJob: no vouchers expiring within {Days} days — skipping", reminderDays);
+                return;
+            }
+
+            // Skip notification work entirely if toggle is off (still log for audit)
+            if (!notifyExpiry)
+            {
+                _logger.LogInformation("VoucherExpiryReminderJob: {Count} voucher(s) expiring within {Days} days but Notify_VoucherExpiringSoon=false — skipping notifications",
+                    expiringVouchers.Count, reminderDays);
                 return;
             }
 

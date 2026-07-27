@@ -152,6 +152,42 @@
                     </div>
                 </div>
             }
+
+            @* WS-1.2 SC16: MissionCompletion history section *@
+            <div class="mt-4">
+                <h5 class="mb-3"><i class="bi bi-clock-history"></i> Nhiệm vụ đã hoàn thành</h5>
+                @if (_completions.Count == 0)
+                {
+                    <VanAnCard Shadow="true" CssClass="text-center p-4">
+                        <i class="bi bi-clipboard-check text-muted" style="font-size:2rem;"></i>
+                        <p class="text-muted small mt-2 mb-0">Chưa hoàn thành nhiệm vụ nào.</p>
+                    </VanAnCard>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var c in _completions)
+                        {
+                            <div class="list-group-item d-flex align-items-center">
+                                <div class="me-3" style="font-size:1.5rem;">@GetMissionIcon(c.MissionType)</div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold">@c.MissionTitle</div>
+                                    <div class="text-muted small">
+                                        +@c.PointsAwarded.ToString("N0") điểm • @c.CompletedAt.ToString("dd/MM/yyyy HH:mm")
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(c.Metadata))
+                                    {
+                                        <div class="text-muted small text-truncate" style="max-width:300px;" title="@c.Metadata">
+                                            <i class="bi bi-link-45deg"></i> @c.Metadata
+                                        </div>
+                                    }
+                                </div>
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
         }
     </div>
 </KhachLinkLayout>
@@ -163,6 +199,7 @@
     private string? _error;
     private string? _success;
     private List<MissionProgressDto> _missions = new();
+    private List<MissionCompletionDto> _completions = new();
 
     // Share modal state
     private bool _showShareModal;
@@ -185,11 +222,12 @@
         {
             var client = HttpClientFactory.CreateClient("gateway");
 
-            // Load missions progress + loyalty balance in parallel
+            // Load missions progress + loyalty balance + completions in parallel
             var progressTask = SendWithTokenAsync(client, "/api/missions/my/progress", token);
             var loyaltyTask = SendWithTokenAsync(client, "/api/loyalty/my", token);
+            var completionsTask = SendWithTokenAsync(client, "/api/missions/my/completions", token);
 
-            await Task.WhenAll(progressTask, loyaltyTask);
+            await Task.WhenAll(progressTask, loyaltyTask, completionsTask);
 
             var progressResp = await progressTask;
             if (progressResp.IsSuccessStatusCode)
@@ -202,6 +240,12 @@
             {
                 var loyalty = await loyaltyResp.Content.ReadFromJsonAsync<LoyaltyMyResponse>();
                 _pointBalance = loyalty?.PointBalance ?? 0;
+            }
+
+            var completionsResp = await completionsTask;
+            if (completionsResp.IsSuccessStatusCode)
+            {
+                _completions = await completionsResp.Content.ReadFromJsonAsync<List<MissionCompletionDto>>() ?? new();
             }
         }
         catch (Exception ex)
@@ -327,5 +371,15 @@
     private class LoyaltyMyResponse
     {
         public int PointBalance { get; set; }
+    }
+
+    private class MissionCompletionDto
+    {
+        public Guid Id { get; set; }
+        public string MissionType { get; set; } = string.Empty;
+        public string MissionTitle { get; set; } = string.Empty;
+        public int PointsAwarded { get; set; }
+        public DateTime CompletedAt { get; set; }
+        public string? Metadata { get; set; }
     }
 }

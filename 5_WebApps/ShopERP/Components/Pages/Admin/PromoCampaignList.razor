@@ -1,0 +1,145 @@
+@page "/admin/promo-campaigns"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.CoreHub.Services
+@using VanAn.Shared.Domain
+@inject IPromoCampaignService PromoCampaignService
+@inject ILogger<PromoCampaignList> Logger
+
+@attribute [Authorize]
+
+<div class="promo-campaign-list-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-megaphone-fill"></i> Chiến dịch khuyến mãi</h1>
+        <div class="header-actions">
+            <a href="/admin/customers" class="btn btn-secondary"><i class="bi bi-plus"></i> Tạo chiến dịch mới</a>
+            <VanAButton Variant="secondary" OnClick="LoadCampaigns">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    <VanACard Title="Danh sách chiến dịch">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_campaigns.Count == 0)
+        {
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-2">Chưa có chiến dịch nào. Tạo chiến dịch từ trang <a href="/admin/customers">Khách hàng (CRM)</a>.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Tiêu đề</th>
+                            <th>Nội dung</th>
+                            <th class="text-end">Người nhận</th>
+                            <th class="text-end">Đã gửi</th>
+                            <th class="text-end">Lỗi</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày tạo</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _campaigns)
+                        {
+                            <tr>
+                                <td>@c.Title</td>
+                                <td class="text-truncate" style="max-width:200px;" title="@c.Message">@c.Message</td>
+                                <td class="text-end">@c.TotalRecipients</td>
+                                <td class="text-end text-success">@c.SentCount</td>
+                                <td class="text-end text-danger">@c.FailedCount</td>
+                                <td>@RenderStatusBadge(c.Status)</td>
+                                <td>@c.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    @if (c.Status is "Pending" or "Processing")
+                                    {
+                                        <VanAButton Variant="secondary" OnClick="@(() => CancelCampaignAsync(c.Id))">Hủy</VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </VanACard>
+</div>
+
+@code {
+    private bool _loading = true;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private List<PromoCampaign> _campaigns = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCampaigns();
+    }
+
+    private async Task LoadCampaigns()
+    {
+        _loading = true;
+        try
+        {
+            _campaigns = (await PromoCampaignService.GetCampaignsAsync(1, 50)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load promo campaigns");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CancelCampaignAsync(Guid id)
+    {
+        try
+        {
+            bool ok = await PromoCampaignService.CancelCampaignAsync(id);
+            if (ok)
+            {
+                _alertMessage = "Đã hủy chiến dịch.";
+                _alertType = "success";
+                await LoadCampaigns();
+            }
+            else
+            {
+                _alertMessage = "Không thể hủy chiến dịch (có thể đã hoàn thành).";
+                _alertType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private static Microsoft.AspNetCore.Components.MarkupString RenderStatusBadge(string status) => status switch
+    {
+        "Pending" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Chờ xử lý</span>"),
+        "Processing" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-primary\">Đang gửi</span>"),
+        "Completed" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-success\">Hoàn thành</span>"),
+        "Failed" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-danger\">Lỗi</span>"),
+        "Cancelled" => new Microsoft.AspNetCore.Components.MarkupString("<span class=\"badge bg-secondary\">Đã hủy</span>"),
+        _ => new Microsoft.AspNetCore.Components.MarkupString($"<span class=\"badge bg-light text-dark\">{status}</span>")
+    };
+}

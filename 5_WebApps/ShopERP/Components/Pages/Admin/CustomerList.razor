@@ -1,0 +1,381 @@
+@page "/admin/customers"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Domain
+@using VanAn.CoreHub.Services
+@using VanAn.CoreHub.Domain.Repositories
+@using VanAn.Shared.Services
+@inject IPromoCampaignService PromoCampaignService
+@inject ICustomerSegmentationService CustomerSegmentationService
+@inject ICustomerRepository CustomerRepository
+@inject ILoyaltyRewardsService LoyaltyRewardsService
+@inject ILogger<CustomerList> Logger
+
+@attribute [Authorize]
+
+<div class="customer-list-admin-page">
+    <header class="page-header">
+        <h1><i class="bi bi-people-fill"></i> Khách hàng (CRM)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="LoadCustomers">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @* === Filter Bar === *@
+    <VanACard Title="Bộ lọc khách hàng">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Điểm thưởng từ</label>
+                <input type="number" class="form-control" @bind="_filterMinPoints" placeholder="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Điểm thưởng đến</label>
+                <input type="number" class="form-control" @bind="_filterMaxPoints" placeholder="∞" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lần mua gần nhất (trong N ngày)</label>
+                <input type="number" class="form-control" @bind="_filterLastOrderDays" placeholder="vd: 30" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sinh nhật trong tháng</label>
+                <select class="form-select" @bind="_filterBirthdayMonth">
+                    <option value="0">— Tất cả —</option>
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">Tháng @m</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Doanh số từ (VND)</label>
+                <input type="number" class="form-control" @bind="_filterMinSpent" placeholder="0" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Doanh số đến (VND)</label>
+                <input type="number" class="form-control" @bind="_filterMaxSpent" placeholder="∞" />
+            </div>
+            <div class="col-md-3 d-flex align-items-end gap-2">
+                <VanAButton Variant="primary" OnClick="ApplyFilter">Lọc</VanAButton>
+                <VanAButton Variant="secondary" OnClick="ClearFilter">Xóa lọc</VanAButton>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <VanAButton Variant="primary" OnClick="OpenPromoModal" Disabled="@(_filteredCustomers.Count == 0)">
+                    <i class="bi bi-megaphone"></i> Gửi khuyến mãi (@_filteredCustomers.Count khách)
+                </VanAButton>
+            </div>
+        </div>
+    </VanACard>
+
+    @* === Results Table === *@
+    <VanACard Title="Danh sách khách hàng">
+        @if (_loading)
+        {
+            <div class="text-center py-4"><div class="spinner-border"></div></div>
+        }
+        else if (_displayCustomers.Count == 0)
+        {
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-2">Không có khách hàng nào thỏa bộ lọc.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Họ tên</th>
+                            <th>Điện thoại</th>
+                            <th>Hạng</th>
+                            <th class="text-end">Điểm</th>
+                            <th class="text-end">Tổng chi</th>
+                            <th>Lần mua cuối</th>
+                            <th>Sinh nhật</th>
+                            <th>Định danh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _displayCustomers)
+                        {
+                            <tr>
+                                <td>@c.FullName</td>
+                                <td>@(c.PhoneNumber ?? "—")</td>
+                                <td><span class="badge bg-info text-dark">@(string.IsNullOrEmpty(c.CustomerTier) ? "—" : c.CustomerTier)</span></td>
+                                <td class="text-end">@c.PointBalance.ToString("N0")</td>
+                                <td class="text-end">@c.TotalSpent.ToString("N0")</td>
+                                <td>@(c.LastOrderDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                <td>@(c.Birthday?.ToString("dd/MM") ?? "—")</td>
+                                <td>@c.IdentityLevel</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <span class="text-muted small">Hiển thị @_displayCustomers.Count / @_filteredCustomers.Count khách</span>
+                <div class="btn-group">
+                    <VanAButton Variant="secondary" OnClick="PrevPage" Disabled="@(_page <= 1)">‹ Trước</VanAButton>
+                    <VanAButton Variant="secondary" OnClick="NextPage" Disabled="@(_page >= _totalPages)">Sau ›</VanAButton>
+                </div>
+            </div>
+        }
+    </VanACard>
+
+    @* === Promo Push Composer Modal === *@
+    @if (_showPromoModal)
+    {
+        <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-megaphone-fill"></i> Gửi thông báo khuyến mãi</h5>
+                        <button type="button" class="btn-close" @onclick="ClosePromoModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="small text-muted">Sẽ gửi cho <strong>@_filteredCustomers.Count khách hàng</strong> (theo bộ lọc hiện tại).</p>
+                        <div class="mb-3">
+                            <label class="form-label">Tiêu đề</label>
+                            <input class="form-control" @bind="_promoTitle" maxlength="100" placeholder="vd: Khuyến mãi cuối tuần" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nội dung thông báo</label>
+                            <textarea class="form-control" @bind="_promoMessage" rows="3" maxlength="500" placeholder="vd: Giảm 20% cho tất cả món nước từ 15h-17h hôm nay!"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Link đích (tùy chọn)</label>
+                            <input class="form-control" @bind="_promoUrl" placeholder="/rewards hoặc https://..." />
+                        </div>
+                        @if (_promoError != null)
+                        {
+                            <div class="text-danger small">@_promoError</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <VanAButton Variant="secondary" OnClick="ClosePromoModal">Hủy</VanAButton>
+                        <VanAButton Variant="primary" OnClick="SubmitPromoAsync" Disabled="@_promoSubmitting">
+                            @if (_promoSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm"></span>
+                            }
+                            else
+                            {
+                                <text>Tạo chiến dịch</text>
+                            }
+                        </VanAButton>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+    private List<CustomerRow> _filteredCustomers = new();
+    private List<CustomerRow> _displayCustomers = new();
+    private int _page = 1;
+    private const int PageSize = 20;
+    private int _totalPages = 1;
+
+    // Filter state
+    private int? _filterMinPoints;
+    private int? _filterMaxPoints;
+    private int? _filterLastOrderDays;
+    private int _filterBirthdayMonth;
+    private decimal? _filterMinSpent;
+    private decimal? _filterMaxSpent;
+
+    // Promo modal state
+    private bool _showPromoModal;
+    private string _promoTitle = string.Empty;
+    private string _promoMessage = string.Empty;
+    private string _promoUrl = string.Empty;
+    private string? _promoError;
+    private bool _promoSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _filterBirthdayMonth = DateTime.UtcNow.Month; // Default = current month
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        _loading = true;
+        try
+        {
+            bool hasFilter = _filterMinPoints.HasValue || _filterMaxPoints.HasValue ||
+                             _filterLastOrderDays.HasValue || _filterBirthdayMonth > 0 ||
+                             _filterMinSpent.HasValue || _filterMaxSpent.HasValue;
+
+            var criteria = new CustomerSegmentCriteria(
+                MinPointBalance: _filterMinPoints,
+                MaxPointBalance: _filterMaxPoints,
+                LastOrderWithinDays: _filterLastOrderDays,
+                BirthdayMonth: _filterBirthdayMonth > 0 ? _filterBirthdayMonth : null,
+                MinTotalSpent: _filterMinSpent,
+                MaxTotalSpent: _filterMaxSpent);
+
+            IReadOnlyList<Customer> customers = hasFilter
+                ? await CustomerSegmentationService.GetCustomersBySegmentAsync(criteria)
+                : await CustomerRepository.GetAllActiveAsync();
+
+            // Enrich with loyalty point balance
+            _filteredCustomers = new List<CustomerRow>(customers.Count);
+            foreach (var c in customers)
+            {
+                var rewards = await LoyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
+                _filteredCustomers.Add(new CustomerRow
+                {
+                    Id = c.Id,
+                    FullName = c.FullName,
+                    PhoneNumber = c.PhoneNumber,
+                    CustomerTier = c.CustomerTier,
+                    PointBalance = rewards?.PointBalance ?? 0,
+                    TotalSpent = c.TotalSpent,
+                    LastOrderDate = c.LastOrderDate,
+                    Birthday = c.Birthday,
+                    IdentityLevel = c.IdentityLevel.ToString(),
+                    IsActive = c.IsActive
+                });
+            }
+
+            ApplyPagination();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load customers");
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyPagination()
+    {
+        _totalPages = Math.Max(1, (int)Math.Ceiling((double)_filteredCustomers.Count / PageSize));
+        _displayCustomers = _filteredCustomers
+            .Skip((_page - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+    }
+
+    private async Task ApplyFilter()
+    {
+        _page = 1;
+        await LoadCustomers();
+    }
+
+    private async Task ClearFilter()
+    {
+        _filterMinPoints = null;
+        _filterMaxPoints = null;
+        _filterLastOrderDays = null;
+        _filterBirthdayMonth = DateTime.UtcNow.Month;
+        _filterMinSpent = null;
+        _filterMaxSpent = null;
+        _page = 1;
+        await LoadCustomers();
+    }
+
+    private void PrevPage()
+    {
+        if (_page > 1) { _page--; ApplyPagination(); }
+    }
+
+    private void NextPage()
+    {
+        if (_page < _totalPages) { _page++; ApplyPagination(); }
+    }
+
+    private void OpenPromoModal()
+    {
+        _promoTitle = string.Empty;
+        _promoMessage = string.Empty;
+        _promoUrl = string.Empty;
+        _promoError = null;
+        _showPromoModal = true;
+    }
+
+    private void ClosePromoModal()
+    {
+        _showPromoModal = false;
+        _promoError = null;
+    }
+
+    private async Task SubmitPromoAsync()
+    {
+        _promoError = null;
+        if (string.IsNullOrWhiteSpace(_promoTitle))
+        {
+            _promoError = "Vui lòng nhập tiêu đề.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_promoMessage))
+        {
+            _promoError = "Vui lòng nhập nội dung thông báo.";
+            return;
+        }
+
+        _promoSubmitting = true;
+        try
+        {
+            var criteria = new CustomerSegmentCriteria(
+                MinPointBalance: _filterMinPoints,
+                MaxPointBalance: _filterMaxPoints,
+                LastOrderWithinDays: _filterLastOrderDays,
+                BirthdayMonth: _filterBirthdayMonth > 0 ? _filterBirthdayMonth : null,
+                MinTotalSpent: _filterMinSpent,
+                MaxTotalSpent: _filterMaxSpent);
+
+            var campaign = await PromoCampaignService.CreateCampaignAsync(
+                _promoTitle, _promoMessage,
+                string.IsNullOrWhiteSpace(_promoUrl) ? null : _promoUrl,
+                criteria);
+
+            _showPromoModal = false;
+            _alertMessage = $"Đã tạo chiến dịch '{_promoTitle}' với {campaign.TotalRecipients} người nhận. Đang xử lý — xem tiến độ tại /admin/promo-campaigns.";
+            _alertType = "success";
+        }
+        catch (InvalidOperationException ex)
+        {
+            _promoError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _promoError = $"Lỗi: {ex.Message}";
+        }
+        finally
+        {
+            _promoSubmitting = false;
+        }
+    }
+
+    private class CustomerRow
+    {
+        public Guid Id { get; set; }
+        public string FullName { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+        public string CustomerTier { get; set; } = string.Empty;
+        public int PointBalance { get; set; }
+        public decimal TotalSpent { get; set; }
+        public DateTime? LastOrderDate { get; set; }
+        public DateTime? Birthday { get; set; }
+        public string IdentityLevel { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+}

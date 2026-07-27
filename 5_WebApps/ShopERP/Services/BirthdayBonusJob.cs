@@ -97,6 +97,23 @@ namespace VanAn.ShopERP.Services
             var customerRepository = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
             var missionService = scope.ServiceProvider.GetRequiredService<IMissionService>();
             var pushNotificationService = scope.ServiceProvider.GetService<PushNotificationService>();
+            var shopFeatureSettingsService = scope.ServiceProvider.GetService<IShopFeatureSettingsService>();
+
+            // Loyalty-C WS-C: Check Notify_BirthdayBonus toggle before sending notifications.
+            // Points are still awarded regardless of toggle — only push is gated.
+            bool notifyBirthday = true;
+            if (shopFeatureSettingsService != null)
+            {
+                try
+                {
+                    var settings = await shopFeatureSettingsService.GetSettingsAsync(tenantId);
+                    notifyBirthday = settings.Notify_BirthdayBonus;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "BirthdayBonusJob: failed to load Notify_BirthdayBonus toggle — defaulting to true");
+                }
+            }
 
             // Find customers with birthday today (UTC month+day match)
             var birthdayCustomers = await customerRepository.GetCustomersWithBirthdayTodayAsync();
@@ -135,7 +152,8 @@ namespace VanAn.ShopERP.Services
                 }
 
                 // Send birthday push notification (best-effort — non-blocking on failure)
-                if (pushNotificationService != null)
+                // Loyalty-C WS-C: gated by Notify_BirthdayBonus toggle (checked above)
+                if (pushNotificationService != null && notifyBirthday)
                 {
                     try
                     {
