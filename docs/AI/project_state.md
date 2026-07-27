@@ -41,14 +41,15 @@ Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `f563e415` docs(state): Sprint 0 COMPLETE
+- **Last commit:** `4af5672e` fix(orders): resolve 4 checkout-to-kitchen flow bugs
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
-- **Build (2026-07-26):** 0 errors, 1 warning. guard-check ALL PASSED. 1009 unit + 39 arch tests PASS. CD #30201482750 ALL PASS. VPS RV 18/18 PASS.
+- **Build (2026-07-27):** 0 errors, 1014 warnings (pre-existing CA). Pre-push CI ALL PASS (build 112s + 1015 unit + 39 arch + 198 integration). CD #30238460473 ALL PASS (Build & Push 3m30s + Validation 13s + Deploy 1m14s). VPS RV: 3/3 services healthy, checkout flow verified.
+- **4-Bug Fix (2026-07-27 COMPLETE + MERGED + DEPLOYED):** (1) Order List default filter EMPTY→ALL, (2) CustomerNotes sync PG→SQLite + UI render, (3) Remove AsNoTracking from GetByIdWithIncludesAsync (fix confirm order exception), (4) Parse CustomerId in OrderSyncSubscriber + auto-create Customer stub. RV verified: CustomerNotes + CustomerId sync to SQLite confirmed via direct DB query.
 - **Sprint 0 (2026-07-26 COMPLETE + MERGED + DEPLOYED):** 11 entities + 42 tests + migration `20260726105331_CommunitySprint0` applied to local + VPS PG. RiskScoringService (8-factor deterministic) + WalletService base (atomic SELECT FOR UPDATE). FingerprintJS stub vendored.
 - **VPS:** Live at `diemthuong.khachvip.online` (KhachLink), `app.khachvip.online` (ShopERP), `api.khachvip.online` (Gateway). 7 containers healthy. CD deploys automatically on push to main.
 - **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
-- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC).
+- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (NEW 2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. This breaks loyalty points for customers who only exist in SQLite. Fix requires Customer sync SQLite→PG (feature work, needs Domain approval).
 
 ---
 
@@ -58,7 +59,7 @@ Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a
 2. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
 3. **Sprint 7+ Edge Migration** — trigger khi >1M users. 15 tasks. See master plan Section 13.
 4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
-5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004.
+5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001 (NEW):** Customer sync SQLite→PG — customers created in ShopERP CRM local are invisible to Gateway PG, breaking loyalty for SQLite-only customers.
 6. **(Cosmetic)** Fix `?` in Checkout.razor (18/63 lines). Fix `isTabVisible` display bug in OrderTracking.razor.
 7. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
 
@@ -87,6 +88,7 @@ Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-07-27] **4-BUG CHECKOUT-TO-KITCHEN FIX COMPLETE.** Commit `4af5672e`. (1) Order List default filter, (2) CustomerNotes sync+UI, (3) AsNoTracking confirm fix, (4) CustomerId sync+stub. CD PASS. RV: CustomerNotes + CustomerId sync verified via SQLite query. TD-CUSTSYNC-001 logged.
 * [2026-07-26] **SPRINT 0 COMPLETE.** 11 entities + 42 tests + migration. Merged + deployed. RV 18/18.
 * [2026-07-26] **DOC v1.4-v1.1 COMPLETE.** 4 doc-only sessions. Hybrid architecture + cost + review fixes + anti-fraud.
 * [2026-07-24] **LOYALTY L-C COMPLETE.** RV 57/57. Gamification + config UI + notification jobs.
@@ -149,7 +151,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=main, Build=0 errors, 42 tests PASS, CD PASS, RV 18/18 PASS, 7 containers healthy
+- **Verified Facts:** Branch=main, commit=4af5672e, Build=0 errors, 1015 unit + 39 arch + 198 integration PASS, CD #30238460473 PASS, 3/3 VPS services healthy, CustomerNotes+CustomerId sync verified via SQLite query
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions < Verified Facts, Open Questions < 3
 
@@ -157,5 +159,6 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
+* **2026-07-27 — 4-BUG CHECKOUT-TO-KITCHEN FIX.** Commit `4af5672e` merged + deployed. 5 files: OrderRepository.cs (AsNoTracking), OrderService.cs (CustomerNotes payload), OrderSyncSubscriber.cs (parse notes + CustomerId + Customer stub), Index.razor (default filter + notes column), Display.razor (notes block). CD PASS. RV: checkout flow verified on VPS — CustomerNotes + CustomerId sync to SQLite confirmed. TD-CUSTSYNC-001 logged (Customer SQLite→PG sync gap). Branch: `main`.
 * **2026-07-26 — PROJECT STATE ARCHIVED.** Reduced from 627 → ~170 lines. All Previous Objectives (Doc v1.1-v1.4, Phase 5, Loyalty L-A/L-B/L-C, Product Picker, Font/Freeze Fix, Theme, PWA Phases 1-3, Multi-VPS Option C) + full History Log + full Maintenance Log moved to `docs/AI/project_state_archive.md` (Section "Archived 2026-07-26"). Branch: `main`.
 * **2026-07-26 — SPRINT 0 REVIEW + PARTIAL FIX.** Review-only audit found 8 items marked COMPLETE but not 100% production. Part 1: F2/F4/F5a (dead code pending callers) added to correct downstream sprint task cards (Sprint 1: AssignShipper/SetDeliveryLocation; Sprint 4: AssignSalesman + RiskScoringService caller + WalletService app-install caller; Sprint 5: MarkCodCollected + WalletService COD/Advance/Settlement caller). Sprint 4 + Sprint 5 task cards fixed: WalletService "Files cần CREATE" → "MODIFY" (Sprint 0 đã tạo base). Part 2 in progress: F5b (WalletService SQLite comment fixed), F6 (migration scope note added to SC9), F7 (SC13 phrasing fixed). Branch: `main`.
