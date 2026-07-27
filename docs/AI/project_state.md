@@ -30,21 +30,29 @@
 
 ## 2. Current Objective
 
-**Community Commerce Sprint 0 — Foundation (COMPLETE 2026-07-26)**
+**Loyalty/CRM Audit Fix — P1-T1 CustomerListGlobal full-stack (COMPLETE 2026-07-27, S2)**
 
-11 Domain entities + 9 enums + 8 Order fields + IdentityLevel expansion + 11 EF configurations + 11 DbSets + RiskScoringService + WalletService base + FingerprintJS stub + 42 unit tests + 2 architecture tests. All COMPLETE, merged to main, VPS deployed, RV 18/18 PASS.
+Cross-tenant customer list (SystemAdmin-only) — TDD full-stack: repo `GetAllCustomersAcrossTenantsAsync` (IgnoreQueryFilters) + `CustomerController.ListGlobal` (`[Authorize(Policy="SystemAdmin")]` + `GlobalCustomerDto` with TenantId) + `CustomerListGlobal.razor` rewrite (customer table + Tenant column + filter bar, replaces placeholder campaign overview). 6 new tests (3 repo + 3 HTTP auth) all PASS. Build 0 errors, guard-check ALL PASSED. Commit `2059f403` on `fix/loyalty-crm-audit-fix`.
 
-Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a75bbf` + `f563e415`.
+**Next in audit fix plan: P1-T2 (19 missing tests) + P1-T3 (Missions pagination) — per `loyalty_crm_audit_fix_master_plan-2c5017.md` (S3, S4).**
+
+Branch: `fix/loyalty-crm-audit-fix`. P0 commit `4aa0c6e2`, P1-T1 commit `2059f403`. Merge to `main` after P3 + VPS RV pass.
+
+---
+
+**Previous: Community Commerce Sprint 0 — Foundation (COMPLETE 2026-07-26)** — 11 Domain entities + 42 tests + migration. Merged to `main`, VPS deployed, RV 18/18 PASS. Branch `feature/community-sprint0-foundation` (commits `e1a75bbf` + `f563e415`).
 
 ---
 
 ## 3. Current Status
 
-- **Branch:** `main`
-- **Last commit:** `35dc9de6` fix(khachlink): resolve tenant context for customer-facing endpoints + order ID display
+- **Branch:** `fix/loyalty-crm-audit-fix`
+- **Last commit:** `2059f403` feat(crm): AF-P1-T1 CustomerListGlobal full-stack cross-tenant customer list (TDD)
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
-- **Build (2026-07-27):** 0 errors, 605 warnings (pre-existing CA). CD #30247192483 ALL PASS. VPS RV: 3/3 services healthy.
+- **Build (2026-07-27):** 0 errors, 1047 warnings (pre-existing CA). guard-check ALL PASSED.
+- **Loyalty/CRM Audit Fix — P1-T1 (2026-07-27 COMPLETE, commit `2059f403`, NOT yet merged):** Cross-tenant customer list full-stack TDD. (1) Repo: `ICustomerRepository.GetAllCustomersAcrossTenantsAsync` + `CustomerRepository` impl using `IgnoreQueryFilters()` (bypasses global TenantId filter — SystemAdmin only), filters `!IsDeleted && IsActive`, ordered by TenantId then FullName. (2) Controller: `CustomerController.ListGlobal` `[HttpGet("global")]` + `[Authorize(Policy = "SystemAdmin")]` (combines with controller-level `[Authorize(Policy = "OwnerOnly")]` from P0 → SystemAdmin only; Owner/Staff → 403). New `GlobalCustomerDto` with `TenantId` field. Optional filters: minPoints/maxPoints, lastOrderWithinDays, birthdayMonth, minTotalSpent/maxTotalSpent. (3) Blazor: `CustomerListGlobal.razor` REWRITE — removed campaign overview + "coming soon" note; now renders customer table with Tenant column + filter bar + pagination 20/page + empty state. Keeps `[Authorize(Policy = "SystemAdmin")]` + route `/admin/customers-global`. Uses UI Platform components. (4) Tests: 6 new (3 repo cross-tenant + 3 HTTP auth: SystemAdmin→200, Staff→403, Anonymous→auth-enforced). All PASS. No regressions (31/31 Customer/Excel/LoyaltyRewards tests PASS). **Deviation:** "Push Subscribed" column deferred to P2 (requires PushSubscriptions join); replaced with "Trạng thái" (Active/Inactive).
+- **Loyalty/CRM Audit Fix — P0 (2026-07-27 COMPLETE, commit `4aa0c6e2`):** (1) `CustomerController` + `PromoCampaignController` `[Authorize]` → `[Authorize(Policy = "OwnerOnly")]` — blocks Staff/StoreKeeper/Guard from promo/customer admin APIs. (2) `IPromoCampaignService` moved from `3_CoreHub/Services/` to `1_Shared/Services/` (contract layer). (3) `CustomerSegmentCriteria` moved to `1_Shared/Domain/` to break circular dependency.
 - **KhachLink Bugs 1-3 Fix (2026-07-27 COMPLETE + MERGED + DEPLOYED + RV PASS):**
   1. **Bug 1 (Profile: points/birthday/push not working) + Bug 2 (Missions: no data):** Root cause — customer-facing ShopERP endpoints (`CustomerIdentityController`, `CustomerProfileController`, `LoyaltyController`, `MissionsController`, `NotificationsController`, `RedemptionController`) are `[AllowAnonymous]` (token auth via `X-Customer-Token` header, no cookie/claim). `ITenantProvider.TenantId = Guid.Empty` because there's no `tenant_id` claim in token-only auth → global `TenantId` query filter on `VanAnDbContext` excluded all customer/mission/loyalty/push-subscription records → endpoints returned 404 or empty data. Fix: new `[ResolveCustomerTenant]` action filter (`5_WebApps/ShopERP/Filters/ResolveCustomerTenantAttribute.cs`) validates the customer token, loads the customer's `TenantId` with `IgnoreQueryFilters`, and calls `ITenantProvider.SetTenant()` so all subsequent queries in the request scope use the correct tenant context. Applied to all 6 customer-facing controllers. Commit `35dc9de6`.
   2. **Bug 3 (Order history: order ID mismatch with ShopERP):** KhachLink `OrderHistory.razor` displayed last 8 chars of OrderId (`[^8..]`) while ShopERP `Orders/Index.razor` displays `TrackingCode ?? first 8 chars` (`[..8]`). UUIDv7 orders have meaningful prefix (timestamp-based) so the suffix never matched. Fix: changed KhachLink display to `[..8]` (first 8 chars) to match ShopERP.
@@ -65,13 +73,16 @@ Branch: `feature/community-sprint0-foundation` (merged to `main`). Commits: `e1a
 
 ## 4. Next Actions
 
-1. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md` + `sprint1_nearby_orders_detailed_plan-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status + OrderWorkflowService transitions. **Needs user approval for Domain Modification.**
-2. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
-3. **Sprint 7+ Edge Migration** — trigger khi >1M users. 15 tasks. See master plan Section 13.
-4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
-5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001 (NEW):** Customer sync SQLite→PG — customers created in ShopERP CRM local are invisible to Gateway PG, breaking loyalty for SQLite-only customers.
-6. **(Cosmetic)** Fix `?` in Checkout.razor (18/63 lines). Fix `isTabVisible` display bug in OrderTracking.razor.
-7. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+1. **Loyalty/CRM Audit Fix — P1-T2 (S3):** 19 missing tests (5 toggle + 10 URL validation + 4 cross-tenant) per `loyalty_crm_audit_fix_master_plan-2c5017.md` §2 P1-T2. TDD violation fix.
+2. **Loyalty/CRM Audit Fix — P1-T3 (S4):** Missions pagination — `GET /api/missions/my/completions?page=2&pageSize=20` + `Missions.razor` "Xem thêm" button. Per master plan §2 P1-T3.
+3. **Loyalty/CRM Audit Fix — P2 (S5):** UX completions (row action, bulk, progress, expand, column) — includes deferred "Push Subscribed" column from P1-T1.
+4. **Loyalty/CRM Audit Fix — P3 (S6) + Final (S7):** Cosmetic (file extract + CSV) + build/guard-check/VPS RV/merge to `main`.
+5. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.**
+6. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
+7. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
+8. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+9. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
+10. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
 
 ---
 
@@ -163,7 +174,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=main, commit=30e42e69, Build=0 errors, CD #30241063324 PASS, 3/3 VPS services healthy, `/orderHub/negotiate` 200 (was 401), new order 019FA22A has CustomerDeviceId+CustomerInfo in SQLite
+- **Verified Facts:** Branch=fix/loyalty-crm-audit-fix, commit=2059f403, Build=0 errors (1047 warnings pre-existing CA), guard-check ALL PASSED, 6/6 P1-T1 tests PASS (3 repo cross-tenant + 3 HTTP auth), 31/31 Customer/Excel/LoyaltyRewards tests PASS (no regression)
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions < Verified Facts, Open Questions < 3
 
@@ -171,6 +182,8 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
+* **2026-07-27 — LOYALTY/CRM AUDIT FIX P1-T1 (S2).** Commit `2059f403` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 6 files: `ICustomerRepository.cs` (+`GetAllCustomersAcrossTenantsAsync`), `CustomerRepository.cs` (impl with `IgnoreQueryFilters`), `CustomerController.cs` (+`ListGlobal` action `[Authorize(Policy="SystemAdmin")]` + `GlobalCustomerDto` with TenantId), `CustomerListGlobal.razor` (REWRITE — customer table + Tenant column + filter bar, replaces campaign overview), `CustomerRepositoryCrossTenantTests.cs` (3 tests), `CustomerGlobalEndpointAuthTests.cs` (3 tests + `StaffRoleWebApplicationFactory`). Build 0 errors, guard-check ALL PASSED, 6/6 new tests PASS, 31/31 regression tests PASS. Deviation: "Push Subscribed" column deferred to P2. Branch: `fix/loyalty-crm-audit-fix`.
+* **2026-07-27 — LOYALTY/CRM AUDIT FIX P0 (S1).** Commit `4aa0c6e2` on `fix/loyalty-crm-audit-fix`. `CustomerController` + `PromoCampaignController` `[Authorize]`→`[Authorize(Policy="OwnerOnly")]`; `IPromoCampaignService` moved `3_CoreHub/Services`→`1_Shared/Services`; `CustomerSegmentCriteria` moved to `1_Shared/Domain`. Build 0 errors, guard-check PASSED.
 * **2026-07-27 — KHACHLINK BUGS 1-3 FIX.** Commit `35dc9de6` merged + deployed. 8 files: new `Filters/ResolveCustomerTenantAttribute.cs` (action filter — resolves customer TenantId from token via IgnoreQueryFilters + ITenantProvider.SetTenant), 6 controllers decorated (`CustomerIdentityController`, `CustomerProfileController`, `LoyaltyController`, `MissionsController`, `NotificationsController`, `RedemptionController`), `OrderHistory.razor` (`[^8..]`→`[..8]` to match ShopERP). CD #30247192483 PASS. RV: OTP login → 5 endpoint tests all return 200 with correct data (profile, birthday save+persist, push subscribe, missions progress, loyalty info). Branch: `main`.
 * **2026-07-27 — BUG 5+6 FIX.** Commit `30e42e69` merged + deployed. 4 files: OrderHub.cs (`[Authorize]`→`[AllowAnonymous]`), OrderWorkflowService.cs (DeviceId fallback + Customer stub creation in ProcessLoyaltyPointsAsync), Index.razor (explicit StateHasChanged), Display.razor (explicit StateHasChanged). CD #30241063324 PASS. RV: `/orderHub/negotiate` 200 (was 401), new order `019FA22A` confirmed has CustomerDeviceId+CustomerInfo in SQLite. Branch: `main`.
 * **2026-07-27 — 4-BUG CHECKOUT-TO-KITCHEN FIX.** Commit `4af5672e` merged + deployed. 5 files: OrderRepository.cs (AsNoTracking), OrderService.cs (CustomerNotes payload), OrderSyncSubscriber.cs (parse notes + CustomerId + Customer stub), Index.razor (default filter + notes column), Display.razor (notes block). CD PASS. RV: checkout flow verified on VPS — CustomerNotes + CustomerId sync to SQLite confirmed. TD-CUSTSYNC-001 logged (Customer SQLite→PG sync gap). Branch: `main`.
