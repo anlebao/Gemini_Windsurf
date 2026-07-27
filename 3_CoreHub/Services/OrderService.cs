@@ -726,6 +726,9 @@ namespace VanAn.CoreHub.Services
                         OrderDate = createdOrder.OrderDate,
                         CreatedAt = createdOrder.CreatedAt,
                         TrackingCode = createdOrder.TrackingCode,
+                        // Bug 2 fix: include CustomerNotes in payload so ShopERP SQLite sync preserves notes.
+                        // Without this, notes set at KhachLink checkout are lost when order syncs PG→SQLite.
+                        CustomerNotes = createdOrder.CustomerNotes ?? "",
                         CustomerInfo = new
                         {
                             FullName = createdOrder.CustomerInfo?.FullName ?? "",

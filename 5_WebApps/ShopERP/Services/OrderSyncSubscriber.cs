@@ -219,7 +219,55 @@ namespace VanAn.ShopERP.Services
                     }
                 }
 
-                Order order = Order.Create(orderId, tenantIdObj, null, items);
+                // Bug 4 fix: parse CustomerId from payload and link order to Customer entity.
+                // Previously Order.Create was called with null customerId → order.CustomerId = null in SQLite
+                // → OrderWorkflowService.ProcessLoyaltyPointsAsync could not find customer → no points awarded.
+                // Now: if payload has CustomerId, create a Customer stub in SQLite (if missing) and link the order.
+                Guid? customerId = null;
+                if (root.TryGetProperty("CustomerId", out var cidProp) && cidProp.ValueKind == JsonValueKind.String)
+                {
+                    string? cidStr = cidProp.GetString();
+                    if (Guid.TryParse(cidStr, out Guid cid) && cid != Guid.Empty)
+                    {
+                        // Ensure Customer row exists in SQLite (FK constraint + loyalty lookup).
+                        // Auto-create stub from CustomerInfo if missing — mirrors product stub pattern above.
+                        bool customerExists = await dbContext.Customers
+                            .IgnoreQueryFilters()
+                            .AnyAsync(c => c.Id == cid, cancellationToken);
+                        if (!customerExists)
+                        {
+                            string cName = "";
+                            string cPhone = "";
+                            string? cEmail = null;
+                            if (root.TryGetProperty("CustomerInfo", out var ciProp))
+                            {
+                                cName = ciProp.TryGetProperty("FullName", out var n) ? n.GetString() ?? "" : "";
+                                cPhone = ciProp.TryGetProperty("PhoneNumber", out var p) ? p.GetString() ?? "" : "";
+                                cEmail = ciProp.TryGetProperty("Email", out var e) ? e.GetString() : null;
+                            }
+                            if (string.IsNullOrWhiteSpace(cName)) cName = "Khách hàng";
+                            if (string.IsNullOrWhiteSpace(cPhone)) cPhone = "N/A";
+
+                            var customerStub = new Customer(tenantIdObj, cName, cPhone, cEmail);
+                            // Single-identity: align BaseEntity.Id (PK) with CustomerId (business key).
+                            typeof(VanAn.Shared.Domain.Common.BaseEntity).GetProperty("Id")!.SetValue(customerStub, cid);
+                            typeof(Customer).GetProperty("CustomerId")!.SetValue(customerStub, new CustomerId(cid));
+                            _ = dbContext.Customers.Add(customerStub);
+                            _logger.LogInformation("OrderSyncSubscriber: auto-created customer stub {CustomerId} ({Name})",
+                                cid, cName);
+                        }
+                        customerId = cid;
+                    }
+                }
+
+                // Bug 4: save Customer stub before creating order (FK_Orders_Customers_CustomerId).
+                // Mirrors the product stub save pattern above.
+                if (dbContext.ChangeTracker.HasChanges())
+                {
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+
+                Order order = Order.Create(orderId, tenantIdObj, customerId, items);
 
                 // Set customer info if provided
                 if (root.TryGetProperty("CustomerInfo", out var infoProp))
@@ -232,6 +280,17 @@ namespace VanAn.ShopERP.Services
                     if (!string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(phone))
                     {
                         order.SetCustomerInfo(new CustomerInfo(name, phone, email, address));
+                    }
+                }
+
+                // Bug 2 fix: parse CustomerNotes from payload and set on order.
+                // Previously notes were dropped during PG→SQLite sync → kitchen/order list never showed them.
+                if (root.TryGetProperty("CustomerNotes", out var notesProp))
+                {
+                    string? notes = notesProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(notes))
+                    {
+                        order.SetCustomerNotes(notes.Trim());
                     }
                 }
 

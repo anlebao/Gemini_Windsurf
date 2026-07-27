@@ -128,6 +128,18 @@
                             @o.TotalAmount.ToString("N0") đ
                         </Template>
                     </VanAnColumn>
+                    <VanAnColumn TItem="OrderListItem" Title="Ghi chú" Width="3">
+                        <Template Context="o">
+                            @if (!string.IsNullOrWhiteSpace(o.CustomerNotes))
+                            {
+                                <span class="order-notes" title="@o.CustomerNotes">@o.CustomerNotes</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </Template>
+                    </VanAnColumn>
                     <VanAnColumn TItem="OrderListItem" Title="Hành động" Width="3">
                         <Template Context="o">
                             <div class="d-flex gap-1 flex-wrap">
@@ -192,7 +204,9 @@
     private bool initialLoading = true;
     private bool backgroundRefreshing;
     private string? errorMessage;
-    private string selectedStatus = "EMPTY";
+    // Bug 1 fix: default "ALL" instead of "EMPTY" — non-SystemAdmin users see all today's orders
+    // immediately on page load. "EMPTY" meant no filter selected → no orders shown until manual selection.
+    private string selectedStatus = "ALL";
     private string selectedDateRange = "today";
     private HubConnection? _hubConnection;
     private System.Threading.Timer? _pollTimer;
@@ -394,8 +408,8 @@
         }
     }
 
-    // P1: Lightweight diff — compares count + Id + Status + PaymentStatus for each order.
-    // Avoids full deep equality but catches all UI-relevant changes (new order, status change, payment change).
+    // P1: Lightweight diff — compares count + Id + Status + PaymentStatus + CustomerNotes for each order.
+    // Avoids full deep equality but catches all UI-relevant changes (new order, status change, payment change, notes change).
     private static bool OrdersEqual(List<OrderListItem> a, List<OrderListItem> b)
     {
         if (a.Count != b.Count) return false;
@@ -404,6 +418,7 @@
             if (a[i].Id != b[i].Id) return false;
             if (a[i].Status != b[i].Status) return false;
             if (a[i].PaymentStatus != b[i].PaymentStatus) return false;
+            if (a[i].CustomerNotes != b[i].CustomerNotes) return false;
         }
         return true;
     }
@@ -515,7 +530,9 @@
             Status = o.Status?.Value ?? "pending",
             PaymentStatus = o.PaymentStatus ?? "Pending",
             TotalAmount = o.TotalAmount,
-            TenantName = tenantName
+            TenantName = tenantName,
+            // Bug 2 fix: surface CustomerNotes so the new "Ghi chú" column can render it.
+            CustomerNotes = o.CustomerNotes
         };
     }
 
@@ -537,6 +554,8 @@
         public string PaymentStatus { get; set; } = "";
         public decimal TotalAmount { get; set; }
         public string TenantName { get; set; } = "";
+        // Bug 2 fix: customer notes from checkout (e.g. "ít đá", "giao trước 12h").
+        public string? CustomerNotes { get; set; }
     }
 }
 
@@ -576,5 +595,15 @@
         border-radius: 4px;
         font-size: 0.75rem;
         font-weight: 600;
+    }
+    /* Bug 2: truncate long notes with ellipsis; full text via title tooltip */
+    .order-notes {
+        display: inline-block;
+        max-width: 220px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.8rem;
+        color: var(--vanan-text, #212529);
     }
 </style>

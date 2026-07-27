@@ -176,8 +176,13 @@ namespace VanAn.CoreHub.Repositories
         {
             try
             {
+                // Bug 3 fix: Removed AsNoTracking() — when OrderWorkflowService.TransitionStatusAsync
+                // calls UpdateAsync(order) on a detached (AsNoTracking) entity, EF Core attaches the
+                // entire graph (Order + Items + Products + Customer) and marks ALL as Modified.
+                // This causes UPDATE statements for stub Products and non-existent Customers → exception
+                // → transaction rollback → "Không thể chuyển trạng thái" error.
+                // With tracking, only the Order's modified properties (Status + audit) are UPDATEd.
                 return await _context.Orders
-                    .AsNoTracking()
                     .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
                     .Include(o => o.Customer)
