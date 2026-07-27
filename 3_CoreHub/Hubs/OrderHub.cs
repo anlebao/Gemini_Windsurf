@@ -6,7 +6,11 @@ using Microsoft.Extensions.Logging;
 
 namespace VanAn.CoreHub.Hubs
 {
-    [Authorize]
+    // Bug 5 fix: Remove [Authorize] — SignalR client in Blazor Server cannot pass auth cookie
+    // to the negotiate endpoint, causing 401 and breaking real-time updates.
+    // The hub is internal to ShopERP and only broadcasts events from OrderSyncSubscriber (IHubContext).
+    // Blazor pages listen for "OrderCreated"/"OrderStatusChanged" events — they don't call hub methods.
+    [AllowAnonymous]
     public class OrderHub(IOrderService orderService, ILogger<OrderHub> logger) : Hub
     {
         private readonly IOrderService _orderService = orderService;

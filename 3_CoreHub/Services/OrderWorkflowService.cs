@@ -272,14 +272,33 @@ namespace VanAn.CoreHub.Services
                 return;
             }
 
-            // Try Customer CRM first, fallback to DemoUser
+            // Bug 6 fix: Try CustomerId first, then DeviceId. If neither finds a customer,
+            // create a Customer stub from DeviceId + CustomerInfo so loyalty points can be awarded.
+            // Previously: only CustomerId was checked → all guest checkout orders (CustomerId=null)
+            // skipped loyalty points, even though they have CustomerDeviceId + CustomerInfo.
             Customer? customer = null;
             if (order.CustomerId.HasValue)
             {
                 customer = await _customerRepository.GetByIdAsync(order.CustomerId.Value);
             }
-            // Note: DemoUser fallback removed as it requires direct DbContext access
-            // This should be handled by CustomerRepository in future iterations
+
+            // Fallback 1: find by DeviceId (guest checkout with device fingerprint)
+            if (customer == null && !string.IsNullOrEmpty(order.CustomerDeviceId)
+                && Guid.TryParse(order.CustomerDeviceId, out Guid deviceId))
+            {
+                customer = await _customerRepository.GetByDeviceIdAsync(deviceId);
+            }
+
+            // Fallback 2: create Customer stub from DeviceId + CustomerInfo
+            if (customer == null && !string.IsNullOrEmpty(order.CustomerDeviceId)
+                && Guid.TryParse(order.CustomerDeviceId, out Guid deviceIdForStub))
+            {
+                customer = await CreateCustomerStubAsync(order, deviceIdForStub);
+                if (customer != null)
+                {
+                    _logger.LogInformation("Bug 6 fix: Created customer stub {CustomerId} for order {OrderId} (device-based loyalty)", customer.Id, order.Id);
+                }
+            }
 
             if (customer == null)
             {
@@ -345,6 +364,31 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogInformation("🎁 LOYALTY: Awarded {Points} points to customer {CustomerId} from order {OrderId} (rate={Rate}, min={Min}, max={Max})",
                     pointsToAward, customer.Id, order.Id, rate, minPoints, maxPoints?.ToString() ?? "none");
+            }
+        }
+
+        /// <summary>
+        /// Bug 6 fix: Create a Customer stub from DeviceId + Order.CustomerInfo for loyalty points.
+        /// Used when an order is completed but has no CustomerId (guest checkout).
+        /// The stub allows loyalty points to be awarded and tracked by DeviceId.
+        /// </summary>
+        private async Task<Customer?> CreateCustomerStubAsync(Order order, Guid deviceId)
+        {
+            try
+            {
+                string fullName = order.CustomerInfo?.FullName ?? "Khách lẻ";
+                string phone = order.CustomerInfo?.PhoneNumber ?? "0000000000";
+                var customer = new Customer(order.TenantId, fullName, phone);
+                customer.UpdateCustomerDetails(fullName, phone, null, "Bronze", deviceId, true);
+                await _customerRepository.AddAsync(customer);
+                // Save via order repository's DbContext (shared scoped context)
+                await _orderRepository.SaveChangesAsync();
+                return customer;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Bug 6 fix: Failed to create customer stub for order {OrderId}", order.Id);
+                return null;
             }
         }
 

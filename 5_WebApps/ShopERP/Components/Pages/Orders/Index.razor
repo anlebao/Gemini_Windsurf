@@ -392,6 +392,10 @@
             if (!OrdersEqual(orders, newOrders))
             {
                 orders = newOrders;
+                // Bug 5 fix: Explicit StateHasChanged — InvokeAsync auto-calls it, but adding it here
+                // ensures the gridview rebuilds immediately after data change, even in edge cases
+                // where the render batch is deferred.
+                StateHasChanged();
             }
         }
         catch (Exception ex)
