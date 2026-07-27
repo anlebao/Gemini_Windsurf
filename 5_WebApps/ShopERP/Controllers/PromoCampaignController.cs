@@ -3,16 +3,17 @@ using Microsoft.AspNetCore.Mvc;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.ShopERP.Controllers
 {
     /// <summary>
     /// WS-2: Promo campaign admin controller — create + list + cancel + track bulk push campaigns.
-    /// Auth: Cookie auth, [Authorize] (Owner/SystemAdmin — same as RedemptionController).
+    /// Auth: Cookie auth, [Authorize(Policy = "OwnerOnly")] (Owner/SystemAdmin only — AF-P0-T1).
     /// </summary>
     [ApiController]
     [Route("api/promo-campaigns")]
-    [Authorize]
+    [Authorize(Policy = "OwnerOnly")]
     public class PromoCampaignController : ControllerBase
     {
         private readonly IPromoCampaignService _campaignService;

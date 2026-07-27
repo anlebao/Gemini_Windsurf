@@ -1,7 +1,6 @@
-using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain;
 
-namespace VanAn.CoreHub.Services
+namespace VanAn.Shared.Services
 {
     /// <summary>
     /// WS-2: Promo campaign service contract — create + track bulk marketing push campaigns.

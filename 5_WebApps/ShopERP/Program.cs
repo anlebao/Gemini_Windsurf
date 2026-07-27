@@ -362,7 +362,7 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.VoucherExpiryReminderJob>();
             // WS-2: Promo campaign job — polls for pending campaigns and sends bulk push notifications
             _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IPromoCampaignRepository, VanAn.CoreHub.Infrastructure.Repositories.PromoCampaignRepository>();
-            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IPromoCampaignService, VanAn.CoreHub.Services.PromoCampaignService>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IPromoCampaignService, VanAn.CoreHub.Services.PromoCampaignService>();
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.PromoCampaignJob>();
 
             // Sync: Subscribe to NATS "order.created" events from Gateway → sync to SQLite

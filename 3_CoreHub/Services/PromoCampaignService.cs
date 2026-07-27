@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Domain.Repositories;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.Services;
 
 namespace VanAn.CoreHub.Services
 {

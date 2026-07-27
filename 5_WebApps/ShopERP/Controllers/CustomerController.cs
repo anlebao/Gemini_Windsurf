@@ -8,11 +8,11 @@ namespace VanAn.ShopERP.Controllers
 {
     /// <summary>
     /// WS-2: Customer CRM controller — per-tenant customer list + segment preview.
-    /// Auth: Cookie auth, [Authorize] (Owner/SystemAdmin — same as RedemptionController).
+    /// Auth: Cookie auth, [Authorize(Policy = "OwnerOnly")] (Owner/SystemAdmin only — AF-P0-T1).
     /// </summary>
     [ApiController]
     [Route("api/customers")]
-    [Authorize]
+    [Authorize(Policy = "OwnerOnly")]
     public class CustomerController : ControllerBase
     {
         private readonly ICustomerRepository _customerRepository;
