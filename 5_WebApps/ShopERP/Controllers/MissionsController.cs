@@ -147,17 +147,22 @@ namespace VanAn.ShopERP.Controllers
 
         [HttpGet("my/completions")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetMyCompletions([FromHeader(Name = "X-Customer-Token")] string? token)
+        public async Task<IActionResult> GetMyCompletions(
+            [FromHeader(Name = "X-Customer-Token")] string? token,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             var customerId = _customerTokenService.ValidateToken(token);
             if (!customerId.HasValue)
                 return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
 
-            var completions = await _missionService.GetCustomerCompletionsAsync(customerId.Value);
+            // AF-P1-T3: Paginated completions (default 20/page). Returns { items, total, page, pageSize, hasMore }.
+            var (completions, total) = await _missionService.GetCustomerCompletionsPagedAsync(customerId.Value, page, pageSize);
+
             // Enrich with mission type + title for UI display (WS-1.2 SC16)
             var allMissions = await _missionService.GetAllMissionsAsync();
             var missionLookup = allMissions.ToDictionary(m => m.Id);
-            return Ok(completions.Select(c =>
+            var items = completions.Select(c =>
             {
                 var dto = MapCompletionDto(c);
                 if (missionLookup.TryGetValue(c.MissionId, out var mission))
@@ -166,7 +171,16 @@ namespace VanAn.ShopERP.Controllers
                     dto.MissionTitle = mission.Title;
                 }
                 return dto;
-            }).ToList());
+            }).ToList();
+
+            return Ok(new
+            {
+                items,
+                total,
+                page,
+                pageSize,
+                hasMore = page * pageSize < total
+            });
         }
 
         // === DTO Mappers ===

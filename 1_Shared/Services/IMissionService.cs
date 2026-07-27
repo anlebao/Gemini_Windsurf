@@ -22,6 +22,13 @@ namespace VanAn.Shared.Services
         Task<MissionCompletionResult> CompleteMissionAsync(Guid customerId, MissionType missionType, string? metadata = null);
         Task<MissionCompletionResult> CompleteAnnualMissionAsync(Guid customerId, MissionType missionType, string? metadata = null);
         Task<IReadOnlyList<MissionCompletion>> GetCustomerCompletionsAsync(Guid customerId);
+
+        /// <summary>
+        /// AF-P1-T3: Get customer completions paged (newest first). Returns (items, total count).
+        /// page is 1-based. pageSize clamped to 1-100.
+        /// </summary>
+        Task<(IReadOnlyList<MissionCompletion> Items, int Total)> GetCustomerCompletionsPagedAsync(Guid customerId, int page, int pageSize);
+
         Task<IReadOnlyList<Mission>> GetCustomerProgressAsync(Guid customerId);
     }
 

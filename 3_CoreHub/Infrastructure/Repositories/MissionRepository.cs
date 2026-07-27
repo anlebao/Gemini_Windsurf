@@ -89,6 +89,25 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        /// <summary>AF-P1-T3: Paged completions (newest first). page is 1-based.</summary>
+        public async Task<(IReadOnlyList<MissionCompletion> Items, int Total)> GetCompletionsByCustomerPagedAsync(Guid customerId, int page, int pageSize)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            var query = _context.MissionCompletions
+                .Where(c => c.CustomerId == customerId && !c.IsDeleted)
+                .OrderByDescending(c => c.CompletedAt);
+
+            int total = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
         public async Task<IReadOnlyList<MissionCompletion>> GetCompletionsByCustomerAndMissionAsync(Guid customerId, Guid missionId)
         {
             return await _context.MissionCompletions

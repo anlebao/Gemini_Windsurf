@@ -153,7 +153,7 @@
                 </div>
             }
 
-            @* WS-1.2 SC16: MissionCompletion history section *@
+            @* WS-1.2 SC16: MissionCompletion history section (AF-P1-T3: paginated 20/page + "Xem thêm") *@
             <div class="mt-4">
                 <h5 class="mb-3"><i class="bi bi-clock-history"></i> Nhiệm vụ đã hoàn thành</h5>
                 @if (_completions.Count == 0)
@@ -186,6 +186,21 @@
                             </div>
                         }
                     </div>
+                    @if (_completionsHasMore)
+                    {
+                        <div class="text-center mt-3">
+                            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="LoadMoreCompletionsAsync" Disabled="@_completionsLoadingMore" CssClass="btn-sm">
+                                @if (_completionsLoadingMore)
+                                {
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                }
+                                else
+                                {
+                                    @:Xem thêm
+                                }
+                            </VanAnButton>
+                        </div>
+                    }
                 }
             </div>
         }
@@ -200,6 +215,13 @@
     private string? _success;
     private List<MissionProgressDto> _missions = new();
     private List<MissionCompletionDto> _completions = new();
+
+    // AF-P1-T3: Pagination state for completions
+    private int _completionsPage = 1;
+    private bool _completionsHasMore;
+    private int _completionsTotal;
+    private bool _completionsLoadingMore;
+    private const int CompletionsPageSize = 20;
 
     // Share modal state
     private bool _showShareModal;
@@ -223,9 +245,10 @@
             var client = HttpClientFactory.CreateClient("gateway");
 
             // Load missions progress + loyalty balance + completions in parallel
+            // AF-P1-T3: completions now paginated (page=1, pageSize=20)
             var progressTask = SendWithTokenAsync(client, "/api/missions/my/progress", token);
             var loyaltyTask = SendWithTokenAsync(client, "/api/loyalty/my", token);
-            var completionsTask = SendWithTokenAsync(client, "/api/missions/my/completions", token);
+            var completionsTask = SendWithTokenAsync(client, $"/api/missions/my/completions?page=1&pageSize={CompletionsPageSize}", token);
 
             await Task.WhenAll(progressTask, loyaltyTask, completionsTask);
 
@@ -245,7 +268,11 @@
             var completionsResp = await completionsTask;
             if (completionsResp.IsSuccessStatusCode)
             {
-                _completions = await completionsResp.Content.ReadFromJsonAsync<List<MissionCompletionDto>>() ?? new();
+                var paged = await completionsResp.Content.ReadFromJsonAsync<PaginatedCompletionsResponse>();
+                _completions = paged?.items ?? new();
+                _completionsPage = 1;
+                _completionsHasMore = paged?.hasMore ?? false;
+                _completionsTotal = paged?.total ?? 0;
             }
         }
         catch (Exception ex)
@@ -303,6 +330,42 @@
     {
         _showShareModal = false;
         _shareError = null;
+    }
+
+    // AF-P1-T3: Load next page of completions and append to existing list
+    private async Task LoadMoreCompletionsAsync()
+    {
+        if (_completionsLoadingMore || !_completionsHasMore) return;
+
+        _completionsLoadingMore = true;
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token)) return;
+
+            var client = HttpClientFactory.CreateClient("gateway");
+            var nextPage = _completionsPage + 1;
+            var resp = await SendWithTokenAsync(client, $"/api/missions/my/completions?page={nextPage}&pageSize={CompletionsPageSize}", token);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var paged = await resp.Content.ReadFromJsonAsync<PaginatedCompletionsResponse>();
+                if (paged?.items != null && paged.items.Count > 0)
+                {
+                    _completions.AddRange(paged.items);
+                    _completionsPage = nextPage;
+                    _completionsHasMore = paged.hasMore;
+                }
+            }
+        }
+        catch
+        {
+            // Best-effort — silent failure on "load more" (user can retry)
+        }
+        finally
+        {
+            _completionsLoadingMore = false;
+        }
     }
 
     private async Task SubmitShareAsync()
@@ -381,5 +444,15 @@
         public int PointsAwarded { get; set; }
         public DateTime CompletedAt { get; set; }
         public string? Metadata { get; set; }
+    }
+
+    // AF-P1-T3: Paginated response wrapper for /api/missions/my/completions
+    private class PaginatedCompletionsResponse
+    {
+        public List<MissionCompletionDto> items { get; set; } = new();
+        public int total { get; set; }
+        public int page { get; set; }
+        public int pageSize { get; set; }
+        public bool hasMore { get; set; }
     }
 }

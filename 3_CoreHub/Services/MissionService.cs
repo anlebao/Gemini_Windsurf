@@ -191,6 +191,10 @@ namespace VanAn.CoreHub.Services
         public Task<IReadOnlyList<MissionCompletion>> GetCustomerCompletionsAsync(Guid customerId)
             => _repository.GetCompletionsByCustomerAsync(customerId);
 
+        /// <summary>AF-P1-T3: Paged completions (newest first).</summary>
+        public Task<(IReadOnlyList<MissionCompletion> Items, int Total)> GetCustomerCompletionsPagedAsync(Guid customerId, int page, int pageSize)
+            => _repository.GetCompletionsByCustomerPagedAsync(customerId, page, pageSize);
+
         public async Task<IReadOnlyList<Mission>> GetCustomerProgressAsync(Guid customerId)
         {
             // Return all active missions (UI shows progress via separate completion query)

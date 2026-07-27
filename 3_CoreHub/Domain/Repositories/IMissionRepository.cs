@@ -20,6 +20,13 @@ namespace VanAn.CoreHub.Domain.Repositories
         // === Mission Completions ===
         Task<MissionCompletion?> GetCompletionByIdAsync(Guid id);
         Task<IReadOnlyList<MissionCompletion>> GetCompletionsByCustomerAsync(Guid customerId);
+
+        /// <summary>
+        /// AF-P1-T3: Get customer completions paged (newest first). Returns (items, total count).
+        /// page is 1-based. pageSize clamped to 1-100.
+        /// </summary>
+        Task<(IReadOnlyList<MissionCompletion> Items, int Total)> GetCompletionsByCustomerPagedAsync(Guid customerId, int page, int pageSize);
+
         Task<IReadOnlyList<MissionCompletion>> GetCompletionsByCustomerAndMissionAsync(Guid customerId, Guid missionId);
         Task<int> CountCompletionsTodayAsync(Guid customerId, Guid missionId);
         Task<int> CountCompletionsByMissionAsync(Guid customerId, Guid missionId);

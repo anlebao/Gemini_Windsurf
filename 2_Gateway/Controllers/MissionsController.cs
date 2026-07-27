@@ -34,7 +34,8 @@ namespace VanAn.Gateway.Controllers
             try
             {
                 var client = _httpClientFactory.CreateClient("shoperp");
-                var reqMsg = new HttpRequestMessage(method, path);
+                // AF-P1-T3: Forward query string (e.g., ?page=2&pageSize=20 for paginated completions)
+                var reqMsg = new HttpRequestMessage(method, path + Request.QueryString.Value);
 
                 // Forward customer token
                 if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
