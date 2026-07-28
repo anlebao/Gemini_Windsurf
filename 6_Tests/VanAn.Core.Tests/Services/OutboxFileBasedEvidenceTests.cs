@@ -158,6 +158,47 @@ public class OutboxFileBasedEvidenceTests : IDisposable
             "If this fails, the UPDATE is not persisting — this is the production bug.");
     }
 
+    [Fact(DisplayName = "ROOT CAUSE FIX: MarkAsProcessed works with lowercase Id in DB (COLLATE NOCASE)")]
+    public async Task MarkAsProcessed_LowercaseIdInDb_StillUpdates()
+    {
+        // Arrange — insert row with LOWERCASE Id (simulates NATS sync / JSON deserialization)
+        var knownId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var tenantId = new TenantId(Guid.NewGuid());
+
+        // Use raw SQL to insert lowercase Id (EF Core would store UPPERCASE)
+        await _dbContext.Database.ExecuteSqlRawAsync(
+            "INSERT INTO OutboxMessages (Id, EventType, EventData, CreatedAt, TenantId, Status, RetryCount, NextRetryAt) " +
+            "VALUES ({0}, {1}, {2}, {3}, {4}, 0, 0, {5})",
+            knownId.ToString("D").ToLowerInvariant(), // explicit lowercase
+            "OrderStatusChanged",
+            "{\"id\":\"test\"}",
+            DateTime.UtcNow.ToString("o"),
+            tenantId.Value.ToString(),
+            DateTime.UtcNow.ToString("o"));
+
+        // Act — MarkAsProcessed with Guid (EF Core would send UPPERCASE, but COLLATE NOCASE handles it)
+        await _sut.MarkAsProcessedAsync(knownId);
+
+        // Assert — re-read from fresh DbContext
+        await using var freshConnection = new SqliteConnection($"Data Source={_dbPath}");
+        await freshConnection.OpenAsync();
+        var freshOptions = new DbContextOptionsBuilder<VanAnDbContext>()
+            .UseSqlite(freshConnection)
+            .Options;
+        await using var freshCtx = new VanAnDbContext(freshOptions, new StubTenantProvider());
+
+        var updated = await freshCtx.Set<CoreOutboxMessage>()
+            .FromSqlRaw("SELECT * FROM OutboxMessages WHERE Id COLLATE NOCASE = {0}", knownId.ToString("D").ToUpperInvariant())
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync();
+
+        updated.Should().NotBeNull();
+        updated!.Status.Should().Be(OutboxMessageStatus.Processed,
+            "because COLLATE NOCASE must match lowercase DB row with UPPERCASE parameter. " +
+            "This is the ROOT CAUSE fix for the production outbox stuck loop.");
+    }
+
     public void Dispose()
     {
         _dbContext.Dispose();

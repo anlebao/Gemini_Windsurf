@@ -11,6 +11,16 @@ namespace VanAn.CoreHub.Infrastructure.Messaging;
 /// W-1-T1: Inject IVanAnDbContext (not VanAnDbContext) so DI resolves correctly per scope:
 ///   - ShopERP scope → ShopERPDbContext (SQLite) — Outbox lives in SQLite for offline-first
 ///   - Gateway scope → VanAnDbContext (PostgreSQL) — for direct PostgreSQL access if needed
+///
+/// ROOT CAUSE FIX (A2 — outbox stuck loop):
+///   EF Core's SQLite provider sends Guid parameters as UPPERCASE strings, but some OutboxMessage
+///   rows have lowercase Ids (from NATS sync / JSON deserialization). SQLite's default BINARY
+///   collation is case-sensitive, so WHERE Id = @param (UPPERCASE) doesn't match lowercase rows.
+///   This caused ExecuteUpdateAsync to return 0 rowsAffected → NatsSyncWorker re-published the
+///   same event indefinitely.
+///
+///   Fix: ALL Id-based queries use raw SQL with `COLLATE NOCASE` for case-insensitive Guid matching.
+///   This is correct because Guids are case-insensitive by definition in .NET (Guid.Parse is case-insensitive).
 /// </summary>
 public class OutboxRepository : IOutboxRepository
 {
@@ -34,6 +44,8 @@ public class OutboxRepository : IOutboxRepository
         // IgnoreQueryFilters: OutboxMessages is IMustHaveTenant, but NatsSyncWorker processes
         // events across ALL tenants. Without this, the global TenantId query filter excludes
         // all Outbox messages (CurrentTenantIdValue = Guid.Empty in background worker scope).
+        //
+        // Query by Status (integer comparison — no Guid case issue) → safe with EF Core LINQ.
         var messages = await _dbContext.OutboxMessages
             .IgnoreQueryFilters()
             .AsNoTracking()
@@ -47,89 +59,81 @@ public class OutboxRepository : IOutboxRepository
 
     public async Task MarkAsProcessedAsync(Guid outboxEventId, CancellationToken cancellationToken = default)
     {
-        // DIAGNOSTIC: log incoming outboxEventId + DB path for evidence gathering
-        var dbConnStr = _dbContext.GetType().GetProperty("Database")?.GetValue(_dbContext)?.ToString();
-        _logger?.LogWarning(
-            "DIAG MarkAsProcessedAsync: outboxEventId={Id}, dbContextType={CtxType}, connection={Conn}",
-            outboxEventId, _dbContext.GetType().FullName, dbConnStr ?? "unknown");
-
-        // First: check if the row exists at all
-        var existsBefore = await _dbContext.OutboxMessages
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .Where(m => m.Id == outboxEventId)
-            .Select(m => new { m.Id, m.Status, m.TenantId })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        _logger?.LogWarning(
-            "DIAG MarkAsProcessedAsync: row lookup before UPDATE = {Found}, id={Id}, status={Status}, tenantId={TenantId}",
-            existsBefore != null, outboxEventId, existsBefore?.Status, existsBefore?.TenantId);
-
+        // ROOT CAUSE FIX: Use raw SQL with COLLATE NOCASE for case-insensitive Guid matching.
+        // EF Core's SQLite provider sends Guid parameters as UPPERCASE, but some rows have lowercase Ids.
+        // SQLite BINARY collation is case-sensitive → 0 rows affected → infinite loop.
+        // COLLATE NOCASE makes the WHERE clause case-insensitive, matching .NET Guid semantics.
         var now = DateTime.UtcNow;
-        var rowsAffected = await _dbContext.OutboxMessages
-            .IgnoreQueryFilters()
-            .Where(m => m.Id == outboxEventId)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(m => m.Status, OutboxMessageStatus.Processed)
-                .SetProperty(m => m.ProcessedAt, now)
-                .SetProperty(m => m.Error, (string?)null)
-                .SetProperty(m => m.NextRetryAt, (DateTime?)null),
-                cancellationToken);
+        var idStr = outboxEventId.ToString("D").ToUpperInvariant();
 
-        _logger?.LogWarning(
-            "DIAG MarkAsProcessedAsync: rowsAffected={RowsAffected} for outboxEventId={Id}",
-            rowsAffected, outboxEventId);
+        if (_dbContext is not DbContext efCtx)
+        {
+            _logger?.LogError("MarkAsProcessedAsync: DbContext is not EF Core DbContext — cannot execute raw SQL");
+            return;
+        }
+
+        var rowsAffected = await efCtx.Database.ExecuteSqlRawAsync(
+            "UPDATE OutboxMessages SET Status = 2, ProcessedAt = {0}, Error = NULL, NextRetryAt = NULL " +
+            "WHERE Id COLLATE NOCASE = {1}",
+            new object[] { now, idStr },
+            cancellationToken);
 
         if (rowsAffected == 0)
         {
-            // Fallback: try raw SQL UPDATE via DbContext's Database facade
             _logger?.LogError(
-                "DIAG MarkAsProcessedAsync: 0 rows affected! Trying raw SQL fallback for id={Id}",
-                outboxEventId);
-            if (_dbContext is DbContext efCtx)
-            {
-                await efCtx.Database.ExecuteSqlRawAsync(
-                    "UPDATE OutboxMessages SET Status = 2, ProcessedAt = {0}, Error = NULL, NextRetryAt = NULL WHERE Id = {1}",
-                    now, outboxEventId);
-            }
+                "MarkAsProcessedAsync: 0 rows affected even with COLLATE NOCASE for id={Id} — row may not exist",
+                idStr);
+        }
+        else
+        {
+            _logger?.LogDebug(
+                "MarkAsProcessedAsync: {RowsAffected} row(s) updated for id={Id}",
+                rowsAffected, idStr);
         }
     }
 
     public async Task MarkAsFailedAsync(Guid outboxEventId, string errorDetails, CancellationToken cancellationToken = default)
     {
-        // FIX: Use ExecuteUpdateAsync for the same reason as MarkAsProcessedAsync —
-        // guarantees an UPDATE statement is generated regardless of change-tracker state.
-        // Load current RetryCount (AsNoTracking) to compute exponential backoff client-side,
-        // then bulk-UPDATE with fixed values — avoids server-side Math.Pow translation issues.
-        var current = await _dbContext.OutboxMessages
-            .AsNoTracking()
-            .IgnoreQueryFilters()
-            .Where(m => m.Id == outboxEventId)
-            .Select(m => new { m.RetryCount })
+        // ROOT CAUSE FIX: Same COLLATE NOCASE approach as MarkAsProcessedAsync.
+        // Load RetryCount first (by Status-based query, no Guid case issue), then raw SQL UPDATE.
+        var idStr = outboxEventId.ToString("D").ToUpperInvariant();
+
+        if (_dbContext is not DbContext efCtx)
+        {
+            _logger?.LogError("MarkAsFailedAsync: DbContext is not EF Core DbContext — cannot execute raw SQL");
+            return;
+        }
+
+        // Load current RetryCount using raw SQL with COLLATE NOCASE
+        var retryCount = await efCtx.Database.SqlQueryRaw<int>(
+            "SELECT RetryCount FROM OutboxMessages WHERE Id COLLATE NOCASE = {0}",
+            idStr)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (current is null) return;
-
-        var newRetryCount = current.RetryCount + 1;
+        var newRetryCount = retryCount + 1;
         var delayMinutes = Math.Min(60, Math.Pow(2, newRetryCount));
         var nextRetryAt = DateTime.UtcNow.AddMinutes(delayMinutes);
 
-        await _dbContext.OutboxMessages
-            .IgnoreQueryFilters()
-            .Where(m => m.Id == outboxEventId)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(m => m.Status, OutboxMessageStatus.Failed)
-                .SetProperty(m => m.Error, errorDetails)
-                .SetProperty(m => m.RetryCount, newRetryCount)
-                .SetProperty(m => m.NextRetryAt, nextRetryAt),
-                cancellationToken);
+        await efCtx.Database.ExecuteSqlRawAsync(
+            "UPDATE OutboxMessages SET Status = 3, Error = {0}, RetryCount = {1}, NextRetryAt = {2} " +
+            "WHERE Id COLLATE NOCASE = {3}",
+            new object[] { errorDetails, newRetryCount, nextRetryAt, idStr },
+            cancellationToken);
     }
 
     public async Task<OutboxEvent?> GetByIdAsync(Guid outboxEventId, CancellationToken cancellationToken = default)
     {
-        var message = await _dbContext.OutboxMessages
+        // ROOT CAUSE FIX: Use raw SQL with COLLATE NOCASE for case-insensitive Guid lookup.
+        var idStr = outboxEventId.ToString("D").ToUpperInvariant();
+
+        if (_dbContext is not DbContext efCtx)
+            return null;
+
+        var message = await efCtx.Set<OutboxMessage>()
+            .FromSqlRaw("SELECT * FROM OutboxMessages WHERE Id COLLATE NOCASE = {0}", idStr)
+            .AsNoTracking()
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(m => m.Id == outboxEventId, cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
         return message is null ? null : ToDomain(message);
     }
