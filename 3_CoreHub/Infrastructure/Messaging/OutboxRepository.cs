@@ -96,6 +96,7 @@ public class OutboxRepository : IOutboxRepository
 
         var message = await efCtx.Set<OutboxMessage>()
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(m => m.Id == outboxEventId)
             .FirstOrDefaultAsync(cancellationToken);
 
