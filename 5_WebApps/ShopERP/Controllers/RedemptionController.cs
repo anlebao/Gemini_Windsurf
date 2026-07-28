@@ -148,9 +148,9 @@ namespace VanAn.ShopERP.Controllers
 
         [HttpGet("my/redemptions")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetMyRedemptions([FromHeader(Name = "Authorization")] string? authHeader)
+        public async Task<IActionResult> GetMyRedemptions([FromHeader(Name = "X-Customer-Token")] string? customerToken)
         {
-            var customerId = ValidateCustomerToken(authHeader);
+            var customerId = ValidateCustomerToken(customerToken);
             if (!customerId.HasValue) return Unauthorized();
             var records = await _redemptionService.GetCustomerRedemptionsAsync(customerId.Value);
             return Ok(records.Select(MapRedemptionRecordDto).ToList());
@@ -158,9 +158,9 @@ namespace VanAn.ShopERP.Controllers
 
         [HttpGet("my/vouchers")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetMyVouchers([FromHeader(Name = "Authorization")] string? authHeader)
+        public async Task<IActionResult> GetMyVouchers([FromHeader(Name = "X-Customer-Token")] string? customerToken)
         {
-            var customerId = ValidateCustomerToken(authHeader);
+            var customerId = ValidateCustomerToken(customerToken);
             if (!customerId.HasValue) return Unauthorized();
             var vouchers = await _redemptionService.GetCustomerVouchersAsync(customerId.Value);
             return Ok(vouchers.Select(MapVoucherDto).ToList());
@@ -168,9 +168,9 @@ namespace VanAn.ShopERP.Controllers
 
         [HttpPost("redeem")]
         [AllowAnonymous]
-        public async Task<IActionResult> Redeem([FromHeader(Name = "Authorization")] string? authHeader, [FromBody] RedeemCatalogRequest request)
+        public async Task<IActionResult> Redeem([FromHeader(Name = "X-Customer-Token")] string? customerToken, [FromBody] RedeemCatalogRequest request)
         {
-            var customerId = ValidateCustomerToken(authHeader);
+            var customerId = ValidateCustomerToken(customerToken);
             if (!customerId.HasValue) return Unauthorized();
 
             var result = await _redemptionService.RedeemAsync(customerId.Value, request.CatalogItemId);
