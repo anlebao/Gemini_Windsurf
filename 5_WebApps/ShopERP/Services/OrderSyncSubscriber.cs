@@ -371,7 +371,29 @@ namespace VanAn.ShopERP.Services
                 {
                     order.UpdateOrderStatus(new OrderStatusId(newStatus));
                     if (newStatus == "completed")
+                    {
                         order.MarkAsCompleted();
+
+                        // Fix: Update customer stats (LastOrderDate + TotalSpent) in SQLite when
+                        // order is completed via Gateway (PG). Without this, the SQLite customer
+                        // record never gets stats updated — admin/customers shows TotalSpent=0
+                        // and LastOrderDate=null for all customers whose orders completed via Gateway.
+                        // (HandleOrderCompletedAsync only runs in the context where TransitionStatusAsync
+                        // is called — if Gateway completes the order, only PG customer is updated.)
+                        if (order.CustomerId.HasValue && order.CustomerId.Value != Guid.Empty)
+                        {
+                            var customer = await dbContext.Customers
+                                .IgnoreQueryFilters()
+                                .FirstOrDefaultAsync(c => c.Id == order.CustomerId.Value, cancellationToken);
+                            if (customer != null)
+                            {
+                                customer.UpdateOrderStats(DateTime.UtcNow, order.TotalAmount);
+                                _logger.LogInformation(
+                                    "OrderSyncSubscriber: updated customer {CustomerId} stats on order {OrderId} completion (TotalSpent+={Amount})",
+                                    customer.Id, orderId, order.TotalAmount);
+                            }
+                        }
+                    }
                     await dbContext.SaveChangesAsync(cancellationToken);
                     _logger.LogInformation("OrderSyncSubscriber: synced order {OrderId} status → {Status} in SQLite", orderId, newStatus);
                 }

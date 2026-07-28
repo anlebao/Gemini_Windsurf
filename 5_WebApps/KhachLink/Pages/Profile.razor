@@ -38,12 +38,20 @@
                     </div>
                     <div>
                         <h5 class="mb-0">@_customerName</h5>
-                        <span class="badge @GetTierBadgeClass()">@_tier</span>
-                        <span class="ms-2 text-muted small">@_pointBalance điểm</span>
-                        @* Tiered Auth Phase 3: IdentityLevel badge *@
-                        <span class="ms-2 badge @GetIdentityLevelBadgeClass()" data-testid="identity-level-badge">
-                            <i class="@GetIdentityLevelIcon() me-1"></i>@GetIdentityLevelLabel()
-                        </span>
+                        @if (!string.IsNullOrWhiteSpace(_phoneNumber))
+                        {
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-telephone me-1"></i>@_phoneNumber
+                            </div>
+                        }
+                        <div class="mt-1">
+                            <span class="badge @GetTierBadgeClass()">@_tier</span>
+                            <span class="ms-2 text-muted small">@_pointBalance điểm</span>
+                            @* Tiered Auth Phase 3: IdentityLevel badge *@
+                            <span class="ms-2 badge @GetIdentityLevelBadgeClass()" data-testid="identity-level-badge">
+                                <i class="@GetIdentityLevelIcon() me-1"></i>@GetIdentityLevelLabel()
+                            </span>
+                        </div>
                     </div>
                 </div>
             </VanAnCard>
@@ -168,6 +176,7 @@
     private bool _loading = true;
     private bool _isLoggedIn = false;
     private string? _customerName;
+    private string? _phoneNumber;
     private string _tier = "Bronze";
     private int _pointBalance = 0;
     private string _identityLevel = "Social";
@@ -246,6 +255,7 @@
                     {
                         _isLoggedIn = true;
                         _customerName = profile.FullName;
+                        _phoneNumber = profile.PhoneNumber;
                         _tier = profile.Tier;
                         _pointBalance = profile.PointBalance;
                         _identityLevel = profile.IdentityLevel ?? "Social";
@@ -399,6 +409,7 @@
         await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "login_provider");
         _isLoggedIn = false;
         _customerName = null;
+        _phoneNumber = null;
     }
 
     // Loyalty-C WS-B: Save birthday → triggers BirthdayEntry mission (one-time reward)
@@ -473,6 +484,7 @@
     private class CustomerProfile
     {
         public string FullName { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
         public string? IdentityLevel { get; set; }

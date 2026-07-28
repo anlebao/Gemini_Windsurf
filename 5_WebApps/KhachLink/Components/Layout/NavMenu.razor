@@ -108,6 +108,15 @@
         height: 100%;
         border-radius: 0;
     }
+    /* VanAnCard renders Bootstrap .card (default white bg). Override so the
+       sidebar's dark background + white text remain readable. Without this,
+       the inner .card's white background covers the wrapper's #1a1a2e and
+       white nav-link text becomes invisible/hard to read. */
+    .nav-menu-card ::deep .card {
+        background: #1a1a2e;
+        color: white;
+        border: none;
+    }
     .nav-menu-card ::deep .card-body {
         padding: 0;
         display: flex;
