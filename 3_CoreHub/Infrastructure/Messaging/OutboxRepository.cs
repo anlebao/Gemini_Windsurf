@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
 
 namespace VanAn.CoreHub.Infrastructure.Messaging;
@@ -14,10 +15,12 @@ namespace VanAn.CoreHub.Infrastructure.Messaging;
 public class OutboxRepository : IOutboxRepository
 {
     private readonly IVanAnDbContext _dbContext;
+    private readonly ILogger<OutboxRepository>? _logger;
 
-    public OutboxRepository(IVanAnDbContext dbContext)
+    public OutboxRepository(IVanAnDbContext dbContext, ILogger<OutboxRepository>? logger = null)
     {
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task EnqueueAsync(OutboxEvent outboxEvent, CancellationToken cancellationToken = default)
@@ -44,14 +47,26 @@ public class OutboxRepository : IOutboxRepository
 
     public async Task MarkAsProcessedAsync(Guid outboxEventId, CancellationToken cancellationToken = default)
     {
-        // FIX: Use ExecuteUpdateAsync (EF Core 7+ bulk UPDATE) instead of load+mutate+SaveChanges.
-        // The previous approach loaded the entity via FirstOrDefaultAsync (tracked) and called
-        // MarkAsProcessed() + SaveChangesAsync, but the change tracker failed to detect the
-        // mutation as Modified in production (SQLite edge deployment) — no UPDATE SQL was
-        // generated, causing the NatsSyncWorker to re-publish the same event indefinitely.
-        // ExecuteUpdateAsync bypasses the change tracker and always emits an UPDATE statement.
+        // DIAGNOSTIC: log incoming outboxEventId + DB path for evidence gathering
+        var dbConnStr = _dbContext.GetType().GetProperty("Database")?.GetValue(_dbContext)?.ToString();
+        _logger?.LogWarning(
+            "DIAG MarkAsProcessedAsync: outboxEventId={Id}, dbContextType={CtxType}, connection={Conn}",
+            outboxEventId, _dbContext.GetType().FullName, dbConnStr ?? "unknown");
+
+        // First: check if the row exists at all
+        var existsBefore = await _dbContext.OutboxMessages
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(m => m.Id == outboxEventId)
+            .Select(m => new { m.Id, m.Status, m.TenantId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        _logger?.LogWarning(
+            "DIAG MarkAsProcessedAsync: row lookup before UPDATE = {Found}, id={Id}, status={Status}, tenantId={TenantId}",
+            existsBefore != null, outboxEventId, existsBefore?.Status, existsBefore?.TenantId);
+
         var now = DateTime.UtcNow;
-        await _dbContext.OutboxMessages
+        var rowsAffected = await _dbContext.OutboxMessages
             .IgnoreQueryFilters()
             .Where(m => m.Id == outboxEventId)
             .ExecuteUpdateAsync(s => s
@@ -60,6 +75,24 @@ public class OutboxRepository : IOutboxRepository
                 .SetProperty(m => m.Error, (string?)null)
                 .SetProperty(m => m.NextRetryAt, (DateTime?)null),
                 cancellationToken);
+
+        _logger?.LogWarning(
+            "DIAG MarkAsProcessedAsync: rowsAffected={RowsAffected} for outboxEventId={Id}",
+            rowsAffected, outboxEventId);
+
+        if (rowsAffected == 0)
+        {
+            // Fallback: try raw SQL UPDATE via DbContext's Database facade
+            _logger?.LogError(
+                "DIAG MarkAsProcessedAsync: 0 rows affected! Trying raw SQL fallback for id={Id}",
+                outboxEventId);
+            if (_dbContext is DbContext efCtx)
+            {
+                await efCtx.Database.ExecuteSqlRawAsync(
+                    "UPDATE OutboxMessages SET Status = 2, ProcessedAt = {0}, Error = NULL, NextRetryAt = NULL WHERE Id = {1}",
+                    now, outboxEventId);
+            }
+        }
     }
 
     public async Task MarkAsFailedAsync(Guid outboxEventId, string errorDetails, CancellationToken cancellationToken = default)
