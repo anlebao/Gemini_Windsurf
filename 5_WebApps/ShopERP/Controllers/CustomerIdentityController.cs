@@ -123,8 +123,12 @@ namespace VanAn.ShopERP.Controllers
             var customer = await _customerRepository.GetByIdAsync(customerId.Value);
             if (customer == null) return NotFound();
 
-            var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customerId.Value);
-            var tier = rewards != null ? CalcTier(rewards.PointBalance) : "Bronze";
+            // Use GetOrCreateCustomerRewardsAsync (not GetCustomerRewardsAsync) so customers
+            // created via NATS sync (no OTP verify flow) still get a LoyaltyRewards record
+            // when they view their profile. Without this, PointBalance shows 0 forever
+            // because no LoyaltyRewards row exists for them.
+            var rewards = await _loyaltyRewardsService.GetOrCreateCustomerRewardsAsync(customerId.Value, customer.TenantId);
+            var tier = CalcTier(rewards.PointBalance);
 
             return Ok(new CustomerIdentityResponse
             {
@@ -133,7 +137,7 @@ namespace VanAn.ShopERP.Controllers
                 PhoneNumber = customer.PhoneNumber,
                 CustomerToken = token,
                 Tier = tier,
-                PointBalance = rewards?.PointBalance ?? 0,
+                PointBalance = rewards.PointBalance,
                 IdentityLevel = customer.IdentityLevel.ToString(),
                 Birthday = customer.Birthday
             });
