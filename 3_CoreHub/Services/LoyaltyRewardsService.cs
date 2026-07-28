@@ -116,7 +116,12 @@ namespace VanAn.CoreHub.Services
                 return false;
             }
 
-            using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await _repository.BeginTransactionAsync();
+            // Bug 6 fix (same as AddPointsAsync): Support ambient transaction.
+            // RedemptionService.RedeemAsync begins a transaction before calling SubtractPointsAsync.
+            // SQLite does not support nested transactions → BeginTransactionAsync throws.
+            // If an ambient transaction exists, join it (no explicit commit/rollback — caller owns it).
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
+            bool ownsTransaction = false;
             try
             {
                 // Get customer to retrieve tenant ID
@@ -164,8 +169,6 @@ namespace VanAn.CoreHub.Services
                 // Phase 5: Enqueue LoyaltyPointsChanged outbox event (same transaction — reliable persistence)
                 EnqueueLoyaltyPointsChangedEvent(customer.TenantId, customerId, -points, rewards.PointBalance, reason, isAdd: false);
 
-                await transaction.CommitAsync();
-
                 // Phase 5: Direct NATS publish for immediate push notification (fire-and-forget)
                 await PublishLoyaltyPointsChangedNatsAsync(customerId, -points, rewards.PointBalance, reason, isAdd: false);
 
@@ -176,16 +179,27 @@ namespace VanAn.CoreHub.Services
             catch (IdentityLevelNotSufficientException)
             {
                 // Tiered Auth Phase 2: re-throw gate exception so controller can return 403 with upgrade hint.
-                // Do NOT rollback inside this block — transaction is uncommitted (no changes made before gate),
-                // but rollback for safety since we entered the transaction scope.
-                await transaction.RollbackAsync();
+                if (ownsTransaction && transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
                 throw;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                if (ownsTransaction && transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
                 _logger.LogError(ex, "Failed to subtract points from customer {CustomerId}", customerId);
                 return false;
+            }
+            finally
+            {
+                if (ownsTransaction && transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
         }
 
