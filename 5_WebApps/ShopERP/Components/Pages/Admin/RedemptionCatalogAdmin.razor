@@ -9,7 +9,7 @@
 @inject IRedemptionService RedemptionService
 @inject ILogger<RedemptionCatalogAdmin> Logger
 
-@attribute [Authorize(Policy = "SystemAdmin")]
+@attribute [Authorize(Policy = "OwnerOnly")]
 
 <div class="redemption-catalog-admin-page">
     <header class="page-header">

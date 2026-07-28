@@ -44,26 +44,52 @@ public class OutboxRepository : IOutboxRepository
 
     public async Task MarkAsProcessedAsync(Guid outboxEventId, CancellationToken cancellationToken = default)
     {
-        var message = await _dbContext.OutboxMessages
+        // FIX: Use ExecuteUpdateAsync (EF Core 7+ bulk UPDATE) instead of load+mutate+SaveChanges.
+        // The previous approach loaded the entity via FirstOrDefaultAsync (tracked) and called
+        // MarkAsProcessed() + SaveChangesAsync, but the change tracker failed to detect the
+        // mutation as Modified in production (SQLite edge deployment) — no UPDATE SQL was
+        // generated, causing the NatsSyncWorker to re-publish the same event indefinitely.
+        // ExecuteUpdateAsync bypasses the change tracker and always emits an UPDATE statement.
+        var now = DateTime.UtcNow;
+        await _dbContext.OutboxMessages
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(m => m.Id == outboxEventId, cancellationToken);
-
-        if (message is null) return;
-
-        message.MarkAsProcessed();
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            .Where(m => m.Id == outboxEventId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.Status, OutboxMessageStatus.Processed)
+                .SetProperty(m => m.ProcessedAt, now)
+                .SetProperty(m => m.Error, (string?)null)
+                .SetProperty(m => m.NextRetryAt, (DateTime?)null),
+                cancellationToken);
     }
 
     public async Task MarkAsFailedAsync(Guid outboxEventId, string errorDetails, CancellationToken cancellationToken = default)
     {
-        var message = await _dbContext.OutboxMessages
+        // FIX: Use ExecuteUpdateAsync for the same reason as MarkAsProcessedAsync —
+        // guarantees an UPDATE statement is generated regardless of change-tracker state.
+        // Load current RetryCount (AsNoTracking) to compute exponential backoff client-side,
+        // then bulk-UPDATE with fixed values — avoids server-side Math.Pow translation issues.
+        var current = await _dbContext.OutboxMessages
+            .AsNoTracking()
             .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(m => m.Id == outboxEventId, cancellationToken);
+            .Where(m => m.Id == outboxEventId)
+            .Select(m => new { m.RetryCount })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (message is null) return;
+        if (current is null) return;
 
-        message.MarkAsFailed(errorDetails);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var newRetryCount = current.RetryCount + 1;
+        var delayMinutes = Math.Min(60, Math.Pow(2, newRetryCount));
+        var nextRetryAt = DateTime.UtcNow.AddMinutes(delayMinutes);
+
+        await _dbContext.OutboxMessages
+            .IgnoreQueryFilters()
+            .Where(m => m.Id == outboxEventId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.Status, OutboxMessageStatus.Failed)
+                .SetProperty(m => m.Error, errorDetails)
+                .SetProperty(m => m.RetryCount, newRetryCount)
+                .SetProperty(m => m.NextRetryAt, nextRetryAt),
+                cancellationToken);
     }
 
     public async Task<OutboxEvent?> GetByIdAsync(Guid outboxEventId, CancellationToken cancellationToken = default)

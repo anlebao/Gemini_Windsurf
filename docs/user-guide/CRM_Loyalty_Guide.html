@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng CRM &amp; Loyalty — Vạn An Ecosystem</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng CRM &amp; Loyalty — Vạn An
+Ecosystem</h1>
+</header>
+<h1 id="hướng-dẫn-sử-dụng-crm--loyalty--vạn-an-ecosystem">HƯỚNG DẪN SỬ
+DỤNG CRM &amp; LOYALTY — VẠN AN ECOSYSTEM</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> MVP 1.0 — cập nhật 2026-07-28 <strong>Áp
+dụng:</strong> Loyalty Phase C + CRM + Promo Push (commit
+<code>95acede7</code>, branch <code>main</code>) <strong>Phạm
+vi:</strong> Hệ thống CRM khách hàng, chương trình tích điểm, nhiệm vụ
+(missions), chiến dịch khuyến mãi (promo push), đổi thưởng
+(redemption).</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan--vai-trò">Tổng quan &amp; vai trò</a></li>
+<li><a href="#2-system-admin--quản-trị-hệ-thống">System Admin — Quản trị
+hệ thống</a></li>
+<li><a href="#3-shop-owner--chủ-cửa-hàng">Shop Owner — Chủ cửa
+hàng</a></li>
+<li><a href="#4-customer--khách-hàng">Customer — Khách hàng</a></li>
+<li><a href="#5-bảng-tra-cứu-nhanh">Bảng tra cứu nhanh</a></li>
+<li><a href="#6-câu-hỏi-thường-gặp-faq">Câu hỏi thường gặp
+(FAQ)</a></li>
+</ol>
+<hr />
+<h2 id="1-tổng-quan--vai-trò">1. TỔNG QUAN &amp; VAI TRÒ</h2>
+<p>Hệ thống CRM-Loyalty của Vạn An phục vụ 3 đối tượng chính với quyền
+truy cập khác nhau:</p>
+<table>
+<thead>
+<tr>
+<th>Vai trò</th>
+<th>Mô tả</th>
+<th>Nền tảng truy cập</th>
+<th>Phạm vi dữ liệu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>System Admin</strong></td>
+<td>Quản trị viên toàn hệ thống (Vạn An)</td>
+<td>ShopERP Admin (<code>/admin/*</code>)</td>
+<td><strong>Tất cả tenant</strong> (cross-tenant)</td>
+</tr>
+<tr>
+<td><strong>Shop Owner</strong></td>
+<td>Chủ cửa hàng / HKD</td>
+<td>ShopERP Admin (<code>/admin/*</code>)</td>
+<td><strong>Tenant của mình</strong> (per-tenant)</td>
+</tr>
+<tr>
+<td><strong>Customer</strong></td>
+<td>Khách hàng cuối</td>
+<td>KhachLink PWA (<code>diemthuong.khachvip.online</code>)</td>
+<td><strong>Tài khoản cá nhân</strong> (token-based)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="kiến-trúc-tổng-quan">Kiến trúc tổng quan</h3>
+<pre><code>Customer (KhachLink WASM, 5002)
+   │  HTTP + X-Customer-Token
+   ▼
+Gateway (5001) ── forwards ──► ShopERP (5003)
+                                  ▲
+Owner / SystemAdmin (ShopERP Blazor Server, cookie auth)</code></pre>
+<ul>
+<li><strong>KhachLink</strong> (Blazor WebAssembly PWA): giao diện khách
+hàng — đăng nhập OTP/Google, xem điểm, làm nhiệm vụ, đổi thưởng, xem
+lịch sử đơn.</li>
+<li><strong>ShopERP</strong> (Blazor Server): giao diện quản trị — CRM,
+chiến dịch promo, quản lý missions, catalog đổi thưởng, users.</li>
+<li><strong>Auth</strong>: Khách hàng dùng <code>X-Customer-Token</code>
+(token-based, không cookie); Owner/SystemAdmin dùng Cookie auth + role
+claims.</li>
+</ul>
+<hr />
+<h2 id="2-system-admin--quản-trị-hệ-thống">2. SYSTEM ADMIN — QUẢN TRỊ HỆ
+THỐNG</h2>
+<blockquote>
+<p><strong>Đối tượng:</strong> Nhân viên kỹ thuật / vận hành Vạn An, có
+quyền quản trị toàn hệ thống. <strong>Đăng nhập:</strong> Tài khoản
+SystemAdmin tại <code>https://khachvip.online</code> (cookie auth, role
+= SystemAdmin).</p>
+</blockquote>
+<h3 id="21-danh-sách-trang-quản-trị">2.1. Danh sách trang quản trị</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng chính</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Khách hàng (toàn hệ thống)</td>
+<td><code>/admin/customers-global</code></td>
+<td>Xem khách hàng <strong>tất cả tenant</strong>, lọc theo điểm / lần
+mua / sinh nhật / chi tiêu, cột Tenant, phân trang 20/trang</td>
+</tr>
+<tr>
+<td>Quản lý Tenant</td>
+<td><code>/admin/tenants</code></td>
+<td>CRUD tenant (tên, loại hình, email liên hệ, trạng thái), gán
+ShopInstance, suspend/reactivate, <strong>impersonate</strong> (đăng
+nhập thay tenant)</td>
+</tr>
+<tr>
+<td>Shop Instances</td>
+<td><code>/admin/shop-instances</code></td>
+<td>CRUD ShopERP instance (label, base URL, max tenants, health check
+URL), kiểm tra sức khỏe, activate/deactivate</td>
+</tr>
+<tr>
+<td>Quản lý Nhiệm vụ</td>
+<td><code>/admin/missions</code></td>
+<td>CRUD mission (PWAInstall, OtpVerify, BirthdayEntry, FacebookShare,
+TikTokShare, Custom), daily cap, one-time flag, sort order,
+active/inactive</td>
+</tr>
+<tr>
+<td>Catalog Đổi thưởng</td>
+<td><code>/admin/redemption-catalog</code></td>
+<td>CRUD sản phẩm đổi thưởng (tên, mô tả, ảnh, điểm yêu cầu, tồn kho,
+hạn sử dụng), active/inactive</td>
+</tr>
+<tr>
+<td>Lịch sử Đổi thưởng</td>
+<td><code>/admin/redemption-history</code></td>
+<td>Fulfill voucher theo mã, xem lịch sử đổi thưởng, hủy redemption đang
+chờ (hoàn điểm)</td>
+</tr>
+<tr>
+<td>Featured Products</td>
+<td><code>/admin/featured-products</code></td>
+<td>CRUD sản phẩm nổi bật (display name, tenant, display price, sort
+order)</td>
+</tr>
+<tr>
+<td>Social Campaigns</td>
+<td><code>/admin/campaigns</code></td>
+<td>CRUD chiến dịch social (campaign name, tenant, UTM source, tracking
+code), xem click/conversion stats</td>
+</tr>
+<tr>
+<td>Push Campaigns</td>
+<td><code>/admin/push-campaigns</code></td>
+<td>Quản lý chiến dịch push notification toàn hệ thống</td>
+</tr>
+<tr>
+<td>Audit Trail</td>
+<td><code>/admin/audit-trail</code></td>
+<td>Xem log audit (date range, action type, entity type, user ID, search
+term), export logs, detail modal</td>
+</tr>
+<tr>
+<td>Quản lý Users</td>
+<td><code>/admin/users</code></td>
+<td>CRUD user (display name, email, tenant, role), activate/deactivate,
+gán role — <strong>chung với Owner</strong> nhưng SA thấy tất cả
+tenant</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-hướng-dẫn-dùng--các-tác-vụ-thường-gặp">2.2. Hướng dẫn dùng —
+các tác vụ thường gặp</h3>
+<h4 id="221-xem-khách-hàng-toàn-hệ-thống-admincustomers-global">2.2.1.
+Xem khách hàng toàn hệ thống (<code>/admin/customers-global</code>)</h4>
+<p>Trang này cho phép SystemAdmin xem khách hàng <strong>xuyên
+tenant</strong> — hữu ích để audit, hỗ trợ CSKH, phân tích toàn hệ
+thống.</p>
+<p><strong>Bước 1:</strong> Đăng nhập SystemAdmin → vào
+<code>/admin/customers-global</code>. <strong>Bước 2:</strong> Dùng bộ
+lọc (tùy chọn):</p>
+<ul>
+<li><strong>Điểm thưởng từ / đến</strong> — lọc theo khoảng điểm</li>
+<li><strong>Lần mua gần nhất (trong N ngày)</strong> — lọc khách hàng
+hoạt động gần đây</li>
+<li><strong>Sinh nhật trong tháng</strong> — lọc theo tháng sinh
+(1-12)</li>
+<li><strong>Doanh số từ / đến (VND)</strong> — lọc theo tổng chi tiêu
+<strong>Bước 3:</strong> Bấm <strong>Lọc</strong>. Bảng kết quả hiển
+thị: Họ tên, Điện thoại, Hạng, Điểm, Tổng chi, Lần mua cuối, Sinh nhật,
+Định danh, <strong>Tenant</strong>, Trạng thái. <strong>Bước 4:</strong>
+Phân trang 20/trang — dùng nút ‹ Trước / Sau ›.</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý:</strong> Trang này <strong>không</strong> có nút &quot;Gửi
+khuyến mãi&quot; (chỉ Owner mới gửi promo được). SA muốn gửi promo phải
+impersonate tenant trước.</p>
+</blockquote>
+<h4 id="222-quản-lý-nhiệm-vụ-missions-adminmissions">2.2.2. Quản lý
+Nhiệm vụ (Missions) (<code>/admin/missions</code>)</h4>
+<p>Nhiệm vụ là các hành động khách hàng thực hiện để nhận điểm
+thưởng.</p>
+<p><strong>Các loại mission:</strong> | Loại | Mô tả | Trigger |
+|---|---|---| | <code>PWAInstall</code> | Cài PWA KhachLink | Khách bấm
+&quot;Cài app&quot; trên /missions | | <code>OtpVerify</code> | Xác thực OTP |
+Khách xác thực số điện thoại | | <code>BirthdayEntry</code> | Nhập ngày
+sinh | Khách nhập ngày sinh trên /profile | | <code>FacebookShare</code>
+| Chia sẻ lên Facebook | Khách dán URL bài share Facebook | |
+<code>TikTokShare</code> | Chia sẻ lên TikTok | Khách dán URL video
+TikTok | | <code>Custom</code> | Tùy chỉnh | Mission tự define |</p>
+<p><strong>Tạo mission mới:</strong></p>
+<ol type="1">
+<li>Bấm <strong>+ Thêm nhiệm vụ</strong></li>
+<li>Nhập: Tên, Mô tả, Loại (mission type), Điểm thưởng, Daily cap (giới
+hạn số lần/ngày), One-time (chỉ làm 1 lần), Sort order</li>
+<li>Bấm <strong>Lưu</strong>. Mission ở trạng thái Active mặc định.</li>
+</ol>
+<p><strong>Chỉnh sửa:</strong> Bấm vào tên mission → sửa → Lưu.
+<strong>Tạm dừng:</strong> Bật/tắt công tắc Active/Inactive.</p>
+<h4 id="223-quản-lý-catalog-đổi-thưởng-adminredemption-catalog">2.2.3.
+Quản lý Catalog Đổi thưởng (<code>/admin/redemption-catalog</code>)</h4>
+<p><strong>Tạo sản phẩm đổi thưởng:</strong></p>
+<ol type="1">
+<li>Bấm <strong>+ Thêm sản phẩm</strong></li>
+<li>Nhập: Tên sản phẩm, Mô tả, URL ảnh, Điểm yêu cầu, Số lượng tồn kho,
+Số ngày hết hạn (expiry days)</li>
+<li>Bấm <strong>Lưu</strong>.</li>
+</ol>
+<p><strong>Khi khách đổi thưởng:</strong> SystemAdmin (hoặc Owner) vào
+<code>/admin/redemption-history</code> → nhập mã voucher → bấm
+<strong>Fulfill</strong> để xác nhận đã giao thưởng.</p>
+<h4 id="224-quản-lý-tenant--impersonate-admintenants">2.2.4. Quản lý
+Tenant &amp; Impersonate (<code>/admin/tenants</code>)</h4>
+<p><strong>Impersonate</strong> = đăng nhập dưới danh tính Owner của
+tenant đó — hữu ích để hỗ trợ, debug, cấu hình thay khách.</p>
+<ol type="1">
+<li>Vào <code>/admin/tenants</code> → tìm tenant cần impersonate</li>
+<li>Bấm <strong>Impersonate</strong></li>
+<li>Hệ thống chuyển bạn sang giao diện Owner của tenant đó</li>
+<li>Khi xong, bấm <strong>Exit Impersonation</strong> (thoát) để quay
+lại SystemAdmin</li>
+</ol>
+<blockquote>
+<p><strong>Cảnh báo:</strong> Impersonate ghi log audit. Chỉ dùng khi
+cần thiết — mọi thao tác sẽ được ghi nhận dưới tên SystemAdmin.</p>
+</blockquote>
+<h4 id="225-xem-audit-trail-adminaudit-trail">2.2.5. Xem Audit Trail
+(<code>/admin/audit-trail</code>)</h4>
+<p>Trang xem log mọi thao tác quan trọng trong hệ thống.</p>
+<p><strong>Bộ lọc:</strong></p>
+<ul>
+<li><strong>Date range</strong> — từ ngày / đến ngày</li>
+<li><strong>Action type</strong> — Create / Update / Delete / Login /
+etc.</li>
+<li><strong>Entity type</strong> — Customer / Order / PromoCampaign /
+etc.</li>
+<li><strong>User ID</strong> — lọc theo người thực hiện</li>
+<li><strong>Search term</strong> — tìm kiếm tự do</li>
+</ul>
+<p>Bấm <strong>Export</strong> để tải log ra file (CSV/JSON).</p>
+<hr />
+<h2 id="3-shop-owner--chủ-cửa-hàng">3. SHOP OWNER — CHỦ CỬA HÀNG</h2>
+<blockquote>
+<p><strong>Đối tượng:</strong> Chủ cửa hàng / HKD — quản lý CRM, gửi
+khuyến mãi, quản lý nhân viên. <strong>Đăng nhập:</strong> Tài khoản
+Owner tại <code>https://khachvip.online</code> (cookie auth, role =
+Owner). <strong>Phạm vi:</strong> Chỉ thấy dữ liệu <strong>tenant của
+mình</strong>.</p>
+</blockquote>
+<h3 id="31-danh-sách-trang">3.1. Danh sách trang</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng chính</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CRM Khách hàng</strong></td>
+<td><code>/admin/customers</code></td>
+<td>Danh sách khách + bộ lọc + gửi promo (per-row / bulk / theo lọc) +
+cột Push + phân trang</td>
+</tr>
+<tr>
+<td><strong>Chiến dịch Promo</strong></td>
+<td><code>/admin/promo-campaigns</code></td>
+<td>Danh sách chiến dịch + progress bar + &quot;Chi tiết&quot; expand + Hủy chiến
+dịch</td>
+</tr>
+<tr>
+<td>Quản lý Users</td>
+<td><code>/admin/users</code></td>
+<td>CRUD nhân viên (Staff, Masterchef, Guard, StoreKeeper), gán role,
+activate/deactivate</td>
+</tr>
+<tr>
+<td>Permission Groups</td>
+<td><code>/admin/permission-groups</code></td>
+<td>Quản lý nhóm quyền (nâng cao)</td>
+</tr>
+<tr>
+<td>Quản lý Nhiệm vụ</td>
+<td><code>/admin/missions</code></td>
+<td>CRUD mission (chung với SA, nhưng scope tenant)</td>
+</tr>
+<tr>
+<td>Catalog Đổi thưởng</td>
+<td><code>/admin/redemption-catalog</code></td>
+<td>CRUD catalog (chung với SA, scope tenant)</td>
+</tr>
+<tr>
+<td>Lịch sử Đổi thưởng</td>
+<td><code>/admin/redemption-history</code></td>
+<td>Fulfill voucher, hủy redemption (scope tenant)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-hướng-dẫn-dùng--crm-khách-hàng-admincustomers">3.2. Hướng dẫn
+dùng — CRM Khách hàng (<code>/admin/customers</code>)</h3>
+<p>Đây là trang <strong>quan trọng nhất</strong> của Owner — quản lý
+khách hàng thân thiết và gửi khuyến mãi.</p>
+<h4 id="321-xem--lọc-khách-hàng">3.2.1. Xem &amp; lọc khách hàng</h4>
+<p><strong>Bộ lọc</strong> (trong card &quot;Bộ lọc khách hàng&quot;): | Trường |
+Ý nghĩa | Ví dụ | |---|---|---| | Điểm thưởng từ / đến | Lọc theo khoảng
+điểm tích lũy | 100 → 1000 | | Lần mua gần nhất (trong N ngày) | Khách
+có đơn hàng trong N ngày qua | 30 | | Sinh nhật trong tháng | Khách sinh
+tháng nào (1-12, 0 = tất cả) | 7 (tháng 7) | | Doanh số từ / đến (VND) |
+Lọc theo tổng chi tiêu | 500000 → 5000000 |</p>
+<p>Bấm <strong>Lọc</strong> để áp dụng, <strong>Xóa lọc</strong> để
+reset.</p>
+<p><strong>Bảng kết quả</strong> hiển thị các cột:</p>
+<ul>
+<li>Checkbox chọn (cho bulk action)</li>
+<li>Họ tên, Điện thoại, Hạng (tier), Điểm, Tổng chi</li>
+<li>Lần mua cuối (dd/MM/yyyy), Sinh nhật (dd/MM)</li>
+<li>Định danh (IdentityLevel: Social / Verified)</li>
+<li><strong>Push</strong> — ✓ (đã đăng ký push) / ✗ (chưa)</li>
+<li><strong>Thao tác</strong> — nút &quot;Gửi&quot; (gửi promo cho 1 khách)</li>
+</ul>
+<h4 id="322-gửi-khuyến-mãi-cho-1-khách-per-row">3.2.2. Gửi khuyến mãi
+cho 1 khách (per-row)</h4>
+<p><strong>Bước 1:</strong> Tìm khách hàng cần gửi → bấm nút
+<strong>&quot;Gửi&quot;</strong> ở cột Thao tác. <strong>Bước 2:</strong> Modal
+&quot;Gửi thông báo khuyến mãi&quot; hiện ra, hiển thị &quot;Sẽ gửi cho <strong>1 khách
+hàng</strong>&quot;. <strong>Bước 3:</strong> Nhập:</p>
+<ul>
+<li><strong>Tiêu đề</strong> (tối đa 100 ký tự) — vd: &quot;Khuyến mãi cuối
+tuần&quot;</li>
+<li><strong>Nội dung thông báo</strong> (tối đa 500 ký tự) — vd: &quot;Giảm
+20% cho tất cả món nước từ 15h-17h hôm nay!&quot;</li>
+<li><strong>Link đích</strong> (tùy chọn) — vd: <code>/rewards</code>
+hoặc URL đầy đủ <strong>Bước 4:</strong> Bấm <strong>Tạo chiến
+dịch</strong>. Hệ thống tạo chiến dịch + gửi push notification đến
+khách. <strong>Bước 5:</strong> Thông báo Success: &quot;Đã tạo chiến dịch
+&#39;...&#39; với 1 người nhận. Đang xử lý — xem tiến độ tại
+/admin/promo-campaigns.&quot;</li>
+</ul>
+<h4 id="323-gửi-khuyến-mãi-cho-nhiều-khách-bulk-select">3.2.3. Gửi
+khuyến mãi cho nhiều khách (bulk select)</h4>
+<p><strong>Bước 1:</strong> Tick checkbox ở cột đầu tiên cho từng khách
+cần gửi.</p>
+<ul>
+<li>Tick <strong>tất cả trên trang</strong>: checkbox ở header bảng</li>
+<li>Selection <strong>lưu xuyên suốt phân trang</strong> — tick khách
+trang 1, sang trang 2 tick thêm, tổng chọn được giữ nguyên</li>
+<li>Bấm <strong>&quot;Gửi cho N đã chọn&quot;</strong> (nút hiển thị số lượng đã
+chọn) <strong>Bước 2:</strong> Modal hiện ra với &quot;Sẽ gửi cho <strong>N
+khách hàng đã chọn</strong> (danh sách tĩnh)&quot;. <strong>Bước 3:</strong>
+Nhập tiêu đề + nội dung + link → bấm <strong>Tạo chiến
+dịch</strong>.</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý:</strong> &quot;Danh sách tĩnh&quot; = danh sách ID khách được
+snapshot tại thời điểm tạo. Nếu khách bị xóa/inactive sau đó, hệ thống
+tự skip (không lỗi).</p>
+</blockquote>
+<h4 id="324-gửi-khuyến-mãi-theo-bộ-lọc-segment">3.2.4. Gửi khuyến mãi
+theo bộ lọc (segment)</h4>
+<p><strong>Bước 1:</strong> Áp dụng bộ lọc (vd: sinh nhật tháng 7 + điểm
+&gt; 100). <strong>Bước 2:</strong> Bấm <strong>&quot;Gửi theo lọc
+(N)&quot;</strong> — N = số khách thỏa bộ lọc. <strong>Bước 3:</strong> Modal
+hiện ra với &quot;Sẽ gửi cho <strong>N khách hàng</strong> (theo bộ lọc hiện
+tại)&quot;. <strong>Bước 4:</strong> Nhập tiêu đề + nội dung + link → bấm
+<strong>Tạo chiến dịch</strong>.</p>
+<blockquote>
+<p><strong>Khác biệt:</strong> Segment = động (dựa trên criteria tại
+thời điểm gửi), Bulk = tĩnh (danh sách ID cố định).</p>
+</blockquote>
+<h4 id="325-xuất-csv-danh-sách-khách">3.2.5. Xuất CSV danh sách
+khách</h4>
+<p><strong>Bước 1:</strong> Áp dụng bộ lọc nếu cần. <strong>Bước
+2:</strong> Gọi <code>POST /api/customers/export</code> với body cùng
+cấu trúc <code>/segment</code> (SegmentRequest). <strong>Bước
+3:</strong> Hệ thống trả về file <code>customers.csv</code> với các cột:
+<code>Name, Phone, Tier, Points, TotalSpent, LastOrder, Birthday, IdentityLevel, HasPush</code></p>
+<blockquote>
+<p><strong>Mẹo:</strong> Dùng curl/Postman để gọi API này. Hiện chưa có
+nút UI trực tiếp — endpoint API sẵn sàng để tích hợp.</p>
+</blockquote>
+<h3 id="33-hướng-dẫn-dùng--chiến-dịch-promo-adminpromo-campaigns">3.3.
+Hướng dẫn dùng — Chiến dịch Promo
+(<code>/admin/promo-campaigns</code>)</h3>
+<h4 id="331-xem-danh-sách-chiến-dịch">3.3.1. Xem danh sách chiến
+dịch</h4>
+<p>Bảng hiển thị: Tiêu đề, Nội dung, Người nhận, Đã gửi, Thất bại, Trạng
+thái (Pending / Processing / Completed / Cancelled), Ngày tạo.</p>
+<h4 id="332-theo-dõi-tiến-độ-progress-bar">3.3.2. Theo dõi tiến độ
+(Progress bar)</h4>
+<ul>
+<li>Chiến dịch ở trạng thái <strong>Processing</strong> sẽ hiển thị
+<strong>progress bar</strong> (sọc animated)</li>
+<li>Width = <code>SentCount / TotalRecipients * 100%</code></li>
+<li>Trang <strong>tự động refresh mỗi 5 giây</strong> khi có chiến dịch
+Processing/Pending</li>
+<li>Khi tất cả chiến dịch Completed/Cancelled → auto-refresh dừng</li>
+</ul>
+<h4 id="333-xem-chi-tiết-người-nhận">3.3.3. Xem chi tiết người nhận</h4>
+<p><strong>Bước 1:</strong> Bấm <strong>&quot;Chi tiết&quot;</strong> trên dòng
+chiến dịch. <strong>Bước 2:</strong> Bảng người nhận hiện ra bên dưới —
+hiển thị: Tên khách, Trạng thái gửi (Sent / Failed / Pending), Thời gian
+gửi, ErrorMessage (nếu fail). <strong>Bước 3:</strong> Phân trang
+20/người nhận — bấm <strong>&quot;Tải thêm&quot;</strong> để xem tiếp.</p>
+<h4 id="334-hủy-chiến-dịch">3.3.4. Hủy chiến dịch</h4>
+<ul>
+<li>Bấm <strong>&quot;Hủy&quot;</strong> trên chiến dịch ở trạng thái Pending hoặc
+Processing</li>
+<li>Hệ thống dừng gửi các notification chưa gửi. Những cái đã gửi không
+thu hồi được.</li>
+</ul>
+<h3 id="34-quản-lý-nhân-viên-adminusers">3.4. Quản lý nhân viên
+(<code>/admin/users</code>)</h3>
+<p>Owner tạo tài khoản nhân viên với các role: | Role | Quyền |
+|---|---| | Staff | Xem đơn hàng, xử lý đơn | | Masterchef | Xem + xử lý
+đơn + cập nhật trạng thái bếp | | Guard | Xem đơn (read-only) | |
+StoreKeeper | Quản lý kho |</p>
+<p><strong>Tạo user:</strong> Bấm <strong>+ Thêm user</strong> → nhập
+display name, email, role → Lưu.</p>
+<hr />
+<h2 id="4-customer--khách-hàng">4. CUSTOMER — KHÁCH HÀNG</h2>
+<blockquote>
+<p><strong>Đối tượng:</strong> Khách hàng cuối — tích điểm, làm nhiệm
+vụ, đổi thưởng. <strong>Truy cập:</strong> PWA KhachLink tại
+<code>https://diemthuong.khachvip.online</code> <strong>Auth:</strong>
+Đăng nhập bằng <strong>Google OAuth</strong> (miễn phí) hoặc <strong>SĐT
++ OTP</strong>.</p>
+</blockquote>
+<h3 id="41-danh-sách-trang">4.1. Danh sách trang</h3>
+<table>
+<thead>
+<tr>
+<th>Trang</th>
+<th>URL</th>
+<th>Chức năng</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Đăng nhập</td>
+<td><code>/login</code></td>
+<td>Google OAuth hoặc SĐT + OTP</td>
+</tr>
+<tr>
+<td>Hồ sơ</td>
+<td><code>/profile</code></td>
+<td>Xem điểm / hạng / định danh, bật push, nhập sinh nhật, nâng cấp định
+danh</td>
+</tr>
+<tr>
+<td>Thẻ tích điểm</td>
+<td><code>/my-loyalty</code></td>
+<td>Xem thẻ hạng, progress bar, đổi điểm, lịch sử giao dịch</td>
+</tr>
+<tr>
+<td>Nhiệm vụ</td>
+<td><code>/missions</code></td>
+<td>Danh sách nhiệm vụ + làm nhiệm vụ + lịch sử hoàn thành</td>
+</tr>
+<tr>
+<td>Đổi thưởng</td>
+<td><code>/rewards</code></td>
+<td>Catalog sản phẩm đổi + đổi voucher</td>
+</tr>
+<tr>
+<td>Lịch sử đơn</td>
+<td><code>/my-orders</code></td>
+<td>Danh sách đơn hàng + tracking</td>
+</tr>
+<tr>
+<td>Tìm cửa hàng</td>
+<td><code>/stores</code></td>
+<td>Tìm cửa hàng theo tên / vị trí</td>
+</tr>
+<tr>
+<td>Cửa hàng</td>
+<td><code>/store/{slug}</code></td>
+<td>Trang cửa hàng cụ thể</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-hướng-dẫn-dùng">4.2. Hướng dẫn dùng</h3>
+<h4 id="421-đăng-nhập">4.2.1. Đăng nhập</h4>
+<p><strong>Cách 1 — Google OAuth (khuyến nghị):</strong></p>
+<ol type="1">
+<li>Vào <code>/login</code> → bấm <strong>&quot;Đăng nhập với
+Google&quot;</strong></li>
+<li>Chọn tài khoản Google → hoàn tất</li>
+</ol>
+<p><strong>Cách 2 — SĐT + OTP:</strong></p>
+<ol type="1">
+<li>Vào <code>/login</code> → nhập số điện thoại → bấm <strong>&quot;Gửi
+OTP&quot;</strong></li>
+<li>Nhập mã OTP nhận được qua SMS → bấm <strong>&quot;Xác nhận&quot;</strong></li>
+</ol>
+<blockquote>
+<p>Sau đăng nhập, hệ thống cấp <code>X-Customer-Token</code> — token này
+được dùng cho mọi API call tiếp theo (tự động, khách không cần thao
+tác).</p>
+</blockquote>
+<h4 id="422-hồ-sơ-profile">4.2.2. Hồ sơ (<code>/profile</code>)</h4>
+<p>Trang hồ sơ hiển thị:</p>
+<ul>
+<li><strong>Họ tên</strong> + <strong>Hạng</strong> (Bronze / Silver /
+Gold / Platinum)</li>
+<li><strong>Điểm tích lũy</strong> hiện tại</li>
+<li><strong>Identity Level</strong> — Social (mặc định) / Verified (đã
+xác thực OTP nâng cao)</li>
+<li><strong>Toggle Push Notification</strong> — bật/tắt nhận thông báo
+push</li>
+<li><strong>Nhập ngày sinh</strong> — nhập để nhận thưởng sinh nhật
+(mission BirthdayEntry)</li>
+<li><strong>Nâng cấp định danh</strong> — bấm để xác thực OTP nâng cấp
+từ Social → Verified (cần Verified để đổi thưởng)</li>
+</ul>
+<h4 id="423-thẻ-tích-điểm-my-loyalty">4.2.3. Thẻ tích điểm
+(<code>/my-loyalty</code>)</h4>
+<ul>
+<li><strong>Thẻ hạng</strong> với gradient màu theo hạng (Bronze →
+Platinum)</li>
+<li><strong>Điểm hiện tại</strong> + <strong>Progress bar</strong> đến
+hạng tiếp theo</li>
+<li><strong>Bảng quyền lợi hạng</strong> — so sánh Bronze / Silver /
+Gold / Platinum</li>
+<li><strong>Đổi điểm</strong> — nhập số điểm muốn đổi → bấm &quot;Đổi&quot;</li>
+<li><strong>Lịch sử giao dịch</strong> — danh sách các giao dịch
+tích/đổi điểm gần đây</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý:</strong> Để đổi điểm, khách phải ở IdentityLevel ≥
+Verified. Nếu chưa, hệ thống hiển thị modal hướng dẫn nâng cấp.</p>
+</blockquote>
+<h4 id="424-nhiệm-vụ-missions">4.2.4. Nhiệm vụ
+(<code>/missions</code>)</h4>
+<p>Trang nhiệm vụ hiển thị 2 phần:</p>
+<p><strong>Phần 1 — Nhiệm vụ đang hoạt động:</strong></p>
+<ul>
+<li>Mỗi nhiệm vụ có: icon, tên, mô tả, điểm thưởng, badge (One-time /
+Daily cap), số lần đã hoàn thành</li>
+<li><strong>Nút hành động</strong> tùy loại mission:
+<ul>
+<li><code>PWAInstall</code> → nút <strong>&quot;Cài app&quot;</strong></li>
+<li><code>OtpVerify</code> → nút <strong>&quot;Xác thực&quot;</strong> (chuyển
+sang /profile)</li>
+<li><code>BirthdayEntry</code> → nút <strong>&quot;Nhập sinh nhật&quot;</strong>
+(chuyển sang /profile)</li>
+<li><code>FacebookShare</code> / <code>TikTokShare</code> → nút
+<strong>&quot;Chia sẻ&quot;</strong> → modal dán URL bài share</li>
+</ul></li>
+<li>Khi hoàn thành, điểm tự động cộng vào tài khoản</li>
+</ul>
+<p><strong>Phần 2 — Lịch sử hoàn thành:</strong></p>
+<ul>
+<li>Danh sách nhiệm vụ đã hoàn thành (phân trang 20/trang)</li>
+<li>Bấm <strong>&quot;Xem thêm&quot;</strong> để tải trang tiếp theo</li>
+</ul>
+<h4 id="425-đổi-thưởng-rewards">4.2.5. Đổi thưởng
+(<code>/rewards</code>)</h4>
+<p><strong>Bước 1:</strong> Vào <code>/rewards</code> — hiển thị catalog
+sản phẩm đổi thưởng (ảnh, tên, mô tả, điểm yêu cầu, tồn kho).
+<strong>Bước 2:</strong> Tìm sản phẩm muốn đổi → bấm <strong>&quot;Đổi
+ngay&quot;</strong>.</p>
+<ul>
+<li>Nút bị <strong>disabled</strong> nếu: không đủ điểm, hết hàng, hoặc
+chưa Verified <strong>Bước 3:</strong> Hệ thống trừ điểm + tạo voucher →
+modal hiển thị:</li>
+<li><strong>Mã voucher</strong> (code)</li>
+<li><strong>QR code</strong> (quét tại quầy để nhận thưởng)</li>
+<li><strong>Ngày hết hạn</strong> <strong>Bước 4:</strong> Mang voucher
+đến cửa hàng — nhân viên quét QR hoặc nhập mã để fulfill.</li>
+</ul>
+<h4 id="426-lịch-sử-đơn-hàng-my-orders">4.2.6. Lịch sử đơn hàng
+(<code>/my-orders</code>)</h4>
+<ul>
+<li>Tabs lọc theo trạng thái: Tất cả / Pending / Processing / Completed
+/ Cancelled</li>
+<li>Mỗi đơn hiển thị: Mã đơn (8 ký tự đầu), ngày, số món, trạng thái,
+tổng tiền, VAT</li>
+<li>Bấm <strong>&quot;Theo dõi&quot;</strong> để xem chi tiết trạng thái đơn tại
+<code>/order-tracking/{orderId}</code></li>
+</ul>
+<h4 id="427-tìm-cửa-hàng-stores">4.2.7. Tìm cửa hàng
+(<code>/stores</code>)</h4>
+<ul>
+<li><strong>Tìm kiếm</strong> theo tên / sản phẩm / dịch vụ</li>
+<li><strong>&quot;Dùng vị trí của tôi&quot;</strong> — dùng GPS để tìm cửa hàng
+gần nhất</li>
+<li><strong>Bán kính</strong> — 2km / 5km / 10km / 50km / 100km</li>
+<li>Mỗi cửa hàng hiển thị: tên, địa chỉ, SĐT, khoảng cách, link Google
+Maps, nút &quot;Xem trang cửa hàng&quot;</li>
+</ul>
+<hr />
+<h2 id="5-bảng-tra-cứu-nhanh">5. BẢNG TRA CỨU NHANH</h2>
+<h3 id="51-phân-quyền-theo-vai-trò">5.1. Phân quyền theo vai trò</h3>
+<table>
+<thead>
+<tr>
+<th>Tính năng</th>
+<th style="text-align: center;">System Admin</th>
+<th style="text-align: center;">Owner</th>
+<th style="text-align: center;">Customer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Xem khách hàng (tenant mình)</td>
+<td style="text-align: center;">✓ (impersonate)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Xem khách hàng (tất cả tenant)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Gửi promo per-row</td>
+<td style="text-align: center;">— (impersonate)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Gửi promo bulk</td>
+<td style="text-align: center;">— (impersonate)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Gửi promo theo segment</td>
+<td style="text-align: center;">— (impersonate)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Xuất CSV khách hàng</td>
+<td style="text-align: center;">— (impersonate)</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>CRUD Mission</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>CRUD Redemption Catalog</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Fulfill voucher</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>CRUD Tenant</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>CRUD ShopInstance</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Impersonate tenant</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Xem Audit Trail</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>CRUD User (tenant)</td>
+<td style="text-align: center;">✓ (all)</td>
+<td style="text-align: center;">✓ (own)</td>
+<td style="text-align: center;">—</td>
+</tr>
+<tr>
+<td>Xem điểm / hạng / profile</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Làm nhiệm vụ</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Đổi thưởng</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Xem lịch sử đơn</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td>Nhận push notification</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-url-truy-cập">5.2. URL truy cập</h3>
+<table>
+<thead>
+<tr>
+<th>URL</th>
+<th>Đối tượng</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>https://khachvip.online</code></td>
+<td>Owner / SA</td>
+<td>ShopERP Admin (Blazor Server)</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/customers</code></td>
+<td>Owner</td>
+<td>CRM khách hàng</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/customers-global</code></td>
+<td>SA</td>
+<td>CRM cross-tenant</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/promo-campaigns</code></td>
+<td>Owner</td>
+<td>Chiến dịch promo</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/missions</code></td>
+<td>SA / Owner</td>
+<td>Quản lý nhiệm vụ</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/redemption-catalog</code></td>
+<td>SA / Owner</td>
+<td>Catalog đổi thưởng</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/redemption-history</code></td>
+<td>SA / Owner</td>
+<td>Lịch sử đổi thưởng</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/tenants</code></td>
+<td>SA</td>
+<td>Quản lý tenant</td>
+</tr>
+<tr>
+<td><code>https://khachvip.online/admin/audit-trail</code></td>
+<td>SA</td>
+<td>Audit log</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online</code></td>
+<td>Customer</td>
+<td>KhachLink PWA</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online/login</code></td>
+<td>Customer</td>
+<td>Đăng nhập</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online/profile</code></td>
+<td>Customer</td>
+<td>Hồ sơ</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online/my-loyalty</code></td>
+<td>Customer</td>
+<td>Thẻ tích điểm</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online/missions</code></td>
+<td>Customer</td>
+<td>Nhiệm vụ</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online/rewards</code></td>
+<td>Customer</td>
+<td>Đổi thưởng</td>
+</tr>
+<tr>
+<td><code>https://diemthuong.khachvip.online/my-orders</code></td>
+<td>Customer</td>
+<td>Lịch sử đơn</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-api-endpoints-theo-vai-trò">5.3. API endpoints theo vai
+trò</h3>
+<h4 id="system-admin--owner-cookie-auth-owneronly--systemadmin-policy">System
+Admin + Owner (Cookie auth, <code>OwnerOnly</code> /
+<code>SystemAdmin</code> policy)</h4>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/customers</code></td>
+<td>List khách (tenant-scoped, OwnerOnly)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/customers/global</code></td>
+<td>List khách cross-tenant (SystemAdmin)</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/customers/segment</code></td>
+<td>Preview segment (dry-run)</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/customers/export</code></td>
+<td>Export CSV</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/promo-campaigns</code></td>
+<td>List chiến dịch</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/promo-campaigns</code></td>
+<td>Tạo chiến dịch</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/promo-campaigns/{id}/recipients</code></td>
+<td>List người nhận</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/promo-campaigns/{id}/cancel</code></td>
+<td>Hủy chiến dịch</td>
+</tr>
+<tr>
+<td>GET/POST/PUT/DELETE</td>
+<td><code>/api/missions</code></td>
+<td>CRUD mission</td>
+</tr>
+<tr>
+<td>GET/POST/PUT/DELETE</td>
+<td><code>/api/redemption/catalog</code></td>
+<td>CRUD catalog</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/redemption/fulfill</code></td>
+<td>Fulfill voucher</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/redemption/cancel/{id}</code></td>
+<td>Hủy redemption</td>
+</tr>
+</tbody>
+</table>
+<h4 id="customer-x-customer-token-header">Customer (X-Customer-Token
+header)</h4>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code>/api/customer-identity/otp/send</code></td>
+<td>Gửi OTP</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/customer-identity/otp/verify</code></td>
+<td>Xác thực OTP</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/customer-identity/me</code></td>
+<td>Thông tin khách</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/loyalty/my</code></td>
+<td>Thông tin tích điểm</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/loyalty/redeem</code></td>
+<td>Đổi điểm</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/missions/active</code></td>
+<td>Nhiệm vụ đang hoạt động</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/missions/my/progress</code></td>
+<td>Tiến độ nhiệm vụ</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/missions/my/completions?page=1&amp;pageSize=20</code></td>
+<td>Lịch sử hoàn thành (phân trang)</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/redemption/catalog/active</code></td>
+<td>Catalog đổi thưởng</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/redemption/redeem</code></td>
+<td>Đổi voucher</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/customer-profile/birthday</code></td>
+<td>Lưu ngày sinh</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/notifications/push/subscribe</code></td>
+<td>Đăng ký push</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/notifications/push/subscribe</code></td>
+<td>Hủy push</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/customerorders</code></td>
+<td>Lịch sử đơn hàng</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-câu-hỏi-thường-gặp-faq">6. CÂU HỎI THƯỜNG GẶP (FAQ)</h2>
+<h3 id="cho-owner">Cho Owner</h3>
+<p><strong>Q: Khách báo không nhận được push notification?</strong> A:
+Vào <code>/admin/customers</code> → kiểm tra cột <strong>Push</strong>.
+Nếu ✗, khách chưa đăng ký push. Hướng dẫn khách vào
+<code>/profile</code> → bật toggle Push Notification. Nếu ✓ nhưng vẫn
+không nhận, kiểm tra trình duyệt khách có cho phép notification
+không.</p>
+<p><strong>Q: Gửi promo cho 3 khách nhưng chỉ 2 người nhận?</strong> A:
+Có thể 1 khách đã bị xóa (IsDeleted) hoặc inactive sau thời điểm bạn mở
+modal. Hệ thống tự skip khách không hợp lệ — xem chi tiết tại
+<code>/admin/promo-campaigns</code> → bấm &quot;Chi tiết&quot; → cột
+ErrorMessage.</p>
+<p><strong>Q: Progress bar không hiển thị?</strong> A: Progress bar chỉ
+hiện với chiến dịch <strong>Processing</strong>. Nếu chiến dịch đã
+Completed, bar sẽ biến mất. Trang auto-refresh 5s khi có Processing —
+nếu không refresh, kiểm tra trình duyệt có block JavaScript không.</p>
+<p><strong>Q: Bulk select bị reset khi đổi filter?</strong> A: Đúng —
+khi đổi filter, selection được prune (loại bỏ khách không còn trong kết
+quả). Đây là behavior cố định để tránh gửi promo cho khách không thỏa
+điều kiện mới.</p>
+<h3 id="cho-customer">Cho Customer</h3>
+<p><strong>Q: Tôi không đổi được thưởng?</strong> A: Có 3 nguyên
+nhân:</p>
+<ol type="1">
+<li><strong>Chưa Verified</strong> — vào <code>/profile</code> → bấm
+&quot;Nâng cấp định danh&quot; → xác thực OTP</li>
+<li><strong>Không đủ điểm</strong> — xem điểm yêu cầu trên từng sản phẩm
+tại <code>/rewards</code></li>
+<li><strong>Hết hàng</strong> — nút &quot;Đổi ngay&quot; bị disabled, liên hệ cửa
+hàng</li>
+</ol>
+<p><strong>Q: Làm nhiệm vụ FacebookShare nhưng không được cộng
+điểm?</strong> A: URL bài share phải hợp lệ — phải chứa
+<code>/posts/</code> hoặc <code>permalink?story_id=</code>. URL homepage
+hoặc profile cá nhân sẽ bị từ chối. Xem chi tiết tại
+<code>/missions</code> → bấm &quot;Chia sẻ&quot; → dán URL đúng định dạng.</p>
+<p><strong>Q: Điểm của tôi không tăng sau khi đặt hàng?</strong> A: Điểm
+được cộng tự động khi đơn hàng chuyển sang <strong>Completed</strong>.
+Nếu đơn đã Completed nhưng điểm chưa tăng, liên hệ cửa hàng — có thể
+khách chưa được liên kết với đơn (guest checkout không có
+CustomerId).</p>
+<p><strong>Q: Tôi đăng nhập trên điện thoại, có nhận push
+không?</strong> A: Có — sau khi cài PWA (bấm &quot;Cài app&quot; trên /missions)
+và bật push notification ở <code>/profile</code>. Push hoạt động trên cả
+desktop và mobile PWA.</p>
+<h3 id="cho-system-admin">Cho System Admin</h3>
+<p><strong>Q: Impersonate tenant có an toàn không?</strong> A: Mọi thao
+tác impersonate đều được ghi vào Audit Trail
+(<code>/admin/audit-trail</code>) với User ID của SystemAdmin. Chỉ dùng
+khi cần hỗ trợ khách — không lạm dụng.</p>
+<p><strong>Q: Làm sao xem khách hàng của 1 tenant cụ thể?</strong> A: 2
+cách:</p>
+<ol type="1">
+<li><code>/admin/customers-global</code> → lọc theo Tenant (cột
+Tenant)</li>
+<li>Impersonate tenant đó → vào <code>/admin/customers</code> (sẽ thấy
+chỉ khách của tenant đó)</li>
+</ol>
+<hr />
+<blockquote>
+<p><strong>Tài liệu này áp dụng cho phiên bản MVP 1.0 (commit
+<code>95acede7</code>, 2026-07-28).</strong> <strong>Cập nhật tiếp
+theo:</strong> khi có Sprint 1 (Nearby Orders) hoặc Phase 8 (Multi-VPS
+E2E).</p>
+</blockquote>
+</body>
+</html>

@@ -9,7 +9,7 @@
 @inject IMissionService MissionService
 @inject ILogger<MissionsAdmin> Logger
 
-@attribute [Authorize(Policy = "SystemAdmin")]
+@attribute [Authorize(Policy = "OwnerOnly")]
 
 <div class="missions-admin-page">
     <header class="page-header">

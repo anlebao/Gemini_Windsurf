@@ -9,7 +9,7 @@
 @inject IRedemptionService RedemptionService
 @inject ILogger<RedemptionHistory> Logger
 
-@attribute [Authorize(Policy = "SystemAdmin")]
+@attribute [Authorize(Policy = "OwnerOnly")]
 
 <div class="redemption-history-admin-page">
     <header class="page-header">
