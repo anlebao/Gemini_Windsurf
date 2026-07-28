@@ -13,7 +13,7 @@
 @inject ILogger<PromoCampaignList> Logger
 @implements IAsyncDisposable
 
-@attribute [Authorize]
+@attribute [Authorize(Policy = "OwnerOnly")]
 
 <div class="promo-campaign-list-admin-page">
     <header class="page-header">

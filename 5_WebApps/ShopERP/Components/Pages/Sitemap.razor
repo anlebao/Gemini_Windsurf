@@ -41,18 +41,26 @@
                     <span class="sitemap-link-icon">🏠</span>
                     <span>Dashboard</span>
                 </a>
-                <a href="/orders" class="sitemap-link" data-testid="link-orders-list">
-                    <span class="sitemap-link-icon">📋</span>
-                    <span>Danh sách đơn hàng</span>
-                </a>
-                <a href="/pos" class="sitemap-link" data-testid="link-pos">
-                    <span class="sitemap-link-icon">🛒</span>
-                    <span>POS — Tạo đơn hàng</span>
-                </a>
-                <a href="/kitchen" class="sitemap-link" data-testid="link-kitchen-display">
-                    <span class="sitemap-link-icon">🍳</span>
-                    <span>Màn hình bếp</span>
-                </a>
+                <AuthorizeView Roles="Staff,StoreKeeper,Owner,SystemAdmin">
+                    <Authorized>
+                        <a href="/orders" class="sitemap-link" data-testid="link-orders-list">
+                            <span class="sitemap-link-icon">📋</span>
+                            <span>Danh sách đơn hàng</span>
+                        </a>
+                        <a href="/pos" class="sitemap-link" data-testid="link-pos">
+                            <span class="sitemap-link-icon">🛒</span>
+                            <span>POS — Tạo đơn hàng</span>
+                        </a>
+                    </Authorized>
+                </AuthorizeView>
+                <AuthorizeView Roles="Staff,StoreKeeper,Owner,Masterchef,SystemAdmin">
+                    <Authorized>
+                        <a href="/kitchen" class="sitemap-link" data-testid="link-kitchen-display">
+                            <span class="sitemap-link-icon">🍳</span>
+                            <span>Màn hình bếp</span>
+                        </a>
+                    </Authorized>
+                </AuthorizeView>
                 <AuthorizeView Roles="Guard">
                     <Authorized>
                         <a href="/guard/scan" class="sitemap-link" data-testid="link-guard-scan">
@@ -93,7 +101,7 @@
         </AuthorizeView>
 
         @* ── Luồng 2: Kế Toán & Tài Chính ── *@
-        <AuthorizeView Roles="Owner,StoreKeeper">
+        <AuthorizeView Roles="Owner">
             <Authorized>
                 <VanACard Header="💰 Kế Toán & Tài Chính" Hoverable="true" data-testid="card-accounting">
                     <div class="sitemap-links">
@@ -163,8 +171,38 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Luồng 3: Hóa Đơn Điện Tử (SystemAdmin only) ── *@
-        <AuthorizeView Roles="SystemAdmin">
+        @* ── CRM & Loyalty (Owner only — per-tenant customer management) ── *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <VanACard Header="👥 CRM & Khách Hàng" Hoverable="true" data-testid="card-crm-owner">
+                    <div class="sitemap-links">
+                        <a href="/admin/customers" class="sitemap-link" data-testid="link-customers-owner">
+                            <span class="sitemap-link-icon">👥</span>
+                            <span>Danh sách khách hàng + Lọc segment</span>
+                        </a>
+                        <a href="/admin/promo-campaigns" class="sitemap-link" data-testid="link-promo-campaigns-owner">
+                            <span class="sitemap-link-icon">📢</span>
+                            <span>Chiến dịch khuyến mãi (Push)</span>
+                        </a>
+                        <a href="/admin/missions" class="sitemap-link" data-testid="link-missions-owner">
+                            <span class="sitemap-link-icon">🏆</span>
+                            <span>Quản lý Nhiệm vụ (Gamification)</span>
+                        </a>
+                        <a href="/admin/redemption-catalog" class="sitemap-link" data-testid="link-redemption-catalog-owner">
+                            <span class="sitemap-link-icon">🎁</span>
+                            <span>Catalog đổi điểm</span>
+                        </a>
+                        <a href="/admin/redemption-history" class="sitemap-link" data-testid="link-redemption-history-owner">
+                            <span class="sitemap-link-icon">📋</span>
+                            <span>Lịch sử đổi điểm + Fulfillment</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
+        @* ── Luồng 3: Hóa Đơn Điện Tử (Owner + StoreKeeper + SystemAdmin) ── *@
+        <AuthorizeView Roles="Owner,StoreKeeper,SystemAdmin">
             <Authorized Context="einvoiceAuth">
                 <VanACard Header="🧾 Hóa Đơn Điện Tử" Hoverable="true" data-testid="card-einvoice">
                     <div class="sitemap-links">
@@ -184,14 +222,18 @@
                             <span class="sitemap-link-icon">❤️</span>
                             <span>Health Monitoring</span>
                         </a>
-                        <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
-                            <span class="sitemap-link-icon">⚙️</span>
-                            <span>Quản Lý Provider</span>
-                        </a>
-                        <a href="/einvoice/configuration" class="sitemap-link" data-testid="link-einvoice-configuration">
-                            <span class="sitemap-link-icon">🔧</span>
-                            <span>Cấu Hình Provider</span>
-                        </a>
+                        <AuthorizeView Roles="Owner,SystemAdmin">
+                            <Authorized>
+                                <a href="/einvoice/providers" class="sitemap-link" data-testid="link-einvoice-providers">
+                                    <span class="sitemap-link-icon">⚙️</span>
+                                    <span>Quản Lý Provider</span>
+                                </a>
+                                <a href="/einvoice/configuration" class="sitemap-link" data-testid="link-einvoice-configuration">
+                                    <span class="sitemap-link-icon">🔧</span>
+                                    <span>Cấu Hình Provider</span>
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
                     </div>
                 </VanACard>
             </Authorized>
@@ -230,8 +272,8 @@
             </Authorized>
         </AuthorizeView>
 
-        @* ── Audit Trail ── *@
-        <AuthorizeView Roles="Admin">
+        @* ── Audit Trail (SystemAdmin only — page policy = SystemAdmin) ── *@
+        <AuthorizeView Roles="SystemAdmin">
             <Authorized>
                 <VanACard Header="🛡️ Kiểm Toán" Hoverable="true" data-testid="card-audit">
                     <div class="sitemap-links">
@@ -322,11 +364,12 @@
                         </a>
                     </div>
                 </VanACard>
-                <VanACard Header="�🏪 Cửa hàng" Hoverable="true" data-testid="card-shops">
+                @* Shops admin removed 2026-07-21 — Shop entity deleted, Tenant is single identity. *@
+                <VanACard Header="🔔 Push Campaigns" Hoverable="true" data-testid="card-push-campaigns">
                     <div class="sitemap-links">
-                        <a href="/admin/shops" class="sitemap-link" data-testid="link-shops">
-                            <span class="sitemap-link-icon">🏪</span>
-                            <span>Quản lý Cửa Hàng (Store Finder)</span>
+                        <a href="/admin/push-campaigns" class="sitemap-link" data-testid="link-push-campaigns">
+                            <span class="sitemap-link-icon">🔔</span>
+                            <span>Quản lý Push Campaigns</span>
                         </a>
                     </div>
                 </VanACard>

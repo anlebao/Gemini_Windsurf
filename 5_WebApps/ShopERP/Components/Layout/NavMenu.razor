@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using VanAn.Shared.Domain
 
 <div class="top-row ps-3 navbar navbar-dark">
@@ -12,7 +12,7 @@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
 
-        @* Home: Masterchef → /kitchen, all others → /sitemap (main hub) *@
+        @* Home: Masterchef -> /kitchen, all others -> /sitemap (main hub) *@
         <AuthorizeView Roles="Masterchef">
             <Authorized>
                 <div class="nav-item px-3">
@@ -32,9 +32,10 @@
             </Authorized>
         </AuthorizeView>
 
-        @* T14: POS + Kitchen + Orders — Staff, StoreKeeper, Owner (NOT Masterchef — kitchen-only role) *@
+        @* == Vận hành == Staff, StoreKeeper, Owner *@
         <AuthorizeView Roles="Staff,StoreKeeper,Owner">
             <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Vận hành</div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="pos">
                         <span class="bi bi-bag-fill-nav-menu" aria-hidden="true"></span> POS
@@ -53,9 +54,10 @@
             </Authorized>
         </AuthorizeView>
 
-        @* Masterchef: Kitchen ONLY — no POS, no Orders, no other pages *@
+        @* Masterchef: Kitchen ONLY *@
         <AuthorizeView Roles="Masterchef">
             <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Bếp</div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="kitchen">
                         <span class="bi bi-fire-nav-menu" aria-hidden="true"></span> Bếp
@@ -64,14 +66,17 @@
             </Authorized>
         </AuthorizeView>
 
-        @* Accounting: Owner only *@
+        @* == Sản phẩm & Kế Toán == Owner only *@
         <AuthorizeView Roles="Owner">
             <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Sản phẩm</div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="products">
                         <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span> Sản phẩm
                     </NavLink>
                 </div>
+
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Kế Toán</div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="accounting">
                         <span class="bi bi-journal-text-nav-menu" aria-hidden="true"></span> Kế Toán
@@ -92,37 +97,16 @@
                         <span class="bi bi-lock-fill-nav-menu" aria-hidden="true"></span> Đóng Kỳ Kế Toán
                     </NavLink>
                 </div>
-                @* Wave 6: User & RBAC Management — Owner only *@
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/users">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Quản lý người dùng
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/permission-groups">
-                        <span class="bi bi-person-lock-nav-menu" aria-hidden="true"></span> Nhóm quyền
-                    </NavLink>
-                </div>
-                @* WS-3: CRM + Promo Campaigns — Owner only *@
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/customers">
-                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Khách hàng (CRM)
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/promo-campaigns">
-                        <span class="bi bi-megaphone-fill-nav-menu" aria-hidden="true"></span> Chiến dịch khuyến mãi
-                    </NavLink>
-                </div>
             </Authorized>
         </AuthorizeView>
 
-        @* E-Invoice: Owner + StoreKeeper + SystemAdmin (cross-tenant view) *@
+        @* == Hóa Đơn Điện Tử == Owner, StoreKeeper, SystemAdmin *@
         <AuthorizeView Roles="Owner,StoreKeeper,SystemAdmin">
             <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Hóa Đơn Điện Tử</div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="einvoice">
-                        <span class="bi bi-file-earmark-text-nav-menu" aria-hidden="true"></span> Hóa Đơn Điện Tử
+                        <span class="bi bi-file-earmark-text-nav-menu" aria-hidden="true"></span> Dashboard
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
@@ -159,53 +143,28 @@
             </Authorized>
         </AuthorizeView>
 
-        @* Admin / Audit: Admin + SystemAdmin role *@
-        <AuthorizeView Roles="Admin,SystemAdmin">
+        @* == CRM & Loyalty == Owner only (per-tenant) *@
+        <AuthorizeView Roles="Owner">
             <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">CRM &amp; Loyalty</div>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/audit-trail">
-                        <span class="bi bi-shield-check-nav-menu" aria-hidden="true"></span> Nhật Ký Audit
+                    <NavLink class="nav-link" href="admin/customers">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Khách hàng (CRM)
                     </NavLink>
                 </div>
-            </Authorized>
-        </AuthorizeView>
-
-        @* Wave 5: Tenant Management — SystemAdmin only (platform-level admin) *@
-        <AuthorizeView Roles="SystemAdmin">
-            <Authorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/tenants">
-                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Quản lý Tenant
+                    <NavLink class="nav-link" href="admin/promo-campaigns">
+                        <span class="bi bi-megaphone-fill-nav-menu" aria-hidden="true"></span> Chiến dịch khuyến mãi
                     </NavLink>
                 </div>
-                @* Phase 6: ShopERP Instances management (SystemAdmin only) *@
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/shop-instances">
-                        <span class="bi bi-hdd-network-nav-menu" aria-hidden="true"></span> ShopERP Instances
+                    <NavLink class="nav-link" href="admin/missions">
+                        <span class="bi bi-trophy-fill-nav-menu" aria-hidden="true"></span> Quản lý Nhiệm vụ
                     </NavLink>
                 </div>
-                @* Phase 6: Featured Products management (SystemAdmin only) *@
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/featured-products">
-                        <span class="bi bi-star-nav-menu" aria-hidden="true"></span> Sản phẩm nổi bật
-                    </NavLink>
-                </div>
-                @* Campaigns management (SystemAdmin only) — KhachLink Home personalization + CRUD *@
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/campaigns">
-                        <span class="bi bi-megaphone-nav-menu" aria-hidden="true"></span> Khuyến mãi
-                    </NavLink>
-                </div>
-                @* Loyalty-B: Redemption system (SystemAdmin only) — catalog + history *@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/redemption-catalog">
-                        <span class="bi bi-gift-nav-menu" aria-hidden="true"></span> Đổi điểm (Catalog)
-                    </NavLink>
-                </div>
-                @* WS-3: Cross-tenant overview (SystemAdmin only) *@
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/customers-global">
-                        <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> Cross-Tenant Overview
+                        <span class="bi bi-gift-fill-nav-menu" aria-hidden="true"></span> Đổi điểm (Catalog)
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
@@ -213,11 +172,105 @@
                         <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch sử đổi điểm
                     </NavLink>
                 </div>
-                @* Shops admin removed 2026-07-21 — Shop entity deleted, Tenant is single identity. *@
-                @* User Management — SystemAdmin can manage all users across tenants *@
+            </Authorized>
+        </AuthorizeView>
+
+        @* == Quản trị == Owner only (HR) *@
+        <AuthorizeView Roles="Owner">
+            <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Quản trị</div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/users">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Quản lý người dùng
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/permission-groups">
+                        <span class="bi bi-person-lock-nav-menu" aria-hidden="true"></span> Nhóm quyền
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* == Quản trị Hệ thống == SystemAdmin only *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Hệ thống</div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/tenants">
+                        <span class="bi bi-building-nav-menu" aria-hidden="true"></span> Quản lý Tenant
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/shop-instances">
+                        <span class="bi bi-hdd-network-nav-menu" aria-hidden="true"></span> ShopERP Instances
+                    </NavLink>
+                </div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/users">
                         <span class="bi bi-people-nav-menu" aria-hidden="true"></span> Quản lý Người Dùng
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/permission-groups">
+                        <span class="bi bi-person-lock-nav-menu" aria-hidden="true"></span> Nhóm quyền
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/audit-trail">
+                        <span class="bi bi-shield-check-nav-menu" aria-hidden="true"></span> Nhật Ký Audit
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/featured-products">
+                        <span class="bi bi-star-nav-menu" aria-hidden="true"></span> Sản phẩm nổi bật
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* == CRM & Loyalty (Cross-tenant) == SystemAdmin only *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">CRM &amp; Loyalty</div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/customers-global">
+                        <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> Cross-Tenant Overview
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/customers">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Khách hàng (CRM)
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/promo-campaigns">
+                        <span class="bi bi-megaphone-fill-nav-menu" aria-hidden="true"></span> Chiến dịch khuyến mãi
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/push-campaigns">
+                        <span class="bi bi-bell-fill-nav-menu" aria-hidden="true"></span> Push Campaigns
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/campaigns">
+                        <span class="bi bi-megaphone-nav-menu" aria-hidden="true"></span> Khuyến mãi (Social)
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/missions">
+                        <span class="bi bi-trophy-fill-nav-menu" aria-hidden="true"></span> Quản lý Nhiệm vụ
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/redemption-catalog">
+                        <span class="bi bi-gift-nav-menu" aria-hidden="true"></span> Đổi điểm (Catalog)
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/redemption-history">
+                        <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch sử đổi điểm
                     </NavLink>
                 </div>
             </Authorized>
@@ -226,6 +279,7 @@
         @* Guard section: Guard role only *@
         <AuthorizeView Roles="Guard">
             <Authorized>
+                <div class="nav-section-label px-3 mt-2 mb-1 text-uppercase fw-bold small text-muted">Guard</div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="guard/scan">
                         <span class="bi bi-qr-code-scan-nav-menu" aria-hidden="true"></span> Quét QR Guard
