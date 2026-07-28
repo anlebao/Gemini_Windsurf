@@ -204,9 +204,9 @@
                             <div class="col-md-6">
                                 <label class="form-label" for="loyalty-points-rate">Tỉ lệ tích điểm (0-1)</label>
                                 <input type="number" class="form-control" id="loyalty-points-rate"
-                                       min="0" max="1" step="0.01"
+                                       min="0" max="1" step="0.001"
                                        @bind="settings.Loyalty_PointsRate" />
-                                <small class="text-muted">Ví dụ: 0.1 = tích 10% giá trị đơn. 0 = dùng mặc định.</small>
+                                <small class="text-muted">Ví dụ: 0.001 = 1 điểm / 1.000đ. 0.1 = 10% giá trị đơn. 0 = dùng mặc định.</small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label" for="loyalty-min-points">Điểm tối thiểu / đơn</label>
