@@ -934,3 +934,93 @@ Two features delivered this session:
 Multi-VPS Checkout Option C master plan � Phases 1, 2, 3, 3.5, 4, 5, 3.6, 6, 7 all complete. See Section 6 History Log + `docs/Architecture/ADR001-Station-Architecture.md` v3 addendum + `docs/AI/tasks/tech_debt_multi_vps_checkout.md`. NEXT: Phase 8 (Multi-VPS E2E Validation � Playwright).
 
 **Archived (2026-07-17):** QuickSetup + Product Management Phases 4�6 and the Single-Identity Refactor (Hu?ng A). See `docs/AI/project_state_archive.md`.
+
+---
+
+## Archived 2026-07-26 (from project_state.md reduction â€” 627 â†’ ~170 lines)
+
+### Previous Objective â€” Community Commerce Doc v1.4 Hybrid Central + Edge Architecture (COMPLETE 2026-07-26)
+
+Spec Section 7C: Hybrid Central + Edge diagram, 11 bottlenecks, 10 short-term + 8 long-term solutions, 9 corrections, 8 refactor techniques, cuá»‘n chiáº¿u strategy, evolution roadmap, 12 hard rules HR-SCALE-1 to HR-SCALE-12.
+
+Master plan Section 12 (Cost): PoC $50 â†’ 10M $135K. SMS 58% cost driver. VN-optimized @ 1M: $0.009/user/mo. Break-even ~1M users.
+
+Master plan Section 13 (Sprint 7+ Edge Migration): 15 tasks. Entry: >100K users. Exit: 4 edge gateways + PostGIS + SignalR 100K+ + cost â‰¤$10K @ 1M.
+
+Master plan Section 14 (Hard Rules): 12 rules. Apply from Sprint 0: HR-SCALE-1 (/api/v1/), 2 (ACL), 5 (SalesmanCode prefix), 11 (migration rehearsal).
+
+### Previous Objective â€” Community Commerce Doc v1.3 Review Fixes (COMPLETE 2026-07-26)
+
+9 BLOCKING + 7 HIGH/MEDIUM items resolved (doc-only):
+- A1: Email/password DEFER Sprint 7+. PoC auth = Social + Fingerprint.
+- A2: Community entities PG ONLY. Sprint 0 reduced 4â†’3 sessions.
+- A3: ChatHub/LocationHub auth via X-Customer-Token query string.
+- A4: "delivering" status = Domain Modification (CC-S1-T0).
+- A5: IdentityLevel.DeviceVerified=4 = Domain Modification.
+- A6-A8: UI Spec Addendum Section 7B (8 pages).
+- A9: Deployment Plan Section 11.
+- B1-B4: Scan.razor/pwa.js/Checkout.razor modify existing. GoogleMaps KEEP. ProductShortCode in PG. PostGIS defer.
+- C1-C3: VPS planning + backup. Monitoring. Legal gate. SW cache update.
+
+### Previous Objective â€” Community Commerce Doc v1.2 Self-Hosted Anti-Fraud (COMPLETE 2026-07-26)
+
+7 files updated: 5-layer anti-fraud (fingerprint + token + behavioral + risk scoring + attestation). +DeviceRegistration +FraudFlag entities. UC-01/09/12 risk scoring. Zero external dependency.
+
+### Previous Objective â€” Community Commerce Doc v1.1 Baseline Fixes (COMPLETE 2026-07-25)
+
+6 files updated: A1-A4 baseline fixes, UC-08/09/10 composite referral + per-product commission, UC-12 app-install attribution, B1-B4 entity redesign, Sprint 0 drop social login, Sprint 4 redesign.
+
+### Previous Objective â€” Phase 5 Push Notification + Loyalty L-A/L-B/L-C (COMPLETE 2026-07-24)
+
+Phase 5: 17 SC. CampaignPushJob + PushNotificationDelivery. LoyaltyPointsChanged outbox + NATS. CustomerSegmentationService. Click tracking. CampaignsAdmin UI.
+
+Loyalty L-A: Configurable points formula. Commits aae5fba2 + 8b8f97bc.
+
+Loyalty L-B: Redemption system. 3 entities + RedemptionService (ACID) + controllers + KhachLink /rewards + ShopERP admin. RV 13/13. Commits 8f6162a5 + 88a74ab6 + 891869eb.
+
+Loyalty L-C: 3 workstreams (per-tenant config UI, gamification 5 mission types, notification rules + 2 HostedServices). RV 57/57. Commit 146a6eed. Rebrand commit 89e33480.
+
+### Previous Objective â€” Featured Product Picker + Order Status Unification (COMPLETE 2026-07-23)
+
+Commit 17dab107. Product picker dropdown. Order status unified via OrderWorkflowService. RV 4/4.
+
+### Previous Objective â€” KhachLink Font Fix + Order Tracking Freeze Fix (COMPLETE 2026-07-23)
+
+Font: 6 static files double-encoding repaired (d9e2728f). Freeze: IAsyncDisposable + CTS cancel + backoff (7fc7ca27).
+
+### Previous Objective â€” KhachLink Theme + PWA Phases 1-3 (COMPLETE 2026-07-22)
+
+Theme: 5 themes per tenant. PWA Phase 1: Blazor Server â†’ WASM. Phase 2: SW DLL caching. Phase 2b: Price validation. Phase 3: Offline API fallback. Phase 4 DESCOPE.
+
+### Previous Objective â€” Multi-VPS Checkout Option C (ALL 8 PHASES COMPLETE 2026-07-20)
+
+Phases 1-7 complete. ShopInstance + Tenant FK. Gateway Order Creator + NATS routed. Accounting consolidation. KhachLink multi-tenant cart. Admin UI. Governance. See ADR-001 v3.
+
+### Full History Log (archived 2026-07-26)
+
+See git log for full commit history. Key milestones:
+- [2026-07-26] Sprint 0 COMPLETE. 11 entities + 42 tests + migration. Merged + deployed. RV 18/18.
+- [2026-07-26] Doc v1.4-v1.1 COMPLETE. 4 doc-only sessions.
+- [2026-07-24] Loyalty L-C COMPLETE. RV 57/57.
+- [2026-07-24] Loyalty L-B COMPLETE. RV 13/13.
+- [2026-07-24] Loyalty L-A + Phase 5 Push COMPLETE.
+- [2026-07-23] Product Picker + Order Status. RV 4/4.
+- [2026-07-23] Font Fix + Freeze Fix.
+- [2026-07-22] Theme + PWA Phases 1-3.
+- [2026-07-21] PWA Phase 1 (Server â†’ WASM).
+- [2026-07-20] Multi-VPS Option C Phases 1-7 COMPLETE.
+- [2026-07-18] Multi-tenant bug fix + Quick-Setup real.
+- [2026-07-17] Single-Identity Refactor + VPS verified.
+- [2026-07-16] UUIDv7 Refactor + Data Sync Hardening.
+- [2026-07-15] Order Sync Track E1 COMPLETE.
+- [2026-07-14] KhachLink E2E VPS PASS + UI/UX fix batch.
+- [2026-07-13] Tiered Auth P1-P3 RV COMPLETE. 14/14.
+- [2026-07-12] KhachLink Wave 3+4.
+- [2026-07-11] KhachLink Wave 0+2.
+- [2026-07-09-10] Accounting PostgreSQL Online. 3 waves. 1223/1223.
+- Older: See earlier archive sections.
+
+### Full Maintenance Log (archived 2026-07-26)
+
+See git log and earlier archive sections for full maintenance log entries 2026-07-14 through 2026-07-26.
+

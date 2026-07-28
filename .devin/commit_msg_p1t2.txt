@@ -1,0 +1,23 @@
+test(crm): AF-P1-T2 15 missing tests — 5 toggle + 10 URL validation (TDD)
+
+5 notification toggle tests (NotificationToggleTests.cs):
+ - Notify_RedemptionFulfilled ON/OFF → push sent/skipped, fulfillment succeeds
+ - Notify_MissionCompleted ON → SendLoyaltyPointsChangedNotificationAsync called
+ - Notify_BirthdayBonus OFF → push skipped, points still awarded
+ - Notify_VoucherExpiringSoon OFF → push skipped, job still queries vouchers
+
+10 URL validation tests (CustomerProfileShareUrlValidationTests.cs):
+ - Facebook: /posts/, /permalink?story_id= → 200; homepage, profile, empty → 400
+ - TikTok: /@user/video/, /user/video/ → 200; homepage, profile, empty → 400
+
+Production code changes (minimal, non-breaking, test-enabling):
+ - PushNotificationService: 4 Send*NotificationAsync methods → virtual (Moq intercept)
+ - BirthdayBonusJob.RunBirthdayBonusAsync: private → internal
+ - VoucherExpiryReminderJob.RunExpiryRemindersAsync: private → internal
+ - ShopERP: InternalsVisibleTo VanAn.Core.Tests + VanAn.Integration.Tests
+
+All 15 tests PASS. Build 0 errors. guard-check ALL PASSED.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

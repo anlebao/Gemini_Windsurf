@@ -404,6 +404,9 @@
                 catch { /* if check fails, proceed as guest */ }
             }
 
+            // Read campaign tracking code from localStorage (set by Campaign.razor /c/{trackingCode})
+            var trackingCode = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "campaign_tracking_code");
+
             var orderRequest = new
             {
                 CustomerDeviceId = deviceId,
@@ -424,7 +427,9 @@
                 CustomerPhone = guestPhone,
                 CustomerAddress = guestAddress,
                 // Bug 1a fix: Only pass CustomerId if validated (Customer exists in DB)
-                CustomerId = customerIdForOrder
+                CustomerId = customerIdForOrder,
+                // Campaign conversion tracking: pass tracking code so OrderWorkflowService can increment conversion
+                TrackingCode = trackingCode
             };
 
             var http = HttpClientFactory.CreateClient("gateway");

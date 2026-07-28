@@ -1,0 +1,18 @@
+{
+  "customerDeviceId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "customerName": "RV Bug6 Tester",
+  "customerPhone": "0909123456",
+  "customerAddress": "123 Test St",
+  "customerNotes": "RV test Bug 6 - loyalty points award",
+  "orderType": "DINEIN",
+  "items": [
+    {
+      "productId": "00000000-0000-0000-0000-000000000001",
+      "tenantId": "00000000-0000-0000-0000-000000000001",
+      "productName": "Cafe Sua Da",
+      "quantity": 2,
+      "unitPrice": 25000,
+      "vatRate": 0.10
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+fix(crm): P0+P1 — outbox stuck loop, Owner access on 3 admin pages, doc endpoint
+
+P0-A2: OutboxRepository MarkAsProcessed/MarkAsFailed used load+mutate+SaveChanges
+but EF change tracker failed to detect mutations in production SQLite edge deployment
+(no UPDATE SQL generated, causing NatsSyncWorker to re-publish the same event
+indefinitely). Fix: use ExecuteUpdateAsync (EF Core 7+ bulk UPDATE) which bypasses
+the change tracker and always emits UPDATE.
+
+P0-A1: MissionsAdmin, RedemptionCatalogAdmin, RedemptionHistory had
+[Authorize(Policy = "SystemAdmin")] blocking Owner access. Guide (sections 3.1+5.1)
+says Owner + SA share these pages. Fix: change to [Authorize(Policy = "OwnerOnly")]
+which allows both Owner and SystemAdmin.
+
+P1-B1: CRM_Loyalty_Guide listed GET /api/customer-orders but actual endpoint is
+/api/customerorders (no hyphen). Fix: update both .md and .html guide.
+
+Verified: dotnet build 0 errors, 35 tests passed (17 outbox + 18 access matrix).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

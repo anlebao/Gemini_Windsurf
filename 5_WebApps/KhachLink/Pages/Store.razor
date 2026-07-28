@@ -6,14 +6,25 @@
 @using VanAn.Shared.Domain
 @page "/store/{Slug}"
 @page "/store/by-id/{TenantId}"
+@implements IDisposable
 @inject TenantProfileHttpService TenantProfileService
 @inject ShopConfigHttpService ShopConfigService
 @inject ProductHttpService ProductService
 @inject ISocialCampaignService CampaignService
 @inject NavigationManager Navigation
 @inject ILogger<Store> Logger
+@inject VanAn.KhachLink.Services.CartService CartService
 
 <PageTitle>@(_store?.Name ?? "Cửa hàng") — KhachLink</PageTitle>
+
+<!-- Cart Drawer Component -->
+<CartDrawer
+    CartItems="@_cartState.Items"
+    TotalAmount="@_cartState.TotalAmount"
+    TotalVatAmount="@_cartState.TotalVatAmount"
+    VatDisplayEnabled="@_vatDisplayEnabled"
+    RemoveFromCart="async (productId) => await CartService.RemoveItemAsync(productId)"
+    Checkout="@GoToCheckout" />
 
 @if (_loading)
 {
@@ -167,6 +178,13 @@ else
         <!-- ════════════════════════════════════════════════════════════════
              VIBE SHOWCASE — product gallery (display only, not for sale)
         ════════════════════════════════════════════════════════════════ -->
+        @if (_addedToCartFeedback)
+        {
+            <div class="cart-feedback-toast">
+                <i class="bi bi-check-circle-fill"></i> Đã thêm vào giỏ hàng!
+            </div>
+        }
+
         @if (_features.VibeShowcase_Section_Enabled)
         {
             <section class="store-section" id="products">
@@ -177,7 +195,7 @@ else
                     </h2>
                     <div class="section-divider"></div>
                 </div>
-                <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCart" />
+                <VibeShowcase Config="@_shopConfig" Products="@_products" AddToCart="@AddToCartSync" />
             </section>
         }
 
@@ -528,6 +546,30 @@ else
         .campaign-grid { grid-template-columns: 1fr; }
         .hero-meta { flex-direction: column; gap: 0.75rem; }
     }
+
+    /* ── CART FEEDBACK TOAST ─────────────────────────────────────────── */
+    .cart-feedback-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        background: #10b981;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        font-weight: 600;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        animation: slideInRight 0.3s ease-out;
+    }
+    .cart-feedback-toast i { font-size: 1.2rem; }
+    @@keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
 </style>
 
 @code {
@@ -544,6 +586,9 @@ else
     private List<ProductDto> _products = new();
     private List<VanAn.Shared.Domain.SocialCampaign> _campaigns = new();
     private bool _campaignLoading = true;
+    private VanAn.KhachLink.Services.CartState _cartState = null!;
+    private bool _vatDisplayEnabled = true;
+    private bool _addedToCartFeedback = false;
 
     private string GetThemeClass() => _shopConfig?.ActiveTheme switch
     {
@@ -557,6 +602,9 @@ else
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
+        _cartState = CartService.GetCartState();
+        CartService.OnCartChanged += StateHasChanged;
+        await CartService.LoadCartFromStorageAsync();
         try
         {
             // Support two routes: /store/{slug} and /store/by-id/{tenantId}
@@ -669,10 +717,22 @@ else
         }
     }
 
-    private void AddToCart(ProductDto product)
+    private async Task AddToCart(ProductDto product)
     {
-        // Phase 4: wire to CartService. For now, just log.
-        Logger.LogInformation("AddToCart clicked for product {ProductId} on Store page", product.ProductId);
+        await CartService.AddItemAsync(product, 1);
+        _addedToCartFeedback = true;
+        StateHasChanged();
+        await Task.Delay(1500);
+        _addedToCartFeedback = false;
+        StateHasChanged();
+    }
+
+    private void AddToCartSync(ProductDto product) => _ = AddToCart(product);
+
+    private async Task GoToCheckout()
+    {
+        Navigation.NavigateTo("/checkout");
+        await Task.Delay(100);
     }
 
     private void OpenCampaign(string trackingCode)
@@ -681,5 +741,10 @@ else
         {
             Navigation.NavigateTo($"/campaign/{trackingCode}", forceLoad: true);
         }
+    }
+
+    public void Dispose()
+    {
+        CartService.OnCartChanged -= StateHasChanged;
     }
 }

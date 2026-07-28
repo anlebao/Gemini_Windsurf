@@ -1,0 +1,29 @@
+fix(orders): resolve 4 checkout-to-kitchen flow bugs
+
+1. Order List not showing new orders: default selectedStatus "EMPTY" -> "ALL"
+   so non-SystemAdmin users see today's orders immediately on page load.
+   SignalR + 5s poll already handle real-time refresh.
+
+2. Customer notes lost in PG->SQLite sync: add CustomerNotes to NATS
+   OrderCreated payload, parse + SetCustomerNotes in OrderSyncSubscriber,
+   render new "Ghi chú" column in Orders/Index.razor and sticky-note block
+   in Kitchen/Display.razor.
+
+3. "Cannot transition to confirmed" error: GetByIdWithIncludesAsync used
+   AsNoTracking, so UpdateAsync attached the entire graph (Order + Items +
+   Products + Customer) and marked all as Modified -> UPDATE on stub
+   products / non-existent customers threw -> transaction rolled back ->
+   null returned. Removed AsNoTracking so only Order row is UPDATEd.
+
+4. Loyalty points not awarded: OrderSyncSubscriber called
+   Order.Create(orderId, tenantId, null, items) -- CustomerId was dropped
+   during PG->SQLite sync, so ProcessLoyaltyPointsAsync could not find
+   the customer. Now parses CustomerId from payload, auto-creates a
+   Customer stub in SQLite if missing (mirrors product stub pattern),
+   and passes customerId into Order.Create.
+
+Build: 0 errors. Tests: 18/18 PASS (OrderSync + OrderWorkflow + Loyalty).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

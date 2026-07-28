@@ -697,6 +697,12 @@ namespace VanAn.CoreHub.Services
                     order.SetCustomerNotes(command.CustomerNotes.Trim());
                 }
 
+                // Campaign conversion: set tracking code from checkout (from /c/{trackingCode}).
+                if (!string.IsNullOrWhiteSpace(command.TrackingCode))
+                {
+                    order.SetTrackingCode(command.TrackingCode.Trim());
+                }
+
                 // Save order + Outbox event atomically (RC-1 fix: single transaction).
                 // Previously: AddAsync (SaveChangesAsync) then EnqueueAsync + SaveChangesAsync (2nd save).
                 // If 2nd save failed, order was committed but Outbox event was lost → sync never runs.

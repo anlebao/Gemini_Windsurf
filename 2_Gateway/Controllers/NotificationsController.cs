@@ -67,6 +67,37 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// GET /api/notifications/push/status — forward push subscription status check to ShopERP.
+        /// Called by KhachLink Profile page on load to restore toggle state.
+        /// </summary>
+        [HttpGet("push/status")]
+        public async Task<IActionResult> GetPushStatus()
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/notifications/push/status");
+                if (Request.Headers.TryGetValue("X-Customer-Token", out var token))
+                    reqMsg.Headers.Add("X-Customer-Token", token.ToString());
+
+                var response = await client.SendAsync(reqMsg);
+                var content = await response.Content.ReadAsStringAsync();
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+                return new ContentResult
+                {
+                    StatusCode = (int)response.StatusCode,
+                    Content = content,
+                    ContentType = contentType
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forwarding push status to ShopERP");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+
+        /// <summary>
         /// Phase 5: POST /api/notifications/push/track — forward click tracking to ShopERP.
         /// Called by service worker notificationclick event via navigator.sendBeacon.
         /// </summary>

@@ -232,8 +232,9 @@
             }
 
             var client = HttpClientFactory.CreateClient("gateway");
-            client.DefaultRequestHeaders.Add("X-Customer-Token", token);
-            var resp = await client.GetAsync("/api/customers/me");
+            var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/customers/me");
+            reqMsg.Headers.Add("X-Customer-Token", token);
+            var resp = await client.SendAsync(reqMsg);
 
             if (resp.IsSuccessStatusCode)
             {
@@ -251,6 +252,20 @@
                         // Issue 3: Load birthday from server so it persists across page reloads
                         _birthday = profile.Birthday;
                         _birthdaySaved = profile.Birthday.HasValue;
+
+                        // Bug 3 fix: Load push notification toggle state from server
+                        try
+                        {
+                            var statusReq = new HttpRequestMessage(HttpMethod.Get, "/api/notifications/push/status");
+                            statusReq.Headers.Add("X-Customer-Token", token);
+                            var statusResp = await client.SendAsync(statusReq);
+                            if (statusResp.IsSuccessStatusCode)
+                            {
+                                var pushStatus = await statusResp.Content.ReadFromJsonAsync<PushStatusResponse>();
+                                _pushEnabled = pushStatus?.Enabled ?? false;
+                            }
+                        }
+                        catch { /* non-critical — default to off */ }
                     }
                 }
                 else
@@ -323,9 +338,10 @@
 
                 // 3. Send subscription to server (Gateway → ShopERP)
                 var client = HttpClientFactory.CreateClient("gateway");
-                client.DefaultRequestHeaders.Add("X-Customer-Token", token);
-                var content = new System.Net.Http.StringContent(subscriptionJson, System.Text.Encoding.UTF8, "application/json");
-                var resp = await client.PostAsync("/api/notifications/push/subscribe", content);
+                var pushReq = new HttpRequestMessage(HttpMethod.Post, "/api/notifications/push/subscribe");
+                pushReq.Headers.Add("X-Customer-Token", token);
+                pushReq.Content = new System.Net.Http.StringContent(subscriptionJson, System.Text.Encoding.UTF8, "application/json");
+                var resp = await client.SendAsync(pushReq);
 
                 if (resp.IsSuccessStatusCode)
                 {
@@ -346,8 +362,9 @@
                 await PWA.UnsubscribeFromPushAsync();
 
                 var client = HttpClientFactory.CreateClient("gateway");
-                client.DefaultRequestHeaders.Add("X-Customer-Token", token);
-                var resp = await client.DeleteAsync("/api/notifications/push/subscribe");
+                var delReq = new HttpRequestMessage(HttpMethod.Delete, "/api/notifications/push/subscribe");
+                delReq.Headers.Add("X-Customer-Token", token);
+                var resp = await client.SendAsync(delReq);
 
                 if (resp.IsSuccessStatusCode)
                 {
@@ -468,5 +485,11 @@
         public string Birthday { get; set; } = string.Empty;
         public int PointsAwarded { get; set; }
         public string Message { get; set; } = string.Empty;
+    }
+
+    private class PushStatusResponse
+    {
+        public bool Enabled { get; set; }
+        public int Count { get; set; }
     }
 }

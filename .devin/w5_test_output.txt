@@ -1,0 +1,13 @@
+﻿Test run for C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\bin\Release\net8.0\VanAn.Integration.Tests.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\bin\Release\net8.0\VanAn.Integration.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.28)
+[xUnit.net 00:00:00.31]   Discovering: VanAn.Integration.Tests
+[xUnit.net 00:00:00.52]   Discovered:  VanAn.Integration.Tests
+[xUnit.net 00:00:00.54]   Starting:    VanAn.Integration.Tests
+[xUnit.net 00:00:00.58]   Finished:    VanAn.Integration.Tests
+No test matches the given testcase filter `FullyQualifiedName~VasReportsEndpointTests.W5_BS` in C:\VibeCoding\Gemini_Windsurf\6_Tests\VanAn.Integration.Tests\bin\Release\net8.0\VanAn.Integration.Tests.dll
+

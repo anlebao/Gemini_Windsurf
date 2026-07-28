@@ -1,0 +1,53 @@
+fix(sprint0): review audit F1-F8 — replace stub, enforce max-3 devices, fix SQLite model
+
+Sprint 0 review-only audit found 8 items marked COMPLETE but not 100% production.
+This commit fixes 6 items ready now (F1, F3, F5b, F6, F7, F8) and routes 3 items
+(F2, F4, F5a) to correct downstream sprint task cards (Sprint 1, 4, 5).
+
+F1 — FingerprintJS stub replaced with real library:
+- Replaced placeholder (FNV-1a 8-bit hash) with FingerprintJS v5.2.0 (UMD, ~37KB)
+- License correction: task card said "v4 (MIT)" but v4 is BUSL-1.1 (restricts
+  production use). v5+ is properly MIT licensed. Upgraded to v5.2.0 (MIT).
+- API compatible: FingerprintJS.load() + agent.get() → { visitorId, components }
+
+F3 — DeviceRegistration max-3 active per Customer enforcement:
+- New IDeviceRegistrationService + DeviceRegistrationService (application-layer
+  enforce: count active before insert, device 4+ → IsActive=false + FraudFlag)
+- 6 service tests (first/third/fourth/fifth device, deactivated, independent
+  customer counts) — all PASS
+- DI registered in Gateway Program.cs
+
+F5b — WalletService SQLite comment fix:
+- Removed misleading "SQLite fallback" comment (no branch existed — query always
+  emits PG-specific FOR UPDATE). Added accurate comment explaining PG-only nature.
+
+F6 — Migration scope description corrected (doc-only):
+- SC9 in task card now notes migration 20260726105331_CommunitySprint0 contains
+  11 community tables + 8 Order cols + 3 Loyalty-B tables + 15 Loyalty-C/PWA cols
+  (schema changes from prior sprints merged into this migration).
+
+F7 — SC13 architecture test phrasing fixed (doc-only):
+- SC13 now clarifies Sprint 0 only added 2 immutability tests; 37 arch tests
+  are pre-existing (not Sprint 0 deliverable).
+
+F8 — ShopERPDbContext Ignore 11 community entities:
+- Added modelBuilder.Ignore<...>() for 11 community entities (PG-only per v1.3)
+- DbSets remain for IVanAnDbContext interface contract; queries fail-fast with
+  "entity not in model" instead of runtime SQL error against missing SQLite tables
+
+F2/F4/F5a — routed to downstream sprint task cards:
+- Sprint 1: Order.AssignShipper() + SetDeliveryLocation() (F2 ShipperId fields)
+- Sprint 4: Order.AssignSalesman() (F2 SalesmanId fields) + RiskScoringService
+  first caller (F4) + WalletService app-install first caller (F5a)
+- Sprint 5: Order.MarkCodCollected() (F2 CodAmount fields) + WalletService
+  COD/Advance/Settlement (F5a). Sprint 4 + 5 task cards fixed: WalletService
+  "Files cần CREATE" → "MODIFY" (Sprint 0 already created base).
+
+Verification:
+- dotnet build VanAn.sln — 0 errors, 0 warnings
+- dotnet test VanAn.Core.Tests — 1030 passed (+6 F3 tests), 0 failed
+- dotnet test VanAn.Architecture.Tests — 39 passed, 0 failed
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

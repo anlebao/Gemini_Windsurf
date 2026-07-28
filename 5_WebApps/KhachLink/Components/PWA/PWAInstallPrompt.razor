@@ -23,15 +23,12 @@
     </div>
 </div>
 
-@if (ShowOfflineIndicator)
+@if (ShowOfflineIndicator && !IsOnline)
 {
-    <div class="offline-indicator @(IsOnline ? "online" : "offline")">
+    <div class="offline-indicator offline">
         <div class="offline-content">
-            <i class="fas @(IsOnline ? "fa-wifi" : "fa-wifi-slash")"></i>
-            @if (!IsOnline)
-            {
-                <span>Ngoại tuyến</span>
-            }
+            <i class="fas fa-wifi-slash"></i>
+            <span>Ngoại tuyến</span>
         </div>
     </div>
 }

@@ -106,6 +106,31 @@ namespace VanAn.ShopERP.Controllers
         }
 
         /// <summary>
+        /// GET /api/notifications/push/status — check if customer has active push subscriptions.
+        /// Called by KhachLink Profile page on load to restore toggle state.
+        /// </summary>
+        [HttpGet("push/status")]
+        public async Task<IActionResult> GetPushStatus(
+            [FromHeader(Name = "X-Customer-Token")] string? token)
+        {
+            var customerId = _customerTokenService.ValidateToken(token ?? "");
+            if (!customerId.HasValue)
+                return Unauthorized(new { error = "Token không hợp lệ." });
+
+            try
+            {
+                var subscriptions = await _pushSubscriptionRepository.GetByCustomerIdAsync(customerId.Value);
+                bool hasActive = subscriptions.Any();
+                return Ok(new { enabled = hasActive, count = subscriptions.Count });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking push status for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi khi kiểm tra trạng thái thông báo." });
+            }
+        }
+
+        /// <summary>
         /// Phase 5: POST /api/notifications/push/track — record click on push notification.
         /// Called by service worker notificationclick event via navigator.sendBeacon.
         /// </summary>

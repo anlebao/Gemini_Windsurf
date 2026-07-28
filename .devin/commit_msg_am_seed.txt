@@ -1,0 +1,21 @@
+fix(tests): seed PlatformUser + test tenant in AuthRealWebApplicationFactory
+
+5 AM-S* tests were failing with Unauthorized (Expected: OK, Actual: Unauthorized)
+because the Testing env guard in Program.cs skips ALL seeding including PlatformUser.
+
+Root cause: AuthRealWebApplicationFactory relies on Program.Main to seed
+sysadmin@vanan.vn for CreateSystemAdminClientAsync login. With the Testing env
+guard, no seeding happens → login returns 401 → all authenticated tests fail.
+
+Fix: Add SeedTestData() to AuthRealWebApplicationFactory.CreateHost() after
+EnsureCreated(). Seeds:
+- PlatformUser (sysadmin@vanan.vn / VanAn@2026) for login
+- Test tenant (00000000-0000-0000-0000-000000000001) for impersonation
+
+Result: 28 failed -> 23 failed (+5 tests passing, no regressions).
+Remaining 12 AM-S* failures are ServiceUnavailable (OIDC metadata fetch issue,
+separate root cause). W5/W7 + Guest checkout failures are pre-existing.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

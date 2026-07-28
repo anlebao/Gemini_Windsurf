@@ -258,7 +258,8 @@ namespace VanAn.Gateway.Controllers
                         CustomerPhone = request.CustomerPhone,
                         CustomerAddress = request.CustomerAddress,
                         CustomerId = request.CustomerId,
-                        CustomerNotes = request.CustomerNotes
+                        CustomerNotes = request.CustomerNotes,
+                        TrackingCode = request.TrackingCode
                     };
 
                     try
@@ -389,6 +390,10 @@ namespace VanAn.Gateway.Controllers
         // Logged-in customer ID (from KhachLink localStorage "customer_id").
         // When set, the created order is linked to this Customer so it appears in order history.
         public Guid? CustomerId { get; set; }
+
+        // Campaign conversion tracking: tracking code from social campaign (set by KhachLink /c/{trackingCode}).
+        // When set, OrderWorkflowService increments ConvertedOrders on the matching SocialCampaign.
+        public string? TrackingCode { get; set; }
     }
 
     public class CheckoutOrderItem

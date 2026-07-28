@@ -1,0 +1,17 @@
+{
+  "customerDeviceId": "rv-test-4bug-device",
+  "orderType": "DineIn",
+  "customerNotes": "RV test 4 bug fix - it da, khong duong",
+  "customerName": "RV Tester",
+  "customerPhone": "0900000001",
+  "items": [
+    {
+      "productId": "33333333-3333-3333-3333-333333333333",
+      "quantity": 2,
+      "unitPrice": 150000,
+      "productName": "RV Test Featured Product",
+      "vatRate": 0.10,
+      "tenantId": "00000000-0000-0000-0000-000000000001"
+    }
+  ]
+}

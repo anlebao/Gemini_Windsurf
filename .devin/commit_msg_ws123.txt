@@ -1,0 +1,30 @@
+feat(loyalty+crm): complete Loyalty Phase C gaps + customer segmentation + promo push campaigns
+
+WS-1: Loyalty Phase C completion (6 PARTIAL SCs)
+- Wire-up notification toggles in RedemptionService, MissionService, BirthdayBonusJob, VoucherExpiryReminderJob
+  (Notify_RedemptionFulfilled/Cancelled, Notify_MissionCompleted, Notify_BirthdayBonus, Notify_VoucherExpiringSoon)
+- Add SendRedemptionFulfilledNotificationAsync + SendRedemptionCancelledNotificationAsync + SendPromoNotificationAsync
+  to PushNotificationService
+- Missions.razor: add MissionCompletion history section (calls /api/missions/my/completions)
+- MissionsController: enrich MissionCompletionDto with MissionType + MissionTitle for UI display
+- CustomerProfileController: tighten social share URL validation (Facebook /posts/permalink, TikTok /video/)
+
+WS-2: Customer segmentation + promo push campaigns (new feature)
+- Extend CustomerSegmentCriteria with MinPointBalance, MaxPointBalance, BirthdayMonth, LastOrderWithinDays
+- New PromoCampaign + PromoCampaignRecipient entities (Domain.cs) + EF configurations + SQLite migration
+- IPromoCampaignRepository + PromoCampaignRepository (tenant-scoped CRUD + per-recipient tracking)
+- IPromoCampaignService + PromoCampaignService (create campaign + preview segment + cancel + status summary)
+- PromoCampaignJob (HostedService, Outbox pattern, batch 50, 100ms rate limit between sends)
+- CustomerController (/api/customers, /api/customers/segment) + PromoCampaignController (/api/promo-campaigns CRUD)
+- Admin UI: CustomerList.razor (filter + promo composer modal) + PromoCampaignList.razor (tracking) +
+  CustomerListGlobal.razor (SystemAdmin cross-tenant overview)
+
+WS-3: Sitemap + NavMenu update
+- NavMenu.razor: add CRM + Promo Campaigns links (Owner section) + Cross-Tenant Overview (SystemAdmin section)
+- Sitemap.razor: add CRM & Khach Hang card + Cross-Tenant Overview card
+
+Build: dotnet build VanAn.sln Release -- 0 errors, 629 warnings (pre-existing)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

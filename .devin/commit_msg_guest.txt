@@ -1,0 +1,30 @@
+fix(tests): update Guest checkout tests for Phase 3 multi-tenant checkout API
+
+2 Guest checkout tests failed with BadRequest then Guid.Empty deserialization.
+
+Root cause: spec drift — tests were written for old single-order checkout API
+but Phase 3 (Multi-VPS Checkout) changed both the request and response format:
+
+Request changes:
+- Each CheckoutOrderItem now requires TenantId + ProductName + VatRate
+  (client snapshot — Gateway does NOT query Products table)
+- Old test sent items without these fields → BadRequest "Each checkout item
+  must include TenantId and ProductName"
+
+Response changes:
+- Old: { orderId, qrImageUrl, paymentUrl, amount }
+- New: { orders: [{orderId, tenantId, tenantName, amount, ...}],
+         successCount, failureCount, errors: [...] }
+- Old test deserialized to flat OrderId → got Guid.Empty (field doesn't exist)
+
+Fix (test-only, no production changes):
+- Add TenantId + ProductName + VatRate to test checkout items
+- Update CheckoutResponse class to match Phase 3 format (Orders list +
+  SuccessCount + FailureCount + Errors)
+- Update assertions: check result.Orders[0].OrderId instead of result.OrderId
+
+Result: 15 failed -> 13 failed (+2 tests passing, no regressions).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,56 @@
+feat(crm): AF-P1-T1 CustomerListGlobal full-stack cross-tenant customer list (TDD)
+
+S2 of the Loyalty/CRM Audit Fix master plan. Replaces the placeholder
+"coming soon" campaign overview on /admin/customers-global with a real
+cross-tenant CUSTOMER list (the original task-card requirement).
+
+TDD order (tests first, then implementation):
+
+1. Repository (3_CoreHub):
+   - ICustomerRepository.GetAllCustomersAcrossTenantsAsync (NEW) —
+     SystemAdmin-only contract, bypasses the global TenantId query filter.
+   - CustomerRepository impl uses IgnoreQueryFilters() + filters
+     !IsDeleted && IsActive, ordered by TenantId then FullName for stable
+     cross-tenant grouping. No TenantId filter, no ambient-tenant dependency.
+
+2. Controller (5_WebApps/ShopERP):
+   - CustomerController.ListGlobal [HttpGet("global")] with
+     [Authorize(Policy = "SystemAdmin")] at the action. Combines with the
+     controller-level [Authorize(Policy = "OwnerOnly")] (P0) so only
+     SystemAdmin passes both (Owner/Staff -> 403).
+   - New GlobalCustomerDto with TenantId field (not present in tenant-scoped
+     CustomerDto) so the UI can group/sort by tenant.
+   - Optional query filters: minPoints/maxPoints, lastOrderWithinDays,
+     birthdayMonth, minTotalSpent/maxTotalSpent.
+
+3. Blazor UI (5_WebApps/ShopERP/Components/Pages/Admin/CustomerListGlobal.razor):
+   - REWRITE: removed campaign overview + "coming soon" note.
+   - Filter bar (points range, last-order-within-N-days, birthday month,
+     total-spent range) + results table with Tenant column (first 8 chars
+     of TenantId GUID) + Name/Phone/Tier/Points/TotalSpent/LastOrder/
+     Birthday/IdentityLevel/Status. Pagination 20/page. Empty state.
+   - Keeps [Authorize(Policy = "SystemAdmin")] + route /admin/customers-global.
+   - Uses UI Platform components (VanACard/VanAButton/VanAAlert) — no custom HTML/CSS.
+
+Tests (6 new, all PASS):
+   - VanAn.Core.Tests/Repositories/CustomerRepositoryCrossTenantTests (3):
+     A) returns customers from multiple tenants
+     B) bypasses global TenantId filter (returns data when ambient TenantId=Empty)
+     C) excludes soft-deleted + inactive customers
+   - VanAn.Integration.Tests/CustomerGlobalEndpointAuthTests (3):
+     D) SystemAdmin GET /api/customers/global -> 200 + cross-tenant customers
+     E) Staff -> 403 (StaffRoleWebApplicationFactory, TestScheme Staff role)
+     F) Anonymous -> auth-enforced (302 to /Login, not 200)
+
+Deviation from plan: "Push Subscribed" column deferred (requires
+PushSubscriptions join not in P1-T1 scope); replaced with "Trạng thái"
+(Active/Inactive) column. To be revisited in P2 (UX completions).
+
+Build: 0 errors. guard-check: ALL PASSED. No regressions in
+Customer/Excel/LoyaltyRewards test suites (31/31 PASS).
+
+Refs: docs/AI/tasks/loyalty_crm_audit_fix_master_plan-2c5017.md (P1-T1, S2)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

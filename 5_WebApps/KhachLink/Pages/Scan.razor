@@ -52,6 +52,14 @@
                                                        OnClick="@(() => { _scannedProduct = null; StateHasChanged(); })">
                                                 Quét Tiếp
                                             </VanAnButton>
+                                            @if (_scannedProduct.TenantId != Guid.Empty)
+                                            {
+                                                <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
+                                                           Icon="list"
+                                                           OnClick="@(() => Navigation.NavigateTo($"/store/by-id/{_scannedProduct.TenantId}"))">
+                                                    Xem Menu
+                                                </VanAnButton>
+                                            }
                                             <VanAnButton Size="ButtonSize.Small" Icon="cart-plus"
                                                        OnClick="@(() => Navigation.NavigateTo("/cart"))">
                                                 Xem Giỏ

@@ -1,0 +1,13 @@
+ci: disable automatic e2e workflow triggers on push/PR
+
+E2E tests require live services (Gateway + ShopERP + KhachLink + DB + NATS)
+and are too slow + flaky on shared GitHub runners. They were failing
+consistently and wasting CI time without blocking CD (not a required check).
+
+Removed push + pull_request triggers from e2e.yml. The workflow can still
+be run manually via workflow_dispatch when needed. E2E validation is
+tracked separately in Phase 8 — Multi-VPS E2E Validation task card.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

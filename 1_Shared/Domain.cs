@@ -1653,6 +1653,16 @@ namespace VanAn.Shared.Domain
         }
 
         /// <summary>
+        /// Set social campaign tracking code for conversion attribution.
+        /// Called during checkout when customer came from /c/{trackingCode} campaign link.
+        /// </summary>
+        public void SetTrackingCode(string? trackingCode)
+        {
+            TrackingCode = trackingCode;
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// Wave 5: Set per-order industry sector override (TT 152 S2a/S2b).
         /// If set, takes precedence over Tenant.DefaultIndustrySector when generating accounting entries.
         /// </summary>

@@ -23,6 +23,9 @@ namespace VanAn.CoreHub.Commands
 
         /// <summary>Issue 4: Customer note for the order (e.g. "ít đá", "giao trước 12h"). Saved to Order.CustomerNotes.</summary>
         public string? CustomerNotes { get; set; }
+
+        /// <summary>Campaign conversion tracking: social campaign tracking code (from /c/{trackingCode}).</summary>
+        public string? TrackingCode { get; set; }
     }
 
     public class OrderItemRequest

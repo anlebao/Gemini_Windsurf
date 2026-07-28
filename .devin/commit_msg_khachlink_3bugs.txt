@@ -1,0 +1,30 @@
+fix(khachlink): resolve tenant context for customer-facing endpoints + order ID display
+
+KhachLink bugs 1-3 fix (2026-07-27):
+
+Bug 1 (Profile page: points not shown, birthday not saved, push toggle not saved)
++ Bug 2 (Missions page: no data loaded):
+  Root cause: Customer-facing ShopERP endpoints (CustomerIdentityController,
+  CustomerProfileController, LoyaltyController, MissionsController,
+  NotificationsController, RedemptionController) are [AllowAnonymous] and
+  authenticate via X-Customer-Token header. ITenantProvider.TenantId was
+  Guid.Empty (no tenant_id claim in token-only auth), so the global TenantId
+  query filter on VanAnDbContext excluded all customer/mission/loyalty/
+  push-subscription records -> endpoints returned 404 or empty data.
+  Fix: New [ResolveCustomerTenant] action filter validates the customer token,
+  loads the customer's TenantId with IgnoreQueryFilters, and calls
+  ITenantProvider.SetTenant() so all subsequent queries in the request scope
+  use the correct tenant context. Applied to all 6 customer-facing controllers.
+
+Bug 3 (Order history: order ID mismatch with ShopERP):
+  KhachLink OrderHistory.razor displayed last 8 chars of OrderId
+  (order.OrderId.ToString()[^8..]) while ShopERP Orders/Index.razor displays
+  TrackingCode ?? first 8 chars (o.Id.ToString()[..8]). UUIDv7 orders have
+  meaningful prefix (timestamp-based) so the suffix never matched.
+  Fix: Changed KhachLink display to [..8] (first 8 chars) to match ShopERP.
+
+Build: 0 errors, 605 warnings (pre-existing CA). Solution-wide clean.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

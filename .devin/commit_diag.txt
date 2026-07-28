@@ -1,0 +1,28 @@
+fix(outbox): root cause A2 — Guid case mismatch (COLLATE NOCASE fix)
+
+ROOT CAUSE (confirmed via 4 evidence pieces on VPS):
+  1. ExecuteUpdateAsync returned rowsAffected=0 for lowercase Id rows
+  2. Container opens correct SQLite file: /app/keys/vanan_shoperp.db
+  3. All 3 WAL files exist (db, wal, shm)
+  4. ToDomain reflection works correctly (not the issue)
+
+  EF Core SQLite provider sends Guid parameters as UPPERCASE, but some
+  OutboxMessage rows have lowercase Ids (from NATS sync / JSON deserialization).
+  SQLite BINARY collation is case-sensitive → WHERE Id = @param doesn't match
+  → 0 rows affected → NatsSyncWorker re-publishes same event indefinitely.
+
+FIX:
+  - MarkAsProcessedAsync: raw SQL with COLLATE NOCASE + explicit UPPERCASE Guid
+  - MarkAsFailedAsync: same approach (raw SQL + COLLATE NOCASE)
+  - GetByIdAsync: FromSqlRaw with COLLATE NOCASE
+  - GetPendingEventsAsync: unchanged (queries by Status, not by Id — no case issue)
+
+  This is correct because .NET Guids are case-insensitive by definition
+  (Guid.Parse accepts both cases). COLLATE NOCASE aligns SQLite with .NET semantics.
+
+TESTS: 21/21 passed (17 NatsSyncWorker + 4 file-based evidence including
+  lowercase Id round-trip test that reproduces production bug).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

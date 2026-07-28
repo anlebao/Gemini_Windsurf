@@ -1,0 +1,18 @@
+{
+  "customerDeviceId": "rv-test-4bug-device-v2",
+  "orderType": "DineIn",
+  "customerNotes": "RV test Bug 4 - verify loyalty points",
+  "customerName": "RV Loyalty Tester",
+  "customerPhone": "0900000002",
+  "customerId": "764C4023-F1A8-4DEC-AFC7-89D272D44BCF",
+  "items": [
+    {
+      "productId": "33333333-3333-3333-3333-333333333333",
+      "quantity": 1,
+      "unitPrice": 150000,
+      "productName": "RV Test Featured Product",
+      "vatRate": 0.10,
+      "tenantId": "00000000-0000-0000-0000-000000000001"
+    }
+  ]
+}

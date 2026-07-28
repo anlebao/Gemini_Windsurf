@@ -1,0 +1,21 @@
+fix(loyalty): Bug 6 — IgnoreQueryFilters for customer/rewards lookup
+
+Root cause: LoyaltyRewardsRepository.GetCustomerByIdAsync and
+GetByCustomerIdAsync used the default DbContext query which applies
+the global TenantId query filter. When a customer stub was created
+in ProcessLoyaltyPointsAsync (with order.TenantId) but the ambient
+ITenantProvider.TenantId did not match (e.g., SystemAdmin impersonation
+or different tenant scope), the lookup returned null, causing
+AddPointsAsync to throw "Customer not found".
+
+Fix: Add IgnoreQueryFilters() to both lookup methods. CustomerId is
+a globally unique PK (single-identity pattern), so tenant filtering
+is not needed for these direct ID lookups.
+
+Verified on VPS: order 019fa25b transitioned to completed successfully
+(HTTP 200, status=completed), customer stub b5ed62c9 created, but
+AddPointsAsync failed at GetCustomerByIdAsync before this fix.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

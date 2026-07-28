@@ -1,0 +1,27 @@
+feat(loyalty): AF-P1-T3 Missions pagination — 20/page + "Xem thêm" button
+
+Repository:
+ - IMissionRepository.GetCompletionsByCustomerPagedAsync(customerId, page, pageSize) → (Items, Total)
+ - MissionRepository: Skip/Take + CountAsync, page 1-based, pageSize clamped 1-100
+
+Service:
+ - IMissionService.GetCustomerCompletionsPagedAsync → delegates to repository
+ - MissionService: pass-through to repository
+
+Controller (ShopERP):
+ - MissionsController.GetMyCompletions: accepts page + pageSize query params (default 1/20)
+ - Returns { items, total, page, pageSize, hasMore } instead of flat list
+
+Gateway:
+ - MissionsController.ForwardAsync: forwards Request.QueryString (enables ?page=2&pageSize=20)
+
+UI (KhachLink):
+ - Missions.razor: loads page 1 (20 items) on init, "Xem thêm" button appends next page
+ - State: _completionsPage, _completionsHasMore, _completionsTotal, _completionsLoadingMore
+ - PaginatedCompletionsResponse DTO for deserializing new response shape
+
+Build 0 errors. guard-check ALL PASSED. No regressions (14/14 mission+toggle tests PASS).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

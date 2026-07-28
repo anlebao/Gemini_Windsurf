@@ -1,0 +1,25 @@
+fix(tests): use VanAnDbContext (superset) for EnsureCreated in test factories
+
+8 W5/W7 accounting tests failed with 'no such table: JournalEntries' during
+SeedVasDataAsync. Root cause: CustomWebApplicationFactory and
+AuthRealWebApplicationFactory called EnsureCreated on ShopERPDbContext only.
+ShopERPDbContext excludes accounting entities (JournalEntries, AccountCharts,
+AccountingEntries, etc.) — its EnsureCreated never creates those tables.
+VanAnDbContext.EnsureCreatedAsync() in tests was a no-op (database already
+exists from ShopERPDbContext.EnsureCreated).
+
+Fix: Call EnsureCreated on VanAnDbContext instead of ShopERPDbContext.
+VanAnDbContext is the SUPERSET model — includes both business AND accounting
+entities. Its EnsureCreated creates ALL tables. ShopERPDbContext shares the
+same SQLite connection and its tables are a subset, so no separate
+EnsureCreated is needed.
+
+Also changed IsSchemaCreated() parameter type from ShopERPDbContext to
+DbContext (base type) so both contexts can use it.
+
+Result: 23 failed -> 15 failed (+8 tests passing, no regressions).
+All 9 VasReportsEndpointTests now PASS.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

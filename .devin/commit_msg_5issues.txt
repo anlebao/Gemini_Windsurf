@@ -1,0 +1,11 @@
+fix(ux): resolve 5 customer-reported issues (kitchen status, order list actions, birthday, notes, KhachLink home)
+
+1. Kitchen Display: transition ready -> delivered -> completed (was using invalid "delivering" status)
+2. Orders list: inline status transition buttons (confirm/preparing/ready/deliver/complete/cancel) - no detail view needed
+3. Customer birthday: /api/customer-identity/me now returns Birthday so Profile.razor loads saved value
+4. Order notes: moved note input from broken /voice-note page to Cart page; flows through checkout to Order.CustomerNotes via new CreateOrderCommand.CustomerNotes + Order.SetCustomerNotes domain method
+5. KhachLink Home: hide campaign + store sections for new customers (no _lastTenantId yet); move reconnect indicator from top-right to top-left to avoid obscuring home icon
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

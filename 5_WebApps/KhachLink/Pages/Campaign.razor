@@ -6,6 +6,7 @@
 @inject ISocialCampaignService CampaignService
 @inject ProductHttpService ProductService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>@(CampaignData?.CampaignName ?? "Khuyến mãi")</PageTitle>
 
@@ -88,6 +89,10 @@
             }
             else
             {
+                // Record click for campaign analytics (fire-and-forget, non-blocking)
+                _ = CampaignService.RecordClickAsync(TrackingCode);
+                // Store tracking code for checkout conversion tracking
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "campaign_tracking_code", TrackingCode);
                 Guid tenantId = CampaignData.TenantId.Value;
                 Products = await ProductService.GetProductsAsync(tenantId);
             }

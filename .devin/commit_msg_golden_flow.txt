@@ -1,0 +1,27 @@
+fix(tests): skip dual-migration in Testing env + set ShopInstance:Id
+
+2 Golden Flow tests failed with 'table AccountCharts already exists' crash:
+- GoldenFlow_HealthCheck_ReturnsHealthy
+- OrderFlow_KhachLink_To_ShopERP_To_KhachLink
+
+Root cause: Program.Main migrates BOTH VanAnDbContext (PG) and ShopERPDbContext
+(SQLite). In production they use separate databases. In WebApplicationFactory
+tests they share one SQLite connection - both migrations create AccountCharts,
+second MigrateAsync crashes.
+
+Fix (3 files, 2 concerns):
+1. Program.cs: guard entire migration+seed block with
+   if (!app.Environment.IsEnvironment("Testing")) - factory EnsureCreated()
+   handles schema creation in test environment.
+2. CustomWebApplicationFactory + AuthRealWebApplicationFactory:
+   - Set environment to Testing via builder.UseEnvironment()
+   - Add ShopInstance:Id config (OrderSyncSubscriber IHostedService requires it
+     to route NATS subscriptions - without it, host startup throws)
+
+Result: 43 failed -> 28 failed (+15 tests now passing, no regressions).
+Both Golden Flow tests PASS. Remaining 28 failures are pre-existing
+BadRequest issues in other test groups.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
