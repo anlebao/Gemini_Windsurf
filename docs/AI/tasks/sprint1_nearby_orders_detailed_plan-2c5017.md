@@ -1,11 +1,17 @@
-# Sprint 1 Detailed Plan — Nearby Orders + Accept (v1.3: +CC-S1-T0 "delivering" status + Facebook UI + NavMenu)
+# Sprint 1 Detailed Plan — Nearby Orders + Accept (v1.3: +CC-S1-T0 "delivering" status + Facebook UI + NavMenu) (v1.5: +CC-S1-T0c Customer Login Simplify)
 
-TDD plan (10 test cases + 3 v1.3 cases), coding plan (4 sessions), API specs, Haversine formula, UI specs, **CC-S1-T0 Domain Modification (v1.3 NEW)**.
+TDD plan (10 test cases + 3 v1.3 cases), coding plan (4 sessions), API specs, Haversine formula, UI specs, **CC-S1-T0 Domain Modification (v1.3 NEW)**, **CC-S1-T0c Customer Login Simplify (v1.5 NEW)**.
 
 > **v1.3 changes:**
 > - **CC-S1-T0 (NEW task, FIRST in sprint):** Domain Modification — add `"delivering"` vào `OrderStatuses.Default[]` (Domain.cs:458-508) + add transition rules trong `OrderWorkflowService.IsTransitionValidAsync` (line 411-440). Status hiện: `OrderStatusId.Delivering` (Domain.cs:429) ĐÃ CÓ nhưng `Default[]` + transitions CHƯA có.
-> - **Facebook login UI:** Add Facebook button vào `Login.razor` (controller đã có `SocialAuthController.cs`).
+> - **Facebook login UI:** Add Facebook button vào `Login.razor` (controller đã có `SocialAuthController.cs`). **(v1.5: merged into CC-S1-T0c)**
 > - **NavMenu.razor community tabs:** Add Nearby Orders + Wallet + Sales Dashboard tabs (conditional on CommunityRole).
+
+> **v1.5 changes (NEW — CC-S1-T0c):**
+> - **Customer login simplify:** Xóa SMS OTP khỏi Login.razor primary flow. Rewrite IdentityUpgradeModal từ OTP flow → 3 buttons (Google + Facebook + Guest=skip).
+> - **Checkout flow không login chen ngang:** Khách đặt hàng trực tiếp (guest form có sẵn). Modal "Nâng cấp tài khoản" chỉ show SAU khi đơn hàng hoàn tất.
+> - **OTP endpoints GIỮ NGUYÊN:** `/api/customer-identity/otp/*` + `/upgrade/*` không xóa — dùng cho Sprint 6 collaborator verification toggle.
+> - **Facebook controller:** Add `GET /api/auth/facebook/login` + `/callback` (stub hoặc real OAuth). SocialAuthController hiện chỉ có Google.
 
 ---
 
@@ -59,6 +65,146 @@ new OrderStatusDefinition
 
 ### 0.4 Session assignment
 **Session S1 (FIRST):** Implement CC-S1-T0 before any other Sprint 1 work. 30 min task.
+
+---
+
+## 0.5. CC-S1-T0c: CUSTOMER LOGIN SIMPLIFY (v1.5 NEW — SECOND task, after CC-S1-T0)
+
+> **Không cần Domain Modification** — chỉ UI + Controller changes. Aligns v1.2 "SMS OTP OPTIONAL" cho customer + v1.5 UC-01 AC-01.10/AC-01.11.
+
+### 0.5.1 Current state (verified 2026-07-29)
+- **Login.razor** (5_WebApps/KhachLink/Pages/Login.razor): 3-step flow `Phone → Otp → Success`. Google button có (line 19-32). SĐT input + SendOtp (line 39-54). OTP input + VerifyOtp (line 56-82). OAuth callback handler (line 113-160).
+- **IdentityUpgradeModal.razor** (5_WebApps/KhachLink/Components/): 3-step OTP flow `Intro → OtpSent → Success`. Buttons: "Nâng cấp ngay" (send OTP) → "Xác nhận OTP" → "Hoàn tất". Show sau checkout success (Checkout.razor:232-234, `_showLoyaltySignupModal=true`).
+- **SocialAuthController.cs** (5_WebApps/ShopERP/Controllers/): chỉ có `GET /api/auth/google/login` + `GET /api/auth/google/callback`. **KHÔNG có Facebook.**
+- **SocialAuthHttpService.cs** (5_WebApps/KhachLink/Services/Http/): có `SendUpgradeOtpAsync` + `VerifyUpgradeOtpAsync` (sẽ không còn dùng sau rewrite).
+- **OTP endpoints** (CustomerIdentityController.cs): `/otp/send` + `/otp/verify` + `/upgrade/send-otp` + `/upgrade/verify-otp` — **GIỮ NGUYÊN** (Sprint 6 collaborator toggle).
+- **Checkout.razor**: guest form có sẵn (line 124-186), `_isLoggedIn` check (line 285), `_showLoyaltySignupModal` (line 264). **KHÔNG sửa** — flow đã đúng (guest checkout → modal sau success).
+
+### 0.5.2 Changes cần làm
+
+**File 1: `5_WebApps/KhachLink/Pages/Login.razor` — xóa SMS OTP, giữ Google + thêm Facebook + Guest**
+```
+REMOVE:
+- LoginStep.Otp enum value (giữ Phone→rename Choice, Success)
+- _phone, _otp fields
+- SendOtp() method
+- VerifyOtp() method
+- OnPhoneKeyUp, OnOtpKeyUp methods
+- SĐT input form (line 39-54)
+- OTP input form (line 56-82)
+- CustomerIdentityResult class (nếu không còn dùng)
+
+KEEP:
+- LoginStep enum (Phone→Choice, Success)
+- LoginStep.Success step UI
+- Google button + LoginWithGoogle() method
+- OAuth callback handler (OnAfterRenderAsync firstRender)
+- RegisterDeviceFingerprintAsync (CC-S0-T3 wire-up)
+
+ADD:
+- Facebook button (redirect /api/auth/facebook/login)
+- "Tiếp tục as Guest" button (NavigateTo "/")
+```
+
+**File 2: `5_WebApps/KhachLink/Components/IdentityUpgradeModal.razor` — REWRITE: 3 buttons thay OTP**
+```razor
+<VanAnModal Title="Nâng cấp tài khoản">
+  <div class="text-center">
+    <h4>Tích điểm thưởng + xem lịch sử đơn hàng</h4>
+    <p class="text-muted">Đăng nhập để tích điểm và đổi quà hấp dẫn</p>
+    
+    <!-- Google button -->
+    <VanAnButton OnClick="LoginWithGoogle">Đăng nhập với Google</VanAnButton>
+    
+    <!-- Facebook button -->
+    <VanAnButton OnClick="LoginWithFacebook">Đăng nhập với Facebook</VanAnButton>
+    
+    <!-- Guest skip -->
+    <VanAnButton Variant="Secondary" OnClick="OnDismiss">Bỏ qua</VanAnButton>
+  </div>
+</VanAnModal>
+
+REMOVE:
+- UpgradeStep enum (Intro, OtpSent, Success)
+- _otp, _phoneSuffix, _successMessage, _loading, _cachedToken fields
+- SendUpgradeOtp(), VerifyUpgradeOtp(), BackToIntro(), OnOtpKeyUp(), HandleUpgradeComplete() methods
+- GetTokenAsync() helper
+- SocialAuthHttpService inject (không còn dùng OTP methods)
+
+KEEP:
+- ShowModal, OnDismiss, OnUpgradeComplete parameters
+- JSRuntime inject (cho redirect)
+
+ADD:
+- LoginWithGoogle() — redirect to /api/auth/google/login
+- LoginWithFacebook() — redirect to /api/auth/facebook/login
+- Inject NavigationManager + IHttpClientFactory (for gateway base URL)
+```
+
+**File 3: `5_WebApps/KhachLink/Services/Http/SocialAuthHttpService.cs` — xóa OTP methods**
+```
+REMOVE:
+- SendUpgradeOtpAsync(token)
+- VerifyUpgradeOtpAsync(token, otp)
+- Related DTOs (UpgradeOtpResponse, etc. nếu không dùng chỗ khác)
+
+KEEP:
+- Các method khác (Google auth, profile, v.v.)
+```
+
+**File 4: `5_WebApps/ShopERP/Controllers/SocialAuthController.cs` — add Facebook endpoints**
+```csharp
+[HttpGet("facebook/login")]
+public IActionResult FacebookLogin([FromQuery] string? redirectTo = null)
+{
+    // Stub: redirect to KhachLink login with warning (Facebook OAuth credentials chưa setup)
+    // Sprint 7+ sẽ config real Facebook OAuth
+    var khachLinkLoginUrl = _configuration["Google:KhachLinkLoginUrl"] ?? "http://localhost:5002/login";
+    _logger.LogWarning("[FacebookAuth] Login stub — Facebook OAuth credentials not configured. Redirecting to login.");
+    return Redirect($"{khachLinkLoginUrl}?error=facebook_not_configured&provider=facebook");
+}
+
+[HttpGet("facebook/callback")]
+public async Task<IActionResult> FacebookCallback(...)
+{
+    // Stub — same pattern. Real implementation Sprint 7+.
+}
+```
+
+### 0.5.3 Kịch bản Guest button (chi tiết)
+```
+1. Khách bấm [Tiếp tục as Guest] trên Login.razor
+   → NavigateTo("/") (KHÔNG gọi API, KHÔNG tạo token)
+   → localStorage KHÔNG có customer_token, customer_id
+   → _isLoggedIn = false
+
+2. Khách thêm hàng vào cart → vào Checkout.razor
+   → OnAfterRenderAsync: đọc localStorage customer_token → null → _isLoggedIn = false
+   → showGuestForm = true (form guest có sẵn — line 124-186)
+   → KHÔNG pre-fill name/phone (không có profile)
+
+3. Khách điền guestName + guestPhone + guestAddress → bấm [Đặt hàng]
+   → SubmitGuestOrder (Checkout.razor:332)
+   → Generate/reuse CustomerDeviceId (localStorage "customer_device_id")
+   → customerIdForOrder = null (vì _isLoggedIn=false)
+   → POST /api/orders { CustomerDeviceId, CustomerName, CustomerPhone, CustomerId: null, Items }
+
+4. Order tạo thành công → _showLoyaltySignupModal = true (Checkout.razor:501)
+   → IdentityUpgradeModal show với 3 buttons:
+     - [Đăng nhập với Google] → OAuth redirect → login → link order to Customer
+     - [Đăng nhập với Facebook] → (stub) redirect → login → link order
+     - [Bỏ qua] → OnDismiss → order vẫn hợp lệ, tích điểm qua DeviceId fallback (Bug 6 fix)
+```
+
+### 0.5.4 Test cases (3 NEW — v1.5)
+| # | Test Name | What It Verifies |
+|---|---|---|
+| T0c.1 | `Login_Page_NoOtpForm` (v1.5 NEW) | Login.razor render KHÔNG có SĐT input + OTP input. Chỉ có Google + Facebook + Guest buttons. |
+| T0c.2 | `IdentityUpgradeModal_ShowsThreeButtons` (v1.5 NEW) | Modal render 3 buttons (Google + Facebook + "Bỏ qua"). KHÔNG có OTP input. |
+| T0c.3 | `Otp_Endpoints_StillWork` (v1.5 NEW) | `POST /api/customer-identity/otp/send` + `/otp/verify` vẫn trả 200 (không xóa). Regression. |
+
+### 0.5.5 Session assignment
+**Session S1.5 (SECOND, after CC-S1-T0):** Implement CC-S1-T0c. 45 min task. Không cần Domain change.
 
 ---
 
@@ -149,14 +295,28 @@ private static double CalculateHaversineKm(double lat1, double lng1, double lat2
 
 ## 4. CODING PLAN — SESSION BREAKDOWN
 
-### Session S1: Service + Unit Tests (TDD)
+### Session S1: CC-S1-T0 Domain Modification (delivering status)
+- Add "delivering" vào OrderStatuses.Default[] (Domain.cs)
+- Add transition rules trong OrderWorkflowService.IsTransitionValidAsync
+- 3 test cases (T0.1, T0.2, T0.3)
+- `dotnet test` — all 3 pass
+
+### Session S1.5: CC-S1-T0c Customer Login Simplify (v1.5 NEW)
+- Rewrite Login.razor: xóa SĐT + OTP, giữ Google + thêm Facebook + Guest
+- Rewrite IdentityUpgradeModal.razor: 3 buttons thay OTP flow
+- Add Facebook stub endpoints trong SocialAuthController.cs
+- Xóa OTP methods trong SocialAuthHttpService.cs
+- 3 test cases (T0c.1, T0c.2, T0c.3)
+- `dotnet build` + `dotnet test` — all pass
+
+### Session S2: Service + Unit Tests (TDD)
 - Write test file FIRST (10 test cases)
 - Write `ICommunityOrderService` + `CommunityOrderService`
 - Haversine implementation
 - Mock IVanAnDbContext in tests
 - `dotnet test` — all 10 pass
 
-### Session S2: Gateway Controller + DI
+### Session S3: Gateway Controller + DI
 - Create `CommunityController.cs` — GET nearby-orders, POST accept
 - Auth: X-Customer-Token → resolve CustomerId (reuse ICustomerTokenService)
 - Add `RequireCommunityRole` check (query CommunityRoles table)
@@ -164,20 +324,22 @@ private static double CalculateHaversineKm(double lat1, double lng1, double lat2
 - `dotnet build` — fix errors
 - Integration test: controller returns correct responses
 
-### Session S3: KhachLink UI
+### Session S4: KhachLink UI
 - Create `CommunityHttpService.cs` — HTTP calls to Gateway
 - Create `NearbyOrders.razor` — GPS button + list + accept button
 - GPS: `IJSRuntime` invoke `navigator.geolocation.getCurrentPosition`
 - UI Platform components: VanAnButton, VanAnCard, VanAnList
+- Add NavMenu.razor community tabs (conditional on CommunityRole)
 - DI registration in `KhachLink/Program.cs`
 - `dotnet build` — fix errors
 
-### Session S4: E2E Test + Final
+### Session S5: E2E Test + Final
 - Write `community-nearby-orders.spec.ts`
 - Test flow: login → nearby orders page → GPS → see list → accept → order detail
 - `guard-check.ps1` pass
 - Architecture tests pass
-- OTP regression pass
+- OTP regression pass (endpoints still work)
+- Login simplify regression (no OTP form, 3 buttons in modal)
 - Update `project_state.md`
 
 ---
@@ -210,3 +372,7 @@ private static double CalculateHaversineKm(double lat1, double lng1, double lat2
 | RV1-3 | Double accept | `curl -X POST -H 'X-Customer-Token: {token2}' .../orders/{id}/accept` | 409 Conflict |
 | RV1-4 | E2E Playwright | `npx playwright test community-nearby-orders.spec.ts` | PASS |
 | RV1-5 | DB check | `psql -c "SELECT * FROM \"DeliveryTasks\" WHERE \"ShipperId\" IS NOT NULL"` | ≥1 row |
+| RV1-6 (v1.5) | Login page no OTP | `curl -sk https://diemthuong.khachvip.online/login` | HTML KHÔNG chứa "Gửi mã OTP" + có "Tiếp tục as Guest" |
+| RV1-7 (v1.5) | OTP endpoints still work | `curl -X POST https://api.khachvip.online/api/customer-identity/otp/send -d '{"phoneNumber":"0901234567"}'` | 200 (không xóa) |
+| RV1-8 (v1.5) | Facebook login endpoint | `curl -sk -o /dev/null -w '%{http_code}' https://api.khachvip.online/api/auth/facebook/login` | 302 (stub redirect) |
+| RV1-9 (v1.5) | Checkout→modal flow | Playwright: guest checkout → order success → modal show 3 buttons | PASS |

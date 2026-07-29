@@ -1,8 +1,8 @@
-# TASK CARD: Community Commerce — Sprint 1 — Shipper Nearby Orders + Accept
+# TASK CARD: Community Commerce — Sprint 1 — Shipper Nearby Orders + Accept + Customer Login Simplify (v1.5)
 
 ## 1. GOAL & CONTEXT
-- **Mục tiêu cốt lõi:** Shipper thấy đơn DELIVERY trong bán kính 5km + nhận đơn (accept) với concurrency safety.
-- **Nghiệp vụ áp dụng:** UC-03 (Nearby Orders) + UC-04 (Accept Order) từ requirements spec.
+- **Mục tiêu cốt lõi:** (A) Shipper thấy đơn DELIVERY trong bán kính 5km + nhận đơn (accept) với concurrency safety. (B) **v1.5 NEW (CC-S1-T0c):** Customer login simplify — xóa SMS OTP khỏi Login.razor primary flow, rewrite IdentityUpgradeModal thành 3 buttons (Google + Facebook + Guest=skip).
+- **Nghiệp vụ áp dụng:** UC-03 (Nearby Orders) + UC-04 (Accept Order) + **UC-01 v1.5 (Customer login simplify)** từ requirements spec.
 - **Status:** NOT STARTED
 - **Branch:** `feature/community-sprint1-nearby-orders`
 
@@ -34,8 +34,13 @@
 - `1_Shared/Domain.cs` — Order: add `SetDeliveryLocation(double lat, double lng)` method (F2 fix — DeliveryLat/DeliveryLng fields có từ Sprint 0 nhưng chưa có domain method để set. Cần set khi shipper accept đơn DELIVERY)
 - **v1.3 NEW — Domain Modification (CC-S1-T0):** `1_Shared/Domain.cs` — `OrderStatuses.Default[]` add `"delivering"` OrderStatusDefinition (Sequence=5, DisplayName="Đang giao", RequiresInventoryDeduction=false) + shift "completed"→Sequence=6, "cancelled"→Sequence=7. **Status hiện:** `OrderStatusId.Delivering` (Domain.cs:429) ĐÃ TỒN TẠI nhưng `OrderStatuses.Default[]` (Domain.cs:458-508) CHỈ có 6 trạng thái — KHÔNG có "delivering". Cần add.
 - **v1.3 NEW — Domain Modification (CC-S1-T0):** `3_CoreHub/Services/OrderWorkflowService.cs` — `IsTransitionValidAsync` (line 411-440) add "delivering" vào validTransitions: `["ready"] = ["completed", "cancelled", "delivered", "delivering"]` + `["delivering"] = ["completed", "cancelled", "delivered"]`. **Status hiện:** transitions có "delivered" nhưng KHÔNG có "delivering" → shipper accept đơn `ready` không thể chuyển sang `delivering`.
-- **v1.3 NEW — UI Modification:** `5_WebApps/KhachLink/Pages/Login.razor` — add Facebook login button (controller `SocialAuthController.cs` đã có, UI button chưa có). Redirect to `/api/auth/facebook/login`.
 - **v1.3 NEW — UI Modification:** `5_WebApps/KhachLink/Components/Layout/NavMenu.razor` — add community tabs (Nearby Orders, Wallet, Sales Dashboard) cho shipper/salesman role. Conditional display based on CommunityRole.
+
+### Files cần MODIFY — v1.5 NEW (CC-S1-T0c: Customer Login Simplify)
+- **`5_WebApps/KhachLink/Pages/Login.razor`** — xóa SMS OTP khỏi primary flow: remove `LoginStep.Otp` enum value, remove `_phone`/`_otp` fields, remove `SendOtp()` + `VerifyOtp()` methods, remove SĐT input form + OTP input form. Giữ `LoginStep.Phone` (rename→`LoginStep.Choice`) + `LoginStep.Success`. UI mới: Google button + Facebook button + "Tiếp tục as Guest" button (NavigateTo `/`). OAuth callback handler giữ nguyên (Google token từ URL query). **Lưu ý:** KHÔNG xóa OTP endpoints (`/api/customer-identity/otp/*`) — giữ cho collaborator verification (Sprint 6 toggle).
+- **`5_WebApps/KhachLink/Components/IdentityUpgradeModal.razor`** — REWRITE: thay OTP flow (Intro→OtpSent→Success) bằng 3 buttons layout. Modal title "Nâng cấp tài khoản" giữ. Body mới: Google button (redirect `/api/auth/google/login`) + Facebook button (redirect `/api/auth/facebook/login`) + "Bỏ qua" button (OnDismiss). Xóa `SendUpgradeOtp` + `VerifyUpgradeOtp` + `_otp`/`_phoneSuffix`/`_upgradeStep` state. Giữ `ShowModal`/`OnDismiss`/`OnUpgradeComplete` params. **Kịch bản:** Modal show sau khi đơn hàng hoàn tất (Checkout.razor `_showLoyaltySignupModal=true`) → khách chọn 1 trong 3: Google/Facebook (login + link order) hoặc Guest (skip, order vẫn hợp lệ, tích điểm qua DeviceId fallback).
+- **`5_WebApps/KhachLink/Services/Http/SocialAuthHttpService.cs`** — xóa `SendUpgradeOtpAsync` + `VerifyUpgradeOtpAsync` methods (không còn dùng sau khi IdentityUpgradeModal rewrite). Giữ các method khác.
+- **`5_WebApps/ShopERP/Controllers/SocialAuthController.cs`** — add `GET /api/auth/facebook/login` + `GET /api/auth/facebook/callback` (Facebook OAuth flow, tương tự Google). **Status hiện:** chỉ có Google login/callback. Facebook controller CHƯA có (spec v1.3 AC-01.2 yêu cầu). Nếu Facebook OAuth credentials chưa setup → tạo stub redirect với warning log (Sprint 7+ sẽ config real credentials).
 
 ### Files READ ONLY
 - `2_Gateway/Controllers/OrdersController.cs` — controller pattern reference
@@ -74,7 +79,13 @@
 - [ ] **SC9:** `dotnet build` 0 errors + `guard-check.ps1` pass
 - [ ] **SC10:** E2E test: shipper login → nearby → accept → order detail
 - [ ] **SC11:** Architecture tests pass
-- [ ] **SC12:** OTP login regression pass
+- [ ] **SC12:** OTP login regression pass (OTP endpoints vẫn hoạt động — không xóa)
+- [ ] **SC13 (v1.5 NEW — CC-S1-T0c):** Login.razor KHÔNG còn SĐT input + OTP input + SendOtp/VerifyOtp methods. Chỉ có Google button + Facebook button + "Tiếp tục as Guest" button.
+- [ ] **SC14 (v1.5 NEW — CC-S1-T0c):** IdentityUpgradeModal hiển thị 3 buttons (Google + Facebook + "Bỏ qua") thay vì OTP flow. Modal show sau checkout success (Checkout.razor `_showLoyaltySignupModal=true`).
+- [ ] **SC15 (v1.5 NEW — CC-S1-T0c):** Guest button → NavigateTo `/` (không token, không CustomerId). Checkout vẫn hoạt động (form guest có sẵn). Order history qua `CustomerDeviceId`. Tích điểm qua DeviceId fallback (Bug 6 fix).
+- [ ] **SC16 (v1.5 NEW — CC-S1-T0c):** Facebook login endpoint `GET /api/auth/facebook/login` tồn tại (stub hoặc real OAuth flow). UI button redirect đúng.
+- [ ] **SC17 (v1.5 NEW — CC-S1-T0c):** OTP endpoints `/api/customer-identity/otp/send` + `/otp/verify` + `/upgrade/send-otp` + `/upgrade/verify-otp` VẪN trả 200 (không xóa — giữ cho Sprint 6 collaborator verification toggle).
+- [ ] **SC18 (v1.5 NEW — CC-S1-T0c):** Checkout flow KHÔNG có login chen ngang — khách đặt hàng trực tiếp, modal "Nâng cấp tài khoản" chỉ show SAU khi đơn hàng hoàn tất.
 
 **Branch:** `feature/community-sprint1-nearby-orders`
 

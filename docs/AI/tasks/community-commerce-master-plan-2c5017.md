@@ -150,7 +150,7 @@ docs/AI/tasks/sprint0_foundation_detailed_plan-2c5017.md     — Detailed plan (
 | # | Task ID | Task | Depends on | Task card | Detailed plan |
 |---|---|---|---|---|---|
 | 4 | CC-S1-T0 (v1.1 NEW) | Verify/Add `"delivering"` OrderStatus + transition rules | CC-S0-T1 | `task_cc_sprint1_nearby_orders-2c5017.md` | `sprint1_nearby_orders_detailed_plan-2c5017.md` |
-| 4b (v1.5 NEW) | **CC-S1-T0c** | **Customer login simplify** — xóa SMS OTP khỏi Login.razor primary flow (giữ Google button + thêm Guest button). Aligns v1.2 "SMS OTP OPTIONAL" cho customer. SMS OTP endpoints giữ (dùng cho CC-S6-T5 collaborator verify). Guest button → nhập tên+SĐT (không token) → checkout as guest. | CC-S0-T3 | same | same |
+| 4b (v1.5 NEW) | **CC-S1-T0c** | **Customer login simplify** — xóa SMS OTP khỏi Login.razor primary flow (giữ Google + thêm Facebook + Guest button). **REWRITE IdentityUpgradeModal** từ OTP flow → 3 buttons (Google + Facebook + "Bỏ qua"). Checkout flow KHÔNG login chen ngang — modal "Nâng cấp tài khoản" chỉ show SAU khi đơn hàng hoàn tất. Add Facebook stub endpoints trong SocialAuthController. SMS OTP endpoints GIỮ NGUYÊN (dùng cho CC-S6-T5 collaborator verify). Guest button → NavigateTo `/` → checkout as guest (form có sẵn) → modal sau success. | CC-S0-T3 | same | same |
 | 5 | CC-S1-T1 | Nearby orders API (Haversine) | CC-S0-T2, CC-S1-T0 | same | same |
 | 6 | CC-S1-T2 | Accept order API + concurrency | CC-S1-T1 | same | same |
 | 7 | CC-S1-T3 | KhachLink Nearby Orders page | CC-S1-T1, CC-S1-T2 | same | same |

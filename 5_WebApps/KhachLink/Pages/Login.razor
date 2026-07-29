@@ -15,9 +15,10 @@
                 <i class="bi bi-person-circle text-primary"></i> Đăng nhập
             </h3>
 
-            @if (_step == LoginStep.Phone)
+            @if (_step == LoginStep.Choice)
             {
-                <!-- Tiered Auth Phase 3: Google Social Login button (free, no OTP cost) -->
+                <!-- CC-S1-T0c (v1.5): Customer login simplify — xóa SMS OTP khỏi primary flow.
+                     Chỉ giữ Google + Facebook + Guest. OTP endpoints giữ cho collaborator (Sprint 6 toggle). -->
                 <VanAnButton Variant="ButtonVariant.Outline"
                              FullWidth="true"
                              CssClass="mb-3 d-flex align-items-center justify-content-center gap-2"
@@ -32,54 +33,33 @@
                     Đăng nhập với Google
                 </VanAnButton>
 
+                <VanAnButton Variant="ButtonVariant.Outline"
+                             FullWidth="true"
+                             CssClass="mb-3 d-flex align-items-center justify-content-center gap-2"
+                             OnClick="LoginWithFacebook"
+                             TestId="btn-facebook-login">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    Đăng nhập với Facebook
+                </VanAnButton>
+
                 <div class="text-center text-muted my-3" style="font-size:0.85rem;">
                     <span style="background:var(--bs-body-bg); padding:0 8px; position:relative; z-index:1;">hoặc</span>
                     <hr class="mt-n3" />
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Số điện thoại</label>
-                    <input type="tel" class="form-control form-control-lg"
-                           placeholder="0901234567"
-                           @bind="_phone" @bind:event="oninput"
-                           @onkeyup="OnPhoneKeyUp" />
-                </div>
                 @if (_error != null)
                 {
                     <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
                 }
-                <VanAnButton Variant="ButtonVariant.Primary"
+                <VanAnButton Variant="ButtonVariant.Secondary"
                              FullWidth="true"
-                             OnClick="SendOtp">
-                    @(_loading ? "Đang gửi..." : "Gửi mã OTP")
+                             OnClick="ContinueAsGuest"
+                             TestId="btn-guest-login">
+                    <i class="bi bi-bag me-2"></i>
+                    Tiếp tục as Guest
                 </VanAnButton>
-            }
-            else if (_step == LoginStep.Otp)
-            {
-                <p class="text-muted text-center mb-3">
-                    Nhập mã OTP đã gửi đến <strong>@_phone</strong>
-                </p>
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Mã OTP (6 chữ số)</label>
-                    <input type="number" class="form-control form-control-lg text-center"
-                           placeholder="123456" maxlength="6"
-                           @bind="_otp" @bind:event="oninput"
-                           @onkeyup="OnOtpKeyUp" />
-                </div>
-                @if (_error != null)
-                {
-                    <VanAnAlert Variant="AlertVariant.Error" Message="@_error" />
-                }
-                <VanAnButton Variant="ButtonVariant.Primary"
-                             FullWidth="true"
-                             OnClick="VerifyOtp">
-                    @(_loading ? "Đang xác nhận..." : "Xác nhận")
-                </VanAnButton>
-                <div class="text-center mt-2">
-                    <button class="btn btn-link btn-sm" @onclick="() => { _step = LoginStep.Phone; _error = null; }">
-                        Đổi số điện thoại
-                    </button>
-                </div>
             }
             else if (_step == LoginStep.Success)
             {
@@ -94,29 +74,17 @@
 </KhachLinkLayout>
 
 @code {
-    private enum LoginStep { Phone, Otp, Success }
-    private LoginStep _step = LoginStep.Phone;
-    private string _phone = "";
-    private string _otp = "";
-    private bool _loading = false;
+    // CC-S1-T0c (v1.5): LoginStep.Otp removed — SMS OTP no longer in primary flow.
+    private enum LoginStep { Choice, Success }
+    private LoginStep _step = LoginStep.Choice;
     private string? _error;
-
-    private async Task OnPhoneKeyUp(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await SendOtp();
-    }
-
-    private async Task OnOtpKeyUp(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await VerifyOtp();
-    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             // Tiered Auth Phase 3: Check for OAuth callback token in URL query param
-            // Google OAuth flow: Login → Google consent → ShopERP callback → redirect here with ?token=...&provider=google
+            // Google/Facebook OAuth flow: Login → consent → ShopERP callback → redirect here with ?token=...&provider=...
             var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
             var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
             var callbackToken = query["token"];
@@ -127,9 +95,11 @@
             if (!string.IsNullOrEmpty(callbackError))
             {
                 _error = callbackError == "auth_failed"
-                    ? "Đăng nhập Google thất bại. Vui lòng thử lại."
-                    : $"Lỗi: {callbackError}";
-                _step = LoginStep.Phone;
+                    ? "Đăng nhập thất bại. Vui lòng thử lại."
+                    : (callbackError == "facebook_not_configured"
+                        ? "Đăng nhập Facebook chưa được cấu hình. Vui lòng dùng Google hoặc Guest."
+                        : $"Lỗi: {callbackError}");
+                _step = LoginStep.Choice;
                 StateHasChanged();
                 // Clean URL
                 Navigation.NavigateTo("/login", forceLoad: false);
@@ -148,7 +118,7 @@
 
                 _step = LoginStep.Success;
                 StateHasChanged();
-                // CC-S0-T3: Register device fingerprint after Google OAuth login success
+                // CC-S0-T3: Register device fingerprint after OAuth login success
                 _ = RegisterDeviceFingerprintAsync(callbackToken);
                 await Task.Delay(1500);
                 Navigation.NavigateTo("/profile");
@@ -171,81 +141,28 @@
         Navigation.NavigateTo($"{gatewayBase}api/auth/google/login", forceLoad: true);
     }
 
-    private async Task SendOtp()
+    /// <summary>CC-S1-T0c (v1.5): Redirect to Facebook OAuth login via Gateway.</summary>
+    private void LoginWithFacebook()
     {
-        _error = null;
-        if (string.IsNullOrWhiteSpace(_phone))
-        {
-            _error = "Vui lòng nhập số điện thoại.";
-            return;
-        }
-        _loading = true;
-        try
-        {
-            var client = HttpClientFactory.CreateClient("gateway");
-            var resp = await client.PostAsJsonAsync("/api/customers/otp/send", new { phoneNumber = _phone });
-            if (resp.IsSuccessStatusCode)
-            {
-                _step = LoginStep.Otp;
-            }
-            else
-            {
-                _error = "Không thể gửi OTP. Vui lòng thử lại.";
-            }
-        }
-        catch { _error = "Lỗi kết nối. Vui lòng thử lại."; }
-        finally { _loading = false; }
+        // Gateway forwards /api/auth/facebook/login to ShopERP
+        // ShopERP stub (Sprint 1) → redirect back with ?error=facebook_not_configured
+        // Sprint 7+ will config real Facebook OAuth credentials
+        var gatewayBase = HttpClientFactory.CreateClient("gateway").BaseAddress;
+        Navigation.NavigateTo($"{gatewayBase}api/auth/facebook/login", forceLoad: true);
     }
 
-    private async Task VerifyOtp()
+    /// <summary>CC-S1-T0c (v1.5): Continue as Guest — no token, no CustomerId. Checkout works via guest form + DeviceId fallback.</summary>
+    private void ContinueAsGuest()
     {
-        _error = null;
-        if (string.IsNullOrWhiteSpace(_otp))
-        {
-            _error = "Vui lòng nhập mã OTP.";
-            return;
-        }
-        _loading = true;
-        try
-        {
-            var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "device_id");
-            var client = HttpClientFactory.CreateClient("gateway");
-            var resp = await client.PostAsJsonAsync("/api/customers/otp/verify", new
-            {
-                phoneNumber = _phone,
-                otp = _otp,
-                deviceId = deviceId
-            });
-
-            if (resp.IsSuccessStatusCode)
-            {
-                var result = await resp.Content.ReadFromJsonAsync<CustomerIdentityResult>();
-                if (result != null)
-                {
-                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_token", result.CustomerToken);
-                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_id", result.CustomerId.ToString());
-                    await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_name", result.FullName);
-                }
-                _step = LoginStep.Success;
-                // CC-S0-T3: Register device fingerprint after OTP login success
-                if (result != null)
-                    _ = RegisterDeviceFingerprintAsync(result.CustomerToken);
-                await Task.Delay(1500);
-                Navigation.NavigateTo("/profile");
-            }
-            else
-            {
-                _error = "OTP không đúng hoặc đã hết hạn.";
-            }
-        }
-        catch { _error = "Lỗi kết nối. Vui lòng thử lại."; }
-        finally { _loading = false; }
+        // No API call, no token stored. User goes to home page to browse + checkout.
+        // Order history via CustomerDeviceId (localStorage). Loyalty points via DeviceId fallback (Bug 6 fix).
+        Navigation.NavigateTo("/");
     }
 
     /// <summary>
     /// CC-S0-T3 (Sprint 0.5): Collect browser fingerprint + register device via Gateway.
     /// Fire-and-forget (non-blocking) — fingerprint failure should NOT block login.
-    /// Called after both Google OAuth + OTP login success.
+    /// Called after OAuth login success.
     /// </summary>
     private async Task RegisterDeviceFingerprintAsync(string customerToken)
     {
@@ -298,14 +215,5 @@
         public string? Signals { get; set; }
         public string? UserAgent { get; set; }
         public string? Platform { get; set; }
-    }
-
-    private class CustomerIdentityResult
-    {
-        public Guid CustomerId { get; set; }
-        public string FullName { get; set; } = string.Empty;
-        public string CustomerToken { get; set; } = string.Empty;
-        public string Tier { get; set; } = "Bronze";
-        public int PointBalance { get; set; }
     }
 }

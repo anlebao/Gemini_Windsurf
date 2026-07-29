@@ -148,7 +148,9 @@ public class AuthorizationEnforcementTests
             "RedemptionController",
             // Loyalty-C WS-B/C: Customer profile + missions endpoints (X-Customer-Token header auth)
             "CustomerProfileController",
-            "MissionsController"
+            "MissionsController",
+            // CC-S0-T3 (Sprint 0.5): DeviceRegistrationController — customer-facing (X-Customer-Token header auth, validated via ShopERP /me forward)
+            "DeviceRegistrationController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

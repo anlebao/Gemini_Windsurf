@@ -112,5 +112,24 @@ namespace VanAn.ShopERP.Controllers
         {
             return Guid.TryParse("00000000-0000-0000-0000-000000000001", out var id) ? id : Guid.Empty;
         }
+
+        // CC-S1-T0c (v1.5): Facebook OAuth stub endpoints.
+        // Sprint 7+ will config real Facebook OAuth credentials (AppId + AppSecret).
+        // For now, redirect back to KhachLink login with informative error.
+        [HttpGet("facebook/login")]
+        public IActionResult FacebookLogin([FromQuery] string? redirectTo = null)
+        {
+            var khachLinkLoginUrl = _configuration["Google:KhachLinkLoginUrl"] ?? "http://localhost:5002/login";
+            _logger.LogWarning("[FacebookAuth] Login stub — Facebook OAuth credentials not configured. Redirecting to login with error.");
+            return Redirect($"{khachLinkLoginUrl}?error=facebook_not_configured&provider=facebook");
+        }
+
+        [HttpGet("facebook/callback")]
+        public IActionResult FacebookCallback([FromQuery] string? code, [FromQuery] string? error, [FromQuery] string? state)
+        {
+            var khachLinkLoginUrl = _configuration["Google:KhachLinkLoginUrl"] ?? "http://localhost:5002/login";
+            _logger.LogWarning("[FacebookAuth] Callback stub — Facebook OAuth not configured. Redirecting to login.");
+            return Redirect($"{khachLinkLoginUrl}?error=facebook_not_configured&provider=facebook");
+        }
     }
 }
