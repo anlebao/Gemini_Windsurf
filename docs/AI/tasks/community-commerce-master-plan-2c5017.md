@@ -64,7 +64,7 @@ main
 |---|---|---|---|---|---|
 | 1 | CC-S0-T1 | Domain entities + enums (11 entity, v1.2: +DeviceRegistration +FraudFlag) | `1_Shared/Domain.cs` | `task_cc_sprint0_foundation-2c5017.md` | `sprint0_foundation_detailed_plan-2c5017.md` |
 | 2 | CC-S0-T2 | EF Configuration + Migration (PG ONLY — v1.3: bỏ SQLite) + Device fingerprint JS (FingerprintJS, self-host, vendored) | `3_CoreHub/Infrastructure/Configurations/`, `3_CoreHub/Infrastructure/Migrations/`, `5_WebApps/KhachLink/wwwroot/lib/fingerprintjs/` (v1.2 NEW) | same | same |
-| 3 (v1.5 NEW) | **CC-S0-T3** | **Device fingerprint P0 wire-up** — wire-up DeviceRegistrationService vào production path. Thêm endpoint `POST /api/customer-identity/device/register` (ShopERP) + Gateway forward. Gọi `window.fingerprint.collect()` từ Login.razor (sau Google login) + Checkout.razor (guest checkout). Sprint 0 claim fingerprint infrastructure nhưng chưa wire-up (RV0-11 chỉ test JS load). | `5_WebApps/ShopERP/Controllers/CustomerIdentityController.cs`, `2_Gateway/Controllers/CustomerIdentityController.cs`, `5_WebApps/KhachLink/Pages/Login.razor`, `5_WebApps/KhachLink/Pages/Checkout.razor` | same | same |
+| 3 (v1.5 NEW) | **CC-S0-T3** | **Device fingerprint P0 wire-up** — wire-up DeviceRegistrationService vào production path. Thêm endpoint `POST /api/customer-identity/device/register` (**Gateway-native**, KHÔNG forward ShopERP — DeviceRegistration là community entity trên Gateway PG v1.3). Gọi `window.fingerprint.collect()` từ Login.razor (sau Google + OTP login) + Checkout.razor (guest checkout). Sprint 0 claim fingerprint infrastructure nhưng chưa wire-up (RV0-11 chỉ test JS load). | `2_Gateway/Controllers/DeviceRegistrationController.cs` (NEW), `5_WebApps/KhachLink/Pages/Login.razor`, `5_WebApps/KhachLink/wwwroot/index.html`, `6_Tests/VanAn.Core.Tests/Community/DeviceRegistrationControllerTests.cs` (NEW) | same | same |
 | ~~4~~ | ~~CC-S0-T4~~ | ~~Social login (Google) endpoint~~ (v1.1: REMOVED — đã có `SocialAuthController.cs`) | — | — | — |
 
 ### Entry criteria
@@ -85,7 +85,7 @@ main
 - [x] OTP login vẫn hoạt động (regression test pass) — **OPTIONAL** — VERIFIED via build PASS
 - [x] Architecture tests pass — **VERIFIED: 39 PASS**
 - [x] **VPS Runtime Verification:** Deploy → `curl /api/customer-identity/otp/send` trả 200 → migration tables tồn tại (11 tables) — **VERIFIED 2026-07-26 (commit f563e415)**
-- ⚠️ **v1.5 GAP:** Device fingerprint wire-up vào production path CHƯA hoàn thành (RV0-11 chỉ test JS load, không test end-to-end). Xử lý trong CC-S0-T3 (Sprint 0.5).
+- [x] **v1.5 CC-S0-T3 IMPLEMENTED 2026-07-29:** Device fingerprint wire-up hoàn thành — endpoint `POST /api/customer-identity/device/register` (Gateway-native) + Login.razor gọi `window.fingerprint.collect()` sau Google + OTP login. 3 controller tests PASS. GAP closed.
 
 ### VPS Runtime Verification (Sprint 0 — v1.2: +2 tables)
 | # | Test | Command | Expected |

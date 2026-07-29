@@ -4,6 +4,7 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject ILogger<Login> _logger
 
 <PageTitle>Đăng nhập</PageTitle>
 
@@ -147,6 +148,8 @@
 
                 _step = LoginStep.Success;
                 StateHasChanged();
+                // CC-S0-T3: Register device fingerprint after Google OAuth login success
+                _ = RegisterDeviceFingerprintAsync(callbackToken);
                 await Task.Delay(1500);
                 Navigation.NavigateTo("/profile");
                 return;
@@ -224,6 +227,9 @@
                     await JSRuntime.InvokeVoidAsync("localStorage.setItem", "customer_name", result.FullName);
                 }
                 _step = LoginStep.Success;
+                // CC-S0-T3: Register device fingerprint after OTP login success
+                if (result != null)
+                    _ = RegisterDeviceFingerprintAsync(result.CustomerToken);
                 await Task.Delay(1500);
                 Navigation.NavigateTo("/profile");
             }
@@ -234,6 +240,64 @@
         }
         catch { _error = "Lỗi kết nối. Vui lòng thử lại."; }
         finally { _loading = false; }
+    }
+
+    /// <summary>
+    /// CC-S0-T3 (Sprint 0.5): Collect browser fingerprint + register device via Gateway.
+    /// Fire-and-forget (non-blocking) — fingerprint failure should NOT block login.
+    /// Called after both Google OAuth + OTP login success.
+    /// </summary>
+    private async Task RegisterDeviceFingerprintAsync(string customerToken)
+    {
+        try
+        {
+            // 1. Collect fingerprint via JS interop (window.fingerprint.collect)
+            var fp = await JSRuntime.InvokeAsync<FingerprintResult>("window.fingerprint.collect");
+            if (fp == null || string.IsNullOrEmpty(fp.Hash))
+            {
+                _logger?.LogDebug("Fingerprint collection returned empty result — skipping device registration.");
+                return;
+            }
+
+            // 2. Generate or reuse device token (UUID, persisted in localStorage)
+            var deviceToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "device_token");
+            if (string.IsNullOrEmpty(deviceToken))
+            {
+                deviceToken = Guid.NewGuid().ToString("N");
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "device_token", deviceToken);
+            }
+
+            // 3. POST to Gateway /api/customer-identity/device/register
+            var client = HttpClientFactory.CreateClient("gateway");
+            client.DefaultRequestHeaders.Clear();
+            client.DefaultRequestHeaders.Add("X-Customer-Token", customerToken);
+            var resp = await client.PostAsJsonAsync("/api/customer-identity/device/register", new
+            {
+                deviceToken = deviceToken,
+                fingerprintHash = fp.Hash,
+                fingerprintSignals = fp.Signals ?? "{}",
+                userAgent = fp.UserAgent ?? "",
+                platform = fp.Platform ?? ""
+            });
+
+            if (resp.IsSuccessStatusCode)
+                _logger?.LogInformation("Device fingerprint registered successfully (hash={Hash})", fp.Hash);
+            else
+                _logger?.LogWarning("Device fingerprint registration failed: {StatusCode}", resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            // Non-blocking — fingerprint failure should NOT affect login
+            _logger?.LogWarning(ex, "Device fingerprint registration error (non-blocking)");
+        }
+    }
+
+    private class FingerprintResult
+    {
+        public string Hash { get; set; } = string.Empty;
+        public string? Signals { get; set; }
+        public string? UserAgent { get; set; }
+        public string? Platform { get; set; }
     }
 
     private class CustomerIdentityResult

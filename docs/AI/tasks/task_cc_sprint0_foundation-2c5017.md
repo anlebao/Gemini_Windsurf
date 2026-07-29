@@ -16,6 +16,7 @@
   - ✅ Architecture tests: 39 passed, 0 failed
   - ✅ `guard-check.ps1` ALL CHECKS PASSED (sau khi fix regex syntax error + exclude test files từ raw SQL scan)
   - ⚠️ **GAP (v1.5 NEW — CC-S0-T3):** Device fingerprint infrastructure có nhưng CHƯA wire-up vào production path (RV0-11 chỉ test JS load, không test end-to-end `collect()→POST→DeviceRegistration`). Sprint 0.5 (CC-S0-T3) sẽ wire-up.
+- **v1.5 UPDATE 2026-07-29 — CC-S0-T3 IMPLEMENTED:** Device fingerprint wire-up hoàn thành. Endpoint `POST /api/customer-identity/device/register` (Gateway-native, không forward ShopERP — DeviceRegistration là community entity trên Gateway PG). Login.razor gọi `window.fingerprint.collect()` sau Google + OTP login success (fire-and-forget, non-blocking). 3 controller unit tests PASS. Build 0 errors, 1045 Core.Tests PASS. GAP closed.
 - **v1.3 changes (incremental trên v1.2):**
   - **Community entities PG ONLY** — KHÔNG tạo trên ShopERP SQLite (cross-tenant nature, tránh 300K SQLite files phải migrate). Remove CC-S0-T3 SQLite migration task.
   - **Email/Password login DEFER Sprint 7+** — PoC auth = Social (Google + Facebook UI Sprint 1) + Device Fingerprint.

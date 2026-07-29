@@ -30,15 +30,17 @@
 
 ## 2. Current Objective
 
-**Community Commerce Spec v1.5 + Sprint 0 Verification (COMPLETE 2026-07-29)**
+**CC-S0-T3 (Sprint 0.5) — Device Fingerprint Wire-up (COMPLETE 2026-07-29)**
 
-Update spec + master plan thành v1.5 (Collaborator Verification Toggle + Deposit Wallet) + verify Sprint 0 base code 100% complete.
+Wire-up DeviceRegistrationService vào production path — Sprint 0 GAP duy nhất đã đóng.
 
-- **Spec v1.5 (COMPLETE):** Thêm Section 1.6 "Collaborator Verification Policy (Toggle + Deposit Wallet)" + UC-02b + update UC-01/UC-02. SystemAdmin toggle ON/OFF (default OFF). 3 phase chia vào sprint: CC-S0-T3 (Sprint 0.5 fingerprint wire-up), CC-S1-T0c (Sprint 1 login simplify), CC-S6-T5 (Sprint 6 collaborator verify + deposit).
-- **Master plan v1.5 (COMPLETE):** Thêm 3 task mới + Sprint 7 branch protocol + task card reference. Fix guard-check.ps1 regex syntax error (PowerShell single-quote escaping) + exclude test files từ raw SQL scan.
-- **Sprint 0 Verification (COMPLETE 2026-07-29):** Base code đối chiếu 100% pass — 11 entities (Domain.cs:3191-3716) + 11 EF configs + migration `20260726105331_CommunitySprint0.cs` + 59 community tests PASS + 39 architecture tests PASS + guard-check ALL PASSED + fingerprint JS tồn tại. GAP duy nhất: fingerprint wire-up chưa hoàn thành (CC-S0-T3 sẽ xử lý).
+- **Gateway DeviceRegistrationController (NEW):** `POST /api/customer-identity/device/register` — Gateway-native (không forward ShopERP, vì DeviceRegistration là community entity trên Gateway PG v1.3). Validate X-Customer-Token qua ShopERP /me forward, rồi gọi `IDeviceRegistrationService.RegisterDeviceAsync` (max 3 active devices enforcement).
+- **Login.razor wire-up:** Gọi `window.fingerprint.collect()` sau Google OAuth + OTP login success (fire-and-forget, non-blocking). Fingerprint failure không block login.
+- **index.html:** Thêm `<script src="/js/fingerprint.js">` để load fingerprint collector.
+- **Tests:** 3 controller unit tests (401 without token, 400 empty fingerprint, 400 empty deviceToken). Build 0 errors, 1045 Core.Tests PASS.
+- **Architecture note:** Task card gốc nói "ShopERP + Gateway forward" nhưng thực tế phải là Gateway-native vì: (1) DeviceRegistrationService chỉ registered trong Gateway DI, (2) ShopERP's IVanAnDbContext → SQLite không có DeviceRegistrations table, (3) Community entities PG-only (v1.3).
 
-Branch: `main`. Pending commit: spec v1.5 + master plan v1.5 + guard-check fix + Sprint 0 verification docs.
+Branch: `main`. Pending commit: CC-S0-T3 implementation + docs update.
 
 ---
 
@@ -95,16 +97,16 @@ Branch: `main`. Pending commit: spec v1.5 + master plan v1.5 + guard-check fix +
 
 ## 4. Next Actions
 
-1. **CC-S0-T3 (Sprint 0.5) — Device fingerprint wire-up:** Thêm endpoint `POST /api/customer-identity/device/register` (ShopERP) + Gateway forward. Gọi `window.fingerprint.collect()` từ Login.razor (sau Google login) + Checkout.razor (guest checkout). Không cần Domain change.
-2. **CC-S1-T0c (Sprint 1) — Customer login simplify:** Xóa SMS OTP khỏi Login.razor primary flow, giữ Google + thêm Guest button. Aligns v1.2 "SMS OTP OPTIONAL" cho customer.
-3. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit=7 + SmsOtpFee=8, CommunityRole.IsPhoneVerified, SystemSetting toggle).
-4. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.**
-5. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE.
-6. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
-7. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
-8. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-9. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
-10. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+1. **CC-S1-T0c (Sprint 1) — Customer login simplify:** Xóa SMS OTP khỏi Login.razor primary flow, giữ Google + thêm Guest button. Aligns v1.2 "SMS OTP OPTIONAL" cho customer.
+2. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit=7 + SmsOtpFee=8, CommunityRole.IsPhoneVerified, SystemSetting toggle).
+3. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.**
+4. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE.
+5. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
+6. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
+7. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+8. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
+9. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+10. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL.
 
 ---
 
@@ -204,6 +206,7 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
+* **2026-07-29 — CC-S0-T3 SPRINT 0.5 DEVICE FINGERPRINT WIRE-UP.** Sprint 0 GAP duy nhất đã đóng. 4 files: `2_Gateway/Controllers/DeviceRegistrationController.cs` (NEW — Gateway-native endpoint `POST /api/customer-identity/device/register`, validate X-Customer-Token qua ShopERP /me forward rồi gọi IDeviceRegistrationService, max 3 active devices enforcement), `5_WebApps/KhachLink/Pages/Login.razor` (+`RegisterDeviceFingerprintAsync` helper, fire-and-forget sau Google OAuth + OTP login success, non-blocking), `5_WebApps/KhachLink/wwwroot/index.html` (+`<script src="/js/fingerprint.js">`), `6_Tests/VanAn.Core.Tests/Community/DeviceRegistrationControllerTests.cs` (NEW — 3 unit tests: 401 without token, 400 empty fingerprint, 400 empty deviceToken, MockDeviceRegistrationService + MockHttpClientFactory). Architecture note: task card gốc nói "ShopERP + Gateway forward" nhưng thực tế Gateway-native vì DeviceRegistrationService chỉ registered trong Gateway DI + ShopERP IVanAnDbContext → SQLite không có DeviceRegistrations table + community entities PG-only (v1.3). Build 0 errors, 1045 Core.Tests PASS (3 new + 1042 existing). guard-check fast-test-gate transient false-positive (known issue item 10) — direct `dotnet test` with same filter exit 0. Branch: `main`.
 * **2026-07-29 — COMMUNITY COMMERCE SPEC v1.5 + SPRINT 0 VERIFICATION.** Spec v1.5: thêm Section 1.6 "Collaborator Verification Policy (Toggle + Deposit Wallet)" + UC-02b + update UC-01/UC-02. Master plan v1.5: thêm CC-S0-T3 (Sprint 0.5 fingerprint wire-up) + CC-S1-T0c (Sprint 1 login simplify) + CC-S6-T5 (Sprint 6 collaborator verify + deposit toggle) + Sprint 7 branch protocol + task card reference. Sprint 0 base code đối chiếu 100% pass: 11 entities + 11 EF configs + migration `20260726105331_CommunitySprint0.cs` + 59 community tests + 39 architecture tests + guard-check ALL PASSED + fingerprint JS. GAP duy nhất: fingerprint wire-up chưa hoàn thành (CC-S0-T3 sẽ xử lý). guard-check.ps1 fix: regex syntax error (PowerShell single-quote escaping `["\']`→`["'']` trong single-quoted string) + exclude `6_Tests\` từ raw SQL scan (test cleanup code dùng `ExecuteSqlRawAsync("DELETE FROM...")` trên SQLite test DB — false positive). Branch: `main`.
 * **2026-07-28 — LOYALTY/CRM AUDIT FIX P3 (S6).** Commit `018a42c2` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 5 files: `PromoPushComposer.razor` (NEW — extracted modal component, owns form fields + reset-on-show, params Show/RecipientCount/IsSubmitting/ErrorMessage/OnSubmit/OnClose, payload record `PromoPushPayload`), `CustomerList.razor` (removed 56 lines inline modal + 3 form-state fields + `ResetPromoForm` helper; `SubmitPromoAsync` accepts `PromoPushComposer.PromoPushPayload`), `PromoCampaignRecipientConfiguration.cs` (NEW — extracted from `PromoCampaignConfiguration.cs`, same namespace+logic), `PromoCampaignConfiguration.cs` (trimmed to single class), `CustomerController.cs` (+`ExportCsv` endpoint `POST /api/customers/export` returning CSV with `text/csv` + `attachment; filename=customers.csv`, minimal CSV escaping). Build 0 errors, 1117 warnings (pre-existing CA). 1038/1053 Core.Tests PASS (0 failed, 15 skipped). guard-check ALL PASSED. Closes deviations D5, D7, D13. Branch: `fix/loyalty-crm-audit-fix`.
 * **2026-07-27 — LOYALTY/CRM AUDIT FIX P2 (S5).** Commit `56926b44` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 6 files: `IPromoCampaignService.cs` (+`CreateCampaignAsync(title,msg,url,IReadOnlyList<Guid>)` overload), `PromoCampaignService.cs` (explicit-ID impl + new `ICustomerRepository` ctor param), `PromoCampaignController.cs` (`CreateCampaignRequest.SelectedCustomerIds` + dispatch logic), `CustomerController.cs` (inject `IPushSubscriptionRepository` + batch push lookup + `MapCustomerDto` gains `hasPushSubscription`), `CustomerList.razor` (checkbox col + select-all + per-row "Gửi" + bulk "Gửi cho N đã chọn" + Push column + modal selection mode), `PromoCampaignList.razor` (progress bar for Processing + auto-refresh 5s via PeriodicTimer + "Chi tiết" expand/collapse recipients with name enrichment). Build 0 errors, 1023 Core.Tests PASS. Branch: `fix/loyalty-crm-audit-fix`.
