@@ -347,5 +347,8 @@ namespace VanAn.CoreHub.Infrastructure
         {
             return Database.BeginTransactionAsync(cancellationToken);
         }
+
+        /// <summary>EF Core provider name — used for provider-specific query logic (e.g. FOR UPDATE on PG).</summary>
+        public string ProviderName => Database.ProviderName ?? string.Empty;
     }
 }

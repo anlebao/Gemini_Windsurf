@@ -9,6 +9,7 @@
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
 @inject LocationTrackingService LocationTracker
+@inject WalletHttpService WalletHttp
 
 <PageTitle>Theo dõi giao hàng</PageTitle>
 
@@ -124,6 +125,65 @@
                 </div>
             </VanAnCard>
 
+            <!-- CC-S5: COD + Advance wallet actions -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <h6 class="mb-3"><i class="bi bi-wallet2 text-primary"></i> Ví & Thanh toán</h6>
+                @if (_codConfirmed)
+                {
+                    <div class="text-success">
+                        <i class="bi bi-check-circle-fill"></i> Đã thu COD thành công
+                    </div>
+                }
+                else if (_deliveryStatus == "OutForDelivery" || _deliveryStatus == "Delivered")
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (_showCodInput)
+                        {
+                            <div class="w-100">
+                                <label class="form-label small">Số tiền COD (đ)</label>
+                                <input type="number" class="form-control" @bind="_codAmountInput" placeholder="VD: 50000" />
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Success" OnClick="ConfirmCod">
+                                <i class="bi bi-check-circle"></i> Xác nhận đã thu COD
+                            </VanAnButton>
+                            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="CancelCodInput">Hủy</VanAnButton>
+                        }
+                        else
+                        {
+                            <VanAnButton Variant="ButtonVariant.Success" OnClick="ShowCodInput">
+                                <i class="bi bi-cash-coin"></i> Đã thu COD
+                            </VanAnButton>
+                        }
+
+                        @if (_showAdvanceInput)
+                        {
+                            <div class="w-100">
+                                <label class="form-label small">Số tiền ứng cho shop (đ)</label>
+                                <input type="number" class="form-control" @bind="_advanceAmountInput" placeholder="VD: 30000" />
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Warning" OnClick="ConfirmAdvance">
+                                <i class="bi bi-arrow-up-circle"></i> Xác nhận đã ứng tiền
+                            </VanAnButton>
+                            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="CancelAdvanceInput">Hủy</VanAnButton>
+                        }
+                        else
+                        {
+                            <VanAnButton Variant="ButtonVariant.Warning" OnClick="ShowAdvanceInput">
+                                <i class="bi bi-arrow-up-circle"></i> Ứng tiền cho shop
+                            </VanAnButton>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-muted small">COD và ứng tiền khả dụng khi đang giao hoặc đã giao.</div>
+                }
+                @if (_walletError != null)
+                {
+                    <div class="mt-2 text-danger small">@_walletError</div>
+                }
+            </VanAnCard>
+
             <!-- GPS tracking status -->
             @if (_isTracking)
             {
@@ -199,6 +259,14 @@
     private bool _isTracking = false;
     private DateTime? _lastGpsUpdate;
     private Guid? _customerId;
+
+    // CC-S5: Wallet + COD state
+    private bool _showCodInput = false;
+    private bool _showAdvanceInput = false;
+    private decimal _codAmountInput;
+    private decimal _advanceAmountInput;
+    private bool _codConfirmed = false;
+    private string? _walletError;
 
     // Map coordinates
     private double _centerLat = 10.8;
@@ -357,6 +425,53 @@
 
     private void GoToLogin() => Navigation.NavigateTo("/login");
     private void GoToNearbyOrders() => Navigation.NavigateTo("/community/nearby-orders");
+
+    // CC-S5: COD + Advance wallet methods
+    private void ShowCodInput() { _showCodInput = true; _walletError = null; }
+    private void CancelCodInput() { _showCodInput = false; _walletError = null; }
+    private void ShowAdvanceInput() { _showAdvanceInput = true; _walletError = null; }
+    private void CancelAdvanceInput() { _showAdvanceInput = false; _walletError = null; }
+
+    private async Task ConfirmCod()
+    {
+        if (_codAmountInput <= 0)
+        {
+            _walletError = "Số tiền COD phải lớn hơn 0.";
+            return;
+        }
+
+        var result = await WalletHttp.ConfirmCodAsync(_customerToken!, OrderId, _codAmountInput);
+        if (result.Success)
+        {
+            _showCodInput = false;
+            _codConfirmed = true;
+            _walletError = null;
+        }
+        else
+        {
+            _walletError = result.ErrorMessage ?? "Lỗi xác nhận COD.";
+        }
+    }
+
+    private async Task ConfirmAdvance()
+    {
+        if (_advanceAmountInput <= 0)
+        {
+            _walletError = "Số tiền ứng phải lớn hơn 0.";
+            return;
+        }
+
+        var result = await WalletHttp.ConfirmAdvanceAsync(_customerToken!, OrderId, _advanceAmountInput);
+        if (result.Success)
+        {
+            _showAdvanceInput = false;
+            _walletError = null;
+        }
+        else
+        {
+            _walletError = result.ErrorMessage ?? "Lỗi xác nhận ứng tiền.";
+        }
+    }
 
     private string GetStatusBadgeClass(string status) => status switch
     {

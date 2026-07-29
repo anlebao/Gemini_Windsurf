@@ -34,6 +34,7 @@ namespace VanAn.Gateway.Controllers
         IChatService chatService,
         ISalesmanService salesmanService,
         IAppInstallAttributionService appInstallAttributionService,
+        IWalletService walletService,
         IVanAnDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IHubContext<LocationHub> locationHubContext,
@@ -45,6 +46,7 @@ namespace VanAn.Gateway.Controllers
         private readonly IChatService _chatService = chatService;
         private readonly ISalesmanService _salesmanService = salesmanService;
         private readonly IAppInstallAttributionService _appInstallAttributionService = appInstallAttributionService;
+        private readonly IWalletService _walletService = walletService;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
@@ -571,6 +573,183 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        // ============================================================
+        // CC-S5 (Sprint 5): Wallet + COD + Settlement endpoints
+        // ============================================================
+
+        /// <summary>
+        /// GET /api/community/wallet
+        /// Returns wallet balance + transaction history for the authenticated customer (shipper/salesman).
+        /// Auth: X-Customer-Token.
+        /// </summary>
+        [HttpGet("wallet")]
+        public async Task<IActionResult> GetWallet()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                var wallet = await _walletService.GetWalletAsync(customerId.Value);
+                return Ok(wallet);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting wallet for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/wallet/confirm-cod
+        /// Shipper confirms COD collection for an order.
+        /// Creates WalletTransaction(CODCollection) for shipper + WalletTransaction(Settlement) for shop.
+        /// Auth: X-Customer-Token (must be shipper of the order's DeliveryTask).
+        /// </summary>
+        [HttpPost("wallet/confirm-cod")]
+        public async Task<IActionResult> ConfirmCod([FromBody] ConfirmCodRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || body.OrderId == Guid.Empty)
+                return BadRequest(new { error = "OrderId không hợp lệ." });
+
+            if (body.Amount <= 0)
+                return BadRequest(new { error = "Amount phải lớn hơn 0." });
+
+            try
+            {
+                var tx = await _walletService.ConfirmCodAsync(customerId.Value, body.OrderId, body.Amount);
+                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new { error = "Bạn không phải là shipper của đơn hàng này." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming COD for order {OrderId}", body.OrderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/wallet/confirm-advance
+        /// Shipper confirms advance payment to shop (paid cash before pickup).
+        /// Creates WalletTransaction(AdvancePayment) for shipper. Pending shop confirmation.
+        /// Auth: X-Customer-Token (must be shipper of the order's DeliveryTask).
+        /// </summary>
+        [HttpPost("wallet/confirm-advance")]
+        public async Task<IActionResult> ConfirmAdvance([FromBody] ConfirmAdvanceRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || body.OrderId == Guid.Empty)
+                return BadRequest(new { error = "OrderId không hợp lệ." });
+
+            if (body.Amount <= 0)
+                return BadRequest(new { error = "Amount phải lớn hơn 0." });
+
+            try
+            {
+                var tx = await _walletService.ConfirmAdvanceAsync(customerId.Value, body.OrderId, body.Amount);
+                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new { error = "Bạn không phải là shipper của đơn hàng này." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming advance for order {OrderId}", body.OrderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/wallet/pending-advances
+        /// Shop owner lists pending advance payments awaiting confirmation.
+        /// Auth: X-Customer-Token (shop owner — uses TenantId as shopOwnerId).
+        /// </summary>
+        [HttpGet("wallet/pending-advances")]
+        public async Task<IActionResult> GetPendingAdvances()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                // Shop owner ID = TenantId of the customer's tenant
+                var customer = await _dbContext.Customers
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == customerId.Value);
+
+                if (customer == null)
+                    return NotFound(new { error = "Không tìm thấy khách hàng." });
+
+                var shopOwnerId = customer.TenantId.Value;
+                var pending = await _walletService.GetPendingAdvancesAsync(shopOwnerId);
+                return Ok(pending);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting pending advances for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/wallet/confirm-advance-received
+        /// Shop owner confirms they received advance payment from shipper.
+        /// Creates WalletTransaction(Settlement) for shop, linked to original AdvancePayment.
+        /// Auth: X-Customer-Token (shop owner).
+        /// </summary>
+        [HttpPost("wallet/confirm-advance-received")]
+        public async Task<IActionResult> ConfirmAdvanceReceived([FromBody] ConfirmAdvanceReceivedRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || body.AdvanceTransactionId == Guid.Empty)
+                return BadRequest(new { error = "AdvanceTransactionId không hợp lệ." });
+
+            try
+            {
+                // Shop owner ID = TenantId of the customer's tenant
+                var customer = await _dbContext.Customers
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == customerId.Value);
+
+                if (customer == null)
+                    return NotFound(new { error = "Không tìm thấy khách hàng." });
+
+                var shopOwnerId = customer.TenantId.Value;
+                var tx = await _walletService.ConfirmAdvanceReceivedAsync(shopOwnerId, body.AdvanceTransactionId);
+                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming advance received {AdvanceTxId}", body.AdvanceTransactionId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
         /// <summary>
         /// Check if customer has Salesman role (Active). Queries Gateway PG CommunityRoles table.
         /// </summary>
@@ -673,6 +852,24 @@ namespace VanAn.Gateway.Controllers
         public class ResolveReferralRequest
         {
             public string ReferralCode { get; set; } = string.Empty;
+        }
+
+        // CC-S5 (Sprint 5): Wallet request DTOs
+        public class ConfirmCodRequest
+        {
+            public Guid OrderId { get; set; }
+            public decimal Amount { get; set; }
+        }
+
+        public class ConfirmAdvanceRequest
+        {
+            public Guid OrderId { get; set; }
+            public decimal Amount { get; set; }
+        }
+
+        public class ConfirmAdvanceReceivedRequest
+        {
+            public Guid AdvanceTransactionId { get; set; }
         }
     }
 }

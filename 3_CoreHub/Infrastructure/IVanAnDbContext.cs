@@ -95,5 +95,8 @@ namespace VanAn.CoreHub.Infrastructure
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>EF Core provider name (e.g. "Microsoft.EntityFrameworkCore.Sqlite", "Npgsql"). Used for provider-specific query logic.</summary>
+        string ProviderName { get; }
     }
 }
