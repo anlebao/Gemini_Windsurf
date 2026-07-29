@@ -206,6 +206,17 @@ public async Task<IActionResult> FacebookCallback(...)
 ### 0.5.5 Session assignment
 **Session S1.5 (SECOND, after CC-S1-T0):** Implement CC-S1-T0c. 45 min task. Không cần Domain change.
 
+> **v1.5 UPDATE 2026-07-29 — CC-S1-T0c COMPLETE + VPS VERIFIED:**
+> - Commit `4e7d9507` on `main` (DEPLOYED + VERIFIED).
+> - Login.razor REWRITE: xóa SĐT + OTP, UI mới Google + Facebook + "Tiếp tục as Guest".
+> - IdentityUpgradeModal.razor REWRITE: 3 buttons thay OTP flow.
+> - SocialAuthController.cs: +Facebook stub endpoints.
+> - SocialAuthHttpService.cs: xóa OTP methods.
+> - AuthorizationEnforcementTests.cs: +DeviceRegistrationController exempt.
+> - Build 0 errors, 59 community tests PASS, 39/39 Architecture tests PASS.
+> - VPS RV (2026-07-29): WASM binary verified `Guest`=10 matches + `Facebook`=1 match + `OTP`=0 (removed). API endpoints: OTP still 200 (kept), Facebook 302 (stub), Google 302, device register 401 (CC-S0-T3 regression), fingerprint JS 200. 3 curl-based "failures" were false negatives (Blazor WASM renders client-side, curl sees static HTML shell only).
+> - OTP endpoints GIỮ NGUYÊN — Sprint 6 collaborator toggle dùng.
+
 ---
 
 ## 1. API SPECIFICATIONS
