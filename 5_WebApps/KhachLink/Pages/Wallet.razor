@@ -1,0 +1,174 @@
+@page "/community/wallet"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject WalletHttpService WalletHttp
+
+<PageTitle>Ví cộng tác viên</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-wallet2 text-primary"></i> Ví cộng tác viên
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem ví</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <!-- Balance card -->
+            <VanAnCard Shadow="true" CssClass="mb-3 text-center p-4">
+                <div class="text-muted small">Số dư hiện tại</div>
+                <div class="display-6 fw-bold @(_balance >= 0 ? "text-success" : "text-danger")">
+                    @_balance.ToString("N0")đ
+                </div>
+            </VanAnCard>
+
+            <!-- Pending advances (shop owner view) -->
+            @if (_pendingAdvances.Any())
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <h6 class="mb-3"><i class="bi bi-clock-history text-warning"></i> Ứng tiền chờ xác nhận</h6>
+                    @foreach (var adv in _pendingAdvances)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <div class="small text-muted">Đơn #@adv.OrderId.ToString()[..8]</div>
+                                <div class="fw-bold">@adv.Amount.ToString("N0")đ</div>
+                                <div class="small text-muted">@adv.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                            <VanAnButton Variant="ButtonVariant.Success" OnClick="() => ConfirmAdvanceReceived(adv.TransactionId)">
+                                <i class="bi bi-check-circle"></i> Đã nhận
+                            </VanAnButton>
+                        </div>
+                    }
+                </VanAnCard>
+            }
+
+            <!-- Transaction history -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <h6 class="mb-3">Lịch sử giao dịch</h6>
+                @if (_transactions.Any())
+                {
+                    @foreach (var tx in _transactions)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">
+                                    <i class="@GetTxIcon(tx.Type)"></i> @GetTxTypeText(tx.Type)
+                                </div>
+                                <div class="small text-muted">@tx.Description</div>
+                                <div class="small text-muted">@tx.CreatedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold @(tx.Amount >= 0 ? "text-success" : "text-danger")">
+                                    @(tx.Amount >= 0 ? "+" : "")@tx.Amount.ToString("N0")đ
+                                </div>
+                                <div class="small text-muted">Số dư: @tx.BalanceAfter.ToString("N0")đ</div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                        <div class="mt-2">Chưa có giao dịch</div>
+                    </div>
+                }
+            </VanAnCard>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private string? _customerToken;
+    private decimal _balance;
+    private List<WalletHttpService.WalletTransactionResponse> _transactions = new();
+    private List<WalletHttpService.PendingAdvanceResponse> _pendingAdvances = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customerToken");
+        if (string.IsNullOrEmpty(_customerToken))
+        {
+            _isLoggedIn = false;
+            _loading = false;
+            return;
+        }
+        _isLoggedIn = true;
+
+        await LoadWalletAsync();
+        await LoadPendingAdvancesAsync();
+        _loading = false;
+    }
+
+    private async Task LoadWalletAsync()
+    {
+        var result = await WalletHttp.GetWalletAsync(_customerToken!);
+        if (result.Success)
+        {
+            _balance = result.Balance;
+            _transactions = result.Transactions;
+        }
+    }
+
+    private async Task LoadPendingAdvancesAsync()
+    {
+        var result = await WalletHttp.GetPendingAdvancesAsync(_customerToken!);
+        if (result.Success)
+        {
+            _pendingAdvances = result.Advances;
+        }
+    }
+
+    private async Task ConfirmAdvanceReceived(Guid advanceTxId)
+    {
+        var result = await WalletHttp.ConfirmAdvanceReceivedAsync(_customerToken!, advanceTxId);
+        if (result.Success)
+        {
+            await LoadWalletAsync();
+            await LoadPendingAdvancesAsync();
+        }
+    }
+
+    private void GoToLogin() => _ = JSRuntime.InvokeAsync<object>("localStorage.setItem", "redirectAfterLogin", "/community/wallet");
+
+    private static string GetTxIcon(string type) => type switch
+    {
+        "CODCollection" => "bi bi-cash-coin text-success",
+        "AdvancePayment" => "bi bi-arrow-up-circle text-warning",
+        "Commission" => "bi bi-award text-primary",
+        "Withdrawal" => "bi bi-arrow-down-circle text-danger",
+        "Settlement" => "bi bi-arrow-left-right text-info",
+        "Reversal" => "bi bi-arrow-counterclockwise text-danger",
+        _ => "bi bi-circle text-muted"
+    };
+
+    private static string GetTxTypeText(string type) => type switch
+    {
+        "CODCollection" => "Thu COD",
+        "AdvancePayment" => "Ứng tiền",
+        "Commission" => "Hoa hồng",
+        "Withdrawal" => "Rút tiền",
+        "Settlement" => "Thanh toán",
+        "Reversal" => "Hoàn giao dịch",
+        _ => type
+    };
+}

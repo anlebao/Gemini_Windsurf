@@ -280,5 +280,8 @@ namespace VanAn.ShopERP.Infrastructure
         {
             return await Database.BeginTransactionAsync(cancellationToken);
         }
+
+        /// <summary>EF Core provider name — used for provider-specific query logic.</summary>
+        public string ProviderName => Database.ProviderName ?? string.Empty;
     }
 }

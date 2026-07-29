@@ -1647,6 +1647,22 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
+        /// <summary>
+        /// CC-S5 (Sprint 5): F2 fix — Sprint 0 created CodAmount/CodCollectedAt fields but no domain method.
+        /// Called by WalletService.ConfirmCodAsync when shipper confirms COD collection.
+        /// Idempotency guard: throws if CodCollectedAt already set.
+        /// </summary>
+        public void MarkCodCollected(decimal codAmount)
+        {
+            if (codAmount < 0)
+                throw new ArgumentOutOfRangeException(nameof(codAmount), "CodAmount cannot be negative.");
+            if (CodCollectedAt != null)
+                throw new InvalidOperationException($"Order {Id} COD already collected. Idempotency guard.");
+            CodAmount = codAmount;
+            CodCollectedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
         public void MarkAsSynced()
         {
             LastSyncedAt = DateTime.UtcNow;

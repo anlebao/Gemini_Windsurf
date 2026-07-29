@@ -73,6 +73,7 @@ namespace VanAn.KhachLink
             // CC-S1-T1/T2 (Sprint 1): Community Commerce HTTP service (nearby orders + accept)
             _ = builder.Services.AddScoped<Services.Http.CommunityHttpService>();
             _ = builder.Services.AddScoped<Services.Http.ChatHttpService>();
+            _ = builder.Services.AddScoped<Services.Http.WalletHttpService>();
             _ = builder.Services.AddScoped<Services.LocationTrackingService>();
 
             // Register Recently Viewed Service + LastInteractionService
