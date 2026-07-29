@@ -116,6 +116,133 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
             return new AcceptOrderResult { Success = false, ErrorMessage = "Lỗi kết nối." };
         }
     }
+
+    /// <summary>
+    /// CC-S2 (Sprint 2): POST /api/community/orders/{orderId}/pickup
+    /// Mark the active DeliveryTask as PickedUp.
+    /// </summary>
+    public async Task<DeliveryTransitionResult> PickupOrderAsync(string customerToken, Guid orderId)
+        => await PostDeliveryTransitionAsync(customerToken, orderId, "pickup");
+
+    /// <summary>
+    /// CC-S2 (Sprint 2): POST /api/community/orders/{orderId}/delivering
+    /// Mark the active DeliveryTask as OutForDelivery.
+    /// </summary>
+    public async Task<DeliveryTransitionResult> StartDeliveringAsync(string customerToken, Guid orderId)
+        => await PostDeliveryTransitionAsync(customerToken, orderId, "delivering");
+
+    /// <summary>
+    /// CC-S2 (Sprint 2): POST /api/community/orders/{orderId}/delivered
+    /// Mark the active DeliveryTask as Delivered + Order → completed.
+    /// </summary>
+    public async Task<DeliveryTransitionResult> CompleteDeliveryAsync(string customerToken, Guid orderId)
+        => await PostDeliveryTransitionAsync(customerToken, orderId, "delivered");
+
+    /// <summary>
+    /// CC-S2 (Sprint 2): POST /api/community/orders/{orderId}/failed
+    /// Mark the active DeliveryTask as Failed with reason.
+    /// </summary>
+    public async Task<DeliveryTransitionResult> FailDeliveryAsync(string customerToken, Guid orderId, string reason)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/community/orders/{orderId}/failed");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            request.Content = JsonContent.Create(new { Reason = reason });
+
+            var resp = await _httpClient.SendAsync(request);
+            var body = await resp.Content.ReadAsStringAsync();
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = System.Text.Json.JsonSerializer.Deserialize<DeliveryTransitionResponse>(body,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return new DeliveryTransitionResult
+                {
+                    Success = true,
+                    DeliveryTaskId = data?.DeliveryTaskId ?? Guid.Empty,
+                    Status = data?.Status ?? "Unknown"
+                };
+            }
+
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            return new DeliveryTransitionResult
+            {
+                Success = false,
+                ErrorCode = (int)resp.StatusCode,
+                ErrorMessage = err?.Error ?? $"Lỗi {resp.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FailDeliveryAsync failed for {OrderId}", orderId);
+            return new DeliveryTransitionResult { Success = false, ErrorMessage = "Lỗi kết nối." };
+        }
+    }
+
+    /// <summary>
+    /// CC-S2 (Sprint 2): POST /api/community/location/update
+    /// Record a GPS location ping for the DeliveryTask.
+    /// </summary>
+    public async Task<bool> UpdateLocationAsync(string customerToken, string deliveryTaskId, double lat, double lng)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/community/location/update");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            request.Content = JsonContent.Create(new LocationUpdateRequest
+            {
+                DeliveryTaskId = deliveryTaskId,
+                Lat = lat,
+                Lng = lng
+            });
+
+            var resp = await _httpClient.SendAsync(request);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UpdateLocationAsync failed for task {TaskId}", deliveryTaskId);
+            return false;
+        }
+    }
+
+    private async Task<DeliveryTransitionResult> PostDeliveryTransitionAsync(string customerToken, Guid orderId, string action)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/community/orders/{orderId}/{action}");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            var body = await resp.Content.ReadAsStringAsync();
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = System.Text.Json.JsonSerializer.Deserialize<DeliveryTransitionResponse>(body,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return new DeliveryTransitionResult
+                {
+                    Success = true,
+                    DeliveryTaskId = data?.DeliveryTaskId ?? Guid.Empty,
+                    Status = data?.Status ?? "Unknown"
+                };
+            }
+
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            return new DeliveryTransitionResult
+            {
+                Success = false,
+                ErrorCode = (int)resp.StatusCode,
+                ErrorMessage = err?.Error ?? $"Lỗi {resp.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "PostDeliveryTransitionAsync failed for {OrderId} action {Action}", orderId, action);
+            return new DeliveryTransitionResult { Success = false, ErrorMessage = "Lỗi kết nối." };
+        }
+    }
 }
 
 // === DTOs ===
@@ -167,4 +294,28 @@ public class ErrorResponse
 public class RoleResponse
 {
     public bool IsShipper { get; set; }
+}
+
+public class DeliveryTransitionResult
+{
+    public bool Success { get; set; }
+    public Guid DeliveryTaskId { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int ErrorCode { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+}
+
+public class DeliveryTransitionResponse
+{
+    public Guid DeliveryTaskId { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+    public DateTime? Timestamp { get; set; }
+}
+
+public class LocationUpdateRequest
+{
+    public string DeliveryTaskId { get; set; } = string.Empty;
+    public double Lat { get; set; }
+    public double Lng { get; set; }
 }

@@ -1,686 +1,240 @@
-﻿@page "/order-tracking/{orderId:guid}"
-@using VanAn.Shared.DTOs
-@using VanAn.KhachLink.Components
+@page "/order-tracking/{OrderId:guid}"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.Http
-@using VanAn.UI.Platform.Components
+@using Microsoft.AspNetCore.SignalR.Client
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
-@inject IJSRuntime JS
-@inject ShopFeatureSettingsHttpService FeatureSettings
-@inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigHttp
-@implements IAsyncDisposable
+@inject CommunityHttpService CommunityHttp
 
-<PageTitle>KhachLink - Theo dõi đơn hàng</PageTitle>
+<PageTitle>Theo d�i don h�ng</PageTitle>
 
-<!-- Identity Upgrade Modal — only shown when order is delivered (end of order flow) -->
-<IdentityUpgradeModal ShowModal="@_showUpgradeModal"
-                      ShopConfig="@null"
-                      OnDismiss="@DismissUpgradeModal"
-                      OnUpgrade="@GoToLogin" />
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-geo-alt text-primary"></i> Theo dõi đơn hàng #@OrderId.ToString()[..8]
+        </h3>
 
-<style>
-    .timeline {
-        position: relative;
-        padding-left: 30px;
-    }
-    .timeline-item {
-        position: relative;
-        margin-bottom: 20px;
-    }
-    .timeline-marker {
-        position: absolute;
-        left: -30px;
-        top: 5px;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        background: white;
-        border: 2px solid #dee2e6;
-    }
-    .timeline-content {
-        margin-left: 10px;
-    }
-    .timeline-item.completed .timeline-marker {
-        background: #28a745;
-        border-color: #28a745;
-        color: white;
-    }
-    .timeline-item.pending .timeline-marker {
-        background: #6c757d;
-        border-color: #6c757d;
-        color: white;
-    }
-    .order-info {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        font-size: 14px;
-    }
-</style>
-
-<!-- T-02d: .order-tracking container — required by E2E spec selector contract -->
-<div class="container order-tracking" data-testid="order-tracking-container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-
-            @if (isLoading)
-            {
-                <div class="card">
-                    <div class="card-body text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Đang tải...</span>
-                        </div>
-                        <p class="mt-3">Đang tải thông tin đơn hàng...</p>
-                    </div>
-                </div>
-            }
-            else if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="card">
-                    <div class="card-body">
-                        <div class="alert alert-warning not-found" data-testid="order-tracking-not-found">
-                            <h5>⚠ Không tìm thấy đơn hàng</h5>
-                            <p>Mã đơn hàng <strong>@orderId.ToString()[..8]…</strong> không tồn tại trong hệ thống.</p>
-                            <p class="text-muted small">@errorMessage</p>
-                            <a href="/home" class="btn btn-primary" data-testid="order-tracking-btn-back-home">Quay lại trang chủ</a>
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">�ang t?i...</span></div>
+            </div>
+        }
+        else if (_error != null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-4">
+                <i class="bi bi-exclamation-triangle text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">@_error</h5>
+            </VanAnCard>
+        }
+        else
+        {
+            <!-- Status card -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Tr?ng th�i giao h�ng</div>
+                        <div class="fw-bold fs-5">
+                            <span class="badge @GetStatusBadgeClass(_deliveryStatus)">@GetStatusText(_deliveryStatus)</span>
                         </div>
                     </div>
-                </div>
-            }
-            else if (_publicOrder != null)
-            {
-                <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0" data-testid="order-tracking-heading">📦 Theo dõi đơn hàng #@orderId.ToString()[..8]</h4>
-                        @if (isPolling && isTabVisible)
-                        {
-                            <div class="spinner-border spinner-border-sm text-light" role="status" title="Đang cập nhật...">
-                                <span class="visually-hidden">Đang cập nhật...</span>
-                            </div>
-                        }
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <h5>Trạng thái đơn hàng</h5>
-
-                                <!-- Status Timeline -->
-                                <div class="timeline status-timeline" data-testid="order-tracking-timeline">
-                                    @foreach (var step in statusTimeline)
-                                    {
-                                        <div class="timeline-item @(step.IsCompleted ? "completed" : "pending")">
-                                            <div class="timeline-marker">
-                                                @if (step.IsCompleted)
-                                                {
-                                                    <span>✓</span>
-                                                }
-                                                else
-                                                {
-                                                    <span>⏳</span>
-                                                }
-                                            </div>
-                                            <div class="timeline-content">
-                                                <h6>@step.DisplayName</h6>
-                                                @if (step.Timestamp.HasValue)
-                                                {
-                                                    <small class="text-muted">@step.Timestamp.Value.ToVietnamTimeString()</small>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <h5>Thông tin đơn hàng</h5>
-                                <div class="order-info">
-                                    @if (!string.IsNullOrEmpty(_publicOrder.TenantName))
-                                    {
-                                        <p><strong>Cửa hàng:</strong> @_publicOrder.TenantName</p>
-                                    }
-                                    else if (!string.IsNullOrEmpty(_shopName))
-                                    {
-                                        <p><strong>Cửa hàng:</strong> @_shopName</p>
-                                    }
-                                    <p><strong>Mã đơn:</strong> #@_publicOrder.OrderId.ToString()[..8]</p>
-                                    <p><strong>Trạng thái:</strong>
-                                        <span class="badge bg-@GetStatusColor(_publicOrder.Status ?? "")" data-testid="order-tracking-status">
-                                            @(_publicOrder.Status ?? "—")
-                                        </span>
-                                    </p>
-                                    <p><strong>Ngày đặt:</strong> @_publicOrder.CreatedAt.ToVietnamString()</p>
-                                    @if (_vatDisplayEnabled && _publicOrder.TotalVatAmount > 0)
-                                    {
-                                        <p><strong>Tạm tính:</strong> @_publicOrder.SubTotal.ToString("N0")d</p>
-                                        <p><strong>VAT:</strong> @_publicOrder.TotalVatAmount.ToString("N0")d</p>
-                                    }
-                                    <p><strong>Tổng tiền:</strong> @_publicOrder.TotalPrice.ToString("N0")d</p>
-                                </div>
-
-                                <div class="mt-3">
-                                    <h6>Chi tiết đơn hàng</h6>
-                                    <ul class="list-group">
-                                        @foreach (var item in _publicOrder.Items)
-                                        {
-                                            <li class="list-group-item d-flex justify-content-between">
-                                                <span>@item.Quantity × @item.UnitPrice.ToString("N0")d</span>
-                                                <span class="text-muted">@item.TotalPrice.ToString("N0")d</span>
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
-
-                                <div class="mt-3">
-                                    <!-- W2-T1: Customer confirm receipt button — visible when status=ready -->
-                                    @if (_publicOrder?.Status == "ready" && !_confirmingReceipt)
-                                    {
-                                        <VanAnButton Variant="ButtonVariant.Success" FullWidth="true"
-                                                     OnClick="ConfirmReceived" data-testid="btn-confirm-received">
-                                            ✓ Xác nhận đã nhận hàng
-                                        </VanAnButton>
-                                    }
-                                    else if (_publicOrder?.Status == "ready" && _confirmingReceipt)
-                                    {
-                                        <VanAnButton Variant="ButtonVariant.Secondary" FullWidth="true" disabled="true">
-                                            Đang xác nhận...
-                                        </VanAnButton>
-                                    }
-
-                                    @if (!string.IsNullOrEmpty(_actionError))
-                                    {
-                                        <VanAnAlert Variant="AlertVariant.Warning"
-                                                    Message="@_actionError" Dismissible="true"
-                                                    OnDismiss="@(() => _actionError = null)" />
-                                    }
-
-                                    <!-- W2-T4: Loyalty bypass — when toggle OFF, show "Cảm ơn" instead of IdentityUpgradeModal -->
-                                    @if (_publicOrder?.Status == "delivered" && !loyaltyEnabled && !_hasShownUpgradeModal)
-                                    {
-                                        <VanAnAlert Variant="AlertVariant.Success"
-                                                    Message="Cảm ơn quý khách! 🌸 Hẹn gặp lại!" Dismissible="false" />
-                                        _hasShownUpgradeModal = true; // Prevent re-render flicker
-                                    }
-
-                                    <a href="/home" class="btn btn-outline-primary w-100 mt-2" data-testid="order-tracking-btn-back-home-success">
-                                        Quay lại trang chủ
-                                    </a>
-                                </div>
-                            </div>
+                    @if (_isLiveTracking)
+                    {
+                        <div class="text-success small">
+                            <span class="spinner-border spinner-border-sm"></span> �ang theo d�i tr?c ti?p
                         </div>
-                    </div>
+                    }
                 </div>
-            }
-            else
+            </VanAnCard>
+
+            <!-- Map -->
+            @if (_showMap)
             {
-                <div class="card">
-                    <div class="card-body">
-                        <div class="alert alert-warning not-found">
-                            <h5>⚠ Không tìm thấy đơn hàng</h5>
-                            <p>Đơn hàng không tồn tại hoặc đã bị xóa.</p>
-                            <a href="/home" class="btn btn-primary">Quay lại trang chủ</a>
-                        </div>
-                    </div>
-                </div>
+                <VanAnCard Shadow="true" CssClass="mb-3 p-0 overflow-hidden">
+                    <LeafletMap MapElementId="customer-tracking-map"
+                                Height="400px"
+                                CenterLat="_centerLat"
+                                CenterLng="_centerLng"
+                                Zoom="14"
+                                ShopLat="_shopLat"
+                                ShopLng="_shopLng"
+                                CustomerLat="_customerLat"
+                                CustomerLng="_customerLng"
+                                ShipperLat="_shipperLat"
+                                ShipperLng="_shipperLng" />
+                </VanAnCard>
             }
 
-            @if (_otherOrdersFromSession.Count > 0)
-            {
-                <div class="card mt-3">
-                    <div class="card-body">
-                        <h6>📦 Đơn hàng khác từ phiên thanh toán này</h6>
-                        <ul class="list-group">
-                            @foreach (var other in _otherOrdersFromSession)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>Đơn hàng #@GetShortId(other.OrderId)</span>
-                                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline"
-                                               OnClick="@(() => Navigation.NavigateTo($"/order-tracking/{other.OrderId}"))">
-                                        Theo dõi
-                                    </VanAnButton>
-                                </li>
-                            }
-                        </ul>
-                    </div>
-                </div>
-            }
-
-        </div>
+            <!-- Delivery info -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                @if (!string.IsNullOrEmpty(_shopName))
+                {
+                    <div class="mb-2"><i class="bi bi-shop text-muted"></i> @_shopName</div>
+                }
+                @if (!string.IsNullOrEmpty(_deliveryAddress))
+                {
+                    <div class="mb-2"><i class="bi bi-geo-alt text-muted"></i> @_deliveryAddress</div>
+                }
+                @if (_lastUpdate != null)
+                {
+                    <div class="small text-muted">C?p nh?t: @_lastUpdate.Value.ToString("HH:mm:ss")</div>
+                }
+            </VanAnCard>
+        }
     </div>
-</div>
+</KhachLinkLayout>
 
 @code {
-    [Parameter] public Guid orderId { get; set; }
+    [Parameter] public Guid OrderId { get; set; }
 
-    private PublicOrderTrackingDto? _publicOrder;
-    private string? _shopName;
-    private List<TrackingStep> statusTimeline = new();
-    private bool isLoading = true;
-    private string? errorMessage;
-    // W1-T9: Kitchen toggle — controls visibility of preparing/ready steps in timeline
-    private bool kitchenEnabled = true;
-    // W2-T4: Loyalty toggle — controls IdentityUpgradeModal vs "Cảm ơn" message
-    private bool loyaltyEnabled = true;
-    // RC-7: VAT display toggle — show/hide VAT breakdown on tracking page
-    private bool _vatDisplayEnabled = true;
-    // W2-T1: Customer confirm receipt state
-    private bool _confirmingReceipt = false;
-    // Action-level error (e.g. confirm-received 404) — shown inline, not replacing order details
-    private string? _actionError;
+    private bool _loading = true;
+    private string? _error;
+    private string? _customerToken;
+    private string _deliveryStatus = "Unknown";
+    private string _shopName = string.Empty;
+    private string? _deliveryAddress;
+    private bool _showMap = false;
+    private bool _isLiveTracking = false;
+    private DateTime? _lastUpdate;
 
-    // Configurable polling interval (fetched from ShopFeatureSettings per tenant)
-    private int _pollingIntervalSeconds = 15;
+    private double _centerLat = 10.8;
+    private double _centerLng = 106.7;
+    private double? _shopLat;
+    private double? _shopLng;
+    private double? _customerLat;
+    private double? _customerLng;
+    private double? _shipperLat;
+    private double? _shipperLng;
 
-    // Wave 9/W4: Polling infrastructure for real-time order status updates
-    // W4: Replaced PeriodicTimer with Task.Delay loop for adaptive interval control
-    private CancellationTokenSource? _pollingCts;
-    private bool isPolling = false;
-    private bool isTabVisible = true;
-    private bool _pollingStopped = false; // W4: stops polling when order reaches final state
-    private DateTime _pollingStartedAt;   // Exponential backoff baseline
+    private HubConnection? _hubConnection;
 
-    // IdentityUpgradeModal — only shown when order reaches "delivered" status
-    private bool _showUpgradeModal = false;
-    private bool _hasShownUpgradeModal = false;
-
-    // Phase 5: Other orders from the same checkout session (read from localStorage created_orders).
-    private List<CreatedOrderRef> _otherOrdersFromSession = new();
-
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnInitializedAsync()
     {
-        // Cancel + dispose any existing polling loop before reloading.
-        // Prevents race condition on _publicOrder field between old loop and new load.
-        StopPolling();
-        if (_pollingCts != null)
-        {
-            await _pollingCts.CancelAsync();
-            _pollingCts.Dispose();
-            _pollingCts = null;
-        }
-
-        isLoading = true;
-        errorMessage = null;
-        await LoadOrderFromGateway();
-
-        // W1-T9: Load kitchen toggle after order is available (need TenantId from PublicOrderTrackingDto)
-        if (_publicOrder != null && _publicOrder.TenantId != Guid.Empty)
-        {
-            try
-            {
-                kitchenEnabled = await FeatureSettings.IsEnabledAsync(
-                    _publicOrder.TenantId,
-                    nameof(ShopFeatureSettingsDto.Kitchen_Workflow_Enabled));
-                // W2-T4: Load loyalty toggle
-                loyaltyEnabled = await FeatureSettings.IsEnabledAsync(
-                    _publicOrder.TenantId,
-                    nameof(ShopFeatureSettingsDto.Loyalty_Program_Enabled));
-                // RC-7: Load VAT display toggle
-                _vatDisplayEnabled = await FeatureSettings.IsEnabledAsync(
-                    _publicOrder.TenantId,
-                    nameof(ShopFeatureSettingsDto.VAT_Display_Enabled));
-                // Load configurable polling interval
-                _pollingIntervalSeconds = await FeatureSettings.GetPollingIntervalAsync(
-                    _publicOrder.TenantId, fallbackSeconds: 15);
-            }
-            catch
-            {
-                kitchenEnabled = true; // Default to ON if fetch fails
-                loyaltyEnabled = true;
-                _vatDisplayEnabled = true;
-            }
-        }
-
-        BuildStatusTimeline();
-        isLoading = false;
-
-        // Check if order is already delivered on initial load
-        CheckOrderDelivered();
-
-        // Wave 9: Start polling after initial load
-        StartPolling();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            // Phase 5: Read created_orders from localStorage to show "other orders from this session".
-            try
-            {
-                var ordersJson = await JS.InvokeAsync<string?>("localStorage.getItem", "created_orders");
-                if (!string.IsNullOrEmpty(ordersJson))
-                {
-                    var allOrders = System.Text.Json.JsonSerializer.Deserialize<List<CreatedOrderRef>>(ordersJson);
-                    if (allOrders != null)
-                    {
-                        _otherOrdersFromSession = allOrders
-                            .Where(o => o.OrderId != orderId.ToString())
-                            .ToList();
-                        StateHasChanged();
-                    }
-                }
-            }
-            catch { /* non-critical — localStorage may not be available during prerender */ }
-        }
-    }
-
-    // Wave 9: IAsyncDisposable implementation for proper cleanup
-    public async ValueTask DisposeAsync()
-    {
-        StopPolling();
-        if (_pollingCts != null)
-        {
-            await _pollingCts.CancelAsync();
-            _pollingCts.Dispose();
-        }
-    }
-
-    // T-02d: Call Gateway public API (no auth required) — W6/Bucket D
-    private async Task LoadOrderFromGateway()
-    {
-        try
-        {
-            var httpClient = HttpClientFactory.CreateClient("gateway");
-            var response = await httpClient.GetAsync($"api/public/orders/{orderId}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                _publicOrder = await response.Content.ReadFromJsonAsync<PublicOrderTrackingDto>();
-
-                // Bug 0: Fetch shop name for display
-                if (_publicOrder?.TenantId != null && _publicOrder.TenantId != Guid.Empty)
-                {
-                    try
-                    {
-                        var shopConfig = await ShopConfigHttp.GetShopConfigByTenantIdAsync(_publicOrder.TenantId);
-                        _shopName = shopConfig?.ShopName;
-                    }
-                    catch { /* non-critical */ }
-                }
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                errorMessage = $"Order {orderId} not found (404)";
-            }
-            else
-            {
-                errorMessage = $"Lỗi tải đơn hàng: {(int)response.StatusCode}";
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Không thể kết nối đến máy chủ: {ex.Message}";
-        }
-    }
-
-    private void BuildStatusTimeline()
-    {
-        // W1-T7: Fixed "processing" ? "preparing" to match Domain OrderStatusId.Preparing
-        // W1-T9: When kitchen toggle OFF, hide preparing/ready steps
-        var allSteps = new[]
-        {
-            new { Id = "pending",    DisplayName = "Chờ xác nhận",  Sequence = 1 },
-            new { Id = "confirmed",  DisplayName = "Đã xác nhận",   Sequence = 2 },
-            new { Id = "preparing",  DisplayName = "Đang chế biến", Sequence = 3 },
-            new { Id = "ready",      DisplayName = "Sẵn sàng",      Sequence = 4 },
-            new { Id = "delivered",  DisplayName = "Đã giao",       Sequence = 5 },
-        };
-
-        // W1-T9: Filter out kitchen statuses when toggle is OFF
-        var visibleSteps = kitchenEnabled
-            ? allSteps.ToList()
-            : allSteps.Where(s => s.Id != "preparing" && s.Id != "ready").ToList();
-
-        string currentStatusId = _publicOrder?.Status ?? "pending";
-        int currentSeq = visibleSteps.FindIndex(s => s.Id == currentStatusId) + 1;
-        if (currentSeq == 0) currentSeq = 1;
-
-        statusTimeline = visibleSteps.Select(s => new TrackingStep
-        {
-            Id          = s.Id,
-            DisplayName = s.DisplayName,
-            IsCompleted = s.Sequence <= currentSeq,
-            Timestamp   = s.Sequence <= currentSeq ? DateTime.UtcNow.AddMinutes(-(currentSeq - s.Sequence) * 5) : null,
-        }).ToList();
-    }
-
-    private static string GetStatusColor(string status) => status switch
-    {
-        "pending"    => "warning",
-        "confirmed"  => "info",
-        "preparing"  => "primary",
-        "ready"      => "success",
-        "delivered"  => "success",
-        "cancelled"  => "danger",
-        _            => "secondary",
-    };
-
-    private record TrackingStep
-    {
-        public string Id          { get; init; } = "";
-        public string DisplayName { get; init; } = "";
-        public bool   IsCompleted { get; init; }
-        public DateTime? Timestamp { get; init; }
-    }
-
-    // Wave 9/W4: Polling methods for real-time order status updates
-    private void StartPolling()
-    {
-        if (_pollingCts != null) return; // Prevent duplicate polling loops
-
-        _pollingCts = new CancellationTokenSource();
-        _pollingStopped = false;
-        isPolling = true;
-        _pollingStartedAt = DateTime.UtcNow;
-
-        // WASM is single-threaded — Task.Run is unnecessary; fire-and-forget the loop directly.
-        _ = PollingLoopAsync(_pollingCts.Token);
-    }
-
-    private void StopPolling()
-    {
-        isPolling = false;
-        _pollingCts?.Cancel();
-    }
-
-    /// <summary>
-    /// Adaptive polling loop with exponential backoff (see GetPollingInterval).
-    /// Terminal states (completed/delivered/cancelled) stop polling entirely.
-    /// </summary>
-    private async Task PollingLoopAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested && !_pollingStopped)
-            {
-                // W4: Adaptive interval based on current order status
-                int intervalSeconds = GetPollingInterval(_publicOrder?.Status);
-
-                if (intervalSeconds == 0)
-                {
-                    // Final state reached — stop polling entirely
-                    _pollingStopped = true;
-                    isPolling = false;
-                    break;
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), cancellationToken);
-
-                if (cancellationToken.IsCancellationRequested || _pollingStopped) break;
-
-                // Check visibility using JS interop for battery-friendly polling
-                var isVisible = await CheckTabVisibilityAsync();
-                if (isTabVisible != isVisible)
-                {
-                    isTabVisible = isVisible;
-                    await InvokeAsync(StateHasChanged);
-                }
-                if (!isVisible) continue; // Skip polling when tab is hidden
-
-                await InvokeAsync(async () =>
-                {
-                    await PollOrderStatusAsync();
-                    StateHasChanged();
-                });
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected during shutdown
-        }
-        catch (Exception ex)
-        {
-            // Log polling errors but don't crash the component
-            Console.WriteLine($"Polling error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Adaptive polling interval with exponential backoff based on elapsed time since polling started.
-    /// Terminal states return 0 to stop polling entirely.
-    /// - First 30s: 5s (fast feedback right after order placement)
-    /// - 30s–3min: admin-configured interval (default 15s)
-    /// - After 3min: 30s (slow drift)
-    /// </summary>
-    private int GetPollingInterval(string? status)
-    {
-        // Terminal states — stop polling entirely
-        if (status is "completed" or "delivered" or "cancelled") return 0;
-
-        var elapsed = DateTime.UtcNow - _pollingStartedAt;
-        if (elapsed < TimeSpan.FromSeconds(30)) return 5;
-        if (elapsed < TimeSpan.FromMinutes(3)) return _pollingIntervalSeconds;
-        return 30;
-    }
-
-    private async Task<bool> CheckTabVisibilityAsync()
-    {
-        try
-        {
-            var isVisible = await JS.InvokeAsync<bool>("eval", "document.visibilityState === 'visible'");
-            return isVisible;
-        }
-        catch
-        {
-            // Fallback to assuming visible if JS interop fails
-            return true;
-        }
-    }
-
-    private async Task PollOrderStatusAsync()
-    {
-        try
-        {
-            var httpClient = HttpClientFactory.CreateClient("gateway");
-            // W6/Bucket D: Poll the public tracking endpoint (no auth required).
-            var response = await httpClient.GetAsync($"api/public/orders/{orderId}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                var freshOrder = await response.Content.ReadFromJsonAsync<PublicOrderTrackingDto>();
-                if (freshOrder != null && _publicOrder != null && _publicOrder.Status != freshOrder.Status)
-                {
-                    // Status changed, reload full order data
-                    _publicOrder = freshOrder;
-                    BuildStatusTimeline();
-
-                    // Show IdentityUpgradeModal when order is delivered (end of order flow)
-                    CheckOrderDelivered();
-
-                    // W4: Stop polling when order reaches final state
-                    if (freshOrder.Status is "completed" or "delivered" or "cancelled")
-                    {
-                        _pollingStopped = true;
-                        isPolling = false;
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            // Silent fail for polling errors - don't disrupt user experience
-            Console.WriteLine($"Polling order status error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Show IdentityUpgradeModal only when order reaches "delivered" status.
-    /// This ensures the modal does NOT block the order flow — it appears at the very end.
-    /// </summary>
-    private void CheckOrderDelivered()
-    {
-        if (_publicOrder?.Status == "delivered" && !_hasShownUpgradeModal)
-        {
-            _showUpgradeModal = true;
-            _hasShownUpgradeModal = true;
-        }
-    }
-
-    private void DismissUpgradeModal()
-    {
-        _showUpgradeModal = false;
-    }
-
-    private void GoToLogin()
-    {
-        _showUpgradeModal = false;
-        Navigation.NavigateTo("/login");
-    }
-
-    /// <summary>
-    /// W2-T1: Customer confirms receipt of order (ready ? delivered).
-    /// Calls POST shoperp/api/orderworkflow/{orderId}/confirm-received via Gateway.
-    /// After confirm ? OrderWorkflowService.TransitionStatusAsync ? status "delivered".
-    /// </summary>
-    private async Task ConfirmReceived()
-    {
-        if (_publicOrder == null || _confirmingReceipt) return;
-
-        _confirmingReceipt = true;
-        _actionError = null;
-        StateHasChanged();
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customerToken");
 
         try
         {
-            var httpClient = HttpClientFactory.CreateClient("gateway");
-            var response = await httpClient.PostAsync(
-                $"shoperp/api/orderworkflow/{orderId}/confirm-received",
-                null);
-
-            if (response.IsSuccessStatusCode)
-            {
-                // Reload order to reflect new status
-                await PollOrderStatusAsync();
-                StateHasChanged();
-            }
-            else
-            {
-                _actionError = $"Không thể xác nhận đã nhận hàng: {(int)response.StatusCode}";
-            }
+            await LoadOrderInfoAsync();
+            await StartSignalRConnectionAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _actionError = $"Lỗi: {ex.Message}";
+            _error = "Kh�ng th? t?i th�ng tin don h�ng.";
         }
         finally
         {
-            _confirmingReceipt = false;
-            StateHasChanged();
+            _loading = false;
         }
     }
 
-    // Phase 5: DTO for reading created_orders from localStorage.
-    private class CreatedOrderRef
+    private async Task LoadOrderInfoAsync()
     {
-        public string OrderId { get; set; } = string.Empty;
-        public string TenantId { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
+        // Load order info from nearby orders (or a dedicated endpoint in future)
+        if (string.IsNullOrEmpty(_customerToken))
+            return;
+
+        var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+        if (pos == null) return;
+
+        var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
+        if (result.Success)
+        {
+            var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
+            if (order != null)
+            {
+                _shopName = order.ShopName;
+                _deliveryAddress = order.DeliveryAddress;
+                _shopLat = order.ShopLat;
+                _shopLng = order.ShopLng;
+                _customerLat = order.DeliveryLat;
+                _customerLng = order.DeliveryLng;
+                _centerLat = _shopLat ?? pos.Lat;
+                _centerLng = _shopLng ?? pos.Lng;
+                _showMap = true;
+            }
+        }
     }
 
-    /// <summary>Safe short ID display — handles short/empty strings without throwing.</summary>
-    private static string GetShortId(string id) => id.Length > 8 ? id[..8] : id;
-}
+    private async Task StartSignalRConnectionAsync()
+    {
+        if (string.IsNullOrEmpty(_customerToken)) return;
 
+        try
+        {
+            var baseUrl = Navigation.BaseUri.TrimEnd('/');
+            var hubUrl = $"{baseUrl}/hubs/location?customerToken={_customerToken}";
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<string, double, double, string>("LocationUpdate", (taskId, lat, lng, recordedAt) =>
+            {
+                _shipperLat = lat;
+                _shipperLng = lng;
+                _isLiveTracking = true;
+                _lastUpdate = DateTime.Now;
+                StateHasChanged();
+            });
+
+            _hubConnection.On<string, string, string>("DeliveryStatusUpdate", (orderId, status, timestamp) =>
+            {
+                _deliveryStatus = status;
+                _lastUpdate = DateTime.Now;
+                if (status == "Delivered" || status == "Failed")
+                    _isLiveTracking = false;
+                StateHasChanged();
+            });
+
+            await _hubConnection.StartAsync();
+            await _hubConnection.InvokeAsync("JoinOrderTracking", OrderId.ToString());
+            _isLiveTracking = true;
+        }
+        catch (Exception)
+        {
+            // SignalR connection failure is non-fatal � page still shows static info
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("LeaveOrderTracking", OrderId.ToString());
+                await _hubConnection.DisposeAsync();
+            }
+            catch { }
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Assigned" => "bg-secondary",
+        "PickedUp" => "bg-info text-dark",
+        "OutForDelivery" => "bg-primary",
+        "Delivered" => "bg-success",
+        "Failed" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStatusText(string status) => status switch
+    {
+        "Assigned" => "Shipper d� nh?n don",
+        "PickedUp" => "�� l?y h�ng",
+        "OutForDelivery" => "�ang giao h�ng",
+        "Delivered" => "�� giao th�nh c�ng",
+        "Failed" => "Giao th?t b?i",
+        _ => "�ang ch?"
+    };
+
+    private class GeoPosition
+    {
+        public double Lat { get; set; }
+        public double Lng { get; set; }
+    }
+}

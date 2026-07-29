@@ -1,0 +1,373 @@
+@page "/community/delivery-tracking/{OrderId}"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
+@inject LocationTrackingService LocationTracker
+
+<PageTitle>Theo dõi giao hàng</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-truck text-primary"></i> Theo dõi giao hàng
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để theo dõi giao hàng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_error != null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-4">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size:3rem;"></i>
+                <h5 class="mt-3 text-danger">@_error</h5>
+                <VanAnButton Variant="ButtonVariant.Secondary" OnClick="GoToNearbyOrders">Quay lại danh sách</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <!-- Order info -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Đơn hàng</div>
+                        <div class="fw-bold">#@OrderId.ToString()[..8]</div>
+                    </div>
+                    <div>
+                        <span class="badge @GetStatusBadgeClass(_deliveryStatus) fs-6">@GetStatusText(_deliveryStatus)</span>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(_shopName))
+                {
+                    <div class="mt-2 text-muted small"><i class="bi bi-shop"></i> @_shopName</div>
+                }
+                @if (!string.IsNullOrEmpty(_deliveryAddress))
+                {
+                    <div class="mt-1 text-muted small"><i class="bi bi-geo-alt"></i> @_deliveryAddress</div>
+                }
+            </VanAnCard>
+
+            <!-- Map -->
+            @if (_showMap)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3 p-0 overflow-hidden">
+                    <LeafletMap MapElementId="delivery-map"
+                                Height="350px"
+                                CenterLat="_centerLat"
+                                CenterLng="_centerLng"
+                                Zoom="14"
+                                ShopLat="_shopLat"
+                                ShopLng="_shopLng"
+                                CustomerLat="_customerLat"
+                                CustomerLng="_customerLng"
+                                ShipperLat="_shipperLat"
+                                ShipperLng="_shipperLng" />
+                </VanAnCard>
+            }
+
+            <!-- Action buttons -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <h6 class="mb-3">Cập nhật trạng thái</h6>
+                <div class="d-flex flex-wrap gap-2">
+                    @if (_deliveryStatus == "Assigned" || _deliveryStatus == "PickedUp" || _deliveryStatus == "OutForDelivery")
+                    {
+                        @if (_deliveryStatus == "Assigned")
+                        {
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="PickupOrder">
+                                <i class="bi bi-bag-check"></i> Đã lấy hàng
+                            </VanAnButton>
+                        }
+                        @if (_deliveryStatus == "PickedUp")
+                        {
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="StartDelivering">
+                                <i class="bi bi-truck"></i> Bắt đầu giao
+                            </VanAnButton>
+                        }
+                        @if (_deliveryStatus == "OutForDelivery")
+                        {
+                            <VanAnButton Variant="ButtonVariant.Success" OnClick="CompleteDelivery">
+                                <i class="bi bi-check-circle"></i> Đã giao thành công
+                            </VanAnButton>
+                        }
+                        <VanAnButton Variant="ButtonVariant.Error" OnClick="ShowFailModal">
+                            <i class="bi bi-x-circle"></i> Giao thất bại
+                        </VanAnButton>
+                    }
+                    else if (_deliveryStatus == "Delivered")
+                    {
+                        <div class="text-success">
+                            <i class="bi bi-check-circle-fill"></i> Đơn hàng đã giao thành công!
+                        </div>
+                    }
+                    else if (_deliveryStatus == "Failed")
+                    {
+                        <div class="text-danger">
+                            <i class="bi bi-x-circle-fill"></i> Giao thất bại: @_failureReason
+                        </div>
+                    }
+                </div>
+            </VanAnCard>
+
+            <!-- GPS tracking status -->
+            @if (_isTracking)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="spinner-border spinner-border-sm text-primary"></span>
+                        <span class="text-muted">Đang theo dõi GPS... (cập nhật mỗi 10s)</span>
+                    </div>
+                    @if (_lastGpsUpdate != null)
+                    {
+                        <div class="mt-2 small text-muted">
+                            Cập nhật cuối: @_lastGpsUpdate.Value.ToString("HH:mm:ss")
+                            @if (_shipperLat > 0)
+                            {
+                                <span> | Vị trí: @_shipperLat.ToString("F4"), @_shipperLng.ToString("F4")</span>
+                            }
+                        </div>
+                    }
+                </VanAnCard>
+            }
+
+            <!-- Fail modal -->
+            @if (_showFailModal)
+            {
+                <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Lý do giao thất bại</h5>
+                                <button type="button" class="btn-close" @onclick="HideFailModal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <textarea class="form-control" rows="3" @bind="_failureReasonInput" placeholder="Vd: Khách không có nhà, SĐT không liên lạc được..."></textarea>
+                            </div>
+                            <div class="modal-footer">
+                                <VanAnButton Variant="ButtonVariant.Secondary" OnClick="HideFailModal">Hủy</VanAnButton>
+                                <VanAnButton Variant="ButtonVariant.Error" OnClick="ConfirmFailDelivery">Xác nhận thất bại</VanAnButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <VanAnButton Variant="ButtonVariant.Secondary" OnClick="GoToNearbyOrders">
+                <i class="bi bi-arrow-left"></i> Quay lại danh sách
+            </VanAnButton>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private string? _error;
+    private string? _customerToken;
+    private string _deliveryStatus = "Assigned";
+    private string _shopName = string.Empty;
+    private string? _deliveryAddress;
+    private string _failureReason = string.Empty;
+    private string _failureReasonInput = string.Empty;
+    private bool _showFailModal = false;
+    private bool _showMap = false;
+    private bool _isTracking = false;
+    private DateTime? _lastGpsUpdate;
+
+    // Map coordinates
+    private double _centerLat = 10.8;
+    private double _centerLng = 106.7;
+    private double? _shopLat;
+    private double? _shopLng;
+    private double? _customerLat;
+    private double? _customerLng;
+    private double _shipperLat;
+    private double _shipperLng;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customerToken");
+        if (string.IsNullOrEmpty(_customerToken))
+        {
+            _isLoggedIn = false;
+            _loading = false;
+            return;
+        }
+        _isLoggedIn = true;
+
+        // Load order info (from nearby orders API — find this order)
+        try
+        {
+            // Get current GPS to query nearby orders
+            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+            if (pos == null)
+            {
+                _error = "Không thể lấy vị trí GPS. Vui lòng bật GPS.";
+                _loading = false;
+                return;
+            }
+
+            var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
+            if (!result.Success)
+            {
+                _error = result.ErrorMessage;
+                _loading = false;
+                return;
+            }
+
+            // Find this order in the list (may not be in nearby if already accepted)
+            var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
+            if (order != null)
+            {
+                _shopName = order.ShopName;
+                _deliveryAddress = order.DeliveryAddress;
+                _shopLat = order.ShopLat;
+                _shopLng = order.ShopLng;
+                _customerLat = order.DeliveryLat;
+                _customerLng = order.DeliveryLng;
+                _centerLat = _shopLat ?? pos.Lat;
+                _centerLng = _shopLng ?? pos.Lng;
+            }
+            else
+            {
+                // Order not in nearby list (already accepted) — show minimal info
+                _shopName = "Đơn hàng #" + OrderId.ToString()[..8];
+            }
+
+            _deliveryStatus = "Assigned"; // Default — after accept, status is Assigned
+            _showMap = true;
+            _loading = false;
+        }
+        catch (Exception)
+        {
+            _error = "Lỗi tải thông tin đơn hàng.";
+            _loading = false;
+        }
+    }
+
+    private async Task PickupOrder()
+    {
+        var result = await CommunityHttp.PickupOrderAsync(_customerToken!, OrderId);
+        if (result.Success)
+        {
+            _deliveryStatus = result.Status;
+            StartGpsTracking();
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+    }
+
+    private async Task StartDelivering()
+    {
+        var result = await CommunityHttp.StartDeliveringAsync(_customerToken!, OrderId);
+        if (result.Success)
+        {
+            _deliveryStatus = result.Status;
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+    }
+
+    private async Task CompleteDelivery()
+    {
+        var result = await CommunityHttp.CompleteDeliveryAsync(_customerToken!, OrderId);
+        if (result.Success)
+        {
+            _deliveryStatus = result.Status;
+            StopGpsTracking();
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+    }
+
+    private void ShowFailModal() => _showFailModal = true;
+    private void HideFailModal() => _showFailModal = false;
+
+    private async Task ConfirmFailDelivery()
+    {
+        _showFailModal = false;
+        var result = await CommunityHttp.FailDeliveryAsync(_customerToken!, OrderId, _failureReasonInput);
+        if (result.Success)
+        {
+            _deliveryStatus = result.Status;
+            _failureReason = _failureReasonInput;
+            StopGpsTracking();
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+    }
+
+    private void StartGpsTracking()
+    {
+        if (_isTracking) return;
+        _isTracking = true;
+        LocationTracker.StartTracking(OrderId.ToString(), _customerToken!, async (taskId, lat, lng) =>
+        {
+            _shipperLat = lat;
+            _shipperLng = lng;
+            _lastGpsUpdate = DateTime.Now;
+            await InvokeAsync(StateHasChanged);
+            // Send to API (fire-and-forget, non-blocking)
+            _ = CommunityHttp.UpdateLocationAsync(_customerToken!, taskId, lat, lng);
+        });
+    }
+
+    private void StopGpsTracking()
+    {
+        _isTracking = false;
+        LocationTracker.StopTracking();
+    }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+    private void GoToNearbyOrders() => Navigation.NavigateTo("/community/nearby-orders");
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Assigned" => "bg-secondary",
+        "PickedUp" => "bg-info text-dark",
+        "OutForDelivery" => "bg-primary",
+        "Delivered" => "bg-success",
+        "Failed" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStatusText(string status) => status switch
+    {
+        "Assigned" => "Đã nhận đơn",
+        "PickedUp" => "Đã lấy hàng",
+        "OutForDelivery" => "Đang giao",
+        "Delivered" => "Đã giao",
+        "Failed" => "Thất bại",
+        _ => status
+    };
+
+    private class GeoPosition
+    {
+        public double Lat { get; set; }
+        public double Lng { get; set; }
+    }
+}

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
+using VanAn.Gateway.Hubs;
 using VanAn.Shared.Domain;
 
 namespace VanAn.Gateway.Controllers
@@ -11,6 +13,13 @@ namespace VanAn.Gateway.Controllers
     /// CC-S1-T1/T2 (Sprint 1): Community Commerce endpoints for shipper flow.
     /// GET /api/community/nearby-orders — list DELIVERY orders within radius (Haversine).
     /// POST /api/community/orders/{orderId}/accept — accept order for delivery (concurrency-safe).
+    ///
+    /// CC-S2 (Sprint 2): Delivery workflow + GPS tracking.
+    /// POST /api/community/orders/{orderId}/pickup — mark as picked up.
+    /// POST /api/community/orders/{orderId}/delivering — mark as out for delivery.
+    /// POST /api/community/orders/{orderId}/delivered — mark as delivered (+ Order.Completed).
+    /// POST /api/community/orders/{orderId}/failed — mark as failed (with reason).
+    /// POST /api/community/location/update — record GPS location ping + SignalR push.
     ///
     /// Auth: X-Customer-Token header (validated via ShopERP /me forward).
     /// Role check: CommunityRole(Shipper, Active) — queried from Gateway PG.
@@ -21,13 +30,17 @@ namespace VanAn.Gateway.Controllers
     [AllowAnonymous]
     public class CommunityController(
         ICommunityOrderService communityOrderService,
+        IDeliveryWorkflowService deliveryWorkflowService,
         IVanAnDbContext dbContext,
         IHttpClientFactory httpClientFactory,
+        IHubContext<LocationHub> locationHubContext,
         ILogger<CommunityController> logger) : ControllerBase
     {
         private readonly ICommunityOrderService _communityOrderService = communityOrderService;
+        private readonly IDeliveryWorkflowService _deliveryWorkflowService = deliveryWorkflowService;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+        private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
         private readonly ILogger<CommunityController> _logger = logger;
 
         /// <summary>
@@ -132,6 +145,194 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// POST /api/community/orders/{orderId}/pickup
+        /// Mark the active DeliveryTask as PickedUp.
+        /// </summary>
+        [HttpPost("orders/{orderId:guid}/pickup")]
+        public async Task<IActionResult> PickupOrder(Guid orderId)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var roleCheck = await CheckShipperRoleAsync(customerId.Value);
+            if (!roleCheck.IsValid) return roleCheck.Error!;
+
+            try
+            {
+                var task = await _deliveryWorkflowService.TransitionStatusAsync(orderId, DeliveryTaskStatus.PickedUp);
+                if (task == null)
+                    return NotFound(new { error = "Không tìm thấy đơn giao đang hoạt động." });
+
+                await PublishDeliveryStatusUpdateAsync(orderId, task.Status.ToString());
+                return Ok(new { deliveryTaskId = task.Id, status = task.Status.ToString(), timestamp = task.PickedUpAt });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error picking up order {OrderId}", orderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/orders/{orderId}/delivering
+        /// Mark the active DeliveryTask as OutForDelivery.
+        /// </summary>
+        [HttpPost("orders/{orderId:guid}/delivering")]
+        public async Task<IActionResult> StartDelivering(Guid orderId)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var roleCheck = await CheckShipperRoleAsync(customerId.Value);
+            if (!roleCheck.IsValid) return roleCheck.Error!;
+
+            try
+            {
+                var task = await _deliveryWorkflowService.TransitionStatusAsync(orderId, DeliveryTaskStatus.OutForDelivery);
+                if (task == null)
+                    return NotFound(new { error = "Không tìm thấy đơn giao đang hoạt động." });
+
+                await PublishDeliveryStatusUpdateAsync(orderId, task.Status.ToString());
+                return Ok(new { deliveryTaskId = task.Id, status = task.Status.ToString(), timestamp = task.OutForDeliveryAt });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting delivery for order {OrderId}", orderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/orders/{orderId}/delivered
+        /// Mark the active DeliveryTask as Delivered + Order → completed.
+        /// </summary>
+        [HttpPost("orders/{orderId:guid}/delivered")]
+        public async Task<IActionResult> CompleteDelivery(Guid orderId)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var roleCheck = await CheckShipperRoleAsync(customerId.Value);
+            if (!roleCheck.IsValid) return roleCheck.Error!;
+
+            try
+            {
+                var task = await _deliveryWorkflowService.TransitionStatusAsync(orderId, DeliveryTaskStatus.Delivered);
+                if (task == null)
+                    return NotFound(new { error = "Không tìm thấy đơn giao đang hoạt động." });
+
+                await PublishDeliveryStatusUpdateAsync(orderId, task.Status.ToString());
+                return Ok(new { deliveryTaskId = task.Id, status = task.Status.ToString(), timestamp = task.DeliveredAt });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing delivery for order {OrderId}", orderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/orders/{orderId}/failed
+        /// Mark the active DeliveryTask as Failed with reason.
+        /// </summary>
+        [HttpPost("orders/{orderId:guid}/failed")]
+        public async Task<IActionResult> FailDelivery(Guid orderId, [FromBody] FailureRequest? body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var roleCheck = await CheckShipperRoleAsync(customerId.Value);
+            if (!roleCheck.IsValid) return roleCheck.Error!;
+
+            try
+            {
+                var task = await _deliveryWorkflowService.TransitionStatusAsync(orderId, DeliveryTaskStatus.Failed, body?.Reason);
+                if (task == null)
+                    return NotFound(new { error = "Không tìm thấy đơn giao đang hoạt động." });
+
+                await PublishDeliveryStatusUpdateAsync(orderId, task.Status.ToString());
+                return Ok(new { deliveryTaskId = task.Id, status = task.Status.ToString(), reason = task.FailureReason, timestamp = task.FailedAt });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error failing delivery for order {OrderId}", orderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/location/update
+        /// Record a GPS location ping for the DeliveryTask + push via SignalR to order group.
+        /// </summary>
+        [HttpPost("location/update")]
+        public async Task<IActionResult> UpdateLocation([FromBody] LocationUpdateRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var roleCheck = await CheckShipperRoleAsync(customerId.Value);
+            if (!roleCheck.IsValid) return roleCheck.Error!;
+
+            if (body == null || string.IsNullOrEmpty(body.DeliveryTaskId))
+                return BadRequest(new { error = "deliveryTaskId is required." });
+
+            if (!Guid.TryParse(body.DeliveryTaskId, out var taskGuid))
+                return BadRequest(new { error = "deliveryTaskId không hợp lệ." });
+
+            try
+            {
+                await _deliveryWorkflowService.RecordLocationAsync(taskGuid, body.Lat, body.Lng);
+
+                // Push location update via SignalR to the order group
+                // Find the orderId for this deliveryTask
+                var task = await _dbContext.DeliveryTasks
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(dt => dt.Id == taskGuid);
+
+                if (task != null)
+                {
+                    var recordedAt = DateTime.UtcNow.ToString("O");
+                    await _locationHubContext.Clients.Group($"order_{task.OrderId}")
+                        .SendAsync("LocationUpdate", taskGuid.ToString(), body.Lat, body.Lng, recordedAt);
+                }
+
+                return Ok(new { recordedAt = DateTime.UtcNow.ToString("O") });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error recording location for task {TaskId}", body.DeliveryTaskId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// Push delivery status update via SignalR to the order group.
+        /// </summary>
+        private async Task PublishDeliveryStatusUpdateAsync(Guid orderId, string status)
+        {
+            var timestamp = DateTime.UtcNow.ToString("O");
+            await _locationHubContext.Clients.Group($"order_{orderId}")
+                .SendAsync("DeliveryStatusUpdate", orderId.ToString(), status, timestamp);
+        }
+
+        /// <summary>
         /// Validate X-Customer-Token by forwarding to ShopERP /api/customer-identity/me.
         /// Returns CustomerId if valid, or an IActionResult error if invalid.
         /// </summary>
@@ -184,6 +385,18 @@ namespace VanAn.Gateway.Controllers
         private class MeResponse
         {
             public Guid? CustomerId { get; set; }
+        }
+
+        public class FailureRequest
+        {
+            public string? Reason { get; set; }
+        }
+
+        public class LocationUpdateRequest
+        {
+            public string DeliveryTaskId { get; set; } = string.Empty;
+            public double Lat { get; set; }
+            public double Lng { get; set; }
         }
     }
 }

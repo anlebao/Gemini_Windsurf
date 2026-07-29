@@ -1,0 +1,80 @@
+@* CC-S2 (Sprint 2): LeafletMap component — interactive map with shop/shipper/customer markers.
+   Uses vendored Leaflet 1.9.4 (/lib/leaflet/). JS interop at /js/leaflet.js.
+   Markers: shop (red), shipper (blue, moves), customer (green). *@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+<div id="@MapElementId" style="width: 100%; height: @Height; border-radius: 12px; overflow: hidden; z-index: 0;"></div>
+
+@code {
+    [Parameter] public string MapElementId { get; set; } = "leaflet-map";
+    [Parameter] public string Height { get; set; } = "400px";
+    [Parameter] public double CenterLat { get; set; } = 10.8;
+    [Parameter] public double CenterLng { get; set; } = 106.7;
+    [Parameter] public int Zoom { get; set; } = 14;
+
+    [Parameter] public double? ShopLat { get; set; }
+    [Parameter] public double? ShopLng { get; set; }
+    [Parameter] public double? ShipperLat { get; set; }
+    [Parameter] public double? ShipperLng { get; set; }
+    [Parameter] public double? CustomerLat { get; set; }
+    [Parameter] public double? CustomerLng { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        await JS.InvokeVoidAsync("leafletMap.initMap", MapElementId, CenterLat, CenterLng, Zoom);
+
+        if (ShopLat.HasValue && ShopLng.HasValue)
+            await JS.InvokeVoidAsync("leafletMap.addMarker", MapElementId, "shop", ShopLat.Value, ShopLng.Value, "Shop", "#dc3545");
+
+        if (CustomerLat.HasValue && CustomerLng.HasValue)
+            await JS.InvokeVoidAsync("leafletMap.addMarker", MapElementId, "customer", CustomerLat.Value, CustomerLng.Value, "Khách hàng", "#28a745");
+
+        if (ShipperLat.HasValue && ShipperLng.HasValue)
+            await JS.InvokeVoidAsync("leafletMap.addMarker", MapElementId, "shipper", ShipperLat.Value, ShipperLng.Value, "Shipper", "#007bff");
+    }
+
+    /// <summary>
+    /// Update the shipper marker position (called by parent when GPS updates).
+    /// </summary>
+    public async Task UpdateShipperPositionAsync(double lat, double lng)
+    {
+        if (ShipperLat == lat && ShipperLng == lng) return;
+        ShipperLat = lat;
+        ShipperLng = lng;
+        await JS.InvokeVoidAsync("leafletMap.updateMarker", MapElementId, "shipper", lat, lng);
+    }
+
+    /// <summary>
+    /// Draw a route line from shop to shipper or shipper to customer.
+    /// </summary>
+    public async Task DrawRouteAsync(double fromLat, double fromLng, double toLat, double toLng)
+    {
+        await JS.InvokeVoidAsync("leafletMap.drawRoute", MapElementId, fromLat, fromLng, toLat, toLng);
+    }
+
+    /// <summary>
+    /// Fit map to show all visible markers.
+    /// </summary>
+    public async Task FitBoundsAsync()
+    {
+        var points = new List<object>();
+        if (ShopLat.HasValue && ShopLng.HasValue)
+            points.Add(new { lat = ShopLat.Value, lng = ShopLng.Value });
+        if (ShipperLat.HasValue && ShipperLng.HasValue)
+            points.Add(new { lat = ShipperLat.Value, lng = ShipperLng.Value });
+        if (CustomerLat.HasValue && CustomerLng.HasValue)
+            points.Add(new { lat = CustomerLat.Value, lng = CustomerLng.Value });
+
+        if (points.Count > 1)
+            await JS.InvokeVoidAsync("leafletMap.fitBounds", MapElementId, points);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("leafletMap.removeMap", MapElementId); }
+        catch { /* map already removed or JS interop not available */ }
+    }
+}

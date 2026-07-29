@@ -238,6 +238,9 @@ namespace VanAn.Gateway
             // CC-S1-T1/T2 (Sprint 1): CommunityOrderService — nearby orders (Haversine) + accept (concurrency-safe)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityOrderService, VanAn.CoreHub.Services.CommunityOrderService>();
 
+            // CC-S2 (Sprint 2): DeliveryWorkflowService — delivery state machine + GPS location recording
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeliveryWorkflowService, VanAn.CoreHub.Services.DeliveryWorkflowService>();
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();
@@ -433,6 +436,7 @@ namespace VanAn.Gateway
                 _ = app.MapControllers();
                 _ = app.MapHub<OrderHub>("/orderHub");
                 _ = app.MapHub<KitchenHub>("/kitchenhub");
+                _ = app.MapHub<LocationHub>("/hubs/location");
 
                 // Add YARP Reverse Proxy (after controllers so it only catches non-API routes)
                 _ = app.MapReverseProxy();

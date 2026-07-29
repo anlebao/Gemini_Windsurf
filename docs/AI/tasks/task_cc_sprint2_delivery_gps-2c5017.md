@@ -3,7 +3,7 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Shipper cập nhật trạng thái giao hàng (PickedUp → OutForDelivery → Delivered/Failed) + GPS location real-time qua SignalR.
 - **Nghiệp vụ áp dụng:** UC-05 (Delivery status) + UC-06 (GPS tracking) từ requirements spec.
-- **Status:** NOT STARTED
+- **Status:** COMPLETE 2026-07-29 — DeliveryWorkflowService (10 tests PASS) + LocationHub + 5 delivery endpoints + LeafletMap + DeliveryTracking.razor + OrderTracking.razor + E2E test. Build 0 errors, 75 community + 39/39 Architecture tests PASS.
 - **Branch:** `feature/community-sprint2-delivery-gps`
 
 ---

@@ -270,8 +270,8 @@
                 _orders.RemoveAll(o => o.OrderId == orderId);
                 StateHasChanged();
 
-                // Navigate to order tracking after short delay
-                _ = Task.Delay(1500).ContinueWith(_ => Navigation.NavigateTo($"/order-tracking/{orderId}", forceLoad: true));
+                // Navigate to delivery tracking (shipper workflow) after short delay
+                _ = Task.Delay(1500).ContinueWith(_ => Navigation.NavigateTo($"/community/delivery-tracking/{orderId}", forceLoad: true));
             }
             else
             {
