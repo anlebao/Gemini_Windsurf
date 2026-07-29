@@ -31,16 +31,20 @@ namespace VanAn.Gateway.Controllers
     public class CommunityController(
         ICommunityOrderService communityOrderService,
         IDeliveryWorkflowService deliveryWorkflowService,
+        IChatService chatService,
         IVanAnDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IHubContext<LocationHub> locationHubContext,
+        IHubContext<ChatHub> chatHubContext,
         ILogger<CommunityController> logger) : ControllerBase
     {
         private readonly ICommunityOrderService _communityOrderService = communityOrderService;
         private readonly IDeliveryWorkflowService _deliveryWorkflowService = deliveryWorkflowService;
+        private readonly IChatService _chatService = chatService;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
+        private readonly IHubContext<ChatHub> _chatHubContext = chatHubContext;
         private readonly ILogger<CommunityController> _logger = logger;
 
         /// <summary>
@@ -323,6 +327,88 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// CC-S3 (Sprint 3): GET /api/community/chat/conversations/{orderId}
+        /// Get chat history for the given order. Requires DeliveryTask to exist.
+        /// </summary>
+        [HttpGet("chat/conversations/{orderId:guid}")]
+        public async Task<IActionResult> GetChatHistory(Guid orderId)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                if (!await _chatService.HasActiveDeliveryTaskAsync(orderId))
+                    return StatusCode(403, new { error = "Không có đơn giao nào cho đơn hàng này." });
+
+                var messages = await _chatService.GetHistoryAsync(orderId);
+                var conversation = await _chatService.GetOrCreateConversationAsync(orderId);
+
+                return Ok(new
+                {
+                    conversationId = conversation?.Id,
+                    orderId,
+                    messages = messages.Select(m => new
+                    {
+                        id = m.Id,
+                        senderId = m.SenderId,
+                        content = m.Content,
+                        sentAt = m.SentAt,
+                        isRead = m.IsRead
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting chat history for order {OrderId}", orderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// CC-S3 (Sprint 3): POST /api/community/chat/messages
+        /// Send a chat message. Requires DeliveryTask + sender is ShipperId or CustomerId.
+        /// </summary>
+        [HttpPost("chat/messages")]
+        public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || string.IsNullOrWhiteSpace(body.Content))
+                return BadRequest(new { error = "Nội dung tin nhắn không được để trống." });
+
+            if (body.Content.Length > 2000)
+                return BadRequest(new { error = "Nội dung tin nhắn không được vượt quá 2000 ký tự." });
+
+            if (body.OrderId == Guid.Empty)
+                return BadRequest(new { error = "OrderId không hợp lệ." });
+
+            try
+            {
+                var message = await _chatService.SendMessageAsync(body.OrderId, customerId.Value, body.Content);
+
+                if (message == null)
+                    return StatusCode(403, new { error = "Không thể gửi tin nhắn. Đơn giao không tồn tại." });
+
+                // Push via SignalR to chat group
+                await _chatHubContext.Clients.Group($"chat_{body.OrderId}")
+                    .SendAsync("ReceiveMessage", message.Id.ToString(), message.SenderId.ToString(), message.Content, message.SentAt.ToString("O"));
+
+                return Ok(new { messageId = message.Id, sentAt = message.SentAt.ToString("O") });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new { error = "Bạn không có quyền gửi tin nhắn trong cuộc trò chuyện này." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending chat message for order {OrderId}", body.OrderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
         /// Push delivery status update via SignalR to the order group.
         /// </summary>
         private async Task PublishDeliveryStatusUpdateAsync(Guid orderId, string status)
@@ -397,6 +483,12 @@ namespace VanAn.Gateway.Controllers
             public string DeliveryTaskId { get; set; } = string.Empty;
             public double Lat { get; set; }
             public double Lng { get; set; }
+        }
+
+        public class SendMessageRequest
+        {
+            public Guid OrderId { get; set; }
+            public string Content { get; set; } = string.Empty;
         }
     }
 }

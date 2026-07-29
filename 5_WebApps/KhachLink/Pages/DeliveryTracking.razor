@@ -3,6 +3,7 @@
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services
 @using VanAn.KhachLink.Services.Http
+@using VanAn.KhachLink.Components
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
@@ -166,6 +167,14 @@
                 </div>
             }
 
+            <!-- Chat panel (CC-S3) -->
+            @if (_customerId.HasValue)
+            {
+                <div class="mt-3">
+                    <ChatPanel OrderId="OrderId" CurrentUserId="_customerId.Value" CustomerToken="_customerToken" ScrollContainerId="delivery-chat-scroll" />
+                </div>
+            }
+
             <VanAnButton Variant="ButtonVariant.Secondary" OnClick="GoToNearbyOrders">
                 <i class="bi bi-arrow-left"></i> Quay lại danh sách
             </VanAnButton>
@@ -189,6 +198,7 @@
     private bool _showMap = false;
     private bool _isTracking = false;
     private DateTime? _lastGpsUpdate;
+    private Guid? _customerId;
 
     // Map coordinates
     private double _centerLat = 10.8;
@@ -210,6 +220,9 @@
             return;
         }
         _isLoggedIn = true;
+
+        // Load CustomerId for ChatPanel
+        _customerId = await CommunityHttp.GetCustomerIdAsync(_customerToken);
 
         // Load order info (from nearby orders API — find this order)
         try

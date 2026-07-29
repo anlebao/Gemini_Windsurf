@@ -240,6 +240,7 @@ namespace VanAn.Gateway
 
             // CC-S2 (Sprint 2): DeliveryWorkflowService — delivery state machine + GPS location recording
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeliveryWorkflowService, VanAn.CoreHub.Services.DeliveryWorkflowService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IChatService, VanAn.CoreHub.Services.ChatService>();
 
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
@@ -437,6 +438,7 @@ namespace VanAn.Gateway
                 _ = app.MapHub<OrderHub>("/orderHub");
                 _ = app.MapHub<KitchenHub>("/kitchenhub");
                 _ = app.MapHub<LocationHub>("/hubs/location");
+                _ = app.MapHub<ChatHub>("/hubs/chat");
 
                 // Add YARP Reverse Proxy (after controllers so it only catches non-API routes)
                 _ = app.MapReverseProxy();

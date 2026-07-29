@@ -11,6 +11,7 @@ namespace VanAn.KhachLink.Services.Http;
 public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<CommunityHttpService> logger)
 {
     private readonly HttpClient _httpClient = httpClientFactory.CreateClient("gateway");
+    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly ILogger<CommunityHttpService> _logger = logger;
 
     /// <summary>
@@ -35,6 +36,33 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
         {
             _logger.LogError(ex, "GetIsShipperAsync failed");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// CC-S3 (Sprint 3): Get CustomerId from customerToken via ShopERP /api/customer-identity/me.
+    /// Used by ChatPanel to identify the current user (shipper or customer).
+    /// </summary>
+    public async Task<Guid?> GetCustomerIdAsync(string customerToken)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient("shoperp");
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/customer-identity/me");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await client.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var body = await resp.Content.ReadAsStringAsync();
+            var data = System.Text.Json.JsonSerializer.Deserialize<CustomerIdResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return data?.CustomerId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetCustomerIdAsync failed");
+            return null;
         }
     }
 
@@ -294,6 +322,13 @@ public class ErrorResponse
 public class RoleResponse
 {
     public bool IsShipper { get; set; }
+}
+
+public class CustomerIdResponse
+{
+    public Guid? CustomerId { get; set; }
+    public string? FullName { get; set; }
+    public string? PhoneNumber { get; set; }
 }
 
 public class DeliveryTransitionResult

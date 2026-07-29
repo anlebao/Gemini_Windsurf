@@ -1,0 +1,219 @@
+@* CC-S3 (Sprint 3): ChatPanel component — shipper ↔ customer real-time chat.
+   UC-07 (Chat). Uses ChatHttpService + SignalR ChatHub.
+   Parameters: OrderId, CurrentUserId (from customerToken validation). *@
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Services.Http
+@using Microsoft.AspNetCore.SignalR.Client
+@inject IJSRuntime JSRuntime
+@inject ChatHttpService ChatHttp
+@inject NavigationManager Navigation
+
+<div class="chat-panel">
+    <VanAnCard Shadow="true" CssClass="p-0 overflow-hidden">
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+            <h6 class="mb-0"><i class="bi bi-chat-dots text-primary"></i> Chat với khách hàng</h6>
+            @if (_isConnected)
+            {
+                <span class="badge bg-success">Đã kết nối</span>
+            }
+            else if (_connecting)
+            {
+                <span class="badge bg-warning text-dark">Đang kết nối...</span>
+            }
+        </div>
+
+        <!-- Message list -->
+        <div id="@ScrollContainerId" style="max-height: 400px; overflow-y: auto; padding: 12px;" class="bg-light">
+            @if (_loadingHistory)
+            {
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                </div>
+            }
+            else if (_messages.Count == 0)
+            {
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-chat" style="font-size: 2rem;"></i>
+                    <div class="small mt-2">Chưa có tin nhắn. Hãy gửi tin nhắn đầu tiên!</div>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in _messages)
+                {
+                    var isOwn = msg.SenderId == CurrentUserId;
+                    <div class="d-flex @(isOwn ? "justify-content-end" : "justify-content-start") mb-2">
+                        <div style="max-width: 75%;">
+                            <div class="px-3 py-2 rounded @(isOwn ? "bg-primary text-white" : "bg-white border")">
+                                @msg.Content
+                            </div>
+                            <div class="small text-muted mt-1 @(isOwn ? "text-end" : "text-start")">
+                                @msg.SentAt.ToString("HH:mm")
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Input row -->
+        <div class="p-3 border-top">
+            @if (_error != null)
+            {
+                <div class="alert alert-danger py-2 small mb-2">@_error</div>
+            }
+            <div class="d-flex gap-2">
+                <input type="text" class="form-control" placeholder="Nhập tin nhắn..."
+                       @bind="_messageInput" @bind:event="oninput"
+                       @onkeypress="OnKeyPress" maxlength="2000" />
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendMessage">
+                    <i class="bi bi-send"></i> Gửi
+                </VanAnButton>
+            </div>
+        </div>
+    </VanAnCard>
+</div>
+
+@code {
+    [Parameter] public Guid OrderId { get; set; }
+    [Parameter] public Guid CurrentUserId { get; set; }
+    [Parameter] public string? CustomerToken { get; set; }
+    [Parameter] public string ScrollContainerId { get; set; } = "chat-scroll-container";
+
+    private List<ChatMessageDto> _messages = new();
+    private string _messageInput = string.Empty;
+    private bool _loadingHistory = true;
+    private bool _connecting = false;
+    private bool _isConnected = false;
+    private string? _error;
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(CustomerToken))
+        {
+            _error = "Chưa đăng nhập.";
+            _loadingHistory = false;
+            return;
+        }
+
+        await LoadHistoryAsync();
+        await ConnectSignalRAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _loadingHistory = true;
+        var result = await ChatHttp.GetHistoryAsync(CustomerToken!, OrderId);
+        if (result.Success)
+        {
+            _messages = result.Messages;
+        }
+        else
+        {
+            _error = result.ErrorMessage;
+        }
+        _loadingHistory = false;
+        await InvokeAsync(StateHasChanged);
+        await ScrollToBottomAsync();
+    }
+
+    private async Task ConnectSignalRAsync()
+    {
+        if (string.IsNullOrEmpty(CustomerToken)) return;
+
+        try
+        {
+            _connecting = true;
+            var baseUrl = Navigation.BaseUri.TrimEnd('/');
+            // Route through Gateway directly (api.khachvip.online)
+            var gatewayUrl = baseUrl.Replace("diemthuong.khachvip.online", "api.khachvip.online");
+            var hubUrl = $"{gatewayUrl}/hubs/chat?customerToken={CustomerToken}";
+
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.On<string, string, string, string>("ReceiveMessage", (messageId, senderId, content, sentAt) =>
+            {
+                var msg = new ChatMessageDto
+                {
+                    Id = Guid.Parse(messageId),
+                    SenderId = Guid.Parse(senderId),
+                    Content = content,
+                    SentAt = DateTime.Parse(sentAt),
+                    IsRead = false
+                };
+                _messages.Add(msg);
+                _ = InvokeAsync(async () =>
+                {
+                    StateHasChanged();
+                    await ScrollToBottomAsync();
+                });
+            });
+
+            await _hubConnection.StartAsync();
+            await _hubConnection.InvokeAsync("JoinConversation", OrderId.ToString());
+            _isConnected = true;
+        }
+        catch (Exception)
+        {
+            _error = "Không thể kết nối chat real-time. Vui lòng tải lại trang.";
+        }
+        finally
+        {
+            _connecting = false;
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_messageInput) || string.IsNullOrEmpty(CustomerToken))
+            return;
+
+        var content = _messageInput.Trim();
+        _messageInput = string.Empty;
+        _error = null;
+
+        var result = await ChatHttp.SendMessageAsync(CustomerToken!, OrderId, content);
+        if (!result.Success)
+        {
+            _error = result.ErrorMessage;
+            // Restore message input on failure
+            _messageInput = content;
+        }
+        // SignalR ReceiveMessage will append the message — no need to add manually
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnKeyPress(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_messageInput))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottomAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("vananPWA.scrollToBottom", ScrollContainerId);
+        }
+        catch { /* JS interop not available during prerender */ }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            try
+            {
+                await _hubConnection.InvokeAsync("LeaveConversation", OrderId.ToString());
+                await _hubConnection.DisposeAsync();
+            }
+            catch { }
+        }
+    }
+}

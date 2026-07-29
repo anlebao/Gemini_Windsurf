@@ -447,11 +447,17 @@ window.vananPWA = {
                 return;
             }
             navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
                 (err) => reject(err),
                 { timeout: 8000, maximumAge: 60000 }
             );
         });
+    },
+
+    // CC-S3 (Sprint 3): Scroll a container to bottom (for chat auto-scroll)
+    scrollToBottom(elementId) {
+        const el = document.getElementById(elementId);
+        if (el) el.scrollTop = el.scrollHeight;
     }
 };
 
