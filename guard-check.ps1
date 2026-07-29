@@ -62,6 +62,40 @@ if ($untrackedFiles) {
 
 Write-Host "[OK] Untracked source files: PASSED" -ForegroundColor Green
 
+# 0.3 PRE-CHECK: Cross-provider raw SQL guard (prevent PostgreSQL 42P01 + SQLite-only syntax)
+# Pattern: ExecuteSqlRawAsync/FromSqlRaw with unquoted table names or COLLATE NOCASE
+# Root cause: PostgreSQL lowercases unquoted identifiers → relation does not exist
+Write-Host "Checking for cross-provider raw SQL violations..." -ForegroundColor Yellow
+
+$csFiles = Get-ChildItem -Path . -Recurse -Filter '*.cs' |
+    Where-Object { $_.FullName -notmatch '\\obj\\|\\bin\\|\\.git\\|\\6_Tests\\' }
+
+$rawSqlViolations = @()
+foreach ($file in $csFiles) {
+    $content = Get-Content $file.FullName -Raw
+    if ($content -match 'ExecuteSqlRawAsync|FromSqlRaw|SqlQueryRaw') {
+        if ($content -match 'COLLATE NOCASE') {
+            $rawSqlViolations += "$($file.FullName): contains COLLATE NOCASE (SQLite-only syntax, breaks PostgreSQL)"
+        }
+        if ($content -match '(?im)(ExecuteSqlRawAsync|FromSqlRaw|SqlQueryRaw)\s*\(\s*["'']?\s*(UPDATE|SELECT|INSERT|DELETE)\s+\w+') {
+            $rawSqlViolations += "$($file.FullName): raw SQL with unquoted table name (PostgreSQL will lowercase → 42P01)"
+        }
+    }
+}
+
+if ($rawSqlViolations) {
+    Write-Host "`n[FAIL] CROSS-PROVIDER RAW SQL VIOLATIONS DETECTED:" -ForegroundColor Red
+    $rawSqlViolations | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }
+    Write-Host "`nRaw SQL with unquoted table names breaks PostgreSQL (lowercases identifiers → relation does not exist)." -ForegroundColor Yellow
+    Write-Host "COLLATE NOCASE is SQLite-only syntax — does not exist in PostgreSQL." -ForegroundColor Yellow
+    Write-Host "`nFIX: Replace raw SQL with EF Core LINQ (ExecuteUpdateAsync, Where, FirstOrDefaultAsync)." -ForegroundColor Cyan
+    Write-Host "EF Core handles provider-specific identifier quoting automatically." -ForegroundColor Cyan
+    Write-Host "`nGuard check FAILED - cross-provider raw SQL violations must be fixed." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "[OK] Cross-provider raw SQL: PASSED" -ForegroundColor Green
+
 # 0.5 PRE-CHECK: Source file encoding (UTF-8 only) - prevent Vietnamese mojibake
 Write-Host "Checking source file encodings..." -ForegroundColor Yellow
 
@@ -216,6 +250,7 @@ $reportContent += "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n"
 $reportContent += "Version: v8.1 `(Phase 2 Upgrade + Source Control Guard`)`n`n"
 $reportContent += "Component Results`n"
 $reportContent += "  Untracked Files Check: PASSED`n"
+$reportContent += "  Cross-Provider Raw SQL: PASSED`n"
 $reportContent += "  Windsurf Guard: PASSED`n"
 $reportContent += "  Architecture Guard: PASSED`n"
 $reportContent += "  Roslyn Analyzers: PASSED`n"

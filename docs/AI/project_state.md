@@ -30,16 +30,15 @@
 
 ## 2. Current Objective
 
-**VPS CRM/Loyalty Verification + P0/P1 Fix (COMPLETE 2026-07-28) → A2 Root Cause Fix (COMPLETE 2026-07-28)**
+**Community Commerce Spec v1.5 + Sprint 0 Verification (COMPLETE 2026-07-29)**
 
-Verified CRM/Loyalty guide (`docs/user-guide/CRM_Loyalty_Guide.html`) trên VPS `161.118.212.110` với 3 vai trò (SystemAdmin, Owner, Customer). Tìm thấy 4 vấn đề, fix P0+P1 deployed + verified:
+Update spec + master plan thành v1.5 (Collaborator Verification Toggle + Deposit Wallet) + verify Sprint 0 base code 100% complete.
 
-- **P0-A1 (FIXED `8d75abc1`):** Owner bị AccessDenied trên `/admin/missions`, `/admin/redemption-catalog`, `/admin/redemption-history` — 3 trang có `[Authorize(Policy="SystemAdmin")]` (chỉ SA). Guide nói Owner + SA đều có quyền. Fix: đổi sang `[Authorize(Policy="OwnerOnly")]`. VPS verify: Owner → 200.
-- **P0-A2 (FIXED `e47dad26` — root cause triệt để):** Outbox stuck loop — NatsSyncWorker re-publish cùng event `832f4637` mỗi 1 giây. **Root cause (4 evidence):** EF Core SQLite provider gửi Guid parameter UPPERCASE, nhưng một số row OutboxMessages có lowercase Id (từ NATS sync/JSON deserialization). SQLite BINARY collation case-sensitive → `WHERE Id=@param` không match → `rowsAffected=0` → loop vô hạn. **Fix:** `OutboxRepository.MarkAsProcessedAsync`/`MarkAsFailedAsync`/`GetByIdAsync` dùng raw SQL với `COLLATE NOCASE` (case-insensitive, đúng .NET Guid semantics). VPS verify: lowercase row processed <1s, không loop, 0 errors.
-- **P1-B1 (FIXED `8d75abc1`):** Guide sai endpoint `GET /api/customer-orders` → thực tế `GET /api/customerorders` (không gạch ngang). Fix cả `.md` + `.html`.
-- **P1-A3 (NOT A BUG):** `/` redirect → `/sitemap` là by design (code comment: "single entry point for all roles, Sitemap.razor handles role-based navigation").
+- **Spec v1.5 (COMPLETE):** Thêm Section 1.6 "Collaborator Verification Policy (Toggle + Deposit Wallet)" + UC-02b + update UC-01/UC-02. SystemAdmin toggle ON/OFF (default OFF). 3 phase chia vào sprint: CC-S0-T3 (Sprint 0.5 fingerprint wire-up), CC-S1-T0c (Sprint 1 login simplify), CC-S6-T5 (Sprint 6 collaborator verify + deposit).
+- **Master plan v1.5 (COMPLETE):** Thêm 3 task mới + Sprint 7 branch protocol + task card reference. Fix guard-check.ps1 regex syntax error (PowerShell single-quote escaping) + exclude test files từ raw SQL scan.
+- **Sprint 0 Verification (COMPLETE 2026-07-29):** Base code đối chiếu 100% pass — 11 entities (Domain.cs:3191-3716) + 11 EF configs + migration `20260726105331_CommunitySprint0.cs` + 59 community tests PASS + 39 architecture tests PASS + guard-check ALL PASSED + fingerprint JS tồn tại. GAP duy nhất: fingerprint wire-up chưa hoàn thành (CC-S0-T3 sẽ xử lý).
 
-Branch: `main`. Commits: `8d75abc1` (P0+P1), `1b02efb4` (diagnostic logging), `e47dad26` (A2 root cause fix). CD auto-deploy, 3/3 jobs success.
+Branch: `main`. Pending commit: spec v1.5 + master plan v1.5 + guard-check fix + Sprint 0 verification docs.
 
 ---
 
@@ -96,16 +95,16 @@ Branch: `main`. Commits: `8d75abc1` (P0+P1), `1b02efb4` (diagnostic logging), `e
 
 ## 4. Next Actions
 
-1. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác (Orders, Customers, Missions, PromoCampaigns, RedemptionRecords) có row lowercase Id không → nếu có, các query `Where(e.Id == guid)` cũng fail silently. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE trong DB. **Phạm vi:** chỉ audit + report, không tự fix.
-2. **A2 follow-up — Diagnostic logging cleanup (P2):** Commit `1b02efb4` đã bị supersede bởi `e47dad26` (root cause fix). Diagnostic logging trong `MarkAsProcessedAsync` (rowsAffected log) có thể giữ làm production monitoring hoặc remove để giảm log noise. Quyết định sau khi monitor 1-2 ngày.
-3. **Loyalty/CRM Audit Fix — merge to main (S7 COMPLETE 2026-07-28):** Branch `fix/loyalty-crm-audit-fix` (commits P0-P3, `4aa0c6e2`→`018a42c2`) **đã merge vào main** (merge-base = `95acede7` = tip branch, 0 unique commits). VPS RV 7/7 PASS: RV-AF-10 (per-row promo 200, 1 recipient), RV-AF-11 (bulk promo 200, 2 recipients), RV-AF-12 (campaign list shows status+sentCount+failedCount), RV-AF-13 (recipients endpoint 200 with customerName+status+sentAt), RV-AF-14 (hasPushSubscription field present), RV-AF-P3 (CSV export 200 text/csv 7 rows), RV-AF-P1 (cross-tenant global list 200 has tenantId field, SA auth).
+1. **CC-S0-T3 (Sprint 0.5) — Device fingerprint wire-up:** Thêm endpoint `POST /api/customer-identity/device/register` (ShopERP) + Gateway forward. Gọi `window.fingerprint.collect()` từ Login.razor (sau Google login) + Checkout.razor (guest checkout). Không cần Domain change.
+2. **CC-S1-T0c (Sprint 1) — Customer login simplify:** Xóa SMS OTP khỏi Login.razor primary flow, giữ Google + thêm Guest button. Aligns v1.2 "SMS OTP OPTIONAL" cho customer.
+3. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit=7 + SmsOtpFee=8, CommunityRole.IsPhoneVerified, SystemSetting toggle).
 4. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.**
-5. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
-6. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
-7. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-8. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
-9. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
-10. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL.
+5. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE.
+6. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
+7. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
+8. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+9. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
+10. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
 
 ---
 
@@ -197,7 +196,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=main, commit=e47dad26, Build=0 errors (1117 warnings pre-existing CA), Core.Tests 21/21 outbox+evidence tests PASS (Release, exit 0), pre-commit guard PASSED, VPS 7 containers healthy, A2 root cause confirmed via 4 evidence pieces (rowsAffected=0 cho lowercase Id, SQLite path correct, WAL files exist, ToDomain reflection works), A2 fix verified on VPS (lowercase row processed <1s, 0 errors, pending=0), A1 verified (Owner 200 on 3 trang), B1 deployed.
+- **Verified Facts:** Branch=main, Sprint 0 verified 100% (11 entities Domain.cs:3191-3716 + 11 EF configs + migration + 59 community tests PASS + 39 architecture tests PASS + guard-check ALL PASSED + fingerprint JS tồn tại), build 0 errors (1120 warnings pre-existing CA), spec v1.5 + master plan v1.5 updated, guard-check.ps1 fixed (regex syntax + test file exclusion).
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions < Verified Facts, Open Questions < 3
 
@@ -205,7 +204,7 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
-* **2026-07-28 — VPS CRM/LOYALTY VERIFICATION + P0/P1 FIX + A2 ROOT CAUSE FIX + LOYALTY/CRM AUDIT FIX RV.** Commits `8d75abc1` + `1b02efb4` + `e47dad26` on `main` (DEPLOYED + VERIFIED). Verified `docs/user-guide/CRM_Loyalty_Guide.html` on VPS with 3 roles. Found+fixed: (A1) Owner AccessDenied 3 trang admin — `[Authorize(Policy="SystemAdmin")]`→`OwnerOnly`; (A2) Outbox stuck loop — root cause: EF Core SQLite Guid UPPERCASE param vs lowercase DB rows → SQLite BINARY collation → `rowsAffected=0` → loop. 4 evidence collected. Fix: `OutboxRepository` raw SQL + `COLLATE NOCASE`. VPS verify: lowercase row processed <1s; (B1) Guide endpoint fix `/api/customer-orders`→`/api/customerorders`; (A3) `/sitemap` by design. Also verified Loyalty/CRM Audit Fix P0-P3 branch already merged to main (merge-base=tip, 0 unique). RV 7/7 PASS: RV-AF-10 (per-row promo 200), RV-AF-11 (bulk promo 200), RV-AF-12 (campaign status+counts), RV-AF-13 (recipients 200+customerName), RV-AF-14 (hasPushSubscription field), RV-AF-P3 (CSV export 200 text/csv 7 rows), RV-AF-P1 (global list 200+tenantId SA). CD 3/3 jobs success. Branch: `main`.
+* **2026-07-29 — COMMUNITY COMMERCE SPEC v1.5 + SPRINT 0 VERIFICATION.** Spec v1.5: thêm Section 1.6 "Collaborator Verification Policy (Toggle + Deposit Wallet)" + UC-02b + update UC-01/UC-02. Master plan v1.5: thêm CC-S0-T3 (Sprint 0.5 fingerprint wire-up) + CC-S1-T0c (Sprint 1 login simplify) + CC-S6-T5 (Sprint 6 collaborator verify + deposit toggle) + Sprint 7 branch protocol + task card reference. Sprint 0 base code đối chiếu 100% pass: 11 entities + 11 EF configs + migration `20260726105331_CommunitySprint0.cs` + 59 community tests + 39 architecture tests + guard-check ALL PASSED + fingerprint JS. GAP duy nhất: fingerprint wire-up chưa hoàn thành (CC-S0-T3 sẽ xử lý). guard-check.ps1 fix: regex syntax error (PowerShell single-quote escaping `["\']`→`["'']` trong single-quoted string) + exclude `6_Tests\` từ raw SQL scan (test cleanup code dùng `ExecuteSqlRawAsync("DELETE FROM...")` trên SQLite test DB — false positive). Branch: `main`.
 * **2026-07-28 — LOYALTY/CRM AUDIT FIX P3 (S6).** Commit `018a42c2` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 5 files: `PromoPushComposer.razor` (NEW — extracted modal component, owns form fields + reset-on-show, params Show/RecipientCount/IsSubmitting/ErrorMessage/OnSubmit/OnClose, payload record `PromoPushPayload`), `CustomerList.razor` (removed 56 lines inline modal + 3 form-state fields + `ResetPromoForm` helper; `SubmitPromoAsync` accepts `PromoPushComposer.PromoPushPayload`), `PromoCampaignRecipientConfiguration.cs` (NEW — extracted from `PromoCampaignConfiguration.cs`, same namespace+logic), `PromoCampaignConfiguration.cs` (trimmed to single class), `CustomerController.cs` (+`ExportCsv` endpoint `POST /api/customers/export` returning CSV with `text/csv` + `attachment; filename=customers.csv`, minimal CSV escaping). Build 0 errors, 1117 warnings (pre-existing CA). 1038/1053 Core.Tests PASS (0 failed, 15 skipped). guard-check ALL PASSED. Closes deviations D5, D7, D13. Branch: `fix/loyalty-crm-audit-fix`.
 * **2026-07-27 — LOYALTY/CRM AUDIT FIX P2 (S5).** Commit `56926b44` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 6 files: `IPromoCampaignService.cs` (+`CreateCampaignAsync(title,msg,url,IReadOnlyList<Guid>)` overload), `PromoCampaignService.cs` (explicit-ID impl + new `ICustomerRepository` ctor param), `PromoCampaignController.cs` (`CreateCampaignRequest.SelectedCustomerIds` + dispatch logic), `CustomerController.cs` (inject `IPushSubscriptionRepository` + batch push lookup + `MapCustomerDto` gains `hasPushSubscription`), `CustomerList.razor` (checkbox col + select-all + per-row "Gửi" + bulk "Gửi cho N đã chọn" + Push column + modal selection mode), `PromoCampaignList.razor` (progress bar for Processing + auto-refresh 5s via PeriodicTimer + "Chi tiết" expand/collapse recipients with name enrichment). Build 0 errors, 1023 Core.Tests PASS. Branch: `fix/loyalty-crm-audit-fix`.
 * **2026-07-27 — LOYALTY/CRM AUDIT FIX P1-T3 (S4).** Commit `756f1dac` on `fix/loyalty-crm-audit-fix` (NOT yet merged). 7 files: `IMissionRepository.cs` (+`GetCompletionsByCustomerPagedAsync`), `MissionRepository.cs` (Skip/Take+CountAsync impl), `IMissionService.cs` (+`GetCustomerCompletionsPagedAsync`), `MissionService.cs` (delegate), `MissionsController.cs` (ShopERP — page/pageSize query params + `{items,total,page,pageSize,hasMore}` response), `MissionsController.cs` (Gateway — forward Request.QueryString), `Missions.razor` (KhachLink — 20/page + "Xem thêm" button + `LoadMoreCompletionsAsync` + `PaginatedCompletionsResponse` DTO). Build 0 errors, guard-check ALL PASSED, 14/14 mission+toggle tests PASS. Branch: `fix/loyalty-crm-audit-fix`.

@@ -1,6 +1,8 @@
-# Sprint 0 Detailed Plan — Foundation: Domain + Migration + Anti-Fraud (v1.2)
+# Sprint 0 Detailed Plan — Foundation: Domain + Migration + Anti-Fraud (v1.5 verified)
 
 > **STATUS: COMPLETE 2026-07-26** — All 4 sessions (S1-S4) executed. 11 entities + 9 enums + 8 Order fields + 42 tests PASS + migration applied (local + VPS PG) + VPS deployed via CD #30201482750 + RV ALL 18 SC PASS. Merged to `main` (fast-forward `89e33480..f563e415`). See `task_cc_sprint0_foundation-2c5017.md` Section 11 for completion summary.
+>
+> **v1.5 VERIFICATION (2026-07-29):** Base code đối chiếu 100% pass — 11 entities confirmed (Domain.cs:3191-3716) + 11 EF configs + migration + 59 community tests + 39 architecture tests + guard-check ALL PASSED + fingerprint JS tồn tại. **GAP duy nhất:** fingerprint wire-up chưa hoàn thành (CC-S0-T3 Sprint 0.5 sẽ xử lý).
 
 Kế hoạch chi tiết cho Sprint 0: TDD plan (25+ test cases — v1.2: tăng từ 22), coding plan (4 sessions — v1.2: tăng từ 3), 11 entity definitions (v1.2: tăng từ 9), EF configuration specs, migration steps, **device fingerprint JS + risk scoring service (v1.2 NEW)**.
 

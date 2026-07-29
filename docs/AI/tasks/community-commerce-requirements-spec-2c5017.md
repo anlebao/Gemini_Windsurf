@@ -8,6 +8,7 @@
 > - v1.2 — 2026-07-26 — **Self-hosted anti-fraud architecture (zero external dependency):** thêm 2 entity `DeviceRegistration` + `FraudFlag`, thêm `RiskScore` field trên `SalesReferral` + `AppInstallAttribution`, mở rộng `IdentityLevel` (thêm `DeviceVerified=4`), UC-09/UC-12 risk scoring + hold 48h if score≥60, Sprint 0 +2 entity, Sprint 6 +Fraud Review UI. **WebAuthn Passkey OPTIONAL** (post-PoC, zero vendor dependency). **SMS OTP OPTIONAL** (không bắt buộc — replaced by device fingerprint + behavioral rules + KYC bank account cho payout). 5-layer fraud prevention: device fingerprint → device token → behavioral rules → risk scoring → (post-PoC) native attestation.
 > - **v1.3 — 2026-07-26 — Phase A Review Fixes (9 BLOCKING items resolved):** (A1) Email/Password login DEFER to Sprint 7+ (post-PoC) — KHÔNG trong PoC scope, tránh contradiction với Section 5.10. PoC auth = Social (Google + Facebook UI Sprint 1) + Device Fingerprint. (A2) Community entities PG ONLY — remove SQLite migration for community tables (cross-tenant data on Gateway PG). (A3) ChatHub/LocationHub auth via X-Customer-Token query string (SignalR support). (A4) "delivering" status flagged as Domain Modification in CC-S1-T0. (A5) IdentityLevel.DeviceVerified=4 flagged as Domain Modification in Sprint 0. (A6) UI spec added: OrderDetail.razor (S1), DeliveryTracking buttons (S2), Wallet dialogs (S5), ShopSettlement (S5), ReverseTransaction admin (S5). (A7) Mobile nav decision: community tabs vào NavMenu.razor (9-tab layout). (A8) Device Fingerprint Consent Dialog spec — GDPR/PDPA compliance. (A9) nginx route for locationHub/chatHub + vendor Leaflet/FingerprintJS (no CDN — consistent zero-dependency).
 > - **v1.4 — 2026-07-26 — Hybrid Central + Edge Architecture (CORE COMPETITIVE ADVANTAGE):**新增 Section 7C "Architecture Evolution & Scale-Up Roadmap" — target architecture (Hybrid Central + Edge diagram), 11 bottleneck B1-B11 (CRITICAL/HIGH/MEDIUM), 10 short-term solutions ST1-ST10, 8 long-term solutions LT1-LT8, 9 corrections (edge-only sai ở đâu), 8 refactor impact reduction R1-R8, cuốn chiếu strategy (80% roll + 20% big-bang), architecture evolution roadmap (PoC → 10M users), 12 hard rules mới HR-SCALE-1 đến HR-SCALE-12. Lợi thế cạnh tranh: scale từ 50 users (PoC $50/tháng) đến 10M users ($100K/tháng optimized) với zero paid external services. Break-even edge vs central: ~1M users.
+> - **v1.5 — 2026-07-29 — Collaborator Verification Policy (TOGGLE + Deposit Wallet) + Sprint 0.5 Fingerprint Wire-up + Customer Login Simplify:** 3 thay đổi chính: (1) **Sprint 0.5 (CC-S0-T3):** Wire-up DeviceRegistrationService vào production path — Sprint 0 claim fingerprint infrastructure nhưng chưa wire-up (chỉ test JS load, không test end-to-end `collect()→POST→DeviceRegistration`). (2) **Sprint 1 (CC-S1-T0c):** Customer login simplify — xóa SMS OTP khỏi primary login flow (giữ Google + thêm Guest button), aligns v1.2 "SMS OTP OPTIONAL" cho customer. (3) **Sprint 6 (CC-S6-T5):** Collaborator SMS OTP + Deposit Wallet với **SystemAdmin TOGGLE** (ON/OFF). Early stage: OFF (tăng user + giao dịch). Khi scale đủ: ON (Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit wallet, dư vào ví). **Conflict v1.2 resolved:** Customer giữ v1.2 (SMS optional, device fingerprint primary). Collaborator thêm policy mới (SMS mandatory khi toggle ON). Domain changes: `WalletTransactionType.Deposit=7` + `SmsOtpFee=8`, `CommunityRole.IsPhoneVerified` + `PhoneVerifiedAt`, `SystemSetting.CollaboratorSmsVerificationEnabled` (toggle). Thêm Section 1.6 "Collaborator Verification Policy (v1.5 — Toggle + Deposit)".
 
 ---
 
@@ -20,6 +21,11 @@ Biến KhachLink từ customer-only PWA thành nền tảng Community Commerce: 
 - **Shipper:** IdentityLevel ≥ `Verified` (SMS OTP) **HOẶC** IdentityLevel ≥ `DeviceVerified` (v1.2: device fingerprint đã pass) + LoyaltyPoints ≥ 1000
 - **Salesman:** IdentityLevel ≥ `Verified` **HOẶC** IdentityLevel ≥ `DeviceVerified` (v1.2) + LoyaltyPoints ≥ 1000
 - **Kích hoạt bởi:** System Admin qua Gateway Admin API
+- **v1.5 NEW — Collaborator SMS OTP Toggle:** Khi `SystemSetting.CollaboratorSmsVerificationEnabled = ON` (SystemAdmin set), điều kiện kích hoạt thay đổi:
+  - **Shipper/Salesman:** IdentityLevel ≥ `Verified` (SMS OTP) **BẮT BUỘC** (không chấp nhận `DeviceVerified` đơn độc) + LoyaltyPoints ≥ 1000 + `CommunityRole.IsPhoneVerified = true` + Deposit wallet ≥ phí SMS OTP
+  - **Owner (tenant user):** SMS OTP verify SĐT khi onboarding tenant mới (nếu toggle ON)
+  - Khi toggle `OFF` (default, early stage): giữ điều kiện v1.2 (DeviceVerified đủ)
+  - Xem chi tiết: Section 1.6 "Collaborator Verification Policy (v1.5)"
 
 ### 1.2.1 Salesman earning model (v1.1 — redesign)
 Salesman kiếm tiền từ **2 nguồn**, cả 2 do **SystemAdmin thiết lập per-product** (KHÔNG hardcode):
@@ -71,6 +77,49 @@ Salesman kiếm tiền từ **2 nguồn**, cả 2 do **SystemAdmin thiết lập
 - Minimum payout 500K VND (chi phí transfer > nhỏ bonus → economic disincentive)
 - Hold commission/app-install bonus 48h nếu RiskScore ≥ 60
 - Salesman account ban nếu FraudFlag confirmed (3 strikes → permanent ban)
+
+### 1.6 Collaborator Verification Policy (v1.5 — Toggle + Deposit Wallet)
+
+**Nguyên tắc:** Khách hàng (Customer) và Cộng tác viên (Salesman/Shipper/Owner) có risk profile khác nhau:
+- **Customer:** không nên thu phí xác thực → giữ quá trình đăng ký đơn giản → tối đa hóa số người dùng. Tích điểm + đổi điểm KHÔNG cần SMS OTP (aligns v1.2 "SMS OTP OPTIONAL").
+- **Collaborator (Salesman/Shipper/Owner):** kỳ vọng có lợi ích kinh tế từ nền tảng → việc chia sẻ chi phí xác minh danh tính là hợp lý → áp dụng mô hình đặt cọc (deposit wallet).
+
+**SystemAdmin Toggle (ON/OFF):**
+- `SystemSetting.CollaboratorSmsVerificationEnabled` (boolean, default `false` = OFF)
+- **OFF (early stage, default):** Collaborator activation dùng điều kiện v1.2 (DeviceVerified đủ). Mục tiêu: tăng user + giao dịch, giảm friction.
+- **ON (khi scale đủ):** Collaborator activation yêu cầu SMS OTP BẮT BUỘC + deposit wallet. SystemAdmin quyết định khi nào bật (vd: >50 tenants, >500 customers, >20 collaborators).
+- Toggle ON/OFF không affect Customer (customer luôn optional SMS OTP).
+
+**Deposit Wallet Flow (khi toggle ON):**
+1. Collaborator đặt cọc vào wallet (`WalletTransactionType.Deposit`, Amount > 0)
+2. Mỗi lần SMS OTP verify: trừ phí (`WalletTransactionType.SmsOtpFee`, Amount < 0)
+3. Phần dư deposit → chuyển vào ví chính (`WalletTransactionType.Settlement` hoặc giữ trong wallet)
+4. Deposit tối thiểu = N × phí SMS OTP (N = số lần verify dự kiến, default 5)
+5. Nếu deposit hết → collaborator không verify được → nạp thêm deposit
+
+**Phí SMS OTP:**
+- `SystemSetting.SmsOtpFeePerVerification` (decimal, default 200đ, SystemAdmin set)
+- Trừ vào deposit wallet mỗi lần gửi OTP (khi toggle ON)
+- Khi toggle OFF: không gửi SMS OTP cho collaborator → không trừ phí
+
+**Domain Changes (v1.5 — cần approval per governance):**
+- `WalletTransactionType` enum: thêm `Deposit = 7` + `SmsOtpFee = 8`
+- `CommunityRole` entity: thêm `IsPhoneVerified` (bool) + `PhoneVerifiedAt` (DateTime?)
+- `SystemSetting` (hoặc config): thêm `CollaboratorSmsVerificationEnabled` (bool) + `SmsOtpFeePerVerification` (decimal) + `CollaboratorMinDeposit` (decimal)
+- Migration: thêm cột + seed default settings
+
+**UI (Sprint 6 — CC-S6-T5):**
+- Admin page: toggle ON/OFF + set phí SMS + set min deposit
+- Collaborator verification flow: nhập SĐT → gửi OTP (trừ deposit) → verify → mark `IsPhoneVerified=true`
+- Wallet UI: hiển thị deposit balance + SMS fee transactions
+
+**Acceptance Criteria (v1.5):**
+- [ ] AC-v1.5-1: Toggle OFF (default) → collaborator activation không yêu cầu SMS OTP (giữ v1.2)
+- [ ] AC-v1.5-2: Toggle ON → collaborator activation yêu cầu SMS OTP + deposit ≥ min
+- [ ] AC-v1.5-3: SMS OTP gửi thành công → trừ phí deposit wallet → `IsPhoneVerified=true`
+- [ ] AC-v1.5-4: Deposit hết → không gửi OTP được → thông báo nạp thêm
+- [ ] AC-v1.5-5: Customer redeem points KHÔNG yêu cầu SMS OTP (luôn, bất kể toggle)
+- [ ] AC-v1.5-6: Owner (tenant user) SMS OTP verify khi onboarding (nếu toggle ON)
 
 ---
 
@@ -135,6 +184,8 @@ Salesman kiếm tiền từ **2 nguồn**, cả 2 do **SystemAdmin thiết lập
 - AC-01.7: Token lưu localStorage, tự tự động gửi trong header mọi API call
 - AC-01.8 (v1.2 NEW): IdentityLevel values: Guest=0, Social=1, Verified=2, Full=3, **DeviceVerified=4 (v1.2 NEW — Domain Modification, add trong Sprint 0)**
 - AC-01.9 (v1.2 NEW): Device Fingerprint Consent Dialog hiển thị trước khi collect fingerprint — user có thể decline (lúc đó RiskScore sẽ cao hơn do không fingerprint)
+- AC-01.10 (v1.5 NEW): Login.razor xóa SMS OTP khỏi primary flow — chỉ giữ Google button + "Tiếp tục as Guest" button. SMS OTP endpoints giữ (dùng cho collaborator verification khi toggle ON).
+- AC-01.11 (v1.5 NEW): Guest button → nhập tên + SĐT (không token) → checkout as guest (không tích điểm). Verify SĐT chỉ khi collaborator activation (UC-02 v1.5).
 
 **Lưu ý codebase (v1.1+v1.2+v1.3):**
 - OTP flow đã có (`CustomerIdentityController.otp/send` + `otp/verify`) — **OPTIONAL** trong v1.2.
@@ -157,6 +208,30 @@ Salesman kiếm tiền từ **2 nguồn**, cả 2 do **SystemAdmin thiết lập
 - AC-02.3: Customer thấy role mới trong Profile page sau khi login
 - AC-02.4: Push notification gửi khi activate
 - AC-02.5: Admin có thể deactivate role
+- AC-02.6 (v1.5 NEW): Khi `CollaboratorSmsVerificationEnabled = ON`:
+  - AC-02.6a: Eligible list chỉ trả customer có `IdentityLevel ≥ Verified` (SMS OTP, KHÔNG chấp nhận DeviceVerified đơn độc)
+  - AC-02.6b: Activate role yêu cầu `CommunityRole.IsPhoneVerified = true` + deposit wallet ≥ min deposit
+  - AC-02.6c: Nếu customer chưa verify SĐT → admin redirect sang verification flow (UC-02b)
+  - AC-02.6d: SMS OTP fee trừ deposit wallet mỗi lần verify
+- AC-02.7 (v1.5 NEW): Khi `CollaboratorSmsVerificationEnabled = OFF` (default): giữ điều kiện v1.2 (DeviceVerified đủ, không cần SMS OTP)
+
+### UC-02b (v1.5 NEW): Collaborator SMS OTP Verification + Deposit
+**Actor:** Collaborator (Customer được admin chọn activate Salesman/Shipper) HOẶC Owner (tenant user onboarding)
+**Precondition:** `CollaboratorSmsVerificationEnabled = ON` + customer có SĐT
+**Flow:**
+1. Collaborator nhận notification "Admin mời kích hoạt vai trò Salesman/Shipper"
+2. Mở verification page → nhập/confirm SĐT
+3. POST /api/collaborator-verification/init → server gửi SMS OTP (trừ phí deposit wallet)
+4. Nhập OTP → POST /api/collaborator-verification/verify
+5. Verify thành công → `CommunityRole.IsPhoneVerified = true` + `PhoneVerifiedAt = now`
+6. Admin activate role (UC-02 bước 3)
+**Acceptance Criteria:**
+- AC-02b.1: SMS OTP gửi thành công (nếu deposit wallet ≥ phí)
+- AC-02b.2: Deposit wallet trừ phí `SmsOtpFeePerVerification` mỗi lần gửi
+- AC-02b.3: Deposit hết → không gửi OTP → thông báo "Nạp thêm deposit"
+- AC-02b.4: Verify thành công → `IsPhoneVerified=true` + `PhoneVerifiedAt` set
+- AC-02b.5: Owner (tenant user) verify qua flow tương tự khi onboarding tenant mới
+- AC-02b.6: Retry limit: max 3 OTP gửi / 24h (anti-spam)
 
 ### UC-03: Shipper thấy đơn hàng gần (Nearby Orders)
 **Actor:** Shipper

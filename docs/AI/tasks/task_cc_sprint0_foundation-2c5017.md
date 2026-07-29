@@ -1,10 +1,21 @@
-# TASK CARD: Community Commerce — Sprint 0 — Foundation (v1.2)
+# TASK CARD: Community Commerce — Sprint 0 — Foundation (v1.5 verified)
 
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Tạo Domain entities mới (**11 entity — v1.2: tăng từ 9**): `CommunityRole`, `DeliveryTask`, `DeliveryTracking`, `Conversation`, `Message`, `SalesReferral` (v1.1: redesign composite, v1.2: +RiskScore fields), `WalletTransaction` (v1.1: + Reversal type), `ProductReferralConfig`, `AppInstallAttribution` (v1.2: + RiskScore/HoldUntil/DeviceRegistrationId), **`DeviceRegistration` (v1.2 NEW), `FraudFlag` (v1.2 NEW)** + bổ sung fields cho Order + EF Configuration + Migration (PG + SQLite) + **device fingerprint JS + risk scoring service (v1.2)**.
 - **Nghiệp vụ áp dụng:** Nền tảng BLOCKING cho mọi sprint sau (S1-S6). Không có entities này thì không thể build API/UI cho shipper/salesman. **v1.2: Anti-fraud framework nền tảng cho UC-09/UC-12 risk scoring + Sprint 6 Fraud Review UI.**
-- **Status:** COMPLETE 2026-07-26 (merged to main + VPS deployed + RV PASS)
+- **Status:** COMPLETE 2026-07-26 (merged to main + VPS deployed + RV PASS) — **v1.5 VERIFIED 2026-07-29: base code đối chiếu 100% pass (11 entities + 11 EF configs + migration + 59 community tests + 39 architecture tests + guard-check ALL PASSED + fingerprint JS tồn tại)**
 - **Branch:** `feature/community-sprint0-foundation` → merged to `main` (fast-forward `89e33480..f563e415`)
+- **v1.5 VERIFICATION (2026-07-29):**
+  - ✅ 11 entities confirmed in `1_Shared/Domain.cs` (lines 3191-3716): CommunityRole, DeliveryTask, DeliveryTracking, Conversation, Message, SalesReferral, WalletTransaction, ProductReferralConfig, AppInstallAttribution, DeviceRegistration, FraudFlag
+  - ✅ `IdentityLevel.DeviceVerified=4` confirmed (Domain.cs:622)
+  - ✅ 11 EF Configuration files confirmed in `3_CoreHub/Infrastructure/Configurations/`
+  - ✅ Migration `20260726105331_CommunitySprint0.cs` confirmed
+  - ✅ Fingerprint JS confirmed: `wwwroot/js/fingerprint.js` + `wwwroot/lib/fingerprintjs/fingerprint.js`
+  - ✅ `dotnet build VanAn.sln` — 0 errors, 1120 warnings
+  - ✅ Community tests: 59 passed, 0 failed
+  - ✅ Architecture tests: 39 passed, 0 failed
+  - ✅ `guard-check.ps1` ALL CHECKS PASSED (sau khi fix regex syntax error + exclude test files từ raw SQL scan)
+  - ⚠️ **GAP (v1.5 NEW — CC-S0-T3):** Device fingerprint infrastructure có nhưng CHƯA wire-up vào production path (RV0-11 chỉ test JS load, không test end-to-end `collect()→POST→DeviceRegistration`). Sprint 0.5 (CC-S0-T3) sẽ wire-up.
 - **v1.3 changes (incremental trên v1.2):**
   - **Community entities PG ONLY** — KHÔNG tạo trên ShopERP SQLite (cross-tenant nature, tránh 300K SQLite files phải migrate). Remove CC-S0-T3 SQLite migration task.
   - **Email/Password login DEFER Sprint 7+** — PoC auth = Social (Google + Facebook UI Sprint 1) + Device Fingerprint.
