@@ -1,0 +1,27 @@
+fix: SubtractPointsAsync nested transaction crash on redeem (SQLite)
+
+RedemptionService.RedeemAsync begins an outer transaction, then calls
+LoyaltyRewardsService.SubtractPointsAsync which also called
+BeginTransactionAsync → SQLite throws "The connection is already in a
+transaction and cannot participate in another transaction."
+
+AddPointsAsync was already fixed for this same bug (Bug 6) but
+SubtractPointsAsync was missed. Applied the same pattern: remove the
+explicit BeginTransactionAsync and rely on the caller's ambient
+transaction (or auto-commit if no ambient transaction exists).
+
+Audit of all BeginTransactionAsync call sites in 3_CoreHub/Services:
+- OrderWorkflowService.TransitionStatusAsync → AddPointsAsync (fixed) OK
+- RedemptionService.RedeemAsync → SubtractPointsAsync (this fix) OK
+- MissionService.CompleteMissionAsync (2 sites) → AddPointsAsync (fixed) OK
+- OrderService.CreateOrderWithQueueAsync → GenerateHKDBooksAsync (no tx) OK
+- OrderService.CreateOrderFromCommandAsync → repo only OK
+- WalletService.CreateTransactionAsync → dbContext only OK
+- EInvoiceOrchestrator → repo only OK
+- LeadConversionService → GetOrCreateCustomerRewardsAsync (no tx) OK
+
+No other nested transaction crash sites found.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

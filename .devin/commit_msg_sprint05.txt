@@ -1,0 +1,48 @@
+feat(community): CC-S0-T3 device fingerprint wire-up (Sprint 0.5)
+
+Sprint 0 GAP duy nhất đã đóng — device fingerprint infrastructure wire-up
+vào production path. Trước đó Sprint 0 có fingerprint.js + DeviceRegistrationService
+nhưng chưa wire-up (RV0-11 chỉ test JS load, không test end-to-end).
+
+Backend — Gateway DeviceRegistrationController (NEW):
+- POST /api/customer-identity/device/register
+- Gateway-native (KHÔNG forward ShopERP) — DeviceRegistration là community
+  entity trên Gateway PG (v1.3). DeviceRegistrationService chỉ registered trong
+  Gateway DI, ShopERP IVanAnDbContext → SQLite không có DeviceRegistrations table.
+- Validate X-Customer-Token qua ShopERP /me forward, rồi gọi
+  IDeviceRegistrationService.RegisterDeviceAsync (max 3 active devices).
+- Returns {deviceId, isActive, fraudFlagRaised, message}.
+
+Frontend — Login.razor wire-up:
+- RegisterDeviceFingerprintAsync helper — gọi window.fingerprint.collect()
+  sau Google OAuth + OTP login success. Fire-and-forget (non-blocking) —
+  fingerprint failure không block login.
+- Generate/reuse device_token in localStorage (UUID).
+- POST to Gateway /api/customer-identity/device/register with X-Customer-Token.
+- index.html: thêm <script src="/js/fingerprint.js"> để load collector.
+
+Tests — DeviceRegistrationControllerTests (NEW):
+- 3 unit tests: 401 without token, 400 empty fingerprint, 400 empty deviceToken.
+- MockDeviceRegistrationService + MockHttpClientFactory (mocks ShopERP /me).
+
+Architecture note: task card gốc nói "ShopERP + Gateway forward" nhưng thực tế
+phải là Gateway-native vì: (1) DeviceRegistrationService chỉ registered trong Gateway DI,
+(2) ShopERP IVanAnDbContext → SQLite không có DeviceRegistrations table,
+(3) Community entities PG-only (v1.3). Master plan + task card updated to reflect.
+
+Verification: Build 0 errors, 1045 Core.Tests PASS (3 new + 1042 existing),
+39 Architecture.Tests PASS. guard-check fast-test-gate transient false-positive
+(known issue project_state item 10) — direct dotnet test with same filter exit 0.
+
+Files:
+- 2_Gateway/Controllers/DeviceRegistrationController.cs (NEW)
+- 5_WebApps/KhachLink/Pages/Login.razor (MODIFY — +RegisterDeviceFingerprintAsync)
+- 5_WebApps/KhachLink/wwwroot/index.html (MODIFY — +fingerprint.js script)
+- 6_Tests/VanAn.Core.Tests/Community/DeviceRegistrationControllerTests.cs (NEW)
+- docs/AI/tasks/community-commerce-master-plan-2c5017.md (UPDATE — CC-S0-T3 Gateway-native)
+- docs/AI/tasks/task_cc_sprint0_foundation-2c5017.md (UPDATE — GAP closed)
+- docs/AI/project_state.md (UPDATE — Section 2/4/10)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

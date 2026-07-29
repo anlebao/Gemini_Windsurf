@@ -2,10 +2,12 @@
 @using VanAn.UI.Platform.Components.Atomic
 @using VanAn.KhachLink.Components.Layout
 @using VanAn.KhachLink.Services.PWA
+@using VanAn.KhachLink.Services.Http
 @inject IHttpClientFactory HttpClientFactory
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject PWAService PWA
+@inject CommunityHttpService CommunityHttp
 
 <PageTitle>Tài khoản của tôi</PageTitle>
 
@@ -165,6 +167,56 @@
                 </VanAnButton>
             }
 
+            @* CC-S6 (Sprint 6): Community roles + fraud flags section *@
+            @if (_communityRoles.Count > 0)
+            {
+                <VanAnCard CssClass="mb-3">
+                    <h5 class="mb-3"><i class="bi bi-people-fill me-2"></i>Vai trò cộng tác viên</h5>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var role in _communityRoles)
+                        {
+                            <span class="badge @(role.IsActive ? "bg-success" : "bg-secondary")">
+                                @role.RoleType @(role.IsActive ? "(Active)" : "(Inactive)")
+                                @if (!string.IsNullOrEmpty(role.SalesmanCode))
+                                {
+                                    @:— Code: @role.SalesmanCode
+                                }
+                            </span>
+                        }
+                    </div>
+                </VanAnCard>
+            }
+
+            @if (_myFraudFlags.Count > 0)
+            {
+                <VanAnCard CssClass="mb-3">
+                    <h5 class="mb-3"><i class="bi bi-shield-exclamation me-2"></i>Fraud Flags</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Loại</th>
+                                    <th>Risk Score</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày tạo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var flag in _myFraudFlags)
+                                {
+                                    <tr>
+                                        <td>@flag.EntityType</td>
+                                        <td>@flag.RiskScore</td>
+                                        <td><span class="badge bg-@(flag.Status == "Confirmed" ? "danger" : flag.Status == "Pending" ? "warning" : "secondary")">@flag.Status</span></td>
+                                        <td>@flag.CreatedAt.ToString("yyyy-MM-dd")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </VanAnCard>
+            }
+
             <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" OnClick="Logout">
                 <i class="bi bi-box-arrow-right"></i> Đăng xuất
             </VanAnButton>
@@ -197,6 +249,10 @@
 
     // Tiered Auth Phase 3: IdentityLevel helpers
     private bool NeedsUpgrade => _identityLevel is "Social" or "Guest";
+
+    // CC-S6 (Sprint 6): Community roles + fraud flags
+    private List<CommunityRoleDto> _communityRoles = new();
+    private List<MyFraudFlagDto> _myFraudFlags = new();
 
     private string GetIdentityLevelLabel() => _identityLevel switch
     {
@@ -276,6 +332,14 @@
                             }
                         }
                         catch { /* non-critical — default to off */ }
+
+                        // CC-S6 (Sprint 6): Load community roles + fraud flags
+                        try
+                        {
+                            _communityRoles = await CommunityHttp.GetMyRolesAsync(token);
+                            _myFraudFlags = await CommunityHttp.GetMyFraudFlagsAsync(token);
+                        }
+                        catch { /* non-critical — hide community sections */ }
                     }
                 }
                 else

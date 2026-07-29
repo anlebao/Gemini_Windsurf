@@ -1,0 +1,25 @@
+fix: KhachLink UI + Profile phone + admin customer stats + accounting font
+
+1. VibeShowcase Teen theme: replace "ADD TO CART" with "Dang Hang" (other
+   themes already Vietnamese — Teen was the only English outlier).
+2. NavMenu sidebar: Bootstrap .card default white background was overlaying
+   the dark wrapper (#1a1a2e), making white nav-link text invisible. Added
+   ::deep .card override to inherit dark background + white text.
+3. Profile.razor: CustomerProfile DTO was missing PhoneNumber field — API
+   returns it but client never deserialized it. Added field + phone display
+   with telephone icon below customer name.
+4. OrderSyncSubscriber: when order status syncs from Gateway (PG) to ShopERP
+   (SQLite) as "completed", customer stats (LastOrderDate + TotalSpent) were
+   never updated in SQLite. HandleOrderCompletedAsync only runs in the context
+   where TransitionStatusAsync is called — if Gateway completes the order,
+   only PG customer gets updated. Added inline customer stats update in
+   SyncOrderStatusChangedAsync for completed status. Fixes admin/customers
+   showing TotalSpent=0 and LastOrderDate=null for all customers.
+5. ShopERP App.razor: html lang="en" to lang="vi" for proper Vietnamese rendering.
+6. ShopERP app.css: font-family was Helvetica Neue, Helvetica, Arial —
+   Helvetica does not support Vietnamese diacritics on all platforms. Added
+   Segoe UI and system-ui to the font stack for proper Vietnamese rendering.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

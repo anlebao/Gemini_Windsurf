@@ -248,6 +248,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProductReferralConfigService, VanAn.CoreHub.Services.ProductReferralConfigService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IFraudFlagService, VanAn.CoreHub.Services.FraudFlagService>();
 
+            // CC-S6 (Sprint 6): Community Admin + Fraud Review services
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityAdminService, VanAn.CoreHub.Services.CommunityAdminService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IFraudReviewService, VanAn.CoreHub.Services.FraudReviewService>();
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();

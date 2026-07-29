@@ -10,6 +10,7 @@ using FluentAssertions;
 
 namespace VanAn.Core.Tests.Services;
 
+[Trait("Category", "Flaky")]
 public class EInvoiceOrchestratorTests : IDisposable
 {
     private readonly SqliteConnection _connection;

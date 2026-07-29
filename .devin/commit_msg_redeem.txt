@@ -1,0 +1,25 @@
+fix: Redemption 401 — customer endpoints read Authorization header instead of X-Customer-Token
+
+RedemptionController had 3 customer-facing endpoints reading the token
+from the "Authorization" header (with Bearer prefix support), but KhachLink
+sends the customer token via "X-Customer-Token" header (consistent with
+all other customer endpoints: CustomerIdentityController, LoyaltyController,
+MissionsController, NotificationsController, CustomerProfileController,
+CustomerOrdersController).
+
+Result: every redeem/history/voucher API call returned 401 Unauthorized
+because the token was never received — the redemption page showed an error
+to customers trying to exchange points for products.
+
+Fix: change [FromHeader(Name = "Authorization")] to
+[FromHeader(Name = "X-Customer-Token")] on 3 endpoints:
+- GET  /api/redemption/my/redemptions
+- GET  /api/redemption/my/vouchers
+- POST /api/redemption/redeem
+
+Audit: grep confirmed all other customer-facing controllers already use
+X-Customer-Token. No other instances of this bug found.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

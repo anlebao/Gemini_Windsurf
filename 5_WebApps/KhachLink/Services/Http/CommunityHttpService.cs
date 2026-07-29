@@ -48,6 +48,58 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
     }
 
     /// <summary>
+    /// CC-S6 (Sprint 6): GET /api/community/my-roles — all community roles (active + inactive).
+    /// Used by Profile.razor to display role badges.
+    /// </summary>
+    public async Task<List<CommunityRoleDto>> GetMyRolesAsync(string customerToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/community/my-roles");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return new List<CommunityRoleDto>();
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<List<CommunityRoleDto>>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? new List<CommunityRoleDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetMyRolesAsync failed");
+            return new List<CommunityRoleDto>();
+        }
+    }
+
+    /// <summary>
+    /// CC-S6 (Sprint 6 v1.2): GET /api/community/my-fraud-flags — salesman self-view fraud flags.
+    /// Used by Profile.razor to display fraud flag status.
+    /// </summary>
+    public async Task<List<MyFraudFlagDto>> GetMyFraudFlagsAsync(string customerToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/community/my-fraud-flags");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return new List<MyFraudFlagDto>();
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<List<MyFraudFlagDto>>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                ?? new List<MyFraudFlagDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetMyFraudFlagsAsync failed");
+            return new List<MyFraudFlagDto>();
+        }
+    }
+
+    /// <summary>
     /// CC-S4 (Sprint 4): GET /api/community/nearby-products — nearby products with commission + bonus.
     /// </summary>
     public async Task<List<NearbyProductDto>> GetNearbyProductsAsync(string customerToken, double lat, double lng, int radiusKm)
@@ -426,6 +478,28 @@ public class RoleResponse
 {
     public bool IsShipper { get; set; }
     public bool IsSalesman { get; set; }
+    public bool IsShopOwner { get; set; }
+}
+
+public class CommunityRoleDto
+{
+    public string RoleType { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public DateTime ActivatedAt { get; set; }
+    public DateTime? DeactivatedAt { get; set; }
+    public string? SalesmanCode { get; set; }
+}
+
+public class MyFraudFlagDto
+{
+    public Guid Id { get; set; }
+    public Guid? CustomerId { get; set; }
+    public string EntityType { get; set; } = string.Empty;
+    public Guid EntityId { get; set; }
+    public int RiskScore { get; set; }
+    public string RiskFactors { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
 }
 
 public class CustomerIdResponse

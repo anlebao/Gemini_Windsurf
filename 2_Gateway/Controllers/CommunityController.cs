@@ -35,6 +35,7 @@ namespace VanAn.Gateway.Controllers
         ISalesmanService salesmanService,
         IAppInstallAttributionService appInstallAttributionService,
         IWalletService walletService,
+        IFraudReviewService fraudReviewService,
         IVanAnDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IHubContext<LocationHub> locationHubContext,
@@ -47,6 +48,7 @@ namespace VanAn.Gateway.Controllers
         private readonly ISalesmanService _salesmanService = salesmanService;
         private readonly IAppInstallAttributionService _appInstallAttributionService = appInstallAttributionService;
         private readonly IWalletService _walletService = walletService;
+        private readonly IFraudReviewService _fraudReviewService = fraudReviewService;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
@@ -55,7 +57,9 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// GET /api/community/role
-        /// Returns the caller's community role (isShipper, isSalesman). Used by KhachLink NavMenu to show/hide tabs.
+        /// Returns the caller's community role (isShipper, isSalesman, isShopOwner).
+        /// Used by KhachLink NavMenu to show/hide tabs.
+        /// v1.2 (Sprint 6): Added isShopOwner — derived from tenant ownership (User.RoleType == Owner for this customer's tenant).
         /// </summary>
         [HttpGet("role")]
         public async Task<IActionResult> GetMyRole()
@@ -70,11 +74,78 @@ namespace VanAn.Gateway.Controllers
                 .Where(r => r.CustomerId == customerId.Value && r.IsActive)
                 .ToListAsync();
 
+            // v1.2: Check if customer is a shop owner — has Settlement wallet transactions (shop wallet = TenantId as OwnerId)
+            // Pragmatic PoC approach: if customer has wallet tx with Type=Settlement, they're a shop owner.
+            // (Settlement txs are created for shop in COD flow + advance confirmation flow)
+            var customerTenantId = await _dbContext.Customers
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(c => c.Id == customerId.Value)
+                .Select(c => c.TenantId.Value)
+                .FirstOrDefaultAsync();
+
+            var isShopOwner = false;
+            if (customerTenantId != Guid.Empty)
+            {
+                isShopOwner = await _dbContext.WalletTransactions
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .AnyAsync(w => w.OwnerId == customerTenantId
+                        && w.Type == WalletTransactionType.Settlement);
+            }
+
             return Ok(new
             {
                 isShipper = roles.Any(r => r.RoleType == CommunityRoleType.Shipper),
-                isSalesman = roles.Any(r => r.RoleType == CommunityRoleType.Salesman)
+                isSalesman = roles.Any(r => r.RoleType == CommunityRoleType.Salesman),
+                isShopOwner
             });
+        }
+
+        /// <summary>
+        /// GET /api/community/my-roles
+        /// Returns all community roles for the caller (active + inactive).
+        /// Used by KhachLink Profile.razor to display role badges.
+        /// </summary>
+        [HttpGet("my-roles")]
+        public async Task<IActionResult> GetMyRoles()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null)
+                return error!;
+
+            var roles = await _dbContext.CommunityRoles
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.CustomerId == customerId.Value)
+                .OrderByDescending(r => r.ActivatedAt)
+                .Select(r => new
+                {
+                    roleType = r.RoleType.ToString(),
+                    isActive = r.IsActive,
+                    activatedAt = r.ActivatedAt,
+                    deactivatedAt = r.DeactivatedAt,
+                    salesmanCode = r.SalesmanCode
+                })
+                .ToListAsync();
+
+            return Ok(roles);
+        }
+
+        /// <summary>
+        /// GET /api/community/my-fraud-flags
+        /// Salesman self-view: returns own fraud flags only.
+        /// Used by KhachLink Profile.razor to show fraud flag status.
+        /// </summary>
+        [HttpGet("my-fraud-flags")]
+        public async Task<IActionResult> GetMyFraudFlags()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null)
+                return error!;
+
+            var flags = await _fraudReviewService.GetMyFlagsAsync(customerId.Value);
+            return Ok(flags);
         }
 
         /// <summary>

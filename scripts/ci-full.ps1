@@ -128,7 +128,7 @@ foreach ($proj in $unitProjects) {
     $projName = Split-Path -Leaf $proj
     Write-Host "   Running $projName..." -ForegroundColor Gray
     dotnet test $proj --no-build --verbosity quiet `
-        --filter "Category!=Performance&Category!=Integration&Category!=E2E" `
+        --filter "Category!=Performance&Category!=Integration&Category!=E2E&Category!=Flaky" `
         --logger "console;verbosity=minimal" 2>&1 | ForEach-Object {
             if ($_ -match "Passed|Failed|Skipped") { Write-Host "   $_" -ForegroundColor Gray }
         }

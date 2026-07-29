@@ -1,0 +1,15 @@
+docs(community): mark CC-S1-T0c COMPLETE + VPS verified (Sprint 1)
+
+Update Sprint 1 task card, detailed plan, master plan, project_state
+to reflect CC-S1-T0c (Customer Login Simplify) COMPLETE + VPS verified
+2026-07-29 (commit 4e7d9507). Add RV script rv_sprint1_t0c_login.sh.
+
+- task card: Status NOT STARTED -> IN PROGRESS (CC-S1-T0c done, T0/T1/T2 pending)
+- detailed plan: Section 0.5.5 add COMPLETE + VPS VERIFIED note
+- master plan: row 4b add COMPLETE 2026-07-29 + VPS verified summary
+- project_state: Section 2 (current objective -> Sprint 1 remaining),
+  Section 3 (last commit 4e7d9507), Section 10 (maintenance log RV details)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

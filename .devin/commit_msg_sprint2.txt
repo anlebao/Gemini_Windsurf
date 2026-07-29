@@ -1,0 +1,34 @@
+feat(community): CC-S2 Sprint 2 — Delivery Workflow + GPS Tracking
+
+Shipper delivery state machine + real-time GPS tracking via SignalR + Leaflet map.
+
+Backend (CoreHub + Gateway):
+- 3_CoreHub/Services/IDeliveryWorkflowService.cs (NEW) — interface: TransitionStatusAsync + RecordLocationAsync + GetTrackingHistoryAsync
+- 3_CoreHub/Services/DeliveryWorkflowService.cs (NEW) — state machine (PickedUp→OutForDelivery→Delivered/Failed) + GPS location recording (append-only DeliveryTracking) + Order→completed on Delivered. Cross-tenant via IgnoreQueryFilters.
+- 2_Gateway/Hubs/LocationHub.cs (NEW) — SignalR hub for real-time GPS tracking. Auth via X-Customer-Token query string (same pattern as CommunityController, NOT [Authorize] JWT). JoinOrderTracking verifies shipper/customer access. LocationUpdate + DeliveryStatusUpdate events.
+- 2_Gateway/Controllers/CommunityController.cs (MODIFY) — +5 delivery endpoints: POST /orders/{id}/pickup, /delivering, /delivered, /failed, /location/update. SignalR push on status change + location update.
+- 2_Gateway/Program.cs (MODIFY) — +IDeliveryWorkflowService DI + MapHub<LocationHub>("/hubs/location").
+
+UI (KhachLink):
+- 5_WebApps/KhachLink/Services/Http/CommunityHttpService.cs (MODIFY) — +PickupOrderAsync + StartDeliveringAsync + CompleteDeliveryAsync + FailDeliveryAsync + UpdateLocationAsync + DTOs.
+- 5_WebApps/KhachLink/Services/LocationTrackingService.cs (NEW) — GPS polling every 10s via System.Timers.Timer + vananPWA.getCurrentPosition. Start/Stop tracking.
+- 5_WebApps/KhachLink/Components/LeafletMap.razor (NEW) — interactive map component. Shop (red) + shipper (blue, moves) + customer (green) markers. UpdateShipperPositionAsync + DrawRouteAsync + FitBoundsAsync.
+- 5_WebApps/KhachLink/Pages/DeliveryTracking.razor (NEW) — shipper delivery page: order info + Leaflet map + action buttons (pickup/delivering/delivered/failed) + GPS tracking status + fail modal with reason input.
+- 5_WebApps/KhachLink/Pages/OrderTracking.razor (NEW) — customer tracking page: SignalR LocationHub connection (real-time location + status updates) + Leaflet map + delivery info.
+- 5_WebApps/KhachLink/Pages/NearbyOrders.razor (MODIFY) — accept → navigate to /community/delivery-tracking/{orderId} (was /order-tracking/{orderId}).
+- 5_WebApps/KhachLink/Program.cs (MODIFY) — +LocationTrackingService DI.
+- 5_WebApps/KhachLink/wwwroot/lib/leaflet/leaflet.js + leaflet.css (NEW, vendored from unpkg.com/leaflet@1.9.4) — zero-dependency map library.
+- 5_WebApps/KhachLink/wwwroot/js/leaflet.js (NEW) — JS interop: initMap, addMarker, updateMarker, drawRoute, fitBounds, removeMap.
+- 5_WebApps/KhachLink/wwwroot/index.html (MODIFY) — +leaflet.css + leaflet.js + leaflet.js interop.
+
+Tests:
+- 6_Tests/VanAn.Core.Tests/Community/DeliveryWorkflowServiceTests.cs (NEW) — 10 test cases: T1-T4 state transitions (PickedUp/OutForDelivery/Delivered+Order.Completed/Failed), T5 invalid transition throws, T6-T8 location recording (create/append-only/sort), T9-T10 null results (order not found/no active task).
+- 6_Testing/e2e-tests/community-delivery-flow.spec.ts (NEW) — 9 test cases: 5 API 401 no-token + 2 page load + 2 regression.
+
+Verification: Build 0 errors, 75 community tests PASS (10 DeliveryWorkflow + 65 existing), 39/39 Architecture tests PASS.
+
+Files: 16 files (8 NEW, 8 MODIFY).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,31 @@
+feat(community): CC-S3 Sprint 3 — Chat (Customer ↔ Shipper)
+
+Real-time chat via SignalR ChatHub. 1 Conversation per Order. Chat gating: DeliveryTask must exist.
+
+Backend (CoreHub + Gateway):
+- 3_CoreHub/Services/IChatService.cs (NEW) — interface: GetOrCreateConversationAsync + SendMessageAsync + GetHistoryAsync + MarkAsReadAsync + HasActiveDeliveryTaskAsync.
+- 3_CoreHub/Services/ChatService.cs (NEW) — Conversation + Message persistence. Cross-tenant via IgnoreQueryFilters. Chat gating: DeliveryTask must exist (any status except Cancelled). Sender must be ShipperId or CustomerId.
+- 2_Gateway/Hubs/ChatHub.cs (NEW) — SignalR hub for real-time chat. Auth via X-Customer-Token query string (same pattern as LocationHub). JoinConversation verifies shipper/customer access. ReceiveMessage event.
+- 2_Gateway/Controllers/CommunityController.cs (MODIFY) — +2 chat endpoints: GET /chat/conversations/{orderId} (history), POST /chat/messages (send + SignalR push). +SendMessageRequest DTO.
+- 2_Gateway/Program.cs (MODIFY) — +IChatService DI + MapHub<ChatHub>("/hubs/chat").
+
+UI (KhachLink):
+- 5_WebApps/KhachLink/Services/Http/ChatHttpService.cs (NEW) — GetHistoryAsync + SendMessageAsync + DTOs.
+- 5_WebApps/KhachLink/Services/Http/CommunityHttpService.cs (MODIFY) — +GetCustomerIdAsync (calls ShopERP /api/customer-identity/me to get CustomerId for ChatPanel).
+- 5_WebApps/KhachLink/Components/ChatPanel.razor (NEW) — chat UI component: message list (own=right/blue, other=left/gray) + input + send button + SignalR ChatHub connection + auto-scroll + Enter key send.
+- 5_WebApps/KhachLink/Pages/DeliveryTracking.razor (MODIFY) — embed ChatPanel (shipper side).
+- 5_WebApps/KhachLink/Pages/OrderTracking.razor (MODIFY) — embed ChatPanel (customer side).
+- 5_WebApps/KhachLink/Program.cs (MODIFY) — +ChatHttpService DI.
+- 5_WebApps/KhachLink/wwwroot/js/pwa.js (MODIFY) — +scrollToBottom helper + fix getCurrentPosition return shape ({lat,lng} not {latitude,longitude}).
+
+Tests:
+- 6_Tests/VanAn.Core.Tests/Community/ChatServiceTests.cs (NEW) — 8 test cases: T1-T2 GetOrCreateConversation (create/return existing), T3 SendMessage, T4 no DeliveryTask returns null, T5 invalid sender throws, T6 GetHistory chronological, T7 MarkAsRead, T8 HasActiveDeliveryTask false.
+- 6_Testing/e2e-tests/community-chat.spec.ts (NEW) — 8 test cases: 2 API 401 + 1 endpoint exists + 1 ChatHub exists + 2 page load + 2 regression.
+
+Verification: Build 0 errors, 83 community tests PASS (8 Chat + 10 Delivery + 10 Community + 6 Delivering + 49 existing), 39/39 Architecture tests PASS.
+
+Files: 12 files (8 NEW, 4 MODIFY).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,68 @@
+feat(community): CC-S1-T0c customer login simplify (Sprint 1)
+
+Xóa SMS OTP khỏi Login.razor primary flow + rewrite IdentityUpgradeModal
+từ OTP flow → 3 buttons (Google + Facebook + Guest=skip). Aligns v1.5 UC-01
+AC-01.10/AC-01.11 + v1.2 "SMS OTP OPTIONAL" cho customer.
+
+Login.razor (REWRITE):
+- Xóa LoginStep.Otp + _phone/_otp fields + SendOtp/VerifyOtp methods
+- Xóa SĐT input form + OTP input form
+- LoginStep renamed: Phone→Choice (giữ Success)
+- UI mới: Google button + Facebook button + "Tiếp tục as Guest" button
+- Guest button → NavigateTo "/" (no token, no CustomerId)
+- OAuth callback handler giữ nguyên (Google + Facebook error handling)
+- RegisterDeviceFingerprintAsync (CC-S0-T3) giữ nguyên — gọi sau OAuth success
+
+IdentityUpgradeModal.razor (REWRITE):
+- Xóa OTP flow (Intro→OtpSent→Success) + SendUpgradeOtp/VerifyUpgradeOtp
+- Xóa _otp/_phoneSuffix/_upgradeStep/_loading/_cachedToken state
+- Xóa SocialAuthHttpService inject (không còn dùng OTP methods)
+- UI mới: 3 buttons (Google + Facebook + "Bỏ qua")
+- Show sau checkout success (Checkout.razor _showLoyaltySignupModal=true)
+- Guest skip → OnDismiss → order vẫn hợp lệ, tích điểm qua DeviceId fallback
+
+SocialAuthController.cs (ADD Facebook stub):
+- GET /api/auth/facebook/login — stub redirect (OAuth credentials chưa setup)
+- GET /api/auth/facebook/callback — stub redirect
+- Sprint 7+ sẽ config real Facebook OAuth (AppId + AppSecret)
+- Login.razor + IdentityUpgradeModal redirect to /api/auth/facebook/login
+
+SocialAuthHttpService.cs (REMOVE OTP methods):
+- Xóa SendUpgradeOtpAsync + VerifyUpgradeOtpAsync
+- Xóa UpgradeSendOtpResult + UpgradeVerifyOtpResult + DTOs
+- Giữ RedeemPointsAsync (loyalty redeem, không liên quan OTP)
+- OTP endpoints trên server GIỮ NGUYÊN (Sprint 6 collaborator toggle)
+
+AuthorizationEnforcementTests.cs (ADD exempt):
+- Add DeviceRegistrationController to W12-G7 exempt list
+- Same pattern as CustomerIdentityController (X-Customer-Token header auth)
+
+Kịch bản Guest button:
+1. Khách bấm [Tiếp tục as Guest] → NavigateTo "/"
+2. Browse + add to cart → Checkout.razor (guest form có sẵn)
+3. Điền guestName + guestPhone → [Đặt hàng] → POST /api/orders
+   (CustomerDeviceId, CustomerId=null)
+4. Order success → IdentityUpgradeModal show 3 buttons:
+   - Google/Facebook → login + link order to Customer
+   - "Bỏ qua" → order hợp lệ, tích điểm qua DeviceId fallback (Bug 6 fix)
+
+Checkout flow KHÔNG login chen ngang — modal chỉ show SAU khi đơn hoàn tất.
+
+Verification: Build 0 errors, 59 community/device/login/social tests PASS,
+39/39 Architecture tests PASS. EInvoiceOrchestratorTests flaky (pre-existing,
+passes in isolation, unrelated to CC-S1-T0c).
+
+Files:
+- 5_WebApps/KhachLink/Pages/Login.razor (REWRITE)
+- 5_WebApps/KhachLink/Components/IdentityUpgradeModal.razor (REWRITE)
+- 5_WebApps/KhachLink/Services/Http/SocialAuthHttpService.cs (MODIFY — xóa OTP)
+- 5_WebApps/ShopERP/Controllers/SocialAuthController.cs (MODIFY — +Facebook stub)
+- 6_Tests/VanAn.Architecture.Tests/AuthorizationEnforcementTests.cs (MODIFY — +exempt)
+- docs/AI/tasks/task_cc_sprint1_nearby_orders-2c5017.md (UPDATE — CC-S1-T0c)
+- docs/AI/tasks/sprint1_nearby_orders_detailed_plan-2c5017.md (UPDATE — Section 0.5)
+- docs/AI/tasks/community-commerce-master-plan-2c5017.md (UPDATE — row 4b)
+- docs/AI/project_state.md (UPDATE — Section 2/4/10)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

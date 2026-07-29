@@ -1,0 +1,50 @@
+feat(community): CC-S1-T1/T2 Sprint 1 UI + E2E (NearbyOrders + NavMenu + role endpoint)
+
+KhachLink shipper UI + CommunityController role endpoint + E2E test.
+
+UI (KhachLink):
+- 5_WebApps/KhachLink/Services/Http/CommunityHttpService.cs (NEW) — HTTP client
+  for GET /api/community/role + GET /api/community/nearby-orders +
+  POST /api/community/orders/{id}/accept. X-Customer-Token header auth.
+- 5_WebApps/KhachLink/Pages/NearbyOrders.razor (NEW) — shipper nearby orders
+  page: GPS via vananPWA.getCurrentPosition + radius selector (2/5/10/20km) +
+  list sorted by distance + "Nhận đơn" button + toast feedback + 403 role
+  denied state + GPS error retry + empty state with radius increase.
+- 5_WebApps/KhachLink/Components/Layout/NavMenu.razor (MODIFY) — conditional
+  shipper tab (desktop + mobile) shown only when CommunityHttp.GetIsShipperAsync
+  returns true. Calls GET /api/community/role on first render.
+- 5_WebApps/KhachLink/Program.cs (MODIFY) — +CommunityHttpService DI registration.
+
+Backend (Gateway):
+- 2_Gateway/Controllers/CommunityController.cs (MODIFY) — +GET /api/community/role
+  endpoint returning { isShipper: bool }. Queries CommunityRoles table for
+  active Shipper role. Used by NavMenu to show/hide shipper tab without
+  loading the full nearby orders list.
+
+E2E Test:
+- 6_Testing/e2e-tests/community-nearby-orders.spec.ts (NEW) — 8 test cases:
+  1. Nearby orders page shows login prompt without token
+  2. Nearby orders API returns 401 without token
+  3. Accept API returns 401 without token
+  4. Role API returns 401 without token
+  5. Nearby orders API returns 401 with invalid token
+  6. NavMenu does not show shipper tab for non-shipper
+  7. Regression: OTP endpoint still works (200)
+  8. Regression: Google login still redirects (302)
+
+Verification: Build 0 errors, 65 community tests PASS, 39/39 Architecture
+tests PASS. Backend RV on VPS: 9/9 PASS (commit 64d3bf77).
+
+Files:
+- 5_WebApps/KhachLink/Services/Http/CommunityHttpService.cs (NEW)
+- 5_WebApps/KhachLink/Pages/NearbyOrders.razor (NEW)
+- 5_WebApps/KhachLink/Components/Layout/NavMenu.razor (MODIFY)
+- 5_WebApps/KhachLink/Program.cs (MODIFY)
+- 2_Gateway/Controllers/CommunityController.cs (MODIFY — +role endpoint)
+- 6_Testing/e2e-tests/community-nearby-orders.spec.ts (NEW)
+- docs/AI/tasks/task_cc_sprint1_nearby_orders-2c5017.md (UPDATE)
+- docs/AI/project_state.md (UPDATE)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

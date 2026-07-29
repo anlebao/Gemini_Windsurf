@@ -152,7 +152,10 @@ public class AuthorizationEnforcementTests
             // CC-S0-T3 (Sprint 0.5): DeviceRegistrationController — customer-facing (X-Customer-Token header auth, validated via ShopERP /me forward)
             "DeviceRegistrationController",
             // CC-S1-T1/T2 (Sprint 1): CommunityController — shipper-facing (X-Customer-Token header auth + CommunityRole check)
-            "CommunityController"
+            "CommunityController",
+            // CC-S6 (Sprint 6): Platform-level SystemAdmin endpoints — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
+            "CommunityAdminController",
+            "FraudFlagController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

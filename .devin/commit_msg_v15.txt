@@ -1,0 +1,33 @@
+docs(community): spec v1.5 + Sprint 0 verification + guard-check fix
+
+Spec v1.5 — Collaborator Verification Policy (Toggle + Deposit Wallet):
+- Add Section 1.6: SystemAdmin toggle ON/OFF (default OFF for early stage)
+- Add UC-02b: Collaborator SMS OTP + Deposit verification flow
+- Update UC-01: login simplify (remove SMS OTP from primary flow, add Guest)
+- Update UC-02: toggle ON requires SMS OTP mandatory + deposit wallet
+- Domain changes planned: WalletTransactionType.Deposit=7 + SmsOtpFee=8,
+  CommunityRole.IsPhoneVerified, SystemSetting.CollaboratorSmsVerificationEnabled
+
+Master plan v1.5 — 3 new tasks split into existing sprints:
+- CC-S0-T3 (Sprint 0.5): Device fingerprint wire-up into production path
+- CC-S1-T0c (Sprint 1): Customer login simplify (Google + Guest, no SMS OTP)
+- CC-S6-T5 (Sprint 6): Collaborator SMS OTP + Deposit Wallet with toggle
+- Sprint 7: add branch protocol + task card reference for CD/RV trigger
+
+Sprint 0 verification (2026-07-29) — base code 100% confirmed:
+- 11 entities in Domain.cs:3191-3716 + IdentityLevel.DeviceVerified=4
+- 11 EF Configuration files + migration 20260726105331_CommunitySprint0.cs
+- 59 community tests PASS + 39 architecture tests PASS
+- guard-check ALL PASSED + fingerprint JS files exist
+- GAP: fingerprint wire-up not yet done (CC-S0-T3 will handle)
+
+guard-check.ps1 fix:
+- Fix regex syntax error: PowerShell single-quote escaping in character class
+  (["\'] in single-quoted string -> ["''] using '' escape)
+- Remove extra closing paren in if condition
+- Exclude 6_Tests\ from raw SQL scan (test cleanup code uses
+  ExecuteSqlRawAsync on SQLite test DB — false positive)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,56 @@
+feat(community): CC-S1-T0/T1/T2 Sprint 1 backend (delivering + nearby orders + accept)
+
+Domain Modification (approved by user) + Community Order Service + Gateway Controller.
+
+CC-S1-T0 (delivering status):
+- 1_Shared/Domain.cs: +delivering OrderStatusDefinition (Sequence=5, DisplayName="Đang giao")
+  +shift completed→6, cancelled→7. OrderStatusId.Delivering already existed.
+- 3_CoreHub/Services/OrderWorkflowService.cs: +delivering transitions in both
+  kitchen ON/OFF flows (ready→delivering, confirmed→delivering,
+  delivering→completed/cancelled/delivered).
+- 6_Tests: DeliveringStatusTests.cs (6 tests) — T0.1 Default contains delivering,
+  T0.2-T0.6 transition rules (ready→delivering, delivering→delivered/completed/cancelled,
+  confirmed→delivering).
+
+CC-S1-T1 (nearby orders API):
+- 3_CoreHub/Services/ICommunityOrderService.cs (NEW) — interface + NearbyOrderDto.
+- 3_CoreHub/Services/CommunityOrderService.cs (NEW) — Haversine + nearby orders query
+  (cross-tenant IgnoreQueryFilters, DELIVERY type, confirmed/ready status, exclude
+  active DeliveryTask, sort by distance).
+- 6_Tests: CommunityOrderServiceTests.cs (10 tests) — Haversine same point + HCM→HN
+  ~1080km + filters by radius/type/status/assigned + sorts by distance + accept
+  creates task + double-accept null + invalid status null (SQLite in-memory).
+
+CC-S1-T2 (accept order API + F2 fix):
+- 1_Shared/Domain.cs: +Order.AssignShipper(shipperId) +Order.SetDeliveryLocation(lat,lng)
+  (F2 fix — Sprint 0 created ShipperId/DeliveryLat/DeliveryLng fields but no domain methods).
+- 2_Gateway/Controllers/CommunityController.cs (NEW) — GET /api/community/nearby-orders
+  + POST /api/community/orders/{id}/accept. X-Customer-Token auth via ShopERP /me forward
+  + CommunityRole(Shipper, Active) check from Gateway PG. Accept creates DeliveryTask +
+  sets Order.ShipperId + status→delivering. Double-accept → 409 Conflict.
+- 2_Gateway/Program.cs: +ICommunityOrderService DI registration.
+- 6_Tests/VanAn.Architecture.Tests: +CommunityController to W12-G7 exempt list
+  (customer-facing, X-Customer-Token header auth, same pattern as CustomerIdentityController).
+
+Verification: Build 0 errors, 65 community tests PASS (6 DeliveringStatus + 10
+CommunityOrderService + 49 existing), 39/39 Architecture tests PASS.
+
+Remaining Sprint 1: KhachLink UI (NearbyOrders.razor + NavMenu + CommunityHttpService)
++ E2E test (community-nearby-orders.spec.ts).
+
+Files:
+- 1_Shared/Domain.cs (MODIFY — +delivering status +Order.AssignShipper +SetDeliveryLocation)
+- 3_CoreHub/Services/OrderWorkflowService.cs (MODIFY — +delivering transitions)
+- 3_CoreHub/Services/ICommunityOrderService.cs (NEW)
+- 3_CoreHub/Services/CommunityOrderService.cs (NEW)
+- 2_Gateway/Controllers/CommunityController.cs (NEW)
+- 2_Gateway/Program.cs (MODIFY — +DI)
+- 6_Tests/VanAn.Core.Tests/Community/DeliveringStatusTests.cs (NEW)
+- 6_Tests/VanAn.Core.Tests/Community/CommunityOrderServiceTests.cs (NEW)
+- 6_Tests/VanAn.Architecture.Tests/AuthorizationEnforcementTests.cs (MODIFY — +exempt)
+- docs/AI/tasks/task_cc_sprint1_nearby_orders-2c5017.md (UPDATE)
+- docs/AI/project_state.md (UPDATE)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

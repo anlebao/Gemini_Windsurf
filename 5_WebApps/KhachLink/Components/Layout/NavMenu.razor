@@ -46,7 +46,7 @@
                     <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
                 </NavLink>
             </div>
-            @if (_isShipper)
+            @if (_isShipper || _isShopOwner)
             {
                 <div class="nav-item">
                     <NavLink class="nav-link" href="/community/nearby-orders">
@@ -56,6 +56,14 @@
                 <div class="nav-item">
                     <NavLink class="nav-link" href="/community/wallet">
                         <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cộng tác viên
+                    </NavLink>
+                </div>
+            }
+            @if (_isShopOwner && !_isShipper)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/community/wallet">
+                        <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cửa hàng
                     </NavLink>
                 </div>
             }
@@ -235,6 +243,7 @@
     private bool _isStaff = false;
     private bool _isShipper = false;
     private bool _isSalesman = false;
+    private bool _isShopOwner = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -249,6 +258,7 @@
                     var role = await CommunityHttp.GetRoleAsync(token!);
                     _isShipper = role?.IsShipper ?? false;
                     _isSalesman = role?.IsSalesman ?? false;
+                    _isShopOwner = role?.IsShopOwner ?? false;
                 }
                 catch { /* non-critical — hide community tabs */ }
             }

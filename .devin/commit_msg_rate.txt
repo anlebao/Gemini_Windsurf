@@ -1,0 +1,14 @@
+fix: Loyalty rate UI step 0.01 to 0.001 for 1-point-per-1000-VND rule
+
+ShopFeatures.razor loyalty points rate input had step=0.01 which prevented
+entering 0.001 (1 point per 1,000 VND). Changed to step=0.001 + updated
+helper text with the 0.001 example.
+
+VPS data fix (applied directly to SQLite, not in this commit):
+- Tenant 00000000-...0001 (Van An Cafe): Loyalty_PointsRate 0.0 -> 0.001,
+  Loyalty_MinPointsPerOrder 0 -> 1
+- Recalculated Bao An Le points: 36,504 (old 10% rate) -> 364 (new 0.1% rate)
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

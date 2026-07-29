@@ -1,0 +1,36 @@
+feat(community): CC-S4 Sprint 4 — Salesman + Composite QR Referral + Per-Product Commission + App-Install Bonus + Risk Scoring + FraudFlag
+
+Sprint 4 complete: 7 sessions, 31 unit tests PASS, 39/39 Architecture tests PASS, build 0 errors.
+
+Backend (3_CoreHub):
+- ISalesmanService + SalesmanService: nearby products (Haversine + ProductReferralConfig join), composite QR generation, commission summary, composite referral code resolution, per-product commission creation with risk scoring
+- IAppInstallAttributionService + AppInstallAttributionService: app-install attribution via composite referral code, risk scoring + FraudFlag integration, device fingerprint matching (self-deal detection)
+- IProductReferralConfigService + ProductReferralConfigService: admin CRUD for per-product commission rate (2-5%) + app-install bonus + product short code
+- IFraudFlagService + FraudFlagService: create/query/confirm/dismiss fraud flags, auto-reject related entity on confirm
+- CoolingPeriodJob + HeldTimeoutJob: hourly background services — auto-approve RiskScore<60 after 24h cooling, auto-reject Held after 48h timeout
+
+Gateway (2_Gateway):
+- CommunityController: +5 salesman endpoints + CheckSalesmanRoleAsync + GetMyRole returns isSalesman
+- ProductReferralConfigController: admin CRUD with SystemAdmin JWT auth
+- Program.cs: +4 service DI + 2 hosted service registrations
+
+UI KhachLink (5_WebApps/KhachLink):
+- NearbyProducts.razor + SalesmanQR.razor + SalesDashboard.razor
+- NavMenu.razor: +_isSalesman + 2 salesman tabs
+- Scan.razor: composite referral QR URL handling
+- CommunityHttpService: +5 salesman methods + GetRoleAsync
+- qrcode.js: vendored qrcode-generator (MIT)
+- app-install-tracker.js: PWA appinstalled event listener
+
+UI ShopERP Admin (5_WebApps/ShopERP):
+- ProductReferralConfigs.razor: admin CRUD page
+- ProductReferralConfigApiClient: Gateway admin API client
+
+Tests:
+- 31 unit tests (12 Salesman + 4 AppInstall + 4 ProductReferralConfig + 11 FraudFlag)
+- 15 E2E tests (community-salesman.spec.ts)
+- 114 community tests PASS, 39/39 Architecture tests PASS
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,272 @@
+@page "/admin/community/fraud-flags"
+@rendermode InteractiveServer
+@layout VanAn.ShopERP.Components.Pages.Admin.AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject CommunityAdminApiClient ApiClient
+@inject IThemeProvider ThemeProvider
+@inject ILogger<FraudFlags> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="fraud-flags-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Fraud Review — Hàng đợi</h1>
+        <div class="header-actions">
+            <select value="@_statusFilter" @onchange="OnStatusChanged" class="form-select form-select-sm" style="width:auto;display:inline-block;">
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Dismissed">Dismissed</option>
+                <option value="Reviewed">Reviewed</option>
+            </select>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách fraud flags...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Không có fraud flag nào ở trạng thái @_statusFilter.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Khách hàng</th>
+                            <th>Loại entity</th>
+                            <th>Risk Score</th>
+                            <th>Risk Factors</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày tạo</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td>@item.CustomerName</td>
+                                <td>@item.EntityType</td>
+                                <td>
+                                    <span class="risk-score risk-@GetRiskClass(item.RiskScore)">@item.RiskScore</span>
+                                </td>
+                                <td><code>@item.RiskFactors</code></td>
+                                <td><span class="status-badge status-@item.Status.ToLower()">@item.Status</span></td>
+                                <td>@item.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    @if (item.Status == "Pending")
+                                    {
+                                        <VanAButton Variant="primary" Size="small" OnClick="@(() => ConfirmFlag(item.Id))">Confirm</VanAButton>
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => DismissFlag(item.Id))">Dismiss</VanAButton>
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => ShowDetail(item.Id))">Chi tiết</VanAButton>
+                                    }
+                                    else
+                                    {
+                                        <VanAButton Variant="secondary" Size="small" OnClick="@(() => ShowDetail(item.Id))">Chi tiết</VanAButton>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-info">
+                <p>Tổng: @_items.Count / @_total flags (Trang @_currentPage)</p>
+                <div class="pagination-buttons">
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_currentPage <= 1)" OnClick="PrevPage">← Trước</VanAButton>
+                    <VanAButton Variant="secondary" Size="small" Disabled="@(_items.Count < _pageSize)" OnClick="NextPage">Sau →</VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+
+    @if (_showDetailModal && _detail != null)
+    {
+        <div class="modal-backdrop" @onclick="CloseDetailModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>Fraud Flag Detail — @_detail.Id</h3>
+                    <button class="btn-close" @onclick="CloseDetailModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Khách hàng:</strong> @_detail.CustomerName</p>
+                    <p><strong>Loại entity:</strong> @_detail.EntityType</p>
+                    <p><strong>Entity ID:</strong> @_detail.EntityId</p>
+                    <p><strong>Risk Score:</strong> @_detail.RiskScore</p>
+                    <p><strong>Flag Type:</strong> @_detail.FlagType</p>
+                    <p><strong>Mô tả:</strong> @_detail.Description</p>
+                    <p><strong>Risk Factors:</strong> <code>@_detail.RiskFactors</code></p>
+                    <p><strong>Trạng thái:</strong> @_detail.Status</p>
+                    @if (_detail.ReviewedBy.HasValue)
+                    {
+                        <p><strong>Reviewer:</strong> @_detail.ReviewedBy</p>
+                        <p><strong>Reviewed At:</strong> @_detail.ReviewedAt</p>
+                        <p><strong>Note:</strong> @_detail.ReviewNote</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseDetailModal">Đóng</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<FraudFlagItem> _items = new();
+    private int _total = 0;
+    private int _currentPage = 1;
+    private const int PageSize = 20;
+    private bool _isLoading = false;
+    private string _statusFilter = "Pending";
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private bool _showDetailModal = false;
+    private ShopErpFraudFlagDetail? _detail = null;
+
+    private int _pageSize => PageSize;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task OnStatusChanged(ChangeEventArgs e)
+    {
+        _statusFilter = e.Value?.ToString() ?? "Pending";
+        _currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var result = await ApiClient.GetFraudFlagsAsync(_statusFilter, _currentPage, PageSize);
+            _items = result.Items;
+            _total = result.Total;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "LoadData failed");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ConfirmFlag(Guid id)
+    {
+        try
+        {
+            var result = await ApiClient.ConfirmFraudFlagAsync(id);
+            var sideEffectsText = result.SideEffects.Count > 0
+                ? $" Side effects: {string.Join(", ", result.SideEffects)}"
+                : "";
+            var banText = result.CustomerBanned ? " KHÁCH HÀNG ĐÃ BỊ BAN (3-strike)." : "";
+            _alertMessage = $"Đã confirm fraud flag.{sideEffectsText}{banText}";
+            _alertType = result.CustomerBanned ? "warning" : "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ConfirmFlag failed");
+            _alertMessage = $"Lỗi confirm: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task DismissFlag(Guid id)
+    {
+        try
+        {
+            var result = await ApiClient.DismissFraudFlagAsync(id);
+            var sideEffectsText = result.SideEffects.Count > 0
+                ? $" Side effects: {string.Join(", ", result.SideEffects)}"
+                : "";
+            _alertMessage = $"Đã dismiss fraud flag.{sideEffectsText}";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DismissFlag failed");
+            _alertMessage = $"Lỗi dismiss: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task ShowDetail(Guid id)
+    {
+        try
+        {
+            _detail = await ApiClient.GetFraudFlagDetailAsync(id);
+            _showDetailModal = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "ShowDetail failed");
+            _alertMessage = $"Lỗi tải chi tiết: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private void CloseDetailModal()
+    {
+        _showDetailModal = false;
+        _detail = null;
+    }
+
+    private async Task PrevPage()
+    {
+        if (_currentPage > 1)
+        {
+            _currentPage--;
+            await LoadData();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (_items.Count >= PageSize)
+        {
+            _currentPage++;
+            await LoadData();
+        }
+    }
+
+    private static string GetRiskClass(int score) => score switch
+    {
+        >= 80 => "high",
+        >= 50 => "medium",
+        _ => "low"
+    };
+}

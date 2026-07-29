@@ -1,0 +1,23 @@
+fix: Profile points not loading — use GetOrCreateCustomerRewardsAsync in GetMe
+
+Root cause: CustomerIdentityController.GetMe (GET /api/customers/me) called
+GetCustomerRewardsAsync which returns null when no LoyaltyRewards row exists.
+Customers created via NATS sync (DataSyncSubscriber.SyncCustomerCreatedAsync)
+or other non-OTP flows never get a LoyaltyRewards record created — only the
+OTP verify flow (VerifyOtp) calls GetOrCreateCustomerRewardsAsync.
+
+Result: Profile.razor receives PointBalance=0 and Tier="Bronze" for these
+customers, even though they may have earned points through other paths.
+
+Fix: Replace GetCustomerRewardsAsync with GetOrCreateCustomerRewardsAsync in
+GetMe so every customer gets a LoyaltyRewards row (initialized to 0 points,
+Bronze tier) when they view their profile. This matches the VerifyOtp flow
+behavior and ensures consistent loyalty state across all customer touchpoints.
+
+VPS evidence: only 1 customer (RV Loyalty Tester) in PG, LoyaltyRewards row
+missing — PointBalance NULL. After fix, GetMe will create the row on first
+profile view and return PointBalance=0 (accurate, not stuck at null).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

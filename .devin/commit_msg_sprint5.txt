@@ -1,0 +1,37 @@
+feat(community): CC-S5 Sprint 5 — Wallet + COD + Settlement + Shop-Confirmed Advance
+
+Sprint 5 implements the full wallet lifecycle for Community Commerce:
+- Shipper COD collection (confirm-cod) with shop settlement
+- Shipper advance payment (confirm-advance) with shop-confirmed receipt
+- Wallet balance + transaction history (GetWallet)
+- Pending advances queue for shop owners
+- Transaction reversal (immutable — creates Reversal entry, original untouched)
+- Order.MarkCodCollected domain method (idempotency guarded)
+
+Service layer (WalletService):
+- CreateTransactionAsync now provider-aware (PG FOR UPDATE / SQLite LINQ fallback)
+- ConfirmCodAsync: creates CODCollection(+shipper) + Settlement(-shop), marks order
+- ConfirmAdvanceAsync: creates AdvancePayment(-shipper), pending shop confirmation
+- ConfirmAdvanceReceivedAsync: creates Settlement(+shop), idempotency guarded
+- GetPendingAdvancesAsync: lists unsettled advances for shop owner
+- ReverseTransactionAsync: creates Reversal entry negating original amount
+
+API endpoints (CommunityController):
+- GET  /api/community/wallet
+- POST /api/community/wallet/confirm-cod
+- POST /api/community/wallet/confirm-advance
+- GET  /api/community/wallet/pending-advances
+- POST /api/community/wallet/confirm-advance-received
+
+UI (KhachLink):
+- Wallet.razor: balance + transaction history + pending advances confirmation
+- DeliveryTracking.razor: COD collection + advance payment buttons
+- WalletHttpService: HTTP client for all wallet endpoints
+- NavMenu: wallet tab for shippers
+
+Tests: 19 unit tests + 7 integration tests (DI + 401 auth guards)
+Build: PASS | Architecture tests: PASS | Community tests: 133/133 PASS
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
