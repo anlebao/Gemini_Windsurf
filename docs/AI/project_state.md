@@ -30,27 +30,17 @@
 
 ## 2. Current Objective
 
-**Community Commerce Sprint 1 — COMPLETE (CC-S1-T0c/T0/T1/T2 + UI + E2E)**
+**Community Commerce Sprint 1 — COMPLETE + VPS VERIFIED (CC-S1-T0c/T0/T1/T2 + UI + E2E)**
 
-All Sprint 1 deliverables done:
-- **CC-S1-T0c:** Customer Login Simplify (COMPLETE + VPS verified, commit `4e7d9507`)
-- **CC-S1-T0:** Domain Modification — "delivering" status (6 tests PASS, commit `64d3bf77`)
-- **CC-S1-T1:** Nearby orders API + Haversine (10 tests PASS, commit `64d3bf77`)
+All Sprint 1 deliverables done + deployed + RV verified:
+- **CC-S1-T0c:** Customer Login Simplify (commit `4e7d9507`, VPS RV 9/9 PASS)
+- **CC-S1-T0:** Domain Modification — "delivering" status (commit `64d3bf77`, 6 tests PASS, VPS RV 9/9 PASS)
+- **CC-S1-T1:** Nearby orders API + Haversine (commit `64d3bf77`, 10 tests PASS)
 - **CC-S1-T2:** Accept order API + F2 fix + CommunityController (commit `64d3bf77`)
-- **CC-S1-T1/T2 UI:** CommunityHttpService + NearbyOrders.razor + NavMenu shipper tab + role endpoint + DI (pending commit)
-- **CC-S1-T1/T2 E2E:** community-nearby-orders.spec.ts (8 test cases, pending commit)
+- **CC-S1-T1/T2 UI:** CommunityHttpService + NearbyOrders.razor + NavMenu shipper tab + role endpoint + DI (commit `76d82e2c`, VPS RV 12/12 PASS)
+- **CC-S1-T1/T2 E2E:** community-nearby-orders.spec.ts (8 test cases, commit `76d82e2c`)
 
-Backend deployed + RV verified on VPS: 9/9 PASS.
-
-Branch: `main`. Pending commit: Sprint 1 UI + E2E test.
-
----
-
----
-
-**Previous: Loyalty/CRM Audit Fix — P3 Cosmetic (COMPLETE 2026-07-28, commit `018a42c2`)** — 3 cosmetic tasks (PromoPushComposer extract, RecipientConfig extract, CSV export endpoint). Branch `fix/loyalty-crm-audit-fix` (NOT yet merged).
-
-**Previous: Loyalty/CRM Audit Fix — P2 UX Completions (COMPLETE 2026-07-27)** — 5 UX tasks (per-row/bulk promo send, progress bar, detail expand, push column). Commit `56926b44`.
+Branch: `main`. Last commit: `76d82e2c`. Sprint 1 fully closed.
 
 ---
 
@@ -61,11 +51,12 @@ Branch: `main`. Pending commit: Sprint 1 UI + E2E test.
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `4e7d9507` feat(community): CC-S1-T0c customer login simplify (Sprint 1)
+- **Last commit:** `76d82e2c` feat(community): CC-S1-T1/T2 Sprint 1 UI + E2E (NearbyOrders + NavMenu + role endpoint)
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
-- **Build (2026-07-28):** 0 errors, 1117 warnings (pre-existing CA). Core.Tests 21/21 outbox+evidence tests PASS. guard-check ALL PASSED. Pre-commit guard PASSED.
-- **VPS (2026-07-28):** 7 containers healthy (`vanan-nginx`, `vanan-shoperp`, `vanan-gateway`, `vanan-khachlink`, `vanan-postgres`, `vanan-nats`, `vanan-seq`). CD auto-deploy on push to main. Domains: `khachvip.online` (ShopERP), `diemthuong.khachvip.online` (KhachLink), `api.khachvip.online` (Gateway).
+- **Build (2026-07-29):** 0 errors. 65 community tests PASS (6 DeliveringStatus + 10 CommunityOrderService + 49 existing). 39/39 Architecture tests PASS. guard-check ALL PASSED. Pre-commit guard PASSED.
+- **VPS (2026-07-29):** 7 containers healthy (`vanan-nginx`, `vanan-shoperp`, `vanan-gateway`, `vanan-khachlink`, `vanan-postgres`, `vanan-nats`, `vanan-seq`). CD auto-deploy on push to main. Domains: `khachvip.online` (ShopERP), `diemthuong.khachvip.online` (KhachLink), `api.khachvip.online` (Gateway).
+- **CC-S1 Sprint 1 (2026-07-29 COMPLETE + DEPLOYED + VPS VERIFIED):** 3 commits (`4e7d9507` T0c, `64d3bf77` T0/T1/T2 backend, `76d82e2c` T1/T2 UI+E2E). Backend: Domain Modification (delivering OrderStatus Sequence=5) + OrderWorkflowService transitions + CommunityOrderService (Haversine + nearby + accept) + CommunityController (3 endpoints: role/nearby-orders/accept) + Order.AssignShipper() + SetDeliveryLocation() (F2 fix). UI: CommunityHttpService + NearbyOrders.razor (GPS + radius + list + accept + toast) + NavMenu shipper tab (conditional via role endpoint) + DI. E2E: community-nearby-orders.spec.ts (8 cases). Tests: 16 new (6 DeliveringStatus + 10 CommunityOrderService). VPS RV: backend 9/9 PASS + UI 12/12 PASS (WASM binary verified CommunityHttpService=4, NearbyOrders=10, GetIsShipper=3, AcceptOrder=10 matches).
 - **VPS CRM/Loyalty Verification + P0/P1 Fix (2026-07-28 COMPLETE + DEPLOYED + VERIFIED, commits `8d75abc1` + `e47dad26`):** Verified guide vs VPS với 3 roles (Owner `adminvanan1`, SystemAdmin `sysadmin@vanan.vn`, Customer). Found 4 issues, fixed P0+P1:
   - **P0-A1 — Owner AccessDenied (FIXED):** 3 trang admin (`/admin/missions`, `/admin/redemption-catalog`, `/admin/redemption-history`) có `[Authorize(Policy="SystemAdmin")]` chặn Owner. Guide mục 3.1+5.1 nói Owner+SA đều có quyền. Fix: đổi sang `[Authorize(Policy="OwnerOnly")]`. VPS verify: Owner login → 3 trang 200 (trước đó 302→AccessDenied).
   - **P0-A2 — Outbox stuck loop (FIXED root cause):** NatsSyncWorker re-publish event `832f4637` mỗi 1 giây, block toàn bộ outbox processing → cao điểm tê liệt. **4 evidence thu thập:** (1) `ExecuteUpdateAsync` rowsAffected=0 cho lowercase Id, =1 cho UPPERCASE Id; (2) container mở đúng file `/app/keys/vanan_shoperp.db`; (3) cả 3 WAL file tồn tại; (4) ToDomain reflection works. **Root cause:** EF Core SQLite gửi Guid parameter UPPERCASE, một số row có lowercase Id (từ NATS sync/JSON) → SQLite BINARY collation case-sensitive → WHERE không match → 0 rows → loop. **Fix:** `OutboxRepository` dùng raw SQL + `COLLATE NOCASE` (case-insensitive, đúng .NET Guid semantics). VPS verify: lowercase row processed <1s, 0 errors, pending=0.
@@ -99,16 +90,22 @@ Branch: `main`. Pending commit: Sprint 1 UI + E2E test.
 
 ## 4. Next Actions
 
-1. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit=7 + SmsOtpFee=8, CommunityRole.IsPhoneVerified, SystemSetting toggle).
-2. **Community Commerce Sprint 1 — Nearby Orders** — per `task_cc_sprint1_nearby_orders-2c5017.md`. Requires Domain Modification #2: OrderStatuses.Default[] + "delivering" status. **Needs user approval for Domain Modification.** CC-S1-T0c đã xong, còn CC-S1-T0 (delivering) + CC-S1-T1/T2 (nearby orders + accept).
-3. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE.
-4. **Replace FingerprintJS stub** — Download real FingerprintJS v4 (MIT) before production deployment.
-5. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios.
-6. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-7. **(Cosmetic)** Fix `?` in Checkout.razor. Fix `isTabVisible` display bug in OrderTracking.razor.
-8. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
-9. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL.
-10. **(Facebook OAuth)** Config real Facebook OAuth credentials (AppId + AppSecret) — Sprint 7+. Currently stub redirect.
+1. **CC-S2 Sprint 2 — Salesman Referral Flow** (per master plan): Salesman generates referral code → customer uses code at checkout → commission tracking. Tasks: CC-S2-T1 (referral code generation + 6-char uniqueness), CC-S2-T2 (checkout referral application + commission calc), CC-S2-T3 (salesman dashboard UI).
+2. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit=7 + SmsOtpFee=8, CommunityRole.IsPhoneVerified, SystemSetting toggle).
+3. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE. (Hiện chỉ `OutboxRepository.cs` có `COLLATE NOCASE`.)
+4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios. (Chưa có spec file nào trong `6_Testing/e2e-tests/`.)
+5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+6. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (`vanan_dev` vẫn còn trong `DesignTimeDbContextFactory.cs`, `docker-compose.infra.yml`, `scripts/start-apps.ps1`, `scripts/start-local-infra.ps1`.)
+7. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL. (Pattern vẫn ở `guard-check.ps1:206-222`.)
+8. **(Facebook OAuth)** Config real Facebook OAuth credentials (AppId + AppSecret) — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+
+---
+
+### Pruned (2026-07-29)
+
+- ~~Sprint 1 Nearby Orders~~ — COMPLETE per Section 2 (commit `76d82e2c`).
+- ~~Replace FingerprintJS stub~~ — DONE. Real FingerprintJS v5.2.0 vendored at `5_WebApps/KhachLink/wwwroot/lib/fingerprintjs/fingerprint.js` (F1 fix).
+- ~~Cosmetic: `?` in Checkout.razor + `isTabVisible` in OrderTracking.razor~~ — DONE. Fixed by commit `a06ea092` (2026-07-23): Vietnamese content corruption + isTabVisible freeze bug.
 
 ---
 
@@ -200,7 +197,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=main, Sprint 0 verified 100% (11 entities Domain.cs:3191-3716 + 11 EF configs + migration + 59 community tests PASS + 39 architecture tests PASS + guard-check ALL PASSED + fingerprint JS tồn tại), build 0 errors (1120 warnings pre-existing CA), spec v1.5 + master plan v1.5 updated, guard-check.ps1 fixed (regex syntax + test file exclusion).
+- **Verified Facts:** Branch=main, last commit `76d82e2c` (Sprint 1 UI + E2E). Sprint 1 COMPLETE + VPS verified: backend RV 9/9 PASS + UI RV 12/12 PASS (WASM binary: CommunityHttpService=4, NearbyOrders=10, GetIsShipper=3, AcceptOrder=10 matches). Build 0 errors. 65 community tests PASS (6 DeliveringStatus + 10 CommunityOrderService + 49 existing). 39/39 Architecture tests PASS. 3 endpoints on VPS: GET /api/community/role (401 no token), GET /api/community/nearby-orders (401 no token), POST /api/community/orders/{id}/accept (401 no token). KhachLink NearbyOrders.razor route 200 on diemthuong.khachvip.online.
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions < Verified Facts, Open Questions < 3
 
@@ -208,6 +205,7 @@ Server A (Edge):              Server B (Central):
 
 ## 10. Maintenance Log
 
+* **2026-07-29 — CC-S1-T1/T2 SPRINT 1 UI + E2E — COMPLETE + VPS VERIFIED.** Commit `76d82e2c`. 8 files: `5_WebApps/KhachLink/Services/Http/CommunityHttpService.cs` (NEW — HTTP client: GetIsShipperAsync + GetNearbyOrdersAsync + AcceptOrderAsync, X-Customer-Token header, DTOs NearbyOrderDto/NearbyOrdersResult/AcceptOrderResult/RoleResponse), `5_WebApps/KhachLink/Pages/NearbyOrders.razor` (NEW — shipper page: GPS via vananPWA.getCurrentPosition + radius selector 2/5/10/20km + list sorted by distance + "Nhận đơn" button + toast feedback + 403 role denied state + GPS error retry + empty state with radius increase + accept → navigate to /order-tracking/{id}), `5_WebApps/KhachLink/Components/Layout/NavMenu.razor` (MODIFY — conditional shipper tab desktop+mobile shown only when CommunityHttp.GetIsShipperAsync returns true, calls GET /api/community/role on first render), `5_WebApps/KhachLink/Program.cs` (+CommunityHttpService DI), `2_Gateway/Controllers/CommunityController.cs` (+GET /api/community/role endpoint returning {isShipper:bool}, queries CommunityRoles table for active Shipper role), `6_Testing/e2e-tests/community-nearby-orders.spec.ts` (NEW — 8 test cases: page login prompt + 3 API 401 no-token + 1 API 401 invalid-token + NavMenu no shipper tab + 2 regression), `docs/AI/tasks/task_cc_sprint1_nearby_orders-2c5017.md` (UPDATE status COMPLETE), `docs/AI/project_state.md` (UPDATE). Build 0 errors, 65 community tests PASS, 39/39 Architecture tests PASS. **VPS RV (2026-07-29):** UI 12/12 PASS — NearbyOrders route 200, role API 401 no-token + 401 invalid-token, nearby API 401, accept API 401, WASM binary verified CommunityHttpService=4/NearbyOrders=10/GetIsShipper=3/AcceptOrder=10 matches, regression Home+Login+OTP 200. Branch: `main`.
 * **2026-07-29 — CC-S1-T0/T1/T2 SPRINT 1 BACKEND (delivering status + nearby orders + accept).** Domain Modification approved by user. 8 files: `1_Shared/Domain.cs` (+delivering OrderStatusDefinition Sequence=5 + shift completed→6/cancelled→7, +Order.AssignShipper() +Order.SetDeliveryLocation() F2 fix), `3_CoreHub/Services/OrderWorkflowService.cs` (+delivering transitions in both kitchen ON/OFF flows: ready→delivering, confirmed→delivering, delivering→completed/cancelled/delivered), `3_CoreHub/Services/ICommunityOrderService.cs` (NEW — interface + NearbyOrderDto), `3_CoreHub/Services/CommunityOrderService.cs` (NEW — Haversine + nearby orders query cross-tenant + accept with DeliveryTask creation + Order.AssignShipper + status→delivering), `2_Gateway/Controllers/CommunityController.cs` (NEW — GET /api/community/nearby-orders + POST /api/community/orders/{id}/accept, X-Customer-Token auth via ShopERP /me forward + CommunityRole Shipper check), `2_Gateway/Program.cs` (+ICommunityOrderService DI registration), `6_Tests/VanAn.Core.Tests/Community/DeliveringStatusTests.cs` (NEW — 6 tests: T0.1 Default contains delivering, T0.2-T0.6 transition rules), `6_Tests/VanAn.Core.Tests/Community/CommunityOrderServiceTests.cs` (NEW — 10 tests: Haversine same point + HCM→HN ~1080km + filters by radius/type/status/assigned + sorts by distance + accept creates task + double-accept null + invalid status null, SQLite in-memory), `6_Tests/VanAn.Architecture.Tests/AuthorizationEnforcementTests.cs` (+CommunityController to W12-G7 exempt list). Build 0 errors, 65 community tests PASS (6+10+49), 39/39 Architecture tests PASS. Branch: `main`.
 * **2026-07-29 — CC-S1-T0c SPRINT 1 CUSTOMER LOGIN SIMPLIFY — COMPLETE + VPS VERIFIED.** Xóa SMS OTP khỏi Login.razor primary flow + rewrite IdentityUpgradeModal từ OTP flow → 3 buttons (Google + Facebook + Guest=skip). 5 files: `Login.razor` (REWRITE — xóa LoginStep.Otp + SĐT/OTP input + SendOtp/VerifyOtp, UI mới Google + Facebook + "Tiếp tục as Guest" button, Guest→NavigateTo `/`), `IdentityUpgradeModal.razor` (REWRITE — xóa OTP flow Intro→OtpSent→Success, UI mới 3 buttons Google + Facebook + "Bỏ qua", show sau checkout success, Guest skip→OnDismiss→order hợp lệ + DeviceId fallback tích điểm), `SocialAuthController.cs` (+Facebook stub endpoints `GET /api/auth/facebook/login` + `/callback`, Sprint 7+ config real OAuth), `SocialAuthHttpService.cs` (xóa SendUpgradeOtpAsync + VerifyUpgradeOtpAsync + DTOs, giữ RedeemPointsAsync), `AuthorizationEnforcementTests.cs` (+DeviceRegistrationController to W12-G7 exempt list, same pattern as CustomerIdentityController). OTP endpoints trên server GIỮ NGUYÊN (Sprint 6 collaborator toggle). Checkout flow KHÔNG login chen ngang — modal chỉ show SAU khi đơn hoàn tất. Build 0 errors, 59 community/device/login/social tests PASS, 39/39 Architecture tests PASS. EInvoiceOrchestratorTests flaky (pre-existing, passes in isolation). **VPS RV (2026-07-29):** WASM binary verified `Guest`=10 matches + `Facebook`=1 match + `OTP`=0 (removed). API endpoints: OTP still 200 (kept), Facebook 302 (stub), Google 302, device register 401 (CC-S0-T3 regression), fingerprint JS 200. 3 curl-based "failures" were false negatives (Blazor WASM renders client-side, curl sees static HTML shell only). Commit `4e7d9507`. Branch: `main`.
 * **2026-07-29 — CC-S0-T3 SPRINT 0.5 DEVICE FINGERPRINT WIRE-UP.** Sprint 0 GAP duy nhất đã đóng. 4 files: `2_Gateway/Controllers/DeviceRegistrationController.cs` (NEW — Gateway-native endpoint `POST /api/customer-identity/device/register`, validate X-Customer-Token qua ShopERP /me forward rồi gọi IDeviceRegistrationService, max 3 active devices enforcement), `5_WebApps/KhachLink/Pages/Login.razor` (+`RegisterDeviceFingerprintAsync` helper, fire-and-forget sau Google OAuth + OTP login success, non-blocking), `5_WebApps/KhachLink/wwwroot/index.html` (+`<script src="/js/fingerprint.js">`), `6_Tests/VanAn.Core.Tests/Community/DeviceRegistrationControllerTests.cs` (NEW — 3 unit tests: 401 without token, 400 empty fingerprint, 400 empty deviceToken, MockDeviceRegistrationService + MockHttpClientFactory). Architecture note: task card gốc nói "ShopERP + Gateway forward" nhưng thực tế Gateway-native vì DeviceRegistrationService chỉ registered trong Gateway DI + ShopERP IVanAnDbContext → SQLite không có DeviceRegistrations table + community entities PG-only (v1.3). Build 0 errors, 1045 Core.Tests PASS (3 new + 1042 existing). guard-check fast-test-gate transient false-positive (known issue item 10) — direct `dotnet test` with same filter exit 0. Branch: `main`.
