@@ -1,0 +1,328 @@
+@page "/community/nearby-orders"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
+
+<PageTitle>Đơn hàng gần đây</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-truck text-primary"></i> Đơn hàng giao gần bạn
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem đơn hàng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_deniedRole)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-shield-x text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">@_errorMessage</h5>
+                <p class="text-muted small">Tài khoản của bạn chưa được cấp quyền Shipper.</p>
+            </VanAnCard>
+        }
+        else if (_gpsError)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-geo-alt text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Không lấy được vị trí GPS</h5>
+                <p class="text-muted small">@_errorMessage</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="RetryGps">Thử lại</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_orders.Count == 0)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+                <p class="mt-3 text-muted">Không có đơn hàng giao nào trong bán kính @(_radiusKm)km.</p>
+                <div class="d-flex gap-2 justify-content-center mt-3">
+                    <button class="btn btn-sm btn-outline-primary" @onclick="IncreaseRadius">Tăng bán kính</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="RetryGps">Cập nhật vị trí</button>
+                </div>
+            </VanAnCard>
+        }
+        else
+        {
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <small class="text-muted">
+                    <i class="bi bi-geo-alt"></i> Vị trí của bạn: @(_userLat.ToString("F4")), @(_userLng.ToString("F4"))
+                </small>
+                <div class="d-flex gap-2">
+                    <select class="form-select form-select-sm" style="width:auto;" @bind="_radiusKm">
+                        <option value="2">2 km</option>
+                        <option value="5">5 km</option>
+                        <option value="10">10 km</option>
+                        <option value="20">20 km</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" @onclick="LoadOrders"><i class="bi bi-arrow-clockwise"></i> Tải lại</button>
+                </div>
+            </div>
+
+            @foreach (var order in _orders)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-semibold mb-1">
+                                <i class="bi bi-shop"></i> @order.ShopName
+                            </div>
+                            <div class="text-muted small">
+                                <i class="bi bi-geo-alt"></i> @order.DistanceKm km
+                            </div>
+                            @if (!string.IsNullOrEmpty(order.DeliveryAddress))
+                            {
+                                <div class="text-muted small">
+                                    <i class="bi bi-house"></i> @order.DeliveryAddress
+                                </div>
+                            }
+                            <div class="text-muted small">
+                                <span class="badge bg-info">@order.Status</span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold text-primary">@FormatVND(order.TotalAmount)</div>
+                            <button class="btn btn-sm btn-success mt-2"
+                                    disabled="@(_acceptingOrderId == order.OrderId)"
+                                    @onclick="() => AcceptOrder(order.OrderId)">
+                                @if (_acceptingOrderId == order.OrderId)
+                                {
+                                    <span class="spinner-border spinner-border-sm"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-circle"></i>
+                                }
+                                Nhận đơn
+                            </button>
+                        </div>
+                    </div>
+                </VanAnCard>
+            }
+
+            <div class="text-center mt-3">
+                <small class="text-muted">@_orders.Count đơn hàng sẵn sàng nhận</small>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_toastMessage))
+        {
+            <div class="position-fixed bottom-0 start-50 translate-middle-x mb-4 p-3" style="z-index:1050;">
+                <div class="toast show" role="alert">
+                    <div class="toast-header @(_toastSuccess ? "text-success" : "text-danger")">
+                        <i class="bi @(_toastSuccess ? "bi-check-circle-fill" : "bi-x-circle-fill") me-2"></i>
+                        <strong class="me-auto">Thông báo</strong>
+                        <button type="button" class="btn-close" @onclick="DismissToast"></button>
+                    </div>
+                    <div class="toast-body">@_toastMessage</div>
+                </div>
+            </div>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = true;
+    private bool _deniedRole = false;
+    private bool _gpsError = false;
+    private string _errorMessage = "";
+    private string _toastMessage = "";
+    private bool _toastSuccess = false;
+
+    private double _userLat;
+    private double _userLng;
+    private int _radiusKm = 5;
+    private List<NearbyOrderDto> _orders = new();
+    private Guid? _acceptingOrderId;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _isLoggedIn = false;
+                _loading = false;
+                StateHasChanged();
+                return;
+            }
+
+            await GetGpsAndLoad();
+        }
+    }
+
+    private async Task GetGpsAndLoad()
+    {
+        _loading = true;
+        _gpsError = false;
+        StateHasChanged();
+
+        try
+        {
+            var location = await JSRuntime.InvokeAsync<GeolocationResult>("vananPWA.getCurrentPosition");
+            if (location == null)
+            {
+                _gpsError = true;
+                _errorMessage = "Không lấy được vị trí. Vui lòng bật GPS.";
+                _loading = false;
+                StateHasChanged();
+                return;
+            }
+            _userLat = location.Latitude;
+            _userLng = location.Longitude;
+            await LoadOrders();
+        }
+        catch (Exception)
+        {
+            _gpsError = true;
+            _errorMessage = "Truy cập vị trí bị từ chối. Vui lòng cấp quyền GPS.";
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadOrders()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _isLoggedIn = false;
+                _loading = false;
+                return;
+            }
+
+            var result = await CommunityHttp.GetNearbyOrdersAsync(token, _userLat, _userLng, _radiusKm);
+
+            if (result.Success)
+            {
+                _orders = result.Orders;
+            }
+            else
+            {
+                if (result.ErrorCode == 403)
+                {
+                    _deniedRole = true;
+                    _errorMessage = result.ErrorMessage;
+                }
+                else
+                {
+                    _toastMessage = result.ErrorMessage;
+                    _toastSuccess = false;
+                    _orders = new();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastMessage = "Lỗi tải đơn hàng: " + ex.Message;
+            _toastSuccess = false;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AcceptOrder(Guid orderId)
+    {
+        _acceptingOrderId = orderId;
+        StateHasChanged();
+
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _isLoggedIn = false;
+                return;
+            }
+
+            var result = await CommunityHttp.AcceptOrderAsync(token, orderId);
+
+            if (result.Success)
+            {
+                _toastMessage = "Nhận đơn thành công! Đang chuyển đến chi tiết đơn...";
+                _toastSuccess = true;
+                // Remove from list
+                _orders.RemoveAll(o => o.OrderId == orderId);
+                StateHasChanged();
+
+                // Navigate to order tracking after short delay
+                _ = Task.Delay(1500).ContinueWith(_ => Navigation.NavigateTo($"/order-tracking/{orderId}", forceLoad: true));
+            }
+            else
+            {
+                _toastMessage = result.ErrorMessage;
+                _toastSuccess = false;
+                if (result.ErrorCode == 409)
+                {
+                    // Already taken — remove from list
+                    _orders.RemoveAll(o => o.OrderId == orderId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _toastMessage = "Lỗi nhận đơn: " + ex.Message;
+            _toastSuccess = false;
+        }
+        finally
+        {
+            _acceptingOrderId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RetryGps() => await GetGpsAndLoad();
+
+    private void IncreaseRadius()
+    {
+        _radiusKm = _radiusKm switch
+        {
+            2 => 5,
+            5 => 10,
+            10 => 20,
+            _ => 20
+        };
+        _ = LoadOrders();
+    }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login", forceLoad: true);
+
+    private void DismissToast()
+    {
+        _toastMessage = "";
+        StateHasChanged();
+    }
+
+    private static string FormatVND(decimal amount) => string.Format("{0:N0} ₫", amount);
+
+    private class GeolocationResult
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+}

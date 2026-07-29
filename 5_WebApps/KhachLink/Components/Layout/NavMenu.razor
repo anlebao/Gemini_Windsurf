@@ -1,6 +1,8 @@
 ﻿@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Services.Http
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
 
 <!-- Desktop sidebar nav (hidden on mobile via parent .khachlink-sidebar) -->
 <div class="nav-desktop">
@@ -44,6 +46,14 @@
                     <span class="bi bi-qr-code-scan me-2" aria-hidden="true"></span> Quét QR
                 </NavLink>
             </div>
+            @if (_isShipper)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/community/nearby-orders">
+                        <span class="bi bi-truck me-2" aria-hidden="true"></span> Đơn giao gần đây
+                    </NavLink>
+                </div>
+            }
             @* Issue 4: Voice note page removed from nav — order notes now entered on cart page *@
             <div class="nav-item">
                 <NavLink class="nav-link" href="@(_isLoggedIn ? "/profile" : "/login")">
@@ -93,6 +103,13 @@
         <i class="bi bi-qr-code-scan"></i>
         <span>Quét QR</span>
     </a>
+    @if (_isShipper)
+    {
+        <a class="mobile-tab-item @IsActive("/community/nearby-orders")" href="/community/nearby-orders">
+            <i class="bi bi-truck"></i>
+            <span>Đơn giao</span>
+        </a>
+    }
     @* Issue 4: Voice note tab removed — order notes now entered on cart page *@
     <a class="mobile-tab-item @IsActive("/profile", "/login")" href="@(_isLoggedIn ? "/profile" : "/login")">
         <i class="bi bi-person"></i>
@@ -187,6 +204,7 @@
 @code {
     private bool _isLoggedIn = false;
     private bool _isStaff = false;
+    private bool _isShipper = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -194,6 +212,11 @@
         {
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(token);
+            if (_isLoggedIn)
+            {
+                try { _isShipper = await CommunityHttp.GetIsShipperAsync(token!); }
+                catch { /* non-critical — hide shipper tab */ }
+            }
             StateHasChanged();
         }
     }

@@ -30,19 +30,19 @@
 
 ## 2. Current Objective
 
-**Community Commerce Sprint 1 — BACKEND COMPLETE (CC-S1-T0c/T0/T1/T2 done, UI pending)**
+**Community Commerce Sprint 1 — COMPLETE (CC-S1-T0c/T0/T1/T2 + UI + E2E)**
 
-Backend API + domain + tests done:
+All Sprint 1 deliverables done:
 - **CC-S1-T0c:** Customer Login Simplify (COMPLETE + VPS verified, commit `4e7d9507`)
-- **CC-S1-T0:** Domain Modification — "delivering" status added to OrderStatuses.Default[] + transitions (6 tests PASS)
-- **CC-S1-T1:** ICommunityOrderService + CommunityOrderService (Haversine + nearby orders, 10 tests PASS)
-- **CC-S1-T2:** CommunityController (GET /api/community/nearby-orders + POST /api/community/orders/{id}/accept) + Order.AssignShipper() + SetDeliveryLocation() domain methods + DI registered
+- **CC-S1-T0:** Domain Modification — "delivering" status (6 tests PASS, commit `64d3bf77`)
+- **CC-S1-T1:** Nearby orders API + Haversine (10 tests PASS, commit `64d3bf77`)
+- **CC-S1-T2:** Accept order API + F2 fix + CommunityController (commit `64d3bf77`)
+- **CC-S1-T1/T2 UI:** CommunityHttpService + NearbyOrders.razor + NavMenu shipper tab + role endpoint + DI (pending commit)
+- **CC-S1-T1/T2 E2E:** community-nearby-orders.spec.ts (8 test cases, pending commit)
 
-Remaining in Sprint 1:
-- **KhachLink UI:** NearbyOrders.razor (GPS + list + accept button) + NavMenu.razor community tabs + CommunityHttpService.cs
-- **E2E test:** community-nearby-orders.spec.ts
+Backend deployed + RV verified on VPS: 9/9 PASS.
 
-Branch: `main`. Pending commit: CC-S1-T0/T1/T2 backend implementation.
+Branch: `main`. Pending commit: Sprint 1 UI + E2E test.
 
 ---
 

@@ -70,6 +70,9 @@ namespace VanAn.KhachLink
             // Tiered Auth Phase 3: Social auth + identity upgrade HTTP service
             _ = builder.Services.AddScoped<Services.Http.SocialAuthHttpService>();
 
+            // CC-S1-T1/T2 (Sprint 1): Community Commerce HTTP service (nearby orders + accept)
+            _ = builder.Services.AddScoped<Services.Http.CommunityHttpService>();
+
             // Register Recently Viewed Service + LastInteractionService
             _ = builder.Services.AddScoped<Services.RecentlyViewedService>();
             _ = builder.Services.AddScoped<Services.LastInteractionService>();

@@ -31,6 +31,27 @@ namespace VanAn.Gateway.Controllers
         private readonly ILogger<CommunityController> _logger = logger;
 
         /// <summary>
+        /// GET /api/community/role
+        /// Returns the caller's community role (isShipper). Used by KhachLink NavMenu to show/hide shipper tab.
+        /// </summary>
+        [HttpGet("role")]
+        public async Task<IActionResult> GetMyRole()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null)
+                return error!;
+
+            var shipperRole = await _dbContext.CommunityRoles
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.CustomerId == customerId.Value
+                    && r.RoleType == CommunityRoleType.Shipper
+                    && r.IsActive);
+
+            return Ok(new { isShipper = shipperRole != null });
+        }
+
+        /// <summary>
         /// GET /api/community/nearby-orders?lat={lat}&lng={lng}&radiusKm=5
         /// Returns DELIVERY orders within radius, sorted by distance.
         /// </summary>
