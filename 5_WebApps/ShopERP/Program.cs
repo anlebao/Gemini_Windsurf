@@ -443,6 +443,7 @@ namespace VanAn.ShopERP
             // Phase 6: Gateway admin API clients for ShopInstances + FeaturedProducts management
             _ = builder.Services.AddScoped<Services.ShopInstanceApiClient>();
             _ = builder.Services.AddScoped<Services.FeaturedProductApiClient>();
+            _ = builder.Services.AddScoped<Services.ProductReferralConfigApiClient>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
             // Wave 14: API Key management

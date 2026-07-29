@@ -19,22 +19,125 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
     /// </summary>
     public async Task<bool> GetIsShipperAsync(string customerToken)
     {
+        var role = await GetRoleAsync(customerToken);
+        return role?.IsShipper ?? false;
+    }
+
+    /// <summary>
+    /// CC-S4 (Sprint 4): GET /api/community/role — returns isShipper + isSalesman flags.
+    /// </summary>
+    public async Task<RoleResponse?> GetRoleAsync(string customerToken)
+    {
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "/api/community/role");
             request.Headers.Add("X-Customer-Token", customerToken);
 
             var resp = await _httpClient.SendAsync(request);
-            if (!resp.IsSuccessStatusCode) return false;
+            if (!resp.IsSuccessStatusCode) return null;
 
             var body = await resp.Content.ReadAsStringAsync();
-            var data = System.Text.Json.JsonSerializer.Deserialize<RoleResponse>(body,
+            return System.Text.Json.JsonSerializer.Deserialize<RoleResponse>(body,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            return data?.IsShipper ?? false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "GetIsShipperAsync failed");
+            _logger.LogError(ex, "GetRoleAsync failed");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// CC-S4 (Sprint 4): GET /api/community/nearby-products — nearby products with commission + bonus.
+    /// </summary>
+    public async Task<List<NearbyProductDto>> GetNearbyProductsAsync(string customerToken, double lat, double lng, int radiusKm)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"/api/community/nearby-products?lat={lat}&lng={lng}&radiusKm={radiusKm}");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return new List<NearbyProductDto>();
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<List<NearbyProductDto>>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetNearbyProductsAsync failed");
+            return new List<NearbyProductDto>();
+        }
+    }
+
+    /// <summary>
+    /// CC-S4 (Sprint 4): GET /api/community/salesman/qr?productId={id} — composite QR code.
+    /// </summary>
+    public async Task<CompositeSalesmanQrDto?> GetSalesmanQrAsync(string customerToken, Guid productId)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"/api/community/salesman/qr?productId={productId}");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<CompositeSalesmanQrDto>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetSalesmanQrAsync failed for product {ProductId}", productId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// CC-S4 (Sprint 4): GET /api/community/salesman/commissions — commission summary.
+    /// </summary>
+    public async Task<CommissionSummaryDto?> GetCommissionsAsync(string customerToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/community/salesman/commissions");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var body = await resp.Content.ReadAsStringAsync();
+            return System.Text.Json.JsonSerializer.Deserialize<CommissionSummaryDto>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetCommissionsAsync failed");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// CC-S4 (Sprint 4): POST /api/community/app-install/attributed — attribute app install.
+    /// </summary>
+    public async Task<bool> AttributeInstallAsync(string customerToken, string referralCode)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/community/app-install/attributed");
+            request.Headers.Add("X-Customer-Token", customerToken);
+            request.Content = JsonContent.Create(new { ReferralCode = referralCode });
+
+            var resp = await _httpClient.SendAsync(request);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AttributeInstallAsync failed for code {Code}", referralCode);
             return false;
         }
     }
@@ -322,6 +425,7 @@ public class ErrorResponse
 public class RoleResponse
 {
     public bool IsShipper { get; set; }
+    public bool IsSalesman { get; set; }
 }
 
 public class CustomerIdResponse
@@ -353,4 +457,68 @@ public class LocationUpdateRequest
     public string DeliveryTaskId { get; set; } = string.Empty;
     public double Lat { get; set; }
     public double Lng { get; set; }
+}
+
+// === CC-S4 (Sprint 4) Salesman DTOs ===
+
+public class NearbyProductDto
+{
+    public Guid ProductId { get; set; }
+    public Guid TenantId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public string ShopName { get; set; } = string.Empty;
+    public double DistanceKm { get; set; }
+    public decimal? CommissionRate { get; set; }
+    public decimal? AppInstallBonus { get; set; }
+    public string? ProductShortCode { get; set; }
+    public bool HasReferralConfig { get; set; }
+}
+
+public class CompositeSalesmanQrDto
+{
+    public string SalesmanCode { get; set; } = string.Empty;
+    public string ProductShortCode { get; set; } = string.Empty;
+    public string CompositeCode { get; set; } = string.Empty;
+    public string QrUrl { get; set; } = string.Empty;
+    public Guid ProductId { get; set; }
+}
+
+public class CommissionSummaryDto
+{
+    public decimal TotalSales { get; set; }
+    public decimal TotalCommission { get; set; }
+    public decimal PendingCommission { get; set; }
+    public decimal PaidCommission { get; set; }
+    public decimal HeldCommission { get; set; }
+    public decimal RejectedCommission { get; set; }
+    public decimal TotalAppInstallBonus { get; set; }
+    public decimal PendingAppInstallBonus { get; set; }
+    public decimal PaidAppInstallBonus { get; set; }
+    public List<CommissionRecordDto> CommissionRecords { get; set; } = new();
+    public List<AppInstallBonusRecordDto> AppInstallBonusRecords { get; set; } = new();
+}
+
+public class CommissionRecordDto
+{
+    public Guid Id { get; set; }
+    public Guid? OrderId { get; set; }
+    public Guid ProductId { get; set; }
+    public decimal OrderTotal { get; set; }
+    public decimal CommissionRate { get; set; }
+    public decimal CommissionAmount { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int RiskScore { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AppInstallBonusRecordDto
+{
+    public Guid Id { get; set; }
+    public Guid CustomerId { get; set; }
+    public Guid ProductId { get; set; }
+    public decimal BonusAmount { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public int RiskScore { get; set; }
+    public DateTime InstalledAt { get; set; }
 }

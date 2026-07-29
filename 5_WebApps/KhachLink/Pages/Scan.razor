@@ -6,6 +6,7 @@
 @inject VanAn.KhachLink.Services.CartService CartService
 @inject VanAn.KhachLink.Services.Http.ProductHttpService ProductService
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Quét Mã QR - KhachLink</PageTitle>
 
@@ -219,6 +220,27 @@
             _scannedProduct = null;
             _tableNumber = null;
             StateHasChanged();
+
+            // CC-S4 (Sprint 4): Check for composite referral QR URL pattern /r/{salesmanCode}|{productShortCode}
+            if (qrCodeText.Contains("/r/") && qrCodeText.Contains("|"))
+            {
+                var refIndex = qrCodeText.IndexOf("/r/") + 3;
+                var compositeCode = qrCodeText.Substring(refIndex);
+                // Trim any trailing query string or fragment
+                var queryIdx = compositeCode.IndexOfAny(new[] { '?', '#' });
+                if (queryIdx >= 0) compositeCode = compositeCode.Substring(0, queryIdx);
+
+                if (compositeCode.Contains("|"))
+                {
+                    var saved = await JSRuntime.InvokeAsync<bool>("vananAppInstall.saveReferralCode", new object[] { compositeCode });
+                    if (saved)
+                    {
+                        _errorMessage = "Đã lưu mã giới thiệu. Khi bạn cài app, salesman sẽ được ghi nhận.";
+                        Navigation.NavigateTo("/");
+                        return;
+                    }
+                }
+            }
 
             var qrPayload = QRCodePayload.FromJson(qrCodeText);
 

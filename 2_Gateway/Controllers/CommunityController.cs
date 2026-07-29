@@ -32,6 +32,8 @@ namespace VanAn.Gateway.Controllers
         ICommunityOrderService communityOrderService,
         IDeliveryWorkflowService deliveryWorkflowService,
         IChatService chatService,
+        ISalesmanService salesmanService,
+        IAppInstallAttributionService appInstallAttributionService,
         IVanAnDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IHubContext<LocationHub> locationHubContext,
@@ -41,6 +43,8 @@ namespace VanAn.Gateway.Controllers
         private readonly ICommunityOrderService _communityOrderService = communityOrderService;
         private readonly IDeliveryWorkflowService _deliveryWorkflowService = deliveryWorkflowService;
         private readonly IChatService _chatService = chatService;
+        private readonly ISalesmanService _salesmanService = salesmanService;
+        private readonly IAppInstallAttributionService _appInstallAttributionService = appInstallAttributionService;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
@@ -49,7 +53,7 @@ namespace VanAn.Gateway.Controllers
 
         /// <summary>
         /// GET /api/community/role
-        /// Returns the caller's community role (isShipper). Used by KhachLink NavMenu to show/hide shipper tab.
+        /// Returns the caller's community role (isShipper, isSalesman). Used by KhachLink NavMenu to show/hide tabs.
         /// </summary>
         [HttpGet("role")]
         public async Task<IActionResult> GetMyRole()
@@ -58,14 +62,17 @@ namespace VanAn.Gateway.Controllers
             if (customerId == null)
                 return error!;
 
-            var shipperRole = await _dbContext.CommunityRoles
+            var roles = await _dbContext.CommunityRoles
                 .IgnoreQueryFilters()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.CustomerId == customerId.Value
-                    && r.RoleType == CommunityRoleType.Shipper
-                    && r.IsActive);
+                .Where(r => r.CustomerId == customerId.Value && r.IsActive)
+                .ToListAsync();
 
-            return Ok(new { isShipper = shipperRole != null });
+            return Ok(new
+            {
+                isShipper = roles.Any(r => r.RoleType == CommunityRoleType.Shipper),
+                isSalesman = roles.Any(r => r.RoleType == CommunityRoleType.Salesman)
+            });
         }
 
         /// <summary>
@@ -418,6 +425,170 @@ namespace VanAn.Gateway.Controllers
                 .SendAsync("DeliveryStatusUpdate", orderId.ToString(), status, timestamp);
         }
 
+        // === CC-S4 (Sprint 4): Salesman endpoints ===
+
+        /// <summary>
+        /// GET /api/community/nearby-products?lat={lat}&lng={lng}&radiusKm=10
+        /// Returns nearby products with commission rate + app-install bonus (for salesman referral).
+        /// </summary>
+        [HttpGet("nearby-products")]
+        public async Task<IActionResult> GetNearbyProducts([FromQuery] double lat, [FromQuery] double lng, [FromQuery] int radiusKm = 10)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var (hasRole, roleError) = await CheckSalesmanRoleAsync(customerId.Value);
+            if (!hasRole) return roleError!;
+
+            try
+            {
+                var products = await _salesmanService.GetNearbyProductsAsync(lat, lng, radiusKm, customerId.Value);
+                return Ok(products);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting nearby products for salesman {SalesmanId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/salesman/qr?productId={productId}
+        /// Returns composite QR code for salesman + product.
+        /// </summary>
+        [HttpGet("salesman/qr")]
+        public async Task<IActionResult> GetSalesmanQr([FromQuery] Guid productId)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var (hasRole, roleError) = await CheckSalesmanRoleAsync(customerId.Value);
+            if (!hasRole) return roleError!;
+
+            if (productId == Guid.Empty)
+                return BadRequest(new { error = "ProductId không hợp lệ." });
+
+            try
+            {
+                var qr = await _salesmanService.GetCompositeSalesmanQrAsync(customerId.Value, productId);
+                if (qr == null)
+                    return BadRequest(new { error = "Không tìm thấy cấu hình referral cho sản phẩm này." });
+
+                return Ok(qr);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting salesman QR for {SalesmanId}, product {ProductId}", customerId.Value, productId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/salesman/commissions
+        /// Returns commission summary for the authenticated salesman.
+        /// </summary>
+        [HttpGet("salesman/commissions")]
+        public async Task<IActionResult> GetMyCommissions()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            var (hasRole, roleError) = await CheckSalesmanRoleAsync(customerId.Value);
+            if (!hasRole) return roleError!;
+
+            try
+            {
+                var summary = await _salesmanService.GetCommissionsAsync(customerId.Value);
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting commissions for salesman {SalesmanId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/app-install/attributed
+        /// Attribute an app install to a salesman via composite referral code.
+        /// </summary>
+        [HttpPost("app-install/attributed")]
+        public async Task<IActionResult> AttributeInstall([FromBody] AttributeInstallRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || string.IsNullOrWhiteSpace(body.ReferralCode))
+                return BadRequest(new { error = "ReferralCode không được để trống." });
+
+            try
+            {
+                var result = await _appInstallAttributionService.AttributeInstallAsync(
+                    customerId.Value, body.ReferralCode,
+                    body.FingerprintHash, body.FingerprintSignals, body.DeviceToken);
+
+                if (result == null)
+                    return BadRequest(new { error = "Mã referral không hợp lệ." });
+
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error attributing install for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// POST /api/community/resolve-referral
+        /// Resolve a composite referral code to (salesmanId, productId). Used by checkout to set Order.SalesmanId.
+        /// </summary>
+        [HttpPost("resolve-referral")]
+        public async Task<IActionResult> ResolveReferral([FromBody] ResolveReferralRequest body)
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            if (body == null || string.IsNullOrWhiteSpace(body.ReferralCode))
+                return BadRequest(new { error = "ReferralCode không được để trống." });
+
+            try
+            {
+                var result = await _salesmanService.ResolveCompositeReferralCodeAsync(body.ReferralCode);
+                if (result == null)
+                    return NotFound(new { error = "Mã referral không hợp lệ." });
+
+                return Ok(new { salesmanId = result.Value.salesmanId, productId = result.Value.productId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resolving referral code {Code}", body.ReferralCode);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
+        /// Check if customer has Salesman role (Active). Queries Gateway PG CommunityRoles table.
+        /// </summary>
+        private async Task<(bool IsValid, IActionResult? Error)> CheckSalesmanRoleAsync(Guid customerId)
+        {
+            var salesmanRole = await _dbContext.CommunityRoles
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.CustomerId == customerId
+                    && r.RoleType == CommunityRoleType.Salesman
+                    && r.IsActive);
+
+            if (salesmanRole == null)
+                return (false, StatusCode(403, new { error = "Bạn không có quyền Salesman." }));
+
+            return (true, null);
+        }
+
         /// <summary>
         /// Validate X-Customer-Token by forwarding to ShopERP /api/customer-identity/me.
         /// Returns CustomerId if valid, or an IActionResult error if invalid.
@@ -489,6 +660,19 @@ namespace VanAn.Gateway.Controllers
         {
             public Guid OrderId { get; set; }
             public string Content { get; set; } = string.Empty;
+        }
+
+        public class AttributeInstallRequest
+        {
+            public string ReferralCode { get; set; } = string.Empty;
+            public string? FingerprintHash { get; set; }
+            public string? FingerprintSignals { get; set; }
+            public string? DeviceToken { get; set; }
+        }
+
+        public class ResolveReferralRequest
+        {
+            public string ReferralCode { get; set; } = string.Empty;
         }
     }
 }

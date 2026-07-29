@@ -1,0 +1,127 @@
+@page "/community/salesman-qr"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
+
+<PageTitle>Mã QR giới thiệu</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:500px;">
+        <h3 class="mb-3">
+            <i class="bi bi-qr-code text-primary"></i> Mã QR giới thiệu
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để tạo mã QR</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_qr != null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-4">
+                <div class="mb-3">
+                    <canvas id="qrCanvas" style="max-width:300px;"></canvas>
+                </div>
+                <div class="mb-3">
+                    <p class="text-muted small mb-1">Mã composite:</p>
+                    <p class="font-monospace fs-5"><strong>@_qr.CompositeCode</strong></p>
+                </div>
+                <div class="mb-3 text-muted small">
+                    <p class="mb-1">Mã salesman: <strong>@_qr.SalesmanCode</strong></p>
+                    <p class="mb-1">Mã sản phẩm: <strong>@_qr.ProductShortCode</strong></p>
+                </div>
+                <div class="d-flex gap-2 justify-content-center">
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="DownloadQr">
+                        <i class="bi bi-download"></i> Tải QR
+                    </VanAnButton>
+                    <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">
+                        <i class="bi bi-arrow-left"></i> Quay lại
+                    </VanAnButton>
+                </div>
+            </VanAnCard>
+        }
+        else
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-exclamation-triangle text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">@_errorMessage</h5>
+                <VanAnButton Variant="ButtonVariant.Outline" OnClick="GoBack">Quay lại</VanAnButton>
+            </VanAnCard>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private string _customerToken = "";
+    private string _errorMessage = "Không thể tạo mã QR.";
+    private CompositeSalesmanQrDto? _qr;
+    private Guid _productId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customerToken") ?? "";
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(Navigation.Uri).Query);
+        var productIdStr = query["productId"];
+        if (Guid.TryParse(productIdStr, out var productId))
+        {
+            _productId = productId;
+        }
+
+        if (!_isLoggedIn || _productId == Guid.Empty)
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadQrAsync();
+    }
+
+    private async Task LoadQrAsync()
+    {
+        try
+        {
+            _qr = await CommunityHttp.GetSalesmanQrAsync(_customerToken, _productId);
+        }
+        catch (Exception)
+        {
+            _qr = null;
+        }
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _qr != null)
+        {
+            await JSRuntime.InvokeVoidAsync("vananQR.generate", "qrCanvas", _qr.QrUrl, 300, 300);
+        }
+    }
+
+    private async Task DownloadQr()
+    {
+        if (_qr != null)
+        {
+            await JSRuntime.InvokeVoidAsync("vananQR.download", "qrCanvas", $"qr_{_qr.CompositeCode}.png");
+        }
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/community/nearby-products");
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+}

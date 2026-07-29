@@ -242,6 +242,12 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeliveryWorkflowService, VanAn.CoreHub.Services.DeliveryWorkflowService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IChatService, VanAn.CoreHub.Services.ChatService>();
 
+            // CC-S4 (Sprint 4): Salesman + Composite QR Referral + App-Install Bonus + Risk Scoring + FraudFlag
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ISalesmanService, VanAn.CoreHub.Services.SalesmanService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IAppInstallAttributionService, VanAn.CoreHub.Services.AppInstallAttributionService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IProductReferralConfigService, VanAn.CoreHub.Services.ProductReferralConfigService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IFraudFlagService, VanAn.CoreHub.Services.FraudFlagService>();
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();
@@ -332,6 +338,11 @@ namespace VanAn.Gateway
             _ = builder.Services.AddSingleton<INatsEventPublisher, NatsEventPublisher>();
             _ = builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
             _ = builder.Services.AddHostedService<NatsSyncWorker>();
+
+            // CC-S4 (Sprint 4 v1.2): Background jobs for risk scoring cooling period + held timeout
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.CoolingPeriodJob>();
+            _ = builder.Services.AddHostedService<VanAn.CoreHub.Services.HeldTimeoutJob>();
+
             _ = builder.Services.AddScoped<CoreHub.Services.IOrderService, CoreHub.Services.OrderService>();
 
             // W0-T3: Register IOrderNotificationService (SignalR broadcast abstraction)

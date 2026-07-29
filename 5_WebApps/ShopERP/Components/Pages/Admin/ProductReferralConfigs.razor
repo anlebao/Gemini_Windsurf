@@ -1,0 +1,273 @@
+@page "/admin/product-referral-configs"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject ProductReferralConfigApiClient ConfigApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<ProductReferralConfigs> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="product-referral-configs-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Cấu hình Referral Sản phẩm</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Thêm cấu hình
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải danh sách...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có cấu hình referral nào.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Product ID</th>
+                            <th>Short Code</th>
+                            <th>Commission Rate</th>
+                            <th>App Install Bonus</th>
+                            <th>Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td><small>@item.ProductId.ToString()[..8]...</small></td>
+                                <td>@(item.ProductShortCode ?? "-")</td>
+                                <td>@(item.CommissionRate.ToString("P1"))</td>
+                                <td>@item.AppInstallBonus.ToString("N0") đ</td>
+                                <td>
+                                    @if (item.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <VanAButton Variant="secondary" Size="small" OnClick="@(() => OpenEditModal(item))">Sửa</VanAButton>
+                                    <VanAButton Variant="danger" Size="small" OnClick="@(() => DeleteConfig(item.ProductId))">Xóa</VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </VanACard>
+    }
+
+    @if (_showModal)
+    {
+        <div class="modal-backdrop" @onclick="CloseModal">
+            <div class="modal-content" @onclick:stopPropagation>
+                <h4>@(_isEdit ? "Sửa cấu hình" : "Thêm cấu hình")</h4>
+                <div class="mb-3">
+                    <label class="form-label">Product ID</label>
+                    <input class="form-control" @bind="_modalProductId" disabled="@_isEdit" placeholder="GUID" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Short Code</label>
+                    <input class="form-control" @bind="_modalShortCode" placeholder="VD: TR-001" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Commission Rate (0.02-0.05)</label>
+                    <input class="form-control" type="number" step="0.01" min="0.02" max="0.05" @bind="_modalCommissionRate" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">App Install Bonus (VND)</label>
+                    <input class="form-control" type="number" min="0" @bind="_modalAppInstallBonus" />
+                </div>
+                @if (_isEdit)
+                {
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" id="isActive" @bind="_modalIsActive" />
+                        <label class="form-check-label" for="isActive">Active</label>
+                    </div>
+                }
+                <div class="d-flex gap-2 justify-content-end">
+                    <VanAButton Variant="secondary" Size="small" OnClick="CloseModal">Hủy</VanAButton>
+                    <VanAButton Variant="primary" Size="small" OnClick="SaveConfig">Lưu</VanAButton>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .product-referral-configs-page .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1050;
+    }
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 500px;
+        width: 90%;
+    }
+</style>
+
+@code {
+    private bool _isLoading = true;
+    private List<VanAn.ShopERP.Services.ProductReferralConfigDto> _items = new();
+    private string _alertMessage = "";
+    private string _alertType = "info";
+    private bool _showModal = false;
+    private bool _isEdit = false;
+    private string _modalProductId = "";
+    private string _modalShortCode = "";
+    private decimal _modalCommissionRate = 0.03m;
+    private decimal _modalAppInstallBonus = 10000m;
+    private bool _modalIsActive = true;
+    private Guid _editProductId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _items = await ConfigApi.ListAllAsync();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "error";
+        }
+        _isLoading = false;
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEdit = false;
+        _modalProductId = "";
+        _modalShortCode = "";
+        _modalCommissionRate = 0.03m;
+        _modalAppInstallBonus = 10000m;
+        _modalIsActive = true;
+        _showModal = true;
+    }
+
+    private void OpenEditModal(VanAn.ShopERP.Services.ProductReferralConfigDto item)
+    {
+        _isEdit = true;
+        _editProductId = item.ProductId;
+        _modalProductId = item.ProductId.ToString();
+        _modalShortCode = item.ProductShortCode ?? "";
+        _modalCommissionRate = item.CommissionRate;
+        _modalAppInstallBonus = item.AppInstallBonus;
+        _modalIsActive = item.IsActive;
+        _showModal = true;
+    }
+
+    private void CloseModal() => _showModal = false;
+
+    private async Task SaveConfig()
+    {
+        try
+        {
+            if (_isEdit)
+            {
+                await ConfigApi.UpdateAsync(_editProductId, new UpdateProductReferralConfigRequest
+                {
+                    CommissionRate = _modalCommissionRate,
+                    AppInstallBonus = _modalAppInstallBonus,
+                    ProductShortCode = string.IsNullOrEmpty(_modalShortCode) ? null : _modalShortCode,
+                    IsActive = _modalIsActive
+                });
+                _alertMessage = "Cập nhật thành công.";
+            }
+            else
+            {
+                if (!Guid.TryParse(_modalProductId, out var productId))
+                {
+                    _alertMessage = "Product ID không hợp lệ.";
+                    _alertType = "error";
+                    return;
+                }
+                await ConfigApi.CreateAsync(productId, new CreateProductReferralConfigRequest
+                {
+                    CommissionRate = _modalCommissionRate,
+                    AppInstallBonus = _modalAppInstallBonus,
+                    ProductShortCode = string.IsNullOrEmpty(_modalShortCode) ? null : _modalShortCode
+                });
+                _alertMessage = "Tạo thành công.";
+            }
+            _alertType = "success";
+            _showModal = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+
+    private async Task DeleteConfig(Guid productId)
+    {
+        try
+        {
+            await ConfigApi.DeleteAsync(productId);
+            _alertMessage = "Đã xóa cấu hình.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi xóa: {ex.Message}";
+            _alertType = "error";
+        }
+    }
+}

@@ -1,0 +1,212 @@
+@page "/community/sales-dashboard"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
+
+<PageTitle>Bảng điều khiển Salesman</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-bar-chart text-primary"></i> Bảng điều khiển Salesman
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem dashboard</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_summary != null)
+        {
+            <!-- Summary cards -->
+            <div class="row g-3 mb-4">
+                <div class="col-6">
+                    <VanAnCard Shadow="true" CssClass="p-3 text-center">
+                        <p class="text-muted small mb-1">Tổng hoa hồng</p>
+                        <h4 class="text-success mb-0">@_summary.TotalCommission.ToString("N0") đ</h4>
+                    </VanAnCard>
+                </div>
+                <div class="col-6">
+                    <VanAnCard Shadow="true" CssClass="p-3 text-center">
+                        <p class="text-muted small mb-1">Tổng bonus app</p>
+                        <h4 class="text-info mb-0">@_summary.TotalAppInstallBonus.ToString("N0") đ</h4>
+                    </VanAnCard>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-4">
+                    <VanAnCard Shadow="true" CssClass="p-2 text-center">
+                        <p class="text-muted small mb-1">Chờ duyệt</p>
+                        <p class="mb-0">@_summary.PendingCommission.ToString("N0") đ</p>
+                    </VanAnCard>
+                </div>
+                <div class="col-4">
+                    <VanAnCard Shadow="true" CssClass="p-2 text-center">
+                        <p class="text-muted small mb-1">Đã thanh toán</p>
+                        <p class="mb-0">@_summary.PaidCommission.ToString("N0") đ</p>
+                    </VanAnCard>
+                </div>
+                <div class="col-4">
+                    <VanAnCard Shadow="true" CssClass="p-2 text-center">
+                        <p class="text-muted small mb-1">Tạm giữ</p>
+                        <p class="mb-0 text-warning">@_summary.HeldCommission.ToString("N0") đ</p>
+                    </VanAnCard>
+                </div>
+            </div>
+
+            <!-- Commission records -->
+            <h5 class="mb-2">Lịch sử hoa hồng</h5>
+            @if (_summary.CommissionRecords.Count == 0)
+            {
+                <p class="text-muted small">Chưa có bản ghi hoa hồng.</p>
+            }
+            else
+            {
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th>Đơn hàng</th>
+                                <th>Hoa hồng</th>
+                                <th>Trạng thái</th>
+                                <th>Risk</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in _summary.CommissionRecords)
+                            {
+                                <tr>
+                                    <td><small>@record.ProductId.ToString()[..8]</small></td>
+                                    <td>@record.OrderTotal.ToString("N0") đ</td>
+                                    <td>@record.CommissionAmount.ToString("N0") đ</td>
+                                    <td>
+                                        @if (record.Status == "Pending")
+                                        {
+                                            <span class="badge bg-warning">Chờ</span>
+                                        }
+                                        else if (record.Status == "Paid")
+                                        {
+                                            <span class="badge bg-success">Đã trả</span>
+                                        }
+                                        else if (record.Status == "Held")
+                                        {
+                                            <span class="badge bg-danger">Tạm giữ</span>
+                                        }
+                                        else if (record.Status == "Rejected")
+                                        {
+                                            <span class="badge bg-secondary">Từ chối</span>
+                                        }
+                                    </td>
+                                    <td><small>@record.RiskScore</small></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <!-- App-install bonus records -->
+            <h5 class="mb-2">Lịch sử bonus cài app</h5>
+            @if (_summary.AppInstallBonusRecords.Count == 0)
+            {
+                <p class="text-muted small">Chưa có bản ghi bonus.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Khách</th>
+                                <th>Sản phẩm</th>
+                                <th>Bonus</th>
+                                <th>Trạng thái</th>
+                                <th>Risk</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in _summary.AppInstallBonusRecords)
+                            {
+                                <tr>
+                                    <td><small>@record.CustomerId.ToString()[..8]</small></td>
+                                    <td><small>@record.ProductId.ToString()[..8]</small></td>
+                                    <td>@record.BonusAmount.ToString("N0") đ</td>
+                                    <td>
+                                        @if (record.Status == "Pending")
+                                        {
+                                            <span class="badge bg-warning">Chờ</span>
+                                        }
+                                        else if (record.Status == "Paid")
+                                        {
+                                            <span class="badge bg-success">Đã trả</span>
+                                        }
+                                        else if (record.Status == "Held")
+                                        {
+                                            <span class="badge bg-danger">Tạm giữ</span>
+                                        }
+                                        else if (record.Status == "Rejected")
+                                        {
+                                            <span class="badge bg-secondary">Từ chối</span>
+                                        }
+                                    </td>
+                                    <td><small>@record.RiskScore</small></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+        else
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-exclamation-triangle text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Không thể tải dữ liệu.</h5>
+            </VanAnCard>
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private string _customerToken = "";
+    private CommissionSummaryDto? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "customerToken") ?? "";
+        _isLoggedIn = !string.IsNullOrEmpty(_customerToken);
+
+        if (!_isLoggedIn)
+        {
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            _summary = await CommunityHttp.GetCommissionsAsync(_customerToken);
+        }
+        catch { }
+
+        _loading = false;
+    }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+}
