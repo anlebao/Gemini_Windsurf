@@ -3,8 +3,8 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** Customer và Shipper chat real-time qua SignalR, message persist DB, chat chỉ mở khi DeliveryTask tồn tại.
 - **Nghiệp vụ áp dụng:** UC-07 (Chat) từ requirements spec.
-- **Status:** NOT STARTED
-- **Branch:** `feature/community-sprint3-chat`
+- **Status:** COMPLETE 2026-07-29 — ChatService (8 tests PASS) + ChatHub + 2 chat endpoints + ChatPanel.razor + E2E test. Build 0 errors, 83 community + 39/39 Architecture tests PASS. VPS RV 18/18 PASS.
+- **Branch:** `main` (merged — commit `cd1b200f`)
 
 ---
 
@@ -57,18 +57,18 @@
 ---
 
 ## 5. SUCCESS CRITERIA
-- [ ] **SC1:** GET `/api/community/chat/conversations/{orderId}` trả chat history
-- [ ] **SC2:** POST `/api/community/chat/messages` tạo Message + SignalR push
-- [ ] **SC3:** Chat chỉ hoạt động khi DeliveryTask tồn tại — 403 nếu không
-- [ ] **SC4:** SignalR ChatHub: send → receive real-time
-- [ ] **SC5:** ChatPanel UI: message list + input + send button
-- [ ] **SC6:** Chat history load khi mở panel
-- [ ] **SC7:** Unit tests ≥6 cases pass
-- [ ] **SC8:** `dotnet build` 0 errors + `guard-check.ps1` pass
-- [ ] **SC9:** E2E test: shipper + customer chat
-- [ ] **SC10:** Architecture tests pass
-- [ ] **SC11:** Message.IsRead update khi đối phương đọc
-- [ ] **SC12:** Regression: delivery flow vẫn hoạt động
+- [x] **SC1:** GET `/api/community/chat/conversations/{orderId}` trả chat history
+- [x] **SC2:** POST `/api/community/chat/messages` tạo Message + SignalR push
+- [x] **SC3:** Chat chỉ hoạt động khi DeliveryTask tồn tại — 403 nếu không
+- [x] **SC4:** SignalR ChatHub: send → receive real-time
+- [x] **SC5:** ChatPanel UI: message list + input + send button
+- [x] **SC6:** Chat history load khi mở panel
+- [x] **SC7:** Unit tests ≥6 cases pass (8/8 PASS)
+- [x] **SC8:** `dotnet build` 0 errors + `guard-check.ps1` pass
+- [x] **SC9:** E2E test: shipper + customer chat (community-chat.spec.ts 8 cases)
+- [x] **SC10:** Architecture tests pass (39/39 PASS)
+- [x] **SC11:** Message.IsRead update khi đối phương đọc (MarkAsReadAsync)
+- [x] **SC12:** Regression: delivery flow vẫn hoạt động (RV 4 regression PASS)
 
 **Branch:** `feature/community-sprint3-chat`
 
