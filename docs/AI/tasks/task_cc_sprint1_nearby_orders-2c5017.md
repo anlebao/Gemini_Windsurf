@@ -3,7 +3,7 @@
 ## 1. GOAL & CONTEXT
 - **Mục tiêu cốt lõi:** (A) Shipper thấy đơn DELIVERY trong bán kính 5km + nhận đơn (accept) với concurrency safety. (B) **v1.5 NEW (CC-S1-T0c):** Customer login simplify — xóa SMS OTP khỏi Login.razor primary flow, rewrite IdentityUpgradeModal thành 3 buttons (Google + Facebook + Guest=skip).
 - **Nghiệp vụ áp dụng:** UC-03 (Nearby Orders) + UC-04 (Accept Order) + **UC-01 v1.5 (Customer login simplify)** từ requirements spec.
-- **Status:** IN PROGRESS — CC-S1-T0c COMPLETE + VPS VERIFIED 2026-07-29 (commit `4e7d9507`). Remaining: CC-S1-T0 (delivering status — needs Domain Modification approval) + CC-S1-T1/T2 (nearby orders + accept).
+- **Status:** IN PROGRESS — CC-S1-T0c + CC-S1-T0 + CC-S1-T1 + CC-S1-T2 COMPLETE 2026-07-29 (commit pending). Backend API + domain + tests done. Remaining: KhachLink UI (NearbyOrders.razor + NavMenu) + E2E test.
 - **Branch:** `feature/community-sprint1-nearby-orders`
 
 ---

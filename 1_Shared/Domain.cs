@@ -489,11 +489,21 @@ namespace VanAn.Shared.Domain
                 IsActive = true,
                 RequiresInventoryDeduction = false
             },
+            // CC-S1-T0 (v1.3): "delivering" status for shipper accept flow.
+            // OrderStatusId.Delivering constant already exists (line 429) — this adds it to Default[] array.
+            new OrderStatusDefinition
+            {
+                Id = new OrderStatusId("delivering"),
+                DisplayName = "Đang giao",
+                Sequence = 5,
+                IsActive = true,
+                RequiresInventoryDeduction = false
+            },
             new OrderStatusDefinition
             {
                 Id = new OrderStatusId("completed"),
                 DisplayName = "Hoàn thành",
-                Sequence = 5,
+                Sequence = 6,
                 IsActive = true,
                 RequiresInventoryDeduction = false
             },
@@ -501,7 +511,7 @@ namespace VanAn.Shared.Domain
             {
                 Id = new OrderStatusId("cancelled"),
                 DisplayName = "Đã hủy",
-                Sequence = 6,
+                Sequence = 7,
                 IsActive = true,
                 RequiresInventoryDeduction = false
             }
@@ -1617,6 +1627,23 @@ namespace VanAn.Shared.Domain
         public void MarkAsCompleted()
         {
             CompletedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        // CC-S1-T2 (v1.3): F2 fix — Sprint 0 created ShipperId/DeliveryLat/DeliveryLng fields
+        // but no domain methods to set them. These methods are called by CommunityOrderService.AcceptOrderAsync.
+        public void AssignShipper(Guid shipperId)
+        {
+            if (shipperId == Guid.Empty)
+                throw new ArgumentException("ShipperId cannot be empty.", nameof(shipperId));
+            ShipperId = shipperId;
+            UpdateAudit();
+        }
+
+        public void SetDeliveryLocation(double lat, double lng)
+        {
+            DeliveryLat = lat;
+            DeliveryLng = lng;
             UpdateAudit();
         }
 

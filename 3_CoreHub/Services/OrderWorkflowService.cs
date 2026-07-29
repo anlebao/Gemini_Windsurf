@@ -460,9 +460,10 @@ namespace VanAn.CoreHub.Services
                 validTransitions = new()
                 {
                     ["pending"] = ["confirmed", "cancelled", "completed"],
-                    ["confirmed"] = ["completed", "cancelled", "delivered"],
+                    ["confirmed"] = ["completed", "cancelled", "delivered", "delivering"],
                     ["preparing"] = ["ready", "cancelled", "completed"], // Safety: allow recovery if already in preparing
-                    ["ready"] = ["completed", "cancelled", "delivered"],
+                    ["ready"] = ["completed", "cancelled", "delivered", "delivering"], // CC-S1-T0: shipper accept → delivering
+                    ["delivering"] = ["completed", "cancelled", "delivered"], // CC-S1-T0: shipper in transit
                     ["delivered"] = ["completed", "cancelled"],
                     ["completed"] = [],
                     ["cancelled"] = []
@@ -474,9 +475,10 @@ namespace VanAn.CoreHub.Services
                 validTransitions = new()
                 {
                     ["pending"] = ["preparing", "confirmed", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed; confirmed = owner manually accepted
-                    ["confirmed"] = ["preparing", "cancelled", "completed"], // Section 5 fix: confirmed can transition to preparing (kitchen takes over)
+                    ["confirmed"] = ["preparing", "cancelled", "completed", "delivering"], // CC-S1-T0: allow shipper accept from confirmed
                     ["preparing"] = ["ready", "cancelled", "completed"], // 🛡️ PHASE 3 FIX: Allow direct to completed
-                    ["ready"] = ["completed", "cancelled", "delivered"], // W2-T3: Customer confirm receipt
+                    ["ready"] = ["completed", "cancelled", "delivered", "delivering"], // W2-T3 + CC-S1-T0: shipper accept → delivering
+                    ["delivering"] = ["completed", "cancelled", "delivered"], // CC-S1-T0: shipper in transit
                     ["delivered"] = ["completed", "cancelled"], // W2-T3: delivered is intermediate state
                     ["completed"] = [], // Final state
                     ["cancelled"] = []  // Final state

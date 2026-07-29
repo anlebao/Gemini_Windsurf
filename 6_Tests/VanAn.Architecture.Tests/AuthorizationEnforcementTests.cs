@@ -150,7 +150,9 @@ public class AuthorizationEnforcementTests
             "CustomerProfileController",
             "MissionsController",
             // CC-S0-T3 (Sprint 0.5): DeviceRegistrationController — customer-facing (X-Customer-Token header auth, validated via ShopERP /me forward)
-            "DeviceRegistrationController"
+            "DeviceRegistrationController",
+            // CC-S1-T1/T2 (Sprint 1): CommunityController — shipper-facing (X-Customer-Token header auth + CommunityRole check)
+            "CommunityController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

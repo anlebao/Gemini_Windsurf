@@ -235,6 +235,8 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IWalletService, VanAn.CoreHub.Services.WalletService>();
             // F3 fix 2026-07-26: DeviceRegistrationService — max 3 active devices per Customer enforcement
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IDeviceRegistrationService, VanAn.CoreHub.Services.DeviceRegistrationService>();
+            // CC-S1-T1/T2 (Sprint 1): CommunityOrderService — nearby orders (Haversine) + accept (concurrency-safe)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityOrderService, VanAn.CoreHub.Services.CommunityOrderService>();
 
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
