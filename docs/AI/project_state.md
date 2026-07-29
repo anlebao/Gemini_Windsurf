@@ -71,7 +71,7 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `2c038fc0` feat(community): CC-S5 Sprint 5 — Wallet + COD + Settlement + Shop-Confirmed Advance
+- **Last commit:** `69e2f6a2` docs(state): update after Sprint 5 COMPLETE + VPS verified (RV 34/35 PASS)
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build (2026-07-30):** 0 errors. 133 community tests PASS (19 Wallet + 12 Salesman + 4 AppInstall + 4 ProductReferralConfig + 11 FraudFlag + 8 Chat + 10 Delivery + 10 CommunityOrderService + 6 DeliveringStatus + 49 existing). 39/39 Architecture tests PASS. 222 integration tests PASS. guard-check ALL PASSED. Pre-push CI pipeline ALL PASSED (188s).
@@ -111,14 +111,15 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 
 ## 4. Next Actions
 
-1. **CC-S5 Sprint 5 — (next Community Commerce sprint, TBD):** Sprint 4 closed 2026-07-30. Next sprint spec not yet drafted. Candidate topics from v1.2 plan: CoolingPeriodJob WalletTransaction creation after 24h (currently attribution/commission hold without payout — payout deferred to Sprint 6 admin approve OR background job), admin FraudFlag review UI, salesman onboarding flow.
+1. **CC-S6 Sprint 6 — (next Community Commerce sprint, TBD):** Sprint 5 closed 2026-07-30. Next sprint spec not yet drafted. Candidate topics: CoolingPeriodJob WalletTransaction creation after 24h (currently attribution/commission hold without payout — payout deferred to Sprint 6 admin approve OR background job), admin FraudFlag review UI, salesman onboarding flow, Withdrawal endpoint + admin approval flow.
 2. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit=7 + SmsOtpFee=8, CommunityRole.IsPhoneVerified, SystemSetting toggle).
 3. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE. (Hiện chỉ `OutboxRepository.cs` có `COLLATE NOCASE`.)
 4. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios. (Chưa có spec file nào trong `6_Testing/e2e-tests/`.)
 5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
 6. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (`vanan_dev` vẫn còn trong `DesignTimeDbContextFactory.cs`, `docker-compose.infra.yml`, `scripts/start-apps.ps1`, `scripts/start-local-infra.ps1`.)
 7. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL. (Pattern vẫn ở `guard-check.ps1:206-222`.)
-8. **(Facebook OAuth)** Config real Facebook OAuth credentials (AppId + AppSecret) — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+8. **(Pre-existing flaky test)** `EInvoiceOrchestratorTests.CreateInvoiceAsync_ShouldSaveInvoiceToDatabase` fails intermittently in full CI pipeline runs but passes in isolation. Investigate test isolation/ordering issue. Blocked 2 push attempts during Sprint 5 (passed on retry).
+9. **(Facebook OAuth)** Config real Facebook OAuth credentials (AppId + AppSecret) — Sprint 7+. Currently stub redirect in `Login.razor:148`.
 
 ---
 
