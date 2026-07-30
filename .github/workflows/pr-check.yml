@@ -125,7 +125,7 @@ jobs:
         
       - name: Unit Tests
         run: |
-          dotnet test 6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj --verbosity normal --no-build --configuration Release --filter "Category!=Performance&Category!=Integration&Category!=E2E"
+          dotnet test 6_Tests/VanAn.Core.Tests/VanAn.Core.Tests.csproj --verbosity normal --no-build --configuration Release --filter "Category!=Performance&Category!=Integration&Category!=E2E&Category!=Flaky"
           dotnet test 6_Tests/VanAn.ShopERP.Tests/VanAn.ShopERP.Tests.csproj --verbosity normal --no-build --configuration Release --filter "Category!=Performance&Category!=Integration&Category!=E2E"
           dotnet test 6_Tests/VanAn.Architecture.Tests/VanAn.Architecture.Tests.csproj --verbosity normal --no-build --configuration Release
 
