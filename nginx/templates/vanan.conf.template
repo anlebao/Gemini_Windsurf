@@ -17,7 +17,7 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name ${VANAN_DOMAIN} www.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
@@ -71,7 +71,7 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name diemthuong.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
@@ -83,6 +83,8 @@ server {
 
     # Blazor WASM immutable assets (hashed filenames) — exempt from rate limit.
     # SW install event fetches ~80 _framework/* concurrently; rate limiter would 503 them.
+    # proxy_buffering off + longer timeout: large DLL/wasm on slow mobile must not be
+    # cut off by the default 60s read timeout or temp-file buffering limits.
     location /_framework/ {
         proxy_pass         http://vanan-khachlink:80;
         proxy_http_version 1.1;
@@ -90,6 +92,9 @@ server {
         proxy_set_header   X-Real-IP $remote_addr;
         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_buffering    off;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
     }
 
     location / {
@@ -136,7 +141,7 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name app.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
@@ -190,7 +195,7 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name api.${VANAN_DOMAIN};
 
     ssl_certificate     /etc/letsencrypt/live/${VANAN_DOMAIN}/fullchain.pem;
