@@ -11,6 +11,7 @@ namespace VanAn.Gateway.Controllers
     /// Auth: SystemAdmin Bearer JWT (platform-level, cross-tenant).
     /// </summary>
     [ApiController]
+    [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [Route("api/admin/commerce-mode")]
     public class CommerceModeController(
         ICommerceModeService commerceModeService,

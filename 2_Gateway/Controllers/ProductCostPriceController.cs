@@ -14,6 +14,7 @@ namespace VanAn.Gateway.Controllers
     /// Auth: SystemAdmin Bearer JWT (platform-level, cross-tenant).
     /// </summary>
     [ApiController]
+    [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [Route("api/admin/product-cost-prices")]
     public class ProductCostPriceController(
         IVanAnDbContext dbContext,
