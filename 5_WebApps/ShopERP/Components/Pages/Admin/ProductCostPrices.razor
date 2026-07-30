@@ -1,0 +1,255 @@
+@page "/admin/product-cost-prices"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@inject ProductCostPriceApiClient CostPriceApi
+@inject ITenantManagementService TenantService
+@inject IThemeProvider ThemeProvider
+@inject ILogger<ProductCostPrices> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="product-cost-prices-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Giá Vốn Sản Phẩm (Product Cost Prices)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="primary" Size="small" OnClick="OpenCreateModal">
+                + Thêm giá vốn
+            </VanAButton>
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải...</p>
+            </div>
+        </VanACard>
+    }
+    else if (_items.Count == 0)
+    {
+        <VanACard>
+            <div class="empty-state">
+                <p>Chưa có giá vốn nào. Nhấn "+ Thêm giá vốn" để bắt đầu.</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="@($"Danh sách giá vốn ({_items.Count})")">
+            <table class="vanan-table">
+                <thead>
+                    <tr>
+                        <th>Tenant</th>
+                        <th>ProductId</th>
+                        <th>Giá vốn</th>
+                        <th>Cập nhật</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td>@TenantLabel(item.TenantId)</td>
+                            <td>@item.ProductId.ToString().Substring(0, 8)...</td>
+                            <td>@item.CostPrice.ToString("N0") đ</td>
+                            <td>@(item.UpdatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
+                            <td class="action-cell">
+                                <VanAButton Variant="info" Size="small" OnClick="() => OpenEditModal(item)">
+                                    Sửa
+                                </VanAButton>
+                                <VanAButton Variant="danger" Size="small" OnClick="() => DeleteItem(item)">
+                                    Xoá
+                                </VanAButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </VanACard>
+    }
+</div>
+
+<!-- Create/Edit Modal -->
+@if (_showModal)
+{
+    <VanAModal Title="@(_isEdit ? "Sửa giá vốn" : "Thêm giá vốn")"
+               IsVisible="true" OnClose="CloseModal" Size="medium">
+        <Body>
+            <div class="form-group">
+                <label for="cp-tenant">Tenant *</label>
+                <select id="cp-tenant" class="vanan-select" value="@_formTenantId.ToString()"
+                        @onchange="OnTenantSelected"
+                        aria-label="Tenant" required disabled="@_isEdit">
+                    <option value="">-- Chọn Tenant --</option>
+                    @foreach (var t in _tenants)
+                    {
+                        <option value="@t.Id.Value" selected="@(t.Id.Value == _formTenantId)">@t.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <VanAInput Id="cp-productid" Label="ProductId (GUID) *"
+                           Value="@_formProductId.ToString()"
+                           ValueChanged="v => _formProductId = Guid.TryParse(v, out var val) ? val : Guid.Empty"
+                           Disabled="@_isEdit" />
+                <small class="text-muted">ProductId từ ShopERP. Có thể copy từ trang quản lý sản phẩm.</small>
+            </div>
+            <div class="form-group">
+                <VanAInput Id="cp-costprice" Label="Giá vốn (VND) *"
+                           Value="@_formCostPrice.ToString()"
+                           ValueChanged="v => _formCostPrice = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="CloseModal">Huỷ</VanAButton>
+            <VanAButton Variant="primary" OnClick="Save">Lưu</VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
+@code {
+    private bool _isLoading = true;
+    private List<ProductCostPriceItem> _items = new();
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private List<VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant> _tenants = new();
+
+    // Modal
+    private bool _showModal;
+    private bool _isEdit;
+    private Guid _formTenantId;
+    private Guid _formProductId;
+    private decimal _formCostPrice;
+    private Guid? _editId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTenants();
+        await LoadData();
+    }
+
+    private async Task LoadTenants()
+    {
+        try
+        {
+            _tenants = (await TenantService.ListTenantsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenants");
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var result = await CostPriceApi.GetListAsync();
+            _items = result.Items;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load cost prices");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string TenantLabel(Guid tenantId)
+    {
+        var t = _tenants.FirstOrDefault(x => x.Id.Value == tenantId);
+        return t?.Name ?? tenantId.ToString().Substring(0, 8) + "...";
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEdit = false;
+        _editId = null;
+        _formTenantId = Guid.Empty;
+        _formProductId = Guid.Empty;
+        _formCostPrice = 0;
+        _showModal = true;
+    }
+
+    private void OpenEditModal(ProductCostPriceItem item)
+    {
+        _isEdit = true;
+        _editId = item.Id;
+        _formTenantId = item.TenantId;
+        _formProductId = item.ProductId;
+        _formCostPrice = item.CostPrice;
+        _showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        _showModal = false;
+    }
+
+    private void OnTenantSelected(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        _formTenantId = Guid.TryParse(e.Value?.ToString(), out var v) ? v : Guid.Empty;
+    }
+
+    private async Task Save()
+    {
+        if (_formTenantId == Guid.Empty || _formProductId == Guid.Empty || _formCostPrice < 0)
+        {
+            _alertMessage = "Vui lòng điền đầy đủ thông tin hợp lệ.";
+            _alertType = "warning";
+            return;
+        }
+
+        try
+        {
+            await CostPriceApi.UpsertAsync(_formTenantId, _formProductId, _formCostPrice);
+            _alertMessage = _isEdit ? "Đã cập nhật giá vốn." : "Đã thêm giá vốn.";
+            _alertType = "success";
+            CloseModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi lưu: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private async Task DeleteItem(ProductCostPriceItem item)
+    {
+        try
+        {
+            await CostPriceApi.DeleteAsync(item.Id);
+            _alertMessage = "Đã xoá giá vốn.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi xoá: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+}

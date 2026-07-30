@@ -447,6 +447,10 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.CommunityAdminApiClient>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
+            // Sprint 7 — Commerce Mode + Community Fund + Product Cost Price admin API clients
+            _ = builder.Services.AddScoped<Services.CommerceModeApiClient>();
+            _ = builder.Services.AddScoped<Services.CommunityFundApiClient>();
+            _ = builder.Services.AddScoped<Services.ProductCostPriceApiClient>();
             // Wave 14: API Key management
             _ = builder.Services.AddScoped<VanAn.Shared.Repositories.IApiKeyRepository, CoreHub.Infrastructure.Repositories.ApiKeyRepository>();
             _ = builder.Services.AddScoped<CoreHub.Services.IApiKeyManagementService, CoreHub.Services.ApiKeyManagementService>();

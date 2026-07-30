@@ -252,6 +252,10 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityAdminService, VanAn.CoreHub.Services.CommunityAdminService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.IFraudReviewService, VanAn.CoreHub.Services.FraudReviewService>();
 
+            // Sprint 7 — Commerce Mode Toggle: CommerceMode + CommunityFund services
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommerceModeService, VanAn.CoreHub.Services.CommerceModeService>();
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityFundService, VanAn.CoreHub.Services.CommunityFundService>();
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();

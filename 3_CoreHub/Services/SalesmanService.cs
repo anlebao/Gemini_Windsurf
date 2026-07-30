@@ -252,7 +252,19 @@ public class SalesmanService(
 
         // Create SalesReferral
         var referral = new SalesReferral(order.TenantId, order.SalesmanId.Value, salesmanCode, order.ReferralProductId.Value, config.ProductShortCode);
-        referral.AttachToOrder(orderId, order.CustomerId ?? Guid.Empty, order.TotalAmount, config.CommissionRate);
+
+        // Sprint 7: Branch by CommissionBase (OnOrderTotal vs OnMargin)
+        if (config.CommissionBase == CommissionBase.OnMargin && order.CommerceMode == CommerceMode.Reseller)
+        {
+            // Reseller: commission = margin × rate (margin = SellPrice - CostPrice)
+            var margin = order.PlatformMargin ?? ((order.SellPrice ?? 0m) - (order.CostPrice ?? 0m));
+            referral.AttachToOrder(orderId, order.CustomerId ?? Guid.Empty, order.TotalAmount, margin, CommissionBase.OnMargin, config.CommissionRate);
+        }
+        else
+        {
+            // Marketplace (default): commission = orderTotal × rate (existing behavior)
+            referral.AttachToOrder(orderId, order.CustomerId ?? Guid.Empty, order.TotalAmount, config.CommissionRate);
+        }
 
         // v1.2: Compute risk score (basic — no fingerprint data in commission flow)
         var riskResult = _riskScoringService.CalculateScore(new RiskScoreInput(

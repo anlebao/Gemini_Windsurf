@@ -4,6 +4,9 @@ using System.Linq.Expressions;
 using VanAn.Shared.Domain.Common;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
+using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
+using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
+using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using VanAn.CoreHub.Domain;
 using VanAn.CoreHub.Infrastructure.DataProtection;
 using VanAn.CoreHub.Infrastructure.Messaging;
@@ -144,6 +147,11 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<DeviceRegistration> DeviceRegistrations { get; set; } // v1.2 NEW
         public DbSet<FraudFlag> FraudFlags { get; set; } // v1.2 NEW
 
+        // Sprint 7 — Commerce Mode Toggle (3 new DbSets)
+        public DbSet<SystemSetting> SystemSettings { get; set; } // global config (TenantId nullable)
+        public DbSet<ProductCostPrice> ProductCostPrices { get; set; } // Q1: Vạn An's negotiated cost per product
+        public DbSet<CommunityFundSpendRecord> CommunityFundSpendRecords { get; set; } // Q3: audit trail for fund disbursement
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -278,8 +286,13 @@ namespace VanAn.CoreHub.Infrastructure
 
             // Apply to all entities implementing IMustHaveTenant
             // (AccountingEntry excluded: special cross-tenant audit/reconciliation queries).
+            // (SystemSetting excluded: global settings, TenantId = Guid.Empty — Sprint 7)
+            // (CommunityFundSpendRecord excluded: system-wide fund audit, TenantId = Guid.Empty — Sprint 7 Q3)
             IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes()
-                .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType) && e.ClrType != typeof(CoreAccountingEntry));
+                .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType)
+                    && e.ClrType != typeof(CoreAccountingEntry)
+                    && e.ClrType != typeof(SystemSetting)
+                    && e.ClrType != typeof(CommunityFundSpendRecord));
 
             // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
             // Using TenantId (model type) as RHS ensures:

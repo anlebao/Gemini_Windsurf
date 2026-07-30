@@ -63,6 +63,20 @@ namespace VanAn.CoreHub.Services
         /// Original transaction is NOT modified (immutable). Reversal links via RelatedTransactionId.
         /// </summary>
         Task<WalletTransaction> ReverseTransactionAsync(Guid ownerId, Guid originalTransactionId);
+
+        /// <summary>
+        /// Sprint 7 Q5: Confirm external payment (non-COD Reseller — VietQR/card).
+        /// Reseller only — rejects Marketplace orders.
+        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
+        /// </summary>
+        Task<WalletTransaction> ConfirmExternalPaymentAsync(Guid orderId, decimal amount, string paymentRef);
+
+        /// <summary>
+        /// Sprint 7 Q3: Spend from community fund (SysAdmin disbursement).
+        /// Creates CommunityFundSpend tx (-amount on CommunityFundWallet).
+        /// Audit record created by CommunityFundService.SpendAsync.
+        /// </summary>
+        Task<WalletTransaction> SpendCommunityFundAsync(decimal amount, string reason, Guid approvedBy);
     }
 
     /// <summary>Wallet summary DTO — balance + transaction history.</summary>

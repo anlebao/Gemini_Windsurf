@@ -822,6 +822,43 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// Sprint 7 Q5: POST /api/community/wallet/confirm-external-payment
+        /// Vạn An confirms external payment (non-COD Reseller — VietQR/card) for an order.
+        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
+        /// Auth: SystemAdmin Bearer JWT (Vạn An staff confirms after VietQR webhook or manual check).
+        /// </summary>
+        [HttpPost("wallet/confirm-external-payment")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Policy = "SystemAdmin", AuthenticationSchemes = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> ConfirmExternalPayment([FromBody] ConfirmExternalPaymentRequest body)
+        {
+            if (body == null || body.OrderId == Guid.Empty)
+                return BadRequest(new { error = "OrderId không hợp lệ." });
+            if (body.Amount <= 0)
+                return BadRequest(new { error = "Amount phải lớn hơn 0." });
+            if (string.IsNullOrWhiteSpace(body.PaymentRef))
+                return BadRequest(new { error = "PaymentRef không được để trống." });
+
+            try
+            {
+                var tx = await _walletService.ConfirmExternalPaymentAsync(body.OrderId, body.Amount, body.PaymentRef);
+                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming external payment for order {OrderId}", body.OrderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
+        /// <summary>
         /// Check if customer has Salesman role (Active). Queries Gateway PG CommunityRoles table.
         /// </summary>
         private async Task<(bool IsValid, IActionResult? Error)> CheckSalesmanRoleAsync(Guid customerId)
@@ -941,6 +978,14 @@ namespace VanAn.Gateway.Controllers
         public class ConfirmAdvanceReceivedRequest
         {
             public Guid AdvanceTransactionId { get; set; }
+        }
+
+        // Sprint 7 Q5: External payment confirmation (non-COD Reseller)
+        public class ConfirmExternalPaymentRequest
+        {
+            public Guid OrderId { get; set; }
+            public decimal Amount { get; set; }
+            public string PaymentRef { get; set; } = string.Empty; // VietQR txn ref / card txn id
         }
     }
 }

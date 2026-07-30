@@ -1,0 +1,205 @@
+@page "/admin/community-fund"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using CommunityFundBalanceDto = VanAn.ShopERP.Services.CommunityFundBalanceDto
+@inject CommunityFundApiClient CommunityFundApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<CommunityFund> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="community-fund-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Quỹ Cộng Đồng (Community Fund)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <!-- Balance Section -->
+        <VanACard Header="Số dư quỹ">
+            <div class="fund-balance">
+                <div class="balance-item">
+                    <span class="label">Số dư hiện tại:</span>
+                    <span class="value balance">@(_balance?.Balance.ToString("N0") ?? "0") đ</span>
+                </div>
+                <div class="balance-item">
+                    <span class="label">Tổng đã thu:</span>
+                    <span class="value collected">@(_balance?.TotalCollected.ToString("N0") ?? "0") đ</span>
+                </div>
+                <div class="balance-item">
+                    <span class="label">Tổng đã chi:</span>
+                    <span class="value spent">@(_balance?.TotalSpent.ToString("N0") ?? "0") đ</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <VanAButton Variant="primary" OnClick="OpenSpendModal">
+                    + Chi quỹ
+                </VanAButton>
+            </div>
+        </VanACard>
+
+        <!-- History Section -->
+        <VanACard Header="@($"Lịch sử chi quỹ ({_history?.Total ?? 0})")">
+            @if (_history?.Items.Count > 0)
+            {
+                <table class="vanan-table">
+                    <thead>
+                        <tr>
+                            <th>Ngày</th>
+                            <th>Số tiền</th>
+                            <th>Lý do</th>
+                            <th>Người nhận</th>
+                            <th>Người duyệt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _history!.Items)
+                        {
+                            <tr>
+                                <td>@item.SpentAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@item.Amount.ToString("N0") đ</td>
+                                <td>@item.Reason</td>
+                                <td>@item.Recipient</td>
+                                <td>@item.ApprovedBy.ToString().Substring(0, 8)...</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p>Chưa có giao dịch chi quỹ nào.</p>
+            }
+        </VanACard>
+    }
+</div>
+
+<!-- Spend Modal -->
+@if (_showSpendModal)
+{
+    <VanAModal Title="Chi quỹ cộng đồng"
+               IsVisible="true" OnClose="CloseSpendModal" Size="medium">
+        <Body>
+            <div class="form-group">
+                <VanAInput Id="spend-amount" Label="Số tiền (VND) *"
+                           Value="@_spendAmount.ToString()"
+                           ValueChanged="v => _spendAmount = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+            <div class="form-group">
+                <VanAInput Id="spend-reason" Label="Lý do *"
+                           Value="@_spendReason"
+                           ValueChanged="v => _spendReason = v" />
+            </div>
+            <div class="form-group">
+                <VanAInput Id="spend-recipient" Label="Người nhận *"
+                           Value="@_spendRecipient"
+                           ValueChanged="v => _spendRecipient = v" />
+            </div>
+            <small class="text-muted">Số dư hiện tại: @(_balance?.Balance.ToString("N0") ?? "0") đ</small>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="CloseSpendModal">Huỷ</VanAButton>
+            <VanAButton Variant="primary" OnClick="ConfirmSpend">Chi quỹ</VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
+@code {
+    private bool _isLoading = true;
+    private CommunityFundBalanceDto? _balance;
+    private SpendHistoryResult? _history;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Spend modal
+    private bool _showSpendModal;
+    private decimal _spendAmount;
+    private string _spendReason = string.Empty;
+    private string _spendRecipient = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _balance = await CommunityFundApi.GetBalanceAsync();
+            _history = await CommunityFundApi.GetHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load community fund data");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OpenSpendModal()
+    {
+        _spendAmount = 0;
+        _spendReason = string.Empty;
+        _spendRecipient = string.Empty;
+        _showSpendModal = true;
+    }
+
+    private void CloseSpendModal()
+    {
+        _showSpendModal = false;
+    }
+
+    private async Task ConfirmSpend()
+    {
+        if (_spendAmount <= 0 || string.IsNullOrWhiteSpace(_spendReason) || string.IsNullOrWhiteSpace(_spendRecipient))
+        {
+            _alertMessage = "Vui lòng điền đầy đủ thông tin.";
+            _alertType = "warning";
+            return;
+        }
+
+        try
+        {
+            var result = await CommunityFundApi.SpendAsync(_spendAmount, _spendReason, _spendRecipient);
+            _alertMessage = $"Đã chi quỹ thành công. Số dư còn lại: {result.BalanceAfter:N0} đ";
+            _alertType = "success";
+            CloseSpendModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi chi quỹ: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+}
