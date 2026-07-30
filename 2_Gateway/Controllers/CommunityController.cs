@@ -36,6 +36,7 @@ namespace VanAn.Gateway.Controllers
         IAppInstallAttributionService appInstallAttributionService,
         IWalletService walletService,
         IFraudReviewService fraudReviewService,
+        ICommerceModeService commerceModeService,
         IVanAnDbContext dbContext,
         IHttpClientFactory httpClientFactory,
         IHubContext<LocationHub> locationHubContext,
@@ -49,6 +50,7 @@ namespace VanAn.Gateway.Controllers
         private readonly IAppInstallAttributionService _appInstallAttributionService = appInstallAttributionService;
         private readonly IWalletService _walletService = walletService;
         private readonly IFraudReviewService _fraudReviewService = fraudReviewService;
+        private readonly ICommerceModeService _commerceModeService = commerceModeService;
         private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
@@ -185,6 +187,54 @@ namespace VanAn.Gateway.Controllers
             {
                 _logger.LogError(ex, "Error getting nearby orders for shipper {ShipperId}", customerId.Value);
                 return StatusCode(500, new { error = "Lỗi server. Vui lòng thử lại." });
+            }
+        }
+
+        /// <summary>
+        /// GET /api/community/my-deliveries
+        /// Returns the shipper's active delivery tasks (Assigned/PickedUp/OutForDelivery).
+        /// Excludes Delivered/Failed/Cancelled.
+        /// </summary>
+        [HttpGet("my-deliveries")]
+        public async Task<IActionResult> GetMyActiveDeliveries()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null)
+                return error!;
+
+            var roleCheck = await CheckShipperRoleAsync(customerId.Value);
+            if (!roleCheck.IsValid)
+                return roleCheck.Error!;
+
+            try
+            {
+                var activeStatuses = new[]
+                {
+                    DeliveryTaskStatus.Assigned,
+                    DeliveryTaskStatus.PickedUp,
+                    DeliveryTaskStatus.OutForDelivery
+                };
+
+                var tasks = await _dbContext.DeliveryTasks
+                    .Where(t => t.ShipperId == customerId.Value && activeStatuses.Contains(t.Status))
+                    .OrderByDescending(t => t.AssignedAt)
+                    .Select(t => new
+                    {
+                        orderId = t.OrderId,
+                        deliveryTaskId = t.Id,
+                        status = t.Status.ToString(),
+                        assignedAt = t.AssignedAt,
+                        pickedUpAt = t.PickedUpAt,
+                        outForDeliveryAt = t.OutForDeliveryAt
+                    })
+                    .ToListAsync();
+
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting active deliveries for shipper {ShipperId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
             }
         }
 
@@ -499,6 +549,33 @@ namespace VanAn.Gateway.Controllers
         }
 
         // === CC-S4 (Sprint 4): Salesman endpoints ===
+
+        /// <summary>
+        /// GET /api/community/commerce-mode
+        /// Customer-facing: returns the global commerce mode (Marketplace/Reseller) for UI badge.
+        /// Sprint 7 — used by KhachLink to show mode badge + adjust price display.
+        /// </summary>
+        [HttpGet("commerce-mode")]
+        public async Task<IActionResult> GetCommerceMode()
+        {
+            var (customerId, error) = await ValidateTokenAndGetCustomerIdAsync();
+            if (customerId == null) return error!;
+
+            try
+            {
+                var settings = await _commerceModeService.GetSettingsAsync();
+                return Ok(new
+                {
+                    globalMode = settings.GlobalMode.ToString(),
+                    isReseller = settings.GlobalMode == CommerceMode.Reseller
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting commerce mode for customer {CustomerId}", customerId.Value);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
 
         /// <summary>
         /// GET /api/community/nearby-products?lat={lat}&lng={lng}&radiusKm=10
@@ -821,53 +898,11 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
-        /// <summary>
-        /// Sprint 7 Q5: POST /api/community/wallet/confirm-external-payment
-        /// Vạn An confirms external payment (non-COD Reseller — VietQR/card) for an order.
-        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
-        /// Auth: SystemAdmin Bearer JWT (Vạn An staff confirms after VietQR webhook or manual check).
-        /// NOTE: Endpoint moved to CommerceModeController (this controller has [AllowAnonymous] at class level
-        /// which would bypass the [Authorize] attribute — CommerceModeController has proper class-level auth).
-        /// </summary>
-        [HttpPost("wallet/confirm-external-payment")]
-        [Microsoft.AspNetCore.Authorization.Authorize(Policy = "SystemAdmin", AuthenticationSchemes = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)]
-        public async Task<IActionResult> ConfirmExternalPayment([FromBody] ConfirmExternalPaymentRequest body)
-        {
-            // Delegate to CommerceModeController logic via WalletService
-            // This endpoint is kept for backward compat but auth is enforced by [Authorize] above.
-            // However, due to [AllowAnonymous] at class level, this may not enforce auth properly.
-            // Use /api/admin/commerce-mode/confirm-external-payment instead (CommerceModeController).
-            return await ConfirmExternalPaymentImpl(body);
-        }
-
-        private async Task<IActionResult> ConfirmExternalPaymentImpl(ConfirmExternalPaymentRequest body)
-        {
-            if (body == null || body.OrderId == Guid.Empty)
-                return BadRequest(new { error = "OrderId không hợp lệ." });
-            if (body.Amount <= 0)
-                return BadRequest(new { error = "Amount phải lớn hơn 0." });
-            if (string.IsNullOrWhiteSpace(body.PaymentRef))
-                return BadRequest(new { error = "PaymentRef không được để trống." });
-
-            try
-            {
-                var tx = await _walletService.ConfirmExternalPaymentAsync(body.OrderId, body.Amount, body.PaymentRef);
-                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(new { error = ex.Message });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new { error = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error confirming external payment for order {OrderId}", body.OrderId);
-                return StatusCode(500, new { error = "Lỗi server." });
-            }
-        }
+        // Sprint 7 Q5: confirm-external-payment endpoint REMOVED from this controller.
+        // Reason: [AllowAnonymous] at class level bypasses [Authorize] at method level in ASP.NET Core,
+        // creating an auth bypass on a financial endpoint (5-split wallet transaction).
+        // Canonical endpoint: POST /api/admin/commerce-mode/confirm-external-payment (CommerceModeController,
+        // which has proper class-level [Authorize(Policy = "SystemAdmin")]).
 
         /// <summary>
         /// Check if customer has Salesman role (Active). Queries Gateway PG CommunityRoles table.
@@ -989,14 +1024,6 @@ namespace VanAn.Gateway.Controllers
         public class ConfirmAdvanceReceivedRequest
         {
             public Guid AdvanceTransactionId { get; set; }
-        }
-
-        // Sprint 7 Q5: External payment confirmation (non-COD Reseller)
-        public class ConfirmExternalPaymentRequest
-        {
-            public Guid OrderId { get; set; }
-            public decimal Amount { get; set; }
-            public string PaymentRef { get; set; } = string.Empty; // VietQR txn ref / card txn id
         }
     }
 }

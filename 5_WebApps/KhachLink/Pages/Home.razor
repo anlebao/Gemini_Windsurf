@@ -15,6 +15,7 @@
 @inject VanAn.KhachLink.Services.Http.CatalogHttpService CatalogService
 @inject VanAn.KhachLink.Services.Http.ShopConfigHttpService ShopConfigService
 @inject VanAn.KhachLink.Services.Http.ShopFeatureSettingsHttpService FeatureSettings
+@inject VanAn.KhachLink.Services.Http.CommunityHttpService CommunityHttp
 @inject VanAn.KhachLink.Services.RecentlyViewedService RecentlyViewedService
 @inject VanAn.KhachLink.Services.LastInteractionService LastInteractionService
 @inject ISocialCampaignService CampaignService
@@ -34,6 +35,16 @@
     Checkout="async () => await GoToCheckout()" />
 
 <KhachLinkLayout>
+    <!-- Sprint 7: Commerce Mode badge — shows Marketplace/Reseller mode -->
+    @if (_commerceModeLoaded && _isReseller)
+    {
+        <div class="container mt-2" style="max-width:1000px;">
+            <div class="alert alert-info py-2 mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-info-circle"></i>
+                <small><strong>Mô hình Reseller</strong> — Vạn An mua bán, giá đã bao gồm phí nền tảng.</small>
+            </div>
+        </div>
+    }
     <!-- Issue 5a: Hide Campaign + Store sections for new customers (no _lastTenantId yet).
          New users see only the catalog/featured products + scan CTA. Once they scan QR or
          order from a tenant, _lastTenantId is set and these sections appear. -->
@@ -350,6 +361,10 @@
     private bool _storeLoading = true;
     private Guid? _lastTenantId;
 
+    // Sprint 7: Commerce Mode badge
+    private bool _commerceModeLoaded = false;
+    private bool _isReseller = false;
+
     public class StoreInfoDto
     {
         public Guid Id { get; set; }
@@ -387,11 +402,12 @@
                     _customerId = cid;
             }
 
-            // Phase 2 (parallel HTTP): products + catalog + campaigns/store + VAT toggle
-            // All 4 HTTP calls run concurrently → total wait = slowest call (not sum of all)
+            // Phase 2 (parallel HTTP): products + catalog + campaigns/store + VAT toggle + commerce mode
+            // All 5 HTTP calls run concurrently → total wait = slowest call (not sum of all)
             var productsTask = LoadProductsAsync();
             var catalogTask = LoadCatalogAsync();
             var tenantDataTask = LoadLastTenantDataAsync();
+            var commerceModeTask = LoadCommerceModeAsync(token);
 
             // VAT toggle (needs tenantId — fast, may fail silently)
             Guid tenantId = TenantService.GetCurrentTenantId();
@@ -405,7 +421,7 @@
                     }, TaskScheduler.Default);
             }
 
-            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask);
+            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, commerceModeTask);
 
             // Phase 3 (dependent): ShopConfig needs products list (derived from product TenantIds)
             await LoadShopConfigAsync();
@@ -416,6 +432,25 @@
 
     /// <summary>
     /// Load campaigns + store info for the tenant the customer most recently interacted with.
+    /// Sprint 7: Load commerce mode (Marketplace/Reseller) for UI badge.
+    /// Silent failure — badge just doesn't show if API unavailable.
+    /// </summary>
+    private async Task LoadCommerceModeAsync(string? token)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(token)) return;
+            var result = await CommunityHttp.GetCommerceModeAsync(token);
+            if (result.Success)
+            {
+                _isReseller = result.IsReseller;
+                _commerceModeLoaded = true;
+            }
+        }
+        catch { /* silent — badge is optional */ }
+    }
+
+    /// <summary>
     /// Falls back to empty state with CTA if no interaction recorded (new user).
     /// </summary>
     private async Task LoadLastTenantDataAsync()

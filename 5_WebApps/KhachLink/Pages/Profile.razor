@@ -217,6 +217,32 @@
                 </VanAnCard>
             }
 
+            @* Device info section — Sprint 7 gap fix (doc 07-customer §2.3) *@
+            <VanAnCard Shadow="true" CssClass="mb-4">
+                <div class="p-2">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-phone text-info"></i>
+                        <div>
+                            <div class="fw-medium">Thiết bị đang sử dụng</div>
+                            <div class="text-muted small">Tối đa 3 thiết bị/tài khoản. Thiết bị thứ 4 cần admin duyệt.</div>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_deviceToken))
+                    {
+                        <div class="text-muted small">
+                            <i class="bi bi-key me-1"></i> Device Token: <code>@_deviceToken[..12]...</code>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Chưa đăng ký thiết bị.</div>
+                    }
+                    <div class="text-muted small mt-2">
+                        <i class="bi bi-info-circle me-1"></i> Để đăng xuất thiết bị khác, liên hệ admin.
+                    </div>
+                </div>
+            </VanAnCard>
+
             <VanAnButton Variant="ButtonVariant.Outline" FullWidth="true" OnClick="Logout">
                 <i class="bi bi-box-arrow-right"></i> Đăng xuất
             </VanAnButton>
@@ -253,6 +279,9 @@
     // CC-S6 (Sprint 6): Community roles + fraud flags
     private List<CommunityRoleDto> _communityRoles = new();
     private List<MyFraudFlagDto> _myFraudFlags = new();
+
+    // Sprint 7 gap fix: Device info
+    private string? _deviceToken;
 
     private string GetIdentityLevelLabel() => _identityLevel switch
     {
@@ -295,6 +324,9 @@
                 _isLoggedIn = false;
                 return;
             }
+
+            // Sprint 7 gap fix: Load device token from localStorage
+            _deviceToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "device_token");
 
             var client = HttpClientFactory.CreateClient("gateway");
             var reqMsg = new HttpRequestMessage(HttpMethod.Get, "/api/customers/me");

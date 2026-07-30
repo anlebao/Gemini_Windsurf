@@ -54,6 +54,11 @@
                     </NavLink>
                 </div>
                 <div class="nav-item">
+                    <NavLink class="nav-link" href="/community/active-deliveries">
+                        <span class="bi bi-list-check me-2" aria-hidden="true"></span> Đang giao
+                    </NavLink>
+                </div>
+                <div class="nav-item">
                     <NavLink class="nav-link" href="/community/wallet">
                         <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cộng tác viên
                     </NavLink>
@@ -75,8 +80,18 @@
                     </NavLink>
                 </div>
                 <div class="nav-item">
+                    <NavLink class="nav-link" href="/community/salesman-qr">
+                        <span class="bi bi-qr-code me-2" aria-hidden="true"></span> Mã QR của tôi
+                    </NavLink>
+                </div>
+                <div class="nav-item">
                     <NavLink class="nav-link" href="/community/sales-dashboard">
                         <span class="bi bi-bar-chart me-2" aria-hidden="true"></span> Dashboard Salesman
+                    </NavLink>
+                </div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/community/wallet">
+                        <span class="bi bi-wallet2 me-2" aria-hidden="true"></span> Ví cộng tác viên
                     </NavLink>
                 </div>
             }
@@ -135,6 +150,10 @@
             <i class="bi bi-truck"></i>
             <span>Đơn giao</span>
         </a>
+        <a class="mobile-tab-item @IsActive("/community/active-deliveries")" href="/community/active-deliveries">
+            <i class="bi bi-list-check"></i>
+            <span>Đang giao</span>
+        </a>
     }
     @if (_isSalesman)
     {
@@ -142,9 +161,17 @@
             <i class="bi bi-shop"></i>
             <span>Sản phẩm</span>
         </a>
+        <a class="mobile-tab-item @IsActive("/community/salesman-qr")" href="/community/salesman-qr">
+            <i class="bi bi-qr-code"></i>
+            <span>Mã QR</span>
+        </a>
         <a class="mobile-tab-item @IsActive("/community/sales-dashboard")" href="/community/sales-dashboard">
             <i class="bi bi-bar-chart"></i>
             <span>Dashboard</span>
+        </a>
+        <a class="mobile-tab-item @IsActive("/community/wallet")" href="/community/wallet">
+            <i class="bi bi-wallet2"></i>
+            <span>Ví</span>
         </a>
     }
     @* Issue 4: Voice note tab removed — order notes now entered on cart page *@

@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn Shipper — Community Commerce</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn Shipper — Community Commerce</h1>
+</header>
+<h1 id="hướng-dẫn-shipper-cộng-tác-viên-giao-hàng">HƯỚNG DẪN SHIPPER —
+CỘNG TÁC VIÊN GIAO HÀNG</h1>
+<blockquote>
+<p><strong>Đối tượng:</strong> Customer được System Admin kích hoạt role
+Shipper — nhận đơn giao hàng, thu COD, kiếm tiền từ phí giao hàng.
+<strong>Đăng nhập:</strong> KhachLink PWA
+(<code>diemthuong.khachvip.online</code>) — Google login + device
+fingerprint. Token lưu localStorage. <strong>Nền tảng:</strong> Blazor
+WebAssembly PWA — GPS chỉ hoạt động khi tab active. <strong>Giữ app
+mở</strong> khi đang giao.</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<ol type="1">
+<li><a href="#1-tổng-quan-vai-trò--điều-kiện">Tổng quan vai trò + điều
+kiện</a></li>
+<li><a href="#2-đăng-nhập--kích-hoạt-role">Đăng nhập + kích hoạt
+role</a></li>
+<li><a href="#3-đơn-hàng-gần-nearby-orders--uc-03">Đơn hàng gần (Nearby
+Orders) — UC-03</a></li>
+<li><a href="#4-nhận-đơn-accept-order--uc-04">Nhận đơn (Accept Order) —
+UC-04</a></li>
+<li><a href="#5-chi-tiết-đơn-hàng-orderdetail">Chi tiết đơn hàng
+(OrderDetail)</a></li>
+<li><a href="#6-cập-nhật-trạng-thái-giao-hàng--uc-05">Cập nhật trạng
+thái giao hàng — UC-05</a></li>
+<li><a href="#7-cập-nhật-vị-trí-real-time--uc-06">Cập nhật vị trí
+real-time — UC-06</a></li>
+<li><a href="#8-chat-với-customer--uc-07">Chat với Customer —
+UC-07</a></li>
+<li><a href="#9-ứng-tiền--thu-cod--uc-11">Ứng tiền + thu COD —
+UC-11</a></li>
+<li><a href="#10-ví-wallet--rút-tiền">Ví (Wallet) + rút tiền</a></li>
+<li><a href="#11-marketplace-vs-reseller--khác-biệt-cho-shipper">Marketplace vs
+Reseller — khác biệt cho Shipper</a></li>
+<li><a href="#12-faq">FAQ</a></li>
+</ol>
+<hr />
+<h2 id="tổng-quan-vai-trò-điều-kiện">1. TỔNG QUAN VAI TRÒ + ĐIỀU
+KIỆN</h2>
+<p>Shipper là cộng tác viên giao hàng — nhận đơn DELIVERY trong bán
+kính, giao hàng, thu COD (nếu có), cập nhật vị trí real-time cho
+customer theo dõi.</p>
+<h3 id="điều-kiện-trở-thành-shipper">1.1. Điều kiện trở thành
+Shipper</h3>
+<ul>
+<li><code>IdentityLevel ≥ DeviceVerified</code> (device fingerprint
+pass) <strong>HOẶC</strong> <code>IdentityLevel ≥ Verified</code> (SMS
+OTP) + <code>LoyaltyPoints ≥ 1000</code></li>
+<li><strong>Kích hoạt bởi System Admin</strong></li>
+<li>Khi toggle <code>CollaboratorSmsVerificationEnabled = ON</code>: bắt
+buộc SMS OTP + <code>IsPhoneVerified = true</code> + deposit wallet ≥
+phí OTP</li>
+</ul>
+<h3 id="một-user-nhiều-role">1.2. Một user nhiều role</h3>
+<p>Bạn có thể đồng thời là <strong>Customer + Salesman +
+Shipper</strong>. NavMenu KhachLink hiện tab theo role bạn có.</p>
+<h3 id="pwa-gps-limitation">1.3. PWA GPS limitation</h3>
+<ul>
+<li>GPS chỉ hoạt động khi <strong>tab active</strong> (mở app, không
+tắt).</li>
+<li>Polling adaptive: <code>OutForDelivery</code> 10s,
+<code>PickedUp</code> 30s, <code>Delivered/Failed</code> stop.</li>
+<li><strong>Thông báo “Giữ app mở để cập nhật vị trí”</strong> —
+customer không thấy shipper di chuyển nếu shipper tắt tab.</li>
+<li>Post-PoC: đánh giá native app cho background GPS.</li>
+</ul>
+<hr />
+<h2 id="đăng-nhập-kích-hoạt-role">2. ĐĂNG NHẬP + KÍCH HOẠT ROLE</h2>
+<h3 id="đăng-nhập-uc-01">2.1. Đăng nhập (UC-01)</h3>
+<ol type="1">
+<li>Mở KhachLink → bấm <strong>Đăng nhập</strong>.</li>
+<li>Chọn <strong>Google</strong> → social auth redirect.</li>
+<li>First login / new device: <strong>Device Fingerprint Consent
+Dialog</strong> → bấm <strong>Đồng ý</strong> → POST
+<code>/api/community/device/register</code>.</li>
+<li>IdentityLevel = <code>Social</code> (1).</li>
+<li>(OPTIONAL) Verify SĐT qua SMS OTP → upgrade <code>Verified</code> —
+bắt buộc khi toggle ON.</li>
+<li>Token lưu localStorage.</li>
+</ol>
+<blockquote>
+<p><strong>Max 3 active devices per Customer.</strong> Device thứ 4 →
+admin approval.</p>
+</blockquote>
+<h3 id="kích-hoạt-role-shipper">2.2. Kích hoạt role Shipper</h3>
+<ol type="1">
+<li>Đạt điều kiện (IdentityLevel + LoyaltyPoints ≥ 1000).</li>
+<li>System Admin kích hoạt → nhận push notification.</li>
+<li>Login lại → NavMenu hiện thêm tab <strong>“Đơn hàng gần”</strong> +
+<strong>“Đang giao”</strong> + <strong>“Ví”</strong>.</li>
+</ol>
+<h3 id="sms-otp-verification-chỉ-khi-toggle-on">2.3. SMS OTP
+verification (chỉ khi toggle ON)</h3>
+<p>Tương tự Salesman — xem <a href="./03-salesman.md#23-sms-otp-verification-chỉ-khi-toggle-on">Salesman
+Section 2.3</a>.</p>
+<hr />
+<h2 id="đơn-hàng-gần-nearby-orders-uc-03">3. ĐƠN HÀNG GẦN (NEARBY
+ORDERS) — UC-03</h2>
+<h3 id="truy-cập">3.1. Truy cập</h3>
+<p>Login KhachLink → tab <strong>“Đơn hàng gần”</strong> (chỉ hiện khi
+có role Shipper).</p>
+<h3 id="flow">3.2. Flow</h3>
+<ol type="1">
+<li>Mở page → browser lấy GPS vị trí hiện tại (1 lần, consent
+prompt).</li>
+<li>Gọi API:
+<code>GET /api/community/nearby-orders?lat={lat}&amp;lng={lng}&amp;radiusKm=5</code>.</li>
+<li>Hiển thị list đơn hàng <code>OrderType=DELIVERY</code> + status
+<code>confirmed</code> hoặc <code>ready</code> trong bán kính 5km.</li>
+<li>Mỗi đơn hiện:
+<ul>
+<li>Shop name</li>
+<li>Delivery address</li>
+<li>Total amount (VND format: <code>{amount:N0}đ</code>)</li>
+<li>Status (confirmed/ready)</li>
+<li>Khoảng cách (Haversine formula)</li>
+</ul></li>
+<li>Sort theo khoảng cách tăng dần.</li>
+<li><strong>Không hiện đơn đã assign cho shipper khác.</strong></li>
+</ol>
+<h3 id="gps-consent">3.3. GPS consent</h3>
+<ul>
+<li>Browser hỏi “Cho phép KhachLink truy cập vị trí?” → bấm <strong>Cho
+phép</strong>.</li>
+<li>Nếu deny → không thấy đơn hàng gần. Cần vào browser settings → cho
+phép lại.</li>
+</ul>
+<hr />
+<h2 id="nhận-đơn-accept-order-uc-04">4. NHẬN ĐƠN (ACCEPT ORDER) —
+UC-04</h2>
+<h3 id="flow-1">4.1. Flow</h3>
+<ol type="1">
+<li>Shipper bấm <strong>“Nhận đơn”</strong> trên đơn trong list.</li>
+<li><code>POST /api/community/orders/{orderId}/accept</code>.</li>
+<li>Tạo <code>DeliveryTask</code> record: shipperId, orderId,
+status=<code>Assigned</code>.</li>
+<li>Order status → <code>delivering</code> (nếu đang <code>ready</code>)
+hoặc giữ <code>confirmed</code> (nếu chưa ready).</li>
+<li>Shipper thấy shop location + customer location (chuyển sang
+OrderDetail page).</li>
+</ol>
+<h3 id="concurrency">4.2. Concurrency</h3>
+<ul>
+<li>Chỉ <strong>1 shipper</strong> accept được (optimistic locking hoặc
+DB unique constraint).</li>
+<li>Nếu đơn đã được accept → trả <strong>409 Conflict</strong> → shipper
+thấy “Đơn đã được nhận”.</li>
+</ul>
+<h3 id="sau-accept">4.3. Sau accept</h3>
+<ul>
+<li>Đơn biến mất khỏi Nearby Orders list (đã assign).</li>
+<li>Shipper chuyển sang tab <strong>“Đang giao”</strong> để xem đơn đang
+xử lý.</li>
+</ul>
+<hr />
+<h2 id="chi-tiết-đơn-hàng-orderdetail">5. CHI TIẾT ĐƠN HÀNG
+(ORDERDETAIL)</h2>
+<h3 id="route">5.1. Route</h3>
+<p><code>/community/orders/{orderId}</code> — mở sau khi accept, hoặc từ
+tab “Đang giao”.</p>
+<h3 id="ui-elements">5.2. UI Elements</h3>
+<ul>
+<li><strong>Header:</strong> “Chi tiết đơn hàng #{orderId short}”</li>
+<li><strong>Shop info card:</strong> shop name, shop address, shop
+lat/lng (từ TenantSettings)</li>
+<li><strong>Customer info card:</strong> delivery address, delivery
+lat/lng (từ Order.DeliveryLat/Lng)</li>
+<li><strong>Map:</strong> LeafletMap component với:
+<ul>
+<li>Shop marker (red)</li>
+<li>Customer marker (green)</li>
+<li>Route line (straight — PoC, không OSRM)</li>
+</ul></li>
+<li><strong>Order items list:</strong> product name, qty, price</li>
+<li><strong>Total amount</strong> (VND format)</li>
+<li><strong>Status badge:</strong> current Order.Status
+(color-coded)</li>
+<li><strong>Back button</strong> → NearbyOrders page</li>
+</ul>
+<h3 id="states">5.3. States</h3>
+<ul>
+<li><strong>Loading:</strong> spinner</li>
+<li><strong>Error (order not found / not authorized):</strong> “Không
+tìm thấy đơn hàng hoặc bạn không có quyền xem”</li>
+<li><strong>Empty (no delivery coords):</strong> “Khách chưa cung cấp vị
+trí giao hàng — gọi khách để xác nhận”</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý:</strong> Map dùng <strong>Leaflet.js</strong>
+(open-source, free, không phải Google Maps iframe). Marker cho shipper +
+shop + customer.</p>
+</blockquote>
+<hr />
+<h2 id="cập-nhật-trạng-thái-giao-hàng-uc-05">6. CẬP NHẬT TRẠNG THÁI GIAO
+HÀNG — UC-05</h2>
+<h3 id="state-machine">6.1. State machine</h3>
+<pre><code>Assigned → PickedUp → OutForDelivery → Delivered
+                                    ↘ Failed</code></pre>
+<h3 id="flow-2">6.2. Flow</h3>
+<ol type="1">
+<li>Shipper đến shop → bấm <strong>“Đã nhận hàng”</strong> →
+<code>POST /api/community/orders/{orderId}/pickup</code> →
+<code>DeliveryTask.PickedUpAt</code> set.</li>
+<li>Shipper giao hàng → bấm <strong>“Đang giao”</strong> →
+<code>POST /api/community/orders/{orderId}/delivering</code> →
+<code>DeliveryTask.OutForDelivery</code> set. <strong>GPS polling bắt
+đầu 10s interval.</strong></li>
+<li>Shipper đến nơi → bấm <strong>“Đã giao”</strong> →
+<code>POST /api/community/orders/{orderId}/delivered</code> →
+<code>DeliveryTask.DeliveredAt</code> set. Order status →
+<code>completed</code>. <strong>GPS polling stop.</strong></li>
+<li>(Tùy chọn) Shipper bấm <strong>“Giao thất bại”</strong> →
+<code>POST /api/community/orders/{orderId}/failed</code> →
+<code>DeliveryTask.Failed</code> + reason text required. <strong>GPS
+polling stop.</strong></li>
+</ol>
+<h3 id="mỗi-transition">6.3. Mỗi transition</h3>
+<ul>
+<li>Ghi timestamp (PickedUpAt, OutForDelivery, DeliveredAt,
+FailedAt).</li>
+<li>Order status sync: Delivered → Order.Completed.</li>
+<li><strong>Customer nhận SignalR notification</strong> mỗi transition
+(real-time).</li>
+<li>Failed transition yêu cầu <strong>reason text</strong> (vd “Khách
+không nghe máy”, “Sai địa chỉ”).</li>
+</ul>
+<h3 id="deliverytracking-buttons-ui-spec">6.4. DeliveryTracking buttons
+(UI spec)</h3>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>API</th>
+<th>Status transition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Đã nhận hàng</td>
+<td><code>/pickup</code></td>
+<td>Assigned → PickedUp</td>
+</tr>
+<tr>
+<td>Đang giao</td>
+<td><code>/delivering</code></td>
+<td>PickedUp → OutForDelivery</td>
+</tr>
+<tr>
+<td>Đã giao</td>
+<td><code>/delivered</code></td>
+<td>OutForDelivery → Delivered</td>
+</tr>
+<tr>
+<td>Giao thất bại</td>
+<td><code>/failed</code></td>
+<td>(any) → Failed + reason</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="cập-nhật-vị-trí-real-time-uc-06">7. CẬP NHẬT VỊ TRÍ REAL-TIME —
+UC-06</h2>
+<h3 id="flow-3">7.1. Flow</h3>
+<ol type="1">
+<li>Khi DeliveryTask status = <code>OutForDelivery</code> → page tự poll
+GPS mỗi <strong>10s</strong> (khi tab active).</li>
+<li><code>POST /api/community/location/update { lat, lng }</code>.</li>
+<li>Server push qua <strong>SignalR LocationHub</strong> → customer
+subscribe <code>order_{orderId}</code>.</li>
+<li>Customer thấy marker shipper di chuyển trên map (Leaflet).</li>
+</ol>
+<h3 id="adaptive-polling">7.2. Adaptive polling</h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Interval</th>
+<th>Lý do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OutForDelivery</td>
+<td>10s</td>
+<td>Cần tracking chính xác</td>
+</tr>
+<tr>
+<td>PickedUp</td>
+<td>30s</td>
+<td>Chưa giao, ít cần update</td>
+</tr>
+<tr>
+<td>Delivered/Failed/Cancelled</td>
+<td>Stop</td>
+<td>Không cần tracking</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pwa-limitation">7.3. PWA limitation</h3>
+<ul>
+<li>GPS chỉ hoạt động khi <strong>tab active</strong>.</li>
+<li><strong>Thông báo “Giữ app mở để cập nhật vị trí”</strong> — hiển
+thị trên UI.</li>
+<li>Nếu shipper tắt tab / switch app → GPS stop → customer không thấy
+update.</li>
+<li>Location lưu vào <code>DeliveryTracking</code> table
+(append-only).</li>
+</ul>
+<h3 id="auth-signalr">7.4. Auth SignalR</h3>
+<ul>
+<li>LocationHub auth qua <code>X-Customer-Token</code> query string
+(SignalR support).</li>
+<li>nginx route cho <code>/locationHub</code> negotiate.</li>
+</ul>
+<hr />
+<h2 id="chat-với-customer-uc-07">8. CHAT VỚI CUSTOMER — UC-07</h2>
+<h3 id="mở-chat">8.1. Mở chat</h3>
+<ol type="1">
+<li>Shipper mở chat panel trong OrderDetail (hoặc tab chat riêng).</li>
+<li>Chat chỉ mở khi <code>DeliveryTask</code> tồn tại (shipper đã accept
+đơn).</li>
+</ol>
+<h3 id="flow-4">8.2. Flow</h3>
+<ol type="1">
+<li>Nhập message → <code>POST /api/community/chat/messages</code>.</li>
+<li><strong>SignalR ChatHub</strong> push đến customer real-time.</li>
+<li>Message lưu DB (<code>Conversation</code> + <code>Message</code>
+entity) với timestamp, senderId, receiverId.</li>
+<li>Chat history load khi mở panel.</li>
+</ol>
+<h3 id="lưu-ý">8.3. Lưu ý</h3>
+<ul>
+<li><strong>Human-to-human chat</strong> — KHÔNG có AI chatbot trong
+PoC.</li>
+<li>Chat biến mất khi DeliveryTask = Delivered/Failed (hoặc giữ history
+nhưng không push mới).</li>
+<li>Auth ChatHub qua <code>X-Customer-Token</code> query string.</li>
+</ul>
+<hr />
+<h2 id="ứng-tiền-thu-cod-uc-11">9. ỨNG TIỀN + THU COD — UC-11</h2>
+<blockquote>
+<p><strong>Chỉ khi Order.PaymentMethod = COD.</strong> Reseller mode:
+Vạn An ứng tiền, shipper KHÔNG ứng.</p>
+</blockquote>
+<h3 id="marketplace-mode-shipper-ứng-thu-cod">9.1. Marketplace mode —
+Shipper ứng + thu COD</h3>
+<ol type="1">
+<li>Shipper thấy <strong>“Cần ứng tiền”</strong> trên đơn (nếu shop yêu
+cầu advance payment).</li>
+<li>Shipper xác nhận đã ứng tiền cho shop →
+<code>POST /api/community/wallet/confirm-advance</code> →
+<code>WalletTransaction(AdvancePayment)</code> -amount shipper, +amount
+shop.</li>
+<li>Shipper thu tiền của customer khi giao.</li>
+<li>Shipper xác nhận đã thu COD →
+<code>POST /api/community/wallet/confirm-cod</code> →
+<code>WalletTransaction(CODCollection)</code> +amount shipper.</li>
+<li>Settlement record tạo: shipper chuyển tiền cho shop →
+<code>WalletTransaction(Settlement)</code> -amount shipper, +amount
+shop.</li>
+</ol>
+<p><strong>Net flow shipper:</strong> +COD (thu từ customer) -Settlement
+(trả shop) -AdvancePayment (ứng shop) = phí giao hàng (lợi nhuận
+shipper).</p>
+<h3 id="reseller-mode-vạn-an-ứng-shipper-chỉ-thu-cod">9.2. Reseller mode
+— Vạn An ứng, shipper chỉ thu COD</h3>
+<ol type="1">
+<li><strong>KHÔNG có “Ứng tiền cho shop” button</strong> (Vạn An ứng,
+không phải shipper).</li>
+<li>Shipper thu tiền customer khi giao.</li>
+<li>Shipper xác nhận đã thu COD →
+<code>POST /api/community/wallet/confirm-cod</code> → Vạn An tạo
+<strong>6 transactions</strong> (xem README Section 6.2):
+<ul>
+<li>CODCollection (+COD cho shipper)</li>
+<li>Settlement (-COD, chuyển shop)</li>
+<li>DeliveryFee (+delivery fee cho shipper)</li>
+<li>Commission (+commission cho salesman, nếu có)</li>
+<li>PlatformFee (+platform fee cho Vạn An)</li>
+<li>CommunityFund (+community fund)</li>
+</ul></li>
+<li>Shipper nhận <strong>DeliveryFee</strong> (phí giao hàng Vạn An trả)
+— tách khỏi COD.</li>
+</ol>
+<p><strong>Net flow shipper (Reseller):</strong> +DeliveryFee (phí giao
+hàng). COD thu hộ Vạn An, không phải lợi nhuận shipper.</p>
+<h3 id="ui-difference-deliverytracking.razor">9.3. UI difference
+(DeliveryTracking.razor)</h3>
+<pre><code>@if (commerceMode == &quot;Marketplace&quot;)
+{
+    &lt;VanAnButton OnClick=&quot;ConfirmAdvance&quot;&gt;Ứng tiền cho shop&lt;/VanAnButton&gt;
+}
+// Reseller mode: ẩn advance button (Vạn An ứng, không phải shipper)</code></pre>
+<hr />
+<h2 id="ví-wallet-rút-tiền">10. VÍ (WALLET) + RÚT TIỀN</h2>
+<h3 id="xem-ví">10.1. Xem ví</h3>
+<p>Login KhachLink → tab <strong>“Ví”</strong> — hiển thị: - Balance
+hiện tại (VND) - Mode badge (Marketplace/Reseller) - List
+<code>WalletTransaction</code> (immutable ledger — append-only)</p>
+<h3 id="transaction-types-shipper-thấy">10.2. Transaction types shipper
+thấy</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Mode</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CODCollection</td>
+<td>Cả 2</td>
+<td>+COD (thu từ customer)</td>
+</tr>
+<tr>
+<td>AdvancePayment</td>
+<td>Marketplace</td>
+<td>-amount (ứng shop)</td>
+</tr>
+<tr>
+<td>Settlement</td>
+<td>Cả 2</td>
+<td>-amount (trả shop) hoặc +amount (nhận từ Vạn An Reseller)</td>
+</tr>
+<tr>
+<td>DeliveryFee</td>
+<td>Reseller</td>
+<td>+delivery fee (phí giao hàng Vạn An trả)</td>
+</tr>
+<tr>
+<td>Withdrawal</td>
+<td>Cả 2</td>
+<td>-amount (rút tiền)</td>
+</tr>
+<tr>
+<td>Reversal</td>
+<td>Cả 2</td>
+<td>Hoàn giao dịch sai</td>
+</tr>
+</tbody>
+</table>
+<h3 id="rút-tiền">10.3. Rút tiền</h3>
+<p>Tương tự Salesman — KYC bank account + min 500.000đ + balance đủ. Xem
+<a href="./03-salesman.md#72-rút-tiền-withdrawal">Salesman Section
+7.2</a>.</p>
+<h3 id="reversal-pattern">10.4. Reversal pattern</h3>
+<p>Nếu confirm COD sai → KHÔNG update. Tạo
+<code>WalletTransaction(Reversal)</code> amount=-original,
+<code>RelatedTransactionId=original.Id</code>.</p>
+<hr />
+<h2 id="marketplace-vs-reseller-khác-biệt-cho-shipper">11. MARKETPLACE
+VS RESELLER — KHÁC BIỆT CHO SHIPPER</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>Marketplace</th>
+<th>Reseller</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ứng tiền cho shop</strong></td>
+<td>Shipper ứng (AdvancePayment)</td>
+<td>Vạn An ứng — shipper KHÔNG ứng</td>
+</tr>
+<tr>
+<td><strong>COD flow</strong></td>
+<td>Shipper thu hộ → shop nhận trực tiếp</td>
+<td>Shipper thu hộ → Vạn An nhận → phân phối</td>
+</tr>
+<tr>
+<td><strong>Lợi nhuận shipper</strong></td>
+<td>Phí giao hàng (từ Settlement spread)</td>
+<td>DeliveryFee (Vạn An trả riêng)</td>
+</tr>
+<tr>
+<td><strong>Settlement</strong></td>
+<td>Shipper ↔︎ Shop trực tiếp</td>
+<td>Tất cả qua Vạn An wallet</td>
+</tr>
+<tr>
+<td><strong>Advance button UI</strong></td>
+<td>Có</td>
+<td>Ẩn</td>
+</tr>
+<tr>
+<td><strong>Wallet badge</strong></td>
+<td>“Marketplace — Tenant bán trực tiếp”</td>
+<td>“Reseller — Vạn An mua bán”</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="faq">12. FAQ</h2>
+<p><strong>Q: GPS không cập nhật khi tôi tắt app?</strong> A: Đúng. PWA
+chỉ track GPS khi tab active. <strong>Giữ app mở</strong> khi đang giao.
+Thông báo hiển thị trên UI.</p>
+<p><strong>Q: Đơn đã được shipper khác nhận, tôi có nhận được
+không?</strong> A: KHÔNG. Chỉ 1 shipper accept được. Nếu đã accept → 409
+Conflict. Đơn biến mất khỏi Nearby Orders.</p>
+<p><strong>Q: Reseller mode, tôi có cần ứng tiền cho shop
+không?</strong> A: KHÔNG. Vạn An ứng tiền cho shop. Bạn chỉ thu COD +
+nhận DeliveryFee.</p>
+<p><strong>Q: Giao thất bại thì sao?</strong> A: Bấm “Giao thất bại” +
+nhập reason. DeliveryTask=Failed. COD không thu. Nếu đã ứng tiền
+(Marketplace) → liên hệ admin để Reversal.</p>
+<p><strong>Q: Customer không cung cấp vị trí giao hàng?</strong> A:
+OrderDetail hiện “Khách chưa cung cấp vị trí giao hàng — gọi khách để
+xác nhận”. Dùng chat (UC-07) hoặc SĐT để liên hệ.</p>
+<p><strong>Q: Chat có AI chatbot không?</strong> A: KHÔNG. PoC chỉ
+human-to-human chat. AI chatbot là sprint riêng sau PoC.</p>
+<p><strong>Q: Tôi có thể vừa là Shipper vừa là Salesman không?</strong>
+A: CÓ. Một user nhiều role. System Admin kích hoạt từng role.</p>
+<p><strong>Q: Polling GPS 10s tốn battery/data không?</strong> A:
+Adaptive — OutForDelivery 10s, PickedUp 30s. 10 shippers PoC = 60
+req/phút. Giữ tab active khi đang giao, tắt khi Delivered.</p>
+<hr />
+<blockquote>
+<p><strong>Xem thêm:</strong> <a href="./README.md">README index</a> |
+<a href="./07-customer.md">Customer</a> | <a href="./03-salesman.md">Salesman</a> | <a href="./01-systemadmin.md">System Admin</a></p>
+</blockquote>
+</body>
+</html>

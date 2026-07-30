@@ -1,0 +1,171 @@
+@page "/community/active-deliveries"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject CommunityHttpService CommunityHttp
+
+<PageTitle>Đang giao</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-truck text-primary"></i> Đơn hàng đang giao
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem đơn hàng</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_deniedRole)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-shield-x text-warning" style="font-size:3rem;"></i>
+                <h5 class="mt-3">@_errorMessage</h5>
+                <p class="text-muted small">Tài khoản của bạn chưa được cấp quyền Shipper.</p>
+            </VanAnCard>
+        }
+        else if (_deliveries.Count == 0)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-inbox text-muted" style="font-size:3rem;"></i>
+                <p class="mt-3 text-muted">Bạn chưa có đơn hàng nào đang giao.</p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToNearbyOrders">Tìm đơn hàng gần đây</VanAnButton>
+            </VanAnCard>
+        }
+        else
+        {
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <small class="text-muted">
+                    <i class="bi bi-list-check"></i> @_deliveries.Count đơn đang xử lý
+                </small>
+                <button class="btn btn-sm btn-primary" @onclick="LoadDeliveries">
+                    <i class="bi bi-arrow-clockwise"></i> Tải lại
+                </button>
+            </div>
+
+            @foreach (var delivery in _deliveries)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-semibold mb-1">
+                                <i class="bi bi-bag"></i> Đơn #@delivery.OrderId.ToString()[..8]
+                            </div>
+                            <div class="text-muted small">
+                                <span class="badge @GetStatusBadgeClass(delivery.Status)">@GetStatusText(delivery.Status)</span>
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-clock"></i> Nhận lúc: @delivery.AssignedAt.ToLocalTime().ToString("HH:mm dd/MM")
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <button class="btn btn-sm btn-primary"
+                                    @onclick="() => GoToTracking(delivery.OrderId)">
+                                <i class="bi bi-arrow-right"></i> Chi tiết
+                            </button>
+                        </div>
+                    </div>
+                </VanAnCard>
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = true;
+    private bool _deniedRole = false;
+    private string _errorMessage = "";
+    private List<ActiveDeliveryDto> _deliveries = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _isLoggedIn = false;
+                _loading = false;
+                StateHasChanged();
+                return;
+            }
+            await LoadDeliveries();
+        }
+    }
+
+    private async Task LoadDeliveries()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(token))
+            {
+                _isLoggedIn = false;
+                _loading = false;
+                return;
+            }
+
+            var result = await CommunityHttp.GetMyActiveDeliveriesAsync(token);
+
+            if (result.Success)
+            {
+                _deliveries = result.Deliveries;
+            }
+            else
+            {
+                if (result.ErrorCode == 403)
+                {
+                    _deniedRole = true;
+                    _errorMessage = result.ErrorMessage;
+                }
+                _deliveries = new();
+            }
+        }
+        catch (Exception)
+        {
+            _deliveries = new();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToTracking(Guid orderId) => Navigation.NavigateTo($"/community/delivery-tracking/{orderId}", forceLoad: true);
+    private void GoToNearbyOrders() => Navigation.NavigateTo("/community/nearby-orders", forceLoad: true);
+    private void GoToLogin() => Navigation.NavigateTo("/login", forceLoad: true);
+
+    private static string GetStatusText(string status) => status switch
+    {
+        "Assigned" => "Đã nhận đơn",
+        "PickedUp" => "Đã lấy hàng",
+        "OutForDelivery" => "Đang giao",
+        _ => status
+    };
+
+    private static string GetStatusBadgeClass(string status) => status switch
+    {
+        "Assigned" => "bg-info",
+        "PickedUp" => "bg-warning",
+        "OutForDelivery" => "bg-primary",
+        _ => "bg-secondary"
+    };
+}

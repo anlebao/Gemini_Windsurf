@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Hướng dẫn sử dụng Community Commerce — Vạn An Ecosystem</title>
+  <style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+  <style type="text/css">
+@page { margin: 1.5cm 2cm; }
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+font-size: 11pt;
+line-height: 1.55;
+color: #1f2937;
+max-width: 900px;
+margin: 0 auto;
+padding: 2rem 1rem;
+background: #fff;
+}
+h1 {
+font-size: 22pt;
+color: #0f766e;
+border-bottom: 3px solid #0f766e;
+padding-bottom: 0.4rem;
+margin-top: 0;
+}
+h2 {
+font-size: 16pt;
+color: #0f766e;
+border-left: 4px solid #14b8a6;
+padding-left: 0.6rem;
+margin-top: 2rem;
+page-break-after: avoid;
+}
+h3 {
+font-size: 13pt;
+color: #334155;
+margin-top: 1.4rem;
+page-break-after: avoid;
+}
+h4 {
+font-size: 11.5pt;
+color: #475569;
+margin-top: 1rem;
+page-break-after: avoid;
+}
+p { margin: 0.5rem 0; }
+a { color: #0f766e; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+background: #f1f5f9;
+padding: 0.1rem 0.35rem;
+border-radius: 3px;
+font-size: 9.5pt;
+color: #be123c;
+}
+pre {
+background: #0f172a;
+color: #e2e8f0;
+padding: 1rem;
+border-radius: 6px;
+overflow-x: auto;
+font-size: 9.5pt;
+line-height: 1.4;
+}
+pre code { background: transparent; color: inherit; padding: 0; }
+blockquote {
+border-left: 4px solid #14b8a6;
+background: #f0fdfa;
+padding: 0.6rem 1rem;
+margin: 1rem 0;
+color: #134e4a;
+border-radius: 0 4px 4px 0;
+}
+blockquote p { margin: 0.3rem 0; }
+table {
+border-collapse: collapse;
+width: 100%;
+margin: 1rem 0;
+font-size: 10pt;
+page-break-inside: avoid;
+}
+th {
+background: #0f766e;
+color: #fff;
+text-align: left;
+padding: 0.55rem 0.7rem;
+font-weight: 600;
+border: 1px solid #0f766e;
+}
+td {
+padding: 0.5rem 0.7rem;
+border: 1px solid #e2e8f0;
+vertical-align: top;
+}
+tr:nth-child(even) td { background: #f8fafc; }
+tr:hover td { background: #f0fdfa; }
+hr {
+border: none;
+border-top: 1px solid #cbd5e1;
+margin: 2rem 0;
+}
+ul, ol { padding-left: 1.5rem; }
+li { margin: 0.25rem 0; }
+strong { color: #0f172a; }
+
+h2 + ul, h2 + ol { page-break-before: avoid; }
+
+@media print {
+body { font-size: 10pt; max-width: none; padding: 0; }
+h2 { page-break-before: auto; }
+table, pre, blockquote { page-break-inside: avoid; }
+a { color: #0f766e; }
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Hướng dẫn sử dụng Community Commerce — Vạn An
+Ecosystem</h1>
+</header>
+<h1 id="hướng-dẫn-sử-dụng-community-commerce-vạn-an-ecosystem">HƯỚNG DẪN
+SỬ DỤNG COMMUNITY COMMERCE — VẠN AN ECOSYSTEM</h1>
+<blockquote>
+<p><strong>Phiên bản:</strong> PoC v1.5 + Sprint 7 Commerce Mode Toggle
+— cập nhật 2026-07-30 <strong>Áp dụng:</strong> Community Commerce
+Sprint 0-6 (đã deploy + VPS verified) + Sprint 7 Commerce Mode Toggle
+(S1-S4 complete, pending merge/VPS RV) <strong>Phạm vi:</strong> Module
+Shipper/Salesman (Community Commerce) + Commerce Mode Toggle
+(Marketplace ↔︎ Reseller) — “Mua giúp — Bán dùm”. <strong>Nền
+tảng:</strong> KhachLink PWA (Blazor WebAssembly,
+<code>diemthuong.khachvip.online</code>) + ShopERP Admin (Blazor Server,
+<code>khachvip.online</code>).</p>
+</blockquote>
+<hr />
+<h2 id="mục-lục">MỤC LỤC</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Vai trò</th>
+<th>File</th>
+<th>Nền tảng truy cập</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><a href="./01-systemadmin.md">System Admin — Quản trị hệ
+thống</a></td>
+<td><code>01-systemadmin.md</code></td>
+<td>ShopERP Admin (<code>/admin/*</code>) + Gateway Admin API</td>
+</tr>
+<tr>
+<td>2</td>
+<td><a href="./02-owner.md">Shop Owner — Chủ cửa hàng</a></td>
+<td><code>02-owner.md</code></td>
+<td>ShopERP Admin (<code>/admin/*</code>) — tenant của mình</td>
+</tr>
+<tr>
+<td>3</td>
+<td><a href="./03-salesman.md">Salesman — Cộng tác viên bán
+hàng</a></td>
+<td><code>03-salesman.md</code></td>
+<td>KhachLink PWA — tab “Sản phẩm gần”, “Mã QR”, “Doanh số”</td>
+</tr>
+<tr>
+<td>4</td>
+<td><a href="./04-shipper.md">Shipper — Cộng tác viên giao hàng</a></td>
+<td><code>04-shipper.md</code></td>
+<td>KhachLink PWA — tab “Đơn hàng gần”, “Đang giao”, “Ví”</td>
+</tr>
+<tr>
+<td>5</td>
+<td><a href="./05-staff.md">Staff — Nhân viên quầy/POS</a></td>
+<td><code>05-staff.md</code></td>
+<td>ShopERP Admin — POS + Order management</td>
+</tr>
+<tr>
+<td>6</td>
+<td><a href="./06-kitchen.md">Bếp / Kitchen</a></td>
+<td><code>06-kitchen.md</code></td>
+<td>ShopERP Admin — Kitchen Display + KitchenHub</td>
+</tr>
+<tr>
+<td>7</td>
+<td><a href="./07-customer.md">Customer — Khách hàng mua hàng</a></td>
+<td><code>07-customer.md</code></td>
+<td>KhachLink PWA — đăng nhập, đặt hàng, tracking, chat, ví, tích
+điểm</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="tổng-quan-kiến-trúc">1. TỔNG QUAN KIẾN TRÚC</h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│  KhachLink PWA (5002) — Blazor WebAssembly                          │
+│  Customer + Salesman + Shipper (cùng 1 app, role quyết định tab)    │
+│  Auth: X-Customer-Token (token-based, KHÔNG cookie)                 │
+│  GPS: PWA polling 10s/30s (adaptive) khi tab active                 │
+└───────────────┬─────────────────────────────────────────────────────┘
+                │  HTTP + X-Customer-Token header
+                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Gateway (5001) — YARP + Order Creator (Option C)                   │
+│  PG source of truth: Orders + Accounting + Tenants + ShopInstances  │
+│                     + Users + FeaturedProducts + Community entities │
+│  Community entities (PG ONLY): CommunityRole, DeliveryTask,         │
+│    DeliveryTracking, Conversation, Message, SalesReferral,          │
+│    WalletTransaction, ProductReferralConfig, AppInstallAttribution, │
+│    DeviceRegistration, FraudFlag, SystemSetting, ProductCostPrice,  │
+│    CommunityFundSpendRecord                                         │
+└───────────────┬─────────────────────────────────────────────────────┘
+                │  NATS (routed by ShopInstanceId)
+                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ShopERP (5003) — Blazor Server, per-tenant SQLite                  │
+│  Owner + Staff + Kitchen (cookie auth, role claims)                 │
+│  Business data: Products, Kitchen, POS, Accounting (per-tenant)     │
+│  Admin pages: /admin/* (SystemAdmin thấy tất cả, Owner thấy tenant) │
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
+<p><strong>Auth model:</strong> -
+<strong>Customer/Salesman/Shipper:</strong>
+<code>X-Customer-Token</code> (custom token, không cookie) — 1 user có
+thể đồng thời là Buyer + Salesman + Shipper. -
+<strong>Owner/Staff/Kitchen:</strong> Cookie auth + role claims
+(Owner/StoreKeeper/Guard/Staff/Masterchef) — tenant-scoped. -
+<strong>System Admin:</strong> Cookie auth + role = SystemAdmin —
+cross-tenant.</p>
+<hr />
+<h2 id="hai-mô-hình-thương-mại-sprint-7-commerce-mode-toggle">2. HAI MÔ
+HÌNH THƯƠNG MẠI (Sprint 7 — Commerce Mode Toggle)</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Khía cạnh</th>
+<th>Marketplace (mặc định — Sprint 0-6)</th>
+<th>Reseller (mới — Sprint 7)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vai trò Vạn An</strong></td>
+<td>Nền tảng giới thiệu + giao hàng</td>
+<td>Bên mua từ tenant → bán lại cho customer</td>
+</tr>
+<tr>
+<td><strong>Ai định giá</strong></td>
+<td>Tenant tự định giá</td>
+<td>Vạn An định giá bán (cost price từ tenant + margin)</td>
+</tr>
+<tr>
+<td><strong>Dòng tiền COD</strong></td>
+<td>Shipper thu hộ → shop nhận trực tiếp</td>
+<td>Customer trả → Vạn An nhận → Vạn An phân phối</td>
+</tr>
+<tr>
+<td><strong>Commission base</strong></td>
+<td><code>% orderTotal</code></td>
+<td><code>% margin</code> (SellPrice - CostPrice)</td>
+</tr>
+<tr>
+<td><strong>Advance payment</strong></td>
+<td>Shipper ứng tiền cho shop</td>
+<td>Vạn An ứng tiền cho shop (mua trước)</td>
+</tr>
+<tr>
+<td><strong>Settlement</strong></td>
+<td>Shipper ↔︎ Shop trực tiếp</td>
+<td>Tất cả qua Vạn An wallet</td>
+</tr>
+<tr>
+<td><strong>Platform fee</strong></td>
+<td>Không có</td>
+<td>Vạn An giữ margin → phân chia 4 khoản</td>
+</tr>
+<tr>
+<td><strong>Community fund</strong></td>
+<td>Không có</td>
+<td>% margin vào quỹ phát triển cộng đồng</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Toggle mechanism:</strong> Global setting (SystemAdmin) +
+override cấp tenant. Mỗi Order snapshot <code>CommerceMode</code> tại
+creation time — toggle chỉ ảnh hưởng đơn hàng mới.</p>
+<p><strong>Quy tắc ưu tiên mode:</strong> 1.
+<code>TenantSettings.CommerceModeOverride</code> ≠ <code>Inherit</code>
+→ dùng override 2. <code>TenantSettings.CommerceModeOverride</code> ==
+<code>Inherit</code> → dùng <code>GlobalCommerceMode</code> 3. Past
+orders giữ mode snapshot — KHÔNG thay đổi khi toggle</p>
+<hr />
+<h2 id="điều-kiện-kích-hoạt-vai-trò-cộng-tác-viên">3. ĐIỀU KIỆN KÍCH
+HOẠT VAI TRÒ CỘNG TÁC VIÊN</h2>
+<p>Một Customer có thể trở thành Salesman hoặc Shipper khi đạt điều
+kiện. <strong>System Admin</strong> là người kích hoạt.</p>
+<h3 id="khi-collaboratorsmsverificationenabled-off-mặc-định-early-stage">3.1.
+Khi <code>CollaboratorSmsVerificationEnabled = OFF</code> (mặc định —
+early stage)</h3>
+<ul>
+<li><strong>Shipper/Salesman:</strong>
+<code>IdentityLevel ≥ DeviceVerified</code> (device fingerprint pass)
+<strong>HOẶC</strong> <code>IdentityLevel ≥ Verified</code> (SMS OTP) +
+<code>LoyaltyPoints ≥ 1000</code></li>
+<li>Mục tiêu: friction thấp, tối đa hóa số cộng tác viên</li>
+</ul>
+<h3 id="khi-collaboratorsmsverificationenabled-on-scale-đủ">3.2. Khi
+<code>CollaboratorSmsVerificationEnabled = ON</code> (scale đủ)</h3>
+<ul>
+<li><strong>Shipper/Salesman:</strong>
+<code>IdentityLevel ≥ Verified</code> (SMS OTP) <strong>BẮT
+BUỘC</strong> + <code>LoyaltyPoints ≥ 1000</code> +
+<code>CommunityRole.IsPhoneVerified = true</code> + Deposit wallet ≥ phí
+SMS OTP</li>
+<li><strong>Owner:</strong> SMS OTP verify SĐT khi onboarding tenant
+mới</li>
+<li>Phí SMS OTP trừ deposit wallet mỗi lần verify</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý:</strong> Customer KHÔNG bị ảnh hưởng bởi toggle —
+customer luôn optional SMS OTP (device fingerprint là primary).</p>
+</blockquote>
+<h3 id="identitylevel-thứ-bậc-định-danh">3.3. IdentityLevel (thứ bậc
+định danh)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Level</th>
+<th>Giá trị</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Guest</td>
+<td>0</td>
+<td>Khách vãng lai (không token, checkout as guest)</td>
+</tr>
+<tr>
+<td>Social</td>
+<td>1</td>
+<td>Đăng nhập Google/Facebook</td>
+</tr>
+<tr>
+<td>Verified</td>
+<td>2</td>
+<td>SMS OTP verified</td>
+</tr>
+<tr>
+<td>Full</td>
+<td>3</td>
+<td>Full KYC</td>
+</tr>
+<tr>
+<td>DeviceVerified</td>
+<td>4</td>
+<td>Device fingerprint + behavioral check passed (KHÔNG cần SMS)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="anti-fraud-5-lớp-phòng-thủ-self-hosted-zero-external-dependency">4.
+ANTI-FRAUD — 5 LỚP PHÒNG THỦ (Self-hosted, zero external
+dependency)</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Lớp</th>
+<th>Technique</th>
+<th>Phạm vi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Device Fingerprint</strong> — FingerprintJS (MIT, self-host)
+— 15+ signals → SHA256 hash</td>
+<td>80% fraud</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Device Token</strong> — server-signed UUIDv7+HMAC, max 3
+devices/customer</td>
+<td>+10%</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Behavioral rules</strong> — same fingerprint, same IP 24h,
+&gt;3 accounts/device, app-install &lt;30s</td>
+<td>+5%</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Risk Scoring</strong> — deterministic 0-100. Score≥60 → hold
+48h. Score≥80 → auto-reject</td>
+<td>Manual review</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Native App Attestation</strong> (post-PoC, OPTIONAL) — iOS
+App Attest + Android Play Integrity</td>
+<td>+5% VM farm</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Target fraud rate:</strong> &lt;0.5%. <strong>Max 3 active
+devices per Customer</strong> — device thứ 4 yêu cầu admin approval.</p>
+<p><strong>RiskScore factors:</strong>
+salesmanFingerprint==customerFingerprint (+50), same IP 24h (+30),
+customerAgeDays&lt;7 (+30), deviceFirstSeen&lt;24h (+25),
+ordersFromDeviceToday&gt;3 (+20), referralBonusAmount&gt;50K (+15),
+appInstallTime&lt;30s (+40), blacklistedFingerprint (+60).</p>
+<p><strong>Payout policy:</strong> Hold commission/bonus 48h if
+RiskScore≥60. Auto-reject if ≥80. KYC bank account required. Min payout
+500K VND. 3-strike ban.</p>
+<hr />
+<h2 id="salesman-earning-model-2-nguồn-thu">5. SALESMAN EARNING MODEL (2
+nguồn thu)</h2>
+<p>Cả 2 nguồn do <strong>SystemAdmin thiết lập per-product</strong> qua
+<code>ProductReferralConfig</code> (KHÔNG hardcode):</p>
+<ol type="1">
+<li><strong>Commission chốt đơn:</strong> 2-5% giá trị đơn hàng
+(Marketplace: % orderTotal; Reseller: % margin) khi customer đặt hàng
+qua referral code.</li>
+<li><strong>App-install bonus:</strong> Thưởng cố định khi salesman
+thuyết phục customer cài KhachLink PWA. Attribution: customer có
+referralCode trong localStorage khi trigger PWA install event.</li>
+</ol>
+<p><strong>Composite referral code:</strong> Format
+<code>{salesmanCode}|{productShortCode}</code> (vd
+<code>ABC123|TR-001</code>). Customer scan QR 1 lần → lưu cả 2 vào
+localStorage → gửi khi order creation → server resolve salesmanId +
+productId.</p>
+<hr />
+<h2 id="wallet-dòng-tiền">6. WALLET &amp; DÒNG TIỀN</h2>
+<h3 id="wallettransaction-types-immutable-ledger-reversal-pattern">6.1.
+WalletTransaction types (immutable ledger + Reversal pattern)</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Type</th>
+<th>Mode</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CODCollection (1)</td>
+<td>Cả 2</td>
+<td>Shipper thu hộ tiền COD</td>
+</tr>
+<tr>
+<td>AdvancePayment (2)</td>
+<td>Marketplace</td>
+<td>Shipper ứng tiền cho shop</td>
+</tr>
+<tr>
+<td>Commission (3)</td>
+<td>Cả 2</td>
+<td>Hoa hồng salesman</td>
+</tr>
+<tr>
+<td>Withdrawal (4)</td>
+<td>Cả 2</td>
+<td>Salesman/Shipper rút tiền</td>
+</tr>
+<tr>
+<td>Settlement (5)</td>
+<td>Cả 2</td>
+<td>Thanh toán giữa các bên</td>
+</tr>
+<tr>
+<td>Reversal (6)</td>
+<td>Cả 2</td>
+<td>Hoàn giao dịch sai (append-only)</td>
+</tr>
+<tr>
+<td>PlatformFee (7)</td>
+<td>Reseller</td>
+<td>Vạn An giữ margin</td>
+</tr>
+<tr>
+<td>CommunityFund (8)</td>
+<td>Reseller</td>
+<td>Quỹ phát triển cộng đồng</td>
+</tr>
+<tr>
+<td>DeliveryFee (9)</td>
+<td>Reseller</td>
+<td>Phí giao hàng trả shipper</td>
+</tr>
+<tr>
+<td>ExternalPayment (10)</td>
+<td>Reseller</td>
+<td>Customer trả Vạn An qua VietQR/card (non-COD)</td>
+</tr>
+<tr>
+<td>CommunityFundSpend (11)</td>
+<td>Reseller</td>
+<td>SysAdmin rút quỹ tái đầu tư</td>
+</tr>
+</tbody>
+</table>
+<h3 id="reseller-cod-flow-6-transactions">6.2. Reseller COD Flow (6
+transactions)</h3>
+<p>Khi shipper confirm COD trong mode Reseller, Vạn An tạo 6
+transactions: 1. CODCollection (+COD amount vào shipper wallet) 2.
+Settlement (-COD amount, chuyển cho shop) 3. DeliveryFee (+delivery fee
+vào shipper wallet) 4. Commission (+commission vào salesman wallet, nếu
+có) 5. PlatformFee (+platform fee vào platform wallet) 6. CommunityFund
+(+community fund vào community fund wallet)</p>
+<p><strong>Financial balance invariant:</strong> Tổng tất cả tx amounts
+= COD amount collected.</p>
+<hr />
+<h2 id="câu-hỏi-thường-gặp-faq-rút-gọn">7. CÂU HỎI THƯỜNG GẶP (FAQ RÚT
+GỌN)</h2>
+<p><strong>Q: Tôi có thể vừa là Customer vừa là Salesman/Shipper
+không?</strong> A: CÓ. Một user có thể đồng thời là Buyer + Salesman +
+Shipper. Role cộng tác viên do System Admin kích hoạt khi đủ điều kiện
+(xem Section 3).</p>
+<p><strong>Q: GPS tracking có hoạt động khi tắt app không?</strong> A:
+KHÔNG. PWA chỉ track GPS khi tab active. Thông báo “Giữ app mở để cập
+nhật vị trí”. Post-PoC sẽ đánh giá native app cho background GPS.</p>
+<p><strong>Q: Đổi mode Marketplace ↔︎ Reseller có ảnh hưởng đơn cũ
+không?</strong> A: KHÔNG. Mỗi Order snapshot mode tại creation time.
+Toggle chỉ ảnh hưởng đơn hàng mới.</p>
+<p><strong>Q: Customer có bị thu phí SMS OTP không?</strong> A: KHÔNG.
+Customer luôn optional SMS OTP (device fingerprint là primary). Chỉ
+Collaborator (Salesman/Shipper/Owner) mới bị thu phí khi toggle ON.</p>
+<p><strong>Q: Salesman kiếm tiền từ đâu?</strong> A: 2 nguồn —
+commission chốt đơn (2-5%) + app-install bonus. Cả 2 do SystemAdmin set
+per-product.</p>
+<hr />
+<blockquote>
+<p><strong>Xem chi tiết từng vai trò:</strong> Click vào file tương ứng
+trong bảng MỤC LỤC ở đầu trang. <strong>Tài liệu kỹ thuật:</strong>
+<code>docs/AI/tasks/community-commerce-requirements-spec-2c5017.md</code>
+(spec) + <code>community-commerce-master-plan-2c5017.md</code> (plan) +
+<code>commerce-mode-toggle-spec-v2-2c5017.md</code> (Sprint 7).</p>
+</blockquote>
+</body>
+</html>

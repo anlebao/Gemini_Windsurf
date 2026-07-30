@@ -31,7 +31,8 @@ namespace VanAn.CoreHub.Services
         IOrderNotificationService? orderNotificationService = null,
         IShopFeatureSettingsService? shopFeatureSettingsService = null,
         IOutboxRepository? outboxRepository = null,
-        IProductRepository? productRepository = null) : IOrderService
+        IProductRepository? productRepository = null,
+        ICommerceModeService? commerceModeService = null) : IOrderService
     {
         // EXISTING DEPENDENCIES (keep)
         private readonly IOrderRepository _orderRepository = orderRepository;
@@ -59,6 +60,9 @@ namespace VanAn.CoreHub.Services
 
         // Sync: Outbox for publishing OrderCreated events (Gateway → NATS → ShopERP SQLite)
         private readonly IOutboxRepository? _outboxRepository = outboxRepository;
+
+        // Sprint 7: Commerce mode service — resolves Marketplace/Reseller at order creation + snapshots pricing
+        private readonly ICommerceModeService? _commerceModeService = commerceModeService;
 
         /// <summary>
         /// Get today's order count for a specific tenant
@@ -703,6 +707,10 @@ namespace VanAn.CoreHub.Services
                     order.SetTrackingCode(command.TrackingCode.Trim());
                 }
 
+                // Sprint 7: Commerce Mode snapshot — resolve mode for tenant + set Reseller pricing if applicable.
+                // All fields are snapshotted at creation time (immutable for this order's financial flow).
+                await SnapshotCommerceModeAsync(order, tenantId, command.Items);
+
                 // Save order + Outbox event atomically (RC-1 fix: single transaction).
                 // Previously: AddAsync (SaveChangesAsync) then EnqueueAsync + SaveChangesAsync (2nd save).
                 // If 2nd save failed, order was committed but Outbox event was lost → sync never runs.
@@ -826,6 +834,76 @@ namespace VanAn.CoreHub.Services
             _logger.LogWarning("LoadProductsForSnapshotAsync: neither IProductRepository nor IVanAnDbContext available — OrderItem ProductName/VatRate will use factory defaults");
             return [];
         }
+
+        /// <summary>
+        /// Sprint 7: Commerce Mode snapshot — resolves effective mode for tenant at order creation time.
+        /// If Reseller: queries ProductCostPrice per item, calculates CostPrice/SellPrice/Margin,
+        /// gets default rates (PlatformFeeRate, CommunityFundRate, DeliveryFee), and calls SetResellerPricing.
+        /// If Marketplace: no-op (Order.CommerceMode defaults to Marketplace).
+        /// All fields are snapshotted — immutable for this order's financial flow (WalletService reads them at COD/external payment).
+        /// </summary>
+        private async Task SnapshotCommerceModeAsync(Order order, Guid tenantId, List<OrderItemRequest> items)
+        {
+            // If CommerceModeService not wired (unit tests, legacy), skip — order stays Marketplace (default).
+            if (_commerceModeService == null)
+            {
+                _logger.LogDebug("SnapshotCommerceModeAsync: ICommerceModeService not available — order stays Marketplace (default)");
+                return;
+            }
+
+            try
+            {
+                var mode = await _commerceModeService.ResolveModeForTenantAsync(tenantId);
+
+                if (mode != CommerceMode.Reseller)
+                    return; // Marketplace — no snapshot needed (default)
+
+                if (_dbContext == null)
+                {
+                    _logger.LogWarning("SnapshotCommerceModeAsync: Reseller mode but IVanAnDbContext not available — cannot query ProductCostPrice. Order will have null Reseller fields.");
+                    return;
+                }
+
+                // Query ProductCostPrice for each product in the order (cross-tenant — IgnoreQueryFilters)
+                var productIds = items.Select(i => i.ProductId).Distinct().ToList();
+                var tenantIdValue = new TenantId(tenantId);
+
+                var costPriceLookup = await _dbContext.ProductCostPrices
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(p => p.TenantId == tenantIdValue && productIds.Contains(p.ProductId))
+                    .ToDictionaryAsync(p => p.ProductId, p => p.CostPrice);
+
+                // Calculate total CostPrice = sum(qty × costPrice per product)
+                decimal totalCostPrice = 0m;
+                foreach (var item in items)
+                {
+                    if (costPriceLookup.TryGetValue(item.ProductId, out var cp))
+                        totalCostPrice += item.Quantity * cp;
+                }
+
+                // SellPrice = order.TotalAmount (what customer pays for products — SubTotal + VAT)
+                decimal sellPrice = order.TotalAmount;
+                decimal platformMargin = sellPrice - totalCostPrice;
+
+                // Get default rates (PlatformFeeRate, CommunityFundRate, DeliveryFee) from SystemSetting
+                var (platformFeeRate, communityFundRate, deliveryFee) = await _commerceModeService.GetDefaultRatesAsync();
+
+                // Snapshot all Reseller pricing fields on the order
+                order.SetResellerPricing(totalCostPrice, sellPrice, platformMargin, deliveryFee, platformFeeRate, communityFundRate);
+
+                _logger.LogInformation(
+                    "SnapshotCommerceModeAsync: Order {OrderId} snapshotted as Reseller — CostPrice={CostPrice} SellPrice={SellPrice} Margin={Margin} DeliveryFee={DeliveryFee} PlatformFeeRate={PlatformFeeRate} CommunityFundRate={CommunityFundRate}",
+                    order.Id, totalCostPrice, sellPrice, platformMargin, deliveryFee, platformFeeRate, communityFundRate);
+            }
+            catch (Exception ex)
+            {
+                // Non-fatal: if snapshot fails, order stays Marketplace (default) — financial flow degrades gracefully.
+                // Logged as Error so admin can investigate — but order creation should not fail due to commerce mode snapshot issue.
+                _logger.LogError(ex, "SnapshotCommerceModeAsync: Failed to snapshot commerce mode for order {OrderId} tenant {TenantId} — order stays Marketplace (default)", order.Id, tenantId);
+            }
+        }
+
         /// <summary>
         /// Phase 3.5: MarkPaidAsync — sets order status=Paid + optionally enqueues OrderPaymentConfirmed Outbox event.
         /// Called by Gateway WebhookController (enqueuePaymentConfirmedEvent=true) → NATS → ShopERP PaymentConfirmedSubscriber.

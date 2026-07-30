@@ -125,6 +125,38 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
     }
 
     /// <summary>
+    /// Sprint 7: GET /api/community/commerce-mode — customer-facing global commerce mode.
+    /// Returns "Marketplace" or "Reseller" for UI badge + price display.
+    /// </summary>
+    public async Task<CommerceModeResult> GetCommerceModeAsync(string customerToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/community/commerce-mode");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            if (!resp.IsSuccessStatusCode)
+                return new CommerceModeResult { Success = false };
+
+            var body = await resp.Content.ReadAsStringAsync();
+            var data = System.Text.Json.JsonSerializer.Deserialize<CommerceModeResponse>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return new CommerceModeResult
+            {
+                Success = true,
+                GlobalMode = data?.GlobalMode ?? "Marketplace",
+                IsReseller = data?.IsReseller ?? false
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetCommerceModeAsync failed");
+            return new CommerceModeResult { Success = false };
+        }
+    }
+
+    /// <summary>
     /// CC-S4 (Sprint 4): GET /api/community/salesman/qr?productId={id} — composite QR code.
     /// </summary>
     public async Task<CompositeSalesmanQrDto?> GetSalesmanQrAsync(string customerToken, Guid productId)
@@ -256,6 +288,43 @@ public class CommunityHttpService(IHttpClientFactory httpClientFactory, ILogger<
         {
             _logger.LogError(ex, "GetNearbyOrdersAsync failed");
             return new NearbyOrdersResult { Success = false, ErrorMessage = "Lỗi kết nối." };
+        }
+    }
+
+    /// <summary>
+    /// GET /api/community/my-deliveries
+    /// Returns the shipper's active delivery tasks (Assigned/PickedUp/OutForDelivery).
+    /// </summary>
+    public async Task<MyDeliveriesResult> GetMyActiveDeliveriesAsync(string customerToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/community/my-deliveries");
+            request.Headers.Add("X-Customer-Token", customerToken);
+
+            var resp = await _httpClient.SendAsync(request);
+            var body = await resp.Content.ReadAsStringAsync();
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var deliveries = System.Text.Json.JsonSerializer.Deserialize<List<ActiveDeliveryDto>>(body,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? new List<ActiveDeliveryDto>();
+                return new MyDeliveriesResult { Success = true, Deliveries = deliveries };
+            }
+
+            var err = System.Text.Json.JsonSerializer.Deserialize<ErrorResponse>(body);
+            return new MyDeliveriesResult
+            {
+                Success = false,
+                ErrorCode = (int)resp.StatusCode,
+                ErrorMessage = err?.Error ?? $"Lỗi {resp.StatusCode}"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GetMyActiveDeliveriesAsync failed");
+            return new MyDeliveriesResult { Success = false, ErrorMessage = "Lỗi kết nối." };
         }
     }
 
@@ -462,6 +531,24 @@ public class AcceptOrderResult
     public string ErrorMessage { get; set; } = string.Empty;
 }
 
+public class MyDeliveriesResult
+{
+    public bool Success { get; set; }
+    public List<ActiveDeliveryDto> Deliveries { get; set; } = new();
+    public int ErrorCode { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+}
+
+public class ActiveDeliveryDto
+{
+    public Guid OrderId { get; set; }
+    public Guid DeliveryTaskId { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime AssignedAt { get; set; }
+    public DateTime? PickedUpAt { get; set; }
+    public DateTime? OutForDeliveryAt { get; set; }
+}
+
 public class AcceptSuccessResponse
 {
     public Guid DeliveryTaskId { get; set; }
@@ -472,6 +559,19 @@ public class AcceptSuccessResponse
 public class ErrorResponse
 {
     public string? Error { get; set; }
+}
+
+public class CommerceModeResult
+{
+    public bool Success { get; set; }
+    public string GlobalMode { get; set; } = "Marketplace";
+    public bool IsReseller { get; set; }
+}
+
+public class CommerceModeResponse
+{
+    public string GlobalMode { get; set; } = "Marketplace";
+    public bool IsReseller { get; set; }
 }
 
 public class RoleResponse
