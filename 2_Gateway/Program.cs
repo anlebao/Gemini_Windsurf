@@ -256,6 +256,9 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommerceModeService, VanAn.CoreHub.Services.CommerceModeService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICommunityFundService, VanAn.CoreHub.Services.CommunityFundService>();
 
+            // CC-S6-T5 — Collaborator SMS OTP + Deposit Wallet (toggle-gated)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.ICollaboratorVerificationService, VanAn.CoreHub.Services.CollaboratorVerificationService>();
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();

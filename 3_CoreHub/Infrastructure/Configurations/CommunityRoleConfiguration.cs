@@ -18,6 +18,9 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.ActivatedAt).IsRequired();
             _ = builder.Property(e => e.IsActive).IsRequired();
             _ = builder.Property(e => e.SalesmanCode).HasMaxLength(10);
+            // CC-S6-T5: SMS OTP phone verification fields
+            _ = builder.Property(e => e.IsPhoneVerified).IsRequired().HasDefaultValue(false);
+            _ = builder.Property(e => e.PhoneVerifiedAt);
             // Filtered unique index — only non-null SalesmanCode values are unique (Shipper has null)
             _ = builder.HasIndex(e => e.SalesmanCode)
                 .IsUnique()

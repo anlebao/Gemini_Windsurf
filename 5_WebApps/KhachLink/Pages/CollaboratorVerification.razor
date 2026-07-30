@@ -1,0 +1,233 @@
+@page "/collaborator-verification"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IJSRuntime JSRuntime
+@inject CollaboratorVerificationHttpService VerificationHttp
+
+<PageTitle>Xác minh số điện thoại</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:500px;">
+        <h3 class="mb-3">
+            <i class="bi bi-phone text-primary"></i> Xác minh số điện thoại
+        </h3>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xác minh</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (!_status.SmsVerificationEnabled)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-4">
+                <i class="bi bi-info-circle text-info" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Xác minh SMS chưa bật</h5>
+                <p class="text-muted">Hiện tại xác minh SMS không bắt buộc. Bạn có thể tiếp tục sử dụng các tính năng cộng tác viên.</p>
+            </VanAnCard>
+        }
+        else if (!_status.VerificationRequired)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-4">
+                <i class="bi bi-check-circle text-success" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đã xác minh</h5>
+                <p class="text-muted">Số điện thoại của bạn đã được xác minh.</p>
+            </VanAnCard>
+        }
+        else
+        {
+            @if (!string.IsNullOrEmpty(_alertMessage))
+            {
+                <div class="alert @(_alertSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+                    @_alertMessage
+                    <button type="button" class="btn-close" @onclick="() => _alertMessage = string.Empty"></button>
+                </div>
+            }
+
+            @if (_step == "phone")
+            {
+                <VanAnCard Shadow="true" CssClass="p-4">
+                    <div class="mb-3">
+                        <label class="form-label">Số điện thoại</label>
+                        <input type="tel" class="form-control" placeholder="0912345678" value="@_phoneNumber"
+                               @oninput="e => _phoneNumber = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="text-muted small mb-3">
+                        Phí SMS: @_status.FeePerVerification.ToString("N0")đ — sẽ trừ từ ví deposit.
+                        Số dư tối thiểu: @_status.MinDeposit.ToString("N0")đ.
+                    </div>
+                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="SendOtp" Disabled="@_isBusy">
+                        @(_isBusy ? "Đang gửi..." : "Gửi mã OTP")
+                    </VanAnButton>
+                </VanAnCard>
+            }
+            else if (_step == "otp")
+            {
+                <VanAnCard Shadow="true" CssClass="p-4">
+                    <p class="text-muted">Nhập mã OTP 6 số đã gửi đến <strong>@_phoneNumber</strong></p>
+                    <div class="mb-3">
+                        <input type="text" class="form-control text-center" style="font-size:1.5rem; letter-spacing:0.5rem; max-width:250px; margin:0 auto;"
+                               placeholder="000000" maxlength="6" value="@_otpCode"
+                               @oninput="e => _otpCode = e.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="d-flex gap-2">
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="VerifyOtp" Disabled="@_isBusy">
+                            @(_isBusy ? "Đang xác minh..." : "Xác minh")
+                        </VanAnButton>
+                        <VanAnButton Variant="ButtonVariant.Secondary" OnClick="BackToPhone" Disabled="@_isBusy">
+                            Quay lại
+                        </VanAnButton>
+                    </div>
+                </VanAnCard>
+            }
+            else if (_step == "success")
+            {
+                <VanAnCard Shadow="true" CssClass="text-center p-4">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size:3rem;"></i>
+                    <h5 class="mt-3">Xác minh thành công!</h5>
+                    <p class="text-muted">Số điện thoại @(_phoneNumber) đã được xác minh.</p>
+                </VanAnCard>
+            }
+
+            @if (_step == "phone" && _status.MinDeposit > 0)
+            {
+                <VanAnCard Shadow="true" CssClass="mt-3 p-3">
+                    <h6><i class="bi bi-wallet2"></i> Nạp tiền deposit</h6>
+                    <p class="text-muted small">Nạp tiền vào ví để trả phí SMS OTP.</p>
+                    <div class="input-group mb-2">
+                        <input type="number" class="form-control" placeholder="Số tiền (VND)" value="@_depositAmount"
+                               @oninput="e => _depositAmount = decimal.TryParse(e.Value?.ToString(), out var val) ? val : 0m" />
+                        <VanAnButton Variant="ButtonVariant.Success" OnClick="Deposit" Disabled="@_isBusy">Nạp</VanAnButton>
+                    </div>
+                </VanAnCard>
+            }
+        }
+    </div>
+</KhachLinkLayout>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn = false;
+    private string? _customerToken;
+    private CollaboratorVerificationHttpService.VerificationStatusResult _status = new();
+    private string _step = "phone";
+    private string _phoneNumber = string.Empty;
+    private string _otpCode = string.Empty;
+    private decimal _depositAmount;
+    private bool _isBusy;
+    private string _alertMessage = string.Empty;
+    private bool _alertSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customerToken");
+        if (string.IsNullOrEmpty(_customerToken))
+        {
+            _isLoggedIn = false;
+            _loading = false;
+            return;
+        }
+        _isLoggedIn = true;
+
+        _status = await VerificationHttp.GetStatusAsync(_customerToken);
+        _loading = false;
+    }
+
+    private async Task SendOtp()
+    {
+        if (string.IsNullOrWhiteSpace(_phoneNumber))
+        {
+            _alertMessage = "Vui lòng nhập số điện thoại.";
+            _alertSuccess = false;
+            return;
+        }
+
+        _isBusy = true;
+        _alertMessage = string.Empty;
+
+        var result = await VerificationHttp.InitVerificationAsync(_customerToken!, _phoneNumber);
+        if (result.Success)
+        {
+            _step = "otp";
+            _alertMessage = result.Message;
+            _alertSuccess = true;
+        }
+        else
+        {
+            _alertMessage = result.ErrorMessage;
+            _alertSuccess = false;
+        }
+
+        _isBusy = false;
+    }
+
+    private async Task VerifyOtp()
+    {
+        if (string.IsNullOrWhiteSpace(_otpCode) || _otpCode.Length != 6)
+        {
+            _alertMessage = "Vui lòng nhập mã OTP 6 số.";
+            _alertSuccess = false;
+            return;
+        }
+
+        _isBusy = true;
+        _alertMessage = string.Empty;
+
+        var result = await VerificationHttp.VerifyOtpAsync(_customerToken!, _otpCode);
+        if (result.Success)
+        {
+            _step = "success";
+            _alertMessage = string.Empty;
+        }
+        else
+        {
+            _alertMessage = result.ErrorMessage;
+            _alertSuccess = false;
+        }
+
+        _isBusy = false;
+    }
+
+    private async Task Deposit()
+    {
+        if (_depositAmount <= 0)
+        {
+            _alertMessage = "Số tiền phải lớn hơn 0.";
+            _alertSuccess = false;
+            return;
+        }
+
+        _isBusy = true;
+        var result = await VerificationHttp.DepositAsync(_customerToken!, _depositAmount);
+        if (result.Success)
+        {
+            _alertMessage = $"Đã nạp {_depositAmount.ToString("N0")}đ vào ví.";
+            _alertSuccess = true;
+            _depositAmount = 0;
+        }
+        else
+        {
+            _alertMessage = result.ErrorMessage;
+            _alertSuccess = false;
+        }
+        _isBusy = false;
+    }
+
+    private void BackToPhone()
+    {
+        _step = "phone";
+        _otpCode = string.Empty;
+        _alertMessage = string.Empty;
+    }
+
+    private void GoToLogin() => _ = JSRuntime.InvokeAsync<object>("localStorage.setItem", "redirectAfterLogin", "/collaborator-verification");
+}

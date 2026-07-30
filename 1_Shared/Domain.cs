@@ -3214,7 +3214,10 @@ namespace VanAn.Shared.Domain
         CommunityFund = 8,       // Reseller: quỹ phát triển cộng đồng
         DeliveryFee = 9,         // Reseller: phí giao shipper (tách khỏi COD)
         ExternalPayment = 10,    // Q5 — non-COD Reseller: customer trả Vạn An qua VietQR/card
-        CommunityFundSpend = 11  // Q3 — community fund disbursement (SysAdmin rút tiền tái đầu tư)
+        CommunityFundSpend = 11, // Q3 — community fund disbursement (SysAdmin rút tiền tái đầu tư)
+        // CC-S6-T5 — Collaborator SMS OTP + Deposit Wallet
+        Deposit = 12,            // Collaborator nạp tiền vào ví (deposit for SMS OTP fees)
+        SmsOtpFee = 13           // SMS OTP verification fee deducted from deposit wallet
     }
 
     public enum CommissionStatus
@@ -3284,6 +3287,9 @@ namespace VanAn.Shared.Domain
         public DateTime? DeactivatedAt { get; protected set; }
         public bool IsActive { get; protected set; } = true;
         public string? SalesmanCode { get; protected set; }
+        // CC-S6-T5: SMS OTP phone verification (toggle-gated)
+        public bool IsPhoneVerified { get; protected set; }
+        public DateTime? PhoneVerifiedAt { get; protected set; }
 
         protected CommunityRole() { }
 
@@ -3303,6 +3309,17 @@ namespace VanAn.Shared.Domain
         {
             IsActive = false;
             DeactivatedAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        /// <summary>
+        /// CC-S6-T5: Mark phone as verified via SMS OTP.
+        /// Called after successful OTP verification when toggle is ON.
+        /// </summary>
+        public void MarkPhoneVerified()
+        {
+            IsPhoneVerified = true;
+            PhoneVerifiedAt = DateTime.UtcNow;
             UpdateAudit();
         }
 

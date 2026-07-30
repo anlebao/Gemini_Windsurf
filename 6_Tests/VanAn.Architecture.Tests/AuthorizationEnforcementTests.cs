@@ -155,7 +155,10 @@ public class AuthorizationEnforcementTests
             "CommunityController",
             // CC-S6 (Sprint 6): Platform-level SystemAdmin endpoints — method-level [Authorize(Policy="SystemAdmin")] with Bearer scheme
             "CommunityAdminController",
-            "FraudFlagController"
+            "FraudFlagController",
+            // CC-S6-T5: Collaborator verification — admin endpoints use method-level [Authorize(Policy="SystemAdmin")],
+            // collaborator endpoints use X-Customer-Token header auth (like CommunityController)
+            "CollaboratorVerificationController"
         };
 
         var controllers = GetControllers(GatewayAssembly)

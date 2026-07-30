@@ -1,0 +1,171 @@
+@page "/admin/collaborator-verification"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using CollaboratorVerificationSettingsDto = VanAn.ShopERP.Services.CollaboratorVerificationSettingsDto
+@inject CollaboratorVerificationApiClient VerificationApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<CollaboratorVerification> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="collaborator-verification-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Xác minh SMS Cộng tác viên</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <VanACard Header="Cài đặt xác minh SMS">
+            <div class="form-group">
+                <label>
+                    <strong>Trạng thái:</strong>
+                    @if (_settings?.Enabled == true)
+                    {
+                        <span class="badge badge-success">Đã bật (ON)</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-secondary">Đã tắt (OFF)</span>
+                    }
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label for="toggle-enabled">Bật xác minh SMS cho cộng tác viên</label>
+                <select id="toggle-enabled" class="vanan-select" value="@_formEnabled"
+                        @onchange="@(e => _formEnabled = e.Value?.ToString() == "True")"
+                        aria-label="Toggle SMS verification">
+                    <option value="False" selected="@(!_formEnabled)">Tắt (OFF) — mặc định</option>
+                    <option value="True" selected="@_formEnabled">Bật (ON) — bắt buộc SMS OTP</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <VanAInput Id="fee-per-verification" Label="Phí SMS mỗi lần xác minh (VND)"
+                           Value="@_formFeePerVerification.ToString()"
+                           ValueChanged="v => _formFeePerVerification = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+
+            <div class="form-group">
+                <VanAInput Id="min-deposit" Label="Số dư tối thiểu (VND)"
+                           Value="@_formMinDeposit.ToString()"
+                           ValueChanged="v => _formMinDeposit = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+
+            <div class="form-actions">
+                <VanAButton Variant="primary" OnClick="SaveSettings" Disabled="@_isSaving">
+                    @(_isSaving ? "Đang lưu..." : "Lưu cài đặt")
+                </VanAButton>
+            </div>
+        </VanACard>
+
+        <VanACard Header="Thông tin">
+            <ul class="info-list">
+                <li><strong>Khi bật (ON):</strong> Salesman, Shipper, và Owner bắt buộc xác minh số điện thoại qua SMS OTP.</li>
+                <li><strong>Phí SMS:</strong> Trừ từ ví deposit của cộng tác viên mỗi lần gửi OTP.</li>
+                <li><strong>Số dư tối thiểu:</strong> Cộng tác viên phải nạp tối thiểu số này mới có thể gửi OTP.</li>
+                <li><strong>Giới hạn:</strong> Tối đa 3 OTP / 24 giờ (chống spam).</li>
+                <li><strong>Khi tắt (OFF):</strong> Xác minh thiết bị (Device Fingerprint) là đủ — không cần SMS.</li>
+                <li><strong>Lưu ý:</strong> Đổi điểm khách hàng KHÔNG bao giờ yêu cầu SMS OTP (luôn miễn phí).</li>
+            </ul>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private CollaboratorVerificationSettingsDto? _settings;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private bool _formEnabled;
+    private decimal _formFeePerVerification = 200m;
+    private decimal _formMinDeposit = 10000m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _settings = await VerificationApi.GetSettingsAsync();
+            _formEnabled = _settings.Enabled;
+            _formFeePerVerification = _settings.FeePerVerification;
+            _formMinDeposit = _settings.MinDeposit;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load collaborator verification settings");
+            _alertMessage = "Không thể tải cài đặt. Vui lòng thử lại.";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (_formFeePerVerification < 0)
+        {
+            _alertMessage = "Phí SMS không được âm.";
+            _alertType = "error";
+            return;
+        }
+        if (_formMinDeposit < 0)
+        {
+            _alertMessage = "Số dư tối thiểu không được âm.";
+            _alertType = "error";
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            await VerificationApi.UpdateSettingsAsync(_formEnabled, _formFeePerVerification, _formMinDeposit);
+            _alertMessage = "Đã lưu cài đặt thành công.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save collaborator verification settings");
+            _alertMessage = "Lỗi khi lưu. Vui lòng thử lại.";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

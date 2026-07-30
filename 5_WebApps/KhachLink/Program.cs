@@ -74,6 +74,8 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.Http.CommunityHttpService>();
             _ = builder.Services.AddScoped<Services.Http.ChatHttpService>();
             _ = builder.Services.AddScoped<Services.Http.WalletHttpService>();
+            // CC-S6-T5 — Collaborator SMS OTP verification
+            _ = builder.Services.AddScoped<Services.Http.CollaboratorVerificationHttpService>();
             _ = builder.Services.AddScoped<Services.LocationTrackingService>();
 
             // Register Recently Viewed Service + LastInteractionService
