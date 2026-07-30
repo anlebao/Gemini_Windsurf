@@ -1,10 +1,11 @@
-# Commerce Mode Toggle — Spec v2.0 (Sprint 7)
+# Commerce Mode Toggle — Spec v2.1 (Sprint 7)
 
 **Nguyên tắc cốt lõi:** "Mua giúp — Bán dùm". Vạn An mua hàng hóa từ tenant rồi bán lại cho khách hàng cuối. Vạn An quyết định tỷ lệ phân chia lợi nhuận thành: chi phí bán hàng (salesman), chi phí giao hàng (shipper), chi phí nền tảng hạ tầng, quỹ phát triển cộng đồng.
 
 **Cơ chế:** Toggle toàn cục (Global) + override cấp tenant. SysAdmin thiết lập mode mặc định cho toàn platform. Tenant cụ thể có thể override (ví dụ: tenant lớn giữ Marketplace, tenant nhỏ dùng Reseller).
 
 > **Revision history**
+> - v2.1 — 2026-07-30 — ANALYZE phase complete. Fixed 2 spec errors (WalletTransactionType count, DeliveryFee vs ShippingFee). Resolved Q1-Q5. Full scope: Q3 (community fund management) + Q5 (non-COD Reseller) included. Added ProductCostPrice + CommunityFundSpendRecord entities. Enum values renumbered 7-11. ~24 tests, 4 sessions, 18 VPS RV checks.
 > - v2.0 — 2026-07-30 — Initial draft. Bổ sung Commerce Mode Toggle (Marketplace ↔ Reseller) lên nền tảng Community Commerce đã deploy (Sprint 0-6). Additive — không phá existing data/logic. Past orders giữ mode snapshot tại creation time.
 
 ---
@@ -93,23 +94,27 @@ Order (existing, add fields):
 - `TotalAmount` giữ nguyên — Marketplace mode: `TotalAmount` = giá customer trả. Reseller mode: `TotalAmount` = `SellPrice` (alias, cùng giá trị).
 - Tất cả field mới nullable (trừ `CommerceMode`) — Marketplace orders có `CostPrice = null`.
 - Snapshot tại creation: không thay đổi khi toggle sau đó.
+- **`DeliveryFee` vs `ShippingFee` (v2.1 correction):** Order đã có `ShippingFee` (line 1498 — tenant-set delivery cost, Marketplace). `DeliveryFee` (new) = VanAn's fee paid to shipper in Reseller mode. Distinct semantics, separate columns. Per user decision D1 (2026-07-30).
 
 ### 2.3 WalletTransactionType bổ sung (enum append)
 
 ```csharp
-WalletTransactionType (existing 8 + new 3):
+WalletTransactionType (existing 6 + new 5):
+// VERIFIED 2026-07-30: actual code has 6 values (not 8 as v2.0 claimed).
+// Deposit=7/SmsOtpFee=8 belong to CC-S6-T5 (not yet implemented).
 - CODCollection = 1     // (existing) Marketplace: shipper thu hộ
 - AdvancePayment = 2    // (existing) Marketplace: shipper ứng
 - Commission = 3        // (existing) cả 2 mode
 - Withdrawal = 4        // (existing)
 - Settlement = 5        // (existing) Marketplace: shipper↔shop. Reseller: Vạn An↔shop
 - Reversal = 6          // (existing)
-- Deposit = 7           // (v1.5)
-- SmsOtpFee = 8         // (v1.5)
-- PlatformFee = 9       // (MỚI) Reseller: Vạn An giữ margin
-- CommunityFund = 10    // (MỚI) Reseller: quỹ phát triển cộng đồng
-- DeliveryFee = 11      // (MỚI) Reseller: phí giao hàng trả shipper (tách khỏi COD)
+- PlatformFee = 7       // (MỚI) Reseller: Vạn An giữ margin
+- CommunityFund = 8     // (MỚI) Reseller: quỹ phát triển cộng đồng
+- DeliveryFee = 9       // (MỚI) Reseller: phí giao hàng trả shipper (tách khỏi COD)
+- ExternalPayment = 10  // (MỚI, Q5) non-COD Reseller: customer trả Vạn An qua VietQR/card
+- CommunityFundSpend = 11 // (MỚI, Q3) community fund disbursement (SysAdmin rút tiền tái đầu tư)
 ```
+**Coordination note:** If CC-S6-T5 (SMS OTP toggle) lands first, it takes 7=Deposit, 8=SmsOtpFee, and Sprint 7 renumbers to 9-13.
 
 ### 2.4 ProductReferralConfig bổ sung
 
@@ -137,15 +142,14 @@ TenantSettings (existing value object, add field):
 ### 2.6 Global Setting (SystemSetting — MỚI entity hoặc config)
 
 ```csharp
-// Option A: SystemSetting entity (key-value table)
-SystemSetting : BaseEntity
-- Key (string, unique) — vd "GlobalCommerceMode"
-- Value (string) — vd "Marketplace" / "Reseller"
+// Option A: SystemSetting entity (key-value table) — APPROVED
+SystemSetting : BaseEntity, IMustHaveTenant (TenantId nullable — global settings)
+- Key (string, unique, 100 chars)
+- Value (string, 500 chars)
 - UpdatedAt (DateTime?)
 - UpdatedBy (Guid?)
 
-// Option B: hardcode trong appsettings.json + IOptions pattern
-// Khuyến nghị: Option A (entity) — vì cần admin UI toggle runtime, không restart
+// Option B: hardcode trong appsettings.json + IOptions pattern — REJECTED (no runtime toggle)
 ```
 
 **Settings cần thiết:**
@@ -153,6 +157,32 @@ SystemSetting : BaseEntity
 - `DefaultPlatformFeeRate` (decimal, default 0.30 = 30% margin Vạn An giữ)
 - `DefaultCommunityFundRate` (decimal, default 0.05 = 5% margin vào quỹ)
 - `DefaultDeliveryFee` (decimal, default 15000 = 15K VND per order)
+
+### 2.7 ProductCostPrice entity (MỚI — Q1 resolution)
+
+```csharp
+ProductCostPrice : BaseEntity, IMustHaveTenant
+- ProductId (Guid) — FK reference (Product lives in ShopERP SQLite; this entity in Gateway PG)
+- TenantId (Guid) — which tenant this cost price applies to
+- CostPrice (decimal) — giá Vạn An mua từ tenant (negotiated offline)
+- UpdatedAt (DateTime?)
+- UpdatedBy (Guid?)
+// Unique index on (TenantId, ProductId)
+// Van An admin sets via POST /api/admin/product-cost-price. Tenant negotiates offline.
+```
+
+### 2.8 CommunityFundSpendRecord entity (MỚI — Q3 resolution)
+
+```csharp
+CommunityFundSpendRecord : BaseEntity, IMustHaveTenant (TenantId = Guid.Empty — system-wide)
+- Amount (decimal) — số tiền rút từ quỹ
+- Reason (string, 500 chars) — lý do chi (vd: "Tài trợ sự kiện cộng đồng X")
+- Recipient (string, 200 chars) — người nhận / đối tác
+- ApprovedBy (Guid) — SystemAdmin userId
+- SpentAt (DateTime)
+- WalletTransactionId (Guid) — FK to WalletTransaction (CommunityFundSpend tx)
+// Audit trail for community fund disbursements.
+```
 
 ---
 
@@ -627,15 +657,15 @@ INSERT INTO "SystemSettings" ("Id", "Key", "Value") VALUES
 
 ---
 
-## 12. Open Questions
+## 12. Open Questions (RESOLVED 2026-07-30 in ANALYZE phase)
 
-| # | Question | Status |
+| # | Question | Resolution |
 |---|---|---|
-| Q1 | CostPrice lấy từ đâu? Tenant tự nhập qua admin UI, hay Vạn An query product price từ tenant SQLite? | OPEN — cần quyết định: PoC có thể tenant nhập manual qua admin API. Scale: NATS query product price. |
-| Q2 | Platform fee rate: global only hay per-tenant? | OPEN — spec hiện tại global + tenant override mode, nhưng fee rate chỉ global. Có cần per-tenant fee rate? |
-| Q3 | Community fund wallet: ai quản lý? SysAdmin rút tiền để tái đầu tư cộng đồng? | OPEN — cần UC riêng cho community fund management (withdraw + spend). Defer to Sprint 8+. |
-| Q4 | Reseller mode + COD: shipper thu COD = SellPrice + DeliveryFee, hay chỉ SellPrice? | OPEN — customer trả cả hàng + ship? Hay ship tính riêng? |
-| Q5 | Reseller mode + non-COD payment (VietQR, credit card): Vạn An nhận trực tiếp, flow thế nào? | OPEN — hiện tại chỉ spec COD. Non-COD cần spec riêng. |
+| Q1 | CostPrice lấy từ đâu? | **RESOLVED — Manual via Gateway admin API.** Van An admin sets CostPrice per product via `POST /api/admin/product-cost-price`. Stored in new `ProductCostPrice` table in PG. Tenant negotiates offline. NATS query = Sprint 8+ scale. |
+| Q2 | Platform fee rate: global only hay per-tenant? | **RESOLVED — Global only.** One `DefaultPlatformFeeRate` in SystemSetting. Per-tenant = Sprint 8+ if demand. |
+| Q3 | Community fund wallet: ai quản lý? | **RESOLVED — Included in Sprint 7 (full scope).** `POST /api/admin/community-fund/spend` + balance + history endpoints. `CommunityFundSpendRecord` audit entity. SysAdmin can disburse for community reinvestment. |
+| Q4 | Reseller COD: shipper thu = SellPrice + DeliveryFee? | **RESOLVED — Yes, customer pays both.** COD amount = SellPrice + DeliveryFee. Shipper collects both; system splits into 5 tx. |
+| Q5 | Reseller + non-COD payment (VietQR, credit card)? | **RESOLVED — Included in Sprint 7 (full scope).** `POST /api/community/wallet/confirm-external-payment`. Van An receives payment externally, confirms via endpoint → 5-split (no CODCollection tx). `ExternalPayment=10` enum value. |
 
 ---
 
