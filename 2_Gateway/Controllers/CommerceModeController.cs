@@ -95,6 +95,44 @@ namespace VanAn.Gateway.Controllers
             return Ok(new { tenantId, resolvedMode = mode.ToString() });
         }
 
+        /// <summary>
+        /// Sprint 7 Q5: POST /api/admin/commerce-mode/confirm-external-payment
+        /// Vạn An confirms external payment (non-COD Reseller — VietQR/card) for an order.
+        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
+        /// Auth: SystemAdmin Bearer JWT (Vạn An staff confirms after VietQR webhook or manual check).
+        /// </summary>
+        [HttpPost("confirm-external-payment")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> ConfirmExternalPayment([FromBody] ConfirmExternalPaymentRequest body,
+            [FromServices] IWalletService walletService)
+        {
+            if (body == null || body.OrderId == Guid.Empty)
+                return BadRequest(new { error = "OrderId không hợp lệ." });
+            if (body.Amount <= 0)
+                return BadRequest(new { error = "Amount phải lớn hơn 0." });
+            if (string.IsNullOrWhiteSpace(body.PaymentRef))
+                return BadRequest(new { error = "PaymentRef không được để trống." });
+
+            try
+            {
+                var tx = await walletService.ConfirmExternalPaymentAsync(body.OrderId, body.Amount, body.PaymentRef);
+                return Ok(new { transactionId = tx.Id, balanceAfter = tx.BalanceAfter });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error confirming external payment for order {OrderId}", body.OrderId);
+                return StatusCode(500, new { error = "Lỗi server." });
+            }
+        }
+
         private Guid GetAdminUserId()
         {
             var userIdClaim = User.FindFirst("sub")?.Value
@@ -116,5 +154,13 @@ namespace VanAn.Gateway.Controllers
     public class SetTenantOverrideRequest
     {
         public string OverrideMode { get; set; } = string.Empty;
+    }
+
+    /// <summary>Sprint 7 Q5: External payment confirmation request (non-COD Reseller).</summary>
+    public class ConfirmExternalPaymentRequest
+    {
+        public Guid OrderId { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentRef { get; set; } = string.Empty;
     }
 }

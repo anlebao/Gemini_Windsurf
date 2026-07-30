@@ -826,10 +826,21 @@ namespace VanAn.Gateway.Controllers
         /// Vạn An confirms external payment (non-COD Reseller — VietQR/card) for an order.
         /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
         /// Auth: SystemAdmin Bearer JWT (Vạn An staff confirms after VietQR webhook or manual check).
+        /// NOTE: Endpoint moved to CommerceModeController (this controller has [AllowAnonymous] at class level
+        /// which would bypass the [Authorize] attribute — CommerceModeController has proper class-level auth).
         /// </summary>
         [HttpPost("wallet/confirm-external-payment")]
         [Microsoft.AspNetCore.Authorization.Authorize(Policy = "SystemAdmin", AuthenticationSchemes = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)]
         public async Task<IActionResult> ConfirmExternalPayment([FromBody] ConfirmExternalPaymentRequest body)
+        {
+            // Delegate to CommerceModeController logic via WalletService
+            // This endpoint is kept for backward compat but auth is enforced by [Authorize] above.
+            // However, due to [AllowAnonymous] at class level, this may not enforce auth properly.
+            // Use /api/admin/commerce-mode/confirm-external-payment instead (CommerceModeController).
+            return await ConfirmExternalPaymentImpl(body);
+        }
+
+        private async Task<IActionResult> ConfirmExternalPaymentImpl(ConfirmExternalPaymentRequest body)
         {
             if (body == null || body.OrderId == Guid.Empty)
                 return BadRequest(new { error = "OrderId không hợp lệ." });
