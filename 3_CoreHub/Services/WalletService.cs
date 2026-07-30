@@ -179,7 +179,15 @@ namespace VanAn.CoreHub.Services
             if (order.CodAmount.HasValue && order.CodAmount.Value != amount)
                 throw new InvalidOperationException($"Amount {amount} does not match Order.CodAmount {order.CodAmount.Value}.");
 
-            // 5. Create CODCollection tx for shipper (+amount)
+            // 5. Branch by CommerceMode (Sprint 7)
+            if (order.CommerceMode == CommerceMode.Reseller)
+            {
+                return await ConfirmCodResellerAsync(shipperId, order, amount);
+            }
+
+            // === Marketplace path (existing Sprint 5 logic) ===
+
+            // 6. Create CODCollection tx for shipper (+amount)
             var shipperTx = await CreateTransactionAsync(
                 shipperId,
                 WalletTransactionType.CODCollection,
@@ -187,7 +195,7 @@ namespace VanAn.CoreHub.Services
                 $"COD collection for order {orderId}",
                 orderId);
 
-            // 6. Create Settlement tx for shop (-amount) — shop wallet owner = TenantId
+            // 7. Create Settlement tx for shop (-amount) — shop wallet owner = TenantId
             var shopOwnerId = order.TenantId.Value;
             await CreateTransactionAsync(
                 shopOwnerId,
@@ -197,12 +205,132 @@ namespace VanAn.CoreHub.Services
                 orderId,
                 shipperTx.Id);
 
-            // 7. Mark order COD collected
+            // 8. Mark order COD collected
             order.MarkCodCollected(amount);
             await _dbContext.SaveChangesAsync();
 
             _logger.LogInformation("COD confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
                 orderId, shipperId, amount);
+
+            return shipperTx;
+        }
+
+        /// <summary>
+        /// Sprint 7 — Reseller COD confirmation. 6 tx (5-split + CODCollection).
+        /// COD collected = CostPrice + DeliveryFee + Commission + PlatformFee + CommunityFund.
+        /// Vạn An là trung gian — phân phối toàn bộ dòng tiền.
+        /// </summary>
+        private async Task<WalletTransaction> ConfirmCodResellerAsync(Guid shipperId, Order order, decimal codAmount)
+        {
+            var orderId = order.Id;
+            var tenantId = order.TenantId.Value;
+            var margin = order.PlatformMargin ?? 0m;
+            var costPrice = order.CostPrice ?? 0m;
+            var deliveryFee = order.DeliveryFee ?? 0m;
+            var platformFeeRate = order.PlatformFeeRate ?? 0m;
+            var communityFundRate = order.CommunityFundRate ?? 0m;
+
+            var platformFee = margin * platformFeeRate;
+            var communityFund = margin * communityFundRate;
+            // Commission: only if salesman referred this order. Loaded from SalesReferral if exists.
+            decimal commission = 0m;
+            Guid? salesmanId = order.SalesmanId;
+            if (salesmanId.HasValue)
+            {
+                // Commission = margin × CommissionRate (OnMargin base for Reseller)
+                // CommissionRate from ProductReferralConfig — loaded by SalesmanService.CreateCommissionAsync
+                // Here we just reserve the amount; actual commission tx created by SalesmanService
+                // For financial balance check, we compute expected commission
+                var config = await _dbContext.ProductReferralConfigs
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.ProductId == order.ReferralProductId && c.IsActive);
+                if (config != null)
+                {
+                    commission = margin * config.CommissionRate;
+                }
+            }
+
+            // Financial balance invariant: costPrice + deliveryFee + commission + platformFee + communityFund = codAmount
+            // Note: codAmount = SellPrice + DeliveryFee (customer pays both)
+            // SellPrice = CostPrice + Margin → codAmount = CostPrice + Margin + DeliveryFee
+            // margin = platformFee + communityFund + commission + vanAnNetProfit
+            // So: costPrice + deliveryFee + commission + platformFee + communityFund = costPrice + deliveryFee + margin = codAmount ✓
+            // (assuming commission + platformFee + communityFund ≤ margin; remainder = VanAn net profit kept in PlatformWallet)
+
+            // 1. CODCollection (+codAmount, shipper) — shipper thu hộ
+            var shipperTx = await CreateTransactionAsync(
+                shipperId,
+                WalletTransactionType.CODCollection,
+                codAmount,
+                $"COD collection for order {orderId} (Reseller)",
+                orderId);
+
+            // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
+            await CreateTransactionAsync(
+                tenantId,
+                WalletTransactionType.Settlement,
+                costPrice,
+                $"Cost price settlement for order {orderId} (Reseller — Vạn An mua từ tenant)",
+                orderId,
+                shipperTx.Id);
+
+            // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper phí giao
+            if (deliveryFee > 0)
+            {
+                await CreateTransactionAsync(
+                    shipperId,
+                    WalletTransactionType.DeliveryFee,
+                    deliveryFee,
+                    $"Delivery fee for order {orderId} (Reseller)",
+                    orderId,
+                    shipperTx.Id);
+            }
+
+            // 4. Commission (+commission, salesman) — Vạn An trả salesman (if referral)
+            // Note: Commission tx created here for Reseller mode (in Marketplace, SalesmanService creates it separately)
+            if (commission > 0 && salesmanId.HasValue)
+            {
+                await CreateTransactionAsync(
+                    salesmanId.Value,
+                    WalletTransactionType.Commission,
+                    commission,
+                    $"Commission for order {orderId} (Reseller — OnMargin)",
+                    orderId,
+                    shipperTx.Id);
+            }
+
+            // 5. PlatformFee (+platformFee, PlatformWallet) — Vạn An giữ margin share
+            if (platformFee > 0)
+            {
+                await CreateTransactionAsync(
+                    SystemWalletIds.PlatformWallet,
+                    WalletTransactionType.PlatformFee,
+                    platformFee,
+                    $"Platform fee for order {orderId} (Reseller — {platformFeeRate:P1} of margin)",
+                    orderId,
+                    shipperTx.Id);
+            }
+
+            // 6. CommunityFund (+communityFund, CommunityFundWallet) — quỹ cộng đồng
+            if (communityFund > 0)
+            {
+                await CreateTransactionAsync(
+                    SystemWalletIds.CommunityFund,
+                    WalletTransactionType.CommunityFund,
+                    communityFund,
+                    $"Community fund for order {orderId} (Reseller — {communityFundRate:P1} of margin)",
+                    orderId,
+                    shipperTx.Id);
+            }
+
+            // 7. Mark order COD collected
+            order.MarkCodCollected(codAmount);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "COD confirmed (Reseller): Order={OrderId} Shipper={ShipperId} COD={CodAmount} CostPrice={CostPrice} DeliveryFee={DeliveryFee} Commission={Commission} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
+                orderId, shipperId, codAmount, costPrice, deliveryFee, commission, platformFee, communityFund);
 
             return shipperTx;
         }
@@ -230,8 +358,41 @@ namespace VanAn.CoreHub.Services
             if (deliveryTask == null)
                 throw new UnauthorizedAccessException($"Caller is not the shipper of order {orderId}.");
 
-            // 3. Create AdvancePayment tx for shipper (-amount — shipper paid cash, wallet goes negative)
-            var advanceTx = await CreateTransactionAsync(
+            // 3. Branch by CommerceMode (Sprint 7)
+            if (order.CommerceMode == CommerceMode.Reseller)
+            {
+                // Reseller: Vạn An ứng tiền cho tenant (not shipper).
+                // Shipper still calls this endpoint (auth verification), but the actual advance
+                // is from PlatformWallet → tenant. Shipper just triggers the flow.
+                var tenantId = order.TenantId.Value;
+
+                // AdvancePayment (-amount, PlatformWallet) — Vạn An ứng
+                var advanceTx = await CreateTransactionAsync(
+                    SystemWalletIds.PlatformWallet,
+                    WalletTransactionType.AdvancePayment,
+                    -amount,
+                    $"Advance payment to tenant for order {orderId} (Reseller — Vạn An ứng)",
+                    orderId);
+
+                // Settlement (+amount, tenant) — tenant nhận
+                await CreateTransactionAsync(
+                    tenantId,
+                    WalletTransactionType.Settlement,
+                    amount,
+                    $"Advance received from Vạn An for order {orderId} (Reseller)",
+                    orderId,
+                    advanceTx.Id);
+
+                _logger.LogInformation("Advance confirmed (Reseller): Order={OrderId} Amount={Amount} (Vạn An → tenant)",
+                    orderId, amount);
+
+                return advanceTx;
+            }
+
+            // === Marketplace path (existing Sprint 5 logic) ===
+
+            // 4. Create AdvancePayment tx for shipper (-amount — shipper paid cash, wallet goes negative)
+            var marketplaceAdvanceTx = await CreateTransactionAsync(
                 shipperId,
                 WalletTransactionType.AdvancePayment,
                 -amount,
@@ -241,7 +402,7 @@ namespace VanAn.CoreHub.Services
             _logger.LogInformation("Advance confirmed: Order={OrderId} Shipper={ShipperId} Amount={Amount}",
                 orderId, shipperId, amount);
 
-            return advanceTx;
+            return marketplaceAdvanceTx;
         }
 
         /// <summary>
@@ -361,6 +522,172 @@ namespace VanAn.CoreHub.Services
                 originalTransactionId, reversalTx.Id);
 
             return reversalTx;
+        }
+
+        /// <summary>
+        /// Sprint 7 Q5: Confirm external payment (non-COD Reseller — VietQR/card).
+        /// Reseller only — rejects Marketplace orders.
+        /// Creates 5-split: ExternalPayment + Settlement + DeliveryFee + Commission? + PlatformFee + CommunityFund.
+        /// </summary>
+        public async Task<WalletTransaction> ConfirmExternalPaymentAsync(Guid orderId, decimal amount, string paymentRef)
+        {
+            if (string.IsNullOrWhiteSpace(paymentRef))
+                throw new ArgumentException("PaymentRef cannot be empty", nameof(paymentRef));
+
+            var order = await _dbContext.Orders
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+
+            if (order == null)
+                throw new InvalidOperationException($"Order {orderId} not found.");
+
+            if (order.CommerceMode != CommerceMode.Reseller)
+                throw new InvalidOperationException($"Order {orderId} is not Reseller mode — external payment not applicable.");
+
+            if (order.CodCollectedAt != null)
+                throw new InvalidOperationException($"Order {orderId} already paid (COD collected).");
+
+            // Verify amount = SellPrice + DeliveryFee
+            var expectedAmount = (order.SellPrice ?? 0m) + (order.DeliveryFee ?? 0m);
+            if (amount != expectedAmount)
+                throw new InvalidOperationException($"Amount {amount} does not match expected SellPrice+DeliveryFee {expectedAmount}.");
+
+            var tenantId = order.TenantId.Value;
+            var margin = order.PlatformMargin ?? 0m;
+            var costPrice = order.CostPrice ?? 0m;
+            var deliveryFee = order.DeliveryFee ?? 0m;
+            var platformFeeRate = order.PlatformFeeRate ?? 0m;
+            var communityFundRate = order.CommunityFundRate ?? 0m;
+
+            var platformFee = margin * platformFeeRate;
+            var communityFund = margin * communityFundRate;
+
+            // Commission (if salesman referral)
+            decimal commission = 0m;
+            Guid? salesmanId = order.SalesmanId;
+            if (salesmanId.HasValue)
+            {
+                var config = await _dbContext.ProductReferralConfigs
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.ProductId == order.ReferralProductId && c.IsActive);
+                if (config != null)
+                {
+                    commission = margin * config.CommissionRate;
+                }
+            }
+
+            // 1. ExternalPayment (+amount, PlatformWallet) — customer pays Vạn An
+            var externalTx = await CreateTransactionAsync(
+                SystemWalletIds.PlatformWallet,
+                WalletTransactionType.ExternalPayment,
+                amount,
+                $"External payment for order {orderId} (Ref: {paymentRef})",
+                orderId);
+
+            // 2. Settlement (+costPrice, tenant) — Vạn An trả tenant giá vốn
+            await CreateTransactionAsync(
+                tenantId,
+                WalletTransactionType.Settlement,
+                costPrice,
+                $"Cost price settlement for order {orderId} (Reseller — external payment)",
+                orderId,
+                externalTx.Id);
+
+            // 3. DeliveryFee (+deliveryFee, shipper) — Vạn An trả shipper
+            if (deliveryFee > 0)
+            {
+                // ShipperId from DeliveryTask
+                var deliveryTask = await _dbContext.DeliveryTasks
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.OrderId == orderId);
+                if (deliveryTask != null)
+                {
+                    await CreateTransactionAsync(
+                        deliveryTask.ShipperId,
+                        WalletTransactionType.DeliveryFee,
+                        deliveryFee,
+                        $"Delivery fee for order {orderId} (Reseller — external payment)",
+                        orderId,
+                        externalTx.Id);
+                }
+            }
+
+            // 4. Commission (+commission, salesman)
+            if (commission > 0 && salesmanId.HasValue)
+            {
+                await CreateTransactionAsync(
+                    salesmanId.Value,
+                    WalletTransactionType.Commission,
+                    commission,
+                    $"Commission for order {orderId} (Reseller — external payment, OnMargin)",
+                    orderId,
+                    externalTx.Id);
+            }
+
+            // 5. PlatformFee (+platformFee, PlatformWallet)
+            if (platformFee > 0)
+            {
+                await CreateTransactionAsync(
+                    SystemWalletIds.PlatformWallet,
+                    WalletTransactionType.PlatformFee,
+                    platformFee,
+                    $"Platform fee for order {orderId} (Reseller — external payment, {platformFeeRate:P1} of margin)",
+                    orderId,
+                    externalTx.Id);
+            }
+
+            // 6. CommunityFund (+communityFund, CommunityFundWallet)
+            if (communityFund > 0)
+            {
+                await CreateTransactionAsync(
+                    SystemWalletIds.CommunityFund,
+                    WalletTransactionType.CommunityFund,
+                    communityFund,
+                    $"Community fund for order {orderId} (Reseller — external payment, {communityFundRate:P1} of margin)",
+                    orderId,
+                    externalTx.Id);
+            }
+
+            // Mark order as paid (use CodCollectedAt as payment confirmation marker)
+            order.MarkCodCollected(amount);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "External payment confirmed (Reseller): Order={OrderId} Amount={Amount} Ref={PaymentRef} CostPrice={CostPrice} DeliveryFee={DeliveryFee} Commission={Commission} PlatformFee={PlatformFee} CommunityFund={CommunityFund}",
+                orderId, amount, paymentRef, costPrice, deliveryFee, commission, platformFee, communityFund);
+
+            return externalTx;
+        }
+
+        /// <summary>
+        /// Sprint 7 Q3: Spend from community fund (SysAdmin disbursement).
+        /// Creates CommunityFundSpend tx (-amount on CommunityFundWallet).
+        /// Audit record created by CommunityFundService.SpendAsync (separate concern).
+        /// </summary>
+        public async Task<WalletTransaction> SpendCommunityFundAsync(decimal amount, string reason, Guid approvedBy)
+        {
+            if (amount <= 0)
+                throw new ArgumentException("Amount must be positive", nameof(amount));
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Reason cannot be empty", nameof(reason));
+
+            var balance = await GetBalanceAsync(SystemWalletIds.CommunityFund);
+            if (amount > balance)
+                throw new InvalidOperationException($"Số dư quỹ cộng đồng không đủ. Current balance: {balance:N0}, requested: {amount:N0}");
+
+            var spendTx = await CreateTransactionAsync(
+                SystemWalletIds.CommunityFund,
+                WalletTransactionType.CommunityFundSpend,
+                -amount, // negative = money out
+                $"Community fund spend: {reason} (approved by {approvedBy})",
+                null);
+
+            _logger.LogInformation("Community fund spent: Amount={Amount} Reason={Reason} ApprovedBy={ApprovedBy}",
+                amount, reason, approvedBy);
+
+            return spendTx;
         }
     }
 }

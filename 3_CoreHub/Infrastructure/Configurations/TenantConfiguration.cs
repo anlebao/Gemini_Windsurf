@@ -73,6 +73,13 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 settings.Property(s => s.Theme)
                     .HasColumnName("Settings_Theme")
                     .HasConversion<int>();
+                // Sprint 7 — Commerce Mode override (enum → int, default Inherit=-1)
+                // No HasDefaultValue — field initializer in TenantSettings sets Inherit.
+                // HasDefaultValue would cause sentinel issue: Marketplace=0 (CLR default) → EF skips UPDATE.
+                settings.Property(s => s.CommerceModeOverride)
+                    .HasColumnName("Settings_CommerceModeOverride")
+                    .HasConversion<int>()
+                    .IsRequired();
             });
 
             // Audit fields from BaseEntity

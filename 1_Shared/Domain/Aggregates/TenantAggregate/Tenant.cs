@@ -200,6 +200,20 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
         }
 
         /// <summary>
+        /// Sprint 7 — Set commerce mode override for this tenant.
+        /// Inherit = use global setting. Marketplace/Reseller = ép mode cho tenant này.
+        /// Affects future orders only (past orders keep snapshot).
+        /// </summary>
+        public void UpdateCommerceModeOverride(CommerceMode mode)
+        {
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot update commerce mode override of an inactive tenant.");
+
+            Settings = Settings.WithCommerceModeOverride(mode);
+            UpdateAudit();
+        }
+
+        /// <summary>
         /// W8 (H4 deferred from W2): Set TenantType + AccountingStandard for feature flag routing.
         /// Used to classify existing tenants created via CreateCompany (which doesn't set Type).
         /// Cannot change Type of an already-classified tenant (one-way classification).

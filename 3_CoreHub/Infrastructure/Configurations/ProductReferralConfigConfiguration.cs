@@ -18,6 +18,7 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.CommissionRate).HasPrecision(18, 4).IsRequired();
             _ = builder.Property(e => e.AppInstallBonus).HasPrecision(18, 2).IsRequired();
             _ = builder.Property(e => e.IsActive).IsRequired();
+            _ = builder.Property(e => e.CommissionBase).HasConversion<int>().HasDefaultValue(CommissionBase.OnOrderTotal);
             _ = builder.Property(e => e.TenantId).IsRequired();
             _ = builder.HasIndex(e => e.ProductId).IsUnique(); // 1 config per product
             // Filtered unique index — only non-null ProductShortCode values are unique within tenant

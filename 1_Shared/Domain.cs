@@ -1499,6 +1499,16 @@ namespace VanAn.Shared.Domain
         public decimal DiscountAmount { get; protected set; } = 0;
         public decimal TotalAmount { get; protected set; } = 0;
 
+        // Sprint 7 — Commerce Mode Toggle (additive, nullable except CommerceMode)
+        // Snapshot tại creation time — toggle affect future orders only
+        public CommerceMode CommerceMode { get; protected set; } = CommerceMode.Marketplace;
+        public decimal? CostPrice { get; protected set; }       // Reseller: giá Vạn An mua từ tenant
+        public decimal? SellPrice { get; protected set; }       // Reseller: giá Vạn An bán cho customer
+        public decimal? PlatformMargin { get; protected set; }  // Reseller: SellPrice - CostPrice
+        public decimal? DeliveryFee { get; protected set; }     // Reseller: phí giao hàng Vạn An trả shipper (distinct from ShippingFee)
+        public decimal? PlatformFeeRate { get; protected set; } // Reseller: % margin Vạn An giữ (snapshot từ config)
+        public decimal? CommunityFundRate { get; protected set; } // Reseller: % margin vào quỹ cộng đồng (snapshot)
+
         // Payment Information
         public string? PaymentMethod { get; protected set; } // CASH, VIETQR, CREDIT_CARD
         public string? PaymentStatus { get; protected set; } = "Pending"; // Pending, Paid, Failed, Refunded
@@ -1607,6 +1617,34 @@ namespace VanAn.Shared.Domain
         {
             Status = status;
             UpdateAudit();
+        }
+
+        /// <summary>
+        /// Sprint 7 — Set Reseller pricing snapshot at order creation time.
+        /// Called by OrderService when CommerceMode resolves to Reseller.
+        /// All fields snapshot — không thay đổi khi toggle/cost price update sau.
+        /// </summary>
+        public void SetResellerPricing(
+            decimal costPrice,
+            decimal sellPrice,
+            decimal platformMargin,
+            decimal deliveryFee,
+            decimal platformFeeRate,
+            decimal communityFundRate)
+        {
+            if (costPrice < 0) throw new ArgumentOutOfRangeException(nameof(costPrice), "CostPrice cannot be negative");
+            if (sellPrice < 0) throw new ArgumentOutOfRangeException(nameof(sellPrice), "SellPrice cannot be negative");
+            if (deliveryFee < 0) throw new ArgumentOutOfRangeException(nameof(deliveryFee), "DeliveryFee cannot be negative");
+            if (platformFeeRate < 0 || platformFeeRate > 1) throw new ArgumentOutOfRangeException(nameof(platformFeeRate), "PlatformFeeRate must be 0-1");
+            if (communityFundRate < 0 || communityFundRate > 1) throw new ArgumentOutOfRangeException(nameof(communityFundRate), "CommunityFundRate must be 0-1");
+
+            CommerceMode = CommerceMode.Reseller;
+            CostPrice = costPrice;
+            SellPrice = sellPrice;
+            PlatformMargin = platformMargin;
+            DeliveryFee = deliveryFee;
+            PlatformFeeRate = platformFeeRate;
+            CommunityFundRate = communityFundRate;
         }
 
         public void UpdateOrderDetails(OrderStatusId status, DateTime orderDate, string? deliveryAddress, string? notes)
@@ -3170,7 +3208,13 @@ namespace VanAn.Shared.Domain
         Commission = 3,
         Withdrawal = 4,
         Settlement = 5,
-        Reversal = 6 // v1.1 NEW — negating entry for wrong COD amount
+        Reversal = 6, // v1.1 NEW — negating entry for wrong COD amount
+        // Sprint 7 — Reseller mode (additive)
+        PlatformFee = 7,         // Reseller: Vạn An giữ margin
+        CommunityFund = 8,       // Reseller: quỹ phát triển cộng đồng
+        DeliveryFee = 9,         // Reseller: phí giao shipper (tách khỏi COD)
+        ExternalPayment = 10,    // Q5 — non-COD Reseller: customer trả Vạn An qua VietQR/card
+        CommunityFundSpend = 11  // Q3 — community fund disbursement (SysAdmin rút tiền tái đầu tư)
     }
 
     public enum CommissionStatus
@@ -3470,6 +3514,23 @@ namespace VanAn.Shared.Domain
             UpdateAudit();
         }
 
+        /// <summary>
+        /// Sprint 7 — Attach to order with explicit commission base (OnOrderTotal vs OnMargin).
+        /// OnOrderTotal: commission = orderTotal × rate (Marketplace — existing behavior).
+        /// OnMargin: commission = margin × rate (Reseller — margin = SellPrice - CostPrice).
+        /// </summary>
+        public void AttachToOrder(Guid orderId, Guid customerId, decimal orderTotal, decimal margin, CommissionBase commissionBase, decimal commissionRate)
+        {
+            OrderId = orderId;
+            ReferredCustomerId = customerId;
+            CommissionRate = commissionRate; // snapshot từ ProductReferralConfig
+            CommissionAmount = commissionBase == CommissionBase.OnMargin
+                ? margin * commissionRate
+                : orderTotal * commissionRate;
+            CommissionStatus = CommissionStatus.Pending;
+            UpdateAudit();
+        }
+
         public void MarkCommissionPaid()
         {
             CommissionStatus = CommissionStatus.Paid;
@@ -3573,10 +3634,11 @@ namespace VanAn.Shared.Domain
         public decimal CommissionRate { get; protected set; } // 2-5% (0.02m - 0.05m), do sysadmin set
         public decimal AppInstallBonus { get; protected set; } // bonus cố định khi customer cài app qua referral
         public bool IsActive { get; protected set; } = true;
+        public CommissionBase CommissionBase { get; protected set; } = CommissionBase.OnOrderTotal; // Sprint 7 — OnOrderTotal (Marketplace) vs OnMargin (Reseller)
 
         protected ProductReferralConfig() { }
 
-        public ProductReferralConfig(TenantId tenantId, Guid productId, decimal commissionRate, decimal appInstallBonus, string? productShortCode = null)
+        public ProductReferralConfig(TenantId tenantId, Guid productId, decimal commissionRate, decimal appInstallBonus, string? productShortCode = null, CommissionBase commissionBase = CommissionBase.OnOrderTotal)
             : base(tenantId)
         {
             if (commissionRate < 0.02m || commissionRate > 0.05m)
@@ -3587,10 +3649,11 @@ namespace VanAn.Shared.Domain
             CommissionRate = commissionRate;
             AppInstallBonus = appInstallBonus;
             ProductShortCode = productShortCode;
+            CommissionBase = commissionBase;
             IsActive = true;
         }
 
-        public void Update(decimal commissionRate, decimal appInstallBonus, string? productShortCode, bool isActive)
+        public void Update(decimal commissionRate, decimal appInstallBonus, string? productShortCode, bool isActive, CommissionBase? commissionBase = null)
         {
             if (commissionRate < 0.02m || commissionRate > 0.05m)
                 throw new ArgumentOutOfRangeException(nameof(commissionRate), "CommissionRate must be between 0.02 and 0.05 (2-5%)");
@@ -3599,6 +3662,8 @@ namespace VanAn.Shared.Domain
             CommissionRate = commissionRate;
             AppInstallBonus = appInstallBonus;
             ProductShortCode = productShortCode;
+            if (commissionBase.HasValue)
+                CommissionBase = commissionBase.Value;
             IsActive = isActive;
             UpdateAudit();
         }

@@ -1,0 +1,237 @@
+@page "/admin/commerce-mode"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.ShopERP.Services
+@using CommerceModeSettingsDto = VanAn.ShopERP.Services.CommerceModeSettingsDto
+@using TenantOverrideItem = VanAn.ShopERP.Services.TenantOverrideItem
+@inject CommerceModeApiClient CommerceModeApi
+@inject IThemeProvider ThemeProvider
+@inject ILogger<CommerceMode> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="commerce-mode-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Commerce Mode Toggle</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadData">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        <!-- Global Mode Section -->
+        <VanACard Header="Chế độ toàn cục (Global Commerce Mode)">
+            <div class="form-group">
+                <label><strong>Chế độ hiện tại:</strong> @(_settings?.GlobalMode ?? "Marketplace")</label>
+            </div>
+            <div class="form-group">
+                <label for="global-mode">Chế độ mới *</label>
+                <select id="global-mode" class="vanan-select" value="@_formGlobalMode"
+                        @onchange="@(e => _formGlobalMode = e.Value?.ToString() ?? "Marketplace")"
+                        aria-label="Global mode">
+                    <option value="Marketplace" selected="@(_formGlobalMode == "Marketplace")">Marketplace (Shop bán trực tiếp)</option>
+                    <option value="Reseller" selected="@(_formGlobalMode == "Reseller")">Reseller (Vạn An là trung gian)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <VanAInput Id="platform-fee-rate" Label="Platform Fee Rate (0-1, vd 0.30 = 30%)"
+                           Value="@_formPlatformFeeRate.ToString()"
+                           ValueChanged="v => _formPlatformFeeRate = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+            <div class="form-group">
+                <VanAInput Id="community-fund-rate" Label="Community Fund Rate (0-1, vd 0.05 = 5%)"
+                           Value="@_formCommunityFundRate.ToString()"
+                           ValueChanged="v => _formCommunityFundRate = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+            <div class="form-group">
+                <VanAInput Id="delivery-fee" Label="Delivery Fee (VND)"
+                           Value="@_formDeliveryFee.ToString()"
+                           ValueChanged="v => _formDeliveryFee = decimal.TryParse(v, out var val) ? val : 0m" />
+            </div>
+            <small class="text-muted">Lưu ý: Thay đổi chỉ ảnh hưởng đơn hàng mới. Đơn hàng đã tạo giữ snapshot.</small>
+            <div class="form-actions">
+                <VanAButton Variant="primary" OnClick="SaveGlobalMode">
+                    Lưu Global Mode
+                </VanAButton>
+            </div>
+        </VanACard>
+
+        <!-- Tenant Overrides Section -->
+        <VanACard Header="@($"Tenant Overrides ({_settings?.TenantOverrides.Count ?? 0})")">
+            @if (_settings?.TenantOverrides.Count > 0)
+            {
+                <table class="vanan-table">
+                    <thead>
+                        <tr>
+                            <th>Tenant</th>
+                            <th>Override</th>
+                            <th>Resolved Mode</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in _settings!.TenantOverrides)
+                        {
+                            <tr>
+                                <td><strong>@t.TenantName</strong></td>
+                                <td>
+                                    <span class="status-badge status-@(t.Override == "Inherit" ? "active" : "inactive")">
+                                        @t.Override
+                                    </span>
+                                </td>
+                                <td>@t.ResolvedMode</td>
+                                <td class="action-cell">
+                                    <VanAButton Variant="outline" Size="small" OnClick="() => OpenOverrideModal(t)">
+                                        Đặt Override
+                                    </VanAButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p>Chưa có tenant nào.</p>
+            }
+        </VanACard>
+    }
+</div>
+
+<!-- Override Modal -->
+@if (_showOverrideModal)
+{
+    <VanAModal Title="@($"Đặt Commerce Mode Override cho {_overrideTarget?.TenantName}")"
+               IsVisible="true" OnClose="CloseOverrideModal" Size="small">
+        <Body>
+            <div class="form-group">
+                <label for="override-mode">Chế độ override *</label>
+                <select id="override-mode" class="vanan-select" value="@_overrideMode"
+                        @onchange="@(e => _overrideMode = e.Value?.ToString() ?? "Inherit")"
+                        aria-label="Override mode">
+                    <option value="Inherit" selected="@(_overrideMode == "Inherit")">Inherit (dùng global)</option>
+                    <option value="Marketplace" selected="@(_overrideMode == "Marketplace")">Marketplace (ép)</option>
+                    <option value="Reseller" selected="@(_overrideMode == "Reseller")">Reseller (ép)</option>
+                </select>
+            </div>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="CloseOverrideModal">Huỷ</VanAButton>
+            <VanAButton Variant="primary" OnClick="SaveOverride">Lưu</VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
+@code {
+    private bool _isLoading = true;
+    private CommerceModeSettingsDto? _settings;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    // Global mode form
+    private string _formGlobalMode = "Marketplace";
+    private decimal _formPlatformFeeRate = 0.30m;
+    private decimal _formCommunityFundRate = 0.05m;
+    private decimal _formDeliveryFee = 15000m;
+
+    // Override modal
+    private bool _showOverrideModal;
+    private TenantOverrideItem? _overrideTarget;
+    private string _overrideMode = "Inherit";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _settings = await CommerceModeApi.GetSettingsAsync();
+            _formGlobalMode = _settings.GlobalMode;
+            _formPlatformFeeRate = _settings.DefaultPlatformFeeRate;
+            _formCommunityFundRate = _settings.DefaultCommunityFundRate;
+            _formDeliveryFee = _settings.DefaultDeliveryFee;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load commerce mode settings");
+            _alertMessage = $"Lỗi tải dữ liệu: {ex.Message}";
+            _alertType = "error";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveGlobalMode()
+    {
+        try
+        {
+            await CommerceModeApi.SetGlobalModeAsync(_formGlobalMode, _formPlatformFeeRate, _formCommunityFundRate, _formDeliveryFee);
+            _alertMessage = "Đã lưu global mode thành công.";
+            _alertType = "success";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi lưu: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+
+    private void OpenOverrideModal(TenantOverrideItem tenant)
+    {
+        _overrideTarget = tenant;
+        _overrideMode = tenant.Override;
+        _showOverrideModal = true;
+    }
+
+    private void CloseOverrideModal()
+    {
+        _showOverrideModal = false;
+        _overrideTarget = null;
+    }
+
+    private async Task SaveOverride()
+    {
+        if (_overrideTarget == null) return;
+        try
+        {
+            await CommerceModeApi.SetTenantOverrideAsync(_overrideTarget.TenantId, _overrideMode);
+            _alertMessage = $"Đã lưu override cho {_overrideTarget.TenantName}.";
+            _alertType = "success";
+            CloseOverrideModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Lỗi lưu override: {ex.Message}";
+            _alertType = "danger";
+        }
+    }
+}

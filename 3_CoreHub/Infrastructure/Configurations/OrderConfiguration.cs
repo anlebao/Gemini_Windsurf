@@ -83,6 +83,19 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.HasIndex(o => o.SalesmanId);
             _ = builder.HasIndex(o => o.ReferralProductId); // v1.1 NEW
 
+            // Sprint 7 — Commerce Mode Toggle (additive, nullable except CommerceMode)
+            _ = builder.Property(o => o.CommerceMode)
+                .HasConversion<int>()
+                .HasDefaultValue(CommerceMode.Marketplace)
+                .IsRequired();
+            _ = builder.Property(o => o.CostPrice).HasPrecision(18, 2);
+            _ = builder.Property(o => o.SellPrice).HasPrecision(18, 2);
+            _ = builder.Property(o => o.PlatformMargin).HasPrecision(18, 2);
+            _ = builder.Property(o => o.DeliveryFee).HasPrecision(18, 2);
+            _ = builder.Property(o => o.PlatformFeeRate).HasPrecision(18, 4);
+            _ = builder.Property(o => o.CommunityFundRate).HasPrecision(18, 4);
+            _ = builder.HasIndex(o => o.CommerceMode);
+
             // Navigation properties
             _ = builder.HasOne(o => o.Customer)
                   .WithMany(c => c.Orders)

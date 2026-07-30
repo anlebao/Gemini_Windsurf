@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
 using VanAn.Shared.Domain.Aggregates.TenantAggregate;
+using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
+using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
+using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
 using UserTenant = VanAn.Shared.Domain.Aggregates.UserAggregate.UserTenant;
@@ -92,6 +95,11 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<AppInstallAttribution> AppInstallAttributions { get; } // v1.1 NEW
         DbSet<DeviceRegistration> DeviceRegistrations { get; } // v1.2 NEW
         DbSet<FraudFlag> FraudFlags { get; } // v1.2 NEW
+
+        // Sprint 7 — Commerce Mode Toggle (3 new DbSets)
+        DbSet<SystemSetting> SystemSettings { get; } // global config (TenantId nullable)
+        DbSet<ProductCostPrice> ProductCostPrices { get; } // Q1: Vạn An's negotiated cost per product
+        DbSet<CommunityFundSpendRecord> CommunityFundSpendRecords { get; } // Q3: audit trail for fund disbursement
 
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);

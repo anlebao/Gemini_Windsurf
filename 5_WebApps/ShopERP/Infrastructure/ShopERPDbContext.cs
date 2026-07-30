@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Audit;
+using VanAn.Shared.Domain.Aggregates.SystemSettingAggregate;
+using VanAn.Shared.Domain.Aggregates.ProductCostPriceAggregate;
+using VanAn.Shared.Domain.Aggregates.CommunityFundAggregate;
 using VanAn.CoreHub.Infrastructure;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 using DemoUser = VanAn.Shared.Domain.Aggregates.UserAggregate.DemoUser;
@@ -113,6 +116,11 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<AppInstallAttribution> AppInstallAttributions { get; set; }
         public DbSet<DeviceRegistration> DeviceRegistrations { get; set; }
         public DbSet<FraudFlag> FraudFlags { get; set; }
+
+        // Sprint 7 — Commerce Mode Toggle (3 new DbSets — IVanAnDbContext interface)
+        public DbSet<SystemSetting> SystemSettings { get; set; }
+        public DbSet<ProductCostPrice> ProductCostPrices { get; set; }
+        public DbSet<CommunityFundSpendRecord> CommunityFundSpendRecords { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
