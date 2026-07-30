@@ -157,6 +157,7 @@ jobs:
           target: "/opt/vanan"
           strip_components: 0
           overwrite: true
+          debug: true
 
       - name: Bootstrap & Deploy
         uses: appleboy/ssh-action@v1.0.3
