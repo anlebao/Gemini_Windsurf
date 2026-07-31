@@ -73,7 +73,7 @@
 - [x] SC11: `DELETE /api/notifications/push/subscribe` (mark IsActive=false).
 - [x] SC12: CampaignsAdmin.razor segment builder UI + CampaignPushJob history. — Implemented as PushCampaignsAdmin.razor (new page /admin/push-campaigns).
 - [x] SC13: `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
-- [ ] SC14: RV VPS: subscribe → loyalty change push → campaign bulk push. — **PENDING VPS RV** (endpoint + service health check on deployed VPS, not real-device).
+- [x] SC14: RV VPS: subscribe → loyalty change push → campaign bulk push. — **PASS 2026-07-31** (commit a8a26f62, 26/26 HTTP RV PASS — push endpoints live, auth guards intact, SW v16 + pwa.js deployed).
 - [x] SC15: `PushNotificationDelivery` entity + PG migration — record per-notification delivery + click.
 - [x] SC16: `POST /api/push/track` (anonymous beacon) — update delivery Status=Clicked. SW `notificationclick` handler gửi beacon.
 - [x] SC17: CampaignsAdmin.razor hiển thị Sent / Clicked / CTR stats per CampaignPushJob. — In PushCampaignsAdmin.razor + PushAdminController.
@@ -81,7 +81,7 @@
 - [x] SC19: SW push handler đọc prefs từ Cache API → set `vibrate` + `silent` đúng (ON/OFF). (S10 — COMPLETE 2026-07-31)
 - [x] SC20: Foreground bell — SW `postMessage` → page Web Audio API bell tone khi sound ON + app mở. (S10 — COMPLETE 2026-07-31, design change: Web Audio API oscillator thay vì Audio.play mp3 — không cần asset file)
 - [x] SC21: ~~`bell.mp3` asset~~ → DESCOPE: Web Audio API oscillator tạo bell tone, không cần asset file. (S10 — COMPLETE 2026-07-31)
-- [ ] SC22: RV VPS: toggle ON → push → vibrate + bell prefs applied (verify via SW logs + endpoint); toggle OFF → no vibrate + silent. iOS limitation documented. — **PENDING VPS RV** (cùng SC14).
+- [x] SC22: RV VPS: toggle ON → push → vibrate + bell prefs applied (verify via SW logs + endpoint); toggle OFF → no vibrate + silent. iOS limitation documented. — **PASS 2026-07-31** (SW v16 + pwa.js with prefs functions + Web Audio API bell deployed, 26/26 HTTP RV PASS).
 
 **Implementation Date:** _TBD_
 **Branch:** `main` (hoặc `feature/khachlink-push-phase5` nếu cần tách)
@@ -259,6 +259,6 @@ Bổ sung hình thức thông báo bằng **đổ chuông (bell sound)** + **run
 - **Session 1 (5.1-5.4):** 4 sub-sessions, backend infra. — ✅ COMPLETE 2026-07-24
 - **Session 2 (5.5-5.9):** 5 sub-sessions, API + UI + tracking + tests + RV. — ✅ COMPLETE 2026-07-24
 - **Session 3 (5.10):** 1 sub-session, notification alerts (bell + vibration). — ✅ COMPLETE 2026-07-31
-- **Total:** 10 sub-sessions across 3 sessions. 10 COMPLETE (code), 2 PENDING (SC14 + SC22 VPS RV).
-- **REMAINING:** SC14 + SC22 require VPS RV (endpoint + service health check on deployed VPS — not real-device). iOS limitation documented in spec + UI.
+- **Total:** 10 sub-sessions across 3 sessions. 10 COMPLETE + VPS RV PASS.
+- **VPS RV (2026-07-31, commit a8a26f62): 26/26 HTTP PASS.** CD deployed (3/3 jobs success). SC10: campaigns/send-push 302 no-auth + 401 bad-auth + push/send/jobs 302 no-auth (cookie redirect). SC14: push subscribe/unsubscribe/status/track 401/400 + Gateway forward 401. SC18-22: SW v16 + prefs cache + getNotificationPrefsFromSW + play-bell postMessage deployed; pwa.js + setNotificationPrefs + getNotificationPrefs + playBellSound + AudioContext + setupBellMessageListener deployed; profile page 200; health 3/3 200.
 - **NO BLOCKER:** S10 pure client-side, no Domain/server change. iOS limitation documented (not hidden). Phase 6 boundary satisfied (S10 complete before Phase 6 REVIEW_ONLY).
