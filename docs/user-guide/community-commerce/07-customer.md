@@ -43,13 +43,13 @@ Customer là khách hàng cuối — mua hàng F&B qua KhachLink PWA. Một cust
 
 1. Mở KhachLink → bấm **Đăng nhập**.
 2. Chọn phương thức (PoC scope):
-   - **(A) Google login** → social auth redirect → tiếp bước 3
-   - **(B) Facebook login** → social auth redirect → tiếp bước 3 (UI button Sprint 1)
-   - **(C) Tiếp tục as Guest** → nhập tên + SĐT (không token) → checkout as guest (không tích điểm)
-3. First login / new device: browser generate DeviceToken + compute Fingerprint → **Device Fingerprint Consent Dialog** → bấm **Đồng ý** → POST `/api/community/device/register`.
+   - **(A) Google login** → browser redirect `GET /api/auth/google/login` (Gateway YARP forward → ShopERP OAuth handler) → Google consent → callback `GET /api/auth/google/callback` → redirect về KhachLink `/login?token=...&provider=google&customerId=...` → tiếp bước 3
+   - **(B) Facebook login** → browser redirect `GET /api/auth/facebook/login` (Gateway YARP forward → ShopERP stub Sprint 1 → redirect về `/login?error=facebook_not_configured`). Sprint 7+ mới config Facebook OAuth credentials thật
+   - **(C) Tiếp tục as Guest** → **KHÔNG có API call**, KHÔNG nhập tên/SĐT ở bước này. Browser navigate thẳng về Home page. Customer browse + checkout as guest (nhập tên/SĐT ở form checkout). KHÔNG token, KHÔNG tích điểm. Order history + loyalty fallback theo `CustomerDeviceId` (localStorage)
+3. First login / new device (sau social login success): browser generate DeviceToken + compute Fingerprint → **Device Fingerprint Consent Dialog** → bấm **Đồng ý** → `POST /api/customer-identity/device/register` (header `X-Customer-Token`, fire-and-forget, failure không block login).
 4. IdentityLevel = `Social` (1) nếu social, `Guest` (0) nếu guest.
-5. (OPTIONAL) Verify SĐT qua SMS OTP → upgrade `Verified` (2) — **KHÔNG bắt buộc** cho customer.
-6. Token lưu localStorage, tự gửi trong header mọi API call.
+5. (OPTIONAL) Verify SĐT qua SMS OTP → `POST /api/customer-identity/otp/send` + `POST /api/customer-identity/otp/verify` → upgrade `Verified` (2) — **KHÔNG bắt buộc** cho customer. OTP endpoints giữ cho collaborator activation (Sprint 6 toggle).
+6. Token + customerId lưu localStorage (`customer_token`, `customer_id`, `login_provider`), tự gửi `X-Customer-Token` header mọi API call.
 
 ### 2.2. Device Fingerprint Consent Dialog (GDPR/PDPA)
 
@@ -66,9 +66,10 @@ Customer là khách hàng cuối — mua hàng F&B qua KhachLink PWA. Một cust
 
 ### 2.4. Guest mode
 
-- Nhập tên + SĐT (không token).
-- Checkout as guest — **KHÔNG tích điểm** (no LoyaltyPoints).
-- Verify SĐT chỉ khi collaborator activation (UC-02 v1.5).
+- **KHÔNG có API login** — browser navigate thẳng về Home, không lưu token.
+- Customer browse product + checkout via `POST /api/public/orders/checkout` (nhập tên + SĐT ở checkout form, không `X-Customer-Token`).
+- Checkout as guest — **KHÔNG tích điểm** (no LoyaltyPoints). Order history + loyalty fallback theo `CustomerDeviceId` (localStorage).
+- Verify SĐT chỉ khi collaborator activation (UC-02 v1.5) — `POST /api/collaborator-verification/init`.
 
 ### 2.5. IdentityLevel
 
@@ -165,7 +166,7 @@ Sau khi shipper accept đơn (Order status=`delivering`) → customer có thể 
    - Customer marker (green) — vị trí giao hàng
    - Shipper marker (blue) — di chuyển real-time
    - Route line (straight — PoC)
-3. Shipper cập nhật vị trí mỗi **10s** (khi OutForDelivery) → SignalR LocationHub push → marker di chuyển.
+3. Shipper cập nhật vị trí mỗi **10s** (khi OutForDelivery) → `POST /api/community/location/update` → SignalR hub `/hubs/location` push → marker di chuyển.
 
 ### 5.3. Status notifications
 
@@ -194,15 +195,15 @@ Customer nhận **SignalR notification** mỗi transition:
 ### 6.2. Flow
 
 1. Nhập message → `POST /api/community/chat/messages`.
-2. **SignalR ChatHub** push đến shipper real-time.
+2. **SignalR hub `/hubs/chat`** push đến shipper real-time.
 3. Message lưu DB (Conversation + Message) với timestamp, senderId, receiverId.
-4. Chat history load khi mở panel.
+4. Chat history load khi mở panel (`GET /api/community/chat/conversations/{orderId}`).
 
 ### 6.3. Lưu ý
 
 - **Human-to-human chat** — KHÔNG có AI chatbot trong PoC.
 - Chat biến mất/không push khi DeliveryTask = Delivered/Failed.
-- Auth ChatHub qua `X-Customer-Token` query string.
+- Auth SignalR hub `/hubs/chat` qua `X-Customer-Token` query string.
 
 ---
 

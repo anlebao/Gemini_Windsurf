@@ -195,22 +195,18 @@ KHÔNG cookie) — lưu localStorage, tự gửi trong header mọi API call.</p
 <li>Mở KhachLink → bấm <strong>Đăng nhập</strong>.</li>
 <li>Chọn phương thức (PoC scope):
 <ul>
-<li><strong>(A) Google login</strong> → social auth redirect → tiếp bước
-3</li>
-<li><strong>(B) Facebook login</strong> → social auth redirect → tiếp
-bước 3 (UI button Sprint 1)</li>
-<li><strong>(C) Tiếp tục as Guest</strong> → nhập tên + SĐT (không
-token) → checkout as guest (không tích điểm)</li>
+<li><strong>(A) Google login</strong> → browser redirect <code>GET /api/auth/google/login</code> (Gateway YARP forward → ShopERP OAuth handler) → Google consent → callback <code>GET /api/auth/google/callback</code> → redirect về KhachLink <code>/login?token=...&amp;provider=google&amp;customerId=...</code> → tiếp bước 3</li>
+<li><strong>(B) Facebook login</strong> → browser redirect <code>GET /api/auth/facebook/login</code> (Gateway YARP forward → ShopERP stub Sprint 1 → redirect về <code>/login?error=facebook_not_configured</code>). Sprint 7+ mới config Facebook OAuth credentials thật</li>
+<li><strong>(C) Tiếp tục as Guest</strong> → <strong>KHÔNG có API call</strong>, KHÔNG nhập tên/SĐT ở bước này. Browser navigate thẳng về Home page. Customer browse + checkout as guest (nhập tên/SĐT ở form checkout). KHÔNG token, KHÔNG tích điểm. Order history + loyalty fallback theo <code>CustomerDeviceId</code> (localStorage)</li>
 </ul></li>
-<li>First login / new device: browser generate DeviceToken + compute
+<li>First login / new device (sau social login success): browser generate DeviceToken + compute
 Fingerprint → <strong>Device Fingerprint Consent Dialog</strong> → bấm
-<strong>Đồng ý</strong> → POST
-<code>/api/community/device/register</code>.</li>
+<strong>Đồng ý</strong> → <code>POST /api/customer-identity/device/register</code> (header <code>X-Customer-Token</code>, fire-and-forget, failure không block login).</li>
 <li>IdentityLevel = <code>Social</code> (1) nếu social,
 <code>Guest</code> (0) nếu guest.</li>
-<li>(OPTIONAL) Verify SĐT qua SMS OTP → upgrade <code>Verified</code>
-(2) — <strong>KHÔNG bắt buộc</strong> cho customer.</li>
-<li>Token lưu localStorage, tự gửi trong header mọi API call.</li>
+<li>(OPTIONAL) Verify SĐT qua SMS OTP → <code>POST /api/customer-identity/otp/send</code> + <code>POST /api/customer-identity/otp/verify</code> → upgrade <code>Verified</code>
+(2) — <strong>KHÔNG bắt buộc</strong> cho customer. OTP endpoints giữ cho collaborator activation (Sprint 6 toggle).</li>
+<li>Token + customerId lưu localStorage (<code>customer_token</code>, <code>customer_id</code>, <code>login_provider</code>), tự gửi <code>X-Customer-Token</code> header mọi API call.</li>
 </ol>
 <h3 id="device-fingerprint-consent-dialog-gdprpdpa">2.2. Device
 Fingerprint Consent Dialog (GDPR/PDPA)</h3>
@@ -232,10 +228,11 @@ IsActive=false + FraudFlag).</li>
 </ul>
 <h3 id="guest-mode">2.4. Guest mode</h3>
 <ul>
-<li>Nhập tên + SĐT (không token).</li>
+<li><strong>KHÔNG có API login</strong> — browser navigate thẳng về Home, không lưu token.</li>
+<li>Customer browse product + checkout via <code>POST /api/public/orders/checkout</code> (nhập tên + SĐT ở checkout form, không <code>X-Customer-Token</code>).</li>
 <li>Checkout as guest — <strong>KHÔNG tích điểm</strong> (no
-LoyaltyPoints).</li>
-<li>Verify SĐT chỉ khi collaborator activation (UC-02 v1.5).</li>
+LoyaltyPoints). Order history + loyalty fallback theo <code>CustomerDeviceId</code> (localStorage).</li>
+<li>Verify SĐT chỉ khi collaborator activation (UC-02 v1.5) — <code>POST /api/collaborator-verification/init</code>.</li>
 </ul>
 <h3 id="identitylevel">2.5. IdentityLevel</h3>
 <table>
@@ -362,7 +359,7 @@ customer có thể tracking.</p>
 <li>Route line (straight — PoC)</li>
 </ul></li>
 <li>Shipper cập nhật vị trí mỗi <strong>10s</strong> (khi
-OutForDelivery) → SignalR LocationHub push → marker di chuyển.</li>
+OutForDelivery) → <code>POST /api/community/location/update</code> → SignalR hub <code>/hubs/location</code> push → marker di chuyển.</li>
 </ol>
 <h3 id="status-notifications">5.3. Status notifications</h3>
 <p>Customer nhận <strong>SignalR notification</strong> mỗi transition: -
@@ -390,17 +387,17 @@ app.”</li>
 <h3 id="flow">6.2. Flow</h3>
 <ol type="1">
 <li>Nhập message → <code>POST /api/community/chat/messages</code>.</li>
-<li><strong>SignalR ChatHub</strong> push đến shipper real-time.</li>
+<li><strong>SignalR hub <code>/hubs/chat</code></strong> push đến shipper real-time.</li>
 <li>Message lưu DB (Conversation + Message) với timestamp, senderId,
 receiverId.</li>
-<li>Chat history load khi mở panel.</li>
+<li>Chat history load khi mở panel (<code>GET /api/community/chat/conversations/{orderId}</code>).</li>
 </ol>
 <h3 id="lưu-ý">6.3. Lưu ý</h3>
 <ul>
 <li><strong>Human-to-human chat</strong> — KHÔNG có AI chatbot trong
 PoC.</li>
 <li>Chat biến mất/không push khi DeliveryTask = Delivered/Failed.</li>
-<li>Auth ChatHub qua <code>X-Customer-Token</code> query string.</li>
+<li>Auth SignalR hub <code>/hubs/chat</code> qua <code>X-Customer-Token</code> query string.</li>
 </ul>
 <hr />
 <h2 id="ví-wallet-lịch-sử-giao-dịch">7. VÍ (WALLET) + LỊCH SỬ GIAO
