@@ -270,7 +270,8 @@ namespace VanAn.ShopERP.Controllers
                     unitPrice: product.Price,
                     vatRate: product.VatRate,
                     productName: product.Name,
-                    tenantId: product.TenantId.Value);
+                    tenantId: product.TenantId.Value,
+                    imageUrl: product.ImageUrl);
 
                 return File(png, "image/png", $"qr-{id}.png");
             }

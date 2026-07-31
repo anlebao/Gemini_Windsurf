@@ -32,6 +32,13 @@ namespace VanAn.CoreHub.Services
         /// </summary>
         byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber,
             decimal unitPrice, decimal vatRate, string? productName, Guid tenantId);
+
+        /// <summary>
+        /// Phase 5+: Full QR code with TenantId + ImageUrl — lets Scan.razor display product image
+        /// in fast-path mode (no API call). Use this overload when the product has an image URL.
+        /// </summary>
+        byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber,
+            decimal unitPrice, decimal vatRate, string? productName, Guid tenantId, string? imageUrl);
     }
 
     public class QrCodeService : IQrCodeService
@@ -68,7 +75,17 @@ namespace VanAn.CoreHub.Services
         public byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber,
             decimal unitPrice, decimal vatRate, string? productName, Guid tenantId)
         {
-            var qrPayload = new QRCodePayload(productId, shopId, tableNumber, unitPrice, vatRate, productName, tenantId);
+            return GenerateProductQRCode(productId, shopId, tableNumber, unitPrice, vatRate, productName, tenantId, imageUrl: null);
+        }
+
+        /// <summary>
+        /// Phase 5+: Full QR code with TenantId + ImageUrl — lets Scan.razor display product image
+        /// in fast-path mode (no API call).
+        /// </summary>
+        public byte[] GenerateProductQRCode(Guid productId, Guid shopId, string? tableNumber,
+            decimal unitPrice, decimal vatRate, string? productName, Guid tenantId, string? imageUrl)
+        {
+            var qrPayload = new QRCodePayload(productId, shopId, tableNumber, unitPrice, vatRate, productName, tenantId, imageUrl);
             // Issue 9: Use URL format so external scanners (Zalo) can open the link
             var qrContent = qrPayload.ToQrContent();
 

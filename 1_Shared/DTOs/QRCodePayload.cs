@@ -30,6 +30,10 @@
         /// Required for multi-tenant cart grouping â€” without it, checkout can't route items to the correct tenant.</summary>
         public Guid TenantId { get; set; }
 
+        /// <summary>Product image URL snapshot at QR print time. Null for legacy QR codes (printed before this field).
+        /// Lets Scan.razor display the product image in fast-path mode without an API call.</summary>
+        public string? ImageUrl { get; set; }
+
         /// <summary>
         /// Parameterless constructor for JSON deserialization (JsonSerializer requires it).
         /// </summary>
@@ -70,6 +74,17 @@
             decimal unitPrice, decimal vatRate, string? productName, Guid tenantId) : this(productId, shopId, tableNumber, unitPrice, vatRate, productName)
         {
             TenantId = tenantId;
+        }
+
+        /// <summary>
+        /// Phase 5+: Full constructor with TenantId + ImageUrl — lets Scan.razor display product image
+        /// in fast-path mode (no API call). Use this overload when generating new QR codes for products
+        /// that have an image URL.
+        /// </summary>
+        public QRCodePayload(Guid productId, Guid shopId, string? tableNumber,
+            decimal unitPrice, decimal vatRate, string? productName, Guid tenantId, string? imageUrl) : this(productId, shopId, tableNumber, unitPrice, vatRate, productName, tenantId)
+        {
+            ImageUrl = imageUrl;
         }
 
         public string ToJson()
