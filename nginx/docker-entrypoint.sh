@@ -21,14 +21,14 @@ if ! command -v envsubst > /dev/null 2>&1; then
     apk add --no-cache gettext > /dev/null 2>&1
 fi
 
-# Only substitute VANAN_DOMAIN — preserve nginx's own $host, $http_upgrade, etc.
+# Only substitute VANAN_DOMAIN â€” preserve nginx's own $host, $http_upgrade, etc.
 ENVSUBST_VARS='${VANAN_DOMAIN}'
 
 if [ -f "$CERT_PATH" ]; then
-    echo "[nginx-entrypoint] SSL cert found for ${VANAN_DOMAIN} — generating HTTPS config"
+    echo "[nginx-entrypoint] SSL cert found for ${VANAN_DOMAIN} â€” generating HTTPS config"
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan.conf.template" > "${CONF_DIR}/vanan.conf"
 else
-    echo "[nginx-entrypoint] SSL cert NOT found for ${VANAN_DOMAIN} — generating HTTP-only config"
+    echo "[nginx-entrypoint] SSL cert NOT found for ${VANAN_DOMAIN} â€” generating HTTP-only config"
     envsubst "$ENVSUBST_VARS" < "${TEMPLATE_DIR}/vanan-http.conf.template" > "${CONF_DIR}/vanan.conf"
 fi
 

@@ -1,6 +1,9 @@
 # Force text normalization and UTF-8 line handling
 * text=auto eol=crlf
 
+# Shell scripts MUST use LF (CRLF breaks busybox/ash in Docker containers)
+*.sh      text eol=lf working-tree-encoding=UTF-8
+
 # Source and markup files
 *.cs       text eol=crlf working-tree-encoding=UTF-8
 *.razor    text eol=crlf working-tree-encoding=UTF-8
