@@ -105,6 +105,50 @@
                 }
             </VanAnCard>
 
+            @* Phase 5 Session 10 (5.10): Notification alert prefs (sound + vibrate) *@
+            @if (_pushEnabled)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-4">
+                    <div class="p-2">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-volume-up text-primary"></i>
+                            <div>
+                                <div class="fw-medium">Cài đặt thông báo</div>
+                                <div class="text-muted small">Tùy chỉnh đổ chuông và rung khi nhận thông báo đẩy.</div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between py-2 border-top">
+                            <div>
+                                <div class="fw-medium small">Âm thanh chuông</div>
+                                <div class="text-muted small">Phát chuông khi app đang mở. Nền tảng chỉ phát âm thanh mặc định hệ thống khi app đóng.</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="soundToggle" checked="@_soundEnabled"
+                                       disabled="@_prefsToggling"
+                                       @onchange="ToggleSoundAsync" />
+                                <label class="form-check-label" for="soundToggle">@(_soundEnabled ? "Bật" : "Tắt")</label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between py-2 border-top">
+                            <div>
+                                <div class="fw-medium small">Rung điện thoại</div>
+                                <div class="text-muted small">Rung khi nhận push (Android). <span class="text-warning">iOS không hỗ trợ rung cho web push.</span></div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="vibrateToggle" checked="@_vibrateEnabled"
+                                       disabled="@_prefsToggling"
+                                       @onchange="ToggleVibrateAsync" />
+                                <label class="form-check-label" for="vibrateToggle">@(_vibrateEnabled ? "Bật" : "Tắt")</label>
+                            </div>
+                        </div>
+                    </div>
+                </VanAnCard>
+            }
+
             @* Loyalty-C WS-B: Birthday input — triggers BirthdayEntry mission (one-time reward) *@
             <VanAnCard Shadow="true" CssClass="mb-4">
                 <div class="p-2">
@@ -265,6 +309,11 @@
     private string? _pushStatusMessage;
     private AlertVariant _pushAlertVariant = AlertVariant.Info;
 
+    // Phase 5 Session 10 (5.10): Notification alert prefs (sound + vibrate)
+    private bool _soundEnabled = true;   // default ON when customer grants permission
+    private bool _vibrateEnabled = true; // default ON — iOS no-op (Apple restriction)
+    private bool _prefsToggling;
+
     // Loyalty-C WS-B: Birthday input state
     private DateTime? _birthday;
     private DateTime? _birthdayInput;
@@ -364,6 +413,15 @@
                             }
                         }
                         catch { /* non-critical — default to off */ }
+
+                        // Phase 5 Session 10: Load notification alert prefs (sound + vibrate) from Cache API
+                        try
+                        {
+                            var (sound, vibrate) = await PWA.GetNotificationPrefsAsync();
+                            _soundEnabled = sound;
+                            _vibrateEnabled = vibrate;
+                        }
+                        catch { /* non-critical — defaults ON */ }
 
                         // CC-S6 (Sprint 6): Load community roles + fraud flags
                         try
@@ -493,6 +551,42 @@
         finally
         {
             _pushToggling = false;
+            StateHasChanged();
+        }
+    }
+
+    // Phase 5 Session 10 (5.10): Toggle bell sound pref
+    private async Task ToggleSoundAsync(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (_prefsToggling) return;
+        _prefsToggling = true;
+        try
+        {
+            _soundEnabled = (bool)e.Value;
+            await PWA.SetNotificationPrefsAsync(_soundEnabled, _vibrateEnabled);
+        }
+        catch { /* non-critical */ }
+        finally
+        {
+            _prefsToggling = false;
+            StateHasChanged();
+        }
+    }
+
+    // Phase 5 Session 10 (5.10): Toggle vibration pref
+    private async Task ToggleVibrateAsync(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        if (_prefsToggling) return;
+        _prefsToggling = true;
+        try
+        {
+            _vibrateEnabled = (bool)e.Value;
+            await PWA.SetNotificationPrefsAsync(_soundEnabled, _vibrateEnabled);
+        }
+        catch { /* non-critical */ }
+        finally
+        {
+            _prefsToggling = false;
             StateHasChanged();
         }
     }

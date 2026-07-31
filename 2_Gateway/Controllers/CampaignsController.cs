@@ -11,9 +11,11 @@ namespace VanAn.Gateway.Controllers
     [Route("api/[controller]")]
     public class CampaignsController(
         ISocialCampaignService socialCampaignService,
+        IHttpClientFactory httpClientFactory,
         ILogger<CampaignsController> logger) : ControllerBase
     {
         private readonly ISocialCampaignService _socialCampaignService = socialCampaignService;
+        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly ILogger<CampaignsController> _logger = logger;
 
         [HttpGet]
@@ -258,6 +260,75 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+
+        /// <summary>
+        /// Phase 5 SC10: POST /api/campaigns/{campaignId}/send-push — send bulk push to customers
+        /// matching the segment criteria, associated with a specific campaign.
+        /// Forwards to ShopERP POST /api/push/send (PushAdminController) which owns
+        /// CampaignPushJob creation + PushNotificationService.SendBulkNotificationAsync.
+        /// SystemAdmin only (JWT policy enforced at Gateway; ShopERP re-checks admin cookie).
+        /// </summary>
+        [HttpPost("{campaignId:guid}/send-push")]
+        [Authorize(Policy = "SystemAdmin")]
+        public async Task<IActionResult> SendCampaignPush(Guid campaignId, [FromBody] SendCampaignPushRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Body))
+                    return BadRequest(new { error = "Title and Body are required." });
+
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var payload = new
+                {
+                    CampaignId = campaignId,
+                    request.Title,
+                    request.Body,
+                    request.ActionUrl,
+                    request.CustomerTier,
+                    request.MinIdentityLevel,
+                    request.MinTotalSpent,
+                    request.MaxTotalSpent,
+                    request.LastOrderAfter,
+                    request.LastOrderBefore
+                };
+                var reqMsg = new HttpRequestMessage(HttpMethod.Post, "/api/push/send")
+                {
+                    Content = new StringContent(
+                        System.Text.Json.JsonSerializer.Serialize(payload),
+                        System.Text.Encoding.UTF8,
+                        "application/json")
+                };
+                // Forward admin JWT so ShopERP PushAdminController [Authorize] accepts the call.
+                if (Request.Headers.TryGetValue("Authorization", out var authHeader))
+                    reqMsg.Headers.Add("Authorization", authHeader.ToString());
+
+                var response = await client.SendAsync(reqMsg);
+                var content = await response.Content.ReadAsStringAsync();
+                return StatusCode((int)response.StatusCode, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forwarding campaign push for {CampaignId}", campaignId);
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Phase 5 SC10: Request body for POST /api/campaigns/{id}/send-push.
+    /// Mirrors ShopERP PushAdminController.SendBulkPushRequest.
+    /// </summary>
+    public record SendCampaignPushRequest
+    {
+        public string Title { get; init; } = string.Empty;
+        public string Body { get; init; } = string.Empty;
+        public string? ActionUrl { get; init; }
+        public string? CustomerTier { get; init; }
+        public IdentityLevel? MinIdentityLevel { get; init; }
+        public decimal? MinTotalSpent { get; init; }
+        public decimal? MaxTotalSpent { get; init; }
+        public DateTime? LastOrderAfter { get; init; }
+        public DateTime? LastOrderBefore { get; init; }
     }
 
     // DTO for create campaign request — SystemAdmin admin UI

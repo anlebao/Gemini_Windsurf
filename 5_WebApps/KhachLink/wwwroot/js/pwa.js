@@ -291,6 +291,116 @@ window.vananPWA = {
         }
     },
 
+    // ─── Phase 5 Session 10 (5.10): Notification alerts — bell sound + vibration ───
+    // Prefs stored in Cache API (SW-accessible at push time; localStorage is NOT).
+    // Default: sound=true, vibrate=true (ON when customer grants notification permission).
+
+    // Cache key for notification prefs (shared between page and SW).
+    _prefsCacheName: 'vanan-notification-prefs',
+    _prefsCacheKey: 'prefs',
+
+    // Set notification prefs (sound + vibrate). Called by Profile.razor toggle.
+    // Writes JSON { sound: bool, vibrate: bool } into Cache API so the service worker
+    // can read it synchronously when a push event arrives.
+    async setNotificationPrefs(sound, vibrate) {
+        if (!('caches' in window)) {
+            console.warn('Cache API unavailable — notification prefs not persisted');
+            return false;
+        }
+        try {
+            const cache = await caches.open(this._prefsCacheName);
+            const payload = JSON.stringify({ sound: !!sound, vibrate: !!vibrate });
+            const response = new Response(payload, {
+                headers: { 'Content-Type': 'application/json' }
+            });
+            await cache.put(this._prefsCacheKey, response);
+            console.log('[PWA] Notification prefs saved:', { sound, vibrate });
+            return true;
+        } catch (error) {
+            console.error('[PWA] Failed to save notification prefs:', error);
+            return false;
+        }
+    },
+
+    // Get notification prefs. Returns { sound: bool, vibrate: bool } with defaults
+    // { sound: true, vibrate: true } if Cache miss (first run / cache cleared).
+    async getNotificationPrefs() {
+        const defaults = { sound: true, vibrate: true };
+        if (!('caches' in window)) return defaults;
+        try {
+            const cache = await caches.open(this._prefsCacheName);
+            const response = await cache.match(this._prefsCacheKey);
+            if (!response) return defaults;
+            const prefs = await response.json();
+            return {
+                sound: prefs.sound !== false,
+                vibrate: prefs.vibrate !== false
+            };
+        } catch (error) {
+            console.error('[PWA] Failed to read notification prefs — using defaults:', error);
+            return defaults;
+        }
+    },
+
+    // Play bell sound using Web Audio API (no asset file needed — cross-platform).
+    // Generates a pleasant two-tone bell using OscillatorNode. Called when SW
+    // postMessage({ type: 'play-bell' }) arrives AND sound pref is ON.
+    // iOS: requires user gesture for first AudioContext; subsequent plays work
+    // while app is foregrounded. Background push on iOS = OS default sound only.
+    playBellSound() {
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) {
+                console.warn('[PWA] Web Audio API not supported — bell skipped');
+                return;
+            }
+            const ctx = new AudioCtx();
+            const now = ctx.currentTime;
+            // Two-tone bell: 880Hz then 660Hz, 150ms each, with exponential decay.
+            const tones = [
+                { freq: 880, start: 0,    dur: 0.18 },
+                { freq: 660, start: 0.12, dur: 0.25 }
+            ];
+            tones.forEach(t => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = t.freq;
+                gain.gain.setValueAtTime(0.0001, now + t.start);
+                gain.gain.exponentialRampToValueAtTime(0.3, now + t.start + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + t.start);
+                osc.stop(now + t.start + t.dur + 0.05);
+            });
+            // Close context after bell finishes to free resources.
+            setTimeout(() => { try { ctx.close(); } catch (e) { /* already closed */ } }, 600);
+            console.log('[PWA] Bell sound played (Web Audio API)');
+        } catch (error) {
+            console.error('[PWA] Failed to play bell sound:', error);
+        }
+    },
+
+    // Setup SW→page message listener for foreground bell. Called once during
+    // setupEventListeners. When SW receives a push and app is foregrounded, it
+    // postMessage({ type: 'play-bell' }) to all clients; this listener plays the bell.
+    _bellListenerInstalled: false,
+    setupBellMessageListener() {
+        if (this._bellListenerInstalled) return;
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.addEventListener('message', async (event) => {
+            if (event.data && event.data.type === 'play-bell') {
+                const prefs = await this.getNotificationPrefs();
+                if (prefs.sound) {
+                    this.playBellSound();
+                }
+            }
+        });
+        this._bellListenerInstalled = true;
+        console.log('[PWA] Bell message listener installed (SW→page)');
+    },
+
     // Network status
     isOnline() {
         return navigator.onLine;
@@ -356,6 +466,9 @@ window.vananPWA = {
                 }
             });
         }
+
+        // Phase 5 Session 10: Install bell message listener (SW→page foreground bell)
+        this.setupBellMessageListener();
 
         // Page visibility for background sync
         document.addEventListener('visibilitychange', () => {

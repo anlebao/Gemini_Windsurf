@@ -214,6 +214,49 @@ namespace VanAn.KhachLink.Services.PWA
         }
 
         /// <summary>
+        /// Phase 5 Session 10 (5.10): Persist notification alert prefs (sound + vibrate)
+        /// to Cache API so the service worker can read them at push time.
+        /// Defaults: sound=true, vibrate=true (ON when customer grants permission).
+        /// </summary>
+        public async Task SetNotificationPrefsAsync(bool sound, bool vibrate)
+        {
+            try
+            {
+                await _jsRuntime.InvokeVoidAsync("vananPWA.setNotificationPrefs", sound, vibrate);
+                _logger.LogInformation("Notification prefs saved: sound={Sound}, vibrate={Vibrate}", sound, vibrate);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save notification prefs");
+            }
+        }
+
+        /// <summary>
+        /// Phase 5 Session 10 (5.10): Read notification alert prefs from Cache API.
+        /// Returns { sound: true, vibrate: true } defaults on cache miss.
+        /// </summary>
+        public async Task<(bool Sound, bool Vibrate)> GetNotificationPrefsAsync()
+        {
+            try
+            {
+                var prefs = await _jsRuntime.InvokeAsync<NotificationPrefsJson>("vananPWA.getNotificationPrefs");
+                return (prefs?.Sound ?? true, prefs?.Vibrate ?? true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to read notification prefs — using defaults");
+                return (true, true);
+            }
+        }
+
+        /// <summary>JSON shape returned by vananPWA.getNotificationPrefs.</summary>
+        private sealed class NotificationPrefsJson
+        {
+            public bool Sound { get; set; } = true;
+            public bool Vibrate { get; set; } = true;
+        }
+
+        /// <summary>
         /// Check if app is running in standalone mode (installed PWA)
         /// </summary>
         public async Task<bool> IsStandaloneAsync()

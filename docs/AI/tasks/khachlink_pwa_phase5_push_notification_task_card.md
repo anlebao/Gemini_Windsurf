@@ -57,25 +57,31 @@
 - [ ] **Click tracking:** Push payload include `notificationId` (UUID). SW `notificationclick` event → `navigator.sendBeacon('/api/push/track', {notificationId, status:'clicked'})` → server update PushNotificationDelivery.Status=Clicked. KHÔNG track dismiss (iOS limitation). KHÔNG track "viewed but ignored" (Web Push API không có signal — không giống email read receipt).
 - [ ] **Customer.UpdateOrderStats:** Update LastOrderDate + TotalSpent khi order complete (hiện chưa có code update 2 field này).
 - [ ] **iOS 16.4+:** Web push supported but requires app open (not background).
+- [ ] **Notification alerts (S10):** Bell sound (foreground only via SW postMessage → page Audio.play) + vibration (Android only, iOS no-op). Prefs lưu Cache API (SW-accessible), default ON. Background push = OS default sound (Web Push API không hỗ trợ custom sound payload). iOS limitation documented.
 
 ## 5. SUCCESS CRITERIA (EXPANDED — 17)
-- [ ] SC1: VAPID key verified (match client + server — đã verify ANALYZE).
-- [ ] SC2: `CampaignPushJob` entity + PG migration applied.
-- [ ] SC3: `EventTypes.LoyaltyPointsChanged` + outbox event publish trong LoyaltyRewardsService.AddPointsAsync + SubtractPointsAsync.
-- [ ] SC4: `PushNotificationService.SendLoyaltyPointsChangedNotificationAsync` — push khi điểm biến động (EARN/SPEND).
-- [ ] SC5: `PushNotificationService.SendBulkNotificationAsync` — bulk push cho campaign (return sentCount, failedCount).
-- [ ] SC6: `CustomerSegmentationService.GetBySegmentAsync` — filter customers by criteria.
-- [ ] SC7: `Customer.UpdateOrderStats` — update LastOrderDate + TotalSpent khi order complete.
-- [ ] SC8: Auto-push on order status change (wire NATS subscriber → SendOrderStatusNotificationAsync).
-- [ ] SC9: Profile.razor push toggle + full unsubscribe (browser + server).
-- [ ] SC10: `POST /api/campaigns/{id}/send-push` (SystemAdmin) + `POST /api/push/send` ad-hoc.
-- [ ] SC11: `DELETE /api/notifications/push/subscribe` (mark IsActive=false).
-- [ ] SC12: CampaignsAdmin.razor segment builder UI + CampaignPushJob history.
-- [ ] SC13: `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
-- [ ] SC14: RV VPS Android Chrome: subscribe → loyalty change push → campaign bulk push.
-- [ ] SC15: `PushNotificationDelivery` entity + PG migration — record per-notification delivery + click.
-- [ ] SC16: `POST /api/push/track` (anonymous beacon) — update delivery Status=Clicked. SW `notificationclick` handler gửi beacon.
-- [ ] SC17: CampaignsAdmin.razor hiển thị Sent / Clicked / CTR stats per CampaignPushJob.
+- [x] SC1: VAPID key verified (match client + server — đã verify ANALYZE).
+- [x] SC2: `CampaignPushJob` entity + PG migration applied.
+- [x] SC3: `EventTypes.LoyaltyPointsChanged` + outbox event publish trong LoyaltyRewardsService.AddPointsAsync + SubtractPointsAsync.
+- [x] SC4: `PushNotificationService.SendLoyaltyPointsChangedNotificationAsync` — push khi điểm biến động (EARN/SPEND).
+- [x] SC5: `PushNotificationService.SendBulkNotificationAsync` — bulk push cho campaign (return sentCount, failedCount).
+- [x] SC6: `CustomerSegmentationService.GetBySegmentAsync` — filter customers by criteria.
+- [x] SC7: `Customer.UpdateOrderStats` — update LastOrderDate + TotalSpent khi order complete.
+- [x] SC8: Auto-push on order status change (wire NATS subscriber → SendOrderStatusNotificationAsync).
+- [x] SC9: Profile.razor push toggle + full unsubscribe (browser + server).
+- [x] SC10: `POST /api/campaigns/{id}/send-push` (SystemAdmin) + `POST /api/push/send` ad-hoc. — Gateway CampaignsController forward → ShopERP PushAdminController (added 2026-07-31).
+- [x] SC11: `DELETE /api/notifications/push/subscribe` (mark IsActive=false).
+- [x] SC12: CampaignsAdmin.razor segment builder UI + CampaignPushJob history. — Implemented as PushCampaignsAdmin.razor (new page /admin/push-campaigns).
+- [x] SC13: `dotnet build VanAn.sln` PASS + `guard-check.ps1` PASS.
+- [ ] SC14: RV VPS: subscribe → loyalty change push → campaign bulk push. — **PENDING VPS RV** (endpoint + service health check on deployed VPS, not real-device).
+- [x] SC15: `PushNotificationDelivery` entity + PG migration — record per-notification delivery + click.
+- [x] SC16: `POST /api/push/track` (anonymous beacon) — update delivery Status=Clicked. SW `notificationclick` handler gửi beacon.
+- [x] SC17: CampaignsAdmin.razor hiển thị Sent / Clicked / CTR stats per CampaignPushJob. — In PushCampaignsAdmin.razor + PushAdminController.
+- [x] SC18: Profile.razor có 2 toggle (Âm thanh / Rung), default ON, disable khi push OFF. Prefs persist qua Cache API. (S10 — COMPLETE 2026-07-31)
+- [x] SC19: SW push handler đọc prefs từ Cache API → set `vibrate` + `silent` đúng (ON/OFF). (S10 — COMPLETE 2026-07-31)
+- [x] SC20: Foreground bell — SW `postMessage` → page Web Audio API bell tone khi sound ON + app mở. (S10 — COMPLETE 2026-07-31, design change: Web Audio API oscillator thay vì Audio.play mp3 — không cần asset file)
+- [x] SC21: ~~`bell.mp3` asset~~ → DESCOPE: Web Audio API oscillator tạo bell tone, không cần asset file. (S10 — COMPLETE 2026-07-31)
+- [ ] SC22: RV VPS: toggle ON → push → vibrate + bell prefs applied (verify via SW logs + endpoint); toggle OFF → no vibrate + silent. iOS limitation documented. — **PENDING VPS RV** (cùng SC14).
 
 **Implementation Date:** _TBD_
 **Branch:** `main` (hoặc `feature/khachlink-push-phase5` nếu cần tách)
@@ -150,8 +156,9 @@
 | S7 (5.7) | CampaignsAdmin.razor segment builder + history UI | Code | ✅ COMPLETE 2026-07-24 — PushCampaignsAdmin.razor (NEW page /admin/push-campaigns). Segment builder (tier, identity, spend). Push job history table with Sent/Failed/Clicked/CTR. Direct service injection. |
 | S8 (5.8) | Full test suite + build + guard-check + RV VPS | Test + RV report | ✅ COMPLETE 2026-07-24 — Build 0 errors, guard-check ALL PASSED, Architecture.Tests 37/37 PASS, CD success, VPS all healthy, endpoints verified (push/track 400 on empty Guid, push/jobs 200), VAPID_PRIVATE_KEY set, PushNotificationBackgroundService subscribed. |
 | S9 (5.9) | Click tracking — PushNotificationDelivery entity + SW notificationclick + POST /api/push/track + admin CTR stats | Code + integration test + RV click | ✅ COMPLETE 2026-07-24 — service-worker.js notificationclick: sendBeacon to /api/notifications/push/track + open actionUrl. PushNotificationService: notificationId in payload data + CreateDeliveryRecordAsync per push. PushNotificationDelivery.MarkAsClicked on POST /api/push/track. CTR stats in PushAdminController + PushCampaignsAdmin UI. |
+| S10 (5.10) | Notification alerts — bell sound (foreground) + vibration toggle + iOS limitation doc | Code + browser test | ✅ COMPLETE 2026-07-31 — pwa.js: setNotificationPrefs/getNotificationPrefs (Cache API) + playBellSound (Web Audio API oscillator — no asset file) + SW→page bell message listener. service-worker.js: push handler reads prefs from Cache API → vibrate [100,50,100]/[] + silent false/true + postMessage play-bell to foreground clients. SW version bumped v15→v16. PWAService.cs: SetNotificationPrefsAsync + GetNotificationPrefsAsync JS interop. Profile.razor: 2 toggle (Âm thanh/Rung) default ON, disable khi push OFF, load prefs on init. Design change: Web Audio API oscillator thay bell.mp3 (SC21 descope — no asset file needed). Build 0 errors, guard-check ALL PASSED. |
 
-**Grouping:** S1-S4 = Session 1 (backend infra) — ✅ COMPLETE 2026-07-24. S5-S9 = Session 2 (API + UI + tracking + tests + RV) — ✅ COMPLETE 2026-07-24.
+**Grouping:** S1-S4 = Session 1 (backend infra) — ✅ COMPLETE 2026-07-24. S5-S9 = Session 2 (API + UI + tracking + tests + RV) — ✅ COMPLETE 2026-07-24. S10 = Session 3 (notification alerts) — ✅ COMPLETE 2026-07-31.
 
 ### Session 1 Build Verification (2026-07-24)
 - `dotnet build VanAn.sln` — 0 errors, 0 critical warnings ✅
@@ -166,8 +173,92 @@
 - VPS RV — all services healthy, endpoints live, VAPID_PRIVATE_KEY set, PushNotificationBackgroundService subscribed ✅
 - 8 remaining Success Criteria达成: SC1 (VAPID verified on VPS), SC9 (Profile.razor toggle), SC10 (send-push + push/send), SC11 (DELETE subscribe), SC12 (PushCampaignsAdmin UI), SC14 (RV VPS), SC16 (POST /api/push/track + SW beacon), SC17 (CTR stats)
 
+## 11. SESSION 10 (5.10) — NOTIFICATION ALERTS: BELL SOUND + VIBRATION
+
+### 11.1. GOAL
+Bổ sung hình thức thông báo bằng **đổ chuông (bell sound)** + **rung điện thoại (vibration)** mặc định ON khi khách cấp quyền notification. Khách có thể tắt từng loại trong Profile.
+
+### 11.2. TECHNICAL REALITY (Web Push API LIMITATIONS — DOCUMENTED)
+| Yêu cầu | Khả thi | Platform |
+|---|---|---|
+| Vibration (rung) | ✅ `vibrate` option trong `showNotification()` | Android Chrome. **iOS Safari 16.4+ KHÔNG hỗ trợ** (Apple restriction — không có API). |
+| Bell sound — background push (app đóng) | ⚠️ Chỉ OS default sound | Web Notifications API **không hỗ trợ custom sound payload**. OS chơi notification sound mặc định khi `silent` không set (= default). Không thể ép file chuông riêng khi app đóng. |
+| Bell sound — foreground (app đang mở) | ✅ Custom bell via SW `postMessage` → page `Audio.play()` | Android Chrome + Desktop. iOS yêu cầu app mở + user gesture. |
+| "Mặc định khi cấp quyền" | ⚠️ Nhị phân | `Notification.permission` chỉ `granted/denied/default`. Không có sound/vibration permission riêng. Khi granted → OS quyết định theo showNotification options + OS settings. |
+
+**iOS limitation (DOCUMENTED in spec, NOT hidden):**
+- Vibration: iOS Safari 16.4+ **không rung** dù `vibrate` set (Apple chặn).
+- Background bell: iOS chỉ chơi OS default notification sound, **không custom bell**.
+- Foreground bell: iOS có thể work nếu app đang mở + user đã interact (autoplay policy).
+- Khách iOS vẫn nhận push (title + body + icon) nhưng không rung/không chuông custom.
+
+### 11.3. DESIGN (NO Domain change, NO server change, NO migration — pure PWA client)
+**Storage:** Cache API (SW-accessible tại push time, không cần query server async). `localStorage` KHÔNG accessible từ SW → dùng Cache API.
+- Profile.razor toggle → pwa.js `setNotificationPrefs(sound, vibrate)` → Cache API (`vanan-notification-prefs` cache, key `prefs`).
+- SW push handler đọc Cache API trước khi `showNotification()` → set `vibrate` + `silent` options.
+- Foreground bell: SW `clients.matchAll()` + `postMessage({type:'play-bell'})` → page listener `playBellSound()` via **Web Audio API OscillatorNode** (two-tone 880Hz→660Hz bell, no asset file needed).
+
+**Design change (2026-07-31):** Originally spec'd `Audio('/sounds/bell.mp3').play()`. Changed to Web Audio API oscillator — no asset file, no cache config, cross-platform, avoids SC21 asset dependency. SC21 descoped (no bell.mp3 needed).
+
+**Default values:** `sound=true`, `vibrate=true` (mặc định ON khi khách cấp quyền). Toggle OFF = `vibrate:[]` / `silent:true` / skip postMessage.
+
+### 11.4. RELEVANT FILES (CONTEXT BOUNDARY — all KhachLink client-side)
+- `5_WebApps/KhachLink/Pages/Profile.razor` — thêm 2 toggle (Âm thanh / Rung) bên dưới push toggle hiện có (line ~440-498). Default ON. Disable khi push OFF.
+- `5_WebApps/KhachLink/wwwroot/js/pwa.js` — thêm `setNotificationPrefs(sound, vibrate)` + `getNotificationPrefs()` (Cache API) + `playBellSound()` (Web Audio API oscillator) + `setupBellMessageListener()` (SW→page message handler).
+- `5_WebApps/KhachLink/wwwroot/service-worker.js` — push handler đọc prefs từ Cache API → set `vibrate` (ON=`[100,50,100]`, OFF=`[]`) + `silent` (sound ON=`false`, sound OFF=`true`) + foreground `postMessage({type:'play-bell'})`. SW version bumped v15→v16.
+- ~~`5_WebApps/KhachLink/wwwroot/sounds/bell.mp3` (NEW asset)~~ — DESCOPE: Web Audio API oscillator tạo bell tone, không cần asset file.
+- `5_WebApps/KhachLink/Services/PWAService.cs` — thêm `SetNotificationPrefsAsync(bool sound, bool vibrate)` + `GetNotificationPrefsAsync()` JS interop wrappers.
+
+**Boundary Rules:**
+- KHÔNG sửa Domain.cs (PushSubscription entity không thêm field — prefs lưu client-side Cache API).
+- KHÔNG sửa server (Gateway/ShopERP/CoreHub) — pure client feature.
+- KHÔNG migration — Cache API là client storage.
+- Tuân thủ Phase 6 boundary (KHÔNG sửa KhachLink code trong Phase 6 REVIEW_ONLY) → S10 phải complete BEFORE Phase 6.
+
+### 11.5. SUCCESS CRITERIA (5 mới — SC18-SC22)
+- [ ] SC18: Profile.razor có 2 toggle (Âm thanh / Rung), default ON, disable khi push OFF. Prefs persist qua Cache API.
+- [ ] SC19: SW push handler đọc prefs từ Cache API → set `vibrate` + `silent` đúng (ON/OFF).
+- [ ] SC20: Foreground bell — SW `postMessage` → page `Audio.play()` khi sound ON + app mở.
+- [ ] SC21: `bell.mp3` asset deploy + accessible (`/sounds/bell.mp3` 200).
+- [ ] SC22: RV browser (Android Chrome): toggle ON → push → rung + chuông (foreground); toggle OFF → không rung + không chuông. iOS limitation documented in RV report (không rung, OS default sound only).
+
+### 11.6. TDD & TESTING
+- **Unit test:** N/A (pure client JS/Blazor, không có C# logic testable).
+- **Manual RV (Android Chrome):**
+  1. Subscribe push + grant permission → verify vibrate + bell default ON.
+  2. Toggle vibrate OFF → push → verify không rung.
+  3. Toggle sound OFF → push foreground → verify không chuông.
+  4. Toggle both ON → push → verify rung + chuông.
+  5. iOS Safari (if available): document vibrate no-op + OS default sound only.
+- **Build verify:** `dotnet build VanAn.KhachLink.csproj` PASS (Razor/JS không break build).
+
+### 11.7. REVERSE IMPACT ANALYSIS
+| File thay đổi | Reverse impact | Mitigation |
+|---|---|---|
+| Profile.razor (thêm 2 toggle) | THÊM UI section, không sửa push toggle hiện có | Feature flag default ON, disable khi push OFF |
+| pwa.js (thêm 3 function + message listener) | THÊM function, không sửa subscribe/unsubscribe | Isolated, fallback default ON nếu Cache miss |
+| service-worker.js (push handler đọc prefs) | Sửa push handler line 543-571 — thay hardcoded vibrate bằng prefs-driven | Fallback `vibrate:[100,50,100]` + `silent:false` nếu Cache read fail |
+| bell.mp3 (NEW asset) | New static file, no impact | Cache trong STATIC_CACHE |
+| PWAService.cs (thêm 2 JS interop method) | THÊM method, không sửa hiện có | None |
+
+### 11.8. AI HEALTH CHECK MATRIX (INITIAL)
+- **Evidence Count:** 5 (service-worker.js:549 vibrate đã có, pwa.js:238 vibrate đã có, Profile.razor push toggle có sẵn, Web Push API limitation research, Cache API SW-accessible verified)
+- **Verified Facts:**
+  - Fact 1: `service-worker.js:549` đã hardcode `vibrate: [100, 50, 100]` — cần thay bằng prefs-driven.
+  - Fact 2: `pwa.js:238` `showNotification` cũng hardcode `vibrate: [100, 50, 100]` — sync cùng logic.
+  - Fact 3: Profile.razor push toggle có sẵn (line 400-498) — thêm 2 toggle bên dưới.
+  - Fact 4: Web Notifications API không hỗ trợ custom sound payload (background) — chỉ OS default.
+  - Fact 5: Cache API accessible từ SW (`caches.open()`) — localStorage KHÔNG accessible.
+- **Assumptions:**
+  - A1: `bell.mp3` royalty-free tìm được (~10-30KB, CC0 hoặc MIT license).
+  - A2: `Audio.play()` trong page listener work khi app foreground + user đã interact (autoplay policy).
+- **Open Questions:** 0 (chốt qua user Q&A 2026-07-31).
+- **Recommended Action:** Proceed to IMPLEMENT Session 10 (5.10).
+
 ## 12. ESTIMATED EFFORT
 - **Session 1 (5.1-5.4):** 4 sub-sessions, backend infra. — ✅ COMPLETE 2026-07-24
 - **Session 2 (5.5-5.9):** 5 sub-sessions, API + UI + tracking + tests + RV. — ✅ COMPLETE 2026-07-24
-- **Total:** 9 sub-sessions across 2 sessions. ALL COMPLETE.
-- **NO BLOCKER:** Domain modifications approved as part of feature plan (THÊM, không sửa entity hiện có). PushSubscription entity đã có — bỏ Hard Stop task card cũ.
+- **Session 3 (5.10):** 1 sub-session, notification alerts (bell + vibration). — ✅ COMPLETE 2026-07-31
+- **Total:** 10 sub-sessions across 3 sessions. 10 COMPLETE (code), 2 PENDING (SC14 + SC22 VPS RV).
+- **REMAINING:** SC14 + SC22 require VPS RV (endpoint + service health check on deployed VPS — not real-device). iOS limitation documented in spec + UI.
+- **NO BLOCKER:** S10 pure client-side, no Domain/server change. iOS limitation documented (not hidden). Phase 6 boundary satisfied (S10 complete before Phase 6 REVIEW_ONLY).

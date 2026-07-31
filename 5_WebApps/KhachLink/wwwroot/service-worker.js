@@ -58,10 +58,10 @@
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v15-install-fix2';
-const STATIC_CACHE = 'vanan-static-v15-install-fix2';
-const DYNAMIC_CACHE = 'vanan-dynamic-v15-install-fix2';
-const WASM_CACHE = 'vanan-wasm-v15-install-fix2';
+const CACHE_NAME = 'vanan-khachlink-v16-push-alerts';
+const STATIC_CACHE = 'vanan-static-v16-push-alerts';
+const DYNAMIC_CACHE = 'vanan-dynamic-v16-push-alerts';
+const WASM_CACHE = 'vanan-wasm-v16-push-alerts';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
@@ -531,22 +531,49 @@ self.addEventListener('activate', event => {
         })
       );
     }).then(() => {
-      console.log('SW activated — v15-install-fix2 (clear-site-data install instructions + debug logging)');
+      console.log('SW activated — v16-push-alerts (Phase 5 Session 10: bell + vibrate prefs)');
       return self.clients.claim(); // Take control of all pages
     })
   );
 });
 
 // ============================================================================
-// Push notification handler (unchanged from Phase 0)
+// Push notification handler
+// Phase 5 Session 10 (5.10): reads notification prefs (sound + vibrate) from
+// Cache API. vibrate: [100,50,100] when ON, [] when OFF. silent: false when
+// sound ON (OS default notification sound), silent: true when sound OFF.
+// Foreground bell: postMessage({type:'play-bell'}) to all controlled clients
+// so the page can play a custom bell via Web Audio API (background = OS sound).
+// iOS limitation: vibrate is a no-op on iOS Safari 16.4+ (Apple restriction);
+// background custom sound not supported — OS default only.
 // ============================================================================
+const PREFS_CACHE_NAME = 'vanan-notification-prefs';
+const PREFS_CACHE_KEY = 'prefs';
+
+async function getNotificationPrefsFromSW() {
+  const defaults = { sound: true, vibrate: true };
+  if (!('caches' in self)) return defaults;
+  try {
+    const cache = await caches.open(PREFS_CACHE_NAME);
+    const response = await cache.match(PREFS_CACHE_KEY);
+    if (!response) return defaults;
+    const prefs = await response.json();
+    return {
+      sound: prefs.sound !== false,
+      vibrate: prefs.vibrate !== false
+    };
+  } catch (err) {
+    console.warn('[SW] Failed to read notification prefs — using defaults:', err);
+    return defaults;
+  }
+}
+
 self.addEventListener('push', event => {
   let notificationData = {
     title: 'Vạn An Group',
     body: 'Bạn có thông báo mới từ Vạn An Group',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-192x192.png',
-    vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
       primaryKey: 1,
@@ -565,8 +592,29 @@ self.addEventListener('push', event => {
     }
   }
 
+  // Phase 5 Session 10: apply prefs-driven vibrate + silent, then foreground bell.
+  const prefsPromise = getNotificationPrefsFromSW().then(prefs => {
+    notificationData.vibrate = prefs.vibrate ? [100, 50, 100] : [];
+    notificationData.silent = !prefs.sound; // silent:true suppresses OS default sound
+
+    // Foreground bell: notify all controlled clients so the page can play a
+    // custom bell via Web Audio API. Only fires if app is open (foreground).
+    // Background push relies on OS default notification sound (silent:false).
+    if (prefs.sound) {
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+        for (const client of clientList) {
+          client.postMessage({ type: 'play-bell' });
+        }
+      }).catch(err => console.warn('[SW] postMessage play-bell failed:', err));
+    }
+  }).catch(err => {
+    console.warn('[SW] Prefs read failed — using hardcoded defaults:', err);
+    notificationData.vibrate = [100, 50, 100];
+    notificationData.silent = false;
+  });
+
   event.waitUntil(
-    self.registration.showNotification(notificationData.title, notificationData)
+    prefsPromise.then(() => self.registration.showNotification(notificationData.title, notificationData))
   );
 });
 
