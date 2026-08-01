@@ -9,7 +9,7 @@
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
 
-<PageTitle>Theo d�i don h�ng</PageTitle>
+<PageTitle>Theo dõi đơn hàng</PageTitle>
 
 <KhachLinkLayout>
     <div class="container py-4" style="max-width:700px;">
@@ -20,7 +20,7 @@
         @if (_loading)
         {
             <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">�ang t?i...</span></div>
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
             </div>
         }
         else if (_error != null)
@@ -36,7 +36,7 @@
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="text-muted small">Tr?ng th�i giao h�ng</div>
+                        <div class="text-muted small">Trạng thái giao hàng</div>
                         <div class="fw-bold fs-5">
                             <span class="badge @GetStatusBadgeClass(_deliveryStatus)">@GetStatusText(_deliveryStatus)</span>
                         </div>
@@ -44,7 +44,7 @@
                     @if (_isLiveTracking)
                     {
                         <div class="text-success small">
-                            <span class="spinner-border spinner-border-sm"></span> �ang theo d�i tr?c ti?p
+                            <span class="spinner-border spinner-border-sm"></span> Đang theo dõi trực tiếp
                         </div>
                     }
                 </div>
@@ -80,7 +80,7 @@
                 }
                 @if (_lastUpdate != null)
                 {
-                    <div class="small text-muted">C?p nh?t: @_lastUpdate.Value.ToString("HH:mm:ss")</div>
+                    <div class="small text-muted">Cập nhật: @_lastUpdate.Value.ToString("HH:mm:ss")</div>
                 }
             </VanAnCard>
 
@@ -135,7 +135,7 @@
         }
         catch (Exception)
         {
-            _error = "Kh�ng th? t?i th�ng tin don h�ng.";
+            _error = "Không thể tải thông tin đơn hàng.";
         }
         finally
         {
@@ -209,7 +209,7 @@
         }
         catch (Exception)
         {
-            // SignalR connection failure is non-fatal � page still shows static info
+            // SignalR connection failure is non-fatal — page still shows static info
         }
     }
 
@@ -238,12 +238,12 @@
 
     private string GetStatusText(string status) => status switch
     {
-        "Assigned" => "Shipper d� nh?n don",
-        "PickedUp" => "�� l?y h�ng",
-        "OutForDelivery" => "�ang giao h�ng",
-        "Delivered" => "�� giao th�nh c�ng",
-        "Failed" => "Giao th?t b?i",
-        _ => "�ang ch?"
+        "Assigned" => "Shipper đã nhận đơn",
+        "PickedUp" => "Đã lấy hàng",
+        "OutForDelivery" => "Đang giao hàng",
+        "Delivered" => "Đã giao thành công",
+        "Failed" => "Giao thất bại",
+        _ => "Đang chờ"
     };
 
     private class GeoPosition
