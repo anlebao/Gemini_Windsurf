@@ -38,16 +38,16 @@ namespace VanAn.CoreHub.Infrastructure.Repositories
 
         public async Task<Customer> AddAsync(Customer customer)
         {
-            // Create new customer with proper constructor
-            Customer newCustomer = new(new TenantId(_currentTenantId), customer.FullName, customer.PhoneNumber, customer.Email);
+            // Ensure TenantId matches the current context tenant (callers may pass Guid.Empty or wrong tenant)
+            if (_currentTenantId != Guid.Empty && customer.TenantId.Value != _currentTenantId)
+            {
+                ((DbContext)_context).Entry(customer).Property(nameof(Customer.TenantId)).CurrentValue = new TenantId(_currentTenantId);
+            }
 
-            // Copy other properties if needed
-            newCustomer.UpdateCustomerDetails(customer.FullName, customer.PhoneNumber, customer.Email, customer.CustomerTier, customer.DeviceId, customer.IsActive);
-
-            _ = await _context.Customers.AddAsync(newCustomer);
+            _ = await _context.Customers.AddAsync(customer);
             _ = await _context.SaveChangesAsync();
 
-            return newCustomer;
+            return customer;
         }
 
         public async Task<Customer> UpdateAsync(Customer customer)

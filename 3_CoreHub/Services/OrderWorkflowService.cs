@@ -381,8 +381,6 @@ namespace VanAn.CoreHub.Services
                 var customer = new Customer(order.TenantId, fullName, phone);
                 customer.UpdateCustomerDetails(fullName, phone, null, "Bronze", deviceId, true);
                 await _customerRepository.AddAsync(customer);
-                // Save via order repository's DbContext (shared scoped context)
-                await _orderRepository.SaveChangesAsync();
                 return customer;
             }
             catch (Exception ex)
