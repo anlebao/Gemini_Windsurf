@@ -316,6 +316,32 @@ public class FraudReviewService(
         };
     }
 
+    public async Task<DismissResultDto> MarkReviewedAsync(Guid fraudFlagId, Guid reviewedBy)
+    {
+        var flag = await _dbContext.FraudFlags
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(f => f.Id == fraudFlagId);
+
+        if (flag == null)
+            throw new InvalidOperationException($"FraudFlag {fraudFlagId} not found.");
+
+        if (flag.Status != FraudFlagStatus.Pending)
+            throw new InvalidOperationException($"FraudFlag {fraudFlagId} is already {flag.Status}.");
+
+        flag.MarkReviewed(reviewedBy, "Reviewed by admin — neutral, info only");
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("MarkReviewedAsync: FraudFlag {Id} marked as reviewed by {Reviewer}",
+            fraudFlagId, reviewedBy);
+
+        return new DismissResultDto
+        {
+            Status = "Reviewed",
+            SideEffects = new List<string>()
+        };
+    }
+
     public async Task<FraudStatsDto> GetStatsAsync()
     {
         var flags = await _dbContext.FraudFlags

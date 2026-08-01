@@ -1,0 +1,14 @@
+feat(sprint7): S4 — integration tests + E2E specs + external-payment endpoint move
+
+Sprint 7 S4 (Integration + E2E):
+- 15 integration tests (CM1-CM15): DI registration + 401 auth guards + DbSet registration — all PASS
+- 13 E2E specs (RV7-1 to RV7-13): API auth guards + UI page loads
+- Moved confirm-external-payment endpoint to CommerceModeController (proper class-level auth)
+- CommunityController endpoint kept for backward compat (delegates to impl)
+- project_state.md updated: S1-S4 COMPLETE, pending merge + VPS RV
+
+Test results: 15/15 integration PASS, 29/29 Sprint 7 unit PASS, 1168/1187 total (4 flaky skipped).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

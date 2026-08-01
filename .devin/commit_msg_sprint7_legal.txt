@@ -1,0 +1,34 @@
+docs(sprint7): ANALYZE complete spec v2.1 + Reseller legal doc set
+
+Spec v2.0 -> v2.1 (ANALYZE phase 2026-07-30):
+- Fixed 2 spec errors: WalletTransactionType has 6 existing values
+  (not 8), DeliveryFee vs ShippingFee distinct semantics
+- Resolved Q1-Q5 (CostPrice source, fee rate, community fund mgmt,
+  COD scope, non-COD Reseller)
+- Full scope: Q3 (community fund management) + Q5 (non-COD Reseller)
+- Added ProductCostPrice + CommunityFundSpendRecord entities
+- Enum values renumbered 7-11
+- ~24 tests, 4 sessions, 18 VPS RV checks
+
+Reseller legal doc set (4 new files, additive — Marketplace docs intact):
+- reseller-policy.md: Quy chế "Mua giúp — Bán dùm" — 4-split financial
+  (CostPrice + DeliveryFee + Commission + PlatformFee + CommunityFund),
+  COD/advance/non-COD flow, toggle mechanism, Vạn An as seller
+- reseller-agreement.md: B2B contract template Vạn An <-> Tenant
+  (14 clauses + 3 appendices: CostPrice catalog, Fee rates, SLA)
+- community-fund-policy.md (Q3): Fund governance — SysAdmin spend
+  guardrail, audit trail, transparency API, whistleblow channel
+- anti-fraud-policy-reseller-addendum.md: 7 Reseller fraud vectors
+  (cost price manipulation, margin manipulation, advance fraud,
+  COD skimming variant, fund misappropriation, external payment Q5,
+  settlement fraud) + 3-strike extension (tenant 3-strike,
+  SysAdmin 1-strike for trust breach)
+
+Task card: +SC23 (legal doc set), files added to CREATE list
+project_state.md: Next Actions #1 updated with legal doc completion
+
+All drafts — require lawyer + accountant review before publish/sign.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

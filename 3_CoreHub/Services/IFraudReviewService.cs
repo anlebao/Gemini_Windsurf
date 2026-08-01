@@ -20,6 +20,9 @@ public interface IFraudReviewService
     /// <summary>Dismiss fraud flag. Side effects: whitelist device, no strike.</summary>
     Task<DismissResultDto> DismissAsync(Guid fraudFlagId, Guid dismissedBy);
 
+    /// <summary>Mark fraud flag as reviewed (neutral — no penalty, no whitelist).</summary>
+    Task<DismissResultDto> MarkReviewedAsync(Guid fraudFlagId, Guid reviewedBy);
+
     /// <summary>Get fraud stats dashboard.</summary>
     Task<FraudStatsDto> GetStatsAsync();
 

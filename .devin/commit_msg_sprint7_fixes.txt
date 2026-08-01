@@ -1,0 +1,29 @@
+fix(sprint7): wire CommerceMode snapshot into order flow + fix auth bypass + close doc/UI gaps
+
+CRITICAL FIXES:
+- Wire ICommerceModeService into OrderService.CreateOrderFromCommandAsync:
+  resolve mode per tenant, query ProductCostPrice, call SetResellerPricing
+  (Reseller mode was non-functional — 7 Order fields always null/default,
+  WalletService.ConfirmCodResellerAsync + ConfirmExternalPaymentAsync +
+  SalesmanService OnMargin commission were dead code)
+- Remove duplicate confirm-external-payment endpoint from CommunityController
+  ([AllowAnonymous] at class level bypassed [Authorize] at method level —
+  auth bypass on financial endpoint. Canonical endpoint in CommerceModeController)
+
+DOC/UI GAP FIXES (9 gaps closed):
+- ShopERP NavMenu: add 3 Sprint 7 links (Commerce Mode, Community Fund,
+  Product Cost Prices) to SystemAdmin section + featured-products to Owner
+- FeaturedProducts.razor: allow Owner access (was SystemAdmin-only)
+- KhachLink NavMenu: add Wallet + Ma QR tabs for Salesman, Dang giao tab for Shipper
+- New ActiveDeliveries.razor page (shipper's active delivery tasks list)
+- New GET /api/community/my-deliveries endpoint (shipper active deliveries)
+- New GET /api/community/commerce-mode endpoint (customer-facing mode badge)
+- KhachLink Home.razor: Commerce Mode badge (Reseller alert)
+- KhachLink Profile.razor: device info section
+- Docs: mark /admin/settlements + /admin/tenant-settings as Post-PoC
+
+Build: 0 errors. Tests: 29/29 Sprint 7 unit + 15/15 integration PASS.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,22 @@
+feat(community): CC-S6 Sprint 6 — Admin + Fraud Review + Polish + Legal (v1.2)
+
+Sprint 6 (FINAL sprint of Community Commerce v1) delivers:
+- CommunityAdminService: eligible customer list, activate/deactivate Shipper/Salesman roles
+- FraudReviewService: admin review queue, confirm/dismiss with side effects, 3-strike auto-ban, wallet reversal, fraud stats, salesman self-view
+- CommunityAdminController + FraudFlagController (SystemAdmin JWT auth)
+- CommunityController: +GetMyRoles, +GetMyFraudFlags, +isShopOwner in GetMyRole
+- ShopERP UI: AdminPanel, FraudFlags, FraudStats pages + nav links
+- KhachLink UI: Profile.razor community roles + fraud flags sections, NavMenu _isShopOwner + wallet link
+- 14 unit tests (8 CommunityAdmin + 6 FraudReview) — ALL PASS
+- 4 legal docs: ToS, Privacy (device fingerprint consent), Marketplace policy, Anti-fraud policy
+- 3 E2E specs: community-admin, community-fraud-review, community-full-regression
+
+Bug fixed: FraudReviewService.ConfirmAsync was calling MarkRejected() before checking
+CommissionStatus==Paid, causing wallet reversal to never trigger. Fixed by checking
+status BEFORE rejecting the entity.
+
+Pre-existing: 4 EInvoiceOrchestratorTests flaky failures (documented as debt in 658d093f).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

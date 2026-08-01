@@ -1,0 +1,27 @@
+feat(phase5): SC10 campaign send-push endpoint + S10 notification alerts (bell + vibrate)
+
+SC10: Add POST /api/campaigns/{id}/send-push (Gateway CampaignsController,
+SystemAdmin JWT) — forwards to ShopERP POST /api/push/send with CampaignId.
+Closes the missing half of SC10 (POST /api/push/send already existed).
+
+S10 (5.10) Notification alerts — bell sound + vibration:
+- pwa.js: setNotificationPrefs/getNotificationPrefs (Cache API) +
+  playBellSound (Web Audio API oscillator, two-tone 880Hz to 660Hz — no asset
+  file needed) + setupBellMessageListener (SW to page foreground bell).
+- service-worker.js: push handler reads prefs from Cache API then vibrate
+  [100,50,100]/[] + silent false/true + postMessage play-bell to foreground
+  clients. SW version v15 to v16. iOS limitation: vibrate no-op, background =
+  OS default sound only (documented in UI).
+- PWAService.cs: SetNotificationPrefsAsync + GetNotificationPrefsAsync JS interop.
+- Profile.razor: 2 toggle (Am thanh / Rung) default ON, disable khi push OFF,
+  load prefs on init. iOS limitation note in UI.
+
+Design change: Web Audio API oscillator thay bell.mp3 (SC21 descope — no
+asset file needed). SC14 + SC22 requirements changed to VPS RV (endpoint +
+service health check, not real-device).
+
+Build 0 errors, guard-check ALL PASSED.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

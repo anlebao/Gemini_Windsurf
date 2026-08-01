@@ -272,6 +272,48 @@
             </Authorized>
         </AuthorizeView>
 
+        @* ── Community Commerce (SystemAdmin only) ── *@
+        <AuthorizeView Roles="SystemAdmin">
+            <Authorized>
+                <VanACard Header="🛒 Community Commerce" Hoverable="true" data-testid="card-community-commerce">
+                    <div class="sitemap-links">
+                        <a href="/admin/commerce-mode" class="sitemap-link" data-testid="link-commerce-mode">
+                            <span class="sitemap-link-icon">🔄</span>
+                            <span>Commerce Mode Toggle</span>
+                        </a>
+                        <a href="/admin/community-fund" class="sitemap-link" data-testid="link-community-fund">
+                            <span class="sitemap-link-icon">🐷</span>
+                            <span>Quỹ Cộng Đồng</span>
+                        </a>
+                        <a href="/admin/product-cost-prices" class="sitemap-link" data-testid="link-product-cost-prices">
+                            <span class="sitemap-link-icon">🏷️</span>
+                            <span>Giá Vốn SP (Reseller)</span>
+                        </a>
+                        <a href="/admin/product-referral-configs" class="sitemap-link" data-testid="link-product-referral-configs">
+                            <span class="sitemap-link-icon">📊</span>
+                            <span>Referral Configs</span>
+                        </a>
+                        <a href="/admin/community/admin-panel" class="sitemap-link" data-testid="link-community-admin-panel">
+                            <span class="sitemap-link-icon">👥</span>
+                            <span>Quản lý Cộng tác viên</span>
+                        </a>
+                        <a href="/admin/community/fraud-flags" class="sitemap-link" data-testid="link-fraud-flags">
+                            <span class="sitemap-link-icon">🚩</span>
+                            <span>Fraud Review</span>
+                        </a>
+                        <a href="/admin/community/fraud-stats" class="sitemap-link" data-testid="link-fraud-stats">
+                            <span class="sitemap-link-icon">📈</span>
+                            <span>Fraud Stats</span>
+                        </a>
+                        <a href="/admin/collaborator-verification" class="sitemap-link" data-testid="link-collaborator-verification">
+                            <span class="sitemap-link-icon">📱</span>
+                            <span>Collaborator SMS OTP</span>
+                        </a>
+                    </div>
+                </VanACard>
+            </Authorized>
+        </AuthorizeView>
+
         @* ── Audit Trail (SystemAdmin only — page policy = SystemAdmin) ── *@
         <AuthorizeView Roles="SystemAdmin">
             <Authorized>

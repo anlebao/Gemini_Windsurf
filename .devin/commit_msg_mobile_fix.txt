@@ -1,0 +1,22 @@
+fix(khachlink): mobile ERR_CONNECTION_CLOSED during Blazor WASM boot
+
+Mobile browsers failed to load KhachLink Home — stuck on loading screen
+with looping video. Root cause: HTTP/1.1 6-connection limit + uncompressed
+payload (~10MB DLL/wasm) + external CDN video competing for bandwidth
+during Blazor boot. Desktop on WiFi worked due to low latency.
+
+- Enable HTTP/2 on all edge nginx 443 server blocks (multiplex ~80
+  _framework/* requests over single TLS connection)
+- Add gzip_static on in KhachLink nginx.conf to serve pre-compressed .gz
+  files emitted by Blazor SDK (~10MB raw -> ~3MB gzipped)
+- Remove Shutterstock CDN video from loading screen, replace with CSS
+  spinner (eliminates bandwidth contention + external CDN dependency
+  during boot)
+- Add proxy_buffering off + 120s read/send timeout for /_framework/ in
+  edge nginx (prevent cutoff of large DLL/wasm on slow mobile)
+
+Verified: dotnet build VanAn.KhachLink.csproj -c Release -> 0 errors.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

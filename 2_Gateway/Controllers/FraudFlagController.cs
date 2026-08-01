@@ -107,6 +107,35 @@ namespace VanAn.Gateway.Controllers
         }
 
         /// <summary>
+        /// POST /api/admin/community/fraud-flags/{id}/mark-reviewed
+        /// Mark a fraud flag as reviewed (neutral — no penalty, no whitelist).
+        /// </summary>
+        [HttpPost("fraud-flags/{id:guid}/mark-reviewed")]
+        [Authorize(Policy = "SystemAdmin", AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+        public async Task<IActionResult> MarkReviewed(Guid id)
+        {
+            try
+            {
+                var adminId = GetAdminUserId();
+                var result = await _fraudReviewService.MarkReviewedAsync(id, adminId);
+
+                _logger.LogInformation("MarkReviewed: FraudFlag {Id} marked as reviewed by {AdminId}",
+                    id, adminId);
+
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("MarkReviewed failed: {Message}", ex.Message);
+                if (ex.Message.Contains("not found"))
+                    return NotFound(new { error = ex.Message });
+                if (ex.Message.Contains("already"))
+                    return Conflict(new { error = ex.Message });
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// GET /api/admin/community/fraud-stats
         /// Get fraud stats dashboard: pending/confirmed/dismissed counts, loss prevented, top flagged customers.
         /// </summary>

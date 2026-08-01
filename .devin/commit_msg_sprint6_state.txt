@@ -1,0 +1,9 @@
+docs(state): update after Sprint 6 COMPLETE + VPS verified (RV 13/14 PASS)
+
+Sprint 6 (Admin + Fraud Review + Polish + Legal v1.2) fully closed.
+Commit e73453b9 deployed via CD. VPS RV 13/14 PASS (1 pre-existing chat).
+Next: Sprint 7 Commerce Mode Toggle (drafted, awaiting ANALYZE).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

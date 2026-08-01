@@ -277,12 +277,12 @@ rates</td>
 </tr>
 <tr>
 <td>Fraud Flags</td>
-<td><code>/admin/fraud-flags</code></td>
+<td><code>/admin/community/fraud-flags</code></td>
 <td>Review queue gian lận (Pending → Confirm/Dismiss/Review)</td>
 </tr>
 <tr>
 <td>Fraud Stats</td>
-<td><code>/admin/fraud-stats</code></td>
+<td><code>/admin/community/fraud-stats</code></td>
 <td>Thống kê fraud (rate, flags, confirmed, banned)</td>
 </tr>
 <tr>
@@ -594,7 +594,7 @@ orders only</p>
 <tr>
 <td>GET</td>
 <td><code>/api/community/commerce-mode</code></td>
-<td>Customer-facing: lấy mode resolved cho UI</td>
+<td>Customer-facing: lấy mode resolved cho UI (auth: X-Customer-Token)</td>
 </tr>
 </tbody>
 </table>
@@ -610,17 +610,18 @@ vào quỹ cộng đồng mỗi đơn COD.</p>
 <h3 id="xem-balance-history">5.2. Xem balance + history</h3>
 <ul>
 <li><strong>Balance card:</strong> Số dư hiện tại quỹ cộng đồng
-(VND).</li>
-<li><strong>Spend button:</strong> Rút tiền tái đầu tư cộng đồng.</li>
+(VND). API: <code>GET /api/admin/community-fund/balance</code>.</li>
+<li><strong>Spend button:</strong> Rút tiền tái đầu tư cộng đồng. API:
+<code>POST /api/admin/community-fund/spend</code>.</li>
 <li><strong>History table:</strong> List
 <code>CommunityFundSpendRecord</code> — amount, reason, date, approved
-by.</li>
+by. API: <code>GET /api/admin/community-fund/history</code>.</li>
 </ul>
 <h3 id="rút-tiền-spend">5.3. Rút tiền (spend)</h3>
 <p><strong>Bước 1:</strong> Bấm <strong>Rút tiền</strong> → nhập amount
 + reason (vd “Tài trợ sự kiện cộng đồng Q7”).</p>
 <p><strong>Bước 2:</strong> Confirm →
-<code>POST /api/community/community-fund/spend</code> (controller
+<code>POST /api/admin/community-fund/spend</code> (controller
 <code>CommunityFundController</code>).</p>
 <p><strong>Bước 3:</strong> Hệ thống tạo <code>WalletTransaction</code>
 type=<code>CommunityFundSpend</code> (11) — trừ balance quỹ.</p>
@@ -648,7 +649,12 @@ creation, không affect đơn cũ).</li>
 thay đổi.</li>
 </ul>
 <p><strong>API:</strong> <code>ProductCostPriceController</code> — CRUD
-qua Gateway Admin API (SystemAdmin JWT).</p>
+qua Gateway Admin API (SystemAdmin JWT). Endpoints:</p>
+<ul>
+<li><code>GET /api/admin/product-cost-prices?tenantId=...&amp;page=1&amp;pageSize=20</code></li>
+<li><code>POST /api/admin/product-cost-prices</code> (upsert by TenantId + ProductId)</li>
+<li><code>DELETE /api/admin/product-cost-prices/{id}</code></li>
+</ul>
 <h3 id="mối-quan-hệ-với-sellprice">6.3. Mối quan hệ với SellPrice</h3>
 <ul>
 <li><code>SellPrice</code> = giá Vạn An bán cho customer (do Vạn An
@@ -708,12 +714,13 @@ banned nếu 3 strikes (3 confirmed flags → permanent ban).</td>
 </tr>
 <tr>
 <td><strong>MarkReviewed</strong></td>
-<td>Neutral, info only — không penalty không whitelist.</td>
+<td>Neutral, info only — không penalty không whitelist. API:
+<code>POST /api/admin/community/fraud-flags/{id}/mark-reviewed</code>.</td>
 </tr>
 </tbody>
 </table>
 <h3 id="fraud-stats">7.5. Fraud Stats</h3>
-<p><code>/admin/fraud-stats</code> — thống kê: - Total flags / Pending /
+<p><code>/admin/community/fraud-stats</code> — thống kê: - Total flags / Pending /
 Confirmed / Dismissed - Fraud rate (confirmed / total transactions) -
 Banned accounts count - Top risk factors</p>
 <h3 id="auto-behavior-không-cần-admin">7.6. Auto behavior (không cần
@@ -751,7 +758,12 @@ bắt buộc SMS OTP hay không. Customer KHÔNG bị ảnh hưởng.</p>
 </blockquote>
 <h3 id="truy-cập-5">8.1. Truy cập</h3>
 <p>SystemSetting <code>CollaboratorSmsVerificationEnabled</code> — set
-qua Gateway Admin API hoặc SystemSetting config.</p>
+qua Gateway Admin API:</p>
+<ul>
+<li><code>GET /api/admin/collaborator-verification/settings</code> — xem toggle state</li>
+<li><code>POST /api/admin/collaborator-verification/settings</code> — update toggle + fee + min deposit</li>
+</ul>
+<p>Trang admin: <code>/admin/collaborator-verification</code> (ShopERP).</p>
 <h3 id="khi-nào-bật">8.2. Khi nào bật?</h3>
 <table>
 <colgroup>
