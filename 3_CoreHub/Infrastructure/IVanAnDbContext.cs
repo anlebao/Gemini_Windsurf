@@ -101,6 +101,12 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<ProductCostPrice> ProductCostPrices { get; } // Q1: Vạn An's negotiated cost per product
         DbSet<CommunityFundSpendRecord> CommunityFundSpendRecords { get; } // Q3: audit trail for fund disbursement
 
+        // Loyalty Alliance System — cross-tenant wallet (PG-only, NOT tenant-scoped except LoyaltyTenantConfig)
+        DbSet<LoyaltyGlobalConfig> LoyaltyGlobalConfigs { get; } // single-row global config (TenantId = Empty)
+        DbSet<LoyaltyTenantConfig> LoyaltyTenantConfigs { get; } // per-tenant override (tenant-scoped)
+        DbSet<AllianceWallet> AllianceWallets { get; } // cross-tenant wallet (TenantId = Empty)
+        DbSet<AllianceTransaction> AllianceTransactions { get; } // append-only transaction log (TenantId = Empty)
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

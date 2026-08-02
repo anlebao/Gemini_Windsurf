@@ -122,6 +122,13 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<ProductCostPrice> ProductCostPrices { get; set; }
         public DbSet<CommunityFundSpendRecord> CommunityFundSpendRecords { get; set; }
 
+        // Loyalty Alliance System — PG-only (Gateway VanAnDbContext). ShopERP SQLite ignores these entities.
+        // DbSet declarations remain for IVanAnDbContext interface contract; entities are Ignored in OnModelCreating.
+        public DbSet<LoyaltyGlobalConfig> LoyaltyGlobalConfigs { get; set; }
+        public DbSet<LoyaltyTenantConfig> LoyaltyTenantConfigs { get; set; }
+        public DbSet<AllianceWallet> AllianceWallets { get; set; }
+        public DbSet<AllianceTransaction> AllianceTransactions { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -213,6 +220,14 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<AppInstallAttribution>();
             _ = modelBuilder.Ignore<DeviceRegistration>();
             _ = modelBuilder.Ignore<FraudFlag>();
+
+            // Loyalty Alliance System: 4 entities are PG-only (Gateway VanAnDbContext).
+            // ShopERP SQLite ignores these — cross-tenant wallet system lives in PG.
+            // DbSet declarations remain for IVanAnDbContext interface contract.
+            _ = modelBuilder.Ignore<LoyaltyGlobalConfig>();
+            _ = modelBuilder.Ignore<LoyaltyTenantConfig>();
+            _ = modelBuilder.Ignore<AllianceWallet>();
+            _ = modelBuilder.Ignore<AllianceTransaction>();
 
             // Apply configurations from CoreHub assembly via assembly scanning
             // This avoids direct reference to CoreHub.Infrastructure.Configurations

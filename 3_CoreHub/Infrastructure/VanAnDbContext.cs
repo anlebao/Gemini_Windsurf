@@ -152,6 +152,12 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<ProductCostPrice> ProductCostPrices { get; set; } // Q1: Vạn An's negotiated cost per product
         public DbSet<CommunityFundSpendRecord> CommunityFundSpendRecords { get; set; } // Q3: audit trail for fund disbursement
 
+        // Loyalty Alliance System — cross-tenant wallet (PG-only)
+        public DbSet<LoyaltyGlobalConfig> LoyaltyGlobalConfigs { get; set; } // single-row global config (TenantId = Empty)
+        public DbSet<LoyaltyTenantConfig> LoyaltyTenantConfigs { get; set; } // per-tenant override (tenant-scoped)
+        public DbSet<AllianceWallet> AllianceWallets { get; set; } // cross-tenant wallet (TenantId = Empty)
+        public DbSet<AllianceTransaction> AllianceTransactions { get; set; } // append-only transaction log (TenantId = Empty)
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -288,11 +294,16 @@ namespace VanAn.CoreHub.Infrastructure
             // (AccountingEntry excluded: special cross-tenant audit/reconciliation queries).
             // (SystemSetting excluded: global settings, TenantId = Guid.Empty — Sprint 7)
             // (CommunityFundSpendRecord excluded: system-wide fund audit, TenantId = Guid.Empty — Sprint 7 Q3)
+            // (Loyalty Alliance: 3 entities are cross-tenant, TenantId = Empty — Phase 1B)
+            //   LoyaltyTenantConfig is NOT excluded — it's per-tenant config (tenant-scoped, correct).
             IEnumerable<Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType> entityTypes = modelBuilder.Model.GetEntityTypes()
                 .Where(e => typeof(IMustHaveTenant).IsAssignableFrom(e.ClrType)
                     && e.ClrType != typeof(CoreAccountingEntry)
                     && e.ClrType != typeof(SystemSetting)
-                    && e.ClrType != typeof(CommunityFundSpendRecord));
+                    && e.ClrType != typeof(CommunityFundSpendRecord)
+                    && e.ClrType != typeof(LoyaltyGlobalConfig)
+                    && e.ClrType != typeof(AllianceWallet)
+                    && e.ClrType != typeof(AllianceTransaction));
 
             // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
             // Using TenantId (model type) as RHS ensures:
