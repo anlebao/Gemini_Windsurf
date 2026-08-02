@@ -1,9 +1,10 @@
 # Loyalty Point Storage Consistency — Detail Coding Plan
 
 **Created:** 2026-08-02
-**Status:** REVIEW — awaiting approval before implementation
+**Status:** COMPLETE — superseded by `loyalty-consistency-fix-master-plan.md` (rolled into master plan + 9 review gaps)
 **Mode:** FIX_ONLY (consistency fixes, no new features)
 **Reference:** Codebase review of loyalty point storage consistency
+**Implementation:** Layer 1 (commit `0f924ec9` + `aa4d008c` + `8d7e2c25`) + Layer 2 (commit `70897151`) — VPS RV 37/37 PASS
 
 ---
 

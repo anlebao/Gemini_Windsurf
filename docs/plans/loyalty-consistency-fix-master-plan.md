@@ -1,11 +1,16 @@
 # Loyalty Point Storage Consistency — Master Plan
 
 **Created:** 2026-08-03
-**Status:** APPROVED + IN PROGRESS — Layer 1 (TC-S1 Phase 0) implementation 8/12 sub-tasks done
+**Status:** COMPLETE — Layer 1 + Layer 2 + Layer 3 (VPS RV 37/37 PASS)
 **Mode:** IMPLEMENT (Phase 0 — new infra) + FIX_ONLY (Phase 1-3 — consistency fixes)
 **Supersedes:** `loyalty-consistency-fix-plan.md` (rolled into this plan + 9 review gaps)
 **Reference:** `loyalty-alliance-master-plan.md` (Phase 7 COMPLETE — this plan hardens it)
 **Execution strategy:** Layered Batch — Layer 1 (Phase 0 infra, verify gate, commit) → Layer 2 (Phase 1+2+3 writes+reads+sync, 1 commit, TDD per-bug) → Layer 3 (Phase 4 VPS RV 14-step)
+
+**Completion summary:**
+- **Layer 1 (TC-S1 Phase 0 — HTTP Proxy Infrastructure):** Commits `0f924ec9` + `aa4d008c` + `8d7e2c25`. 12/12 sub-tasks done. Domain `AllianceTransaction.IdempotencyKey` + EF config + PG migration `20260802201947_AddAllianceTransactionIdempotencyKey` + `InternalApiKeyAttribute` + `InternalLoyaltyController` (5 endpoints) + `AllianceWalletServiceHttpProxy` + `LoyaltyModeResolverHttpProxy` + DI registration both Program.cs + idempotency key passthrough in OrderWorkflowService + RedemptionService + appsettings config (Gateway + ShopERP, dev + prod) + docker-compose env vars + 3 test files (ShopErpDiRegistrationTests, InternalApiKeyAuthTests, IdempotencyTests).
+- **Layer 2 (TC-S2+S3+S4 Phase 1+2+3 — Writes+Reads+Sync):** Commit `70897151`. 16 files changed (+1381/-125). BUG #1 (MissionService routing), #2 (CancelAsync refund routing), #3 (legacy redeem 410), #6 (welcome bonus routing), #4+#5 (`/api/loyalty/my` mode-aware via LoyaltyReadRouter), #7 (`/api/customer-identity/me`), #8 (admin CRM), #9 (NATS history sync). 21 new tests (5 test files). 80 existing loyalty tests PASS (no regression).
+- **Layer 3 (TC-S5 VPS RV):** CD pipeline PASS (Build & Push Images 4m12s + Pre-Deploy Validation 12s + Deploy to VPS 1m7s). RV smoke test 37/37 PASS — 7 containers healthy + DLL fresh 2026-08-02 + config present + PG migration applied (column + index) + internal API auth (no key 401, wrong key 401, correct key 200) + BUG #3 410 Gone + auth gates intact + KhachLink pages load + ShopERP admin pages load + 0 DI errors on startup.
 
 ## Problem Summary
 
