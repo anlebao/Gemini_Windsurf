@@ -375,6 +375,11 @@ namespace VanAn.ShopERP
             // Single source of truth for accounting entries: ShopERP SQLite (not Gateway PG).
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.PaymentConfirmedSubscriber>();
 
+            // Loyalty Alliance Phase 2C: Subscribe to NATS "vanan.cloud.loyalty.changed.*" events
+            // from AllianceWalletService (Gateway PG) → sync local SQLite LoyaltyRewards.PointBalance.
+            // Keeps ShopERP UI in sync with cross-tenant Alliance wallet balance in real time.
+            _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.LoyaltySyncSubscriber>();
+
             // Wave 7: Conditional distributed cache — Redis if configured, otherwise memory fallback
             string? redisConnection = builder.Configuration.GetConnectionString("Redis");
             if (!string.IsNullOrWhiteSpace(redisConnection))

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using QRCoder;
@@ -16,6 +17,8 @@ namespace VanAn.CoreHub.Services
     /// ACID: RedeemAsync wraps all steps in a single transaction via IVanAnDbContext.
     ///   SubtractPointsAsync uses the same DbContext (scoped DI) → nested transaction = savepoint.
     ///   If any step after deduction fails → rollback (points deduction also rolled back).
+    /// Loyalty Alliance Phase 2C: Mode routing — Alliance mode deducts from PG AllianceWallet
+    ///   instead of local LoyaltyRewards. Voucher + RedemptionRecord still created in local SQLite.
     /// </summary>
     public class RedemptionService(
         IRedemptionRepository repository,
@@ -24,7 +27,9 @@ namespace VanAn.CoreHub.Services
         IVanAnDbContext dbContext,
         IShopFeatureSettingsService? shopFeatureSettingsService,
         PushNotificationService? pushNotificationService,
-        ILogger<RedemptionService> logger) : IRedemptionService
+        ILogger<RedemptionService> logger,
+        ILoyaltyModeResolver? loyaltyModeResolver = null,
+        IAllianceWalletService? allianceWalletService = null) : IRedemptionService
     {
         private readonly IRedemptionRepository _repository = repository;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
@@ -33,6 +38,9 @@ namespace VanAn.CoreHub.Services
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
         private readonly PushNotificationService? _pushNotificationService = pushNotificationService;
         private readonly ILogger<RedemptionService> _logger = logger;
+        // Loyalty Alliance Phase 2C: mode resolver + cross-tenant wallet (null in Silo-only deployments)
+        private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
+        private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
 
         // === Catalog CRUD (admin) ===
 
@@ -92,6 +100,80 @@ namespace VanAn.CoreHub.Services
                 return RedemptionResult.Fail("Sản phẩm hiện không khả dụng (hết hàng hoặc hết hạn).");
             }
 
+            // === Loyalty Alliance Phase 2C: Mode routing ===
+            // If mode=Alliance + tenant is a member, deduct from PG AllianceWallet instead of local SQLite.
+            // Voucher + RedemptionRecord are still created in local SQLite (same as Silo).
+            // If mode=Silo, or tenant opted out, fall through to existing Silo flow.
+            if (_loyaltyModeResolver is not null && _allianceWalletService is not null)
+            {
+                Guid tenantId = _tenantProvider.TenantId;
+                LoyaltyMode effectiveMode = await _loyaltyModeResolver.GetEffectiveModeAsync(tenantId);
+                if (effectiveMode == LoyaltyMode.Alliance)
+                {
+                    bool isMember = await _loyaltyModeResolver.IsAllianceMemberAsync(tenantId);
+                    if (!isMember)
+                    {
+                        return RedemptionResult.Fail("Tenant không tham gia liên minh điểm thưởng.");
+                    }
+
+                    // Resolve customer's DeviceId for wallet lookup
+                    var customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
+                    Guid deviceGuid = customer?.DeviceId ?? customerId;
+
+                    // Pre-generate voucher code (needed for both deduction reason + voucher entity)
+                    string voucherCode = GenerateVoucherCode();
+                    DateTime expiresAt = DateTime.UtcNow.AddDays(catalogItem.VoucherExpiryDays);
+
+                    // Alliance REDEEM: deduct from PG wallet (atomic per AllianceWalletService)
+                    var (success, newBalance, error) = await _allianceWalletService.DeductPointsAsync(
+                        deviceGuid, tenantId, catalogItem.PointsRequired,
+                        $"Redeem: {catalogItem.ProductName}", voucherCode);
+
+                    if (!success)
+                    {
+                        _logger.LogWarning("Alliance redeem failed for customer {CustomerId}: {Error}", customerId, error);
+                        return RedemptionResult.Fail(error ?? "Không đủ điểm để đổi sản phẩm này.");
+                    }
+
+                    // Create RedemptionRecord + Voucher in local SQLite (same as Silo, but no local deduction)
+                    await using IDbContextTransaction allianceTx = await _dbContext.BeginTransactionAsync();
+                    try
+                    {
+                        var record = new RedemptionRecord(new TenantId(tenantId), customerId, catalogItemId, catalogItem.PointsRequired);
+                        record = await _repository.AddRecordAsync(record);
+
+                        var voucher = new Voucher(new TenantId(tenantId), record.Id, customerId, voucherCode, expiresAt);
+                        string qrData = GenerateVoucherQrPngBase64(voucherCode);
+                        voucher.SetQRCodeData(qrData);
+                        voucher = await _repository.AddVoucherAsync(voucher);
+
+                        record.AssignVoucher(voucher.Id);
+                        _ = await _repository.UpdateRecordAsync(record);
+
+                        if (catalogItem.StockCount.HasValue)
+                        {
+                            catalogItem.DecrementStock();
+                            _ = await _repository.UpdateCatalogItemAsync(catalogItem);
+                        }
+
+                        await allianceTx.CommitAsync();
+
+                        _logger.LogInformation("🎁 ALLIANCE REDEEM: customer {CustomerId} redeemed {Points} points from PG wallet (new balance={Balance}). Voucher {VoucherCode}",
+                            customerId, catalogItem.PointsRequired, newBalance, voucherCode);
+
+                        return RedemptionResult.Ok(voucher, record, catalogItem.PointsRequired, newBalance);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Alliance redeem: PG deduction succeeded but local voucher creation failed for customer {CustomerId}. Rolling back local transaction. PG deduction NOT refunded (manual reconcile needed).",
+                            customerId);
+                        await allianceTx.RollbackAsync();
+                        return RedemptionResult.Fail("Lỗi hệ thống khi tạo voucher. Điểm đã trừ — liên hệ hỗ trợ.");
+                    }
+                }
+            }
+
+            // === EXISTING: Silo flow (unchanged) ===
             // ACID: Wrap entire redeem flow in a single transaction.
             // SubtractPointsAsync uses the same IVanAnDbContext (scoped DI) → its internal
             // BeginTransactionAsync creates a savepoint within this outer transaction.
