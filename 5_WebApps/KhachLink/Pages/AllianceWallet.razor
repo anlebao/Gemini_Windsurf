@@ -1,0 +1,252 @@
+@page "/alliance-wallet"
+@using VanAn.UI.Platform.Components.Atomic
+@using VanAn.KhachLink.Components.Layout
+@using VanAn.KhachLink.Services.Http
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject AllianceWalletHttpService AllianceWalletHttp
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Ví điểm liên minh</PageTitle>
+
+<KhachLinkLayout>
+    <div class="container py-4" style="max-width:700px;">
+        <h3 class="mb-3">
+            <i class="bi bi-globe2 text-primary"></i> Ví điểm liên minh
+        </h3>
+        <p class="text-muted small mb-3">
+            Điểm thưởng tích lũy trên các cửa hàng trong liên minh Vạn An. Tích điểm tại quán A, đổi quà tại quán B.
+        </p>
+
+        @if (_loading)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
+            </div>
+        }
+        else if (!_isLoggedIn)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-lock text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Đăng nhập để xem ví liên minh</h5>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLogin">Đăng nhập</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_notInAlliance)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-info-circle text-info" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Chưa tham gia liên minh điểm thưởng</h5>
+                <p class="text-muted">
+                    Tài khoản của bạn chưa có device identity liên minh. Vui lòng nâng cấp xác thực OTP
+                    và tích điểm tại một cửa hàng thành viên liên minh để tự động tham gia.
+                </p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLoyaltyCard">Xem điểm thưởng của tôi</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_wallet != null)
+        {
+            @* === Total balance card === *@
+            <VanAnCard Shadow="true" CssClass="alliance-balance-card mb-4">
+                <div class="text-center p-4">
+                    <div class="text-white-50 small">Tổng điểm liên minh</div>
+                    <div class="display-5 fw-bold text-white">
+                        @_wallet.TotalPointBalance.ToString("N0") điểm
+                    </div>
+                    @if (!_wallet.IsActive)
+                    {
+                        <span class="badge bg-warning text-dark mt-2">Ví đang tạm khoá</span>
+                    }
+                </div>
+            </VanAnCard>
+
+            @* === Breakdown by tenant === *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <h6 class="mb-3"><i class="bi bi-diagram-3 text-primary"></i> Phân bổ theo cửa hàng</h6>
+                @if (_wallet.Breakdown.Count == 0)
+                {
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-inbox" style="font-size:1.5rem;"></i>
+                        <div class="mt-2 small">Chưa có giao dịch. Tích điểm tại cửa hàng liên minh để bắt đầu.</div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var b in _wallet.Breakdown)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <i class="bi bi-shop text-muted me-2"></i>
+                                <span class="fw-semibold">@(_tenantNames.GetValueOrDefault(b.TenantId) ?? $"Cửa hàng {b.TenantId.ToString()[..8]}")</span>
+                            </div>
+                            <span class="badge bg-primary">@b.Points.ToString("N0") điểm</span>
+                        </div>
+                    }
+                }
+            </VanAnCard>
+
+            @* === Recent transactions === *@
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <h6 class="mb-3"><i class="bi bi-clock-history text-primary"></i> Hoạt động gần đây</h6>
+                @if (_wallet.RecentTransactions.Count == 0)
+                {
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-inbox" style="font-size:1.5rem;"></i>
+                        <div class="mt-2 small">Chưa có giao dịch.</div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var tx in _wallet.RecentTransactions)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">
+                                    <i class="@GetTxIcon(tx.Type)"></i> @GetTxTypeText(tx.Type)
+                                </div>
+                                <div class="small text-muted">@tx.Reason</div>
+                                <div class="small text-muted">
+                                    @(_tenantNames.GetValueOrDefault(tx.TenantId) ?? $"Cửa hàng {tx.TenantId.ToString()[..8]}")
+                                    · @tx.TransactionAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                                @if (!string.IsNullOrEmpty(tx.VoucherCode))
+                                {
+                                    <div class="small"><code>@tx.VoucherCode</code></div>
+                                }
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold @(IsEarn(tx.Type) ? "text-success" : "text-danger")">
+                                    @(IsEarn(tx.Type) ? "+" : "")@tx.Points
+                                </div>
+                                <div class="small text-muted">Số dư: @tx.BalanceAfter.ToString("N0")</div>
+                            </div>
+                        </div>
+                    }
+                }
+            </VanAnCard>
+
+            @* === Cross-tenant redeem CTA === *@
+            <VanAnCard Shadow="true" CssClass="mb-3 text-center p-4">
+                <h6 class="mb-2">Đổi điểm thưởng</h6>
+                <p class="text-muted small mb-3">
+                    Dùng điểm liên minh để đổi quà tại cửa hàng thành viên. Điểm được trừ từ ví liên minh chung.
+                </p>
+                <VanAnButton Variant="ButtonVariant.Primary" FullWidth="true" OnClick="GoToRedeemCatalog">
+                    <i class="bi bi-gift-fill"></i> Đổi điểm ngay
+                </VanAnButton>
+            </VanAnCard>
+        }
+        else if (_error != null)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Không tải được ví</h5>
+                <p class="text-muted small">@_error</p>
+                <VanAnButton Variant="ButtonVariant.Secondary" OnClick="LoadWallet">Thử lại</VanAnButton>
+            </VanAnCard>
+        }
+    </div>
+</KhachLinkLayout>
+
+<style>
+    .alliance-balance-card {
+        background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+        color: white;
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private bool _isLoggedIn;
+    private bool _notInAlliance;
+    private string? _error;
+    private string? _customerToken;
+    private AllianceWalletHttpService.AllianceWalletResponse? _wallet;
+    private Dictionary<Guid, string> _tenantNames = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadWallet();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadWallet()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
+            if (string.IsNullOrEmpty(_customerToken))
+            {
+                _isLoggedIn = false;
+                return;
+            }
+            _isLoggedIn = true;
+
+            var result = await AllianceWalletHttp.GetWalletAsync(_customerToken);
+            if (!result.Success)
+            {
+                _error = result.ErrorMessage ?? "Lỗi không xác định.";
+                return;
+            }
+
+            _notInAlliance = result.NotInAlliance;
+            _wallet = result.Wallet;
+
+            // Resolve tenant names for breakdown + transactions (parallel, best-effort)
+            var tenantIds = new HashSet<Guid>();
+            foreach (var b in _wallet.Breakdown) tenantIds.Add(b.TenantId);
+            foreach (var t in _wallet.RecentTransactions) tenantIds.Add(t.TenantId);
+
+            if (tenantIds.Count > 0)
+            {
+                var nameTasks = tenantIds.Select(async id =>
+                {
+                    var name = await AllianceWalletHttp.GetTenantNameAsync(id);
+                    return (id, name);
+                }).ToList();
+                var results = await Task.WhenAll(nameTasks);
+                _tenantNames = results
+                    .Where(r => !string.IsNullOrEmpty(r.name))
+                    .ToDictionary(r => r.id, r => r.name!);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Lỗi tải ví: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+    private void GoToLoyaltyCard() => Navigation.NavigateTo("/my-loyalty");
+    private void GoToRedeemCatalog() => Navigation.NavigateTo("/rewards");
+
+    private static bool IsEarn(string type) =>
+        type.Equals("EARN", StringComparison.OrdinalIgnoreCase) ||
+        type.Equals("ADJUST", StringComparison.OrdinalIgnoreCase);
+
+    private static string GetTxIcon(string type) => type.ToUpperInvariant() switch
+    {
+        "EARN" => "bi bi-plus-circle-fill text-success",
+        "REDEEM" => "bi bi-dash-circle-fill text-danger",
+        "ADJUST" => "bi bi-arrow-left-right text-info",
+        _ => "bi bi-circle text-muted"
+    };
+
+    private static string GetTxTypeText(string type) => type.ToUpperInvariant() switch
+    {
+        "EARN" => "Tích điểm",
+        "REDEEM" => "Đổi điểm",
+        "ADJUST" => "Điều chỉnh",
+        _ => type
+    };
+}
