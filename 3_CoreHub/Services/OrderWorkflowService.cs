@@ -22,7 +22,9 @@ namespace VanAn.CoreHub.Services
         IShopFeatureSettingsService? shopFeatureSettingsService = null,
         IOutboxRepository? outboxRepository = null,
         IOrderNotificationService? orderNotificationService = null,
-        IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig = null) : IOrderWorkflowService
+        IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig = null,
+        ILoyaltyModeResolver? loyaltyModeResolver = null,
+        IAllianceWalletService? allianceWalletService = null) : IOrderWorkflowService
     {
         private readonly IOrderRepository _orderRepository = orderRepository;
         private readonly ILogger<OrderWorkflowService> _logger = logger;
@@ -38,6 +40,9 @@ namespace VanAn.CoreHub.Services
         private readonly IOrderNotificationService? _orderNotificationService = orderNotificationService;
         // Loyalty-A: Global default points formula (IOptions fallback when tenant has no per-tenant config)
         private readonly LoyaltyPointsConfig _loyaltyPointsConfig = loyaltyPointsConfig?.Value ?? new LoyaltyPointsConfig();
+        // Loyalty Alliance Phase 2B: mode resolver + cross-tenant wallet service (null in Silo-only deployments)
+        private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
+        private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
         // _shopFeatureSettingsService already declared at line 34 (Wave 1-T6) — reused for Loyalty-C WS-A per-tenant formula override.
 
         // W-1-T7: CamelCase JSON options — matches SimpleAccountingEventHandler deserialization policy
@@ -358,6 +363,38 @@ namespace VanAn.CoreHub.Services
 
             string reason = $"Hoàn tiền từ chiến dịch {campaignName} - Đơn hàng #{order.Id}";
 
+            // === Loyalty Alliance Phase 2B: Mode routing ===
+            // If mode=Alliance and tenant is an alliance member, route EARN to the cross-tenant PG wallet.
+            // If mode=Silo, or tenant opted out (IsAllianceMember=false), fall through to the existing Silo flow.
+            if (_loyaltyModeResolver is not null && _allianceWalletService is not null)
+            {
+                LoyaltyMode effectiveMode = await _loyaltyModeResolver.GetEffectiveModeAsync(order.TenantId.Value);
+                if (effectiveMode == LoyaltyMode.Alliance)
+                {
+                    bool isMember = await _loyaltyModeResolver.IsAllianceMemberAsync(order.TenantId.Value);
+                    if (isMember)
+                    {
+                        Guid deviceGuid = Guid.TryParse(order.CustomerDeviceId, out var d) ? d : customer.Id;
+                        var (allianceSuccess, newBalance, allianceError) = await _allianceWalletService.AddPointsAsync(
+                            deviceGuid, order.TenantId.Value, pointsToAward, reason, order.Id);
+
+                        if (allianceSuccess)
+                        {
+                            _logger.LogInformation("🎁 ALLIANCE EARN: {Points} points to wallet for device {DeviceId} (balance={Balance})",
+                                pointsToAward, deviceGuid, newBalance);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Alliance EARN failed for order {OrderId}: {Error}", order.Id, allianceError);
+                        }
+                        return;
+                    }
+
+                    _logger.LogInformation("Loyalty: Tenant {TenantId} is not alliance member — falling through to Silo earn", order.TenantId);
+                }
+            }
+
+            // === EXISTING: Silo flow (unchanged) ===
             bool success = await _loyaltyRewardsService.AddPointsAsync(customer.Id, pointsToAward, reason);
 
             if (success)
