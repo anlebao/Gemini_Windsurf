@@ -30,7 +30,7 @@
 
 ## 2. Current Objective
 
-**Loyalty Alliance System — Spec + Plan COMPLETE, ready to implement**
+**Loyalty Alliance System — Phase 2A COMPLETE, ready for Phase 2B**
 
 Cross-tenant loyalty points system. Khách hàng tích điểm tại tenant A, đổi được tại tenant B trong liên minh. SystemAdmin điều chỉnh mode Silo/Alliance ở cấp toàn cục + per-tenant override. Giá trị điểm đồng nhất toàn hệ thống.
 
@@ -50,7 +50,7 @@ Cross-tenant loyalty points system. Khách hàng tích điểm tại tenant A, �
 **Mode routing:** `LoyaltyModeResolver.GetEffectiveModeAsync(tenantId)` → Silo (SQLite) | Alliance (PG)
 **NATS sync:** `vanan.cloud.loyalty.changed.{customerDeviceId}` → ShopERP updates local `LoyaltyRewards.PointBalance`
 
-**Next:** Session 3 (Phase 2A — LoyaltyModeResolver + AllianceWalletService in `3_CoreHub/Services/` + `1_Shared/Services/`)
+**Next:** Session 4 (Phase 2B — Modify OrderWorkflowService EARN branch to route to AllianceWalletService when mode=Alliance)
 
 ---
 
@@ -138,9 +138,9 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `a139f424` docs(state): Loyalty Alliance Phase 1 COMPLETE + VPS VERIFIED (RV 11/11 PASS)
-- **Working tree:** Modified `.devin/rules/governance.md` (Pattern #9 + VPS ACCESS section from P1 RV). Untracked: `docs/plans/` (3 files), `docs/specs/` (1 file) — Loyalty Alliance spec + plan, pending commit.
-- **Loyalty Alliance System:** Phase 1 COMPLETE + VPS VERIFIED (RV 11/11 PASS). Spec v1.0 + master plan + task cards + detail coding plan COMPLETE (13 sessions, 7 phases). Ready to implement Session 3 (Phase 2A).
+- **Last commit:** `da5a2a36` feat(loyalty-alliance): Phase 2A — LoyaltyModeResolver + AllianceWalletService
+- **Working tree:** Clean. 2 commits ahead of origin/main (pending push).
+- **Loyalty Alliance System:** Phase 1 COMPLETE + VPS VERIFIED (RV 11/11 PASS). Phase 2A COMPLETE (LoyaltyModeResolver + AllianceWalletService + 18 tests PASS). Spec v1.0 + 3 plan files committed. Ready for Session 4 (Phase 2B — OrderWorkflowService EARN branch routing).
 - **CustomerRepository.AddAsync fix (commit `550f5619`):** Fixed bug where AddAsync created a new Customer with wrong Id instead of adding the passed-in entity. Loyalty points now correctly awarded after order completion.
 - **SystemAdmin Guide Review:** COMPLETE + VPS VERIFIED (commit `9743054a`, RV 24/24 PASS). 6 files changed. Build 0 errors, CI ALL PASSED. CD deployed.
 - **.NET SDK:** 8.0.422
@@ -182,8 +182,8 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 
 ## 4. Next Actions
 
-1. **Loyalty Alliance System — Session 3 (Phase 2A: LoyaltyModeResolver + AllianceWalletService):** Implement in `3_CoreHub/Services/` + `1_Shared/Services/`. Plan: `docs/plans/loyalty-alliance-detail-coding-plan.md` Phase 2A. Task card: TC-P2A in `docs/plans/loyalty-alliance-task-cards.md`. (Phase 1A + 1B COMPLETE + VPS VERIFIED — see Section 2.)
-2. **Loyalty Alliance — Sessions 4-13:** Follow master plan at `docs/plans/loyalty-alliance-master-plan.md` (Phases 2B-7).
+1. **Loyalty Alliance System — Session 4 (Phase 2B: Modify OrderWorkflowService EARN branch):** Inject `ILoyaltyModeResolver` + `IAllianceWalletService` into `OrderWorkflowService`, branch `ProcessLoyaltyPointsAsync` to route to Alliance wallet when mode=Alliance. Plan: `docs/plans/loyalty-alliance-detail-coding-plan.md` Phase 2B. Task card: TC-P2B. (Phase 2A COMPLETE — see Section 2.)
+2. **Loyalty Alliance — Sessions 5-13:** Follow master plan at `docs/plans/loyalty-alliance-master-plan.md` (Phases 2C-7).
 3. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
 4. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
 5. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
@@ -290,14 +290,15 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `a139f424` (docs: Loyalty Alliance Phase 1 COMPLETE + VPS VERIFIED). Phase 1A (commit `2e2eaa4e`): 4 domain entities + 2 enums in `1_Shared/Domain.cs`. Phase 1B (commit `b9ded067`): 4 EF configs + 4 DbSets + PG migration `20260802003221_LoyaltyAlliance` + DI. VPS RV 2026-08-02: 11/11 PASS (4 PG tables, 7 indexes, 17/12 columns, migration applied, 8 containers healthy, public domains 200/302/200, Gateway logs clean). Spec v1.0 + 3 plan files COMPLETE. Working tree: governance.md modified (Pattern #9 + VPS ACCESS), `docs/plans/` + `docs/specs/` untracked (pending commit). Build 0 errors, CI ALL PASSED.
+- **Verified Facts:** Branch=`main`, last commit `da5a2a36` (feat: Loyalty Alliance Phase 2A — LoyaltyModeResolver + AllianceWalletService). Phase 1A (commit `2e2eaa4e`): 4 domain entities + 2 enums. Phase 1B (commit `b9ded067`): 4 EF configs + DbSets + PG migration + DI. Phase 2A (commit `da5a2a36`): LoyaltyModeResolver + AllianceWalletService + 18 unit tests (all PASS). VPS RV 2026-08-02: 11/11 PASS (Phase 1). Spec v1.0 + 3 plan files committed (`5770648d`). Build 0 errors. Working tree clean. 2 commits ahead of origin/main (pending push).
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (30+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (35+), Open Questions (0) < 3
 
 ---
 
 ## 10. Maintenance Log
 
+* **2026-08-02 — LOYALTY ALLIANCE PHASE 2A COMPLETE (commit `da5a2a36`).** LoyaltyModeResolver + AllianceWalletService implemented. 6 new files: `1_Shared/Services/ILoyaltyModeResolver.cs` (3 methods: GetEffectiveModeAsync, GetEffectiveMaxWalletPointsAsync, IsAllianceMemberAsync), `3_CoreHub/Services/LoyaltyModeResolver.cs` (tenant override → global fallback, Q2 opt-out forces Silo, IgnoreQueryFilters for cross-tenant lookup, seeds default global config), `1_Shared/Services/IAllianceWalletService.cs` (7 methods), `3_CoreHub/Services/AllianceWalletService.cs` (wallet CRUD + immutable AllianceTransaction logging + MaxWalletPoints enforcement + NATS publish `vanan.cloud.loyalty.changed.{customerDeviceId}`, Q4 refund attributes to redeem tenant), `6_Tests/VanAn.Core.Tests/Services/LoyaltyModeResolverTests.cs` (7 tests), `6_Tests/VanAn.Core.Tests/Services/AllianceWalletServiceTests.cs` (11 tests). Modified `2_Gateway/Program.cs` (+2 DI registrations). Plan deviation: LoyaltyModeResolver uses IgnoreQueryFilters() for LoyaltyTenantConfig queries (cross-tenant lookup by design — unique index on TenantId ensures at most 1 row). Build 0 errors. Tests 18/18 PASS (7 resolver + 11 wallet). Guard PASSED. NOT yet deployed to VPS (will deploy after Phase 2B+2C complete — services not yet wired into order flow). Branch: `main`. Last commit: `da5a2a36`. Next: Session 4 (Phase 2B — OrderWorkflowService EARN branch routing).
 * **2026-08-02 — STATE CLEANUP + COMMIT SPEC/PLAN/GOVERNANCE.** Updated Section 3 (last commit `a139f424`, working tree note), Section 4 (Phase 1A/1B marked COMPLETE, Phase 2A promoted to action #1, Sessions 4-13 → #2), Section 9 (Health Check refreshed with Phase 1 verified facts). Committed previously-untracked Loyalty Alliance spec + 3 plan files (`docs/specs/loyalty-alliance-spec.md`, `docs/plans/loyalty-alliance-{master-plan,task-cards,detail-coding-plan}.md`) + governance.md changes (Pattern #9 `__EFMigrationsHistory` PascalCase + VPS ACCESS reference section — both from P1 RV work). Ready for Session 3 (Phase 2A). Branch: `main`.
 * **2026-08-02 — LOYALTY ALLIANCE PHASE 1 COMPLETE + VPS VERIFIED (RV 11/11 PASS, commits `2e2eaa4e` + `b9ded067`).** Phase 1A (Session 1): 4 entities + 2 enums in `1_Shared/Domain.cs` (LoyaltyGlobalConfig, LoyaltyTenantConfig, AllianceWallet, AllianceTransaction + LoyaltyMode, AllianceTransactionType). Single-Identity Pattern compliant. Plan deviation: AllianceTransaction `TenantId`→`TransactionTenantId` (avoid shadowing BaseEntity.TenantId). Phase 1B (Session 2): 4 EF configs + 4 DbSets (IVanAnDbContext + VanAnDbContext + ShopERPDbContext) + PG migration `20260802003221_LoyaltyAlliance` (4 tables, 3 indexes). Multi-tenancy query filter excludes 3 cross-tenant entities (TenantId=Empty). ShopERPDbContext ignores all 4 (PG-only). Plan deviation: IGenericRepository DI skipped (codebase has no IGenericRepository). Also archived 219 historical task cards from `docs/AI/tasks/` into `archive/<category>/` (commit `6cb9b90e`). CI pre-push ALL PASSED (533s): Build + 1162 Core.Tests + 17 Unit.Tests + KhachLink Startup + Gateway Startup + 39 Architecture + 233 Integration. CD deployed (Build & Push + Pre-Deploy Validation + Deploy to VPS 1m11s). VPS RV 11/11: 4 PG tables exist + 7 indexes + AllianceTransactions 17 cols (TransactionTenantId uuid NOT NULL) + LoyaltyTenantConfigs 12 cols (Mode int? nullable, MaxWalletPoints int? nullable) + EF migration applied (ProductVersion 8.0.8) + 8 containers healthy + Gateway /health 200 + ShopERP 302 (login redirect) + KhachLink 200 + Gateway logs clean. Branch: `main`. Last commit: `b9ded067`.
 * **2026-08-02 — LOYALTY ALLIANCE SYSTEM — SPEC + PLAN COMPLETE.** Created spec `docs/specs/loyalty-alliance-spec.md` (v1.0, 5 decisions resolved: Q1=split by source, Q2=full opt-out, Q3=tenant-only history, Q4=refund to redeem tenant, Q5=configurable MaxWalletPoints). Created 3 plan files in `docs/plans/`: master plan (7 phases, 13 sessions), task cards (TC-P1A→TC-P7), detail coding plan (code snippets + method signatures per phase). New entities: LoyaltyGlobalConfig, LoyaltyTenantConfig, AllianceWallet, AllianceTransaction (PG-only). Mode routing via LoyaltyModeResolver. NATS sync: `vanan.cloud.loyalty.changed.{customerDeviceId}`. Session 13 = VPS runtime verification (14-step checklist). Also fixed CustomerRepository.AddAsync bug (commit `550f5619`). Branch: `main`. Last commit: `550f5619`. Untracked: `docs/plans/`, `docs/specs/`.
