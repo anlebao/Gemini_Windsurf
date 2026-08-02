@@ -30,7 +30,67 @@
 
 ## 2. Current Objective
 
-**VPS Bug Fix Batch (3 bugs) — COMPLETE + VPS VERIFIED (commits `141b944b` + `c47b89d6`)**
+**Loyalty Alliance System — Spec + Plan COMPLETE, ready to implement**
+
+Cross-tenant loyalty points system. Khách hàng tích điểm tại tenant A, đổi được tại tenant B trong liên minh. SystemAdmin điều chỉnh mode Silo/Alliance ở cấp toàn cục + per-tenant override. Giá trị điểm đồng nhất toàn hệ thống.
+
+**Spec (`docs/specs/loyalty-alliance-spec.md`):** v1.0 — 5 decisions resolved:
+- Q1: Switch Alliance→Silo: chia điểm theo nguồn (xuất xứ)
+- Q2: Tenant opt-out toàn phần (IsAllianceMember=false → hoàn toàn Silo)
+- Q3: Tenant Admin chỉ thấy transaction tại tenant mình
+- Q4: Refund về tenant nơi redeem xảy ra
+- Q5: MaxWalletPoints configurable (global + per-tenant override, default 100,000)
+
+**Plan (3 files in `docs/plans/`):**
+- `loyalty-alliance-master-plan.md` — 7 phases, 13 sessions
+- `loyalty-alliance-task-cards.md` — 13 task cards (TC-P1A → TC-P7)
+- `loyalty-alliance-detail-coding-plan.md` — code snippets, method signatures, file paths per phase
+
+**New entities (PG-only):** `LoyaltyGlobalConfig`, `LoyaltyTenantConfig`, `AllianceWallet`, `AllianceTransaction`
+**Mode routing:** `LoyaltyModeResolver.GetEffectiveModeAsync(tenantId)` → Silo (SQLite) | Alliance (PG)
+**NATS sync:** `vanan.cloud.loyalty.changed.{customerDeviceId}` → ShopERP updates local `LoyaltyRewards.PointBalance`
+
+**Next:** Session 3 (Phase 2A — LoyaltyModeResolver + AllianceWalletService in `3_CoreHub/Services/` + `1_Shared/Services/`)
+
+---
+
+**Phase 1 COMPLETE + VPS VERIFIED (commits `2e2eaa4e` + `b9ded067`, RV 11/11 PASS)**
+
+Phase 1A — Domain entities (Session 1, commit `2e2eaa4e`): 4 entities + 2 enums added to `1_Shared/Domain.cs` (LoyaltyGlobalConfig, LoyaltyTenantConfig, AllianceWallet, AllianceTransaction + LoyaltyMode, AllianceTransactionType). Single-Identity Pattern compliant. Plan deviation: AllianceTransaction renamed `TenantId` → `TransactionTenantId` (avoid shadowing BaseEntity.TenantId value object).
+
+Phase 1B — EF configs + migration + DI (Session 2, commit `b9ded067`): 4 EF Configuration classes + 4 DbSets added to IVanAnDbContext/VanAnDbContext/ShopERPDbContext + PG migration `20260802003221_LoyaltyAlliance` (4 tables, 3 indexes). Multi-tenancy query filter excludes 3 cross-tenant entities (LoyaltyGlobalConfig, AllianceWallet, AllianceTransaction — TenantId=Empty). ShopERPDbContext ignores all 4 (PG-only). Plan deviation: IGenericRepository DI registration skipped (codebase has no IGenericRepository).
+
+**VPS RV (2026-08-02, commit `b9ded067`): 11/11 PASS.** 8 containers healthy (CD deployed 23 min before RV).
+- RV1: 4 PG tables exist (AllianceTransactions, AllianceWallets, LoyaltyGlobalConfigs, LoyaltyTenantConfigs) ✓
+- RV2: 7 indexes (3 PK + IX_AllianceWallets_CustomerDeviceId unique + IX_LoyaltyTenantConfigs_TenantId unique + IX_AllianceTransactions_WalletId_TransactionAt) ✓
+- RV3: AllianceTransactions 17 columns — TransactionTenantId (uuid, NOT NULL) mapped correctly ✓
+- RV4: LoyaltyTenantConfigs 12 columns — Mode (integer, nullable for inherit-global) + MaxWalletPoints (integer, nullable) ✓
+- RV5: EF migration `20260802003221_LoyaltyAlliance` applied (ProductVersion 8.0.8) ✓
+- RV6: 8 containers healthy (gateway, shoperp, khachlink, nginx, seq, certbot, postgres, nats) ✓
+- RV7-9: Internal ports not exposed (HTTP 000 — expected, nginx reverse proxy only) ✓
+- RV10: Gateway public domain https://api.khachvip.online/health → HTTP 200 ✓
+- RV11: ShopERP https://khachvip.online/ → HTTP 302 (login redirect) + KhachLink https://diemthuong.khachvip.online/ → HTTP 200 ✓
+- RV12: Gateway logs clean — no migration errors, no loyalty-related errors ✓
+
+---
+
+**Previous: SystemAdmin Guide Review + Runtime Verification — COMPLETE + VPS VERIFIED (commit `9743054a`)**
+
+Reviewed `01-systemadmin.html` guide against actual codebase + VPS. Fixed all discrepancies + implemented missing features. VPS RV 24/24 PASS.
+
+**Changes (6 files):**
+- **Guide HTML:** Fixed fraud page URLs (`/admin/fraud-flags` → `/admin/community/fraud-flags`), community-fund API path (`/api/community/` → `/api/admin/`), added missing API docs (community-fund balance/history, product-cost-prices CRUD, collaborator-verification settings), added MarkReviewed API path.
+- **Sitemap.razor:** Added "Community Commerce" card with 8 admin links for SystemAdmin (commerce-mode, community-fund, product-cost-prices, product-referral-configs, community admin-panel, fraud-flags, fraud-stats, collaborator-verification).
+- **NavMenu.razor:** Added "SMS OTP Toggle" link → `/admin/collaborator-verification`.
+- **IFraudReviewService + FraudReviewService:** Added `MarkReviewedAsync` (neutral review — sets FraudFlagStatus.Reviewed, no side effects).
+- **FraudFlagController:** Added `POST /api/admin/community/fraud-flags/{id}/mark-reviewed` endpoint (SystemAdmin JWT).
+- **Confirmed:** `GET /api/community/commerce-mode` already exists in `CommunityController.cs:558`.
+
+**VPS RV (2026-08-01, commit `9743054a`): 24/24 PASS.** 8 containers healthy. (1) Gateway /health 200. (2) ShopERP home 200. (3) KhachLink 200. (4) Admin API 401 no-token 7/7 (fraud-flags, fraud-stats, community-fund/balance, product-cost-prices, collaborator-verification/settings, community/commerce-mode, mark-reviewed). (5) Admin pages 200 authenticated 8/8. (6) Sitemap Community Commerce card present with all 8 links. (7) NavMenu collaborator-verification + SMS OTP present. (8) mark-reviewed 404 for non-existent GUID (correct). (9) All pages real content, Blazor-rendered, no stubs.
+
+---
+
+**Previous: VPS Bug Fix Batch (3 bugs) — COMPLETE + VPS VERIFIED (commits `141b944b` + `c47b89d6`)**
 
 **3 production bugs fixed + 1 infra fix (nginx entrypoint CRLF):**
 - **BUG 1 — POS order creation fail + order sync fail:** SQLite `Orders` table thiếu 7 cột Sprint 7 (CommerceMode, CostPrice, SellPrice, PlatformMargin, DeliveryFee, PlatformFeeRate, CommunityFundRate). Sprint 7 migration `20260730105632_CommerceModeSprint7` chỉ tồn tại cho PG (VanAnDbContext) — thiếu cho SQLite (ShopERPDbContext). Fix: tạo SQLite migration `20260731091639_AddCommerceModeSprint7` (7 ALTER TABLE + 3 new tables + Tenants column + indexes). VPS RV: 7/7 columns, 0 "no such column" errors, test order `019fb791` synced to SQLite.
@@ -78,8 +138,11 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `c47b89d6` fix(nginx): convert docker-entrypoint.sh to LF + .gitattributes rule
-- **Working tree:** VPS Bug Fix Batch COMPLETE + VPS VERIFIED. 3 bugs fixed (SQLite Sprint7 migration + nginx charset + QR ImageUrl) + 1 infra fix (nginx entrypoint CRLF). Build 0 errors, 17 QR tests PASS, CI 1162+17+39+233 tests PASS.
+- **Last commit:** `550f5619` fix: CustomerRepository.AddAsync creates new Customer with wrong Id
+- **Working tree:** Loyalty Alliance spec + plan created (3 new files in `docs/plans/`, 1 in `docs/specs/`). Untracked: `docs/plans/`, `docs/specs/`. Modified: `docs/AI/project_state.md`.
+- **Loyalty Alliance System:** Spec v1.0 COMPLETE (5 decisions resolved). Master plan + task cards + detail coding plan COMPLETE (13 sessions, 7 phases). Ready to implement Session 1.
+- **CustomerRepository.AddAsync fix (commit `550f5619`):** Fixed bug where AddAsync created a new Customer with wrong Id instead of adding the passed-in entity. Loyalty points now correctly awarded after order completion.
+- **SystemAdmin Guide Review:** COMPLETE + VPS VERIFIED (commit `9743054a`, RV 24/24 PASS). 6 files changed. Build 0 errors, CI ALL PASSED. CD deployed.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build (2026-07-30):** 0 errors across full solution. CI pre-push ALL PASSED (721s): Build + 1141 Core.Tests + 17 Unit.Tests + KhachLink Startup + Gateway Startup + 39 Architecture + 233 Integration.
@@ -119,17 +182,16 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 
 ## 4. Next Actions
 
-1. **Post-Sprint 7 Critical Fixes — COMPLETE + VPS VERIFIED (commit `ef8519c9`, RV 21/21 PASS):** 3 fixes (CommerceMode snapshot wiring + ProductCostPrice query + auth bypass removal) + 9 doc/UI gaps closed. Reseller mode giờ functional end-to-end.
-2. **CC-S7 Sprint 7 — Commerce Mode Toggle (COMPLETE + VPS VERIFIED, RV7 18/18 PASS, commit `3fba1e8d`):** Toggle toàn cục (Global) + override cấp tenant. Marketplace (default) ↔ Reseller (Vạn An mua-bán lại). Additive. FULL scope (Q3 community fund + Q5 non-COD included). Domain Modification APPROVED. S1-S4 implemented + merged to main + CD deployed + VPS RV 18/18 PASS.
-   - **NEXT-ACTION (post-Sprint7):** Fix 4 flaky EInvoiceOrchestratorTests (CreateInvoiceAsync_ShouldSaveInvoiceToDatabase, CreateInvoiceAsync_ShouldUseTransaction, GetInvoiceAsync_WhenInvoiceExists_ShouldReturnInvoice, GetInvoiceStatusAsync_WhenInvoiceExists_ShouldReturnStatus) — currently skipped via `[Fact(Skip = "Flaky...")]`.
-3. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. ON: Salesman/Shipper/Owner bắt buộc SMS OTP, phí trừ deposit. **Cần Domain Modification approval** (WalletTransactionType.Deposit + SmsOtpFee — NOTE: Sprint 7 took 7-11, CC-S6-T5 needs renumber if it lands after Sprint 7).
-4. **A2 follow-up — Guid case audit (P2):** Guid case mismatch không chỉ ảnh hưởng OutboxMessages. Cần audit các table khác. Fix triệt để: thêm `COLLATE NOCASE` vào EF config cho Id column, hoặc normalize tất cả row lowercase → UPPERCASE. (Hiện chỉ `OutboxRepository.cs` có `COLLATE NOCASE`.)
-5. **Phase 8 — Multi-VPS E2E Validation (Playwright)** — per `phase8_multi_vps_e2e_task_card.md`. 7 E2E scenarios. (Chưa có spec file nào trong `6_Testing/e2e-tests/`.)
-6. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-7. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (`vanan_dev` vẫn còn trong `DesignTimeDbContextFactory.cs`, `docker-compose.infra.yml`, `scripts/start-apps.ps1`, `scripts/start-local-infra.ps1`.)
-8. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate (`dotnet test ... | Out-Null` pattern). Direct `dotnet test` with identical args → exit 0; guard-check reports FAIL. (Pattern vẫn ở `guard-check.ps1:206-222`.)
-9. **(Pre-existing flaky test — CI FILTER APPLIED 2026-07-30, ROOT CAUSE UNFIXED)** `EInvoiceOrchestratorTests` marked `[Trait("Category", "Flaky")]` + CI filter `--filter "Category!=Flaky"` applied to `ci.yml:52` + `pr-check.yml:128` (was documented as done in Sprint 6 but never actually applied until 2026-07-30). Tests still fail in isolation — root cause not fixed. **Deferred per user decision — fix after Sprint 7.**
-10. **(Facebook OAuth)** Config real Facebook OAuth credentials (AppId + AppSecret) — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+1. **Loyalty Alliance System — IMPLEMENT Session 1 (Phase 1A: Domain Entities):** Add `LoyaltyMode` enum, `AllianceTransactionType` enum, `LoyaltyGlobalConfig`, `LoyaltyTenantConfig`, `AllianceWallet`, `AllianceTransaction` to `1_Shared/Domain.cs`. Spec: `docs/specs/loyalty-alliance-spec.md`. Plan: `docs/plans/loyalty-alliance-detail-coding-plan.md` Phase 1A.
+2. **Loyalty Alliance — Session 2 (Phase 1B: EF Configs + Migration + DI):** 4 EF configs + DbSets + PG migration + DI registration.
+3. **Loyalty Alliance — Sessions 3-13:** Follow master plan at `docs/plans/loyalty-alliance-master-plan.md`.
+4. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+5. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+6. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+7. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+8. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+9. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
+10. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
 
 ---
 
@@ -229,14 +291,17 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `c47b89d6` (fix nginx entrypoint CRLF + .gitattributes). VPS Bug Fix Batch COMPLETE + VPS VERIFIED. 3 bugs fixed: (1) SQLite Sprint7 migration `20260731091639_AddCommerceModeSprint7` — 7 Orders columns + 3 tables + indexes, (2) nginx `charset utf-8;` — Content-Type now `text/html; charset=utf-8`, (3) QRCodePayload.ImageUrl + QrCodeService 8-arg + Scan.razor fast-path sets ImageUrl. 1 infra fix: nginx entrypoint.sh CRLF→LF + .gitattributes `*.sh text eol=lf`. VPS RV: 7/7 SQLite columns, 0 errors, test order `019fb791` synced, charset confirmed, entrypoint LF confirmed. Build 0 errors, 17 QR tests PASS, CI 1162+17+39+233 tests PASS.
+- **Verified Facts:** Branch=`main`, last commit `550f5619` (fix: CustomerRepository.AddAsync creates new Customer with wrong Id). Loyalty Alliance spec v1.0 COMPLETE (5 decisions resolved). 3 plan files created: master plan (7 phases, 13 sessions), task cards (TC-P1A→TC-P7), detail coding plan. Spec at `docs/specs/loyalty-alliance-spec.md`. Plans at `docs/plans/loyalty-alliance-*.md`. Untracked: `docs/plans/`, `docs/specs/`. Previous: SystemAdmin Guide Review COMPLETE + VPS VERIFIED (commit `9743054a`, RV 24/24 PASS). Build 0 errors, CI ALL PASSED.
 - **Open Questions:** 0
-- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (15+), Open Questions (0) < 3
+- **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (20+), Open Questions (0) < 3
 
 ---
 
 ## 10. Maintenance Log
 
+* **2026-08-02 — LOYALTY ALLIANCE PHASE 1 COMPLETE + VPS VERIFIED (RV 11/11 PASS, commits `2e2eaa4e` + `b9ded067`).** Phase 1A (Session 1): 4 entities + 2 enums in `1_Shared/Domain.cs` (LoyaltyGlobalConfig, LoyaltyTenantConfig, AllianceWallet, AllianceTransaction + LoyaltyMode, AllianceTransactionType). Single-Identity Pattern compliant. Plan deviation: AllianceTransaction `TenantId`→`TransactionTenantId` (avoid shadowing BaseEntity.TenantId). Phase 1B (Session 2): 4 EF configs + 4 DbSets (IVanAnDbContext + VanAnDbContext + ShopERPDbContext) + PG migration `20260802003221_LoyaltyAlliance` (4 tables, 3 indexes). Multi-tenancy query filter excludes 3 cross-tenant entities (TenantId=Empty). ShopERPDbContext ignores all 4 (PG-only). Plan deviation: IGenericRepository DI skipped (codebase has no IGenericRepository). Also archived 219 historical task cards from `docs/AI/tasks/` into `archive/<category>/` (commit `6cb9b90e`). CI pre-push ALL PASSED (533s): Build + 1162 Core.Tests + 17 Unit.Tests + KhachLink Startup + Gateway Startup + 39 Architecture + 233 Integration. CD deployed (Build & Push + Pre-Deploy Validation + Deploy to VPS 1m11s). VPS RV 11/11: 4 PG tables exist + 7 indexes + AllianceTransactions 17 cols (TransactionTenantId uuid NOT NULL) + LoyaltyTenantConfigs 12 cols (Mode int? nullable, MaxWalletPoints int? nullable) + EF migration applied (ProductVersion 8.0.8) + 8 containers healthy + Gateway /health 200 + ShopERP 302 (login redirect) + KhachLink 200 + Gateway logs clean. Branch: `main`. Last commit: `b9ded067`.
+* **2026-08-02 — LOYALTY ALLIANCE SYSTEM — SPEC + PLAN COMPLETE.** Created spec `docs/specs/loyalty-alliance-spec.md` (v1.0, 5 decisions resolved: Q1=split by source, Q2=full opt-out, Q3=tenant-only history, Q4=refund to redeem tenant, Q5=configurable MaxWalletPoints). Created 3 plan files in `docs/plans/`: master plan (7 phases, 13 sessions), task cards (TC-P1A→TC-P7), detail coding plan (code snippets + method signatures per phase). New entities: LoyaltyGlobalConfig, LoyaltyTenantConfig, AllianceWallet, AllianceTransaction (PG-only). Mode routing via LoyaltyModeResolver. NATS sync: `vanan.cloud.loyalty.changed.{customerDeviceId}`. Session 13 = VPS runtime verification (14-step checklist). Also fixed CustomerRepository.AddAsync bug (commit `550f5619`). Branch: `main`. Last commit: `550f5619`. Untracked: `docs/plans/`, `docs/specs/`.
+* **2026-08-01 — SYSTEMADMIN GUIDE REVIEW + RUNTIME VERIFICATION — COMPLETE + VPS VERIFIED (commit `9743054a`).** Reviewed `01-systemadmin.html` guide against codebase + VPS. Fixed all discrepancies + implemented missing features. 6 files changed: (1) Guide HTML — fixed fraud page URLs (`/admin/fraud-flags`→`/admin/community/fraud-flags`, `/admin/fraud-stats`→`/admin/community/fraud-stats`), community-fund API path (`/api/community/`→`/api/admin/`), added missing API docs (community-fund balance/history, product-cost-prices CRUD, collaborator-verification settings), added MarkReviewed API path in section 7.4. (2) Sitemap.razor — added "Community Commerce" card with 8 admin links for SystemAdmin (commerce-mode, community-fund, product-cost-prices, product-referral-configs, community admin-panel, fraud-flags, fraud-stats, collaborator-verification). (3) NavMenu.razor — added "SMS OTP Toggle" link → `/admin/collaborator-verification`. (4) IFraudReviewService — added `MarkReviewedAsync(Guid, Guid)` method. (5) FraudReviewService — implemented MarkReviewedAsync (neutral review, sets FraudFlagStatus.Reviewed via `flag.MarkReviewed()`, no side effects). (6) FraudFlagController — added `POST /api/admin/community/fraud-flags/{id}/mark-reviewed` endpoint (SystemAdmin JWT). Confirmed `GET /api/community/commerce-mode` already exists in CommunityController.cs:558. Build 0 errors, CI pre-push ALL PASSED (566s): Build + 1162 Core.Tests + 17 Unit.Tests + KhachLink Startup + Gateway Startup + 39 Architecture + 233 Integration. CD deployed (3 jobs: Build & Push 3m22s, Pre-Deploy Validation 12s, Deploy to VPS 1m14s). VPS RV 24/24: 8 containers healthy, Gateway /health 200, ShopERP 200, KhachLink 200, 7 admin APIs 401 no-token (fraud-flags, fraud-stats, community-fund/balance, product-cost-prices, collaborator-verification/settings, community/commerce-mode, mark-reviewed), 8 admin pages 200 authenticated (commerce-mode, community-fund, product-cost-prices, product-referral-configs, community/admin-panel, community/fraud-flags, community/fraud-stats, collaborator-verification), Sitemap Community Commerce card present with all 8 links, NavMenu collaborator-verification + SMS OTP present, mark-reviewed 404 for non-existent GUID (correct), all pages real Blazor content no stubs. Branch: `main`. Last commit: `9743054a`.
 * **2026-07-31 — VPS BUG FIX BATCH (3 bugs) — COMPLETE + VPS VERIFIED (commits `141b944b` + `c47b89d6`).** 3 production bugs fixed + 1 infra fix. BUG 1: SQLite Orders missing 7 Sprint7 columns → created ShopERPDbContext migration `20260731091639_AddCommerceModeSprint7` (7 ALTER TABLE + 3 new tables: CommunityFundSpendRecords, ProductCostPrices, SystemSettings + Tenants.Settings_CommerceModeOverride + 4 indexes). BUG 2a: nginx missing `charset utf-8;` → added to http block in `nginx/nginx.conf`. BUG 2b: same root cause as bug 1 (OrderSyncSubscriber SaveChangesAsync fail). BUG 3: QRCodePayload missing ImageUrl → added `ImageUrl` property + 8-arg constructor + QrCodeService 8-arg overload + ProductsController passes `product.ImageUrl` + Scan.razor fast-path sets `ImageUrl = qrPayload.ImageUrl`. INFRA FIX: nginx `docker-entrypoint.sh` had CRLF → busybox/ash `set -e` fail → nginx restart loop. Converted to LF + `.gitattributes` rule `*.sh text eol=lf`. VPS RV: 7/7 SQLite columns, 0 "no such column" errors, test order `019fb791` synced to SQLite (`OrderSyncSubscriber: synced order → SQLite (1 items, 165000.00 VND)`), `Content-Type: text/html; charset=utf-8`, entrypoint LF (`0a` not `0d0a`). Build 0 errors, CI 1162+17+39+233 tests PASS. Branch: `main`. Last commit: `c47b89d6`.
 * **2026-07-30 — POST-SPRINT 7 CRITICAL FIXES — COMPLETE + VPS VERIFIED (RV 21/21 PASS, commit `ef8519c9`).** 3 critical fixes + 9 doc/UI gaps closed. FIX #1 CRITICAL: Wire `ICommerceModeService` into `OrderService.CreateOrderFromCommandAsync` — `SnapshotCommerceModeAsync()` resolves mode per tenant + queries `ProductCostPrices` (cross-tenant IgnoreQueryFilters) + calls `Order.SetResellerPricing()` (7 fields). Trước đó Reseller mode non-functional — `WalletService.ConfirmCodResellerAsync` + `ConfirmExternalPaymentAsync` + `SalesmanService` OnMargin commission đều dead code. FIX #2 CRITICAL: `ProductCostPrices` DbSet giờ được query trong order flow. FIX #3 SECURITY: Xóa duplicate `POST /api/community/wallet/confirm-external-payment` (auth bypass via `[AllowAnonymous]` class-level). 9 doc/UI gaps: ShopERP NavMenu +3 links + FeaturedProducts Owner access + KhachLink NavMenu (Wallet + Mã QR + Đang giao) + ActiveDeliveries.razor + GET /api/community/my-deliveries + GET /api/community/commerce-mode + Home Commerce Mode badge + Profile device info + docs Post-PoC marks. Build 0 errors. CI pre-push ALL PASSED (721s): Build + 1141 Core.Tests + 17 Unit.Tests + KhachLink Startup + Gateway Startup + 39 Architecture + 233 Integration. VPS RV 21/21: (1) FIX #3: removed 405 + canonical 401. (2) Sprint 7 API 13/13. (3) UI 8/8. (4) Regression Sprint 1-6 5/5 auth guards. Branch: `main`. Last commit: `ef8519c9`.
 * **2026-07-30 — CC-S7 SPRINT 7 COMMERCE MODE TOGGLE — COMPLETE + VPS VERIFIED (RV7 18/18 PASS, commit `3fba1e8d`).** S1-S4 implemented + merged to main + CD deployed + VPS RV 18/18 PASS. VPS disk was 100% full (45G/45G) — cleaned Docker images (38GB reclaimed, 32GB free). Updated scp-action v0.1.7→v1 + overwrite=true + debug=true. CD now works. RV7: (1) API 401 no-token 10/10. (2) UI page loads 3/3. (3) DLL deployment: CommerceModeService=10 + CommunityFundService=4 in CoreHub.dll + 3 controllers in Gateway.dll + 3 pages in ShopERP.dll. (4) PG schema: 3 new tables + 7 Order columns + CommissionBase + CommerceModeOverride. (5) Regression: Gateway health + Sprint 4-6 auth guards + KhachLink 3 pages + ShopERP 4 admin pages. Branch: `main`. Last commit: `3fba1e8d`.
