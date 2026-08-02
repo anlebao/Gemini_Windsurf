@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VanAn.Gateway.Filters;
 using VanAn.Shared.Domain;
@@ -9,21 +10,14 @@ namespace VanAn.Gateway.Controllers;
 /// Loyalty Consistency Fix Phase 0 (Option B): internal service-to-service API for ShopERP
 /// to access Alliance wallet + mode resolution without direct PG connection (multi-VPS ready).
 ///
-/// All endpoints secured by [InternalApiKey] — validates X-Internal-Api-Key header against
-/// InternalLoyalty:ApiKey config. ShopERP HTTP proxies call these endpoints.
-///
-/// Endpoints:
-///   GET  /api/internal/loyalty/effective-config/{tenantId}  → mode + maxWallet + isMember
-///   POST /api/internal/loyalty/points/add                   → AllianceWalletService.AddPointsAsync
-///   POST /api/internal/loyalty/points/deduct                → DeductPointsAsync
-///   POST /api/internal/loyalty/points/refund                → RefundAsync
-///   GET  /api/internal/loyalty/wallet/{deviceId}            → wallet balance (cached 10s on caller)
-///
-/// Idempotency: caller passes IdempotencyKey in body; AllianceWalletService checks
-/// AllianceTransactions.IdempotencyKey column before processing → retry-safe.
+/// Auth: [InternalApiKey] (custom IAsyncAuthorizationFilter) validates X-Internal-Api-Key header
+/// against InternalLoyalty:ApiKey config. [AllowAnonymous] suppresses the default JWT/Cookie auth
+/// pipeline — internal endpoints use API key, not user credentials. Architecture test W12-G7
+/// requires class-level [Authorize] OR [AllowAnonymous] on all Gateway controllers.
 /// </summary>
 [ApiController]
 [Route("api/internal/loyalty")]
+[AllowAnonymous]
 [InternalApiKey]
 public class InternalLoyaltyController(
     ILoyaltyModeResolver modeResolver,
