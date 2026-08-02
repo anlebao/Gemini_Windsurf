@@ -158,7 +158,10 @@ public class AuthorizationEnforcementTests
             "FraudFlagController",
             // CC-S6-T5: Collaborator verification — admin endpoints use method-level [Authorize(Policy="SystemAdmin")],
             // collaborator endpoints use X-Customer-Token header auth (like CommunityController)
-            "CollaboratorVerificationController"
+            "CollaboratorVerificationController",
+            // Loyalty Consistency Fix Phase 0: Internal service-to-service API — uses custom [InternalApiKey]
+            // attribute (IAsyncAuthorizationFilter validating X-Internal-Api-Key header), not JWT/Cookie auth.
+            "InternalLoyaltyController"
         };
 
         var controllers = GetControllers(GatewayAssembly)
