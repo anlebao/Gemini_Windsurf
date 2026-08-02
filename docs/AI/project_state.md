@@ -50,7 +50,7 @@ Cross-tenant loyalty points system. Khách hàng tích điểm tại tenant A, �
 **Mode routing:** `LoyaltyModeResolver.GetEffectiveModeAsync(tenantId)` → Silo (SQLite) | Alliance (PG)
 **NATS sync:** `vanan.cloud.loyalty.changed.{customerDeviceId}` → ShopERP updates local `LoyaltyRewards.PointBalance`
 
-**Next:** Loyalty Alliance System — ALL 7 PHASES COMPLETE. Ready for next major feature.
+**Next:** Loyalty Point Storage Consistency Fix — 9 bugs identified (BUG #0-#9), plan approved. D1=Option B (HTTP proxy + cache + idempotency, multi-VPS ready). 3 plan files in `docs/plans/`: `loyalty-consistency-fix-master-plan.md`, `loyalty-consistency-fix-task-cards.md`, `loyalty-consistency-fix-detail-coding-plan.md`. Execution: Layer 1 (Phase 0 — HTTP infra) → Layer 2 (Phase 1+2+3 — writes+reads+sync, 1 commit) → Layer 3 (Phase 4 — VPS RV 14-step).
 
 ---
 
@@ -224,15 +224,16 @@ Branch: `main`. Last commit: `b78b71d5`. Sprint 4 fully closed. VPS RV 26/26 PAS
 
 ## 4. Next Actions
 
-1. **Loyalty Alliance System — Session 9 (Phase 5A: Admin UI — ShopERP Blazor LoyaltyConfigAdmin page):** Create `LoyaltyConfigAdmin.razor` with global config editor + per-tenant config table + migration trigger button. SystemAdmin role only. Plan: `docs/plans/loyalty-alliance-detail-coding-plan.md` Phase 5A. Task card: TC-P5A. (Phase 4 COMPLETE — see Section 2.)
-2. **Loyalty Alliance — Sessions 10-13:** Follow master plan at `docs/plans/loyalty-alliance-master-plan.md` (Phases 5B-7).
-3. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-4. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-5. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-6. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-7. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
-8. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
-9. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+1. **Loyalty Consistency Fix — Layer 1 (TC-S1: Phase 0 HTTP Proxy Infrastructure):** Create `AllianceWalletServiceHttpProxy` + `LoyaltyModeResolverHttpProxy` in ShopERP + `InternalLoyaltyController` in Gateway + `InternalApiKeyAttribute` + `IdempotencyKey` column on `AllianceTransaction` + PG migration + DI registration. Plan: `docs/plans/loyalty-consistency-fix-detail-coding-plan.md` Phase 0. **D1=Option B approved.** Verify gate: build + DI test + ShopERP starts clean.
+2. **Loyalty Consistency Fix — Layer 2 (TC-S2+S3+S4: Phase 1+2+3):** BUG #1 (MissionService routing), #2 (CancelAsync refund routing), #3 (legacy redeem 410), #6 (welcome bonus routing), #4+#5 (`/api/loyalty/my` mode-aware), #7 (`/api/customers/me`), #8 (admin CRM), #9 (NATS history sync). TDD per-bug, 1 commit for entire layer.
+3. **Loyalty Consistency Fix — Layer 3 (TC-S5: VPS RV 14-step):** Deploy + verify all 9 bugs resolved on production VPS. See master plan Session 5 checklist.
+4. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+5. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+6. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+7. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
+8. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
+9. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
+10. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
 
 ---
 
