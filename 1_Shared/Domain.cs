@@ -2113,6 +2113,194 @@ namespace VanAn.Shared.Domain
         }
     }
 
+    // === Loyalty Alliance System ===
+    // Cross-tenant loyalty points: customers earn at tenant A, redeem at tenant B within alliance.
+    // PG-only entities (Gateway DbContext). Mode routing: Silo (SQLite LoyaltyRewards) | Alliance (PG AllianceWallet).
+    // Spec: docs/specs/loyalty-alliance-spec.md v1.0
+    // Plan: docs/plans/loyalty-alliance-master-plan.md
+
+    /// <summary>
+    /// Loyalty operating mode. Silo = per-tenant SQLite wallets (existing LoyaltyRewards).
+    /// Alliance = cross-tenant PG wallet (AllianceWallet) with shared point pool.
+    /// </summary>
+    public enum LoyaltyMode { Silo = 0, Alliance = 1 }
+
+    /// <summary>
+    /// Alliance wallet transaction type. EARN = points awarded, REDEEM = points spent,
+    /// ADJUST = manual correction by SystemAdmin.
+    /// </summary>
+    public enum AllianceTransactionType { EARN = 0, REDEEM = 1, ADJUST = 2 }
+
+    /// <summary>
+    /// Global loyalty config — single row, NOT tenant-scoped. Controls alliance-wide settings.
+    /// Stored in PG (Gateway VanAnDbContext). SystemAdmin manages via /api/platform/loyalty/config.
+    /// </summary>
+    public class LoyaltyGlobalConfig : BaseEntity
+    {
+        public LoyaltyMode Mode { get; protected set; } = LoyaltyMode.Silo;
+        public int PointsRate { get; protected set; } = 1;
+        public int MinPointsPerOrder { get; protected set; } = 10;
+        public int MaxPointsPerOrder { get; protected set; } = 30;
+        public int MaxWalletPoints { get; protected set; } = 100000;
+        public DateTime? LastChangedAt { get; protected set; }
+        public string? LastChangedBy { get; protected set; }
+
+        public LoyaltyGlobalConfig()
+            : base(TenantId.Empty)
+        {
+            Mode = LoyaltyMode.Silo;
+            LastChangedAt = DateTime.UtcNow;
+        }
+
+        public void UpdateMode(LoyaltyMode mode, string changedBy)
+        {
+            Mode = mode;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+
+        public void UpdateLimits(int maxPointsPerOrder, int maxWalletPoints, string changedBy)
+        {
+            MaxPointsPerOrder = maxPointsPerOrder;
+            MaxWalletPoints = maxWalletPoints;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Per-tenant loyalty override — tenant-scoped. Null fields inherit from LoyaltyGlobalConfig.
+    /// IsAllianceMember=false forces Silo mode for this tenant regardless of global Mode.
+    /// Stored in PG (Gateway VanAnDbContext).
+    /// </summary>
+    public class LoyaltyTenantConfig : BaseEntity, IMustHaveTenant
+    {
+        public LoyaltyMode? Mode { get; protected set; }  // null = inherit global
+        public bool IsAllianceMember { get; protected set; } = false;
+        public int? MaxWalletPoints { get; protected set; }  // null = inherit global
+        public DateTime? LastChangedAt { get; protected set; }
+        public string? LastChangedBy { get; protected set; }
+
+        protected LoyaltyTenantConfig() { }
+
+        public LoyaltyTenantConfig(TenantId tenantId)
+            : base(tenantId)
+        {
+            IsAllianceMember = false;
+        }
+
+        public void SetMode(LoyaltyMode? mode, string changedBy)
+        {
+            Mode = mode;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+
+        public void SetAllianceMembership(bool isMember, string changedBy)
+        {
+            IsAllianceMember = isMember;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+
+        public void SetMaxWalletPoints(int? max, string changedBy)
+        {
+            MaxWalletPoints = max;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Cross-tenant wallet — 1 per customer device identity. NOT tenant-scoped (TenantId = Empty).
+    /// TotalPointBalance is the shared pool across all alliance tenants.
+    /// Stored in PG (Gateway VanAnDbContext). CustomerDeviceId is unique index (1 wallet per device).
+    /// </summary>
+    public class AllianceWallet : BaseEntity
+    {
+        public Guid CustomerDeviceId { get; protected set; }
+        public string? PhoneNumber { get; protected set; }
+        public int TotalPointBalance { get; protected set; }
+        public bool IsActive { get; protected set; } = true;
+        public DateTime LastEarnAt { get; protected set; }
+        public DateTime LastRedeemAt { get; protected set; }
+
+        protected AllianceWallet() { }
+
+        public AllianceWallet(Guid customerDeviceId, string? phoneNumber)
+            : base(TenantId.Empty)
+        {
+            CustomerDeviceId = customerDeviceId;
+            PhoneNumber = phoneNumber;
+            TotalPointBalance = 0;
+            IsActive = true;
+        }
+
+        public void AddPoints(int points)
+        {
+            TotalPointBalance += points;
+            LastEarnAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void DeductPoints(int points)
+        {
+            TotalPointBalance = Math.Max(0, TotalPointBalance - points);
+            LastRedeemAt = DateTime.UtcNow;
+            UpdateAudit();
+        }
+
+        public void Freeze()
+        {
+            IsActive = false;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
+    /// Transaction log — every EARN/REDEEM/ADJUST across tenants. NOT tenant-scoped (BaseEntity.TenantId = Empty).
+    /// TransactionTenantId records which tenant the transaction occurred at (since wallet is cross-tenant).
+    /// Stored in PG (Gateway VanAnDbContext). Append-only (no mutation methods — immutable log).
+    /// </summary>
+    public class AllianceTransaction : BaseEntity
+    {
+        public Guid WalletId { get; protected set; }
+        public Guid TransactionTenantId { get; protected set; }
+        public AllianceTransactionType Type { get; protected set; }
+        public int Points { get; protected set; }
+        public int BalanceAfter { get; protected set; }
+        public string Reason { get; protected set; } = string.Empty;
+        public Guid? SourceOrderId { get; protected set; }
+        public string? VoucherCode { get; protected set; }
+        public Guid? RefundTenantId { get; protected set; }
+        public DateTime TransactionAt { get; protected set; }
+
+        protected AllianceTransaction() { }
+
+        public AllianceTransaction(
+            Guid walletId, Guid transactionTenantId, AllianceTransactionType type,
+            int points, int balanceAfter, string reason,
+            Guid? sourceOrderId = null, string? voucherCode = null, Guid? refundTenantId = null)
+            : base(TenantId.Empty)
+        {
+            WalletId = walletId;
+            TransactionTenantId = transactionTenantId;
+            Type = type;
+            Points = points;
+            BalanceAfter = balanceAfter;
+            Reason = reason;
+            SourceOrderId = sourceOrderId;
+            VoucherCode = voucherCode;
+            RefundTenantId = refundTenantId;
+            TransactionAt = DateTime.UtcNow;
+        }
+    }
+
     // Financial Safety Infrastructure - Domain Entities
     public sealed class IdempotentOperation : BaseEntity
     {
