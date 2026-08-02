@@ -125,6 +125,30 @@ namespace VanAn.ShopERP.Controllers
             return _customerTokenService.ValidateToken(token);
         }
 
+        /// <summary>
+        /// Loyalty Alliance Phase 3B: GET /api/loyalty/my-identity — resolves X-Customer-Token
+        /// to { customerId, deviceId, phoneNumber }. Called by Gateway wallet endpoint to
+        /// resolve the customer's cross-tenant device identity before querying PG AllianceWallet.
+        /// </summary>
+        [HttpGet("my-identity")]
+        public async Task<IActionResult> GetMyIdentity([FromHeader(Name = "X-Customer-Token")] string? token)
+        {
+            var customerId = ValidateToken(token);
+            if (!customerId.HasValue)
+                return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
+
+            var customer = await _customerRepository.GetByIdAsync(customerId.Value);
+            if (customer == null)
+                return NotFound(new { error = "Không tìm thấy khách hàng." });
+
+            return Ok(new
+            {
+                customerId = customer.Id,
+                deviceId = customer.DeviceId,
+                phoneNumber = customer.PhoneNumber
+            });
+        }
+
         private static string CalcTier(int points) => points switch
         {
             >= 20000 => "Platinum",

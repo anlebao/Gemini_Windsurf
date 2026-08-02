@@ -287,6 +287,10 @@ namespace VanAn.ShopERP.Controllers
     public class RedeemCatalogRequest
     {
         public Guid CatalogItemId { get; set; }
+        /// <summary>Loyalty Alliance Phase 3B: optional tenantId for cross-tenant redeem (Alliance mode).
+        /// If null, uses the current tenant context (ITenantProvider). If provided, routes to
+        /// the specified tenant's catalog — future use (multi-VPS routing).</summary>
+        public Guid? TenantId { get; set; }
     }
 
     public class RedeemCatalogResponse

@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -7,13 +10,18 @@ namespace VanAn.Gateway.Controllers
     /// W17-T2: Gateway forward controller for Loyalty Dashboard.
     /// Forwards X-Customer-Token from KhachLink to ShopERP's LoyaltyController.
     /// Tiered Auth Phase 2: adds POST /api/loyalty/redeem forwarding.
+    /// Loyalty Alliance Phase 3B: adds GET /api/loyalty/wallet (PG AllianceWallet query).
     /// </summary>
     [ApiController]
     [Route("api/loyalty")]
     [AllowAnonymous]
-    public class LoyaltyController(IHttpClientFactory httpClientFactory, ILogger<LoyaltyController> logger) : ControllerBase
+    public class LoyaltyController(
+        IHttpClientFactory httpClientFactory,
+        IAllianceWalletService allianceWalletService,
+        ILogger<LoyaltyController> logger) : ControllerBase
     {
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+        private readonly IAllianceWalletService _allianceWalletService = allianceWalletService;
         private readonly ILogger<LoyaltyController> _logger = logger;
 
         [HttpGet("my")]
@@ -80,5 +88,121 @@ namespace VanAn.Gateway.Controllers
                 return StatusCode(500, new { error = "Internal server error" });
             }
         }
+
+        /// <summary>
+        /// Loyalty Alliance Phase 3B: GET /api/loyalty/wallet — customer's cross-tenant wallet.
+        /// Flow: resolve X-Customer-Token via ShopERP /api/loyalty/my-identity → get deviceId →
+        /// query PG AllianceWallet + AllianceTransactions → return wallet DTO.
+        /// Returns 401 if token invalid, 404 if wallet not found (customer not in alliance yet).
+        /// </summary>
+        [HttpGet("wallet")]
+        public async Task<IActionResult> GetWallet()
+        {
+            try
+            {
+                // Step 1: Resolve customer token via ShopERP to get deviceId
+                if (!Request.Headers.TryGetValue("X-Customer-Token", out var token) || string.IsNullOrEmpty(token))
+                    return Unauthorized(new { error = "Thiếu X-Customer-Token header." });
+
+                var client = _httpClientFactory.CreateClient("shoperp");
+                var identityReq = new HttpRequestMessage(HttpMethod.Get, "/api/loyalty/my-identity");
+                identityReq.Headers.Add("X-Customer-Token", token.ToString());
+                var identityResp = await client.SendAsync(identityReq);
+
+                if (!identityResp.IsSuccessStatusCode)
+                    return new ContentResult
+                    {
+                        StatusCode = (int)identityResp.StatusCode,
+                        Content = await identityResp.Content.ReadAsStringAsync(),
+                        ContentType = "application/json"
+                    };
+
+                var identityJson = await identityResp.Content.ReadAsStringAsync();
+                using var identityDoc = JsonDocument.Parse(identityJson);
+                var deviceIdToken = identityDoc.RootElement.GetProperty("deviceId");
+
+                // deviceId is Guid? — if null or zero, customer has no device identity → no alliance wallet
+                if (deviceIdToken.ValueKind == JsonValueKind.Null || deviceIdToken.GetGuid() == Guid.Empty)
+                    return NotFound(new { error = "Khách hàng chưa có device identity — chưa tham gia liên minh điểm thưởng." });
+
+                Guid deviceId = deviceIdToken.GetGuid();
+
+                // Step 2: Query PG AllianceWallet by deviceId
+                var wallet = await _allianceWalletService.GetWalletByDeviceIdAsync(deviceId);
+                if (wallet == null)
+                    return Ok(new WalletResponse
+                    {
+                        TotalPointBalance = 0,
+                        IsActive = false,
+                        RecentTransactions = new List<WalletTransactionDto>()
+                    });
+
+                // Step 3: Query recent transactions
+                var transactions = await _allianceWalletService.GetTransactionsAsync(wallet.Id, limit: 20);
+
+                // Step 4: Build breakdown by tenant (sum points per tenant from transactions)
+                var breakdown = transactions
+                    .GroupBy(t => t.TransactionTenantId)
+                    .Select(g => new WalletBreakdownDto
+                    {
+                        TenantId = g.Key,
+                        Points = g.Sum(t => t.Points)
+                    })
+                    .ToList();
+
+                return Ok(new WalletResponse
+                {
+                    CustomerDeviceId = deviceId,
+                    TotalPointBalance = wallet.TotalPointBalance,
+                    IsActive = wallet.IsActive,
+                    Breakdown = breakdown,
+                    RecentTransactions = transactions.Select(t => new WalletTransactionDto
+                    {
+                        Id = t.Id,
+                        TenantId = t.TransactionTenantId,
+                        Type = t.Type.ToString(),
+                        Points = t.Points,
+                        BalanceAfter = t.BalanceAfter,
+                        Reason = t.Reason,
+                        VoucherCode = t.VoucherCode,
+                        TransactionAt = t.TransactionAt
+                    }).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting alliance wallet");
+                return StatusCode(500, new { error = "Internal server error" });
+            }
+        }
+    }
+
+    // === Wallet DTOs ===
+
+    public class WalletResponse
+    {
+        public Guid CustomerDeviceId { get; set; }
+        public int TotalPointBalance { get; set; }
+        public bool IsActive { get; set; }
+        public List<WalletBreakdownDto> Breakdown { get; set; } = new();
+        public List<WalletTransactionDto> RecentTransactions { get; set; } = new();
+    }
+
+    public class WalletBreakdownDto
+    {
+        public Guid TenantId { get; set; }
+        public int Points { get; set; }
+    }
+
+    public class WalletTransactionDto
+    {
+        public Guid Id { get; set; }
+        public Guid TenantId { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public int Points { get; set; }
+        public int BalanceAfter { get; set; }
+        public string Reason { get; set; } = string.Empty;
+        public string? VoucherCode { get; set; }
+        public DateTime TransactionAt { get; set; }
     }
 }
