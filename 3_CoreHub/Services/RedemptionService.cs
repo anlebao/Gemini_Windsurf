@@ -320,23 +320,32 @@ namespace VanAn.CoreHub.Services
                 return false;
             }
 
-            // Refund points
-            _ = await _loyaltyRewardsService.AddPointsAsync(record.CustomerId, record.PointsSpent, $"Refund: cancelled redemption {redemptionRecordId}");
+            // Loyalty Consistency Fix Phase 1 (BUG #2): mode routing for refund.
+            // Restructure: fetch voucher FIRST (needed for refund audit trail), then route refund by mode.
 
-            // Mark record as cancelled
-            record.MarkAsCancelled(notes);
-            _ = await _repository.UpdateRecordAsync(record);
-
-            // Mark voucher as expired (if exists)
+            // 1. Fetch voucher first (needed for refund audit + expiry marking)
             Voucher? cancelledVoucher = null;
             if (record.VoucherId.HasValue)
             {
                 cancelledVoucher = await _repository.GetVoucherByIdAsync(record.VoucherId.Value);
-                if (cancelledVoucher != null && cancelledVoucher.Status == "Active")
-                {
-                    cancelledVoucher.MarkAsExpired();
-                    _ = await _repository.UpdateVoucherAsync(cancelledVoucher);
-                }
+            }
+
+            // 2. Refund points (route by mode — PG AllianceWallet in Alliance mode, SQLite in Silo)
+            _ = await RefundPointsWithModeRoutingAsync(
+                record.CustomerId, record.TenantId.Value, record.PointsSpent,
+                $"Refund: cancelled redemption {redemptionRecordId}",
+                cancelledVoucher?.VoucherCode,
+                idempotencyKey: $"refund:{record.Id}");
+
+            // 3. Mark record as cancelled
+            record.MarkAsCancelled(notes);
+            _ = await _repository.UpdateRecordAsync(record);
+
+            // 4. Mark voucher as expired
+            if (cancelledVoucher != null && cancelledVoucher.Status == "Active")
+            {
+                cancelledVoucher.MarkAsExpired();
+                _ = await _repository.UpdateVoucherAsync(cancelledVoucher);
             }
 
             // Loyalty-C WS-C: Send redemption cancelled push notification (if toggle enabled)
@@ -369,6 +378,40 @@ namespace VanAn.CoreHub.Services
             => _repository.GetVoucherByCodeAsync(voucherCode);
 
         // === Helpers ===
+
+        /// <summary>
+        /// Loyalty Consistency Fix Phase 1 (BUG #2): Route point refund to PG AllianceWallet (Alliance mode) or SQLite (Silo mode).
+        /// Uses IAllianceWalletService.RefundAsync in Alliance mode (idempotent by recordId), AddPointsAsync in Silo mode.
+        /// </summary>
+        private async Task<bool> RefundPointsWithModeRoutingAsync(
+            Guid customerId, Guid tenantId, int points, string reason, string? voucherCode, string idempotencyKey)
+        {
+            if (_loyaltyModeResolver is not null && _allianceWalletService is not null)
+            {
+                LoyaltyMode effectiveMode = await _loyaltyModeResolver.GetEffectiveModeAsync(tenantId);
+                if (effectiveMode == LoyaltyMode.Alliance)
+                {
+                    bool isMember = await _loyaltyModeResolver.IsAllianceMemberAsync(tenantId);
+                    if (isMember)
+                    {
+                        var customer = await _dbContext.Customers.FirstOrDefaultAsync(c => c.Id == customerId);
+                        Guid deviceGuid = customer?.DeviceId ?? customerId;
+                        var (success, _, error) = await _allianceWalletService.RefundAsync(
+                            deviceGuid, tenantId, points, reason, voucherCode ?? "CANCEL", idempotencyKey);
+                        if (!success)
+                        {
+                            _logger.LogWarning("Alliance refund failed for customer {CustomerId}: {Error}", customerId, error);
+                            return false;
+                        }
+                        _logger.LogInformation("🎁 ALLIANCE REFUND: {Points} points refunded to PG wallet for device {DeviceId}", points, deviceGuid);
+                        return true;
+                    }
+                }
+            }
+
+            // Silo fallback
+            return await _loyaltyRewardsService.AddPointsAsync(customerId, points, reason);
+        }
 
         private static string GenerateVoucherCode()
         {

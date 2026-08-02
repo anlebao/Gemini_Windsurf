@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
 using VanAn.Shared.Domain;
+using VanAn.CoreHub.Domain.Repositories;
 using VanAn.CoreHub.Repositories;
 using VanAn.CoreHub.Infrastructure.Messaging;
+using VanAn.Shared.Services;
 using System.Text.Json;
 
 namespace VanAn.CoreHub.Services
@@ -10,12 +12,20 @@ namespace VanAn.CoreHub.Services
         ILoyaltyRewardsRepository repository,
         ILogger<LoyaltyRewardsService> logger,
         INatsEventPublisher? natsEventPublisher = null,
-        IOutboxRepository? outboxRepository = null) : ILoyaltyRewardsService
+        IOutboxRepository? outboxRepository = null,
+        ILoyaltyModeResolver? loyaltyModeResolver = null,
+        IAllianceWalletService? allianceWalletService = null,
+        ICustomerRepository? customerRepository = null) : ILoyaltyRewardsService
     {
         private readonly ILoyaltyRewardsRepository _repository = repository;
         private readonly ILogger<LoyaltyRewardsService> _logger = logger;
         private readonly INatsEventPublisher? _natsEventPublisher = natsEventPublisher;
         private readonly IOutboxRepository? _outboxRepository = outboxRepository;
+        // Loyalty Consistency Fix Phase 1 (BUG #6): mode resolver + wallet service + customer repo
+        // for routing welcome bonus to PG AllianceWallet in Alliance mode.
+        private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
+        private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
+        private readonly ICustomerRepository? _customerRepository = customerRepository;
 
         private static readonly JsonSerializerOptions EventJsonOptions = new()
         {
@@ -325,11 +335,43 @@ namespace VanAn.CoreHub.Services
                 // Get or create customer rewards
                 LoyaltyRewards rewards = await GetOrCreateCustomerRewardsAsync(customerId, customer.TenantId);
 
-                // Add welcome bonus points
-                _ = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
+                // Loyalty Consistency Fix Phase 1 (BUG #6): welcome bonus — route by mode
+                // Alliance mode + member → write to PG AllianceWallet (idempotent by customerId).
+                // Silo mode OR not member OR services unavailable → existing SQLite flow.
+                bool welcomeAwarded;
+                if (_loyaltyModeResolver is not null && _allianceWalletService is not null)
+                {
+                    Guid tenantId = customer.TenantId.Value;
+                    LoyaltyMode mode = await _loyaltyModeResolver.GetEffectiveModeAsync(tenantId);
+                    if (mode == LoyaltyMode.Alliance && await _loyaltyModeResolver.IsAllianceMemberAsync(tenantId))
+                    {
+                        // DeviceId for wallet lookup — fall back to customerId if no device yet
+                        Guid deviceGuid = customer.DeviceId ?? customerId;
+                        var (ok, _, err) = await _allianceWalletService.AddPointsAsync(
+                            deviceGuid, tenantId, 100, "Welcome bonus for joining loyalty program",
+                            idempotencyKey: $"welcome:{customerId}");
+                        welcomeAwarded = ok;
+                        if (!ok)
+                        {
+                            _logger.LogWarning("Alliance welcome bonus failed for customer {CustomerId}: {Error}", customerId, err);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("🎁 ALLIANCE WELCOME: 100 points to PG wallet for device {DeviceId} (customer {CustomerId})", deviceGuid, customerId);
+                        }
+                    }
+                    else
+                    {
+                        welcomeAwarded = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
+                    }
+                }
+                else
+                {
+                    welcomeAwarded = await AddPointsAsync(customerId, 100, "Welcome bonus for joining loyalty program");
+                }
 
-                _logger.LogInformation("Loyalty program activated for customer {CustomerId}", customerId);
-                return true;
+                _logger.LogInformation("Loyalty program activated for customer {CustomerId} (welcome bonus awarded: {Awarded})", customerId, welcomeAwarded);
+                return welcomeAwarded;
             }
             catch (Exception ex)
             {

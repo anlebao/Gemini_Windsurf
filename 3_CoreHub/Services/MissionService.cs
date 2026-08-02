@@ -15,6 +15,9 @@ namespace VanAn.CoreHub.Services
     /// ACID: CompleteMissionAsync wraps all steps in a single transaction via IVanAnDbContext.
     ///   AddPointsAsync uses the same DbContext (scoped DI) → nested transaction = savepoint.
     ///   If any step fails → rollback (no partial state: no completion without points, no points without completion).
+    /// Loyalty Consistency Fix Phase 1 (BUG #1): Mode routing — Alliance mode writes mission points
+    ///   to PG AllianceWallet via IAllianceWalletService (HTTP proxy in ShopERP). Eventual-consistency
+    ///   pattern: PG write is independent of SQLite tx (idempotency key by completionId enables retry).
     /// </summary>
     public class MissionService(
         IMissionRepository repository,
@@ -24,7 +27,9 @@ namespace VanAn.CoreHub.Services
         IVanAnDbContext dbContext,
         IShopFeatureSettingsService? shopFeatureSettingsService,
         PushNotificationService? pushNotificationService,
-        ILogger<MissionService> logger) : IMissionService
+        ILogger<MissionService> logger,
+        ILoyaltyModeResolver? loyaltyModeResolver = null,
+        IAllianceWalletService? allianceWalletService = null) : IMissionService
     {
         private readonly IMissionRepository _repository = repository;
         private readonly ICustomerRepository _customerRepository = customerRepository;
@@ -34,6 +39,52 @@ namespace VanAn.CoreHub.Services
         private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
         private readonly PushNotificationService? _pushNotificationService = pushNotificationService;
         private readonly ILogger<MissionService> _logger = logger;
+        // Loyalty Consistency Fix Phase 1 (BUG #1): Alliance mode routing
+        private readonly ILoyaltyModeResolver? _loyaltyModeResolver = loyaltyModeResolver;
+        private readonly IAllianceWalletService? _allianceWalletService = allianceWalletService;
+
+        /// <summary>
+        /// Loyalty Consistency Fix Phase 1 (BUG #1): Route point award to PG AllianceWallet (Alliance mode) or SQLite (Silo mode).
+        /// Returns (success, newBalance). In Alliance mode, writes to PG via HTTP proxy (idempotent by completionId).
+        /// In Silo mode, calls existing AddPointsAsync (SQLite).
+        /// </summary>
+        private async Task<(bool Success, int NewBalance)> AwardPointsWithModeRoutingAsync(
+            Guid customerId, int points, string reason, string idempotencyKey)
+        {
+            if (_loyaltyModeResolver is not null && _allianceWalletService is not null)
+            {
+                Guid tenantId = _tenantProvider.TenantId;
+                LoyaltyMode effectiveMode = await _loyaltyModeResolver.GetEffectiveModeAsync(tenantId);
+                if (effectiveMode == LoyaltyMode.Alliance)
+                {
+                    bool isMember = await _loyaltyModeResolver.IsAllianceMemberAsync(tenantId);
+                    if (isMember)
+                    {
+                        var customer = await _customerRepository.GetByIdAsync(customerId);
+                        Guid deviceGuid = customer?.DeviceId ?? customerId;
+                        var (success, newBalance, error) = await _allianceWalletService.AddPointsAsync(
+                            deviceGuid, tenantId, points, reason, idempotencyKey: idempotencyKey);
+                        if (!success)
+                        {
+                            _logger.LogWarning("Alliance mission award failed for customer {CustomerId}: {Error}", customerId, error);
+                            return (false, 0);
+                        }
+                        _logger.LogInformation("🎁 ALLIANCE MISSION: {Points} points to PG wallet for device {DeviceId} (balance={Balance})", points, deviceGuid, newBalance);
+                        return (true, newBalance);
+                    }
+                    _logger.LogInformation("Mission: Tenant {TenantId} not alliance member — Silo earn", tenantId);
+                }
+            }
+
+            // Silo fallback
+            bool awarded = await _loyaltyRewardsService.AddPointsAsync(customerId, points, reason);
+            if (awarded)
+            {
+                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customerId);
+                return (true, rewards?.PointBalance ?? 0);
+            }
+            return (false, 0);
+        }
 
         // === Admin CRUD ===
 
@@ -127,11 +178,13 @@ namespace VanAn.CoreHub.Services
                     metadata);
                 completion = await _repository.AddCompletionAsync(completion);
 
-                // 6. Award loyalty points
-                bool awarded = await _loyaltyRewardsService.AddPointsAsync(customerId, mission.PointsReward, $"Mission: {mission.Title}");
+                // 6. Award loyalty points — Loyalty Consistency Fix Phase 1 (BUG #1): mode routing
+                var (awarded, routedNewBalance) = await AwardPointsWithModeRoutingAsync(
+                    customerId, mission.PointsReward, $"Mission: {mission.Title}",
+                    idempotencyKey: $"mission:{completion.Id}");
                 if (!awarded)
                 {
-                    _logger.LogError("CompleteMission failed: AddPointsAsync returned false for customer {CustomerId}, mission {MissionId}. Rolling back.",
+                    _logger.LogError("CompleteMission failed: AwardPointsWithModeRoutingAsync returned false for customer {CustomerId}, mission {MissionId}. Rolling back.",
                         customerId, mission.Id);
                     await transaction.RollbackAsync();
                     return MissionCompletionResult.Fail("Không thể cộng điểm thưởng. Vui lòng thử lại.");
@@ -151,9 +204,9 @@ namespace VanAn.CoreHub.Services
 
                 await transaction.CommitAsync();
 
-                // Read new balance for response (after commit — reflects final state)
-                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customerId);
-                int newBalance = rewards?.PointBalance ?? 0;
+                // Loyalty Consistency Fix Phase 1 (BUG #1): use routed balance in Alliance mode
+                // (in Alliance mode SQLite balance is best-effort mirror; routedNewBalance is PG authoritative)
+                int newBalance = routedNewBalance;
 
                 // Loyalty-C WS-C: Send mission completed push notification (if toggle enabled)
                 try
@@ -248,11 +301,13 @@ namespace VanAn.CoreHub.Services
                     metadata);
                 completion = await _repository.AddCompletionAsync(completion);
 
-                // 5. Award loyalty points
-                bool awarded = await _loyaltyRewardsService.AddPointsAsync(customerId, mission.PointsReward, $"Annual mission: {mission.Title} ({currentYear})");
+                // 5. Award loyalty points — Loyalty Consistency Fix Phase 1 (BUG #1): mode routing
+                var (awarded, routedNewBalance) = await AwardPointsWithModeRoutingAsync(
+                    customerId, mission.PointsReward, $"Annual mission: {mission.Title} ({currentYear})",
+                    idempotencyKey: $"mission_annual:{completion.Id}");
                 if (!awarded)
                 {
-                    _logger.LogError("CompleteAnnualMission failed: AddPointsAsync returned false for customer {CustomerId}, mission {MissionId}. Rolling back.",
+                    _logger.LogError("CompleteAnnualMission failed: AwardPointsWithModeRoutingAsync returned false for customer {CustomerId}, mission {MissionId}. Rolling back.",
                         customerId, mission.Id);
                     await transaction.RollbackAsync();
                     return MissionCompletionResult.Fail("Không thể cộng điểm thưởng. Vui lòng thử lại.");
@@ -260,9 +315,8 @@ namespace VanAn.CoreHub.Services
 
                 await transaction.CommitAsync();
 
-                // Read new balance for response
-                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customerId);
-                int newBalance = rewards?.PointBalance ?? 0;
+                // Loyalty Consistency Fix Phase 1 (BUG #1): use routed balance (PG in Alliance mode)
+                int newBalance = routedNewBalance;
 
                 _logger.LogInformation("CompleteAnnualMission success: customer {CustomerId} completed mission {MissionId} ({MissionType}) for year {Year}, awarded {Points} points. New balance: {Balance}",
                     customerId, mission.Id, missionType, currentYear, mission.PointsReward, newBalance);

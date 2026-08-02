@@ -377,6 +377,8 @@ namespace VanAn.ShopERP
             });
             _ = builder.Services.AddScoped<VanAn.Shared.Services.ILoyaltyModeResolver, VanAn.ShopERP.Services.LoyaltyModeResolverHttpProxy>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IAllianceWalletService, VanAn.ShopERP.Services.AllianceWalletServiceHttpProxy>();
+            // Loyalty Consistency Fix Phase 2: shared balance-read helper (mode-aware)
+            _ = builder.Services.AddScoped<VanAn.CoreHub.Services.LoyaltyReadRouter>();
 
             // Loyalty-C WS-B: Birthday annual bonus job — runs daily, awards birthday bonus points + sends notification
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.BirthdayBonusJob>();

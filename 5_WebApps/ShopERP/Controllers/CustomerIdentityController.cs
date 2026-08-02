@@ -24,6 +24,7 @@ namespace VanAn.ShopERP.Controllers
         ICustomerRepository customerRepository,
         ILoyaltyRewardsService loyaltyRewardsService,
         IMissionService missionService,
+        VanAn.CoreHub.Services.LoyaltyReadRouter readRouter,
         ILogger<CustomerIdentityController> logger) : ControllerBase
     {
         private readonly IOtpService _otpService = otpService;
@@ -32,6 +33,8 @@ namespace VanAn.ShopERP.Controllers
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly IMissionService _missionService = missionService;
         private readonly ILogger<CustomerIdentityController> _logger = logger;
+        // Loyalty Consistency Fix Phase 2 (BUG #7): mode-aware balance for /api/customers/me
+        private readonly VanAn.CoreHub.Services.LoyaltyReadRouter _readRouter = readRouter;
 
         /// <summary>
         /// Send OTP to phone number.
@@ -95,7 +98,9 @@ namespace VanAn.ShopERP.Controllers
 
             var customerToken = _customerTokenService.CreateToken(customer.Id);
             var rewards = await _loyaltyRewardsService.GetOrCreateCustomerRewardsAsync(customer.Id, new TenantId(tenantId));
-            var tier = CalcTier(rewards.PointBalance);
+            // Loyalty Consistency Fix Phase 2 (BUG #7): mode-aware balance
+            int effectiveBalance = await _readRouter.GetEffectiveBalanceAsync(customer.TenantId.Value, customer.DeviceId, rewards.PointBalance);
+            var tier = CalcTier(effectiveBalance);
 
             return Ok(new CustomerIdentityResponse
             {
@@ -104,7 +109,7 @@ namespace VanAn.ShopERP.Controllers
                 PhoneNumber = request.PhoneNumber,
                 CustomerToken = customerToken,
                 Tier = tier,
-                PointBalance = rewards.PointBalance,
+                PointBalance = effectiveBalance,
                 IdentityLevel = customer.IdentityLevel.ToString()
             });
         }
@@ -128,7 +133,9 @@ namespace VanAn.ShopERP.Controllers
             // when they view their profile. Without this, PointBalance shows 0 forever
             // because no LoyaltyRewards row exists for them.
             var rewards = await _loyaltyRewardsService.GetOrCreateCustomerRewardsAsync(customerId.Value, customer.TenantId);
-            var tier = CalcTier(rewards.PointBalance);
+            // Loyalty Consistency Fix Phase 2 (BUG #7): mode-aware balance
+            int effectiveBalance = await _readRouter.GetEffectiveBalanceAsync(customer.TenantId.Value, customer.DeviceId, rewards.PointBalance);
+            var tier = CalcTier(effectiveBalance);
 
             return Ok(new CustomerIdentityResponse
             {
@@ -137,7 +144,7 @@ namespace VanAn.ShopERP.Controllers
                 PhoneNumber = customer.PhoneNumber,
                 CustomerToken = token,
                 Tier = tier,
-                PointBalance = rewards.PointBalance,
+                PointBalance = effectiveBalance,
                 IdentityLevel = customer.IdentityLevel.ToString(),
                 Birthday = customer.Birthday
             });

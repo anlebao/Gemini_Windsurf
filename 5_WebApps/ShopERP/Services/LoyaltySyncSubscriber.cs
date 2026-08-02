@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using NATS.Client;
 using System.Text;
 using System.Text.Json;
+using VanAn.CoreHub.Services;
 using VanAn.Shared.Domain;
 using VanAn.ShopERP.Infrastructure;
 
@@ -92,42 +93,81 @@ namespace VanAn.ShopERP.Services
                 Guid customerDeviceId = root.GetProperty("customerDeviceId").GetGuid();
                 int pointBalance = root.GetProperty("pointBalance").GetInt32();
 
+                // Loyalty Consistency Fix Phase 3 (BUG #9): optional extended fields for history sync
+                string? type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
+                int? points = root.TryGetProperty("points", out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : null;
+                string? reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
+                string? updatedAtStr = root.TryGetProperty("updatedAt", out var u) ? u.GetString() : null;
+
                 using IServiceScope scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<ShopERPDbContext>();
 
                 // Find local LoyaltyRewards by joining Customer.DeviceId → LoyaltyRewards.CustomerId
                 var rewards = await (from c in dbContext.Customers.IgnoreQueryFilters()
-                                     join r in dbContext.LoyaltyRewards.IgnoreQueryFilters()
-                                         on c.Id equals r.CustomerId
+                                     join lr in dbContext.LoyaltyRewards.IgnoreQueryFilters()
+                                         on c.Id equals lr.CustomerId
                                      where c.DeviceId == customerDeviceId && !c.IsDeleted
-                                     select r).FirstOrDefaultAsync(cancellationToken);
+                                     select lr).FirstOrDefaultAsync(cancellationToken);
 
                 if (rewards == null)
                 {
                     // Customer has not shopped at this tenant — no local LoyaltyRewards row to update.
-                    // This is expected in Alliance mode (cross-tenant wallet, local rows are best-effort mirrors).
-                    _logger.LogDebug("LoyaltySyncSubscriber: no local LoyaltyRewards for device {DeviceId} — skipping (customer not at this tenant)",
-                        customerDeviceId);
+                    _logger.LogDebug("LoyaltySyncSubscriber: no local LoyaltyRewards for device {DeviceId} — skipping", customerDeviceId);
                     return;
                 }
 
-                // Update PointBalance via reflection (protected setter — no domain method for "set to absolute value")
-                // This is a sync operation (PG is source of truth), not a domain event — reflection is appropriate.
+                bool changed = false;
+
+                // BUG #9: append history entry when extended fields present (idempotent — skip duplicates)
+                if (type is not null && points.HasValue && reason is not null && updatedAtStr is not null)
+                {
+                    var history = DeserializeHistory(rewards.History);
+                    DateTime ts = DateTime.Parse(updatedAtStr, null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    // Idempotency: same timestamp + points + reason → already synced (skip duplicate)
+                    bool exists = history.Any(h => h.Timestamp == ts && h.Points == points.Value && h.Reason == reason);
+                    if (!exists)
+                    {
+                        history.Add(new LoyaltyHistoryEntry
+                        {
+                            Type = type,
+                            Points = points.Value,
+                            Reason = reason,
+                            Timestamp = ts,
+                            BalanceAfter = pointBalance
+                        });
+                        typeof(LoyaltyRewards)
+                            .GetProperty(nameof(LoyaltyRewards.History))!
+                            .SetValue(rewards, JsonSerializer.Serialize(history));
+                        changed = true;
+                        _logger.LogInformation("LoyaltySyncSubscriber: appended history entry for device {DeviceId} (type={Type}, points={Points})", customerDeviceId, type, points);
+                    }
+                }
+
+                // Update PointBalance via reflection (PG source of truth sync)
                 if (rewards.PointBalance != pointBalance)
                 {
                     typeof(LoyaltyRewards)
                         .GetProperty(nameof(LoyaltyRewards.PointBalance))!
                         .SetValue(rewards, pointBalance);
-                    _ = await dbContext.SaveChangesAsync(cancellationToken);
+                    changed = true;
+                }
 
-                    _logger.LogInformation("LoyaltySyncSubscriber: synced LoyaltyRewards {RewardsId} for device {DeviceId} → balance={Balance}",
-                        rewards.Id, customerDeviceId, pointBalance);
+                if (changed)
+                {
+                    _ = await dbContext.SaveChangesAsync(cancellationToken);
+                    _logger.LogInformation("LoyaltySyncSubscriber: synced device {DeviceId} → balance={Balance}", customerDeviceId, pointBalance);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "LoyaltySyncSubscriber: failed to sync loyalty balance from NATS message");
             }
+        }
+
+        private static List<LoyaltyHistoryEntry> DeserializeHistory(string? json)
+        {
+            try { return JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(json ?? "[]") ?? new(); }
+            catch { return new(); }
         }
 
         /// <summary>

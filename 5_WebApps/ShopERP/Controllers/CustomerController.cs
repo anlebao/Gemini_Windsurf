@@ -19,6 +19,7 @@ namespace VanAn.ShopERP.Controllers
         private readonly ICustomerSegmentationService _customerSegmentationService;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService;
         private readonly IPushSubscriptionRepository _pushSubscriptionRepository;
+        private readonly VanAn.CoreHub.Services.LoyaltyReadRouter _readRouter;
         private readonly ILogger<CustomerController> _logger;
 
         public CustomerController(
@@ -26,16 +27,29 @@ namespace VanAn.ShopERP.Controllers
             ICustomerSegmentationService customerSegmentationService,
             ILoyaltyRewardsService loyaltyRewardsService,
             IPushSubscriptionRepository pushSubscriptionRepository,
+            VanAn.CoreHub.Services.LoyaltyReadRouter readRouter,
             ILogger<CustomerController> logger)
         {
             _customerRepository = customerRepository;
             _customerSegmentationService = customerSegmentationService;
             _loyaltyRewardsService = loyaltyRewardsService;
             _pushSubscriptionRepository = pushSubscriptionRepository;
+            _readRouter = readRouter;
             _logger = logger;
         }
 
         /// <summary>
+        /// <summary>
+        /// Loyalty Consistency Fix Phase 2 (BUG #8): mode-aware balance for admin CRM.
+        /// Resolves SQLite balance first, then routes via LoyaltyReadRouter (PG if Alliance).
+        /// </summary>
+        private async Task<int> GetEffectiveBalanceForCustomerAsync(Shared.Domain.Customer c)
+        {
+            var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
+            int sqliteBalance = rewards?.PointBalance ?? 0;
+            return await _readRouter.GetEffectiveBalanceAsync(c.TenantId.Value, c.DeviceId, sqliteBalance);
+        }
+
         /// AF-P2-T5: Build a HashSet of CustomerIds that have at least one active push subscription
         /// in the current tenant. Single query per request — used to enrich CustomerDto.HasPushSubscription.
         /// </summary>
@@ -71,8 +85,8 @@ namespace VanAn.ShopERP.Controllers
             var dtos = new List<CustomerDto>(pageItems.Count);
             foreach (var c in pageItems)
             {
-                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                dtos.Add(MapCustomerDto(c, rewards?.PointBalance ?? 0, pushCustomerIds.Contains(c.Id)));
+                int balance = await GetEffectiveBalanceForCustomerAsync(c); // BUG #8: mode-aware
+                dtos.Add(MapCustomerDto(c, balance, pushCustomerIds.Contains(c.Id)));
             }
 
             return Ok(new { items = dtos, total = all.Count, page, pageSize });
@@ -88,12 +102,12 @@ namespace VanAn.ShopERP.Controllers
             // AF-P2-T5: batch-load push subscription CustomerIds once per request
             var pushCustomerIds = await GetCustomerIdsWithPushAsync();
 
-            // Enrich with loyalty point balance
+            // Enrich with loyalty point balance (BUG #8: mode-aware)
             var dtos = new List<CustomerDto>(customers.Count);
             foreach (var c in customers)
             {
-                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                dtos.Add(MapCustomerDto(c, rewards?.PointBalance ?? 0, pushCustomerIds.Contains(c.Id)));
+                int balance = await GetEffectiveBalanceForCustomerAsync(c);
+                dtos.Add(MapCustomerDto(c, balance, pushCustomerIds.Contains(c.Id)));
             }
 
             _logger.LogInformation("PreviewSegment: {Count} customers matched criteria", customers.Count);
@@ -128,12 +142,11 @@ namespace VanAn.ShopERP.Controllers
             IEnumerable<Shared.Domain.Customer> filtered = all;
             if (minPoints.HasValue || maxPoints.HasValue)
             {
-                // Points live in LoyaltyRewards — resolve per customer (bounded set, acceptable for admin UI)
+                // Points live in LoyaltyRewards (or PG AllianceWallet in Alliance mode — BUG #8)
                 var pointsByCustomer = new Dictionary<Guid, int>();
                 foreach (var c in all)
                 {
-                    var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                    pointsByCustomer[c.Id] = rewards?.PointBalance ?? 0;
+                    pointsByCustomer[c.Id] = await GetEffectiveBalanceForCustomerAsync(c);
                 }
                 filtered = filtered.Where(c =>
                     (!minPoints.HasValue || pointsByCustomer.GetValueOrDefault(c.Id) >= minPoints.Value) &&
@@ -163,8 +176,8 @@ namespace VanAn.ShopERP.Controllers
             var dtos = new List<GlobalCustomerDto>(pageItems.Count);
             foreach (var c in pageItems)
             {
-                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                dtos.Add(MapGlobalCustomerDto(c, rewards?.PointBalance ?? 0));
+                int balance = await GetEffectiveBalanceForCustomerAsync(c); // BUG #8: mode-aware
+                dtos.Add(MapGlobalCustomerDto(c, balance));
             }
 
             _logger.LogInformation("ListGlobal: {Total} cross-tenant customers (page {Page}/{PageSize})",
@@ -192,8 +205,7 @@ namespace VanAn.ShopERP.Controllers
             sb.AppendLine("Name,Phone,Tier,Points,TotalSpent,LastOrder,Birthday,IdentityLevel,HasPush");
             foreach (var c in customers)
             {
-                var rewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(c.Id);
-                int points = rewards?.PointBalance ?? 0;
+                int points = await GetEffectiveBalanceForCustomerAsync(c); // BUG #8: mode-aware
                 sb.Append(CsvEscape(c.FullName)).Append(',')
                   .Append(CsvEscape(c.PhoneNumber ?? string.Empty)).Append(',')
                   .Append(CsvEscape(c.CustomerTier ?? string.Empty)).Append(',')

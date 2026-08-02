@@ -20,11 +20,13 @@ namespace VanAn.ShopERP.Controllers
         ILoyaltyRewardsService loyaltyService,
         ICustomerTokenService customerTokenService,
         ICustomerRepository customerRepository,
+        VanAn.CoreHub.Services.LoyaltyReadRouter readRouter,
         ILogger<LoyaltyController> logger) : ControllerBase
     {
         private readonly ILoyaltyRewardsService _loyaltyService = loyaltyService;
         private readonly ICustomerTokenService _customerTokenService = customerTokenService;
         private readonly ICustomerRepository _customerRepository = customerRepository;
+        private readonly VanAn.CoreHub.Services.LoyaltyReadRouter _readRouter = readRouter;
         private readonly ILogger<LoyaltyController> _logger = logger;
 
         /// <summary>GET /api/loyalty/my — returns loyalty info for the authenticated customer.</summary>
@@ -39,84 +41,39 @@ namespace VanAn.ShopERP.Controllers
             if (rewards == null)
                 return Ok(new LoyaltyResponse { Tier = "Bronze", PointBalance = 0, History = new() });
 
-            var tier = CalcTier(rewards.PointBalance);
+            // Loyalty Consistency Fix Phase 2 (BUG #4+#5): mode-aware balance.
+            // Resolve customer for tenantId + deviceId (required for PG AllianceWallet lookup).
+            var customer = await _customerRepository.GetByIdAsync(customerId.Value);
+            int effectiveBalance = customer != null
+                ? await _readRouter.GetEffectiveBalanceAsync(customer.TenantId.Value, customer.DeviceId, rewards.PointBalance)
+                : rewards.PointBalance;
+
+            var tier = CalcTier(effectiveBalance);
             var nextTierThreshold = GetNextTierThreshold(tier);
 
             return Ok(new LoyaltyResponse
             {
                 CustomerId = customerId.Value,
                 Tier = tier,
-                PointBalance = rewards.PointBalance,
+                PointBalance = effectiveBalance,
                 NextTierThreshold = nextTierThreshold,
                 ProgressPercent = nextTierThreshold > 0
-                    ? Math.Min(100, (int)((double)rewards.PointBalance / nextTierThreshold * 100))
+                    ? Math.Min(100, (int)((double)effectiveBalance / nextTierThreshold * 100))
                     : 100,
                 History = ParseHistory(rewards.History)
             });
         }
 
         /// <summary>
-        /// POST /api/loyalty/redeem — deduct points from the authenticated customer.
-        /// Tiered Auth Phase 2: requires IdentityLevel >= Verified. If customer is Social/Guest,
-        /// returns HTTP 403 with upgrade-required payload so KhachLink UI can prompt OTP upgrade.
+        /// POST /api/loyalty/redeem — DEPRECATED (Loyalty Consistency Fix Phase 1 / D3).
+        /// Returns 410 Gone. Use POST /api/redemption/redeem (catalog-based) — has Alliance mode routing.
         /// </summary>
         [HttpPost("redeem")]
-        public async Task<IActionResult> Redeem([FromHeader(Name = "X-Customer-Token")] string? token, [FromBody] RedeemRequest request)
+        [Obsolete("Use POST /api/redemption/redeem — catalog-based redeem with Alliance routing.")]
+        public IActionResult Redeem()
         {
-            var customerId = ValidateToken(token);
-            if (!customerId.HasValue)
-                return Unauthorized(new { error = "Token không hợp lệ hoặc đã hết hạn." });
-
-            if (request.Points <= 0)
-                return BadRequest(new { error = "Số điểm cần đổi phải lớn hơn 0." });
-
-            // Fetch customer for proactive identity level check (avoids leaking exception details in non-dev).
-            // The service-layer gate (SubtractPointsAsync) remains the authoritative enforcement point.
-            var customer = await _customerRepository.GetByIdAsync(customerId.Value);
-            if (customer == null)
-                return NotFound(new { error = "Không tìm thấy khách hàng." });
-
-            if (customer.IdentityLevel < IdentityLevel.Verified)
-            {
-                _logger.LogWarning("Redeem blocked at controller: customer {CustomerId} IdentityLevel={Current} < Verified",
-                    customerId.Value, customer.IdentityLevel);
-                return StatusCode(403, new RedeemBlockedResponse
-                {
-                    Error = "Tài khoản chưa được xác thực. Vui lòng nâng cấp qua OTP để đổi điểm.",
-                    RequiresUpgrade = true,
-                    CurrentLevel = customer.IdentityLevel.ToString(),
-                    RequiredLevel = IdentityLevel.Verified.ToString()
-                });
-            }
-
-            try
-            {
-                var success = await _loyaltyService.SubtractPointsAsync(customerId.Value, request.Points, request.Reason);
-                if (!success)
-                {
-                    return BadRequest(new { error = "Không đủ điểm để đổi. Vui lòng kiểm tra số dư." });
-                }
-
-                var rewards = await _loyaltyService.GetCustomerRewardsAsync(customerId.Value);
-                return Ok(new RedeemResponse
-                {
-                    Success = true,
-                    NewBalance = rewards?.PointBalance ?? 0,
-                    PointsRedeemed = request.Points
-                });
-            }
-            catch (IdentityLevelNotSufficientException ex)
-            {
-                // Defense-in-depth: service gate should have prevented reaching here, but handle gracefully.
-                _logger.LogWarning(ex, "IdentityLevelNotSufficientException reached controller for customer {CustomerId}", customerId.Value);
-                return StatusCode(403, new RedeemBlockedResponse
-                {
-                    Error = "Tài khoản chưa được xác thực. Vui lòng nâng cấp qua OTP để đổi điểm.",
-                    RequiresUpgrade = true,
-                    CurrentLevel = ex.CurrentLevel.ToString(),
-                    RequiredLevel = ex.RequiredLevel.ToString()
-                });
-            }
+            _logger.LogInformation("Legacy /api/loyalty/redeem called — returning 410 Gone (deprecated, use /api/redemption/redeem)");
+            return StatusCode(410, new { error = "Endpoint deprecated. Use POST /api/redemption/redeem." });
         }
 
         private Guid? ValidateToken(string? token)
