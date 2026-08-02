@@ -54,11 +54,24 @@ public class AllianceWalletService(
 
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> AddPointsAsync(
-        Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId = null)
+        Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId = null,
+        string? idempotencyKey = null)
     {
         if (points <= 0)
         {
             return (false, 0, "Points must be positive");
+        }
+
+        // Loyalty Consistency Fix Phase 0: idempotency check — retry-safe for HTTP proxy
+        if (idempotencyKey is not null)
+        {
+            var existing = await _dbContext.AllianceTransactions
+                .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
+            if (existing is not null)
+            {
+                _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
+                return (true, existing.BalanceAfter, null);
+            }
         }
 
         AllianceWallet wallet = await GetOrCreateWalletAsync(customerDeviceId, phoneNumber: null);
@@ -81,7 +94,8 @@ public class AllianceWalletService(
             points: points,
             balanceAfter: wallet.TotalPointBalance,
             reason: reason,
-            sourceOrderId: sourceOrderId);
+            sourceOrderId: sourceOrderId,
+            idempotencyKey: idempotencyKey);
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
@@ -94,11 +108,24 @@ public class AllianceWalletService(
 
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> DeductPointsAsync(
-        Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode = null)
+        Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode = null,
+        string? idempotencyKey = null)
     {
         if (points <= 0)
         {
             return (false, 0, "Points must be positive");
+        }
+
+        // Loyalty Consistency Fix Phase 0: idempotency check
+        if (idempotencyKey is not null)
+        {
+            var existing = await _dbContext.AllianceTransactions
+                .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
+            if (existing is not null)
+            {
+                _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
+                return (true, existing.BalanceAfter, null);
+            }
         }
 
         AllianceWallet? wallet = await GetWalletByDeviceIdAsync(customerDeviceId);
@@ -124,7 +151,8 @@ public class AllianceWalletService(
             balanceAfter: wallet.TotalPointBalance,
             reason: reason,
             voucherCode: voucherCode,
-            refundTenantId: tenantId); // Q4: refund returns to tenant where redeem occurred
+            refundTenantId: tenantId, // Q4: refund returns to tenant where redeem occurred
+            idempotencyKey: idempotencyKey);
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 
@@ -137,11 +165,24 @@ public class AllianceWalletService(
 
     /// <inheritdoc/>
     public async Task<(bool Success, int NewBalance, string? Error)> RefundAsync(
-        Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode)
+        Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode,
+        string? idempotencyKey = null)
     {
         if (points <= 0)
         {
             return (false, 0, "Points must be positive");
+        }
+
+        // Loyalty Consistency Fix Phase 0: idempotency check
+        if (idempotencyKey is not null)
+        {
+            var existing = await _dbContext.AllianceTransactions
+                .FirstOrDefaultAsync(t => t.IdempotencyKey == idempotencyKey);
+            if (existing is not null)
+            {
+                _logger.LogInformation("Idempotency hit: key={Key} → cached balance={Balance}", idempotencyKey, existing.BalanceAfter);
+                return (true, existing.BalanceAfter, null);
+            }
         }
 
         AllianceWallet? wallet = await GetWalletByDeviceIdAsync(customerDeviceId);
@@ -160,7 +201,8 @@ public class AllianceWalletService(
             balanceAfter: wallet.TotalPointBalance,
             reason: reason,
             voucherCode: voucherCode,
-            refundTenantId: tenantId);
+            refundTenantId: tenantId,
+            idempotencyKey: idempotencyKey);
         _ = _dbContext.AllianceTransactions.Add(tx);
         await _dbContext.SaveChangesAsync();
 

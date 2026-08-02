@@ -358,6 +358,26 @@ namespace VanAn.ShopERP
             // Loyalty-C WS-B: Mission system (gamification — PWA install, OTP verify, birthday, social share)
             _ = builder.Services.AddScoped<VanAn.CoreHub.Domain.Repositories.IMissionRepository, VanAn.CoreHub.Infrastructure.Repositories.MissionRepository>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IMissionService, VanAn.CoreHub.Services.MissionService>();
+
+            // Loyalty Consistency Fix Phase 0 (Option B — multi-VPS ready):
+            // HTTP proxies for Alliance services. ShopERP never connects to PG directly.
+            // All Alliance operations route through Gateway internal API via HttpClient "GatewayInternal".
+            // Auth: X-Internal-Api-Key header (shared secret — InternalLoyalty:ApiKey config).
+            // Cache: LoyaltyModeResolver 60s TTL (mode changes rare), AllianceWalletService 10s TTL (writes invalidate).
+            // Idempotency: caller provides stable key; HTTP proxy forwards in body; Gateway stores in AllianceTransaction.IdempotencyKey.
+            _ = builder.Services.AddHttpClient("GatewayInternal", client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"] ?? "http://gateway:8080");
+                client.Timeout = TimeSpan.FromSeconds(10);
+                string? apiKey = builder.Configuration["InternalLoyalty:ApiKey"];
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    client.DefaultRequestHeaders.Add("X-Internal-Api-Key", apiKey);
+                }
+            });
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.ILoyaltyModeResolver, VanAn.ShopERP.Services.LoyaltyModeResolverHttpProxy>();
+            _ = builder.Services.AddScoped<VanAn.Shared.Services.IAllianceWalletService, VanAn.ShopERP.Services.AllianceWalletServiceHttpProxy>();
+
             // Loyalty-C WS-B: Birthday annual bonus job — runs daily, awards birthday bonus points + sends notification
             _ = builder.Services.AddHostedService<VanAn.ShopERP.Services.BirthdayBonusJob>();
             // Loyalty-C WS-C: Voucher expiry reminder job — runs daily, sends push notification for vouchers expiring within N days

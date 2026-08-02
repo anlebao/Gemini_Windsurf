@@ -263,6 +263,11 @@ namespace VanAn.Gateway
             _ = builder.Services.AddScoped<VanAn.Shared.Services.ILoyaltyModeResolver, VanAn.CoreHub.Services.LoyaltyModeResolver>();
             _ = builder.Services.AddScoped<VanAn.Shared.Services.IAllianceWalletService, VanAn.CoreHub.Services.AllianceWalletService>();
 
+            // Loyalty Consistency Fix Phase 0 (Option B): Internal API key for service-to-service auth.
+            // ShopERP HTTP proxies call /api/internal/loyalty/* with X-Internal-Api-Key header.
+            // Config: InternalLoyalty:ApiKey (env var: InternalLoyalty__ApiKey). Validated by InternalApiKeyAttribute.
+            // No explicit DI binding needed — InternalApiKeyAttribute reads via IConfiguration at request time.
+
             // Wave 4: Register Tenant Onboarding Service + industry seed strategies
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.ITenantOnboardingService, VanAn.CoreHub.Services.Onboarding.TenantOnboardingService>();
             _ = builder.Services.AddScoped<VanAn.CoreHub.Services.Onboarding.IIndustrySeedStrategy, VanAn.CoreHub.Services.Onboarding.Strategies.FnbSeedStrategy>();

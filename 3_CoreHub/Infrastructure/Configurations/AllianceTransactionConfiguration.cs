@@ -33,6 +33,12 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
             _ = builder.Property(e => e.VoucherCode).HasMaxLength(50);
             _ = builder.Property(e => e.TransactionAt).IsRequired();
 
+            // Loyalty Consistency Fix Phase 0: IdempotencyKey for retry-safe HTTP proxy.
+            // Non-unique index — most rows have NULL (only ShopERP-proxied calls set it);
+            // uniqueness enforced at application layer (AllianceWalletService checks before insert).
+            _ = builder.Property(e => e.IdempotencyKey).HasMaxLength(200).IsRequired(false);
+            _ = builder.HasIndex(e => e.IdempotencyKey).HasDatabaseName("IX_AllianceTransactions_IdempotencyKey");
+
             _ = builder.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
 

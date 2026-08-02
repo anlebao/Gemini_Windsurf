@@ -2279,13 +2279,20 @@ namespace VanAn.Shared.Domain
         public string? VoucherCode { get; protected set; }
         public Guid? RefundTenantId { get; protected set; }
         public DateTime TransactionAt { get; protected set; }
+        /// <summary>
+        /// Loyalty Consistency Fix Phase 0: stable key for retry-safe HTTP proxy calls.
+        /// ShopERP HTTP proxy forwards this in X-Idempotency-Key header; Gateway stores it
+        /// and returns cached result on retry with same key. Null for non-proxied calls (e.g. direct Gateway admin).
+        /// </summary>
+        public string? IdempotencyKey { get; protected set; }
 
         protected AllianceTransaction() { }
 
         public AllianceTransaction(
             Guid walletId, Guid transactionTenantId, AllianceTransactionType type,
             int points, int balanceAfter, string reason,
-            Guid? sourceOrderId = null, string? voucherCode = null, Guid? refundTenantId = null)
+            Guid? sourceOrderId = null, string? voucherCode = null, Guid? refundTenantId = null,
+            string? idempotencyKey = null)
             : base(TenantId.Empty)
         {
             WalletId = walletId;
@@ -2297,6 +2304,7 @@ namespace VanAn.Shared.Domain
             SourceOrderId = sourceOrderId;
             VoucherCode = voucherCode;
             RefundTenantId = refundTenantId;
+            IdempotencyKey = idempotencyKey;
             TransactionAt = DateTime.UtcNow;
         }
     }

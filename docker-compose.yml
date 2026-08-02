@@ -104,6 +104,8 @@ services:
       - Authentication__JwtSettings__SecretKey=${JWT_SECRET_KEY}
       - Jwt__Secret=${JWT_SECRET_KEY}
       - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      # Loyalty Consistency Fix Phase 0: Internal API key for service-to-service auth (ShopERP → Gateway)
+      - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-dev-key-2026}
     ports:
       - "${GATEWAY_PORT:-5001}:80"
     networks:
@@ -150,6 +152,9 @@ services:
       - ConnectionStrings__AccountingConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-VanAnCoreHub};Username=${POSTGRES_USER:-vanan_admin};Password=${POSTGRES_PASSWORD}
       # Phase 4 (2026-07-20): ShopInstanceId for NATS routing key subscription
       - SHOP_INSTANCE_ID=00000000-0000-0000-0000-000000000001
+      # Loyalty Consistency Fix Phase 0: Internal API key (must match Gateway) + Gateway BaseUrl for HTTP proxy
+      - InternalLoyalty__ApiKey=${INTERNAL_LOYALTY_API_KEY:-vanan-internal-loyalty-dev-key-2026}
+      - Gateway__BaseUrl=http://gateway:80
     ports:
       - "${SHOPERP_PORT:-5003}:80"
     networks:

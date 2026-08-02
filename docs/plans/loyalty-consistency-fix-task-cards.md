@@ -15,12 +15,13 @@
 | Boundary | `2_Gateway/`, `5_WebApps/ShopERP/`, `1_Shared/`, `3_CoreHub/` |
 | Depends on | D1 approved ✅ |
 | Blocks | TC-S2, TC-S3, TC-S4 |
+| Status | **IN PROGRESS (2026-08-03) — 8/12 sub-tasks done** |
 
 **Deliverables:**
 
 **Gateway side:**
-- [ ] `InternalApiKeyAttribute.cs` — action filter validating `X-Internal-Api-Key` header against config `InternalLoyalty:ApiKey`
-- [ ] `InternalLoyaltyController.cs` — 5 endpoints (all `[InternalApiKey]`):
+- [x] `InternalApiKeyAttribute.cs` — action filter validating `X-Internal-Api-Key` header against config `InternalLoyalty:ApiKey`
+- [x] `InternalLoyaltyController.cs` — 5 endpoints (all `[InternalApiKey]`):
   - `GET /api/internal/loyalty/effective-config/{tenantId}` → `{ mode, maxWalletPoints, isAllianceMember }`
   - `POST /api/internal/loyalty/points/add` → calls `AllianceWalletService.AddPointsAsync` with idempotency check
   - `POST /api/internal/loyalty/points/deduct` → calls `DeductPointsAsync`
@@ -29,11 +30,11 @@
 - [ ] `2_Gateway/Program.cs` — bind `InternalLoyalty:ApiKey` from config
 
 **ShopERP side:**
-- [ ] `AllianceWalletServiceHttpProxy.cs` — implements `IAllianceWalletService` via HTTP to Gateway internal API:
+- [x] `AllianceWalletServiceHttpProxy.cs` — implements `IAllianceWalletService` via HTTP to Gateway internal API:
   - `GetWalletByDeviceIdAsync` → GET, cached 10s (`IMemoryCache`)
-  - `AddPointsAsync/DeductPointsAsync/RefundAsync` → POST with `X-Idempotency-Key` header; invalidates wallet cache for device
-  - `GetOrCreateWalletAsync` → POST (or throw — ShopERP never creates wallets, only Gateway does)
-  - `GetTransactionsAsync/GetTransactionsByTenantAsync` → GET
+  - `AddPointsAsync/DeductPointsAsync/RefundAsync` → POST with idempotency key in body; invalidates wallet cache for device
+  - `GetOrCreateWalletAsync` → returns existing or stub (ShopERP never creates wallets, only Gateway does)
+  - `GetTransactionsAsync/GetTransactionsByTenantAsync` → `throw NotSupportedException` (Gateway-only)
   - `ConsolidateWalletsAsync/SplitWalletsAsync` → `throw NotSupportedException` (Gateway-only admin ops)
   - Auto-generates idempotency key (GUID) if caller doesn't provide one + logs warning
 - [ ] `LoyaltyModeResolverHttpProxy.cs` — implements `ILoyaltyModeResolver` via HTTP + `IMemoryCache` (60s TTL):
@@ -46,15 +47,18 @@
   - `IAllianceWalletService` → `AllianceWalletServiceHttpProxy`
 
 **Shared/CoreHub side (idempotency infrastructure):**
-- [ ] `1_Shared/Domain.cs` — add `public string? IdempotencyKey { get; protected set; }` to `AllianceTransaction` + constructor param
-- [ ] `AllianceTransactionConfiguration.cs` — map column + unique index on `IdempotencyKey`
-- [ ] New PG migration `AddAllianceTransactionIdempotencyKey`
-- [ ] `1_Shared/Services/IAllianceWalletService.cs` — add `string? idempotencyKey = null` optional param to `AddPointsAsync`, `DeductPointsAsync`, `RefundAsync`
-- [ ] `3_CoreHub/Services/AllianceWalletService.cs` — if `idempotencyKey` non-null: check `AllianceTransactions.AnyAsync(t => t.IdempotencyKey == key)` → if found, return cached `(true, existingTx.BalanceAfter, null)`; else process + set `tx.IdempotencyKey = key`
+- [x] `1_Shared/Domain.cs` — add `public string? IdempotencyKey { get; protected set; }` to `AllianceTransaction` + constructor param
+- [x] `AllianceTransactionConfiguration.cs` — map column + non-unique index on `IdempotencyKey` (`IX_AllianceTransactions_IdempotencyKey`)
+- [x] New PG migration `20260802201947_AddAllianceTransactionIdempotencyKey` (nullable `character varying(200)` column + index)
+- [x] `1_Shared/Services/IAllianceWalletService.cs` — add `string? idempotencyKey = null` optional param to `AddPointsAsync`, `DeductPointsAsync`, `RefundAsync`
+- [x] `3_CoreHub/Services/AllianceWalletService.cs` — if `idempotencyKey` non-null: check `AllianceTransactions.FirstOrDefaultAsync(t => t.IdempotencyKey == key)` → if found, return cached `(true, existingTx.BalanceAfter, null)`; else process + set `tx.IdempotencyKey = key`
 
 **Existing callers (pass idempotency keys for retry-safety):**
 - [ ] `OrderWorkflowService.cs` — `AddPointsAsync(..., idempotencyKey: $"earn:{order.Id}")`
 - [ ] `RedemptionService.cs` `RedeemAsync` — `DeductPointsAsync(..., idempotencyKey: $"redeem:{record.Id}")`
+
+**Config:**
+- [ ] `2_Gateway/appsettings.json` + `5_WebApps/ShopERP/appsettings.json` — add `InternalLoyalty:ApiKey` + `Gateway:BaseUrl`
 
 **Verification gate (local, no VPS):**
 1. `dotnet build VanAn.sln` PASS

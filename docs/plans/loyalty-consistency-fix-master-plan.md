@@ -1,10 +1,11 @@
 # Loyalty Point Storage Consistency — Master Plan
 
 **Created:** 2026-08-03
-**Status:** APPROVED (D1=Option B) — ready for implementation
+**Status:** APPROVED + IN PROGRESS — Layer 1 (TC-S1 Phase 0) implementation 8/12 sub-tasks done
 **Mode:** IMPLEMENT (Phase 0 — new infra) + FIX_ONLY (Phase 1-3 — consistency fixes)
 **Supersedes:** `loyalty-consistency-fix-plan.md` (rolled into this plan + 9 review gaps)
 **Reference:** `loyalty-alliance-master-plan.md` (Phase 7 COMPLETE — this plan hardens it)
+**Execution strategy:** Layered Batch — Layer 1 (Phase 0 infra, verify gate, commit) → Layer 2 (Phase 1+2+3 writes+reads+sync, 1 commit, TDD per-bug) → Layer 3 (Phase 4 VPS RV 14-step)
 
 ## Problem Summary
 
@@ -94,7 +95,7 @@ Phase 0 (HTTP Infra) → Phase 1 (Writes) → Phase 2 (Reads) → Phase 3 (Sync)
 
 | Phase | Sessions | Boundary | Output |
 |---|---|---|---|
-| 0 | 1 | `2_Gateway/`, `5_WebApps/ShopERP/`, `1_Shared/`, `3_CoreHub/` | HTTP proxies + Gateway internal API + auth + cache + idempotency + Domain column + migration |
+| 0 | 1 | `2_Gateway/`, `5_WebApps/ShopERP/`, `1_Shared/`, `3_CoreHub/` | HTTP proxies + Gateway internal API + auth + cache + idempotency + Domain column + migration — **IN PROGRESS 8/12 sub-tasks (2026-08-03)** |
 | 1 | 1 | `3_CoreHub/Services/`, `5_WebApps/ShopERP/Controllers/` | Mode routing in MissionService + Cancel + LoyaltyController.Redeem + ActivateCustomer |
 | 2 | 1 | `5_WebApps/ShopERP/Controllers/` | Mode-aware reads: `/api/loyalty/my` + `/api/customers/me` + admin CRM |
 | 3 | 1 | `5_WebApps/ShopERP/Services/` | NATS sync extends to history |
@@ -107,8 +108,14 @@ Phase 0 (HTTP Infra) → Phase 1 (Writes) → Phase 2 (Reads) → Phase 3 (Sync)
 ## Session Boundaries
 
 ### Session 1 — Phase 0: HTTP Proxy Infrastructure (BUG #0)
+**Status:** IN PROGRESS (2026-08-03) — 8/12 sub-tasks done
 **Boundary:** `2_Gateway/`, `5_WebApps/ShopERP/`, `1_Shared/Domain.cs`, `3_CoreHub/`
 **Depends on:** D1 approved ✅
+**Done (8):** Domain `IdempotencyKey` + EF config + PG migration `20260802201947_AddAllianceTransactionIdempotencyKey` + `IAllianceWalletService` interface (3 methods +idempotencyKey) + `AllianceWalletService` real impl (idempotency check in 3 methods) + `InternalApiKeyAttribute.cs` (NEW) + `InternalLoyaltyController.cs` (NEW — 5 endpoints) + `AllianceWalletServiceHttpProxy.cs` (NEW — ShopERP HTTP proxy + cache 10s + write invalidation)
+**Pending (4):** `LoyaltyModeResolverHttpProxy.cs` (NEW) + DI registration (Gateway `Program.cs` API key + ShopERP `Program.cs` proxies + named HttpClient "GatewayInternal") + existing callers pass idempotency keys (`OrderWorkflowService` + `RedemptionService`) + appsettings.json config (`InternalLoyalty:ApiKey` + `Gateway:BaseUrl`)
+**Then tests:** `ShopErpDiRegistrationTests` + `InternalApiKeyAuthTests` + `IdempotencyTests`
+**Then verify gate:** `dotnet build VanAn.sln` + `dotnet test` PASS
+**Then commit + push Layer 1**
 **Files to create:**
 - `2_Gateway/Filters/InternalApiKeyAttribute.cs` — auth filter
 - `2_Gateway/Controllers/InternalLoyaltyController.cs` — 5 internal endpoints

@@ -376,7 +376,8 @@ namespace VanAn.CoreHub.Services
                     {
                         Guid deviceGuid = Guid.TryParse(order.CustomerDeviceId, out var d) ? d : customer.Id;
                         var (allianceSuccess, newBalance, allianceError) = await _allianceWalletService.AddPointsAsync(
-                            deviceGuid, order.TenantId.Value, pointsToAward, reason, order.Id);
+                            deviceGuid, order.TenantId.Value, pointsToAward, reason, order.Id,
+                            idempotencyKey: $"earn:{order.Id}");
 
                         if (allianceSuccess)
                         {

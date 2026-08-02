@@ -19,24 +19,30 @@ public interface IAllianceWalletService
     /// <summary>
     /// Add (earn) points to the wallet at the given tenant.
     /// Enforces MaxWalletPoints cap. Returns (success, newBalance, error).
+    /// Loyalty Consistency Fix Phase 0: idempotencyKey enables retry-safe HTTP proxy calls.
     /// </summary>
     Task<(bool Success, int NewBalance, string? Error)> AddPointsAsync(
-        Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId = null);
+        Guid customerDeviceId, Guid tenantId, int points, string reason, Guid? sourceOrderId = null,
+        string? idempotencyKey = null);
 
     /// <summary>
     /// Deduct (redeem) points from the wallet at the given tenant.
     /// Enforces sufficient balance. Returns (success, newBalance, error).
+    /// Loyalty Consistency Fix Phase 0: idempotencyKey enables retry-safe HTTP proxy calls.
     /// </summary>
     Task<(bool Success, int NewBalance, string? Error)> DeductPointsAsync(
-        Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode = null);
+        Guid customerDeviceId, Guid tenantId, int points, string reason, string? voucherCode = null,
+        string? idempotencyKey = null);
 
     /// <summary>
     /// Refund points back to the wallet. Per Q4, refund is attributed to the tenant
     /// where the redeem occurred (passed as <paramref name="tenantId"/>).
     /// Returns (success, newBalance, error).
+    /// Loyalty Consistency Fix Phase 0: idempotencyKey enables retry-safe HTTP proxy calls.
     /// </summary>
     Task<(bool Success, int NewBalance, string? Error)> RefundAsync(
-        Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode);
+        Guid customerDeviceId, Guid tenantId, int points, string reason, string voucherCode,
+        string? idempotencyKey = null);
 
     /// <summary>Return recent transactions for a wallet, newest first.</summary>
     Task<IReadOnlyList<AllianceTransaction>> GetTransactionsAsync(Guid walletId, int limit = 20);

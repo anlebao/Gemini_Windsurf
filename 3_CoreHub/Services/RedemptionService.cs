@@ -125,9 +125,12 @@ namespace VanAn.CoreHub.Services
                     DateTime expiresAt = DateTime.UtcNow.AddDays(catalogItem.VoucherExpiryDays);
 
                     // Alliance REDEEM: deduct from PG wallet (atomic per AllianceWalletService)
+                    // Idempotency key uses voucherCode — generated BEFORE deduction, unique per redeem attempt.
+                    // If HTTP call retries with same voucherCode, Gateway returns cached result (no double deduction).
                     var (success, newBalance, error) = await _allianceWalletService.DeductPointsAsync(
                         deviceGuid, tenantId, catalogItem.PointsRequired,
-                        $"Redeem: {catalogItem.ProductName}", voucherCode);
+                        $"Redeem: {catalogItem.ProductName}", voucherCode,
+                        idempotencyKey: $"redeem:{voucherCode}");
 
                     if (!success)
                     {

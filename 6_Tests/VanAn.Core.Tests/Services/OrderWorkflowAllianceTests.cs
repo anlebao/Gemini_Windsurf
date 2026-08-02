@@ -88,7 +88,7 @@ public class OrderWorkflowAllianceTests
 
         var walletServiceMock = new Mock<IAllianceWalletService>();
         walletServiceMock
-            .Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>()))
+            .Setup(w => w.AddPointsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()))
             .ReturnsAsync((true, 500, (string?)null));
 
         services.AddSingleton(modeResolverMock.Object);
@@ -171,7 +171,7 @@ public class OrderWorkflowAllianceTests
             // AllianceWalletService.AddPointsAsync MUST be called
             walletServiceMock.Verify(
                 w => w.AddPointsAsync(
-                    It.IsAny<Guid>(), tenantId, It.IsAny<int>(), It.IsAny<string>(), order.Id),
+                    It.IsAny<Guid>(), tenantId, It.IsAny<int>(), It.IsAny<string>(), order.Id, It.IsAny<string?>()),
                 Times.Once,
                 "Alliance mode + member must route EARN to AllianceWalletService");
 
@@ -209,7 +209,7 @@ public class OrderWorkflowAllianceTests
             // AllianceWalletService.AddPointsAsync must NOT be called
             walletServiceMock.Verify(
                 w => w.AddPointsAsync(
-                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>()),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()),
                 Times.Never,
                 "Silo mode must NOT route to AllianceWalletService");
 
@@ -247,7 +247,7 @@ public class OrderWorkflowAllianceTests
             // AllianceWalletService must NOT be called (tenant opted out)
             walletServiceMock.Verify(
                 w => w.AddPointsAsync(
-                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>()),
+                    It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<Guid?>(), It.IsAny<string?>()),
                 Times.Never,
                 "Tenant opt-out (IsAllianceMember=false) must NOT route to AllianceWalletService");
 
