@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 
 namespace VanAn.Gateway.Controllers
 {
@@ -52,14 +53,27 @@ namespace VanAn.Gateway.Controllers
 
                 if (includeBody && Request.ContentLength > 0)
                 {
-                    reqMsg.Content = new StreamContent(Request.Body);
-                    reqMsg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    // FIX: Buffer the request body into a string before forwarding.
+                    // StreamContent(Request.Body) fails in ASP.NET Core 8 because the request
+                    // body stream (PipeReader-backed) may not support synchronous reads when
+                    // HttpClient sends the content. Reading into a StringContent is reliable.
+                    Request.EnableBuffering();
+                    using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
+                    var body = await reader.ReadToEndAsync();
+                    reqMsg.Content = new StringContent(body, Encoding.UTF8,
                         Request.ContentType ?? "application/json");
                 }
 
                 var response = await client.SendAsync(reqMsg);
                 var content = await response.Content.ReadAsStringAsync();
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/json";
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Forward {Method} {Path} to ShopERP returned {StatusCode}: {Content}",
+                        method, path, (int)response.StatusCode, content);
+                }
+
                 return new ContentResult
                 {
                     StatusCode = (int)response.StatusCode,

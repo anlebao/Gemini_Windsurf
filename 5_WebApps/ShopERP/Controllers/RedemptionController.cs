@@ -168,26 +168,43 @@ namespace VanAn.ShopERP.Controllers
 
         [HttpPost("redeem")]
         [AllowAnonymous]
-        public async Task<IActionResult> Redeem([FromHeader(Name = "X-Customer-Token")] string? customerToken, [FromBody] RedeemCatalogRequest request)
+        public async Task<IActionResult> Redeem([FromHeader(Name = "X-Customer-Token")] string? customerToken, [FromBody] RedeemCatalogRequest? request)
         {
-            var customerId = ValidateCustomerToken(customerToken);
-            if (!customerId.HasValue) return Unauthorized();
-
-            var result = await _redemptionService.RedeemAsync(customerId.Value, request.CatalogItemId);
-            if (!result.Success)
+            try
             {
-                return BadRequest(new { error = result.Error });
+                var customerId = ValidateCustomerToken(customerToken);
+                if (!customerId.HasValue) return Unauthorized();
+
+                if (request == null || request.CatalogItemId == Guid.Empty)
+                    return BadRequest(new { error = "Thiếu CatalogItemId trong yêu cầu." });
+
+                var result = await _redemptionService.RedeemAsync(customerId.Value, request.CatalogItemId);
+                if (!result.Success)
+                {
+                    return BadRequest(new { error = result.Error });
+                }
+
+                return Ok(new RedeemCatalogResponse
+                {
+                    Success = true,
+                    PointsSpent = result.PointsSpent,
+                    NewPointBalance = result.NewPointBalance,
+                    VoucherCode = result.Voucher?.VoucherCode,
+                    QrCodeData = result.Voucher?.QRCodeData,
+                    ExpiresAt = result.Voucher?.ExpiresAt
+                });
             }
-
-            return Ok(new RedeemCatalogResponse
+            catch (IdentityLevelNotSufficientException ex)
             {
-                Success = true,
-                PointsSpent = result.PointsSpent,
-                NewPointBalance = result.NewPointBalance,
-                VoucherCode = result.Voucher?.VoucherCode,
-                QrCodeData = result.Voucher?.QRCodeData,
-                ExpiresAt = result.Voucher?.ExpiresAt
-            });
+                _logger.LogWarning("Redeem blocked: customer {CustomerId} IdentityLevel={Current} < {Required}",
+                    ex.CustomerId, ex.CurrentLevel, ex.RequiredLevel);
+                return StatusCode(403, new { error = "Bạn cần xác minh danh tính (OTP) để đổi điểm. Vui lòng hoàn tất xác minh.", requireUpgrade = true, currentLevel = ex.CurrentLevel.ToString(), requiredLevel = ex.RequiredLevel.ToString() });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Redeem endpoint unhandled exception");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi đổi điểm. Vui lòng thử lại." });
+            }
         }
 
         // === Helpers ===
