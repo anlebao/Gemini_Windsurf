@@ -43,7 +43,7 @@ public class GatewayWebApplicationFactory : WebApplicationFactory<VanAn.Gateway.
 
     public GatewayWebApplicationFactory()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
     }
 
@@ -77,8 +77,10 @@ public class GatewayWebApplicationFactory : WebApplicationFactory<VanAn.Gateway.
             // Add SQLite in-memory VanAnDbContext on the shared open connection.
             // The connection is kept open for the lifetime of the factory so EnsureCreated
             // schema and all subsequent queries share the same in-memory database.
+            var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
             services.AddDbContext<IVanAnDbContext, VanAnDbContext>(options =>
-                options.UseSqlite(_connection));
+                options.UseInternalServiceProvider(efServiceProvider)
+                       .UseSqlite(_connection));
 
             // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)
             services.AddScoped<IAccountingDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());

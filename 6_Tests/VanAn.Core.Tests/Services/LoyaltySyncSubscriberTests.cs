@@ -36,11 +36,12 @@ public class LoyaltySyncSubscriberTests
     private static (TestableLoyaltySyncSubscriber subscriber, ServiceProvider sp, ShopERPDbContext db)
         BuildSubscriber()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
+        var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         connection.Open();
 
         var services = new ServiceCollection();
-        services.AddDbContext<ShopERPDbContext>(options => options.UseSqlite(connection));
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+        services.AddDbContext<ShopERPDbContext>(options => options.UseInternalServiceProvider(efServiceProvider).UseSqlite(connection));
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
 
         ServiceProvider sp = services.BuildServiceProvider();

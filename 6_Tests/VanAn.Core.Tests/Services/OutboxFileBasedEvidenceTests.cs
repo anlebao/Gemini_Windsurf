@@ -8,6 +8,7 @@ using Xunit;
 using FluentAssertions;
 using CoreOutboxMessage = VanAn.CoreHub.Infrastructure.OutboxMessage;
 
+using Microsoft.Extensions.DependencyInjection;
 namespace VanAn.Core.Tests.Services;
 
 /// <summary>
@@ -37,8 +38,10 @@ public class OutboxFileBasedEvidenceTests : IDisposable
             cmd.ExecuteNonQuery();
         }
 
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+
         var options = new DbContextOptionsBuilder<VanAnDbContext>()
-            .UseSqlite(_connection)
+            .UseInternalServiceProvider(efServiceProvider).UseSqlite(_connection)
             .Options;
 
         _dbContext = new VanAnDbContext(options, new StubTenantProvider());

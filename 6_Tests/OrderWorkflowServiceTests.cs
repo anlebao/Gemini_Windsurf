@@ -25,7 +25,7 @@ public class OrderWorkflowServiceTests
     {
         var services = new ServiceCollection();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite("DataSource=:memory:"))
+            options.UseSqlite($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared"))
                    .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
         services.AddScoped<ISocialCampaignService, SocialCampaignService>();
         services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();
@@ -55,7 +55,7 @@ public class OrderWorkflowServiceTests
     {
         var services = new ServiceCollection();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite("DataSource=:memory:"))
+            options.UseSqlite($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared"))
                    .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
         services.AddScoped<ISocialCampaignService, SocialCampaignService>();
         services.AddScoped<ILoyaltyRewardsService, LoyaltyRewardsService>();

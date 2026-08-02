@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
 
@@ -17,10 +18,15 @@ namespace VanAn.CoreHub.Tests.TestInfrastructure
         /// </summary>
         public static TestContextScope Create()
         {
-            SqliteConnection connection = new("DataSource=:memory:");
+            SqliteConnection connection = new($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
             connection.Open();
 
+            var efServiceProvider = new ServiceCollection()
+                .AddEntityFrameworkSqlite()
+                .BuildServiceProvider();
+
             DbContextOptions<VanAnDbContext> options = new DbContextOptionsBuilder<VanAnDbContext>()
+                .UseInternalServiceProvider(efServiceProvider)
                 .UseSqlite(connection)
                 .EnableSensitiveDataLogging()
                 .EnableDetailedErrors()

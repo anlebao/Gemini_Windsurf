@@ -38,11 +38,20 @@ public class RedemptionAllianceTests
         BuildService(LoyaltyMode mode, bool isAllianceMember,
             int walletDeductNewBalance = 500, bool walletDeductSuccess = true, string? walletError = null)
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
+        var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         connection.Open();
 
+        // Register ITenantProvider with TestTenantGuid so VanAnDbContext query filter
+        // finds the seeded Customer (TenantId = TestTenantId). Without this, _tenantProvider
+        // is null → CurrentTenantId = Guid.Empty → query filter excludes the Customer →
+        // Alliance branch falls back to customerId instead of deviceId → walletMock.Verify fails.
+        var tenantProviderMock = new Mock<ITenantProvider>();
+        tenantProviderMock.SetupGet(t => t.TenantId).Returns(TestTenantGuid);
+
         var services = new ServiceCollection();
-        services.AddDbContext<VanAnDbContext>(options => options.UseSqlite(connection));
+        services.AddSingleton<ITenantProvider>(tenantProviderMock.Object);
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+        services.AddDbContext<VanAnDbContext>(options => options.UseInternalServiceProvider(efServiceProvider).UseSqlite(connection));
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
         ServiceProvider sp = services.BuildServiceProvider();
@@ -74,9 +83,6 @@ public class RedemptionAllianceTests
             .ReturnsAsync(true);
         loyaltyMock.Setup(l => l.GetCustomerRewardsAsync(It.IsAny<Guid>()))
             .ReturnsAsync(new LoyaltyRewards(TestTenantId, TestCustomerId));
-
-        var tenantProviderMock = new Mock<ITenantProvider>();
-        tenantProviderMock.SetupGet(t => t.TenantId).Returns(TestTenantGuid);
 
         var modeResolverMock = new Mock<ILoyaltyModeResolver>();
         modeResolverMock.Setup(m => m.GetEffectiveModeAsync(It.IsAny<Guid>())).ReturnsAsync(mode);

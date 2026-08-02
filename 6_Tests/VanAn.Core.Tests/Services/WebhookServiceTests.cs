@@ -7,6 +7,7 @@ using VanAn.Shared.Domain;
 using Xunit;
 using FluentAssertions;
 
+using Microsoft.Extensions.DependencyInjection;
 namespace VanAn.Core.Tests.Services;
 
 /// <summary>
@@ -21,10 +22,11 @@ public class WebhookServiceTests : IDisposable
 
     public WebhookServiceTests()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
         var options = new DbContextOptionsBuilder<VanAnDbContext>()
-            .UseSqlite(_connection)
+            .UseInternalServiceProvider(efServiceProvider).UseSqlite(_connection)
             .Options;
         _dbContext = new VanAnDbContext(options);
         _dbContext.Database.EnsureCreated();

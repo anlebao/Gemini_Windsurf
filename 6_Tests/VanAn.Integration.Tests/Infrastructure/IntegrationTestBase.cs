@@ -35,7 +35,7 @@ public abstract class IntegrationTestBase : IDisposable
     protected IntegrationTestBase()
     {
         // SQLite in-memory: connection stays open for test lifetime
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
 
         var services = new ServiceCollection();
@@ -51,8 +51,10 @@ public abstract class IntegrationTestBase : IDisposable
             .SetApplicationName("VanAnTest");
 
         // Add SQLite in-memory database for testing (real relational provider)
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite(_connection));
+            options.UseInternalServiceProvider(efServiceProvider)
+                   .UseSqlite(_connection));
 
         // Register IVanAnDbContext and ITenantProvider (required by repositories)
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
@@ -144,8 +146,10 @@ public abstract class IntegrationTestBase : IDisposable
         services.AddLogging(builder => builder.AddConsole());
 
         // Add SQLite in-memory database (same connection for test lifetime)
+        var efServiceProvider2 = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite(_connection));
+            options.UseInternalServiceProvider(efServiceProvider2)
+                   .UseSqlite(_connection));
 
         // Register IVanAnDbContext and ITenantProvider
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());

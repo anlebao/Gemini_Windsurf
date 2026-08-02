@@ -68,7 +68,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
     public CustomWebApplicationFactory()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
     }
 
@@ -104,7 +104,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             // Use the factory-owned, already opened connection. EF Core will not close it,
             // so the in-memory database survives for the whole factory lifetime.
-            services.AddDbContext<ShopERPDbContext>(options => options.UseSqlite(_connection));
+            var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+            services.AddDbContext<ShopERPDbContext>(options => options.UseInternalServiceProvider(efServiceProvider).UseSqlite(_connection));
             services.AddDbContext<VanAnDbContext>(options => options.UseSqlite(_connection));
             services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
             // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)

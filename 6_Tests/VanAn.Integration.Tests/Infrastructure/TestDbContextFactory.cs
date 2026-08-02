@@ -94,13 +94,15 @@ public static class TestDbContextFactory
     /// <returns>TestDbContextWrapper that properly disposes resources</returns>
     public static TestDbContextWrapper CreateSqliteInMemory()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
+        var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         connection.Open();
 
         var services = new ServiceCollection();
 
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite(connection)
+            options.UseInternalServiceProvider(efServiceProvider)
+                   .UseSqlite(connection)
                 .EnableSensitiveDataLogging()
                 .EnableDetailedErrors());
 

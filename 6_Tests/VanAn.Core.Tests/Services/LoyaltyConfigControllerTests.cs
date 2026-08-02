@@ -32,11 +32,12 @@ public class LoyaltyConfigControllerTests
     private static (LoyaltyConfigController controller, VanAnDbContext db, ServiceProvider sp)
         BuildController()
     {
-        var connection = new SqliteConnection("DataSource=:memory:");
+        var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         connection.Open();
 
         var services = new ServiceCollection();
-        services.AddDbContext<VanAnDbContext>(options => options.UseSqlite(connection));
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+        services.AddDbContext<VanAnDbContext>(options => options.UseInternalServiceProvider(efServiceProvider).UseSqlite(connection));
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
         ServiceProvider sp = services.BuildServiceProvider();

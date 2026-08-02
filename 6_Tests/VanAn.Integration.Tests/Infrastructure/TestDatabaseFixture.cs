@@ -48,8 +48,10 @@ public class TestDatabaseFixture : IAsyncLifetime
 
         // Add DbContext with SQLite connection from configuration
         // Connection pooling configured via connection string
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite(_connection)
+            options.UseInternalServiceProvider(efServiceProvider)
+                   .UseSqlite(_connection)
                 .EnableSensitiveDataLogging()
                 .EnableDetailedErrors());
 

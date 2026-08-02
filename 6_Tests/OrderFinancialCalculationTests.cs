@@ -16,7 +16,7 @@ public class OrderFinancialCalculationTests
     {
         var services = new ServiceCollection();
         services.AddDbContext<VanAnDbContext>(options =>
-            options.UseSqlite("DataSource=:memory:"));
+            options.UseSqlite($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared"));
         
         _tenantProvider = new TestTenantProvider();
         _tenantProvider.SetTenant(Guid.NewGuid());

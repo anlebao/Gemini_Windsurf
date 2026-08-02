@@ -39,12 +39,14 @@ public class OrderWorkflowAllianceTests
         BuildServices(LoyaltyMode mode, bool isAllianceMember)
     {
         // Use a single shared SQLite in-memory connection so EnsureCreated persists across scopes
-        var connection = new SqliteConnection("DataSource=:memory:");
+        var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         connection.Open();
 
         var services = new ServiceCollection();
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
         services.AddDbContext<VanAnDbContext>(options =>
         {
+            options.UseInternalServiceProvider(efServiceProvider);
             options.UseSqlite(connection);
             options.ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
         });

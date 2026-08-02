@@ -9,6 +9,7 @@ using VanAn.Shared.Domain.Common;
 using Xunit;
 using Tenant = VanAn.Shared.Domain.Aggregates.TenantAggregate.Tenant;
 
+using Microsoft.Extensions.DependencyInjection;
 namespace VanAn.Core.Tests.Community;
 
 /// <summary>
@@ -28,11 +29,13 @@ public class WalletServiceTests : IDisposable
 
     public WalletServiceTests()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
 
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+
         var options = new DbContextOptionsBuilder<VanAnDbContext>()
-            .UseSqlite(_connection)
+            .UseInternalServiceProvider(efServiceProvider).UseSqlite(_connection)
             .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 

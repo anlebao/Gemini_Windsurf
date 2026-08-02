@@ -7,6 +7,7 @@ using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
 using Xunit;
 
+using Microsoft.Extensions.DependencyInjection;
 namespace VanAn.Core.Tests.Community
 {
     /// <summary>
@@ -24,10 +25,11 @@ namespace VanAn.Core.Tests.Community
 
         public DeviceRegistrationServiceTests()
         {
-            _connection = new SqliteConnection("DataSource=:memory:");
+            _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
             _connection.Open();
+            var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
             var options = new DbContextOptionsBuilder<VanAnDbContext>()
-                .UseSqlite(_connection)
+                .UseInternalServiceProvider(efServiceProvider).UseSqlite(_connection)
                 .Options;
             _tenantProvider = new StubTenantProvider(Guid.NewGuid());
             _dbContext = new VanAnDbContext(options, _tenantProvider);

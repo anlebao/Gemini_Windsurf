@@ -32,7 +32,7 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
 
     public AuthRealWebApplicationFactory()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
     }
 
@@ -59,7 +59,9 @@ public class AuthRealWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<VanAnDbContext>();
             services.RemoveAll<IVanAnDbContext>();
 
-            services.AddDbContext<ShopERPDbContext>(options => options.UseSqlite(_connection));
+            var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+
+            services.AddDbContext<ShopERPDbContext>(options => options.UseInternalServiceProvider(efServiceProvider).UseSqlite(_connection));
             services.AddDbContext<VanAnDbContext>(options => options.UseSqlite(_connection));
             services.AddScoped<IVanAnDbContext>(provider => provider.GetRequiredService<ShopERPDbContext>());
             // WAVE 3: IAccountingDbContext → VanAnDbContext (implements both interfaces, has accounting DbSets)

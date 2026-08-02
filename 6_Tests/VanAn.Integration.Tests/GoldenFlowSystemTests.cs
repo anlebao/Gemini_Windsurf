@@ -47,7 +47,7 @@ public class GoldenFlowSystemTests : IClassFixture<CustomWebApplicationFactory>,
         services.AddScoped<ITenantProvider, TestTenantProvider>();
         services.AddDbContext<VanAnDbContext>(options =>
         {
-            options.UseSqlite("DataSource=:memory:");
+            options.UseSqlite($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
             options.EnableSensitiveDataLogging();
             options.EnableDetailedErrors();
         });

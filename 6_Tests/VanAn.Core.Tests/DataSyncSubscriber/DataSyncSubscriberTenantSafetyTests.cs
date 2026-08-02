@@ -34,13 +34,23 @@ public class DataSyncSubscriberTenantSafetyTests : IDisposable
 
     public DataSyncSubscriberTenantSafetyTests()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
         _connection.Open();
+
+        // Unique EF Core internal service provider per test class instance.
+        // This ensures a separate model cache → OnModelCreating runs per instance →
+        // query filter captures THIS instance's CurrentTenantIdValue, not another
+        // parallel test class's DbContext. Fixes cross-test model cache sharing.
+        var efServiceProvider = new ServiceCollection()
+            .AddEntityFrameworkSqlite()
+            .BuildServiceProvider();
 
         var services = new ServiceCollection();
         _tenantProvider = new TestTenantProvider();
         services.AddSingleton<ITenantProvider>(_tenantProvider);
-        services.AddDbContext<VanAnDbContext>(opt => opt.UseSqlite(_connection));
+        services.AddDbContext<VanAnDbContext>(opt =>
+            opt.UseInternalServiceProvider(efServiceProvider)
+               .UseSqlite(_connection));
         services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
         _rootSp = services.BuildServiceProvider();
 
