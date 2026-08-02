@@ -162,6 +162,7 @@ Do NOT waste rounds on trial-and-error workarounds. If the fix does not resolve 
 | 6 | Circular dependency: `IFormulaEngine` → `IDataProvider` → `IPreAggregationService` → `IFormulaEngine` | Service A depends on Service B which depends on Service A. | Use `Lazy<T>` to break the cycle. Register `Lazy<IFormulaEngine>` in DI container. | Wave 7 |
 | 7 | EF Core `SqlQueryRaw<T>` ad-hoc type: `could not be mapped because it is of type 'object'` OR `The required column 'X' was not present in the results of a 'FromSql' operation` | Two related issues: (a) `object?` is not a supported EF Core primitive type — model validator rejects it. (b) SQLite PRAGMA returns snake_case column names (e.g. `dflt_value`) that don't match PascalCase C# properties (e.g. `DfltValue`) — EF Core does case-insensitive matching but NOT snake_case→PascalCase conversion. | (a) Use correct .NET primitive type (`string?` for SQLite TEXT/NULL). (b) Add `[Column("dflt_value")]` attribute + `using System.ComponentModel.DataAnnotations.Schema;`. **NEVER delete a field to bypass the mapping error** — map it correctly, or confirm via business logic analysis that the field is truly unused before removing. | Gateway Fix |
 | 8 | `Object must implement IConvertible` OR `LINQ expression 'DbSet<Tenant>().Where(t => t.Id.Value == ...)' could not be translated` when querying `Tenants` by Guid from route/DTO | `Tenant.Id` is a `TenantId` **value object** (not Guid) configured with `HasConversion(id => id.Value, value => new TenantId(value))`. Three failing patterns: (a) `EF.Property<Guid>(t, "Id") == guid` → IConvertible cast error (Pattern #1 variant). (b) `t.Id.Value == guid` in `Where` → LINQ translation fails (value object member access not translatable). (c) `guidList.Contains(t.Id)` where `guidList` is `List<Guid>` → type mismatch, fails translation. | Construct `TenantId` value object BEFORE comparison: (a)(b) `t.Id == new TenantId(tenantId)`. (c) Convert collection: `tenantIds.Select(id => new TenantId(id)).ToList()` then `tenantIdValues.Contains(t.Id)`. For `Dictionary` lookups by tenant: `dict[new TenantId(guid)]` or build dict keyed by `TenantId`. **Reference implementation:** `TenantManagementService.GetTenantByIdAsync`, `SocialCampaignRepository.GetActiveByTenantIdValueAsync`. NEVER use `EF.Property<Guid>` or `.Value` in `Where` for any value object Id. | Shop Removal RV |
+| 9 | `relation "__efmigrationshistory" does not exist` when querying EF migration history on PostgreSQL | EF Core 10 + Npgsql creates the migration history table with **PascalCase** name `"__EFMigrationsHistory"` (quoted, case-sensitive) on PostgreSQL — NOT lowercase `__efmigrationshistory`. PostgreSQL is case-sensitive for quoted identifiers. Querying `__efmigrationshistory` (unquoted lowercase) fails because the table doesn't exist under that name. | Always query with quoted PascalCase: `SELECT "MigrationId", "ProductVersion" FROM "__EFMigrationsHistory"`. Column names are also PascalCase (`"MigrationId"`, not `migration_id`). For RV scripts: use `docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -c 'SELECT "MigrationId", "ProductVersion" FROM "__EFMigrationsHistory" WHERE "MigrationId" LIKE '"'"'%<Keyword>%'"'"';'`. NEVER use lowercase unquoted `__efmigrationshistory` on PostgreSQL. | Loyalty Alliance P1 RV |
 
 **Maintenance:** User decides when to add new patterns. Obsolete patterns (code removed, API changed) must be pruned to keep the registry lean. Do NOT let this table grow unbounded — each entry must remain actionable and current.
 
@@ -277,6 +278,35 @@ Layer 3: Module-Specific (EmployeeForm, CustomerCard, JournalEntry, etc.)
 - Factory: `6_Tests/VanAn.Integration.Tests/Infrastructure/KhachLinkWebApplicationFactory.cs`
 - Tests: `6_Tests/VanAn.Integration.Tests/KhachLinkStartupTests.cs`
 - CI step: `scripts/ci-full.ps1` Step 2b (BLOCKING)
+
+---
+
+## VPS ACCESS (Runtime Verification)
+
+**SSH command (memorized — do NOT ask user for SSH path/user/host again):**
+```
+ssh -i "C:\VibeCoding\CD\SSH\vanan.pem" ubuntu@161.118.212.110 "<command>"
+```
+
+**VPS details:**
+- Host: `161.118.212.110` (also `khachvip.online`)
+- User: `ubuntu`
+- Key: `C:\VibeCoding\CD\SSH\vanan.pem`
+- Domains: `khachvip.online` (ShopERP), `diemthuong.khachvip.online` (KhachLink), `api.khachvip.online` (Gateway)
+
+**PostgreSQL access (inside VPS):**
+```
+docker exec vanan-postgres psql -U vanan_admin -d VanAnCoreHub -c "<SQL>"
+```
+- User: `vanan_admin` (NOT `vanan_dev` — that's local dev only)
+- DB: `VanAnCoreHub` (NOT `VanAnLocal` — that's local dev only)
+- EF migration history table: `"__EFMigrationsHistory"` (PascalCase, quoted — see Pattern #9)
+
+**Container names:** `vanan-gateway`, `vanan-shoperp`, `vanan-khachlink`, `vanan-nginx`, `vanan-postgres`, `vanan-nats`, `vanan-seq`, `vanan-certbot`
+
+**RV script pattern:** Write `.sh` locally → `scp` to `/tmp/` → `sed -i 's/\r$//'` (fix CRLF) → `bash /tmp/script.sh`. NEVER inline complex SQL in ssh `-c` from PowerShell (escape hell) — always use scp + sed approach.
+
+**Port exposure:** Internal ports 5001/5002/5003 are NOT exposed to VPS localhost. Test via public domains or `docker exec` into containers.
 
 ---
 
