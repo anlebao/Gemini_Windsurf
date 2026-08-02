@@ -3,14 +3,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
+using VanAn.Shared.Services;
 
 namespace VanAn.Gateway.Controllers
 {
     /// <summary>
     /// Loyalty Alliance Phase 3A: SystemAdmin API for LoyaltyGlobalConfig + LoyaltyTenantConfig CRUD.
+    /// Phase 5A: added POST /migrate endpoint wiring Phase 4 Consolidate/SplitWalletsAsync.
     /// Auth: SystemAdmin policy (JWT) on all endpoints.
     /// GET endpoints are read-only (any SystemAdmin can view).
-    /// PUT endpoints mutate config + record LastChangedBy from JWT sub claim.
+    /// PUT/POST endpoints mutate config + record LastChangedBy from JWT sub claim.
     /// Spec: docs/specs/loyalty-alliance-spec.md v1.0.
     /// </summary>
     [ApiController]
@@ -18,9 +20,11 @@ namespace VanAn.Gateway.Controllers
     [Authorize(Policy = "SystemAdmin")]
     public class LoyaltyConfigController(
         IVanAnDbContext dbContext,
+        IAllianceWalletService allianceWalletService,
         ILogger<LoyaltyConfigController> logger) : ControllerBase
     {
         private readonly IVanAnDbContext _dbContext = dbContext;
+        private readonly IAllianceWalletService _allianceWalletService = allianceWalletService;
         private readonly ILogger<LoyaltyConfigController> _logger = logger;
 
         // === Global Config ===
@@ -160,6 +164,56 @@ namespace VanAn.Gateway.Controllers
             return Ok(TenantConfigDto.From(config));
         }
 
+        // === Mode Switch Migration (Phase 5A — wires Phase 4 Consolidate/Split) ===
+
+        /// <summary>
+        /// POST /api/platform/loyalty/migrate — triggers Silo↔Alliance wallet migration for a tenant.
+        /// Body: { direction, tenantId, customerBalances? }
+        /// - direction="consolidate" (Silo→Alliance): caller MUST supply customerBalances from ShopERP SQLite
+        ///   (Gateway is PG-only and cannot query per-tenant SQLite). Creates/credits AllianceWallet + ADJUST tx per customer.
+        /// - direction="split" (Alliance→Silo): no balances needed. Calculates net EARN per-tenant from tx log,
+        ///   distributes TotalPointBalance proportionally, freezes wallet, returns allocations so caller updates SQLite.
+        /// Returns MigrationResultDto. SystemAdmin only.
+        /// </summary>
+        [HttpPost("migrate")]
+        public async Task<IActionResult> Migrate([FromBody] MigrateRequest body)
+        {
+            if (body == null)
+                return BadRequest(new { error = "Body không được để trống." });
+
+            if (body.TenantId == Guid.Empty)
+                return BadRequest(new { error = "TenantId không hợp lệ." });
+
+            string changedBy = GetChangedBy();
+
+            if (string.Equals(body.Direction, "consolidate", StringComparison.OrdinalIgnoreCase))
+            {
+                if (body.CustomerBalances == null || body.CustomerBalances.Count == 0)
+                    return BadRequest(new { error = "Consolidate (Silo→Alliance) yêu cầu customerBalances từ ShopERP SQLite." });
+
+                var balances = body.CustomerBalances
+                    .Select(b => new CustomerBalanceInput(b.CustomerDeviceId, b.PointBalance, b.PhoneNumber))
+                    .ToList();
+
+                _logger.LogInformation("LoyaltyConfig: consolidate migration triggered by {User} for tenant {TenantId} — {Count} customers",
+                    changedBy, body.TenantId, balances.Count);
+
+                MigrationResult result = await _allianceWalletService.ConsolidateWalletsAsync(body.TenantId, balances, changedBy);
+                return Ok(MigrationResultDto.From(result));
+            }
+
+            if (string.Equals(body.Direction, "split", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("LoyaltyConfig: split migration triggered by {User} for tenant {TenantId}",
+                    changedBy, body.TenantId);
+
+                MigrationResult result = await _allianceWalletService.SplitWalletsAsync(body.TenantId, changedBy);
+                return Ok(MigrationResultDto.From(result));
+            }
+
+            return BadRequest(new { error = "Direction không hợp lệ (phải là 'consolidate' hoặc 'split')." });
+        }
+
         // === Helpers ===
 
         private string GetChangedBy()
@@ -227,5 +281,50 @@ namespace VanAn.Gateway.Controllers
         public LoyaltyMode? Mode { get; set; } // null = inherit global
         public bool IsAllianceMember { get; set; }
         public int? MaxWalletPoints { get; set; } // null = inherit global
+    }
+
+    // === Migration DTOs (Phase 5A) ===
+
+    public class MigrateRequest
+    {
+        /// <summary>"consolidate" (Silo→Alliance) or "split" (Alliance→Silo).</summary>
+        public string Direction { get; set; } = "consolidate";
+        public Guid TenantId { get; set; }
+        /// <summary>Required for consolidate (caller queries ShopERP SQLite). Ignored for split.</summary>
+        public List<CustomerBalanceInputDto>? CustomerBalances { get; set; }
+    }
+
+    public class CustomerBalanceInputDto
+    {
+        public Guid CustomerDeviceId { get; set; }
+        public int PointBalance { get; set; }
+        public string? PhoneNumber { get; set; }
+    }
+
+    public class MigrationResultDto
+    {
+        public int CustomersProcessed { get; set; }
+        public int TotalPointsTransferred { get; set; }
+        public List<WalletAllocationDto> Allocations { get; set; } = new();
+        public string? Error { get; set; }
+        public bool Success { get; set; }
+
+        public static MigrationResultDto From(MigrationResult r) => new()
+        {
+            CustomersProcessed = r.CustomersProcessed,
+            TotalPointsTransferred = r.TotalPointsTransferred,
+            Allocations = r.Allocations
+                .Select(a => new WalletAllocationDto { CustomerDeviceId = a.CustomerDeviceId, TenantId = a.TenantId, Points = a.Points })
+                .ToList(),
+            Error = r.Error,
+            Success = r.Success
+        };
+    }
+
+    public class WalletAllocationDto
+    {
+        public Guid CustomerDeviceId { get; set; }
+        public Guid TenantId { get; set; }
+        public int Points { get; set; }
     }
 }

@@ -1,0 +1,492 @@
+@page "/admin/loyalty-config"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using Microsoft.AspNetCore.Components.Web
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.Shared.Domain
+@using VanAn.ShopERP.Services
+@using VanAn.ShopERP.Infrastructure
+@using Microsoft.EntityFrameworkCore
+@inject LoyaltyConfigApiClient LoyaltyApi
+@inject TenantApiClient TenantApi
+@inject ShopERPDbContext ShopERPDb
+@inject IThemeProvider ThemeProvider
+@inject ILogger<LoyaltyConfigAdmin> Logger
+
+@attribute [Authorize(Policy = "SystemAdmin")]
+
+<div class="loyalty-config-admin-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1><i class="bi bi-award"></i> Loyalty Alliance Configuration</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="LoadAllAsync" IsLoading="@_isLoading">
+                Làm mới
+            </VanAButton>
+        </div>
+    </header>
+
+    @if (!string.IsNullOrEmpty(_alertMessage))
+    {
+        <VanAAlert Type="@_alertType" Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+    }
+
+    @if (_isLoading)
+    {
+        <VanACard>
+            <div class="loading-state">
+                <VanASpinner Size="large" />
+                <p>Đang tải cấu hình...</p>
+            </div>
+        </VanACard>
+    }
+    else
+    {
+        @* === Global Settings === *@
+        <VanACard Header="Cấu hình toàn cục (Global)">
+            <ChildContent>
+                <div class="form-group">
+                    <label for="global-mode">Chế độ Loyalty (LoyaltyMode)</label>
+                    <select id="global-mode" class="vanan-select" @bind="_globalForm.Mode">
+                        <option value="@LoyaltyMode.Silo">Silo (mỗi tenant độc lập)</option>
+                        <option value="@LoyaltyMode.Alliance">Alliance (liên minh cross-tenant)</option>
+                    </select>
+                    <small class="text-muted d-block">
+                        Silo: điểm tích/đổi trong cùng tenant. Alliance: khách tích tại tenant A, đổi được tại tenant B trong liên minh.
+                    </small>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <VanAInput Id="global-maxpointsperorder" Label="Max Points / Order"
+                                   Type="number" Value="@_globalForm.MaxPointsPerOrder.ToString()"
+                                   ValueChanged="v => _globalForm.MaxPointsPerOrder = int.TryParse(v, out var n) ? n : 30"
+                                   Min="0" Step="1" />
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <VanAInput Id="global-maxwalletpoints" Label="Max Wallet Points"
+                                   Type="number" Value="@_globalForm.MaxWalletPoints.ToString()"
+                                   ValueChanged="v => _globalForm.MaxWalletPoints = int.TryParse(v, out var n) ? n : 100000"
+                                   Min="1" Step="1" />
+                    </div>
+                </div>
+                @if (_globalConfig.LastChangedAt.HasValue)
+                {
+                    <small class="text-muted d-block">
+                        Lần cuối cập nhật: @_globalConfig.LastChangedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                        bởi @(_globalConfig.LastChangedBy ?? "—")
+                    </small>
+                }
+            </ChildContent>
+            <Footer>
+                <VanAButton Variant="primary" OnClick="SaveGlobalAsync" IsLoading="@_isSavingGlobal">
+                    Lưu cấu hình toàn cục
+                </VanAButton>
+            </Footer>
+        </VanACard>
+
+        @* === Per-Tenant Override === *@
+        <VanACard Header="Ghi đè theo tenant (Per-Tenant)">
+            <ChildContent>
+                <div class="form-group">
+                    <label for="tenant-select">Chọn tenant</label>
+                    <select id="tenant-select" class="vanan-select" value="@_selectedTenantId" @onchange="OnTenantSelectedAsync">
+                        <option value="">— Chọn tenant —</option>
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_selectedTenantId.HasValue)
+                {
+                    @if (_isLoadingTenant)
+                    {
+                        <div class="text-center py-3"><VanASpinner Size="medium" /></div>
+                    }
+                    else
+                    {
+                        <div class="form-group">
+                            <label for="tenant-mode">Mode override (để "Inherit" = dùng cấu hình toàn cục)</label>
+                            <select id="tenant-mode" class="vanan-select" @bind="_tenantForm.ModeStr">
+                                <option value="">Inherit (dùng global)</option>
+                                <option value="@LoyaltyMode.Silo">Silo</option>
+                                <option value="@LoyaltyMode.Alliance">Alliance</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" @bind="_tenantForm.IsAllianceMember" />
+                                Thành viên Alliance (IsAllianceMember) — bỏ tick = tenant hoàn toàn Silo (Q2 opt-out)
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="tenant-maxwallet">Max Wallet Points override (để trống = inherit global)</label>
+                            <input id="tenant-maxwallet" type="number" class="vanan-input"
+                                   @bind="_tenantForm.MaxWalletPointsStr" placeholder="inherit" min="1" step="1" />
+                        </div>
+                        @if (_tenantConfig.LastChangedAt.HasValue)
+                        {
+                            <small class="text-muted d-block">
+                                Lần cuối cập nhật: @_tenantConfig.LastChangedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                bởi @(_tenantConfig.LastChangedBy ?? "—")
+                            </small>
+                        }
+                        <div class="form-actions">
+                            <VanAButton Variant="primary" OnClick="SaveTenantConfigAsync" IsLoading="@_isSavingTenant">
+                                Lưu ghi đè tenant
+                            </VanAButton>
+                        </div>
+                    }
+                }
+            </ChildContent>
+        </VanACard>
+
+        @* === Mode Switch Migration === *@
+        <VanACard Header="Di chuyển ví điểm (Mode Switch Migration)">
+            <ChildContent>
+                <div class="alert alert-warning">
+                    <strong>Cảnh báo:</strong> Di chuyển ví điểm là thao tác trọng yếu. Silo→Alliance gộp sqlite vào PG.
+                    Alliance→Silo chia lại theo nguồn + đóng băng ví PG. Đảm bảo không có giao dịch đang chạy khi kích hoạt.
+                </div>
+                <div class="form-group">
+                    <label for="migrate-tenant">Tenant cần di chuyển</label>
+                    <select id="migrate-tenant" class="vanan-select" @bind="_migrationTenantId">
+                        <option value="">— Chọn tenant —</option>
+                        @foreach (var t in _tenants)
+                        {
+                            <option value="@t.Id">@t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="migrate-direction">Hướng di chuyển</label>
+                    <select id="migrate-direction" class="vanan-select" @bind="_migrationDirection">
+                        <option value="consolidate">Consolidate (Silo → Alliance)</option>
+                        <option value="split">Split (Alliance → Silo)</option>
+                    </select>
+                    <small class="text-muted d-block">
+                        Consolidate: đọc LoyaltyRewards từ SQLite tenant này → gộp vào AllianceWallet (PG).
+                        Split: chia AllianceWallet theo nguồn → ghi lại vào SQLite tenant này.
+                    </small>
+                </div>
+                <VanAButton Variant="warning" OnClick="OpenMigrationConfirm"
+                            Disabled="@(!_migrationTenantId.HasValue)">
+                    Kích hoạt di chuyển
+                </VanAButton>
+
+                @if (_migrationResult != null)
+                {
+                    <div class="mt-3">
+                        @if (_migrationResult.Success)
+                        {
+                            <VanAAlert Type="success"
+                                       Message="@($"Di chuyển thành công: {_migrationResult.CustomersProcessed} khách hàng, {_migrationResult.TotalPointsTransferred:N0} điểm đã chuyển.")" />
+                        }
+                        else
+                        {
+                            <VanAAlert Type="danger"
+                                       Message="@($"Di chuyển thất bại: {_migrationResult.Error}")" />
+                        }
+                        @if (_migrationResult.Allocations.Count > 0)
+                        {
+                            <table class="vanan-table mt-2">
+                                <thead>
+                                    <tr><th>Customer Device</th><th>Tenant</th><th>Points</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in _migrationResult.Allocations)
+                                    {
+                                        <tr>
+                                            <td><code>@a.CustomerDeviceId.ToString()[..8]</code></td>
+                                            <td><code>@a.TenantId.ToString()[..8]</code></td>
+                                            <td>@a.Points.ToString("N0")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                }
+            </ChildContent>
+        </VanACard>
+    }
+</div>
+
+@* === Migration Confirmation Modal === *@
+@if (_showMigrationConfirm)
+{
+    <VanAModal Title="Xác nhận di chuyển ví điểm"
+               IsVisible="true" OnClose="CloseMigrationConfirm" Size="medium">
+        <Body>
+            <p>Bạn sắp kích hoạt di chuyển ví điểm:</p>
+            <ul>
+                <li><strong>Tenant:</strong> @(_tenants.FirstOrDefault(t => t.Id == _migrationTenantId)?.Name ?? "—")</li>
+                <li><strong>Hướng:</strong> @(_migrationDirection == "consolidate" ? "Consolidate (Silo → Alliance)" : "Split (Alliance → Silo)")</li>
+            </ul>
+            <div class="alert alert-danger">
+                Thao tác này không thể hoàn tác tự động. Đảm bảo đã sao lưu + không có giao dịch đang chạy.
+            </div>
+        </Body>
+        <Footer>
+            <VanAButton Variant="outline" OnClick="CloseMigrationConfirm">Huỷ</VanAButton>
+            <VanAButton Variant="danger" OnClick="ExecuteMigrationAsync" IsLoading="@_isMigrating">
+                Xác nhận di chuyển
+            </VanAButton>
+        </Footer>
+    </VanAModal>
+}
+
+@code {
+    private bool _isLoading = true;
+    private bool _isLoadingTenant;
+    private bool _isSavingGlobal;
+    private bool _isSavingTenant;
+    private bool _isMigrating;
+    private string _alertMessage = string.Empty;
+    private string _alertType = "info";
+
+    private GlobalConfigDto _globalConfig = new();
+    private UpdateGlobalConfigRequest _globalForm = new();
+
+    private List<TenantApiDto> _tenants = new();
+    private Guid? _selectedTenantId;
+    private TenantConfigDto _tenantConfig = new();
+    private TenantForm _tenantForm = new();
+
+    private Guid? _migrationTenantId;
+    private string _migrationDirection = "consolidate";
+    private bool _showMigrationConfirm;
+    private MigrationResultDto? _migrationResult;
+
+    protected override async Task OnInitializedAsync() => await LoadAllAsync();
+
+    private async Task LoadAllAsync()
+    {
+        _isLoading = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            var globalTask = LoyaltyApi.GetGlobalConfigAsync();
+            var tenantsTask = TenantApi.ListAllAsync();
+            await Task.WhenAll(globalTask, tenantsTask);
+            _globalConfig = globalTask.Result;
+            _tenants = tenantsTask.Result;
+            _globalForm = new UpdateGlobalConfigRequest
+            {
+                Mode = _globalConfig.Mode,
+                MaxPointsPerOrder = _globalConfig.MaxPointsPerOrder,
+                MaxWalletPoints = _globalConfig.MaxWalletPoints
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load loyalty config");
+            _alertMessage = $"Lỗi tải cấu hình: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveGlobalAsync()
+    {
+        _isSavingGlobal = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            _globalConfig = await LoyaltyApi.UpdateGlobalConfigAsync(_globalForm);
+            _alertMessage = "Đã lưu cấu hình toàn cục.";
+            _alertType = "success";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save global loyalty config");
+            _alertMessage = $"Lỗi lưu cấu hình toàn cục: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isSavingGlobal = false;
+        }
+    }
+
+    private async Task OnTenantSelectedAsync(ChangeEventArgs e)
+    {
+        _selectedTenantId = e.Value?.ToString() is { Length: > 0 } s && Guid.TryParse(s, out var id) ? id : null;
+        if (!_selectedTenantId.HasValue)
+        {
+            _tenantConfig = new TenantConfigDto();
+            _tenantForm = new TenantForm();
+            return;
+        }
+        await LoadTenantConfigAsync();
+    }
+
+    private async Task LoadTenantConfigAsync()
+    {
+        if (!_selectedTenantId.HasValue) return;
+        _isLoadingTenant = true;
+        try
+        {
+            _tenantConfig = await LoyaltyApi.GetTenantConfigAsync(_selectedTenantId.Value);
+            _tenantForm = new TenantForm
+            {
+                ModeStr = _tenantConfig.Mode.HasValue ? _tenantConfig.Mode.Value.ToString() : "",
+                IsAllianceMember = _tenantConfig.IsAllianceMember,
+                MaxWalletPointsStr = _tenantConfig.MaxWalletPoints.HasValue ? _tenantConfig.MaxWalletPoints.Value.ToString() : ""
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load tenant loyalty config");
+            _alertMessage = $"Lỗi tải cấu hình tenant: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isLoadingTenant = false;
+        }
+    }
+
+    private async Task SaveTenantConfigAsync()
+    {
+        if (!_selectedTenantId.HasValue) return;
+        _isSavingTenant = true;
+        _alertMessage = string.Empty;
+        try
+        {
+            var body = new UpdateTenantConfigRequest
+            {
+                Mode = string.IsNullOrEmpty(_tenantForm.ModeStr)
+                    ? null
+                    : Enum.Parse<LoyaltyMode>(_tenantForm.ModeStr),
+                IsAllianceMember = _tenantForm.IsAllianceMember,
+                MaxWalletPoints = int.TryParse(_tenantForm.MaxWalletPointsStr, out var mw) ? mw : null
+            };
+            _tenantConfig = await LoyaltyApi.UpdateTenantConfigAsync(_selectedTenantId.Value, body);
+            _alertMessage = "Đã lưu ghi đè cấu hình tenant.";
+            _alertType = "success";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save tenant loyalty config");
+            _alertMessage = $"Lỗi lưu cấu hình tenant: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isSavingTenant = false;
+        }
+    }
+
+    private void OpenMigrationConfirm()
+    {
+        if (!_migrationTenantId.HasValue) return;
+        _migrationResult = null;
+        _showMigrationConfirm = true;
+    }
+
+    private void CloseMigrationConfirm() => _showMigrationConfirm = false;
+
+    private async Task ExecuteMigrationAsync()
+    {
+        if (!_migrationTenantId.HasValue) return;
+        _isMigrating = true;
+        _alertMessage = string.Empty;
+        _showMigrationConfirm = false;
+        try
+        {
+            if (_migrationDirection == "consolidate")
+            {
+                // Query local SQLite for this tenant's LoyaltyRewards balances (join Customer.DeviceId).
+                // NOTE: Only balances present in THIS ShopERP instance's SQLite are migrated. For multi-VPS
+                // deployments where the tenant's data lives on another ShopERP instance, run migration from there.
+                var tenantIdValue = new TenantId(_migrationTenantId.Value);
+                var balances = await (from c in ShopERPDb.Customers.IgnoreQueryFilters().AsNoTracking()
+                                      join r in ShopERPDb.LoyaltyRewards.IgnoreQueryFilters().AsNoTracking()
+                                          on c.Id equals r.CustomerId
+                                      where c.DeviceId.HasValue && c.DeviceId.Value != Guid.Empty
+                                            && !c.IsDeleted
+                                            && r.TenantId == tenantIdValue
+                                            && r.PointBalance > 0
+                                      select new CustomerBalanceInputDto
+                                      {
+                                          CustomerDeviceId = c.DeviceId!.Value,
+                                          PointBalance = r.PointBalance,
+                                          PhoneNumber = c.PhoneNumber
+                                      }).ToListAsync();
+
+                if (balances.Count == 0)
+                {
+                    _alertMessage = "Không tìm thấy LoyaltyRewards > 0 cho tenant này trong SQLite hiện tại. Nếu tenant nằm trên ShopERP instance khác, hãy chạy di chuyển từ instance đó.";
+                    _alertType = "warning";
+                    return;
+                }
+
+                _migrationResult = await LoyaltyApi.MigrateConsolidateAsync(_migrationTenantId.Value, balances);
+            }
+            else // split
+            {
+                _migrationResult = await LoyaltyApi.MigrateSplitAsync(_migrationTenantId.Value);
+
+                // Apply allocations for the selected tenant to local SQLite LoyaltyRewards.
+                // Allocations for OTHER tenants are returned but only applied on their own ShopERP instances.
+                if (_migrationResult.Success && _migrationResult.Allocations.Count > 0)
+                {
+                    await ApplySplitAllocationsAsync(_migrationTenantId.Value, _migrationResult.Allocations);
+                }
+            }
+
+            _alertMessage = _migrationResult.Success
+                ? $"Di chuyển thành công: {_migrationResult.CustomersProcessed} khách, {_migrationResult.TotalPointsTransferred:N0} điểm."
+                : $"Di chuyển thất bại: {_migrationResult.Error}";
+            _alertType = _migrationResult.Success ? "success" : "danger";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to execute loyalty migration");
+            _alertMessage = $"Lỗi di chuyển: {ex.Message}";
+            _alertType = "danger";
+        }
+        finally
+        {
+            _isMigrating = false;
+        }
+    }
+
+    /// <summary>
+    /// Apply Alliance→Silo allocations to local SQLite LoyaltyRewards for the given tenant.
+    /// Updates PointBalance via reflection (PG is source of truth — same pattern as LoyaltySyncSubscriber).
+    /// </summary>
+    private async Task ApplySplitAllocationsAsync(Guid tenantId, List<WalletAllocationDto> allocations)
+    {
+        var tenantIdValue = new TenantId(tenantId);
+        foreach (var alloc in allocations.Where(a => a.TenantId == tenantId))
+        {
+            var rewards = await (from c in ShopERPDb.Customers.IgnoreQueryFilters()
+                                 join r in ShopERPDb.LoyaltyRewards.IgnoreQueryFilters()
+                                     on c.Id equals r.CustomerId
+                                 where c.DeviceId == alloc.CustomerDeviceId && !c.IsDeleted
+                                       && r.TenantId == tenantIdValue
+                                 select r).FirstOrDefaultAsync();
+            if (rewards != null)
+            {
+                typeof(LoyaltyRewards)
+                    .GetProperty(nameof(LoyaltyRewards.PointBalance))!
+                    .SetValue(rewards, alloc.Points);
+            }
+        }
+        _ = await ShopERPDb.SaveChangesAsync();
+    }
+
+    private sealed class TenantForm
+    {
+        public string ModeStr { get; set; } = "";
+        public bool IsAllianceMember { get; set; }
+        public string MaxWalletPointsStr { get; set; } = "";
+    }
+}

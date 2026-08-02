@@ -5,11 +5,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using System.Security.Claims;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.Gateway.Controllers;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
+using VanAn.Shared.Services;
 using Xunit;
 
 namespace VanAn.Tests.Services;
@@ -44,7 +46,7 @@ public class LoyaltyConfigControllerTests
         VanAnDbContext db = sp.GetRequiredService<VanAnDbContext>();
         _ = db.Database.EnsureCreated();
 
-        var controller = new LoyaltyConfigController(db, NullLogger<LoyaltyConfigController>.Instance);
+        var controller = new LoyaltyConfigController(db, new Mock<IAllianceWalletService>().Object, NullLogger<LoyaltyConfigController>.Instance);
 
         // Set up SystemAdmin claims on the controller context
         var claims = new[]
@@ -351,6 +353,161 @@ public class LoyaltyConfigControllerTests
             };
 
             var result = await controller.UpdateTenantConfig(Guid.Empty, body);
+
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(bad.Value);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // Migration — POST /migrate (Phase 5A wiring of Phase 4 Consolidate/Split)
+    // ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Build a controller with a settable IAllianceWalletService mock (for migrate tests).
+    /// </summary>
+    private static (LoyaltyConfigController controller, ServiceProvider sp, Mock<IAllianceWalletService> walletMock)
+        BuildControllerWithWalletMock()
+    {
+        var connection = new SqliteConnection($"DataSource=test_{Guid.NewGuid()};Mode=Memory;Cache=Shared");
+        connection.Open();
+
+        var services = new ServiceCollection();
+        var efServiceProvider = new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider();
+        services.AddDbContext<VanAnDbContext>(options => options.UseInternalServiceProvider(efServiceProvider).UseSqlite(connection));
+        services.AddScoped<IVanAnDbContext>(sp => sp.GetRequiredService<VanAnDbContext>());
+        services.AddLogging(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning));
+        ServiceProvider sp = services.BuildServiceProvider();
+        var db = sp.GetRequiredService<VanAnDbContext>();
+        _ = db.Database.EnsureCreated();
+
+        var walletMock = new Mock<IAllianceWalletService>();
+        var controller = new LoyaltyConfigController(db, walletMock.Object, NullLogger<LoyaltyConfigController>.Instance);
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Role, "SystemAdmin"),
+            new Claim("sub", "test-admin-id")
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+        };
+
+        return (controller, sp, walletMock);
+    }
+
+    [Fact(DisplayName = "LA-LC-11: Migrate — consolidate calls service and returns result")]
+    public async Task Migrate_Consolidate_CallsServiceAndReturnsResult()
+    {
+        var (controller, sp, walletMock) = BuildControllerWithWalletMock();
+
+        try
+        {
+            walletMock.Setup(w => w.ConsolidateWalletsAsync(
+                    TestTenantGuid,
+                    It.Is<IReadOnlyList<CustomerBalanceInput>>(l => l.Count == 1 && l.First().PointBalance == 500),
+                    "test-admin-id"))
+                .ReturnsAsync(new MigrationResult { CustomersProcessed = 1, TotalPointsTransferred = 500 })
+                .Verifiable();
+
+            var body = new MigrateRequest
+            {
+                Direction = "consolidate",
+                TenantId = TestTenantGuid,
+                CustomerBalances = new List<CustomerBalanceInputDto>
+                {
+                    new() { CustomerDeviceId = Guid.NewGuid(), PointBalance = 500, PhoneNumber = "0900" }
+                }
+            };
+
+            var result = await controller.Migrate(body);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var dto = Assert.IsType<MigrationResultDto>(ok.Value);
+            Assert.True(dto.Success);
+            Assert.Equal(1, dto.CustomersProcessed);
+            Assert.Equal(500, dto.TotalPointsTransferred);
+            walletMock.Verify();
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-12: Migrate — split calls service and returns allocations")]
+    public async Task Migrate_Split_CallsServiceAndReturnsAllocations()
+    {
+        var (controller, sp, walletMock) = BuildControllerWithWalletMock();
+
+        try
+        {
+            var device = Guid.NewGuid();
+            walletMock.Setup(w => w.SplitWalletsAsync(TestTenantGuid, "test-admin-id"))
+                .ReturnsAsync(new MigrationResult
+                {
+                    CustomersProcessed = 1,
+                    TotalPointsTransferred = 300,
+                    Allocations = new List<WalletAllocation>
+                    {
+                        new(device, TestTenantGuid, 300)
+                    }
+                })
+                .Verifiable();
+
+            var body = new MigrateRequest { Direction = "split", TenantId = TestTenantGuid };
+
+            var result = await controller.Migrate(body);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            var dto = Assert.IsType<MigrationResultDto>(ok.Value);
+            Assert.True(dto.Success);
+            Assert.Single(dto.Allocations);
+            Assert.Equal(300, dto.Allocations[0].Points);
+            walletMock.Verify();
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-13: Migrate — consolidate without balances returns 400")]
+    public async Task Migrate_ConsolidateWithoutBalances_Returns400()
+    {
+        var (controller, sp, _) = BuildControllerWithWalletMock();
+
+        try
+        {
+            var body = new MigrateRequest { Direction = "consolidate", TenantId = TestTenantGuid };
+
+            var result = await controller.Migrate(body);
+
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.NotNull(bad.Value);
+        }
+        finally
+        {
+            await sp.DisposeAsync();
+        }
+    }
+
+    [Fact(DisplayName = "LA-LC-14: Migrate — invalid direction returns 400")]
+    public async Task Migrate_InvalidDirection_Returns400()
+    {
+        var (controller, sp, _) = BuildControllerWithWalletMock();
+
+        try
+        {
+            var body = new MigrateRequest { Direction = "sideways", TenantId = TestTenantGuid };
+
+            var result = await controller.Migrate(body);
 
             var bad = Assert.IsType<BadRequestObjectResult>(result);
             Assert.NotNull(bad.Value);

@@ -452,6 +452,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<Services.CommunityAdminApiClient>();
             _ = builder.Services.AddScoped<Services.CampaignApiClient>();
             _ = builder.Services.AddScoped<Services.TenantApiClient>();
+            // Loyalty Alliance Phase 5A — admin config + migration API client (Gateway PG)
+            _ = builder.Services.AddScoped<Services.LoyaltyConfigApiClient>();
             // Sprint 7 — Commerce Mode + Community Fund + Product Cost Price admin API clients
             _ = builder.Services.AddScoped<Services.CommerceModeApiClient>();
             _ = builder.Services.AddScoped<Services.CommunityFundApiClient>();
