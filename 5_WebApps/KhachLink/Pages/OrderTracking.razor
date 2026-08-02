@@ -8,6 +8,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
+@implements IAsyncDisposable
 
 <PageTitle>Theo dõi đơn hàng</PageTitle>
 
@@ -32,23 +33,70 @@
         }
         else
         {
-            <!-- Status card -->
+            <!-- Order status card (from PG source of truth) -->
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="text-muted small">Trạng thái giao hàng</div>
+                        <div class="text-muted small">Trạng thái đơn hàng</div>
                         <div class="fw-bold fs-5">
-                            <span class="badge @GetStatusBadgeClass(_deliveryStatus)">@GetStatusText(_deliveryStatus)</span>
+                            <span class="badge @GetOrderStatusBadgeClass(_orderStatus)">@GetOrderStatusText(_orderStatus)</span>
                         </div>
+                        @if (!string.IsNullOrEmpty(_tenantName))
+                        {
+                            <div class="text-muted small mt-1"><i class="bi bi-shop"></i> @_tenantName</div>
+                        }
                     </div>
-                    @if (_isLiveTracking)
+                    <div class="text-end">
+                        @if (_isLiveTracking)
+                        {
+                            <div class="text-success small">
+                                <span class="spinner-border spinner-border-sm"></span> Realtime
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">
+                                <i class="bi bi-clock"></i> Cập nhật @_lastUpdate?.ToString("HH:mm:ss")
+                            </div>
+                        }
+                    </div>
+                </div>
+                <!-- Progress timeline -->
+                <div class="order-timeline mt-3">
+                    @foreach (var step in _statusSteps)
                     {
-                        <div class="text-success small">
-                            <span class="spinner-border spinner-border-sm"></span> Đang theo dõi trực tiếp
+                        <div class="timeline-step @(step.IsActive ? "active" : "") @(step.IsDone ? "done" : "")">
+                            <div class="timeline-dot">
+                                @if (step.IsDone) { <i class="bi bi-check-lg"></i> }
+                                else if (step.IsActive) { <span class="spinner-border spinner-border-sm"></span> }
+                                else { <i class="@step.Icon"></i> }
+                            </div>
+                            <div class="timeline-label">@step.Label</div>
                         </div>
                     }
                 </div>
             </VanAnCard>
+
+            <!-- Delivery status card (from SignalR — shipper GPS) -->
+            @if (_deliveryStatus != "Unknown" && _deliveryStatus != "Pending")
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small">Trạng thái giao hàng</div>
+                            <div class="fw-bold fs-5">
+                                <span class="badge @GetDeliveryBadgeClass(_deliveryStatus)">@GetDeliveryText(_deliveryStatus)</span>
+                            </div>
+                        </div>
+                        @if (_isLiveTracking)
+                        {
+                            <div class="text-success small">
+                                <span class="spinner-border spinner-border-sm"></span> Đang theo dõi trực tiếp
+                            </div>
+                        }
+                    </div>
+                </VanAnCard>
+            }
 
             <!-- Map -->
             @if (_showMap)
@@ -68,11 +116,21 @@
                 </VanAnCard>
             }
 
-            <!-- Delivery info -->
+            <!-- Order details -->
             <VanAnCard Shadow="true" CssClass="mb-3">
-                @if (!string.IsNullOrEmpty(_shopName))
+                @if (_orderTotal > 0)
                 {
-                    <div class="mb-2"><i class="bi bi-shop text-muted"></i> @_shopName</div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted">Tổng tiền</span>
+                        <span class="fw-bold text-primary">@FormatVND(_orderTotal)</span>
+                    </div>
+                }
+                @if (_orderItemCount > 0)
+                {
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span class="text-muted">Số sản phẩm</span>
+                        <span>@_orderItemCount</span>
+                    </div>
                 }
                 @if (!string.IsNullOrEmpty(_deliveryAddress))
                 {
@@ -80,7 +138,7 @@
                 }
                 @if (_lastUpdate != null)
                 {
-                    <div class="small text-muted">Cập nhật: @_lastUpdate.Value.ToString("HH:mm:ss")</div>
+                    <div class="small text-muted">Cập nhật lần cuối: @_lastUpdate.Value.ToString("HH:mm:ss")</div>
                 }
             </VanAnCard>
 
@@ -95,20 +153,78 @@
     </div>
 </KhachLinkLayout>
 
+<style>
+    .order-timeline {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .timeline-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        min-width: 80px;
+        opacity: 0.4;
+        transition: opacity 0.3s;
+    }
+    .timeline-step.done, .timeline-step.active {
+        opacity: 1;
+    }
+    .timeline-dot {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #e9ecef;
+        color: #6c757d;
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+    }
+    .timeline-step.done .timeline-dot {
+        background: #198754;
+        color: white;
+    }
+    .timeline-step.active .timeline-dot {
+        background: #0d6efd;
+        color: white;
+    }
+    .timeline-label {
+        font-size: 0.75rem;
+        text-align: center;
+        color: #6c757d;
+    }
+    .timeline-step.done .timeline-label, .timeline-step.active .timeline-label {
+        color: #212529;
+        font-weight: 500;
+    }
+</style>
+
 @code {
     [Parameter] public Guid OrderId { get; set; }
 
     private bool _loading = true;
     private string? _error;
     private string? _customerToken;
-    private string _deliveryStatus = "Unknown";
-    private string _shopName = string.Empty;
-    private string? _deliveryAddress;
-    private bool _showMap = false;
-    private bool _isLiveTracking = false;
-    private DateTime? _lastUpdate;
     private Guid? _customerId;
 
+    // Order status (from PG via polling — covers pending/preparing/ready/delivering/completed/cancelled)
+    private string _orderStatus = "pending";
+    private string _tenantName = string.Empty;
+    private decimal _orderTotal;
+    private int _orderItemCount;
+    private string? _deliveryAddress;
+    private DateTime? _lastUpdate;
+
+    // Delivery status (from SignalR — covers shipper PickedUp/OutForDelivery/Delivered/Failed)
+    private string _deliveryStatus = "Unknown";
+
+    // Map state
+    private bool _showMap = false;
+    private bool _isLiveTracking = false;
     private double _centerLat = 10.8;
     private double _centerLng = 106.7;
     private double? _shopLat;
@@ -119,10 +235,15 @@
     private double? _shipperLng;
 
     private HubConnection? _hubConnection;
+    private System.Threading.CancellationTokenSource? _pollingCts;
+
+    // Status timeline steps
+    private List<StatusStep> _statusSteps = new();
 
     protected override async Task OnInitializedAsync()
     {
-        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customerToken");
+        // FIX: Use canonical localStorage key "customer_token" (matches Login.razor)
+        _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
 
         // Load CustomerId for ChatPanel
         if (!string.IsNullOrEmpty(_customerToken))
@@ -130,12 +251,15 @@
 
         try
         {
+            await LoadOrderStatusAsync();
             await LoadOrderInfoAsync();
             await StartSignalRConnectionAsync();
+            StartPolling();
         }
         catch (Exception)
         {
-            _error = "Không thể tải thông tin đơn hàng.";
+            if (_orderStatus == "pending" && string.IsNullOrEmpty(_tenantName))
+                _error = "Không thể tải thông tin đơn hàng.";
         }
         finally
         {
@@ -143,31 +267,68 @@
         }
     }
 
+    /// <summary>
+    /// Fetch order status from Gateway PG (source of truth) via GET /api/public/orders/{id}.
+    /// No auth required — customer knows their own order ID.
+    /// </summary>
+    private async Task LoadOrderStatusAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("gateway");
+            var resp = await client.GetAsync($"/api/public/orders/{OrderId}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var dto = await resp.Content.ReadFromJsonAsync<PublicOrderTrackingDto>();
+                if (dto != null)
+                {
+                    _orderStatus = dto.Status ?? "pending";
+                    _tenantName = dto.TenantName ?? string.Empty;
+                    _orderTotal = dto.TotalPrice;
+                    _orderItemCount = dto.ItemCount;
+                    _lastUpdate = DateTime.Now;
+                    UpdateStatusSteps();
+                    StateHasChanged();
+                }
+            }
+        }
+        catch
+        {
+            // Non-fatal — polling will retry
+        }
+    }
+
     private async Task LoadOrderInfoAsync()
     {
-        // Load order info from nearby orders (or a dedicated endpoint in future)
+        // Load delivery-specific info (GPS coordinates, address) from nearby orders
         if (string.IsNullOrEmpty(_customerToken))
             return;
 
-        var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
-        if (pos == null) return;
-
-        var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
-        if (result.Success)
+        try
         {
-            var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
-            if (order != null)
+            var pos = await JSRuntime.InvokeAsync<GeoPosition?>("vananPWA.getCurrentPosition");
+            if (pos == null) return;
+
+            var result = await CommunityHttp.GetNearbyOrdersAsync(_customerToken, pos.Lat, pos.Lng, 50);
+            if (result.Success)
             {
-                _shopName = order.ShopName;
-                _deliveryAddress = order.DeliveryAddress;
-                _shopLat = order.ShopLat;
-                _shopLng = order.ShopLng;
-                _customerLat = order.DeliveryLat;
-                _customerLng = order.DeliveryLng;
-                _centerLat = _shopLat ?? pos.Lat;
-                _centerLng = _shopLng ?? pos.Lng;
-                _showMap = true;
+                var order = result.Orders.FirstOrDefault(o => o.OrderId == OrderId);
+                if (order != null)
+                {
+                    _deliveryAddress = order.DeliveryAddress;
+                    _shopLat = order.ShopLat;
+                    _shopLng = order.ShopLng;
+                    _customerLat = order.DeliveryLat;
+                    _customerLng = order.DeliveryLng;
+                    _centerLat = _shopLat ?? pos.Lat;
+                    _centerLng = _shopLng ?? pos.Lng;
+                    _showMap = true;
+                }
             }
+        }
+        catch
+        {
+            // GPS/delivery info is optional — order status still works
         }
     }
 
@@ -209,12 +370,87 @@
         }
         catch (Exception)
         {
-            // SignalR connection failure is non-fatal — page still shows static info
+            // SignalR connection failure is non-fatal — polling covers order status
         }
     }
 
+    /// <summary>
+    /// Poll order status every 15 seconds as realtime fallback.
+    /// Covers shop owner status changes (confirm/preparing/ready) that SignalR DeliveryStatusUpdate doesn't emit.
+    /// </summary>
+    private void StartPolling()
+    {
+        _pollingCts = new System.Threading.CancellationTokenSource();
+        var token = _pollingCts.Token;
+        _ = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(15), token);
+                    await LoadOrderStatusAsync();
+                }
+                catch (TaskCanceledException) { break; }
+                catch { /* continue polling */ }
+            }
+        }, token);
+    }
+
+    private void UpdateStatusSteps()
+    {
+        var steps = new List<(string Key, string Label, string Icon)>
+        {
+            ("pending", "Đã đặt", "bi-bag-check"),
+            ("preparing", "Đang làm", "bi-fire"),
+            ("ready", "Sẵn sàng", "bi-bag"),
+            ("delivering", "Đang giao", "bi-truck"),
+            ("completed", "Hoàn thành", "bi-check-circle"),
+        };
+
+        var orderSteps = new List<StatusStep>();
+        var foundActive = false;
+        foreach (var (key, label, icon) in steps)
+        {
+            var isDone = IsStatusDone(_orderStatus, key);
+            var isActive = !isDone && !foundActive && IsStatusActiveOrPast(_orderStatus, key);
+            if (isActive) foundActive = true;
+            orderSteps.Add(new StatusStep { Label = label, Icon = icon, IsDone = isDone, IsActive = isActive });
+        }
+
+        // Cancelled overrides all
+        if (_orderStatus == "cancelled")
+        {
+            orderSteps.Clear();
+            orderSteps.Add(new StatusStep { Label = "Đã hủy", Icon = "bi-x-circle", IsDone = true, IsActive = false });
+        }
+
+        _statusSteps = orderSteps;
+    }
+
+    private static bool IsStatusDone(string current, string step) =>
+        current == "completed" && step != "completed" ? true :
+        StatusOrder(current) > StatusOrder(step) && current != "cancelled";
+
+    private static bool IsStatusActiveOrPast(string current, string step) =>
+        StatusOrder(current) >= StatusOrder(step) && current != "cancelled";
+
+    private static int StatusOrder(string s) => s switch
+    {
+        "pending" => 0,
+        "preparing" => 1,
+        "ready" => 2,
+        "delivering" => 3,
+        "completed" => 4,
+        "cancelled" => -1,
+        _ => 0
+    };
+
     public async ValueTask DisposeAsync()
     {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
+
         if (_hubConnection != null)
         {
             try
@@ -226,7 +462,29 @@
         }
     }
 
-    private string GetStatusBadgeClass(string status) => status switch
+    private string GetOrderStatusBadgeClass(string status) => status switch
+    {
+        "pending" => "bg-warning text-dark",
+        "preparing" => "bg-info text-dark",
+        "ready" => "bg-primary",
+        "delivering" => "bg-primary",
+        "completed" => "bg-success",
+        "cancelled" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetOrderStatusText(string status) => status switch
+    {
+        "pending" => "Đang chờ xử lý",
+        "preparing" => "Đang chuẩn bị",
+        "ready" => "Sẵn sàng giao",
+        "delivering" => "Đang giao hàng",
+        "completed" => "Hoàn thành",
+        "cancelled" => "Đã hủy",
+        _ => "Đang chờ"
+    };
+
+    private string GetDeliveryBadgeClass(string status) => status switch
     {
         "Assigned" => "bg-secondary",
         "PickedUp" => "bg-info text-dark",
@@ -236,7 +494,7 @@
         _ => "bg-secondary"
     };
 
-    private string GetStatusText(string status) => status switch
+    private string GetDeliveryText(string status) => status switch
     {
         "Assigned" => "Shipper đã nhận đơn",
         "PickedUp" => "Đã lấy hàng",
@@ -246,9 +504,33 @@
         _ => "Đang chờ"
     };
 
+    private static string FormatVND(decimal amount) => $"{amount:N0} ₫";
+
     private class GeoPosition
     {
         public double Lat { get; set; }
         public double Lng { get; set; }
+    }
+
+    private class StatusStep
+    {
+        public string Label { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public bool IsDone { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class PublicOrderTrackingDto
+    {
+        public Guid OrderId { get; set; }
+        public string Status { get; set; } = "pending";
+        public string PaymentStatus { get; set; } = "pending";
+        public DateTime CreatedAt { get; set; }
+        public decimal TotalPrice { get; set; }
+        public decimal SubTotal { get; set; }
+        public decimal TotalVatAmount { get; set; }
+        public int ItemCount { get; set; }
+        public Guid TenantId { get; set; }
+        public string TenantName { get; set; } = "";
     }
 }
