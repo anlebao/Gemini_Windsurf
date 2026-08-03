@@ -45,6 +45,7 @@ else
 
     private List<NavigationItem> AccountingMenuItems = new();
     private bool _isEnterprise;
+    private bool _isHkd;
     private bool _initialized;
     private bool _shouldRedirect;
 
@@ -66,7 +67,8 @@ else
             }
         }
 
-        // Build base menu (always visible — HKD + shared modules)
+        // Build base menu (shared — HKD + Enterprise)
+        // Bug 2A fix: "Sổ HKD" removed from base menu — inserted conditionally below for HKD tenants only
         AccountingMenuItems = new()
         {
             new() { Title = "← Sitemap", Icon = "house-door", Url = "/sitemap" },
@@ -76,30 +78,47 @@ else
             new() { Title = "Nhập Chi Phí", Icon = "minus-circle", Url = "/accounting/expenses" },
             new() { Title = "Lịch Sử Giao Dịch", Icon = "history", Url = "/accounting/history" },
             new() { Title = "Số Dư Tài Khoản", Icon = "account-balance", Url = "/accounting/balance" },
-            new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" },
             new() { Title = "Đóng Sổ Kỳ", Icon = "lock", Url = "/accounting/period-closing" },
             new() { Title = "Đăng xuất", Icon = "box-arrow-right", Url = "/Logout" }
         };
 
         // W8 feature flag: only show VAS Financial Reports menu for Enterprise tenants
+        // Bug 2A fix: only show "Sổ HKD" menu for HKD tenants (mutually exclusive with VAS)
         if (TenantProvider.HasTenant)
         {
             try
             {
                 var tenantId = new TenantId(TenantProvider.TenantId);
                 _isEnterprise = await FeatureFlagService.CanAccessVasReportsAsync(tenantId);
+                _isHkd = !_isEnterprise;
                 if (_isEnterprise)
                 {
                     // Insert VAS menu before Đóng Sổ Kỳ
-                    AccountingMenuItems.Insert(AccountingMenuItems.Count - 1,
+                    AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
                         new() { Title = "Báo Cáo Tài Chính", Icon = "bar-chart", Url = "/accounting/financial-reports" });
+                }
+                else if (_isHkd)
+                {
+                    // Bug 2A fix: Insert "Sổ HKD" before Đóng Sổ Kỳ (same position as VAS for UX consistency)
+                    AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
+                        new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
                 }
             }
             catch
             {
-                // If feature flag check fails, default to NOT showing VAS menu (safe default)
+                // If feature flag check fails, default to HKD menu (safe default — HKD is the common case)
                 _isEnterprise = false;
+                _isHkd = true;
+                AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
+                    new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
             }
+        }
+        else
+        {
+            // No tenant context (should not reach here — redirect handled above)
+            _isHkd = true;
+            AccountingMenuItems.Insert(AccountingMenuItems.Count - 2,
+                new() { Title = "Sổ HKD (TT 152)", Icon = "book", Url = "/accounting/hkd-books" });
         }
 
         _initialized = true;

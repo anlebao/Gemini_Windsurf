@@ -1,6 +1,6 @@
 # TASK CARD — Phase 0: Bug 3 Runtime Debug (Tenant HKD "Mở sổ" không hoạt động)
 
-> **Status:** ✅ COMPLETE — root cause identified (H3 variant: sync-over-async deadlock), fix applied (Option A: Task.Run wrapper), committed, pushed, VPS verification pending
+> **Status:** ✅ COMPLETE — root cause identified (H3 variant: sync-over-async deadlock), fix applied (Option A: Task.Run wrapper), committed `89fb90b6`, pushed, CD SUCCESS, VPS HTTP-level RV 7/7 PASS
 > **Prerequisite:** Local dev environment running (ShopERP 5003 + Gateway 5001 + PostgreSQL + NATS)
 > **Branch:** `feature/tenant-fix-phase0-bug3-debug`
 > **Estimated sessions:** 1 (debug only) + 1 (fix after root cause identified)

@@ -1,6 +1,6 @@
 # MASTER PLAN — Tenant Management + Accounting UI Fixes (4 Bugs)
 
-> **Status:** 🟡 PLANNED — awaiting Phase 0 (Bug 3 runtime debug) + Phase 3 Domain approval confirmation
+> **Status:** � Phase 0 COMPLETE + DEPLOYED + VPS VERIFIED (HTTP-level RV 7/7 PASS). Phases 1+2+3 ready (independent, parallel-capable).
 > **Created:** 2026-08-03 · **Last Updated:** 2026-08-03
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-phase feature branch, always-green main
 > **Source:** User bug report 2026-08-03 (3 reports → 4 bugs after ANALYZE)
@@ -142,10 +142,10 @@ main ← feature/tenant-fix-phase3-edit-businesstype
 
 | Phase | Bug | Mode | Domain? | Task Card | Status |
 |-------|-----|------|---------|-----------|--------|
-| P0 | Bug 3 — Runtime Debug | ANALYZE | ❌ | `phase0_task_card.md` | 🟡 PENDING (user runtime debug) |
-| P1 | Bug 2A — Hide "Sổ HKD" for Company | IMPLEMENT | ❌ | `phase1_task_card.md` | 🟡 PLANNED |
-| P2 | Bug 2B — VAS Reports Export | IMPLEMENT | ❌ | `phase2_task_card.md` | 🟡 PLANNED |
-| P3 | Bug 1 — Edit BusinessType | IMPLEMENT | ✅ (D1) | `phase3_task_card.md` | 🟡 PLANNED (Domain approved) |
+| P0 | Bug 3 — Runtime Debug | ANALYZE→FIX | ❌ | `phase0_task_card.md` | ✅ COMPLETE (commit `89fb90b6`, VPS RV 7/7 PASS) |
+| P1 | Bug 2A — Hide "Sổ HKD" for Company | IMPLEMENT | ❌ | `phase1_task_card.md` | 🟡 READY (next) |
+| P2 | Bug 2B — VAS Reports Export | IMPLEMENT | ❌ | `phase2_task_card.md` | 🟡 READY |
+| P3 | Bug 1 — Edit BusinessType | IMPLEMENT | ✅ (D1) | `phase3_task_card.md` | 🟡 READY (Domain approved) |
 
 **Chi tiết từng phase:** xem task card tương ứng. Master plan chỉ giữ overview.
 
@@ -225,3 +225,4 @@ main ← feature/tenant-fix-phase3-edit-businesstype
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-08-03 | Initial creation — 4 bugs analyzed, 4 phases planned, D1-D8 approved | Devin (ANALYZE mode) |
+| 2026-08-03 | **Phase 0 COMPLETE** — Bug 3 root cause identified (H3: sync-over-async deadlock in `ScopedDataProvider.cs:86,126`), fix applied (Option A: `Task.Run` wrapper), commit `89fb90b6`, CI PASS (1253s), CD SUCCESS (6min), VPS HTTP-level RV 7/7 PASS. Tech debt TD-ASYNCDP-001 logged. | Devin (ANALYZE→FIX_ONLY) |
