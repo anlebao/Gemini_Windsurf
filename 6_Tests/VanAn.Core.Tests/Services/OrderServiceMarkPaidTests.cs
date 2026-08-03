@@ -168,8 +168,13 @@ namespace VanAn.Core.Tests.Services
                 Times.AtLeastOnce,
                 "ConfirmPaymentAsync wrapper MUST create accounting entries (backward compat for POS)");
 
-            // Assert: NO Outbox event enqueued (wrapper uses enqueuePaymentConfirmedEvent: false)
-            _mockOutboxRepository.Verify(x => x.EnqueueAsync(It.IsAny<OutboxEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+            // Assert: OrderPaymentStatusChanged Outbox event enqueued for SQLite→PG sync
+            // (MarkPaidAsync uses enqueuePaymentConfirmedEvent: false, but ConfirmPaymentAsync
+            //  enqueues OrderPaymentStatusChanged separately for KhachLink payment status sync)
+            _mockOutboxRepository.Verify(
+                x => x.EnqueueAsync(It.Is<OutboxEvent>(e => e.EventType == "OrderPaymentStatusChanged"), It.IsAny<CancellationToken>()),
+                Times.Once,
+                "ConfirmPaymentAsync MUST enqueue OrderPaymentStatusChanged event for SQLite→PG sync");
         }
 
         [Fact]

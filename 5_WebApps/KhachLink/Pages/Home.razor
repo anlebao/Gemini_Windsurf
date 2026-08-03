@@ -55,6 +55,33 @@
                 <i class="bi bi-geo-alt-fill text-primary"></i> Tìm cửa hàng gần bạn
             </h2>
 
+            <!-- Search box — ALWAYS visible (user can search again at any time) -->
+            <div class="store-finder-search py-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-7">
+                        <label for="store-search-input" class="form-label small text-muted mb-1">Tìm theo tên cửa hàng / sản phẩm / dịch vụ</label>
+                        <input id="store-search-input" class="form-control" @bind="_storeSearchQuery" @bind:event="oninput"
+                               @onkeypress="HandleSearchKeypress" placeholder="Nhập tên cửa hàng, sản phẩm..." aria-label="Tìm cửa hàng" />
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStoresAsync" CssClass="w-100">
+                            <i class="bi bi-search me-1"></i> Tìm
+                        </VanAnButton>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <VanAnButton Variant="ButtonVariant.Outline" OnClick="ShareMyLocationAsync" CssClass="w-100">
+                            <i class="bi bi-geo-alt me-1"></i> Vị trí của tôi
+                        </VanAnButton>
+                    </div>
+                </div>
+                <div class="mt-2 text-center">
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
+                        <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
+                    </VanAnButton>
+                </div>
+            </div>
+
+            <!-- Results area: loading / error / no-results / store list -->
             @if (_storeFinderLoading)
             {
                 <div class="text-center py-3">
@@ -73,49 +100,31 @@
                     </VanAnButton>
                 </div>
             }
-            else if (_nearbyStores.Count == 0 && !_userLocationShared && string.IsNullOrEmpty(_storeSearchQuery))
+            else if (_nearbyStores.Count == 0 && (_userLocationShared || !string.IsNullOrEmpty(_storeSearchQuery)))
             {
-                <!-- Default state: search box + location-share button. No auto-loaded store list. -->
-                <div class="store-finder-search py-3">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-12 col-md-7">
-                            <label for="store-search-input" class="form-label small text-muted mb-1">Tìm theo tên cửa hàng / sản phẩm / dịch vụ</label>
-                            <input id="store-search-input" class="form-control" @bind="_storeSearchQuery"
-                                   @onkeypress="HandleSearchKeypress" placeholder="Nhập tên cửa hàng, sản phẩm..." aria-label="Tìm cửa hàng" />
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStoresAsync" CssClass="w-100">
-                                <i class="bi bi-search me-1"></i> Tìm
+                <div class="text-center py-3">
+                    @if (_userLocationShared)
+                    {
+                        <p class="text-muted mb-2">Không có cửa hàng nào trong bán kính @_storeFinderRadiusKm km.</p>
+                        <div class="d-flex gap-2 justify-content-center flex-wrap">
+                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="IncreaseRadiusAndSearch">
+                                <i class="bi bi-zoom-in me-1"></i> Mở rộng bán kính
+                            </VanAnButton>
+                            <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
+                                <i class="bi bi-list me-1"></i> Xem tất cả
                             </VanAnButton>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ShareMyLocationAsync" CssClass="w-100">
-                                <i class="bi bi-geo-alt me-1"></i> Vị trí của tôi
-                            </VanAnButton>
-                        </div>
-                    </div>
-                    <div class="mt-2 text-center">
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-2">Không tìm thấy cửa hàng nào với từ khóa "@_storeSearchQuery".</p>
                         <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
                             <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
                         </VanAnButton>
-                    </div>
+                    }
                 </div>
             }
-            else if (_nearbyStores.Count == 0)
-            {
-                <div class="text-center py-3">
-                    <p class="text-muted mb-2">Không có cửa hàng nào trong bán kính @_storeFinderRadiusKm km.</p>
-                    <div class="d-flex gap-2 justify-content-center flex-wrap">
-                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="IncreaseRadiusAndSearch">
-                            <i class="bi bi-zoom-in me-1"></i> Mở rộng bán kính
-                        </VanAnButton>
-                        <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
-                            <i class="bi bi-list me-1"></i> Xem tất cả
-                        </VanAnButton>
-                    </div>
-                </div>
-            }
-            else
+            else if (_nearbyStores.Count > 0)
             {
                 <p class="text-muted small mb-2">
                     Tìm thấy <strong>@_nearbyStores.Count</strong> cửa hàng
