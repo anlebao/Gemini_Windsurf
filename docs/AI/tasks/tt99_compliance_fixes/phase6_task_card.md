@@ -1,109 +1,82 @@
-# TASK CARD — Phase 6: B 03-DN Chỉ Tiêu "Lãi/Lỗ Bán BĐSĐT"
+# TASK CARD — Phase 6: B 03-DN Phân Loại Dòng Tiền BĐSĐT (REVISED)
 
-> **Status:** 🟡 PLANNED
-> **Priority:** P2 — Feature gap (TT 99 new indicator)
-> **Branch:** `feature/tt99-fix-phase6-bdsdt-indicator`
+> **Status:** 🟡 PLANNED (REVISED 2026-08-03 after official template verification)
+> **Priority:** P2 — TT 99 compliance
+> **Branch:** `feature/tt99-fix-phase6-bdsdt-classification`
 > **Estimated sessions:** 1
 > **Mode:** IMPLEMENT
-> **Domain modification:** NO (service logic only — CashFlowStatement record đã có OperatingActivities section)
+> **Domain modification:** NO (service logic only)
+> **Reference:** `REFERENCE_B03DN_official.md` — VERIFIED from Phụ lục IV TT 99
 
-## Objective
-TT 99/2025/TT-BTC bổ sung chỉ tiêu mới cho B 03-DN (Báo cáo lưu chuyển tiền tệ):
-- **"Lãi/lỗ của hoạt động bán, thanh lý BĐS đầu tư"** — trình bày theo số thuần
-- Doanh thu bán hàng & giá vốn hàng bán **không bao gồm** doanh thu & giá vốn bán BĐSĐT
+## Objective (REVISED)
 
-Codebase hiện không có chỉ tiêu này trong `CashFlowStatementService`.
+**Original task card (WRONG):** Add BĐSĐT indicator with Mã "75" to B 03-DN operating activities.
+
+**Verified reality:** TT 99 Phụ lục IV does NOT have Mã 75 in B 03-DN. BĐSĐT is handled via:
+1. **B 02-DN Mã 21** — "Lãi/lỗ của hoạt động bán, thanh lý BĐS đầu tư" (separate line in income statement, NOT cash flow)
+2. **B 03-DN indirect Mã 02** — "Khấu hao TSCĐ **và BĐSĐT**" (depreciation adjustment includes BĐSĐT)
+3. **B 03-DN direct Mã 21/22** — Investing activity: "Tiền chi mua sắm, xây dựng TSCĐ và TSDH khác" / "Tiền thu từ thanh lý, nhượng bán TSCĐ và TSDH khác" (BĐSĐT flows through here as long-term asset)
+4. **B 01-DN Mã 240** — Balance sheet: "Bất động sản đầu tư" (separate section, not under TSCĐ)
+
+**Revised objective:** Ensure `CashFlowStatementService` correctly classifies BĐSĐT cash flows:
+- **BĐSĐT purchases/sales → INVESTING activity** (Mã 21/22), NOT operating
+- **BĐSĐT depreciation → indirect method Mã 02** (already covered by TK 214)
+- **BĐSĐT revenue/cost → B 02-DN Mã 21** (income statement, handled in Phase 4 template)
 
 ## Prerequisites
-- [ ] Verify `CashFlowStatementService.cs` hiện không có chỉ tiêu BĐSĐT
-- [ ] Verify TK 217 (BĐS đầu tư) tồn tại trong `AccountChartSeeder.cs` (line 223)
-- [ ] Verify TK 511 (Doanh thu bán hàng) + TK 632 (Giá vốn hàng bán) — cần tách BĐSĐT ra
-- [ ] **Phase 3 (indirect method) nên COMPLETE** — cùng modify CashFlowStatementService
+- [ ] Verify `CashFlowStatementService.ClassifyAccount()` currently classifies TK 217 as Investing (lines 137-140 — confirmed via ANALYZE)
+- [ ] Verify TK 5117/6327 seeded in AccountChartSeeder (Phase 6 prerequisite: add if missing)
+- [ ] Verify TT 99 Phụ lục IV B 03-DN template (`REFERENCE_B03DN_official.md`)
 
 ## Files to Modify
 | File | Changes |
 |------|---------|
-| `3_CoreHub/Services/CashFlowStatementService.cs` | Add BĐSĐT indicator in OperatingActivities |
-| `5_WebApps/ShopERP/Components/Pages/Accounting/CashFlowStatement.razor` | Display BĐSĐT line (auto via FinancialStatementLine) |
+| `3_CoreHub/Infrastructure/Seed/AccountChartSeeder.cs` | **ADD**: TK 5117, TK 6327 (BĐSĐT revenue/cost sub-accounts) |
+| `3_CoreHub/Services/CashFlowStatementService.cs` | Verify TK 217 → Investing (already correct); add TK 5117/6327 → Operating (revenue/expense, not BĐSĐT asset) |
+| `5_WebApps/ShopERP/Components/Pages/Accounting/CashFlowStatement.razor` | No change (auto-display via template) |
 
 ## Detailed Changes
 
-### Change 1: Service — Add BĐSĐT indicator
+### Change 1: Seed TK 5117 + 6327 (BĐSĐT sub-accounts)
 ```csharp
-// CashFlowStatementService.cs — in GenerateAsync (direct method)
-// After calculating OperatingActivities, add BĐSĐT line:
-
-// TK 217: BĐS đầu tư (Asset)
-// TK 5117: Doanh thu bán BĐSĐT (Revenue — sub-account of 511)
-// TK 6327: Giá vốn BĐSĐT (Expense — sub-account of 632)
-// INVESTIGATE: verify sub-account codes exist in AccountChartSeeder
-
-decimal bdsdtRevenue = GetAccountBalance("5117");  // or 511 + sub-account logic
-decimal bdsdtCost = GetAccountBalance("6327");
-decimal bdsdtNet = bdsdtRevenue - bdsdtCost;
-
-if (Math.Abs(bdsdtNet) > 0.005m)
-{
-    operatingLines.Add(new FinancialStatementLine(
-        ReportItemCode: "75",  // TT 99 Mã số for BĐSĐT (verify from template)
-        ReportItemName: "Lãi/lỗ của hoạt động bán, thanh lý BĐS đầu tư",
-        EndingAmount: bdsdtNet,
-        OpeningAmount: 0,  // or calculate opening period
-        Level: 2,
-        IsNormalNegative: bdsdtNet < 0
-    ));
-}
-
-// Also: exclude BĐSĐT from "Doanh thu bán hàng" line to avoid double-count
-// → Adjust TK 511 total by subtracting TK 5117
-// → Adjust TK 632 total by subtracting TK 6327
+// AccountChartSeeder.GetTt99Accounts() — add after existing revenue/expense accounts
+// TK 5117: Doanh thu kinh doanh BĐS đầu tư (sub-account of 511)
+yield return ("5117", "Doanh thu kinh doanh BĐS đầu tư", AccountType.Revenue, true);
+// TK 6327: Giá vốn BĐS đầu tư (sub-account of 632)
+yield return ("6327", "Giá vốn BĐS đầu tư", AccountType.Expense, false);
 ```
 
-### Change 2: UI — auto-display
-`CashFlowStatement.razor` đã render `OperatingActivities` qua `VanAnDataGrid` → chỉ tiêu mới tự động hiển thị nếu có dữ liệu. Không cần change UI.
+### Change 2: Verify CashFlowStatementService classification
+```csharp
+// CashFlowStatementService.ClassifyAccount() — current (lines 134-155):
+// TK 217 → already classified as INVESTING (via "217" prefix match + "21" catch-all)
+// This is CORRECT per TT 99 — BĐSĐT is a long-term asset, cash flows go to investing
+
+// ADD verification comment:
+// TT 99 B 03-DN: BĐSĐT (TK 217) cash flows → Investing (Mã 21/22)
+// BĐSĐT revenue (TK 5117) + cost (TK 6327) → Operating (revenue/expense accounts)
+// BĐSĐT depreciation (TK 2147) → Indirect method Mã 02 adjustment (via TK 214 catch-all)
+// NOTE: No separate BĐSĐT line in B 03-DN — flows through standard Mã 21/22 (investing) + Mã 02 (indirect depreciation)
+```
+
+### Change 3: No UI change needed
+`CashFlowStatement.razor` renders via `FinancialStatementLine` collection — if BĐSĐT cash flows are correctly classified into Investing activities (Mã 21/22), they auto-display. No new line needed.
 
 ## Verification
 - [ ] `dotnet build VanAn.sln` Release — 0 errors
-- [ ] Khi có bút toán BĐSĐT (TK 5117/6327), báo cáo hiển thị chỉ tiêu "Lãi/lỗ bán BĐSĐT"
-- [ ] Khi không có bút toán BĐSĐT, chỉ tiêu không hiển thị (hoặc = 0)
-- [ ] Doanh thu bán hàng (TK 511) không double-count BĐSĐT
+- [ ] TK 5117 + 6327 seeded in TT 99 accounts
+- [ ] TK 217 cash flows appear in Investing Activities (Mã 21/22), NOT Operating
+- [ ] TK 5117/6327 cash flows appear in Operating Activities (revenue/expense)
+- [ ] No Mã "75" anywhere (confirmed: TT 99 does NOT have this Mã)
 
 ## Rollback
-`git revert <commit>` — service logic only.
+`git revert <commit>` — seeder + service logic only.
 
 ## Notes
-- **INVESTIGATE:** Verify TK 5117 + 6327 có trong `AccountChartSeeder.cs` không. Nếu chưa có, cần thêm.
-- **INVESTIGATE:** Verify Mã số TT 99 cho chỉ tiêu BĐSĐT (task card dùng "75" — cần confirm từ Phụ lục IV).
-
----
-
-## ANALYZE UPDATE (2026-08-03)
-
-### Verified Accurate
-- ✅ `CashFlowStatementService` has NO BĐSĐT handling (grep "217"/"5117"/"6327" → 0 matches)
-- ✅ TK 217 exists in seeder (line 223 TT99)
-- ✅ `CashFlowStatement` record does NOT need change — `OperatingActivities` already `IEnumerable<FinancialStatementLine>`
-- ✅ `NetChange` = `ClosingCash - OpeningCash` (NOT sum of activities) — adding line has NO impact on totals
-
-### DRIFT: TK 5117 + 6327 MISSING from Seeder
-Task card assumed these exist. They do NOT. Web search confirms they exist in official TT 99:
-- TK 5117: "Doanh thu kinh doanh BĐSĐT" — **MISSING from seeder**
-- TK 6327: "Giá vốn BĐSĐT" — **MISSING from seeder**
-- TK 2147: "Hao mòn BĐSĐT" — also missing (consider adding)
-
-### Prerequisite: Seed TK 5117 + 6327 BEFORE service implementation
-```csharp
-// Add to AccountChartSeeder.GetTt99Accounts()
-yield return ("5117", "Doanh thu kinh doanh BĐSĐT", AccountType.Revenue, true);
-yield return ("6327", "Giá vốn BĐSĐT", AccountType.Expense, false);
-```
-
-### OPEN QUESTION: Mã số "75" is UNVERIFIED
-Cannot confirm without official Phụ lục IV file. Must verify before implementation OR use as placeholder pending official source.
-
-### Updated Files (3 → 3, but seeder is new)
-| File | Changes |
-|------|---------|
-| `3_CoreHub/Infrastructure/Seed/AccountChartSeeder.cs` | **ADD**: TK 5117, TK 6327 (NEW — was not in original task card) |
-| `3_CoreHub/Services/CashFlowStatementService.cs` | Add BĐSĐT indicator in OperatingActivities |
-| `5_WebApps/ShopERP/Components/Pages/Accounting/CashFlowStatement.razor` | Auto-display (no change needed) |
+- **Original task card was WRONG**: Mã "75" does not exist in TT 99 B 03-DN.
+- **BĐSĐT handling is distributed** across 3 reports:
+  - B 01-DN Mã 240 (balance sheet — asset)
+  - B 02-DN Mã 21 (income statement — revenue/cost)
+  - B 03-DN Mã 21/22 (cash flow — investing) + Mã 02 indirect (depreciation)
+- **Phase 4 template refactor** (B 02-DN + B 03-DN) will handle BĐSĐT Mã correctly via template definitions.
+- **This phase** focuses only on: (1) seeding TK 5117/6327, (2) verifying classification is correct.

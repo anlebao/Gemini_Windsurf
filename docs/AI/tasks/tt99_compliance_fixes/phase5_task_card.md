@@ -12,41 +12,65 @@ B 09-DN (Bản thuyết minh BCTC) là 1 trong 4 báo cáo bắt buộc theo TT 
 
 **Đặc thù B 09-DN:** Khác 3 báo cáo kia (dạng bảng số liệu), B 09-DN là **báo cáo dạng văn bản thuyết minh** — gồm các sections文字 mô tả chính sách kế toán, tình hình tài chính, giải thích chỉ tiêu BCTC.
 
-## Cấu trúc B 09-DN theo TT 99 (Phụ lục IV)
+## Cấu trúc B 09-DN theo TT 99 (Phụ lục IV — VERIFIED)
+> **Source:** `REFERENCE_B09DN_official.md` — https://vplsdms.vn/ban-thuyet-minh-bao-cao-tai-chinh-nam-cua-doanh-nghiep-dap-ung-gia-dinh-hoat-dong-lien-tuc
+> **CRITICAL:** Original task card's 5-phần structure (I-V) was WRONG. Official TT 99 has 5 sections: I, II, III, IV, X — different content.
+
 ```
-PHẦN I: ĐẶC ĐIỂM HOẠT ĐỘNG
-  1. Hình thức pháp lý
+PHẦN I: ĐẶC ĐIỂM HOẠT ĐỘNG CỦA DOANH NGHIỆP (9 sub-items)
+  1. Hình thức sở hữu vốn
   2. Lĩnh vực kinh doanh
-  3. Vốn điều lệ
-  4. Đặc điểm hoạt động
+  3. Ngành nghề kinh doanh
+  4. Chu kỳ sản xuất, kinh doanh thông thường
+  5. Đặc điểm hoạt động của doanh nghiệp trong năm tài chính có ảnh hưởng đến BCTC
+  6. Cấu trúc doanh nghiệp (công ty con, liên doanh, đơn vị trực thuộc)
+  7. Số lượng người lao động
+  8. Tuyên bố về khả năng so sánh thông tin trên BCTC
+  9. Thuyết minh các thông tin khác theo quy định pháp luật
 
-PHẦN II: CHÍNH SÁCH KẾ TOÁN ÁP DỤNG
-  1. Chế độ kế toán áp dụng (TT 99/2025/TT-BTC)
-  2. Năm tài chính
-  3. Đơn vị tiền tệ
-  4. Nguyên tắc ghi nhận: tài sản, nợ, doanh thu, chi phí
-  5. Phương pháp khấu hao TSCĐ
-  6. Phương pháp tính giá trị hàng tồn kho
-  7. Nguyên tắc kế toán tài sản sinh học (NEW TT 99)
-  8. Các loại tỷ giá áp dụng (NEW TT 99)
-  9. Cơ sở xác định giá trị (NEW TT 99)
+PHẦN II: KỲ KẾ TOÁN, ĐƠN VỊ TIỀN TỆ SỬ DỤNG TRONG KẾ TOÁN
+  1. Kỳ kế toán năm (bắt đầu.../... kết thúc.../...)
+  2. Đơn vị tiền tệ sử dụng trong kế toán
 
-PHẦN III: TÌNH HÌNH TÀI CHÍNH VÀ KẾT QUẢ KINH DOANH
-  1. Tình hình tài chính (phân tích ngắn gọn)
-  2. Kết quả kinh doanh
-  3. Lưu chuyển tiền tệ
+PHẦN III: CHUẨN MỰC VÀ CHẾ ĐỘ KẾ TOÁN ÁP DỤNG
+  1. Chế độ kế toán áp dụng
+  2. Tuyên bố về việc tuân thủ Chuẩn mực kế toán VN và Chế độ kế toán
 
-PHẦN IV: GIẢI THÍCH CHỈ TIÊU BÁO CÁO TÀI CHÍNH
-  1. Báo cáo tình hình tài chính (chi tiết từng chỉ tiêu B 01-DN)
-  2. Báo cáo kết quả HĐKD (chi tiết B 02-DN)
-  3. Báo cáo lưu chuyển tiền tệ (chi tiết B 03-DN)
+PHẦN IV: CÁC CHÍNH SÁCH KẾ TOÁN, ƯỚC TÍNH KẾ TOÁN VÀ CÁC QUY ĐỊNH PHÁP LUẬT CÓ LIÊN QUAN ÁP DỤNG (29 sub-items)
+  1. Nguyên tắc chuyển đổi BCTC lập bằng ngoại tệ sang VNĐ
+  2. Các loại tỷ giá hối đoái áp dụng (NEW TT 99)
+  3. Nguyên tắc xác định lãi suất thực tế
+  4. Nguyên tắc ghi nhận các khoản tiền và tương đương tiền
+  5. Nguyên tắc kế toán các khoản đầu tư tài chính (a-e)
+  6. Nguyên tắc kế toán nợ phải thu
+  7. Nguyên tắc kế toán hàng tồn kho
+  8. Nguyên tắc kế toán và khấu hao TSCĐ (bao gồm BĐS đầu tư)
+  9. Nguyên tắc kế toán tài sản sinh học (NEW TT 99)
+  10. Nguyên tắc kế toán các loại hợp đồng hợp tác kinh doanh
+  11. Nguyên tắc kế toán chi phí chờ phân bổ
+  12. Nguyên tắc kế toán phải trả người bán
+  13. Nguyên tắc kế toán phải trả cổ tức, lợi nhuận (NEW TT 99 — TK 332)
+  14. Nguyên tắc ghi nhận chi phí phải trả
+  15. Nguyên tắc ghi nhận doanh thu chờ phân bổ
+  16. Nguyên tắc kế toán các khoản dự phòng phải trả
+  17. Nguyên tắc kế toán thuế TNDN hoãn lại
+  18. Nguyên tắc ghi nhận vay và nợ thuê tài chính
+  19. Nguyên tắc ghi nhận và vốn hóa các khoản chi phí đi vay
+  20. Nguyên tắc ghi nhận trái phiếu chuyển đổi
+  21. Nguyên tắc ghi nhận vốn chủ sở hữu
+  22. Nguyên tắc và phương pháp ghi nhận doanh thu, thu nhập khác (bao gồm Doanh thu bán BĐSĐT — NEW TT 99)
+  23. Nguyên tắc kế toán các khoản giảm trừ doanh thu
+  24. Nguyên tắc kế toán giá vốn hàng bán
+  25. Nguyên tắc kế toán chi phí tài chính
+  26. Nguyên tắc kế toán chi phí bán hàng, chi phí quản lý doanh nghiệp
+  27. Nguyên tắc kế toán bán, thanh lý TSCĐ, BĐS đầu tư
+  28. Nguyên tắc và phương pháp ghi nhận chi phí thuế TNDN hiện hành (bao gồm thuế tối thiểu toàn cầu), TNDN hoãn lại
+  29. Các nguyên tắc và phương pháp kế toán khác
 
-PHẦN V: THÔNG TIN BỔ SUNG
-  1. Tài sản thế chấp
-  2. Cam kết tài chính
-  3. Phạt tiền bồi thường
-  4. Giao dịch với các bên liên quan
-  5. Sai sót kỳ trước
+PHẦN X: NHỮNG NỘI DUNG SỬA ĐỔI, BỔ SUNGBIỂU MẪU, TÊN VÀ NỘI DUNG CÁC CHỈ TIÊU CỦA BCTC SO VỚI BIỂU MẪU BCTC ĐƯỢC BỘ TÀI CHÍNH QUY ĐỊNH (NẾU CÓ)
+  - Tên các chỉ tiêu có sửa đổi, bổ sung
+  - Nội dung các chỉ tiêu có sửa đổi, bổ sung
+  - Lý do thay đổi
 ```
 
 ## Prerequisites
@@ -120,64 +144,84 @@ public class FinancialStatementNotesService : IFinancialStatementNotesService
 {
     private readonly IAccountingDbContext _dbContext;
     private readonly ITenantManagementService _tenantService;
-    private readonly IBalanceSheetService _balanceSheetService;
-    private readonly IIncomeStatementService _incomeStatementService;
-    private readonly ICashFlowStatementService _cashFlowService;
     private readonly ILogger<FinancialStatementNotesService> _logger;
 
-    // Inject all 3 report services to pull data for Phần IV (giải thích chỉ tiêu)
+    // NOTE: Per official B 09-DN, NO need to inject BalanceSheet/Income/CashFlow services
+    // — Phần IV (chính sách KT) is TEXT, not data-driven from other reports
+    // Original task card's "Phần III: Tình hình TC" + "Phần IV: Giải thích chỉ tiêu" were WRONG
+    // — these are NOT in official B 09-DN structure
 
     public async Task<FinancialStatementNotes> GenerateAsync(...)
     {
-        // Phần I: Đặc điểm HĐ — từ Tenant info (hình thức pháp lý, lĩnh vực, vốn điều lệ)
         var tenant = await _tenantService.GetTenantByIdAsync(tenantId, ct);
-        var phanI = new NoteSection("I", "ĐẶC ĐIỂM HOẠT ĐỘNG", 1, "", new[]
+
+        // PHẦN I: Đặc điểm hoạt động (9 sub-items)
+        var phanI = new NoteSection("I", "Đặc điểm hoạt động của doanh nghiệp", 1, "", new[]
         {
-            new NoteSection("I.1", "Hình thức pháp lý", 2, tenant.LegalForm, null),
-            new NoteSection("I.2", "Lĩnh vực kinh doanh", 2, tenant.BusinessField, null),
-            new NoteSection("I.3", "Vốn điều lệ", 2, $"{tenant.CharterCapital:N0} VNĐ", null),
+            new NoteSection("I.1", "Hình thức sở hữu vốn", 2, tenant.Settings.LegalForm ?? "Chưa thiết lập", null),
+            new NoteSection("I.2", "Lĩnh vực kinh doanh", 2, tenant.Settings.BusinessField ?? "Chưa thiết lập", null),
+            new NoteSection("I.3", "Ngành nghề kinh doanh", 2, tenant.DefaultIndustrySector?.ToString() ?? "Chưa thiết lập", null),
+            new NoteSection("I.4", "Chu kỳ sản xuất, kinh doanh thông thường", 2, "01/01 - 31/12", null),
+            new NoteSection("I.5", "Đặc điểm hoạt động trong năm tài chính", 2, "Bình thường", null),
+            new NoteSection("I.6", "Cấu trúc doanh nghiệp", 2, "Đơn vị độc lập", null),
+            new NoteSection("I.7", "Số lượng người lao động", 2, "Chưa cập nhật", null),
+            new NoteSection("I.8", "Khả năng so sánh thông tin trên BCTC", 2, "Có so sánh được", null),
+            new NoteSection("I.9", "Thuyết minh các thông tin khác", 2, "Không có", null),
         });
 
-        // Phần II: Chính sách KT — static template + tenant-specific overrides
-        var phanII = new NoteSection("II", "CHÍNH SÁCH KẾ TOÁN ÁP DỤNG", 1, "", new[]
+        // PHẦN II: Kỳ kế toán, đơn vị tiền tệ (2 sub-items)
+        var phanII = new NoteSection("II", "Kỳ kế toán, đơn vị tiền tệ sử dụng trong kế toán", 1, "", new[]
         {
-            new NoteSection("II.1", "Chế độ kế toán", 2, "Thông tư 99/2025/TT-BTC", null),
-            new NoteSection("II.2", "Năm tài chính", 2, "01/01 - 31/12", null),
-            new NoteSection("II.3", "Đơn vị tiền tệ", 2, "VNĐ", null),
-            new NoteSection("II.4", "Nguyên tắc ghi nhận", 2, "Theo TT 99/2025/TT-BTC", null),
-            new NoteSection("II.5", "Phương pháp khấu hao TSCĐ", 2, "Đường thẳng", null),
-            new NoteSection("II.6", "Phương pháp tính GTHTK", 2, "FIFO", null),
-            new NoteSection("II.7", "Nguyên tắc KT tài sản sinh học", 2, "Theo TT 99 Phụ lục IV", null),
-            new NoteSection("II.8", "Tỷ giá áp dụng", 2, "Tỷ giá giao dịch thực tế", null),
+            new NoteSection("II.1", "Kỳ kế toán năm", 2, "01/01 - 31/12", null),
+            new NoteSection("II.2", "Đơn vị tiền tệ sử dụng trong kế toán", 2, "VNĐ", null),
         });
 
-        // Phần III: Tình hình TC — pull từ BalanceSheet + IncomeStatement + CashFlow
-        var bs = await _balanceSheetService.GenerateAsync(tenantId, period, standard, ct);
-        var is_ = await _incomeStatementService.GenerateAsync(tenantId, period, standard, ct);
-        var cfs = await _cashFlowService.GenerateAsync(tenantId, period, standard, ct);
-        var phanIII = new NoteSection("III", "TÌNH HÌNH TC & KẾT QUẢ KD", 1, "", new[]
+        // PHẦN III: Chuẩn mực và Chế độ kế toán áp dụng (2 sub-items)
+        var phanIII = new NoteSection("III", "Chuẩn mực và Chế độ kế toán áp dụng", 1, "", new[]
         {
-            new NoteSection("III.1", "Tình hình tài chính", 2,
-                $"Tổng tài sản: {bs.TotalAssetsEnding:N0} VNĐ. Nợ phải trả + VCSH: {bs.TotalLiabilitiesAndEquityEnding:N0} VNĐ.", null),
-            new NoteSection("III.2", "Kết quả kinh doanh", 2,
-                $"Doanh thu: {is_.TotalRevenueEnding:N0} VNĐ. Lợi nhuận ròng: {is_.NetProfitEnding:N0} VNĐ.", null),
-            new NoteSection("III.3", "Lưu chuyển tiền tệ", 2,
-                $"Tiền đầu kỳ: {cfs.OpeningCash:N0} VNĐ. Tiền cuối kỳ: {cfs.ClosingCash:N0} VNĐ.", null),
+            new NoteSection("III.1", "Chế độ kế toán áp dụng", 2, "Thông tư 99/2025/TT-BTC", null),
+            new NoteSection("III.2", "Tuyên bố tuân thủ", 2, "Tuân thủ đầy đủ Chuẩn mực kế toán VN và Chế độ kế toán", null),
         });
 
-        // Phần IV: Giải thích chỉ tiêu — chi tiết từng chỉ tiêu B 01-DN, B 02-DN, B 03-DN
-        var phanIV = new NoteSection("IV", "GIẢI THÍCH CHỈ TIÊU BCTC", 1, "", BuildSectionIV(bs, is_, cfs));
-
-        // Phần V: TT bổ sung — từ commitments, contingencies (cần thêm domain entities nếu chưa có)
-        var phanV = new NoteSection("V", "THÔNG TIN BỔ SUNG", 1, "", new[]
+        // PHẦN IV: Các chính sách kế toán (29 sub-items — full TT 99 template)
+        var phanIV = new NoteSection("IV", "Các chính sách kế toán, ước tính kế toán và các quy định pháp luật có liên quan áp dụng", 1, "", new[]
         {
-            new NoteSection("V.1", "Tài sản thế chấp", 2, "Không có", null),
-            new NoteSection("V.2", "Cam kết tài chính", 2, "Không có", null),
-            new NoteSection("V.3", "Giao dịch với bên liên quan", 2, "Không có", null),
+            new NoteSection("IV.1", "Nguyên tắc chuyển đổi BCTC lập bằng ngoại tệ sang VNĐ", 2, "Không áp dụng (đồng tiền ghi sổ = VNĐ)", null),
+            new NoteSection("IV.2", "Các loại tỷ giá hối đoái áp dụng", 2, "Tỷ giá giao dịch thực tế", null),
+            new NoteSection("IV.3", "Nguyên tắc xác định lãi suất thực tế", 2, "Lãi suất hiệu lực", null),
+            new NoteSection("IV.4", "Nguyên tắc ghi nhận tiền và tương đương tiền", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.5", "Nguyên tắc kế toán đầu tư tài chính", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.6", "Nguyên tắc kế toán nợ phải thu", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.7", "Nguyên tắc kế toán hàng tồn kho", 2, "FIFO", null),
+            new NoteSection("IV.8", "Nguyên tắc kế toán và khấu hao TSCĐ, BĐS đầu tư", 2, "Đường thẳng", null),
+            new NoteSection("IV.9", "Nguyên tắc kế toán tài sản sinh học", 2, "Theo TT 99 Phụ lục IV", null),
+            new NoteSection("IV.10", "Nguyên tắc kế toán hợp đồng Hợp tác kinh doanh", 2, "Không áp dụng", null),
+            new NoteSection("IV.11", "Nguyên tắc kế toán chi phí chờ phân bổ", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.12", "Nguyên tắc kế toán phải trả người bán", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.13", "Nguyên tắc kế toán phải trả cổ tức, lợi nhuận", 2, "Theo TT 99/2025/TT-BTC (TK 332)", null),
+            new NoteSection("IV.14", "Nguyên tắc ghi nhận chi phí phải trả", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.15", "Nguyên tắc ghi nhận doanh thu chờ phân bổ", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.16", "Nguyên tắc kế toán dự phòng phải trả", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.17", "Nguyên tắc kế toán thuế TNDN hoãn lại", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.18", "Nguyên tắc ghi nhận vay và nợ thuê tài chính", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.19", "Nguyên tắc ghi nhận và vốn hóa chi phí đi vay", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.20", "Nguyên tắc ghi nhận trái phiếu chuyển đổi", 2, "Không áp dụng", null),
+            new NoteSection("IV.21", "Nguyên tắc ghi nhận vốn chủ sở hữu", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.22", "Nguyên tắc ghi nhận doanh thu, thu nhập khác", 2, "Theo TT 99/2025/TT-BTC (bao gồm BĐSĐT)", null),
+            new NoteSection("IV.23", "Nguyên tắc kế toán giảm trừ doanh thu", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.24", "Nguyên tắc kế toán giá vốn hàng bán", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.25", "Nguyên tắc kế toán chi phí tài chính", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.26", "Nguyên tắc kế toán CP bán hàng, CP quản lý DN", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.27", "Nguyên tắc kế toán bán, thanh lý TSCĐ, BĐS đầu tư", 2, "Theo TT 99/2025/TT-BTC", null),
+            new NoteSection("IV.28", "Nguyên tắc ghi nhận chi phí thuế TNDN", 2, "Theo TT 99/2025/TT-BTC (bao gồm thuế tối thiểu toàn cầu)", null),
+            new NoteSection("IV.29", "Các nguyên tắc và phương pháp kế toán khác", 2, "Không có", null),
         });
+
+        // PHẦN X: Sửa đổi, bổ sung (nếu có)
+        var phanX = new NoteSection("X", "Những nội dung sửa đổi, bổ sung biểu mẫu, tên và nội dung các chỉ tiêu của BCTC so với biểu mẫu BCTC được Bộ Tài chính quy định (nếu có)", 1, "Không có sửa đổi, bổ sung", null);
 
         return new FinancialStatementNotes(tenantId, period, DateTime.UtcNow, standard,
-            new[] { phanI, phanII, phanIII, phanIV, phanV });
+            new[] { phanI, phanII, phanIII, phanIV, phanX });
     }
 }
 ```
