@@ -88,22 +88,56 @@
                     }
                     else if (selectedPaymentMethod == "transfer")
                     {
-                        <VanAAlert Type="warning" Message="Edge Mode: QR thanh toán cần kết nối internet. Nếu offline, dùng tiền mặt." Dismissible="false" />
-                        <div class="mt-3 text-center">
-                            @if (!string.IsNullOrEmpty(qrImageUrl))
+                        <VanAAlert Type="warning" Message="QR thanh toán cần kết nối internet. Nếu offline, dùng tiền mặt." Dismissible="false" />
+
+                        <div class="mt-3">
+                            @* Bank account info form — owner enters receiving bank account *@
+                            @if (string.IsNullOrEmpty(qrImageUrl))
                             {
-                                <img src="@qrImageUrl" alt="VietQR Code" class="img-fluid" style="max-width: 250px;" />
-                                <p class="mt-2">Quét mã để thanh toán @order.TotalAmount.ToString("N0") đ</p>
-                                <VanAButton Variant="primary" OnClick="ConfirmTransferPayment" disabled="@isProcessing" data-testid="pos-btn-transfer-confirm">
-                                    ✓ Đã nhận chuyển khoản
+                                <h6>Thông tin tài khoản nhận thanh toán</h6>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Tên ngân hàng <span class="text-danger">*</span></label>
+                                        <input class="form-control" @bind="_bankName" placeholder="VD: Vietcombank, Techcombank, MBBank..." />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Số tài khoản <span class="text-danger">*</span></label>
+                                        <input class="form-control" @bind="_bankAccountNo" placeholder="VD: 0123456789" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Tên chủ tài khoản</label>
+                                        <input class="form-control" @bind="_accountName" placeholder="VD: NGUYEN VAN A" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Nội dung chuyển khoản</label>
+                                        <input class="form-control" @bind="_transferNote" placeholder="VD: DONHANG 01234567" />
+                                    </div>
+                                </div>
+                                <VanAButton Variant="primary" FullWidth="true" OnClick="GenerateQrCode" disabled="@(isProcessing || string.IsNullOrWhiteSpace(_bankName) || string.IsNullOrWhiteSpace(_bankAccountNo))" data-testid="pos-btn-generate-qr">
+                                    <i class="bi bi-qr-code me-1"></i> Tạo mã QR thanh toán
                                 </VanAButton>
                             }
-                            else
+
+                            @if (!string.IsNullOrEmpty(qrImageUrl))
                             {
-                                <p>Không thể tạo mã QR (offline hoặc chưa cấu hình ngân hàng).</p>
-                                <VanAButton Variant="primary" OnClick="ConfirmTransferPayment" disabled="@isProcessing" data-testid="pos-btn-transfer-manual">
-                                    ✓ Xác nhận đã nhận chuyển khoản
-                                </VanAButton>
+                                <div class="text-center mt-3">
+                                    <img src="@qrImageUrl" alt="VietQR Code" class="img-fluid border rounded" style="max-width: 280px;" />
+                                    <p class="mt-2 mb-1">Quét mã để thanh toán</p>
+                                    <p class="fw-bold text-danger mb-2">@order.TotalAmount.ToString("N0") đ</p>
+                                    @if (!string.IsNullOrEmpty(_accountName))
+                                    {
+                                        <p class="small text-muted mb-0">TK: @_accountName</p>
+                                    }
+                                    <p class="small text-muted mb-2">@_bankName - @_bankAccountNo</p>
+                                    <div class="d-flex gap-2 justify-content-center">
+                                        <VanAButton Variant="secondary" Size="small" OnClick="ResetQrCode">
+                                            <i class="bi bi-arrow-left me-1"></i> Sửa thông tin
+                                        </VanAButton>
+                                        <VanAButton Variant="success" OnClick="ConfirmTransferPayment" disabled="@isProcessing" data-testid="pos-btn-transfer-confirm">
+                                            ✓ Đã nhận chuyển khoản
+                                        </VanAButton>
+                                    </div>
+                                </div>
                             }
                         </div>
                     }
@@ -122,6 +156,11 @@
     private string? errorMessage;
     private string selectedPaymentMethod = "cash";
     private string? qrImageUrl;
+    // Bank account info for transfer QR generation
+    private string _bankName = string.Empty;
+    private string _bankAccountNo = string.Empty;
+    private string _accountName = string.Empty;
+    private string _transferNote = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -165,6 +204,49 @@
     private async Task ConfirmTransferPayment()
     {
         await ConfirmPayment("transfer");
+    }
+
+    /// <summary>
+    /// Generate VietQR code URL from bank account info + order amount.
+    /// Uses VietQR.io public API: https://img.vietqr.io/image/{bank}-{accountNo}-compact.png?amount={amount}&addInfo={note}
+    /// No API key required — free public service.
+    /// </summary>
+    private Task GenerateQrCode()
+    {
+        if (order == null || string.IsNullOrWhiteSpace(_bankName) || string.IsNullOrWhiteSpace(_bankAccountNo))
+        {
+            errorMessage = "Vui lòng nhập tên ngân hàng và số tài khoản.";
+            return Task.CompletedTask;
+        }
+
+        try
+        {
+            // Normalize bank name for VietQR.io (lowercase, no spaces for some banks)
+            string bank = _bankName.Trim().ToLowerInvariant().Replace(" ", "");
+            string accountNo = _bankAccountNo.Trim().Replace(" ", "");
+            long amount = (long)Math.Round(order.TotalAmount);
+            string note = string.IsNullOrWhiteSpace(_transferNote)
+                ? $"DH {order.TrackingCode ?? order.Id.ToString()[..8]}"
+                : Uri.EscapeDataString(_transferNote.Trim());
+
+            // VietQR.io compact format — works without bank BIN lookup
+            qrImageUrl = $"https://img.vietqr.io/image/{bank}-{accountNo}-compact.png?amount={amount}&addInfo={note}";
+            Logger.LogInformation("Generated VietQR for order {OrderId}: bank={Bank}, account={Account}, amount={Amount}",
+                OrderId, bank, accountNo, amount);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating QR code for order {OrderId}", OrderId);
+            errorMessage = $"Không thể tạo mã QR: {ex.Message}";
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Clear QR + form → back to bank info input.</summary>
+    private void ResetQrCode()
+    {
+        qrImageUrl = null;
     }
 
     private async Task ConfirmPayment(string method)

@@ -154,7 +154,7 @@
                                 @if (t.Status == TenantStatus.Active)
                                 {
                                     <VanAButton Variant="primary" Size="small" OnClick="() => ImpersonateTenant(t)" IsLoading="@(_impersonatingTenantId == t.Id)">
-                                        Truy cập
+                                        <i class="bi bi-person-badge me-1"></i> Impersonate
                                     </VanAButton>
                                 }
                             </td>

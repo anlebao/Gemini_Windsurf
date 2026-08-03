@@ -117,12 +117,12 @@
                 </div>
             }
 
-            @* W3-T1: Admin "Xác nhận đã nhận tiền" — visible only when PaymentStatus=Pending *@
+            @* W3-T1: Admin "Đã thanh toán" — visible only when PaymentStatus=Pending *@
             @if (order.PaymentStatus == "Pending")
             {
                 <div class="action-row">
                     <VanAButton Variant="primary" OnClick="ConfirmPayment" data-testid="btn-confirm-payment">
-                        💰 Xác nhận đã nhận tiền
+                        💰 Đã thanh toán
                     </VanAButton>
                 </div>
             }

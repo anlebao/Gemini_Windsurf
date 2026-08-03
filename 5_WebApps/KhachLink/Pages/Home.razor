@@ -1,4 +1,5 @@
 ﻿@using VanAn.KhachLink.Components.Layout
+@using Microsoft.AspNetCore.Components.Web
 @using VanAn.Shared.Domain
 @using VanAn.Shared.DTOs
 @using VanAn.KhachLink.Components.Shared
@@ -66,18 +67,34 @@
             else if (_storeFinderError != null)
             {
                 <VanAnAlert Variant="AlertVariant.Warning" Message="@_storeFinderError" />
-            }
-            else if (_nearbyStores.Count == 0 && !_userLocationShared)
-            {
-                <!-- Prompt for location sharing -->
-                <div class="text-center py-4">
-                    <i class="bi bi-geo-alt text-primary" style="font-size:3rem;"></i>
-                    <h5 class="mt-2">Tìm cửa hàng gần bạn</h5>
-                    <p class="text-muted mb-3">Chia sẻ vị trí của bạn để tìm các cửa hàng xung quanh.</p>
-                    <VanAnButton Variant="ButtonVariant.Primary" OnClick="ShareMyLocationAsync">
-                        <i class="bi bi-geo-alt me-1"></i> Chia sẻ vị trí của tôi
+                <div class="mt-2 d-flex gap-2 flex-wrap">
+                    <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="ClearStoreSearch">
+                        <i class="bi bi-arrow-left me-1"></i> Quay lại
                     </VanAnButton>
-                    <div class="mt-2">
+                </div>
+            }
+            else if (_nearbyStores.Count == 0 && !_userLocationShared && string.IsNullOrEmpty(_storeSearchQuery))
+            {
+                <!-- Default state: search box + location-share button. No auto-loaded store list. -->
+                <div class="store-finder-search py-3">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-7">
+                            <label for="store-search-input" class="form-label small text-muted mb-1">Tìm theo tên cửa hàng / sản phẩm / dịch vụ</label>
+                            <input id="store-search-input" class="form-control" @bind="_storeSearchQuery"
+                                   @onkeypress="HandleSearchKeypress" placeholder="Nhập tên cửa hàng, sản phẩm..." aria-label="Tìm cửa hàng" />
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <VanAnButton Variant="ButtonVariant.Primary" OnClick="SearchStoresAsync" CssClass="w-100">
+                                <i class="bi bi-search me-1"></i> Tìm
+                            </VanAnButton>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <VanAnButton Variant="ButtonVariant.Outline" OnClick="ShareMyLocationAsync" CssClass="w-100">
+                                <i class="bi bi-geo-alt me-1"></i> Vị trí của tôi
+                            </VanAnButton>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-center">
                         <VanAnButton Size="ButtonSize.Small" Variant="ButtonVariant.Outline" OnClick="LoadAllNearbyStores">
                             <i class="bi bi-list me-1"></i> Xem tất cả cửa hàng
                         </VanAnButton>
@@ -106,6 +123,9 @@
                     {
                         <span> trong bán kính @_storeFinderRadiusKm km</span>
                     }
+                    <button type="button" class="btn btn-link btn-sm p-0 ms-2 text-decoration-none" @onclick="ClearStoreSearch">
+                        <i class="bi bi-x-circle"></i> Xóa tìm kiếm
+                    </button>
                 </p>
                 <div class="row g-2">
                     @foreach (var store in _nearbyStores.Take(6))
@@ -496,11 +516,12 @@
 
     // Store Finder (Home page — visible to all users)
     private List<NearbyStoreDto> _nearbyStores = new();
-    private bool _storeFinderLoading = true;
+    private bool _storeFinderLoading = false;
     private string? _storeFinderError;
     private bool _userLocationShared = false;
     private double _storeFinderRadiusKm = 10.0;
     private double? _userLat;
+    private string _storeSearchQuery = string.Empty;
     private double? _userLng;
 
     public class StoreInfoDto
@@ -546,7 +567,10 @@
             var catalogTask = LoadCatalogAsync();
             var tenantDataTask = LoadLastTenantDataAsync();
             var commerceModeTask = LoadCommerceModeAsync(token);
-            var storeFinderTask = LoadNearbyStoresAsync();
+
+            // Store Finder: do NOT auto-load stores on home page.
+            // Only show search box / location-share prompt — user must explicitly trigger search.
+            // (Issue fix: home page was showing full store list on load — should only show search box.)
 
             // VAT toggle (needs tenantId — fast, may fail silently)
             Guid tenantId = TenantService.GetCurrentTenantId();
@@ -560,7 +584,7 @@
                     }, TaskScheduler.Default);
             }
 
-            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, commerceModeTask, storeFinderTask);
+            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, commerceModeTask);
 
             // Phase 3 (dependent): ShopConfig needs products list (derived from product TenantIds)
             await LoadShopConfigAsync();
@@ -656,6 +680,67 @@
         _userLng = null;
         _userLocationShared = false;
         await LoadNearbyStoresAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Handle Enter key in search box → trigger search.</summary>
+    private async Task HandleSearchKeypress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchStoresAsync();
+        }
+    }
+
+    /// <summary>Clear search query + results → back to default search-box state.</summary>
+    private void ClearStoreSearch()
+    {
+        _storeSearchQuery = string.Empty;
+        _nearbyStores = new();
+        _storeFinderError = null;
+        _userLocationShared = false;
+        _userLat = null;
+        _userLng = null;
+    }
+
+    /// <summary>
+    /// Search stores by keyword (name/product/service). Called when user types in search box + clicks Search.
+    /// Falls back to "all stores" if query is empty.
+    /// </summary>
+    private async Task SearchStoresAsync()
+    {
+        _userLat = null;
+        _userLng = null;
+        _userLocationShared = false;
+        if (string.IsNullOrWhiteSpace(_storeSearchQuery))
+        {
+            await LoadAllNearbyStores();
+            return;
+        }
+        _storeFinderLoading = true;
+        _storeFinderError = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("gateway");
+            var url = $"/api/tenants/search?q={Uri.EscapeDataString(_storeSearchQuery)}";
+            var response = await client.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                _nearbyStores = await response.Content.ReadFromJsonAsync<List<NearbyStoreDto>>() ?? new();
+            }
+            else
+            {
+                _storeFinderError = "Không thể tìm cửa hàng.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _storeFinderError = $"Lỗi kết nối: {ex.Message}";
+        }
+        finally
+        {
+            _storeFinderLoading = false;
+        }
         StateHasChanged();
     }
 

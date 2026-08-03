@@ -77,6 +77,27 @@
                 </div>
             </VanAnCard>
 
+            <!-- Payment status card -->
+            <VanAnCard Shadow="true" CssClass="mb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted small">Thanh toán</div>
+                        <div class="fw-bold fs-5">
+                            <span class="badge @GetPaymentBadgeClass(_paymentStatus)">@GetPaymentText(_paymentStatus)</span>
+                        </div>
+                    </div>
+                    @if (_paymentStatus.Equals("Paid", StringComparison.OrdinalIgnoreCase) ||
+                         _paymentStatus.Equals("Confirmed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <i class="bi bi-check-circle-fill text-success" style="font-size:1.5rem;"></i>
+                    }
+                    else
+                    {
+                        <i class="bi bi-clock text-muted" style="font-size:1.5rem;"></i>
+                    }
+                </div>
+            </VanAnCard>
+
             <!-- Delivery status card (from SignalR — shipper GPS) -->
             @if (_deliveryStatus != "Unknown" && _deliveryStatus != "Pending")
             {
@@ -213,6 +234,7 @@
 
     // Order status (from PG via polling — covers pending/preparing/ready/delivering/completed/cancelled)
     private string _orderStatus = "pending";
+    private string _paymentStatus = "pending";
     private string _tenantName = string.Empty;
     private decimal _orderTotal;
     private int _orderItemCount;
@@ -283,6 +305,7 @@
                 if (dto != null)
                 {
                     _orderStatus = dto.Status ?? "pending";
+                    _paymentStatus = (dto.PaymentStatus ?? "pending");
                     _tenantName = dto.TenantName ?? string.Empty;
                     _orderTotal = dto.TotalPrice;
                     _orderItemCount = dto.ItemCount;
@@ -502,6 +525,26 @@
         "Delivered" => "Đã giao thành công",
         "Failed" => "Giao thất bại",
         _ => "Đang chờ"
+    };
+
+    private string GetPaymentBadgeClass(string status) => status?.ToLowerInvariant() switch
+    {
+        "paid" => "bg-success",
+        "confirmed" => "bg-success",
+        "pending" => "bg-warning text-dark",
+        "failed" => "bg-danger",
+        "refunded" => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private string GetPaymentText(string status) => status?.ToLowerInvariant() switch
+    {
+        "paid" => "Đã thanh toán",
+        "confirmed" => "Đã thanh toán",
+        "pending" => "Chờ thanh toán",
+        "failed" => "Thanh toán thất bại",
+        "refunded" => "Đã hoàn tiền",
+        _ => "Chờ thanh toán"
     };
 
     private static string FormatVND(decimal amount) => $"{amount:N0} ₫";

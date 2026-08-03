@@ -8,12 +8,23 @@
 @inject IShopFeatureSettingsService SettingsService
 @inject ITenantProvider TenantProvider
 @inject ILogger<ShopFeatures> Logger
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Cấu hình tính năng Shop</PageTitle>
 
 <div class="shop-features-page" data-testid="shop-features-page">
     <header class="page-header">
         <h1>Cấu hình tính năng Shop</h1>
+        @if (_isSystemAdmin && TenantProvider.HasTenant)
+        {
+            <div class="mt-2">
+                <VanAButton Variant="primary" Size="small" OnClick="ImpersonateCurrentTenantAsync" IsLoading="@_impersonating">
+                    <i class="bi bi-person-badge me-1"></i> Impersonate tenant này
+                </VanAButton>
+            </div>
+        }
     </header>
 
     @if (!TenantProvider.HasTenant)
@@ -344,11 +355,17 @@
     private bool loading = true;
     private string? successMessage;
     private string? errorMessage;
+    private bool _isSystemAdmin;
+    private bool _impersonating;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
+            // Role check: SystemAdmin sees impersonate button
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _isSystemAdmin = authState.User.IsInRole("SystemAdmin");
+
             Guid tenantId = TenantProvider.TenantId;
             settings = await SettingsService.GetSettingsAsync(tenantId);
         }
@@ -377,6 +394,39 @@
         {
             Logger.LogError(ex, "Error saving shop feature settings");
             errorMessage = "Không thể lưu cấu hình. Vui lòng thử lại.";
+        }
+    }
+
+    /// <summary>
+    /// SystemAdmin impersonates the tenant currently loaded in TenantProvider.
+    /// POSTs /api/admin/impersonate/{tenantId} with cookie auth, then force-reloads to home
+    /// so the impersonation takes effect on the auth cookie.
+    /// </summary>
+    private async Task ImpersonateCurrentTenantAsync()
+    {
+        _impersonating = true;
+        try
+        {
+            Guid tenantId = TenantProvider.TenantId;
+            var client = HttpClientFactory.CreateClient("CookieForwarding");
+            var response = await client.PostAsync($"/api/admin/impersonate/{tenantId}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                NavigationManager.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = $"Không thể impersonate tenant: {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to impersonate tenant {TenantId}", TenantProvider.TenantId);
+            errorMessage = $"Lỗi kết nối: {ex.Message}";
+        }
+        finally
+        {
+            _impersonating = false;
         }
     }
 }

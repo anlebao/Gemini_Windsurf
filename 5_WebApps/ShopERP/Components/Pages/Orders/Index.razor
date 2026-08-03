@@ -179,6 +179,12 @@
                                         ✔️ Hoàn tất
                                     </VanAButton>
                                 }
+                                @if (o.PaymentStatus == "Pending" && o.Status != "cancelled")
+                                {
+                                    <VanAButton Variant="primary" Size="small" OnClick="@(() => ConfirmPaymentInline(o.Id))" data-testid="btn-confirm-payment-inline">
+                                        💰 Đã thanh toán
+                                    </VanAButton>
+                                }
                                 @if (o.Status is "pending" or "confirmed" or "preparing" or "ready")
                                 {
                                     <VanAButton Variant="error" Size="small" OnClick="@(() => TransitionOrder(o.Id, "cancelled"))" data-testid="btn-cancel-order">
@@ -434,6 +440,26 @@
     private async Task ConfirmOrder(Guid orderId)
     {
         await TransitionOrder(orderId, "confirmed");
+    }
+
+    /// <summary>
+    /// Inline payment confirmation from list page — same logic as Detail.razor ConfirmPayment.
+    /// Calls IOrderService.ConfirmPaymentAsync → accounting entries + PaymentConfirmed broadcast.
+    /// </summary>
+    private async Task ConfirmPaymentInline(Guid orderId)
+    {
+        try
+        {
+            Guid tenantId = TenantProvider.TenantId;
+            string transactionId = $"MANUAL_{orderId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+            await OrderService.ConfirmPaymentAsync(orderId, tenantId, transactionId);
+            await ReloadOrders();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error confirming payment for order {OrderId} from list", orderId);
+            errorMessage = $"Lỗi thanh toán: {ex.Message}";
+        }
     }
 
     /// <summary>
