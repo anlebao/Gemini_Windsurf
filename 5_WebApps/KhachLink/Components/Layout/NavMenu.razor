@@ -3,6 +3,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject CommunityHttpService CommunityHttp
+@inject LoyaltyModeHttpService LoyaltyModeHttp
 
 <!-- Desktop sidebar nav (hidden on mobile via parent .khachlink-sidebar) -->
 <div class="nav-desktop">
@@ -41,11 +42,14 @@
                     <span class="bi bi-gift me-2" aria-hidden="true"></span> Đổi điểm
                 </NavLink>
             </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="/alliance-wallet">
-                    <span class="bi bi-globe2 me-2" aria-hidden="true"></span> Ví liên minh
-                </NavLink>
-            </div>
+            @if (_isAllianceMode)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="/alliance-wallet">
+                        <span class="bi bi-globe2 me-2" aria-hidden="true"></span> Ví liên minh
+                    </NavLink>
+                </div>
+            }
             <div class="nav-item">
                 <NavLink class="nav-link" href="/stores">
                     <span class="bi bi-geo-alt me-2" aria-hidden="true"></span> Cửa hàng
@@ -140,10 +144,13 @@
         <i class="bi bi-bag"></i>
         <span>Đơn hàng</span>
     </a>
-    <a class="mobile-tab-item @IsActive("/alliance-wallet")" href="/alliance-wallet">
-        <i class="bi bi-globe2"></i>
-        <span>Liên minh</span>
-    </a>
+    @if (_isAllianceMode)
+    {
+        <a class="mobile-tab-item @IsActive("/alliance-wallet")" href="/alliance-wallet">
+            <i class="bi bi-globe2"></i>
+            <span>Liên minh</span>
+        </a>
+    }
     <a class="mobile-tab-item @IsActive("/stores")" href="/stores">
         <i class="bi bi-geo-alt"></i>
         <span>Cửa hàng</span>
@@ -283,11 +290,16 @@
     private bool _isShipper = false;
     private bool _isSalesman = false;
     private bool _isShopOwner = false;
+    private bool _isAllianceMode = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            // Query loyalty mode (cached 5 min) — hide "Ví liên minh" when Silo
+            try { _isAllianceMode = await LoyaltyModeHttp.IsAllianceModeAsync(); }
+            catch { _isAllianceMode = false; /* safe default: hide */ }
+
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             _isLoggedIn = !string.IsNullOrEmpty(token);
             if (_isLoggedIn)

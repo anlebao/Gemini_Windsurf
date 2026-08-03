@@ -6,6 +6,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject AllianceWalletHttpService AllianceWalletHttp
+@inject LoyaltyModeHttpService LoyaltyModeHttp
 @using Microsoft.AspNetCore.Components.Web
 
 <PageTitle>Ví điểm liên minh</PageTitle>
@@ -19,7 +20,19 @@
             Điểm thưởng tích lũy trên các cửa hàng trong liên minh Vạn An. Tích điểm tại quán A, đổi quà tại quán B.
         </p>
 
-        @if (_loading)
+        @if (_isSiloMode)
+        {
+            <VanAnCard Shadow="true" CssClass="text-center p-5">
+                <i class="bi bi-slash-circle text-muted" style="font-size:3rem;"></i>
+                <h5 class="mt-3">Tính năng liên minh đang tắt</h5>
+                <p class="text-muted">
+                    Hệ thống đang hoạt động ở chế độ Silo (điểm thưởng riêng từng cửa hàng).
+                    Ví liên minh không khả dụng lúc này.
+                </p>
+                <VanAnButton Variant="ButtonVariant.Primary" OnClick="GoToLoyaltyCard">Xem điểm thưởng của tôi</VanAnButton>
+            </VanAnCard>
+        }
+        else if (_loading)
         {
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div>
@@ -160,6 +173,7 @@
     private bool _loading = true;
     private bool _isLoggedIn;
     private bool _notInAlliance;
+    private bool _isSiloMode;
     private string? _error;
     private string? _customerToken;
     private AllianceWalletHttpService.AllianceWalletResponse? _wallet;
@@ -180,6 +194,10 @@
         _error = null;
         try
         {
+            // Check loyalty mode first — if Silo, show "not available" without further API calls
+            _isSiloMode = !await LoyaltyModeHttp.IsAllianceModeAsync();
+            if (_isSiloMode) { _loading = false; return; }
+
             _customerToken = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             if (string.IsNullOrEmpty(_customerToken))
             {

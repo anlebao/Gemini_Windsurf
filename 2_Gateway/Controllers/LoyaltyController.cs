@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Services;
 
@@ -11,6 +13,8 @@ namespace VanAn.Gateway.Controllers
     /// Forwards X-Customer-Token from KhachLink to ShopERP's LoyaltyController.
     /// Tiered Auth Phase 2: adds POST /api/loyalty/redeem forwarding.
     /// Loyalty Alliance Phase 3B: adds GET /api/loyalty/wallet (PG AllianceWallet query).
+    /// Adds GET /api/loyalty/mode — public endpoint for KhachLink to query global LoyaltyMode
+    /// (UI hides "Ví liên minh" when mode=Silo to avoid customer confusion).
     /// </summary>
     [ApiController]
     [Route("api/loyalty")]
@@ -18,11 +22,26 @@ namespace VanAn.Gateway.Controllers
     public class LoyaltyController(
         IHttpClientFactory httpClientFactory,
         IAllianceWalletService allianceWalletService,
+        IVanAnDbContext dbContext,
         ILogger<LoyaltyController> logger) : ControllerBase
     {
         private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
         private readonly IAllianceWalletService _allianceWalletService = allianceWalletService;
+        private readonly IVanAnDbContext _dbContext = dbContext;
         private readonly ILogger<LoyaltyController> _logger = logger;
+
+        /// <summary>
+        /// GET /api/loyalty/mode — returns the global LoyaltyMode (Silo | Alliance).
+        /// Public (anonymous) — KhachLink calls this on startup to decide whether
+        /// to show "Ví liên minh" menu/icon. When mode=Silo, alliance wallet UI is hidden.
+        /// </summary>
+        [HttpGet("mode")]
+        public async Task<IActionResult> GetGlobalMode()
+        {
+            var config = await _dbContext.LoyaltyGlobalConfigs.FirstOrDefaultAsync();
+            var mode = config?.Mode ?? LoyaltyMode.Silo;
+            return Ok(new { mode = mode.ToString() });
+        }
 
         [HttpGet("my")]
         public async Task<IActionResult> GetMyLoyalty()

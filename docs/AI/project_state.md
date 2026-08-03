@@ -30,9 +30,11 @@
 
 ## 2. Current Objective
 
-**No active objective.** Last completed objective: UI Fix Batch (5 issues) — COMPLETE + VPS VERIFIED (RV 7/7 PASS, commit `6179fdd7`, 2026-08-03). Ready for next feature request or Alliance mode activation testing.
+**No active objective.** Last completed: KhachLink UI Polish (footer dedup + Home search fix) — COMPLETE (commits `29180a53` + `482e481f`, 2026-08-03). Ready for next feature request or Alliance mode activation testing.
 
 **Recently completed (full detail in archive):**
+- **KhachLink UI Polish** — COMPLETE (commits `29180a53` + `482e481f`, 2026-08-03). (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter) + restructured render tree (search box always visible, was hidden after search). Build 0 errors.
+- **Order Status Sync Fix** — COMPLETE (commit `29180a53`, 2026-08-03). Payment status + completion status not propagating to KhachLink. ConfirmPaymentAsync now enqueues OrderPaymentStatusChanged outbox event. SyncOrderCompletedAsync fixed camelCase property names. Added order.payment.status.changed case in DataSyncSubscriber.
 - **UI Fix Batch (5 issues)** — COMPLETE + VPS VERIFIED (RV 7/7 PASS, commit `6179fdd7`, 2026-08-03). 5 UI issues fixed across ShopERP + KhachLink + UI.Platform. 11 files modified. Pre-push CI ALL PASSED (994s). CD SUCCESS. VPS RV 7/7 PASS.
 - **Loyalty Consistency Fix** — COMPLETE + VPS VERIFIED (RV 37/37 PASS, 2026-08-03). 9 bugs (BUG #0-#9) fixed via 2-layer execution. Architecture: Option B (HTTP proxy + cache + idempotency, multi-VPS ready). D1-D5 all APPROVED.
 - **Loyalty Alliance System** — ALL 7 PHASES COMPLETE + DEPLOYED + VERIFIED (commits `2e2eaa4e` → `25a70b9f`, RV 14/14 PASS). Phase 1 (Domain+EF+Migration) → Phase 2A-2C (Mode routing + Wallet + Sync) → Phase 3A-3B (Admin API + Customer API) → Phase 4 (Mode Switch Migration) → Phase 5A-5B (Admin UI + Customer UI) → Phase 6A-6B (Unit + E2E tests) → Phase 7 (VPS RV). FULLY OPERATIONAL — tenant currently in Silo mode, Alliance infrastructure ready.
@@ -54,8 +56,8 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `6179fdd7` fix(ui): 5 issues — impersonate, store search, payment status, QR cart, POS font+QR
-- **Working tree:** Clean (unrelated handover docs + CRM guide edits pending — not part of UI fix batch).
+- **Last commit:** `482e481f` test: update ConfirmPaymentAsync test + Home.razor search fix
+- **Working tree:** Clean. Branch ahead of origin/main by 2 commits (not yet pushed).
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -196,7 +198,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `6179fdd7` (fix(ui): 5 issues). UI Fix Batch COMPLETE: 5 issues fixed across 11 files. Pre-push CI ALL PASSED (994s). GitHub Actions CD: SUCCESS. VPS RV 7/7 PASS. Loyalty Consistency Fix COMPLETE (RV 37/37 PASS, commit `70897151`). Loyalty Alliance System Phase 1-7 COMPLETE (commits `2e2eaa4e` → `25a70b9f`). Build 0 errors. Working tree clean (unrelated handover docs pending).
+- **Verified Facts:** Branch=`main`, last commit `482e481f` (test + Home.razor search fix). KhachLink UI Polish COMPLETE: NavMenu footer dedup (4 icons removed) + Home.razor store search fix (`@bind:event="oninput"` + render tree restructure). Order Status Sync Fix COMPLETE (commit `29180a53`). UI Fix Batch COMPLETE (RV 7/7 PASS, commit `6179fdd7`). Loyalty Consistency Fix COMPLETE (RV 37/37 PASS). Loyalty Alliance System Phase 1-7 COMPLETE. Build 0 errors. Working tree clean. Branch ahead of origin/main by 2 commits (not yet pushed).
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (80+), Open Questions (0) < 3
 
@@ -206,7 +208,8 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
 
-* **2026-08-03 — PROJECT STATE ARCHIVED (reduction 395 → ~280 lines).** Moved all Section 2 "Previous:" objectives (full detail), Section 3 per-sprint status items, and Section 10 maintenance log entries (2026-07-26 → 2026-08-03) to `docs/AI/project_state_archive.md` under new "Archived 2026-08-03" section. Kept: Section 0 (rules), 1 (overview), 2 (current objective = none active + brief completion list), 3 (status essentials), 4 (next actions), 5 (architecture decisions + 5a deployment modes), 6 (compressed history log), 7 (active files), 8 (architecture quick ref), 9 (health check), 10 (this entry only — full log in archive). Branch: `main`. Last commit: `6179fdd7`.
+* **2026-08-03 — KHACHLINK UI POLISH + HOME SEARCH FIX COMPLETE (commits `29180a53` + `482e481f`).** (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. Mobile bottom-nav reduced from 10 → 6 tabs. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter due to binding race condition) + restructured render tree (search box always visible above results, was hidden inside `else if` conditional after search). No-results message now distinguishes location vs keyword search. Build 0 errors. (3) Order Status Sync Fix: ConfirmPaymentAsync enqueues OrderPaymentStatusChanged outbox event + SyncOrderCompletedAsync camelCase fix + order.payment.status.changed case in DataSyncSubscriber. Branch: `main`. Last commit: `482e481f`. Not yet pushed.
+* **2026-08-03 — PROJECT STATE ARCHIVED (reduction 395 → ~280 lines).** Moved all Section 2 "Previous:" objectives (full detail), Section 3 per-sprint status items, and Section 10 maintenance log entries (2026-07-26 → 2026-08-03) to `docs/AI/project_state_archive.md` under new "Archived 2026-08-03" section. Branch: `main`. Last commit: `6179fdd7`.
 * **2026-08-03 — UI FIX BATCH (5 ISSUES) COMPLETE + VPS VERIFIED (RV 7/7 PASS, commit `6179fdd7`).** 5 UI issues fixed across 11 files. Pre-push CI ALL PASSED (994s). CD SUCCESS. VPS RV 7/7 PASS. (Full detail in archive.)
 * **2026-08-03 — LOYALTY CONSISTENCY FIX COMPLETE + VPS VERIFIED (RV 37/37 PASS).** 9 bugs fixed via 2-layer execution. Option B HTTP proxy + cache + idempotency. (Full detail in archive.)
 * **2026-08-02 — LOYALTY ALLIANCE PHASE 7 COMPLETE + RV 14/14 PASS (commit `25a70b9f`).** ALL 7 PHASES COMPLETE + DEPLOYED + VERIFIED. (Full detail in archive.)

@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using VanAn.CoreHub.Infrastructure;
 using VanAn.Gateway.Controllers;
 using VanAn.Shared.Domain;
 using VanAn.Shared.Domain.Common;
@@ -75,9 +76,12 @@ public class LoyaltyWalletControllerTests
         walletMock.Setup(w => w.GetTransactionsAsync(It.IsAny<Guid>(), It.IsAny<int>()))
             .ReturnsAsync(transactions ?? new List<AllianceTransaction>());
 
+        var dbContextMock = new Mock<IVanAnDbContext>();
+
         var controller = new LoyaltyController(
             httpClientFactoryMock.Object,
             walletMock.Object,
+            dbContextMock.Object,
             NullLogger<LoyaltyController>.Instance);
 
         // Set up X-Customer-Token header
@@ -174,9 +178,11 @@ public class LoyaltyWalletControllerTests
         httpClientFactoryMock.Setup(f => f.CreateClient("shoperp")).Returns(httpClient);
 
         var walletMock = new Mock<IAllianceWalletService>();
+        var dbContextMock = new Mock<IVanAnDbContext>();
         var controller = new LoyaltyController(
             httpClientFactoryMock.Object,
             walletMock.Object,
+            dbContextMock.Object,
             NullLogger<LoyaltyController>.Instance);
         controller.ControllerContext = new ControllerContext
         {

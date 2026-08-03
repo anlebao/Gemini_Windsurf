@@ -76,6 +76,8 @@ namespace VanAn.KhachLink
             _ = builder.Services.AddScoped<Services.Http.WalletHttpService>();
             // Loyalty Alliance Phase 5B: cross-tenant alliance wallet (points) HTTP client
             _ = builder.Services.AddScoped<Services.Http.AllianceWalletHttpService>();
+            // Loyalty mode resolver — KhachLink hides "Ví liên minh" UI when mode=Silo
+            _ = builder.Services.AddScoped<Services.Http.LoyaltyModeHttpService>();
             // CC-S6-T5 — Collaborator SMS OTP verification
             _ = builder.Services.AddScoped<Services.Http.CollaboratorVerificationHttpService>();
             _ = builder.Services.AddScoped<Services.LocationTrackingService>();

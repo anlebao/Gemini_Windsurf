@@ -7,6 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 @inject SocialAuthHttpService SocialAuthHttp
+@inject LoyaltyModeHttpService LoyaltyModeHttp
 @using Microsoft.AspNetCore.Components.Web
 
 <PageTitle>Điểm thưởng của tôi</PageTitle>
@@ -50,14 +51,17 @@
                 </div>
             </VanAnCard>
 
-            @* Loyalty Alliance Phase 5B: link to cross-tenant alliance wallet *@
-            <VanAnCard Shadow="true" CssClass="mb-3 text-center p-3">
-                <a href="/alliance-wallet" class="text-decoration-none">
-                    <i class="bi bi-globe2 text-primary"></i>
-                    <span class="ms-1">Xem ví điểm liên minh (cross-tenant)</span>
-                    <i class="bi bi-chevron-right text-muted small"></i>
-                </a>
-            </VanAnCard>
+            @* Loyalty Alliance Phase 5B: link to cross-tenant alliance wallet (hidden when Silo mode) *@
+            @if (_isAllianceMode)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3 text-center p-3">
+                    <a href="/alliance-wallet" class="text-decoration-none">
+                        <i class="bi bi-globe2 text-primary"></i>
+                        <span class="ms-1">Xem ví điểm liên minh (cross-tenant)</span>
+                        <i class="bi bi-chevron-right text-muted small"></i>
+                    </a>
+                </VanAnCard>
+            }
 
             @* Tiered Auth Phase 3: Redeem section with verification gate *@
             <VanAnCard Shadow="true" CssClass="mb-4">
@@ -142,6 +146,7 @@
 @code {
     private bool _loading = true;
     private bool _isLoggedIn = false;
+    private bool _isAllianceMode = false;
     private LoyaltyData? _loyalty;
 
     // Tiered Auth Phase 3: Redeem state
@@ -174,6 +179,10 @@
     {
         try
         {
+            // Query loyalty mode (cached 5 min) — hide alliance wallet link when Silo
+            try { _isAllianceMode = await LoyaltyModeHttp.IsAllianceModeAsync(); }
+            catch { _isAllianceMode = false; }
+
             var token = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_token");
             if (string.IsNullOrEmpty(token)) { _isLoggedIn = false; return; }
 
