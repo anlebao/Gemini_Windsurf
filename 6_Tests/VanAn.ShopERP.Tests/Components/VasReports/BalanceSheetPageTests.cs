@@ -10,7 +10,7 @@ namespace VanAn.ShopERP.Tests.Components.VasReports;
 /// <summary>
 /// W6 TDD — bUnit tests for BalanceSheet.razor page.
 /// Tests written BEFORE implementation. Page must:
-///   - Render page header "Bảng Cân Đối Kế Toán"
+///   - Render page header "Báo Cáo Tình Hình Tài Chính"
 ///   - Render period picker (year + month dropdowns)
 ///   - Render Assets/Liabilities/Equity sections with VanAnDataGrid
 ///   - Render totals (TotalAssets, TotalLiabilitiesAndEquity)
@@ -19,7 +19,7 @@ namespace VanAn.ShopERP.Tests.Components.VasReports;
 [Trait("Category", "VASReportsUI")]
 public class BalanceSheetPageTests : VasReportPageTestBase
 {
-    [Fact(DisplayName = "W6-BS-1: Page renders header 'Bảng Cân Đối Kế Toán'")]
+    [Fact(DisplayName = "W6-BS-1: Page renders header 'Báo Cáo Tình Hình Tài Chính'")]
     public void Page_Renders_Header()
     {
         // Arrange — mock service returns sample BS
@@ -32,7 +32,7 @@ public class BalanceSheetPageTests : VasReportPageTestBase
         var cut = RenderWithReRender<VanAn.ShopERP.Components.Pages.Accounting.BalanceSheet>();
 
         // Assert
-        cut.Markup.Should().Contain("Bảng Cân Đối Kế Toán");
+        cut.Markup.Should().Contain("Báo Cáo Tình Hình Tài Chính");
     }
 
     [Fact(DisplayName = "W6-BS-2: Page renders period picker (year + month)")]

@@ -23,7 +23,7 @@ test.describe('Bug 2B — VAS Financial Reports Export Buttons', () => {
     await page.waitForLoadState('networkidle');
 
     // Page heading
-    await expect(page.getByRole('heading', { name: /Bảng Cân Đối Kế Toán/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Báo Cáo Tình Hình Tài Chính/i })).toBeVisible();
 
     // Export buttons
     await expect(page.getByRole('button', { name: /Xuất DOCX/i })).toBeVisible();

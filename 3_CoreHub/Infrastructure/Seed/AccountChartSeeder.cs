@@ -285,5 +285,10 @@ public static class AccountChartSeeder
 
         // Level-2 accounts for mapper (FIX-6)
         yield return ("1331", "Thuế GTGT đầu vào", AccountType.Asset, false); // FIX-6: level-2 for mapper
+
+        // TT 99 BĐSĐT sub-accounts (Phase 6 — TT 99/2025/TT-BTC)
+        // B 02-DN Mã 21 "Lãi/lỗ của hoạt động bán, thanh lý BĐS đầu tư" uses TK 5117/6327
+        yield return ("5117", "Doanh thu kinh doanh BĐS đầu tư", AccountType.Revenue, true);
+        yield return ("6327", "Giá vốn BĐS đầu tư", AccountType.Expense, false);
     }
 }

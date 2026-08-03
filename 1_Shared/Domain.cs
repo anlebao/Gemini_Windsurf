@@ -3326,7 +3326,7 @@ namespace VanAn.Shared.Domain
         bool IsNormalNegative       // Hiển thị số âm trong ngoặc đơn VD: (20,000,000)
     );
 
-    // ── 1. BẢNG CÂN ĐỐI KẾ TOÁN (Mẫu B01-DN / B01-DNN) ──────────────────────────────────
+    // ── 1. BÁO CÁO TÌNH HÌNH TÀI CHÍNH (Mẫu B01-DN / B01-DNN) ───────────────────────────
     // Invariant: TotalAssetsEnding == TotalLiabilitiesAndEquityEnding (enforced at factory/service in W4).
     // No IsBalanced flag — unbalanced data throws, never stored.
     public record BalanceSheet(

@@ -11,6 +11,7 @@
 @using VanAn.Shared.Domain.Common
 @inject VanAn.CoreHub.Services.IIncomeStatementService IncomeStatementService
 @inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
+@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JSRuntime
@@ -118,6 +119,20 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenantId = new TenantId(TenantProvider.TenantId);
+                var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
+                selectedStandard = tenantType switch
+                {
+                    TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
+                    _ => AccountingStandard.TT133_2016
+                };
+            }
+            catch { /* fallback TT133 */ }
+        }
         await GenerateReport();
     }
 

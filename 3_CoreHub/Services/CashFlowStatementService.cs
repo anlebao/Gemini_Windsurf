@@ -133,10 +133,13 @@ public class CashFlowStatementService : ICashFlowStatementService
 
     private static Activity ClassifyAccount(string accountCode)
     {
-        // Investing: long-term assets.
+        // Investing: long-term assets (TSCĐ, BĐS đầu tư, đầu tư dài hạn).
+        // TT 99 B 03-DN: BĐSĐT (TK 217) cash flows → Investing (Mã 21/22).
+        // BĐSĐT revenue (TK 5117) + cost (TK 6327) → Operating (revenue/expense, 5xx/6xx).
+        // BĐSĐT depreciation (TK 214) → Indirect method Mã 02 adjustment.
         if (accountCode.StartsWith("211", StringComparison.Ordinal)
             || accountCode.StartsWith("213", StringComparison.Ordinal)
-            || accountCode.StartsWith("217", StringComparison.Ordinal)
+            || accountCode.StartsWith("217", StringComparison.Ordinal) // BĐS đầu tư → Investing (verified TT 99)
             || accountCode.StartsWith("21", StringComparison.Ordinal)) // catch-all 21x (TSCĐ)
         {
             return Activity.Investing;

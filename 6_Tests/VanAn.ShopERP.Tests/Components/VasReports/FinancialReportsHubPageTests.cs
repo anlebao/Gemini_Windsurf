@@ -27,7 +27,7 @@ public class FinancialReportsHubPageTests : VasReportPageTestBase
     {
         var cut = RenderWithReRender<VanAn.ShopERP.Components.Pages.Accounting.FinancialReports>();
 
-        cut.Markup.Should().Contain("Bảng Cân Đối Kế Toán");
+        cut.Markup.Should().Contain("Báo Cáo Tình Hình Tài Chính");
         cut.Markup.Should().Contain("/accounting/balance-sheet");
     }
 

@@ -38,6 +38,14 @@
         // Inherit (-1): use GlobalCommerceMode (default). Marketplace (0): ép Marketplace. Reseller (1): ép Reseller.
         public CommerceMode CommerceModeOverride { get; private set; } = CommerceMode.Inherit;
 
+        // TT 99 B 09-DN Phần I — Enterprise profile fields for Bản thuyết minh BCTC (Phase 5a)
+        // LegalForm: Hình thức sở hữu vốn (VD: "Công ty TNHH", "Công ty Cổ phần")
+        // BusinessField: Lĩnh vực kinh doanh (VD: "F&B", "Thương mại", "Sản xuất")
+        // CharterCapital: Vốn điều lệ (VND) — used in Phần IV.21 (Vốn CSH)
+        public string? LegalForm { get; private set; }
+        public string? BusinessField { get; private set; }
+        public decimal? CharterCapital { get; private set; }
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 

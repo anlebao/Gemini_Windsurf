@@ -11,6 +11,7 @@
 @using VanAn.Shared.Domain.Common
 @inject VanAn.CoreHub.Services.IBalanceSheetService BalanceSheetService
 @inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
+@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
 @inject IJSRuntime JSRuntime
@@ -18,7 +19,7 @@
 
 <div class="report-page @ThemeProvider.CurrentTheme">
     <header class="page-header">
-        <h1>Bảng Cân Đối Kế Toán</h1>
+        <h1>Báo Cáo Tình Hình Tài Chính</h1>
         <div class="header-actions">
             <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">
                 🔄 Tạo báo cáo
@@ -57,7 +58,7 @@
     @if (loading)
     {
         <VanACard Header="Đang tạo báo cáo">
-            <p>Đang tạo Bảng Cân Đối Kế Toán cho kỳ @selectedMonth/@selectedYear...</p>
+            <p>Đang tạo Báo Cáo Tình Hình Tài Chính cho kỳ @selectedMonth/@selectedYear...</p>
         </VanACard>
     }
     else if (report != null)
@@ -170,6 +171,21 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // TT 99 Phase 2: auto-select standard theo Tenant.Type
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenantId = new TenantId(TenantProvider.TenantId);
+                var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
+                selectedStandard = tenantType switch
+                {
+                    TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
+                    _ => AccountingStandard.TT133_2016
+                };
+            }
+            catch { /* fallback TT133 */ }
+        }
         await GenerateReport();
     }
 
@@ -197,7 +213,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error generating Balance Sheet for period {Year}-{Month}", selectedYear, selectedMonth);
-            errorMessage = "Không thể tạo Bảng Cân Đối Kế Toán. Vui lòng thử lại.";
+            errorMessage = "Không thể tạo Báo Cáo Tình Hình Tài Chính. Vui lòng thử lại.";
         }
         finally
         {
@@ -224,7 +240,7 @@
                 ("NỢ PHẢI TRẢ", report.Liabilities.ToList()),
                 ("VỐN CHỦ SỞ HỮU", report.Equity.ToList())
             };
-            return await ExportService.ExportStatementToDocxAsync("Bảng Cân Đối Kế Toán", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+            return await ExportService.ExportStatementToDocxAsync("Báo Cáo Tình Hình Tài Chính", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
         }, $"BalanceSheet_{selectedYear}_{selectedMonth:D2}.docx");
     }
 
@@ -239,7 +255,7 @@
                 ("NỢ PHẢI TRẢ", report.Liabilities.ToList()),
                 ("VỐN CHỦ SỞ HỮU", report.Equity.ToList())
             };
-            return await ExportService.ExportStatementToXlsxAsync("Bảng Cân Đối Kế Toán", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+            return await ExportService.ExportStatementToXlsxAsync("Báo Cáo Tình Hình Tài Chính", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
         }, $"BalanceSheet_{selectedYear}_{selectedMonth:D2}.xlsx");
     }
 

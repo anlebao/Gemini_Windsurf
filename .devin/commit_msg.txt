@@ -1,27 +1,17 @@
-fix(orderworkflow): confirm-received 404 when order already completed/delivered
+fix(khachlink): hide Alliance Wallet UI when LoyaltyMode=Silo
 
-Root cause: OrderWorkflowController.ConfirmReceived called
-TransitionStatusAsync(orderId, "delivered") unconditionally. When order
-was already in terminal status (completed/delivered) — e.g. kitchen
-staff marked it completed while customer still had the confirm button
-visible — the transition completed→delivered is invalid (completed is
-terminal with [] transitions) → returned null → 404.
+When SystemAdmin sets LoyaltyMode=Silo, KhachLink now hides all
+Alliance Wallet UI to prevent customer confusion:
 
-Worse, KhachLink OrderTracking stored the error in `errorMessage` which
-replaced the entire order details panel with "Không tìm thấy đơn hàng",
-hiding the actual order from the customer.
+- NavMenu.razor: hide Alliance Wallet tab (desktop sidebar + mobile bottom-nav)
+- LoyaltyCard.razor: hide cross-tenant alliance wallet link card
+- AllianceWallet.razor: direct-nav guard shows feature-off message
 
-Fix 1 (ShopERP OrderWorkflowController): ConfirmReceived now checks
-current status first via GetOrderAsync. If already delivered/completed,
-returns 200 success (idempotent, no-op). Only attempts transition if
-order is in a non-terminal state.
+New public endpoint: GET /api/loyalty/mode (anonymous) returns global
+LoyaltyMode (Silo | Alliance). KhachLink queries this on page load
+via LoyaltyModeHttpService (cached 5 min, defaults to Silo on error).
 
-Fix 2 (KhachLink OrderTracking): Separated action-level errors
-(_actionError) from page-level errors (errorMessage). Action errors
-now show as inline dismissible VanAnAlert below the confirm button,
-preserving order details visibility.
-
-Validation: dotnet build 0 errors, guard-check ALL PASSED.
+Build: 0 errors. LoyaltyWalletControllerTests updated for new ctor param.
 
 Generated with [Devin](https://devin.ai)
 
