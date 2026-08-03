@@ -100,12 +100,13 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — TT99 Compliance Fixes)** Implement TT 99/2025/TT-BTC compliance fixes per master plan + 7 task cards:
-   - **Wave 1 (4-way parallel):** Phase 5a (TenantSettings extension) + Phase 1 (rename B 01-DN, 7 files) + Phase 2 (auto-standard via IVasFeatureFlagService, split TrialBalance) + Phase 6 (seed TK 5117/6327 + BĐSĐT indicator)
-   - **Wave 2:** Phase 3 (B 03-DN indirect method, 10 files, inject 2 services)
-   - **Wave 3:** Phase 4 (TT 99 template structure refactor, 33 tests to update)
-   - **Wave 4:** Phase 5 (B 09-DN Thuyết minh BCTC, depends on Phase 5a + Phase 4)
-   - **4 open questions for user:** (1) TT58 dropdown skip or info msg? (2) BĐSĐT Mã số source? (3) Approve TenantSettings extension? (4) OK to update W7 tests?
+1. **(CURRENT — TT99 Compliance Fixes)** Implement TT 99/2025/TT-BTC compliance fixes per master plan + 7 task cards (ALL VERIFIED against official Phụ lục IV):
+   - **Wave 1 (4-way parallel, ~2h):** Phase 1 (rename B 01-DN, 7 files) + Phase 5a (TenantSettings extension) + Phase 6 (seed TK 5117/6327 + verify BĐSĐT classification) + Phase 2 (auto-standard via IVasFeatureFlagService + split TrialBalance)
+   - **Wave 2 (2-3 sessions):** Phase 4 (TT 99 template structure refactor, 33 tests to update) — foundation for all reports
+   - **Wave 3 (1 session):** Phase 3 (B 03-DN indirect method, 10 files, inject 2 services) — builds on Phase 4
+   - **Wave 4 (2-3 sessions):** Phase 5 (B 09-DN Thuyết minh BCTC, depends on Phase 5a + Phase 4) — new report
+   - **Official templates VERIFIED:** REFERENCE_B01DN/B02DN/B03DN/B09DN_official.md (from vplsdms.vn Phụ lục IV TT 99)
+   - **Key revisions after verification:** Phase 4 Mã số was ~60% wrong (now fixed); Phase 5 structure changed (I,II,III,IV,X not I-V); Phase 6 Mã "75" does NOT exist (BĐSĐT handled via B 02 Mã 21 + B 03 Mã 21/22)
 2. **(Previous — Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows):
    - Phase 0: Log in → accounting pages → verify no deadlock/hang.
    - Phase 1: Company tenant → "Sổ HKD" menu hidden; HKD tenant → visible.
