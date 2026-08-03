@@ -74,3 +74,36 @@ if (Math.Abs(bdsdtNet) > 0.005m)
 ## Notes
 - **INVESTIGATE:** Verify TK 5117 + 6327 có trong `AccountChartSeeder.cs` không. Nếu chưa có, cần thêm.
 - **INVESTIGATE:** Verify Mã số TT 99 cho chỉ tiêu BĐSĐT (task card dùng "75" — cần confirm từ Phụ lục IV).
+
+---
+
+## ANALYZE UPDATE (2026-08-03)
+
+### Verified Accurate
+- ✅ `CashFlowStatementService` has NO BĐSĐT handling (grep "217"/"5117"/"6327" → 0 matches)
+- ✅ TK 217 exists in seeder (line 223 TT99)
+- ✅ `CashFlowStatement` record does NOT need change — `OperatingActivities` already `IEnumerable<FinancialStatementLine>`
+- ✅ `NetChange` = `ClosingCash - OpeningCash` (NOT sum of activities) — adding line has NO impact on totals
+
+### DRIFT: TK 5117 + 6327 MISSING from Seeder
+Task card assumed these exist. They do NOT. Web search confirms they exist in official TT 99:
+- TK 5117: "Doanh thu kinh doanh BĐSĐT" — **MISSING from seeder**
+- TK 6327: "Giá vốn BĐSĐT" — **MISSING from seeder**
+- TK 2147: "Hao mòn BĐSĐT" — also missing (consider adding)
+
+### Prerequisite: Seed TK 5117 + 6327 BEFORE service implementation
+```csharp
+// Add to AccountChartSeeder.GetTt99Accounts()
+yield return ("5117", "Doanh thu kinh doanh BĐSĐT", AccountType.Revenue, true);
+yield return ("6327", "Giá vốn BĐSĐT", AccountType.Expense, false);
+```
+
+### OPEN QUESTION: Mã số "75" is UNVERIFIED
+Cannot confirm without official Phụ lục IV file. Must verify before implementation OR use as placeholder pending official source.
+
+### Updated Files (3 → 3, but seeder is new)
+| File | Changes |
+|------|---------|
+| `3_CoreHub/Infrastructure/Seed/AccountChartSeeder.cs` | **ADD**: TK 5117, TK 6327 (NEW — was not in original task card) |
+| `3_CoreHub/Services/CashFlowStatementService.cs` | Add BĐSĐT indicator in OperatingActivities |
+| `5_WebApps/ShopERP/Components/Pages/Accounting/CashFlowStatement.razor` | Auto-display (no change needed) |

@@ -209,3 +209,33 @@ Tách thành 3 commits (BS + IS + CFS) để rollback granular.
 ## Notes
 - **INVESTIGATE trước khi code:** cần verify chính xác cấu trúc Mã số TT 99 từ file Excel mẫu chính thức (Phụ lục IV TT 99). Task card này liệt kê cấu trúc dựa trên MISA + Grant Thornton, nhưng có thể có sai sót.
 - **Nên download file Excel mẫu** từ thuvienphapluat.vn hoặc MISA để verify chính xác trước khi implement.
+
+---
+
+## ANALYZE UPDATE (2026-08-03)
+
+### Verified Accurate
+- ✅ All 3 services use **flat account list** (not TT99 template) — confirmed
+- ✅ `BalanceSheetService`: flat per TK, AccountChart classification (lines 61-112)
+- ✅ `IncomeStatementService`: flat per TK, AccountChart classification (lines 65-126)
+- ✅ `CashFlowStatementService`: flat per offset account, hardcoded prefix rules (lines 134-155)
+- ✅ TK 215, 332, 128 all seeded in TT99 accounts
+- ✅ No `Tt99Template` or template mapping exists anywhere in codebase
+- ✅ TT58 intentionally NOT seeded (correct — TT58 abandons account system)
+
+### Reverse Impact: Callers of GenerateAsync
+- 3 UI pages: BalanceSheet.razor:190, IncomeStatement.razor:138, CashFlowStatement.razor:198
+- 3 API controllers: BalanceSheetsController:54, IncomeStatementsController:52, CashFlowStatementsController:51
+- `FinancialReportExportService` does NOT call services directly (receives data from UI)
+
+### Test Inventory (WILL NEED UPDATES — 33 tests total)
+| Service | Test File | Tests |
+|---------|-----------|-------|
+| BalanceSheet | `BalanceSheetServiceTests.cs` | 11 (W4_BS1-6, W7_BS1-5) |
+| IncomeStatement | `IncomeStatementServiceTests.cs` | 11 (W4_IS1-6, W7_IS1-5) |
+| CashFlow | `CashFlowStatementServiceTests.cs` | 11 (W4_CF1-6, W7_CF1-5) |
+| Multi-tenant | `VasMultiTenantTests.cs` | covers all 3 |
+| Architecture | `ArchitectureRulesTests.cs:307-309` | references all 3 |
+| UI pages | 3 page test files | BalanceSheet/IncomeStatement/CashFlow page tests |
+
+**Warning:** W7 tests have specific value assertions (e.g., `TotalAssetsEnding_HasSpecificValue`, `Account111_EndingBalance_MatchesExpected`). Template refactor changes line structure but totals should remain. W7 tests asserting line COUNT or specific account codes WILL BREAK and need updates.

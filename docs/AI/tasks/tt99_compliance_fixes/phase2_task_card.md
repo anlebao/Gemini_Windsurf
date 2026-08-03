@@ -124,3 +124,50 @@ protected override async Task OnInitializedAsync()
 
 ## Rollback
 `git revert <commit>` — UI logic only, không phá data.
+
+---
+
+## ANALYZE UPDATE (2026-08-03)
+
+### Verified Accurate
+- ✅ All 4 `selectedStandard = TT133_2016` at claimed lines (169/117/177/117)
+- ✅ All 4 dropdowns have exactly 2 options (TT133 + TT99), no TT58
+- ✅ `Tenant.Type` exists as `TenantType? Type` (nullable, private set)
+- ✅ `TenantType` enum: HKD=1, Enterprise_SuperSmall=2, Enterprise_SME=3, Enterprise_Large=4
+- ✅ `FinancialReports.razor` has 4 links in 1 card (needs split)
+
+### KEY FINDING: `IVasFeatureFlagService.GetTenantTypeAsync()` ALREADY EXISTS
+```csharp
+// VasFeatureFlagService.cs — already implements
+Task<TenantType?> GetTenantTypeAsync(TenantId tenantId, CancellationToken ct = default);
+```
+**Impact:** Task card's Option A (add TenantType to TenantApiDto + Gateway controller) is **NOT NEEDED**. Report pages can inject `IVasFeatureFlagService` directly (same as AccountingLayout.razor already does).
+
+### CRITICAL: TT58 Intentionally NOT Seeded
+`AccountChartSeeder.cs:12`: "TT 58/2026 NOT seeded — TT 58 'bỏ hoàn toàn hệ thống tài khoản kế toán, thay bằng sổ theo dõi đơn giản hóa' (C5)"
+
+**Revised Change 2:** Do NOT add TT58 option to dropdown. Instead:
+- Show info message: "TT 58/2026 sử dụng sổ theo dõi đơn giản hóa, không áp dụng BCTC mẫu"
+- OR simply skip TT58 (enum exists but no accounts → reports return empty)
+
+### Revised Implementation (simpler)
+```csharp
+// Inject IVasFeatureFlagService (already available, same as AccountingLayout)
+@inject IVasFeatureFlagService FeatureFlagService
+
+protected override async Task OnInitializedAsync()
+{
+    if (TenantProvider.HasTenant)
+    {
+        var tenantId = new TenantId(TenantProvider.TenantId);
+        var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
+        selectedStandard = tenantType switch
+        {
+            TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
+            _ => AccountingStandard.TT133_2016  // SME + SuperSmall + HKD fallback
+        };
+    }
+    await GenerateReport();
+}
+```
+**No DTO change, no Gateway controller change, no TenantApiDto change.**

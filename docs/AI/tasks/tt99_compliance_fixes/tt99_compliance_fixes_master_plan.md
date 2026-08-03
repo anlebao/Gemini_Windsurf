@@ -1,10 +1,11 @@
 # MASTER PLAN — TT 99/2025/TT-BTC Compliance Fixes (8 Gaps)
 
-> **Status:** 🟡 PLANNED — all 8 gaps identified + verified against official sources 2026-08-03
-> **Created:** 2026-08-03 · **Last Updated:** 2026-08-03
+> **Status:** 🟡 PLANNED + ANALYZE COMPLETE — 8 gaps identified, 6 task cards verified against codebase via parallel subagent investigation (2026-08-03). See `ANALYZE_REPORT_reverse_impact.md` for full findings.
+> **Created:** 2026-08-03 · **Last Updated:** 2026-08-03 (ANALYZE pass)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-phase feature branch, always-green main
 > **Source:** User request 2026-08-03 — verify codebase against TT 99/2025/TT-BTC (BCTC năm, DN hoạt động liên tục)
 > **Official sources verified:** MISA (amis.misa.vn), thuvienphapluat.vn, Grant Thornton, Bộ Tài chính (portal.mof.gov.vn), tanngoctax.vn
+> **Codebase verification:** 6 subagents verified all task card claims against actual files — see `ANALYZE_REPORT_reverse_impact.md`
 
 ---
 
@@ -49,20 +50,23 @@ Phase 3 (IMPLEMENT): Code + verify
 
 ## 1. EXECUTION RULES
 
-### Dependency chain
+### Dependency chain (REVISED after ANALYZE)
 ```
-Phase 1 (P0 — Rename B 01-DN) ──────────────────────────────┐
-Phase 2 (P4 — Auto-select standard + TT58 + tách TrialBalance)│ Independent, can run parallel
-Phase 3 (P2 — B 03-DN indirect method)                       │
-Phase 4 (P3 — TT 99 template structure refactor)             │  ← depends on Phase 1+2 (naming + standard)
-Phase 5 (P1 — B 09-DN Thuyết minh BCTC)                      │  ← independent (new report)
-Phase 6 (P2 — B 03-DN BĐSĐT indicator)                       │  ← depends on Phase 3 (cash flow structure)
-                                                              ┘
+Phase 5a (NEW — TenantSettings extension) ──┐
+Phase 1 (P0 — Rename B 01-DN)               │  Independent, parallel
+Phase 2 (P4 — Auto-standard + split TrialBalance) │
+Phase 6 (P2 — BĐSĐT, needs seeder update)   │
+                                             ┘
+Phase 3 (P2 — Indirect method) ← needs CashFlowStatementService DI change
+Phase 4 (P3 — Template structure) ← depends on Phase 1+2 (naming + standard)
+Phase 5 (P1 — B 09-DN Thuyết minh) ← depends on Phase 5a (Tenant fields) + Phase 4 (template for Phần IV)
 ```
 
-- **Phase 1 + 2 + 3 + 5** độc lập, có thể làm song song
+- **Phase 5a + 1 + 2 + 6** độc lập, có thể làm song song (4-way parallel)
+- **Phase 3** phụ thuộc service DI change (inject IBalanceSheetService + IIncomeStatementService)
 - **Phase 4** phụ thuộc Phase 1 (naming) + Phase 2 (standard selection)
-- **Phase 6** phụ thuộc Phase 3 (cash flow structure)
+- **Phase 5** phụ thuộc Phase 5a (Tenant fields) + Phase 4 (template for Phần IV giải thích)
+- **Phase 6** cần seed TK 5117/6327 trước (prerequisite trong AccountChartSeeder)
 - Mỗi phase xong: `dotnet build VanAn.sln` Release pass + `guard-check.ps1` pass + commit
 
 ### Session protocol
@@ -192,12 +196,13 @@ main ← feature/tt99-fix-phase6-bdsdt-indicator
 
 | Phase | Status | Commit | CI | CD | VPS RV | Notes |
 |-------|--------|--------|----|----|--------|-------|
-| Phase 1 (Rename B 01-DN) | 🟡 PLANNED | — | — | — | — | |
-| Phase 2 (Auto-standard + TT58 + tách TrialBalance) | 🟡 PLANNED | — | — | — | — | |
-| Phase 3 (B 03-DN indirect method) | 🟡 PLANNED | — | — | — | — | |
-| Phase 4 (TT 99 template structure) | 🟡 PLANNED | — | — | — | — | |
-| Phase 5 (B 09-DN Thuyết minh) | 🟡 PLANNED | — | — | — | — | |
-| Phase 6 (B 03-DN BĐSĐT indicator) | 🟡 PLANNED | — | — | — | — | |
+| Phase 5a (TenantSettings extension) | 🟡 PLANNED (NEW) | — | — | — | — | Prerequisite for Phase 5 |
+| Phase 1 (Rename B 01-DN) | 🟡 PLANNED + ANALYZED | — | — | — | — | 7 files (was 3) |
+| Phase 2 (Auto-standard + split TrialBalance) | 🟡 PLANNED + ANALYZED | — | — | — | — | Use IVasFeatureFlagService (no DTO change); TT58 → info msg |
+| Phase 3 (B 03-DN indirect method) | 🟡 PLANNED + ANALYZED | — | — | — | — | 10 files; inject 2 services |
+| Phase 4 (TT 99 template structure) | 🟡 PLANNED + ANALYZED | — | — | — | — | Large refactor; 11+ tests per service |
+| Phase 5 (B 09-DN Thuyết minh) | 🟡 PLANNED + ANALYZED | — | — | — | — | BLOCKER: needs Phase 5a first |
+| Phase 6 (B 03-DN BĐSĐT indicator) | 🟡 PLANNED + ANALYZED | — | — | — | — | Seed TK 5117/6327 first; Mã số "75" UNVERIFIED |
 
 ---
 

@@ -90,3 +90,23 @@ return await ExportService.ExportStatementToDocxAsync("Báo Cáo Tình Hình Tà
 
 ## Rollback
 `git revert <commit>` — chỉ đổi text, không phá logic.
+
+---
+
+## ANALYZE UPDATE (2026-08-03)
+
+### Verified Accurate
+- ✅ All 7 line numbers in task card are CORRECT
+- ✅ All text strings match exactly
+- ✅ `FinancialReportExportService.cs` accepts title as parameter (not hardcoded) — task card was right
+
+### DRIFT: 4 additional files contain "Bảng Cân Đối Kế Toán" (MISSING from task card)
+| File | Line | Context |
+|------|------|---------|
+| `5_WebApps/ShopERP/Components/Pages/Sitemap.razor` | 154 | `<span>Bảng Cân Đối Kế Toán (B01-DN)</span>` — user-facing nav |
+| `6_Tests/VanAn.ShopERP.Tests/Components/VasReports/BalanceSheetPageTests.cs` | 13, 22, 35 | Unit test assertions |
+| `6_Tests/VanAn.ShopERP.Tests/Components/VasReports/FinancialReportsHubPageTests.cs` | 30 | Hub link text assertion |
+| `6_Testing/e2e-tests/vas-export.spec.ts` | 26 | E2E heading assertion |
+
+### Updated File Count: 7 (was 3)
+**Action:** Add these 4 files to "Files to Modify" table above before implementing.

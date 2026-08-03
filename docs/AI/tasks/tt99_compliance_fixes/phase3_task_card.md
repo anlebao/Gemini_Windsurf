@@ -148,3 +148,45 @@ public async Task<CashFlowStatement> GenerateIndirectAsync(
 
 ## Rollback
 `git revert <commit>` — record change có thể phá existing data (Method field mới = default Direct). Verify migration không required (record, không phải entity EF).
+
+---
+
+## ANALYZE UPDATE (2026-08-03)
+
+### Verified Accurate
+- ✅ `CashFlowStatement` record at Domain.cs:3350-3356 — exact match
+- ✅ Service only has `GenerateAsync` (direct), no indirect
+- ✅ Service does NOT inject `IBalanceSheetService` or `IIncomeStatementService`
+- ✅ No UI toggle exists
+- ✅ `IncomeStatement` exposes `NetProfitEnding`/`NetProfitOpening`
+
+### CRITICAL: Service Dependency Gap
+`CashFlowStatementService` constructor must be changed to inject:
+- `IBalanceSheetService` — for account-level deltas (AR, Inventory, AP changes)
+- `IIncomeStatementService` — for NetProfit starting point
+
+```csharp
+// Current (line 27)
+public CashFlowStatementService(IAccountingDbContext dbContext, IAccountChartService accountChart, ILogger<CashFlowStatementService> logger)
+
+// Required
+public CashFlowStatementService(
+    IAccountingDbContext dbContext, IAccountChartService accountChart,
+    ILogger<CashFlowStatementService> logger,
+    IBalanceSheetService balanceSheetService,      // NEW
+    IIncomeStatementService incomeStatementService) // NEW
+```
+
+### Reverse Impact: 10 files
+| Priority | File | Change |
+|----------|------|--------|
+| 🔴 CRITICAL | `CashFlowStatementService.cs:120` | Add `Method: CashFlowMethod.Direct` to constructor |
+| 🔴 CRITICAL | `VasReportPageTestBase.cs:132` | Add `Method: CashFlowMethod.Direct` to test mock |
+| 🟡 REQUIRED | `ICashFlowStatementService.cs` | Add `GenerateIndirectAsync` signature |
+| 🟡 REQUIRED | `CashFlowStatementService.cs` constructor | Inject 2 new services |
+| 🟡 REQUIRED | `CashFlowStatement.razor` | Add method toggle |
+| 🟢 OPTIONAL | `CashFlowStatementsController.cs` | Add `method` query param |
+| 🟢 OPTIONAL | `FinancialReportExportService.cs` | Handle `IndirectAdjustments` |
+| 🟢 TESTS | `CashFlowStatementServiceTests.cs` | Add indirect method tests |
+| 🟢 TESTS | `CashFlowStatementPageTests.cs` | Add toggle tests |
+| 🟢 TESTS | `VasReportsEndpointTests.cs` + `ArchitectureRulesTests.cs` | Verify new deps |

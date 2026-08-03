@@ -256,3 +256,41 @@ builder.Services.AddScoped<IFinancialStatementNotesService, FinancialStatementNo
 - **INVESTIGATE:** Tenant entity hiện có những field nào? (LegalForm, BusinessField, CharterCapital) — có thể cần thêm field.
 - **INVESTIGATE:** Phần V (TT bổ sung) cần entities cho tài sản thế chấp, cam kết — hiện có thể chưa có. Có thể hiển thị "Không có" mặc định cho MVP.
 - **Phase 4 (template structure) nên COMPLETE trước** để Phần IV giải thích chỉ tiêu đúng cấu trúc TT 99.
+
+---
+
+## ANALYZE UPDATE (2026-08-03)
+
+### Verified Accurate
+- ✅ `FinancialStatementNotes` record does NOT exist (0 matches in 1_Shared/)
+- ✅ `NoteSection` record does NOT exist
+- ✅ `FinancialStatementNotesService` does NOT exist (0 matches in 3_CoreHub/)
+- ✅ `FinancialStatementNotes.razor` does NOT exist (13 .razor files, none match)
+- ✅ `ITenantManagementService.GetTenantByIdAsync` exists, returns `Task<Tenant?>`
+- ✅ `FinancialReportExportService` uses per-report methods (Docx+Xlsx pairs) — need new `ExportNotesToDocxAsync` + `ExportNotesToXlsxAsync`
+- ✅ Program.cs DI pattern: `AddScoped<I, Impl>()`
+- ✅ `AccountingLayout.razor` NO menu change needed (hub already exists at `/accounting/financial-reports`)
+- ✅ `FinancialReports.razor` is the hub — just add card
+
+### 🔴 BLOCKER: Tenant Missing 3 Fields for Phần I
+Task card lines 136-138 reference `tenant.LegalForm`, `tenant.BusinessField`, `tenant.CharterCapital` — **these DO NOT EXIST** on Tenant entity.
+
+**Current Tenant properties:** Name, BusinessType, HKDGroup?, IndustrySector?, Type?, Status, Settings
+**Current TenantSettings:** ContactEmail, ContactPhone, Address, TaxCode, Slug, BrandStory, etc.
+
+**Fix: Add 3 properties to TenantSettings (Option B — no migration)**
+```csharp
+// TenantSettings — add
+public string? LegalForm { get; set; }         // "Công ty TNHH"
+public string? BusinessField { get; set; }     // "F&B", "Thương mại"
+public decimal? CharterCapital { get; set; }   // VND
+```
+
+**Updated code snippet (Phần I):**
+```csharp
+new NoteSection("I.1", "Hình thức pháp lý", 2, tenant.Settings.LegalForm ?? "Chưa thiết lập", null),
+new NoteSection("I.2", "Lĩnh vực kinh doanh", 2, tenant.Settings.BusinessField ?? "Chưa thiết lập", null),
+new NoteSection("I.3", "Vốn điều lệ", 2, tenant.Settings.CharterCapital.HasValue ? $"{tenant.Settings.CharterCapital.Value:N0} VNĐ" : "Chưa thiết lập", null),
+```
+
+**Prerequisite:** Complete Phase 5a (TenantSettings extension) BEFORE Phase 5.
