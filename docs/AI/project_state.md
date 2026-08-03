@@ -30,9 +30,10 @@
 
 ## 2. Current Objective
 
-**No active objective.** Last completed: KhachLink UI Polish (footer dedup + Home search fix) — COMPLETE (commits `29180a53` + `482e481f`, 2026-08-03). Ready for next feature request or Alliance mode activation testing.
+**No active objective.** Last completed: KhachLink LoyaltyMode UI Hide — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, 2026-08-03). Ready for next feature request or Alliance mode activation testing.
 
 **Recently completed (full detail in archive):**
+- **KhachLink LoyaltyMode UI Hide** — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`, 2026-08-03). When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI (NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page shows "Tính năng liên minh đang tắt"). New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 8 files changed. CI PASS (1347s). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh, all pages 200.
 - **KhachLink UI Polish** — COMPLETE (commits `29180a53` + `482e481f`, 2026-08-03). (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter) + restructured render tree (search box always visible, was hidden after search). Build 0 errors.
 - **Order Status Sync Fix** — COMPLETE (commit `29180a53`, 2026-08-03). Payment status + completion status not propagating to KhachLink. ConfirmPaymentAsync now enqueues OrderPaymentStatusChanged outbox event. SyncOrderCompletedAsync fixed camelCase property names. Added order.payment.status.changed case in DataSyncSubscriber.
 - **UI Fix Batch (5 issues)** — COMPLETE + VPS VERIFIED (RV 7/7 PASS, commit `6179fdd7`, 2026-08-03). 5 UI issues fixed across ShopERP + KhachLink + UI.Platform. 11 files modified. Pre-push CI ALL PASSED (994s). CD SUCCESS. VPS RV 7/7 PASS.
@@ -56,8 +57,8 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `482e481f` test: update ConfirmPaymentAsync test + Home.razor search fix
-- **Working tree:** Clean. Branch ahead of origin/main by 2 commits (not yet pushed).
+- **Last commit:** `133e8061` fix(khachlink): hide Alliance Wallet UI when LoyaltyMode=Silo
+- **Working tree:** Clean. Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -198,7 +199,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `482e481f` (test + Home.razor search fix). KhachLink UI Polish COMPLETE: NavMenu footer dedup (4 icons removed) + Home.razor store search fix (`@bind:event="oninput"` + render tree restructure). Order Status Sync Fix COMPLETE (commit `29180a53`). UI Fix Batch COMPLETE (RV 7/7 PASS, commit `6179fdd7`). Loyalty Consistency Fix COMPLETE (RV 37/37 PASS). Loyalty Alliance System Phase 1-7 COMPLETE. Build 0 errors. Working tree clean. Branch ahead of origin/main by 2 commits (not yet pushed).
+- **Verified Facts:** Branch=`main`, last commit `133e8061` (hide Alliance Wallet UI when Silo). KhachLink LoyaltyMode UI Hide COMPLETE + VPS VERIFIED (RV 10/10 PASS, CD run `30789469902`). New endpoint `GET /api/loyalty/mode` returns `{"mode":"Silo"}` on VPS. KhachLink UI Polish COMPLETE (commits `29180a53` + `482e481f`). Order Status Sync Fix COMPLETE. UI Fix Batch COMPLETE (RV 7/7 PASS, commit `6179fdd7`). Loyalty Consistency Fix COMPLETE (RV 37/37 PASS). Loyalty Alliance System Phase 1-7 COMPLETE. Build 0 errors. Working tree clean. Branch in sync with origin/main.
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (80+), Open Questions (0) < 3
 
@@ -208,7 +209,8 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
 
-* **2026-08-03 — KHACHLINK UI POLISH + HOME SEARCH FIX COMPLETE (commits `29180a53` + `482e481f`).** (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. Mobile bottom-nav reduced from 10 → 6 tabs. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter due to binding race condition) + restructured render tree (search box always visible above results, was hidden inside `else if` conditional after search). No-results message now distinguishes location vs keyword search. Build 0 errors. (3) Order Status Sync Fix: ConfirmPaymentAsync enqueues OrderPaymentStatusChanged outbox event + SyncOrderCompletedAsync camelCase fix + order.payment.status.changed case in DataSyncSubscriber. Branch: `main`. Last commit: `482e481f`. Not yet pushed.
+* **2026-08-03 — KHACHLINK LOYALTYMODE UI HIDE COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`).** When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI to prevent customer confusion. New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 3 UI points hidden: NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page (shows "Tính năng liên minh đang tắt" guard message). 8 files changed. CI PASS (1347s, 1253+17+233 tests). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh (2 min), Gateway DLL fresh (4 min), all pages 200. Branch: `main`. Last commit: `133e8061`. In sync with origin.
+* **2026-08-03 — KHACHLINK UI POLISH + HOME SEARCH FIX COMPLETE (commits `29180a53` + `482e481f`).** (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. Mobile bottom-nav reduced from 10 → 6 tabs. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter due to binding race condition) + restructured render tree (search box always visible above results, was hidden inside `else if` conditional after search). No-results message now distinguishes location vs keyword search. Build 0 errors. (3) Order Status Sync Fix: ConfirmPaymentAsync enqueues OrderPaymentStatusChanged outbox event + SyncOrderCompletedAsync camelCase fix + order.payment.status.changed case in DataSyncSubscriber. Branch: `main`. Last commit: `482e481f`.
 * **2026-08-03 — PROJECT STATE ARCHIVED (reduction 395 → ~280 lines).** Moved all Section 2 "Previous:" objectives (full detail), Section 3 per-sprint status items, and Section 10 maintenance log entries (2026-07-26 → 2026-08-03) to `docs/AI/project_state_archive.md` under new "Archived 2026-08-03" section. Branch: `main`. Last commit: `6179fdd7`.
 * **2026-08-03 — UI FIX BATCH (5 ISSUES) COMPLETE + VPS VERIFIED (RV 7/7 PASS, commit `6179fdd7`).** 5 UI issues fixed across 11 files. Pre-push CI ALL PASSED (994s). CD SUCCESS. VPS RV 7/7 PASS. (Full detail in archive.)
 * **2026-08-03 — LOYALTY CONSISTENCY FIX COMPLETE + VPS VERIFIED (RV 37/37 PASS).** 9 bugs fixed via 2-layer execution. Option B HTTP proxy + cache + idempotency. (Full detail in archive.)
