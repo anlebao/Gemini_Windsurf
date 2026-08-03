@@ -52,6 +52,15 @@ namespace VanAn.ShopERP.Services
             var resp = await HttpClient.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
         }
+
+        /// <summary>Bug 1 fix: Change tenant BusinessType (SystemAdmin correction).</summary>
+        public async Task ChangeBusinessTypeAsync(Guid tenantId, BusinessType newType, HKDGroup? hkdGroup, string reason, CancellationToken ct = default)
+        {
+            var req = await CreateRequestAsync(HttpMethod.Put, $"api/v1/tenants/{tenantId}/business-type",
+                new { BusinessType = newType, HkdGroup = hkdGroup, Reason = reason });
+            var resp = await HttpClient.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+        }
     }
 
     public record TenantApiDto

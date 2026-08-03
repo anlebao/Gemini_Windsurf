@@ -133,6 +133,42 @@ namespace VanAn.Gateway.Controllers
             }
         }
 
+        /// <summary>
+        /// Bug 1 fix: Change tenant BusinessType (SystemAdmin correction).
+        /// Guard: returns 409 Conflict if tenant has accounting data.
+        /// </summary>
+        [HttpPut("{tenantId:guid}/business-type")]
+        public async Task<ActionResult> ChangeBusinessType(Guid tenantId, [FromBody] ChangeBusinessTypeApiRequest request, CancellationToken ct)
+        {
+            try
+            {
+                await _tenantService.ChangeBusinessTypeAsync(
+                    new TenantId(tenantId),
+                    request.BusinessType,
+                    request.HkdGroup,
+                    request.Reason,
+                    ct);
+                return Ok(new { success = true });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing BusinessType for tenant {TenantId}", tenantId);
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
         private static TenantDto MapToDto(Tenant t) => new()
         {
             Id = t.Id,
@@ -206,5 +242,15 @@ namespace VanAn.Gateway.Controllers
     public record AssignShopInstanceRequest
     {
         public Guid ShopInstanceId { get; init; }
+    }
+
+    /// <summary>Bug 1 fix: Request body for PUT /api/v1/tenants/{id}/business-type.</summary>
+    public record ChangeBusinessTypeApiRequest
+    {
+        public BusinessType BusinessType { get; init; }
+        /// <summary>Required when BusinessType=HouseholdBusiness. Must be null when BusinessType=Company.</summary>
+        public HKDGroup? HkdGroup { get; init; }
+        /// <summary>Admin reason for the change (audit trail).</summary>
+        public string Reason { get; init; } = "";
     }
 }

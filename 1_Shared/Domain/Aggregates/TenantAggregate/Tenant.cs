@@ -295,5 +295,45 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
             ShopInstanceId = shopInstanceId;
             UpdateAudit();
         }
+
+        /// <summary>
+        /// Bug 1 fix (approved 2026-08-03): Change BusinessType for a tenant (SystemAdmin correction).
+        /// Use case: tenant created with wrong type, needs correction before any accounting data exists.
+        ///
+        /// Guards:
+        /// - Cannot change if tenant is Inactive (archived).
+        /// - Cannot change if tenant is Converted (historical record, read-only).
+        /// - Cannot change to HouseholdBusiness without HKDGroup.
+        /// - Cannot change to Company with HKDGroup (must be null).
+        /// - Data integrity guard (enforced at service layer): block if tenant has ANY AccountingEntry.
+        ///
+        /// Side effects:
+        /// - Syncs TenantType for feature flag routing: HKD → TenantType.HKD, Company → keep existing Type or null.
+        /// - Raises TenantBusinessTypeChangedEvent for audit trail.
+        /// </summary>
+        public void ChangeBusinessType(BusinessType newType, HKDGroup? hkdGroup, string reason)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+            if (Status == TenantStatus.Inactive)
+                throw new InvalidOperationException("Cannot change business type of an inactive tenant.");
+            if (Status == TenantStatus.Converted)
+                throw new InvalidOperationException("Cannot change business type of a converted tenant.");
+            if (newType == BusinessType.HouseholdBusiness && hkdGroup is null)
+                throw new ArgumentException("HKDGroup is required when changing to HouseholdBusiness.", nameof(hkdGroup));
+            if (newType == BusinessType.Company && hkdGroup is not null)
+                throw new ArgumentException("HKDGroup must be null for Company tenants.", nameof(hkdGroup));
+
+            BusinessType = newType;
+            HKDGroup = hkdGroup;
+            // Sync TenantType for feature flag routing (VasFeatureFlagService.CanAccessVasReportsAsync)
+            if (newType == BusinessType.HouseholdBusiness)
+            {
+                Type = TenantType.HKD;
+            }
+            // For Company: keep existing Type (Enterprise_SME/Large/SuperSmall) or leave null
+            // (SetTenantType can be called separately to classify Enterprise subtype)
+            UpdateAudit();
+            AddDomainEvent(new TenantBusinessTypeChangedEvent(Id.Value, newType, hkdGroup, reason, DateTime.UtcNow));
+        }
     }
 }

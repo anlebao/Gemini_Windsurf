@@ -13,6 +13,7 @@ namespace VanAn.CoreHub.Services
     /// </summary>
     public class TenantManagementService(
         IVanAnDbContext dbContext,
+        IAccountingDbContext accountingDbContext,
         INotificationService notificationService,
         ILogger<TenantManagementService> logger) : ITenantManagementService
     {
@@ -156,6 +157,33 @@ namespace VanAn.CoreHub.Services
             await dbContext.SaveChangesAsync(ct);
             logger.LogInformation("Tenant {TenantId} assigned to ShopInstance {ShopInstanceId}",
                 id.Value, shopInstanceId);
+        }
+
+        /// <summary>
+        /// Bug 1 fix (approved 2026-08-03): Change tenant BusinessType (SystemAdmin correction).
+        /// Guard: throws InvalidOperationException if tenant has ANY AccountingEntry.
+        /// </summary>
+        public async Task ChangeBusinessTypeAsync(TenantId tenantId, BusinessType newType, HKDGroup? hkdGroup, string reason, CancellationToken ct = default)
+        {
+            var tenant = await GetTenantByIdAsync(tenantId, ct)
+                ?? throw new KeyNotFoundException($"Tenant {tenantId.Value} not found.");
+
+            // DATA INTEGRITY GUARD (approved 2026-08-03): block if tenant has ANY AccountingEntry
+            bool hasAccountingData = await accountingDbContext.AccountingEntries
+                .AsNoTracking()
+                .AnyAsync(e => e.TenantId == tenantId, ct);
+            if (hasAccountingData)
+            {
+                throw new InvalidOperationException(
+                    "Không thể đổi loại hình tenant: tenant đã có dữ liệu kế toán (AccountingEntry). " +
+                    "HKD và DN dùng chuẩn kế toán khác nhau (TT 152 vs TT 99/133/58). " +
+                    "Nếu cần chuyển đổi, hãy dùng tính năng HKD→DN Conversion (D9).");
+            }
+
+            tenant.ChangeBusinessType(newType, hkdGroup, reason);
+            await dbContext.SaveChangesAsync(ct);
+            logger.LogInformation("Tenant {TenantId} BusinessType changed to {NewType} (reason: {Reason})",
+                tenantId.Value, newType, reason);
         }
 
         // ── Private event handlers ─────────────────────────────────────────────

@@ -47,4 +47,18 @@ namespace VanAn.Shared.Domain.Aggregates.TenantAggregate
     {
         public Guid EventId { get; } = Guid.NewGuid();
     }
+
+    /// <summary>
+    /// Bug 1 fix (approved 2026-08-03): Raised when SystemAdmin changes tenant BusinessType.
+    /// Audit trail for type correction (Company ↔ HouseholdBusiness).
+    /// </summary>
+    public sealed record TenantBusinessTypeChangedEvent(
+        Guid TenantId,
+        BusinessType NewBusinessType,
+        HKDGroup? NewHkdGroup,
+        string Reason,
+        DateTime OccurredAt) : IDomainEvent
+    {
+        public Guid EventId { get; } = Guid.NewGuid();
+    }
 }

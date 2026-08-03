@@ -36,6 +36,12 @@ namespace VanAn.CoreHub.Services
 
         /// <summary>Phase 6: Assign tenant to a ShopERP hosting instance (multi-VPS routing).</summary>
         Task AssignShopInstanceAsync(TenantId id, Guid shopInstanceId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Bug 1 fix (approved 2026-08-03): Change tenant BusinessType (SystemAdmin correction).
+        /// Guard: throws InvalidOperationException if tenant has ANY AccountingEntry.
+        /// </summary>
+        Task ChangeBusinessTypeAsync(TenantId tenantId, BusinessType newType, HKDGroup? hkdGroup, string reason, CancellationToken ct = default);
     }
 
     public record CreateTenantRequest(

@@ -383,6 +383,34 @@
                     <input id="edit-name" class="vanan-input" @bind="_editForm.Name" placeholder="Tên doanh nghiệp..." required />
                 </div>
                 <div class="form-group">
+                    <label for="edit-businesstype">Loại hình (sửa được — chỉ khi chưa có dữ liệu kế toán)</label>
+                    <select id="edit-businesstype" class="vanan-select" @bind="_editForm.BusinessTypeStr" aria-label="Loại hình doanh nghiệp">
+                        <option value="Company">Công ty</option>
+                        <option value="HouseholdBusiness">Hộ kinh doanh</option>
+                    </select>
+                    @if (_editForm.BusinessTypeStr == "HouseholdBusiness")
+                    {
+                        <label for="edit-hkdgroup" class="mt-2">Nhóm HKD *</label>
+                        <select id="edit-hkdgroup" class="vanan-select" @bind="_editForm.HKDGroupStr" aria-label="Nhóm HKD">
+                            <option value="Group1">Nhóm 1</option>
+                            <option value="Group2">Nhóm 2</option>
+                            <option value="Group3">Nhóm 3</option>
+                        </select>
+                    }
+                    @if (_selectedTenant is not null && _editForm.BusinessTypeStr != (_selectedTenant.BusinessType == BusinessType.HouseholdBusiness ? "HouseholdBusiness" : "Company"))
+                    {
+                        <div class="form-group mt-2">
+                            <label for="edit-bt-reason">Lý do đổi loại hình *</label>
+                            <input id="edit-bt-reason" class="vanan-input" @bind="_editForm.BusinessTypeChangeReason"
+                                   placeholder="vd: Tạo nhầm loại hình khi khởi tạo tenant..." required />
+                            <small class="text-muted">
+                                ⚠️ Đổi loại hình sẽ bị chặn nếu tenant đã có dữ liệu kế toán (AccountingEntry).
+                                HKD và DN dùng chuẩn kế toán khác nhau (TT 152 vs TT 99/133/58).
+                            </small>
+                        </div>
+                    }
+                </div>
+                <div class="form-group">
                     <label for="edit-email">Email liên hệ</label>
                     <input id="edit-email" class="vanan-input" type="email" @bind="_editForm.ContactEmail" placeholder="email@example.com" />
                 </div>
@@ -800,7 +828,11 @@
             SocialLinksTiktok = t.SocialLinksTiktok,
             BrandStory = t.BrandStory,
             Theme = t.Theme,
-            ShopInstanceId = t.ShopInstanceId
+            ShopInstanceId = t.ShopInstanceId,
+            // Bug 1 fix: pre-fill BusinessType from current tenant
+            BusinessTypeStr = t.BusinessType == BusinessType.HouseholdBusiness ? "HouseholdBusiness" : "Company",
+            HKDGroupStr = "Group1",
+            BusinessTypeChangeReason = null
         };
         _showEditModal = true;
         _mapInitialized = false;
@@ -938,6 +970,23 @@
                 await TenantApi.AssignShopInstanceAsync(_selectedTenant.Id, _editForm.ShopInstanceId.Value);
             }
 
+            // 3. Bug 1 fix: Change BusinessType if changed (SystemAdmin correction)
+            var newBusinessTypeStr = _editForm.BusinessTypeStr;
+            var currentBusinessTypeStr = _selectedTenant.BusinessType == BusinessType.HouseholdBusiness ? "HouseholdBusiness" : "Company";
+            if (newBusinessTypeStr != currentBusinessTypeStr)
+            {
+                if (string.IsNullOrWhiteSpace(_editForm.BusinessTypeChangeReason))
+                {
+                    ShowAlert("error", "Vui lòng nhập lý do đổi loại hình.");
+                    return;
+                }
+                var newType = newBusinessTypeStr == "HouseholdBusiness" ? BusinessType.HouseholdBusiness : BusinessType.Company;
+                HKDGroup? hkdGroup = newType == BusinessType.HouseholdBusiness
+                    ? Enum.Parse<HKDGroup>(_editForm.HKDGroupStr)
+                    : null;
+                await TenantApi.ChangeBusinessTypeAsync(_selectedTenant.Id, newType, hkdGroup, _editForm.BusinessTypeChangeReason);
+            }
+
             _showEditModal = false;
             ShowAlert("success", $"Tenant '{_editForm.Name}' đã được cập nhật.");
             await LoadTenants();
@@ -1046,6 +1095,10 @@
         public string? BrandStory { get; set; }
         public ThemeType Theme { get; set; } = ThemeType.Classic;
         public Guid? ShopInstanceId { get; set; }
+        // Bug 1 fix: BusinessType edit (SystemAdmin correction)
+        public string BusinessTypeStr { get; set; } = "Company";
+        public string HKDGroupStr { get; set; } = "Group1";
+        public string? BusinessTypeChangeReason { get; set; }
     }
 
     private sealed class OnboardingForm

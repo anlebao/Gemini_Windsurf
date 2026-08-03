@@ -30,7 +30,7 @@ public class TenantManagementServiceTests : IDisposable
         _notificationMock = new Mock<INotificationService>();
         _notificationMock.Setup(n => n.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync(true);
-        _sut = new TenantManagementService(_db, _notificationMock.Object, NullLogger<TenantManagementService>.Instance);
+        _sut = new TenantManagementService(_db, _db, _notificationMock.Object, NullLogger<TenantManagementService>.Instance);
     }
 
     public void Dispose() => _scope.Dispose();
