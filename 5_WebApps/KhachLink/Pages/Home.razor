@@ -722,7 +722,7 @@
         try
         {
             var client = HttpClientFactory.CreateClient("gateway");
-            var url = $"/api/tenants/search?q={Uri.EscapeDataString(_storeSearchQuery)}";
+            var url = $"/api/tenants/search?name={Uri.EscapeDataString(_storeSearchQuery)}";
             var response = await client.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {
