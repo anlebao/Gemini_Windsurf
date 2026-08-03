@@ -115,6 +115,10 @@ namespace VanAn.Gateway.Services
                     case "ordercreated":
                         await SyncOrderCreatedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
                         break;
+                    case "order.payment.status.changed":
+                    case "orderpaymentstatuschanged":
+                        await SyncPaymentStatusAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
+                        break;
                     case "customer.created":
                     case "customercreated":
                         await SyncCustomerCreatedAsync(doc.RootElement, dbContext, scopeSp, cancellationToken);
@@ -156,19 +160,27 @@ namespace VanAn.Gateway.Services
         /// </summary>
         internal async Task SyncOrderCompletedAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
         {
-            if (!data.TryGetProperty("OrderId", out var orderIdProp))
+            if (!data.TryGetProperty("orderId", out var orderIdProp))
             {
-                _logger.LogWarning("SyncOrderCompletedAsync: missing OrderId in event data");
+                _logger.LogWarning("SyncOrderCompletedAsync: missing orderId in event data");
                 return;
             }
 
             Guid orderId = orderIdProp.GetGuid();
 
             // Set tenant context from payload so query filter finds the order.
-            Guid tenantId = data.TryGetProperty("TenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            // OrderCompletedEvent serializes TenantId as {"value":"guid"} (TenantId value object with CamelCase).
+            Guid tenantId = Guid.Empty;
+            if (data.TryGetProperty("tenantId", out var tidProp))
+            {
+                if (tidProp.ValueKind == JsonValueKind.Object)
+                    tenantId = tidProp.TryGetProperty("value", out var valProp) ? valProp.GetGuid() : Guid.Empty;
+                else
+                    tenantId = tidProp.GetGuid();
+            }
             if (tenantId == Guid.Empty)
             {
-                _logger.LogWarning("SyncOrderCompletedAsync: missing TenantId for order {OrderId} — cannot set tenant context", orderId);
+                _logger.LogWarning("SyncOrderCompletedAsync: missing tenantId for order {OrderId} — cannot set tenant context", orderId);
                 return;
             }
             var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
@@ -481,6 +493,57 @@ namespace VanAn.Gateway.Services
             typeof(BaseEntity).GetProperty("IsDeleted")!.SetValue(product, true);
             await dbContext.SaveChangesAsync(ct);
             _logger.LogInformation("Synced ProductDeleted for product {ProductId} → PostgreSQL (soft-deleted, tenant {TenantId})", productId, tenantId);
+        }
+
+        /// <summary>
+        /// Sync OrderPaymentStatusChanged event — update order PaymentStatus in PostgreSQL.
+        /// Payload shape (from OrderService.ConfirmPaymentAsync):
+        ///   { orderId, tenantId, paymentStatus, timestamp }
+        /// Sets tenant context from payload so VanAnDbContext query filter works correctly.
+        /// </summary>
+        internal async Task SyncPaymentStatusAsync(JsonElement data, IVanAnDbContext dbContext, IServiceProvider scopeSp, CancellationToken ct)
+        {
+            if (!data.TryGetProperty("orderId", out var orderIdProp))
+            {
+                _logger.LogWarning("SyncPaymentStatusAsync: missing orderId in event data");
+                return;
+            }
+
+            Guid orderId = orderIdProp.GetGuid();
+            string paymentStatus = data.TryGetProperty("paymentStatus", out var psProp) ? psProp.GetString() ?? "" : "";
+
+            if (string.IsNullOrEmpty(paymentStatus))
+            {
+                _logger.LogWarning("SyncPaymentStatusAsync: missing paymentStatus for order {OrderId}", orderId);
+                return;
+            }
+
+            Guid tenantId = data.TryGetProperty("tenantId", out var tidProp) ? tidProp.GetGuid() : Guid.Empty;
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("SyncPaymentStatusAsync: missing tenantId for order {OrderId} — cannot set tenant context", orderId);
+                return;
+            }
+            var tenantProvider = scopeSp.GetRequiredService<ITenantProvider>();
+            tenantProvider.SetTenant(tenantId);
+
+            var order = await dbContext.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order == null)
+            {
+                _logger.LogWarning("SyncPaymentStatusAsync: order {OrderId} not found in PostgreSQL (tenant {TenantId}) — skipping", orderId, tenantId);
+                return;
+            }
+
+            if (order.PaymentStatus != paymentStatus)
+            {
+                typeof(Order).GetProperty("PaymentStatus")!.SetValue(order, paymentStatus);
+                await dbContext.SaveChangesAsync(ct);
+                _logger.LogInformation("Synced order {OrderId} payment status → {PaymentStatus} in PostgreSQL (tenant {TenantId})", orderId, paymentStatus, tenantId);
+            }
+            else
+            {
+                _logger.LogDebug("SyncPaymentStatusAsync: order {OrderId} already {PaymentStatus} in PostgreSQL", orderId, paymentStatus);
+            }
         }
 
         public override void Dispose()

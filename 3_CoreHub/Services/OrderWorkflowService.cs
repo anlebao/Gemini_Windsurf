@@ -88,7 +88,12 @@ namespace VanAn.CoreHub.Services
 
                 // Sync: Enqueue Outbox event so NatsSyncWorker publishes "vanan.shoperp.order.status.changed"
                 // → Gateway DataSyncSubscriber updates PostgreSQL → KhachLink OrderTracking sees new status.
-                EnqueueOrderStatusChangedEvent(order, oldStatus, newStatus);
+                await EnqueueOrderStatusChangedEventAsync(order, oldStatus, newStatus);
+
+                // Persist Outbox events (enqueued by HandleOrderCompletedAsync + EnqueueOrderStatusChangedEventAsync)
+                // before committing the transaction. Without this, Outbox events are in the change tracker
+                // but never flushed to DB → NatsSyncWorker never picks them up → status never syncs to PG.
+                await _orderRepository.SaveChangesAsync();
 
                 await transaction.CommitAsync();
 
@@ -118,7 +123,7 @@ namespace VanAn.CoreHub.Services
             try
             {
                 // 📋 NHIỆM VỤ A: Ghi sự kiện Outbox (giả lập)
-                RecordOrderCompletedEvent(order);
+                await RecordOrderCompletedEventAsync(order);
 
                 // 🔄 NHIỆM VỤ B: Kích hoạt Flywheel
                 // Loyalty-A: Guard TrackingCode now configurable via LoyaltyPointsConfig.AwardOnAllOrders.
@@ -175,7 +180,7 @@ namespace VanAn.CoreHub.Services
                 customer.Id, DateTime.UtcNow.ToString("yyyy-MM-dd"), order.TotalAmount);
         }
 
-        private void RecordOrderCompletedEvent(Order order)
+        private async Task RecordOrderCompletedEventAsync(Order order)
         {
             // W-1-T7: Persist OrderCompleted event to Outbox table for reliable async processing.
             // NatsSyncWorker will poll Outbox and publish to NATS → SimpleAccountingEventHandler
@@ -222,7 +227,7 @@ namespace VanAn.CoreHub.Services
                 eventData);
 
             // Enqueue to Outbox (added to EF change tracker — committed with the order transaction)
-            _ = _outboxRepository.EnqueueAsync(outboxEvent);
+            await _outboxRepository.EnqueueAsync(outboxEvent);
             _logger.LogInformation("Enqueued OrderCompleted event to Outbox for order {OrderId} (EventId={EventId})",
                 order.Id, orderCompletedEvent.EventId);
         }
@@ -232,7 +237,7 @@ namespace VanAn.CoreHub.Services
         /// NatsSyncWorker publishes "vanan.shoperp.order.status.changed" → Gateway DataSyncSubscriber
         /// updates PostgreSQL so KhachLink OrderTracking sees the new status.
         /// </summary>
-        private void EnqueueOrderStatusChangedEvent(Order order, OrderStatusId oldStatus, OrderStatusId newStatus)
+        private async Task EnqueueOrderStatusChangedEventAsync(Order order, OrderStatusId oldStatus, OrderStatusId newStatus)
         {
             if (_outboxRepository == null)
             {
@@ -254,7 +259,7 @@ namespace VanAn.CoreHub.Services
                 new ElectronicInvoiceId(Guid.Empty),
                 "OrderStatusChanged",
                 eventData);
-            _ = _outboxRepository.EnqueueAsync(outboxEvent);
+            await _outboxRepository.EnqueueAsync(outboxEvent);
             _logger.LogInformation("Enqueued OrderStatusChanged event to Outbox for order {OrderId}: {OldStatus} → {NewStatus}",
                 order.Id, oldStatus.Value, newStatus.Value);
         }

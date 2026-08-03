@@ -144,12 +144,12 @@ Ecosystem</h1>
 <h1 id="hướng-dẫn-sử-dụng-crm--loyalty--vạn-an-ecosystem">HƯỚNG DẪN SỬ
 DỤNG CRM &amp; LOYALTY — VẠN AN ECOSYSTEM</h1>
 <blockquote>
-<p><strong>Phiên bản:</strong> MVP 1.0 — cập nhật 2026-07-28 <strong>Áp
-dụng:</strong> Loyalty Phase C + CRM + Promo Push (commit
-<code>95acede7</code>, branch <code>main</code>) <strong>Phạm
-vi:</strong> Hệ thống CRM khách hàng, chương trình tích điểm, nhiệm vụ
-(missions), chiến dịch khuyến mãi (promo push), đổi thưởng
-(redemption).</p>
+<p><strong>Phiên bản:</strong> MVP 1.1 — cập nhật 2026-08-02 <strong>Áp
+dụng:</strong> Loyalty Phase C + CRM + Promo Push + Loyalty Alliance
+(Phase 1-7 complete, branch <code>main</code>) <strong>Phạm
+vi:</strong> Hệ thống CRM khách hàng, chương trình tích điểm (Silo +
+Alliance cross-tenant), nhiệm vụ (missions), chiến dịch khuyến mãi
+(promo push), đổi thưởng (redemption).</p>
 </blockquote>
 <hr />
 <h2 id="mục-lục">MỤC LỤC</h2>
@@ -198,23 +198,86 @@ truy cập khác nhau:</p>
 </tr>
 </tbody>
 </table>
-<h3 id="kiến-trúc-tổng-quan">Kiến trúc tổng quan</h3>
+<h3 id="kiến-trúc-tổng-quan">Kiến trúc tổng quan (Option C — PG source of
+truth + routed async delivery)</h3>
 <pre><code>Customer (KhachLink WASM, 5002)
    │  HTTP + X-Customer-Token
    ▼
-Gateway (5001) ── forwards ──► ShopERP (5003)
-                                  ▲
-Owner / SystemAdmin (ShopERP Blazor Server, cookie auth)</code></pre>
+Gateway (5001)  ── PostgreSQL (source of truth) ──┐
+   │   • Orders + Accounting + Tenants            │
+   │   • Users + FeaturedProducts                 │
+   │   • Loyalty Alliance: AllianceWallet,        │
+   │     AllianceTransaction, LoyaltyGlobalConfig,│
+   │     LoyaltyTenantConfig                      │
+   │                                              ▼
+   └── NATS  vanan.cloud.loyalty.changed.{deviceId} ──► ShopERP (5003)
+                                                          │  SQLite (replica)
+                                                          │  LoyaltyRewards.PointBalance
+                                                          ▲
+                              Owner / SystemAdmin (ShopERP Blazor Server, cookie auth)</code></pre>
 <ul>
 <li><strong>KhachLink</strong> (Blazor WebAssembly PWA): giao diện khách
-hàng — đăng nhập OTP/Google, xem điểm, làm nhiệm vụ, đổi thưởng, xem
-lịch sử đơn.</li>
+hàng — đăng nhập OTP/Google, xem điểm (Silo + Alliance), làm nhiệm vụ,
+đổi thưởng, xem lịch sử đơn.</li>
 <li><strong>ShopERP</strong> (Blazor Server): giao diện quản trị — CRM,
-chiến dịch promo, quản lý missions, catalog đổi thưởng, users.</li>
+chiến dịch promo, quản lý missions, catalog đổi thưởng, users,
+<strong>cấu hình Loyalty Alliance</strong>.</li>
 <li><strong>Auth</strong>: Khách hàng dùng <code>X-Customer-Token</code>
 (token-based, không cookie); Owner/SystemAdmin dùng Cookie auth + role
 claims.</li>
+<li><strong>NATS sync (Alliance mode only):</strong> Khi ví liên minh (PG)
+thay đổi, Gateway publish
+<code>vanan.cloud.loyalty.changed.{customerDeviceId}</code> → ShopERP
+<code>LoyaltySyncSubscriber</code> cập nhật
+<code>LoyaltyRewards.PointBalance</code> trong SQLite. <strong>PG là
+source of truth, SQLite là replica</strong> — không ngược lại.</li>
 </ul>
+<h3 id="hai-chế-độ-loyalty-silo-vs-alliance">Hai chế độ Loyalty: Silo vs
+Alliance</h3>
+<p>Hệ thống loyalty có <strong>2 chế độ hoạt động</strong>, do
+SystemAdmin cấu hình ở cấp toàn cục + override per-tenant:</p>
+<table>
+<thead>
+<tr>
+<th>Chế độ</th>
+<th>Lưu điểm</th>
+<th>Dùng điểm</th>
+<th>Phạm vi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Silo</strong> (mặc định)</td>
+<td>SQLite của từng tenant</td>
+<td>Chỉ tại tenant đó</td>
+<td>Đóng (mỗi tenant độc lập)</td>
+</tr>
+<tr>
+<td><strong>Alliance</strong></td>
+<td>PostgreSQL <code>AllianceWallet</code> (cross-tenant)</td>
+<td>Tại mọi tenant thành viên liên minh</td>
+<td>Mở (cross-tenant)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Quyết định nghiệp vụ (Spec v1.0):</strong></p>
+<ul>
+<li><strong>Q1 — Switch Alliance→Silo:</strong> điểm chia theo nguồn
+(tenant xuất xứ), không gộp.</li>
+<li><strong>Q2 — Tenant opt-out:</strong> tenant set
+<code>IsAllianceMember=false</code> → bắt buộc Silo dù
+global=Alliance.</li>
+<li><strong>Q3 — Tenant Admin:</strong> chỉ thấy transaction xảy ra tại
+tenant mình (không thấy cross-tenant).</li>
+<li><strong>Q4 — Refund:</strong> hoàn điểm về tenant nơi redeem xảy ra
+(không phải tenant tích điểm).</li>
+<li><strong>Q5 — MaxWalletPoints:</strong> configurable — global default
+100,000 + per-tenant override.</li>
+</ul>
+<p><strong>Cách xác định mode hiệu quả:</strong>
+<code>LoyaltyModeResolver.GetEffectiveModeAsync(tenantId)</code> — kiểm
+tra per-tenant override trước, nếu không có thì lấy global. Tenant
+opt-out (Q2) luôn trả về Silo.</p>
 <hr />
 <h2 id="2-system-admin--quản-trị-hệ-thống">2. SYSTEM ADMIN — QUẢN TRỊ HỆ
 THỐNG</h2>
@@ -288,6 +351,13 @@ code), xem click/conversion stats</td>
 <td>Push Campaigns</td>
 <td><code>/admin/push-campaigns</code></td>
 <td>Quản lý chiến dịch push notification toàn hệ thống</td>
+</tr>
+<tr>
+<td><strong>Loyalty Alliance Config</strong></td>
+<td><code>/admin/loyalty-config</code></td>
+<td>Cấu hình chế độ Loyalty (Silo/Alliance) toàn cục + override
+per-tenant, MaxWalletPoints, trigger mode-switch migration
+(consolidate/split)</td>
 </tr>
 <tr>
 <td>Audit Trail</td>
@@ -393,6 +463,134 @@ etc.</li>
 <li><strong>Search term</strong> — tìm kiếm tự do</li>
 </ul>
 <p>Bấm <strong>Export</strong> để tải log ra file (CSV/JSON).</p>
+<h4 id="226-cấu-hình-loyalty-alliance-adminloyalty-config">2.2.6. Cấu hình
+Loyalty Alliance (<code>/admin/loyalty-config</code>)</h4>
+<p>Trang này cho phép SystemAdmin <strong>bật/tắt chế độ liên
+minh</strong> (Alliance) và quản lý tham gia của từng tenant.</p>
+<p><strong>Phần 1 — Cấu hình toàn cục (Global Config):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Trường</th>
+<th>Ý nghĩa</th>
+<th>Mặc định</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode</td>
+<td><code>Silo</code> hoặc <code>Alliance</code></td>
+<td>Silo</td>
+</tr>
+<tr>
+<td>MaxPointsPerOrder</td>
+<td>Giới hạn điểm cộng tối đa / đơn</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MaxWalletPoints</td>
+<td>Giới hạn điểm tối đa trong ví</td>
+<td>100,000</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Phần 2 — Cấu hình per-tenant (Tenant Override):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Trường</th>
+<th>Ý nghĩa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode</td>
+<td><code>null</code> = kế thừa global, hoặc ép
+<code>Silo</code>/<code>Alliance</code> cho tenant này</td>
+</tr>
+<tr>
+<td>IsAllianceMember</td>
+<td><code>true</code> = tenant tham gia liên minh; <code>false</code> =
+opt-out (Q2 — bắt buộc Silo dù global=Alliance)</td>
+</tr>
+<tr>
+<td>MaxWalletPoints</td>
+<td><code>null</code> = kế thừa global, hoặc override cho tenant này</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tạo/chỉnh sửa per-tenant config:</strong></p>
+<ol type="1">
+<li>Tìm tenant trong danh sách → bấm <strong>Chỉnh sửa</strong>.</li>
+<li>Set <code>IsAllianceMember=true</code> để tenant tham gia liên
+minh.</li>
+<li>(Tùy chọn) Override Mode / MaxWalletPoints — để <code>null</code> nếu
+muốn kế thừa global.</li>
+<li>Bấm <strong>Lưu</strong>.</li>
+</ol>
+<p><strong>Trigger mode-switch migration:</strong></p>
+<ul>
+<li><strong>Silo → Alliance (Consolidate):</strong> Khi chuyển global
+mode từ Silo sang Alliance, bấm <strong>Migrate</strong>. Hệ thống gộp
+điểm SQLite của từng tenant thành ví AllianceWallet (PG) cho mỗi khách +
+ghi transaction <code>ADJUST</code>. Idempotent — chạy lại không
+double-count.</li>
+<li><strong>Alliance → Silo (Split-by-source):</strong> Khi chuyển từ
+Alliance về Silo, bấm <strong>Migrate</strong>. Hệ thống chia điểm theo
+nguồn (tenant xuất xứ — Q1), phân bổ lại về SQLite từng tenant,
+<strong>đóng băng</strong> (freeze) ví AllianceWallet. Khách có net EARN
+≤ 0 tại 1 tenant → không nhận phân bổ cho tenant đó.</li>
+</ul>
+<blockquote>
+<p><strong>Lưu ý quan trọng:</strong></p>
+<ul>
+<li>Migration là <strong>one-way operation</strong> — chạy consolidate
+rồi split sẽ không trả về trạng thái ban đầu (split dựa trên transaction
+log, không phải snapshot).</li>
+<li>Trước khi migrate, <strong>backup PG</strong> + thông báo cho Owner
+các tenant affected.</li>
+<li>Migration ghi log vào Audit Trail
+(<code>/admin/audit-trail</code>) với <code>LastChangedBy</code> =
+SystemAdmin ID.</li>
+</ul>
+</blockquote>
+<p><strong>API tương ứng (SystemAdmin policy):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/platform/loyalty/config</code></td>
+<td>Lấy global config (hoặc defaults)</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/platform/loyalty/config</code></td>
+<td>Cập nhật global config</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/platform/loyalty/tenant/{tenantId}/config</code></td>
+<td>Lấy per-tenant override (hoặc inherit)</td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/platform/loyalty/tenant/{tenantId}/config</code></td>
+<td>Cập nhật per-tenant override</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/platform/loyalty/migrate</code></td>
+<td>Trigger mode-switch migration (consolidate/split)</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="3-shop-owner--chủ-cửa-hàng">3. SHOP OWNER — CHỦ CỬA HÀNG</h2>
 <blockquote>
@@ -605,7 +803,14 @@ danh</td>
 <tr>
 <td>Thẻ tích điểm</td>
 <td><code>/my-loyalty</code></td>
-<td>Xem thẻ hạng, progress bar, đổi điểm, lịch sử giao dịch</td>
+<td>Xem thẻ hạng, progress bar, đổi điểm, lịch sử giao dịch (Silo /
+replica)</td>
+</tr>
+<tr>
+<td><strong>Ví điểm liên minh</strong></td>
+<td><code>/alliance-wallet</code></td>
+<td>Xem ví cross-tenant — tổng điểm, breakdown theo tenant, lịch sử giao
+dịch EARN/REDEEM/ADJUST (Alliance mode only)</td>
 </tr>
 <tr>
 <td>Nhiệm vụ</td>
@@ -685,7 +890,93 @@ tích/đổi điểm gần đây</li>
 <p><strong>Lưu ý:</strong> Để đổi điểm, khách phải ở IdentityLevel ≥
 Verified. Nếu chưa, hệ thống hiển thị modal hướng dẫn nâng cấp.</p>
 </blockquote>
-<h4 id="424-nhiệm-vụ-missions">4.2.4. Nhiệm vụ
+<h4 id="424-ví-điểm-liên-minh-alliance-wallet">4.2.4. Ví điểm liên minh
+(<code>/alliance-wallet</code>)</h4>
+<p>Trang này chỉ hoạt động khi hệ thống đang ở <strong>Alliance
+mode</strong> và tenant của khách là <strong>thành viên liên
+minh</strong> (<code>IsAllianceMember=true</code>). Nếu không, trang hiển
+thị prompt &quot;Chưa tham gia liên minh&quot;.</p>
+<p><strong>4 trạng thái hiển thị:</strong></p>
+<ol type="1">
+<li><strong>Loading</strong> — đang tải dữ liệu ví từ Gateway PG.</li>
+<li><strong>Chưa đăng nhập</strong> — yêu cầu đăng nhập trước.</li>
+<li><strong>Chưa tham gia liên minh</strong> — tenant chưa opt-in hoặc
+global mode=Silo. Hiển thị thông báo, không có dữ liệu.</li>
+<li><strong>Ví đã tải</strong> — hiển thị đầy đủ thông tin ví.</li>
+</ol>
+<p><strong>Nội dung ví (state 4):</strong></p>
+<ul>
+<li><strong>Thẻ tổng điểm</strong> (gradient) —
+<code>TotalPointBalance</code> từ PG <code>AllianceWallet</code>.</li>
+<li><strong>Breakdown theo tenant</strong> — điểm tích lũy tại từng
+tenant (tên tenant được resolve qua API). Ví dụ:
+<ul>
+<li>Cửa hàng A: 1,200 điểm</li>
+<li>Cửa hàng B: 850 điểm</li>
+<li><strong>Tổng: 2,050 điểm</strong></li>
+</ul></li>
+<li><strong>Lịch sử giao dịch gần đây</strong> (20 giao dịch mới nhất) —
+mỗi giao dịch có:
+<ul>
+<li><strong>Loại:</strong> EARN (tích điểm) / REDEEM (đổi thưởng) / ADJUST
+(migration adjust)</li>
+<li><strong>Icon + voucher code</strong> (nếu là REDEEM)</li>
+<li><strong>Số điểm</strong> (+ / -)</li>
+<li><strong>Thời gian</strong></li>
+</ul></li>
+<li><strong>Nút &quot;Đổi điểm ngay&quot;</strong> → chuyển sang
+<code>/rewards</code> (RedemptionService tự route sang PG wallet khi
+Alliance mode).</li>
+</ul>
+<p><strong>Cách truy cập:</strong></p>
+<ul>
+<li>Desktop: sidebar nav → <strong>&quot;Ví liên minh&quot;</strong></li>
+<li>Mobile: bottom-nav → <strong>&quot;Liên minh&quot;</strong></li>
+<li>Hoặc từ trang <code>/my-loyalty</code> → bấm link card
+<strong>&quot;Xem ví điểm liên minh (cross-tenant)&quot;</strong></li>
+</ul>
+<blockquote>
+<p><strong>Khác biệt với <code>/my-loyalty</code>:</strong></p>
+<ul>
+<li><code>/my-loyalty</code> hiển thị điểm của <strong>tenant hiện
+tại</strong> (Silo balance, hoặc replica sync từ PG qua NATS khi
+Alliance).</li>
+<li><code>/alliance-wallet</code> hiển thị ví
+<strong>cross-tenant</strong> (PG source of truth) — tổng điểm +
+breakdown theo tenant.</li>
+<li>Khi Alliance mode, <strong><code>/alliance-wallet</code> là nguồn
+chính xác</strong> để xem tổng điểm khả dụng.</li>
+</ul>
+</blockquote>
+<p><strong>API tương ứng (Customer, X-Customer-Token header):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Endpoint</th>
+<th>Mô tả</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/loyalty/wallet</code></td>
+<td>Lấy ví liên minh (Gateway PG) — trả <code>{ totalPointBalance,
+breakdown, recentTransactions }</code></td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/api/loyalty/my-identity</code></td>
+<td>Resolve token → deviceId (ShopERP forward, internal)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Lưu ý:</strong> Endpoint <code>/api/loyalty/wallet</code> trả
+404 nếu khách chưa có device identity (chưa từng đăng nhập từ device nào).
+Khách cần đăng nhập qua PWA ít nhất 1 lần để tạo device identity.</p>
+</blockquote>
+<h4 id="425-nhiệm-vụ-missions">4.2.5. Nhiệm vụ
 (<code>/missions</code>)</h4>
 <p>Trang nhiệm vụ hiển thị 2 phần:</p>
 <p><strong>Phần 1 — Nhiệm vụ đang hoạt động:</strong></p>
@@ -709,7 +1000,7 @@ sang /profile)</li>
 <li>Danh sách nhiệm vụ đã hoàn thành (phân trang 20/trang)</li>
 <li>Bấm <strong>&quot;Xem thêm&quot;</strong> để tải trang tiếp theo</li>
 </ul>
-<h4 id="425-đổi-thưởng-rewards">4.2.5. Đổi thưởng
+<h4 id="426-đổi-thưởng-rewards">4.2.6. Đổi thưởng
 (<code>/rewards</code>)</h4>
 <p><strong>Bước 1:</strong> Vào <code>/rewards</code> — hiển thị catalog
 sản phẩm đổi thưởng (ảnh, tên, mô tả, điểm yêu cầu, tồn kho).
@@ -724,7 +1015,7 @@ modal hiển thị:</li>
 <li><strong>Ngày hết hạn</strong> <strong>Bước 4:</strong> Mang voucher
 đến cửa hàng — nhân viên quét QR hoặc nhập mã để fulfill.</li>
 </ul>
-<h4 id="426-lịch-sử-đơn-hàng-my-orders">4.2.6. Lịch sử đơn hàng
+<h4 id="427-lịch-sử-đơn-hàng-my-orders">4.2.7. Lịch sử đơn hàng
 (<code>/my-orders</code>)</h4>
 <ul>
 <li>Tabs lọc theo trạng thái: Tất cả / Pending / Processing / Completed
@@ -734,7 +1025,7 @@ tổng tiền, VAT</li>
 <li>Bấm <strong>&quot;Theo dõi&quot;</strong> để xem chi tiết trạng thái đơn tại
 <code>/order-tracking/{orderId}</code></li>
 </ul>
-<h4 id="427-tìm-cửa-hàng-stores">4.2.7. Tìm cửa hàng
+<h4 id="428-tìm-cửa-hàng-stores">4.2.8. Tìm cửa hàng
 (<code>/stores</code>)</h4>
 <ul>
 <li><strong>Tìm kiếm</strong> theo tên / sản phẩm / dịch vụ</li>
@@ -1186,10 +1477,10 @@ chỉ khách của tenant đó)</li>
 </ol>
 <hr />
 <blockquote>
-<p><strong>Tài liệu này áp dụng cho phiên bản MVP 1.0 (commit
-<code>95acede7</code>, 2026-07-28).</strong> <strong>Cập nhật tiếp
-theo:</strong> khi có Sprint 1 (Nearby Orders) hoặc Phase 8 (Multi-VPS
-E2E).</p>
+<p><strong>Tài liệu này áp dụng cho phiên bản MVP 1.1 (Loyalty Alliance
+Phase 1-7 complete, 2026-08-02).</strong> <strong>Cập nhật tiếp
+theo:</strong> khi có Sprint 1 (Nearby Orders) hoặc tính năng mới tiếp
+theo.</p>
 </blockquote>
 </body>
 </html>

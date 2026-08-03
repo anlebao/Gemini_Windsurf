@@ -1,0 +1,64 @@
+fix(loyalty): BUG #1-#9 — Phase 1+2+3 write/read/sync mode routing (Layer 2)
+
+Layer 2 of Loyalty Consistency Fix. Implements mode-aware routing for all point
+write/read/sync paths in Alliance mode (Option B — HTTP proxy from Layer 1).
+
+Phase 1 — Point-Write Mode Routing (BUG #1, #2, #3, #6):
+- BUG #1: MissionService — AwardPointsWithModeRoutingAsync helper. Alliance+member
+  → PG wallet via IAllianceWalletService (idempotencyKey $"mission:{completionId}").
+  Both CompleteMissionAsync + CompleteAnnualMissionAsync updated. Routed balance
+  used for response (PG authoritative in Alliance mode).
+- BUG #2: RedemptionService.CancelAsync — RefundPointsWithModeRoutingAsync helper.
+  Restructured: fetch voucher FIRST (needed for audit), then route refund by mode.
+  IdempotencyKey $"refund:{recordId}".
+- BUG #3: LoyaltyController.Redeem (legacy) — D3 deprecated. Returns 410 Gone.
+  Use POST /api/redemption/redeem (catalog-based, has Alliance routing from Phase 2C).
+- BUG #6: LoyaltyRewardsService.ActivateCustomerAsync — welcome bonus 100 pts routes
+  to PG wallet in Alliance mode. IdempotencyKey $"welcome:{customerId}" (no double
+  bonus on retry). Constructor gained 3 nullable deps: ILoyaltyModeResolver,
+  IAllianceWalletService, ICustomerRepository.
+
+Phase 2 — Point-Read Mode Routing (BUG #4, #5, #7, #8):
+- NEW LoyaltyReadRouter.cs — shared helper: GetEffectiveBalanceAsync(tenantId,
+  deviceGuid, sqliteBalance). Queries PG wallet in Alliance mode, returns SQLite
+  balance otherwise. Graceful fallback on Gateway outage (never blocks UI).
+- BUG #4+#5: LoyaltyController.GetMyLoyalty — mode-aware. Resolves customer →
+  LoyaltyReadRouter → PG balance in Alliance mode. Tier calc from PG balance.
+  NO new endpoint — fix at source (D2).
+- BUG #7: CustomerIdentityController.GetMe + VerifyOtp — mode-aware balance via
+  LoyaltyReadRouter. KhachLink Profile.razor + Checkout.razor + OrderHistory.razor
+  (all call /api/customers/me) get PG balance without client-side changes.
+- BUG #8: CustomerController.List + PreviewSegment + ListGlobal + ExportCsv —
+  admin CRM mode-aware via GetEffectiveBalanceForCustomerAsync helper.
+
+Phase 3 — NATS Sync Fidelity (BUG #9):
+- AllianceWalletService.PublishLoyaltyChangedAsync — extended payload with
+  type/points/reason/tenantId (alongside existing customerDeviceId/pointBalance/
+  updatedAt). Legacy callers (consolidate/split migrations) pass null tx →
+  balance-only payload (backward compat).
+- LoyaltySyncSubscriber.SyncLoyaltyBalanceAsync — when extended fields present,
+  appends LoyaltyHistoryEntry to LoyaltyRewards.History (idempotent: skips if
+  {timestamp, points, reason} duplicate). Backward compat: legacy payload →
+  balance-only sync (no history append).
+
+Tests (21 new, all PASS):
+- LoyaltyReadRoutingTests (6): Alliance+member→PG, Silo→SQLite, opt-out→SQLite,
+  null DeviceId→SQLite, null deps→SQLite, Gateway exception→graceful fallback.
+- MissionServiceAllianceTests (4): Alliance+member→PG contract, Silo routing,
+  opt-out fallback, idempotency key pattern.
+- RedemptionCancelAllianceTests (3): Alliance+member→PG refund, Silo, opt-out.
+- LoyaltyRewardsActivateAllianceTests (3): Alliance+member→PG welcome bonus,
+  idempotency key stability per customer, Silo flow unchanged.
+- LoyaltySyncHistoryTests (5): extended payload parsing, legacy backward compat,
+  history deserialize valid/invalid JSON, idempotency duplicate detection.
+
+Regression: 80 existing loyalty tests PASS (OrderWorkflowAlliance, RedemptionAlliance,
+AllianceWalletService, LoyaltyModeResolver, ConsolidateWallets, LoyaltySyncSubscriber,
+LoyaltyRewardsServiceVerificationGate, LoyaltyConfigController, LoyaltyWalletController,
+Idempotency, InternalApiKeyAuth, ShopErpDiRegistration). Build: 0 errors.
+
+Files modified: 10. Files created: 6 (LoyaltyReadRouter + 5 test files).
+
+Generated with Devin (https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

@@ -1,0 +1,18 @@
+docs(loyalty): mark consistency fix COMPLETE — RV 37/37 PASS
+
+Update plan + task cards + project_state to reflect Layer 1 + Layer 2 + Layer 3
+completion. All 9 bugs (BUG #0-#9) fixed, 21 new tests, 80 existing tests PASS
+(no regression), CD deployed, VPS RV 37/37 PASS.
+
+- loyalty-consistency-fix-plan.md: Status REVIEW → COMPLETE
+- loyalty-consistency-fix-master-plan.md: Status IN PROGRESS → COMPLETE + completion summary
+- loyalty-consistency-fix-task-cards.md: All 5 TCs marked COMPLETE, all [ ] → [x]
+- project_state.md Section 2: Loyalty Consistency Fix moved from "Next" to COMPLETE
+- project_state.md Section 3: Last commit 70897151, working tree clean, Layer 1+2+3 summary
+- project_state.md Section 4: Removed done items 1-3, added Alliance activation testing item
+- project_state.md Section 9: Updated verified facts (70+ facts, 0 assumptions)
+- project_state.md Section 10: Added 2026-08-03 maintenance log entry with full RV 37/37 details
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

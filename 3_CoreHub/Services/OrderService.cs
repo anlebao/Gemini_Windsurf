@@ -1054,6 +1054,34 @@ namespace VanAn.CoreHub.Services
                 _logger.LogInformation("ConfirmPaymentAsync: Accounting sync disabled for tenant {TenantId} — skipping entry generation for order {OrderId}", tenantId, orderId);
             }
 
+            // Sync: Enqueue OrderPaymentStatusChanged event to Outbox for SQLite→PG sync.
+            // NatsSyncWorker publishes "vanan.shoperp.order.payment.status.changed" →
+            // Gateway DataSyncSubscriber.SyncPaymentStatusAsync updates PostgreSQL →
+            // KhachLink OrderTracking sees updated payment status.
+            if (_outboxRepository != null)
+            {
+                var payload = new
+                {
+                    orderId = orderId,
+                    tenantId = tenantId,
+                    paymentStatus = "Paid",
+                    timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                };
+                string eventData = System.Text.Json.JsonSerializer.Serialize(payload);
+                var outboxEvent = new OutboxEvent(
+                    tenantIdObj,
+                    new ElectronicInvoiceId(Guid.Empty),
+                    "OrderPaymentStatusChanged",
+                    eventData);
+                await _outboxRepository.EnqueueAsync(outboxEvent);
+                await _orderRepository.SaveChangesAsync();
+                _logger.LogInformation("Enqueued OrderPaymentStatusChanged event to Outbox for order {OrderId}", orderId);
+            }
+            else
+            {
+                _logger.LogWarning("OutboxRepository not available — OrderPaymentStatusChanged event for order {OrderId} not persisted", orderId);
+            }
+
             _logger.LogInformation("ConfirmPaymentAsync: Payment confirmed for order {OrderId}, accounting entries generated", orderId);
         }
 
