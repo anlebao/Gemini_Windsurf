@@ -248,6 +248,7 @@ namespace VanAn.ShopERP
 
             // Wave 8: HKD Book export service (DOCX via OpenXML + XLSX via EPPlus)
             _ = builder.Services.AddScoped<Services.IHKDBookExportService, Services.HKDBookExportService>();
+            _ = builder.Services.AddScoped<Services.IFinancialReportExportService, Services.FinancialReportExportService>();
 
             // E-Invoice Services (Sprint 3 — DI wiring for ShopERP host)
             // Mirrors 3_CoreHub/Program.cs registration. Required by InvoiceManagement.razor + HKDElectronicInvoiceController.

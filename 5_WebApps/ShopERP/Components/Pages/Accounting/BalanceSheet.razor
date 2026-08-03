@@ -10,8 +10,10 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @inject VanAn.CoreHub.Services.IBalanceSheetService BalanceSheetService
+@inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
 @inject IThemeProvider ThemeProvider
 @inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
 @inject ILogger<BalanceSheet> Logger
 
 <div class="report-page @ThemeProvider.CurrentTheme">
@@ -47,6 +49,8 @@
                 </select>
             </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportDocx" Disabled="@exporting">📄 Xuất DOCX</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportXlsx" Disabled="@exporting">📊 Xuất XLSX</VanAButton>
         </div>
     </VanACard>
 
@@ -157,6 +161,7 @@
 @code {
     private VanAn.Shared.Domain.BalanceSheet? report;
     private bool loading = true;
+    private bool exporting;
     private string? errorMessage;
 
     private int selectedYear = DateTime.UtcNow.Year;
@@ -206,5 +211,56 @@
         if (isNormalNegative && amount < 0)
             return $"({Math.Abs(amount):N0})";
         return amount.ToString("N0");
+    }
+
+    private async Task ExportDocx()
+    {
+        if (report == null) return;
+        await DownloadFile(async () =>
+        {
+            var sections = new List<(string, IReadOnlyList<FinancialStatementLine>)>
+            {
+                ("TÀI SẢN", report.Assets.ToList()),
+                ("NỢ PHẢI TRẢ", report.Liabilities.ToList()),
+                ("VỐN CHỦ SỞ HỮU", report.Equity.ToList())
+            };
+            return await ExportService.ExportStatementToDocxAsync("Bảng Cân Đối Kế Toán", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+        }, $"BalanceSheet_{selectedYear}_{selectedMonth:D2}.docx");
+    }
+
+    private async Task ExportXlsx()
+    {
+        if (report == null) return;
+        await DownloadFile(async () =>
+        {
+            var sections = new List<(string, IReadOnlyList<FinancialStatementLine>)>
+            {
+                ("TÀI SẢN", report.Assets.ToList()),
+                ("NỢ PHẢI TRẢ", report.Liabilities.ToList()),
+                ("VỐN CHỦ SỞ HỮU", report.Equity.ToList())
+            };
+            return await ExportService.ExportStatementToXlsxAsync("Bảng Cân Đối Kế Toán", $"Tháng {selectedMonth:D2}/{selectedYear}", sections);
+        }, $"BalanceSheet_{selectedYear}_{selectedMonth:D2}.xlsx");
+    }
+
+    private async Task DownloadFile(Func<Task<byte[]>> produce, string fileName)
+    {
+        exporting = true;
+        try
+        {
+            byte[] bytes = await produce();
+            string base64 = Convert.ToBase64String(bytes);
+            string mime = fileName.EndsWith(".docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, mime, fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting {FileName}", fileName);
+            errorMessage = $"Không thể xuất file: {ex.Message}";
+        }
+        finally
+        {
+            exporting = false;
+        }
     }
 }
