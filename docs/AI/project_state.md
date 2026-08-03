@@ -30,15 +30,15 @@
 
 ## 2. Current Objective
 
-**Tenant Management + Accounting UI Fixes (4 Bugs)** — Phase 0 (Bug 3) ✅ COMPLETE + DEPLOYED + VPS VERIFIED. Phases 1+2+3 READY (independent, parallel-capable).
+**Tenant Management + Accounting UI Fixes (4 Bugs)** — ✅ ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (HTTP-level). Browser functional testing for authenticated users on VPS is the only remaining step.
 
 - **Master plan:** `docs/AI/tasks/tenant_accounting_fixes/tenant_accounting_fixes_master_plan.md` (4 phases: P0 Bug 3 debug, P1 Bug 2A hide HKD menu, P2 Bug 2B VAS export, P3 Bug 1 edit BusinessType)
-- **Phase 0:** ✅ COMPLETE — commit `89fb90b6`, CI PASS (1253s), CD SUCCESS (6min), VPS HTTP-level RV 7/7 PASS. Root cause: `ScopedDataProvider.cs:86,126` sync-over-async deadlock in Blazor Server. Fix: `Task.Run` wrapper. Tech debt TD-ASYNCDP-001 logged for proper async-native fix.
-- **Phase 1 (NEXT):** Bug 2A — Hide "Sổ HKD" menu for Company tenants. `_isHkd = !_isEnterprise` in `AccountingLayout.razor`. UI only + E2E test.
-- **Phase 2:** Bug 2B — VAS Reports Export (DOCX + XLSX for 4 reports). New `IFinancialReportExportService` + DI + 4 UI pages + 4 E2E tests.
-- **Phase 3:** Bug 1 — Edit BusinessType for tenant. Domain `Tenant.ChangeBusinessType()` (guard: block if AccountingEntry exists) + Service + Gateway API + UI + Tests. Domain APPROVED 2026-08-03.
+- **Phase 0 (Bug 3):** ✅ COMPLETE — commit `89fb90b6`, CI PASS (1253s), CD SUCCESS (6min), VPS HTTP-level RV 7/7 PASS. Root cause: `ScopedDataProvider.cs:86,126` sync-over-async deadlock in Blazor Server. Fix: `Task.Run` wrapper. Tech debt TD-ASYNCDP-001 logged for proper async-native fix.
+- **Phase 1 (Bug 2A):** ✅ COMPLETE — commit `5f21ab36`, CI PASS (923s), CD SUCCESS (6min), VPS HTTP-level RV 5/5 PASS. Hide "Sổ HKD (TT 152)" menu for Company tenants via `_isHkd` conditional in `AccountingLayout.razor`. E2E test `hkd-menu-visibility.spec.ts`.
+- **Phase 2 (Bug 2B):** ✅ COMPLETE — commit `c0fbcef6`, CI PASS (1218s), CD SUCCESS (5min), VPS HTTP-level RV 7/7 PASS. New `IFinancialReportExportService` (Open XML SDK DOCX + EPPlus XLSX) + DI + 4 UI pages (BalanceSheet/IncomeStatement/CashFlowStatement/TrialBalance) with "📄 Xuất DOCX" + "📊 Xuất XLSX" buttons. E2E test `vas-export.spec.ts`.
+- **Phase 3 (Bug 1):** ✅ COMPLETE — commit `424c3aa7`, CI PASS (1229s, 1261+17+39+144 tests 0 failures), CD SUCCESS (5min), VPS HTTP-level RV 6/6 PASS. Domain `Tenant.ChangeBusinessType()` + `TenantBusinessTypeChangedEvent` (8 unit tests PASS). Service `ChangeBusinessTypeAsync()` with AccountingEntry data integrity guard (IAccountingDbContext). Gateway API `PUT /api/v1/tenants/{id}/business-type` (409 if accounting data exists). UI Edit modal: BusinessType dropdown + HKDGroup + Reason field. E2E test `tenant-edit-businesstype.spec.ts`.
 
-**Last completed:** KhachLink LoyaltyMode UI Hide — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, 2026-08-03).
+**Last completed:** Tenant Management + Accounting UI Fixes — ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (commits `89fb90b6` → `424c3aa7`, 2026-08-03).
 
 **Recently completed (full detail in archive):**
 - **KhachLink LoyaltyMode UI Hide** — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`, 2026-08-03). When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI (NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page shows "Tính năng liên minh đang tắt"). New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 8 files changed. CI PASS (1347s). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh, all pages 200.
@@ -65,8 +65,8 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `89fb90b6` [TENANT-FIX P0] fix ScopedDataProvider sync-over-async deadlock (Bug 3)
-- **Working tree:** Clean (Phase 0 committed + pushed). Branch in sync with origin/main.
+- **Last commit:** `424c3aa7` [TENANT-FIX P3] add SystemAdmin Edit Tenant BusinessType (Bug 1)
+- **Working tree:** Clean (all 4 phases committed + pushed). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -82,18 +82,20 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — Phase 1)** Bug 2A — Hide "Sổ HKD" menu for Company tenants. `_isHkd = !_isEnterprise` in `AccountingLayout.razor:79` (wrap menu item in `@if (_isHkd)`). UI only + 1 E2E test. Task card: `docs/AI/tasks/tenant_accounting_fixes/phase1_task_card.md`.
-2. **(Tenant Fixes — Phase 2)** Bug 2B — VAS Reports Export (DOCX + XLSX for 4 reports). New `IFinancialReportExportService` + DI + 4 UI pages + 4 E2E tests. Task card: `phase2_task_card.md`.
-3. **(Tenant Fixes — Phase 3)** Bug 1 — Edit BusinessType for tenant. Domain `Tenant.ChangeBusinessType()` (guard: block if tenant has AccountingEntry) + Service + Gateway API + UI Edit Modal + Tests. Domain APPROVED 2026-08-03. Task card: `phase3_task_card.md`.
-4. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-5. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-6. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-7. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native (eliminates Phase 0 quick-fix sync-over-async).
-8. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (Note: this session manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container to unblock Phase 0 debug — see Maintenance Log.)
-9. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
-10. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
-11. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV: create order → verify EARN to PG wallet → redeem → verify REDEEM from PG wallet → check KhachLink `/alliance-wallet` displays cross-tenant breakdown.
-12. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
+1. **(CURRENT — Browser RV)** Browser functional testing on VPS for all 4 phases (authenticated user flows):
+   - Phase 0: Log in → navigate to accounting pages → verify no deadlock/hang.
+   - Phase 1: Log in as Company tenant → verify "Sổ HKD" menu hidden; HKD tenant → verify visible.
+   - Phase 2: Log in → 4 VAS report pages → click "📄 Xuất DOCX" / "📊 Xuất XLSX" → verify file downloads.
+   - Phase 3: Log in as SystemAdmin → /admin/tenants → Edit tenant → change BusinessType → verify success (no accounting data) or 409 error (with accounting data).
+2. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+3. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+4. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native (eliminates Phase 0 quick-fix sync-over-async).
+6. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (Note: this session manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container to unblock Phase 0 debug — see Maintenance Log.)
+7. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
+8. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+9. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV: create order → verify EARN to PG wallet → redeem → verify REDEEM from PG wallet → check KhachLink `/alliance-wallet` displays cross-tenant breakdown.
+10. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
 
 ### Pruned (2026-07-29)
 
@@ -127,6 +129,7 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-03] **TENANT MANAGEMENT + ACCOUNTING UI FIXES — ALL 4 PHASES COMPLETE.** Commits `89fb90b6` (P0 Bug 3 deadlock) → `5f21ab36` (P1 Bug 2A HKD menu hide) → `c0fbcef6` (P2 Bug 2B VAS export DOCX/XLSX) → `424c3aa7` (P3 Bug 1 Edit BusinessType). All CI PASS, CD SUCCESS, VPS HTTP-level RV PASS. Browser functional testing remaining.
 * [2026-08-03] **UI FIX BATCH (5 ISSUES) COMPLETE.** Commit `6179fdd7`. RV 7/7. Impersonate + store search + payment status + QR cart + POS font/QR.
 * [2026-08-03] **LOYALTY CONSISTENCY FIX COMPLETE.** RV 37/37. 9 bugs fixed via 2-layer execution. Option B HTTP proxy + cache + idempotency.
 * [2026-08-02] **LOYALTY ALLIANCE PHASE 7 COMPLETE.** Commit `25a70b9f`. RV 14/14. ALL 7 PHASES COMPLETE + DEPLOYED.
@@ -220,6 +223,12 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
 
+* **2026-08-03 — TENANT FIXES ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED.**
+  - **Phase 0 (Bug 3 — deadlock):** commit `89fb90b6`, CD run `30815588126`, RV 7/7. Fix: `Task.Run` wrapper in `ScopedDataProvider.cs`. TD-ASYNCDP-001 logged.
+  - **Phase 1 (Bug 2A — HKD menu hide):** commit `5f21ab36`, CD run `30823357227`, RV 5/5. `_isHkd` conditional in `AccountingLayout.razor`. E2E: `hkd-menu-visibility.spec.ts`.
+  - **Phase 2 (Bug 2B — VAS Reports export):** commit `c0fbcef6`, CD run `30823357227`, RV 7/7. New `IFinancialReportExportService` (Open XML SDK DOCX + EPPlus XLSX) + 4 UI pages + E2E `vas-export.spec.ts`.
+  - **Phase 3 (Bug 1 — Edit BusinessType):** commit `424c3aa7`, CD run `30826995144`, RV 6/6. Domain `Tenant.ChangeBusinessType()` + `TenantBusinessTypeChangedEvent` (8 unit tests). Service `ChangeBusinessTypeAsync()` with AccountingEntry guard (IAccountingDbContext). Gateway API `PUT /api/v1/tenants/{id}/business-type` (409 if accounting data). UI Edit modal: BusinessType dropdown + HKDGroup + Reason. E2E: `tenant-edit-businesstype.spec.ts`. CI PASS (1229s, 1261+17+39+144 tests 0 failures).
+  - **All phases:** HTTP-level RV PASS. Browser functional testing for authenticated users on VPS is the only remaining step. Branch: `main`. Last commit: `424c3aa7`. In sync with origin.
 * **2026-08-03 — TENANT FIXES PHASE 0 (BUG 3) COMPLETE + DEPLOYED + VPS VERIFIED (commit `89fb90b6`, CD run `30815588126`, RV 7/7 PASS).** Bug 3: tenant HKD clicks "📖 Mở sổ" at `/accounting/hkd-books` → page hangs forever (loading spinner). Root cause: `ScopedDataProvider.cs:86,126` sync-over-async — `GetPreAggregatedDataAsync(context).GetAwaiter().GetResult()` blocks Blazor Server single-threaded sync context; the async chain (`GetPreAggregatedDataAsync` → `GetAccountAggregatesAsync` → `GetAccountSumAsync` → `ToListAsync()`) awaits without `ConfigureAwait(false)`, so its continuation cannot resume → infinite deadlock. Server log evidence: SQL executed (7ms) at 17:50:59, then 28s silence, Blazor circuit died (61s timeout) + reconnected. Fix (Option A — quick): wrapped both calls in `Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult()` — offloads async chain to thread pool (no sync context) so continuation completes. CI PASS (1253s, 1253+17+39+115 tests). CD SUCCESS (6min: Build 4m20s + Validate 8s + Deploy 1m38s). VPS HTTP-level RV 7/7 PASS — ShopERP/KhachLink/Gateway all 200, HKD books + detail routes 200. Tech debt TD-ASYNCDP-001 logged for proper async-native fix (Option B). Also: manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container (was missing — env issue). Branch: `main`. Last commit: `89fb90b6`. In sync with origin.
 * **2026-08-03 — KHACHLINK LOYALTYMODE UI HIDE COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`).** When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI to prevent customer confusion. New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 3 UI points hidden: NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page (shows "Tính năng liên minh đang tắt" guard message). 8 files changed. CI PASS (1347s, 1253+17+233 tests). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh (2 min), Gateway DLL fresh (4 min), all pages 200. Branch: `main`. Last commit: `133e8061`. In sync with origin.
 * **2026-08-03 — KHACHLINK UI POLISH + HOME SEARCH FIX COMPLETE (commits `29180a53` + `482e481f`).** (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. Mobile bottom-nav reduced from 10 → 6 tabs. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter due to binding race condition) + restructured render tree (search box always visible above results, was hidden inside `else if` conditional after search). No-results message now distinguishes location vs keyword search. Build 0 errors. (3) Order Status Sync Fix: ConfirmPaymentAsync enqueues OrderPaymentStatusChanged outbox event + SyncOrderCompletedAsync camelCase fix + order.payment.status.changed case in DataSyncSubscriber. Branch: `main`. Last commit: `482e481f`.
