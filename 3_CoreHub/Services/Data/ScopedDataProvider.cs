@@ -83,7 +83,13 @@ namespace VanAn.CoreHub.Services.Data
             }
 
             // Get from pre-aggregated data
-            Dictionary<string, decimal> data = GetPreAggregatedDataAsync(context).GetAwaiter().GetResult();
+            // Wave 7 / Phase 0 Bug 3 fix: Use Task.Run to avoid Blazor Server sync-context deadlock.
+            // GetPreAggregatedDataAsync → GetAccountAggregatesAsync → GetAccountSumAsync → ToListAsync()
+            // awaits without ConfigureAwait(false); calling .GetAwaiter().GetResult() directly blocks the
+            // single-threaded Blazor circuit sync context, so the ToListAsync() continuation cannot resume
+            // → infinite hang. Task.Run offloads the async chain to the thread pool (no sync context),
+            // letting the continuation complete and the .GetResult() unblock.
+            Dictionary<string, decimal> data = Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult();
             string key = $"Account_{accountPattern}_{side}";
 
             if (!data.TryGetValue(key, out decimal value))
@@ -117,7 +123,8 @@ namespace VanAn.CoreHub.Services.Data
                 return cachedValue;
             }
 
-            Dictionary<string, decimal> data = GetPreAggregatedDataAsync(context).GetAwaiter().GetResult();
+            // Phase 0 Bug 3 fix: Task.Run to avoid Blazor Server sync-context deadlock (see GetAccountSum above).
+            Dictionary<string, decimal> data = Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult();
 
             if (!data.TryGetValue(sectorKey, out decimal value))
             {

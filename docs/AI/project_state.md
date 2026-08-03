@@ -30,7 +30,16 @@
 
 ## 2. Current Objective
 
-**No active objective.** Last completed: KhachLink LoyaltyMode UI Hide — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, 2026-08-03). Ready for next feature request or Alliance mode activation testing.
+**Tenant Management + Accounting UI Fixes (4 Bugs)** — Phase 0 (Bug 3 Runtime Debug) IN PROGRESS → fix applied, awaiting user browser verification.
+
+- **Master plan:** `docs/AI/tasks/tenant_accounting_fixes/tenant_accounting_fixes_master_plan.md` (4 phases: P0 Bug 3 debug, P1 Bug 2A hide HKD menu, P2 Bug 2B VAS export, P3 Bug 1 edit BusinessType)
+- **Phase 0 task card:** `docs/AI/tasks/tenant_accounting_fixes/phase0_task_card.md`
+- **Phase 0 status:** 🟢 Root cause identified + fix applied (Option A — `Task.Run` wrapper in `ScopedDataProvider.GetAccountSum` to break Blazor Server sync-context deadlock). ShopERP restarted with fix. **Awaiting user browser verification** that "📖 Mở sổ" now loads the book detail page instead of hanging.
+- **Root cause (Bug 3):** `ScopedDataProvider.cs:86,120` called `GetPreAggregatedDataAsync(...).GetAwaiter().GetResult()` — sync-over-async blocked the single-threaded Blazor circuit sync context. The async chain (`GetPreAggregatedDataAsync` → `GetAccountAggregatesAsync` → `GetAccountSumAsync` → `ToListAsync()`) awaits without `ConfigureAwait(false)`, so its continuation could not resume → infinite hang. Server log evidence: SQL executed (7ms) at 17:50:59, then 28s silence, then Blazor circuit died (61s timeout) and reconnected.
+- **Fix:** Wrapped both sync-over-async calls in `Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult()` — offloads async chain to thread pool (no sync context) so continuation completes and `.GetResult()` unblocks. Proper fix (Option B — make entire chain async) tracked as tech debt TD-ASYNCDP-001.
+- **Next:** User verifies fix in browser → if pass, commit `[TENANT-FIX P0] fix ScopedDataProvider sync-over-async deadlock` → proceed to Phase 1/2/3 (independent, can run parallel).
+
+**Last completed:** KhachLink LoyaltyMode UI Hide — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, 2026-08-03).
 
 **Recently completed (full detail in archive):**
 - **KhachLink LoyaltyMode UI Hide** — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`, 2026-08-03). When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI (NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page shows "Tính năng liên minh đang tắt"). New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 8 files changed. CI PASS (1347s). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh, all pages 200.
@@ -58,7 +67,7 @@
 
 - **Branch:** `main`
 - **Last commit:** `133e8061` fix(khachlink): hide Alliance Wallet UI when LoyaltyMode=Silo
-- **Working tree:** Clean. Branch in sync with origin/main.
+- **Working tree:** Modified — `3_CoreHub/Services/Data/ScopedDataProvider.cs` (Phase 0 Bug 3 fix, uncommitted). Untracked: `docs/AI/tasks/tenant_accounting_fixes/` (master plan + phase0 task card). Not in sync with origin (local changes pending verification + commit).
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -66,7 +75,7 @@
 - **Local infra:** Docker PostgreSQL 15-alpine (5432) + NATS 2-alpine (4222) + ShopERP 5003 + KhachLink 5002 + Gateway 5001.
 - **Loyalty Alliance System:** FULLY OPERATIONAL (Phase 1-7 COMPLETE + DEPLOYED + VPS VERIFIED). Tenant currently in Silo mode — Alliance infrastructure ready for when tenant switches.
 - **CustomerRepository.AddAsync fix (commit `550f5619`):** Fixed bug where AddAsync created a new Customer with wrong Id. Loyalty points now correctly awarded after order completion.
-- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity.
+- **Tech debt:** TD-MVPS-001 through TD-MVPS-004 (see `docs/AI/tasks/tech_debt_multi_vps_checkout.md`). TD-PWA-001 (WASM conversion complete). Tier 5 — True Offline Edge (post-PoC). **TD-CUSTSYNC-001 (2026-07-27):** Customers created in ShopERP SQLite (CRM local) are NOT synced to Gateway PG — Gateway `OrderService.CreateOrderFromCommandAsync` validates CustomerId against PG and falls back to null if missing. Bug 6 fix mitigates this for guest checkout (DeviceId fallback + stub creation in SQLite), but full Customer sync SQLite→PG still needed for cross-system customer identity. **TD-ASYNCDP-001 (2026-08-03, NEW):** `ScopedDataProvider.GetAccountSum`/`GetAccountBalance` are sync methods that internally call async `GetPreAggregatedDataAsync` via `Task.Run(...).GetAwaiter().GetResult()` (Phase 0 Bug 3 quick fix). Proper fix: make `IFormulaEngine.Evaluate` + `IDataProvider.GetAccountSum` async (`EvaluateAsync`/`GetAccountSumAsync`) so the entire chain is async-native — eliminates sync-over-async + thread pool offload overhead. Large interface change, touch many callers.
 
 > **Full detail** (per-sprint file lists, VPS RV step-by-step, plan deviations, Loyalty/CRM Audit Fix P0-P3, KhachLink Bugs 1-3, Bug 5/6, 4-Bug Fix, Sprint 0): see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 3.
 
@@ -74,15 +83,19 @@
 
 ## 4. Next Actions
 
-1. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-2. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-3. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-4. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG.
-5. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`.
-6. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
-7. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
-8. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV: create order → verify EARN to PG wallet → redeem → verify REDEEM from PG wallet → check KhachLink `/alliance-wallet` displays cross-tenant breakdown.
-9. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
+1. **(CURRENT — Phase 0 Bug 3)** User verifies fix in browser: refresh `http://localhost:5003` → login (`fetch('/dev/login', {method:'POST', credentials:'same-origin'})`) → navigate `/accounting/hkd-books` → click "📖 Mở sổ" → confirm book detail page loads (no hang). If pass → commit `[TENANT-FIX P0] fix ScopedDataProvider sync-over-async deadlock` → update phase0 task card status to ✅ COMPLETE.
+2. **(Tenant Fixes — Phase 1)** Bug 2A — Hide "Sổ HKD" menu for Company tenants. `_isHkd = !_isEnterprise` in `AccountingLayout.razor`. UI only + E2E test. Task card: `phase1_task_card.md` (TBD).
+3. **(Tenant Fixes — Phase 2)** Bug 2B — VAS Reports Export (DOCX + XLSX for 4 reports). New `IFinancialReportExportService` + DI + 4 UI pages + 4 E2E tests. Task card: `phase2_task_card.md` (TBD).
+4. **(Tenant Fixes — Phase 3)** Bug 1 — Edit BusinessType for tenant. Domain `Tenant.ChangeBusinessType()` (guard: block if tenant has AccountingEntry) + Service + Gateway API + UI Edit Modal + Tests. Domain APPROVED 2026-08-03. Task card: `phase3_task_card.md` (TBD).
+5. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+6. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+7. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+8. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native (eliminates Phase 0 quick-fix sync-over-async).
+9. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (Note: this session manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container to unblock Phase 0 debug — see Maintenance Log.)
+10. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
+11. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
+12. **(Loyalty Alliance activation)** When tenant switches to Alliance mode in production, run end-to-end RV: create order → verify EARN to PG wallet → redeem → verify REDEEM from PG wallet → check KhachLink `/alliance-wallet` displays cross-tenant breakdown.
+13. **(Bug 3 full verify)** Re-print QR for product with image to fully verify Scan.razor image rendering on VPS.
 
 ### Pruned (2026-07-29)
 
@@ -199,8 +212,8 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `133e8061` (hide Alliance Wallet UI when Silo). KhachLink LoyaltyMode UI Hide COMPLETE + VPS VERIFIED (RV 10/10 PASS, CD run `30789469902`). New endpoint `GET /api/loyalty/mode` returns `{"mode":"Silo"}` on VPS. KhachLink UI Polish COMPLETE (commits `29180a53` + `482e481f`). Order Status Sync Fix COMPLETE. UI Fix Batch COMPLETE (RV 7/7 PASS, commit `6179fdd7`). Loyalty Consistency Fix COMPLETE (RV 37/37 PASS). Loyalty Alliance System Phase 1-7 COMPLETE. Build 0 errors. Working tree clean. Branch in sync with origin/main.
-- **Open Questions:** 0
+- **Verified Facts:** Branch=`main`, last commit `133e8061`. Phase 0 Bug 3 root cause confirmed via server log evidence: `ScopedDataProvider.cs:86,120` sync-over-async (`GetPreAggregatedDataAsync(...).GetAwaiter().GetResult()`) deadlocks Blazor Server single-threaded sync context. SQL executed (7ms) at 17:50:59, then 28s silence, Blazor circuit died (61s timeout). Fix applied: `Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult()` at 2 sites. Build PASS (warnings only). ShopERP restarted on 5003. Awaiting user browser verification. KhachLink LoyaltyMode UI Hide COMPLETE + VPS VERIFIED (RV 10/10 PASS). All prior sprints COMPLETE.
+- **Open Questions:** 0 (root cause identified with evidence; fix applied; verification pending user action)
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (80+), Open Questions (0) < 3
 
 ---
@@ -209,6 +222,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
 
+* **2026-08-03 — TENANT FIXES PHASE 0 (BUG 3) ROOT CAUSE IDENTIFIED + FIX APPLIED (uncommitted, awaiting user browser verification).** Bug 3: tenant HKD clicks "📖 Mở sổ" at `/accounting/hkd-books` → page hangs forever (loading spinner). Root cause: `ScopedDataProvider.cs:86,120` sync-over-async — `GetPreAggregatedDataAsync(context).GetAwaiter().GetResult()` blocks Blazor Server single-threaded sync context; the async chain (`GetPreAggregatedDataAsync` → `GetAccountAggregatesAsync` → `GetAccountSumAsync` → `ToListAsync()`) awaits without `ConfigureAwait(false)`, so its continuation cannot resume → infinite deadlock. Server log evidence: SQL executed (7ms) at 17:50:59, then 28s silence, Blazor circuit died (61s timeout) + reconnected. Fix (Option A — quick): wrapped both calls in `Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult()` — offloads async chain to thread pool (no sync context) so continuation completes. Build PASS. ShopERP restarted on 5003. Awaiting user browser verification. Tech debt TD-ASYNCDP-001 logged for proper async-native fix (Option B). Also: manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container (was missing — env issue, see Next Actions #9). Branch: `main`. Last commit: `133e8061` (unchanged — fix uncommitted).
 * **2026-08-03 — KHACHLINK LOYALTYMODE UI HIDE COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`).** When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI to prevent customer confusion. New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 3 UI points hidden: NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page (shows "Tính năng liên minh đang tắt" guard message). 8 files changed. CI PASS (1347s, 1253+17+233 tests). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh (2 min), Gateway DLL fresh (4 min), all pages 200. Branch: `main`. Last commit: `133e8061`. In sync with origin.
 * **2026-08-03 — KHACHLINK UI POLISH + HOME SEARCH FIX COMPLETE (commits `29180a53` + `482e481f`).** (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. Mobile bottom-nav reduced from 10 → 6 tabs. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter due to binding race condition) + restructured render tree (search box always visible above results, was hidden inside `else if` conditional after search). No-results message now distinguishes location vs keyword search. Build 0 errors. (3) Order Status Sync Fix: ConfirmPaymentAsync enqueues OrderPaymentStatusChanged outbox event + SyncOrderCompletedAsync camelCase fix + order.payment.status.changed case in DataSyncSubscriber. Branch: `main`. Last commit: `482e481f`.
 * **2026-08-03 — PROJECT STATE ARCHIVED (reduction 395 → ~280 lines).** Moved all Section 2 "Previous:" objectives (full detail), Section 3 per-sprint status items, and Section 10 maintenance log entries (2026-07-26 → 2026-08-03) to `docs/AI/project_state_archive.md` under new "Archived 2026-08-03" section. Branch: `main`. Last commit: `6179fdd7`.
