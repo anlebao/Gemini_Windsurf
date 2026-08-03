@@ -30,7 +30,25 @@
 
 ## 2. Current Objective
 
-**Tenant Management + Accounting UI Fixes (4 Bugs)** — ✅ ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (HTTP-level). Browser functional testing for authenticated users on VPS is the only remaining step.
+**TT 99/2025/TT-BTC Compliance Fixes (8 Gaps)** — 🟡 ANALYZE COMPLETE, PLANNED for IMPLEMENT. 8 gaps identified + verified against 5 official sources (MISA, thuvienphapluat, Grant Thornton, Bộ Tài chính, tanngoctax). 6 task cards + 1 new Phase 5a verified against codebase via 6 parallel subagents.
+
+- **Master plan:** `docs/AI/tasks/tt99_compliance_fixes/tt99_compliance_fixes_master_plan.md`
+- **ANALYZE report:** `docs/AI/tasks/tt99_compliance_fixes/ANALYZE_REPORT_reverse_impact.md` (full reverse impact review)
+- **Task cards:** `phase1` → `phase6` + `phase5a` (new prerequisite for Phase 5)
+- **Bộ BCTC năm theo TT 99 (DN hoạt động liên tục):** B 01-DN (Báo cáo tình hình TC), B 02-DN (KQ HĐKD), B 03-DN (Lưu chuyển tiền tệ), B 09-DN (Thuyết minh BCTC)
+- **8 Gaps:** (1) B 09-DN THIẾU, (2) B 01-DN sai tên, (3) B 03-DN thiếu indirect method, (4) flat account list thay vì TT99 template, (5) default standard = TT133, (6) thiếu TT58, (7) thiếu chỉ tiêu BĐSĐT, (8) TrialBalance nằm trong bộ BCTC
+- **ANALYZE findings:**
+  - Phase 1: 7 files (was 3) — Sitemap.razor + 2 tests + E2E also need rename
+  - Phase 2: `IVasFeatureFlagService.GetTenantTypeAsync()` ALREADY EXISTS — no DTO/Gateway change needed; TT58 intentionally NOT seeded
+  - Phase 3: Must inject IBalanceSheetService + IIncomeStatementService — 10 files impact
+  - Phase 4: 33 existing tests (W4+W7) need updates; large refactor
+  - Phase 5: 🔴 BLOCKER — Tenant missing LegalForm/BusinessField/CharterCapital → new Phase 5a (TenantSettings extension, no migration)
+  - Phase 6: TK 5117/6327 MISSING from seeder; Mã số "75" UNVERIFIED
+- **Revised execution order:** Phase 5a + 1 + 2 + 6 (4-way parallel) → Phase 3 → Phase 4 → Phase 5
+- **Total impact:** 32+ files modify, 4 create, 22+ tests update, 13+ new tests
+- **4 open questions for user:** (1) TT58 dropdown skip or info msg? (2) BĐSĐT Mã số source? (3) Approve TenantSettings extension? (4) OK to update W7 tests?
+
+**Previous objective — COMPLETE:** Tenant Management + Accounting UI Fixes (4 Bugs) — ✅ ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (HTTP-level). Browser functional testing for authenticated users on VPS is the only remaining step.
 
 - **Master plan:** `docs/AI/tasks/tenant_accounting_fixes/tenant_accounting_fixes_master_plan.md` (4 phases: P0 Bug 3 debug, P1 Bug 2A hide HKD menu, P2 Bug 2B VAS export, P3 Bug 1 edit BusinessType)
 - **Phase 0 (Bug 3):** ✅ COMPLETE — commit `89fb90b6`, CI PASS (1253s), CD SUCCESS (6min), VPS HTTP-level RV 7/7 PASS. Root cause: `ScopedDataProvider.cs:86,126` sync-over-async deadlock in Blazor Server. Fix: `Task.Run` wrapper. Tech debt TD-ASYNCDP-001 logged for proper async-native fix.
@@ -38,7 +56,7 @@
 - **Phase 2 (Bug 2B):** ✅ COMPLETE — commit `c0fbcef6`, CI PASS (1218s), CD SUCCESS (5min), VPS HTTP-level RV 7/7 PASS. New `IFinancialReportExportService` (Open XML SDK DOCX + EPPlus XLSX) + DI + 4 UI pages (BalanceSheet/IncomeStatement/CashFlowStatement/TrialBalance) with "📄 Xuất DOCX" + "📊 Xuất XLSX" buttons. E2E test `vas-export.spec.ts`.
 - **Phase 3 (Bug 1):** ✅ COMPLETE — commit `424c3aa7`, CI PASS (1229s, 1261+17+39+144 tests 0 failures), CD SUCCESS (5min), VPS HTTP-level RV 6/6 PASS. Domain `Tenant.ChangeBusinessType()` + `TenantBusinessTypeChangedEvent` (8 unit tests PASS). Service `ChangeBusinessTypeAsync()` with AccountingEntry data integrity guard (IAccountingDbContext). Gateway API `PUT /api/v1/tenants/{id}/business-type` (409 if accounting data exists). UI Edit modal: BusinessType dropdown + HKDGroup + Reason field. E2E test `tenant-edit-businesstype.spec.ts`.
 
-**Last completed:** Tenant Management + Accounting UI Fixes — ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (commits `89fb90b6` → `424c3aa7`, 2026-08-03).
+**Last completed:** TT 99/2025/TT-BTC Compliance Fixes — ANALYZE COMPLETE (commits `03fcb459` master plan + `94c29dcf` ANALYZE report, 2026-08-03). Previous: Tenant Management + Accounting UI Fixes — ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (commits `89fb90b6` → `424c3aa7`, 2026-08-03).
 
 **Recently completed (full detail in archive):**
 - **KhachLink LoyaltyMode UI Hide** — COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`, 2026-08-03). When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI (NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page shows "Tính năng liên minh đang tắt"). New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 8 files changed. CI PASS (1347s). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh, all pages 200.
@@ -65,8 +83,8 @@
 ## 3. Current Status
 
 - **Branch:** `main`
-- **Last commit:** `424c3aa7` [TENANT-FIX P3] add SystemAdmin Edit Tenant BusinessType (Bug 1)
-- **Working tree:** Clean (all 4 phases committed + pushed). Branch in sync with origin/main.
+- **Last commit:** `94c29dcf` [docs] TT99 ANALYZE complete — reverse impact review + 7 task cards updated
+- **Working tree:** Clean (TT99 master plan + ANALYZE report committed + pushed). Branch in sync with origin/main.
 - **.NET SDK:** 8.0.422
 - **DB:** SQLite `vanan_shoperp.db` (business) + PostgreSQL `VanAnCoreHub` (accounting + Gateway + Community tables)
 - **Build:** 0 errors across full solution. CI pre-push ALL PASSED.
@@ -82,15 +100,21 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — Browser RV)** Browser functional testing on VPS for all 4 phases (authenticated user flows):
-   - Phase 0: Log in → navigate to accounting pages → verify no deadlock/hang.
-   - Phase 1: Log in as Company tenant → verify "Sổ HKD" menu hidden; HKD tenant → verify visible.
-   - Phase 2: Log in → 4 VAS report pages → click "📄 Xuất DOCX" / "📊 Xuất XLSX" → verify file downloads.
-   - Phase 3: Log in as SystemAdmin → /admin/tenants → Edit tenant → change BusinessType → verify success (no accounting data) or 409 error (with accounting data).
-2. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
-3. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
-4. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
-5. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native (eliminates Phase 0 quick-fix sync-over-async).
+1. **(CURRENT — TT99 Compliance Fixes)** Implement TT 99/2025/TT-BTC compliance fixes per master plan + 7 task cards:
+   - **Wave 1 (4-way parallel):** Phase 5a (TenantSettings extension) + Phase 1 (rename B 01-DN, 7 files) + Phase 2 (auto-standard via IVasFeatureFlagService, split TrialBalance) + Phase 6 (seed TK 5117/6327 + BĐSĐT indicator)
+   - **Wave 2:** Phase 3 (B 03-DN indirect method, 10 files, inject 2 services)
+   - **Wave 3:** Phase 4 (TT 99 template structure refactor, 33 tests to update)
+   - **Wave 4:** Phase 5 (B 09-DN Thuyết minh BCTC, depends on Phase 5a + Phase 4)
+   - **4 open questions for user:** (1) TT58 dropdown skip or info msg? (2) BĐSĐT Mã số source? (3) Approve TenantSettings extension? (4) OK to update W7 tests?
+2. **(Previous — Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows):
+   - Phase 0: Log in → accounting pages → verify no deadlock/hang.
+   - Phase 1: Company tenant → "Sổ HKD" menu hidden; HKD tenant → visible.
+   - Phase 2: 4 VAS report pages → "📄 Xuất DOCX" / "📊 Xuất XLSX" → verify file downloads.
+   - Phase 3: SystemAdmin → /admin/tenants → Edit tenant → change BusinessType → verify success/409.
+3. **Post-Sprint 7 flaky tests:** Fix 4 EInvoiceOrchestratorTests (currently skipped via `Category!=Flaky` CI filter).
+4. **CC-S6-T5 (Sprint 6) — Collaborator SMS OTP + Deposit Wallet (TOGGLE):** SystemAdmin toggle ON/OFF. Default OFF. Cần Domain Modification approval.
+5. **A2 follow-up — Guid case audit (P2):** Audit + fix Guid case mismatch across all tables (not just OutboxMessages).
+6. **Tech debt cleanup** — TD-MVPS-001 through TD-MVPS-004. **TD-CUSTSYNC-001:** Customer sync SQLite→PG. **TD-ASYNCDP-001:** Make `IFormulaEngine`/`IDataProvider` async-native (eliminates Phase 0 quick-fix sync-over-async).
 6. **(Env)** Fix local DB role mismatch — ShopERP `vanan_admin` vs Gateway `vanan_dev`. (Note: this session manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container to unblock Phase 0 debug — see Maintenance Log.)
 7. **(Guard-check script)** Investigate transient `$LASTEXITCODE` false-positive in fast-test-gate.
 8. **(Facebook OAuth)** Config real Facebook OAuth credentials — Sprint 7+. Currently stub redirect in `Login.razor:148`.
@@ -129,6 +153,7 @@
 
 ## 6. History Log (compressed — see archive + git log)
 
+* [2026-08-03] **TT 99/2025/TT-BTC COMPLIANCE FIXES — ANALYZE COMPLETE.** Commits `03fcb459` (master plan + 6 task cards) + `94c29dcf` (ANALYZE report + 7 task cards updated). 8 gaps verified against 5 official sources. 6 subagents verified all task cards against codebase. New Phase 5a discovered (TenantSettings extension). 4 open questions for user.
 * [2026-08-03] **TENANT MANAGEMENT + ACCOUNTING UI FIXES — ALL 4 PHASES COMPLETE.** Commits `89fb90b6` (P0 Bug 3 deadlock) → `5f21ab36` (P1 Bug 2A HKD menu hide) → `c0fbcef6` (P2 Bug 2B VAS export DOCX/XLSX) → `424c3aa7` (P3 Bug 1 Edit BusinessType). All CI PASS, CD SUCCESS, VPS HTTP-level RV PASS. Browser functional testing remaining.
 * [2026-08-03] **UI FIX BATCH (5 ISSUES) COMPLETE.** Commit `6179fdd7`. RV 7/7. Impersonate + store search + payment status + QR cart + POS font/QR.
 * [2026-08-03] **LOYALTY CONSISTENCY FIX COMPLETE.** RV 37/37. 9 bugs fixed via 2-layer execution. Option B HTTP proxy + cache + idempotency.
@@ -223,6 +248,7 @@ Server A (Edge):              Server B (Central):
 
 > Full historical maintenance log: see `docs/AI/project_state_archive.md` → "Archived 2026-08-03" → Section 10.
 
+* **2026-08-03 — TT 99/2025/TT-BTC COMPLIANCE FIXES — ANALYZE COMPLETE (commits `03fcb459` + `94c29dcf`).** User requested verify codebase against TT 99/2025/TT-BTC (BCTC năm, DN hoạt động liên tục). Verified against 5 official sources: MISA (amis.misa.vn), thuvienphapluat.vn, Grant Thornton, Bộ Tài chính (portal.mof.gov.vn), tanngoctax.vn. 8 gaps identified: (1) B 09-DN Thuyết minh THIẾU hoàn toàn, (2) B 01-DN sai tên "Bảng CĐKT" → "Báo cáo tình hình TC", (3) B 03-DN thiếu phương pháp gián tiếp, (4) flat account list thay vì TT99 template (Mã số 100/110...), (5) default standard = TT133 không auto-select, (6) thiếu TT58 dropdown, (7) thiếu chỉ tiêu BĐSĐT, (8) TrialBalance nằm trong bộ BCTC. Created master plan + 6 task cards. ANALYZE pass: 6 subagents verified all task cards against codebase in parallel. Key findings: Phase 1 needs 7 files (was 3 — Sitemap + tests missing); Phase 2 simpler (IVasFeatureFlagService.GetTenantTypeAsync() already exists, no DTO change); Phase 3 needs DI injection (10 files); Phase 5 BLOCKER (Tenant missing LegalForm/BusinessField/CharterCapital → new Phase 5a TenantSettings extension); Phase 6 TK 5117/6327 missing from seeder, Mã số "75" unverified. 4 open questions for user. Branch: `main`. Last commit: `94c29dcf`. In sync with origin.
 * **2026-08-03 — TENANT FIXES ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED.**
   - **Phase 0 (Bug 3 — deadlock):** commit `89fb90b6`, CD run `30815588126`, RV 7/7. Fix: `Task.Run` wrapper in `ScopedDataProvider.cs`. TD-ASYNCDP-001 logged.
   - **Phase 1 (Bug 2A — HKD menu hide):** commit `5f21ab36`, CD run `30823357227`, RV 5/5. `_isHkd` conditional in `AccountingLayout.razor`. E2E: `hkd-menu-visibility.spec.ts`.
