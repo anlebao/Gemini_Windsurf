@@ -1,15 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using VanAn.CoreHub.Infrastructure;
+using VanAn.CoreHub.Services.Data;
 using VanAn.Shared.Domain;
 using DomainAccountType = VanAn.Shared.Domain.AccountType;
 
 namespace VanAn.CoreHub.Services;
 
 /// <summary>
-/// VAS Wave 4 — Income Statement service implementation (Mẫu B02-DN / B02-DNN).
-/// 2-column comparative: Ending = current period movement, Opening = same month prior year movement.
-/// Revenue (credit 5xx) - COGS (debit 632) - OpEx (debit 641+642) + OtherIncome (credit 7xx) - OtherExpense (debit 8xx) = NetProfit.
+/// VAS Wave 4 + TT 99 Phase 4 — Income Statement service (Mẫu B02-DN).
+/// TT 99: uses template structure with Mã số (01-60) and formula-based calculated lines.
+/// Other standards: flat account list (backward compatible).
 /// </summary>
 public class IncomeStatementService : IIncomeStatementService
 {
@@ -32,11 +33,9 @@ public class IncomeStatementService : IIncomeStatementService
 
         DateTime periodStart = period.StartDate;
         DateTime periodEnd = period.StartDate.AddMonths(1);
-        // Opening column = same month prior year (legal comparative requirement).
         DateTime priorYearStart = periodStart.AddYears(-1);
         DateTime priorYearEnd = periodEnd.AddYears(-1);
 
-        // Pattern #1 + #5 fix.
         List<JournalEntry> entries = await _dbContext.JournalEntries
             .AsNoTracking()
             .Include(e => e.Lines)
@@ -55,13 +54,131 @@ public class IncomeStatementService : IIncomeStatementService
             var target = isEnding ? endingByAccount : openingByAccount;
             foreach (JournalEntryLine line in entry.Lines)
             {
-                // For Income Statement: Revenue = credit (+), Expense = debit (+). Signed = credit - debit.
                 decimal signed = line.CreditAmount - line.DebitAmount;
                 target.TryGetValue(line.AccountNumber, out decimal current);
                 target[line.AccountNumber] = current + signed;
             }
         }
 
+        if (standard == AccountingStandard.TT99_2025)
+        {
+            return await GenerateWithTemplateAsync(tenantId, period, standard, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
+        }
+
+        return await GenerateFlatAsync(tenantId, period, standard, endingByAccount, openingByAccount, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// TT 99 template-based generation: Mã số 01-60 with formula-based calculated lines.
+    /// </summary>
+    private async Task<IncomeStatement> GenerateWithTemplateAsync(
+        TenantId tenantId, AccountingPeriod period, AccountingStandard standard,
+        Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
+        CancellationToken ct)
+    {
+        var template = Tt99Templates.IncomeStatementTt99;
+        var allAccounts = endingByAccount.Keys.Concat(openingByAccount.Keys).Distinct().ToHashSet(StringComparer.Ordinal);
+
+        // Step 1: Calculate direct lines (non-calculated) from account codes.
+        var amounts = new Dictionary<string, (decimal Ending, decimal Opening)>(StringComparer.Ordinal);
+
+        foreach (var line in template.Lines)
+        {
+            if (line.IsCalculated || line.AccountCodes.Length == 0)
+            {
+                amounts[line.ReportItemCode] = (0, 0);
+                continue;
+            }
+
+            decimal ending = 0, opening = 0;
+            foreach (string code in line.AccountCodes)
+            {
+                foreach (string acct in allAccounts)
+                {
+                    if (acct.StartsWith(code, StringComparison.Ordinal) || acct == code)
+                    {
+                        decimal end = endingByAccount.GetValueOrDefault(acct);
+                        decimal op = openingByAccount.GetValueOrDefault(acct);
+
+                        // Determine sign convention from AccountChart.
+                        AccountChartEntry? chart = await _accountChart.GetAccountAsync(acct, standard, ct).ConfigureAwait(false);
+                        if (chart is not null && chart.Type is DomainAccountType.Expense)
+                        {
+                            // Expense accounts: debit balance = negative signed → negate to show as positive cost.
+                            end = -end;
+                            op = -op;
+                        }
+                        ending += end;
+                        opening += op;
+                    }
+                }
+            }
+            amounts[line.ReportItemCode] = (ending, opening);
+        }
+
+        // Step 2: Calculate formula lines.
+        // B 02-DN formulas (VERIFIED from Phụ lục IV TT 99):
+        //   10 = 01 - 02
+        //   20 = 10 - 11
+        //   30 = 20 + 21 + 22 - (23 + 25 + 26)
+        //   40 = 31 - 32
+        //   50 = 30 + 40
+        //   60 = 50 - 51 - 52
+        decimal m01e = amounts["01"].Ending, m01o = amounts["01"].Opening;
+        decimal m02e = amounts["02"].Ending, m02o = amounts["02"].Opening;
+        decimal m11e = amounts["11"].Ending, m11o = amounts["11"].Opening;
+        decimal m21e = amounts["21"].Ending, m21o = amounts["21"].Opening;
+        decimal m22e = amounts["22"].Ending, m22o = amounts["22"].Opening;
+        decimal m23e = amounts["23"].Ending, m23o = amounts["23"].Opening;
+        decimal m25e = amounts["25"].Ending, m25o = amounts["25"].Opening;
+        decimal m26e = amounts["26"].Ending, m26o = amounts["26"].Opening;
+        decimal m31e = amounts["31"].Ending, m31o = amounts["31"].Opening;
+        decimal m32e = amounts["32"].Ending, m32o = amounts["32"].Opening;
+        decimal m51e = amounts["51"].Ending, m51o = amounts["51"].Opening;
+        decimal m52e = amounts["52"].Ending, m52o = amounts["52"].Opening;
+
+        decimal m10e = m01e - m02e, m10o = m01o - m02o;
+        decimal m20e = m10e - m11e, m20o = m10o - m11o;
+        decimal m30e = m20e + m21e + m22e - (m23e + m25e + m26e), m30o = m20o + m21o + m22o - (m23o + m25o + m26o);
+        decimal m40e = m31e - m32e, m40o = m31o - m32o;
+        decimal m50e = m30e + m40e, m50o = m30o + m40o;
+        decimal m60e = m50e - m51e - m52e, m60o = m50o - m51o - m52o;
+
+        amounts["10"] = (m10e, m10o);
+        amounts["20"] = (m20e, m20o);
+        amounts["30"] = (m30e, m30o);
+        amounts["40"] = (m40e, m40o);
+        amounts["50"] = (m50e, m50o);
+        amounts["60"] = (m60e, m60o);
+
+        // Step 3: Build FinancialStatementLine list.
+        var lines = new List<FinancialStatementLine>();
+        foreach (var line in template.Lines)
+        {
+            var (ending, opening) = amounts[line.ReportItemCode];
+            lines.Add(new FinancialStatementLine(
+                line.ReportItemCode, line.ReportItemName,
+                ending, opening, line.Level,
+                line.IsNormalNegative && ending < 0));
+        }
+
+        return new IncomeStatement(
+            tenantId, period, DateTime.UtcNow,
+            TotalRevenueEnding: m01e,
+            TotalRevenueOpening: m01o,
+            NetProfitEnding: m60e,
+            NetProfitOpening: m60o,
+            Lines: lines);
+    }
+
+    /// <summary>
+    /// Flat account list generation (backward compatible for TT 133 and other standards).
+    /// </summary>
+    private async Task<IncomeStatement> GenerateFlatAsync(
+        TenantId tenantId, AccountingPeriod period, AccountingStandard standard,
+        Dictionary<string, decimal> endingByAccount, Dictionary<string, decimal> openingByAccount,
+        CancellationToken ct)
+    {
         var lines = new List<FinancialStatementLine>();
         decimal totalRevenueEnding = 0, totalRevenueOpening = 0;
         decimal cogsEnding = 0, cogsOpening = 0;
@@ -81,9 +198,6 @@ public class IncomeStatementService : IIncomeStatementService
                 continue;
             }
 
-            // IS presentation: signed = credit - debit already gives correct sign (revenue positive, expense negative).
-            // No IsNormalCredit inversion needed — that flag is for BS contra-asset presentation, not IS.
-            // Contra-revenue (521, debit balance) → signed negative → naturally reduces revenue. ✓
             decimal endingPresented = ending;
             decimal openingPresented = opening;
 
@@ -97,10 +211,9 @@ public class IncomeStatementService : IIncomeStatementService
                     totalRevenueOpening += openingPresented;
                     break;
                 case DomainAccountType.Expense:
-                    // Distinguish COGS (632) vs OpEx (641/642) vs Other Expense (8xx) by account prefix.
                     if (accountCode.StartsWith("632", StringComparison.Ordinal))
                     {
-                        cogsEnding += -endingPresented; // expense presented as positive cost
+                        cogsEnding += -endingPresented;
                         cogsOpening += -openingPresented;
                     }
                     else if (accountCode.StartsWith("64", StringComparison.Ordinal) || accountCode.StartsWith("641", StringComparison.Ordinal) || accountCode.StartsWith("642", StringComparison.Ordinal))
@@ -115,18 +228,13 @@ public class IncomeStatementService : IIncomeStatementService
                     }
                     else
                     {
-                        // Other 6xx expenses → OpEx fallback.
                         opexEnding += -endingPresented;
                         opexOpening += -openingPresented;
                     }
                     break;
-                // 7xx = Other Income — classified as Revenue type in chart (W3 seeder).
-                // If chart returns Revenue for 7xx, it's already in totalRevenue. If not, handle here:
             }
         }
 
-        // 7xx accounts: if classified as Revenue in chart, they're in totalRevenue. Separate OtherIncome explicitly for clarity.
-        // Recompute OtherIncome from 7xx accounts directly (chart may classify 7xx as Revenue).
         otherIncomeEnding = endingByAccount.Where(k => k.Key.StartsWith("7", StringComparison.Ordinal)).Sum(k => k.Value);
         otherIncomeOpening = openingByAccount.Where(k => k.Key.StartsWith("7", StringComparison.Ordinal)).Sum(k => k.Value);
 

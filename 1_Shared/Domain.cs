@@ -3357,6 +3357,31 @@ namespace VanAn.Shared.Domain
 
     // TrialBalance already exists above (Domain.cs ~line 1518) — keep as-is, W4 service wraps with TenantId.
 
+    // ── TT 99 REPORT TEMPLATES (Phase 4 — verified from Phụ lục IV TT 99/2025/TT-BTC) ──
+    /// <summary>
+    /// One line in a TT 99 report template: maps Mã số chỉ tiêu → list of account codes.
+    /// Level 1 = section header (TÀI SẢN NGẮN HẠN), Level 2 = group (Tiền), Level 3 = account detail.
+    /// IsCalculated = true means this line is a sum of child lines (section/group headers).
+    /// IsCalculated = false means this line maps directly to specific account codes.
+    /// </summary>
+    public record Tt99TemplateLine(
+        string ReportItemCode,       // "100", "110", "111"
+        string ReportItemName,       // "Tài sản ngắn hạn", "Tiền và tương đương tiền"
+        int Level,                   // 1 = section, 2 = group, 3 = account detail
+        string[] AccountCodes,       // TK codes that roll up into this line (empty for calculated)
+        bool IsCalculated,           // true = sum of children, false = direct from accounts
+        bool IsNormalNegative        // display convention (parentheses for negative)
+    );
+
+    /// <summary>
+    /// TT 99 report template: a complete set of template lines for one report form (B 01-DN, B 02-DN, B 03-DN).
+    /// </summary>
+    public record Tt99ReportTemplate(
+        AccountingStandard Standard,
+        string ReportForm,           // "B01-DN", "B02-DN", "B03-DN"
+        IReadOnlyList<Tt99TemplateLine> Lines
+    );
+
     // ── 4. SỐ DƯ ĐẦU KỲ (Mở sổ / Khởi tạo dữ liệu) ─────────────────────────────────────
     public record OpeningBalance(
         TenantId TenantId, AccountingPeriod Period,

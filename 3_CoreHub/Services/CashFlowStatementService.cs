@@ -101,18 +101,27 @@ public class CashFlowStatementService : ICashFlowStatementService
         }
 
         // 3. Build FinancialStatementLines per activity (grouped by offset account).
+        decimal operatingTotal = 0, investingTotal = 0, financingTotal = 0;
         foreach (var kvp in activitySums.OrderBy(k => k.Key.Item1).ThenBy(k => k.Key.Item2))
         {
             (Activity activity, string accountCode) = kvp.Key;
             decimal amount = kvp.Value;
             string name = await _accountChart.GetAccountNameAsync(accountCode, standard, ct).ConfigureAwait(false);
-            var line = new FinancialStatementLine(accountCode, name, EndingAmount: amount, OpeningAmount: 0, Level: 1, IsNormalNegative: amount < 0);
+            var line = new FinancialStatementLine(accountCode, name, EndingAmount: amount, OpeningAmount: 0, Level: 2, IsNormalNegative: amount < 0);
             switch (activity)
             {
-                case Activity.Operating: operating.Add(line); break;
-                case Activity.Investing: investing.Add(line); break;
-                case Activity.Financing: financing.Add(line); break;
+                case Activity.Operating: operating.Add(line); operatingTotal += amount; break;
+                case Activity.Investing: investing.Add(line); investingTotal += amount; break;
+                case Activity.Financing: financing.Add(line); financingTotal += amount; break;
             }
+        }
+
+        // TT 99 Phase 4: Add subtotal lines with Mã số for template structure.
+        if (standard == AccountingStandard.TT99_2025)
+        {
+            operating.Add(new FinancialStatementLine("20", "Lưu chuyển tiền thuần từ HĐKD", operatingTotal, 0, 1, operatingTotal < 0));
+            investing.Add(new FinancialStatementLine("30", "Lưu chuyển tiền thuần từ HĐ đầu tư", investingTotal, 0, 1, investingTotal < 0));
+            financing.Add(new FinancialStatementLine("40", "Lưu chuyển tiền thuần từ HĐ tài chính", financingTotal, 0, 1, financingTotal < 0));
         }
 
         decimal netChange = closingCash - openingCash;
