@@ -72,21 +72,20 @@ public class TestDatabaseFixture : IAsyncLifetime
 
         // W4a fix: SQLite connection string uses Cache=Shared;Mode=Memory, so
         // multiple TestDatabaseFixture instances (one per IClassFixture test class)
-        // share the SAME in-memory database. EnsureCreatedAsync fails on the 2nd+
-        // fixture with "table AccountCharts already exists". Guard with static flag
-        // + lock to only create schema once per process (xUnit runs classes in parallel).
+        // share the SAME in-memory database while both connections are open.
+        // Lock serializes schema creation to prevent race condition where two
+        // fixtures both see "DB doesn't exist" and both try to create it.
+        // EnsureCreatedAsync is idempotent — if DB already exists, it's a no-op.
+        // No static flag: if the shared in-memory DB is destroyed (all connections
+        // closed when a fixture disposes), the next fixture must be allowed to
+        // recreate the schema on its fresh connection.
         lock (_schemaLock)
         {
-            if (!_schemaCreated)
-            {
-                _dbContext.Database.EnsureCreatedAsync().GetAwaiter().GetResult();
-                _schemaCreated = true;
-            }
+            _dbContext.Database.EnsureCreatedAsync().GetAwaiter().GetResult();
         }
     }
 
     private static readonly object _schemaLock = new();
-    private static bool _schemaCreated;
 
     public async Task DisposeAsync()
     {
