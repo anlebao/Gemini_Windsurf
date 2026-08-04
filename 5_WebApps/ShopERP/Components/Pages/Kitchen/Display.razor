@@ -274,10 +274,12 @@
         {
             Logger.LogWarning(ex, "Kitchen Display: SignalR connection failed — 5s poll fallback active. Retrying in 10s...");
             // Issue 8: Auto-retry SignalR connection after 10s — handles transient proxy/WebSocket failures.
+            // Guard: test host / app shutdown disposes HubConnection — retry task may fire after dispose.
             _ = Task.Run(async () =>
             {
                 await Task.Delay(10000);
                 try { if (_hubConnection is not null) await _hubConnection.StartAsync(); }
+                catch (ObjectDisposedException) { /* component torn down — ignore */ }
                 catch (Exception retryEx) { Logger.LogWarning(retryEx, "Kitchen Display: SignalR retry failed"); }
             });
         }
@@ -295,7 +297,19 @@
             initialLoading = true;
         errorMessage = null;
         // C: Fresh DI scope per refresh — avoids Blazor Server circuit-scoped DbContext stale reads.
-        using var scope = ScopeFactory.CreateScope();
+        // Guard: test host / app shutdown disposes ServiceProvider — timer callback may fire after
+        // dispose, causing ObjectDisposedException. Catch + silently return (component is tearing down).
+        IServiceScope scope;
+        try
+        {
+            scope = ScopeFactory.CreateScope();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+        using (scope)
+        {
         var scopedWorkflowService = scope.ServiceProvider.GetRequiredService<IOrderWorkflowService>();
         try
         {
@@ -340,6 +354,7 @@
             else
                 initialLoading = false;
         }
+        } // using (scope)
     }
 
     // P1: Lightweight diff for kitchen columns — compares Id + Status + OrderDate + item count + CustomerNotes.

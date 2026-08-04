@@ -315,7 +315,19 @@
         // C: Create a fresh DI scope per reload to get a new DbContext (Blazor Server circuit-scoped
         // DbContext anti-pattern fix). Without this, the circuit's long-lived DbContext can return
         // stale data — new orders inserted by OrderSyncSubscriber (separate scope) may not be visible.
-        using var scope = ScopeFactory.CreateScope();
+        // Guard: test host / app shutdown disposes ServiceProvider — timer callback may fire after
+        // dispose, causing ObjectDisposedException. Catch + silently return (component is tearing down).
+        IServiceScope scope;
+        try
+        {
+            scope = ScopeFactory.CreateScope();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+        using (scope)
+        {
         var scopedOrderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
         try
         {
@@ -416,6 +428,7 @@
             else
                 initialLoading = false;
         }
+        } // using (scope)
     }
 
     // P1: Lightweight diff — compares count + Id + Status + PaymentStatus + CustomerNotes for each order.
