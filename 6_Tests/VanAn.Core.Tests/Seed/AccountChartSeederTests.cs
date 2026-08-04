@@ -18,9 +18,9 @@ public class AccountChartSeederTests
     // Counts verified against TT 133/2016 Phụ lục II (baocaotaichinh.vn):
     //   TT 133 level-1 = 49 (23 Asset + 10 Liability + 5 Equity + 5 Doanh thu+Thu nhập khác + 7 Chi phí + 1 XĐKQ)
     //   + 2 level-2 (3331, 1331) = 51 total
-    //   TT 99 level-1 = 71 + 2 level-2 (3331, 1331) = 73 total
+    //   TT 99 level-1 = 71 + 2 level-2 (3331, 1331) + 2 BĐSĐT sub-accounts (5117, 6327) = 75 total
     //   TT 58 = 0 (no chart of accounts — FIX-5)
-    //   Grand total = 124
+    //   Grand total = 126
     [Fact]
     public async Task W3_SE1_SeedAsync_CreatesExpectedAccountCounts()
     {
@@ -34,9 +34,9 @@ public class AccountChartSeederTests
         int tt58 = await db.AccountCharts.CountAsync(e => e.Standard == AccountingStandard.TT58_2026);
 
         Assert.Equal(51, tt133); // 49 level-1 + 2 level-2 (3331, 1331)
-        Assert.Equal(73, tt99);  // 71 level-1 + 2 level-2 (3331, 1331)
+        Assert.Equal(75, tt99);  // 71 level-1 + 2 level-2 (3331, 1331) + 2 BĐSĐT (5117, 6327)
         Assert.Equal(0, tt58);   // FIX-5: TT 58 has no chart of accounts
-        Assert.Equal(124, total);
+        Assert.Equal(126, total);
     }
 
     // W3-SE2: Cleanup + Reseed is idempotent (clear+reseed produces same count)
@@ -51,7 +51,7 @@ public class AccountChartSeederTests
         int second = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
 
         Assert.Equal(first, second);
-        Assert.Equal(124, second);
+        Assert.Equal(126, second);
     }
 
     // W3-SE3: TT 133 seeded first (R3 priority — verified by checking first inserted row)
