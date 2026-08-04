@@ -1,0 +1,17 @@
+Fixed in commit c9ac98cc.
+
+Root cause: Gateway OrderNotificationService.NotifyOrderStatusChangedAsync chỉ broadcast tới OrderHub "Shop_{tenantId}" group (cho staff ShopERP). KhachLink OrderTracking page chỉ nhận update qua 15s polling → khi owner bấm "Sẵn sàng giao" / "Hoàn tất", khách hàng thấy status cũ (pending) trong tối đa 15s trước khi poll fetch status mới.
+
+Fix:
+1. Gateway OrderNotificationService now also broadcasts "OrderStatusUpdated" event to LocationHub "order_{orderId}" group. KhachLink customers already join this group via JoinOrderTracking.
+2. KhachLink OrderTracking.razor adds _hubConnection.On<object>("OrderStatusUpdated") handler. Parses payload, updates _orderStatus + _statusSteps + StateHasChanged immediately.
+
+Flow mới:
+1. Owner bấm "Sẵn sàng giao" → OrderWorkflowService.TransitionStatusAsync
+2. OrderWorkflowService gọi NotifyOrderStatusChangedAsync
+3. OrderNotificationService broadcast:
+   - OrderHub "Shop_{tenantId}" → staff ShopERP (existing)
+   - LocationHub "order_{orderId}" → KhachLink customer (NEW)
+4. KhachLink OrderTracking nhận "OrderStatusUpdated" event → update UI realtime (không cần chờ 15s poll)
+
+CD deploy sẽ apply fix trong ~5-6 phút.

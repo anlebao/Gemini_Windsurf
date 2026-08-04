@@ -185,7 +185,19 @@ namespace VanAn.CoreHub.Services
             try
             {
                 // SubtractPointsAsync enforces IdentityLevel >= Verified + balance check.
-                bool deducted = await _loyaltyRewardsService.SubtractPointsAsync(customerId, catalogItem.PointsRequired, $"Redeem: {catalogItem.ProductName}");
+                bool deducted;
+                try
+                {
+                    deducted = await _loyaltyRewardsService.SubtractPointsAsync(customerId, catalogItem.PointsRequired, $"Redeem: {catalogItem.ProductName}");
+                }
+                catch (IdentityLevelNotSufficientException)
+                {
+                    // #99 fix: IdentityLevel gate — customer has points but not Verified.
+                    // Return clear error message instead of generic "Lỗi hệ thống".
+                    await transaction.RollbackAsync();
+                    _logger.LogWarning("Redeem blocked: customer {CustomerId} not Verified (IdentityLevel gate)", customerId);
+                    return RedemptionResult.Fail("Tài khoản chưa xác minh. Vui lòng hoàn tất xác minh danh tính (CMND/CCCD) để đổi điểm thưởng.");
+                }
                 if (!deducted)
                 {
                     _logger.LogWarning("Redeem failed: insufficient points for customer {CustomerId} (needed {Points})",

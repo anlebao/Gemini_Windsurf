@@ -44,25 +44,37 @@ public class ResolveCustomerTenantAttribute : Attribute, IAsyncActionFilter
 
         if (!string.IsNullOrEmpty(token))
         {
-            var tokenService = sp.GetRequiredService<ICustomerTokenService>();
-            var customerId = tokenService.ValidateToken(token);
-
-            if (customerId.HasValue)
+            try
             {
-                // Load customer's TenantId using IgnoreQueryFilters
-                // (the scoped DbContext has TenantId=Guid.Empty, so normal query returns null)
-                var dbContext = sp.GetRequiredService<IVanAnDbContext>();
-                var tenantInfo = await dbContext.Customers
-                    .IgnoreQueryFilters()
-                    .Where(c => c.Id == customerId.Value && !c.IsDeleted)
-                    .Select(c => new { c.TenantId })
-                    .FirstOrDefaultAsync();
+                var tokenService = sp.GetRequiredService<ICustomerTokenService>();
+                var customerId = tokenService.ValidateToken(token);
 
-                if (tenantInfo?.TenantId is { } tenantId && tenantId.Value != Guid.Empty)
+                if (customerId.HasValue)
                 {
-                    var tenantProvider = sp.GetRequiredService<ITenantProvider>();
-                    tenantProvider.SetTenant(tenantId.Value);
+                    // Load customer's TenantId using IgnoreQueryFilters
+                    // (the scoped DbContext has TenantId=Guid.Empty, so normal query returns null)
+                    var dbContext = sp.GetRequiredService<IVanAnDbContext>();
+                    var tenantInfo = await dbContext.Customers
+                        .IgnoreQueryFilters()
+                        .Where(c => c.Id == customerId.Value && !c.IsDeleted)
+                        .Select(c => new { c.TenantId })
+                        .FirstOrDefaultAsync();
+
+                    if (tenantInfo?.TenantId is { } tenantId && tenantId.Value != Guid.Empty)
+                    {
+                        var tenantProvider = sp.GetRequiredService<ITenantProvider>();
+                        tenantProvider.SetTenant(tenantId.Value);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                // #99 fix: Swallow exceptions in tenant resolution — don't propagate to Gateway
+                // which would return generic "Internal server error". Customer-facing endpoints
+                // should still work (tenant context may be empty → endpoints return 404/empty
+                // which is better than 500 for invalid tokens).
+                var logger = sp.GetService<ILogger<ResolveCustomerTenantAttribute>>();
+                logger?.LogError(ex, "ResolveCustomerTenant: failed to resolve tenant from customer token");
             }
         }
 
