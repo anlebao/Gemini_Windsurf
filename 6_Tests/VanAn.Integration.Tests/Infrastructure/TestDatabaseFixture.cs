@@ -74,14 +74,18 @@ public class TestDatabaseFixture : IAsyncLifetime
         // multiple TestDatabaseFixture instances (one per IClassFixture test class)
         // share the SAME in-memory database. EnsureCreatedAsync fails on the 2nd+
         // fixture with "table AccountCharts already exists". Guard with static flag
-        // to only create schema once per process.
-        if (!_schemaCreated)
+        // + lock to only create schema once per process (xUnit runs classes in parallel).
+        lock (_schemaLock)
         {
-            await _dbContext.Database.EnsureCreatedAsync();
-            _schemaCreated = true;
+            if (!_schemaCreated)
+            {
+                _dbContext.Database.EnsureCreatedAsync().GetAwaiter().GetResult();
+                _schemaCreated = true;
+            }
         }
     }
 
+    private static readonly object _schemaLock = new();
     private static bool _schemaCreated;
 
     public async Task DisposeAsync()
