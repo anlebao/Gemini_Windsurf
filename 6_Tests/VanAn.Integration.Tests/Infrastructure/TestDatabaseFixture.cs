@@ -70,12 +70,19 @@ public class TestDatabaseFixture : IAsyncLifetime
         _dbContext = _serviceProvider.GetRequiredService<VanAnDbContext>();
         _tenantProvider = _serviceProvider.GetRequiredService<ITenantProvider>() as TestTenantProvider;
 
-        // W4a fix: EnsureDeletedAsync before EnsureCreatedAsync to prevent
-        // "table AccountCharts already exists" error when fixture is reused
-        // or SQLite in-memory state persists from prior test class.
-        await _dbContext.Database.EnsureDeletedAsync();
-        await _dbContext.Database.EnsureCreatedAsync();
+        // W4a fix: SQLite connection string uses Cache=Shared;Mode=Memory, so
+        // multiple TestDatabaseFixture instances (one per IClassFixture test class)
+        // share the SAME in-memory database. EnsureCreatedAsync fails on the 2nd+
+        // fixture with "table AccountCharts already exists". Guard with static flag
+        // to only create schema once per process.
+        if (!_schemaCreated)
+        {
+            await _dbContext.Database.EnsureCreatedAsync();
+            _schemaCreated = true;
+        }
     }
+
+    private static bool _schemaCreated;
 
     public async Task DisposeAsync()
     {
