@@ -222,7 +222,9 @@
                 _pushForm.Body,
                 string.IsNullOrWhiteSpace(_pushForm.ActionUrl) ? null : _pushForm.ActionUrl);
 
-            _alertMessage = $"Đã gửi push tới {sentCount}/{customers.Count} khách hàng. Thất bại: {failedCount}.";
+            _alertMessage = sentCount > 0
+                ? $"Đã gửi push tới {sentCount}/{customers.Count} khách hàng. Thất bại: {failedCount}."
+                : $"Gửi push thất bại ({failedCount}/{customers.Count}). Nguyên nhân khả nghi: khách hàng chưa đăng ký push notification trên thiết bị, hoặc subscription đã hết hạn. Hãy kiểm tra logs server để biết chi tiết (WebPushException HTTP status).";
             _alertType = sentCount > 0 ? "success" : "warning";
             _pushForm = new PushForm();
         }

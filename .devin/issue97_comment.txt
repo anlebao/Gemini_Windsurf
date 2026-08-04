@@ -1,0 +1,7 @@
+Fixed in commit 7edbdd7f.
+
+#97.1 (menu nav theo loại hình tenant): Verified AccountingLayout.razor đã conditional đúng — Enterprise tenants thấy "Báo Cáo Tài Chính", HKD tenants thấy "Sổ HKD" via IVasFeatureFlagService.CanAccessVasReportsAsync. Không cần fix thêm.
+
+#97.2 (export DOCX không có nội dung): Add TableWidth (100% Pct) + TableLayout (Fixed) + TableGrid with explicit GridColumn widths to BuildStatementTable + TrialBalance table. Không có TableWidth/TableGrid, Word có thể render table với 0 width → appears empty. Giờ tables hiển thị đúng.
+
+CD deploy sẽ apply fix trong ~5-6 phút.

@@ -67,6 +67,9 @@ namespace VanAn.Gateway
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                    // Fix #87: Serialize enums as strings (CommerceMode, OrderStatus, etc.)
+                    // ShopERP clients expect string values, not int.
+                    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
                 });
             _ = builder.Services.AddSignalR();
 

@@ -1,0 +1,29 @@
+fix: #87 commerce mode JSON + #88 push campaign error handling
+
+#87 — toggle community commerce bị lỗi JSON
+- Root cause: Gateway serializes CommerceMode enum as int (default),
+  but ShopERP client expects string. JSON deserialization fails:
+  "The JSON value could not be converted to System.String. Path:
+  $.globalMode"
+- Fix: Add JsonStringEnumConverter to Gateway Program.cs
+  AddJsonOptions. Now all enums (CommerceMode, OrderStatus, etc.)
+  serialize as strings.
+
+#88 — push campaign bị lỗi, không gửi được tb
+- Root cause: WebPush failures swallowed silently. Expired
+  subscriptions (410 Gone) not cleaned up, causing repeated failures.
+- Fix: Add WebPushException catch with 410 Gone / 404 NotFound
+  handling → soft-delete expired subscriptions. Better error
+  logging with HTTP status code. Improved user-facing error message
+  with diagnostic hints.
+
+#82 — Lưu cấu hình shop bị lỗi (needs browser console debugging)
+- Code path verified correct: SaveSettings → UpdateSettingsAsync →
+  SaveChangesAsync. VanAButton OnClick wired correctly.
+- Cannot reproduce without browser console access. Needs user to
+  check browser DevTools Console for JS/SignalR errors when clicking
+  "Lưu cấu hình" button.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

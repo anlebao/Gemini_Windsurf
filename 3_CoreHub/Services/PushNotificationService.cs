@@ -266,7 +266,12 @@ namespace VanAn.CoreHub.Services
                         try
                         {
                             var pushSubscription = JsonSerializer.Deserialize<WebPush.PushSubscription>(subscription.SubscriptionJson);
-                            if (pushSubscription == null) continue;
+                            if (pushSubscription == null)
+                            {
+                                _logger.LogWarning("Subscription {SubscriptionId} has invalid JSON, soft-deleting", subscription.PushSubscriptionId);
+                                await _subscriptionRepository.SoftDeleteAsync(subscription.PushSubscriptionId);
+                                continue;
+                            }
 
                             // Phase 5: Generate unique notificationId per push for click tracking
                             var notificationId = Guid.NewGuid();
@@ -279,6 +284,22 @@ namespace VanAn.CoreHub.Services
                             subscription.Renew();
                             await _subscriptionRepository.UpdateAsync(subscription);
                             anySent = true;
+                        }
+                        catch (WebPushException wex)
+                        {
+                            // 410 Gone / 404 Not Found → subscription expired, remove it
+                            var status = wex.StatusCode;
+                            if (status == System.Net.HttpStatusCode.Gone || status == System.Net.HttpStatusCode.NotFound)
+                            {
+                                _logger.LogInformation("Subscription {SubscriptionId} expired (HTTP {Status}), soft-deleting",
+                                    subscription.PushSubscriptionId, (int)status);
+                                await _subscriptionRepository.SoftDeleteAsync(subscription.PushSubscriptionId);
+                            }
+                            else
+                            {
+                                _logger.LogError(wex, "WebPush failed for subscription {SubscriptionId}: HTTP {Status} - {Message}",
+                                    subscription.PushSubscriptionId, (int)status, wex.Message);
+                            }
                         }
                         catch (Exception ex)
                         {
