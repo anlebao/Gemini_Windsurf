@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @layout AccountingLayout
 @attribute [Authorize(Policy = "OwnerOnly")]
+@using System.Globalization
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
@@ -223,10 +224,10 @@
 
     private static string FormatAmount(decimal amount, bool isNormalNegative)
     {
-        // IsNormalNegative: display negative values in parentheses (VN accounting convention)
+        var vn = CultureInfo.GetCultureInfo("vi-VN");
         if (isNormalNegative && amount < 0)
-            return $"({Math.Abs(amount):N0})";
-        return amount.ToString("N0");
+            return $"({Math.Abs(amount).ToString("N0", vn)})";
+        return amount.ToString("N0", vn);
     }
 
     private async Task ExportDocx()

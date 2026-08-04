@@ -1,11 +1,12 @@
 # TASK CARD — Phase 1: Rename B 01-DN "Bảng Cân Đối Kế Toán" → "Báo Cáo Tình Hình Tài Chính"
 
-> **Status:** 🟡 PLANNED
+> **Status:** ✅ COMPLETE (Wave 1, commit `66c9cfaf`, CD SUCCESS, VPS RV 10/10 PASS)
 > **Priority:** P0 — Quick fix
-> **Branch:** `feature/tt99-fix-phase1-rename-b01dn`
+> **Branch:** `main` (folded into Wave 1 commit)
 > **Estimated sessions:** 1 (30 phút)
 > **Mode:** IMPLEMENT
 > **Domain modification:** NO (comment + UI text only)
+> **Implemented:** 2026-08-03 — Renamed in 7 files: BalanceSheet.razor, FinancialReports.razor, Sitemap.razor, Domain.cs (comment), BalanceSheetPageTests.cs, FinancialReportsHubPageTests.cs, vas-export.spec.ts
 
 ## Objective
 TT 99/2025/TT-BTC đổi tên "Bảng cân đối kế toán" → "Báo cáo tình hình tài chính". Codebase hiện vẫn dùng tên cũ tại 4 vị trí hiển thị. Cần đổi tên để tuân thủ TT 99.

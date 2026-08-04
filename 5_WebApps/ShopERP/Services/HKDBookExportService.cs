@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using OfficeOpenXml;
+using System.Globalization;
 using VanAn.Shared.DTOs;
 using VanAn.Shared.Domain;
 
@@ -76,14 +77,14 @@ namespace VanAn.ShopERP.Services
                     entry.JournalNo,
                     entry.EntryDate.ToString("dd/MM/yyyy"),
                     entry.Description,
-                    SumEntryLines(entry).ToString("N0")
+                    SumEntryLines(entry).ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))
                 ]));
             }
 
             // Totals rows from NumericValues
             foreach (KeyValuePair<string, decimal> kvp in book.NumericValues.Where(IsTotalField))
             {
-                table.AppendChild(MakeDocxRow(["", "", DisplayTotalLabel(kvp.Key), kvp.Value.ToString("N0")], bold: true));
+                table.AppendChild(MakeDocxRow(["", "", DisplayTotalLabel(kvp.Key), kvp.Value.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))], bold: true));
             }
 
             body.AppendChild(table);

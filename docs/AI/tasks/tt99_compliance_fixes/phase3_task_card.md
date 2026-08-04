@@ -1,11 +1,12 @@
 # TASK CARD — Phase 3: B 03-DN Phương Pháp Gián Tiếp (Indirect Method)
 
-> **Status:** 🟡 PLANNED
+> **Status:** ✅ COMPLETE (Wave 3, commit `f98ddea5`, CD run `30873505215` SUCCESS, VPS RV 10/10 PASS)
 > **Priority:** P2 — Feature gap
-> **Branch:** `feature/tt99-fix-phase3-cashflow-indirect`
+> **Branch:** `main` (Wave 3 commit)
 > **Estimated sessions:** 1
 > **Mode:** IMPLEMENT
 > **Domain modification:** YES — add `CashFlowMethod` enum + update `CashFlowStatement` record
+> **Implemented:** 2026-08-03 — CashFlowMethod enum (Direct/Indirect) + CashFlowStatement.Method field + GenerateIndirectAsync (Mã 01-17 + working capital deltas) + injected IBalanceSheetService + IIncomeStatementService + UI toggle in CashFlowStatement.razor + 2 test files updated. NOTE: "Accounting Tests" workflow failed (run 30873505237) — separate from main CI/CD, needs follow-up.
 
 ## Objective
 TT 99/2025/TT-BTC yêu cầu B 03-DN (Báo cáo lưu chuyển tiền tệ) có **2 phương pháp**:

@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @layout AccountingLayout
 @attribute [Authorize(Policy = "OwnerOnly")]
+@using System.Globalization
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
 @using VanAn.UI.Platform.Components.Composite
@@ -234,7 +235,7 @@
 
     private static string FormatAmount(decimal amount)
     {
-        return amount.ToString("N0");
+        return amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"));
     }
 
     private async Task ExportDocx()

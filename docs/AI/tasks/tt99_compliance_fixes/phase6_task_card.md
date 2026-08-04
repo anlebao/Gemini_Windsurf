@@ -1,12 +1,13 @@
 # TASK CARD — Phase 6: B 03-DN Phân Loại Dòng Tiền BĐSĐT (REVISED)
 
-> **Status:** 🟡 PLANNED (REVISED 2026-08-03 after official template verification)
+> **Status:** ✅ COMPLETE (Wave 1, commit `66c9cfaf` + `a7f42e61` test fix, CD SUCCESS, VPS RV 10/10 PASS)
 > **Priority:** P2 — TT 99 compliance
-> **Branch:** `feature/tt99-fix-phase6-bdsdt-classification`
+> **Branch:** `main` (folded into Wave 1 commit)
 > **Estimated sessions:** 1
 > **Mode:** IMPLEMENT
 > **Domain modification:** NO (service logic only)
 > **Reference:** `REFERENCE_B03DN_official.md` — VERIFIED from Phụ lục IV TT 99
+> **Implemented:** 2026-08-03 — Seeded TK 5117 (Doanh thu BĐSĐT) + TK 6327 (Giá vốn BĐSĐT) in AccountChartSeeder. Verified TK 217 (BĐS đầu tư) classified as Investing in CashFlowStatementService. AccountChartSeederTests updated (TT99 count 73→75).
 
 ## Objective (REVISED)
 

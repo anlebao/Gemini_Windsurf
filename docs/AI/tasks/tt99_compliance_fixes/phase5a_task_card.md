@@ -1,11 +1,12 @@
 # TASK CARD — Phase 5a: TenantSettings Extension (Prerequisite for Phase 5)
 
-> **Status:** 🟡 PLANNED (NEW — discovered during ANALYZE)
-> **Priority:** P1 — BLOCKER for Phase 5 (B 09-DN)
-> **Branch:** `feature/tt99-fix-phase5a-tenant-settings`
+> **Status:** ✅ COMPLETE (Wave 1, commit `66c9cfaf`, CD SUCCESS, VPS RV 10/10 PASS)
+> **Priority:** P1 — BLOCKER for Phase 5 (B 09-DN) — UNBLOCKED
+> **Branch:** `main` (folded into Wave 1 commit)
 > **Estimated sessions:** 1 (30 phút)
 > **Mode:** IMPLEMENT
 > **Domain modification:** YES — extend `TenantSettings` value object
+> **Implemented:** 2026-08-03 — Added LegalForm, BusinessField, CharterCapital properties to TenantSettings.cs. Phase 5 (B 09-DN) prerequisite satisfied.
 
 ## Objective
 B 09-DN (Bản thuyết minh BCTC) Phần I requires Tenant info: Hình thức pháp lý, Lĩnh vực kinh doanh, Vốn điều lệ. These fields DO NOT EXIST on Tenant entity. Must add before Phase 5 can populate Phần I.

@@ -1,11 +1,12 @@
 # TASK CARD — Phase 2: Auto-select Standard + TT58 Dropdown + Tách TrialBalance
 
-> **Status:** 🟡 PLANNED
+> **Status:** ✅ COMPLETE (Wave 1, commit `66c9cfaf`, CD SUCCESS, VPS RV 10/10 PASS)
 > **Priority:** P4 — UX improvement
-> **Branch:** `feature/tt99-fix-phase2-standard-autoselect`
+> **Branch:** `main` (folded into Wave 1 commit)
 > **Estimated sessions:** 1
 > **Mode:** IMPLEMENT
 > **Domain modification:** NO (UI logic only)
+> **Implemented:** 2026-08-03 — Auto-select TT99_2025 for Enterprise_Large via IVasFeatureFlagService.GetTenantTypeAsync() in 4 pages (BalanceSheet/IncomeStatement/CashFlowStatement/TrialBalance.razor). TT58_2026 dropdown option gated by CanAccessVasReportsAsync.
 
 ## Objective
 3 issues gộp:

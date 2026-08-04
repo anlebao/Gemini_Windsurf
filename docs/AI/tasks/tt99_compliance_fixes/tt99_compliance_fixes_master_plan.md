@@ -1,7 +1,7 @@
 # MASTER PLAN — TT 99/2025/TT-BTC Compliance Fixes (8 Gaps)
 
-> **Status:** 🟡 PLANNED + ANALYZE COMPLETE — 8 gaps identified, 6 task cards verified against codebase via parallel subagent investigation (2026-08-03). See `ANALYZE_REPORT_reverse_impact.md` for full findings.
-> **Created:** 2026-08-03 · **Last Updated:** 2026-08-03 (ANALYZE pass)
+> **Status:** � WAVES 1-3 COMPLETE (6/7 phases) — Phase 5 (B 09-DN) remaining. Wave 1 (P1+P2+P5a+P6) commit `66c9cfaf`, Wave 2 (P4) commit `27d34b40`, Wave 3 (P3) commit `f98ddea5`. All CD SUCCESS + VPS RV 10/10 PASS. See `ANALYZE_REPORT_reverse_impact.md` for full findings.
+> **Created:** 2026-08-03 · **Last Updated:** 2026-08-04 (Wave 4 plan: 2 commits)
 > **Workflow:** `newfeaturebuild.md` (ANALYZE → IMPLEMENT) · **Branch:** per-phase feature branch, always-green main
 > **Source:** User request 2026-08-03 — verify codebase against TT 99/2025/TT-BTC (BCTC năm, DN hoạt động liên tục)
 > **Official sources verified:** MISA (amis.misa.vn), thuvienphapluat.vn, Grant Thornton, Bộ Tài chính (portal.mof.gov.vn), tanngoctax.vn
@@ -196,13 +196,38 @@ main ← feature/tt99-fix-phase6-bdsdt-indicator
 
 | Phase | Status | Commit | CI | CD | VPS RV | Notes |
 |-------|--------|--------|----|----|--------|-------|
-| Phase 5a (TenantSettings extension) | 🟡 PLANNED (NEW) | — | — | — | — | Prerequisite for Phase 5 |
-| Phase 1 (Rename B 01-DN) | 🟡 PLANNED + ANALYZED | — | — | — | — | 7 files (was 3) |
-| Phase 2 (Auto-standard + split TrialBalance) | 🟡 PLANNED + ANALYZED | — | — | — | — | Use IVasFeatureFlagService (no DTO change); TT58 → info msg |
-| Phase 3 (B 03-DN indirect method) | 🟡 PLANNED + ANALYZED | — | — | — | — | 10 files; inject 2 services |
-| Phase 4 (TT 99 template structure) | 🟡 PLANNED + ANALYZED | — | — | — | — | Large refactor; 11+ tests per service |
-| Phase 5 (B 09-DN Thuyết minh) | 🟡 PLANNED + ANALYZED | — | — | — | — | BLOCKER: needs Phase 5a first |
-| Phase 6 (B 03-DN BĐSĐT indicator) | 🟡 PLANNED + ANALYZED | — | — | — | — | Seed TK 5117/6327 first; Mã số "75" UNVERIFIED |
+| Phase 5a (TenantSettings extension) | ✅ COMPLETE | `66c9cfaf` | PASS | SUCCESS | 10/10 | LegalForm + BusinessField + CharterCapital added |
+| Phase 1 (Rename B 01-DN) | ✅ COMPLETE | `66c9cfaf` | PASS | SUCCESS | 10/10 | 7 files renamed |
+| Phase 2 (Auto-standard + split TrialBalance) | ✅ COMPLETE | `66c9cfaf` | PASS | SUCCESS | 10/10 | IVasFeatureFlagService auto-select + TT58 dropdown |
+| Phase 3 (B 03-DN indirect method) | ✅ COMPLETE | `f98ddea5` | PASS | SUCCESS (run 30873505215) | 10/10 | CashFlowMethod enum + GenerateIndirectAsync + UI toggle. "Accounting Tests" workflow failed (run 30873505237) — follow-up needed |
+| Phase 4 (TT 99 template structure) | ✅ COMPLETE | `27d34b40` | PASS | SUCCESS | 10/10 | Tt99Templates.cs + 3 services refactored to Mã số structure |
+| Phase 5 (B 09-DN Thuyết minh) | 🟡 PLANNED + ANALYZED | — | — | — | — | NEXT: Wave 4 — depends on Phase 5a (✅) + Phase 4 (✅), both DONE |
+| Phase 6 (B 03-DN BĐSĐT indicator) | ✅ COMPLETE | `66c9cfaf` + `a7f42e61` | PASS | SUCCESS | 10/10 | TK 5117/6327 seeded + TK 217 Investing classification verified |
+
+---
+
+## 6a. WAVE 4 CARRYOVER (from Waves 1-3 unfinished items)
+
+### Commit 4a — Quick Fixes (30-60 min)
+| # | Item | Files | Type |
+|---|------|-------|------|
+| B | Menu nav link hoàn tất (B 09-DN + direct links) | AccountingLayout.razor, Sitemap.razor, FinancialReports.razor | UI |
+| C | Vietnamese number format (`vi-VN`, bỏ hacky `.Replace`) | BalanceSheet.razor, IncomeStatement.razor, CashFlowStatement.razor, TrialBalance.razor, TransactionHistory.razor, FinancialReportExportService.cs | UI |
+| D | Fix 4 PeriodClosingPersistenceTests (`table AccountCharts already exists`) | TestDatabaseFixture.cs | Test infra |
+
+### Commit 4b — Phase 5: B 09-DN Thuyết minh BCTC (2-3 sessions)
+| # | Item | Files | Type |
+|---|------|-------|------|
+| A | FinancialStatementNotes record | Domain.cs | Domain |
+| A | FinancialStatementNotesService (new) | 3_CoreHub/Services/ | Service |
+| A | FinancialStatementNotes.razor (new) | 5_WebApps/ShopERP/Components/Pages/Accounting/ | UI |
+| A | Export DOCX/XLSX | FinancialReportExportService.cs | Service |
+| A | Hub card + menu link | FinancialReports.razor, Sitemap.razor, AccountingLayout.razor | UI |
+
+### Notes
+- **D root cause:** `TestDatabaseFixture.cs:74` — `EnsureCreatedAsync()` fails with `SQLite Error 1: 'table "AccountCharts" already exists'`. Test infra issue, NOT Wave 3 code bug. Fix: `EnsureDeletedAsync()` before `EnsureCreatedAsync()`, or switch to `MigrateAsync()`.
+- **C root cause:** `ToString("N0")` uses current culture (server-dependent). Fix: `ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))` → "1.234.567". TransactionHistory.razor has hacky `InvariantCulture.Replace(",", ".")` — remove.
+- **B gap:** AccountingLayout.razor sidebar only has 1 link to `/accounting/financial-reports` (hub). Sitemap.razor has 4 direct links but no B 09-DN. After Phase 5, add B 09-DN link to both.
 
 ---
 

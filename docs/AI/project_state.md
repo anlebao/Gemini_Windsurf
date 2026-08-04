@@ -30,23 +30,17 @@
 
 ## 2. Current Objective
 
-**TT 99/2025/TT-BTC Compliance Fixes (8 Gaps)** — 🟡 ANALYZE COMPLETE, PLANNED for IMPLEMENT. 8 gaps identified + verified against 5 official sources (MISA, thuvienphapluat, Grant Thornton, Bộ Tài chính, tanngoctax). 6 task cards + 1 new Phase 5a verified against codebase via 6 parallel subagents.
+**TT 99/2025/TT-BTC Compliance Fixes (8 Gaps)** — � WAVES 1-3 COMPLETE (6/7 phases). Phase 5 (B 09-DN Thuyết minh BCTC) remaining. 8 gaps verified against 5 official sources (MISA, thuvienphapluat, Grant Thornton, Bộ Tài chính, tanngoctax). 6 task cards + 1 Phase 5a verified against codebase via 6 parallel subagents.
 
 - **Master plan:** `docs/AI/tasks/tt99_compliance_fixes/tt99_compliance_fixes_master_plan.md`
 - **ANALYZE report:** `docs/AI/tasks/tt99_compliance_fixes/ANALYZE_REPORT_reverse_impact.md` (full reverse impact review)
-- **Task cards:** `phase1` → `phase6` + `phase5a` (new prerequisite for Phase 5)
+- **Task cards:** `phase1` → `phase6` + `phase5a` (all 6 implemented phases marked ✅ COMPLETE)
 - **Bộ BCTC năm theo TT 99 (DN hoạt động liên tục):** B 01-DN (Báo cáo tình hình TC), B 02-DN (KQ HĐKD), B 03-DN (Lưu chuyển tiền tệ), B 09-DN (Thuyết minh BCTC)
-- **8 Gaps:** (1) B 09-DN THIẾU, (2) B 01-DN sai tên, (3) B 03-DN thiếu indirect method, (4) flat account list thay vì TT99 template, (5) default standard = TT133, (6) thiếu TT58, (7) thiếu chỉ tiêu BĐSĐT, (8) TrialBalance nằm trong bộ BCTC
-- **ANALYZE findings:**
-  - Phase 1: 7 files (was 3) — Sitemap.razor + 2 tests + E2E also need rename
-  - Phase 2: `IVasFeatureFlagService.GetTenantTypeAsync()` ALREADY EXISTS — no DTO/Gateway change needed; TT58 intentionally NOT seeded
-  - Phase 3: Must inject IBalanceSheetService + IIncomeStatementService — 10 files impact
-  - Phase 4: 33 existing tests (W4+W7) need updates; large refactor
-  - Phase 5: 🔴 BLOCKER — Tenant missing LegalForm/BusinessField/CharterCapital → new Phase 5a (TenantSettings extension, no migration)
-  - Phase 6: TK 5117/6327 MISSING from seeder; Mã số "75" UNVERIFIED
-- **Revised execution order:** Phase 5a + 1 + 2 + 6 (4-way parallel) → Phase 3 → Phase 4 → Phase 5
-- **Total impact:** 32+ files modify, 4 create, 22+ tests update, 13+ new tests
-- **4 open questions for user:** (1) TT58 dropdown skip or info msg? (2) BĐSĐT Mã số source? (3) Approve TenantSettings extension? (4) OK to update W7 tests?
+- **8 Gaps:** (1) B 09-DN THIẾU — Phase 5 NEXT, (2) B 01-DN sai tên — ✅, (3) B 03-DN thiếu indirect method — ✅, (4) flat account list thay vì TT99 template — ✅, (5) default standard = TT133 — ✅, (6) thiếu TT58 — ✅, (7) thiếu chỉ tiêu BĐSĐT — ✅, (8) TrialBalance nằm trong bộ BCTC — ✅
+- **Wave 1 (commit `66c9cfaf`):** Phase 1 (rename 7 files) + Phase 5a (TenantSettings: LegalForm/BusinessField/CharterCapital) + Phase 6 (seed TK 5117/6327 + verify TK 217 Investing) + Phase 2 (auto-select TT99_2025 for Enterprise_Large via IVasFeatureFlagService + TT58_2026 dropdown gated by CanAccessVasReportsAsync). CD SUCCESS, VPS RV 10/10 PASS.
+- **Wave 2 (commit `27d34b40`):** Phase 4 — Tt99TemplateLine + Tt99ReportTemplate records in Domain.cs + new Tt99Templates.cs (B 01-DN/B 02-DN/B 03-DN verified templates) + BalanceSheetService/IncomeStatementService/CashFlowStatementService refactored to Mã số structure with backward compatibility. CD SUCCESS, VPS RV 10/10 PASS.
+- **Wave 3 (commit `f98ddea5`):** Phase 3 — CashFlowMethod enum (Direct/Indirect) + CashFlowStatement.Method field + GenerateIndirectAsync (Mã 01-17 + working capital deltas) + injected IBalanceSheetService + IIncomeStatementService + UI toggle in CashFlowStatement.razor + 2 test files updated. CD run `30873505215` SUCCESS, VPS RV 10/10 PASS. **Follow-up:** "Accounting Tests" workflow failed (run `30873505237`) — separate from main CI/CD, needs investigation.
+- **NEXT — Wave 4:** Phase 5 (B 09-DN Thuyết minh BCTC) — new report, depends on Phase 5a (✅) + Phase 4 (✅), both DONE. 2-3 sessions. New FinancialStatementNotes record + service + razor page + export + hub card.
 
 **Previous objective — COMPLETE:** Tenant Management + Accounting UI Fixes (4 Bugs) — ✅ ALL 4 PHASES COMPLETE + DEPLOYED + VPS VERIFIED (HTTP-level). Browser functional testing for authenticated users on VPS is the only remaining step.
 
@@ -100,13 +94,12 @@
 
 ## 4. Next Actions
 
-1. **(CURRENT — TT99 Compliance Fixes)** Implement TT 99/2025/TT-BTC compliance fixes per master plan + 7 task cards (ALL VERIFIED against official Phụ lục IV):
-   - **Wave 1 (4-way parallel, ~2h):** Phase 1 (rename B 01-DN, 7 files) + Phase 5a (TenantSettings extension) + Phase 6 (seed TK 5117/6327 + verify BĐSĐT classification) + Phase 2 (auto-standard via IVasFeatureFlagService + split TrialBalance)
-   - **Wave 2 (2-3 sessions):** Phase 4 (TT 99 template structure refactor, 33 tests to update) — foundation for all reports
-   - **Wave 3 (1 session):** Phase 3 (B 03-DN indirect method, 10 files, inject 2 services) — builds on Phase 4
-   - **Wave 4 (2-3 sessions):** Phase 5 (B 09-DN Thuyết minh BCTC, depends on Phase 5a + Phase 4) — new report
+1. **(CURRENT — TT99 Compliance Fixes Wave 4)** Waves 1-3 COMPLETE (6/7 phases). Wave 4 IN PROGRESS — 2 commits:
+   - **Commit 4a (quick fixes, 30-60 min):** (B) Menu nav link hoàn tất + (C) Vietnamese number format `vi-VN` (bỏ hacky `.Replace`) + (D) Fix 4 PeriodClosingPersistenceTests (`table AccountCharts already exists` — TestDatabaseFixture.cs `EnsureCreatedAsync` issue)
+   - **Commit 4b (Phase 5, 2-3 sessions):** B 09-DN Thuyết minh BCTC — new FinancialStatementNotes record + service + razor page + export + hub card + menu link. Prerequisites (Phase 5a + Phase 4) DONE.
+   - **Waves 1-3 COMPLETE:** Wave 1 commit `66c9cfaf` (P1+P2+P5a+P6), Wave 2 commit `27d34b40` (P4 template structure), Wave 3 commit `f98ddea5` (P3 indirect method). All CD SUCCESS + VPS RV 10/10 PASS.
+   - **Follow-up:** "Accounting Tests" workflow failed (run `30873505237`) — 4 PeriodClosingPersistenceTests fail with SQLite `table AccountCharts already exists` (test infra issue, NOT Wave 3 code bug). Fixed in Commit 4a.
    - **Official templates VERIFIED:** REFERENCE_B01DN/B02DN/B03DN/B09DN_official.md (from vplsdms.vn Phụ lục IV TT 99)
-   - **Key revisions after verification:** Phase 4 Mã số was ~60% wrong (now fixed); Phase 5 structure changed (I,II,III,IV,X not I-V); Phase 6 Mã "75" does NOT exist (BĐSĐT handled via B 02 Mã 21 + B 03 Mã 21/22)
 2. **(Previous — Browser RV, deferred)** Browser functional testing on VPS for Tenant Fixes 4 phases (authenticated user flows):
    - Phase 0: Log in → accounting pages → verify no deadlock/hang.
    - Phase 1: Company tenant → "Sổ HKD" menu hidden; HKD tenant → visible.
@@ -239,7 +232,7 @@ Server A (Edge):              Server B (Central):
 ## 9. AI Health Check
 
 - **Assumptions:** 0
-- **Verified Facts:** Branch=`main`, last commit `89fb90b6` (Phase 0 Bug 3 fix). CI PASS (1253s). CD SUCCESS (6min, run `30815588126`). VPS HTTP-level RV 7/7 PASS — ShopERP/KhachLink/Gateway all 200, HKD books + detail routes 200. Root cause confirmed via server log: `ScopedDataProvider.cs:86,126` sync-over-async deadlock. Fix: `Task.Run` wrapper. Tech debt TD-ASYNCDP-001 logged. Phases 1+2+3 READY. All prior sprints COMPLETE.
+- **Verified Facts:** Branch=`main`, last commit `f98ddea5` (TT99 Wave 3 P3 indirect method). TT99 Waves 1-3 COMPLETE — 6/7 phases done, all CD SUCCESS + VPS RV 10/10 PASS. Wave 4 IN PROGRESS (2 commits: 4a quick fixes + 4b Phase 5 B 09-DN). "Accounting Tests" workflow failed (run `30873505237`) — 4 PeriodClosingPersistenceTests fail with `table AccountCharts already exists` (test infra issue at TestDatabaseFixture.cs:74, NOT Wave 3 code bug). Root cause verified via CI log inspection. All prior sprints COMPLETE.
 - **Open Questions:** 0
 - **Gate 6 Status:** ✅ Assumptions (0) < Verified Facts (80+), Open Questions (0) < 3
 
@@ -256,6 +249,11 @@ Server A (Edge):              Server B (Central):
   - **Phase 2 (Bug 2B — VAS Reports export):** commit `c0fbcef6`, CD run `30823357227`, RV 7/7. New `IFinancialReportExportService` (Open XML SDK DOCX + EPPlus XLSX) + 4 UI pages + E2E `vas-export.spec.ts`.
   - **Phase 3 (Bug 1 — Edit BusinessType):** commit `424c3aa7`, CD run `30826995144`, RV 6/6. Domain `Tenant.ChangeBusinessType()` + `TenantBusinessTypeChangedEvent` (8 unit tests). Service `ChangeBusinessTypeAsync()` with AccountingEntry guard (IAccountingDbContext). Gateway API `PUT /api/v1/tenants/{id}/business-type` (409 if accounting data). UI Edit modal: BusinessType dropdown + HKDGroup + Reason. E2E: `tenant-edit-businesstype.spec.ts`. CI PASS (1229s, 1261+17+39+144 tests 0 failures).
   - **All phases:** HTTP-level RV PASS. Browser functional testing for authenticated users on VPS is the only remaining step. Branch: `main`. Last commit: `424c3aa7`. In sync with origin.
+* **2026-08-04 — TT 99/2025/TT-BTC COMPLIANCE FIXES WAVES 1-3 COMPLETE + VPS VERIFIED (RV 10/10 PASS each wave).**
+  - **Wave 1 (commit `66c9cfaf`):** Phase 1 (rename B 01-DN "Bảng CĐKT" → "Báo cáo tình hình TC" in 7 files) + Phase 5a (TenantSettings: LegalForm/BusinessField/CharterCapital) + Phase 6 (seed TK 5117/6327 + verify TK 217 Investing) + Phase 2 (auto-select TT99_2025 for Enterprise_Large via IVasFeatureFlagService + TT58_2026 dropdown). CD SUCCESS, RV 10/10.
+  - **Wave 2 (commit `27d34b40`):** Phase 4 — Tt99TemplateLine + Tt99ReportTemplate records in Domain.cs + new Tt99Templates.cs (B 01-DN/B 02-DN/B 03-DN verified templates) + 3 services refactored to Mã số structure with backward compatibility. CD SUCCESS, RV 10/10.
+  - **Wave 3 (commit `f98ddea5`):** Phase 3 — CashFlowMethod enum (Direct/Indirect) + CashFlowStatement.Method field + GenerateIndirectAsync (Mã 01-17 + working capital deltas) + injected IBalanceSheetService + IIncomeStatementService + UI toggle in CashFlowStatement.razor + 2 test files updated. CD run `30873505215` SUCCESS, RV 10/10. **Follow-up:** "Accounting Tests" workflow failed (run `30873505237`) — 4 PeriodClosingPersistenceTests fail with `SQLite Error 1: 'table "AccountCharts" already exists'` at TestDatabaseFixture.cs:74 (`EnsureCreatedAsync`). Test infra issue, NOT Wave 3 code bug. Fixed in Wave 4a.
+  - **Wave 4 IN PROGRESS (2 commits planned):** Commit 4a (quick fixes: menu nav link + vi-VN number format + test fix) + Commit 4b (Phase 5 B 09-DN Thuyết minh BCTC — new report). Branch: `main`. Last commit: `f98ddea5`. In sync with origin.
 * **2026-08-03 — TENANT FIXES PHASE 0 (BUG 3) COMPLETE + DEPLOYED + VPS VERIFIED (commit `89fb90b6`, CD run `30815588126`, RV 7/7 PASS).** Bug 3: tenant HKD clicks "📖 Mở sổ" at `/accounting/hkd-books` → page hangs forever (loading spinner). Root cause: `ScopedDataProvider.cs:86,126` sync-over-async — `GetPreAggregatedDataAsync(context).GetAwaiter().GetResult()` blocks Blazor Server single-threaded sync context; the async chain (`GetPreAggregatedDataAsync` → `GetAccountAggregatesAsync` → `GetAccountSumAsync` → `ToListAsync()`) awaits without `ConfigureAwait(false)`, so its continuation cannot resume → infinite deadlock. Server log evidence: SQL executed (7ms) at 17:50:59, then 28s silence, Blazor circuit died (61s timeout) + reconnected. Fix (Option A — quick): wrapped both calls in `Task.Run(() => GetPreAggregatedDataAsync(context)).GetAwaiter().GetResult()` — offloads async chain to thread pool (no sync context) so continuation completes. CI PASS (1253s, 1253+17+39+115 tests). CD SUCCESS (6min: Build 4m20s + Validate 8s + Deploy 1m38s). VPS HTTP-level RV 7/7 PASS — ShopERP/KhachLink/Gateway all 200, HKD books + detail routes 200. Tech debt TD-ASYNCDP-001 logged for proper async-native fix (Option B). Also: manually created `vanan_admin` role + `vanan_accounting` DB in `vanan-postgres-local` container (was missing — env issue). Branch: `main`. Last commit: `89fb90b6`. In sync with origin.
 * **2026-08-03 — KHACHLINK LOYALTYMODE UI HIDE COMPLETE + VPS VERIFIED (RV 10/10 PASS, commit `133e8061`, CD run `30789469902`).** When SystemAdmin sets LoyaltyMode=Silo, KhachLink hides all "Ví liên minh" UI to prevent customer confusion. New public endpoint `GET /api/loyalty/mode` (anonymous) returns global mode. New `LoyaltyModeHttpService` (cached 5 min, defaults Silo on error). 3 UI points hidden: NavMenu desktop+mobile tabs, LoyaltyCard link, AllianceWallet page (shows "Tính năng liên minh đang tắt" guard message). 8 files changed. CI PASS (1347s, 1253+17+233 tests). CD SUCCESS (5m35s). VPS RV 10/10 PASS — endpoint returns `{"mode":"Silo"}`, WASM fresh (2 min), Gateway DLL fresh (4 min), all pages 200. Branch: `main`. Last commit: `133e8061`. In sync with origin.
 * **2026-08-03 — KHACHLINK UI POLISH + HOME SEARCH FIX COMPLETE (commits `29180a53` + `482e481f`).** (1) NavMenu.razor: removed 4 duplicate footer icons (Giỏ hàng, Điểm thưởng, Nhiệm vụ, Đổi điểm) — already in header. Mobile bottom-nav reduced from 10 → 6 tabs. (2) Home.razor: fixed store search box — `@bind:event="oninput"` (was `onchange` → query empty on Enter due to binding race condition) + restructured render tree (search box always visible above results, was hidden inside `else if` conditional after search). No-results message now distinguishes location vs keyword search. Build 0 errors. (3) Order Status Sync Fix: ConfirmPaymentAsync enqueues OrderPaymentStatusChanged outbox event + SyncOrderCompletedAsync camelCase fix + order.payment.status.changed case in DataSyncSubscriber. Branch: `main`. Last commit: `482e481f`.

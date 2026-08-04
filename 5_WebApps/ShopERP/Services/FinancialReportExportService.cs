@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using OfficeOpenXml;
+using System.Globalization;
 using VanAn.Shared.Domain;
 
 namespace VanAn.ShopERP.Services
@@ -29,6 +30,7 @@ namespace VanAn.ShopERP.Services
     public class FinancialReportExportService(ILogger<FinancialReportExportService> logger) : IFinancialReportExportService
     {
         private readonly ILogger<FinancialReportExportService> _logger = logger;
+        private static readonly CultureInfo VnCulture = CultureInfo.GetCultureInfo("vi-VN");
 
         // ─── FINANCIAL STATEMENT EXPORT (BalanceSheet / IncomeStatement / CashFlowStatement) ───
 
@@ -155,14 +157,14 @@ namespace VanAn.ShopERP.Services
                 table.AppendChild(MakeDocxRow([
                     acc.AccountNumber,
                     acc.AccountName,
-                    acc.DebitTotal.ToString("N0"),
-                    acc.CreditTotal.ToString("N0"),
-                    acc.Balance.ToString("N0")
+                    acc.DebitTotal.ToString("N0", VnCulture),
+                    acc.CreditTotal.ToString("N0", VnCulture),
+                    acc.Balance.ToString("N0", VnCulture)
                 ]));
             }
 
             // Totals
-            table.AppendChild(MakeDocxRow(["", "TỔNG CỘNG", totalDebit.ToString("N0"), totalCredit.ToString("N0"), ""], bold: true));
+            table.AppendChild(MakeDocxRow(["", "TỔNG CỘNG", totalDebit.ToString("N0", VnCulture), totalCredit.ToString("N0", VnCulture), ""], bold: true));
             body.AppendChild(table);
 
             body.AppendChild(MakeParagraph(""));
@@ -259,8 +261,8 @@ namespace VanAn.ShopERP.Services
                 table.AppendChild(MakeDocxRow([
                     line.ReportItemCode,
                     line.ReportItemName,
-                    line.EndingAmount.ToString("N0"),
-                    line.OpeningAmount.ToString("N0")
+                    line.EndingAmount.ToString("N0", VnCulture),
+                    line.OpeningAmount.ToString("N0", VnCulture)
                 ], bold: line.Level == 1));
             }
 

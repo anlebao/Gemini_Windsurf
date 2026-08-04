@@ -99,7 +99,7 @@
                 </VanAnColumn>
                 <VanAnColumn TItem="AccountingEntryDto" Title="Số Tiền" Width="1">
                     <Template Context="item">
-                        <span data-testid="datagrid-cell-amount">@item.Amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", ".") ₫</span>
+                        <span data-testid="datagrid-cell-amount">@item.Amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) ₫</span>
                     </Template>
                 </VanAnColumn>
                 <VanAnColumn TItem="AccountingEntryDto" Title="Thao Tác" Width="1">
@@ -134,7 +134,7 @@
                     </div>
                     <div class="detail-row">
                         <label>Số Tiền:</label>
-                        <span>@selectedTransaction?.Amount.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(",", ".") ₫</span>
+                        <span>@selectedTransaction?.Amount.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) ₫</span>
                     </div>
                     <div class="detail-row">
                         <label>Diễn Giải:</label>

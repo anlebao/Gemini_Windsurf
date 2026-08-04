@@ -1,11 +1,12 @@
 # TASK CARD — Phase 4: TT 99 Template Structure (Mã Số 100/110/120...)
 
-> **Status:** 🟡 PLANNED
+> **Status:** ✅ COMPLETE (Wave 2, commit `27d34b40`, CD SUCCESS, VPS RV 10/10 PASS)
 > **Priority:** P3 — Large refactor
-> **Branch:** `feature/tt99-fix-phase4-template-structure`
+> **Branch:** `main` (Wave 2 commit)
 > **Estimated sessions:** 2-3 (large refactor)
 > **Mode:** IMPLEMENT
 > **Domain modification:** YES — add template mapping records
+> **Implemented:** 2026-08-03 — Tt99TemplateLine + Tt99ReportTemplate records in Domain.cs. New Tt99Templates.cs with verified B 01-DN/B 02-DN/B 03-DN definitions. BalanceSheetService + IncomeStatementService + CashFlowStatementService refactored to use TT 99 templates (Mã số structure) with backward compatibility for other standards.
 
 ## Objective
 Codebase hiện generate báo cáo theo **flat account list** (mỗi TK 111, 112, 131... là 1 dòng riêng). TT 99 yêu cầu **template structure** với Mã số phân cấp (Mã 100 "Tài sản ngắn hạn", Mã 110 "Tiền và tương đương tiền", Mã 111 "Tiền mặt"...). Cần refactor services để group accounts thành chỉ tiêu TT 99.
