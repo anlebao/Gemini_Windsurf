@@ -25,6 +25,12 @@ namespace VanAn.ShopERP.Services
 
         /// <summary>Export Trial Balance to XLSX.</summary>
         Task<byte[]> ExportTrialBalanceToXlsxAsync(string title, string period, IReadOnlyList<TrialBalanceAccount> accounts, decimal totalDebit, decimal totalCredit, bool isBalanced);
+
+        /// <summary>Export Financial Statement Notes (B 09-DN) to DOCX — textual report with sections + subsections.</summary>
+        Task<byte[]> ExportNotesToDocxAsync(string title, string period, IReadOnlyList<NoteSection> sections);
+
+        /// <summary>Export Financial Statement Notes (B 09-DN) to XLSX — textual report with sections + subsections.</summary>
+        Task<byte[]> ExportNotesToXlsxAsync(string title, string period, IReadOnlyList<NoteSection> sections);
     }
 
     public class FinancialReportExportService(ILogger<FinancialReportExportService> logger) : IFinancialReportExportService
@@ -302,6 +308,76 @@ namespace VanAn.ShopERP.Services
                 row.AppendChild(tc);
             }
             return row;
+        }
+
+        // ─── FINANCIAL STATEMENT NOTES EXPORT (B 09-DN — textual report) ───
+
+        public async Task<byte[]> ExportNotesToDocxAsync(string title, string period, IReadOnlyList<NoteSection> sections)
+        {
+            using MemoryStream ms = new();
+            using WordprocessingDocument doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document);
+            MainDocumentPart mainPart = doc.AddMainDocumentPart();
+            mainPart.Document = new Document();
+            Body body = mainPart.Document.AppendChild(new Body());
+
+            body.AppendChild(MakeParagraph(title, bold: true, centered: true));
+            body.AppendChild(MakeParagraph($"Kỳ báo cáo: {period}", centered: true));
+
+            foreach (var section in sections)
+            {
+                body.AppendChild(MakeParagraph($"{section.SectionCode}. {section.SectionTitle}", bold: true));
+                if (!string.IsNullOrEmpty(section.Content))
+                    body.AppendChild(MakeParagraph(section.Content));
+
+                if (section.SubSections != null)
+                {
+                    foreach (var sub in section.SubSections)
+                    {
+                        body.AppendChild(MakeParagraph($"  {sub.SectionCode}. {sub.SectionTitle}: {sub.Content}"));
+                    }
+                }
+            }
+
+            await Task.CompletedTask;
+            return ms.ToArray();
+        }
+
+        public async Task<byte[]> ExportNotesToXlsxAsync(string title, string period, IReadOnlyList<NoteSection> sections)
+        {
+            using MemoryStream ms = new();
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using ExcelPackage package = new(ms);
+            ExcelWorksheet ws = package.Workbook.Worksheets.Add("B09-DN");
+
+            ws.Cells["A1"].Value = title;
+            ws.Cells["A1"].Style.Font.Bold = true;
+            ws.Cells["A2"].Value = $"Kỳ báo cáo: {period}";
+
+            int row = 4;
+            foreach (var section in sections)
+            {
+                ws.Cells[$"A{row}"].Value = $"{section.SectionCode}. {section.SectionTitle}";
+                ws.Cells[$"A{row}"].Style.Font.Bold = true;
+                row++;
+                if (!string.IsNullOrEmpty(section.Content))
+                {
+                    ws.Cells[$"A{row}"].Value = section.Content;
+                    row++;
+                }
+                if (section.SubSections != null)
+                {
+                    foreach (var sub in section.SubSections)
+                    {
+                        ws.Cells[$"A{row}"].Value = $"  {sub.SectionCode}. {sub.SectionTitle}: {sub.Content}";
+                        row++;
+                    }
+                }
+                row++; // blank row between sections
+            }
+
+            ws.Columns[0].Width = 100;
+            await Task.CompletedTask;
+            return package.GetAsByteArray();
         }
     }
 }

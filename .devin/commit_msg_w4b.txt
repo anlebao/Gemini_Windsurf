@@ -1,0 +1,30 @@
+[TT99-FIX Wave 4b] Phase 5 - B 09-DN Thuyet minh BCTC (new report)
+
+Phase 5: Add missing mandatory report B 09-DN (Bản Thuyết Minh BCTC) per
+TT 99/2025/TT-BTC Phụ lục IV. This completes all 4 mandatory financial
+reports (B 01-DN + B 02-DN + B 03-DN + B 09-DN).
+
+- Domain: Add FinancialStatementNotes + NoteSection records to Domain.cs
+  (after CashFlowStatement). NoteSection supports nested subsections
+  (I.1, I.2... IV.29). 5 sections: I (Đặc điểm HĐ, 9 items), II (Kỳ KT,
+  2 items), III (Chuẩn mực, 2 items), IV (Chính sách KT, 29 items),
+  X (Sửa đổi).
+- Service: New IFinancialStatementNotesService + FinancialStatementNotesService.
+  Pulls tenant info (LegalForm, BusinessField, CharterCapital) from
+  TenantSettings for Phần I. Phần IV uses TT 99 standard template text.
+  No BalanceSheet/Income/CashFlow injection needed (text report, not
+  data-driven from other reports).
+- UI: New FinancialStatementNotes.razor page at
+  /accounting/financial-statement-notes. Period picker + standard
+  selector + export buttons. Renders 5 sections with subsections.
+- Export: Add ExportNotesToDocxAsync + ExportNotesToXlsxAsync to
+  FinancialReportExportService (textual export, not tabular).
+- DI: Register IFinancialStatementNotesService in Program.cs.
+- Menu: B 09-DN link already added to Sitemap + FinancialReports hub
+  in Wave 4a.
+
+Build: 0 errors. All 7 TT 99 phases now COMPLETE.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

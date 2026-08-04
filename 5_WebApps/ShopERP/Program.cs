@@ -463,6 +463,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IIncomeStatementService, CoreHub.Services.IncomeStatementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ICashFlowStatementService, CoreHub.Services.CashFlowStatementService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ITrialBalanceService, CoreHub.Services.TrialBalanceService>();
+            // W4b: B 09-DN Financial Statement Notes (TT 99/2025/TT-BTC)
+            _ = builder.Services.AddScoped<CoreHub.Services.IFinancialStatementNotesService, CoreHub.Services.FinancialStatementNotesService>();
             // W8: VAS feature flag + tenant conversion services
             _ = builder.Services.AddScoped<CoreHub.Services.IVasFeatureFlagService, CoreHub.Services.VasFeatureFlagService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ITenantConversionService, CoreHub.Services.TenantConversionService>();

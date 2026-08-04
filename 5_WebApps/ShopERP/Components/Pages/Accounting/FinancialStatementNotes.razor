@@ -1,0 +1,180 @@
+@page "/accounting/financial-statement-notes"
+@rendermode InteractiveServer
+@layout AccountingLayout
+@attribute [Authorize(Policy = "OwnerOnly")]
+@using System.Globalization
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.UI.Platform.Models
+@using VanAn.Shared.Domain
+@using VanAn.Shared.Domain.Common
+@inject VanAn.CoreHub.Services.IFinancialStatementNotesService NotesService
+@inject VanAn.ShopERP.Services.IFinancialReportExportService ExportService
+@inject VanAn.CoreHub.Services.IVasFeatureFlagService FeatureFlagService
+@inject IThemeProvider ThemeProvider
+@inject ITenantProvider TenantProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<FinancialStatementNotes> Logger
+
+<div class="report-page @ThemeProvider.CurrentTheme">
+    <header class="page-header">
+        <h1>Bản Thuyết Minh BCTC (B 09-DN)</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" Size="small" OnClick="GenerateReport">🔄 Tạo thuyết minh</VanAButton>
+        </div>
+    </header>
+
+    @if (errorMessage != null)
+    {
+        <VanAAlert Type="error" Message="@errorMessage" Dismissible="true" OnDismiss="() => errorMessage = null" />
+    }
+
+    <VanACard Header="Kỳ báo cáo">
+        <div class="period-picker-row">
+            <label>Năm: <input type="number" min="2000" max="2100" @bind="selectedYear" /></label>
+            <label>Tháng:
+                <select @bind="selectedMonth">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </label>
+            <label>Chuẩn kế toán:
+                <select @bind="selectedStandard">
+                    <option value="@AccountingStandard.TT133_2016">TT 133/2016 (DN vừa)</option>
+                    <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
+                </select>
+            </label>
+            <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportDocx" Disabled="@exporting">📄 Xuất DOCX</VanAButton>
+            <VanAButton Variant="success" Size="small" OnClick="ExportXlsx" Disabled="@exporting">📊 Xuất XLSX</VanAButton>
+        </div>
+    </VanACard>
+
+    @if (loading)
+    {
+        <VanACard Header="Đang tạo thuyết minh">
+            <p>Đang tạo Bản Thuyết Minh BCTC cho kỳ @selectedMonth/@selectedYear...</p>
+        </VanACard>
+    }
+    else if (report != null)
+    {
+        @foreach (var noteSection in report.Sections)
+        {
+            <VanACard Header="@($"{noteSection.SectionCode}. {noteSection.SectionTitle}")">
+                @if (!string.IsNullOrEmpty(noteSection.Content))
+                {
+                    <p>@noteSection.Content</p>
+                }
+                @if (noteSection.SubSections != null)
+                {
+                    <ul class="notes-subsections">
+                        @foreach (var sub in noteSection.SubSections)
+                        {
+                            <li><strong>@sub.SectionCode. @sub.SectionTitle:</strong> @sub.Content</li>
+                        }
+                    </ul>
+                }
+            </VanACard>
+        }
+    }
+</div>
+
+@code {
+    private VanAn.Shared.Domain.FinancialStatementNotes? report;
+    private bool loading = true;
+    private bool exporting;
+    private string? errorMessage;
+
+    private int selectedYear = DateTime.UtcNow.Year;
+    private int selectedMonth = DateTime.UtcNow.Month;
+    private AccountingStandard selectedStandard = AccountingStandard.TT99_2025;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // TT 99 Phase 2: auto-select standard theo Tenant.Type
+        if (TenantProvider.HasTenant)
+        {
+            try
+            {
+                var tenantId = new TenantId(TenantProvider.TenantId);
+                var tenantType = await FeatureFlagService.GetTenantTypeAsync(tenantId);
+                selectedStandard = tenantType switch
+                {
+                    TenantType.Enterprise_Large => AccountingStandard.TT99_2025,
+                    _ => AccountingStandard.TT133_2016
+                };
+            }
+            catch { /* fallback TT99 */ }
+        }
+        await GenerateReport();
+    }
+
+    private async Task GenerateReport()
+    {
+        loading = true;
+        errorMessage = null;
+        try
+        {
+            if (!TenantProvider.HasTenant)
+            {
+                errorMessage = "Không xác định được tenant. Vui lòng đăng nhập lại.";
+                return;
+            }
+
+            TenantId tenantId = new(TenantProvider.TenantId);
+            var period = new AccountingPeriod(selectedYear, selectedMonth);
+            report = await NotesService.GenerateAsync(tenantId, period, selectedStandard, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error generating B 09-DN Financial Statement Notes for period {Year}-{Month}", selectedYear, selectedMonth);
+            errorMessage = "Không thể tạo Bản Thuyết Minh BCTC. Vui lòng thử lại.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ExportDocx()
+    {
+        if (report == null) return;
+        await DownloadFile(async () =>
+        {
+            return await ExportService.ExportNotesToDocxAsync("Bản Thuyết Minh BCTC (B 09-DN)", $"Tháng {selectedMonth:D2}/{selectedYear}", report.Sections.ToList());
+        }, $"FinancialStatementNotes_{selectedYear}_{selectedMonth:D2}.docx");
+    }
+
+    private async Task ExportXlsx()
+    {
+        if (report == null) return;
+        await DownloadFile(async () =>
+        {
+            return await ExportService.ExportNotesToXlsxAsync("Bản Thuyết Minh BCTC (B 09-DN)", $"Tháng {selectedMonth:D2}/{selectedYear}", report.Sections.ToList());
+        }, $"FinancialStatementNotes_{selectedYear}_{selectedMonth:D2}.xlsx");
+    }
+
+    private async Task DownloadFile(Func<Task<byte[]>> produce, string fileName)
+    {
+        exporting = true;
+        try
+        {
+            byte[] bytes = await produce();
+            string base64 = Convert.ToBase64String(bytes);
+            string mime = fileName.EndsWith(".docx") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            await JSRuntime.InvokeVoidAsync("vanAn.downloadFile", base64, mime, fileName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting B 09-DN to {FileName}", fileName);
+            errorMessage = "Không thể xuất file. Vui lòng thử lại.";
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
+}

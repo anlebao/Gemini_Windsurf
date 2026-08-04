@@ -3363,6 +3363,28 @@ namespace VanAn.Shared.Domain
         IEnumerable<FinancialStatementLine> FinancingActivities
     );
 
+    // ── 4. BẢN THUYẾT MINH BCTC (Mẫu B 09-DN — TT 99/2025/TT-BTC Phụ lục IV) ──────────
+    /// <summary>
+    /// B 09-DN: Bản thuyết minh BCTC — báo cáo dạng văn bản thuyết minh (không phải bảng số liệu).
+    /// Gồm 5 phần: I (Đặc điểm HĐ), II (Kỳ KT + tiền tệ), III (Chuẩn mực KT), IV (Chính sách KT — 29 mục), X (Sửa đổi).
+    /// Source: REFERENCE_B09DN_official.md — verified from vplsdms.vn Phụ lục IV TT 99.
+    /// </summary>
+    public record NoteSection(
+        string SectionCode,         // "I", "II", "III", "IV", "X" (phần) hoặc "I.1", "IV.7" (mục con)
+        string SectionTitle,        // "ĐẶC ĐIỂM HOẠT ĐỘNG"
+        int Level,                  // 1 = phần, 2 = mục con
+        string Content,             // Nội dung thuyết minh (text)
+        IEnumerable<NoteSection>? SubSections  // Mục con (VD: I.1, I.2...); null cho phần không có con
+    );
+
+    public record FinancialStatementNotes(
+        TenantId TenantId,
+        AccountingPeriod Period,
+        DateTime GeneratedAt,
+        AccountingStandard Standard,
+        IEnumerable<NoteSection> Sections
+    );
+
     // TrialBalance already exists above (Domain.cs ~line 1518) — keep as-is, W4 service wraps with TenantId.
 
     // ── TT 99 REPORT TEMPLATES (Phase 4 — verified from Phụ lục IV TT 99/2025/TT-BTC) ──
