@@ -203,7 +203,60 @@
                     </div>
                 </VanACard>
 
-                <VanACard Header="🎁 Công thức điểm thưởng (Loyalty-C)" CssClass="mt-4" data-testid="loyalty-formula-card">
+                <VanACard Header="� Hiển thị trang chủ KhachLink (#100)" CssClass="mt-4" data-testid="home-sections-card">
+                    <div class="features-form">
+                        <p class="text-muted small mb-3">
+                            Bật/tắt từng phần hiển thị trên trang chủ KhachLink của tenant này.
+                            Khi tắt, phần đó sẽ ẩn trên mobile + desktop.
+                        </p>
+
+                        <div class="feature-row" data-testid="toggle-home-campaign">
+                            <div class="feature-info">
+                                <strong>Hiển thị "Khuyến Mãi Cửa Hàng"</strong>
+                                <p class="text-muted small">Phần khuyến mãi trên trang chủ. Tắt nếu không có khuyến mãi hoạt động.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="home-campaign" @bind="settings.Home_CampaignSection_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-home-store">
+                            <div class="feature-info">
+                                <strong>Hiển thị "Cửa Hàng Của Bạn"</strong>
+                                <p class="text-muted small">Phần thông tin cửa hàng trên trang chủ. Tắt nếu không muốn hiển thị.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="home-store" @bind="settings.Home_StoreSection_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-home-featured">
+                            <div class="feature-info">
+                                <strong>Hiển thị "Sản Phẩm Nổi Bật"</strong>
+                                <p class="text-muted small">Phần sản phẩm nổi bật trên trang chủ. Tắt nếu không có sản phẩm nổi bật.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="home-featured" @bind="settings.Home_FeaturedSection_Enabled" />
+                            </div>
+                        </div>
+
+                        <div class="feature-row" data-testid="toggle-home-socialhub">
+                            <div class="feature-info">
+                                <strong>Hiển thị link Facebook/TikTok (Social Hub)</strong>
+                                <p class="text-muted small">Phần Social Hub với link Facebook + TikTok. Tắt nếu không có mạng xã hội.</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       id="home-socialhub" @bind="settings.Home_SocialHub_Enabled" />
+                            </div>
+                        </div>
+                    </div>
+                </VanACard>
+
+                <VanACard Header="�🎁 Công thức điểm thưởng (Loyalty-C)" CssClass="mt-4" data-testid="loyalty-formula-card">
                     <div class="features-form">
                         <p class="text-muted small mb-3">
                             Cấu hình công thức tích điểm cho khách hàng khi mua hàng.
@@ -341,8 +394,7 @@
                 </div>
 
                 <div class="form-actions mt-3">
-                    <VanAButton Variant="primary" OnClick="SaveSettings" data-testid="btn-save">
-                        Lưu cấu hình
+                    <VanAButton Variant="primary" OnClick="SaveSettings" data-testid="btn-save" Loading="@_isSaving" Disabled="@_isSaving" Text="@(_isSaving ? "Đang lưu..." : "Lưu cấu hình")">
                     </VanAButton>
                 </div>
             </VanACard>
@@ -355,6 +407,7 @@
     private bool loading = true;
     private string? successMessage;
     private string? errorMessage;
+    private bool _isSaving;
     private bool _isSystemAdmin;
     private bool _impersonating;
 
@@ -382,19 +435,33 @@
 
     private async Task SaveSettings()
     {
+        _isSaving = true;
+        successMessage = null;
+        errorMessage = null;
         try
         {
-            successMessage = null;
-            errorMessage = null;
             Guid tenantId = TenantProvider.TenantId;
             settings = await SettingsService.UpdateSettingsAsync(tenantId, settings);
-            successMessage = "Đã lưu cấu hình thành công.";
+            successMessage = "✅ Đã lưu cấu hình thành công.";
+            // Auto-dismiss success after 5s
+            _ = DismissSuccessAfterDelayAsync();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error saving shop feature settings");
-            errorMessage = "Không thể lưu cấu hình. Vui lòng thử lại.";
+            errorMessage = $"❌ Không thể lưu cấu hình: {ex.Message}";
         }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DismissSuccessAfterDelayAsync()
+    {
+        await Task.Delay(5000);
+        successMessage = null;
+        await InvokeAsync(StateHasChanged);
     }
 
     /// <summary>

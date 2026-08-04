@@ -199,6 +199,8 @@
     @if (_lastTenantId.HasValue && _lastTenantId.Value != Guid.Empty)
     {
         <!-- Campaign Section (replaces Hero) — filtered by last interaction tenantId -->
+        @if (_homeCampaignEnabled)
+        {
         <VanAnCard CssClass="campaign-section mb-4">
             <div class="container">
                 <h2 class="mb-3">
@@ -280,8 +282,11 @@
                 }
             </div>
         </VanAnCard>
+        }
 
         <!-- StoreFinder Section (replaces Stats) — show store info for last interaction tenantId -->
+        @if (_homeStoreEnabled)
+        {
         <VanAnCard CssClass="store-section mb-4">
             <div class="container">
                 <h2 class="mb-3">
@@ -339,9 +344,12 @@
                 }
             </div>
         </VanAnCard>
+        }
     }
 
     <!-- Phase 6: Recommended Catalog — Featured products + customer history (replaces multi-VPS product browse) -->
+    @if (_homeFeaturedEnabled)
+    {
     <VanAnCard CssClass="products-section mb-4">
         <div class="container">
             <h2 class="text-center mb-4">
@@ -476,9 +484,13 @@
             </div>
         </VanAnCard>
     }
+    }
 
     <!-- Social Hub: render real shop social links from ShopConfig (Phase 3 wire-up) -->
+    @if (_homeSocialHubEnabled)
+    {
     <SocialHub ShopConfig="@_shopConfig" />
+    }
 </KhachLinkLayout>
 
 <style>
@@ -506,6 +518,11 @@
     private ShopConfig? _shopConfig;
     private bool _isLoggedIn = false;
     private bool _vatDisplayEnabled = true;
+    // #100.2: Home section toggles (loaded from feature settings)
+    private bool _homeCampaignEnabled = true;
+    private bool _homeStoreEnabled = true;
+    private bool _homeFeaturedEnabled = true;
+    private bool _homeSocialHubEnabled = true;
 
     // Phase 6: Catalog recommended (Featured + History) — replaces multi-VPS product browse
     private RecommendedCatalogResponse? _catalog;
@@ -581,9 +598,10 @@
             // Only show search box / location-share prompt — user must explicitly trigger search.
             // (Issue fix: home page was showing full store list on load — should only show search box.)
 
-            // VAT toggle (needs tenantId — fast, may fail silently)
+            // VAT toggle + #100.2: Home section toggles (needs tenantId — fast, may fail silently)
             Guid tenantId = TenantService.GetCurrentTenantId();
             Task vatTask = Task.CompletedTask;
+            Task homeTogglesTask = Task.CompletedTask;
             if (tenantId != Guid.Empty)
             {
                 vatTask = FeatureSettings.IsEnabledAsync(tenantId, nameof(VanAn.Shared.Services.ShopFeatureSettingsDto.VAT_Display_Enabled))
@@ -591,14 +609,40 @@
                     {
                         if (t.IsCompletedSuccessfully) _vatDisplayEnabled = t.Result;
                     }, TaskScheduler.Default);
+
+                // #100.2: Load home section toggles in parallel
+                homeTogglesTask = LoadHomeSectionTogglesAsync(tenantId);
             }
 
-            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, commerceModeTask);
+            await Task.WhenAll(productsTask, catalogTask, tenantDataTask, vatTask, homeTogglesTask, commerceModeTask);
 
             // Phase 3 (dependent): ShopConfig needs products list (derived from product TenantIds)
             await LoadShopConfigAsync();
 
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// #100.2: Load home section toggles from feature settings.
+    /// Silent failure — defaults to ON (all sections visible).
+    /// </summary>
+    private async Task LoadHomeSectionTogglesAsync(Guid tenantId)
+    {
+        try
+        {
+            var settings = await FeatureSettings.GetSettingsAsync(tenantId);
+            if (settings != null)
+            {
+                _homeCampaignEnabled = settings.Home_CampaignSection_Enabled;
+                _homeStoreEnabled = settings.Home_StoreSection_Enabled;
+                _homeFeaturedEnabled = settings.Home_FeaturedSection_Enabled;
+                _homeSocialHubEnabled = settings.Home_SocialHub_Enabled;
+            }
+        }
+        catch
+        {
+            // Defaults: all sections visible
         }
     }
 

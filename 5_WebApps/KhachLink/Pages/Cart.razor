@@ -14,6 +14,23 @@
     <div class="container py-4">
         <h2 class="mb-4">🛒 Giỏ hàng của bạn</h2>
 
+        @if (cartState.GetTotalItems() > 0)
+        {
+            <!-- #100.1: Sticky mobile action bar — visible only on mobile, fixed at top of viewport -->
+            <!-- Lets customers tap "Thanh toán" without scrolling to bottom of cart -->
+            <div class="cart-mobile-actionbar d-md-none" data-testid="cart-mobile-actionbar">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                    <div class="text-truncate">
+                        <div class="small text-muted">Tổng cộng</div>
+                        <div class="fw-bold text-danger">@cartState.TotalAmount.ToString("N0") VNĐ</div>
+                    </div>
+                    <VanAnButton Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="qr-code" OnClick="ProceedToCheckout" data-testid="cart-mobile-btn-checkout">
+                        Thanh toán
+                    </VanAnButton>
+                </div>
+            </div>
+        }
+
         @if (cartState.GetTotalItems() == 0)
         {
             <VanAnAlert Variant="AlertVariant.Info" Message="Giỏ hàng của bạn đang trống. Hãy thêm sản phẩm để tiếp tục!" />
@@ -165,3 +182,18 @@
         CartService.OnCartChanged -= StateHasChanged;
     }
 }
+
+<style>
+/* #100.1: Sticky mobile action bar — fixed below header, above cart content */
+.cart-mobile-actionbar {
+    position: sticky;
+    top: 56px; /* Below KhachLink hero header (approx 56px height) */
+    z-index: 800;
+    background: var(--shop-primary, #8B4513);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+</style>

@@ -60,6 +60,12 @@ public class ShopFeatureSettingsEntity : BaseEntity
     /// Default OFF. Owner opts in to AI-assisted customer service.</summary>
     public bool AIChat_Enabled { get; private set; }
 
+    // === #100: KhachLink Home page section toggles ===
+    public bool Home_CampaignSection_Enabled { get; private set; } = true;
+    public bool Home_StoreSection_Enabled { get; private set; } = true;
+    public bool Home_FeaturedSection_Enabled { get; private set; } = true;
+    public bool Home_SocialHub_Enabled { get; private set; } = true;
+
     /// <summary>KhachLink OrderTracking polling interval in seconds. Default: 15. Range: 5-120.</summary>
     public int PollingIntervalSeconds { get; private set; } = 15;
 
@@ -99,6 +105,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
         GoogleMap_Section_Enabled = true;
         SocialHub_Section_Enabled = true;
         AIChat_Enabled = false;
+        Home_CampaignSection_Enabled = true;
+        Home_StoreSection_Enabled = true;
+        Home_FeaturedSection_Enabled = true;
+        Home_SocialHub_Enabled = true;
         PollingIntervalSeconds = 15;
         Loyalty_PointsRate = 0m;
         Loyalty_MinPointsPerOrder = 0;
@@ -128,6 +138,11 @@ public class ShopFeatureSettingsEntity : BaseEntity
         bool googleMapSection = true,
         bool socialHubSection = true,
         bool aiChat = false,
+        // #100: KhachLink Home section toggles
+        bool homeCampaignSection = true,
+        bool homeStoreSection = true,
+        bool homeFeaturedSection = true,
+        bool homeSocialHub = true,
         // Loyalty-C WS-A: loyalty formula (defaults preserve backward compat — callers can omit)
         decimal loyaltyPointsRate = 0m,
         int loyaltyMinPointsPerOrder = 0,
@@ -154,6 +169,10 @@ public class ShopFeatureSettingsEntity : BaseEntity
         GoogleMap_Section_Enabled = googleMapSection;
         SocialHub_Section_Enabled = socialHubSection;
         AIChat_Enabled = aiChat;
+        Home_CampaignSection_Enabled = homeCampaignSection;
+        Home_StoreSection_Enabled = homeStoreSection;
+        Home_FeaturedSection_Enabled = homeFeaturedSection;
+        Home_SocialHub_Enabled = homeSocialHub;
         PollingIntervalSeconds = Math.Clamp(pollingIntervalSeconds, 5, 120);
         // Loyalty-C WS-A
         Loyalty_PointsRate = Math.Clamp(loyaltyPointsRate, 0m, 1m); // 0-100% (1.0 = 100% of order total)

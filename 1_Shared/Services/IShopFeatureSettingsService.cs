@@ -29,6 +29,16 @@ public record ShopFeatureSettingsDto
     /// <summary>Tenant Profile Page (2026-07-21): enable AI Chatbox widget. Default OFF (owner opts in).</summary>
     public bool AIChat_Enabled { get; set; }
 
+    // === #100: KhachLink Home page section toggles (SystemAdmin controls which sections appear on home) ===
+    /// <summary>#100.2: Show "Khuyến Mãi Cửa Hàng" (Campaign) section on KhachLink home. Default ON.</summary>
+    public bool Home_CampaignSection_Enabled { get; set; } = true;
+    /// <summary>#100.2: Show "Cửa Hàng Của Bạn" (Store info) section on KhachLink home. Default ON.</summary>
+    public bool Home_StoreSection_Enabled { get; set; } = true;
+    /// <summary>#100.2: Show "Sản Phẩm Nổi Bật" (Featured products) section on KhachLink home. Default ON.</summary>
+    public bool Home_FeaturedSection_Enabled { get; set; } = true;
+    /// <summary>#100.2: Show Social Hub (Facebook/TikTok links) on KhachLink home. Default ON.</summary>
+    public bool Home_SocialHub_Enabled { get; set; } = true;
+
     // === Loyalty-C WS-A: Per-tenant loyalty points formula (overrides global IOptions<LoyaltyPointsConfig> default) ===
     /// <summary>Loyalty-C WS-A: Points rate (fraction of TotalAmount). 0 = use global default (appsettings.json). Default 0 = fallback.</summary>
     public decimal Loyalty_PointsRate { get; set; } = 0m;

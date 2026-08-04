@@ -59,6 +59,11 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             settings.GoogleMap_Section_Enabled,
             settings.SocialHub_Section_Enabled,
             settings.AIChat_Enabled,
+            // #100: KhachLink Home section toggles
+            settings.Home_CampaignSection_Enabled,
+            settings.Home_StoreSection_Enabled,
+            settings.Home_FeaturedSection_Enabled,
+            settings.Home_SocialHub_Enabled,
             // Loyalty-C WS-A: loyalty formula
             settings.Loyalty_PointsRate,
             settings.Loyalty_MinPointsPerOrder,
@@ -95,6 +100,10 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
             nameof(ShopFeatureSettingsDto.GoogleMap_Section_Enabled) => settings.GoogleMap_Section_Enabled,
             nameof(ShopFeatureSettingsDto.SocialHub_Section_Enabled) => settings.SocialHub_Section_Enabled,
             nameof(ShopFeatureSettingsDto.AIChat_Enabled) => settings.AIChat_Enabled,
+            nameof(ShopFeatureSettingsDto.Home_CampaignSection_Enabled) => settings.Home_CampaignSection_Enabled,
+            nameof(ShopFeatureSettingsDto.Home_StoreSection_Enabled) => settings.Home_StoreSection_Enabled,
+            nameof(ShopFeatureSettingsDto.Home_FeaturedSection_Enabled) => settings.Home_FeaturedSection_Enabled,
+            nameof(ShopFeatureSettingsDto.Home_SocialHub_Enabled) => settings.Home_SocialHub_Enabled,
             nameof(ShopFeatureSettingsDto.Loyalty_AwardOnAllOrders) => settings.Loyalty_AwardOnAllOrders,
             nameof(ShopFeatureSettingsDto.Notify_MissionCompleted) => settings.Notify_MissionCompleted,
             nameof(ShopFeatureSettingsDto.Notify_BirthdayBonus) => settings.Notify_BirthdayBonus,
@@ -131,6 +140,11 @@ public class ShopFeatureSettingsService : IShopFeatureSettingsService
         GoogleMap_Section_Enabled = entity.GoogleMap_Section_Enabled,
         SocialHub_Section_Enabled = entity.SocialHub_Section_Enabled,
         AIChat_Enabled = entity.AIChat_Enabled,
+        // #100: KhachLink Home section toggles
+        Home_CampaignSection_Enabled = entity.Home_CampaignSection_Enabled,
+        Home_StoreSection_Enabled = entity.Home_StoreSection_Enabled,
+        Home_FeaturedSection_Enabled = entity.Home_FeaturedSection_Enabled,
+        Home_SocialHub_Enabled = entity.Home_SocialHub_Enabled,
         // Loyalty-C WS-A
         Loyalty_PointsRate = entity.Loyalty_PointsRate,
         Loyalty_MinPointsPerOrder = entity.Loyalty_MinPointsPerOrder,

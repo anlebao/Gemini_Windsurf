@@ -1,0 +1,22 @@
+Fixed in commit e1121579.
+
+Feature: SystemAdmin can now customize KhachLink nav/header/footer colors + logo via TenantManagement admin UI.
+
+Changes:
+1. Domain: ShopConfig + TenantSettings thêm NavColor, HeaderColor, FooterColor
+2. Infrastructure: Migration AddTenantSettingsStyleColors (3 nullable columns)
+3. Services: UpdateTenantProfileRequest + TenantManagementService pass through new fields
+4. Gateway: TenantsController + TenantStoreController return new fields in DTOs
+5. ShopERP Admin UI: TenantManagement.razor — color picker + text input cho nav/header/footer + logo URL
+6. KhachLink: KhachLinkLayout + NavMenu dùng CSS vars (--shop-nav-color, --shop-header-color, --shop-footer-color) thay vì hardcode. Logo từ admin URL override default.
+
+Flow:
+1. SystemAdmin vào /admin/tenants → edit tenant → set colors + logo URL → Save
+2. KhachLink loads → GET /api/tenants/{id}/store-info → returns colors + logo
+3. KhachLinkLayout renders CSS vars → NavMenu + header + footer use vars
+4. Logo hiển thị từ URL admin set (nếu có), hoặc default logo
+
+CD deploy sẽ apply fix trong ~5-6 phút. Sau đó:
+- Vào /admin/tenants → edit tenant → scroll xuống "Tùy chỉnh màu KhachLink"
+- Chọn màu nav/header/footer + nhập logo URL → Save
+- Mở KhachLink của tenant đó → nav/header/footer đổi màu theo settings
