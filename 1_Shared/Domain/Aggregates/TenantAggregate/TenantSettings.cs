@@ -46,6 +46,13 @@
         public string? BusinessField { get; private set; }
         public decimal? CharterCapital { get; private set; }
 
+        // #93 — KhachLink style customization: SystemAdmin can override nav/header/footer colors + logo.
+        // Null = use default (hardcoded in KhachLinkLayout/NavMenu CSS).
+        // Format: hex color string (VD: "#1a1a2e", "#8B4513").
+        public string? NavColor { get; private set; }
+        public string? HeaderColor { get; private set; }
+        public string? FooterColor { get; private set; }
+
         // EF Core requires parameterless constructor
         private TenantSettings() { }
 
@@ -62,7 +69,10 @@
             string? socialLinksTiktok = null,
             string? brandStory = null,
             ThemeType theme = ThemeType.Classic,
-            CommerceMode commerceModeOverride = CommerceMode.Inherit)
+            CommerceMode commerceModeOverride = CommerceMode.Inherit,
+            string? navColor = null,
+            string? headerColor = null,
+            string? footerColor = null)
         {
             ContactEmail = contactEmail;
             ContactPhone = contactPhone;
@@ -77,41 +87,57 @@
             BrandStory = brandStory;
             Theme = theme;
             CommerceModeOverride = commerceModeOverride;
+            NavColor = navColor;
+            HeaderColor = headerColor;
+            FooterColor = footerColor;
         }
 
         public TenantSettings WithContactEmail(string email)
-            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(email, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithContactPhone(string phone)
-            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(ContactEmail, phone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithAddress(string address)
-            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithTaxCode(string taxCode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, taxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithCoordinates(double latitude, double longitude)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, latitude, longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithSlug(string? slug)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithSocialLinks(string? fb, string? tiktok)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, fb, tiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithBrandStory(string? story)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, story, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public TenantSettings WithTheme(ThemeType theme)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         /// <summary>
         /// Sprint 7 — Set commerce mode override for this tenant.
         /// Inherit = use global setting. Marketplace/Reseller = ép mode cho tenant này.
         /// </summary>
         public TenantSettings WithCommerceModeOverride(CommerceMode mode)
-            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode);
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, mode, NavColor, HeaderColor, FooterColor);
+
+        /// <summary>
+        /// #93 — Set KhachLink style customization (nav/header/footer colors).
+        /// Null = use default hardcoded colors.
+        /// </summary>
+        public TenantSettings WithStyleColors(string? navColor, string? headerColor, string? footerColor)
+            => new(ContactEmail, ContactPhone, Address, LogoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, navColor, headerColor, footerColor);
+
+        /// <summary>
+        /// #93 — Set logo URL for KhachLink header.
+        /// </summary>
+        public TenantSettings WithLogoUrl(string? logoUrl)
+            => new(ContactEmail, ContactPhone, Address, logoUrl, TaxCode, Latitude, Longitude, Slug, SocialLinksFb, SocialLinksTiktok, BrandStory, Theme, CommerceModeOverride, NavColor, HeaderColor, FooterColor);
 
         public static TenantSettings Empty() => new(null, null, null);
     }

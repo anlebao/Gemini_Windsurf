@@ -111,7 +111,15 @@ namespace VanAn.KhachLink.Services.Http
                 Longitude = shop.Longitude,
                 SocialLinksFb = shop.SocialLinksFb,
                 SocialLinksTiktok = shop.SocialLinksTiktok,
-                ActiveTheme = shop.Theme
+                ActiveTheme = shop.Theme,
+                // #93 — pass through style customization colors (null = use CSS defaults)
+                NavColor = shop.NavColor,
+                HeaderColor = shop.HeaderColor,
+                FooterColor = shop.FooterColor,
+                // #93 — override logo if admin set a custom URL
+                LogoUrl = !string.IsNullOrWhiteSpace(shop.LogoUrl) && Uri.TryCreate(shop.LogoUrl, UriKind.Absolute, out var logoUri)
+                    ? logoUri
+                    : DefaultShopConfig.LogoUrl
             };
         }
     }

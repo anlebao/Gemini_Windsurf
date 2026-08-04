@@ -84,6 +84,11 @@ namespace VanAn.ShopERP.Services
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
         public ThemeType Theme { get; init; } = ThemeType.Classic;
+        /// <summary>#93 — KhachLink style customization.</summary>
+        public string? LogoUrl { get; init; }
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 
@@ -102,5 +107,10 @@ namespace VanAn.ShopERP.Services
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
         public ThemeType Theme { get; init; } = ThemeType.Classic;
+        /// <summary>#93 — KhachLink style customization.</summary>
+        public string? LogoUrl { get; init; }
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
     }
 }

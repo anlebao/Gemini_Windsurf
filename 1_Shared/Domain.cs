@@ -1982,6 +1982,11 @@ namespace VanAn.Shared.Domain
         public ThemeType ActiveTheme { get; set; } = ThemeType.Classic;
         public Collection<string> Features { get; init; } = [];
 
+        // #93 — KhachLink style customization (override hardcoded nav/header/footer colors)
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
+
         // Loyalty & Identity Configuration
         public LoyaltyUpgradeConfig LoyaltyConfig { get; init; } = new();
     }

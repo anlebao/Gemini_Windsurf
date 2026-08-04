@@ -75,7 +75,11 @@ namespace VanAn.Gateway.Controllers
                     SocialLinksFb: request.SocialLinksFb,
                     SocialLinksTiktok: request.SocialLinksTiktok,
                     BrandStory: request.BrandStory,
-                    Theme: request.Theme);
+                    Theme: request.Theme,
+                    LogoUrl: request.LogoUrl,
+                    NavColor: request.NavColor,
+                    HeaderColor: request.HeaderColor,
+                    FooterColor: request.FooterColor);
                 await _tenantService.UpdateProfileAsync(new TenantId(tenantId), profileRequest);
                 return Ok(new { success = true });
             }
@@ -187,6 +191,10 @@ namespace VanAn.Gateway.Controllers
             SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
             BrandStory = t.Settings?.BrandStory,
             Theme = t.Settings?.Theme ?? ThemeType.Classic,
+            LogoUrl = t.Settings?.LogoUrl,
+            NavColor = t.Settings?.NavColor,
+            HeaderColor = t.Settings?.HeaderColor,
+            FooterColor = t.Settings?.FooterColor,
             CreatedAt = t.CreatedAt
         };
     }
@@ -212,6 +220,11 @@ namespace VanAn.Gateway.Controllers
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
         public ThemeType Theme { get; init; } = ThemeType.Classic;
+        /// <summary>#93 — KhachLink style customization.</summary>
+        public string? LogoUrl { get; init; }
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
         public DateTime CreatedAt { get; init; }
     }
 
@@ -237,6 +250,11 @@ namespace VanAn.Gateway.Controllers
         public string? SocialLinksTiktok { get; init; }
         public string? BrandStory { get; init; }
         public ThemeType Theme { get; init; } = ThemeType.Classic;
+        /// <summary>#93 — KhachLink style customization. Null = preserve existing.</summary>
+        public string? LogoUrl { get; init; }
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
     }
 
     public record AssignShopInstanceRequest

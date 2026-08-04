@@ -85,6 +85,7 @@ namespace VanAn.CoreHub.Services
                 request.ContactEmail,
                 request.ContactPhone,
                 request.Address,
+                logoUrl: request.LogoUrl ?? existingSettings?.LogoUrl,
                 taxCode: request.TaxCode,
                 latitude: latitude,
                 longitude: longitude,
@@ -92,7 +93,10 @@ namespace VanAn.CoreHub.Services
                 socialLinksFb: socialFb,
                 socialLinksTiktok: socialTiktok,
                 brandStory: brandStory,
-                theme: theme);
+                theme: theme,
+                navColor: request.NavColor ?? existingSettings?.NavColor,
+                headerColor: request.HeaderColor ?? existingSettings?.HeaderColor,
+                footerColor: request.FooterColor ?? existingSettings?.FooterColor);
 
             tenant.UpdateProfile(request.Name, settings);
             await dbContext.SaveChangesAsync(ct);

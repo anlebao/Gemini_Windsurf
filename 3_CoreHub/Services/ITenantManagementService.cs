@@ -65,5 +65,9 @@ namespace VanAn.CoreHub.Services
         string? SocialLinksFb = null,
         string? SocialLinksTiktok = null,
         string? BrandStory = null,
-        ThemeType Theme = ThemeType.Classic);
+        ThemeType Theme = ThemeType.Classic,
+        string? LogoUrl = null,
+        string? NavColor = null,
+        string? HeaderColor = null,
+        string? FooterColor = null);
 }

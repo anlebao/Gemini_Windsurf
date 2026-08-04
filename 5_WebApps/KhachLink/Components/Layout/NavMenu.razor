@@ -203,7 +203,7 @@
 <style>
     /* Desktop sidebar */
     .nav-menu-card {
-        background: #1a1a2e;
+        background: var(--shop-nav-color, #1a1a2e);
         color: white;
         height: 100%;
         border-radius: 0;
@@ -213,7 +213,7 @@
        the inner .card's white background covers the wrapper's #1a1a2e and
        white nav-link text becomes invisible/hard to read. */
     .nav-menu-card ::deep .card {
-        background: #1a1a2e;
+        background: var(--shop-nav-color, #1a1a2e);
         color: white;
         border: none;
     }

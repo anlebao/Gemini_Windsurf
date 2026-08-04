@@ -85,6 +85,10 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                 settings.Property(s => s.LegalForm).HasColumnName("Settings_LegalForm").HasMaxLength(100);
                 settings.Property(s => s.BusinessField).HasColumnName("Settings_BusinessField").HasMaxLength(100);
                 settings.Property(s => s.CharterCapital).HasColumnName("Settings_CharterCapital").HasColumnType("numeric(18,2)");
+                // #93 — KhachLink style customization colors
+                settings.Property(s => s.NavColor).HasColumnName("Settings_NavColor").HasMaxLength(20);
+                settings.Property(s => s.HeaderColor).HasColumnName("Settings_HeaderColor").HasMaxLength(20);
+                settings.Property(s => s.FooterColor).HasColumnName("Settings_FooterColor").HasMaxLength(20);
             });
 
             // Audit fields from BaseEntity

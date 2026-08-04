@@ -497,6 +497,56 @@
                     </small>
                 </div>
                 <div class="form-group">
+                    <label for="edit-logo-url">Logo URL (KhachLink header)</label>
+                    <input id="edit-logo-url" class="vanan-input" @bind="_editForm.LogoUrl"
+                           placeholder="VD: https://example.com/logo.png (để trống = dùng icon mặc định)" />
+                    <small class="text-muted">
+                        #93 — Hiển thị logo cửa hàng trên header KhachLink. Để trống = dùng icon shop mặc định.
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label class="fw-semibold">Tùy chỉnh màu KhachLink (#93)</label>
+                    <small class="text-muted d-block mb-2">
+                        Override màu nav (sidebar desktop), header (top bar), footer.
+                        Để trống = dùng màu mặc định (nav #1a1a2e, header = primary, footer #f5f5f5).
+                    </small>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label for="edit-nav-color" class="small">Màu Nav (sidebar)</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color p-1"
+                                       style="width:48px;height:38px;"
+                                       value="@(_editForm.NavColor ?? "#1a1a2e")"
+                                       @oninput="@(e => _editForm.NavColor = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())" />
+                                <input id="edit-nav-color" class="vanan-input" @bind="_editForm.NavColor"
+                                       placeholder="#1a1a2e" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="edit-header-color" class="small">Màu Header (top bar)</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color p-1"
+                                       style="width:48px;height:38px;"
+                                       value="@(_editForm.HeaderColor ?? "#8B4513")"
+                                       @oninput="@(e => _editForm.HeaderColor = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())" />
+                                <input id="edit-header-color" class="vanan-input" @bind="_editForm.HeaderColor"
+                                       placeholder="#8B4513" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="edit-footer-color" class="small">Màu Footer</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="color" class="form-control form-control-color p-1"
+                                       style="width:48px;height:38px;"
+                                       value="@(_editForm.FooterColor ?? "#f5f5f5")"
+                                       @oninput="@(e => _editForm.FooterColor = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString())" />
+                                <input id="edit-footer-color" class="vanan-input" @bind="_editForm.FooterColor"
+                                       placeholder="#f5f5f5" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="edit-shopinstance">ShopERP Instance *</label>
                     @if (_shopInstances.Any())
                     {
@@ -828,6 +878,10 @@
             SocialLinksTiktok = t.SocialLinksTiktok,
             BrandStory = t.BrandStory,
             Theme = t.Theme,
+            LogoUrl = t.LogoUrl,
+            NavColor = t.NavColor,
+            HeaderColor = t.HeaderColor,
+            FooterColor = t.FooterColor,
             ShopInstanceId = t.ShopInstanceId,
             // Bug 1 fix: pre-fill BusinessType from current tenant
             BusinessTypeStr = t.BusinessType == BusinessType.HouseholdBusiness ? "HouseholdBusiness" : "Company",
@@ -954,7 +1008,11 @@
                 SocialLinksFb = string.IsNullOrWhiteSpace(_editForm.SocialLinksFb) ? null : _editForm.SocialLinksFb,
                 SocialLinksTiktok = string.IsNullOrWhiteSpace(_editForm.SocialLinksTiktok) ? null : _editForm.SocialLinksTiktok,
                 BrandStory = string.IsNullOrWhiteSpace(_editForm.BrandStory) ? null : _editForm.BrandStory,
-                Theme = _editForm.Theme
+                Theme = _editForm.Theme,
+                LogoUrl = string.IsNullOrWhiteSpace(_editForm.LogoUrl) ? null : _editForm.LogoUrl,
+                NavColor = string.IsNullOrWhiteSpace(_editForm.NavColor) ? null : _editForm.NavColor,
+                HeaderColor = string.IsNullOrWhiteSpace(_editForm.HeaderColor) ? null : _editForm.HeaderColor,
+                FooterColor = string.IsNullOrWhiteSpace(_editForm.FooterColor) ? null : _editForm.FooterColor
             });
 
             // 1b. Update slug via Gateway API (separate endpoint — has uniqueness check)
@@ -1094,6 +1152,11 @@
         public string? SocialLinksTiktok { get; set; }
         public string? BrandStory { get; set; }
         public ThemeType Theme { get; set; } = ThemeType.Classic;
+        // #93 — KhachLink style customization
+        public string? LogoUrl { get; set; }
+        public string? NavColor { get; set; }
+        public string? HeaderColor { get; set; }
+        public string? FooterColor { get; set; }
         public Guid? ShopInstanceId { get; set; }
         // Bug 1 fix: BusinessType edit (SystemAdmin correction)
         public string BusinessTypeStr { get; set; } = "Company";

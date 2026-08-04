@@ -35,6 +35,10 @@ public class ShopDto
     public string? BrandStory { get; set; }
     public string? LogoUrl { get; set; }
     public ThemeType Theme { get; set; } = ThemeType.Classic;
+    // #93 — KhachLink style customization colors
+    public string? NavColor { get; set; }
+    public string? HeaderColor { get; set; }
+    public string? FooterColor { get; set; }
 }
 
 /// <summary>

@@ -1,0 +1,58 @@
+feat: #93 KhachLink style customization — admin UI đổi màu nav/header/footer + logo
+
+#93 — Style KhachLink đang fix cứng
+- Hiện trạng: Menu nav KhachLink luôn màu đen (#1a1a2e hardcode).
+  Header luôn dùng --shop-primary. Footer luôn #f5f5f5.
+  Logo luôn dùng default image.
+- Fix: Cho phép SystemAdmin thay đổi màu nav, header, footer + logo
+  qua TenantManagement admin UI.
+
+Changes:
+1. Domain (1_Shared/Domain.cs):
+   - ShopConfig record: thêm NavColor, HeaderColor, FooterColor (string?)
+   - TenantSettings: thêm NavColor, HeaderColor, FooterColor + WithStyleColors()
+     + WithLogoUrl() methods. Constructor + all With* methods updated
+     to pass through new fields.
+
+2. Infrastructure (3_CoreHub):
+   - TenantConfiguration: map Settings_NavColor, Settings_HeaderColor,
+     Settings_FooterColor columns (varchar 20).
+   - Migration: AddTenantSettingsStyleColors (adds 3 nullable columns).
+
+3. Services (3_CoreHub):
+   - UpdateTenantProfileRequest: thêm LogoUrl, NavColor, HeaderColor, FooterColor
+   - TenantManagementService.UpdateProfileAsync: pass through new fields
+     (preserve existing if request omits them).
+
+4. Gateway (2_Gateway):
+   - TenantsController: UpdateTenantProfileApiRequest + TenantDto +
+     MapToDto updated with new fields.
+   - TenantStoreController: TenantStoreDto + MapToStoreDto updated
+     (store-info endpoint now returns style colors for KhachLink).
+
+5. ShopERP Admin UI:
+   - TenantApiClient: UpdateTenantProfileApiRequest + TenantApiDto updated.
+   - TenantManagement.razor: EditForm thêm LogoUrl, NavColor, HeaderColor,
+     FooterColor. UI block mới với color picker + text input cho mỗi field.
+     Save logic passes new fields to Gateway API.
+
+6. KhachLink:
+   - ShopDto: thêm NavColor, HeaderColor, FooterColor.
+   - ShopConfigHttpService.BuildShopConfigFromShop: map new fields +
+     override LogoUrl if admin set custom URL.
+   - KhachLinkLayout.razor: CSS vars --shop-nav-color, --shop-header-color,
+     --shop-footer-color. Header + footer use vars with fallback defaults.
+   - NavMenu.razor: .nav-menu-card + .nav-menu-card ::deep .card use
+     var(--shop-nav-color, #1a1a2e) thay vì hardcode #1a1a2e.
+
+Flow:
+1. SystemAdmin vào /admin/tenants → edit tenant → set colors + logo URL
+2. Save → Gateway API → TenantManagementService → DB (Settings_NavColor, etc.)
+3. KhachLink loads → ShopConfigHttpService → GET /api/tenants/{id}/store-info
+   → returns NavColor, HeaderColor, FooterColor, LogoUrl
+4. KhachLinkLayout renders CSS vars → NavMenu + header + footer use vars
+5. Logo hiển thị từ URL admin set (nếu có), hoặc default logo.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

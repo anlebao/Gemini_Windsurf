@@ -1,0 +1,13 @@
+Fixed in commit a8b5510f.
+
+Root cause 1: ResolveCustomerTenant filter không có try-catch. Nếu DB query fail hoặc token service throw exception, exception propagate lên Gateway forward controller catch block → return 500 "Internal server error" (generic message, không có context).
+
+Fix 1: Add try-catch trong ResolveCustomerTenant filter. Exceptions được log + swallow → request tiếp tục với tenant context rỗng (endpoints return 404/empty thay vì 500).
+
+Root cause 2: IdentityLevel gate (SubtractPointsAsync throws IdentityLevelNotSufficientException khi customer chưa Verified). Exception được catch bởi catch-all trong RedemptionService → return Fail("Lỗi hệ thống khi đổi điểm") — message không rõ ràng, khách hàng không biết cần verify identity.
+
+Fix 2: Handle IdentityLevelNotSufficientException riêng trong RedemptionService.RedeemAsync → return Fail với message rõ ràng: "Tài khoản chưa xác minh. Vui lòng hoàn tất xác minh danh tính (CMND/CCCD) để đổi điểm thưởng."
+
+Nếu sau fix vẫn thấy "Internal server error", cần kiểm tra server logs (ShopERP + Gateway) để biết exception chi tiết. Có thể là lỗi DB connection hoặc QR code generation.
+
+CD deploy sẽ apply fix trong ~5-6 phút.

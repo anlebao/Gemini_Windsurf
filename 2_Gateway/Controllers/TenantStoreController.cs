@@ -193,7 +193,10 @@ namespace VanAn.Gateway.Controllers
             SocialLinksTiktok = t.Settings?.SocialLinksTiktok,
             BrandStory = t.Settings?.BrandStory,
             LogoUrl = t.Settings?.LogoUrl,
-            Theme = t.Settings?.Theme ?? ThemeType.Classic
+            Theme = t.Settings?.Theme ?? ThemeType.Classic,
+            NavColor = t.Settings?.NavColor,
+            HeaderColor = t.Settings?.HeaderColor,
+            FooterColor = t.Settings?.FooterColor
         };
 
         private static double HaversineKm(double lat1, double lng1, double lat2, double lng2)
@@ -225,5 +228,9 @@ namespace VanAn.Gateway.Controllers
         public string? BrandStory { get; init; }
         public string? LogoUrl { get; init; }
         public ThemeType Theme { get; init; } = ThemeType.Classic;
+        /// <summary>#93 — KhachLink style customization colors.</summary>
+        public string? NavColor { get; init; }
+        public string? HeaderColor { get; init; }
+        public string? FooterColor { get; init; }
     }
 }
