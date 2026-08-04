@@ -147,14 +147,23 @@ namespace VanAn.ShopERP.Services
 
             // Table
             Table table = new();
-            TableProperties props = new(new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }));
+            TableProperties props = new(
+                new TableBorders(
+                    new TopBorder { Val = BorderValues.Single, Size = 4 },
+                    new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                    new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                    new RightBorder { Val = BorderValues.Single, Size = 4 },
+                    new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                    new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+                new TableWidth { Type = TableWidthUnitValues.Pct, Width = "5000" },
+                new TableLayout { Type = TableLayoutValues.Fixed });
             table.AppendChild(props);
+            table.AppendChild(new TableGrid(
+                new GridColumn { Width = "1200" },
+                new GridColumn { Width = "3600" },
+                new GridColumn { Width = "1600" },
+                new GridColumn { Width = "1600" },
+                new GridColumn { Width = "1600" }));
 
             table.AppendChild(MakeDocxRow(["Số tài khoản", "Tên tài khoản", "Phát sinh Nợ", "Phát sinh Có", "Số dư"], header: true));
 
@@ -251,14 +260,24 @@ namespace VanAn.ShopERP.Services
         private static Table BuildStatementTable(IReadOnlyList<FinancialStatementLine> lines)
         {
             Table table = new();
-            TableProperties props = new(new TableBorders(
-                new TopBorder { Val = BorderValues.Single, Size = 4 },
-                new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                new RightBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }));
+            TableProperties props = new(
+                new TableBorders(
+                    new TopBorder { Val = BorderValues.Single, Size = 4 },
+                    new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                    new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                    new RightBorder { Val = BorderValues.Single, Size = 4 },
+                    new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                    new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+                new TableWidth { Type = TableWidthUnitValues.Pct, Width = "5000" }, // 100% width
+                new TableLayout { Type = TableLayoutValues.Fixed });
             table.AppendChild(props);
+
+            // Grid definition — 4 columns with explicit widths
+            table.AppendChild(new TableGrid(
+                new GridColumn { Width = "1200" },
+                new GridColumn { Width = "4800" },
+                new GridColumn { Width = "1800" },
+                new GridColumn { Width = "1800" }));
 
             table.AppendChild(MakeDocxRow(["Mã chỉ tiêu", "Tên chỉ tiêu", "Số cuối kỳ", "Số đầu năm"], header: true));
 

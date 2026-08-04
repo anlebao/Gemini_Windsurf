@@ -1,0 +1,24 @@
+fix(accounting): #97 export DOCX empty + #89 font tiếng Việt
+
+#97 — kế toán lỗi: export DOCX không có nội dung + menu không đúng loại hình tenant
+- #97.1 (menu nav): Verified AccountingLayout.razor already conditional
+  Enterprise → "Báo Cáo Tài Chính", HKD → "Sổ HKD" via
+  IVasFeatureFlagService.CanAccessVasReportsAsync. No fix needed.
+- #97.2 (DOCX empty): Add TableWidth (100% Pct) + TableLayout (Fixed) +
+  TableGrid with explicit GridColumn widths to BuildStatementTable +
+  TrialBalance table. Without TableWidth/TableGrid, Word may render
+  table with 0 width → appears empty. Now tables display correctly.
+
+#89 — lịch sử giao dịch + balance bị lỗi font tiếng Việt
+- AccountBalance.razor: 4x .ToString("N0") → .ToString("N0",
+  CultureInfo.GetCultureInfo("vi-VN")) (Balance, TotalRevenue,
+  TotalExpense, NetProfit)
+- AccountingIndex.razor: 3x same fix (MonthlyRevenue, MonthlyExpense,
+  NetProfit)
+- HKDBookDetail.razor: 1x same fix (Amount)
+- TransactionHistory.razor + BalanceSheet.razor already fixed in
+  Wave 4a (vi-VN format).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

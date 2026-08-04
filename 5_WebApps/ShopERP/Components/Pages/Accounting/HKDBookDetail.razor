@@ -10,6 +10,7 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.Shared.DTOs
+@using System.Globalization
 @using CoreHKD = VanAn.CoreHub.Services.Template
 @inject CoreHKD.IHKDBookGenerationService HKDBookService
 @inject VanAn.ShopERP.Services.IHKDBookExportService ExportService
@@ -96,7 +97,7 @@
                     </VanAnColumn>
                     <VanAnColumn TItem="HKDBookRow" Title="Số tiền" Width="3">
                         <Template Context="r">
-                            <span style="@(r.IsTotal ? "font-weight:bold" : "")">@r.Amount.ToString("N0")</span>
+                            <span style="@(r.IsTotal ? "font-weight:bold" : "")">@r.Amount.ToString("N0", CultureInfo.GetCultureInfo("vi-VN"))</span>
                         </Template>
                     </VanAnColumn>
                 </Columns>

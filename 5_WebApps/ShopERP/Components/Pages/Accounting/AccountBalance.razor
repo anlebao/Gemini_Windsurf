@@ -10,6 +10,7 @@
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
 @using VanAn.Shared.DTOs
+@using System.Globalization
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
@@ -80,7 +81,7 @@
                 </VanAnColumn>
                 <VanAnColumn TItem="AccountBalanceRow" Title="Số Dư" Width="3">
                     <Template Context="item">
-                        @item.Balance.ToString("N0") ₫
+                        @item.Balance.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) ₫
                     </Template>
                 </VanAnColumn>
             </Columns>
@@ -108,9 +109,9 @@
     private string expenseTrend = "+0%";
     private string profitTrend = "+0%";
 
-    private string TotalRevenueDisplay => totalRevenue.ToString("N0") + " ₫";
-    private string TotalExpenseDisplay => totalExpense.ToString("N0") + " ₫";
-    private string NetProfitDisplay => netProfit.ToString("N0") + " ₫";
+    private string TotalRevenueDisplay => totalRevenue.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+    private string TotalExpenseDisplay => totalExpense.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+    private string NetProfitDisplay => netProfit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
 
     protected override async Task OnInitializedAsync()
     {

@@ -8,6 +8,7 @@
 @using VanAn.UI.Platform.Models
 @using VanAn.Shared.Domain
 @using VanAn.Shared.Domain.Common
+@using System.Globalization
 @using CoreAccountingService = VanAn.CoreHub.Services
 @inject CoreAccountingService.IAccountingService AccountingService
 @inject IThemeProvider ThemeProvider
@@ -102,9 +103,9 @@
     private string currentStatus = string.Empty;
 
     // Computed properties for display
-    private string MonthlyRevenueDisplay => Metrics.MonthlyRevenue.ToString("N0") + " ₫";
-    private string MonthlyExpenseDisplay => Metrics.MonthlyExpense.ToString("N0") + " ₫";
-    private string NetProfitDisplay => Metrics.NetProfit.ToString("N0") + " ₫";
+    private string MonthlyRevenueDisplay => Metrics.MonthlyRevenue.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+    private string MonthlyExpenseDisplay => Metrics.MonthlyExpense.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
+    private string NetProfitDisplay => Metrics.NetProfit.ToString("N0", CultureInfo.GetCultureInfo("vi-VN")) + " ₫";
 
     protected override async Task OnInitializedAsync()
     {
