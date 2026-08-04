@@ -1,6 +1,6 @@
 # TASK CARD — Phase 5: B 09-DN Bản Thuyết Minh BCTC
 
-> **Status:** 🟡 PLANNED
+> **Status:** ✅ COMPLETE — Wave 4b commit `51738298`
 > **Priority:** P1 — Missing mandatory report
 > **Branch:** `feature/tt99-fix-phase5-b09dn-thuyet-minh`
 > **Estimated sessions:** 2-3

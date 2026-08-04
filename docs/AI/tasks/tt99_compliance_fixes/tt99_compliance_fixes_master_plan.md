@@ -201,7 +201,7 @@ main ← feature/tt99-fix-phase6-bdsdt-indicator
 | Phase 2 (Auto-standard + split TrialBalance) | ✅ COMPLETE | `66c9cfaf` | PASS | SUCCESS | 10/10 | IVasFeatureFlagService auto-select + TT58 dropdown |
 | Phase 3 (B 03-DN indirect method) | ✅ COMPLETE | `f98ddea5` | PASS | SUCCESS (run 30873505215) | 10/10 | CashFlowMethod enum + GenerateIndirectAsync + UI toggle. "Accounting Tests" workflow failed (run 30873505237) — follow-up needed |
 | Phase 4 (TT 99 template structure) | ✅ COMPLETE | `27d34b40` | PASS | SUCCESS | 10/10 | Tt99Templates.cs + 3 services refactored to Mã số structure |
-| Phase 5 (B 09-DN Thuyết minh) | 🟡 PLANNED + ANALYZED | — | — | — | — | NEXT: Wave 4 — depends on Phase 5a (✅) + Phase 4 (✅), both DONE |
+| Phase 5 (B 09-DN Thuyết minh) | ✅ COMPLETE | `51738298` | PASS | SUCCESS | 10/10 | FinancialStatementNotes + NoteSection records + Service + UI page + Export DOCX/XLSX |
 | Phase 6 (B 03-DN BĐSĐT indicator) | ✅ COMPLETE | `66c9cfaf` + `a7f42e61` | PASS | SUCCESS | 10/10 | TK 5117/6327 seeded + TK 217 Investing classification verified |
 
 ---
