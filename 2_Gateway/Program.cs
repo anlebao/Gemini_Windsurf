@@ -407,6 +407,27 @@ namespace VanAn.Gateway
             {
                 Log.Information("🚀 Starting Vạn An Gateway Service...");
 
+                // Apply PostgreSQL migrations on Gateway startup (production).
+                // The Gateway uses VanAnDbContext (PG) for Tenants, Orders, Accounting, etc.
+                // Previously relied on ShopERP to apply PG migrations — but if the Gateway starts
+                // before ShopERP (or ShopERP is on an older version), PG is missing new columns
+                // (e.g., TenantSettings_LegalForm/NavColor) and all Tenant queries fail with 500.
+                // Fix #101: Gateway applies its own PG migrations on startup.
+                if (!connectionString.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        using var migrateScope = app.Services.CreateScope();
+                        var vanAnDb = migrateScope.ServiceProvider.GetRequiredService<VanAn.CoreHub.Infrastructure.VanAnDbContext>();
+                        await vanAnDb.Database.MigrateAsync();
+                        Log.Information("PostgreSQL database migrated (Gateway)");
+                    }
+                    catch (Exception migrateEx)
+                    {
+                        Log.Warning(migrateEx, "PostgreSQL migration skipped (may already be applied by ShopERP)");
+                    }
+                }
+
                 // Local dev SQLite schema sync: ShopERP's migration creates AccountingEntries with
                 // audit columns only (AccountingEntry DbSet removed from ShopERPDbContext per ADR-001).
                 // Gateway uses VanAnDbContext which expects full business columns (AccountCode, Amount,

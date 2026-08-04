@@ -204,11 +204,19 @@ namespace VanAn.ShopERP.Infrastructure
             // Phase 6: FeaturedProductId is a value object — never mapped as a separate entity
             _ = modelBuilder.Ignore<FeaturedProductId>();
 
+            // Apply configurations from CoreHub assembly via assembly scanning
+            // This avoids direct reference to CoreHub.Infrastructure.Configurations
+            System.Reflection.Assembly coreHubAssembly = typeof(CoreOutboxMessage).Assembly;
+            _ = modelBuilder.ApplyConfigurationsFromAssembly(coreHubAssembly,
+                t => t.Name.EndsWith("Configuration") && t.GetInterface(nameof(IEntityConfiguration)) != null);
+
             // Community Commerce Sprint 0 (F8 fix 2026-07-26): 11 community entities are PG-only (v1.3).
             // DbSet declarations remain for IVanAnDbContext interface contract, but entities are Ignored
             // in the SQLite model so EF Core does not map them to non-existent SQLite tables.
             // Any query against these DbSets from ShopERP will fail-fast with "entity not in model"
             // rather than runtime SQL error against a missing table.
+            // NOTE: These Ignore() calls MUST be after ApplyConfigurationsFromAssembly — otherwise
+            // the CoreHub configurations (CommunityRoleConfiguration, etc.) re-add the entities to the model.
             _ = modelBuilder.Ignore<CommunityRole>();
             _ = modelBuilder.Ignore<DeliveryTask>();
             _ = modelBuilder.Ignore<DeliveryTracking>();
@@ -224,16 +232,12 @@ namespace VanAn.ShopERP.Infrastructure
             // Loyalty Alliance System: 4 entities are PG-only (Gateway VanAnDbContext).
             // ShopERP SQLite ignores these — cross-tenant wallet system lives in PG.
             // DbSet declarations remain for IVanAnDbContext interface contract.
+            // NOTE: These Ignore() calls MUST be after ApplyConfigurationsFromAssembly — otherwise
+            // the CoreHub configurations (AllianceWalletConfiguration, etc.) re-add the entities to the model.
             _ = modelBuilder.Ignore<LoyaltyGlobalConfig>();
             _ = modelBuilder.Ignore<LoyaltyTenantConfig>();
             _ = modelBuilder.Ignore<AllianceWallet>();
             _ = modelBuilder.Ignore<AllianceTransaction>();
-
-            // Apply configurations from CoreHub assembly via assembly scanning
-            // This avoids direct reference to CoreHub.Infrastructure.Configurations
-            System.Reflection.Assembly coreHubAssembly = typeof(CoreOutboxMessage).Assembly;
-            _ = modelBuilder.ApplyConfigurationsFromAssembly(coreHubAssembly,
-                t => t.Name.EndsWith("Configuration") && t.GetInterface(nameof(IEntityConfiguration)) != null);
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)
