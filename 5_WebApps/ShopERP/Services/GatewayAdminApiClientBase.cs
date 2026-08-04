@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
 using VanAn.CoreHub.Services;
@@ -74,11 +76,20 @@ namespace VanAn.ShopERP.Services
             return request;
         }
 
+        // Fix #101: Gateway serializes enums as strings (camelCase) via System.Text.Json defaults.
+        // ShopERP's HttpClient must use matching options (JsonStringEnumConverter + CamelCase)
+        // to deserialize DTOs containing enums (e.g., TenantDto.BusinessType).
+        private static readonly JsonSerializerOptions GatewayJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        };
+
         protected static async Task<T?> SendAndReadAsync<T>(HttpClient client, HttpRequestMessage request, CancellationToken ct = default)
         {
             HttpResponseMessage response = await client.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<T>(ct);
+            return await response.Content.ReadFromJsonAsync<T>(GatewayJsonOptions, ct);
         }
     }
 }
