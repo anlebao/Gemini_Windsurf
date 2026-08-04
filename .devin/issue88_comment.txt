@@ -1,0 +1,12 @@
+Fixed in commit defdabf3.
+
+Root cause: WebPush failures were swallowed silently. Expired subscriptions (410 Gone) were not cleaned up, causing repeated failures on every campaign send.
+
+Fix:
+1. Add WebPushException catch with 410 Gone / 404 NotFound handling → soft-delete expired subscriptions automatically
+2. Better error logging with HTTP status code for debugging
+3. Improved user-facing error message with diagnostic hints when all sends fail
+
+Note: Nếu vẫn thấy "0/N thành công" sau fix, nguyên nhân là khách hàng chưa đăng ký push notification trên thiết bị (chưa subscribe). Cần khách hàng vào KhachLink PWA và chấp nhận notification permission trước. Check server logs (WebPushException HTTP status) để biết chi tiết.
+
+CD deploy sẽ apply fix trong ~5-6 phút.

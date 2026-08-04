@@ -10,12 +10,19 @@ namespace VanAn.Gateway.Services
     /// Broadcasts to ShopGroup (per-tenant) so only staff of that shop receive updates.
     /// Group naming convention: "Shop_{tenantId}" — matches OrderHub.JoinShopGroup.
     ///
+    /// #98 fix: Also broadcasts OrderStatusUpdated to LocationHub "order_{orderId}" group
+    /// so KhachLink OrderTracking page receives realtime status updates (not just 15s polling).
+    ///
     /// All methods are best-effort: exceptions are logged, not thrown.
     /// Notification delivery is NOT part of the order transaction.
     /// </summary>
-    public class OrderNotificationService(IHubContext<OrderHub> hubContext, ILogger<OrderNotificationService> logger) : IOrderNotificationService
+    public class OrderNotificationService(
+        IHubContext<OrderHub> hubContext,
+        IHubContext<LocationHub> locationHubContext,
+        ILogger<OrderNotificationService> logger) : IOrderNotificationService
     {
         private readonly IHubContext<OrderHub> _hubContext = hubContext;
+        private readonly IHubContext<LocationHub> _locationHubContext = locationHubContext;
         private readonly ILogger<OrderNotificationService> _logger = logger;
 
         public async Task NotifyOrderStatusChangedAsync(Guid orderId, Guid tenantId, string oldStatus, string newStatus)
@@ -30,6 +37,19 @@ namespace VanAn.Gateway.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to broadcast OrderStatusChanged for {OrderId}", orderId);
+            }
+
+            // #98 fix: Also push to LocationHub order_{orderId} group for KhachLink customers
+            try
+            {
+                await _locationHubContext.Clients.Group($"order_{orderId}")
+                    .SendAsync("OrderStatusUpdated", new { orderId, oldStatus, newStatus, timestamp = DateTime.UtcNow });
+                _logger.LogDebug("Broadcast OrderStatusUpdated to LocationHub order_{OrderId}: {OldStatus}→{NewStatus}",
+                    orderId, oldStatus, newStatus);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to broadcast OrderStatusUpdated to LocationHub for {OrderId}", orderId);
             }
         }
 

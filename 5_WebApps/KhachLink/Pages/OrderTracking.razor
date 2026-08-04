@@ -387,6 +387,26 @@
                 StateHasChanged();
             });
 
+            // #98 fix: Listen for order status updates pushed from Gateway OrderNotificationService
+            // (was previously only updated via 15s polling — caused "stale status" flicker for customers)
+            _hubConnection.On<object>("OrderStatusUpdated", (payload) =>
+            {
+                try
+                {
+                    // Payload is anonymous object { orderId, oldStatus, newStatus, timestamp }
+                    var json = System.Text.Json.JsonSerializer.Serialize(payload);
+                    var dto = System.Text.Json.JsonSerializer.Deserialize<OrderStatusUpdatePayload>(json);
+                    if (dto != null && !string.IsNullOrEmpty(dto.newStatus))
+                    {
+                        _orderStatus = dto.newStatus;
+                        _lastUpdate = DateTime.Now;
+                        UpdateStatusSteps();
+                        StateHasChanged();
+                    }
+                }
+                catch { /* ignore malformed payload */ }
+            });
+
             await _hubConnection.StartAsync();
             await _hubConnection.InvokeAsync("JoinOrderTracking", OrderId.ToString());
             _isLiveTracking = true;
@@ -561,6 +581,16 @@
         public string Icon { get; set; } = "";
         public bool IsDone { get; set; }
         public bool IsActive { get; set; }
+    }
+
+    // #98 fix: Payload from Gateway OrderNotificationService.NotifyOrderStatusChangedAsync
+    // (broadcast via LocationHub "OrderStatusUpdated" event)
+    private class OrderStatusUpdatePayload
+    {
+        public Guid orderId { get; set; }
+        public string? oldStatus { get; set; }
+        public string? newStatus { get; set; }
+        public DateTime timestamp { get; set; }
     }
 
     private class PublicOrderTrackingDto
