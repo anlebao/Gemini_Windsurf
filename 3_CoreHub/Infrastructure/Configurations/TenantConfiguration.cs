@@ -80,6 +80,11 @@ namespace VanAn.CoreHub.Infrastructure.Configurations
                     .HasColumnName("Settings_CommerceModeOverride")
                     .HasConversion<int>()
                     .IsRequired();
+                // TT 99 Phase 5a: B 09-DN Thuyết minh — tenant profile fields for Phần I.
+                // Nullable — existing tenants get NULL → report shows "Chưa thiết lập".
+                settings.Property(s => s.LegalForm).HasColumnName("Settings_LegalForm").HasMaxLength(100);
+                settings.Property(s => s.BusinessField).HasColumnName("Settings_BusinessField").HasMaxLength(100);
+                settings.Property(s => s.CharterCapital).HasColumnName("Settings_CharterCapital").HasColumnType("numeric(18,2)");
             });
 
             // Audit fields from BaseEntity

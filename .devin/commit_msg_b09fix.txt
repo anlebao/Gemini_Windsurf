@@ -1,0 +1,16 @@
+fix(b09dn): Add migration for TenantSettings LegalForm/BusinessField/CharterCapital
+
+Root cause of "Khong the tao Ban Thuyet Minh BCTC" error on production:
+TenantSettings.LegalForm, BusinessField, CharterCapital were added to C#
+class (Wave 1 Phase 5a) but NO migration was created. EF Core maps them
+by convention → generates SELECT Settings_LegalForm, Settings_BusinessField,
+Settings_CharterCapital → columns don't exist in PostgreSQL → exception.
+
+Fix:
+- Add explicit mapping in TenantConfiguration.cs (column names + types)
+- Create migration AddTenantSettingsB09DNFields (3 nullable columns)
+- Migration auto-applies on next startup via MigrateAsync()
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
