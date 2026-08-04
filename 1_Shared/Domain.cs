@@ -3313,6 +3313,13 @@ namespace VanAn.Shared.Domain
     public enum AccountingStandard { TT99_2025, TT133_2016, TT58_2026 }
 
     /// <summary>
+    /// B 03-DN method: TT 99 requires both direct + indirect methods.
+    /// Direct: trình bày từng luồng tiền thu/chi.
+    /// Indirect: điều chỉnh lợi nhuận ròng → luồng tiền HĐKD.
+    /// </summary>
+    public enum CashFlowMethod { Direct, Indirect }
+
+    /// <summary>
     /// Chuẩn cấu trúc một dòng Chỉ tiêu Báo cáo Tài chính theo pháp luật Việt Nam.
     /// Sử dụng Mã chỉ tiêu (ReportItemCode), KHÔNG dùng AccountCode.
     /// Bắt buộc có 2 cột số liệu để đối chiếu thời kỳ (Số cuối kỳ / Số đầu năm).
@@ -3349,6 +3356,7 @@ namespace VanAn.Shared.Domain
     // ── 3. BÁO CÁO LƯU CHUYỂN TIỀN TỆ (Mẫu B03-DN / B03-DNN) ──────────────────────────
     public record CashFlowStatement(
         TenantId TenantId, AccountingPeriod Period, DateTime GeneratedAt,
+        CashFlowMethod Method,
         decimal OpeningCash, decimal ClosingCash, decimal NetChange,
         IEnumerable<FinancialStatementLine> OperatingActivities,
         IEnumerable<FinancialStatementLine> InvestingActivities,

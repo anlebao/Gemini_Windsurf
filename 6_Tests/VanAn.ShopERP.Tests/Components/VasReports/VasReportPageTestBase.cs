@@ -133,6 +133,7 @@ public abstract class VasReportPageTestBase : ComponentTestBase
             TestTenantId,
             new AccountingPeriod(2026, 6),
             new DateTime(2026, 7, 5, 9, 0, 0),
+            Method: CashFlowMethod.Direct,
             OpeningCash: 150_000_000m, ClosingCash: 159_000_000m, NetChange: 9_000_000m,
             OperatingActivities: operating,
             InvestingActivities: investing,

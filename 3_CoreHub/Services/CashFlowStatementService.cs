@@ -23,12 +23,21 @@ public class CashFlowStatementService : ICashFlowStatementService
     private readonly IAccountingDbContext _dbContext;
     private readonly IAccountChartService _accountChart;
     private readonly ILogger<CashFlowStatementService> _logger;
+    private readonly IBalanceSheetService _balanceSheetService;
+    private readonly IIncomeStatementService _incomeStatementService;
 
-    public CashFlowStatementService(IAccountingDbContext dbContext, IAccountChartService accountChart, ILogger<CashFlowStatementService> logger)
+    public CashFlowStatementService(
+        IAccountingDbContext dbContext,
+        IAccountChartService accountChart,
+        ILogger<CashFlowStatementService> logger,
+        IBalanceSheetService balanceSheetService,
+        IIncomeStatementService incomeStatementService)
     {
         _dbContext = dbContext;
         _accountChart = accountChart;
         _logger = logger;
+        _balanceSheetService = balanceSheetService;
+        _incomeStatementService = incomeStatementService;
     }
 
     /// <inheritdoc />
@@ -128,12 +137,150 @@ public class CashFlowStatementService : ICashFlowStatementService
 
         return new CashFlowStatement(
             tenantId, period, DateTime.UtcNow,
+            Method: CashFlowMethod.Direct,
             OpeningCash: openingCash,
             ClosingCash: closingCash,
             NetChange: netChange,
             OperatingActivities: operating,
             InvestingActivities: investing,
             FinancingActivities: financing);
+    }
+
+    /// <summary>
+    /// TT 99 B 03-DN indirect method: adjust NetProfit → Operating Cash Flow.
+    /// Steps: (1) Get NetProfit from IncomeStatement, (2) add back depreciation/provisions,
+    /// (3) adjust for working capital changes from BalanceSheet deltas,
+    /// (4) Investing + Financing same as direct method.
+    /// </summary>
+    public async Task<CashFlowStatement> GenerateIndirectAsync(
+        TenantId tenantId, AccountingPeriod period, AccountingStandard standard, CancellationToken ct = default)
+    {
+        _logger.LogInformation("Generating Cash Flow Statement (indirect) for tenant {TenantId}, period {Period}", tenantId.Value, period);
+
+        // Get NetProfit before tax from IncomeStatement (B 02-DN Mã 50).
+        var incomeStmt = await _incomeStatementService.GenerateAsync(tenantId, period, standard, ct).ConfigureAwait(false);
+        decimal netProfitBeforeTaxEnding = incomeStmt.NetProfitEnding; // Simplified: use NetProfit as proxy for LNST trước thuế
+        decimal netProfitBeforeTaxOpening = incomeStmt.NetProfitOpening;
+
+        // Get BalanceSheet for working capital deltas.
+        var balanceSheet = await _balanceSheetService.GenerateAsync(tenantId, period, standard, ct).ConfigureAwait(false);
+
+        // Build indirect adjustments per TT 99 B 03-DN Mã 01-17.
+        var operating = new List<FinancialStatementLine>();
+
+        // Mã 01: Lợi nhuận trước thuế
+        operating.Add(new("01", "Lợi nhuận trước thuế", netProfitBeforeTaxEnding, netProfitBeforeTaxOpening, 1, netProfitBeforeTaxEnding < 0));
+
+        // Mã 02: Khấu hao TSCĐ và BĐSĐT — from JournalEntry lines where account starts with "214".
+        decimal depreciationEnding = await GetAccountMovementAsync(tenantId, period, "214", ct).ConfigureAwait(false);
+        decimal depreciationOpening = 0; // Simplified for MVP
+        operating.Add(new("02", "Khấu hao TSCĐ và BĐSĐT", depreciationEnding, depreciationOpening, 2, false));
+
+        // Mã 03-07: Other adjustments (provisions, FX, investment income/loss, interest, other) — placeholder 0 for MVP.
+        operating.Add(new("03", "Các khoản dự phòng", 0, 0, 2, false));
+        operating.Add(new("04", "Lãi, lỗ chênh lệch tỷ giá hối đoái", 0, 0, 2, false));
+        operating.Add(new("05", "Lãi, lỗ từ hoạt động đầu tư, tài chính", 0, 0, 2, false));
+        operating.Add(new("06", "Chi phí đi vay", 0, 0, 2, false));
+        operating.Add(new("07", "Các khoản điều chỉnh khác", 0, 0, 2, false));
+
+        // Mã 08: Lợi nhuận từ HĐKD trước thay đổi vốn lưu động (subtotal = 01 + 02 + 03 + 04 + 05 + 06 + 07).
+        decimal subtotal08 = netProfitBeforeTaxEnding + depreciationEnding;
+        decimal subtotal08Opening = netProfitBeforeTaxOpening + depreciationOpening;
+        operating.Add(new("08", "Lợi nhuận từ HĐKD trước thay đổi vốn lưu động", subtotal08, subtotal08Opening, 1, subtotal08 < 0));
+
+        // Mã 09-13: Working capital changes from BalanceSheet deltas (Ending - Opening).
+        // Δ must be calculated from BS lines. For MVP, use simple delta from balance sheet Assets/Liabilities.
+        decimal deltaReceivables = GetBalanceSheetDelta(balanceSheet, new[]{"131", "136", "138"});
+        decimal deltaInventory = GetBalanceSheetDelta(balanceSheet, new[]{"152", "155", "156"});
+        decimal deltaPayables = GetBalanceSheetDelta(balanceSheet, new[]{"331"});
+        decimal deltaPrepaid = GetBalanceSheetDelta(balanceSheet, new[]{"242"});
+        decimal deltaSecurities = GetBalanceSheetDelta(balanceSheet, new[]{"121"});
+
+        operating.Add(new("09", "Tăng, giảm các khoản phải thu", -deltaReceivables, 0, 2, false));
+        operating.Add(new("10", "Tăng, giảm hàng tồn kho", -deltaInventory, 0, 2, false));
+        operating.Add(new("11", "Tăng, giảm các khoản phải trả", deltaPayables, 0, 2, false));
+        operating.Add(new("12", "Tăng, giảm chi phí chờ phân bổ", -deltaPrepaid, 0, 2, false));
+        operating.Add(new("13", "Tăng, giảm chứng khoán kinh doanh", -deltaSecurities, 0, 2, false));
+
+        // Mã 14-17: Other operating cash flows — placeholder 0 for MVP.
+        operating.Add(new("14", "Chi phí đi vay đã trả", 0, 0, 2, false));
+        operating.Add(new("15", "Thuế thu nhập doanh nghiệp đã nộp", 0, 0, 2, false));
+        operating.Add(new("16", "Tiền thu khác từ hoạt động kinh doanh", 0, 0, 2, false));
+        operating.Add(new("17", "Tiền chi khác cho hoạt động kinh doanh", 0, 0, 2, false));
+
+        // Mã 20: Lưu chuyển tiền thuần từ HĐKD (indirect total).
+        decimal operatingTotal = subtotal08 - deltaReceivables - deltaInventory + deltaPayables - deltaPrepaid - deltaSecurities;
+        operating.Add(new("20", "Lưu chuyển tiền thuần từ HĐKD", operatingTotal, 0, 1, operatingTotal < 0));
+
+        // Investing + Financing: same as direct method (reuse logic).
+        // Re-run direct method to get investing + financing lines.
+        var directReport = await GenerateAsync(tenantId, period, standard, ct).ConfigureAwait(false);
+        var investing = directReport.InvestingActivities.ToList();
+        var financing = directReport.FinancingActivities.ToList();
+
+        // Cash totals.
+        decimal openingCash = directReport.OpeningCash;
+        decimal closingCash = directReport.ClosingCash;
+        decimal netChange = closingCash - openingCash;
+
+        return new CashFlowStatement(
+            tenantId, period, DateTime.UtcNow,
+            Method: CashFlowMethod.Indirect,
+            OpeningCash: openingCash,
+            ClosingCash: closingCash,
+            NetChange: netChange,
+            OperatingActivities: operating,
+            InvestingActivities: investing,
+            FinancingActivities: financing);
+    }
+
+    /// <summary>
+    /// Get total movement for accounts matching a prefix in the period.
+    /// </summary>
+    private async Task<decimal> GetAccountMovementAsync(TenantId tenantId, AccountingPeriod period, string accountPrefix, CancellationToken ct)
+    {
+        DateTime periodStart = period.StartDate;
+        DateTime periodEnd = period.StartDate.AddMonths(1);
+
+        var entries = await _dbContext.JournalEntries
+            .AsNoTracking()
+            .Include(e => e.Lines)
+            .Where(e => e.TenantId == tenantId && e.EntryDate >= periodStart && e.EntryDate < periodEnd)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        decimal total = 0;
+        foreach (var entry in entries)
+        {
+            foreach (var line in entry.Lines)
+            {
+                if (line.AccountNumber.StartsWith(accountPrefix, StringComparison.Ordinal))
+                {
+                    // Depreciation (TK 214) is credit-normal → debit balance = negative signed.
+                    total += line.CreditAmount - line.DebitAmount;
+                }
+            }
+        }
+        return Math.Abs(total); // Depreciation is presented as positive adjustment
+    }
+
+    /// <summary>
+    /// Calculate delta (Ending - Opening) for specific account codes from BalanceSheet lines.
+    /// </summary>
+    private static decimal GetBalanceSheetDelta(BalanceSheet bs, string[] accountCodes)
+    {
+        decimal delta = 0;
+        foreach (var line in bs.Assets.Concat(bs.Liabilities).Concat(bs.Equity))
+        {
+            foreach (string code in accountCodes)
+            {
+                if (line.ReportItemCode.StartsWith(code, StringComparison.Ordinal) || line.ReportItemCode == code)
+                {
+                    delta += line.EndingAmount - line.OpeningAmount;
+                }
+            }
+        }
+        return delta;
     }
 
     private static bool IsCashAccount(string accountCode) =>

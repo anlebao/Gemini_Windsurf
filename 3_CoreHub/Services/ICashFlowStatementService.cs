@@ -16,4 +16,12 @@ public interface ICashFlowStatementService
     /// NetChange = ClosingCash - OpeningCash.
     /// </summary>
     Task<CashFlowStatement> GenerateAsync(TenantId tenantId, AccountingPeriod period, AccountingStandard standard, CancellationToken ct = default);
+
+    /// <summary>
+    /// Generate the Cash Flow Statement (indirect method) — TT 99 B 03-DN.
+    /// Starts from NetProfit (B 02-DN Mã 50), adjusts for non-cash items (depreciation, provisions),
+    /// then adjusts for working capital changes (Δ receivables, Δ inventory, Δ payables).
+    /// Investing + Financing sections are same as direct method.
+    /// </summary>
+    Task<CashFlowStatement> GenerateIndirectAsync(TenantId tenantId, AccountingPeriod period, AccountingStandard standard, CancellationToken ct = default);
 }

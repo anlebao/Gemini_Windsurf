@@ -23,7 +23,9 @@ public class CashFlowStatementServiceTests
         _ = await AccountChartSeeder.SeedAsync(db, NullLogger.Instance);
         _ = await VasSampleDataSeeder.SeedAsync(db);
         var chartSvc = new AccountChartService(db, NullLogger<AccountChartService>.Instance);
-        var svc = new CashFlowStatementService(db, chartSvc, NullLogger<CashFlowStatementService>.Instance);
+        var bsSvc = new BalanceSheetService(db, chartSvc, NullLogger<BalanceSheetService>.Instance);
+        var isSvc = new IncomeStatementService(db, chartSvc, NullLogger<IncomeStatementService>.Instance);
+        var svc = new CashFlowStatementService(db, chartSvc, NullLogger<CashFlowStatementService>.Instance, bsSvc, isSvc);
         return (db, svc);
     }
 

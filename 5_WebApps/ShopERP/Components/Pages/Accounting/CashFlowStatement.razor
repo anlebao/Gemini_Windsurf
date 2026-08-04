@@ -49,6 +49,12 @@
                     <option value="@AccountingStandard.TT99_2025">TT 99/2025 (DN lớn)</option>
                 </select>
             </label>
+            <label>Phương pháp:
+                <select @bind="selectedMethod">
+                    <option value="@CashFlowMethod.Direct">Trực tiếp (B 03-DN)</option>
+                    <option value="@CashFlowMethod.Indirect">Gián tiếp (B 03-DN)</option>
+                </select>
+            </label>
             <VanAButton Variant="primary" Size="small" OnClick="GenerateReport">Áp dụng</VanAButton>
             <VanAButton Variant="success" Size="small" OnClick="ExportDocx" Disabled="@exporting">📄 Xuất DOCX</VanAButton>
             <VanAButton Variant="success" Size="small" OnClick="ExportXlsx" Disabled="@exporting">📊 Xuất XLSX</VanAButton>
@@ -176,6 +182,7 @@
     private int selectedYear = DateTime.UtcNow.Year;
     private int selectedMonth = DateTime.UtcNow.Month;
     private AccountingStandard selectedStandard = AccountingStandard.TT133_2016;
+    private CashFlowMethod selectedMethod = CashFlowMethod.Direct;
 
     protected override async Task OnInitializedAsync()
     {
@@ -210,7 +217,9 @@
 
             TenantId tenantId = new(TenantProvider.TenantId);
             var period = new AccountingPeriod(selectedYear, selectedMonth);
-            report = await CashFlowService.GenerateAsync(tenantId, period, selectedStandard, CancellationToken.None);
+            report = selectedMethod == CashFlowMethod.Indirect
+                ? await CashFlowService.GenerateIndirectAsync(tenantId, period, selectedStandard, CancellationToken.None)
+                : await CashFlowService.GenerateAsync(tenantId, period, selectedStandard, CancellationToken.None);
         }
         catch (Exception ex)
         {
