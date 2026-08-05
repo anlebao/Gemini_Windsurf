@@ -120,17 +120,17 @@ namespace VanAn.ShopERP.Controllers
 
                 // Metric 1: Points pending redemption (sum of all customer balances)
                 int pendingRedemption = await _dbContext.LoyaltyRewards
-                    .Where(lr => lr.TenantId.Value == tenantId && lr.IsActive)
+                    .Where(lr => lr.TenantId == new TenantId(tenantId) && lr.IsActive)
                     .SumAsync(lr => (int?)lr.PointBalance) ?? 0;
 
                 // Metric 2: Points redeemed (Fulfilled only — Cancelled already refunded)
                 int redeemed = await _dbContext.RedemptionRecords
-                    .Where(r => r.TenantId.Value == tenantId && r.Status == "Fulfilled")
+                    .Where(r => r.TenantId == new TenantId(tenantId) && r.Status == "Fulfilled")
                     .SumAsync(r => (int?)r.PointsSpent) ?? 0;
 
                 // Metric 3: Points in active campaigns (pending orders with TrackingCode, not yet delivered/completed)
                 var campaignOrderTotals = await _dbContext.Orders
-                    .Where(o => o.TenantId.Value == tenantId
+                    .Where(o => o.TenantId == new TenantId(tenantId)
                         && o.TrackingCode != null
                         && o.Status.Value != "completed" && o.Status.Value != "cancelled"
                         && o.Status.Value != "delivered")
@@ -140,7 +140,7 @@ namespace VanAn.ShopERP.Controllers
 
                 // Metric 4: Points reserved (ALL pending orders, not yet delivered/completed)
                 var allPendingOrderTotals = await _dbContext.Orders
-                    .Where(o => o.TenantId.Value == tenantId
+                    .Where(o => o.TenantId == new TenantId(tenantId)
                         && o.Status.Value != "completed" && o.Status.Value != "cancelled"
                         && o.Status.Value != "delivered")
                     .Select(o => o.TotalAmount)
