@@ -94,7 +94,7 @@ namespace VanAn.Gateway.Controllers
                     using var reader = new System.IO.StreamReader(Request.Body, System.Text.Encoding.UTF8, leaveOpen: true);
                     var body = await reader.ReadToEndAsync();
                     reqMsg.Content = new StringContent(body, System.Text.Encoding.UTF8,
-                        Request.ContentType ?? "application/json");
+                        (Request.ContentType ?? "application/json").Split(';', StringSplitOptions.TrimEntries)[0]);
                 }
 
                 var response = await client.SendAsync(reqMsg);

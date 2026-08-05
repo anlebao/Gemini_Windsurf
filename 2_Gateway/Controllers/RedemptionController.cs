@@ -60,8 +60,13 @@ namespace VanAn.Gateway.Controllers
                     Request.EnableBuffering();
                     using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
                     var body = await reader.ReadToEndAsync();
-                    reqMsg.Content = new StringContent(body, Encoding.UTF8,
-                        Request.ContentType ?? "application/json");
+                    // FIX: Strip charset from Content-Type — StringContent's mediaType parameter
+                    // does NOT accept "; charset=utf-8" (charset is set via the Encoding parameter).
+                    // Passing "application/json; charset=utf-8" throws FormatException:
+                    // "The format of value 'application/json; charset=utf-8' is invalid."
+                    var requestContentType = Request.ContentType ?? "application/json";
+                    var mediaType = requestContentType.Split(';', StringSplitOptions.TrimEntries)[0];
+                    reqMsg.Content = new StringContent(body, Encoding.UTF8, mediaType);
                 }
 
                 var response = await client.SendAsync(reqMsg);
