@@ -82,6 +82,16 @@ namespace VanAn.CoreHub.Services
                 {
                     await HandleOrderCompletedAsync(order, transaction);
                 }
+                else if (newStatus.Value == "delivered")
+                {
+                    // #99-2: Award loyalty points on delivery (not just completion).
+                    // Shop owners often mark orders as "delivered" but forget to click "completed",
+                    // leaving customers without their earned points. Award on delivery with a
+                    // double-award guard in ProcessLoyaltyPointsAsync (checks loyalty history
+                    // for existing entry with this OrderId) — safe if order later transitions
+                    // to "completed" which would attempt to award again.
+                    await ProcessLoyaltyPointsAsync(order);
+                }
 
                 // 📡 Wave 9: Publish NATS event for push notifications (non-blocking)
                 await PublishOrderStatusChangedEventAsync(order, oldStatus, newStatus);
@@ -314,6 +324,29 @@ namespace VanAn.CoreHub.Services
             {
                 _logger.LogWarning("Customer not found for order {OrderId}", order.Id);
                 return;
+            }
+
+            // #99-2: Double-award guard — check if loyalty points were already awarded for this order.
+            // This prevents duplicate awards when an order transitions delivered→completed
+            // (both statuses trigger ProcessLoyaltyPointsAsync). Checks the customer's loyalty
+            // history for an existing EARN entry referencing this order ID.
+            try
+            {
+                var existingRewards = await _loyaltyRewardsService.GetCustomerRewardsAsync(customer.Id);
+                if (existingRewards != null && !string.IsNullOrEmpty(existingRewards.History))
+                {
+                    var historyEntries = JsonSerializer.Deserialize<List<LoyaltyHistoryEntry>>(existingRewards.History);
+                    if (historyEntries != null && historyEntries.Any(h =>
+                        h.Type == "EARN" && h.Reason.Contains($"#{order.Id}")))
+                    {
+                        _logger.LogInformation("Loyalty: Skipped duplicate award for order {OrderId} — already in history", order.Id);
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Loyalty: Failed to check duplicate award for order {OrderId} — proceeding with award", order.Id);
             }
 
             // Loyalty-A + Loyalty-C WS-A: Configurable points formula.

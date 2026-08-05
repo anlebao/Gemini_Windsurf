@@ -84,7 +84,11 @@ namespace VanAn.Gateway.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error forwarding {Method} {Path} to ShopERP", method, path);
-                return StatusCode(500, new { error = "Internal server error" });
+                // #99 fix: Return actual exception message instead of generic "Internal server error".
+                // User reported seeing "Internal server error" (English) which was unhelpful —
+                // they couldn't tell if it was a network issue, ShopERP down, or a code bug.
+                // Include exception type + message so the user can report a specific error.
+                return StatusCode(500, new { error = $"Lỗi kết nối đến server: {ex.Message}" });
             }
         }
     }

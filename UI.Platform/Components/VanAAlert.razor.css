@@ -1,0 +1,68 @@
+/* VanAAlert Component Styles - Phase 2.5.3 */
+.vanan-alert {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    position: relative;
+    gap: 0.5rem;
+}
+
+.vanan-alert--success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.vanan-alert--warning {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+    color: #856404;
+}
+
+.vanan-alert--error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.vanan-alert--info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+
+.vanan-alert--hidden {
+    display: none;
+}
+
+.vanan-alert__content {
+    flex: 1;
+}
+
+.vanan-alert__title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.vanan-alert__message {
+    word-wrap: break-word;
+}
+
+.vanan-alert__close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 0;
+    margin-left: auto;
+}
+
+.vanan-alert__close:hover {
+    opacity: 1;
+}

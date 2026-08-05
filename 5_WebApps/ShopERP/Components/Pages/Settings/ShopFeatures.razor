@@ -246,6 +246,8 @@
                     </div>
                 </VanACard>
 
+                @if (_isSystemAdmin)
+                {
                 <VanACard Header="� Hiển thị trang chủ KhachLink (#100)" CssClass="mt-4" data-testid="home-sections-card">
                     <div class="features-form">
                         <p class="text-muted small mb-3">
@@ -298,6 +300,7 @@
                         </div>
                     </div>
                 </VanACard>
+                }
 
                 <VanACard Header="�🎁 Công thức điểm thưởng (Loyalty-C)" CssClass="mt-4" data-testid="loyalty-formula-card">
                     <div class="features-form">
