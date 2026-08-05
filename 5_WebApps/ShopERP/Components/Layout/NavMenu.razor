@@ -177,6 +177,12 @@
                         <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Lịch sử đổi điểm
                     </NavLink>
                 </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* == Loyalty Dashboard == Owner + SystemAdmin *@
+        <AuthorizeView Roles="Owner,SystemAdmin">
+            <Authorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="loyalty/dashboard">
                         <span class="bi bi-bar-chart-fill-nav-menu" aria-hidden="true"></span> Thống kê điểm thưởng
@@ -329,13 +335,19 @@
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="loyalty/dashboard">
-                        <span class="bi bi-bar-chart-fill-nav-menu" aria-hidden="true"></span> Thống kê điểm thưởng
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
                     <NavLink class="nav-link" href="admin/loyalty-config">
                         <span class="bi bi-award-fill-nav-menu" aria-hidden="true"></span> Loyalty Alliance Config
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        @* == Loyalty Dashboard (mobile) == Owner + SystemAdmin *@
+        <AuthorizeView Roles="Owner,SystemAdmin">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="loyalty/dashboard">
+                        <span class="bi bi-bar-chart-fill-nav-menu" aria-hidden="true"></span> Thống kê điểm thưởng
                     </NavLink>
                 </div>
             </Authorized>
