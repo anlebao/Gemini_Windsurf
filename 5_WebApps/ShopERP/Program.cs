@@ -170,6 +170,8 @@ namespace VanAn.ShopERP
             _ = builder.Services.AddScoped<CoreHub.Services.IShopConfigService, CoreHub.Services.ShopConfigService>();
             _ = builder.Services.AddScoped<Shared.Services.ISocialCampaignService, CoreHub.Services.SocialCampaignService>();
             _ = builder.Services.AddScoped<CoreHub.Services.ILoyaltyRewardsService, CoreHub.Services.LoyaltyRewardsService>();
+            // TD-CUSTSYNC-001 / Issue #106: Customer identity merge service
+            _ = builder.Services.AddScoped<CoreHub.Services.ICustomerMergeService, CoreHub.Services.CustomerMergeService>();
             _ = builder.Services.AddScoped<CoreHub.Services.IOnboardingService, CoreHub.Services.OnboardingService>();
             // Industry seed strategies — registered for IOnboardingService.ApplyTemplateAsync to resolve by IndustryCode.
             // Must match Gateway Program.cs registrations (lines 230-236).

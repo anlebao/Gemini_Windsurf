@@ -24,6 +24,7 @@ namespace VanAn.ShopERP.Controllers
         ICustomerRepository customerRepository,
         ILoyaltyRewardsService loyaltyRewardsService,
         IMissionService missionService,
+        ICustomerMergeService customerMergeService,
         VanAn.CoreHub.Services.LoyaltyReadRouter readRouter,
         ILogger<CustomerIdentityController> logger) : ControllerBase
     {
@@ -32,6 +33,7 @@ namespace VanAn.ShopERP.Controllers
         private readonly ICustomerRepository _customerRepository = customerRepository;
         private readonly ILoyaltyRewardsService _loyaltyRewardsService = loyaltyRewardsService;
         private readonly IMissionService _missionService = missionService;
+        private readonly ICustomerMergeService _customerMergeService = customerMergeService;
         private readonly ILogger<CustomerIdentityController> _logger = logger;
         // Loyalty Consistency Fix Phase 2 (BUG #7): mode-aware balance for /api/customers/me
         private readonly VanAn.CoreHub.Services.LoyaltyReadRouter _readRouter = readRouter;
@@ -94,6 +96,26 @@ namespace VanAn.ShopERP.Controllers
 
                 // Loyalty-C WS-B: Trigger OtpVerify mission (one-time reward for first OTP verification)
                 _ = await _missionService.CompleteMissionAsync(customer.Id, MissionType.OtpVerify);
+            }
+
+            // TD-CUSTSYNC-001 / Issue #106: Merge DeviceId-based guest stubs into login customer.
+            // If request has DeviceId, merge any guest stubs from the same device into this login account.
+            if (request.DeviceId.HasValue && request.DeviceId.Value != Guid.Empty)
+            {
+                try
+                {
+                    var mergeResult = await _customerMergeService.MergeDeviceStubsIntoLoginAsync(customer.Id, request.DeviceId.Value);
+                    if (mergeResult.StubsMerged > 0)
+                    {
+                        _logger.LogInformation("TD-CUSTSYNC-001: Merged {Stubs} guest stub(s), transferred {Points} points to customer {CustomerId}",
+                            mergeResult.StubsMerged, mergeResult.PointsTransferred, customer.Id);
+                    }
+                }
+                catch (Exception mergeEx)
+                {
+                    // Non-blocking: merge failure should NOT prevent login
+                    _logger.LogWarning(mergeEx, "TD-CUSTSYNC-001: Merge failed for customer {CustomerId} — login proceeds, merge deferred", customer.Id);
+                }
             }
 
             var customerToken = _customerTokenService.CreateToken(customer.Id);

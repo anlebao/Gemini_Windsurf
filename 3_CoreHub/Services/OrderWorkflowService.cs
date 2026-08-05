@@ -469,6 +469,12 @@ namespace VanAn.CoreHub.Services
                 var customer = new Customer(order.TenantId, fullName, phone);
                 customer.UpdateCustomerDetails(fullName, phone, null, "Bronze", deviceId, true);
                 await _customerRepository.AddAsync(customer);
+
+                // TD-CUSTSYNC-001: Enqueue CustomerCreated outbox event for SQLite→PG sync.
+                // NatsSyncWorker publishes "vanan.shoperp.customer.created" → Gateway DataSyncSubscriber
+                // upserts customer to PostgreSQL so Gateway knows about DeviceId-based stubs.
+                await EnqueueCustomerCreatedEventAsync(customer);
+
                 return customer;
             }
             catch (Exception ex)
@@ -476,6 +482,39 @@ namespace VanAn.CoreHub.Services
                 _logger.LogWarning(ex, "Bug 6 fix: Failed to create customer stub for order {OrderId}", order.Id);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// TD-CUSTSYNC-001: Enqueue CustomerCreated outbox event for SQLite→PG sync.
+        /// NatsSyncWorker publishes "vanan.shoperp.customer.created" → Gateway DataSyncSubscriber
+        /// upserts customer to PostgreSQL.
+        /// </summary>
+        private async Task EnqueueCustomerCreatedEventAsync(Customer customer)
+        {
+            if (_outboxRepository == null)
+            {
+                _logger.LogDebug("OutboxRepository not available — CustomerCreated event for customer {CustomerId} not persisted", customer.Id);
+                return;
+            }
+
+            var payload = new
+            {
+                customerId = customer.Id,
+                tenantId = customer.TenantId.Value,
+                fullName = customer.FullName,
+                phoneNumber = customer.PhoneNumber,
+                email = customer.Email,
+                deviceId = customer.DeviceId,
+                identityLevel = (int)customer.IdentityLevel
+            };
+            string eventData = JsonSerializer.Serialize(payload, EventJsonOptions);
+            var outboxEvent = new OutboxEvent(
+                customer.TenantId,
+                new ElectronicInvoiceId(Guid.Empty),
+                "CustomerCreated",
+                eventData);
+            await _outboxRepository.EnqueueAsync(outboxEvent);
+            _logger.LogInformation("Enqueued CustomerCreated event to Outbox for customer {CustomerId}", customer.Id);
         }
 
         public async Task<Order?> GetOrderAsync(Guid orderId)

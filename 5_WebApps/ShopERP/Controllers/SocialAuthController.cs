@@ -15,6 +15,7 @@ namespace VanAn.ShopERP.Controllers
         IGoogleAuthService googleAuthService,
         ICustomerTokenService customerTokenService,
         ICustomerRepository customerRepository,
+        ICustomerMergeService customerMergeService,
         IConfiguration configuration,
         IWebHostEnvironment env,
         ILogger<SocialAuthController> logger) : ControllerBase
@@ -22,6 +23,7 @@ namespace VanAn.ShopERP.Controllers
         private readonly IGoogleAuthService _googleAuthService = googleAuthService;
         private readonly ICustomerTokenService _customerTokenService = customerTokenService;
         private readonly ICustomerRepository _customerRepository = customerRepository;
+        private readonly ICustomerMergeService _customerMergeService = customerMergeService;
         private readonly IConfiguration _configuration = configuration;
         private readonly ILogger<SocialAuthController> _logger = logger;
 
@@ -95,9 +97,30 @@ namespace VanAn.ShopERP.Controllers
 
             var token = _customerTokenService.CreateToken(customer.Id);
 
+            // TD-CUSTSYNC-001 / Issue #106: Merge DeviceId-based guest stubs into login customer.
+            // The "state" param from KhachLink Login.razor carries the device_token (localStorage).
+            // Parse it as Guid and call merge service to consolidate loyalty points from guest stubs.
+            if (!string.IsNullOrEmpty(state) && Guid.TryParse(state, out var deviceIdForMerge))
+            {
+                try
+                {
+                    var mergeResult = await _customerMergeService.MergeDeviceStubsIntoLoginAsync(customer.Id, deviceIdForMerge);
+                    if (mergeResult.StubsMerged > 0)
+                    {
+                        _logger.LogInformation("[GoogleAuth] TD-CUSTSYNC-001: Merged {Stubs} guest stub(s), transferred {Points} points to customer {CustomerId}",
+                            mergeResult.StubsMerged, mergeResult.PointsTransferred, customer.Id);
+                    }
+                }
+                catch (Exception mergeEx)
+                {
+                    // Non-blocking: merge failure should NOT prevent login
+                    _logger.LogWarning(mergeEx, "[GoogleAuth] TD-CUSTSYNC-001: Merge failed for customer {CustomerId} — login proceeds, merge deferred", customer.Id);
+                }
+            }
+
             var redirectUrl = $"{khachLinkLoginUrl}?token={Uri.EscapeDataString(token)}&provider=google&customerId={Uri.EscapeDataString(customer.Id.ToString())}";
-            if (!string.IsNullOrEmpty(state))
-                redirectUrl += $"&redirectTo={Uri.EscapeDataString(state)}";
+            // Note: state was the device_token (used for merge above) — don't pass it back as redirectTo
+            // (KhachLink Login.razor uses redirectTo for page navigation, not device token).
 
             return Redirect(redirectUrl);
         }

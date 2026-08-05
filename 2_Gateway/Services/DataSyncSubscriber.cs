@@ -382,9 +382,31 @@ namespace VanAn.Gateway.Services
                 return;
             }
 
+            // TD-CUSTSYNC-001: Full upsert — create customer in PG from event payload.
+            // Payload shape: { CustomerId, TenantId, FullName, PhoneNumber, Email, DeviceId, LoyaltyPoints, IdentityLevel }
+            string fullName = data.TryGetProperty("FullName", out var fnProp) ? fnProp.GetString() ?? "Khách lẻ" : "Khách lẻ";
+            string phoneNumber = data.TryGetProperty("PhoneNumber", out var phProp) ? phProp.GetString() ?? "" : "";
+            string? email = data.TryGetProperty("Email", out var emProp) ? emProp.GetString() : null;
+            Guid? deviceId = data.TryGetProperty("DeviceId", out var devProp) && devProp.ValueKind == JsonValueKind.String
+                ? Guid.TryParse(devProp.GetString(), out var did) ? did : null
+                : data.TryGetProperty("DeviceId", out var devProp2) && devProp2.ValueKind == JsonValueKind.Null ? null : null;
+
+            var newCustomer = new Customer(new TenantId(tenantId), fullName, phoneNumber, email);
+            // Single-identity: align BaseEntity.Id with CustomerId from event
+            typeof(BaseEntity).GetProperty("Id")!.SetValue(newCustomer, customerId);
+            typeof(Customer).GetProperty("CustomerId")!.SetValue(newCustomer, new CustomerId(customerId));
+
+            if (deviceId.HasValue)
+            {
+                newCustomer.UpdateCustomerDetails(fullName, phoneNumber, email, "Bronze", deviceId, true);
+            }
+
+            _ = await dbContext.Customers.AddAsync(newCustomer, ct);
+            _ = await dbContext.SaveChangesAsync(ct);
+
             _logger.LogInformation(
-                "SyncCustomerCreatedAsync: customer {CustomerId} not in PostgreSQL — full upsert deferred (offline-created customer)",
-                customerId);
+                "SyncCustomerCreatedAsync: customer {CustomerId} upserted to PostgreSQL (Name={FullName}, Phone={Phone})",
+                customerId, fullName, phoneNumber);
         }
 
         /// <summary>

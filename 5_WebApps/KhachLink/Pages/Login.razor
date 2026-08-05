@@ -133,12 +133,21 @@
     }
 
     /// <summary>Tiered Auth Phase 3: Redirect to Google OAuth login via Gateway.</summary>
-    private void LoginWithGoogle()
+    /// TD-CUSTSYNC-001: Pass device_token as state so SocialAuthController can merge
+    /// DeviceId-based guest stubs into the login customer after OAuth callback.
+    private async Task LoginWithGoogle()
     {
         // Gateway (5001) forwards /api/auth/* to ShopERP (5003)
         // ShopERP redirects to Google consent → callback → redirect back to KhachLink /login?token=...
         var gatewayBase = HttpClientFactory.CreateClient("gateway").BaseAddress;
-        Navigation.NavigateTo($"{gatewayBase}api/auth/google/login", forceLoad: true);
+
+        // TD-CUSTSYNC-001: Pass customer_device_id as state param for customer merge.
+        // customer_device_id is the same key used by Checkout.razor for Order.CustomerDeviceId,
+        // and is what Customer.DeviceId is set to in CreateCustomerStubAsync.
+        var deviceId = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "customer_device_id");
+        var stateParam = !string.IsNullOrEmpty(deviceId) ? $"?redirectTo={Uri.EscapeDataString(deviceId)}" : "";
+
+        Navigation.NavigateTo($"{gatewayBase}api/auth/google/login{stateParam}", forceLoad: true);
     }
 
     /// <summary>CC-S1-T0c (v1.5): Redirect to Facebook OAuth login via Gateway.</summary>
