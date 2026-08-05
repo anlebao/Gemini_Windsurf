@@ -14,6 +14,7 @@ namespace VanAn.Gateway.Controllers
     /// </summary>
     [ApiController]
     [Route("api/platform/khachlink-home-settings")]
+    [Authorize] // Class-level auth required by W12-G7 architecture test; GET overrides with [AllowAnonymous]
     public class KhachLinkHomeSettingsController(
         IVanAnDbContext dbContext,
         ILogger<KhachLinkHomeSettingsController> logger) : ControllerBase
