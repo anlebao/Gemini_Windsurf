@@ -129,11 +129,14 @@ namespace VanAn.ShopERP.Controllers
                     .SumAsync(r => (int?)r.PointsSpent) ?? 0;
 
                 // Metric 3: Points in active campaigns (pending orders with TrackingCode, not yet delivered/completed)
+                // "delivered" is a valid workflow status but not in OrderStatusId static props — use new OrderStatusId("delivered")
+                var deliveredStatus = new OrderStatusId("delivered");
                 var campaignOrderTotals = await _dbContext.Orders
                     .Where(o => o.TenantId == new TenantId(tenantId)
                         && o.TrackingCode != null
-                        && o.Status.Value != "completed" && o.Status.Value != "cancelled"
-                        && o.Status.Value != "delivered")
+                        && o.Status != OrderStatusId.Completed
+                        && o.Status != OrderStatusId.Cancelled
+                        && o.Status != deliveredStatus)
                     .Select(o => o.TotalAmount)
                     .ToListAsync();
                 int pointsInCampaigns = campaignOrderTotals.Sum(a => (int)(a * rate));
@@ -141,8 +144,9 @@ namespace VanAn.ShopERP.Controllers
                 // Metric 4: Points reserved (ALL pending orders, not yet delivered/completed)
                 var allPendingOrderTotals = await _dbContext.Orders
                     .Where(o => o.TenantId == new TenantId(tenantId)
-                        && o.Status.Value != "completed" && o.Status.Value != "cancelled"
-                        && o.Status.Value != "delivered")
+                        && o.Status != OrderStatusId.Completed
+                        && o.Status != OrderStatusId.Cancelled
+                        && o.Status != deliveredStatus)
                     .Select(o => o.TotalAmount)
                     .ToListAsync();
                 int pointsReserved = allPendingOrderTotals.Sum(a => (int)(a * rate));
