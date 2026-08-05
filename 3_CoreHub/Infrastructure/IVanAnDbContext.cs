@@ -107,6 +107,9 @@ namespace VanAn.CoreHub.Infrastructure
         DbSet<AllianceWallet> AllianceWallets { get; } // cross-tenant wallet (TenantId = Empty)
         DbSet<AllianceTransaction> AllianceTransactions { get; } // append-only transaction log (TenantId = Empty)
 
+        // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped, single row)
+        DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; } // single-row global config (TenantId = Empty)
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default);
 

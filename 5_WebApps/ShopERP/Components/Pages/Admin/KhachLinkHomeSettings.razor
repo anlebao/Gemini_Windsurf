@@ -1,0 +1,172 @@
+@page "/admin/khachlink-home-settings"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using VanAn.UI.Platform.Components
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject ILogger<KhachLinkHomeSettings> Logger
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Cấu hình trang chủ KhachLink</PageTitle>
+
+<div class="khachlink-home-settings-page" data-testid="khachlink-home-settings-page">
+    <header class="page-header">
+        <h1>Cấu hình trang chủ KhachLink</h1>
+        <p class="text-muted small">
+            Bật/tắt từng phần hiển thị trên trang chủ KhachLink (toàn hệ thống — không phụ thuộc tenant).
+            Khi tắt, phần đó sẽ ẩn trên mobile + desktop cho tất cả khách hàng.
+        </p>
+    </header>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <VanAAlert Variant="success" Message="@successMessage" data-testid="alert-success" />
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <VanAAlert Variant="error" Message="@errorMessage" data-testid="alert-error" />
+    }
+
+    @if (loading)
+    {
+        <VanAAlert Variant="info" Message="Đang tải cấu hình..." />
+    }
+    else
+    {
+        <VanACard Header="Hiển thị trang chủ KhachLink" data-testid="home-sections-card">
+            <div class="features-form">
+                <p class="text-muted small mb-3">
+                    Cấu hình toàn hệ thống (global). Thay đổi áp dụng ngay cho tất cả tenant trên trang chủ KhachLink.
+                </p>
+
+                <div class="feature-row" data-testid="toggle-home-campaign">
+                    <div class="feature-info">
+                        <strong>Hiển thị "Khuyến Mãi Cửa Hàng"</strong>
+                        <p class="text-muted small">Phần khuyến mãi trên trang chủ. Tắt nếu không có khuyến mãi hoạt động.</p>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="home-campaign" @bind="settings.Home_CampaignSection_Enabled" />
+                    </div>
+                </div>
+
+                <div class="feature-row" data-testid="toggle-home-store">
+                    <div class="feature-info">
+                        <strong>Hiển thị "Cửa Hàng Của Bạn"</strong>
+                        <p class="text-muted small">Phần thông tin cửa hàng trên trang chủ. Tắt nếu không muốn hiển thị.</p>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="home-store" @bind="settings.Home_StoreSection_Enabled" />
+                    </div>
+                </div>
+
+                <div class="feature-row" data-testid="toggle-home-featured">
+                    <div class="feature-info">
+                        <strong>Hiển thị "Sản Phẩm Nổi Bật"</strong>
+                        <p class="text-muted small">Phần sản phẩm nổi bật trên trang chủ. Tắt nếu không có sản phẩm nổi bật.</p>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="home-featured" @bind="settings.Home_FeaturedSection_Enabled" />
+                    </div>
+                </div>
+
+                <div class="feature-row" data-testid="toggle-home-socialhub">
+                    <div class="feature-info">
+                        <strong>Hiển thị link Facebook/TikTok (Social Hub)</strong>
+                        <p class="text-muted small">Phần Social Hub với link Facebook + TikTok. Tắt nếu không có mạng xã hội.</p>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="home-socialhub" @bind="settings.Home_SocialHub_Enabled" />
+                    </div>
+                </div>
+
+                <div class="form-actions mt-3">
+                    <VanAButton Variant="primary" OnClick="SaveSettings" data-testid="btn-save" Loading="@_isSaving" Disabled="@_isSaving" Text="@(_isSaving ? "Đang lưu..." : "Lưu cấu hình")">
+                    </VanAButton>
+                </div>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private KhachLinkHomeSettingsDto settings = new();
+    private bool loading = true;
+    private string? successMessage;
+    private string? errorMessage;
+    private bool _isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("CookieForwarding");
+            var result = await client.GetFromJsonAsync<KhachLinkHomeSettingsDto>(
+                "api/platform/khachlink-home-settings");
+            if (result != null)
+            {
+                settings = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading KhachLink home settings");
+            errorMessage = "Không thể tải cấu hình. Vui lòng thử lại.";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        _isSaving = true;
+        successMessage = null;
+        errorMessage = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("CookieForwarding");
+            var response = await client.PutAsJsonAsync("api/platform/khachlink-home-settings", settings);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<KhachLinkHomeSettingsDto>();
+                if (result != null) settings = result;
+                successMessage = "Đã lưu cấu hình thành công.";
+                _ = DismissSuccessAfterDelayAsync();
+            }
+            else
+            {
+                errorMessage = $"Không thể lưu cấu hình: {response.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving KhachLink home settings");
+            errorMessage = $"Lỗi kết nối: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DismissSuccessAfterDelayAsync()
+    {
+        await Task.Delay(5000);
+        successMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // DTO mirrors Gateway's KhachLinkHomeSettingsDto
+    public class KhachLinkHomeSettingsDto
+    {
+        public bool Home_CampaignSection_Enabled { get; set; } = true;
+        public bool Home_StoreSection_Enabled { get; set; } = true;
+        public bool Home_FeaturedSection_Enabled { get; set; } = true;
+        public bool Home_SocialHub_Enabled { get; set; } = true;
+    }
+}

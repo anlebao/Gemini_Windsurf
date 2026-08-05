@@ -158,6 +158,9 @@ namespace VanAn.CoreHub.Infrastructure
         public DbSet<AllianceWallet> AllianceWallets { get; set; } // cross-tenant wallet (TenantId = Empty)
         public DbSet<AllianceTransaction> AllianceTransactions { get; set; } // append-only transaction log (TenantId = Empty)
 
+        // #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped, single row)
+        public DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; set; } // single-row global config (TenantId = Empty)
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -303,7 +306,8 @@ namespace VanAn.CoreHub.Infrastructure
                     && e.ClrType != typeof(CommunityFundSpendRecord)
                     && e.ClrType != typeof(LoyaltyGlobalConfig)
                     && e.ClrType != typeof(AllianceWallet)
-                    && e.ClrType != typeof(AllianceTransaction));
+                    && e.ClrType != typeof(AllianceTransaction)
+                    && e.ClrType != typeof(KhachLinkHomeSettings));
 
             // Capture context so EF Core evaluates CurrentTenantIdValue at QUERY TIME.
             // Using TenantId (model type) as RHS ensures:

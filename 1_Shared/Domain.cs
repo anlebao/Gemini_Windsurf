@@ -2176,6 +2176,42 @@ namespace VanAn.Shared.Domain
     }
 
     /// <summary>
+    /// #100: KhachLink home page section toggles — GLOBAL (not tenant-scoped).
+    /// Single row, stored in PG (Gateway VanAnDbContext). SystemAdmin manages via
+    /// /api/platform/khachlink-home-settings. KhachLink Home.razor reads this globally
+    /// (no tenant context needed). Tenant profile page (/store/{slug}) has its own
+    /// separate toggles in ShopFeatureSettings (per-tenant) — unrelated to this.
+    /// </summary>
+    public class KhachLinkHomeSettings : BaseEntity
+    {
+        public bool Home_CampaignSection_Enabled { get; protected set; } = true;
+        public bool Home_StoreSection_Enabled { get; protected set; } = true;
+        public bool Home_FeaturedSection_Enabled { get; protected set; } = true;
+        public bool Home_SocialHub_Enabled { get; protected set; } = true;
+        public DateTime? LastChangedAt { get; protected set; }
+        public string? LastChangedBy { get; protected set; }
+
+        public KhachLinkHomeSettings()
+            : base(TenantId.Empty)
+        {
+            LastChangedAt = DateTime.UtcNow;
+        }
+
+        public void UpdateToggles(
+            bool campaign, bool store, bool featured, bool socialHub,
+            string changedBy)
+        {
+            Home_CampaignSection_Enabled = campaign;
+            Home_StoreSection_Enabled = store;
+            Home_FeaturedSection_Enabled = featured;
+            Home_SocialHub_Enabled = socialHub;
+            LastChangedAt = DateTime.UtcNow;
+            LastChangedBy = changedBy;
+            UpdateAudit();
+        }
+    }
+
+    /// <summary>
     /// Per-tenant loyalty override — tenant-scoped. Null fields inherit from LoyaltyGlobalConfig.
     /// IsAllianceMember=false forces Silo mode for this tenant regardless of global Mode.
     /// Stored in PG (Gateway VanAnDbContext).

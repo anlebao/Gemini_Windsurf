@@ -129,6 +129,9 @@ namespace VanAn.ShopERP.Infrastructure
         public DbSet<AllianceWallet> AllianceWallets { get; set; }
         public DbSet<AllianceTransaction> AllianceTransactions { get; set; }
 
+        // #100: KhachLink home page section toggles — GLOBAL (PG-only, ignored in ShopERP SQLite)
+        public DbSet<KhachLinkHomeSettings> KhachLinkHomeSettings { get; set; }
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Global convention for all ValueObject<T> types - EF Core 8 proper 2-way converters
@@ -238,6 +241,7 @@ namespace VanAn.ShopERP.Infrastructure
             _ = modelBuilder.Ignore<LoyaltyTenantConfig>();
             _ = modelBuilder.Ignore<AllianceWallet>();
             _ = modelBuilder.Ignore<AllianceTransaction>();
+            _ = modelBuilder.Ignore<KhachLinkHomeSettings>(); // #100: PG-only global config
 
             // === VALUE OBJECT CONFIGURATIONS ===
             // Order: Configured via OrderConfiguration from CoreHub assembly (applied above via ApplyConfigurationsFromAssembly)

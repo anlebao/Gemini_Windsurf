@@ -1,4 +1,4 @@
-@page "/settings/shop-features"
+﻿@page "/settings/shop-features"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
 @using VanAn.UI.Platform.Components
@@ -246,61 +246,7 @@
                     </div>
                 </VanACard>
 
-                @if (_isSystemAdmin)
-                {
-                <VanACard Header="� Hiển thị trang chủ KhachLink (#100)" CssClass="mt-4" data-testid="home-sections-card">
-                    <div class="features-form">
-                        <p class="text-muted small mb-3">
-                            Bật/tắt từng phần hiển thị trên trang chủ KhachLink của tenant này.
-                            Khi tắt, phần đó sẽ ẩn trên mobile + desktop.
-                        </p>
-
-                        <div class="feature-row" data-testid="toggle-home-campaign">
-                            <div class="feature-info">
-                                <strong>Hiển thị "Khuyến Mãi Cửa Hàng"</strong>
-                                <p class="text-muted small">Phần khuyến mãi trên trang chủ. Tắt nếu không có khuyến mãi hoạt động.</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       id="home-campaign" @bind="settings.Home_CampaignSection_Enabled" />
-                            </div>
-                        </div>
-
-                        <div class="feature-row" data-testid="toggle-home-store">
-                            <div class="feature-info">
-                                <strong>Hiển thị "Cửa Hàng Của Bạn"</strong>
-                                <p class="text-muted small">Phần thông tin cửa hàng trên trang chủ. Tắt nếu không muốn hiển thị.</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       id="home-store" @bind="settings.Home_StoreSection_Enabled" />
-                            </div>
-                        </div>
-
-                        <div class="feature-row" data-testid="toggle-home-featured">
-                            <div class="feature-info">
-                                <strong>Hiển thị "Sản Phẩm Nổi Bật"</strong>
-                                <p class="text-muted small">Phần sản phẩm nổi bật trên trang chủ. Tắt nếu không có sản phẩm nổi bật.</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       id="home-featured" @bind="settings.Home_FeaturedSection_Enabled" />
-                            </div>
-                        </div>
-
-                        <div class="feature-row" data-testid="toggle-home-socialhub">
-                            <div class="feature-info">
-                                <strong>Hiển thị link Facebook/TikTok (Social Hub)</strong>
-                                <p class="text-muted small">Phần Social Hub với link Facebook + TikTok. Tắt nếu không có mạng xã hội.</p>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch"
-                                       id="home-socialhub" @bind="settings.Home_SocialHub_Enabled" />
-                            </div>
-                        </div>
-                    </div>
-                </VanACard>
-                }
+                @* #100: Home section toggles moved to /admin/khachlink-home-settings (global, not per-tenant) *@
 
                 <VanACard Header="�🎁 Công thức điểm thưởng (Loyalty-C)" CssClass="mt-4" data-testid="loyalty-formula-card">
                     <div class="features-form">
