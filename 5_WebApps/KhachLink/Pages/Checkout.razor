@@ -213,6 +213,20 @@
                             <h5 class="text-danger">Tổng cộng:</h5>
                             <h5 class="text-danger">@orderTotal.ToString("N0") VNĐ</h5>
                         </div>
+                        <!-- #99-3: Loyalty points estimate — shows when tenant has loyalty enabled -->
+                        @if (_loyaltyEnabled && _estimatedPoints > 0)
+                        {
+                            <hr />
+                            <div class="loyalty-estimate" data-testid="loyalty-estimate-banner">
+                                <div class="d-flex align-items-center text-success">
+                                    <i class="bi bi-gift-fill me-2"></i>
+                                    <div>
+                                        <div class="fw-bold">Đơn hàng sẽ tích ~@_estimatedPoints điểm thưởng</div>
+                                        <div class="small text-muted">Điểm được cộng khi đơn hàng hoàn thành.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     </VanAnCard>
                 </div>
             </div>
@@ -267,6 +281,10 @@
     // so the created order is linked to the Customer entity and appears in order history.
     private Guid? _customerId = null;
 
+    // #99-3: Loyalty points estimate — loaded from tenant settings on first render
+    private bool _loyaltyEnabled = true;
+    private int _estimatedPoints = 0;
+
     protected override async Task OnInitializedAsync()
     {
         cartState = CartService.GetCartState();
@@ -300,6 +318,36 @@
             cartSnapshot = cartState.Items.ToList();
             orderTotal = cartState.TotalAmount;
             showGuestForm = true;
+
+            // #99-3: Load tenant loyalty settings to estimate points + show/hide estimate banner.
+            // Uses first cart item's TenantId (multi-tenant cart: each item may be from different tenant;
+            // for estimate we use the first tenant's rate — actual award is per-order per-tenant).
+            var firstTenantItem = cartSnapshot.FirstOrDefault();
+            if (firstTenantItem != null && firstTenantItem.TenantId != Guid.Empty)
+            {
+                try
+                {
+                    var settingsClient = HttpClientFactory.CreateClient("gateway");
+                    var settingsResp = await settingsClient.GetAsync(
+                        $"/api/tenants/{firstTenantItem.TenantId}/feature-settings");
+                    if (settingsResp.IsSuccessStatusCode)
+                    {
+                        var settings = await settingsResp.Content.ReadFromJsonAsync<TenantSettingsDto>();
+                        if (settings != null)
+                        {
+                            _loyaltyEnabled = settings.Loyalty_Program_Enabled;
+                            if (_loyaltyEnabled)
+                            {
+                                decimal rate = settings.Loyalty_PointsRate > 0m
+                                    ? settings.Loyalty_PointsRate
+                                    : 0.1m; // global default fallback
+                                _estimatedPoints = (int)(orderTotal * rate);
+                            }
+                        }
+                    }
+                }
+                catch { /* non-critical — estimate is a convenience */ }
+            }
 
             // Pre-fill name/phone from customer profile when logged in so the user
             // does not have to re-enter their info on every checkout.
@@ -602,5 +650,12 @@
         public string Tier { get; set; } = "Bronze";
         public int PointBalance { get; set; }
         public string? IdentityLevel { get; set; }
+    }
+
+    // #99-3: Tenant settings DTO for loyalty estimate (subset of ShopFeatureSettingsDto)
+    private class TenantSettingsDto
+    {
+        public bool Loyalty_Program_Enabled { get; set; } = true;
+        public decimal Loyalty_PointsRate { get; set; } = 0m;
     }
 }

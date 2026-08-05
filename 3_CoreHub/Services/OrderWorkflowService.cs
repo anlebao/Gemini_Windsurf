@@ -363,6 +363,18 @@ namespace VanAn.CoreHub.Services
                 try
                 {
                     var tenantSettings = await _shopFeatureSettingsService.GetSettingsAsync(customer.TenantId);
+
+                    // #99-3: Check Loyalty_Program_Enabled toggle — tenant can disable loyalty entirely.
+                    // Previously: toggle existed in ShopFeatureSettingsDto but was never checked → points
+                    // awarded even when tenant turned off loyalty program. Fail-open (default=true) if
+                    // service throws — preserves existing behavior for tenants without explicit config.
+                    if (!tenantSettings.Loyalty_Program_Enabled)
+                    {
+                        _logger.LogInformation("Loyalty: Skipped award for order {OrderId} — Loyalty_Program_Enabled=false for tenant {TenantId}",
+                            order.Id, customer.TenantId.Value);
+                        return;
+                    }
+
                     // Override only if tenant has explicitly configured (non-zero/non-null values)
                     if (tenantSettings.Loyalty_PointsRate > 0m) rate = tenantSettings.Loyalty_PointsRate;
                     if (tenantSettings.Loyalty_MinPointsPerOrder > 0) minPoints = tenantSettings.Loyalty_MinPointsPerOrder;

@@ -77,6 +77,23 @@
                 </div>
             </VanAnCard>
 
+            <!-- #99-3: Loyalty points banner — shows when order completed/delivered + points awarded -->
+            @if ((_orderStatus == "completed" || _orderStatus == "delivered") && _pointsAwarded > 0)
+            {
+                <VanAnCard Shadow="true" CssClass="mb-3 loyalty-points-banner" data-testid="loyalty-points-banner">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-gift-fill text-success fs-2 me-3"></i>
+                        <div>
+                            <div class="fw-bold text-success">Bạn đã nhận được @_pointsAwarded điểm thưởng!</div>
+                            <div class="text-muted small">Điểm thưởng từ đơn hàng này đã được tích vào tài khoản của bạn.</div>
+                        </div>
+                        <a href="/my-loyalty" class="btn btn-sm btn-outline-success ms-auto">
+                            <i class="bi bi-wallet2"></i> Xem điểm
+                        </a>
+                    </div>
+                </VanAnCard>
+            }
+
             <!-- Payment status card -->
             <VanAnCard Shadow="true" CssClass="mb-3">
                 <div class="d-flex justify-content-between align-items-center">
@@ -236,6 +253,9 @@
     private string _orderStatus = "pending";
     private string _paymentStatus = "pending";
     private string _tenantName = string.Empty;
+    // #99-3: Loyalty points awarded (from PublicOrderTrackingDto.PointsAwarded)
+    private int? _pointsAwarded;
+    private bool _loyaltyEnabled = true;
     private decimal _orderTotal;
     private int _orderItemCount;
     private string? _deliveryAddress;
@@ -309,6 +329,9 @@
                     _tenantName = dto.TenantName ?? string.Empty;
                     _orderTotal = dto.TotalPrice;
                     _orderItemCount = dto.ItemCount;
+                    // #99-3: Parse loyalty points awarded + tenant loyalty flag
+                    _pointsAwarded = dto.PointsAwarded;
+                    _loyaltyEnabled = dto.LoyaltyEnabled;
                     _lastUpdate = DateTime.Now;
                     UpdateStatusSteps();
                     StateHasChanged();
@@ -605,5 +628,8 @@
         public int ItemCount { get; set; }
         public Guid TenantId { get; set; }
         public string TenantName { get; set; } = "";
+        // #99-3: Loyalty points awarded + tenant loyalty enabled flag
+        public int? PointsAwarded { get; set; }
+        public bool LoyaltyEnabled { get; set; } = true;
     }
 }

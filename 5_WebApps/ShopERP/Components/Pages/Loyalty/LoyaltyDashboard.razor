@@ -1,0 +1,139 @@
+@page "/loyalty/dashboard"
+@rendermode InteractiveServer
+@layout AdminLayout
+@using VanAn.UI.Platform.Components
+@using VanAn.UI.Platform.Components.Composite
+@using VanAn.ShopERP.Components.Pages.Admin
+@using Microsoft.AspNetCore.Authorization
+@inject HttpClient Http
+@inject ILogger<LoyaltyDashboard> Logger
+
+@attribute [Authorize]
+
+<div class="loyalty-dashboard-page">
+    <header class="page-header mb-4">
+        <h1><i class="bi bi-gift"></i> Thống kê điểm thưởng</h1>
+        <div class="header-actions">
+            <VanAButton Variant="secondary" OnClick="LoadStats">Làm mới</VanAButton>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
+            </div>
+            <p class="mt-2 text-muted">Đang tải thống kê...</p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <VanAAlert Type="error" Message="@_errorMessage" />
+    }
+    else if (_stats != null)
+    {
+        <!-- 4 stat cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-gift-fill text-primary" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_stats.PointsPendingRedemption.ToString("N0")</h2>
+                        <p class="text-muted mb-0">Điểm chờ đổi</p>
+                        <small class="text-muted">Tổng điểm khách đang có</small>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_stats.PointsRedeemed.ToString("N0")</h2>
+                        <p class="text-muted mb-0">Đã đổi</p>
+                        <small class="text-muted">Điểm đã đổi thành voucher</small>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-megaphone-fill text-warning" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_stats.PointsInCampaigns.ToString("N0")</h2>
+                        <p class="text-muted mb-0">Điểm CTKM chờ thưởng</p>
+                        <small class="text-muted">Đơn CTKM đang xử lý</small>
+                    </div>
+                </VanACard>
+            </div>
+            <div class="col-md-3">
+                <VanACard>
+                    <div class="stat-card text-center py-3">
+                        <i class="bi bi-piggy-bank-fill text-danger" style="font-size:2rem;"></i>
+                        <h2 class="mt-2 mb-0">@_stats.PointsReserved.ToString("N0")</h2>
+                        <p class="text-muted mb-0">Dự trù điểm thưởng</p>
+                        <small class="text-muted">Tất cả đơn đang xử lý</small>
+                    </div>
+                </VanACard>
+            </div>
+        </div>
+
+        <!-- Info note -->
+        <VanACard>
+            <div class="p-3">
+                <h6><i class="bi bi-info-circle"></i> Giải thích chỉ số</h6>
+                <ul class="mb-0 small">
+                    <li><strong>Điểm chờ đổi:</strong> Tổng điểm thưởng đang có trong ví của tất cả khách hàng (chưa đổi thành voucher).</li>
+                    <li><strong>Đã đổi:</strong> Tổng điểm đã được khách đổi thành voucher (đã hoàn thành).</li>
+                    <li><strong>Điểm CTKM chờ thưởng:</strong> Điểm dự kiến sẽ thưởng cho khách mua qua chiến dịch khuyến mãi (đơn hàng đang xử lý, có mã theo dõi).</li>
+                    <li><strong>Dự trù điểm thưởng:</strong> Tổng điểm dự kiến sẽ thưởng cho TẤT CẢ đơn hàng đang xử lý (chưa hoàn thành/giao hàng).</li>
+                </ul>
+            </div>
+        </VanACard>
+    }
+</div>
+
+@code {
+    private LoyaltyDashboardStats? _stats;
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStats();
+    }
+
+    private async Task LoadStats()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            var resp = await Http.GetAsync("/api/loyalty/dashboard");
+            if (resp.IsSuccessStatusCode)
+            {
+                _stats = await resp.Content.ReadFromJsonAsync<LoyaltyDashboardStats>();
+            }
+            else
+            {
+                _errorMessage = $"Lỗi tải thống kê ({resp.StatusCode}). Vui lòng thử lại.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "#99-3: Error loading loyalty dashboard stats");
+            _errorMessage = "Lỗi kết nối. Vui lòng thử lại.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class LoyaltyDashboardStats
+    {
+        public int PointsPendingRedemption { get; set; }
+        public int PointsRedeemed { get; set; }
+        public int PointsInCampaigns { get; set; }
+        public int PointsReserved { get; set; }
+    }
+}

@@ -23,6 +23,14 @@
         public Guid TenantId { get; init; }
         /// <summary>Tenant display name â€” resolved from PG Tenants table by Gateway. Shown to customer instead of raw GUID.</summary>
         public string TenantName { get; init; } = string.Empty;
+
+        /// <summary>#99-3: Points awarded for this order (null = not yet awarded / order not completed; >0 = awarded).
+        /// KhachLink uses this to display a "Bạn đã nhận được X điểm thưởng" banner on OrderTracking page.</summary>
+        public int? PointsAwarded { get; set; }
+
+        /// <summary>#99-3: Whether tenant has loyalty program enabled (for KhachLink to show/hide points banner).
+        /// Default true (fail-open) — if Gateway cannot resolve tenant settings, banner still shows when points exist.</summary>
+        public bool LoyaltyEnabled { get; set; } = true;
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using VanAn.Shared.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using VanAn.CoreHub.Commands;
 using VanAn.CoreHub.Infrastructure;
 using VanAn.CoreHub.Services;
@@ -19,12 +20,16 @@ namespace VanAn.Gateway.Controllers
         ISocialCampaignService socialCampaignService,
         ITenantProvider tenantProvider,
         IVanAnDbContext? dbContext,
+        IShopFeatureSettingsService? shopFeatureSettingsService,
+        IOptions<LoyaltyPointsConfig>? loyaltyPointsConfig,
         ILogger<PublicOrdersController> logger) : ControllerBase
     {
         private readonly IOrderService _orderService = orderService;
         private readonly ISocialCampaignService _socialCampaignService = socialCampaignService;
         private readonly ITenantProvider _tenantProvider = tenantProvider;
         private readonly IVanAnDbContext? _dbContext = dbContext;
+        private readonly IShopFeatureSettingsService? _shopFeatureSettingsService = shopFeatureSettingsService;
+        private readonly IOptions<LoyaltyPointsConfig>? _loyaltyPointsConfig = loyaltyPointsConfig;
         private readonly ILogger<PublicOrdersController> _logger = logger;
 
         [HttpPost]
@@ -356,6 +361,13 @@ namespace VanAn.Gateway.Controllers
                     }).ToList()
                 };
 
+                // #99-3: Compute PointsAwarded + LoyaltyEnabled for KhachLink banner display.
+                // Gateway PG does NOT have LoyaltyRewards data (lives in ShopERP SQLite) — so we
+                // RECOMPUTE the points using the same formula as ProcessLoyaltyPointsAsync.
+                // This is an estimate that matches the actual award (same rate + min/max clamp).
+                // Only show when order is completed or delivered (points awarded at those statuses).
+                (dto.PointsAwarded, dto.LoyaltyEnabled) = await ComputePointsAwardedAsync(order);
+
                 return Ok(dto);
             }
             catch (Exception ex)
@@ -363,6 +375,68 @@ namespace VanAn.Gateway.Controllers
                 _logger.LogError(ex, "Error fetching public order {OrderId}", id);
                 return StatusCode(500, new { error = "Internal server error" });
             }
+        }
+
+        /// <summary>
+        /// #99-3: Compute PointsAwarded + LoyaltyEnabled for KhachLink banner display.
+        /// Replicates the formula from OrderWorkflowService.ProcessLoyaltyPointsAsync:
+        ///   pointsToAward = (int)(TotalAmount * rate), clamped to [MinPoints, MaxPoints].
+        /// Returns (null, true) if order not completed/delivered or loyalty disabled.
+        /// Fail-open: if tenant settings cannot be loaded, uses global default (LoyaltyEnabled=true).
+        /// </summary>
+        private async Task<(int? PointsAwarded, bool LoyaltyEnabled)> ComputePointsAwardedAsync(Order order)
+        {
+            string status = order.Status?.Value ?? "pending";
+            // Points are only awarded when order reaches "completed" or "delivered" status.
+            if (status != "completed" && status != "delivered")
+            {
+                return (null, true); // Not yet awarded — LoyaltyEnabled default true
+            }
+
+            // Global defaults from appsettings.json LoyaltyPoints section
+            decimal rate = _loyaltyPointsConfig?.Value.PointsRate ?? 0.1m;
+            int minPoints = _loyaltyPointsConfig?.Value.MinPointsPerOrder ?? 10;
+            int? maxPoints = _loyaltyPointsConfig?.Value.MaxPointsPerOrder;
+            bool awardOnAll = _loyaltyPointsConfig?.Value.AwardOnAllOrders ?? true;
+            bool loyaltyEnabled = true;
+
+            // Per-tenant override (if ShopFeatureSettingsService available)
+            if (_shopFeatureSettingsService != null && order.TenantId.Value != Guid.Empty)
+            {
+                try
+                {
+                    var tenantSettings = await _shopFeatureSettingsService.GetSettingsAsync(order.TenantId);
+                    loyaltyEnabled = tenantSettings.Loyalty_Program_Enabled;
+                    if (!loyaltyEnabled)
+                    {
+                        return (null, false); // Tenant disabled loyalty — no points, banner hidden
+                    }
+                    if (tenantSettings.Loyalty_PointsRate > 0m) rate = tenantSettings.Loyalty_PointsRate;
+                    if (tenantSettings.Loyalty_MinPointsPerOrder > 0) minPoints = tenantSettings.Loyalty_MinPointsPerOrder;
+                    if (tenantSettings.Loyalty_MaxPointsPerOrder.HasValue) maxPoints = tenantSettings.Loyalty_MaxPointsPerOrder;
+                    awardOnAll = tenantSettings.Loyalty_AwardOnAllOrders;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "#99-3: Failed to load tenant loyalty settings for tenant {TenantId} — using global default", order.TenantId);
+                }
+            }
+
+            // AwardOnAllOrders=false: only award if order has TrackingCode (campaign-referred)
+            if (!awardOnAll && string.IsNullOrEmpty(order.TrackingCode))
+            {
+                return (null, loyaltyEnabled); // Skipped — no tracking code, but loyalty is enabled
+            }
+
+            // Compute points: TotalAmount * rate, clamped to [min, max]
+            int pointsToAward = (int)(order.TotalAmount * rate);
+            pointsToAward = Math.Max(minPoints, pointsToAward);
+            if (maxPoints.HasValue)
+            {
+                pointsToAward = Math.Min(maxPoints.Value, pointsToAward);
+            }
+
+            return (pointsToAward, loyaltyEnabled);
         }
     }
 
