@@ -22,19 +22,54 @@ window.vananPWA = {
                     }
                 });
 
-                // Silent SW update: when new service worker takes control, do NOT auto-reload.
-                // Previous behavior (auto-reload on controllerchange) caused disruptive page
-                // refresh every ~60s on Home page after deploys. Instead, show a subtle toast
-                // so the user can refresh at their convenience. Next page load picks up new SW.
+                // SW update handler: auto-reload when Blazor hasn't booted (SRI deadlock fix),
+                // show toast when Blazor is already running (silent update UX preserved).
+                //
+                // SRI Deadlock scenario (v17-sri-deadlock-fix, 2026-08-05):
+                //   1. User has old SW with stale _framework/* cache from previous deploy
+                //   2. New deploy → user visits → old SW serves stale wasm → fresh blazor.boot.json
+                //      has new integrity hashes → SRI check fails → Blazor never boots → page stuck
+                //      on loading screen
+                //   3. New SW downloads in background → installs (skipWaiting) → activates
+                //      (clients.claim) → deletes old caches
+                //   4. controllerchange fires → loading screen still visible → auto-reload
+                //   5. After reload, new SW (network-first for _framework/*) serves fresh wasm
+                //      → SRI passes → Blazor boots
+                //
+                // Without auto-reload, user is stuck on loading screen with a toast they may not
+                // see or understand. With auto-reload, the page self-heals within seconds.
+                //
+                // Loop guard: sessionStorage timestamp prevents infinite reload if new SW is also
+                // broken (SRI still fails after reload → controllerchange fires again → but
+                // timestamp check blocks second reload → user sees error, not a loop).
                 if (navigator.serviceWorker.controller) {
                     navigator.serviceWorker.addEventListener('controllerchange', () => {
-                        console.log('Service Worker controller changed — new version active (silent update)');
-                        // Show subtle toast notification instead of disruptive reload
+                        console.log('Service Worker controller changed — new version active');
+
+                        // Check if Blazor has booted: loading screen removed means Blazor started.
+                        // If loading screen is still in DOM → Blazor failed to start (SRI deadlock).
+                        var loadingScreen = document.getElementById('vanan-loading-screen');
+                        var blazorNotBooted = loadingScreen && loadingScreen.parentNode;
+
+                        if (blazorNotBooted) {
+                            // SRI deadlock: Blazor never started. Auto-reload to get fresh assets
+                            // from the new SW. Guard against infinite loop with sessionStorage.
+                            var lastReload = sessionStorage.getItem('sw-sri-reload-at');
+                            var now = Date.now();
+                            if (!lastReload || (now - parseInt(lastReload, 10)) > 10000) {
+                                console.log('SRI deadlock detected — auto-reloading to fetch fresh WASM');
+                                sessionStorage.setItem('sw-sri-reload-at', now.toString());
+                                window.location.reload();
+                                return;
+                            }
+                            console.warn('SRI deadlock persists after auto-reload — not reloading again (loop guard)');
+                        }
+
+                        // Normal case: Blazor is running. Show subtle toast (silent update UX).
                         if (window.vananPWA && window.vananPWA.dotNetRef) {
                             window.vananPWA.dotNetRef.invokeMethodAsync('HandleServiceWorkerUpdated')
                                 .catch(() => { /* Blazor not ready — silent */ });
                         }
-                        // Show non-blocking toast
                         var toast = document.createElement('div');
                         toast.id = 'vanan-sw-update-toast';
                         toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(139,69,19,0.95);color:white;padding:10px 20px;border-radius:24px;font-size:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.3);cursor:pointer;transition:opacity 0.3s;';

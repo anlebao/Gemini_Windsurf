@@ -52,16 +52,29 @@
 //   - Added debug logging: console.log when beforeinstallprompt fires + diagnostic
 //     log after 5s if it didn't fire (helps user diagnose via DevTools console).
 //   - Cache version bumped v14-install-fix → v15-install-fix2
+//
+// SRI Deadlock Fix (v17-sri-deadlock-fix, 2026-08-05):
+//   - Problem: Users with old SW (pre-v12 or stale cache entries) get SRI integrity
+//     check failure after deploys — old SW serves stale cached wasm while fresh
+//     blazor.boot.json has new hashes → Blazor blocked → page stuck on loading
+//     screen. The controllerchange toast was shown but user couldn't interact
+//     (page never booted). User had to manually clear cache to recover.
+//   - Fix: pwa.js controllerchange handler now auto-reloads when Blazor hasn't
+//     booted (loading screen still visible) instead of showing a toast. This
+//     breaks the deadlock: new SW (network-first for _framework/*) serves fresh
+//     wasm → SRI passes → Blazor boots. Loop guard via sessionStorage prevents
+//     infinite reload if new SW is also broken.
+//   - Cache version bumped v16-push-alerts → v17-sri-deadlock-fix
 // ============================================================================
 
 // Load auto-generated asset manifest (Blazor WASM SDK generates this with
 // hashes + URLs for all _framework/* assets). Used in install event to precache.
 importScripts('/service-worker-assets.js');
 
-const CACHE_NAME = 'vanan-khachlink-v16-push-alerts';
-const STATIC_CACHE = 'vanan-static-v16-push-alerts';
-const DYNAMIC_CACHE = 'vanan-dynamic-v16-push-alerts';
-const WASM_CACHE = 'vanan-wasm-v16-push-alerts';
+const CACHE_NAME = 'vanan-khachlink-v17-sri-deadlock-fix';
+const STATIC_CACHE = 'vanan-static-v17-sri-deadlock-fix';
+const DYNAMIC_CACHE = 'vanan-dynamic-v17-sri-deadlock-fix';
+const WASM_CACHE = 'vanan-wasm-v17-sri-deadlock-fix';
 
 // Core static assets to cache (must all return 200 — addAll fails on any 404)
 const staticUrlsToCache = [
