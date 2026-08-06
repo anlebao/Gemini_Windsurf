@@ -125,11 +125,20 @@ jobs:
 
       - name: Verify required secrets are set
         env:
-          GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}
-          SHOP_HOST: ${{ secrets.VPS_SHOP_HOST }}
-          SHOPERP_REMOTE: ${{ secrets.SHOPERP_REMOTE_HOST }}
-          GATEWAY_REMOTE: ${{ secrets.GATEWAY_REMOTE_HOST }}
-          SHOP_INSTANCE: ${{ secrets.SHOP_INSTANCE_ID }}
+          VPS_GATEWAY_HOST: ${{ secrets.VPS_GATEWAY_HOST }}
+          VPS_GATEWAY_USER: ${{ secrets.VPS_GATEWAY_USER }}
+          VPS_GATEWAY_SSH_PRIVATE_KEY: ${{ secrets.VPS_GATEWAY_SSH_PRIVATE_KEY }}
+          VPS_SHOP_HOST: ${{ secrets.VPS_SHOP_HOST }}
+          VPS_SHOP_USER: ${{ secrets.VPS_SHOP_USER }}
+          VPS_SHOP_SSH_PRIVATE_KEY: ${{ secrets.VPS_SHOP_SSH_PRIVATE_KEY }}
+          SHOPERP_REMOTE_HOST: ${{ secrets.SHOPERP_REMOTE_HOST }}
+          GATEWAY_REMOTE_HOST: ${{ secrets.GATEWAY_REMOTE_HOST }}
+          SHOP_INSTANCE_ID: ${{ secrets.SHOP_INSTANCE_ID }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          SEQ_ADMIN_PASSWORD: ${{ secrets.SEQ_ADMIN_PASSWORD }}
+          VANAN_DOMAIN: ${{ secrets.VANAN_DOMAIN }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
           missing=0
           for var_name in VPS_GATEWAY_HOST VPS_GATEWAY_USER VPS_GATEWAY_SSH_PRIVATE_KEY \
@@ -144,7 +153,7 @@ jobs:
             fi
           done
           if [ $missing -gt 0 ]; then
-            echo "::error::$missing required secrets are missing. See Multi_VPS_Deployment_Guide.md §5."
+            echo "::error::$missing required secrets are missing. See Multi_VPS_Deployment_Guide.md §3.A."
             exit 1
           fi
           echo "All required secrets are set."
